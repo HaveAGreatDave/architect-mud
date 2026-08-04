@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "This is about as deep as the maps ever went, and they went here reluctantly.",
-    "The chalk marks are fresher now — someone tends them.",
+    "The chalk marks are fresher now. Someone tends them.",
     "A cable run bolted along the wall leads off east, too neat to be the city's work."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The deep reach, the furthest the old storm system runs before the outfall — and the threshold of somewhere else. The Watch's marks are unmistakable here, and their tapped cable run threads east along the wall toward the cabling passage. South, the tunnel opens onto a landing where a drain riser climbs back toward the surface.",
+  "description": "The deep reach, the furthest the old storm system runs before the outfall, and the threshold of somewhere else. The Watch's marks are unmistakable here, and their tapped cable run threads east along the wall toward the cabling passage. South, the tunnel opens onto a landing where a drain riser climbs back toward the surface.",
   "exits": {
     "east": "zone_under_cablingrun",
     "north": "zone_under_deeptrunk",

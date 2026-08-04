@@ -1,6 +1,6 @@
 {
   "cost": 2200,
-  "description": "A hermetic ceramic-and-lead shell fitted over the core. Nothing gets in — not fallout, not fire, not the slow rot of the waste. Chrome doesn't mutate, and neither, now, do you.",
+  "description": "A hermetic ceramic-and-lead shell fitted over the core. Nothing gets in: not fallout, not fire, not the slow rot of the waste. Chrome doesn't mutate, and neither, now, do you.",
   "id": "aug_radsealed_chassis",
   "name": "Rad-sealed Chassis",
   "rep_gate": "trusted",

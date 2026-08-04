@@ -72,7 +72,7 @@
   "butcher_difficulty": 5,
   "butcher_table": [],
   "death_message": "The trooper drops hard, armor scraping the floor.",
-  "description": "Full plate, carbine, visor down. These ones don't negotiate — they contain.",
+  "description": "Full plate, carbine, visor down. These ones don't negotiate. They contain.",
   "dodge": 4,
   "faction": "police",
   "flags": {},

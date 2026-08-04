@@ -5,7 +5,7 @@
   "cruise_speed": 3,
   "data": {
     "armored": true,
-    "feel": "Sleek futuristic attack helicopter — an Apache reimagined. Fast and nimble for a gunship, thinly armoured but tanky against fire, it lives on its stub-wing missile rails: point the nose and rip a SWARM of fire-and-forget seekers downrange, no lock, no warning. The chin gun is an afterthought — a light peashooter to finish cripples. Glass-cannon: it hits like a truck and folds if you let it get hit back.",
+    "feel": "Sleek futuristic attack helicopter, an Apache reimagined. Fast and nimble for a gunship, thinly armoured but tanky against fire, it lives on its stub-wing missile rails: point the nose and rip a SWARM of fire-and-forget seekers downrange, no lock, no warning. The chin gun is an afterthought, a light peashooter to finish cripples. Glass-cannon: it hits like a truck and folds if you let it get hit back.",
     "gun_mult": 0.5,
     "salvo": 4
   },

@@ -12,7 +12,7 @@
     "Somewhere in the hangar a radio hisses, catches half a word, and loses it again."
   ],
   "ambient_theme": "outdoors",
-  "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip — in the Reach the sky is the easy road, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
+  "description": "A patched-steel hangar squats at the head of a cracked scrub airstrip. In the Reach the sky is the easy road, and this is where it touches down. The windsock hangs dead-still over a hand-lettered board: NO MANIFESTS. NO QUESTIONS. CASH ON THE SKID.",
   "exits": {
     "east": "zone_bld_897_1175_lobby",
     "west": "zone_the_reach_869_1958"

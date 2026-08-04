@@ -40,7 +40,7 @@
     "checks a slim notebook against a face across the room, then closes it",
     "\"Nobody's thrown out of the Lucky Bastard. People just... leave owing, and then we talk.\""
   ],
-  "description": "A slab of a man in a suit a size too small, stationed by the cashier's cage where the light gives out. His face is a closed door; his knuckles are a rap sheet. He doesn't deal, doesn't play, doesn't drink — he watches who comes in, and more carefully, who tries to leave. A cheap notebook rides in his breast pocket, and everyone who's ever been in it knows exactly what it means. They call him the Collector, and the name is not a joke.",
+  "description": "A slab of a man in a suit a size too small, stationed by the cashier's cage where the light gives out. His face is a closed door; his knuckles are a rap sheet. He doesn't deal, doesn't play, doesn't drink. He watches who comes in, and more carefully, who tries to leave. A cheap notebook rides in his breast pocket, and everyone who's ever been in it knows exactly what it means. They call him the Collector, and the name is not a joke.",
   "dialogue_tree": {
     "bye": {
       "options": [],

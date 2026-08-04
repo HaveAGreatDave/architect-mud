@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b8a880",
-  "description": "Coarse grey sand, more grit than beach, packed hard by the wind and stitched with the things the basin gives back — bottle glass worn smooth, a rib of some hull, plastic bleached to bone. It runs down to the waterline and stops being land somewhere you can't quite point at.",
+  "description": "Coarse grey sand, more grit than beach, packed hard by the wind and stitched with the things the basin gives back: bottle glass worn smooth, a rib of some hull, plastic bleached to bone. It runs down to the waterline and stops being land somewhere you can't quite point at.",
   "exits": {
     "east": "zone_district_911_906",
     "north": "zone_district_910_905",

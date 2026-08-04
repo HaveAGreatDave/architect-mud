@@ -1,5 +1,5 @@
 {
-  "description": "A bare bulb on a frayed cord, buzzing and browning at the filament — more a threat than a light, but it beats the dark.",
+  "description": "A bare bulb on a frayed cord, buzzing and browning at the filament. More a threat than a light, but it beats the dark.",
   "flags": {
     "interactions": [
       "switch"

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1a1512",
   "color": "#b08a6a",
-  "description": "A long gallery beneath the industrial flats where the sewer runs alongside the buried service conduits of the old works. Rusted junction boxes and cable trays hang off the walls, everything the same flaking oxide red. This is the medium dark now — the deep reaches, where the things that live here have never been thinned by anyone.",
+  "description": "A long gallery beneath the industrial flats where the sewer runs alongside the buried service conduits of the old works. Rusted junction boxes and cable trays hang off the walls, everything the same flaking oxide red. This is the medium dark now: the deep reaches, where the things that live here have never been thinned by anyone.",
   "exits": {
     "north": "zone_under_throat",
     "south": "zone_under_machsump"

@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#26221a",
   "color": "#8ba36a",
-  "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days — dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads IN HOCK WE TRUST · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
+  "description": "A narrow pawnshop with a grille over every pane and a window crammed floor-to-ceiling with other people's worst days: dead men's watches, hocked tools, a wedding band on a nail. A buzzing sign reads IN HOCK WE TRUST · WE BUY · WE HOLD · WE DON'T REMEMBER. The security shutter is up a hopeful eighteen inches. Something inside is always quietly appraising you.",
   "exits": {
     "north": "zone_district_916_909",
     "south": "zone_hock_pawn"

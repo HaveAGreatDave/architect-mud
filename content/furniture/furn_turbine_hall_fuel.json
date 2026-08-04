@@ -1,5 +1,5 @@
 {
-  "description": "A bulk fuel skid shoved against the turbine-hall wall: a rust-streaked tank on a bunded steel pallet, a hand-cranked transfer pump, and a grounded nozzle on a greasy hose. A stencil reads PLANT FUEL — AUTHORISED DRAW ONLY, which nobody has enforced in years. Fill a can here.",
+  "description": "A bulk fuel skid shoved against the turbine-hall wall: a rust-streaked tank on a bunded steel pallet, a hand-cranked transfer pump, and a grounded nozzle on a greasy hose. A stencil reads PLANT FUEL: AUTHORISED DRAW ONLY, which nobody has enforced in years. Fill a can here.",
   "flags": {
     "fuel_source": true,
     "interactions": [

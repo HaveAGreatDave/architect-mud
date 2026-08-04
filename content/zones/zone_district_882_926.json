@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1b3040",
   "color": "#5f93b8",
-  "description": "The Meltwater runs narrow here, two boat-lengths across at most, and it runs fast — grey with rock flour and cold enough to ache. Both banks come down steep and close. Whatever it took from upstream, it is still carrying.",
+  "description": "The Meltwater runs narrow here, two boat-lengths across at most, and it runs fast, grey with rock flour and cold enough to ache. Both banks come down steep and close. Whatever it took from upstream, it is still carrying.",
   "exits": {
     "east": "zone_district_883_926",
     "north": "zone_district_882_925",

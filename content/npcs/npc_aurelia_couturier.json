@@ -128,7 +128,7 @@
     "\"Anyone can be dressed. Almost no one consents to be *designed*.\"",
     "She adjusts a garment on its rail by two millimetres and steps back, satisfied."
   ],
-  "description": "Ondine Sarraf dresses the people who own the towers you can see from the boulevard. She is tall, narrow, and dressed entirely in one unbroken column of matte black, the only ornament a pair of measuring calipers worn like a necklace. She looks at you the way an architect looks at a demolition site — not unkindly, but with plans. Her voice is low and unhurried. She has never once had to raise it.",
+  "description": "Ondine Sarraf dresses the people who own the towers you can see from the boulevard. She is tall, narrow, and dressed entirely in one unbroken column of matte black, the only ornament a pair of measuring calipers worn like a necklace. She looks at you the way an architect looks at a demolition site: not unkindly, but with plans. Her voice is low and unhurried. She has never once had to raise it.",
   "dialogue_tree": {
     "bye": {
       "options": [],

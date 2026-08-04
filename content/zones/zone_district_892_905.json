@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "A windowless drum of dull steel, humming with the deep note of coolant pumps. Frost creeps out from its seams. This is where the Ascendants keep their promise that death is only a billing problem — though from the outside it looks less like a promise than a very large, very cold filing cabinet.",
+  "description": "A windowless drum of dull steel, humming with the deep note of coolant pumps. Frost creeps out from its seams. This is where the Ascendants keep their promise that death is only a billing problem, though from the outside it looks less like a promise than a very large, very cold filing cabinet.",
   "exits": {
     "north": "zone_district_892_904",
     "south": "zone_asc_vats_registry"

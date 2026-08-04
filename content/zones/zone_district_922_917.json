@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#20261f",
   "color": "#6b7d5a",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
+  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
   "exits": {
     "east": "zone_district_923_917",
     "north": "zone_district_922_916",

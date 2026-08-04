@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "A flat of packed ash, hard below and loose on top. Footprints keep here a long time — there is no wind down in this hollow to take them.",
+  "description": "A flat of packed ash, hard below and loose on top. Footprints keep here a long time; there is no wind down in this hollow to take them.",
   "exits": {
     "east": "zone_district_950_943",
     "north": "zone_district_949_942",

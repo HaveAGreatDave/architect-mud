@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#356d90",
-  "description": "The drowned floor of the basin, littered with the shapes of things people stopped needing — a bicycle frame furred with growth, drums gone soft with rust, a shopping trolley standing improbably upright. Nothing down here is in any hurry.",
+  "description": "The drowned floor of the basin, littered with the shapes of things people stopped needing: a bicycle frame furred with growth, drums gone soft with rust, a shopping trolley standing improbably upright. Nothing down here is in any hurry.",
   "exits": {
     "east": "zone_district_906_898_z-1",
     "north": "zone_district_905_897_z-1",

@@ -127,7 +127,7 @@
     "Marlo scans three feed-screens at once, chewing a pen already chewed to splinters.",
     "\"Everything's a story. The only question is who's paying to keep it quiet.\""
   ],
-  "description": "A rumpled, ink-stained man behind a desk fortified with copy spikes and cold coffee, eyes moving even when the rest of him doesn't. He runs the Sentinel on grudges, favours, and whatever the data-broker rig in the corner coughs up. He'll trade you a headline, a warning, or a rumour — and he's already deciding which one you're worth.",
+  "description": "A rumpled, ink-stained man behind a desk fortified with copy spikes and cold coffee, eyes moving even when the rest of him doesn't. He runs the Sentinel on grudges, favours, and whatever the data-broker rig in the corner coughs up. He'll trade you a headline, a warning, or a rumour, and he's already deciding which one you're worth.",
   "dialogue_tree": {
     "about": {
       "options": [

@@ -4,7 +4,7 @@
   "matches": "door",
   "scope": "object",
   "name": "a doorway repeating into itself",
-  "description": "A door, correct in every particular, occurring several times in the same place — each frame a little smaller, receding into itself, all of them slightly ajar.",
+  "description": "A door, correct in every particular, occurring several times in the same place: each frame a little smaller, receding into itself, all of them slightly ajar.",
   "looks": [
     "Opening it would open all of them, in order, quite slowly.",
     "The handle is at four heights and each is the right one.",

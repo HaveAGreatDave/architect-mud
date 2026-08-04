@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The second-floor landing, one flight up from the bar's warmth and racket. The hotel's carpet runner still holds on up here — threadbare, cigarette-burned, but present, the last floor before it gives out to bare concrete above. Four doors open off the stairwell, brass numbers screwed to each: 2A through 2D. The iron railing is cold under your hand, and the smell of Lowry's grill rises through the boards with the low murmur of the bar.",
+  "description": "The second-floor landing, one flight up from the bar's warmth and racket. The hotel's carpet runner still holds on up here: threadbare, cigarette-burned, but present, the last floor before it gives out to bare concrete above. Four doors open off the stairwell, brass numbers screwed to each: 2A through 2D. The iron railing is cold under your hand, and the smell of Lowry's grill rises through the boards with the low murmur of the bar.",
   "exits": {
     "down": "zone_residential_lobby",
     "east": "zone_apt_3",
@@ -15,7 +15,7 @@
     "west": "zone_apt_4"
   },
   "flags": {
-    "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel — carpet underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
+    "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel: carpet underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
     "is_interior": true
   },
   "grid_x": 0,

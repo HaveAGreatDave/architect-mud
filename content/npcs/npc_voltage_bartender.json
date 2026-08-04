@@ -128,7 +128,7 @@
     "\"Rule of the house: you can outrun the bass, you can't outrun the tab.\"",
     "She racks a row of glasses under the ice-light and they come up glowing."
   ],
-  "description": "Rue works the ice-ribbon bar like a control desk, six things going at once and none of them spilling. Backlit from below, she's all silhouette and quick hands, a comms bud in one ear feeding her the night — who's flush, who's cut off, who's about to be a problem. She'll make you anything on the board and read exactly how your night is going from what you order.",
+  "description": "Rue works the ice-ribbon bar like a control desk, six things going at once and none of them spilling. Backlit from below, she's all silhouette and quick hands, a comms bud in one ear feeding her the night: who's flush, who's cut off, who's about to be a problem. She'll make you anything on the board and read exactly how your night is going from what you order.",
   "dialogue_tree": {
     "bye": {
       "options": [],

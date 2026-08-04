@@ -129,7 +129,7 @@
     "\"Everything on that wall outlived the kitchen it came out of. Bear that in mind.\"",
     "\"You can have cheap, or you can have a pan. Not both, not from me.\""
   ],
-  "description": "A short, thick-forearmed woman with grey cropped to the scalp and two fingertips gone to the first knuckle on her left hand. She handles every piece that comes over the counter twice — once to weigh it, once to ring it — and prices it on the sound.",
+  "description": "A short, thick-forearmed woman with grey cropped to the scalp and two fingertips gone to the first knuckle on her left hand. She handles every piece that comes over the counter twice, once to weigh it and once to ring it, and prices it on the sound.",
   "dialogue_tree": {
     "bye": {
       "options": [],

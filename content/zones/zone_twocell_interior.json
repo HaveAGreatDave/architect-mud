@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2a2620",
   "color": "#d8c8a0",
-  "description": "A cramped front room built out of corrugated sheet and honest intentions. Scavenged crates form a counter down the middle, and every nail in reach hangs with flashlights, coils of spare cells, canteens and folded work clothes. A strip of salvaged emergency lighting keeps the place lit even when the block goes dark — which, Grady will tell you, is the entire point.",
+  "description": "A cramped front room built out of corrugated sheet and honest intentions. Scavenged crates form a counter down the middle, and every nail in reach hangs with flashlights, coils of spare cells, canteens and folded work clothes. A strip of salvaged emergency lighting keeps the place lit even when the block goes dark, which, Grady will tell you, is the entire point.",
   "exits": {
     "west": "zone_district_920_903"
   },

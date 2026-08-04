@@ -1,13 +1,13 @@
 {
   "category": "The Under",
-  "description": "Dredge has been after one piece for months — a signal relay that went down with the old junction, somewhere past the Deep Trunk in the Deep Reach. She'll dig the cistern till she dies, but she won't go that deep. You will. Bring it back.",
+  "description": "Dredge has been after one piece for months: a signal relay that went down with the old junction, somewhere past the Deep Trunk in the Deep Reach. She'll dig the cistern till she dies, but she won't go that deep. You will. Bring it back.",
   "id": "quest_under_salvage",
   "meta": {},
   "name": "What the Cistern Keeps",
   "objectives": [
     {
       "count": 1,
-      "desc": "Recover the corroded signal relay from the Deep Reach — the deepest point, past the Deep Trunk.",
+      "desc": "Recover the corroded signal relay from the Deep Reach, the deepest point past the Deep Trunk.",
       "emotes": [
         "{who} digs the relay out of the silt and pockets it fast."
       ],

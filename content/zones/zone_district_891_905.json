@@ -7,7 +7,7 @@
   "ambient_theme": "city",
   "bg_color": "#38342c",
   "color": "#b8b0a0",
-  "description": "A Slagworks flak pit sunk into the old grassland — a ring of rusted plate and rammed earth open to the sky, the flak gun squatting exposed at its heart on a hand-cranked cradle. It's ugly, old, and built to eat a hit and keep firing; the crew work it in the open with ear-defenders and no illusions. A buckled steel hatch in the pit floor lets down into the bunker where the shell hoist and the gun's guts are kept.",
+  "description": "A Slagworks flak pit sunk into the old grassland: a ring of rusted plate and rammed earth open to the sky, the flak gun squatting exposed at its heart on a hand-cranked cradle. It's ugly, old, and built to eat a hit and keep firing; the crew work it in the open with ear-defenders and no illusions. A buckled steel hatch in the pit floor lets down into the bunker where the shell hoist and the gun's guts are kept.",
   "exits": {
     "down": "zone_aa_slag_bunker",
     "north": "zone_district_891_904",

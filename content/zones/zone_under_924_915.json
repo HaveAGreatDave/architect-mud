@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "Nothing lives in this run, and nothing has for a while. It is the quietest tunnel you have been in down here.",
-    "A chalked shape on the wall — a leaf, or a flame — with a time under it.",
+    "A chalked shape on the wall, a leaf or a flame, with a time under it.",
     "The rungs of the ladder here have been wire-brushed bright. Somebody uses them."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The tunnel beneath Kessler Street carries the quiet waste of the blocks above — grey water, lost things, the occasional startled scurry at the edge of your light.",
+  "description": "The tunnel beneath Kessler Street carries the quiet waste of the blocks above: grey water, lost things, the occasional startled scurry at the edge of your light.",
   "exits": {
     "north": "zone_under_924_914",
     "south": "zone_under_924_916",

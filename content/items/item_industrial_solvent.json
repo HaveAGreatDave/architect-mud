@@ -1,10 +1,10 @@
 {
-  "description": "A sealed jug of industrial solvent that eats grease, paint, and — given time — the jug.",
+  "description": "A sealed jug of industrial solvent that eats grease, paint, and, given time, the jug.",
   "flags": {},
   "id": "item_industrial_solvent",
   "name": "jug of solvent",
   "tags": {
-    "description": "A sealed jug of industrial solvent that eats grease, paint, and — given time — the jug.",
+    "description": "A sealed jug of industrial solvent that eats grease, paint, and, given time, the jug.",
     "material": true
   },
   "type": "misc",

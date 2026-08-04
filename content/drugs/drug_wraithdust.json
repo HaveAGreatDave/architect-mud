@@ -57,7 +57,7 @@
     "onset_message": "<span class=\"msg-system\">The quiet finishes settling. You are no longer sure you are alone in here.</span>",
     "onset_seconds": 40,
     "phases": {
-      "comedown_message": "The air thins out. You're alone again — you think.",
+      "comedown_message": "The air thins out. You're alone again. You think.",
       "comedown_scale": 0.5,
       "comedown_seconds": 40,
       "comeup_message": "The room goes very quiet, and its corners feel closer than they were.",

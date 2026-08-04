@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "The fabrication floor, loud with the patient violence of machines that build bodies. A foreman — more chrome than not — walks the line, and will sell you components off it if he reckons you can be trusted with what they become.",
+  "description": "The fabrication floor, loud with the patient violence of machines that build bodies. A foreman, more chrome than not, walks the line, and will sell you components off it if he reckons you can be trusted with what they become.",
   "exits": {
     "east": "zone_district_893_907",
     "in": "zone_asc_weave_cage"

@@ -150,7 +150,7 @@
         "next": "summon_call",
         "params": {
           "cooldown_s": 0,
-          "message": "HERESY! MASTER — THE CHOIR HAS AN INTRUDER!"
+          "message": "HERESY! MASTER, THE CHOIR HAS AN INTRUDER!"
         },
         "type": "action"
       },
@@ -228,7 +228,7 @@
     "tends the shrine of silent speakers.",
     "thumbs a bead of stripped wire."
   ],
-  "description": "A stooped acolyte in a cassock stiff with candle-wax, a rosary of stripped copper wire looped through their knuckles. They tend a shrine of dead speakers and will not meet your eye — only your throat.",
+  "description": "A stooped acolyte in a cassock stiff with candle-wax, a rosary of stripped copper wire looped through their knuckles. They tend a shrine of dead speakers and will not meet your eye, only your throat.",
   "dialogue_tree": {},
   "faction": "choir",
   "flags": {

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "The higher gallery, and the building knows the difference: the same panelled walnut and swallowing carpet as the floor below, but fewer doors, wider apart, and a window at the end that gives the bay, the mountains and the weather coming off both. A console table carries an arrangement that is changed, not watered. Three private residences open off this landing — <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
+  "description": "The higher gallery, and the building knows the difference: the same panelled walnut and swallowing carpet as the floor below, but fewer doors, wider apart, and a window at the end that gives the bay, the mountains and the weather coming off both. A console table carries an arrangement that is changed, not watered. Three private residences open off this landing: <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
   "exits": {
     "east": "zone_solenne_apt_e",
     "in": "zone_solenne_elevator",

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#3a5a8a",
-  "description": "A municipal-grey utility room off the bullpen, breaker panel plastered with faded safety notices and one evidence tag nobody ever filed. This box backs the holding cells and the front desk both — a fact stencilled in stern red beside a hacking port sealed below the latch.",
+  "description": "A municipal-grey utility room off the bullpen, breaker panel plastered with faded safety notices and one evidence tag nobody ever filed. This box backs the holding cells and the front desk both, a fact stencilled in stern red beside a hacking port sealed below the latch.",
   "exits": {
     "south": "zone_mq_precinct_bullpen"
   },

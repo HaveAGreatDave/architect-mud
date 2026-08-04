@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#4a4038",
-  "description": "Every wall is hung with iron. Pans on a rail by size, lids racked like shields, ladles and tongs bristling out of an old shell casing on the counter. The place smells of cold metal, mineral oil and, faintly and inexplicably, onions. Nothing here is new — it has all been through at least one kitchen and probably one fire — but every piece has been cleaned back to bare metal and hung straight, which in this district counts as devotion.",
+  "description": "Every wall is hung with iron. Pans on a rail by size, lids racked like shields, ladles and tongs bristling out of an old shell casing on the counter. The place smells of cold metal, mineral oil and, faintly and inexplicably, onions. Nothing here is new, having all been through at least one kitchen and probably one fire, but every piece has been cleaned back to bare metal and hung straight, which in this district counts as devotion.",
   "exits": {
     "east": "zone_district_918_907",
     "north": "zone_kitchenware_util"

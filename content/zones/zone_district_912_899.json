@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "coast",
   "color": "#7fd3ff",
-  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot — the channel beyond is deep, and impassable without a boat.",
+  "description": "Cold water closes around your legs at the shoreline, the bottom shelving away fast into lightless murk. This is as far as you go on foot: the channel beyond is deep, and impassable without a boat.",
   "exits": {
     "east": "zone_district_913_899",
     "north": "zone_district_912_898",

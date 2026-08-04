@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "The crown of the Spire, and the answer to that half-memory at the door: the seal is here too, ten metres wide — the calm eye over the city skyline — but rendered now in living chrome, and it is the Ascendant sigil, and it is also, unmistakably, the Halcyon seal. The same eye. It was always watching. Something barely flesh presides here, and it has been expecting you.",
+  "description": "The crown of the Spire, and the answer to that half-memory at the door: the seal is here too, ten metres wide, the calm eye over the city skyline, but rendered now in living chrome, and it is the Ascendant sigil, and it is also, unmistakably, the Halcyon seal. The same eye. It was always watching. Something barely flesh presides here, and it has been expecting you.",
   "exits": {
     "down": "zone_asc_spire_gallery"
   },

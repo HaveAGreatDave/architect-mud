@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "Two beds, a scrubbed table, and a cabinet of honestly-labelled bottles. This room exists because a clinic is a database — walk into one with a bullet in you and you are a record with a timestamp and a face, and the Watch have buried people rather than let that happen. The work here is done with hands, iodine, and a great deal of patience, and the surgeon's tools are boiled, not sterilised by anything with a plug.",
+  "description": "Two beds, a scrubbed table, and a cabinet of honestly-labelled bottles. This room exists because a clinic is a database. Walk into one with a bullet in you and you are a record with a timestamp and a face, and the Watch have buried people rather than let that happen. The work here is done with hands, iodine, and a great deal of patience, and the surgeon's tools are boiled, not sterilised by anything with a plug.",
   "exits": {
     "east": "zone_lw_bunk"
   },

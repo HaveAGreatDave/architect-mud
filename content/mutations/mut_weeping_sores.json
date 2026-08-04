@@ -1,7 +1,7 @@
 {
   "description": "Open lesions that never quite heal. Purely cosmetic. Purely awful.",
   "drawbacks": [
-    "Visibly diseased — NPCs react poorly"
+    "Visibly diseased, so NPCs react poorly"
   ],
   "effects": {},
   "id": "mut_weeping_sores",

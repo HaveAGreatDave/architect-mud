@@ -3,7 +3,7 @@
   "ambient_theme": "waterfront",
   "bg_color": "#2f3a3a",
   "color": "#cdb489",
-  "description": "A long open-sided shed where the Yards meet the water, a loading crane cantilevered out over the Basin. Barge cargo comes ashore here — nets, drums, the day's catch bound inland. Gulls argue over the spillage. The planking is slick and black underfoot.",
+  "description": "A long open-sided shed where the Yards meet the water, a loading crane cantilevered out over the Basin. Barge cargo comes ashore here: nets, drums, the day's catch bound inland. Gulls argue over the spillage. The planking is slick and black underfoot.",
   "exits": {
     "east": "zone_yard_wharf",
     "west": "zone_district_925_908"

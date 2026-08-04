@@ -1,12 +1,12 @@
 {
   "ambient_events": [
     "Warm air rolls out of the doorway, soap-smelling, and is gone the moment the wind turns.",
-    "The window throws a long pale rectangle across the kerb — the only clean light on this stretch."
+    "The window throws a long pale rectangle across the kerb, the only clean light on this stretch."
   ],
   "ambient_theme": "city",
   "bg_color": "#2e4450",
   "color": "#cfe9f5",
-  "description": "A single-storey shopfront that is almost entirely window, wedged between the grass verge and the road. Blue-white light comes through it hard enough to lay a clean rectangle over the broken kerb, and the sign above the door — THE WASH, in cold tube neon, one letter flickering on a bad night — is the only thing on this stretch of Ironside that has been maintained on purpose. Through the glass: rows of machines, a bench, and usually somebody sitting on it doing nothing in particular. The door is on the <b>east</b> face, and it is never locked.",
+  "description": "A single-storey shopfront that is almost entirely window, wedged between the grass verge and the road. Blue-white light comes through it hard enough to lay a clean rectangle over the broken kerb, and the sign above the door, THE WASH in cold tube neon with one letter flickering on a bad night, is the only thing on this stretch of Ironside that has been maintained on purpose. Through the glass: rows of machines, a bench, and usually somebody sitting on it doing nothing in particular. The door is on the <b>east</b> face, and it is never locked.",
   "exits": {
     "east": "zone_district_919_905",
     "west": "zone_the_wash"
@@ -17,7 +17,7 @@
     "district": "wasteland",
     "entrance": "east",
     "facade": true,
-    "intro_lore": "The Wash keeps its lights on all night and its door unlocked, which on Ironside makes it either a charity or a trap, and the basin has never quite settled which. It is, in fact, a laundry. Coin machines, hot water, a bench, a kettle. The card taped to the middle machine says pay when you can and — improbably, stubbornly — that is how it has been run for years. Fresh clones find it first because it is the only warm room on this street nobody charges you to stand in.",
+    "intro_lore": "The Wash keeps its lights on all night and its door unlocked, which on Ironside makes it either a charity or a trap, and the basin has never quite settled which. It is, in fact, a laundry. Coin machines, hot water, a bench, a kettle. The card taped to the middle machine says pay when you can and, improbably and stubbornly, that is how it has been run for years. Fresh clones find it first because it is the only warm room on this street nobody charges you to stand in.",
     "is_building": true,
     "region_id": "region_coldwater",
     "world_exit_zone": "zone_district_919_905"

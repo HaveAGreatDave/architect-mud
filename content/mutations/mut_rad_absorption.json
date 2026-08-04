@@ -1,7 +1,7 @@
 {
   "description": "Your body has learned to metabolize radiation instead of being destroyed by it. Slowly.",
   "drawbacks": [
-    "You glow faintly in the dark — stealth is harder"
+    "You glow faintly in the dark, so stealth is harder"
   ],
   "effects": {
     "rad_resistance": 0.3

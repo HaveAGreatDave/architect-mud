@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "THE GLACIS. Past the gate the ground is scraped to bare, blast-fused red rock — a wide cleared apron with no cover for a hundred metres, sown with the slag of things that tried to cross it. Behind you the Curtain's turret masts sit high on the wall, barrels idling in your direction. Nothing grows here on purpose.",
+  "description": "THE GLACIS. Past the gate the ground is scraped to bare, blast-fused red rock: a wide cleared apron with no cover for a hundred metres, sown with the slag of things that tried to cross it. Behind you the Curtain's turret masts sit high on the wall, barrels idling in your direction. Nothing grows here on purpose.",
   "exits": {
     "east": "zone_district_919_920",
     "north": "zone_district_918_919",

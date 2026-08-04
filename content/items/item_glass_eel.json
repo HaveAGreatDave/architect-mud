@@ -1,10 +1,10 @@
 {
-  "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait.",
+  "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer. It only ever takes live bait.",
   "flags": {},
   "id": "item_glass_eel",
   "name": "glass eel",
   "tags": {
-    "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer — it only ever takes live bait.",
+    "description": "A translucent ribbon of an eel, its organs a faint glowing knot behind glassy skin. Rare, delicate, and worth real money to the right buyer. It only ever takes live bait.",
     "misc": true
   },
   "type": "misc",

@@ -5,7 +5,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "The third-floor landing, where the hotel's old carpet runner gives up entirely — bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
+  "description": "The third-floor landing, where the hotel's old carpet runner gives up entirely: bare concrete underneath, worn pale in a path between the stairs and the doors. Four units open off it, brass numbers screwed to each: 2A through 2D, a couple hanging by a single screw. The stairwell railing is cold iron, sticky where a thousand hands have gripped it. A dead vending machine hulks in the corner, its glass front spider-cracked, the snacks inside fossilised. Somewhere below, the bar's murmur leaks up through the floor.",
   "exits": {
     "down": "zone_embassy_floor_2nd",
     "east": "zone_apt_7",
@@ -15,7 +15,7 @@
     "west": "zone_apt_8"
   },
   "flags": {
-    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself — carpet gone, numbers hanging by one screw, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
+    "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: carpet gone, numbers hanging by one screw, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
     "is_interior": true
   },
   "grid_x": 0,

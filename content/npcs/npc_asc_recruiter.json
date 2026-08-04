@@ -18,7 +18,7 @@
     "\"Death is a billing problem. We are simply the only ones honest enough to itemise it.\"",
     "\"You flinch at the chrome. Everyone does — right up until the day it saves them.\""
   ],
-  "description": "An immaculate man in pale grey, a single chromed pin at his lapel catching the light. He smiles the way a door opens — smoothly, and for a reason. He has been waiting for someone exactly as promising, and as unimproved, as you.",
+  "description": "An immaculate man in pale grey, a single chromed pin at his lapel catching the light. He smiles the way a door opens: smoothly, and for a reason. He has been waiting for someone exactly as promising, and as unimproved, as you.",
   "dialogue_tree": {
     "accept": {
       "actions": [

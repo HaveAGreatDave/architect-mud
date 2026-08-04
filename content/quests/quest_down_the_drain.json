@@ -6,7 +6,7 @@
   "name": "Down the Drain",
   "objectives": [
     {
-      "desc": "Climb down the storm drain on Ironside Street (follow the green GPS line — hit AUTO). Bring a light.",
+      "desc": "Climb down the storm drain on Ironside Street (follow the green GPS line, hit AUTO). Bring a light.",
       "emotes": [
         "{who} swings a leg over the drain lip and starts down the rusted ladder into the dark."
       ],
@@ -17,7 +17,7 @@
     },
     {
       "count": 6,
-      "desc": "Cull 6 sewer creatures down in the Under (rats, roaches, slimes — all count).",
+      "desc": "Cull 6 sewer creatures down in the Under (rats, roaches, slimes all count).",
       "emotes": [
         "{who} sets their feet in the muck and squares up against the dark.",
         "{who} drives another sewer thing back into the water."

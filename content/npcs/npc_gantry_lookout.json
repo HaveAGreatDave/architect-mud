@@ -128,7 +128,7 @@
     "\"Something's always coming. Trick's calling it before it arrives.\"",
     "\"You go west, I'll whistle for you. That's a promise and a warning both.\""
   ],
-  "description": "A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right. Camp calls him Trask, and Trask calls the only shot that matters out here — the one about when to run.",
+  "description": "A wiry scavenger perched high in the rusted gantry with a spyglass and a whistle, paid in salvage-shares to watch the western dark and call it when something comes out of it. He has good eyes and a worse imagination, and out here the imagination is usually right. Camp calls him Trask, and Trask calls the only shot that matters out here: the one about when to run.",
   "dialogue_tree": {
     "bye": {
       "options": [],

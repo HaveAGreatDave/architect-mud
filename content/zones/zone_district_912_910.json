@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#1c2620",
   "color": "#8ba36a",
-  "description": "An unmarked door beside the studio loading bay, known only by the smokers clustered under its one working sconce and the bass leaking through the wall. A brass plate reads THE DEADLINE — PRESS & CREW; someone has keyed a cock beside it. The tint-glass window cycles slowly from smoke to clear and back, showing you nothing either way.",
+  "description": "An unmarked door beside the studio loading bay, known only by the smokers clustered under its one working sconce and the bass leaking through the wall. A brass plate reads THE DEADLINE · PRESS & CREW; someone has keyed a cock beside it. The tint-glass window cycles slowly from smoke to clear and back, showing you nothing either way.",
   "exits": {
     "north": "zone_district_912_909",
     "south": "zone_greenroom_lounge"

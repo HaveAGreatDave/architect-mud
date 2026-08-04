@@ -1,5 +1,5 @@
 {
-  "description": "A small brass lamp at the end of the counter — the one bit of lighting in the room that isn't fluorescent.",
+  "description": "A small brass lamp at the end of the counter, the one bit of lighting in the room that isn't fluorescent.",
   "flags": {
     "interactions": [
       "switch"

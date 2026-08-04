@@ -9,7 +9,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2419",
   "color": "#e6d9c2",
-  "description": "A coffee house on the eighteenth floor, which is a thing only a building like this can afford to be. The east wall is glass from carpet to ceiling, and Coldwater lies out beyond it entire — the rail yards stitched in sodium, the Marquee signs working through their cycles, the whole basin going blue toward the Curtain. Inside is figured walnut and a short marble counter with a brass espresso rig standing on it, polished to the point of vanity. Deep leather chairs face each other across boards inlaid into the tables themselves, ebony and holly, worn pale at the centre files. The carpet takes every footfall. Nobody hurries in this room, and nobody who drinks here has ever had to. Step <b>in</b> to the elevator.",
+  "description": "A coffee house on the eighteenth floor, which is a thing only a building like this can afford to be. The east wall is glass from carpet to ceiling, and Coldwater lies out beyond it entire: the rail yards stitched in sodium, the Marquee signs working through their cycles, the whole basin going blue toward the Curtain. Inside is figured walnut and a short marble counter with a brass espresso rig standing on it, polished to the point of vanity. Deep leather chairs face each other across boards inlaid into the tables themselves, ebony and holly, worn pale at the centre files. The carpet takes every footfall. Nobody hurries in this room, and nobody who drinks here has ever had to. Step <b>in</b> to the elevator.",
   "exits": {
     "in": "zone_solenne_elevator"
   },

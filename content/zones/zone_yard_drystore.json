@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#26292e",
   "color": "#cdb489",
-  "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible — the kind of space a young crew cuts its teeth holding.",
+  "description": "The dry store's floor: plain steel racking to the roofline, a pallet jack, a swept concrete deck. Cheap, dry, and defensible: the kind of space a young crew cuts its teeth holding.",
   "exits": {
     "north": "zone_district_924_909"
   },

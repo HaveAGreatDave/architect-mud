@@ -1,13 +1,13 @@
 {
   "ambient_events": [
     "The blast door seals behind you with a solid, reassuring weight.",
-    "A lantern on the guard table throws steady, honest light — no flicker, no grid.",
+    "A lantern on the guard table throws steady, honest light: no flicker, no grid.",
     "Boot prints in the dust all point inward. Nobody leaves in a hurry from here."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The threshold of the Long Watch proper — a low guard post of salvaged plate and honest carpentry, warm with lantern light after the cold crawl in and the long looking-over behind you. A firing slit covers the way back; a rack of iron-sighted rifles, immaculately kept, stands within reach of the watch-stander's chair. Past here the bunker opens up east into the common room. West is the blind, the wash, and the dogleg out.",
+  "description": "The threshold of the Long Watch proper: a low guard post of salvaged plate and honest carpentry, warm with lantern light after the cold crawl in and the long looking-over behind you. A firing slit covers the way back; a rack of iron-sighted rifles, immaculately kept, stands within reach of the watch-stander's chair. Past here the bunker opens up east into the common room. West is the blind, the wash, and the dogleg out.",
   "exits": {
     "east": "zone_lw_commons",
     "west": "zone_lw_blind"

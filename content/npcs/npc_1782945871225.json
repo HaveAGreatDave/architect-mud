@@ -54,7 +54,7 @@
     "\"The Basin stays lit. That's not love. That's momentum.\"",
     "\"Keep walking. It's what I do.\""
   ],
-  "description": "A gaunt man in a Custodian cassock with the Architect sigil unpicked from the chest — the thread holes still trace its outline. He walks like he's late for a service that ended years ago, lips moving through liturgy nobody asked for.",
+  "description": "A gaunt man in a Custodian cassock with the Architect sigil unpicked from the chest; the thread holes still trace its outline. He walks like he's late for a service that ended years ago, lips moving through liturgy nobody asked for.",
   "dialogue_tree": {
     "architect": {
       "options": [

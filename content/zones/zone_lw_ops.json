@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The operations room, where the Long Watch plan their quiet war against the machine's grip. A great hand-drawn map dominates the space — every surveillance camera in the east marked, every blind spot noted, every small victory struck through in red. This is where the Watch decide what the Architect will not be allowed to see next. The common room is west. East, a second door, heavier than the first, and no sign on it at all.",
+  "description": "The operations room, where the Long Watch plan their quiet war against the machine's grip. A great hand-drawn map dominates the space: every surveillance camera in the east marked, every blind spot noted, every small victory struck through in red. This is where the Watch decide what the Architect will not be allowed to see next. The common room is west. East, a second door, heavier than the first, and no sign on it at all.",
   "exits": {
     "east": "zone_lw_spine",
     "west": "zone_lw_commons"

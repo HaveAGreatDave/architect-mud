@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "A cheerful disaster — cards scattered on every surface, IOUs pinned to the wall like trophies, a bottle on its side, and a derringer-shaped lump under the pillow.",
+  "description": "A cheerful disaster: cards scattered on every surface, IOUs pinned to the wall like trophies, a bottle on its side, and a derringer-shaped lump under the pillow.",
   "exits": {
     "west": "zone_bld_900_1171_walk2"
   },

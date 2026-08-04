@@ -1,7 +1,7 @@
 {
   "id": "dt_deadair_carrier",
   "name": "Carrier Wave",
-  "description": "There is nothing here and it is arriving steadily. Not darkness — an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
+  "description": "There is nothing here and it is arriving steadily. Not darkness, but an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
   "cause": "drug",
   "drug_id": "drug_deadair",
   "objects": [

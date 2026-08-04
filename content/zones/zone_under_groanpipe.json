@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#111917",
   "color": "#8fae9a",
-  "description": "A stretch of the old cast-iron trunk main, big enough to walk upright in, its seams furred with a century of mineral scale. The metal complains constantly — a deep structural groan that travels the length of the pipe and makes it impossible to tell how far off anything really is. The floor slopes steadily south, and down.",
+  "description": "A stretch of the old cast-iron trunk main, big enough to walk upright in, its seams furred with a century of mineral scale. The metal complains constantly: a deep structural groan that travels the length of the pipe and makes it impossible to tell how far off anything really is. The floor slopes steadily south, and down.",
   "exits": {
     "north": "zone_under_confldeep",
     "south": "zone_under_throat"

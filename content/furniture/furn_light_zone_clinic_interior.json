@@ -1,5 +1,5 @@
 {
-  "description": "Sterile white panel lights flood the room with a flat, merciless glare that leaves nowhere for a wound — or a lie — to hide.",
+  "description": "Sterile white panel lights flood the room with a flat, merciless glare that leaves nowhere for a wound, or a lie, to hide.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

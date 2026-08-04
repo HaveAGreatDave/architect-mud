@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0,
-  "description": "A gram of dried, sticky cannabis flower in a little baggie. Useless as-is — roll it into a joint.",
+  "description": "A gram of dried, sticky cannabis flower in a little baggie. Useless as-is; roll it into a joint.",
   "duration_seconds": 60,
   "effects": {
     "instant": {

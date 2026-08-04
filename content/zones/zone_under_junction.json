@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161f1b",
   "color": "#8fae9a",
-  "description": "A wide trunk junction where several storm lines converge under a low brick vault. Painted numbers on the walls have faded to ghosts — a maintenance map for crews that stopped coming a long time ago. From here the system runs deeper and darker in every direction.",
+  "description": "A wide trunk junction where several storm lines converge under a low brick vault. Painted numbers on the walls have faded to ghosts: a maintenance map for crews that stopped coming a long time ago. From here the system runs deeper and darker in every direction.",
   "exits": {
     "east": "zone_under_eastbend",
     "south": "zone_under_weepwall",

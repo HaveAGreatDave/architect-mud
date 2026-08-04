@@ -4,7 +4,7 @@
   "matches": "bed",
   "scope": "object",
   "name": "a loom weaving itself",
-  "description": "A wide frame of pale wood stands where the bed was, and it is weaving — shuttle going back and forth with nobody driving it, producing a cloth patterned with the room you are standing in.",
+  "description": "A wide frame of pale wood stands where the bed was, and it is weaving: shuttle going back and forth with nobody driving it, producing a cloth patterned with the room you are standing in.",
   "looks": [
     "The cloth coming off it shows this room, in thread, about four seconds behind. You are in it.",
     "The shuttle crosses, returns, crosses. It never catches, and it never quite gets going either.",

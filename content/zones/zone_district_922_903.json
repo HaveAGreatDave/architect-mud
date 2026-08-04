@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of the Coldwater Container Yard — a chain-link gate on a rolling track, and behind it corroded shipping cans stacked four high in canyons that groan when the wind comes off the Basin. A tally board by the gate is scrawled with box numbers nobody has reconciled in years. Dray Lane runs off to the west.",
+  "description": "The face of the Coldwater Container Yard: a chain-link gate on a rolling track, and behind it corroded shipping cans stacked four high in canyons that groan when the wind comes off the Basin. A tally board by the gate is scrawled with box numbers nobody has reconciled in years. Dray Lane runs off to the west.",
   "exits": {
     "east": "zone_dray_container",
     "west": "zone_district_921_903"

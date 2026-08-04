@@ -1,11 +1,11 @@
 {
-  "description": "Thin carbon steel, black with seasoning, and shaped so everything ends up back in the middle. Screaming hot or pointless — there is no third setting.",
+  "description": "Thin carbon steel, black with seasoning, and shaped so everything ends up back in the middle. Screaming hot or pointless; there is no third setting.",
   "flags": {},
   "id": "item_wok",
   "name": "wok",
   "tags": {
     "container": 3000,
-    "description": "Thin carbon steel, black with seasoning, and shaped so everything ends up back in the middle. Screaming hot or pointless — there is no third setting.",
+    "description": "Thin carbon steel, black with seasoning, and shaped so everything ends up back in the middle. Screaming hot or pointless; there is no third setting.",
     "heat_distribution": 0.95,
     "heat_retention": 0.3,
     "unique": true,

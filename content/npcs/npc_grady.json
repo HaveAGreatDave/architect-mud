@@ -134,7 +134,7 @@
     "\"That rig on the wall's a dead lock and a dartboard scoreboard. Practise on it all you like. Costs you nothing but whatever your deck's got left in it.\"",
     "\"I stock the cheap decks, and I'll tell you straight: they're bad. Two, three bad nights and it's slag. That's the price of learning on something that isn't an ATM.\""
   ],
-  "description": "A broad, unhurried man in a patched vendor’s apron, planted behind a counter of scavenged crates in the cramped front room of his shop. Flashlights and coils of spare cells hang off every nail within reach. He watches the door the way a fisherman watches a net — patient, and already pricing whoever walks through it.",
+  "description": "A broad, unhurried man in a patched vendor’s apron, planted behind a counter of scavenged crates in the cramped front room of his shop. Flashlights and coils of spare cells hang off every nail within reach. He watches the door the way a fisherman watches a net: patient, and already pricing whoever walks through it.",
   "dialogue_tree": {
     "accepted": {
       "_vine": {
@@ -453,7 +453,7 @@
       ],
       "text_by_relation": {
         "first": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\"",
-        "known": "\"You again.\" He almost sounds pleased about it. \"Go on — what’s short today?\"",
+        "known": "\"You again.\" He almost sounds pleased about it. \"Go on, what’s short today?\"",
         "familiar": [
           "\"There you are.\" He’s already reaching for the cells drawer. \"What’s it this time?\"",
           "\"Still upright. Good.\" He nods at the crates. \"Take what you need, we’ll square it after.\""
@@ -545,7 +545,7 @@
     ],
     "personality": "vendor",
     "purchase_remarks": {
-      "item_pry_deck": "slides the deck across the crates and does not quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really — a man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
+      "item_pry_deck": "slides the deck across the crates and does not quite let go of it. \"Now. I'm legally obliged to tell you that's for authorised diagnostic work only.\" He lets go. \"And there's a rig on that wall behind you that isn't attached to anything, isn't owned by anybody, and doesn't call the police. Purely decorative. Terrible waste, really. A man could learn a lot off a thing like that and nobody the wiser.\" He goes back to sorting cells. \"Anyway. Don't go near the cash machines till you're good. They bite.\""
     }
   },
   "home_activities": [],

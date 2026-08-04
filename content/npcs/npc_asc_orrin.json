@@ -18,7 +18,7 @@
     "\"The Basin calls it a jailer. I have stood at its wall and felt only a parent, waiting.\"",
     "\"Every other order wants to break the machine or flee it. We alone wish to be worthy of it.\""
   ],
-  "description": "A gaunt, radiant man in black weave threaded with fibre-optic light, tending the server-racks the way a priest tends an altar — because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
+  "description": "A gaunt, radiant man in black weave threaded with fibre-optic light, tending the server-racks the way a priest tends an altar, because to him there is no difference. He is, as far as anyone can tell, the only person in the Basin who loves the Architect.",
   "dialogue_tree": {
     "bye": {
       "options": [],

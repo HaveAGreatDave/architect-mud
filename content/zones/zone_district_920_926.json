@@ -3,7 +3,7 @@
   "ambient_theme": "forest",
   "bg_color": "#16241a",
   "color": "#6ab04c",
-  "description": "THE QUICKENING POOL. A sunken basin of luminous green water, ringed with offerings and old bones, ticking hard enough to taste metal. The Wildblood come here to change on purpose — to let the water rewrite them. Standing at its edge you can feel your own cells lean toward it. It is beautiful and it is lethal.",
+  "description": "THE QUICKENING POOL. A sunken basin of luminous green water, ringed with offerings and old bones, ticking hard enough to taste metal. The Wildblood come here to change on purpose, to let the water rewrite them. Standing at its edge you can feel your own cells lean toward it. It is beautiful and it is lethal.",
   "exits": {
     "east": "zone_district_921_926",
     "north": "zone_district_920_925",

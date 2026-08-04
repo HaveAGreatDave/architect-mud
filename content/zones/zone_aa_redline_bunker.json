@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#241f19",
   "color": "#d0a36a",
-  "description": "The dugout under the Redline nest — a low earth-and-plate bunker reeking of solvent and cordite, strung with red-taped cable and caged worklights. Spare missiles ride a hand-cranked hoist up to the rail above; the launch electronics and the seeker-cooling gear crowd a bench along the back wall. This is where the nest is fed and, when a gun run tears the rail apart, rebuilt. A steel ladder climbs to the sprung hatch and the open deck.",
+  "description": "The dugout under the Redline nest: a low earth-and-plate bunker reeking of solvent and cordite, strung with red-taped cable and caged worklights. Spare missiles ride a hand-cranked hoist up to the rail above; the launch electronics and the seeker-cooling gear crowd a bench along the back wall. This is where the nest is fed and, when a gun run tears the rail apart, rebuilt. A steel ladder climbs to the sprung hatch and the open deck.",
   "exits": {
     "up": "zone_district_891_903"
   },

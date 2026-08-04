@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#0d1a26",
   "color": "#2c5a7a",
-  "description": "Down where the basin keeps the things it doesn't give back. The bottom shelves away into a dark with no floor you can find, and the cold here is a different cold — patient, and faintly interested.",
+  "description": "Down where the basin keeps the things it doesn't give back. The bottom shelves away into a dark with no floor you can find, and the cold here is a different cold: patient, and faintly interested.",
   "exits": {
     "east": "zone_district_908_900_z-2",
     "north": "zone_district_907_899_z-2",

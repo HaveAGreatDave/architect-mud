@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2b2b33",
-  "description": "One room, and not a large one. A shelf-height counter takes up a third of it, a wall safe takes up a corner, and what is left would hold four people who liked each other. The previous tenant cut keys and sold lighters, and the machine mounts are still on the counter — four bright rectangles where the paint never faded. It is small, cheap, and on a street everybody has to walk down to get anywhere else.",
+  "description": "One room, and not a large one. A shelf-height counter takes up a third of it, a wall safe takes up a corner, and what is left would hold four people who liked each other. The previous tenant cut keys and sold lighters, and the machine mounts are still on the counter: four bright rectangles where the paint never faded. It is small, cheap, and on a street everybody has to walk down to get anywhere else.",
   "exits": {
     "north": "zone_district_904_910"
   },

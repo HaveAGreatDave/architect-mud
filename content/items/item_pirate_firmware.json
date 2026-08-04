@@ -1,5 +1,5 @@
 {
-  "description": "A stubby matte-black firmware drive, its casing hand-etched with a skull-and-antenna sigil. Slot it into a tablet's data port to burn a pirate transmitter stack into ROM — then find a station's media deck and take the air.",
+  "description": "A stubby matte-black firmware drive, its casing hand-etched with a skull-and-antenna sigil. Slot it into a tablet's data port to burn a pirate transmitter stack into ROM, then find a station's media deck and take the air.",
   "flags": {},
   "id": "item_pirate_firmware",
   "name": "Pirate Signal Firmware",

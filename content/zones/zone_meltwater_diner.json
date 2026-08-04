@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2b251c",
-  "description": "A single run of counter and a row of laminate booths, all of it lit like an interrogation and none of it clean. Behind the pass, an auto-griddle sizzles on its own until the cook leans in and overrides it out of spite. A jittering neon menu offers things in quotation marks — the \"eggs,\" the \"melt\" — and a card reader waits at every seat, blinking, patient, hungry.",
+  "description": "A single run of counter and a row of laminate booths, all of it lit like an interrogation and none of it clean. Behind the pass, an auto-griddle sizzles on its own until the cook leans in and overrides it out of spite. A jittering neon menu offers things in quotation marks, the \"eggs,\" the \"melt,\" and a card reader waits at every seat, blinking, patient, hungry.",
   "exits": {
     "north": "zone_district_906_910"
   },

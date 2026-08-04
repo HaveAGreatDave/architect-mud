@@ -2,12 +2,12 @@
   "ambient_events": [
     "The urn burbles to itself, chained to its bracket so it can't wander in a hard bank.",
     "A cupboard latch rattles against its keeper and holds.",
-    "Something in the galley smells faintly of scorched coffee and hot metal — home, more or less."
+    "Something in the galley smells faintly of scorched coffee and hot metal. Home, more or less."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#0c1513",
   "color": "#cdeae2",
-  "description": "The galley — a narrow working alley between the cabin and the hold, every surface bracketed and latched against the roll of flight. A chained urn, a fold-down counter, a couple of crew bunks slotted into the frame for the long hauls. It is cramped, warm, and stubbornly domestic in the belly of a freight aircraft. The cabin lies forward to the NORTH; the cargo hold aft to the SOUTH.",
+  "description": "The galley: a narrow working alley between the cabin and the hold, every surface bracketed and latched against the roll of flight. A chained urn, a fold-down counter, a couple of crew bunks slotted into the frame for the long hauls. It is cramped, warm, and stubbornly domestic in the belly of a freight aircraft. The cabin lies forward to the NORTH; the cargo hold aft to the SOUTH.",
   "exits": {
     "north": "zone_leviathan_cabin",
     "south": "zone_leviathan_hold"

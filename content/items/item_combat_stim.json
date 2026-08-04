@@ -1,11 +1,11 @@
 {
-  "description": "An auto-injector of battlefield cocktail. Slams the door on pain and shock — for a while. Bill comes later.",
+  "description": "An auto-injector of battlefield cocktail. Slams the door on pain and shock, for a while. Bill comes later.",
   "flags": {},
   "id": "item_combat_stim",
   "name": "combat stimpack",
   "tags": {
     "consumable": true,
-    "description": "An auto-injector of battlefield cocktail. Slams the door on pain and shock — for a while. Bill comes later.",
+    "description": "An auto-injector of battlefield cocktail. Slams the door on pain and shock, for a while. Bill comes later.",
     "restore_hp": 35
   },
   "type": "consumable",

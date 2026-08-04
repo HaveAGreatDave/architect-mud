@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2f3a47",
   "color": "#efe4cd",
-  "description": "The whole crown of the tower, and it knows it. A single volume of glass and pale stone under a five-metre ceiling, wrapped three-sixty in an unbroken view — the bay, the mountains, the grey sprawl of Coldwater all laid at your feet and none of it able to look back in. An emperor bed floats on a raised platform beneath the north glass; a sunken lounge, a private bar, a fireplace of honed basalt. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
+  "description": "The whole crown of the tower, and it knows it. A single volume of glass and pale stone under a five-metre ceiling, wrapped three-sixty in an unbroken view: the bay, the mountains, the grey sprawl of Coldwater all laid at your feet and none of it able to look back in. An emperor bed floats on a raised platform beneath the north glass; a sunken lounge, a private bar, a fireplace of honed basalt. Nothing up here is loud, because nothing up here has to be. Step <b>south</b> to the landing.",
   "exits": {
     "in": "zone_solenne_penthouse_bath",
     "south": "zone_solenne_ph_landing"

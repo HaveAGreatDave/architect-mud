@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A hand-set flatbed press, four cases of lead type, and the good sharp stink of ink. Orders travel the Long Watch on paper, carried in a pocket, read once and burned — because a thing that was never a signal was never intercepted. The compositor's stick sits half-full on the stone, someone's evening interrupted, the line reading backwards and upside down as all true things do here.",
+  "description": "A hand-set flatbed press, four cases of lead type, and the good sharp stink of ink. Orders travel the Long Watch on paper, carried in a pocket, read once and burned, because a thing that was never a signal was never intercepted. The compositor's stick sits half-full on the stone, someone's evening interrupted, the line reading backwards and upside down as all true things do here.",
   "exits": {
     "north": "zone_lw_spine"
   },

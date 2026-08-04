@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#20241c",
   "color": "#9cae8f",
-  "description": "A wide, silted-up gallery where the flow slows and drops its load — decades of grey sediment banked in dunes against the walls. Things live in the silt; you can see the tracks. A branch runs east to a flooded overflow, and south a heavy service door stands sealed in its frame.",
+  "description": "A wide, silted-up gallery where the flow slows and drops its load: decades of grey sediment banked in dunes against the walls. Things live in the silt; you can see the tracks. A branch runs east to a flooded overflow, and south a heavy service door stands sealed in its frame.",
   "exits": {
     "east": "zone_under_overflow",
     "north": "zone_under_bend",

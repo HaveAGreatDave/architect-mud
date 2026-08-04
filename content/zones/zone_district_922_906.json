@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of the Ferro Fabrication Works — an open-fronted steel shed spitting the blue strobe of an arc welder, the air tasting of hot metal and flux. Offcuts and I-beam stubs are stacked like cordwood along the frontage under a hand-painted board: WE MAKE IT, WE MEND IT, WE DON'T ASK. Dray Lane runs off to the west.",
+  "description": "The face of the Ferro Fabrication Works: an open-fronted steel shed spitting the blue strobe of an arc welder, the air tasting of hot metal and flux. Offcuts and I-beam stubs are stacked like cordwood along the frontage under a hand-painted board: WE MAKE IT, WE MEND IT, WE DON'T ASK. Dray Lane runs off to the west.",
   "exits": {
     "east": "zone_dray_fab",
     "west": "zone_district_921_906"

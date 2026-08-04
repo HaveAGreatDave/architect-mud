@@ -1,6 +1,6 @@
 {
   "cost": 2000,
-  "description": "A second mind bolted alongside the first — cold, fast, and tireless. It runs the maths your meat is too slow for, and never once gets bored.",
+  "description": "A second mind bolted alongside the first: cold, fast, and tireless. It runs the maths your meat is too slow for, and never once gets bored.",
   "id": "aug_neural_coprocessor",
   "name": "Neural Co-processor",
   "rep_gate": "trusted",

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#c8b48a",
-  "description": "THE BONE ARCH. A gateway of welded girders and lashed bone straddles the mud path — femurs and machine-ribs and things in between, hung with charms of teeth and circuit-board. Someone has painted a green handprint on the keystone. Past it, the Thornwarren: cook-fires, hide tents, and figures who wear their mutations like medals.",
+  "description": "THE BONE ARCH. A gateway of welded girders and lashed bone straddles the mud path: femurs and machine-ribs and things in between, hung with charms of teeth and circuit-board. Someone has painted a green handprint on the keystone. Past it, the Thornwarren: cook-fires, hide tents, and figures who wear their mutations like medals.",
   "exits": {
     "east": "zone_district_920_924",
     "north": "zone_district_919_923",

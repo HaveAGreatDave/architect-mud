@@ -2,7 +2,7 @@
   "chance": 1,
   "conditions": [],
   "cooldown_seconds": 0,
-  "description": "One row, total world coverage: every room that exists — including rooms built next year — starts counting how many times it has killed each player, plus a per-cause tally. No zone filter and no per-room authoring, because the flag key is built from the payload.",
+  "description": "One row, total world coverage: every room that exists, including rooms built next year, starts counting how many times it has killed each player, plus a per-cause tally. No zone filter and no per-room authoring, because the flag key is built from the payload.",
   "enabled": 1,
   "event": "player.death",
   "id": "trigger_death_room_memory",

@@ -5,7 +5,7 @@
   "name": "static fizz",
   "tags": {
     "consumable": true,
-    "description": "A tall, pale, barely-there highball that crackles faintly at the surface like it's carrying a charge — the club's idea of pacing yourself. Mostly soda, mostly citrus, a whisper of gin so you don't feel left out. The one drink here you can have three of and still walk the boulevard home.",
+    "description": "A tall, pale, barely-there highball that crackles faintly at the surface like it's carrying a charge: the club's idea of pacing yourself. Mostly soda, mostly citrus, a whisper of gin so you don't feel left out. The one drink here you can have three of and still walk the boulevard home.",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 0.6,

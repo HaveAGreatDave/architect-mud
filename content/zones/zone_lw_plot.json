@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The live version of the map upstairs, and the reason the Long Watch still exists. A great sheet of butcher's paper covers the whole east wall, every camera, mic and counter in the Basin plotted on it in three colours: black for watching, red for blinded, green for lying — the ones the Watch have not killed but taught to say the wrong thing. Pins and string mark the corridors those greens open up. Nobody raises their voice in this room.",
+  "description": "The live version of the map upstairs, and the reason the Long Watch still exists. A great sheet of butcher's paper covers the whole east wall, every camera, mic and counter in the Basin plotted on it in three colours: black for watching, red for blinded, green for lying, the ones the Watch have not killed but taught to say the wrong thing. Pins and string mark the corridors those greens open up. Nobody raises their voice in this room.",
   "exits": {
     "east": "zone_lw_genvault",
     "north": "zone_lw_archive",

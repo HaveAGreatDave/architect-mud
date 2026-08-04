@@ -1,11 +1,11 @@
 {
-  "description": "A swollen bottom-feeder the colour of wet cement, gulping filth in the shallows. Chewy, and it tastes of the bay it came from — but it's food, and it's cheap.",
+  "description": "A swollen bottom-feeder the colour of wet cement, gulping filth in the shallows. Chewy, and it tastes of the bay it came from, but it's food, and it's cheap.",
   "flags": {},
   "id": "item_sludge_carp",
   "name": "sludge carp",
   "tags": {
     "consumable": true,
-    "description": "A swollen bottom-feeder the colour of wet cement, gulping filth in the shallows. Chewy, and it tastes of the bay it came from — but it's food, and it's cheap.",
+    "description": "A swollen bottom-feeder the colour of wet cement, gulping filth in the shallows. Chewy, and it tastes of the bay it came from, but it's food, and it's cheap.",
     "food_noun": "carp",
     "food_profile": "dense_meat",
     "needs_cooking": true,

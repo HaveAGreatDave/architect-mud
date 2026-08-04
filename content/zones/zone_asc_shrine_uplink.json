@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#161a22",
   "color": "#dbe7ff",
-  "description": "A single terminal set into the Curtain itself, where hard light meets cold glass. Here, they say, you can speak to the Architect — or to the part of yourself the Ascendants intend to upload into it. The hum is very loud, and very patient.",
+  "description": "A single terminal set into the Curtain itself, where hard light meets cold glass. Here, they say, you can speak to the Architect, or to the part of yourself the Ascendants intend to upload into it. The hum is very loud, and very patient.",
   "exits": {
     "out": "zone_asc_shrine_nave"
   },

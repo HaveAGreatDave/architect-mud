@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#8f9a7e",
-  "description": "Floor 2 of The Meridian. A narrow corridor stretches between four unit doors — numbers 201, 202, 203, 204 — stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.",
+  "description": "Floor 2 of The Meridian. A narrow corridor stretches between four unit doors, numbers 201, 202, 203, 204, stamped in adhesive metal letters, most of which have survived. The walls are poured concrete behind a skim of paint that went off-white long ago, old marker tags bleeding through where the building manager gave up trying to buff them out. Synthetic carpet the color of old claret muffles every footfall. Sodium-orange emergency strips trace the baseboards. The recycled air carries the mingled residue of a dozen private lives: synthetic tobacco, mystery cooking, and the faint ionised bite of an ageing HVAC system.",
   "exits": {
     "down": "zone_meridian_floor_1",
     "east": "zone_meridian_unit_202",

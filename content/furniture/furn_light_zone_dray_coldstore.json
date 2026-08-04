@@ -1,5 +1,5 @@
 {
-  "description": "Sealed vapour-proof battens glow a cold blue-white behind frosted lenses, each haloed in the freezer fog. They never warm the room — they only make the cold easier to see.",
+  "description": "Sealed vapour-proof battens glow a cold blue-white behind frosted lenses, each haloed in the freezer fog. They never warm the room; they only make the cold easier to see.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

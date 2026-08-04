@@ -1,5 +1,5 @@
 {
-  "description": "The skylight carries the weather by day; after dark a soft warm cove takes over, washing the pale plaster in even light — no fixture visible anywhere.",
+  "description": "The skylight carries the weather by day; after dark a soft warm cove takes over, washing the pale plaster in even light. No fixture visible anywhere.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

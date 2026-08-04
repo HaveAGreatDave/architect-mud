@@ -1,11 +1,11 @@
 {
-  "description": "The Owner's Manhattan — mixed to a recipe that isn't written down anywhere and served to exactly one person. Rye, bitters, a cherry the colour of a warning light.",
+  "description": "The Owner's Manhattan, mixed to a recipe that isn't written down anywhere and served to exactly one person. Rye, bitters, a cherry the colour of a warning light.",
   "flags": {},
   "id": "item_drink_owners_manhattan",
   "name": "Owner's Manhattan",
   "tags": {
     "consumable": true,
-    "description": "The Owner's Manhattan — mixed to a recipe that isn't written down anywhere and served to exactly one person. Rye, bitters, a cherry the colour of a warning light.",
+    "description": "The Owner's Manhattan, mixed to a recipe that isn't written down anywhere and served to exactly one person. Rye, bitters, a cherry the colour of a warning light.",
     "hydrating": true,
     "laced_drug": "drug_alcohol",
     "laced_potency": 1.4,

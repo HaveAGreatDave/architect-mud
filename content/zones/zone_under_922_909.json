@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The tunnel beneath Kessler Street + Marrow Street carries the quiet waste of the blocks above — grey water, lost things, the occasional startled scurry at the edge of your light.",
+  "description": "The tunnel beneath Kessler Street + Marrow Street carries the quiet waste of the blocks above: grey water, lost things, the occasional startled scurry at the edge of your light.",
   "exits": {
     "north": "zone_under_922_908",
     "west": "zone_under_921_909"

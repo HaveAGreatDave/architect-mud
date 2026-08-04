@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "The land past the glacis goes to rust. Cracked red hardpan runs flat to a shimmer of heat, dry-veined with old runoff that dried orange decades ago. Nothing moves, nothing grows — no reeds, no birds, just wind hissing over stone. A Geiger tick you can almost feel prickles across your skin. It looks dead. It isn't.",
+  "description": "The land past the glacis goes to rust. Cracked red hardpan runs flat to a shimmer of heat, dry-veined with old runoff that dried orange decades ago. Nothing moves, nothing grows: no reeds, no birds, just wind hissing over stone. A Geiger tick you can almost feel prickles across your skin. It looks dead. It isn't.",
   "exits": {
     "east": "zone_district_919_923",
     "north": "zone_district_918_922",

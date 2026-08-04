@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#26251f",
   "color": "#8ba36a",
-  "description": "A workwear outfitter on the Ironside corner, its window filled with coveralls on headless forms and a hand-painted board reading LAYERS — DRESSED FOR THE WEATHER YOU'LL GET, NOT THE ONE YOU WANT. Boots hang in pairs from the awning by their laces, swinging when the wind comes down off the water.",
+  "description": "A workwear outfitter on the Ironside corner, its window filled with coveralls on headless forms and a hand-painted board reading LAYERS: DRESSED FOR THE WEATHER YOU'LL GET, NOT THE ONE YOU WANT. Boots hang in pairs from the awning by their laces, swinging when the wind comes down off the water.",
   "exits": {
     "north": "zone_district_918_909",
     "south": "zone_secondskin_floor"

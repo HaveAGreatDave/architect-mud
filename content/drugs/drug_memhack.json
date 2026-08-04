@@ -8,7 +8,7 @@
     },
     "overdose": {
       "lethal": true,
-      "message": "It edits one memory too many — the one where your heart remembers to beat."
+      "message": "It edits one memory too many: the one where your heart remembers to beat."
     },
     "phases": {
       "comedown_scale": 0.5,

@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. A dead keypad guards it. Whatever lies beyond has been sealed off from the sewer for a long time — and unlike the rest of the Under, it still smells faintly of clean, cold machinery. It will not open for you today.",
+  "description": "The gallery narrows to a landing before a heavy steel maintenance door, set deep in a reinforced frame and streaked with old rust-weep. A dead keypad guards it. Whatever lies beyond has been sealed off from the sewer for a long time, and unlike the rest of the Under, it still smells faintly of clean, cold machinery. It will not open for you today.",
   "exits": {
     "north": "zone_under_silt"
   },

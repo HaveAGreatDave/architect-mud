@@ -8,7 +8,7 @@
     "The scoured arc in the concrete catches the low light and shows you exactly how often this gets opened."
   ],
   "ambient_theme": "wasteland",
-  "description": "A concrete slab lies flat in the scrub, cracked across the middle, too deliberate to be wreckage and too plain to be a building. It caps a dry cistern from whatever was out here before the Reach was — the crack is wide enough to drop a hand into and the air that comes up out of it is ten degrees cooler than the day. Somebody has dragged the slab aside more than once: there's a pale arc scored into the concrete where it pivots, and the scrub around that arc has been ground into dust and never recovered.",
+  "description": "A concrete slab lies flat in the scrub, cracked across the middle, too deliberate to be wreckage and too plain to be a building. It caps a dry cistern from whatever was out here before the Reach was; the crack is wide enough to drop a hand into and the air that comes up out of it is ten degrees cooler than the day. Somebody has dragged the slab aside more than once: there's a pale arc scored into the concrete where it pivots, and the scrub around that arc has been ground into dust and never recovered.",
   "exits": {
     "east": "zone_the_reach_880_1963",
     "north": "zone_the_reach_879_1962",

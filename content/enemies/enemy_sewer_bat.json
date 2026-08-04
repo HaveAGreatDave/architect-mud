@@ -87,7 +87,7 @@
     }
   ],
   "death_message": "The sewer bat drops out of the air and folds up small on the wet stone.",
-  "description": "A leathery scrap of a thing, ribs and membrane, that lives upside-down in the vaulted stretches and comes off the ceiling in a clatter of wings when warmth walks under it. Hard to hit, easy to kill — if you can catch it.",
+  "description": "A leathery scrap of a thing, ribs and membrane, that lives upside-down in the vaulted stretches and comes off the ceiling in a clatter of wings when warmth walks under it. Hard to hit, easy to kill, if you can catch it.",
   "dodge": 5,
   "faction": null,
   "flags": {

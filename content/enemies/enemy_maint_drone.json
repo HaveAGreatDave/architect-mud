@@ -75,8 +75,8 @@
   ],
   "butcher_difficulty": 5,
   "butcher_table": [],
-  "death_message": "The maintenance drone's optic dims to nothing and it drops, ticking, into the water — one less eye for the machine.",
-  "description": "A squat, four-limbed service unit the colour of old aluminium, a single amber optic sweeping slow across the dark. It belongs to the infrastructure — a hand of the Architect sent down to keep the tunnels flowing, and to note anything in them that shouldn't be. The Watch would very much like it to stop noting things.",
+  "death_message": "The maintenance drone's optic dims to nothing and it drops, ticking, into the water. One less eye for the machine.",
+  "description": "A squat, four-limbed service unit the colour of old aluminium, a single amber optic sweeping slow across the dark. It belongs to the infrastructure: a hand of the Architect sent down to keep the tunnels flowing, and to note anything in them that shouldn't be. The Watch would very much like it to stop noting things.",
   "dodge": 2,
   "faction": null,
   "flags": {

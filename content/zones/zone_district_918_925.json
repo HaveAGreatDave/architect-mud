@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "description": "RINDLE'S LEAN-TO. A trestle of city salvage and stranger wares under a tarp: rad-flora in jars, bone-plate lashings, vials of something that moves on its own. Rindle — lean, grinning, one arm sheathed in chitin — watches you price it all with a scavenger's patience.",
+  "description": "RINDLE'S LEAN-TO. A trestle of city salvage and stranger wares under a tarp: rad-flora in jars, bone-plate lashings, vials of something that moves on its own. Rindle, lean and grinning, one arm sheathed in chitin, watches you price it all with a scavenger's patience.",
   "exits": {
     "east": "zone_district_919_925",
     "north": "zone_district_918_924",

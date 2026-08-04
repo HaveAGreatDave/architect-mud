@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a241b",
   "color": "#8ba36a",
-  "description": "A chrome-sided diner beached on the corner where Voss Avenue meets Meltwater Row, its neon sign buzzing MEL WATER — the T long dead — over a fogged window full of pie no one's touched since morning. Steam curls from a roof vent that smells of griddle grease and burnt coffee. A hand-lettered card in the door reads CARD TAP ONLY. NO, NOT EVEN YOURS.",
+  "description": "A chrome-sided diner beached on the corner where Voss Avenue meets Meltwater Row, its neon sign buzzing MEL WATER, the T long dead, over a fogged window full of pie no one's touched since morning. Steam curls from a roof vent that smells of griddle grease and burnt coffee. A hand-lettered card in the door reads CARD TAP ONLY. NO, NOT EVEN YOURS.",
   "exits": {
     "north": "zone_district_906_909",
     "south": "zone_meltwater_diner"

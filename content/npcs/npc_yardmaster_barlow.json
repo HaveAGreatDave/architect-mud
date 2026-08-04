@@ -131,7 +131,7 @@
     "\"Cameras see everything down here. Do your worst somewhere else.\"",
     "\"I've buried three companies that thought the Yards ran themselves.\""
   ],
-  "description": "A broad, weather-cured man in a hi-vis vest gone grey with brick dust, a stub of pencil behind one ear and a clipboard he never puts down. Ex-hauler — you can tell by the way he stands, braced like the floor might pitch. He knows every crate in the district by weight, smell, and the lie on its paperwork, and he is not remotely impressed by you.",
+  "description": "A broad, weather-cured man in a hi-vis vest gone grey with brick dust, a stub of pencil behind one ear and a clipboard he never puts down. Ex-hauler; you can tell by the way he stands, braced like the floor might pitch. He knows every crate in the district by weight, smell, and the lie on its paperwork, and he is not remotely impressed by you.",
   "dialogue_tree": {
     "bye": {
       "options": [],

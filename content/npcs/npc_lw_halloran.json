@@ -70,7 +70,7 @@
     "\"Machine's got no hands. That's the whole secret. It needs ours.\"",
     "\"Bring it in. I've never met a dead radio I couldn't argue with.\""
   ],
-  "description": "A lean, grey-stubbled man in a canvas apron gone shiny at the pockets, reading glasses pushed up into iron-coloured hair. His hands are the story — burn-flecked, sure, never quite still, forever turning some small dead thing over to see how it died. He watches you the way a man watches a stranger's hands, not their face.",
+  "description": "A lean, grey-stubbled man in a canvas apron gone shiny at the pockets, reading glasses pushed up into iron-coloured hair. His hands are the story: burn-flecked, sure, never quite still, forever turning some small dead thing over to see how it died. He watches you the way a man watches a stranger's hands, not their face.",
   "dialogue_tree": {
     "bye": {
       "options": [],

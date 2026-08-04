@@ -4,7 +4,7 @@
   "class": "heavy",
   "cruise_speed": 2,
   "data": {
-    "feel": "Economy endgame; an Antonov An-124 Ruslan — heavy and ponderous, but builds real speed once it has momentum behind it in a dive. Hungry; needs a real runway."
+    "feel": "Economy endgame; an Antonov An-124 Ruslan. Heavy and ponderous, but builds real speed once it has momentum behind it in a dive. Hungry; needs a real runway."
   },
   "engines": 4,
   "fuel_burn_base": 2.6,

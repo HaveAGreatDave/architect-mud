@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "A cracked strip of oil-black hardstand running behind the Ironside shops, wide enough for a rigid to turn if the driver has faith. Faded loading bays are stencilled along the kerb; a bent sign reads DRAY LANE — DELIVERIES ONLY. The Basin glitters cold to the east.",
+  "description": "A cracked strip of oil-black hardstand running behind the Ironside shops, wide enough for a rigid to turn if the driver has faith. Faded loading bays are stencilled along the kerb; a bent sign reads DRAY LANE: DELIVERIES ONLY. The Basin glitters cold to the east.",
   "exits": {
     "east": "zone_district_922_906",
     "north": "zone_district_921_905",

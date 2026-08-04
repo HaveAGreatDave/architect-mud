@@ -139,7 +139,7 @@
     "glances toward the bar, then back at the table",
     "\"House doesn't take a cut. Don't ask why.\""
   ],
-  "description": "A lean man of indeterminate age in a black shirt, rolled to the elbows. His hands are always moving — shuffling, squaring a deck, tapping the felt — with a precision that suggests either training or compulsion. He watches the room with an expression that gives nothing away. A dealer's badge is pinned to his shirt: hand-printed, slightly crooked.",
+  "description": "A lean man of indeterminate age in a black shirt, rolled to the elbows. His hands are always moving, shuffling and squaring a deck and tapping the felt, with a precision that suggests either training or compulsion. He watches the room with an expression that gives nothing away. A dealer's badge is pinned to his shirt: hand-printed, slightly crooked.",
   "dialogue_tree": {
     "betting": {
       "options": [

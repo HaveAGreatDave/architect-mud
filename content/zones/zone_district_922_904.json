@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of the Meltwater Freight Office — a two-storey prefab with a lit dispatch window, a whiteboard of run times behind the glass, and a queue rail nobody queues at. A magnetic sign reads: LOADS BOOKED — NO CASH ON SITE. Dray Lane runs off to the west.",
+  "description": "The face of the Meltwater Freight Office: a two-storey prefab with a lit dispatch window, a whiteboard of run times behind the glass, and a queue rail nobody queues at. A magnetic sign reads: LOADS BOOKED · NO CASH ON SITE. Dray Lane runs off to the west.",
   "exits": {
     "east": "zone_dray_freightoffice",
     "west": "zone_district_921_904"

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b3a34",
   "color": "#e8ddc7",
-  "description": "The corner residence of the upper floor — glass on two sides, the bay on one and the long grey run of Coldwater on the other, the light crossing the room all day without ever being harsh. A sunken lounge, a fireplace of honed basalt, a bath cut from a single block of stone. Leave <b>west</b> to the landing.",
+  "description": "The corner residence of the upper floor: glass on two sides, the bay on one and the long grey run of Coldwater on the other, the light crossing the room all day without ever being harsh. A sunken lounge, a fireplace of honed basalt, a bath cut from a single block of stone. Leave <b>west</b> to the landing.",
   "exits": {
     "in": "zone_solenne_apt_e_bath",
     "west": "zone_solenne_residences_34"

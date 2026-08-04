@@ -8,7 +8,7 @@
       "events": [
         {
           "atSec": 35,
-          "text": "[trip]A cold wave rolls up from your stomach — the nausea that always comes first. You yawn, and yawn again.[/trip]"
+          "text": "[trip]A cold wave rolls up from your stomach, the nausea that always comes first. You yawn, and yawn again.[/trip]"
         },
         {
           "atSec": 60,

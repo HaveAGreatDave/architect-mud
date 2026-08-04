@@ -1,5 +1,5 @@
 {
-  "description": "A humming terminal of the same chrome as the attendant, as if grown from it. Its screen shows a rotating outline of a body — your body, or the idea of one — waiting to be told what it is. A soft plaque reads: MORPHEX 9000 · alignment session · complimentary.",
+  "description": "A humming terminal of the same chrome as the attendant, as if grown from it. Its screen shows a rotating outline of a body, your body, or the idea of one, waiting to be told what it is. A soft plaque reads: MORPHEX 9000 · alignment session · complimentary.",
   "flags": {
     "chargen": true,
     "cosmetic_machine": true,

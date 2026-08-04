@@ -4,7 +4,7 @@
   "class": "gunship",
   "cruise_speed": 2,
   "data": {
-    "feel": "Attack craft, a Fairchild A-10 Warthog — the gun IS the plane. Slow, draggy, armoured; it loiters over the target, shrugs off ground fire, and just keeps coming. Everyone hears the BRRRT."
+    "feel": "Attack craft, a Fairchild A-10 Warthog: the gun IS the plane. Slow, draggy, armoured; it loiters over the target, shrugs off ground fire, and just keeps coming. Everyone hears the BRRRT."
   },
   "engines": 2,
   "fuel_burn_base": 2.2,

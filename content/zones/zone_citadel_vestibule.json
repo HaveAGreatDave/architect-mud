@@ -10,7 +10,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#33302c",
   "color": "#d2c8b4",
-  "description": "A box of a room with an armoured door at each end and no charm whatsoever. It's a mantrap: the outer door will not open while the inner one is unsealed, and the inner one will not consider you at all until the arch in the middle has had a long, unhurried look through your clothes, your bag, and — going by the resolution on the guard's monitor — your ribcage. A post guard sits behind ballistic glass at a console showing four camera tiles and one outline of you. Bolted to the wall behind him, a grey breaker cabinet feeds the whole building; someone has stencilled a warning beside its sealed hacking port in stern red, and someone else has scratched it out. No marble in here. Just rubber matting, drain grating, and a ceiling low enough to feel deliberate.",
+  "description": "A box of a room with an armoured door at each end and no charm whatsoever. It's a mantrap: the outer door will not open while the inner one is unsealed, and the inner one will not consider you at all until the arch in the middle has had a long, unhurried look through your clothes, your bag, and, going by the resolution on the guard's monitor, your ribcage. A post guard sits behind ballistic glass at a console showing four camera tiles and one outline of you. Bolted to the wall behind him, a grey breaker cabinet feeds the whole building; someone has stencilled a warning beside its sealed hacking port in stern red, and someone else has scratched it out. No marble in here. Just rubber matting, drain grating, and a ceiling low enough to feel deliberate.",
   "exits": {
     "north": "zone_citadel_gallery",
     "south": "zone_citadel_hall"

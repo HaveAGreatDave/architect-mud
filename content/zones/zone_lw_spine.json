@@ -2,12 +2,12 @@
   "ambient_events": [
     "The hand-strung bulbs sway very slightly. Air is moving somewhere ahead.",
     "A trolley of type-cases stands against the wall, waiting for somebody to have a spare hour.",
-    "Every door off the spine is labelled by shape rather than by word — a wheel, a leaf, a flame."
+    "Every door off the spine is labelled by shape rather than by word: a wheel, a leaf, a flame."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A long service corridor behind a second, heavier door — the part of the base that most of the Watch have never been shown. Bare bulbs on a hand-strung line, doors off both sides, and a smell of ink and hot metal drifting up it. This is not where the Watch live. This is where the Watch work.",
+  "description": "A long service corridor behind a second, heavier door: the part of the base that most of the Watch have never been shown. Bare bulbs on a hand-strung line, doors off both sides, and a smell of ink and hot metal drifting up it. This is not where the Watch live. This is where the Watch work.",
   "exits": {
     "east": "zone_lw_plot",
     "north": "zone_lw_cage",

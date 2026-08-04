@@ -4,7 +4,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Unit 4C. The realtor — the corkboard downstairs, really — calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
+  "description": "Unit 4C. The realtor, or the corkboard downstairs really, calls this one 'cozy.' It's small. A single room with a curtained-off toilet, a sink that runs rust for a minute before it runs clear, and a window painted shut and then painted again. But the lock is new, the floor is solid, and nobody up here asks questions.",
   "exits": {
     "in": "zone_apt_11_bath",
     "west": "zone_embassy_floor3"

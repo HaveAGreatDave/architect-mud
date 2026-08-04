@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "wasteland",
   "color": "#b5744a",
-  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows. Along the draw's north wall the hardpan has been cut open — a raw gravel face stepped with old pick-marks, tailings fanned out below it where someone worked and quit.",
+  "description": "Cracked red hardpan runs out flat to a rust-colored horizon. Wind-scoured rock, grit, and nothing that grows. Along the draw's north wall the hardpan has been cut open: a raw gravel face stepped with old pick-marks, tailings fanned out below it where someone worked and quit.",
   "exits": {
     "east": "zone_district_929_913",
     "north": "zone_district_928_912",

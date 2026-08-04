@@ -1,13 +1,13 @@
 {
   "category": null,
-  "description": "Ansel Rooke works the Guardian battery north of the vats, and his radar keeps painting ground returns nobody is assigned to deal with — scavengers coming in past the gate and stripping the facility while the gun points at the sky. Thin them out.",
+  "description": "Ansel Rooke works the Guardian battery north of the vats, and his radar keeps painting ground returns nobody is assigned to deal with: scavengers coming in past the gate and stripping the facility while the gun points at the sky. Thin them out.",
   "id": "quest_pest_control",
   "meta": {},
   "name": "Pest Control",
   "objectives": [
     {
       "count": 2,
-      "desc": "Cull 2 Desperate Scavengers — the freight lane past the yards, or the red flats further out",
+      "desc": "Cull 2 Desperate Scavengers: the freight lane past the yards, or the red flats further out",
       "target": "Scavenger",
       "type": "kill"
     }

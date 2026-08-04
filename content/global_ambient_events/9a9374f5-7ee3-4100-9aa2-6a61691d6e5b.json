@@ -2,7 +2,7 @@
   "enabled": 1,
   "id": "9a9374f5-7ee3-4100-9aa2-6a61691d6e5b",
   "loudness": 2.5,
-  "message": "A foghorn sounds somewhere in the grey — direction impossible to pin.",
+  "message": "A foghorn sounds somewhere in the grey, direction impossible to pin.",
   "theme": "weather_fog",
   "weight": 80
 }

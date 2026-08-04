@@ -2,12 +2,12 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#c9a884",
-  "description": "Basement of Embassy Hotel & Bar — Lobby.",
+  "description": "Basement of Embassy Hotel & Bar, Lobby.",
   "exits": {
     "up": "zone_residential_lobby"
   },
   "flags": {
-    "intro_lore": "Every building this old keeps something in the basement it'd rather not explain, and the Embassy is no exception — pipework nobody traces to a source, a smell nobody names, a stairwell nobody uses without a reason. Guests upstairs prefer to imagine the hotel starts at the lobby.",
+    "intro_lore": "Every building this old keeps something in the basement it'd rather not explain, and the Embassy is no exception: pipework nobody traces to a source, a smell nobody names, a stairwell nobody uses without a reason. Guests upstairs prefer to imagine the hotel starts at the lobby.",
     "is_interior": true
   },
   "grid_x": 0,

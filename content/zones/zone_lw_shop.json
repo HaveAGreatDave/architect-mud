@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#241d16",
   "color": "#d8c4a0",
-  "description": "A cramped, orderly repair shop that smells of flux and oil. Every wall is pegboard, every peg holds a tool worn smooth by a working hand — nothing newer than the last century, nothing that needs the grid to run. A heavy workbench dominates the room, a half-mended pump motor clamped in its vise. A steel door at the back is shut, and does not invite questions. The street lies south.",
+  "description": "A cramped, orderly repair shop that smells of flux and oil. Every wall is pegboard, every peg holds a tool worn smooth by a working hand: nothing newer than the last century, nothing that needs the grid to run. A heavy workbench dominates the room, a half-mended pump motor clamped in its vise. A steel door at the back is shut, and does not invite questions. The street lies south.",
   "exits": {
     "south": "zone_district_924_912",
     "west": "zone_lw_shop_back"

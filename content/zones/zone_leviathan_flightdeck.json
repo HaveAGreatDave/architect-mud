@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#0a1512",
   "color": "#bff0e4",
-  "description": "The flight deck of the Leviathan — a cramped glass nose bolted to the front of a cargo cathedral. Wraparound windows wrap the pilot's seat in the moving world; four throttle levers stand between the seats, and the panel is a wall of turquoise-lit gauges older than most cities. Whoever holds this seat holds the whole ship — if the seat will have you; nobody unrated gets to find out, and the rating is a checkride you fly at Coldwater Regional. The main cabin lies AFT, to the SOUTH.",
+  "description": "The flight deck of the Leviathan: a cramped glass nose bolted to the front of a cargo cathedral. Wraparound windows wrap the pilot's seat in the moving world; four throttle levers stand between the seats, and the panel is a wall of turquoise-lit gauges older than most cities. Whoever holds this seat holds the whole ship, if the seat will have you; nobody unrated gets to find out, and the rating is a checkride you fly at Coldwater Regional. The main cabin lies AFT, to the SOUTH.",
   "exits": {
     "south": "zone_leviathan_cabin"
   },

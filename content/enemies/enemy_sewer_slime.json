@@ -64,7 +64,7 @@
   "butcher_difficulty": 3,
   "butcher_table": [],
   "death_message": "The slime loses cohesion all at once, sluicing away into the grate with a long sigh.",
-  "description": "A knee-high heap of translucent grey ooze studded with whatever the sewer fed it — bottle caps, a doll's eye, teeth. It doesn't hurry. It doesn't need to. It just flows toward warmth and folds over it.",
+  "description": "A knee-high heap of translucent grey ooze studded with whatever the sewer fed it: bottle caps, a doll's eye, teeth. It doesn't hurry. It doesn't need to. It just flows toward warmth and folds over it.",
   "dodge": 0,
   "faction": null,
   "flags": {

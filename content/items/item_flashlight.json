@@ -4,7 +4,7 @@
   "id": "item_flashlight",
   "name": "flashlight",
   "tags": {
-    "description": "A rugged rubber-armoured handheld flashlight. Throws a hard white cone of light. Runs on a single high-density cell — LIGHT it to switch on, UNLIGHT to save the charge, RELOAD it with a fresh battery when it dies.",
+    "description": "A rugged rubber-armoured handheld flashlight. Throws a hard white cone of light. Runs on a single high-density cell. LIGHT it to switch on, UNLIGHT to save the charge, RELOAD it with a fresh battery when it dies.",
     "flashlight": true,
     "misc": true,
     "unique": true

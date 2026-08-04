@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The main deep trunk under the industrial east, a broad low tunnel that gathers every line in this quarter and carries it on toward the outfall. The Watch have marked the walls here in chalk — quiet, disciplined signs for people who know to read them — because this is the last easy stretch before their door. East ties into the conduit vault; south runs on to the deep reach.",
+  "description": "The main deep trunk under the industrial east, a broad low tunnel that gathers every line in this quarter and carries it on toward the outfall. The Watch have marked the walls here in chalk, quiet disciplined signs for people who know to read them, because this is the last easy stretch before their door. East ties into the conduit vault; south runs on to the deep reach.",
   "exits": {
     "east": "zone_under_conduitvlt",
     "north": "zone_under_machsump",

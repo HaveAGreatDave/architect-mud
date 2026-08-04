@@ -1,5 +1,5 @@
 {
-  "description": "A slim panel camera that splices straight into a room's power feed. Never needs charging — but dies the instant the grid does.",
+  "description": "A slim panel camera that splices straight into a room's power feed. Never needs charging, but dies the instant the grid does.",
   "flags": {},
   "id": "item_wired_cam",
   "name": "Tap Cam",

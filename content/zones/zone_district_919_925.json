@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#d0a860",
-  "description": "THE COMMONS. The heart of the Thornwarren — a trodden clearing around a central fire pit, ringed by lean-tos of salvaged panel and stretched hide. Wildblood of every shape drift through: scaled, spurred, extra-eyed, unbothered. The elder they call the Chorus holds court to the south; a trader's lean-to sits west, and a surgeon's tent east. You are very obviously new meat.",
+  "description": "THE COMMONS. The heart of the Thornwarren: a trodden clearing around a central fire pit, ringed by lean-tos of salvaged panel and stretched hide. Wildblood of every shape drift through: scaled, spurred, extra-eyed, unbothered. The elder they call the Chorus holds court to the south; a trader's lean-to sits west, and a surgeon's tent east. You are very obviously new meat.",
   "exits": {
     "east": "zone_district_920_925",
     "north": "zone_district_919_924",

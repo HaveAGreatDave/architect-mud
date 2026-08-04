@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "A cathedral of pale stone and cold light. The Halcyon seal — a calm eye over a city skyline — is inlaid ten metres wide in the floor, and a wall of frosted glass reads ASSURANCE FOR THE ASSURED in letters that cost more than you do. The air is filtered, climate-perfect, and billed. A bank of brushed-steel elevators stands off to one side, its call panel glowing with floors in the fifties and above — the arcade, the underwriting and claims halls, the sky residences, and the executive suite crowning the tower. Step <b>in</b> to ride.",
+  "description": "A cathedral of pale stone and cold light. The Halcyon seal, a calm eye over a city skyline, is inlaid ten metres wide in the floor, and a wall of frosted glass reads ASSURANCE FOR THE ASSURED in letters that cost more than you do. The air is filtered, climate-perfect, and billed. A bank of brushed-steel elevators stands off to one side, its call panel glowing with floors in the fifties and above: the arcade, the underwriting and claims halls, the sky residences, and the executive suite crowning the tower. Step <b>in</b> to ride.",
   "exits": {
     "down": "zone_util_zone_halcyon_lobby",
     "in": "zone_halcyon_elevator",

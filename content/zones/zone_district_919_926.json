@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#b79ad0",
-  "description": "THE CHORUS' DEN. A dim hollow hung with hides and wind-chimes of finger-bone, where the elder called the Chorus waits — a figure so remade that they speak in several voices at once, overlapping, kind. They have been expecting someone like you for a long time. A narrow trail slips south, out toward the deeper wild.",
+  "description": "THE CHORUS' DEN. A dim hollow hung with hides and wind-chimes of finger-bone, where the elder called the Chorus waits: a figure so remade that they speak in several voices at once, overlapping, kind. They have been expecting someone like you for a long time. A narrow trail slips south, out toward the deeper wild.",
   "exits": {
     "east": "zone_district_920_926",
     "north": "zone_district_919_925",

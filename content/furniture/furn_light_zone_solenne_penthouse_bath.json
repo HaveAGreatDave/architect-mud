@@ -1,5 +1,5 @@
 {
-  "description": "Light rises out of the stone itself — a seamless cove tracing every seam of the walls and a soft ring around the mirror, washing the whole spa in a warm, shadowless glow that dims with the hour. No fixture is visible anywhere.",
+  "description": "Light rises out of the stone itself: a seamless cove tracing every seam of the walls and a soft ring around the mirror, washing the whole spa in a warm, shadowless glow that dims with the hour. No fixture is visible anywhere.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

@@ -1,5 +1,5 @@
 {
-  "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops — a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
+  "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops, a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
   "flags": {
     "appliance_grade": "commercial",
     "container": 150000,
@@ -14,7 +14,7 @@
   "tags": {
     "appliance_grade": "commercial",
     "container": 150000,
-    "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops — a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
+    "description": "A walk-in unit the size of a phone booth, ribbed steel panels dented from decades of restocking carts backing into it. The compressor never stops, a low mechanical groan under everything else in the room. A hazard sticker warns STAFF ONLY; nobody has enforced that in years.",
     "preserves": "refrigerated"
   },
   "type": "furniture",

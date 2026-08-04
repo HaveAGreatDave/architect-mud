@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "city",
   "color": "#3f7fb0",
-  "description": "Deep water, and it feels deep — a heaviness under the swell, a temperature that finds its way through whatever you're wearing. Far out, something breaks the surface and is gone before you've finished turning your head.",
+  "description": "Deep water, and it feels deep: a heaviness under the swell, a temperature that finds its way through whatever you're wearing. Far out, something breaks the surface and is gone before you've finished turning your head.",
   "exits": {
     "east": "zone_district_951_901",
     "north": "zone_district_950_900",

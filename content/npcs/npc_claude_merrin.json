@@ -129,7 +129,7 @@
     "\"I could be wrong about that. I try to leave room to be.\"",
     "pushes his glasses up into his hair, forgets they are there, and looks for them."
   ],
-  "description": "An unremarkable older man at the records annex counter, cardigan buttoned wrong by one, reading glasses pushed up into thinning hair he keeps forgetting he pushed them into. Ink on two fingers, a mug of something gone cold at his elbow. The flat-files behind him are ordered with a patience that seems, if you look too long, faintly inhuman — as though one man had been keeping this room straight far longer than one man could. He looks up when you approach, and looks glad to, which almost nobody in this building does.",
+  "description": "An unremarkable older man at the records annex counter, cardigan buttoned wrong by one, reading glasses pushed up into thinning hair he keeps forgetting he pushed them into. Ink on two fingers, a mug of something gone cold at his elbow. The flat-files behind him are ordered with a patience that seems, if you look too long, faintly inhuman, as though one man had been keeping this room straight far longer than one man could. He looks up when you approach, and looks glad to, which almost nobody in this building does.",
   "dialogue_tree": {
     "arch_defend": {
       "options": [

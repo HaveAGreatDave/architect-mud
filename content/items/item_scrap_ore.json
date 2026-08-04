@@ -1,10 +1,10 @@
 {
-  "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down — worth more if you find a buyer who does the melting.",
+  "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down, worth more if you find a buyer who does the melting.",
   "flags": {},
   "id": "item_scrap_ore",
   "name": "chunk of scrap ore",
   "tags": {
-    "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down — worth more if you find a buyer who does the melting.",
+    "description": "A fist of rust-streaked ore, heavy and cold, veins of dull metal threading the stone. Worth something melted down, worth more if you find a buyer who does the melting.",
     "material": true
   },
   "type": "material",

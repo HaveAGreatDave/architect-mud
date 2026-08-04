@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The Gate Road's last clear stretch before the wall. The Curtain fills the southern sky — a floor-to-heaven sheet of hard light — pierced by the single lit throat of the South Gate just ahead.",
+  "description": "The Gate Road's last clear stretch before the wall. The Curtain fills the southern sky, a floor-to-heaven sheet of hard light, pierced by the single lit throat of the South Gate just ahead.",
   "exits": {
     "east": "zone_district_919_918",
     "north": "zone_district_918_917",

@@ -1,5 +1,5 @@
 {
-  "description": "A cluster of mismatched pendant lights wired to a single switch — a lamp here, a bare bulb there, one actual fixture. Together they work.",
+  "description": "A cluster of mismatched pendant lights wired to a single switch: a lamp here, a bare bulb there, one actual fixture. Together they work.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

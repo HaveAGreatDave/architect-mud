@@ -3,7 +3,7 @@
   "ambient_theme": "wasteland",
   "bg_color": "#1b3040",
   "color": "#5f93b8",
-  "description": "The river quickens through a gut of red rock and throws up a cold spray that beads on everything you own. Driftwood sits jammed high on both banks — a mark, if you want one, of how big this gets when the melt comes down.",
+  "description": "The river quickens through a gut of red rock and throws up a cold spray that beads on everything you own. Driftwood sits jammed high on both banks, a mark, if you want one, of how big this gets when the melt comes down.",
   "exits": {
     "east": "zone_district_882_918",
     "north": "zone_district_881_917",

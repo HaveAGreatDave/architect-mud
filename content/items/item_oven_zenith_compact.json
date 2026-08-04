@@ -1,10 +1,10 @@
 {
-  "description": "A lunchbox-sized convection oven with a fold-out door and a single glowing dial. ZENITH COMPACT stamped along the hinge. It'll cook enough for one — ask for more and the fan just whines louder.",
+  "description": "A lunchbox-sized convection oven with a fold-out door and a single glowing dial. ZENITH COMPACT stamped along the hinge. It'll cook enough for one; ask for more and the fan just whines louder.",
   "flags": {},
   "id": "item_oven_zenith_compact",
   "name": "Zenith Compact Oven",
   "tags": {
-    "description": "A lunchbox-sized convection oven with a fold-out door and a single glowing dial. ZENITH COMPACT stamped along the hinge. It'll cook enough for one — ask for more and the fan just whines louder.",
+    "description": "A lunchbox-sized convection oven with a fold-out door and a single glowing dial. ZENITH COMPACT stamped along the hinge. It'll cook enough for one; ask for more and the fan just whines louder.",
     "oven_capacity_g": 1500,
     "portable_oven": true,
     "unique": true

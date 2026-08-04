@@ -18,7 +18,7 @@
     "\"I was the first to pay the bill in full. I have never once regretted the currency.\"",
     "\"You have already met me. That eye on every Halcyon wall — that was me, watching you decide.\""
   ],
-  "description": "More chrome than flesh, and what flesh remains is a courtesy to your comfort, not its own. Subdermal weave laces a throat that no longer strictly needs to speak. It regards you from beneath the great seal — the calm eye — as though it has been watching you through it the whole time.",
+  "description": "More chrome than flesh, and what flesh remains is a courtesy to your comfort, not its own. Subdermal weave laces a throat that no longer strictly needs to speak. It regards you from beneath the great seal, the calm eye, as though it has been watching you through it the whole time.",
   "dialogue_tree": {
     "bye": {
       "options": [],

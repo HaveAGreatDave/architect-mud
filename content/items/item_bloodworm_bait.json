@@ -1,12 +1,12 @@
 {
-  "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk.",
+  "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff: the things down there can smell it through the murk.",
   "flags": {},
   "id": "item_bloodworm_bait",
   "name": "bloodworm bait",
   "tags": {
     "bait": true,
     "bait_bloodworm": true,
-    "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff — the things down there can smell it through the murk."
+    "description": "A twist of waxed paper packed with fat, writhing bloodworms. The good stuff: the things down there can smell it through the murk."
   },
   "type": "misc",
   "value": 5,

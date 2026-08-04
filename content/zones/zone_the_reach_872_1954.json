@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A low saloon of welded plate and salvaged neon, a coyote sign buzzing over the door with half its letters dead. Inside there's warmth, liquor, and company that won't ask where you've been — the Reach's parlour, where every deal in town eventually gets a drink poured on it.",
+  "description": "A low saloon of welded plate and salvaged neon, a coyote sign buzzing over the door with half its letters dead. Inside there's warmth, liquor, and company that won't ask where you've been: the Reach's parlour, where every deal in town eventually gets a drink poured on it.",
   "exits": {
     "north": "zone_bld_899_1171_lobby",
     "south": "zone_the_reach_872_1955"

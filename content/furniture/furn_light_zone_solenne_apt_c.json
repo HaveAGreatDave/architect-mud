@@ -1,5 +1,5 @@
 {
-  "description": "A seamless run of recessed lights washes the oak and stone in warm, even light — no fixture visible anywhere.",
+  "description": "A seamless run of recessed lights washes the oak and stone in warm, even light. No fixture visible anywhere.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

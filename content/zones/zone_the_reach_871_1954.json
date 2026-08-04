@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A shack of bolted plate and cable, humming to itself at the edge of town — every wire in the Reach runs back here. Scorch marks fan up one wall from the last time it argued with a storm. It shouldn’t work. It works.",
+  "description": "A shack of bolted plate and cable, humming to itself at the edge of town, and every wire in the Reach runs back here. Scorch marks fan up one wall from the last time it argued with a storm. It shouldn’t work. It works.",
   "exits": {
     "north": "zone_bld_898_1171_lobby",
     "south": "zone_the_reach_871_1955"

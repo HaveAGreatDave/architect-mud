@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "Open killing ground. Shell-craters pock the red rock, some still glassy at the rim. A scorched ribcage — too big to name — arches out of the stone where something died mid-charge. The wall's guns have a clean line all the way to here.",
+  "description": "Open killing ground. Shell-craters pock the red rock, some still glassy at the rim. A scorched ribcage, too big to name, arches out of the stone where something died mid-charge. The wall's guns have a clean line all the way to here.",
   "exits": {
     "east": "zone_district_919_921",
     "north": "zone_district_918_920",

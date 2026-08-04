@@ -6,7 +6,7 @@
   ],
   "ambient_theme": "city",
   "color": "#d8d2b0",
-  "description": "A hardened gun position dug into the basin shore — a horseshoe of poured concrete and stacked ballistic bag, open to the sky. The Guardian autocannon sits exposed on its powered ring mount at the centre, barrels canted up, slaving around to whatever the radar hands it. The crew work it in the open, no cover but the revetment lip and their own nerve. A steel blast hatch in the floor drops down into the bunker where the reload gear and the guts of the thing live.",
+  "description": "A hardened gun position dug into the basin shore: a horseshoe of poured concrete and stacked ballistic bag, open to the sky. The Guardian autocannon sits exposed on its powered ring mount at the centre, barrels canted up, slaving around to whatever the radar hands it. The crew work it in the open, no cover but the revetment lip and their own nerve. A steel blast hatch in the floor drops down into the bunker where the reload gear and the guts of the thing live.",
   "exits": {
     "down": "zone_aa_clone_bunker",
     "east": "zone_district_919_901",

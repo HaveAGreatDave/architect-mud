@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#33383e",
   "color": "#cdb489",
-  "description": "A windowless steel shed the size of a hangar, its roller doors chained and customs-sealed. Everything inside is in transit and belongs, technically, to no one — which is exactly why a corp would want the keys. A faded stencil reads CUSTOMS BONDED STORE 7. NO ADMITTANCE.",
+  "description": "A windowless steel shed the size of a hangar, its roller doors chained and customs-sealed. Everything inside is in transit and belongs, technically, to no one, which is exactly why a corp would want the keys. A faded stencil reads CUSTOMS BONDED STORE 7. NO ADMITTANCE.",
   "exits": {
     "north": "zone_yard_bonded",
     "south": "zone_district_922_908"

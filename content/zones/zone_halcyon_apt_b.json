@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "The twin of 41-A across the hall — the same engineered calm, the same billed air, the same long drop past the glass. Empty, and expensive.",
+  "description": "The twin of 41-A across the hall: the same engineered calm, the same billed air, the same long drop past the glass. Empty, and expensive.",
   "exits": {
     "west": "zone_halcyon_residences"
   },

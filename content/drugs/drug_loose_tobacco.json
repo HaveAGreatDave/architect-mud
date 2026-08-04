@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0,
-  "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette — or chew it, if you must.",
+  "description": "A gram of shredded cured tobacco in a pouch. Roll it into a cigarette, or chew it, if you must.",
   "duration_seconds": 60,
   "effects": {
     "instant": {

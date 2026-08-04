@@ -3,7 +3,7 @@
   "ambient_theme": "waterfront",
   "bg_color": "#2f3a3a",
   "color": "#cdb489",
-  "description": "A windowless insulated block breathing frost from its door seals, condensers roaring on the roof. COLDLINE REEFER DEPOT. Inside it is a meat-locker cathedral where the docks' catch — and worse things — keep. Your breath fogs just standing near the loading dock.",
+  "description": "A windowless insulated block breathing frost from its door seals, condensers roaring on the roof. COLDLINE REEFER DEPOT. Inside it is a meat-locker cathedral where the docks' catch, and worse things, keep. Your breath fogs just standing near the loading dock.",
   "exits": {
     "north": "zone_yard_coldline",
     "south": "zone_district_926_910"

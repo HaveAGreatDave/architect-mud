@@ -3,7 +3,7 @@
   "ambient_theme": "residential",
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade — dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
+  "description": "A narrow shopfront wedged between the modular housing stacks, its window crammed with the honest clutter of a repair trade: dead radios, a wall of salvaged hand tools, a hand-lettered card reading FIX-IT: IF IT RAN ONCE, IT'LL RUN AGAIN. No screens, no terminals, nothing that talks back to the grid. A bell hangs over the door. It smells of solder and machine oil.",
   "exits": {
     "north": "zone_lw_shop",
     "south": "zone_district_924_913"

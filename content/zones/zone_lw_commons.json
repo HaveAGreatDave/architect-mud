@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "The heart of the operation: a long, warm common room hollowed out of an old plant sublevel and made livable by hand. Mismatched chairs ring a stove; a wall of shelves holds paper — manuals, maps, ledgers, the accumulated memory of people who refuse to keep it anywhere the Architect can read. This is a safe place, and it feels like one. The quartermaster's store lies north, the operations room east, the bunkroom south, and the way out west.",
+  "description": "The heart of the operation: a long, warm common room hollowed out of an old plant sublevel and made livable by hand. Mismatched chairs ring a stove; a wall of shelves holds paper: manuals, maps, ledgers, the accumulated memory of people who refuse to keep it anywhere the Architect can read. This is a safe place, and it feels like one. The quartermaster's store lies north, the operations room east, the bunkroom south, and the way out west.",
   "exits": {
     "east": "zone_lw_ops",
     "north": "zone_lw_quarter",

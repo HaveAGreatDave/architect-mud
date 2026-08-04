@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "city",
-  "description": "The old grass track hardens underfoot into cracked blacktop here — the Gate Road, running dead straight south toward the city's edge. Faded chevrons still ghost the centre line, pointing the way out.",
+  "description": "The old grass track hardens underfoot into cracked blacktop here: the Gate Road, running dead straight south toward the city's edge. Faded chevrons still ghost the centre line, pointing the way out.",
   "exits": {
     "east": "zone_district_919_915",
     "north": "zone_district_918_914",

@@ -1,10 +1,10 @@
 {
-  "description": "A mesh sack of spent platinum-rhodium pellets, cracked out of somebody's exhaust converter — iridescent and faintly warm. Chemists pay; your lungs charge interest.",
+  "description": "A mesh sack of spent platinum-rhodium pellets, cracked out of somebody's exhaust converter, iridescent and faintly warm. Chemists pay; your lungs charge interest.",
   "flags": {},
   "id": "item_catalyst_pellets",
   "name": "sack of platinum-rhodium pellets",
   "tags": {
-    "description": "A mesh sack of spent platinum-rhodium pellets, cracked out of somebody's exhaust converter — iridescent and faintly warm. Chemists pay; your lungs charge interest.",
+    "description": "A mesh sack of spent platinum-rhodium pellets, cracked out of somebody's exhaust converter, iridescent and faintly warm. Chemists pay; your lungs charge interest.",
     "material": true
   },
   "type": "misc",

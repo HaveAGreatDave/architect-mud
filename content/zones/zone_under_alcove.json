@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c241f",
   "color": "#8fae9a",
-  "description": "A utility alcove at the crawlway's dead end — a niche of dead gauges, seized valves, and a workbench long since stripped for parts. Whatever crew maintained this place is decades gone, but they left their leavings scattered in the muck for anyone patient enough to sift.",
+  "description": "A utility alcove at the crawlway's dead end: a niche of dead gauges, seized valves, and a workbench long since stripped for parts. Whatever crew maintained this place is decades gone, but they left their leavings scattered in the muck for anyone patient enough to sift.",
   "exits": {
     "north": "zone_under_crawl"
   },

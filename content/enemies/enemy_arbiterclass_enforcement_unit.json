@@ -77,7 +77,7 @@
   ],
   "butcher_difficulty": 5,
   "butcher_table": [],
-  "death_message": "The Arbiter-Class Enforcement Unit is destroyed—its frame buckles as core systems fail in sequence, optic going dark before the chassis finally collapses into inert, broken alloy.",
+  "death_message": "The Arbiter-Class Enforcement Unit is destroyed. Its frame buckles as core systems fail in sequence, optic going dark before the chassis finally collapses into inert, broken alloy.",
   "description": "The Arbiter-Class Enforcement Unit stands rigid and combat-ready, matte black armor segmented for efficiency rather than aesthetics. Its frame is tall, lean, and engineered for rapid deployment, every joint minimized for speed and controlled force. A single horizontal optic glows white across its head like a targeting slit, flat and expressionless.",
   "dodge": 10,
   "faction": null,

@@ -39,7 +39,7 @@
     }
   },
   "chitchat": [],
-  "description": "Amos Dune has lived in the Reach longer than the Reach has had a name — a lean old smuggler gone gristle and grey, with a fixer's memory and a coyote's patience. Nothing moves through town he doesn't hear about; nobody stays who he decides shouldn't. He'll size you up from the porch and know your whole story before you've told him half a lie of it.",
+  "description": "Amos Dune has lived in the Reach longer than the Reach has had a name: a lean old smuggler gone gristle and grey, with a fixer's memory and a coyote's patience. Nothing moves through town he doesn't hear about; nobody stays who he decides shouldn't. He'll size you up from the porch and know your whole story before you've told him half a lie of it.",
   "dialogue_tree": {
     "about": {
       "_vine": {

@@ -1,5 +1,5 @@
 {
-  "description": "Warm light pools from concealed coves along the stone, sourceless and immaculate — the lobby is engineered never to be dark.",
+  "description": "Warm light pools from concealed coves along the stone, sourceless and immaculate. The lobby is engineered never to be dark.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

@@ -1,5 +1,5 @@
 {
-  "description": "A jerrycan of crude Redline. Titrate and stabilise into the finished liquid. Raw material — contraband; carrying it is manufacturing.",
+  "description": "A jerrycan of crude Redline. Titrate and stabilise into the finished liquid. Raw material: contraband; carrying it is manufacturing.",
   "flags": {
     "cook_tier": 4,
     "raw_of": "drug_redline"

@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#242a33",
   "color": "#efe4cd",
-  "description": "A private landing the size of most people's apartments, and it holds exactly one door. Pale stone underfoot, a single orchid on a plinth, and light that comes from nowhere you can point to. The far wall is taken up by a seamless slab of brushed bronze — the entrance to the penthouse — with a discreet plate beside it reading <b>J. AKERSON</b> and a <b>hololock</b> that watches you back. The elevator waits <b>in</b> behind you. There is nowhere else to go up here, and that is plainly the point.",
+  "description": "A private landing the size of most people's apartments, and it holds exactly one door. Pale stone underfoot, a single orchid on a plinth, and light that comes from nowhere you can point to. The far wall is taken up by a seamless slab of brushed bronze, the entrance to the penthouse, with a discreet plate beside it reading <b>J. AKERSON</b> and a <b>hololock</b> that watches you back. The elevator waits <b>in</b> behind you. There is nowhere else to go up here, and that is plainly the point.",
   "exits": {
     "in": "zone_solenne_elevator",
     "north": "zone_solenne_penthouse"

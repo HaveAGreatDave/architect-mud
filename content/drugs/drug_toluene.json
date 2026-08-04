@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0.22,
-  "description": "Toluene fumes off a rag. The same can that thins paint and cuts a batch, breathed straight — cheap, everywhere, and it takes a piece of you every time.",
+  "description": "Toluene fumes off a rag. The same can that thins paint and cuts a batch, breathed straight: cheap, everywhere, and it takes a piece of you every time.",
   "duration_seconds": 90,
   "effects": {
     "comeon_message": "<span class=\"msg-system\">You soak the rag, cup it over your mouth, and pull. The sweetness gets there before the burn does.</span>",

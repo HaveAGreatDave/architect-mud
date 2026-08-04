@@ -6,7 +6,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#28323d",
   "color": "#d9e6f2",
-  "description": "A hushed residential floor: a curved gallery of numbered doors set into panelled walnut, a runner of deep carpet swallowing every footstep, and a window at the end framing the bay far below. Fresh lilies stand on a console table. Three private residences open off this landing — <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
+  "description": "A hushed residential floor: a curved gallery of numbered doors set into panelled walnut, a runner of deep carpet swallowing every footstep, and a window at the end framing the bay far below. Fresh lilies stand on a console table. Three private residences open off this landing: <b>north</b>, <b>east</b>, and <b>west</b>. Step <b>in</b> to the elevator.",
   "exits": {
     "east": "zone_solenne_apt_b",
     "in": "zone_solenne_elevator",

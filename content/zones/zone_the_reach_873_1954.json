@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "outdoors",
-  "description": "A low motel of poured slag and scavenged glass at the edge of town, a buzzing VACANCY sign missing its C, and a porch light kept burning like a habit. This is Amos Dune's place — where the Reach's regulars keep rooms, and where being allowed a key means Amos has decided you're staying.",
+  "description": "A low motel of poured slag and scavenged glass at the edge of town, a buzzing VACANCY sign missing its C, and a porch light kept burning like a habit. This is Amos Dune's place, where the Reach's regulars keep rooms, and where being allowed a key means Amos has decided you're staying.",
   "exits": {
     "north": "zone_bld_900_1171_lobby",
     "south": "zone_the_reach_873_1955"

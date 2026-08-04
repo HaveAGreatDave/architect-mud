@@ -1,5 +1,5 @@
 {
-  "description": "A single slot of warm light traces the seam of the stone monolith, washing the wet-room in an even, shadowless glow — no fixture visible anywhere.",
+  "description": "A single slot of warm light traces the seam of the stone monolith, washing the wet-room in an even, shadowless glow. No fixture visible anywhere.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

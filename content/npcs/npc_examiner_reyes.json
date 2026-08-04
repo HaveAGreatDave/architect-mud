@@ -128,7 +128,7 @@
     "\"Yoke's inverted. Pull back to climb. Learn it now, not at fifty feet.\"",
     "\"I've signed off worse pilots than you. A few of them even came back.\""
   ],
-  "description": "A trim, silver-haired woman in a faded flight instructor's jacket, a clipboard tucked under one arm and a headset slung round her neck. She watches the ramp the way a surgeon watches a heartbeat monitor — patient, unblinking, cataloguing every twitch. The wings stitched over her breast pocket are worn to threads.",
+  "description": "A trim, silver-haired woman in a faded flight instructor's jacket, a clipboard tucked under one arm and a headset slung round her neck. She watches the ramp the way a surgeon watches a heartbeat monitor: patient, unblinking, cataloguing every twitch. The wings stitched over her breast pocket are worn to threads.",
   "dialogue_tree": {
     "accepted": {
       "actions": [

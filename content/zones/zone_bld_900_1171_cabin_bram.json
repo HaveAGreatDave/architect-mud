@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "indoors",
-  "description": "More workshop than bedroom — a bench of scavenged parts, a half-built something lying open, and solder burns freckling the windowsill. The bed is clearly an afterthought.",
+  "description": "More workshop than bedroom: a bench of scavenged parts, a half-built something lying open, and solder burns freckling the windowsill. The bed is clearly an afterthought.",
   "exits": {
     "south": "zone_bld_900_1171_walk2"
   },

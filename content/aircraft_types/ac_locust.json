@@ -4,7 +4,7 @@
   "class": "locust",
   "cruise_speed": 2,
   "data": {
-    "feel": "Low-wing sport rocket; fast and nimble, but twitchy — rewards a light, quick hand."
+    "feel": "Low-wing sport rocket; fast and nimble, but twitchy. Rewards a light, quick hand."
   },
   "engines": 1,
   "fuel_burn_base": 1.4,

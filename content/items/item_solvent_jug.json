@@ -1,10 +1,10 @@
 {
-  "description": "A sloshing jug of industrial solvent, hazard diamond half peeled off. Cuts grease, paint, and — the label warns — you.",
+  "description": "A sloshing jug of industrial solvent, hazard diamond half peeled off. Cuts grease, paint, and, the label warns, you.",
   "flags": {},
   "id": "item_solvent_jug",
   "name": "solvent jug",
   "tags": {
-    "description": "A sloshing jug of industrial solvent, hazard diamond half peeled off. Cuts grease, paint, and — the label warns — you.",
+    "description": "A sloshing jug of industrial solvent, hazard diamond half peeled off. Cuts grease, paint, and, the label warns, you.",
     "material": true
   },
   "type": "material",

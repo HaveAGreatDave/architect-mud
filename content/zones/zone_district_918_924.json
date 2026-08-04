@@ -1,7 +1,7 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "description": "Deeper into the rust flats. The hardpan breaks into low scrub — grey brittle stuff that looks long dead until it shivers with no wind behind it. Bleached bone and scoured metal lie half-sunk in the dust. Off to the east, woodsmoke and the knock of hammers — a camp, where nothing should live.",
+  "description": "Deeper into the rust flats. The hardpan breaks into low scrub: grey brittle stuff that looks long dead until it shivers with no wind behind it. Bleached bone and scoured metal lie half-sunk in the dust. Off to the east, woodsmoke and the knock of hammers: a camp, where nothing should live.",
   "exits": {
     "east": "zone_district_919_924",
     "north": "zone_district_918_923",

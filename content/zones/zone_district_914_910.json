@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#25211b",
   "color": "#8ba36a",
-  "description": "A narrow storefront newsroom, its window stencilled COLDWATER SENTINEL — ALL THE NEWS THAT SURVIVES in gold gone to flake. Behind the glass a wall of feed-screens flickers through headlines faster than anyone could read, and a printer somewhere inside never stops chattering. A stack of today's edition sits in a wire cage by the door, chained to the frame.",
+  "description": "A narrow storefront newsroom, its window stencilled COLDWATER SENTINEL · ALL THE NEWS THAT SURVIVES in gold gone to flake. Behind the glass a wall of feed-screens flickers through headlines faster than anyone could read, and a printer somewhere inside never stops chattering. A stack of today's edition sits in a wire cage by the door, chained to the frame.",
   "exits": {
     "north": "zone_district_914_909",
     "south": "zone_sentinel_bullpen"

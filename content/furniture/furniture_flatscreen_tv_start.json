@@ -1,5 +1,5 @@
 {
-  "description": "A sleek wall-mounted flatscreen in a thin brushed-chrome bezel — a pre-Collapse luxury set, its flat glass free of the fishbowl bulge and phosphor lines of the salvaged CRTs everyone else watches. It still pulls a crisp signal.",
+  "description": "A sleek wall-mounted flatscreen in a thin brushed-chrome bezel: a pre-Collapse luxury set, its flat glass free of the fishbowl bulge and phosphor lines of the salvaged CRTs everyone else watches. It still pulls a crisp signal.",
   "flags": {
     "broadcast_device_type": "tv",
     "broadcast_receiver": true,

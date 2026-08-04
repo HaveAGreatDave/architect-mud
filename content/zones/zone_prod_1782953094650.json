@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#6d3fb5",
-  "description": "The control room, stepped above the floor behind a long slab of glass. A wall of monitors quilts the dark — program, preview, a rank of camera feeds, and one channel showing nothing but colour bars and a held tone. The media deck squats at the center of the desk, faders and jog wheel worn shiny, its transmitter light the only thing in here that ever hurries. Cold coffee rings map the console like a star chart.",
+  "description": "The control room, stepped above the floor behind a long slab of glass. A wall of monitors quilts the dark: program, preview, a rank of camera feeds, and one channel showing nothing but colour bars and a held tone. The media deck squats at the center of the desk, faders and jog wheel worn shiny, its transmitter light the only thing in here that ever hurries. Cold coffee rings map the console like a star chart.",
   "exits": {
     "down": "zone_studio_1782953094650"
   },

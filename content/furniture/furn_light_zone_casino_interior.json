@@ -1,5 +1,5 @@
 {
-  "description": "Banks of magenta and cyan neon race around the coffered ceiling, and a low chandelier of salvaged fibre-optics rains cold light over the felt. It never dims — the house wants you to see exactly how much you're losing.",
+  "description": "Banks of magenta and cyan neon race around the coffered ceiling, and a low chandelier of salvaged fibre-optics rains cold light over the felt. It never dims; the house wants you to see exactly how much you're losing.",
   "flags": {
     "is_light": true,
     "light_type": "overhead"

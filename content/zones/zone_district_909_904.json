@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "waterfront",
   "color": "#a98b63",
-  "description": "Part of the long pier reaching out into the channel — corrugated loading sheds, a rusted crane frozen mid-swing, rope thick as your arm coiled and rotting in the salt air. Below the boards, the water works at the pilings with the patience of something that has all the time in the world.",
+  "description": "Part of the long pier reaching out into the channel: corrugated loading sheds, a rusted crane frozen mid-swing, rope thick as your arm coiled and rotting in the salt air. Below the boards, the water works at the pilings with the patience of something that has all the time in the world.",
   "exits": {
     "east": "zone_district_910_904",
     "north": "zone_district_909_903",

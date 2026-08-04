@@ -133,7 +133,7 @@
     "\"No blinking lights, no auto-shoe. Just me, the cards, and a voice that carries.\"",
     "watches the doorway with the warm, patient eyes of a woman who's dealt to three generations of losers"
   ],
-  "description": "A trim, silver-haired woman in a high-collared black dress gone soft at the seams, a pair of reading glasses pushed up into her hair she never quite uses. Her hands are the tell — quick, sure, and entirely at home with a deck, shuffling and squaring without a downward glance. She deals the old way, by hand, and calls every card aloud in a low, carrying voice, as much for the players who can't see the felt as for the ones who can. They call her Margo. Everyone has, for longer than most of them have been alive.",
+  "description": "A trim, silver-haired woman in a high-collared black dress gone soft at the seams, a pair of reading glasses pushed up into her hair she never quite uses. Her hands are the tell: quick, sure, and entirely at home with a deck, shuffling and squaring without a downward glance. She deals the old way, by hand, and calls every card aloud in a low, carrying voice, as much for the players who can't see the felt as for the ones who can. They call her Margo. Everyone has, for longer than most of them have been alive.",
   "dialogue_tree": {
     "betting": {
       "options": [

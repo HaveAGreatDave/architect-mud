@@ -15,7 +15,7 @@
     }
   },
   "chitchat": [],
-  "description": "A still, weathered figure set into a niche beside the blast door where you'd have walked right past them in the dark. No augments, no chrome — just old fatigues, a scoped rifle held like an extension of the arms, and the flat, reading stare of someone who has decided whether to trust you before you've finished breathing in.",
+  "description": "A still, weathered figure set into a niche beside the blast door where you'd have walked right past them in the dark. No augments, no chrome: just old fatigues, a scoped rifle held like an extension of the arms, and the flat, reading stare of someone who has decided whether to trust you before you've finished breathing in.",
   "dialogue_tree": {
     "bye": {
       "options": [],

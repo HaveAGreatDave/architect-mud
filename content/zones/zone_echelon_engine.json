@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#0c0a08",
   "color": "#ffcf9a",
-  "description": "The engine room. The Echelon's propulsion core fills the space floor to ceiling — a seamless black cylinder ringed in cooling fins, generating both the thrust that moves the vessel and the power that feeds every screen and lock aboard. It runs so quietly that the silence itself is unnerving. The engineering corridor lies to the SOUTH.",
+  "description": "The engine room. The Echelon's propulsion core fills the space floor to ceiling: a seamless black cylinder ringed in cooling fins, generating both the thrust that moves the vessel and the power that feeds every screen and lock aboard. It runs so quietly that the silence itself is unnerving. The engineering corridor lies to the SOUTH.",
   "exits": {
     "south": "zone_echelon_engineering"
   },

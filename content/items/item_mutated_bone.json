@@ -1,10 +1,10 @@
 {
-  "description": "A femur that grew wrong — too many knobs, faintly warm to the touch. Someone in butchering might want it.",
+  "description": "A femur that grew wrong: too many knobs, faintly warm to the touch. Someone in butchering might want it.",
   "flags": {},
   "id": "item_mutated_bone",
   "name": "mutated bone",
   "tags": {
-    "description": "A femur that grew wrong — too many knobs, faintly warm to the touch. Someone in butchering might want it.",
+    "description": "A femur that grew wrong: too many knobs, faintly warm to the touch. Someone in butchering might want it.",
     "misc": true
   },
   "type": "misc",

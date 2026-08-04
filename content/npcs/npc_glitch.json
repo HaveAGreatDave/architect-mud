@@ -9,7 +9,7 @@
     "\"Somebody hijacked my own street cam last week. Respect. Cost me a fortune to get it back.\"",
     "\"Cameras are eyes. But if you want a *voice*, flash the pirate firmware, walk up to a station's media deck, and take the air. Whole city hears whatever you feed it.\""
   ],
-  "description": "Glitch is a wiry fence draped in a hoodie threaded with dead fibre-optics that catch the monitor glow. Their fingers never stop moving — flipping a chip, coiling cable, tapping a keyboard you can't see. Their eyes flick to every camera in the room before they land on you.",
+  "description": "Glitch is a wiry fence draped in a hoodie threaded with dead fibre-optics that catch the monitor glow. Their fingers never stop moving: flipping a chip, coiling cable, tapping a keyboard you can't see. Their eyes flick to every camera in the room before they land on you.",
   "dialogue_tree": {
     "end": {
       "options": [],

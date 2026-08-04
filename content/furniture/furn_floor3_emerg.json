@@ -1,5 +1,5 @@
 {
-  "description": "A single red emergency light over the stairwell mouth — the only bulb on the floor that still works. It stains everything the colour of a darkroom.",
+  "description": "A single red emergency light over the stairwell mouth, the only bulb on the floor that still works. It stains everything the colour of a darkroom.",
   "flags": {
     "interactions": [
       "switch"

@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Coldwater Power Plant — Turbine Hall.",
+  "description": "The face of Coldwater Power Plant, Turbine Hall.",
   "exits": {
     "east": "zone_coldwater_turbine_hall",
     "west": "zone_district_923_911"

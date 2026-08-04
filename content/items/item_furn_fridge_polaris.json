@@ -1,5 +1,5 @@
 {
-  "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open — like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track.",
+  "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open, like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track.",
   "flags": {
     "appliance_grade": "consumer",
     "container": 90000,
@@ -14,7 +14,7 @@
   "tags": {
     "appliance_grade": "consumer",
     "container": 90000,
-    "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open — like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track.",
+    "description": "Brushed alloy, a shelf array that reconfigures itself around whatever you put in it, and an interior glow that switches on a half-second before the door's even open, like it's been expecting you. The brass plate reads POLARIS EXECUTIVE, in a font too tasteful to be honest. It's polite. It's efficient. It is, in some deniable way, keeping track.",
     "preserves": "refrigerated"
   },
   "type": "furniture",

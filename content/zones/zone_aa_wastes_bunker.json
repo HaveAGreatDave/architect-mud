@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#221f18",
   "color": "#c0b088",
-  "description": "The bunker under the wastes nest — a half-buried shipping container sunk into the pasture and roofed with earth, close and hot and smelling of gun oil and dust. Belted ammunition hangs coiled from the walls; crates of scavenged spares and a bench of cannibalised parts fill the rest. Out here you fix the gun or you walk, so the gun gets fixed — dragged back to firing with spares and spite every time it's shot off its mount. A steel ladder climbs to the hatch and the open bed above.",
+  "description": "The bunker under the wastes nest: a half-buried shipping container sunk into the pasture and roofed with earth, close and hot and smelling of gun oil and dust. Belted ammunition hangs coiled from the walls; crates of scavenged spares and a bench of cannibalised parts fill the rest. Out here you fix the gun or you walk, so the gun gets fixed, dragged back to firing with spares and spite every time it's shot off its mount. A steel ladder climbs to the hatch and the open bed above.",
   "exits": {
     "up": "zone_district_891_907"
   },

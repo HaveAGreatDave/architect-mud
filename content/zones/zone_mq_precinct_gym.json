@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#3a5a8a",
-  "description": "A concrete box the precinct calls the exercise room and everyone else calls the pit. No windows, no mirrors, no music — one caged lamp, a bench bolted through the slab, and a bar loaded with plates poured out of the same concrete as the walls, because anything a man could unbolt is something a man could swing. The far wall is a tally in four different hands, each one counting something nobody wrote down. It smells of chalk, old sweat, and the drain next door. The cages are back <b>east</b>.",
+  "description": "A concrete box the precinct calls the exercise room and everyone else calls the pit. No windows, no mirrors, no music: one caged lamp, a bench bolted through the slab, and a bar loaded with plates poured out of the same concrete as the walls, because anything a man could unbolt is something a man could swing. The far wall is a tally in four different hands, each one counting something nobody wrote down. It smells of chalk, old sweat, and the drain next door. The cages are back <b>east</b>.",
   "exits": {
     "east": "zone_mq_precinct_holding"
   },

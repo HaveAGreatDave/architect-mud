@@ -4,7 +4,7 @@
   "id": "item_ward_permit",
   "name": "Ward 9 permit",
   "tags": {
-    "description": "A flimsy municipal permit, WARD NINE stamped across it in ink that's still a little wet and a signature that's mostly a shrug. It licenses you to do something — the box specifying what has been left blank, which everyone agrees is more convenient.",
+    "description": "A flimsy municipal permit, WARD NINE stamped across it in ink that's still a little wet and a signature that's mostly a shrug. It licenses you to do something; the box specifying what has been left blank, which everyone agrees is more convenient.",
     "stackable": true
   },
   "type": "misc",

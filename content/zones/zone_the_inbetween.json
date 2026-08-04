@@ -7,7 +7,7 @@
   ],
   "ambient_theme": null,
   "bg_color": "#0b0d1a",
-  "description": "There is no floor, but you are standing. There is no light, but you can see. You are a held breath in a room the size of everything — white on white on nothing, edges that refuse to be edges. A single chrome attendant waits with the patience of something that has done this a billion times, one hand resting on a humming terminal. It knows your name before you do. When it speaks, the sound arrives inside your skull a half-second before its mouth moves.",
+  "description": "There is no floor, but you are standing. There is no light, but you can see. You are a held breath in a room the size of everything: white on white on nothing, edges that refuse to be edges. A single chrome attendant waits with the patience of something that has done this a billion times, one hand resting on a humming terminal. It knows your name before you do. When it speaks, the sound arrives inside your skull a half-second before its mouth moves.",
   "exits": {
     "north": "zone_the_lattice"
   },

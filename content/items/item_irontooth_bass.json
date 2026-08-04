@@ -1,11 +1,11 @@
 {
-  "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish — and knuckles. Good eating out of the mid water, if you can land the weight.",
+  "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish, and knuckles. Good eating out of the mid water, if you can land the weight.",
   "flags": {},
   "id": "item_irontooth_bass",
   "name": "irontooth bass",
   "tags": {
     "consumable": true,
-    "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish — and knuckles. Good eating out of the mid water, if you can land the weight.",
+    "description": "A heavy, slab-sided bass with a jaw of blunt iron-grey teeth it grew to crack shellfish, and knuckles. Good eating out of the mid water, if you can land the weight.",
     "food_noun": "bass",
     "food_profile": "dense_meat",
     "needs_cooking": true,

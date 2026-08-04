@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#2a2721",
   "color": "#8ba36a",
-  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT — WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
+  "description": "A hardware shop with its stock spilling out under the awning: coils of rope, a barrel of rebar offcuts, a pallet of grey buckets. The sign reads NUTS TO THAT: WE HAVE IT, PROBABLY, and someone has amended PROBABLY in a different paint. The doorway smells of cut metal and machine oil from ten feet away.",
   "exits": {
     "north": "zone_bolt_shop",
     "south": "zone_district_915_909"

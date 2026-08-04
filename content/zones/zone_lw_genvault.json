@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1c1710",
   "color": "#e0a030",
-  "description": "A hot, deafening concrete box holding two old diesels and a bank of cells, on rubber mounts, behind a wall packed with rock wool. The Watch draw nothing from the city grid — not a watt, not ever, because a load where nobody lives is a fingerprint the Architect can read from a substation ledger. They burn fuel they have to carry down here by hand instead, and that is the single largest cost of being invisible.",
+  "description": "A hot, deafening concrete box holding two old diesels and a bank of cells, on rubber mounts, behind a wall packed with rock wool. The Watch draw nothing from the city grid: not a watt, not ever, because a load where nobody lives is a fingerprint the Architect can read from a substation ledger. They burn fuel they have to carry down here by hand instead, and that is the single largest cost of being invisible.",
   "exits": {
     "east": "zone_lw_deadfall",
     "north": "zone_lw_runners",

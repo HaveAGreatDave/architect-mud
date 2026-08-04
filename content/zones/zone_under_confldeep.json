@@ -2,12 +2,12 @@
   "ambient_events": [
     "Two deep lines meet and argue over which way the water should go.",
     "The current tugs at your legs with more strength than a sewer has any right to.",
-    "Far off, a slow heavy sound repeats — a drip the size of a fist."
+    "Far off, a slow heavy sound repeats: a drip the size of a fist."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#121a1d",
   "color": "#8fae9a",
-  "description": "A deep confluence where the flooded sublevel and the descending shaft pour together into the main southern run. The water is strong here, funnelled and cold, and the walls have gone from brick to raw poured tunnel — the boundary where the maintained system ends and the forgotten one begins.",
+  "description": "A deep confluence where the flooded sublevel and the descending shaft pour together into the main southern run. The water is strong here, funnelled and cold, and the walls have gone from brick to raw poured tunnel, the boundary where the maintained system ends and the forgotten one begins.",
   "exits": {
     "north": "zone_under_laddershaft",
     "south": "zone_under_groanpipe",

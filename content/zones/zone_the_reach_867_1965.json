@@ -1,14 +1,14 @@
 {
   "ambient_events": [
     "The gap between the rocks moans as the wind funnels through, rising and falling like breathing.",
-    "A rockfall somewhere above lets go — a rattle, a pause, then a stone hitting the hardpan.",
+    "A rockfall somewhere above lets go: a rattle, a pause, then a stone hitting the hardpan.",
     "In the shade between the sisters the temperature drops enough to raise the hair on your arms.",
     "Bootprints crowd the packed ground in the gap, all of them coming and going the same way.",
     "A bird you don't see calls once off the rock face, and the echo answers it twice.",
     "Grit spirals up the inside face of the eastern sister and pours over the top."
   ],
   "ambient_theme": "wasteland",
-  "description": "Two slabs of rock lean into each other out of the flat scrub, forty feet of them, weathered down to the colour of a bad tooth and close enough at the top to make a crooked doorway you could walk a truck through. Between them is the only real shade for miles, and the ground in that shade is packed hard and shiny from traffic. Old paint marks the base of the eastern sister — a number, mostly gone. The wind coming through the gap has a sound to it that carries a long way across the flats.",
+  "description": "Two slabs of rock lean into each other out of the flat scrub, forty feet of them, weathered down to the colour of a bad tooth and close enough at the top to make a crooked doorway you could walk a truck through. Between them is the only real shade for miles, and the ground in that shade is packed hard and shiny from traffic. Old paint marks the base of the eastern sister: a number, mostly gone. The wind coming through the gap has a sound to it that carries a long way across the flats.",
   "exits": {
     "east": "zone_the_reach_868_1965",
     "north": "zone_the_reach_867_1964",

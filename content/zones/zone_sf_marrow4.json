@@ -7,7 +7,7 @@
   ],
   "ambient_theme": "indoors",
   "bg_color": "#2b2b33",
-  "description": "A long, narrow retail unit stripped back to the render. There is a counter — bolted down, so it stayed — a run of empty shelving along one wall, and a floor safe sunk into the concrete at the back with its door hanging open. It was a print room for thirty years; the ceiling still carries the ammonia stain and the extractor housing nobody could get out. Through the whitewashed glass, the studio crowd goes past in both directions all day long.",
+  "description": "A long, narrow retail unit stripped back to the render. There is a counter, bolted down so it stayed, a run of empty shelving along one wall, and a floor safe sunk into the concrete at the back with its door hanging open. It was a print room for thirty years; the ceiling still carries the ammonia stain and the extractor housing nobody could get out. Through the whitewashed glass, the studio crowd goes past in both directions all day long.",
   "exits": {
     "south": "zone_district_913_908"
   },

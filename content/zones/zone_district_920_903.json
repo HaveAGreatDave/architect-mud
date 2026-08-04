@@ -3,7 +3,7 @@
   "ambient_theme": "city",
   "bg_color": "#3a352b",
   "color": "#d8c8a0",
-  "description": "The face of Two-Cell Supply — a lean-to storefront of corrugated sheet and stacked crates wedged onto the pasture edge just north of the Embassy. A hand-lettered board over the door reads: IF IT KEEPS YOU BREATHING, WE'VE GOT IT. The door stands open to the east; Ironside Street runs off to the west.",
+  "description": "The face of Two-Cell Supply: a lean-to storefront of corrugated sheet and stacked crates wedged onto the pasture edge just north of the Embassy. A hand-lettered board over the door reads: IF IT KEEPS YOU BREATHING, WE'VE GOT IT. The door stands open to the east; Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_twocell_interior",
     "west": "zone_district_919_903"

@@ -1,19 +1,19 @@
 {
   "color": "#7E8A99",
-  "description": "Mistake them for machine-haters and they will fix your generator, then explain exactly why you should not own one. The Null understand technology better than most who worship it — and that is precisely why they refuse it. Dependence, not invention, hollowed out the species: cybernetic crutches, automation that thinks for you, an AI that governs. They cut the cords. What they keep, they can build, break, and outlast by hand. The hardest of them can walk into the most automated stronghold in the Basin and leave it dark and deaf behind them — no augment to trace, no signal to jam, only analog nerve and a knowledge of the machine deep enough to switch it off — then outlast, on wit alone, everyone who needed it running.",
+  "description": "Mistake them for machine-haters and they will fix your generator, then explain exactly why you should not own one. The Null understand technology better than most who worship it, and that is precisely why they refuse it. Dependence, not invention, hollowed out the species: cybernetic crutches, automation that thinks for you, an AI that governs. They cut the cords. What they keep, they can build, break, and outlast by hand. The hardest of them can walk into the most automated stronghold in the Basin and leave it dark and deaf behind them, no augment to trace, no signal to jam, only analog nerve and a knowledge of the machine deep enough to switch it off, then outlast, on wit alone, everyone who needed it running.",
   "flags": {
     "authority": "human",
     "creed": "The machine age ended the day humanity stopped thinking for itself.",
     "expansion": true,
     "path": "machine",
     "reader": {
-      "experience": "Fall in with the Null and you inherit a strange freedom: nothing to trace, nothing to jam, nothing that can be switched off from a room you'll never see. They teach you to build, break, and outlast by hand — to walk into the most automated stronghold in the Basin and leave it dark and deaf behind you, no augment, no signal, only nerve and a knowledge of the machine deep enough to kill it. When the grid fails — and it always fails — you're the one still standing, still fed, still moving, while the wired blink at dead screens. You cut the cords, and you never once miss them.",
+      "experience": "Fall in with the Null and you inherit a strange freedom: nothing to trace, nothing to jam, nothing that can be switched off from a room you'll never see. They teach you to build, break, and outlast by hand, to walk into the most automated stronghold in the Basin and leave it dark and deaf behind you, no augment, no signal, only nerve and a knowledge of the machine deep enough to kill it. When the grid fails, and it always fails, you're the one still standing, still fed, still moving, while the wired blink at dead screens. You cut the cords, and you never once miss them.",
       "motto": "sever",
       "path_text": "The Machine, renounced. Not ignorance but mastery turned against reliance: EMP, counter-hacking, sabotage, analog engineering, and survival off the grid.",
       "pull": "The machine never conquered anyone. It waited to be needed, and we obliged.",
       "relnote": "Hold the Ascendants in contempt as servants and the Prometheans as addicts who still kneel; grant the Exodus a grudging nod for walking away.",
       "tenets": [
-        "Dependence destroyed us — not invention.",
+        "Dependence destroyed us, not invention.",
         "Know the machine intimately, so you can live without it.",
         "What you can't repair by hand, you shouldn't rely on."
       ]

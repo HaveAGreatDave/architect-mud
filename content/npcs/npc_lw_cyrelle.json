@@ -19,7 +19,7 @@
     "\"We don't want to burn the city down. We want the keys to it. There's a difference, and it's everything.\"",
     "\"Paper doesn't leak. Paper doesn't get hacked. Paper is why we're still here.\""
   ],
-  "description": "A tall woman with cropped iron-grey hair, standing at the great hand-drawn wall map with a grease pencil behind one ear. She has the calm of someone who plans in years, not days. When she looks at you it's not unkind, but it is complete — she is deciding what you're good for, and she is usually right.",
+  "description": "A tall woman with cropped iron-grey hair, standing at the great hand-drawn wall map with a grease pencil behind one ear. She has the calm of someone who plans in years, not days. When she looks at you it's not unkind, but it is complete: she is deciding what you're good for, and she is usually right.",
   "dialogue_tree": {
     "asc_accept": {
       "actions": [

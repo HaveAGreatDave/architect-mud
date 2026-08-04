@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#232019",
   "color": "#b8b0a0",
-  "description": "The bunker under the flak pit — a cramped rust-streaked box that smells of hot oil and old smoke. Crated shells stack to the ceiling beside a groaning hoist that feeds the gun above; a bench of cannibalised parts and half-mended mechanism runs the back wall. Slagworks built the gun ugly on purpose so it could take a hit and be dragged back to life down here. A steel ladder climbs to the buckled hatch and the open pit.",
+  "description": "The bunker under the flak pit: a cramped rust-streaked box that smells of hot oil and old smoke. Crated shells stack to the ceiling beside a groaning hoist that feeds the gun above; a bench of cannibalised parts and half-mended mechanism runs the back wall. Slagworks built the gun ugly on purpose so it could take a hit and be dragged back to life down here. A steel ladder climbs to the buckled hatch and the open pit.",
   "exits": {
     "up": "zone_district_891_905"
   },

@@ -1,5 +1,5 @@
 {
-  "description": "A single low lamp under a silk shade, throwing a close amber glow over the cushions. It never fully brightens — it was never meant to.",
+  "description": "A single low lamp under a silk shade, throwing a close amber glow over the cushions. It never fully brightens; it was never meant to.",
   "flags": {
     "interactions": [
       "switch"

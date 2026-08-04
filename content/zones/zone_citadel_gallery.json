@@ -10,7 +10,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#302b26",
   "color": "#c9b98e",
-  "description": "Two thousand brass-fronted doors in a room built for eight people at a time, stacked floor to ceiling down both walls in tiers, each with a number and a keyhole and absolutely no explanation. There's a viewing table in the middle under a lamp with a shade angled so the cameras can't see the tabletop — a courtesy Citadel advertises and does not, on the evidence, honour. The air is bone-dry and smells faintly of brass polish and old paper. A shift supervisor works the row with a clipboard, and does not look up when you come in, and knows precisely where you are. At the far end the floor gives way to a short flight of steel steps going down into the dark, closed off by a slab the size of a car door.",
+  "description": "Two thousand brass-fronted doors in a room built for eight people at a time, stacked floor to ceiling down both walls in tiers, each with a number and a keyhole and absolutely no explanation. There's a viewing table in the middle under a lamp with a shade angled so the cameras can't see the tabletop, a courtesy Citadel advertises and does not, on the evidence, honour. The air is bone-dry and smells faintly of brass polish and old paper. A shift supervisor works the row with a clipboard, and does not look up when you come in, and knows precisely where you are. At the far end the floor gives way to a short flight of steel steps going down into the dark, closed off by a slab the size of a car door.",
   "exits": {
     "down": "zone_citadel_vault",
     "south": "zone_citadel_vestibule"

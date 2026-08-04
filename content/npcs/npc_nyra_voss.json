@@ -35,7 +35,7 @@
     "taps two fingers against her forearm, once.",
     "exhales slowly, like she's filtering the air for useful information."
   ],
-  "description": "Nyra Voss moves like she belongs to the city's electrical current rather than its streets. She is composed, precise, and unnervingly aware of everything around her without ever appearing distracted. Her presence is understated but magnetic — less about overt display and more about controlled integration with technology and environment.",
+  "description": "Nyra Voss moves like she belongs to the city's electrical current rather than its streets. She is composed, precise, and unnervingly aware of everything around her without ever appearing distracted. Her presence is understated but magnetic: less about overt display and more about controlled integration with technology and environment.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
@@ -45,7 +45,7 @@
       "a plain bra and worn panties"
     ],
     "gift_trade": {
-      "accept_message": "Nyra takes the cigarette without a word. She sparks it, draws deep, and for the length of one exhale the controlled stillness cracks — shoulders dropping, iris ring dimming to something almost soft. \"You want to <em>feel</em> something in this city,\" she says, smoke leaking out around the words, \"you play this.\" A battered cassette turns up between her fingers and she presses it into your palm. \"<span class=\"msg-system\">PSYCHOTECH</span>. I wore three decks out on it. Gets in behind the ribs and rewires you — I felt it in my teeth the first time I heard it.\" The ring flickers, almost embarrassed at how much she meant that.",
+      "accept_message": "Nyra takes the cigarette without a word. She sparks it, draws deep, and for the length of one exhale the controlled stillness cracks: shoulders dropping, iris ring dimming to something almost soft. \"You want to <em>feel</em> something in this city,\" she says, smoke leaking out around the words, \"you play this.\" A battered cassette turns up between her fingers and she presses it into your palm. \"<span class=\"msg-system\">PSYCHOTECH</span>. I wore three decks out on it. Gets in behind the ribs and rewires you. I felt it in my teeth the first time I heard it.\" The ring flickers, almost embarrassed at how much she meant that.",
       "already_message": "Nyra exhales a thin line of smoke and shakes her head, the old calm back in place. \"Already hooked you up, sweetheart. One good song's enough to ruin a person. Go find your own frequencies now.\"",
       "give_item": "item_cigarettes",
       "once": true,

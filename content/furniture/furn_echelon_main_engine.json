@@ -1,5 +1,5 @@
 {
-  "description": "The Echelon's main engine — a vast block of turbined steel that fills the compartment floor to overhead, cowlings warm to the touch and thrumming with a deep, patient power. Polished brass inspection plates, a forest of colour-coded fuel and coolant lines, a bank of analog gauges trembling just off their pins. Everything aboard draws from here: the junction box on the bulkhead splits her output to the whole vessel, and the squat portable generator beside it stands by to carry the load if she ever falls silent.",
+  "description": "The Echelon's main engine: a vast block of turbined steel that fills the compartment floor to overhead, cowlings warm to the touch and thrumming with a deep, patient power. Polished brass inspection plates, a forest of colour-coded fuel and coolant lines, a bank of analog gauges trembling just off their pins. Everything aboard draws from here: the junction box on the bulkhead splits her output to the whole vessel, and the squat portable generator beside it stands by to carry the load if she ever falls silent.",
   "flags": {
     "destructible": true,
     "interactions": []

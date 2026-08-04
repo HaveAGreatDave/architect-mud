@@ -1,5 +1,5 @@
 {
-  "description": "A ruggedized signal repeater. Powered up, it punches your feeds through interference — deploy one where somebody likes to run a jammer.",
+  "description": "A ruggedized signal repeater. Powered up, it punches your feeds through interference. Deploy one where somebody likes to run a jammer.",
   "flags": {},
   "id": "item_relay_node",
   "name": "Relay Node",

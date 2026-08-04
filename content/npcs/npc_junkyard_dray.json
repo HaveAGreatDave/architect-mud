@@ -130,7 +130,7 @@
     "\"No, I don't want to know where you got it. Third column's for things I find interesting, and you're not.\"",
     "\"Copper's up. Copper's always up. Copper is the only honest man I know.\""
   ],
-  "description": "A small, wide woman in her sixties built along the general lines of the bales outside, with forearms that end in hands you would not want closing on anything of yours. Grey hair cut short with what were almost certainly the tin snips on the counter. One lens of her glasses is scratched to frost and she has never once been observed looking through it. She weighs everything twice — once on the scales and once by hefting it, and it is the second weight she writes down.",
+  "description": "A small, wide woman in her sixties built along the general lines of the bales outside, with forearms that end in hands you would not want closing on anything of yours. Grey hair cut short with what were almost certainly the tin snips on the counter. One lens of her glasses is scratched to frost and she has never once been observed looking through it. She weighs everything twice, once on the scales and once by hefting it, and it is the second weight she writes down.",
   "dialogue_tree": {
     "buy": {
       "options": [

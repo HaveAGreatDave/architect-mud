@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#2c2340",
   "color": "#eae6f0",
-  "description": "The top of the tower, behind a door that reads you before you reach it: the executive floor. Deep carpet, a bar no one is invited to, and a corner office with a view arranged so its occupant looks down on the whole arcology — which, one is reminded, they insure, and therefore in a sense own.",
+  "description": "The top of the tower, behind a door that reads you before you reach it: the executive floor. Deep carpet, a bar no one is invited to, and a corner office with a view arranged so its occupant looks down on the whole arcology, which, one is reminded, they insure, and therefore in a sense own.",
   "exits": {
     "in": "zone_halcyon_elevator"
   },

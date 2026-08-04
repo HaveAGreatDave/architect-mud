@@ -8,7 +8,7 @@
   "ambient_theme": "coast",
   "bg_color": "#0a0a0d",
   "color": "#dfe6ee",
-  "description": "A massive black luxury yacht sits motionless upon the water, its mirrored hull swallowing the light around it. Smoked glass stretches across the upper decks; subtle white running lights trace its silhouette against the Basin. The vessel is immaculate — too immaculate — as if maintained by unseen hands. It radiates quiet wealth and absolute authority. A gangway hatch leads IN to the boarding foyer.",
+  "description": "A massive black luxury yacht sits motionless upon the water, its mirrored hull swallowing the light around it. Smoked glass stretches across the upper decks; subtle white running lights trace its silhouette against the Basin. The vessel is immaculate, too immaculate, as if maintained by unseen hands. It radiates quiet wealth and absolute authority. A gangway hatch leads IN to the boarding foyer.",
   "exits": {
     "in": "zone_echelon_foyer"
   },

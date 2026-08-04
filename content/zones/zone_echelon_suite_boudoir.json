@@ -1,13 +1,13 @@
 {
   "ambient_events": [
-    "Behind the panelling, the suite is a muffled hush — you are further in than anyone is meant to reach.",
+    "Behind the panelling, the suite is a muffled hush; you are further in than anyone is meant to reach.",
     "Warm light pools over cushions and hanging silks, everything arranged for waiting.",
     "A faint, expensive perfume hangs close in the small space."
   ],
   "ambient_theme": "indoors",
   "bg_color": "#1a1016",
   "color": "#ffd9e6",
-  "description": "A concealed boudoir folded into the wall behind the owner's suite — no bigger than a large closet, and warmer than anywhere aboard. Layered silks, a heaped daybed, a low lamp that never fully brightens. This is where Roxy and Jolie keep themselves out of sight, waiting on exactly one person; nobody else is supposed to know the room is here. The false panel leads back OUT to the suite.",
+  "description": "A concealed boudoir folded into the wall behind the owner's suite: no bigger than a large closet, and warmer than anywhere aboard. Layered silks, a heaped daybed, a low lamp that never fully brightens. This is where Roxy and Jolie keep themselves out of sight, waiting on exactly one person; nobody else is supposed to know the room is here. The false panel leads back OUT to the suite.",
   "exits": {
     "out": "zone_echelon_suite"
   },

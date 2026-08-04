@@ -3,7 +3,7 @@
   "ambient_theme": "residential",
   "bg_color": "#332e28",
   "color": "#b89a72",
-  "description": "Stacked living units marketed as \"affordable modular habitation\" — landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
+  "description": "Stacked living units marketed as \"affordable modular habitation\": landlord for a concrete drawer you rent by the month, utilities extra, dignity not included. Someone's AC unit drips onto someone else's only window. The whole block breathes through one wheezing vent.",
   "exits": {
     "east": "zone_district_926_916",
     "north": "zone_district_925_915",

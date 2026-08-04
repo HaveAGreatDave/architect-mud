@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0,
-  "description": "A jolt of caffeine — sharpens you up for a while.",
+  "description": "A jolt of caffeine. Sharpens you up for a while.",
   "duration_seconds": 180,
   "effects": {
     "diuretic": 2.5,
@@ -11,7 +11,7 @@
     "onset_seconds": 0,
     "overdose": {
       "lethal": true,
-      "message": "Your heart trips, stutters, and seizes. Too much caffeine, too fast — your chest goes tight and cold, and the world tips over."
+      "message": "Your heart trips, stutters, and seizes. Too much caffeine, too fast: your chest goes tight and cold, and the world tips over."
     },
     "take_line": "You take a sip of {name}."
   },

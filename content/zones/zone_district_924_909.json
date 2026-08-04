@@ -3,7 +3,7 @@
   "ambient_theme": "urban",
   "bg_color": "#33383e",
   "color": "#cdb489",
-  "description": "A plain dry-goods warehouse, concrete-floored and echoing, racking bolted to the ceiling. DRY STORE 12 is painted on the roller door in fading yellow. Cheap to hold, steady to run — the bread and butter of anyone building a freight empire down here.",
+  "description": "A plain dry-goods warehouse, concrete-floored and echoing, racking bolted to the ceiling. DRY STORE 12 is painted on the roller door in fading yellow. Cheap to hold, steady to run: the bread and butter of anyone building a freight empire down here.",
   "exits": {
     "north": "zone_district_924_908",
     "south": "zone_yard_drystore"

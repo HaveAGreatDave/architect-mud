@@ -7,7 +7,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#141b19",
   "color": "#8fae9a",
-  "description": "The tunnel beneath Kessler Street carries the quiet waste of the blocks above — grey water, lost things, the occasional startled scurry at the edge of your light.",
+  "description": "The tunnel beneath Kessler Street carries the quiet waste of the blocks above: grey water, lost things, the occasional startled scurry at the edge of your light.",
   "exits": {
     "east": "zone_under_machsump",
     "south": "zone_under_923_911"

@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#2f9aa8",
-  "description": "A repair bench buried under cannibalised boards, ribbon cable, and dead handsets harvested for parts. The shop's junction box has been rewired with suspicious, loving care — bypass jumpers and a bootleg meter spliced across the mains. A small sealed hacking port sits below its latch.",
+  "description": "A repair bench buried under cannibalised boards, ribbon cable, and dead handsets harvested for parts. The shop's junction box has been rewired with suspicious, loving care: bypass jumpers and a bootleg meter spliced across the mains. A small sealed hacking port sits below its latch.",
   "exits": {
     "south": "zone_mq_amp_shop"
   },

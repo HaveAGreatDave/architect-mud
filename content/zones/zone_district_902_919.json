@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground — seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat. The Architect's Curtain seals the edge here — a floor-to-sky sheet of humming hard light. There is no way through but the South Gate.",
+  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat. The Architect's Curtain seals the edge here: a floor-to-sky sheet of humming hard light. There is no way through but the South Gate.",
   "exits": {
     "east": "zone_district_903_919",
     "north": "zone_district_902_918",

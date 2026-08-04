@@ -1,5 +1,5 @@
 {
-  "description": "A catering-grade nitrous cylinder meant for whipping cream. Decant it into bulbs. Raw material — legal to hold; what you do with it is not.",
+  "description": "A catering-grade nitrous cylinder meant for whipping cream. Decant it into bulbs. Raw material: legal to hold; what you do with it is not.",
   "flags": {
     "cook_tier": 1,
     "raw_of": "drug_nitrous"

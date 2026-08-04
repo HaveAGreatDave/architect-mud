@@ -18,7 +18,7 @@
     "\"Everything Kesh puts in you, I made. Remember that when she takes the credit.\"",
     "\"A body's just a machine that whines about it. Mine stopped whining years ago.\""
   ],
-  "description": "A broad man whose arms are more chrome than the rest of him, in a scarred fab apron over a heat-stained shirt. He talks to you the way he talks to the machines — plainly, and only when there's a point.",
+  "description": "A broad man whose arms are more chrome than the rest of him, in a scarred fab apron over a heat-stained shirt. He talks to you the way he talks to the machines: plainly, and only when there's a point.",
   "dialogue_tree": {
     "bye": {
       "options": [],

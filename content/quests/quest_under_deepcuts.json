@@ -7,7 +7,7 @@
   "objectives": [
     {
       "count": 3,
-      "desc": "Kill 3 deep mutants (bloated or rad) — try the Rust Gallery, south off the Throat.",
+      "desc": "Kill 3 deep mutants (bloated or rad). Try the Rust Gallery, south off the Throat.",
       "emotes": [
         "{who} sets their feet and squares up against something far too big to be down here.",
         "{who} drives a deep mutant back into the dark with a wet crack."
@@ -19,7 +19,7 @@
     },
     {
       "count": 2,
-      "desc": "Kill 2 gutter hounds — they run the Groaning Main, north off the Throat.",
+      "desc": "Kill 2 gutter hounds. They run the Groaning Main, north off the Throat.",
       "emotes": [
         "{who} puts a gutter hound down before it can circle behind."
       ],

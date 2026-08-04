@@ -9,7 +9,7 @@
   "id": "item_jerry_can_full",
   "name": "jerry can",
   "tags": {
-    "description": "A dented steel jerry can with a bayonet cap and a stubby pour spout, brimful and heavy — fuel sloshing to the neck and the whole thing reeking of hydrocarbons. Pour it into a generator, or crack the cap and top something off.",
+    "description": "A dented steel jerry can with a bayonet cap and a stubby pour spout, brimful and heavy, fuel sloshing to the neck and the whole thing reeking of hydrocarbons. Pour it into a generator, or crack the cap and top something off.",
     "fillable": 40,
     "unique": true
   },

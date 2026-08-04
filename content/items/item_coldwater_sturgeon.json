@@ -1,11 +1,11 @@
 {
-  "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good — but it's the roe the right buyer pays stupid money for.",
+  "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good, but it's the roe the right buyer pays stupid money for.",
   "flags": {},
   "id": "item_coldwater_sturgeon",
   "name": "coldwater sturgeon",
   "tags": {
     "consumable": true,
-    "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good — but it's the roe the right buyer pays stupid money for.",
+    "description": "An armoured relic ridged in bone plates, older than the singularity that ruined this bay. The deep water keeps only a few. The meat is good, but it's the roe the right buyer pays stupid money for.",
     "food_noun": "sturgeon",
     "food_profile": "dense_meat",
     "needs_cooking": true,

@@ -1,5 +1,5 @@
 {
-  "description": "A Franchise-issue credit chip. Its casing is stamped with a denomination and it carries whatever balance was loaded onto it — crack it open to flush that balance straight into your account.",
+  "description": "A Franchise-issue credit chip. Its casing is stamped with a denomination and it carries whatever balance was loaded onto it. Crack it open to flush that balance straight into your account.",
   "flags": {},
   "id": "item_credit_chip",
   "name": "credit chip",

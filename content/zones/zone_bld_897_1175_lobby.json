@@ -1,6 +1,6 @@
 {
   "ambient_events": [
-    "The ops radio coughs a burst of static and a clipped voice — a callsign, a heading — then goes back to hissing.",
+    "The ops radio coughs a burst of static and a clipped voice, a callsign, a heading, then goes back to hissing.",
     "Somewhere behind the tarps two people are haggling in low, flat voices; the numbers stop the second you glance over.",
     "A rope of avgas fumes drifts off the half-stripped flyer, sweet and headache-sharp in the cold hangar air.",
     "Dust hangs in the work-lights in long slow spirals, stirred by nothing you can feel.",
@@ -18,7 +18,7 @@
   "flags": {
     "hangar_interior": true,
     "hangar_ramp": "zone_the_reach_870_1958",
-    "intro_lore": "Welcome to the Reach — a smear of light in a hundred miles of scrub, a long haul off every road the Architect ever paved. Most come in by air, and Buzzard Field is the easy door; the overland way is a gauntlet of dust and dead ground that eats anyone who tries it soft. They'll take your fuel money and your silence and, if you're the right kind of wrong, they'll let you stay. The Reach doesn't trust outsiders; it survives on the ones it lets in. Whatever you're running, nobody here will ask to see it.",
+    "intro_lore": "Welcome to the Reach: a smear of light in a hundred miles of scrub, a long haul off every road the Architect ever paved. Most come in by air, and Buzzard Field is the easy door; the overland way is a gauntlet of dust and dead ground that eats anyone who tries it soft. They'll take your fuel money and your silence and, if you're the right kind of wrong, they'll let you stay. The Reach doesn't trust outsiders; it survives on the ones it lets in. Whatever you're running, nobody here will ask to see it.",
     "is_building": true,
     "is_interior": true,
     "lawless": true,

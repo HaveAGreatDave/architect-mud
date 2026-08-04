@@ -127,7 +127,7 @@
     "\"Doc's good. Doc's the only good thing on this row.\"",
     "\"You think this is bad, you shoulda seen the other guy.\""
   ],
-  "description": "A hunched patient on the bench cradling a wrapped hand, waiting his turn with the patience of the truly broke. The intake slip curled in his good hand reads HASK, B. — third visit this month, same hand.",
+  "description": "A hunched patient on the bench cradling a wrapped hand, waiting his turn with the patience of the truly broke. The intake slip curled in his good hand reads HASK, B. Third visit this month, same hand.",
   "dialogue_tree": {
     "bye": {
       "options": [],

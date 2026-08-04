@@ -4,7 +4,7 @@
   "id": "item_pawn_watch",
   "name": "dead man's watch",
   "tags": {
-    "description": "A heavy old wristwatch, still ticking, the strap worn to the shape of a wrist that isn't collecting it. Engraved on the back: TO A. — FOR THE LONG SHIFTS. In Hock We Trust priced it at a fraction of that sentiment.",
+    "description": "A heavy old wristwatch, still ticking, the strap worn to the shape of a wrist that isn't collecting it. Engraved on the back: TO A., FOR THE LONG SHIFTS. In Hock We Trust priced it at a fraction of that sentiment.",
     "stackable": false
   },
   "type": "misc",

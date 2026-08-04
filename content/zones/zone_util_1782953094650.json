@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "indoors",
   "bg_color": "#6d3fb5",
-  "description": "A low crete undercroft that hums. The building junction box hangs open-faced on the wall — a cliff of breakers labelled in three generations of tape — and a squat backup generator waits under a skin of dust for the grid to blink. Conduit climbs every wall toward the stage overhead; when the lamps up there pull full load, the whole room ticks like something cooling.",
+  "description": "A low crete undercroft that hums. The building junction box hangs open-faced on the wall, a cliff of breakers labelled in three generations of tape, and a squat backup generator waits under a skin of dust for the grid to blink. Conduit climbs every wall toward the stage overhead; when the lamps up there pull full load, the whole room ticks like something cooling.",
   "exits": {
     "up": "zone_studio_1782953094650"
   },

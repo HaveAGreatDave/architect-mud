@@ -4,7 +4,7 @@
   "id": "item_stim_jolt",
   "name": "Jolt",
   "tags": {
-    "description": "A dented can of Jolt — a legal fizzing stim the colour of a warning label, marketed at the terminally overbooked. Two of these and you can hear your own heartbeat narrating.",
+    "description": "A dented can of Jolt, a legal fizzing stim the colour of a warning label, marketed at the terminally overbooked. Two of these and you can hear your own heartbeat narrating.",
     "drug": true,
     "stackable": true
   },

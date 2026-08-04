@@ -65,7 +65,7 @@
     "\"You draw what you've earned. That's not meanness, it's arithmetic.\"",
     "\"Iron sights. No battery to die, no chip to spoof. Learn them and you'll never be blind.\""
   ],
-  "description": "A compact, unhurried woman with reading glasses on a cord and a whetstone never far from her hand. Behind her the shelves run in graded rows, every item cleaned and logged in a hand-kept ledger. She fits gear to people the way a good tailor fits a suit — a long look, a short question, and she knows what you should carry.",
+  "description": "A compact, unhurried woman with reading glasses on a cord and a whetstone never far from her hand. Behind her the shelves run in graded rows, every item cleaned and logged in a hand-kept ledger. She fits gear to people the way a good tailor fits a suit: a long look, a short question, and she knows what you should carry.",
   "dialogue_tree": {
     "bye": {
       "options": [],

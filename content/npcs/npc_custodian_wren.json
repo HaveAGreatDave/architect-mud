@@ -28,7 +28,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Meridian Continuity Group. Facilities and Heritage, Coldwater sub-district.\" She recites it like a prayer, and it is one. \"Before you ask: no, I have never met anyone from head office. No, I do not know where head office is. My wages arrive. My requisitions are approved — most of them, and the rejections come back with notes, which is how I know someone reads them.\" A thin, genuine pride. \"Somebody up there is still doing the work. I find that comforting. Most people find it upsetting, and I have never understood why.\""
+      "text": "\"Meridian Continuity Group. Facilities and Heritage, Coldwater sub-district.\" She recites it like a prayer, and it is one. \"Before you ask: no, I have never met anyone from head office. No, I do not know where head office is. My wages arrive. My requisitions are approved, most of them, and the rejections come back with notes, which is how I know someone reads them.\" A thin, genuine pride. \"Somebody up there is still doing the work. I find that comforting. Most people find it upsetting, and I have never understood why.\""
     },
     "insane": {
       "options": [
@@ -76,7 +76,7 @@
           "next": "bye"
         }
       ],
-      "text": "\"Name.\" She does not look up. The pen is already moving. \"Purpose of visit. Duration of stay. If you are here to loot the ruins, I need that in section four, not section two — section two is for salvage, and salvage requires a permit you do not have.\""
+      "text": "\"Name.\" She does not look up. The pen is already moving. \"Purpose of visit. Duration of stay. If you are here to loot the ruins, I need that in section four, not section two. Section two is for salvage, and salvage requires a permit you do not have.\""
     }
   },
   "faction": "ideology_ascendants",

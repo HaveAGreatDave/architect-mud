@@ -8,7 +8,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#1e1c18",
   "color": "#d6c9a4",
-  "description": "Past the last aisle of deeds, the shelving stops being municipal and starts being personal. Somebody has spent years quietly rehousing the things the Hall was never funded to keep: novels, pamphlets, three shelves of translated foreign misery, a run of periodicals nobody has claimed since the Collapse. The labels here are handwritten rather than stamped. There are two armchairs whose stuffing has been repaired more than once, a reading lamp with a burn mark on the shade, and a hand-lettered card taped to the end of the nearest shelf that says TAKE WHAT YOU NEED. BRING IT BACK IF YOU CAN. NO FINES. WE ARE PAST FINES.\n\nA squat brass terminal sits on a side table with a slot for a tablet and a note beside it reading SCAN, DON'T STEAL — IT'S FASTER AND I'LL KNOW.",
+  "description": "Past the last aisle of deeds, the shelving stops being municipal and starts being personal. Somebody has spent years quietly rehousing the things the Hall was never funded to keep: novels, pamphlets, three shelves of translated foreign misery, a run of periodicals nobody has claimed since the Collapse. The labels here are handwritten rather than stamped. There are two armchairs whose stuffing has been repaired more than once, a reading lamp with a burn mark on the shade, and a hand-lettered card taped to the end of the nearest shelf that says TAKE WHAT YOU NEED. BRING IT BACK IF YOU CAN. NO FINES. WE ARE PAST FINES.\n\nA squat brass terminal sits on a side table with a slot for a tablet and a note beside it reading SCAN, DON'T STEAL. IT'S FASTER AND I'LL KNOW.",
   "exits": {
     "south": "zone_records_stacks"
   },

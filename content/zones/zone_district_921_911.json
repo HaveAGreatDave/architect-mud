@@ -3,7 +3,7 @@
   "ambient_theme": "indoors",
   "bg_color": "#3a3550",
   "color": "#e8e0ff",
-  "description": "The face of Citadel Financial — a windowless slab of white marble set down in the grass like a tomb that changed its mind about being underground. No signage beyond the name cut into the lintel, no windows to break, and a flight of shallow steps going up to doors that are always open and never inviting. The grass comes right up to the bottom step; nobody ever paved the approach, because the people Citadel does business with don't arrive on foot. The way in is up the steps to the north. The wasteland runs south.",
+  "description": "The face of Citadel Financial: a windowless slab of white marble set down in the grass like a tomb that changed its mind about being underground. No signage beyond the name cut into the lintel, no windows to break, and a flight of shallow steps going up to doors that are always open and never inviting. The grass comes right up to the bottom step; nobody ever paved the approach, because the people Citadel does business with don't arrive on foot. The way in is up the steps to the north. The wasteland runs south.",
   "exits": {
     "north": "zone_citadel_hall",
     "south": "zone_district_921_912"

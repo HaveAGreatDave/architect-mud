@@ -1,6 +1,6 @@
 {
   "addiction_chance": 0.08,
-  "description": "Nobody sells this under a name. It is described, when it is described at all, by what people have noticed afterwards — and the noticing is always secondhand, always cheerful, and never complete.",
+  "description": "Nobody sells this under a name. It is described, when it is described at all, by what people have noticed afterwards, and the noticing is always secondhand, always cheerful, and never complete.",
   "duration_seconds": 900,
   "effects": {
     "instant": {

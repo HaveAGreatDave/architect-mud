@@ -1,5 +1,5 @@
 {
-  "description": "A pinhead mic on a strip of gecko-tape. Deaf to nothing loud — a gunshot, a scream, breaking glass — and it snitches instantly.",
+  "description": "A pinhead mic on a strip of gecko-tape. Deaf to nothing loud, not a gunshot, not a scream, not breaking glass, and it snitches instantly.",
   "flags": {},
   "id": "item_audio_sensor",
   "name": "Audio Bug",

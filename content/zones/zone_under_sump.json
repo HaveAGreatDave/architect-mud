@@ -16,7 +16,7 @@
   },
   "flags": {
     "district": "sewer",
-    "intro_lore": "This is where the city's runoff goes to be forgotten, and lately where its newest citizens go to bleed off their first real fear. The Under doesn't hate you — it simply doesn't account for you at all. Down here the only thing between you and the dark is two cells and a bulb. Keep it lit.",
+    "intro_lore": "This is where the city's runoff goes to be forgotten, and lately where its newest citizens go to bleed off their first real fear. The Under doesn't hate you; it simply doesn't account for you at all. Down here the only thing between you and the dark is two cells and a bulb. Keep it lit.",
     "is_interior": true,
     "scavenging_table_id": "scav_sewer"
   },

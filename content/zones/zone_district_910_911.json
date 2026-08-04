@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#8fd08a",
-  "description": "Green, level, and improbably cared-for — a square of park coaxed out of the wasteland grit. Paved paths thread between the flowerbeds, and a lamp stands ready for a dusk nobody wastes.",
+  "description": "Green, level, and improbably cared-for: a square of park coaxed out of the wasteland grit. Paved paths thread between the flowerbeds, and a lamp stands ready for a dusk nobody wastes.",
   "exits": {
     "east": "zone_district_911_911",
     "north": "zone_district_910_910",

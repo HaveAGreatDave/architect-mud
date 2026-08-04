@@ -64,7 +64,7 @@
     }
   },
   "chitchat": [],
-  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Citadel orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one — warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There is no UNIT 01, 02 or 03 anywhere in the building, and it will not be drawn on the subject.",
+  "description": "A chest-high machine on a fixed brass plinth behind the counter, enamelled Citadel orange over a brushed-steel armature, with a blank ceramic faceplate that lights from within when it speaks. It has two arms it never uses for anything except gesturing at the terminals, and it rotates rather than turns. Whoever specified it asked for a voice that would calm people down and got one: warm, unhurried, faintly amused, and entirely incapable of stopping mid-sentence. A small plate on the plinth reads TELLER UNIT 04. There is no UNIT 01, 02 or 03 anywhere in the building, and it will not be drawn on the subject.",
   "dialogue_tree": {
     "account": {
       "options": [
