@@ -2,7 +2,7 @@
   "blurb": "Cargo comes ashore here and asks no questions on the way in.",
   "color": "#1fb5aa",
   "id": "docks",
-  "landmark": "dock_wharf",
+  "landmark": "zone_district_926_908",
   "name": "the Docks",
   "prefixes": [
     "dock"

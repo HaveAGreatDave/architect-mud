@@ -2,7 +2,7 @@
   "blurb": "Everything is for sale here, and most of it has been sold before.",
   "color": "#e08a4a",
   "id": "commercial",
-  "landmark": "drum_shop",
+  "landmark": "zone_district_901_908",
   "name": "the Commercial Strip",
   "prefixes": [
     "drum",
