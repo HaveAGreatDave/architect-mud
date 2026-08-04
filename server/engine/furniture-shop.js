@@ -36,6 +36,16 @@ export function isConsumerFurniture(item) {
     && furnitureInteractions(item).some(v => CONSUMER_INTERACTIONS.includes(v));
 }
 
+// The `furniture.object_type` a placed piece is born as. A piece that HOLDS
+// things has to be a `container`: `loadContainerById` and every `stow`/`open`
+// path find a furniture container by `object_type='container'` and nothing
+// else, so a bought fridge inserted as plain 'furniture' was a fridge you could
+// never open — while the authored twin of the same appliance is a 'container'.
+// Derived from the capacity flag, so no item declares its own row type.
+export function furnitureObjectType(flags) {
+  return Number(flags?.container) > 0 ? 'container' : 'furniture';
+}
+
 // Random price factor. Most rolls sit within ±8%; ~1 in 6 widens to ±30% so a
 // purchase can occasionally be a real bargain (or a rip-off).
 function rollVariation() {
@@ -80,7 +90,7 @@ async function placeFurniture(item, base, zoneId, ownerId) {
   const id = `furn_${randomUUID().slice(0, 8)}`;
   await insertFurniture({
     id, zone_id: zoneId, name: item.name, description: item.description,
-    flags: JSON.stringify(flags), object_type: 'furniture', price: base,
+    flags: JSON.stringify(flags), object_type: furnitureObjectType(flags), price: base,
     origin: 'player', owner_id: ownerId ?? null,
     ...(Number.isFinite(draw) ? { power_draw_kw: draw } : {}),
   });

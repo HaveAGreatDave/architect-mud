@@ -9,6 +9,7 @@ import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory
 import { getCrimeStars } from '../../server/engine/crimes.js';
 import { world, streetExitFrom, isStreetLanding, isEnterableFacade } from '../../server/engine/world.js';
 import { getItem } from '../../server/engine/items-cache.js';
+import { furnitureObjectType } from '../../server/engine/furniture-shop.js';
 import { query } from '../../server/models/db.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -93,6 +94,37 @@ export default async function regress({ run, check, getPlayer }) {
   // over the LIVE world because each is a content shape rather than a code path,
   // and each failed QUIETLY: the case just reads empty (or free) and looks like
   // the feature was never built.
+  // ── Bought appliances actually work ────────────────────────────────────────
+  // A furniture ITEM is a template for a furniture ROW, and only `flags` makes
+  // that crossing — `placeFurniture` copies `item.flags` and nothing else. Every
+  // appliance below once carried its functional key in `tags` alone, so the
+  // authored copy of an appliance worked and the copy you PAID for was an inert
+  // prop. It failed silently and in the player's favour-costing direction: the
+  // shop takes the money, the piece arrives, and it simply never does its job.
+  {
+    const { rows: appliances } = await query(
+      `SELECT id, name, tags, flags FROM items WHERE type = 'furniture'`);
+    // Keys the engine reads off the placed ROW's flags. If an item advertises one
+    // in `tags` (which drives the shop shelf) it must also carry it in `flags`.
+    for (const key of ['stove_tier', 'preserves', 'container', 'microwave', 'brew_tier']) {
+      for (const it of appliances) {
+        if (it.tags?.[key] === undefined) continue;
+        check(`${it.id}: ${key} reaches the placed row`,
+          it.flags?.[key] !== undefined, `tags.${key}=${JSON.stringify(it.tags[key])} flags.${key}=undefined`);
+      }
+    }
+    // …and a piece that holds things is born a container, or `stow`/`open` — which
+    // find furniture containers by object_type and nothing else — never see it.
+    for (const it of appliances) {
+      if (!(Number(it.flags?.container) > 0)) continue;
+      check(`${it.id}: placed as a container row`,
+        furnitureObjectType(it.flags) === 'container', furnitureObjectType(it.flags));
+    }
+    check('non-holding furniture stays plain furniture',
+      furnitureObjectType({ interactions: ['sit'] }) === 'furniture'
+      && furnitureObjectType({ container: 0 }) === 'furniture', 'sentinel');
+  }
+
   {
     const { rows: cases } = await query(
       `SELECT id, flags FROM furniture WHERE jsonb_exists(flags, 'vendor_stock')`);

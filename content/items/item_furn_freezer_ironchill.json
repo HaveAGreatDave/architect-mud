@@ -1,9 +1,13 @@
 {
   "description": "A chest-high freezer case with a fogged glass lid and a compressor loud enough to hear from the sales floor. Frost has crept up the inside of the glass in a slow white curtain nobody scrapes anymore. Whatever's in here left the temperature charts behind a long time ago.",
   "flags": {
+    "appliance_grade": "commercial",
+    "container": 120000,
     "interactions": [
       "lean"
-    ]
+    ],
+    "power_draw_kw": 0.7,
+    "preserves": "frozen"
   },
   "id": "item_furn_freezer_ironchill",
   "name": "Ironchill Deep-Freeze Unit",

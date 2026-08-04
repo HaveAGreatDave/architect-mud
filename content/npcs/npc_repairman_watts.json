@@ -384,6 +384,10 @@
     {
       "item_id": "item_thermal_lance",
       "price": 8820
+    },
+    {
+      "item_id": "item_cryocell",
+      "price": 9200
     }
   ],
   "vendor_restock_rate": 1,

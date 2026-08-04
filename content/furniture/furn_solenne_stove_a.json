@@ -13,7 +13,7 @@
   "lumen_output": null,
   "name": "Hobline Cooktop",
   "object_type": "fixture",
-  "power_draw_kw": null,
+  "power_draw_kw": 0.3,
   "price": 0,
   "zone_id": "zone_solenne_apt_a"
 }

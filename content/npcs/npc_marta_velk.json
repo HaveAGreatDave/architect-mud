@@ -203,6 +203,10 @@
       "price": 150
     },
     {
+      "item_id": "item_furn_microwave_pulsebox",
+      "price": 160
+    },
+    {
       "item_id": "item_furn_vidicron_tv",
       "price": 185
     },
@@ -277,7 +281,7 @@
     ]
   },
   "vendor_shop_name": "Formerly Someone's",
-  "vendor_stock_size": 13,
+  "vendor_stock_size": 14,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_velk_shop"

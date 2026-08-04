@@ -1,9 +1,15 @@
 {
   "description": "A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others.",
   "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
     "interactions": [
       "watch"
-    ]
+    ],
+    "power_draw_kw": 0.14,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
   },
   "id": "item_furn_holo_projector",
   "name": "ghost screen TV",

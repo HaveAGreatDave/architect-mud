@@ -296,6 +296,50 @@
     {
       "item_id": "item_furn_syntron_tv",
       "price": 2100
+    },
+    {
+      "item_id": "item_furn_crt_relic",
+      "price": 280
+    },
+    {
+      "item_id": "item_furn_ruggedized_monitor",
+      "price": 1600
+    },
+    {
+      "item_id": "item_furn_holo_projector",
+      "price": 4100
+    },
+    {
+      "item_id": "item_furn_wallscreen",
+      "price": 5200
+    },
+    {
+      "item_id": "item_furn_microwave_pulsebox",
+      "price": 190
+    },
+    {
+      "item_id": "item_furn_stove_ember300",
+      "price": 1600
+    },
+    {
+      "item_id": "item_furn_stove_meridian_searmaster",
+      "price": 5800
+    },
+    {
+      "item_id": "item_furn_fridge_glacier400",
+      "price": 1800
+    },
+    {
+      "item_id": "item_furn_fridge_polaris",
+      "price": 6500
+    },
+    {
+      "item_id": "item_furn_fridge_ironchill",
+      "price": 5200
+    },
+    {
+      "item_id": "item_furn_freezer_ironchill",
+      "price": 6800
     }
   ],
   "vendor_restock_rate": 1,
@@ -344,7 +388,7 @@
     ]
   },
   "vendor_shop_name": null,
-  "vendor_stock_size": 10,
+  "vendor_stock_size": 14,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_furniture_store"

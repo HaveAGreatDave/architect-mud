@@ -3,7 +3,9 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "power_draw_kw": 0.3,
+    "stove_tier": "low"
   },
   "id": "item_furn_stove_hobline",
   "name": "Hobline Cooktop",

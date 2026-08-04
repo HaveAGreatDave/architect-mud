@@ -1,9 +1,15 @@
 {
   "description": "Military-spec display in matte black with rubber bumper surround. Screen scratched but perfectly legible. Rack has three bullet holes; the screen has none.",
   "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
     "interactions": [
       "watch"
-    ]
+    ],
+    "power_draw_kw": 0.06,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
   },
   "id": "item_furn_syntron_tv",
   "name": "Syntron TV",

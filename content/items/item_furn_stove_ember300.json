@@ -3,7 +3,9 @@
   "flags": {
     "interactions": [
       "lean"
-    ]
+    ],
+    "power_draw_kw": 0.4,
+    "stove_tier": "mid"
   },
   "id": "item_furn_stove_ember300",
   "name": "Ember 300 Range",

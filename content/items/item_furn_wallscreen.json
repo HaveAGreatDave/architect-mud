@@ -1,9 +1,15 @@
 {
   "description": "A paper-thin display that runs floor to ceiling, laminated directly to the wall surface. The image quality is immaculate.",
   "flags": {
+    "broadcast_device_type": "tv",
+    "broadcast_receiver": true,
     "interactions": [
       "watch"
-    ]
+    ],
+    "power_draw_kw": 0.18,
+    "tv": true,
+    "tv_dial_freq": 7,
+    "tv_skin": "flatscreen"
   },
   "id": "item_furn_wallscreen",
   "name": "neon slab TV",
