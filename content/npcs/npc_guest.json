@@ -53,10 +53,11 @@
     }
   },
   "chitchat": [],
-  "description": "Ophelia Crane, spokeswoman for a vending machine that has killed forty people. Tonight's guest on The Tonight Show with John Akerson.",
+  "description": "The chair KSAB books a stranger into. Between tapings there is nobody here to describe: the dressing room is dark, and the name on the door is a strip of tape that gets rewritten every afternoon.",
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "card_exclude": true,
     "studio_npc": true,
     "talkshow_guest": true
   },
@@ -65,7 +66,7 @@
   "hp": 20,
   "hp_max": 20,
   "id": "npc_guest",
-  "name": "Ophelia Crane",
+  "name": "Tonight's Guest",
   "npc_type": "npc",
   "sex": "male",
   "studio_zone_id": null,

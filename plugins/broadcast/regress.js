@@ -289,6 +289,36 @@ export default async function regress({ check, run, getPlayer }) {
   check('talkshow keeps each Q&A pair together (question then its own authored answer)',
     qi >= 0 && (cSays[qi + 1] || '').includes('MARKERA'), qi >= 0 ? (cSays[qi + 1] || 'nothing after') : 'no question');
 
+  // ── The guest is dressed in memory, never in the table ──────────────────────
+  // Which persona is on tonight is derived from the day bucket, and it used to be
+  // written to `npcs`. That put derived state in a CONTENT table: the row drifted
+  // from its file every night, and the next edit to that file made content:import
+  // refuse to run, reading a rename nobody made by hand as an unexported local edit.
+  {
+    const { query } = await import('../../server/models/db.js');
+    const { world } = await import('../../server/engine/world.js');
+    const before = (await query("SELECT name, description FROM npcs WHERE id='npc_guest'")).rows[0];
+    if (before) {
+      await _test.talkshowHeartbeat();
+      const after = (await query("SELECT name, description FROM npcs WHERE id='npc_guest'")).rows[0];
+      check('the nightly guest rename never touches the npcs row',
+        after.name === before.name && after.description === before.description,
+        `${before.name} -> ${after.name}`);
+      // The live object survives the pass with a usable name. Deliberately not
+      // asserting that it CHANGED: whether the heartbeat has anything to dress
+      // depends on a talk show being in a channel's live playlist, which this
+      // fixture does not guarantee, and a check that passes for the wrong reason
+      // is worse than no check. The dressing itself is proven by the show's own
+      // graph tests above; what needed pinning here is that it stays out of the DB.
+      const live = world.npcs.get('npc_guest');
+      check('the live guest object survives the rename pass with a name',
+        !!live && typeof live.name === 'string' && live.name.length > 0, live?.name);
+      // The authored row is the shell between tapings, not last Tuesday's booking.
+      check('the authored guest row is a placeholder, not a persona',
+        /guest/i.test(before.name || ''), before.name);
+    }
+  }
+
   // ── Applause is addressed to somebody ───────────────────────────────────────
   // One flat applause deck, dealt in order, meant the swell behind "Ladies and
   // gentlemen, {host}!" could be a line naming the GUEST — who at that point has

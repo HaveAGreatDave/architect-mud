@@ -2967,7 +2967,18 @@ async function talkshowHeartbeat() {
       const desc = persona.title
         ? `${persona.name}, ${persona.title}. Tonight's guest on ${item.broadcastName || 'the show'}.`
         : `${persona.name}, tonight's guest on ${item.broadcastName || 'the show'}.`;
-      await query(`UPDATE npcs SET name=$1, description=$2 WHERE id=$3`, [persona.name, desc, guestNpc]).catch(() => {});
+      // IN MEMORY ONLY, DELIBERATELY. Which persona is on tonight is derived state:
+      // a pure function of the day bucket and the ::guests pool, recomputed at boot
+      // and every minute after. Writing it to `npcs` put derived state in a CONTENT
+      // table, so the row drifted from its file every night — and the next time
+      // anybody edited that file, `content:import` refused to run, reading a rename
+      // nobody made by hand as an unexported local edit. (See the persistence tiers
+      // in docs/architecture.md: this is exactly the runtime write they warn about.)
+      //
+      // Nothing needs it persisted. The live object is what the room, dialogue and
+      // the show itself read; the heartbeat re-derives within 10s of a restart; and
+      // the one DB-side consumer, the card striker, has no business cutting a card
+      // of a shell that is a different person every day (hence card_exclude).
       const live = world.npcs.get(guestNpc);
       if (live) { live.name = persona.name; live.description = desc; }
       _talkshowRenamed.set(guestNpc, bucket);
@@ -8021,6 +8032,7 @@ export const _test = {
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
   assembleTalkshowGraph, talkshowAiring, talkshowPersonaFor, talkshowFill, makeTalkshowGuestGraph, ensureTalkshowSlot,
+  talkshowHeartbeat,   // regress drives the nightly rename by hand to prove it stays out of the DB
   talkshowDraw, splitTurns, topicPick, TALKSHOW_GUEST_CALL_LEAD,
   assembleMorningGraph, morningRunInKey,
   assembleGameshowGraph, gameshowAiring, gameshowDayBucket, gameshowPool, gameshowOpenRound,
