@@ -261,6 +261,57 @@ Everything here is a judgement about *listening*, which is why it is a human tas
 6. **Can you get back out?** Confirm Settings → Display Mode is reachable and
    operable, and that `displaymode visual` works typed blind.
 
+## The pre-login seam — choosing before you have a prompt
+
+Display Mode is server state, and for a long time the only way to set it was the
+tablet's Settings app or the `displaymode` verb. Both require a prompt. A brand-new
+character does not have one: registration drops you into The Inbetween, and the
+prologue's `player.login` handler pushes a **~50-second wordless cold open** as the
+first thing that happens. The mitigation was a line of prose naming `displaymode log`
+and the Escape key — which arrives *in the same tick as* the animation it's telling
+you how to leave.
+
+Worse, the prologue's own skip branch (`if (loggedPanelsSync(player))`) was dead by
+construction: it is gated on a first-login flag, so it only ever ran for a character
+who could not yet have chosen a rung. It read `undefined` every time.
+
+So the choice is now expressible **on the auth screen**, behind a collapsed
+`<details>` reading *"Playing with a screen reader?"* — a native disclosure, announced
+as one, keyboard-operable with no script, and invisible to everyone who doesn't need
+it. It rides the auth message and is applied in `finishAuth` well ahead of the
+`player.login` emit, which is what finally makes that skip branch load-bearing.
+
+| Piece | Where |
+| --- | --- |
+| The disclosure + radios | `#auth-display-details` in [client/game/index.html](../client/game/index.html) |
+| Read / persist / send | `pickedDisplayRung`, `restoreDisplayRungPref`, `rememberDisplayRung` in [client/game/js/net.js](../client/game/js/net.js) |
+| Applied on login | `seedDisplayRungIfUnset` from [presentation.js](../server/engine/presentation.js), called in `finishAuth` |
+| Applied at registration | `apiRegister` in [server/api/routes.js](../server/api/routes.js) — the path that actually matters, since the cold open fires on that account's first login |
+| Guarded by | [scripts/a11y/smoke.mjs](../scripts/a11y/smoke.mjs) + the seed cases in [plugins/tablet/regress.js](../plugins/tablet/regress.js) |
+
+### ⚠ Two rules, both load-bearing
+
+**Never clobber.** The rung is server state precisely so it follows you between
+machines. `seedDisplayRungIfUnset` applies the seed **only** when the stored value is
+`undefined`, so a library computer whose auth screen remembers nothing cannot reset
+somebody who chose `log` on their phone. An existing value always wins.
+
+**Untouched sends nothing.** No radio on that disclosure is pre-checked, and the
+client only ships a rung when one was actually selected. This is not cosmetic: seeding
+an explicit `visual` for every new account would collapse the [never-chosen fourth
+state](#tri-state--keep-the-fourth-state) that poker's called-aloud `textTable` felt
+reads. The a11y smoke test fails the build if a `checked` attribute ever appears in
+that block.
+
+Note also which auth paths carry it: **login and register only**. A reconnect is
+mid-session, where the server value is already authoritative.
+
+The local memory is its own `localStorage` key (`architect_display_rung_pref`),
+deliberately *not* part of `architect_settings` — that bag is per-character client
+chrome, and this has to be readable before we know who is logging in. It is only ever
+a seed and a memory; `auth_success` mirrors whatever the server settled on back into
+it, so the direction of authority never inverts.
+
 ## Escape hatches
 
 A rung is a default, never a lockout. A system may offer a per-moment override that

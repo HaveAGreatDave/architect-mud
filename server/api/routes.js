@@ -24,6 +24,8 @@ import vm from 'vm';
 import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mailerConfigProblem } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
+import { RUNGS as DISPLAY_RUNGS, DISPLAY_MODE_FLAG } from '../engine/presentation.js';
+import { setFlagById } from '../engine/flags.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
 import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality, DEFAULT_VENDOR_SCHEDULE } from '../engine/npc-personality.js';
 import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js';
@@ -490,7 +492,7 @@ async function dispatchApiRequest(url, method, body, headers) {
 }
 
 async function apiRegister(body) {
-  const {username,password,handle,email} = body||{};
+  const {username,password,handle,email,displayRung} = body||{};
   if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
   // Starting appearance is fully randomized here (sex included) so the chargen
   // terminal opens on a random look the player then reshapes — nothing is a fixed
@@ -524,6 +526,15 @@ async function apiRegister(body) {
     // No starting inventory — new souls arrive with nothing. The prologue is
     // the only way into the world now, and it hands out gear on its own terms
     // (see plugins/prologue's Broadcast-room kit drop).
+    // The auth screen's pre-login Display Mode choice, written before the
+    // character has ever had a prompt. This is the path that actually matters:
+    // the prologue's wordless ~50-second cold open fires on this account's very
+    // first login, and the rung has to already be on the row by then. Only a
+    // real selection reaches us (the disclosure has nothing checked by default),
+    // so the never-chosen state survives for everyone who left it alone.
+    if (DISPLAY_RUNGS.includes(displayRung)) {
+      await setFlagById(id, DISPLAY_MODE_FLAG, displayRung).catch(() => {});
+    }
     logActivity('char_created', handle);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     if (isEmailVerificationEnabled()) {

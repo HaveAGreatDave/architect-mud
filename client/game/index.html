@@ -202,6 +202,75 @@
 					>
 				</div>
 
+				<!-- THE PRE-LOGIN DISPLAY MODE SEAM.
+				     Display Mode is server state and normally lives in the tablet's
+				     Settings app — a tablet the prologue does not hand you for
+				     another ten minutes. Before this existed, the first thing a new
+				     character got was a ~50-second WORDLESS cold open, and the only
+				     notice that the game can be played entirely in text arrived in
+				     the same tick as the animation. So the choice has to be
+				     expressible here, before the first `player.login` fires.
+
+				     `<details>` on purpose: a native disclosure widget, announced
+				     as one, keyboard-operable with no script. Collapsed by default
+				     so a player who doesn't need it isn't asked to make a decision
+				     about a game they haven't seen yet.
+
+				     ⚠ NOTHING IS CHECKED, AND THAT IS LOAD-BEARING. The server
+				     keeps a fourth state — never-chosen — distinct from an explicit
+				     `visual` (server/engine/presentation.js), and poker opens an
+				     old-school called-aloud felt for a player who has never
+				     expressed a view. Pre-checking "Visual" here would destroy that
+				     for every account ever created. Untouched sends nothing at
+				     all. -->
+				<details class="auth-a11y" id="auth-display-details">
+					<summary id="auth-display-summary">
+						Playing with a screen reader?
+					</summary>
+					<fieldset class="auth-display-set">
+						<legend>Display Mode</legend>
+						<p class="auth-display-hint">
+							Leave this alone for the usual graphical game. You can
+							change it any time from the tablet later.
+						</p>
+						<label for="auth-display-textgames"
+							><input
+								type="radio"
+								name="auth-display"
+								id="auth-display-textgames"
+								value="textgames" />
+							<span
+								><b>Text</b> — the games come to you as characters.
+								You fly by command and play cards in the log. Maps
+								and hangars stay on screen.</span
+							></label
+						>
+						<label for="auth-display-log"
+							><input
+								type="radio"
+								name="auth-display"
+								id="auth-display-log"
+								value="log" />
+							<span
+								><b>Log</b> — everything written out in one stream
+								where you can scroll back. No panels at all, and the
+								opening animation is skipped.</span
+							></label
+						>
+						<label for="auth-display-visual"
+							><input
+								type="radio"
+								name="auth-display"
+								id="auth-display-visual"
+								value="visual" />
+							<span
+								><b>Visual</b> — graphics wherever a system has
+								them.</span
+							></label
+						>
+					</fieldset>
+				</details>
+
 				<button class="auth-btn" id="auth-submit">Enter</button>
 				<!-- role="alert" so a rejected login SPEAKS. It is the one message on
 				     this screen that must interrupt: the field it refers to has

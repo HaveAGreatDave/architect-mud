@@ -343,6 +343,42 @@ export default async function regress({ run, check, getPlayer }) {
       && (await pres.prefersLoggedPanelsOrDefault(p)) === false);
     p._flags.delete('flight_text_only');
 
+    // ── The pre-login seed ────────────────────────────────────────────────────
+    // The auth screen's "Playing with a screen reader?" disclosure, applied in
+    // finishAuth ahead of the `player.login` emit so the prologue's cold-open
+    // skip branch can actually see it. Its two rules are the whole contract.
+    // Run against the REAL fake player, not a bare probe object: the seed WRITES,
+    // and a write has to go through setFlag for the never-clobber read to mean
+    // anything. Restored to `visual` at the end so the suites below are unmoved.
+    {
+      const { clearFlag } = await import('../../server/engine/flags.js');
+      const sp2 = getPlayer();
+      await clearFlag('player', 'display_mode', sp2);
+
+      check('a never-chosen player takes the pre-login seed',
+        (await pres.seedDisplayRungIfUnset(sp2, 'log')) === 'log'
+        && (await pres.displayRung(sp2)) === 'log', String(await pres.displayRung(sp2)));
+
+      // NEVER CLOBBER: the rung follows you between machines, so a library
+      // computer whose auth screen remembers nothing must not reset somebody
+      // who chose `log` on their phone.
+      check('an existing rung always wins over the seed',
+        (await pres.seedDisplayRungIfUnset(sp2, 'visual')) === undefined
+        && (await pres.displayRung(sp2)) === 'log', String(await pres.displayRung(sp2)));
+
+      // UNTOUCHED SENDS NOTHING: nothing on that disclosure is pre-checked, so
+      // an untouched screen must leave the never-chosen fourth state intact —
+      // seeding `visual` for every new account would kill poker's textTable.
+      await clearFlag('player', 'display_mode', sp2);
+      await pres.seedDisplayRungIfUnset(sp2, undefined);
+      await pres.seedDisplayRungIfUnset(sp2, '');
+      await pres.seedDisplayRungIfUnset(sp2, 'sideways');
+      check('an untouched (or junk) seed leaves the player never-chosen',
+        (await pres.displayRung(sp2)) === undefined, String(await pres.displayRung(sp2)));
+
+      await run('displaymode visual');
+    }
+
     // The sync latch readers — used by the look renderer, which cannot await.
     check('sync readers agree with the latch',
       pres.loggedPanelsSync({ displayRung: 'log' }) === true

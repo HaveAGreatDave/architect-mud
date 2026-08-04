@@ -68,7 +68,7 @@ import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
-import { hydrateDisplayRung, loggedPanelsSync } from "./engine/presentation.js";
+import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset } from "./engine/presentation.js";
 import { briefRoom, markSeenZone } from "./engine/room-brief.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
@@ -857,7 +857,12 @@ async function handleAuth(ws, session, msg) {
 		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true }));
 		return;
 	}
-	await finishAuth(ws, session, rows[0]);
+	// The auth screen's pre-login Display Mode choice rides the auth message
+	// rather than following it as a command, because the prologue's
+	// `player.login` handler pushes the cold open and a command sent after
+	// auth_success arrives too late to skip it. Login and register only — a
+	// reconnect is mid-session, where the server value is already authoritative.
+	await finishAuth(ws, session, rows[0], msg.displayRung);
 }
 
 async function handleAuthToken(ws, session, msg) {
@@ -952,7 +957,10 @@ function loginBodyTempMessage(tempC) {
 	return 'You feel uncomfortably warm.';
 }
 
-async function finishAuth(ws, session, player) {
+// `seedDisplayRung` is the auth screen's pre-login choice, or undefined. It is
+// applied ONLY to a player who has never chosen one (seedDisplayRungIfUnset), so
+// it can never override a rung set from another device.
+async function finishAuth(ws, session, player, seedDisplayRung) {
 	const existingWs = playerSockets.get(player.id);
 	if (existingWs && existingWs !== ws) {
 		existingWs.send(
@@ -1088,6 +1096,12 @@ async function finishAuth(ws, session, player) {
 	// warm so this costs nothing. The room-look renderer runs on every move and
 	// cannot await a preference; it reads this latch instead (presentation.js
 	// loggedPanelsSync). Same discipline flight uses for `player.textTravel`.
+	// The pre-login seed lands BEFORE the latch, and both land ~160 lines ahead
+	// of the `player.login` emit — which is the whole point. The prologue reads
+	// `loggedPanelsSync` to decide whether to push the wordless cold open at all,
+	// and until this existed that branch was dead for the only players it was
+	// written for (a brand-new character cannot have set a rung yet).
+	await seedDisplayRungIfUnset(livePlayer, seedDisplayRung);
 	await hydrateDisplayRung(livePlayer);
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.

@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
-import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
+import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
@@ -291,6 +291,12 @@ const handlers = {
     if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
     if (msg.reconnectToken) sessionStorage.setItem('reconnect-token', msg.reconnectToken);
     state.myRole = state.player.role;
+    // Mirror the rung the SERVER settled on back into the auth screen's local
+    // memory. Note the direction: the server is the authority here, so a player
+    // who set `log` from their phone sees the auth screen agree with it on this
+    // machine next visit. Undefined (never chosen) clears the local pref, which
+    // is what keeps an untouched account untouched.
+    rememberDisplayRung(state.player.displayRung);
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');

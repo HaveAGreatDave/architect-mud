@@ -641,11 +641,15 @@ on('player.login', async ({ id }) => {
   // granted when the welcome broadcast ends), so nothing is lost. Skipping
   // straight to `beginArrival` is exactly what the client's own skip does.
   //
-  // ⚠ THIS IS BELT-AND-BRACES, NOT THE MITIGATION. This handler is gated on
-  // F_ARRIVED, so it runs once, for a character who has never had a prompt — and
-  // who therefore cannot have set a rung yet. It will read `undefined` almost
-  // every time. The thing that actually helps a first-time player is the LINE
-  // above naming Escape; this only covers a re-run (a wiped flag, a dev reset).
+  // THIS BRANCH IS LIVE, and it took a second seam to make it so. It is gated on
+  // F_ARRIVED, so it runs once, for a character who has never had a prompt — who
+  // for a long time could not possibly have set a rung yet, which made it read
+  // `undefined` almost every time and left the LINE above (naming Escape) doing
+  // all the real work. The auth screen now carries a "Playing with a screen
+  // reader?" disclosure whose choice rides the auth/register message and is
+  // applied in finishAuth ahead of this hook, so a player who picked `log`
+  // before they ever logged in genuinely never sees the cinematic. The line
+  // above still matters for everyone who didn't find the disclosure.
   if (loggedPanelsSync(player)) { beginArrival(player); return; }
   sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
   // Safety net for a client that never answers (an old cached bundle, a tab

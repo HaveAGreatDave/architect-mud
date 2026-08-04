@@ -154,6 +154,36 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   if (/Escape/.test(prologue)) ok('…and names the way to skip the opening sequence');
   else bad('the prologue no longer names Escape — a blind player sits through ~50s of silence with no stated way out');
 
+  // ── …and the way out BEFORE you have a prompt ─────────────────────────────
+  // The log line above arrives in the same tick as the ~50-second wordless cold
+  // open, so it tells you how to leave a sequence that is already playing. The
+  // auth screen's disclosure is the only place the choice can be made EARLY
+  // enough for the prologue's skip branch to see it. No visible symptom if it
+  // disappears — a screen-reader player just silently gets the cinematic again.
+  if (/id="auth-display-details"/.test(html)) ok('the auth screen offers Display Mode before login');
+  else bad('the pre-login Display Mode disclosure is gone — the choice can no longer be made before the cold open plays');
+
+  for (const id of ['auth-display-textgames', 'auth-display-log', 'auth-display-visual']) {
+    if (!new RegExp(`<label for="${id}"`).test(html)) bad(`#${id} has no associated label — it is a radio on the first screen of the game`);
+  }
+  if (/<summary id="auth-display-summary">/.test(html)) ok('…behind a named disclosure a screen reader can find');
+  else bad('the disclosure has lost its summary — the control is unreachable by keyboard');
+
+  // ⚠ NOTHING MAY BE PRE-CHECKED. An explicit `visual` for every new account
+  // destroys presentation.js's never-chosen fourth state, which poker's
+  // called-aloud felt reads. Untouched must send nothing at all.
+  const displaySet = html.slice(html.indexOf('id="auth-display-details"'), html.indexOf('</details>'));
+  if (/name="auth-display"[\s\S]{0,120}?checked/.test(displaySet)) {
+    bad('a pre-login Display Mode radio is pre-checked — this collapses the never-chosen state for every account ever created');
+  } else ok('…with nothing pre-checked, so an untouched account stays never-chosen');
+
+  const net = readFileSync('client/game/js/net.js', 'utf8');
+  if (/displayRung/.test(net)) ok('the choice is forwarded with the auth message');
+  else bad('net.js no longer sends displayRung — the auth screen control is decorative');
+  const server3 = readFileSync('server/index.js', 'utf8');
+  if (/seedDisplayRungIfUnset/.test(server3)) ok('…and the server seeds it before player.login fires');
+  else bad('finishAuth no longer seeds the pre-login rung — the prologue will read undefined and play the cinematic anyway');
+
   const tablet = readFileSync('plugins/tablet/index.js', 'utf8');
   const dm = tablet.slice(tablet.indexOf('displaymode:'), tablet.indexOf('displaymode:') + 400);
   if (/noTablet/.test(dm)) bad('`displaymode` has become tablet-gated — the one setting a player needs BEFORE they are given a tablet');

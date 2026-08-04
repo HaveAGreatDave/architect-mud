@@ -25,6 +25,7 @@ import {
 	showVerifyScreen,
 	closeConnection,
 	sendRaw,
+	restoreDisplayRungPref,
 } from "./net.js";
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
@@ -300,6 +301,11 @@ if (_savedUser && _savedPass) {
 	// Auto-login is in flight (see net.js onOpen) — hide the form to avoid a flash
 	document.getElementById("auth-screen").style.display = "none";
 }
+
+// Re-check the Display Mode radio this machine last used, and open the
+// disclosure if there was one. Runs before any auto-login hides the screen,
+// which is fine — nothing here sends anything.
+restoreDisplayRungPref();
 
 document.getElementById("auth-submit").addEventListener("click", doAuth);
 document.getElementById("auth-password").addEventListener("keydown", (e) => {

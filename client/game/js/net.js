@@ -39,7 +39,7 @@ export function initNet(messageHandler) {
           const username = localStorage.getItem('mud_remember_user');
           const password = localStorage.getItem('mud_remember_pass');
           if (username && password) {
-            _connection.send({ type: 'auth', username, password });
+            _connection.send({ type: 'auth', username, password, displayRung });
           }
         }
       }
@@ -183,6 +183,47 @@ export function attemptAutoReauth() {
   document.getElementById('auth-screen').style.display = 'flex';
 }
 
+// ── Pre-login Display Mode ───────────────────────────────────────────────────
+// Its OWN localStorage key, deliberately not part of `architect_settings`: that
+// bag is per-character client chrome, and this has to be readable before we know
+// who is logging in. The server is the authority the moment you're authenticated
+// (see finishAuth) — this is only ever a seed and a memory of what you last
+// picked on this machine.
+const DISPLAY_PREF_KEY = 'architect_display_rung_pref';
+const RUNGS = ['visual', 'textgames', 'log'];
+
+// The radio the player actually chose, or null. Null means UNTOUCHED, and that
+// travels all the way to the server as "send nothing" — an explicit `visual`
+// would collapse the never-chosen state that poker's called-aloud felt reads.
+function pickedDisplayRung() {
+  const el = document.querySelector('input[name="auth-display"]:checked');
+  const v = el && el.value;
+  return RUNGS.includes(v) ? v : null;
+}
+
+// Restore the last choice into the radios, and open the disclosure if there is
+// one — a player who picked `log` last time should not have to go hunting for
+// the link again to confirm it stuck.
+export function restoreDisplayRungPref() {
+  let v = null;
+  try { v = localStorage.getItem(DISPLAY_PREF_KEY); } catch { /* private mode */ }
+  if (!RUNGS.includes(v)) return;
+  const el = document.querySelector(`input[name="auth-display"][value="${v}"]`);
+  if (!el) return;
+  el.checked = true;
+  const details = document.getElementById('auth-display-details');
+  if (details) details.open = true;
+}
+
+// Called on auth_success with the rung the server actually settled on, so the
+// auth screen reflects reality next visit rather than a stale local guess.
+export function rememberDisplayRung(rung) {
+  try {
+    if (RUNGS.includes(rung)) localStorage.setItem(DISPLAY_PREF_KEY, rung);
+    else localStorage.removeItem(DISPLAY_PREF_KEY);
+  } catch { /* private mode */ }
+}
+
 export function doAuth() {
   const username = document.getElementById('auth-username').value.trim();
   const password = document.getElementById('auth-password').value;
@@ -217,6 +258,13 @@ export function doAuth() {
     localStorage.removeItem('mud_remember_pass');
   }
 
+  // Ride the auth message rather than following it. A `displaymode` command sent
+  // after auth_success loses the race: the prologue's `player.login` handler has
+  // already pushed the cold open by then, which is the one thing this exists to
+  // let a screen-reader player skip.
+  const displayRung = pickedDisplayRung();
+  if (displayRung) rememberDisplayRung(displayRung);
+
   errEl.textContent = '';
   state.authPending = true;
   submitBtn.disabled = true;
@@ -234,7 +282,7 @@ export function doAuth() {
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, handle, email }),
+      body: JSON.stringify({ username, password, handle, email, displayRung }),
     }).then(r => r.json()).then(data => {
       clearTimeout(state.authTimeout);
       state.authPending = false;
@@ -251,7 +299,7 @@ export function doAuth() {
           : 'Account created. Check your email for a verification link before logging in.');
         return;
       }
-      _connection.send({ type: 'auth', username, password });
+      _connection.send({ type: 'auth', username, password, displayRung });
     }).catch(err => {
       clearTimeout(state.authTimeout);
       state.authPending = false;
@@ -261,7 +309,7 @@ export function doAuth() {
       errEl.style.color = 'var(--red)';
     });
   } else {
-    _connection.send({ type: 'auth', username, password });
+    _connection.send({ type: 'auth', username, password, displayRung });
   }
 }
 

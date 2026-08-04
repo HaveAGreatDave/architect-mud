@@ -117,6 +117,31 @@ export async function setDisplayRung(player, rung) {
   return r;
 }
 
+// ── The pre-login seed ───────────────────────────────────────────────────────
+// The auth screen carries a "Playing with a screen reader?" disclosure, because
+// this preference lives in a tablet the prologue does not hand you for another
+// ten minutes — and the first thing a new character gets is a ~50-second
+// WORDLESS cold open. The choice rides the auth/register message and lands here,
+// from finishAuth, ahead of the `player.login` emit the prologue listens on.
+//
+// TWO RULES, both load-bearing:
+//
+//  · NEVER CLOBBER. The rung is server state precisely so it follows you between
+//    machines. Somebody who set `log` on their phone must not be reset by a
+//    library computer whose auth screen remembers nothing, so an existing value
+//    always wins and the seed is dropped on the floor.
+//  · UNTOUCHED SENDS NOTHING. No radio on that disclosure is pre-checked, so an
+//    untouched screen arrives here as undefined. Seeding an explicit `visual`
+//    for every new account would collapse the never-chosen fourth state above —
+//    the one poker's called-aloud felt reads.
+//
+// Returns the rung it actually applied, or undefined if it declined to.
+export async function seedDisplayRungIfUnset(player, seed) {
+  if (!player?.id || !RUNGS.includes(seed)) return undefined;
+  if ((await displayRung(player)) !== undefined) return undefined;
+  return await setDisplayRung(player, seed);
+}
+
 // Latch at login (called from finishAuth alongside the other hydrations) so the
 // synchronous readers below never have to await. Undefined stays undefined.
 export async function hydrateDisplayRung(player) {
