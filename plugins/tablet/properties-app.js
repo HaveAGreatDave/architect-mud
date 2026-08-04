@@ -46,7 +46,7 @@ async function buildScreen(player, screenId, params) {
       detail: {
         name: p.name, desc: p.building,
         rows: [
-          { label: 'Rent', value: `${p.rentCost}c` },
+          { label: 'Rent', value: `${p.rentCost}₵` },
           { label: 'Rent due', value: p.rentDue || 'n/a' },
           { label: 'Forcefield', value: p.forcefield ? 'Active' : 'Inactive' },
           { label: 'Home set', value: player.home_zone === p.id ? 'Yes' : 'No' },
@@ -59,7 +59,7 @@ async function buildScreen(player, screenId, params) {
   return {
     view: 'list',
     breadcrumb: [],
-    items: list.map(p => ({ id: p.id, label: p.name, sub: `${p.building ? p.building + ' · ' : ''}${p.rentCost}c/wk` })),
+    items: list.map(p => ({ id: p.id, label: p.name, sub: `${p.building ? p.building + ' · ' : ''}${p.rentCost}₵/wk` })),
   };
 }
 

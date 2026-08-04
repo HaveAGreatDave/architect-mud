@@ -985,7 +985,7 @@ async function npcEditForm(rec, isNew) {
 
         <div class="field">
           <label>Bank Balance</label>
-          <div style="margin-top:4px;font-size:13px;color:var(--accent2)">${vendorBankCredits.toLocaleString()}c <span style="font-size:11px;color:var(--text-dim)">— deposited earnings (read-only)</span></div>
+          <div style="margin-top:4px;font-size:13px;color:var(--accent2)">${vendorBankCredits.toLocaleString()}₵ <span style="font-size:11px;color:var(--text-dim)">— deposited earnings (read-only)</span></div>
         </div>
       </div>
     </div>

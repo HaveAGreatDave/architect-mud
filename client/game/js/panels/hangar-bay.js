@@ -285,9 +285,9 @@ function charterScreen() {
     else if (active) cls += ' hb-tile-dest' + (t.charterAirfield ? ' hb-tile-airfield' : '');
     else cls += ' hb-tile-dim';
     const label = t.charterHere ? '◆' : t.charterAirfield ? '✈' : (t.icon || '');
-    return `<div class="${cls}" style="grid-column:${gx};grid-row:${gy}" ${active ? `data-hb-dest="${t.id}"` : ''} title="${esc(t.name)}${fare != null && active ? ` — ${fare}c` : ''}">
+    return `<div class="${cls}" style="grid-column:${gx};grid-row:${gy}" ${active ? `data-hb-dest="${t.id}"` : ''} title="${esc(t.name)}${fare != null && active ? ` — ${fare}₵` : ''}">
       <span class="hb-tile-icon">${label}</span>
-      ${active && fare != null ? `<span class="hb-tile-fare">${fare}c</span>` : ''}
+      ${active && fare != null ? `<span class="hb-tile-fare">${fare}₵</span>` : ''}
     </div>`;
   }).join('');
 
@@ -395,7 +395,7 @@ function paintTabHtml(c, cat, dirty) {
     <button class="hb-subtab${pt === 'schemes' ? ' hb-subtab-active' : ''}" data-paint-tab="schemes">Schemes</button>
   </div>`;
   const applyRow = `<div class="hb-apply-row">
-    <button class="hb-btn hb-accent" data-act="paint-apply"${dirty ? '' : ' disabled'}>Apply · ${c.paintCost}c</button>
+    <button class="hb-btn hb-accent" data-act="paint-apply"${dirty ? '' : ' disabled'}>Apply · ${c.paintCost}₵</button>
     <button class="hb-btn" data-act="paint-revert"${dirty ? '' : ' disabled'}>Revert</button>
   </div>`;
   let panel;
@@ -444,8 +444,8 @@ function hullTabHtml(c) {
        <div class="hb-repair-row"><button class="hb-btn hb-accent" data-act="repair">Square her away (free)</button></div>`
     : pct >= 98 ? `<div class="hb-note">No work to book.</div>`
     : `<div class="hb-repair-row">
-        <button class="hb-btn" data-act="repair">DIY repair · ~${c.diyCost}c</button>
-        <button class="hb-btn hb-accent" data-act="repair-pro">Shop repair · ${c.shopCost}c (guaranteed)</button>
+        <button class="hb-btn" data-act="repair">DIY repair · ~${c.diyCost}₵</button>
+        <button class="hb-btn hb-accent" data-act="repair-pro">Shop repair · ${c.shopCost}₵ (guaranteed)</button>
       </div>`;
   return gauge + acts;
 }
@@ -549,7 +549,7 @@ function kitsTabHtml(c) {
         <div class="hb-kit-detail-name">${esc(sel.name)}</div>
         <div class="hb-kit-blurb">${esc(sel.blurb)}</div>
         <div class="hb-kit-detail-act">
-          ${sel.owned ? '<span class="hb-kit-tag">✓ FITTED</span>' : `<button class="hb-btn hb-accent" data-kit="${esc(sel.id)}">Install · ${sel.price}c</button>`}
+          ${sel.owned ? '<span class="hb-kit-tag">✓ FITTED</span>' : `<button class="hb-btn hb-accent" data-kit="${esc(sel.id)}">Install · ${sel.price}₵</button>`}
         </div>
       </div>
     </div>`;

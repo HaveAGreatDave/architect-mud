@@ -123,7 +123,7 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
   if (!type) return err("There's no claimable business here.");
   if (getVenture(zone.id)) return err('This business is already owned.');
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < CLAIM_FEE) return err(`Taking over this business costs ${CLAIM_FEE}c from the treasury — it has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < CLAIM_FEE) return err(`Taking over this business costs ${CLAIM_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
   const vendor = getZoneNpcs(zone.id).find(n => n.vendor_inventory?.length) || null;
   const id = randomUUID();
   const res = await withTransaction(async (q) => {
@@ -133,7 +133,7 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
       [id, org.id, zone.id, type, vendor?.id || null]);
     return { treasury: dec.rows[0].treasury };
   });
-  if (!res) return err(`The treasury doesn't have ${CLAIM_FEE}c.`);
+  if (!res) return err(`The treasury doesn't have ${CLAIM_FEE}₵.`);
   await reloadVenture(zone.id);
   await reloadOrg(org.id);
   emit('corp.asset.claimed', { orgId: org.id, zoneId: zone.id, type });
@@ -142,7 +142,7 @@ async function cmdClaimAsset(player, broadcast, pushConsole) {
   const cut = vendor ? `, plus a ${Math.round(def.activeShare * 100)}% cut of every sale at ${esc(vendor.name)}` : '';
   return {
     type: 'corp_asset',
-    message: `<b>${esc(org.name)}</b> takes over the <b>${esc(def.label)}</b> here for ${CLAIM_FEE}c. It runs on its own — <b>+${def.passiveFloor}/day</b> to the treasury${cut}. Treasury: ${res.treasury}c.`,
+    message: `<b>${esc(org.name)}</b> takes over the <b>${esc(def.label)}</b> here for ${CLAIM_FEE}₵. It runs on its own — <b>+${def.passiveFloor}/day</b> to the treasury${cut}. Treasury: ${res.treasury}₵.`,
   };
 }
 

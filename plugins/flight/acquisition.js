@@ -38,7 +38,7 @@ async function listTypes(kind, field) {
 }
 
 function typeLine(t, kind) {
-  const price = kind === 'buy' ? `${t.price_buy}c` : `${t.price_rent_hourly}c/hr`;
+  const price = kind === 'buy' ? `${t.price_buy}₵` : `${t.price_rent_hourly}₵/hr`;
   return `<b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${price} · <span class="action-link" data-action="cmd" data-cmd="${kind} ${t.id}">${kind}</span>`;
 }
 
@@ -119,7 +119,7 @@ async function acquire(args, raw, player, kind) {
   if (!t) return { type: 'emote', message: `They don't ${kind} a "${wanted}" here. Type <b>${kind}</b> to see the list.` };
 
   const price = kind === 'buy' ? t.price_buy : t.price_rent_hourly;
-  if ((player.credits || 0) < price) return { type: 'emote', message: `That's ${price}c — you're short.` };
+  if ((player.credits || 0) < price) return { type: 'emote', message: `That's ${price}₵ — you're short.` };
   if (await ownedCount(player.id, kind === 'buy') >= MAX_OWNED) return { type: 'emote', message: kind === 'buy'
     ? 'You already own the most aircraft you can. Sell or scrap one before buying another.'
     : "You've got too many aircraft out as it is. Return or scrap one first." };
@@ -146,13 +146,13 @@ async function acquire(args, raw, player, kind) {
     sendToPlayer(player.id, {
       type: 'confirm',
       title: '📄 Halcyon Assurance',
-      prompt: `Cover your new ${t.name} before her first flight? The premium is ${premium}c for 30 days; a covered write-off pays out most of her value, less a small excess. Decline and an uninsured total loss is entirely on you.`,
-      confirmLabel: `Insure (${premium}c)`,
+      prompt: `Cover your new ${t.name} before her first flight? The premium is ${premium}₵ for 30 days; a covered write-off pays out most of her value, less a small excess. Decline and an uninsured total loss is entirely on you.`,
+      confirmLabel: `Insure (${premium}₵)`,
       command: `insurebind ${id}`,
     });
     return { type: 'output', message: `<span class="item-grant">Sold. A brand-new <b>${t.name}</b> (${tailNum}) is towed onto the ramp — it's yours. <b>embark</b> her. <span class="text-dim">You own her now: you buy your own fuel and pay for your own <b>repair</b>s (DIY, or the hangar does it right for more).</span></span>\n<span class="msg-system">📄 <b>HALCYON ASSURANCE</b> is offering cover — accept it in the popup, or <span class="action-link" data-action="cmd" data-cmd="insurebind ${id}">insure her now</span> later. <span class="text-dim">An uninsured write-off is a total loss.</span></span>` };
   }
-  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}c paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}c per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
+  return { type: 'output', message: `<span class="item-grant">Rented a <b>${t.name}</b> (${tailNum}), half a tank, parked and ready. <b>embark</b> her and fly it yourself. <span class="text-dim">Flat desk fee ${price}₵ paid; the meter then runs while you're airborne — ~${rentalOpFee(t)}₵ per 30 min for gas &amp; upkeep. Maintenance is on the desk, so just bring her back.</span></span>` };
 }
 
 async function typeCap(typeId) {
@@ -176,14 +176,14 @@ export async function refuelAt(args, raw, player) {
   if (need <= 0.5) return { type: 'emote', message: 'The tank is already full.' };
   const want = args[0] ? Math.min(need, Math.max(0, parseInt(args[0], 10) || 0)) : need;
   const cost = Math.ceil(want * REFUEL_PRICE_PER_UNIT);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}c/unit — you can't cover ${cost}c.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Fuel runs ${REFUEL_PRICE_PER_UNIT}₵/unit — you can't cover ${cost}₵.` };
   player.credits -= cost;
   live.row.fuel = Math.min(cap, live.row.fuel + want);
   live.starving = false;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await persist(live);
   pushHud(live);
-  return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}c. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
+  return { type: 'output', message: `You pump ${Math.round(want)} units of ${live.type.fuel_type} for ${cost}₵. Tank: ${Math.round(live.row.fuel)}/${Math.round(cap)}.`,
     player_update: { credits: player.credits } };
 }
 
@@ -209,13 +209,13 @@ export async function refuelParked(player, craftId) {
   const need = cap - a.fuel;
   if (need <= 0.5) return { type: 'emote', message: `The ${a.tname}'s tank is already full.` };
   const cost = Math.ceil(need * REFUEL_PRICE_PER_UNIT);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}c — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Topping her off is ${cost}₵ — you're short.` };
   player.credits -= cost;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   const live = liveAircraft.get(craftId);
   if (live) { live.row.fuel = cap; live.starving = false; await persist(live); }
   else await query('UPDATE aircraft SET fuel=$1 WHERE id=$2', [cap, craftId]);
-  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${a.fuel_type} for ${cost}c. Full tank.`,
+  return { type: 'output', message: `You top off the ${a.tname} with ${Math.round(need)} units of ${a.fuel_type} for ${cost}₵. Full tank.`,
     player_update: { credits: player.credits } };
 }
 

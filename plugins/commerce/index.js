@@ -125,7 +125,7 @@ async function cmdSell(args, player) {
 }
 
 async function cmdBalance(player) {
-  return { type:'balance', message:`Carried: ${player.credits||0}c\nBanked: ${player.bank_credits||0}c` };
+  return { type:'balance', message:`Carried: ${player.credits||0}₵\nBanked: ${player.bank_credits||0}₵` };
 }
 
 // SIFT selection replays.
@@ -384,7 +384,7 @@ async function cmdCheckout(player) {
     return true;
   });
   if (!paid) {
-    return { type:'error', message:`That comes to ${total}c and you have ${player.credits || 0}c. ${vendor.name} waits, unimpressed.` };
+    return { type:'error', message:`That comes to ${total}₵ and you have ${player.credits || 0}₵. ${vendor.name} waits, unimpressed.` };
   }
 
   // Same seam a shelf purchase fires, one event per line — anything watching what
@@ -396,10 +396,10 @@ async function cmdCheckout(player) {
     });
   }
 
-  const lines = priced.map(r => `  ${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name} — ${r.price}c`).join('\n');
+  const lines = priced.map(r => `  ${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name} — ${r.price}₵`).join('\n');
   return {
     type: 'buy',
-    message: `${vendor.name} ${counter._isPerson ? 'takes the lot off you and totals it up' : `rings you up at the ${counter.name}`}.\n${lines}\n<b>Total: ${total}c</b>`,
+    message: `${vendor.name} ${counter._isPerson ? 'takes the lot off you and totals it up' : `rings you up at the ${counter.name}`}.\n${lines}\n<b>Total: ${total}₵</b>`,
     player_update: { credits: player.credits },
   };
 }
@@ -494,7 +494,7 @@ registerMoveGate(async ({ player, from, to, direction }) => {
   const names = lifted.map(r => `${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name}`).join(', ');
   armDoorPrompt(player, { owner, direction, settleAction: 'commerce.settle_unpaid' });
   return { block: true, message:
-    `You're at the door still holding <b>${names}</b>${total ? `, ${total}c unpaid` : ', unpaid'}.\n` +
+    `You're at the door still holding <b>${names}</b>${total ? `, ${total}₵ unpaid` : ', unpaid'}.\n` +
     `<span class="text-dim">Pay for ${lifted.length > 1 ? 'them' : 'it'}? <b>yes</b> to settle up and go, <b>no</b> to walk out with ${lifted.length > 1 ? 'them' : 'it'}.</span>` };
 }, 'commerce:unpaid-door');
 

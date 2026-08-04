@@ -1952,7 +1952,7 @@ async function rentCollectionTick() {
       await releaseApartment(apt, apt.zone_id);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
+        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}₵ rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
       }, null, p.id);
       continue;
     }
@@ -1979,7 +1979,7 @@ async function rentCollectionTick() {
       live.credits = Math.max(0, (live.credits || 0) - fromCarried);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}c deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}c · On hand: ${live.credits}c.</span>`,
+        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}₵ deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}₵ · On hand: ${live.credits}₵.</span>`,
         player_update: { credits: live.credits, bank_credits: live.bank_credits },
       }, null, p.id);
     }

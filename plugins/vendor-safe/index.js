@@ -212,7 +212,7 @@ async function cmdSafeCrackResolve(args, raw, player) {
   return {
     type: 'output',
     message: `The last tumbler drops and the bolt slides back. The ${safe.name} swings open.\n` +
-      `You extract ${stolen}c from ${npc.name}'s accounts and ease it shut behind you.\n` +
+      `You extract ${stolen}₵ from ${npc.name}'s accounts and ease it shut behind you.\n` +
       `<span class="ip-gain">+${stolen} credits. Hacking improved.</span>`,
     player_update: { credits: player.credits },
   };

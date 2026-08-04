@@ -189,9 +189,9 @@ export function overCapMessage(kind, amount, allowance, atm, teller) {
     ? `Try "${kind} ${amount} from ${String(teller.name || 'teller').split(' ')[0].toLowerCase()}".`
     : `Walk it into a bank and speak to a teller, or come back in ${fmtWindowWait(allowance.resetsInSec)}.`;
   const spent = allowance.spent > 0
-    ? ` You've already moved ${allowance.spent}c through it in the last 24 hours, leaving ${allowance.remaining}c.`
+    ? ` You've already moved ${allowance.spent}₵ through it in the last 24 hours, leaving ${allowance.remaining}₵.`
     : '';
-  return `${net} won't ${verb} more than ${allowance.cap}c in any 24 hours — you asked for ${amount}c.${spent} ${out}`;
+  return `${net} won't ${verb} more than ${allowance.cap}₵ in any 24 hours — you asked for ${amount}₵.${spent} ${out}`;
 }
 
 function isZonePowered(zoneId) {
@@ -264,7 +264,7 @@ async function cmdAtm(args, raw, player) {
     if (zone?.flags?.has_atm) {
       return {
         type: 'output',
-        message: `[ATM TERMINAL]\nCarried: ${player.credits || 0}c  Banked: ${player.bank_credits || 0}c\n\nUse: deposit <amount> · withdraw <amount>`,
+        message: `[ATM TERMINAL]\nCarried: ${player.credits || 0}₵  Banked: ${player.bank_credits || 0}₵\n\nUse: deposit <amount> · withdraw <amount>`,
       };
     }
     return { type: 'error', message: "There's no ATM here." };
@@ -296,10 +296,10 @@ async function cmdDeposit(args, raw, player) {
     if (!teller && !zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
     const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
     if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
-    if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
+    if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}₵ on you.` };
     await logBankTx(player.id, 'deposit', amount, player.bank_credits);
     const at = teller ? ` ${teller.name} counts it twice and does not comment on where it came from.` : '';
-    return { type: 'deposit', message: `You deposit ${amount}c.${at} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
+    return { type: 'deposit', message: `You deposit ${amount}₵.${at} Carried: ${player.credits}₵ · Banked: ${player.bank_credits}₵`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
@@ -316,13 +316,13 @@ async function cmdDeposit(args, raw, player) {
   // Exhausted allowance is its own refusal — clamping `all` to zero would
   // otherwise fall through as a nonsense "deposit 0c".
   if (allowance.cap != null && allowance.remaining <= 0) {
-    return { type: 'error', message: `${atm.network_name || 'This terminal'} has taken its ${allowance.cap}c from you for today. The slot won't open again for ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has taken its ${allowance.cap}₵ from you for today. The slot won't open again for ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
   }
   let capNote = '';
   if (allowance.cap != null && amount > allowance.remaining) {
     if (amountStr !== 'all') return { type: 'error', message: overCapMessage('deposit', amount, allowance, atm, tellersInZone(player.current_zone)[0]) };
     amount = allowance.remaining;
-    capNote = ` The slot takes ${amount}c and stops — that's the rest of what it'll swallow today.`;
+    capNote = ` The slot takes ${amount}₵ and stops — that's the rest of what it'll swallow today.`;
   }
 
   // Move the credits and fill the machine as one atomic unit.
@@ -332,14 +332,14 @@ async function cmdDeposit(args, raw, player) {
     await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
     return true;
   });
-  if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
+  if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}₵ on you.` };
   // Must carry the network key — an unlogged move is a move that never counted
   // against the allowance.
   await logBankTx(player.id, 'deposit', amount, player.bank_credits, networkKey(atm));
 
   return {
     type: 'deposit',
-    message: `You deposit ${amount}c.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
+    message: `You deposit ${amount}₵.${capNote} Carried: ${player.credits}₵ · Banked: ${player.bank_credits}₵`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
     atm_allowance: { deposit: Math.max(0, allowance.remaining - amount) },
@@ -360,9 +360,9 @@ async function cmdWithdraw(args, raw, player) {
     if (!teller && !zone?.flags?.has_atm) return { type: 'error', message: "There's no ATM here." };
     const amount = amountStr === 'all' ? (player.bank_credits || 0) : parseInt(amountStr, 10);
     if (!amount || amount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
-    if (!await transferCredits(player, amount, 'withdraw')) return { type: 'error', message: `You only have ${player.bank_credits || 0}c banked.` };
+    if (!await transferCredits(player, amount, 'withdraw')) return { type: 'error', message: `You only have ${player.bank_credits || 0}₵ banked.` };
     const at = teller ? ` ${teller.name} counts it out in banded notes, unhurried, and slides them under the glass.` : '';
-    return { type: 'withdraw', message: `You withdraw ${amount}c.${at} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
+    return { type: 'withdraw', message: `You withdraw ${amount}₵.${at} Carried: ${player.credits}₵ · Banked: ${player.bank_credits}₵`, player_update: { credits: player.credits, bank_credits: player.bank_credits } };
   }
 
   if (atm.is_broken) return { type: 'error', message: 'The ATM is damaged. Try another terminal.' };
@@ -383,7 +383,7 @@ async function cmdWithdraw(args, raw, player) {
   const allowance = await allowanceFor(player.id, atm, 'withdraw');
 
   if (allowance.cap != null && allowance.remaining <= 0) {
-    return { type: 'error', message: `${atm.network_name || 'This terminal'} has dispensed its ${allowance.cap}c to you for today. The drum stays shut for another ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
+    return { type: 'error', message: `${atm.network_name || 'This terminal'} has dispensed its ${allowance.cap}₵ to you for today. The drum stays shut for another ${fmtWindowWait(allowance.resetsInSec)} — a teller has no such limit.` };
   }
 
   let rawAmount;
@@ -395,7 +395,7 @@ async function cmdWithdraw(args, raw, player) {
     rawAmount = Math.min(cashAvail, maxByFunds);
     if (allowance.cap != null && rawAmount > allowance.remaining) {
       rawAmount = allowance.remaining;
-      capNote = ` The drum stops at ${rawAmount}c — that's the rest of this network's day.`;
+      capNote = ` The drum stops at ${rawAmount}₵ — that's the rest of this network's day.`;
     }
   } else {
     rawAmount = parseInt(amountStr, 10);
@@ -403,14 +403,14 @@ async function cmdWithdraw(args, raw, player) {
 
   if (!rawAmount || rawAmount <= 0) return { type: 'error', message: 'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
   if (allowance.cap != null && rawAmount > allowance.remaining) return { type: 'error', message: overCapMessage('withdraw', rawAmount, allowance, atm, tellersInZone(player.current_zone)[0]) };
-  if (rawAmount > cashAvail) return { type: 'error', message: `ATM is low on cash. Max available: ${cashAvail}c.` };
+  if (rawAmount > cashAvail) return { type: 'error', message: `ATM is low on cash. Max available: ${cashAvail}₵.` };
 
   const fee = feeRate > 0 ? Math.ceil(rawAmount * feeRate) : 0;
   const totalDebited = rawAmount + fee;
 
   if (banked < totalDebited) {
-    const feeNote = fee > 0 ? ` (${fee}c network fee)` : '';
-    return { type: 'error', message: `Need ${totalDebited}c${feeNote} but you only have ${banked}c banked.` };
+    const feeNote = fee > 0 ? ` (${fee}₵ network fee)` : '';
+    return { type: 'error', message: `Need ${totalDebited}₵${feeNote} but you only have ${banked}₵ banked.` };
   }
 
   // Debit bank (raw + fee), credit only rawAmount carried (the fee evaporates
@@ -427,15 +427,15 @@ async function cmdWithdraw(args, raw, player) {
     await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
     return true;
   });
-  if (!dispensed) return { type: 'error', message: `Need ${totalDebited}c but you only have ${player.bank_credits || 0}c banked.` };
+  if (!dispensed) return { type: 'error', message: `Need ${totalDebited}₵ but you only have ${player.bank_credits || 0}₵ banked.` };
   // Withdrawals were historically unlogged — the ledger was deposits-only. They
   // must be logged now or the withdrawal allowance can never be spent.
   await logBankTx(player.id, 'withdraw', rawAmount, player.bank_credits, networkKey(atm));
 
-  const feeMsg = fee > 0 ? ` (−${fee}c ${atm.network_name || 'network'} fee)` : '';
+  const feeMsg = fee > 0 ? ` (−${fee}₵ ${atm.network_name || 'network'} fee)` : '';
   return {
     type: 'withdraw',
-    message: `You withdraw ${rawAmount}c${feeMsg}.${capNote} Carried: ${player.credits}c · Banked: ${player.bank_credits}c`,
+    message: `You withdraw ${rawAmount}₵${feeMsg}.${capNote} Carried: ${player.credits}₵ · Banked: ${player.bank_credits}₵`,
     player_update: { credits: player.credits, bank_credits: player.bank_credits },
     atm_cash_stock: newStock,
     atm_allowance: { withdraw: Math.max(0, allowance.remaining - rawAmount) },
@@ -579,7 +579,7 @@ async function cmdDrain(args, raw, player) {
 
   return {
     type: 'drain',
-    message: `MAINTENANCE OVERRIDE: dispense hopper forced open. ${stolen}c in chips clatter into your bag before the terminal seizes and goes dark.`,
+    message: `MAINTENANCE OVERRIDE: dispense hopper forced open. ${stolen}₵ in chips clatter into your bag before the terminal seizes and goes dark.`,
     player_update: { credits: player.credits },
     atm_cash_stock: 0,
     atm_maintenance: false,

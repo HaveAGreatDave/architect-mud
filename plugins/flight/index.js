@@ -267,7 +267,7 @@ async function boardFound(found, player, broadcast) {
   const cargoHint = drop
     ? drop.kind === 'fence'
       ? `\n<span class="text-cyan">📦 A sealed shipment is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home.</span>`
-      : `\n<span class="text-cyan">📦 ${drop.label} (${drop.weight_kg}kg) is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home for ${drop.reward}c.</span>`
+      : `\n<span class="text-cyan">📦 ${drop.label} (${drop.weight_kg}kg) is waiting on the ramp — <span class="action-link" data-action="cmd" data-cmd="loadcargo">load it</span> and fly it home for ${drop.reward}₵.</span>`
     : '';
   // Nudge unlicensed pilots toward the licence that turns those standing loads on.
   const licenseHint = (seat === 'pilot' && !drop && !(await isFreightLicensed(player)))
@@ -926,7 +926,7 @@ async function retrieveOffField(live, player, { abort = false } = {}) {
     ? `<span class="text-amber">You break off the flight — a mayday call, and you're out.</span> `
     : `<span class="text-amber">You set the ${live.type.name} down clean, but this is no airstrip — you've put down in ${where}.</span> `;
   out(player.id, lead +
-    `<span class="item-grant">A hangar recovery crew tows her back to ${home?.name || 'the field'} and hands you the bill: <b>${fee}c</b> for the retrieval${paid < fee ? ` (only ${paid}c of it covered — the rest is owed)` : ''}.</span>`);
+    `<span class="item-grant">A hangar recovery crew tows her back to ${home?.name || 'the field'} and hands you the bill: <b>${fee}₵</b> for the retrieval${paid < fee ? ` (only ${paid}₵ of it covered — the rest is owed)` : ''}.</span>`);
 }
 
 async function cmdFlightEvent(args, raw, player, broadcast) {
@@ -1279,7 +1279,7 @@ async function billRental(live) {
   renter.credits = (renter.credits || 0) - pay;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [renter.credits, renter.id]);
   sendToPlayer(renter.id, { type: 'player_update', credits: renter.credits });
-  out(renter.id, `<span class="text-amber">⏱ Rental meter: <b>${fee}c</b> for the last half-hour aloft (gas &amp; upkeep).${pay < fee ? ' <span class="text-red">You couldn\'t cover it — the desk will settle up when you return her.</span>' : ''} Balance ${renter.credits}c.</span>`);
+  out(renter.id, `<span class="text-amber">⏱ Rental meter: <b>${fee}₵</b> for the last half-hour aloft (gas &amp; upkeep).${pay < fee ? ' <span class="text-red">You couldn\'t cover it — the desk will settle up when you return her.</span>' : ''} Balance ${renter.credits}₵.</span>`);
 }
 
 // Fuel endurance is calibrated in GAME time, not real time: the per-type tanks are

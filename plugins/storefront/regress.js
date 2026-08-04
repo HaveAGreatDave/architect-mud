@@ -110,7 +110,7 @@ export default async function regress({ run, check }) {
 
     // The board reads as for-sale before anyone signs.
     let r = await _test.cmdDeed(owner);
-    check('a vacant unit advertises its price', /UNIT FOR SALE/.test(r.message) && /800c/.test(r.message), r.message);
+    check('a vacant unit advertises its price', /UNIT FOR SALE/.test(r.message) && /800₵/.test(r.message), r.message);
     check('the room description advertises it too', /FOR SALE/.test(await _test.describeRoom(getZone(ZONE)) || ''));
 
     // Sign. 800 over 4 cycles = 200 down.
@@ -134,7 +134,7 @@ export default async function regress({ run, check }) {
                  ON CONFLICT (id) DO UPDATE SET player_id=$2`, [invId, OWNER, ITEM]);
 
     r = await _test.cmdStock(['regress', 'trinket', 'for', '250'], owner);
-    check('stock puts the item on the display at the asking price', /250c/.test(r.message), r.message);
+    check('stock puts the item on the display at the asking price', /250₵/.test(r.message), r.message);
     let listings = await _test.listingsFor(ZONE);
     check('the listing is the SAME inventory row, re-owned', listings.length === 1 && listings[0].id === invId, JSON.stringify(listings));
     check('the asking price rides on the row', listings[0].price === 250);
@@ -201,7 +201,7 @@ export default async function regress({ run, check }) {
 
     // ── Buy orders ───────────────────────────────────────────────────────────
     r = await _test.cmdBuyOrder(['regress', 'trinket', 'for', '30'], owner);
-    check('buyorder posts a standing offer', /30c/.test(r.message), r.message);
+    check('buyorder posts a standing offer', /30₵/.test(r.message), r.message);
     let orders = await _test.ordersFor(ZONE);
     check('the order is live', orders.length === 1 && orders[0].price === 30, JSON.stringify(orders));
     check('the orders board shows on LOOK', /is buying/.test(await _test.describeRoom(getZone(ZONE)) || ''));

@@ -2625,11 +2625,11 @@ async function cmdBribe(args, raw, player) {
   if (s.stars <= 0) return { type: 'error', message: "You're not wanted. Save your credits." };
   if (s.stars > 2) return { type: 'error', message: `${cop.name} won't touch a manhunt this hot. Bribes are for petty heat.` };
   const cost = s.stars * 250;
-  if ((player.credits || 0) < cost) return { type: 'error', message: `${cop.name} wants ${cost}c to look the other way. You're short.` };
+  if ((player.credits || 0) < cost) return { type: 'error', message: `${cop.name} wants ${cost}₵ to look the other way. You're short.` };
   player.credits -= cost;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-  await setStars(player, s.stars - 1, `${cop.name} pockets ${cost}c and loses your file. ${starBar(Math.max(0, s.stars))}`);
-  return { type: 'output', message: `You slip ${cop.name} ${cost}c. They suddenly have somewhere else to be.`, player_update: { credits: player.credits } };
+  await setStars(player, s.stars - 1, `${cop.name} pockets ${cost}₵ and loses your file. ${starBar(Math.max(0, s.stars))}`);
+  return { type: 'output', message: `You slip ${cop.name} ${cost}₵. They suddenly have somewhere else to be.`, player_update: { credits: player.credits } };
 }
 
 // scrub — hack a PD terminal to wipe a star off your record.
@@ -2683,7 +2683,7 @@ async function cmdSubmit(args, raw, player) {
   for (const r of reaped) deleteItemCache(r.id);
   return {
     type: 'output',
-    message: `${cop.name} slots the chip, scans the ${tags.join('/')} footage, and pays out <span class="ip-gain">${reward}c</span> in evidence bounty.`,
+    message: `${cop.name} slots the chip, scans the ${tags.join('/')} footage, and pays out <span class="ip-gain">${reward}₵</span> in evidence bounty.`,
     player_update: { credits: player.credits },
   };
 }

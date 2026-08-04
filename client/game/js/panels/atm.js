@@ -218,7 +218,7 @@ function renderAccount(data) {
     <div class="atm-scr-reserve">
       <div class="atm-scr-reserve-lbl">CASH RESERVE</div>
       <div class="atm-bar-wrap"><div class="atm-bar-fill${low ? ' atm-bar-low' : ''}" style="width:${pct}%"></div></div>
-      <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}c / ${cashMax.toLocaleString()}c</div>
+      <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}₵ / ${cashMax.toLocaleString()}₵</div>
     </div>
     ${feeLine}`;
 }
@@ -235,7 +235,7 @@ function renderMaintenance(data) {
     <div class="atm-scr-avail">Diagnostic shell access active. Cash reserve can be force-ejected from the hopper — this will brick the terminal.</div>
     <div class="atm-scr-reserve">
       <div class="atm-scr-reserve-lbl">CASH RESERVE</div>
-      <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}c</div>
+      <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}₵</div>
     </div>
     <button class="atm-confirm atm-confirm-danger" data-act="drain"${has ? '' : ' disabled'}>${has ? 'EJECT ALL CREDITS' : 'RESERVE EMPTY'}</button>`;
 }

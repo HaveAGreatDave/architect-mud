@@ -203,7 +203,7 @@ async function cmdAccept(args, raw, player) {
   if (res?.type === 'error') return { type: 'error', message: res.message };
 
   const destName = getZone(m.destZone)?.name || m.destZone;
-  return { type: 'output', message: `<span class="item-grant">Job accepted — ${m.cargoName} loaded (${m.weight}kg). Deliver to <b>${destName}</b> within ${Math.round((m.deadlineS || 0) / 60)} minutes. Payout: <b>${payout}c</b>.</span>` +
+  return { type: 'output', message: `<span class="item-grant">Job accepted — ${m.cargoName} loaded (${m.weight}kg). Deliver to <b>${destName}</b> within ${Math.round((m.deadlineS || 0) / 60)} minutes. Payout: <b>${payout}₵</b>.</span>` +
     (m.contraband ? '\n<span class="text-red">This is a dark run — kill your transponder (<b>squawk off</b>) or the cameras will make you.</span>' : '') };
 }
 
@@ -218,7 +218,7 @@ async function cmdManifest(args, raw, player) {
     const m = q.meta || {};
     const left = (m.deadlineS || 0) - (nowSec() - q.started_at);
     const destName = getZone(m.destZone)?.name || m.destZone;
-    return `· ${m.cargoName} → <b>${destName}</b> — <span class="${left < 0 ? 'text-red' : 'text-green'}">${left < 0 ? 'OVERDUE' : Math.ceil(left / 60) + 'min left'}</span> · ${q.rewards?.credits || 0}c`;
+    return `· ${m.cargoName} → <b>${destName}</b> — <span class="${left < 0 ? 'text-red' : 'text-green'}">${left < 0 ? 'OVERDUE' : Math.ceil(left / 60) + 'min left'}</span> · ${q.rewards?.credits || 0}₵`;
   });
   return { type: 'output', message: `<span class="text-cyan">MANIFEST:</span>\n${lines.join('\n')}` };
 }
@@ -248,7 +248,7 @@ export async function checkContractDelivery(player, live, fieldZoneId) {
     live.row.custom_data = cd;
     await persist(live);
     const how = m.contraband ? (late ? 'Late — half, in unmarked cash: ' : 'Paid in unmarked cash: ') : (late ? 'Late — half rate: ' : 'Paid in full: ');
-    out(player.id, `<span class="item-grant">Delivered: ${m.cargoName}. ${how}<b>${pay}c</b>.</span>`);
+    out(player.id, `<span class="item-grant">Delivered: ${m.cargoName}. ${how}<b>${pay}₵</b>.</span>`);
   }
 }
 
@@ -447,7 +447,7 @@ async function writePallets(player, entry, pallets, exec = query) {
 // gives the customs scan on the way home its teeth.
 export async function placeCacheOrder(player, entry, pallets) {
   const cost = palletPrice(entry) * pallets;
-  if (!(await adjustCredits(player, -cost))) return { error: `That's ${cost}c and you can't cover it.` };
+  if (!(await adjustCredits(player, -cost))) return { error: `That's ${cost}₵ and you can't cover it.` };
   return { ...(await writePallets(player, entry, pallets)), cost };
 }
 
@@ -570,7 +570,7 @@ async function cmdRaws(args, raw, player) {
       const price = palletPrice(e);
       const label = locked
         ? `<span class="text-dim">${e.name} — sealed (standing ${need})</span>`
-        : `<span class="action-link" data-action="cmd" data-cmd="raws ${e.name}">${e.name}</span> — ${unitsPerPallet(e.tier)}/pallet · <b>${price}c</b>`;
+        : `<span class="action-link" data-action="cmd" data-cmd="raws ${e.name}">${e.name}</span> — ${unitsPerPallet(e.tier)}/pallet · <b>${price}₵</b>`;
       const grade = e.legal ? '<span class="text-dim">legal crop</span>' : `tier ${e.tier}`;
       return `  ${label} <span class="text-dim">[${grade}]</span>`;
     }).join('\n');
@@ -609,7 +609,7 @@ async function cmdRaws(args, raw, player) {
     ? `<span class="text-dim">It's legal leaf. Nobody will scan it, nobody will care.</span>`
     : `<span class="text-amber">That's contraband precursor. Every policed field you land it at runs a scanner.</span>`;
   return { type: 'output', message:
-    `<span class="item-grant">${npc.name} writes it down without comment and takes <b>${res.cost}c</b>. `
+    `<span class="item-grant">${npc.name} writes it down without comment and takes <b>${res.cost}₵</b>. `
     + `${res.pallets} pallet${res.pallets > 1 ? 's' : ''} — ${res.units}× ${entry.name} — run out to <b>${res.cache.name}</b>.</span>\n`
     + `<span class="ambient">"Give it a few minutes to get there. Then it's yours to fetch."</span> ${risk}` };
 }
@@ -661,9 +661,9 @@ async function cmdFreightLicense(args, raw, player) {
   if (await isFreightLicensed(player))
     return { type: 'emote', message: "You already hold an air-freight licence. Board an aircraft — there'll be loads waiting." };
   if (!(await adjustCredits(player, -FREIGHT_LICENSE_PRICE)))
-    return { type: 'emote', message: `An air-freight licence runs ${FREIGHT_LICENSE_PRICE}c — you can't cover it.` };
+    return { type: 'emote', message: `An air-freight licence runs ${FREIGHT_LICENSE_PRICE}₵ — you can't cover it.` };
   await setFlag('player', FREIGHT_LICENSE_FLAG, '1', player);
-  return { type: 'output', message: `<span class="item-grant">Air-freight licence issued (−${FREIGHT_LICENSE_PRICE}c). Standing cargo loads will be on the ramp whenever you board — <b>loadcargo</b> to haul them home.</span>` };
+  return { type: 'output', message: `<span class="item-grant">Air-freight licence issued (−${FREIGHT_LICENSE_PRICE}₵). Standing cargo loads will be on the ramp whenever you board — <b>loadcargo</b> to haul them home.</span>` };
 }
 
 // Loads EVERY waiting drop that fits the hold, one at a time (heaviest constraint
@@ -789,7 +789,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
     live.row.custom_data = cd; await persist(live);
     player.credits = (player.credits || 0) + d.reward;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-    out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}c</b>.</span>`);
+    out(player.id, `<span class="item-grant">${d.label} handed off to a courier here — it'll be waiting at home. Paid <b>${d.reward}₵</b>.</span>`);
   }
   if (!fence.length) return;
 
@@ -829,7 +829,7 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
   clearCustoms(player.id);
   const timer = setTimeout(() => { customsBolt(player, live, dirty, fieldZoneId, true).catch(() => {}); }, CUSTOMS_DECIDE_MS);
   pendingCustoms.set(player.id, { dropIds: dirty.map(d => d.id), bribe, fieldZoneId, aircraftId: live.row.id, timer });
-  out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside — <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}c</b> and it disappears — <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span> — or leave the load and run for it — <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
+  out(player.id, `<span class="text-amber">⚠ Customs pulls your hold aside — <b>raw material</b> lights the scanner. The inspector's hand hovers over the alarm, palm turned up.</span>\n<span class="ambient">Slip them <b>${bribe}₵</b> and it disappears — <span class="action-link" data-action="cmd" data-cmd="customs bribe">customs bribe</span> — or leave the load and run for it — <span class="action-link" data-action="cmd" data-cmd="customs bolt">customs bolt</span>. <span class="text-dim">(They move on you in 45s either way.)</span></span>`);
 }
 
 // The bribe/bolt reply to a flagged customs scan.
@@ -842,7 +842,7 @@ async function cmdCustoms(args, raw, player) {
 
   if (choice === 'bribe') {
     if (!(await adjustCredits(player, -p.bribe, undefined, 'flight:customs-bribe')))
-      return { type: 'error', message: `The inspector wants ${p.bribe}c and your account won't cover it. Pay up — or <b>customs bolt</b> and lose the load.` };
+      return { type: 'error', message: `The inspector wants ${p.bribe}₵ and your account won't cover it. Pay up — or <b>customs bolt</b> and lose the load.` };
     clearCustoms(player.id);
     if (live && drops.length) await deliverAllFence(player, live, drops);
     return { type: 'output', message: `<span class="ambient">The credits change hands below the desk. The inspector's face goes flat; the scanner "malfunctions," and you taxi in with the load intact.</span>` };

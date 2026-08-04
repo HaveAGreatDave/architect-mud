@@ -514,7 +514,7 @@ export async function cmdRent(player) {
 	if (!(await adjustCredits(player, -cost, undefined, 'apartment:rent-claim')))
 		return {
 			type: "error",
-			message: `You need ${cost}c to claim this unit. You have ${player.credits}c.`,
+			message: `You need ${cost}₵ to claim this unit. You have ${player.credits}₵.`,
 		};
 
 	const buildingName = getBuildingName(zone) ?? 'the building';
@@ -538,7 +538,7 @@ export async function cmdRent(player) {
 	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
-		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}c</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}₵</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -561,7 +561,7 @@ export async function cmdUnrent(player) {
 
 	return {
 		type: "unrent",
-		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}c</span>\n\nNo further payments will be collected.`,
+		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}₵</span>\n\nNo further payments will be collected.`,
 	};
 }
 
@@ -665,7 +665,7 @@ export async function cmdUpgradeLock(player) {
 	if (!(await adjustCredits(player, -UPGRADE_COST, undefined, 'apartment:lock')))
 		return {
 			type: "error",
-			message: `Upgrading the lock costs ${UPGRADE_COST}c. You have ${player.credits}c.`,
+			message: `Upgrading the lock costs ${UPGRADE_COST}₵. You have ${player.credits}₵.`,
 		};
 
 	const newDifficulty = apt.lock_difficulty + 1;
@@ -677,7 +677,7 @@ export async function cmdUpgradeLock(player) {
 
 	return {
 		type: "upgrade",
-		message: `You reinforce the lock. (Difficulty ${apt.lock_difficulty} → ${newDifficulty}, ${UPGRADE_COST}c spent)`,
+		message: `You reinforce the lock. (Difficulty ${apt.lock_difficulty} → ${newDifficulty}, ${UPGRADE_COST}₵ spent)`,
 	};
 }
 
@@ -1138,14 +1138,14 @@ export function describeRentStatus(zone, player) {
 	// Days-until is measured on the GAME calendar so it counts down at game speed.
 	const today = gameToday();
 	const due = ymd(apt.rent_due_date);
-	if (!today || !due) return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> per ${RENT_PERIOD_DAYS}-day cycle.</span>`;
+	if (!today || !due) return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> per ${RENT_PERIOD_DAYS}-day cycle.</span>`;
 	const daysUntilNext = Math.max(0, gameDaysBetween(today, due));
 	const urgency = daysUntilNext <= 1
 		? `<span style="color:var(--red)">due tomorrow</span>`
 		: daysUntilNext <= 3
 			? `<span style="color:var(--yellow)">${daysUntilNext} days</span>`
 			: `${daysUntilNext} days`;
-	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> due ${formatGameDate(due)} (${urgency}).</span>`;
+	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}).</span>`;
 }
 
 export async function describeApartmentStatus(zone) {
@@ -1156,7 +1156,7 @@ export async function describeApartmentStatus(zone) {
 	}
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
-		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${authoredRentCost(zone)}c/week)`;
+		return `\n<span class="apartment-label">This unit is unowned.</span> (<span class="action-link" data-raw-cmd="rent" title="Rent this unit">RENT</span> to claim it for ${authoredRentCost(zone)}₵/week)`;
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
 	if (apt.owner_type === 'org') {

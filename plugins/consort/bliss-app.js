@@ -134,14 +134,14 @@ async function handleAction(player, actionId, params) {
     const cost = listing.rate;
     const paid = await chargeUpFront(player, cost);
     if (!paid) {
-      return { ...(await buildDetail(player, listingId)), notice: `Declined. The first day's retainer is ${cost}c and your accounts do not cover it.` };
+      return { ...(await buildDetail(player, listingId)), notice: `Declined. The first day's retainer is ${cost}₵ and your accounts do not cover it.` };
     }
     const created = await placeListing(player, listing, zoneId);
     const names = created.map(c => c.name).join(' and ');
     // Burn the listing so it can't be ordered twice out of the same catalogue.
     const gen = (Number(await getFlag('player', GEN_FLAG, player)) || 0) + 1;
     await setFlag('player', GEN_FLAG, gen, player);
-    return { ...(await buildArrangement(player)), notice: `${names} placed. First day's retainer of ${cost}c drawn.` };
+    return { ...(await buildArrangement(player)), notice: `${names} placed. First day's retainer of ${cost}₵ drawn.` };
   }
 
   if (actionId === 'release') {

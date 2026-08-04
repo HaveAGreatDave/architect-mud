@@ -69,8 +69,8 @@ export default async function regress({ run, check, getPlayer }) {
   const spentHalf = { cap: 2500, spent: 1500, remaining: 1000, resetsInSec: 3 * 3600 };
   const untouched = { cap: 2500, spent: 0, remaining: 2500, resetsInSec: 0 };
   const msg = overCapMessage('withdraw', 9000, untouched, machine);
-  check('over-cap refusal quotes the limit', /2500c/.test(msg), msg);
-  check('over-cap refusal quotes the request', /9000c/.test(msg), msg);
+  check('over-cap refusal quotes the limit', /2500₵/.test(msg), msg);
+  check('over-cap refusal quotes the request', /9000₵/.test(msg), msg);
   check('over-cap refusal points at a teller', /teller/i.test(msg), msg);
   check('over-cap refusal says the limit is a window, not a transaction',
     /24 hours/.test(msg) && !/one transaction/.test(msg), msg);
@@ -78,8 +78,8 @@ export default async function regress({ run, check, getPlayer }) {
   // Partway through the window the player needs the REMAINING figure — being told
   // only the ceiling after spending half of it is the actively misleading case.
   const partial = overCapMessage('withdraw', 9000, spentHalf, machine);
-  check('a part-spent refusal quotes what is left', /1000c/.test(partial), partial);
-  check('a part-spent refusal quotes what was already moved', /1500c/.test(partial), partial);
+  check('a part-spent refusal quotes what is left', /1000₵/.test(partial), partial);
+  check('a part-spent refusal quotes what was already moved', /1500₵/.test(partial), partial);
   check('a part-spent refusal names the wait', /3h/.test(partial), partial);
 
   const dep = overCapMessage('deposit', 9000, untouched, machine);

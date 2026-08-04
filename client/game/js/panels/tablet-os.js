@@ -7387,7 +7387,7 @@ function renderBlissListings(d) {
       </div>`).join('');
     return `<div class="tos-bliss-card" data-act-id="open" data-act-app="bliss" data-act-params="${esc(l.id)}">
       ${pairTag}${who}
-      <div class="tos-bliss-rate"><span class="tos-bliss-ratefig">${l.rate}c</span><span class="tos-bliss-rateunit">per day</span></div>
+      <div class="tos-bliss-rate"><span class="tos-bliss-ratefig">${l.rate}₵</span><span class="tos-bliss-rateunit">per day</span></div>
     </div>`;
   };
 
@@ -7470,7 +7470,7 @@ function renderBlissDetail(d) {
     return `<div class="tos-bliss-rung${p.days === 0 ? ' now' : ''}">
       <span class="tos-bliss-rungday">${p.days === 0 ? 'Day one' : `${p.days} days`}</span>
       <span class="tos-bliss-rungbar"><i style="width:${pct}%"></i></span>
-      <span class="tos-bliss-rungrate">${p.rate}c${off ? ` <em>−${off}%</em>` : ''}</span>
+      <span class="tos-bliss-rungrate">${p.rate}₵${off ? ` <em>−${off}%</em>` : ''}</span>
       <span class="tos-bliss-runglabel">${esc(p.label)}</span>
     </div>`;
   }).join('')}</div>`;
@@ -7480,11 +7480,11 @@ function renderBlissDetail(d) {
     ? `<div class="tos-bliss-blocked">${esc(d.blocked)}</div>`
     : `<div class="tos-actions">${(d.spaces || []).map(s =>
         `<button class="tos-btn" data-act-id="place" data-act-app="bliss" data-act-params="${esc(l.id)}|${esc(s.id)}"
-           data-act-confirm="Place at ${esc(s.name)}? The first day's retainer of ${l.rate}c is drawn immediately.">
+           data-act-confirm="Place at ${esc(s.name)}? The first day's retainer of ${l.rate}₵ is drawn immediately.">
            ${esc(s.name)} <span class="dim">${esc(s.label)}</span></button>`).join('')}</div>`;
 
   return `
-    ${blissChrome(`${l.rate}c`, 'per day, first day up front')}
+    ${blissChrome(`${l.rate}₵`, 'per day, first day up front')}
     ${pair}
     <div class="tos-bliss-grid detail">${who}</div>
     <div class="tos-bliss-secthead"><span>Retainer &amp; tenure</span><i class="tos-bliss-rule"></i></div>
@@ -7523,7 +7523,7 @@ function renderBlissArrangement(d) {
         <div class="tos-bliss-name">${esc(e.names.join(' &amp; '))}${e.pairing ? ` <span class="dim">${esc(e.pairing)}</span>` : ''}${e.house ? ' <span class="tos-bliss-housetag">House</span>' : ''}</div>
         <div class="tos-bliss-rate">${e.house
           ? '<span class="tos-bliss-ratefig">—</span><span class="tos-bliss-rateunit">no retainer</span>'
-          : `<span class="tos-bliss-ratefig">${e.todayRate}c</span><span class="tos-bliss-rateunit">per day${e.saving ? ` · −${e.saving}c` : ''}</span>`}</div>
+          : `<span class="tos-bliss-ratefig">${e.todayRate}₵</span><span class="tos-bliss-rateunit">per day${e.saving ? ` · −${e.saving}₵` : ''}</span>`}</div>
       </div>
       ${e.house ? `
       <div class="tos-bliss-note">Yours outright. The Syndicate bills nothing and arranges nothing.</div>`
@@ -7537,7 +7537,7 @@ function renderBlissArrangement(d) {
     </div>`;
   }).join('');
 
-  return `${blissChrome(`${d.dailyTotal}c`, 'per day, drawn nightly')}
+  return `${blissChrome(`${d.dailyTotal}₵`, 'per day, drawn nightly')}
     <div class="tos-bliss-grid held">${rows}</div>
     <div class="tos-actions"><button class="tos-btn" data-act-id="listings" data-act-app="bliss" data-act-params="">Browse the register</button></div>`;
 }

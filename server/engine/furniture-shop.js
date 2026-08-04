@@ -153,7 +153,7 @@ export async function buyFurniture(player, npc, item, catalogueEntry) {
   });
   return {
     type: 'output',
-    message: `You own ${apts.length} places. Where should the ${item.name} (${price}c) be delivered?\n${formatSelectionPage({ allCandidates: candidates, visibleIndex: 0, pageSize: 5 })}`,
+    message: `You own ${apts.length} places. Where should the ${item.name} (${price}₵) be delivered?\n${formatSelectionPage({ allCandidates: candidates, visibleIndex: 0, pageSize: 5 })}`,
   };
 }
 

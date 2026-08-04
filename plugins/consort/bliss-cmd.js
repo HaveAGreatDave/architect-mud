@@ -74,7 +74,7 @@ async function showRegister(player) {
   const lines = listings.map((l, i) => {
     const names = memberNames(l).map(esc).join(' &amp; ');
     const pair = l.kind === 'pairing' ? ' <span class="text-dim">(matched pair — inseparable)</span>' : '';
-    return `  ${link(`bliss ${i + 1}`, String(i + 1))}. <b>${names}</b> <span class="text-dim">· ${l.rate}c/day</span>${pair}`;
+    return `  ${link(`bliss ${i + 1}`, String(i + 1))}. <b>${names}</b> <span class="text-dim">· ${l.rate}₵/day</span>${pair}`;
   });
 
   return {
@@ -101,10 +101,10 @@ async function showListing(player, arg) {
 
   const out = [];
   if (card.pairing) {
-    out.push(`<span class="text-cyan">${esc(card.pairing.label || 'A matched pair')}</span> <span class="text-dim">· ${card.rate}c/day · inseparable</span>`);
+    out.push(`<span class="text-cyan">${esc(card.pairing.label || 'A matched pair')}</span> <span class="text-dim">· ${card.rate}₵/day · inseparable</span>`);
     if (card.pairing.blurb) out.push(esc(card.pairing.blurb));
   } else {
-    out.push(`<span class="text-cyan">${memberNames(l).map(esc).join(' &amp; ')}</span> <span class="text-dim">· ${card.rate}c/day</span>`);
+    out.push(`<span class="text-cyan">${memberNames(l).map(esc).join(' &amp; ')}</span> <span class="text-dim">· ${card.rate}₵/day</span>`);
   }
 
   for (const m of card.members) {
@@ -161,7 +161,7 @@ async function cmdPlace(player, rest) {
   // First day up front — the retainer is prepaid, then billed nightly.
   const cost = l.rate;
   if (!(await chargeUpFront(player, cost))) {
-    return { type: 'error', message: `Declined. The first day's retainer is ${cost}c and your accounts do not cover it.` };
+    return { type: 'error', message: `Declined. The first day's retainer is ${cost}₵ and your accounts do not cover it.` };
   }
   const created = await placeListing(player, l, space.id);
   // Burn the listing so it can't be ordered twice out of the same catalogue. The
@@ -172,7 +172,7 @@ async function cmdPlace(player, rest) {
   const names = created.map(c => c.name).join(' and ');
   return {
     type: 'output',
-    message: `<span class="msg-system">${esc(names)} placed at ${esc(space.name)}. First day's retainer of ${cost}c drawn.</span>`,
+    message: `<span class="msg-system">${esc(names)} placed at ${esc(space.name)}. First day's retainer of ${cost}₵ drawn.</span>`,
   };
 }
 
@@ -202,17 +202,17 @@ async function showArrangement(player) {
   const lines = entries.map(e => {
     const names = e.names.map(esc).join(' and ');
     const tier = e.tier?.label ? ` · ${esc(e.tier.label)}` : '';
-    const saving = e.saving ? ` <span class="text-dim">(−${e.saving}c)</span>` : '';
+    const saving = e.saving ? ` <span class="text-dim">(−${e.saving}₵)</span>` : '';
     // A house placement carries no retainer and can't be released — say so where
     // the release link would otherwise be, rather than offering a dead button.
     const act = e.house
       ? '<span class="text-dim">not a Syndicate placement</span>'
       : link(`bliss release ${e.names[0] || ''}`, 'release');
-    return `  <b>${names}</b> <span class="text-dim">· ${e.todayRate}c/day${tier}</span>${saving}  ${act}`;
+    return `  <b>${names}</b> <span class="text-dim">· ${e.todayRate}₵/day${tier}</span>${saving}  ${act}`;
   });
   return {
     type: 'output',
-    message: [`<span class="text-cyan">YOUR ARRANGEMENT</span> <span class="text-dim">— ${total}c/day</span>`, ...lines].join('\n'),
+    message: [`<span class="text-cyan">YOUR ARRANGEMENT</span> <span class="text-dim">— ${total}₵/day</span>`, ...lines].join('\n'),
   };
 }
 

@@ -184,7 +184,7 @@ function textCraftLine(c, detailed) {
   if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
   const acts = [link(`embark ${c.tail}`, 'embark')];
   if (c.fuelPct < 100) acts.push(link(`refuel ${c.id}`, 'refuel'));
-  if (c.hullPct < 100 && !c.rental) acts.push(`${link(`repair ${c.id}`, 'repair')} <span class="text-dim">(${c.diyCost}c DIY · ${c.shopCost}c shop)</span>`);
+  if (c.hullPct < 100 && !c.rental) acts.push(`${link(`repair ${c.id}`, 'repair')} <span class="text-dim">(${c.diyCost}₵ DIY · ${c.shopCost}₵ shop)</span>`);
   if (!c.rental) {
     // The full sheet — tuning curves, name/livery. `modify <id>` is the one that
     // takes an explicit craft id; bare `tune` would grab whichever craft is first.
@@ -212,7 +212,7 @@ async function textHangarBay(player, field, selectId, opts) {
     + ` <span class="text-dim">(text display mode; Tablet → Settings → Display Mode to change)</span>`;
   msg += `\n<span class="furniture-label">Your bay:</span> `
     + (mine.length ? `${clean(mine[0].name)} — ${link('hangar store', 'store')} · ${link('hangar pull', 'pull')}`
-      : `<span class="text-dim">you rent none here</span> — ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200c/period, safe from thieves)</span>`);
+      : `<span class="text-dim">you rent none here</span> — ${link('hangar rent', 'hangar rent')} <span class="text-dim">(200₵/period, safe from thieves)</span>`);
 
   if (craft.length) {
     const sel = selectId ? craft.filter(c => c.id === selectId) : [];
@@ -232,8 +232,8 @@ async function textHangarBay(player, field, selectId, opts) {
       msg += `\n<span class="furniture-label">For ${canBuy && canRent ? 'sale or hire' : (canBuy ? 'sale' : 'hire')}:</span>`;
       for (const t of types) {
         const bits = [];
-        if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}c`);
-        if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}c/hr`);
+        if (canBuy) bits.push(`${link(`buy ${t.id}`, 'buy')} ${t.price_buy}₵`);
+        if (canRent) bits.push(`${link(`rent ${t.id}`, 'rent')} ${t.price_rent_hourly}₵/hr`);
         msg += `\n· <b>${t.name}</b> <span class="text-dim">(${t.class}, ${t.seats} seat${t.seats > 1 ? 's' : ''}, ${t.fuel_type})</span> — ${bits.join(' · ')}`;
       }
       if (!await isPilotLicensed(player) && !['admin', 'dev'].includes(player.role))
@@ -249,7 +249,7 @@ async function textHangarBay(player, field, selectId, opts) {
 
   const stocks = fieldStocks(field);
   if (stocks.length) msg += `\n<span class="text-dim">Pumps here: ${stocks.join(', ')} — ${link('refuel', 'refuel')}</span>`;
-  msg += `\n<span class="text-dim">Credits: ${player.credits || 0}c</span>`;
+  msg += `\n<span class="text-dim">Credits: ${player.credits || 0}₵</span>`;
 
   sendToPlayer(player.id, { type: 'output', message: msg });
   return { type: 'noop' };
@@ -366,12 +366,12 @@ async function cmdPaintset(args, raw, player) {
   const next = { ...sanitizeLivery({ base, trim, accent, ground, pattern, finish, cabin, uphol, decal }, prev), text: prev.text };
   if (JSON.stringify(next) !== JSON.stringify(prev)) {
     const fee = paintCost({ class: ac.class });
-    if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}c — you're short.` }; }
+    if ((player.credits || 0) < fee) { await pushHangarBay(player); return { type: 'emote', message: `A respray on the ${ac.tname} runs ${fee}₵ — you're short.` }; }
     player.credits -= fee;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await writeLivery(ac, next);
     sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-    out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours — ${fee}c.</span>`);
+    out(player.id, `<span class="item-grant">The ${ac.tname} rolls out of the paint bay in fresh colours — ${fee}₵.</span>`);
   }
   return pushHangarBay(player);
 }
@@ -479,7 +479,7 @@ async function cmdHangar(args, raw, player) {
   if (sub === 'list') {
     const { rows: stored } = await query('SELECT a.name, t.name tname FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.hangar_id IN (SELECT id FROM hangars WHERE field_zone=$1 AND owner_id=$2)', [field.id, player.id]);
     const head = `<span class="text-cyan">HANGARS — ${fieldName(field)}:</span>`;
-    if (!mine.length) return { type: 'output', message: `${head}\nYou rent no hangar here. <span class="action-link" data-action="cmd" data-cmd="hangar rent">hangar rent</span> — ${200}c/period, and your craft is safe from thieves.` };
+    if (!mine.length) return { type: 'output', message: `${head}\nYou rent no hangar here. <span class="action-link" data-action="cmd" data-cmd="hangar rent">hangar rent</span> — ${200}₵/period, and your craft is safe from thieves.` };
     const list = stored.length ? stored.map(s => `· ${s.tname} "${s.name}"`).join('\n') : '· (empty)';
     return { type: 'output', message: `${head}\nYour hangar (${mine[0].name}). Stored:\n${list}\n<span class="action-link" data-action="cmd" data-cmd="hangar store">hangar store</span> · <span class="action-link" data-action="cmd" data-cmd="hangar pull">hangar pull</span>` };
   }
@@ -487,7 +487,7 @@ async function cmdHangar(args, raw, player) {
   if (sub === 'rent') {
     if (mine.length) return { type: 'emote', message: 'You already rent a hangar here.' };
     const cost = 200;
-    if ((player.credits || 0) < cost) return { type: 'emote', message: `A hangar runs ${cost}c/period — you're short.` };
+    if ((player.credits || 0) < cost) return { type: 'emote', message: `A hangar runs ${cost}₵/period — you're short.` };
     player.credits -= cost;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await query('INSERT INTO hangars (id,field_zone,name,owner_id,rent_paid_until,rent_per_period) VALUES ($1,$2,$3,$4,$5,$6)',
@@ -542,16 +542,16 @@ async function cmdRepair(args, raw, player) {
   const pro = /^(pay|hangar|pro|full|shop)$/.test((a[0] || '').toLowerCase());
   if (pro) {
     const cost = Math.ceil(ac.damage * ac.hull_hp * 15);   // ~2.5× DIY — you pay for certainty
-    if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}c for a full shop repair — you're short. (Or <b>repair</b> her yourself for less.)` };
+    if ((player.credits || 0) < cost) return { type: 'emote', message: `The hangar wants ${cost}₵ for a full shop repair — you're short. (Or <b>repair</b> her yourself for less.)` };
     player.credits -= cost;
     await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
     await query("UPDATE aircraft SET damage=0, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'surfaces' WHERE id=$1", [tgt.id]);
     if (tgt.live) { tgt.live.row.damage = 0; resetSurfaces(tgt.live.row); }
-    return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right — the ${ac.name} is back to 100% for ${cost}c.</span>`, player_update: { credits: player.credits } };
+    return { type: 'output', message: `<span class="item-grant">The hangar's mechanics do it right — the ${ac.name} is back to 100% for ${cost}₵.</span>`, player_update: { credits: player.credits } };
   }
 
   const cost = Math.ceil(ac.damage * ac.hull_hp * 6);
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}c — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `Parts for a DIY repair run ~${cost}₵ — you're short.` };
   const chk = await skillCheck(player, 'fabrication', 5);
   const fixed = chk.success ? ac.damage : ac.damage * 0.5;   // botch it and you only get half back
   player.credits -= cost;
@@ -562,7 +562,7 @@ async function cmdRepair(args, raw, player) {
   if (tgt.live) { tgt.live.row.damage = newDmg; if (full) resetSurfaces(tgt.live.row); }
   await awardSkillUse(player.id, 'fabrication', chk.margin);
   const proCost = Math.ceil(ac.damage * ac.hull_hp * 15);
-  return { type: 'output', message: `<span class="item-grant">You work the ${ac.name} over yourself — hull to ${Math.round((1 - newDmg) * 100)}% for ${cost}c.</span>${chk.success ? '' : ' <span class="text-amber">(Botched some of it.)</span>'} <span class="text-dim">Or <b>repair hangar</b> next time — ${proCost}c, done right.</span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">You work the ${ac.name} over yourself — hull to ${Math.round((1 - newDmg) * 100)}% for ${cost}₵.</span>${chk.success ? '' : ' <span class="text-amber">(Botched some of it.)</span>'} <span class="text-dim">Or <b>repair hangar</b> next time — ${proCost}₵, done right.</span>`, player_update: { credits: player.credits } };
 }
 
 // ── Wreck salvage + Carcass rebuild ───────────────────────────────────────────
@@ -577,7 +577,7 @@ async function cmdSalvage(args, raw, player) {
   await awardSkillUse(player.id, 'scavenging', chk.margin);
   // Stripping guts the wreck: after it's picked over it can no longer be rebuilt.
   await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [w.id]);
-  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap — <b>${scrap}c</b> of salvage.</span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap — <b>${scrap}₵</b> of salvage.</span>`, player_update: { credits: player.credits } };
 }
 
 async function cmdRebuild(args, raw, player) {
@@ -588,7 +588,7 @@ async function cmdRebuild(args, raw, player) {
   if (!w) return { type: 'emote', message: 'No wreck here to rebuild.' };
   if (w.custom_data?.stripped) return { type: 'emote', message: "This wreck's been stripped to the frame — nothing left to rebuild." };
   const cost = 1500;
-  if ((player.credits || 0) < cost) return { type: 'emote', message: `A rebuild runs ${cost}c in parts — you're short.` };
+  if ((player.credits || 0) < cost) return { type: 'emote', message: `A rebuild runs ${cost}₵ in parts — you're short.` };
   const mech = await skillCheck(player, 'fabrication', 8);
   const chem = await skillCheck(player, 'chemistry', 6);
   if (!mech.success || !chem.success) return { type: 'emote', message: 'You can\'t make it airworthy with what you\'ve got — you need cleaner hands at Fabrication and Chemistry. (Try again.)' };
@@ -669,13 +669,13 @@ async function cmdInstallKit(args, raw, player) {
   const cd = await loadCd(tgt);
   const kits = installedKits(cd);
   if (kits.includes(kitId)) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} is already fitted.` }; }
-  if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}c — you're short.` }; }
+  if ((player.credits || 0) < kit.price) { await pushHangarBay(player); return { type: 'emote', message: `The ${kit.name} runs ${kit.price}₵ — you're short.` }; }
   player.credits -= kit.price;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   cd.kits = [...kits, kitId];
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
-  out(player.id, `<span class="item-grant">Fitted the ${kit.name} — ${kit.price}c.</span>`);
+  out(player.id, `<span class="item-grant">Fitted the ${kit.name} — ${kit.price}₵.</span>`);
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   return pushHangarBay(player);
 }
@@ -865,7 +865,7 @@ export async function sellAircraft(player, aircraftId) {
   await query('DELETE FROM insurance_policies WHERE aircraft_id=$1', [aircraftId]);
   player.credits = (player.credits || 0) + value;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-  return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}c.</span>`, player_update: { credits: player.credits } };
+  return { type: 'output', message: `<span class="item-grant">Sold the ${clean(ac.tname)} for ${value}₵.</span>`, player_update: { credits: player.credits } };
 }
 
 // Hand back a rental outright: deletes the instance. No refund — the flat desk

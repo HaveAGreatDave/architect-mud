@@ -73,7 +73,7 @@ async function rentEvents(playerId) {
     kind: 'rent',
     date: ymd(r.rent_due_date),
     text: `Rent due — ${getZone(r.zone_id)?.name || r.zone_id}`,
-    detail: `${r.rent_cost ?? 100}c${r.building_name ? ` · ${r.building_name}` : ''}`,
+    detail: `${r.rent_cost ?? 100}₵${r.building_name ? ` · ${r.building_name}` : ''}`,
   }));
 }
 

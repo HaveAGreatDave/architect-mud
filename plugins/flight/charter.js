@@ -304,7 +304,7 @@ export async function cmdCharterBook(args, raw, player) {
 
   const fare = charterFare(field.grid_x, field.grid_y, dest.grid_x, dest.grid_y, anywhere);
   if ((player.credits || 0) < fare)
-    return { type: 'emote', message: `That run runs <b>${fare}c</b> — you're short. ${pilot.name} can't roll without the fare.` };
+    return { type: 'emote', message: `That run runs <b>${fare}₵</b> — you're short. ${pilot.name} can't roll without the fare.` };
 
   const destName = fieldName(dest);
   const acId = `aircraft_charter_${randomUUID().slice(0, 10)}`;
@@ -333,8 +333,8 @@ export async function cmdCharterBook(args, raw, player) {
   log({ player: player.handle, pilot: pilot.name, from: ch.homeName, to: destName, status: 'booked' });
   const dist = Math.max(Math.abs(dest.grid_x - field.grid_x), Math.abs(dest.grid_y - field.grid_y));
   const fareLine = anywhere
-    ? `${pilot.name} pockets the <b>${fare}c</b>: "Off-airfield drop's double — I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
-    : `${pilot.name} pockets the <b>${fare}c</b>: "Flat hundred to get airborne, few credits a mile after — ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
+    ? `${pilot.name} pockets the <b>${fare}₵</b>: "Off-airfield drop's double — I've got to find somewhere to put her down, and get myself back out. ${dist} out, that's the number."`
+    : `${pilot.name} pockets the <b>${fare}₵</b>: "Flat hundred to get airborne, few credits a mile after — ${dist} out to ${destName}, so ${fare}. Fair's fair."`;
   return { type: 'output', message:
     `<span class="text-green">${pilot.name} taxis the <b>${t.name}</b> up to the hangar door, fuelled and bound for <b>${destName}</b>.</span>\n` +
     `<span class="text-dim">${fareLine}</span>\n` +
@@ -703,7 +703,7 @@ export async function cmdCancel(args, raw, player) {
     return {
       type: 'emote',
       message: refund > 0
-        ? `Charter called off — <b>${refund}c</b> refunded. No harm done.`
+        ? `Charter called off — <b>${refund}₵</b> refunded. No harm done.`
         : `Charter called off — no charge. ${name} shrugs and shuts it down.`,
       ...(refund > 0 ? { player_update: { credits: player.credits } } : {}),
     };

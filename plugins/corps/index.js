@@ -337,7 +337,7 @@ async function cmdFound(player, name) {
   if (!name) return err('Found a corp called what? Usage: corp found <name>');
   if (name.length > MAX_NAME) return err(`That name is too long (${MAX_NAME} chars max).`);
   if (getOrgByName(name)) return err(`A corp named "${esc(name)}" already exists.`);
-  if ((player.credits || 0) < FOUND_FEE) return err(`Founding a corp costs ${FOUND_FEE}c — you have ${player.credits || 0}c.`);
+  if ((player.credits || 0) < FOUND_FEE) return err(`Founding a corp costs ${FOUND_FEE}₵ — you have ${player.credits || 0}₵.`);
 
   const orgId = randomUUID(), founderRank = randomUUID(), memberRank = randomUUID();
   const ok = await withTransaction(async (q) => {
@@ -354,7 +354,7 @@ async function cmdFound(player, name) {
   await reloadOrg(orgId);
   return {
     type: 'corp_founded',
-    message: `<span class="skills-header">CORP FOUNDED</span>\nYou found <b>${esc(name)}</b> for ${FOUND_FEE}c. You are its Founder.\nInvite with "corp invite <player>"; fund it with "corp contribute <amount>".`,
+    message: `<span class="skills-header">CORP FOUNDED</span>\nYou found <b>${esc(name)}</b> for ${FOUND_FEE}₵. You are its Founder.\nInvite with "corp invite <player>"; fund it with "corp contribute <amount>".`,
     player_update: { credits: player.credits },
   };
 }
@@ -371,7 +371,7 @@ async function cmdInfo(player) {
   if (org.description) msg += `${esc(org.description)}\n`;
   msg += `\nYour rank: ${esc(rank?.name || '—')} [${permLabel(m.permissions)}]`;
   msg += `\nMembers: ${cnt.n}`;
-  msg += `\nTreasury: ${org.treasury}c`;
+  msg += `\nTreasury: ${org.treasury}₵`;
   msg += `\nHQ: ${hqNames.length ? hqNames.map(esc).join(', ') : '—'}`;
   return { type: 'corp_info', message: msg };
 }
@@ -462,12 +462,12 @@ async function cmdContribute(player, amountStr, broadcast) {
     await q('UPDATE orgs SET treasury = treasury + $1 WHERE id=$2', [amount, m.org_id]);
     return true;
   });
-  if (!ok) return err(`You only have ${player.credits || 0}c on you.`);
+  if (!ok) return err(`You only have ${player.credits || 0}₵ on you.`);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
   return {
     type: 'corp_contribute',
-    message: `You contribute ${amount}c to ${esc(getOrg(m.org_id).name)}. Treasury: ${getOrg(m.org_id).treasury}c.`,
+    message: `You contribute ${amount}₵ to ${esc(getOrg(m.org_id).name)}. Treasury: ${getOrg(m.org_id).treasury}₵.`,
     player_update: { credits: player.credits },
   };
 }
@@ -492,16 +492,16 @@ async function cmdDisburse(player, targetName, amountStr, broadcast) {
     else await q('UPDATE players SET credits = credits + $1 WHERE id=$2', [amount, targetId]);
     return { treasury: dec.rows[0].treasury };
   });
-  if (!result) return err(`The treasury doesn't have ${amount}c.`);
+  if (!result) return err(`The treasury doesn't have ${amount}₵.`);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
   const org = getOrg(m.org_id);
   if (targetLive && targetLive.id !== player.id) {
-    broadcast(null, { type: 'output', message: `<span class="msg-system">${esc(org.name)} disburses ${amount}c to you.</span>`, player_update: { credits: targetLive.credits } }, null, targetLive.id);
+    broadcast(null, { type: 'output', message: `<span class="msg-system">${esc(org.name)} disburses ${amount}₵ to you.</span>`, player_update: { credits: targetLive.credits } }, null, targetLive.id);
   }
   return {
     type: 'corp_withdraw',
-    message: `You disburse ${amount}c to ${esc(rows[0].handle)}. Treasury: ${result.treasury}c.`,
+    message: `You disburse ${amount}₵ to ${esc(rows[0].handle)}. Treasury: ${result.treasury}₵.`,
     player_update: targetLive && targetLive.id === player.id ? { credits: player.credits } : undefined,
   };
 }
@@ -625,7 +625,7 @@ async function cmdClaimHQ(player) {
     return err('This unit is already owned.');
   }
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < HQ_FEE) return err(`Claiming an HQ costs ${HQ_FEE}c from the treasury — it has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < HQ_FEE) return err(`Claiming an HQ costs ${HQ_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
   const now = Math.floor(Date.now() / 1000);
   const buildingName = zone.flags?.building_name || zone.name;
 
@@ -640,11 +640,11 @@ async function cmdClaimHQ(player) {
       [zone.id, org.id, org.name, HQ_LOCK_DIFFICULTY, HQ_FEE, now, buildingName]);
     return { treasury: dec.rows[0].treasury, apt: upd.rows[0] };
   });
-  if (!result) return err(`The treasury doesn't have ${HQ_FEE}c.`);
+  if (!result) return err(`The treasury doesn't have ${HQ_FEE}₵.`);
   setApartmentCache(zone.id, result.apt);
   await ensureCorpTerminal(zone.id);
   await reloadOrg(org.id);
-  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}c. A corp ops terminal boots against the wall — <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}c.` };
+  return { type: 'corp_hq_claim', message: `<b>${esc(org.name)}</b> claims this unit as its HQ for ${HQ_FEE}₵. A corp ops terminal boots against the wall — <b>use</b> it (or type <b>corp</b>) to open the console. Treasury: ${result.treasury}₵.` };
 }
 
 async function cmdClaimTerritory(player, broadcast) {
@@ -660,7 +660,7 @@ async function cmdClaimTerritory(player, broadcast) {
   const org = getOrg(m.org_id);
   const held = getOrgZones(m.org_id).length;
   if (held >= territorySlots(org.tier)) return err(`Your corp holds its max ${territorySlots(org.tier)} zone(s) at tier ${tierCap(org.tier)}. Expand with "corp invest".`);
-  if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}c from the treasury — it has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < TERRITORY_CLAIM_FEE) return err(`Claiming territory costs ${TERRITORY_CLAIM_FEE}₵ from the treasury — it has ${org.treasury || 0}₵.`);
   const now = Math.floor(Date.now() / 1000);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [TERRITORY_CLAIM_FEE, org.id]);
@@ -672,7 +672,7 @@ async function cmdClaimTerritory(player, broadcast) {
        RETURNING *`, [zone.id, org.id, START_INFLUENCE, now]);
     return { treasury: dec.rows[0].treasury, row: row.rows[0] };
   });
-  if (!res) return err(`The treasury doesn't have ${TERRITORY_CLAIM_FEE}c.`);
+  if (!res) return err(`The treasury doesn't have ${TERRITORY_CLAIM_FEE}₵.`);
   setZoneControlCache(zone.id, res.row);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
@@ -741,18 +741,18 @@ async function cmdReinforce(player, amountStr, broadcast) {
   const points = Math.min(want, 100 - zc.influence);
   const cost = points * REINFORCE_COST;
   const org = getOrg(m.org_id);
-  if ((org.treasury || 0) < cost) return err(`Reinforcing +${points}% costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < cost) return err(`Reinforcing +${points}% costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
     if (!dec.rowCount) return null;
     const row = await q('UPDATE zone_control SET influence=LEAST(100, influence+$1) WHERE zone_id=$2 RETURNING *', [points, zone.id]);
     return { treasury: dec.rows[0].treasury, row: row.rows[0] };
   });
-  if (!res) return err(`The treasury doesn't have ${cost}c.`);
+  if (!res) return err(`The treasury doesn't have ${cost}₵.`);
   setZoneControlCache(zone.id, res.row);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
-  return { type: 'corp_territory', message: `You pour ${cost}c into holding <b>${esc(zone.name)}</b>. Grip ${res.row.influence}%.` };
+  return { type: 'corp_territory', message: `You pour ${cost}₵ into holding <b>${esc(zone.name)}</b>. Grip ${res.row.influence}%.` };
 }
 
 // Phase 2 — invest treasury to raise the corp's tier (member cap / territory
@@ -765,15 +765,15 @@ async function cmdInvest(player, broadcast) {
   const tier = tierCap(org.tier);
   if (tier >= MAX_TIER) return err(`Your corp is already at the top tier (${MAX_TIER}).`);
   const cost = TIER_COST[tier + 1];
-  if ((org.treasury || 0) < cost) return err(`Advancing to tier ${tier + 1} costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < cost) return err(`Advancing to tier ${tier + 1} costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
   const res = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1, tier=tier+1 WHERE id=$2 AND treasury>=$1 AND tier=$3 RETURNING treasury, tier', [cost, org.id, tier]);
     return dec.rowCount ? dec.rows[0] : null;
   });
-  if (!res) return err(`The treasury doesn't have ${cost}c.`);
+  if (!res) return err(`The treasury doesn't have ${cost}₵.`);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
-  return { type: 'corp_invest', message: `<b>${esc(org.name)}</b> advances to <b>Tier ${res.tier}</b> for ${cost}c. Member cap ${memberCap(res.tier)} · ${territorySlots(res.tier)} territory slots · assets to level ${res.tier}. Treasury: ${res.treasury}c.` };
+  return { type: 'corp_invest', message: `<b>${esc(org.name)}</b> advances to <b>Tier ${res.tier}</b> for ${cost}₵. Member cap ${memberCap(res.tier)} · ${territorySlots(res.tier)} territory slots · assets to level ${res.tier}. Treasury: ${res.treasury}₵.` };
 }
 
 // Phase 2 — build/upgrade an asset (extractor/turret) on a controlled zone.
@@ -794,7 +794,7 @@ async function cmdBuild(player, typeArg, broadcast) {
   if (curLevel >= tier) return err(`Your ${def.label.toLowerCase()} here is at your tier cap (level ${tier}). Raise it with "corp invest".`);
   const newLevel = curLevel + 1;
   const cost = def.base + curLevel * def.perLevel;
-  if ((org.treasury || 0) < cost) return err(`${curLevel ? 'Upgrading' : 'Building'} a ${def.label.toLowerCase()} costs ${cost}c — the treasury has ${org.treasury || 0}c.`);
+  if ((org.treasury || 0) < cost) return err(`${curLevel ? 'Upgrading' : 'Building'} a ${def.label.toLowerCase()} costs ${cost}₵ — the treasury has ${org.treasury || 0}₵.`);
   const treasury = await withTransaction(async (q) => {
     const dec = await q('UPDATE orgs SET treasury=treasury-$1 WHERE id=$2 AND treasury>=$1 RETURNING treasury', [cost, org.id]);
     if (!dec.rowCount) return null;
@@ -802,12 +802,12 @@ async function cmdBuild(player, typeArg, broadcast) {
     else await q('INSERT INTO org_assets (id, org_id, zone_id, type, level) VALUES ($1,$2,$3,$4,1)', [randomUUID(), org.id, zone.id, type]);
     return dec.rows[0].treasury;
   });
-  if (treasury == null) return err(`The treasury doesn't have ${cost}c.`);
+  if (treasury == null) return err(`The treasury doesn't have ${cost}₵.`);
   await reloadZoneAssets(zone.id);
   await reloadOrg(m.org_id);
   await pushConsole(m.org_id, broadcast);
   const effect = type === 'extractor' ? `+${newLevel * def.income}/day income` : `+${newLevel * def.defense} defence`;
-  return { type: 'corp_territory', message: `${curLevel ? 'You upgrade the' : 'You build a'} <b>${def.label}</b> in <b>${esc(zone.name)}</b> to level ${newLevel} — ${effect}. Treasury: ${treasury}c.` };
+  return { type: 'corp_territory', message: `${curLevel ? 'You upgrade the' : 'You build a'} <b>${def.label}</b> in <b>${esc(zone.name)}</b> to level ${newLevel} — ${effect}. Treasury: ${treasury}₵.` };
 }
 
 // 24h territory tick: settle income − upkeep to each controller's treasury, and

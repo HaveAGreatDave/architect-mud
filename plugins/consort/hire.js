@@ -390,7 +390,7 @@ export async function billingTick(todayOverride = null) {
         const live = world.npcs.get(g.id);
         if (live?._consortRow) { live._consortRow.days_kept = (g.days_kept || 0) + 1; }
       }
-      notify(p.id, `<span class="text-dim">B.L.I.S.S. retainer: <span style="color:var(--yellow)">${owed}c</span> for ${names}. ` +
+      notify(p.id, `<span class="text-dim">B.L.I.S.S. retainer: <span style="color:var(--yellow)">${owed}₵</span> for ${names}. ` +
         `${loyaltyTier((row.days_kept || 0) + 1).label}.</span>`);
       continue;
     }
@@ -404,7 +404,7 @@ export async function billingTick(todayOverride = null) {
     for (const g of group) {
       await query('UPDATE player_consorts SET next_due=$1, missed=$2 WHERE id=$3', [next, missed, g.id]);
     }
-    notify(p.id, `<span style="color:var(--yellow)">B.L.I.S.S.: retainer of ${owed}c for ${names} could not be drawn. ` +
+    notify(p.id, `<span style="color:var(--yellow)">B.L.I.S.S.: retainer of ${owed}₵ for ${names} could not be drawn. ` +
       `One more missed day and the placement is collected.</span>`);
   }
 }

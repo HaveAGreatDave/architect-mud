@@ -52,7 +52,7 @@ async function stealFrom(target, player, broadcast) {
 	await adjustCredits(player, amount, undefined, 'thievery:steal');
 	return {
 		type: "steal",
-		message: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
+		message: `You lift ${amount}₵ off ${target.handle} without them noticing a thing.`,
 		player_update: { credits: player.credits },
 	};
 }

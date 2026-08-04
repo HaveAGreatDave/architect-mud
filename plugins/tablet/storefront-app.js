@@ -128,18 +128,18 @@ async function detailFor(player, deed) {
     : `${deed.payments_made}/${deed.payments_total} paid`;
 
   const rows = [
-    { label: 'Till', value: `${deed.till_credits || 0}c` },
-    { label: 'Stock', value: `${stock.units} item${stock.units === 1 ? '' : 's'} · ${stock.value}c listed` },
-    { label: 'Payroll', value: staff.length ? `${staff.map(s => `${s.role} ${s.wage}c`).join(' · ')}` : 'No staff' },
-    { label: deed.paid_off ? 'Upkeep' : 'Instalment', value: `${ec.instalment}c/cycle` },
-    { label: 'Outgoings', value: `${ec.outgoings}c/cycle` },
+    { label: 'Till', value: `${deed.till_credits || 0}₵` },
+    { label: 'Stock', value: `${stock.units} item${stock.units === 1 ? '' : 's'} · ${stock.value}₵ listed` },
+    { label: 'Payroll', value: staff.length ? `${staff.map(s => `${s.role} ${s.wage}₵`).join(' · ')}` : 'No staff' },
+    { label: deed.paid_off ? 'Upkeep' : 'Instalment', value: `${ec.instalment}₵/cycle` },
+    { label: 'Outgoings', value: `${ec.outgoings}₵/cycle` },
     { label: 'Next bill', value: deed.due_date ? String(deed.due_date).slice(0, 10) : 'n/a' },
     { label: 'Term', value: term },
   ];
-  if (ec.committed) rows.push({ label: 'Buy orders', value: `${orders.length} open · ${ec.committed}c committed` });
+  if (ec.committed) rows.push({ label: 'Buy orders', value: `${orders.length} open · ${ec.committed}₵ committed` });
   // Warnings last, so the eye lands on them.
   if (ec.shortfall > 0) {
-    rows.push({ label: '⚠ Shortfall', value: `${ec.shortfall}c short of the next bill` });
+    rows.push({ label: '⚠ Shortfall', value: `${ec.shortfall}₵ short of the next bill` });
   }
   if (deed.missed > 0) {
     rows.push({ label: '⚠ Missed', value: `${deed.missed} payment${deed.missed === 1 ? '' : 's'} — two in a row loses the place` });
@@ -189,7 +189,7 @@ async function buildScreen(player, screenId, params) {
       items: stock.items.map((it, n) => ({
         id: `${deed.zone_id}`,
         label: `${it.qty > 1 ? `${it.qty}x ` : ''}${it.name}`,
-        sub: `${it.price}c each${it.unpaid ? ' · UNPAID (lifted)' : ''}`,
+        sub: `${it.price}₵ each${it.unpaid ? ' · UNPAID (lifted)' : ''}`,
       })),
     };
   }
@@ -206,8 +206,8 @@ async function buildScreen(player, screenId, params) {
   const subs = await Promise.all(shops.map(async (d) => {
     const [staff, orders] = await Promise.all([staffOf(d.zone_id), ordersOf(d.zone_id)]);
     const ec = economics(d, staff, orders);
-    return ec.shortfall > 0 ? `⚠ ${d.till_credits || 0}c till · ${ec.shortfall}c short`
-                            : `${d.till_credits || 0}c till · ${ec.outgoings}c/cycle`;
+    return ec.shortfall > 0 ? `⚠ ${d.till_credits || 0}₵ till · ${ec.shortfall}₵ short`
+                            : `${d.till_credits || 0}₵ till · ${ec.outgoings}₵/cycle`;
   }));
   return {
     view: 'list',

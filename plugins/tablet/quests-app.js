@@ -179,7 +179,7 @@ async function buildScreen(player, screenId, params) {
         const m = q.meta || {};
         return {
           id: q.id, label: q.name,
-          sub: `${m.cargoName} → ${nameOf(m.destZone)} · ${m.weight}kg · risk ${m.risk}/5 · ${q.rewards?.credits || 0}c${m.contraband ? ' · ILLEGAL' : ''}`,
+          sub: `${m.cargoName} → ${nameOf(m.destZone)} · ${m.weight}kg · risk ${m.risk}/5 · ${q.rewards?.credits || 0}₵${m.contraband ? ' · ILLEGAL' : ''}`,
           badge: m.contraband ? 'illegal' : 'open',
           // Board position is what flight's own `accept <n>` expects — stash it
           // so the detail screen's Accept action can call the real qualification-

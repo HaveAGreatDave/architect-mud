@@ -84,8 +84,8 @@ async function buildScreen(player, screenId, params) {
       breadcrumb: ['Transaction History'],
       items: txRows.map(t => ({
         id: String(t.created_at),
-        label: `${t.type === 'deposit' ? '+' : '-'}${t.amount}c`,
-        sub: `Balance after: ${t.balance_after}c · ${new Date(t.created_at * 1000).toLocaleString()}`,
+        label: `${t.type === 'deposit' ? '+' : '-'}${t.amount}₵`,
+        sub: `Balance after: ${t.balance_after}₵ · ${new Date(t.created_at * 1000).toLocaleString()}`,
       })),
     };
   }
@@ -107,8 +107,8 @@ async function buildScreen(player, screenId, params) {
       name: 'Bank',
       desc: `Remote banking — up to ₵${REMOTE_CAP} per transfer, once every 24h each way. Use an ATM to move more.`,
       rows: [
-        { label: 'On hand', value: `${balances.credits}c` },
-        { label: 'Banked', value: `${balances.bank_credits}c` },
+        { label: 'On hand', value: `${balances.credits}₵` },
+        { label: 'Banked', value: `${balances.bank_credits}₵` },
         { label: 'Next deposit', value: depLeft > 0 ? `in ${fmtWait(depLeft)}` : 'ready' },
         { label: 'Next withdrawal', value: wdLeft > 0 ? `in ${fmtWait(wdLeft)}` : 'ready' },
       ],
@@ -132,8 +132,8 @@ async function handleAction(player, actionId, params) {
     }
     if (!await transferCredits(player, amount, actionId)) {
       return { view: 'error', message: actionId === 'deposit'
-        ? `You only have ${player.credits || 0}c on you.`
-        : `You only have ${player.bank_credits || 0}c banked.` };
+        ? `You only have ${player.credits || 0}₵ on you.`
+        : `You only have ${player.bank_credits || 0}₵ banked.` };
     }
     const { logBankTx } = await import('../atm/index.js');
     await logBankTx(player.id, actionId, amount, player.bank_credits);

@@ -184,9 +184,9 @@ async function cmdDeed(player) {
   if (!deed?.owner_id) {
     return { type: 'output', message:
       `<span style="color:var(--accent)">◈ UNIT FOR SALE — ${zone.name}</span>\n` +
-      `<span class="text-dim">Asking price:</span> <span style="color:var(--yellow)">${t.price}c</span>\n` +
-      `<span class="text-dim">Instalment:</span> <span style="color:var(--yellow)">${t.weekly}c</span> per ${RENT_PERIOD_DAYS}-day cycle × ${t.term}\n` +
-      `<span class="text-dim">Upkeep once cleared:</span> ${t.upkeep}c per cycle\n\n` +
+      `<span class="text-dim">Asking price:</span> <span style="color:var(--yellow)">${t.price}₵</span>\n` +
+      `<span class="text-dim">Instalment:</span> <span style="color:var(--yellow)">${t.weekly}₵</span> per ${RENT_PERIOD_DAYS}-day cycle × ${t.term}\n` +
+      `<span class="text-dim">Upkeep once cleared:</span> ${t.upkeep}₵ per cycle\n\n` +
       `First instalment down and the keys are yours. Miss ${MAX_MISSED} in a row and the lender takes it back — stock included.\n` +
       `(<span class="action-link" data-raw-cmd="buyshop" title="Take on the mortgage">BUYSHOP</span> to sign)` };
   }
@@ -199,19 +199,19 @@ async function cmdDeed(player) {
   ];
   if (deed.paid_off) {
     lines.push(`<span class="text-dim">Mortgage:</span> <span style="color:var(--accent)">CLEARED</span> — owned outright.`);
-    lines.push(`<span class="text-dim">Upkeep:</span> <span style="color:var(--yellow)">${deed.upkeep}c</span> per cycle, due ${formatGameDate(ymd(deed.due_date))}`);
+    lines.push(`<span class="text-dim">Upkeep:</span> <span style="color:var(--yellow)">${deed.upkeep}₵</span> per cycle, due ${formatGameDate(ymd(deed.due_date))}`);
   } else {
     lines.push(`<span class="text-dim">Mortgage:</span> ${deed.payments_made}/${deed.payments_total} paid — ${left} instalment${left === 1 ? '' : 's'} to go`);
-    lines.push(`<span class="text-dim">Next:</span> <span style="color:var(--yellow)">${deed.weekly_payment}c</span> due ${formatGameDate(ymd(deed.due_date))}`);
+    lines.push(`<span class="text-dim">Next:</span> <span style="color:var(--yellow)">${deed.weekly_payment}₵</span> due ${formatGameDate(ymd(deed.due_date))}`);
   }
   if (deed.missed > 0) {
     lines.push(`<span style="color:var(--red)">⚠ ${deed.missed} missed payment${deed.missed === 1 ? '' : 's'} — ${MAX_MISSED - deed.missed} from repossession.</span>`);
   }
   if (owned) {
-    lines.push(`<span class="text-dim">Till:</span> ${deed.till_credits}c waiting in the vault. (TILL to collect)`);
+    lines.push(`<span class="text-dim">Till:</span> ${deed.till_credits}₵ waiting in the vault. (TILL to collect)`);
     const roster = await staffFor(zone.id);
     lines.push(`<span class="text-dim">Payroll:</span> ${roster.length
-      ? `${roster.map(m => `${m.name} (${m.role}, ${m.wage}c)`).join(', ')}`
+      ? `${roster.map(m => `${m.name} (${m.role}, ${m.wage}₵)`).join(', ')}`
       : 'nobody. (HIRE CLERK · HIRE GUARD)'}`);
     lines.push(`<span class="text-dim">Shutter:</span> ${deed.shutters_closed ? 'down — shut' : 'up — open'} (SHUTTERS to work it)`);
     // Cameras are the surveillance plugin's, not ours, and they already charge
@@ -238,7 +238,7 @@ async function cmdBuyShop(player) {
 
   const t = authoredTerms(zone);
   if (!(await adjustCredits(player, -t.weekly, undefined, 'storefront:deposit'))) {
-    return { type: 'error', message: `The first instalment is ${t.weekly}c and you have ${player.credits || 0}c. The agent shows you the door.` };
+    return { type: 'error', message: `The first instalment is ${t.weekly}₵ and you have ${player.credits || 0}₵. The agent shows you the door.` };
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -263,8 +263,8 @@ async function cmdBuyShop(player) {
   return { type: 'output', player_update: { credits: player.credits }, message:
     `<span style="color:var(--accent)">◈ DEED TRANSFERRED — ${zone.name}</span>\n\n` +
     `The agent thumbs a slate, the lock re-keys to you, and that is the whole ceremony.\n\n` +
-    `<span class="text-dim">Paid down:</span> ${t.weekly}c\n` +
-    `<span class="text-dim">Remaining:</span> ${t.term - 1} × ${t.weekly}c per ${RENT_PERIOD_DAYS}-day cycle\n` +
+    `<span class="text-dim">Paid down:</span> ${t.weekly}₵\n` +
+    `<span class="text-dim">Remaining:</span> ${t.term - 1} × ${t.weekly}₵ per ${RENT_PERIOD_DAYS}-day cycle\n` +
     `<span class="text-dim">Next due:</span> ${formatGameDate(due)}\n\n` +
     `<span class="text-dim">RENAMESHOP &lt;name&gt;</span> to put your own name up. ` +
     `<span class="text-dim">STOCK &lt;item&gt; FOR &lt;price&gt;</span> to put something on the display. ` +
@@ -345,7 +345,7 @@ async function cmdStock(args, player) {
   const qty = row.quantity > 1 ? ` (x${row.quantity})` : '';
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: `${player.handle} sets ${row.name}${qty} out on the display.` }, player.id);
-  return { type: 'output', message: `You set <b>${row.name}</b>${qty} on the display${chilled} at <span style="color:var(--yellow)">${price}c</span>.${warning}` };
+  return { type: 'output', message: `You set <b>${row.name}</b>${qty} on the display${chilled} at <span style="color:var(--yellow)">${price}₵</span>.${warning}` };
 }
 
 async function cmdUnstock(args, player) {
@@ -390,7 +390,7 @@ function waresBoard(zone, deed, listings) {
     const state = l.freshness ? ` <span class="text-dim">— ${l.freshness}</span>` : '';
     return `  <span class="action-link" data-raw-cmd="buyware ${shown}" title="Buy ${shown}">${shown}</span>${band}` +
       `${l.quantity > 1 ? ` <span class="text-dim">x${l.quantity}</span>` : ''}` +
-      ` — <span style="color:var(--yellow)">${l.price}c</span>${state}`;
+      ` — <span style="color:var(--yellow)">${l.price}₵</span>${state}`;
   };
   // Same sectioning rule as an NPC vendor's shelf (server/engine/classify.js), so a
   // player shop that grows into a real grocery reads like one. A player has no
@@ -463,13 +463,13 @@ async function payForPocketed(row, player, deed) {
       [price, deed.zone_id]);
     return rows[0]?.till_credits ?? 0;
   });
-  if (paid === null) return { type: 'error', message: `That's ${price}c and you have ${player.credits || 0}c. Put it back or make a decision.` };
+  if (paid === null) return { type: 'error', message: `That's ${price}₵ and you have ${player.credits || 0}₵. Put it back or make a decision.` };
   setDeed(deed.zone_id, { ...deed, till_credits: paid });
 
   if (getLivePlayer(deed.owner_id)) sendToPlayer(deed.owner_id, { type: 'output', message:
-    `<span style="color:var(--yellow)">₵ SETTLED — ${player.handle} paid ${price}c for the ${row.name} they'd picked up. Till: ${paid}c.</span>` });
+    `<span style="color:var(--yellow)">₵ SETTLED — ${player.handle} paid ${price}₵ for the ${row.name} they'd picked up. Till: ${paid}₵.</span>` });
   return { type: 'buy', player_update: { credits: player.credits }, message:
-    `You settle up for the <b>${row.name}</b>. <span style="color:var(--yellow)">-${price}c</span>. It's yours, properly.` };
+    `You settle up for the <b>${row.name}</b>. <span style="color:var(--yellow)">-${price}₵</span>. It's yours, properly.` };
 }
 
 async function purchaseListing(listing, player) {
@@ -498,7 +498,7 @@ async function purchaseListing(listing, player) {
   });
 
   if (outcome === 'gone') return { type: 'error', message: 'Someone got there first — it\'s already gone.' };
-  if (outcome === 'broke') return { type: 'error', message: `That's ${price}c and you have ${player.credits || 0}c.` };
+  if (outcome === 'broke') return { type: 'error', message: `That's ${price}₵ and you have ${player.credits || 0}₵.` };
   setDeed(zone.id, { ...deed, till_credits: outcome });
 
   // The bought row is already the buyer's; giveToPlayer would only be needed for
@@ -515,10 +515,10 @@ async function purchaseListing(listing, player) {
   // shop that trades while you're elsewhere.
   const owner = getLivePlayer(deed.owner_id);
   if (owner) sendToPlayer(deed.owner_id, { type: 'output', message:
-    `<span style="color:var(--yellow)">₵ SALE — ${player.handle} bought ${listing.name} from ${shopDisplayName(zone, deed)} for ${price}c. Till: ${outcome}c.</span>` });
+    `<span style="color:var(--yellow)">₵ SALE — ${player.handle} bought ${listing.name} from ${shopDisplayName(zone, deed)} for ${price}₵. Till: ${outcome}₵.</span>` });
 
   return { type: 'buy', player_update: { credits: player.credits }, message:
-    `You take <b>${listing.name}</b> off the display and settle up. <span style="color:var(--yellow)">-${price}c</span>` };
+    `You take <b>${listing.name}</b> off the display and settle up. <span style="color:var(--yellow)">-${price}₵</span>` };
 }
 
 // ── TILL — collect the takings ───────────────────────────────────────────────
@@ -535,7 +535,7 @@ async function cmdTill(player) {
   await adjustCredits(player, amount, undefined, 'storefront:till');
 
   return { type: 'output', player_update: { credits: player.credits }, message:
-    `You empty the vault and pocket <span style="color:var(--yellow)">${amount}c</span>.` };
+    `You empty the vault and pocket <span style="color:var(--yellow)">${amount}₵</span>.` };
 }
 
 // ── SELLSHOP — hand the keys back ────────────────────────────────────────────
@@ -554,9 +554,9 @@ async function cmdSellShop(player) {
 
   return { type: 'output', player_update: { credits: player.credits }, message:
     `<span style="color:var(--accent)">You hand the keys back.</span> ${h.zone.name} goes back on the board.\n\n` +
-    `<span class="text-dim">Paid in over the term:</span> ${paid}c <span class="text-dim">(not refunded)</span>\n` +
+    `<span class="text-dim">Paid in over the term:</span> ${paid}₵ <span class="text-dim">(not refunded)</span>\n` +
     `<span class="text-dim">Stock recovered:</span> everything off the display\n` +
-    `<span class="text-dim">Till collected:</span> ${takings}c` };
+    `<span class="text-dim">Till collected:</span> ${takings}₵` };
 }
 
 // Shared teardown: clears the deed back to vacant. Used by SELLSHOP and by
@@ -576,7 +576,7 @@ async function describeRoom(zone) {
   const deed = getDeed(zone.id);
   if (!deed?.owner_id) {
     const t = authoredTerms(zone);
-    return `<span style="color:var(--yellow)">◈ FOR SALE — ${t.price}c, or ${t.weekly}c per ${RENT_PERIOD_DAYS}-day cycle over ${t.term} cycles.</span> ` +
+    return `<span style="color:var(--yellow)">◈ FOR SALE — ${t.price}₵, or ${t.weekly}₵ per ${RENT_PERIOD_DAYS}-day cycle over ${t.term} cycles.</span> ` +
       `<span class="text-dim">(<span class="action-link" data-raw-cmd="deed" title="Read the terms">DEED</span> for the terms, ` +
       `<span class="action-link" data-raw-cmd="buyshop" title="Take on the mortgage">BUYSHOP</span> to sign)</span>`;
   }
@@ -722,11 +722,11 @@ async function cmdTillCrackResolve(args, raw, player) {
   await awardSkillUse(player.id, 'hacking', await breachMargin(player, vault.flags?.hack_difficulty, 6));
   emit('hack.success', { player, zoneId: player.current_zone });
   if (getLivePlayer(deed.owner_id)) sendToPlayer(deed.owner_id, { type: 'output', message:
-    `<span style="color:var(--red)">₵ ROBBED — your vault at ${shopDisplayName(zone, deed)} has been emptied. ${stolen}c gone.</span>` });
+    `<span style="color:var(--red)">₵ ROBBED — your vault at ${shopDisplayName(zone, deed)} has been emptied. ${stolen}₵ gone.</span>` });
 
   return { type: 'output', player_update: { credits: player.credits }, message:
     `The last tumbler drops and the bolt slides back. The ${vault.name} swings open.\n` +
-    `You lift ${stolen}c of ${deed.owner_handle}'s takings and ease it shut behind you.\n` +
+    `You lift ${stolen}₵ of ${deed.owner_handle}'s takings and ease it shut behind you.\n` +
     `<span class="ip-gain">+${stolen} credits. Hacking improved.</span>` };
 }
 
@@ -803,7 +803,7 @@ export async function mortgageTick(todayOverride = null) {
       await query('UPDATE storefronts SET missed=$1, due_date=$2 WHERE zone_id=$3', [missed, next, deed.zone_id]);
       setDeed(deed.zone_id, { ...deed, missed, due_date: next });
       sendToPlayer(p.id, { type: 'output', message:
-        `<span style="color:var(--red)">⚠ MISSED PAYMENT — ${owed}c was due on ${zoneName} and you couldn't cover it. ` +
+        `<span style="color:var(--red)">⚠ MISSED PAYMENT — ${owed}₵ was due on ${zoneName} and you couldn't cover it. ` +
         `One more and the lender takes the place, stock and all.</span>` });
       continue;
     }
@@ -825,13 +825,13 @@ export async function mortgageTick(todayOverride = null) {
       live.credits = Math.max(0, (live.credits || 0) - fromCarried);
     }
     const source = fromTill >= owed ? 'straight out of the till'
-      : fromTill > 0 ? `${fromTill}c from the till, the rest from you`
+      : fromTill > 0 ? `${fromTill}₵ from the till, the rest from you`
       : 'from your accounts';
     const tail = nowPaidOff && !deed.paid_off
-      ? `\n<span style="color:var(--accent)">◈ MORTGAGE CLEARED — ${zoneName} is yours outright. Upkeep from here is ${deed.upkeep}c per cycle.</span>`
+      ? `\n<span style="color:var(--accent)">◈ MORTGAGE CLEARED — ${zoneName} is yours outright. Upkeep from here is ${deed.upkeep}₵ per cycle.</span>`
       : deed.paid_off ? '' : ` (${paymentsMade}/${deed.payments_total})`;
     sendToPlayer(p.id, { type: 'output',
-      message: `<span style="color:var(--yellow)">${deed.paid_off ? 'UPKEEP' : 'INSTALMENT'} PAID — ${owed}c on ${zoneName}, ${source}.${tail}</span>`,
+      message: `<span style="color:var(--yellow)">${deed.paid_off ? 'UPKEEP' : 'INSTALMENT'} PAID — ${owed}₵ on ${zoneName}, ${source}.${tail}</span>`,
       ...(live ? { player_update: { credits: live.credits, bank_credits: live.bank_credits } } : {}) });
   }
 }
@@ -844,7 +844,7 @@ async function repossess(deed, zoneName, why) {
   emit('storefront.repossessed', { ownerId: deed.owner_id, zoneId: deed.zone_id });
   sendToPlayer(deed.owner_id, { type: 'output', message:
     `<span style="color:var(--red)">◈ REPOSSESSION — ${zoneName} has been taken back (${why}). ` +
-    `The locks are re-keyed, the display is cleared, and the ${deed.payments_made * deed.weekly_payment}c you put in stays put in. ` +
+    `The locks are re-keyed, the display is cleared, and the ${deed.payments_made * deed.weekly_payment}₵ you put in stays put in. ` +
     `The unit is back on the board.</span>` });
 }
 
@@ -989,7 +989,7 @@ async function cmdHire(args, player) {
   const role = (args[0] || '').toLowerCase();
   if (!ROLES[role]) {
     const menu = Object.entries(ROLES)
-      .map(([r, c]) => `  <b>${r}</b> — ${c.blurb}. <span style="color:var(--yellow)">${c.wage}c</span>/cycle`).join('\n');
+      .map(([r, c]) => `  <b>${r}</b> — ${c.blurb}. <span style="color:var(--yellow)">${c.wage}₵</span>/cycle`).join('\n');
     return { type: 'output', message: `Hire who?\n${menu}\n\n<span class="text-dim">(hire clerk · hire guard) — wages come out of the till on the same cycle as the mortgage.</span>` };
   }
   if (await staffRole(h.zone.id, role)) {
@@ -1007,7 +1007,7 @@ async function cmdHire(args, player) {
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: cfg.hired(name) }, player.id);
   return { type: 'output', message:
-    `You put <b>${name}</b> on as ${role}. <span style="color:var(--yellow)">${cfg.wage}c</span> per cycle, out of the till.\n` +
+    `You put <b>${name}</b> on as ${role}. <span style="color:var(--yellow)">${cfg.wage}₵</span> per cycle, out of the till.\n` +
     `<span class="text-dim">${cfg.hired(name)}</span>` };
 }
 
@@ -1021,7 +1021,7 @@ async function cmdSack(args, player) {
   await query('DELETE FROM storefront_staff WHERE zone_id=$1 AND role=$2', [h.zone.id, member.role]);
   const bc = getBroadcast();
   if (bc) bc(h.zone.id, { type: 'zone_event', message: `${member.name} hands back the keys and goes, without comment.` }, player.id);
-  return { type: 'output', message: `You let <b>${member.name}</b> go. That's ${member.wage}c a cycle back in the till.` };
+  return { type: 'output', message: `You let <b>${member.name}</b> go. That's ${member.wage}₵ a cycle back in the till.` };
 }
 
 async function cmdStaff(player) {
@@ -1029,9 +1029,9 @@ async function cmdStaff(player) {
   if (h.error) return { type: 'error', message: h.error };
   const roster = await staffFor(h.zone.id);
   if (!roster.length) return { type: 'output', message: 'Nobody works here. (HIRE CLERK · HIRE GUARD)' };
-  const lines = roster.map(m => `  <b>${m.name}</b> — ${m.role}, <span style="color:var(--yellow)">${m.wage}c</span>/cycle`);
+  const lines = roster.map(m => `  <b>${m.name}</b> — ${m.role}, <span style="color:var(--yellow)">${m.wage}₵</span>/cycle`);
   const total = roster.reduce((s, m) => s + m.wage, 0);
-  return { type: 'output', message: `<span style="color:var(--accent)">Payroll — ${shopDisplayName(h.zone, h.deed)}</span>\n${lines.join('\n')}\n<span class="text-dim">Total: ${total}c per cycle, drawn from the till.</span>` };
+  return { type: 'output', message: `<span style="color:var(--accent)">Payroll — ${shopDisplayName(h.zone, h.deed)}</span>\n${lines.join('\n')}\n<span class="text-dim">Total: ${total}₵ per cycle, drawn from the till.</span>` };
 }
 
 // ═══ SHOPLIFTING ════════════════════════════════════════════════════════════
@@ -1106,7 +1106,7 @@ async function pocketListing(listing, player) {
 
   return { type: 'output', message:
     `You lift <b>${listing.name}</b> off the display.\n` +
-    `<span class="text-dim">It isn't yours yet — <b>buyware ${listing.name}</b> settles up at ${listing.price}c. ` +
+    `<span class="text-dim">It isn't yours yet — <b>buyware ${listing.name}</b> settles up at ${listing.price}₵. ` +
     `Walking out with it is another matter.</span>` };
 }
 
@@ -1155,7 +1155,7 @@ registerMoveGate(async ({ player, from, to, direction }) => {
   const total = owing.reduce((s, r) => s + (r.price || 0), 0);
   const names = owing.map(r => r.name).join(', ');
   return { block: true, message:
-    `You're at the door of ${shopDisplayName(getZone(from.id), deed)} still holding <b>${names}</b>${total ? `, ${total}c unpaid` : ', unpaid'}.\n` +
+    `You're at the door of ${shopDisplayName(getZone(from.id), deed)} still holding <b>${names}</b>${total ? `, ${total}₵ unpaid` : ', unpaid'}.\n` +
     `<span class="text-dim">Pay for ${owing.length > 1 ? 'them' : 'it'}? <b>yes</b> to settle up and go, <b>no</b> to walk out with ${owing.length > 1 ? 'them' : 'it'}.</span>` };
 }, 'storefront:unpaid-door');
 
@@ -1247,7 +1247,7 @@ export async function footfallTick(force = false) {
     if (bc) bc(zoneId, { type: 'zone_event', message:
       `${who[0].toUpperCase()}${who.slice(1)} comes in, picks up the ${pick.name}, pays without haggling, and leaves.` });
     if (getLivePlayer(deed.owner_id)) sendToPlayer(deed.owner_id, { type: 'output', message:
-      `<span style="color:var(--yellow)">₵ PASSING TRADE — ${pick.name} sold for ${price}c at ${shopDisplayName(getZone(zoneId), deed)}. Till: ${sold}c.</span>` });
+      `<span style="color:var(--yellow)">₵ PASSING TRADE — ${pick.name} sold for ${price}₵ at ${shopDisplayName(getZone(zoneId), deed)}. Till: ${sold}₵.</span>` });
     emit('storefront.sale', { zoneId, ownerId: deed.owner_id, itemId: pick.item_id, price, footfall: true });
   }
 }
@@ -1268,7 +1268,7 @@ function ordersBoard(zone, deed, orders) {
   if (!orders.length) return null;
   const lines = orders.map(o =>
     `  <span class="action-link" data-raw-cmd="supply ${o.name}" title="Sell ${o.name} to this shop">${o.name}</span>` +
-    ` — <span style="color:var(--yellow)">${o.price}c</span> each, wants ${o.wanted}`);
+    ` — <span style="color:var(--yellow)">${o.price}₵</span> each, wants ${o.wanted}`);
   return `<span class="text-dim">${shopDisplayName(zone, deed)} is buying:</span>\n${lines.join('\n')}`;
 }
 
@@ -1311,7 +1311,7 @@ async function cmdBuyOrder(args, player) {
     `INSERT INTO storefront_orders (id, zone_id, item_id, price, wanted, created_at) VALUES ($1,$2,$3,$4,$5,$6)`,
     [randomUUID(), h.zone.id, item.id, price, qty, Math.floor(Date.now() / 1000)]);
   return { type: 'output', message:
-    `Posted: <b>${item.name}</b>, <span style="color:var(--yellow)">${price}c</span> each, up to ${qty}.\n` +
+    `Posted: <b>${item.name}</b>, <span style="color:var(--yellow)">${price}₵</span> each, up to ${qty}.\n` +
     `<span class="text-dim">Paid out of the till as people bring them in — keep it funded or the offer bounces.</span>` };
 }
 
@@ -1370,7 +1370,7 @@ async function fillOrder(order, player) {
     }
     return true;
   });
-  if (!paid) return { type: 'error', message: `The till can't cover ${order.price}c. The offer's still up, but the money isn't there.` };
+  if (!paid) return { type: 'error', message: `The till can't cover ${order.price}₵. The offer's still up, but the money isn't there.` };
 
   await adjustCredits(player, order.price, undefined, 'storefront:supply');
   await query('DELETE FROM storefront_orders WHERE id=$1 AND wanted <= 0', [order.id]);
@@ -1378,9 +1378,9 @@ async function fillOrder(order, player) {
   setDeed(zone.id, { ...deed, till_credits: t[0]?.till_credits ?? 0 });
 
   if (getLivePlayer(deed.owner_id)) sendToPlayer(deed.owner_id, { type: 'output', message:
-    `<span style="color:var(--yellow)">₵ ORDER FILLED — ${player.handle} brought in a ${order.name}. Paid ${order.price}c from the till.</span>` });
+    `<span style="color:var(--yellow)">₵ ORDER FILLED — ${player.handle} brought in a ${order.name}. Paid ${order.price}₵ from the till.</span>` });
   return { type: 'output', player_update: { credits: player.credits }, message:
-    `You hand over the <b>${order.name}</b> and the till counts out <span style="color:var(--yellow)">${order.price}c</span>.\n` +
+    `You hand over the <b>${order.name}</b> and the till counts out <span style="color:var(--yellow)">${order.price}₵</span>.\n` +
     `<span class="text-dim">It goes on the shelf unpriced — the owner will set a price on it.</span>` };
 }
 
