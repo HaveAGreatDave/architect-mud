@@ -2958,8 +2958,14 @@ async function talkshowHeartbeat() {
       seen.add(guestNpc);
       if (_talkshowRenamed.get(guestNpc) === bucket) continue;
       const persona = talkshowPersonaFor(script, bucket);
+      // A COMMA, NOT AN EM DASH. The dash is a voice tell reserved for the
+      // Ascendants and the Architect, and this line is neither — it is a listings
+      // blurb. It also has to match what the content file says word for word: the
+      // file was corrected to a comma and this generator was not, so every episode
+      // rewrote the row back to a dash and the next `content:import` refused to run,
+      // reading the nightly rename as an unexported local edit.
       const desc = persona.title
-        ? `${persona.name} — ${persona.title}. Tonight's guest on ${item.broadcastName || 'the show'}.`
+        ? `${persona.name}, ${persona.title}. Tonight's guest on ${item.broadcastName || 'the show'}.`
         : `${persona.name}, tonight's guest on ${item.broadcastName || 'the show'}.`;
       await query(`UPDATE npcs SET name=$1, description=$2 WHERE id=$3`, [persona.name, desc, guestNpc]).catch(() => {});
       const live = world.npcs.get(guestNpc);
