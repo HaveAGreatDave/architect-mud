@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#8a4a4a",
+  "description": "A slot of a room behind the walk-in, loud with compressor noise and warm in a way the rest of the building is not. The junction box is bolted at head height with its breakers labelled in grease pencil, and a coil of hose hangs beside a floor drain that has seen worse than water. A small sealed hacking port sits below the latch.",
+  "exits": {
+    "south": "zone_bt_chill"
+  },
+  "flags": {
+    "is_interior": true,
+    "terrain": "grass"
+  },
+  "grid_x": 0,
+  "grid_y": -2,
+  "grid_z": 0,
+  "id": "zone_bt_util",
+  "map_id": "map_int_bt_butcher",
+  "name": "Utility Room",
+  "parent_zone": "zone_district_920_912"
+}

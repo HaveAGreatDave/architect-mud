@@ -2854,6 +2854,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // Corporate-Assets claimable businesses — a distinct wall tone per storefront type.
   ty_armory: [70, 74, 80], ty_casino: [58, 30, 60], ty_pawn: [74, 62, 44], ty_chem: [76, 92, 70],
   ty_kitchen: [74, 68, 58],
+  // Meat Your Maker — oxblood-painted brick, the one warm-red frontage on Ironside.
+  ty_butcher: [86, 44, 44],
   // Grind House — soot-dark iron; the ember glow comes from the neon field.
   ty_forge: [62, 52, 46],
   // The Yards — semi-industrial freight district models (see TYPE_MODEL). The ribbed-steel keys also join METAL_WALL.
@@ -2931,6 +2933,7 @@ const BLDG_TYPE_3D = {
   noodle_bar:       { a: 'oldcoldwater', h: 0.09 }, // Oyelaran's — one storey, open front
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
+  butcher:          { a: 'oldcoldwater', h: 0.10 }, // Meat Your Maker, single storey with a flat roof
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
   // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
   asc_spire:        { a: 'uptown',     h: 0.50 },
@@ -5469,6 +5472,7 @@ const TYPE_MODEL = {
   // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
   // "nearest existing model, bespoke colour" call the Ascendant campus makes.
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
+  butcher:          { type: 'shop',      pal: 'ty_butcher', neon: '#ff3e4a' },
   bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },

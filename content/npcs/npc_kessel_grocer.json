@@ -290,6 +290,54 @@
     {
       "item_id": "item_flat_bread",
       "price": 4
+    },
+    {
+      "item_id": "item_brown_sugar",
+      "price": 9
+    },
+    {
+      "item_id": "item_mustard",
+      "price": 11
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 9
+    },
+    {
+      "item_id": "item_cracker_meal",
+      "price": 5
+    },
+    {
+      "item_id": "item_sausage",
+      "price": 26
+    },
+    {
+      "item_id": "item_dry_pulse",
+      "price": 7
+    },
+    {
+      "item_id": "item_vinegar",
+      "price": 8
+    },
+    {
+      "item_id": "item_tomato_paste",
+      "price": 12
+    },
+    {
+      "item_id": "item_orange",
+      "price": 28
+    },
+    {
+      "item_id": "item_pale_cabbage",
+      "price": 6
+    },
+    {
+      "item_id": "item_melon_chunk",
+      "price": 11
+    },
+    {
+      "item_id": "item_synth_cream",
+      "price": 11
     }
   ],
   "vendor_restock_rate": 3,

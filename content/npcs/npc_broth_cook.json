@@ -270,6 +270,34 @@
     {
       "item_id": "item_food_grill_special",
       "price": 14
+    },
+    {
+      "item_id": "item_okonomi_sauce",
+      "price": 20
+    },
+    {
+      "item_id": "item_bonito_flakes",
+      "price": 24
+    },
+    {
+      "item_id": "item_horchata",
+      "price": 13
+    },
+    {
+      "item_id": "item_vat_mushroom",
+      "price": 10
+    },
+    {
+      "item_id": "item_lamp_greens",
+      "price": 4
+    },
+    {
+      "item_id": "item_fresh_catch",
+      "price": 9
+    },
+    {
+      "item_id": "item_hydro_pepper",
+      "price": 8
     }
   ],
   "vendor_restock_rate": 3,

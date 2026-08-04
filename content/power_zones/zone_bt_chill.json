@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5400,
+  "flags": {},
+  "generator_id": "gen_zone_bt_util",
+  "id": "zone_bt_chill",
+  "max_capacity_kw": 5400,
+  "name": "Meat Your Maker — Cold Room",
+  "source_type": "junction_box"
+}

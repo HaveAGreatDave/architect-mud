@@ -1,0 +1,18 @@
+{
+  "description": "A single caged bulb on a hook, swung out over the block when there is work on it and left to hang when there is not.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_bt_chill",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "caged worklight",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_bt_chill"
+}

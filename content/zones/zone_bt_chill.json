@@ -1,0 +1,25 @@
+{
+  "ambient_events": [
+    "The smokehouse ticks as its firebox settles.",
+    "Cold rolls out from under the walk-in door and dies at your ankles.",
+    "A chain on the rail clinks against the wall and goes still."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#8a4a4a",
+  "description": "The back room, and the working half of the building. One wall is the walk-in, its door a slab of insulated steel with a handle worn to bare metal; the other is the smokehouse, a black cabinet the height of a person breathing a thin blue thread from a vent near the roof. Between them stands the block, end-grain, dished in the centre by a lifetime of the same three cuts. The wood chips live in a bin underneath. It is very cold and it smells wonderful.",
+  "exits": {
+    "north": "zone_bt_util",
+    "south": "zone_bt_shop"
+  },
+  "flags": {
+    "is_interior": true,
+    "terrain": "grass"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_bt_chill",
+  "map_id": "map_int_bt_butcher",
+  "name": "Cold Room",
+  "parent_zone": "zone_district_920_912"
+}

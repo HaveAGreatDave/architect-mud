@@ -5665,6 +5665,35 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--text-dim);
 	flex-shrink: 0;
 }
+.shop-result-mark { float: left; margin-right: 6px; font-size: 13px; line-height: 1; }
+.shop-result.good { color: var(--green); }
+/* A REFUSAL IS A WALL. The old band said no in dim red 11px prose between two
+   dashed rules and was routinely missed — a vendor turning you down read as a
+   dead button. So it gets a box of its own, a ✕ in the gutter and a knock; the
+   success case deliberately keeps none of it, because the credits counter and
+   the item in your pack have already said yes. */
+.shop-result.bad {
+	color: var(--red);
+	font-size: 12px;
+	border: 1px solid var(--red);
+	border-radius: 3px;
+	background: rgba(255, 60, 70, 0.09);
+	padding: 5px 8px;
+	margin-top: 4px;
+}
+.shop-result.bad.knock { animation: shop-refuse-knock 0.34s ease-out; }
+/* Two short lateral knocks — the shop door not giving. Small on purpose: this
+   sits above a dense list and a big shake would throw the whole pane around. */
+@keyframes shop-refuse-knock {
+	0%, 100% { transform: translateX(0); }
+	15% { transform: translateX(-5px); }
+	35% { transform: translateX(4px); }
+	55% { transform: translateX(-3px); }
+	75% { transform: translateX(2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.shop-result.bad.knock { animation: none; }
+}
 .shop-2pane {
 	display: grid;
 	grid-template-columns: 1fr 300px;

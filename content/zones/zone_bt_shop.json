@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The bandsaw whines through bone in the back, then stops.",
+    "A carcass on the rail swings a slow half turn and settles.",
+    "The case compressor shudders, and the glass fogs a little further.",
+    "Somewhere behind the wall, the smokehouse door thumps shut."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#8a4a4a",
+  "description": "A butcher's shop that has never once pretended to be anything gentler. Carcasses hang nose-down from a ceiling rail, spaced like coats in a hall, and the chilled case below them is laid out in ranked trays under a light chosen to flatter red. The floor slopes to a drain in the middle of the room. Sawdust goes down every morning and comes up every night, and the smell that survives both is smoke, cold fat, and iron. MEAT YOUR MAKER is painted on the window in a cheerful red script that somebody clearly enjoyed getting away with.",
+  "exits": {
+    "north": "zone_bt_chill",
+    "west": "zone_district_920_912"
+  },
+  "flags": {
+    "building_name": "Meat Your Maker",
+    "building_type": "butcher",
+    "is_building": true,
+    "is_interior": true,
+    "terrain": "grass",
+    "world_exit_zone": "zone_district_920_912"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bt_shop",
+  "map_id": "map_int_bt_butcher",
+  "name": "Meat Your Maker",
+  "parent_zone": "zone_district_920_912"
+}

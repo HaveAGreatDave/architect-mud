@@ -1,0 +1,361 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "steps up to the ATM terminal and makes a deposit."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "collect_safe",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 5
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Tell me what you're cooking and I'll tell you what to buy. Other way round, you get what you deserve.\"",
+    "\"Everything in that case was walking around at some point. I'd rather you thought about that than not.\"",
+    "\"Smoke's not a flavour, it's a preservative that got lucky.\"",
+    "\"No, I won't cut it thinner. It falls apart and then you blame me.\""
+  ],
+  "description": "A wide, unhurried woman with forearms like mooring rope and a butcher's way of looking at you slightly too long, as though pricing the cut. Her apron is rust-brown from the waist down and has been washed enough times that the colour is now the fabric. She talks while she works and never once looks at the blade.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "She goes back to the block, and the rhythm picks up where it left off."
+    },
+    "root": {
+      "options": [
+        {
+          "label": "What have you got?",
+          "next": "shop"
+        },
+        {
+          "label": "What's in the black cabinet?",
+          "next": "smoke"
+        }
+      ],
+      "text": "\"Case is cold, cabinet's smoked. Ask if you want it cut different.\"",
+      "text_by_relation": {
+        "familiar": "\"There you are.\" She sets something aside on the block without being asked. \"Kept you the end cut. Don't tell the queue.\"",
+        "first": "\"Haven't seen you.\" The cleaver comes down twice while she looks at you. \"Vesna. This is mine, all of it, since before the sign was funny. Case is cold, cabinet's smoked, and I cut to order if you know what you want.\"",
+        "known": "\"You again.\" She is already reaching for the paper. \"Same as last time, or are we being adventurous?\""
+      }
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "npcId": "npc_butcher_kroh"
+        }
+      ],
+      "options": [
+        {
+          "label": "(look it over)",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Go on. Point. I'll wrap it.\""
+    },
+    "smoke": {
+      "options": [
+        {
+          "label": "How long does it take?",
+          "next": "smoke_deeper"
+        },
+        {
+          "label": "I'll have a look.",
+          "next": "shop"
+        }
+      ],
+      "text": "\"Everything that would've gone off before Friday.\" She says it without any shame at all. \"Twelve hours of applewood and a thing stops being a problem and starts being expensive.\""
+    },
+    "smoke_deeper": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Depends what it is and how much of it there is.\" She wipes the block down with the flat of her hand. \"The long ones I start before I close and take out before I open. Means I sleep here twice a week. Means the good stuff exists. You pick.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a rust-brown butcher's apron gone stiff at the hem",
+      "a heavy grey work shirt with the sleeves cut off at the shoulder",
+      "a plain cotton bra and briefs"
+    ],
+    "food_buyer": true,
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_meridian_unit_504",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_butcher_kroh",
+  "name": "Vesna Kroh",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_cured_strip",
+      "price": 17,
+      "restockToQty": 8,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_salt_fish",
+      "price": 13,
+      "restockToQty": 8,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_bbq_rub",
+      "price": 22,
+      "restockToQty": 6,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_paprika",
+      "price": 15,
+      "restockToQty": 6,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_wood_chips",
+      "price": 12,
+      "restockToQty": 10,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_jerk_paste",
+      "price": 34,
+      "restockToQty": 4,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_bbq_sauce",
+      "price": 38,
+      "restockToQty": 4,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_bone_cleaver",
+      "price": 95,
+      "restockToQty": 3,
+      "sourceContainer": "furn_bt_smokehouse"
+    },
+    {
+      "item_id": "item_raw_meat",
+      "price": 5,
+      "restockToQty": 12,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_offcut",
+      "price": 8,
+      "restockToQty": 12,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_pink_slab",
+      "price": 28,
+      "restockToQty": 8,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_pork_shoulder",
+      "price": 58,
+      "restockToQty": 4,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_sausage",
+      "price": 26,
+      "restockToQty": 10,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_meatballs",
+      "price": 38,
+      "restockToQty": 6,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_battery_chicken",
+      "price": 15,
+      "restockToQty": 8,
+      "sourceContainer": "furn_bt_case"
+    },
+    {
+      "item_id": "item_rendered_fat",
+      "price": 8,
+      "restockToQty": 10,
+      "sourceContainer": "furn_bt_case"
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Meat Your Maker",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_bt_shop"
+}

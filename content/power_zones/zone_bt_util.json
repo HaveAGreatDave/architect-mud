@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 50,
+  "flags": {},
+  "generator_id": "gen_zone_bt_util",
+  "id": "zone_bt_util",
+  "max_capacity_kw": 50,
+  "name": "zone_bt_util",
+  "source_type": "junction_box"
+}

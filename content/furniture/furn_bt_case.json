@@ -1,0 +1,24 @@
+{
+  "description": "A glass-fronted case running the width of the shop, trays ranked on crushed ice that is topped up twice a day and grey by closing. The light inside is deliberately warm, which does the meat a favour it has not earned. Prices are inked on little card flags stuck into the trays, and several have been crossed out more than once.",
+  "flags": {
+    "aliases": "case, display case, counter case, chiller, glass case",
+    "appliance_grade": "commercial",
+    "backstock": "furn_bt_walkin",
+    "container": 200000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated",
+    "vendor_stock": "npc_butcher_kroh"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bt_case",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Chilled Display Case",
+  "object_type": "container",
+  "power_draw_kw": 0.8,
+  "price": 0,
+  "zone_id": "zone_bt_shop"
+}

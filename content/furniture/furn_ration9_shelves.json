@@ -2,7 +2,7 @@
   "description": "Four bays of dented steel shelving down the middle of the shop, stacked to eye level with everything that does not need to be kept cold. The pricing gun has been used on some of it twice.",
   "flags": {
     "aliases": "shelves, shelf, shelving, aisle, dry goods, racks",
-    "container": 160000,
+    "container": 220000,
     "interactions": [
       "lean"
     ],

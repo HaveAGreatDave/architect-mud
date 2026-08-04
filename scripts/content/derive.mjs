@@ -465,6 +465,7 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   corporate_office: 'bldg_office', hotel: 'bldg_hotel', power: 'bldg_power',
   hangar: 'bldg_hangar', studio: 'bldg_studio', clinic: 'bldg_clinic', diner: 'bldg_diner',
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
+  butcher: 'bldg_butcher',
   // The Yards — semi-industrial freight district (docs/proposals/yards.md).
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',

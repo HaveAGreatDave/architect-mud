@@ -382,6 +382,16 @@
       config: { duration: 0.22, layers: [
         { waveform: 'triangle', freq: 150, pitchBend: { to: 62, time: 0.16 }, adsr: { a: 0.003, d: 0.16, s: 0, r: 0.07 }, gain: 0.24 } ] } },
 
+    // refuse — the shop saying no. A flat descending double-thud with no tail:
+    // deliberately the least musical thing in the group, because every other
+    // dialogue cue is an invitation and this one is a door. Falls rather than
+    // rises for the same reason `close` does.
+    { id: 'dialogue-refuse', name: 'Dialogue — vendor refuses', group: 'dialogue', category: 'sfx', priority: 6,
+      config: { duration: 0.26, layers: [
+        { waveform: 'square', freq: 196, pitchBend: { to: 150, time: 0.05 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.03 }, gain: 0.2 },
+        { waveform: 'square', freq: 147, delay: 0.09, pitchBend: { to: 110, time: 0.06 }, filter: { type: 'lowpass', freq: 1200, q: 1 }, adsr: { a: 0.002, d: 0.08, s: 0, r: 0.04 }, gain: 0.22 },
+        { waveform: 'noise', noiseMix: 1, delay: 0.09, filter: { type: 'lowpass', freq: 600, q: 0.8 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.08 } ] } },
+
     // ── Accolades ────────────────────────────────────────────────────────────
     // "Reach & relax": three glass bells, C5 → G5 → F5.
     //

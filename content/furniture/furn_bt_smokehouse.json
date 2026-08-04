@@ -1,0 +1,22 @@
+{
+  "description": "A black steel cabinet the height of a person, its door seal furred with three decades of tar and its racks stepped up the inside like shelving in a library nobody browses. It runs at a temperature the manual would call low and slow, and the manual is long gone. What comes out of it is the only reason half this shop's regulars cross the district.",
+  "flags": {
+    "aliases": "smokehouse, smoker, cabinet, smoke cabinet",
+    "appliance_grade": "commercial",
+    "container": 120000,
+    "interactions": [
+      "lean"
+    ],
+    "vendor_stock": "npc_butcher_kroh"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bt_smokehouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Smokehouse Cabinet",
+  "object_type": "container",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_bt_shop"
+}

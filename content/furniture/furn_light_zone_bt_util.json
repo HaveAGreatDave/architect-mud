@@ -1,0 +1,18 @@
+{
+  "description": "A bare bulb over the junction box, filament visible, doing the absolute minimum asked of it.",
+  "flags": {
+    "interactions": [
+      "switch"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_bt_util",
+  "light_type": "overhead",
+  "lumen_output": 400,
+  "name": "service bulb",
+  "object_type": "light",
+  "power_draw_kw": null,
+  "price": 40,
+  "zone_id": "zone_bt_util"
+}

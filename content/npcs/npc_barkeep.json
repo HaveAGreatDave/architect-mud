@@ -405,6 +405,22 @@
       "min_trust": 10,
       "price": 180,
       "shelf": "back_room"
+    },
+    {
+      "item_id": "item_gin",
+      "price": 78
+    },
+    {
+      "item_id": "item_arcline_cola",
+      "price": 8
+    },
+    {
+      "item_id": "item_ginger_soda",
+      "price": 8
+    },
+    {
+      "item_id": "item_tomato_juice",
+      "price": 10
     }
   ],
   "vendor_restock_rate": 1,

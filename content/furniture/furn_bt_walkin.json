@@ -1,0 +1,22 @@
+{
+  "description": "An insulated steel door on a heavy latch, and behind it a room of stacked crates and hanging halves under a bulb in a wire cage. The cold comes out at you as a physical shove. There is a safety release on the inside, painted over, and a chalked tally on the door that stopped being updated on a Thursday.",
+  "flags": {
+    "aliases": "walk-in, walkin, cold room, cold store, fridge",
+    "appliance_grade": "commercial",
+    "container": 400000,
+    "interactions": [
+      "lean"
+    ],
+    "preserves": "refrigerated"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_bt_walkin",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Walk-In Cold Room",
+  "object_type": "container",
+  "power_draw_kw": 2.4,
+  "price": 0,
+  "zone_id": "zone_bt_chill"
+}

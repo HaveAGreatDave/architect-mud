@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { appendMsg } from '../render.js';
+import { appendMsg, appendHtml } from '../render.js';
 import { sendDialogue, sendCmd, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 
 let shopState = null; // { msg, mode, sort, sel, qty }
@@ -374,7 +374,27 @@ export function openShop(msg) {
   // A fresh entry (no buy/sell result) paints credits statically; a transaction
   // refresh keeps the prior baseline so the counter rolls to the new balance.
   if (!msg.buyResult && !msg.sellResult) lastShownCredits = null;
-  shopState = { msg, mode, sort, sel: shopState?.sel ?? null, qty: 1 };
+  // A REFUSAL MUST SURVIVE THE PANEL. The quip band only ever shows the latest
+  // line, and a burst of purchases (the take-listed button sends one `buy_npc`
+  // per item) produces one frame per item — so a refusal can be painted and
+  // overwritten inside the same tick, and a shop that turned you down flat looks
+  // exactly like a button that did nothing. The log is the record that can't be
+  // raced away: every refusal lands in #output, one line each, and it is also the
+  // only place a log-rung player sees it at all.
+  const resultText = msg.buyResult || msg.sellResult || null;
+  const resultOk = msg.buyResult ? msg.buySuccess : msg.sellSuccess;
+  if (resultText && !resultOk) {
+    // Named only when the line doesn't already name them — half the refusals are
+    // written as the vendor doing something ("Grady puts it back"), and the other
+    // half are bare ("That item isn't on the shelf right now."). The bare ones
+    // need the name once they're out of the panel and in a busy log.
+    const named = msg.npcName && resultText.includes(msg.npcName);
+    appendHtml(named ? resultText : `${msg.npcName}: ${resultText}`, 'error');
+    dsfx('refuse');
+  }
+  // Only a fresh server frame shakes the band — a local re-render (sort, tab)
+  // must not replay the animation on a refusal the player has already read.
+  shopState = { msg, mode, sort, sel: shopState?.sel ?? null, qty: 1, freshResult: !!resultText };
   // The shop is a dense terminal, not a conversation: no typewriter, no veil, no
   // stage direction. Clear anything the dialogue side left behind.
   cancelType();
@@ -513,7 +533,16 @@ function renderShop() {
   // don't jump when a buy/sell reaction appears. Empty until a transaction lands.
   const resultText = mode === 'sell' ? msg.sellResult : msg.buyResult;
   const resultOk = mode === 'sell' ? msg.sellSuccess : msg.buySuccess;
-  const resultBanner = `<div class="shop-result"${resultText ? ` style="color:${resultOk ? 'var(--green)' : 'var(--red)'}"` : ''}>${resultText || ''}</div>`;
+  // A refusal is a wall, not a status line: it gets the box, the ✕ and the knock.
+  // A success stays quiet — the credits counter already rolled and the item is in
+  // the pack, so the only thing that needs to shout is the thing that DIDN'T
+  // happen. (Class-based rather than the old inline colour so the band can carry
+  // a border and an animation at all.)
+  const kind = !resultText ? '' : (resultOk ? ' good' : ' bad');
+  const shake = resultText && !resultOk && shopState.freshResult ? ' knock' : '';
+  const mark = !resultText ? '' : `<b class="shop-result-mark">${resultOk ? '✓' : '✕'}</b>`;
+  const resultBanner = `<div class="shop-result${kind}${shake}">${mark}${resultText || ''}</div>`;
+  shopState.freshResult = false;
 
   document.getElementById('dialogue-text').innerHTML =
     `<div class="shop2">${bar}${resultBanner}`

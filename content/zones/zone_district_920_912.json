@@ -1,23 +1,29 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "bg_color": "#3a3550",
+  "color": "#e8e0ff",
+  "description": "The face of Meat Your Maker.",
   "exits": {
-    "east": "zone_district_921_912",
-    "south": "zone_district_920_913",
+    "east": "zone_bt_shop",
     "west": "zone_district_919_912"
   },
   "flags": {
+    "building_name": "Meat Your Maker",
+    "building_type": "butcher",
     "district": "residential",
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_919_912"
   },
   "grid_x": 920,
   "grid_y": 912,
   "grid_z": 0,
   "id": "zone_district_920_912",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "MM",
+  "name": "Meat Your Maker",
   "parent_zone": null
 }
