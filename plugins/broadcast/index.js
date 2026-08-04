@@ -2968,8 +2968,9 @@ async function talkshowHeartbeat() {
         ? `${persona.name}, ${persona.title}. Tonight's guest on ${item.broadcastName || 'the show'}.`
         : `${persona.name}, tonight's guest on ${item.broadcastName || 'the show'}.`;
       // IN MEMORY ONLY, DELIBERATELY. Which persona is on tonight is derived state:
-      // a pure function of the day bucket and the ::guests pool, recomputed at boot
-      // and every minute after. Writing it to `npcs` put derived state in a CONTENT
+      // a pure function of the day bucket and the ::guests pool, re-derived at boot
+      // and once per in-game day thereafter (the minute heartbeat only CHECKS — see
+      // the note on the schedule below). Writing it to `npcs` put derived state in a CONTENT
       // table, so the row drifted from its file every night — and the next time
       // anybody edited that file, `content:import` refused to run, reading a rename
       // nobody made by hand as an unexported local edit. (See the persistence tiers
@@ -2985,6 +2986,15 @@ async function talkshowHeartbeat() {
     }
   }
 }
+// A POLL, NOT A RECOMPUTE. The draw itself happens once per in-game day per guest
+// (the `_talkshowRenamed` dedupe above); every other firing walks two small Maps and
+// hits a `continue`. It has to be a poll because neither edge it waits on is
+// observable: the day bucket is DERIVED from the in-game date so nothing emits when
+// it rolls, and `channelRuntime` is filled asynchronously at boot and rebuilt on a
+// channel reload — so a one-shot could run before any playlist exists and never try
+// again, putting the guest on air still wearing yesterday's name. The timeout is the
+// boot attempt; the heartbeat is the retry and the day-rollover watch. `schedule`
+// idle-gates by default, so neither runs on an empty server.
 schedule('1m', () => talkshowHeartbeat().catch(e => console.error('[broadcast] talkshow heartbeat error:', e.message)));
 setTimeout(() => { talkshowHeartbeat().catch(() => {}); }, 10000);
 
