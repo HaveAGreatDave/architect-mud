@@ -141,6 +141,12 @@ export function buyFromNpc(npcId, itemId, quantity = 1) {
   _connection?.send({ type: 'buy_npc', npcId, itemId, quantity });
 }
 
+// One frame for a whole shelf. The server loops and answers with a single panel
+// — see handleBuyManyFromNpc for why this isn't N calls to buyFromNpc.
+export function buyManyFromNpc(npcId, itemIds) {
+  _connection?.send({ type: 'buy_many_npc', npcId, itemIds });
+}
+
 export function sellToNpc(npcId, inventoryId, quantity = 1) {
   _connection?.send({ type: 'sell_npc', npcId, inventoryId, quantity });
 }

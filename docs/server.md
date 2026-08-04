@@ -144,7 +144,7 @@ Incoming messages are dispatched by `type`:
 | `dialogue` | `handleDialogue()` | Looks up NPC, resolves the chosen dialogue node, optionally grants items |
 | `ping` | inline | Responds with `pong`, also resets the socket liveness flag |
 
-Four more families sit alongside these in the same `msg.type` chain (`server/index.js:308-380`): shop (`buy_npc`/`sell_npc`/`sell_all_npc`/`shop_close`), ghost session (`auth_ghost`/`ghost_command`/`ghost_jump`/`ghost_refresh`), client panels (`panel_data`/`panel_watch`/`panel_catalog`), and broadcast viewing (`tv_watch`/`tablet_tv_watch`/`deck_watch`/`tv_schedule`/…).
+Four more families sit alongside these in the same `msg.type` chain (`server/index.js:308-380`): shop (`buy_npc`/`buy_many_npc`/`sell_npc`/`sell_all_npc`/`shop_close`), ghost session (`auth_ghost`/`ghost_command`/`ghost_jump`/`ghost_refresh`), client panels (`panel_data`/`panel_watch`/`panel_catalog`), and broadcast viewing (`tv_watch`/`tablet_tv_watch`/`deck_watch`/`tv_schedule`/…).
 
 `handleCommand()` in `engine/commands/index.js` is the main dispatcher — see [commands.md](commands.md) for the full dispatch pipeline. Plugin-registered commands are checked via `fireCommand()` ahead of the engine builtins.
 

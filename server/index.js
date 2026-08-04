@@ -481,7 +481,7 @@ const wss = new WebSocketServer({
 // Message types that count as deliberate player input for idle tracking —
 // things a player typed or clicked, not the client keeping itself alive.
 const IDLE_ACTIVITY_TYPES = new Set([
-	"command", "dialogue", "buy_npc", "sell_npc", "sell_all_npc", "shop_close", "mis_toggle",
+	"command", "dialogue", "buy_npc", "buy_many_npc", "sell_npc", "sell_all_npc", "shop_close", "mis_toggle",
 	// Somebody playing the piano is the least idle player in the building.
 	"instrument_note",
 ]);
@@ -530,6 +530,7 @@ wss.on("connection", (ws) => {
 		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
 		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
+		if (msg.type === "buy_many_npc") return handleBuyManyFromNpc(ws, session, msg);
 		if (msg.type === "sell_npc") return handleSellToNpc(ws, session, msg);
 		if (msg.type === "sell_all_npc") return handleSellAllToNpc(ws, session, msg);
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
@@ -1527,39 +1528,98 @@ async function sendShopPanel(ws, npc, playerId, extra = {}) {
 	}));
 }
 
-async function handleBuyFromNpc(ws, session, msg) {
-	if (!session.playerId) return;
-	const player = getLivePlayer(session.playerId);
-	if (!player) return;
-	const npc = world.npcs.get(msg.npcId);
-	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+// ONE purchase, no panel. Shared by the single-item buy and the multi-buy below,
+// so the two can never drift on what "buying a thing from a shop" means — the
+// furniture branch in particular was the kind of special case that gets added to
+// one caller and forgotten in the other.
+async function buyOneFromNpc(player, npc, itemId, quantity, shelfKey) {
 	// Furniture is delivered to an owned apartment rather than carried in inventory
 	// (mirrors the `buy` command's furniture branch in the commerce plugin). Buying
 	// via the shop dialog must take the same path or it wrongly lands in inventory.
-	const boughtItem = getItem(msg.itemId);
+	const boughtItem = getItem(itemId);
 	if (boughtItem && boughtItem.type === "furniture") {
 		const { buyFurniture } = await import("./engine/furniture-shop.js");
-		const catalogueEntry = (npc.vendor_inventory || []).find(e => e.item_id === msg.itemId);
+		const catalogueEntry = (npc.vendor_inventory || []).find(e => e.item_id === itemId);
 		const fr = await buyFurniture(player, npc, boughtItem, catalogueEntry);
-		await sendShopPanel(ws, npc, session.playerId, { buyResult: fr.message, buySuccess: fr.type === "buy" });
-		if (fr.type === "buy") {
-			ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
-		}
-		return;
+		return { message: fr.message, success: fr.type === "buy" };
 	}
 	const { buyFromVendor } = await import("./engine/vendor.js");
 	const { isStackable } = await import("./engine/tags.js");
 	// The GUI shop can request a quantity (stepper / Max button). Clamp it, and
 	// force a single unit for non-stackable items so a stack can't collapse a
 	// unique into one over-counted row.
-	let qty = Math.max(1, Math.min(99, Number(msg.quantity) || 1));
+	let qty = Math.max(1, Math.min(99, Number(quantity) || 1));
 	if (boughtItem && !isStackable(boughtItem)) qty = 1;
+	return await buyFromVendor(player, npc, itemId, qty, shelfKey);
+}
+
+async function handleBuyFromNpc(ws, session, msg) {
+	if (!session.playerId) return;
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const { getShopShelf } = await import("./engine/vendor-session.js");
-	const result = await buyFromVendor(player, npc, msg.itemId, qty, getShopShelf(session.playerId));
-	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
+	const result = await buyOneFromNpc(player, npc, msg.itemId, msg.quantity, getShopShelf(session.playerId));
+	await sendShopPanel(ws, npc, session.playerId, {
+		buyResult: result.message,
+		buySuccess: result.success,
+		shopLog: result.success ? [] : [result.message],
+	});
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 	}
+}
+
+// ONE MESSAGE, ONE PANEL. The take-listed button used to send N separate
+// `buy_npc` frames; each is dispatched fire-and-forget, so N handlers raced and
+// each snapshotted the shelf and the balance at whatever moment it reached
+// `sendShopPanel`. The client renders whichever frame lands last, which is not
+// the newest state — a shelf-clearing click could leave the panel showing the
+// credits and the wanted marks from partway through its own purchase, and a
+// burst of refusals overwrote each other inside a tick.
+//
+// So the loop moved to the server: purchases run in SEQUENCE (each one's balance
+// check sees the previous one's spend, which the racing version could not
+// guarantee), and exactly one panel goes out at the end carrying an aggregate
+// receipt. The per-item refusals are collapsed by reason rather than repeated,
+// because ten identical lines is not ten pieces of information.
+async function handleBuyManyFromNpc(ws, session, msg) {
+	if (!session.playerId) return;
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const npc = world.npcs.get(msg.npcId);
+	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	// A shelf is finite and so is this: the cap is a backstop against a crafted
+	// payload, not a limit any real shelf reaches.
+	const itemIds = (Array.isArray(msg.itemIds) ? msg.itemIds : []).filter(id => typeof id === "string").slice(0, 60);
+	if (!itemIds.length) return;
+
+	const { getShopShelf } = await import("./engine/vendor-session.js");
+	const shelfKey = getShopShelf(session.playerId);
+	const creditsBefore = player.credits || 0;
+	let bought = 0;
+	const refusals = new Map();   // reason → how many items hit it
+	for (const itemId of itemIds) {
+		const r = await buyOneFromNpc(player, npc, itemId, 1, shelfKey);
+		if (r.success) bought++;
+		else if (r.message) refusals.set(r.message, (refusals.get(r.message) || 0) + 1);
+	}
+
+	const spent = creditsBefore - (player.credits || 0);
+	// A reason that stopped more than one item says so once, with the count.
+	const refused = [...refusals].map(([reason, n]) => (n > 1 ? `${reason} (×${n})` : reason));
+	const lines = [];
+	if (bought) lines.push(`Bought ${bought} item${bought === 1 ? "" : "s"} for ${spent}₵.`);
+	lines.push(...refused);
+	await sendShopPanel(ws, npc, session.playerId, {
+		buyResult: lines.join("\n"),
+		buySuccess: bought > 0 && refusals.size === 0,
+		// Only the refusals reach the log. The receipt line is already on screen
+		// and in the credits counter; a refusal is the thing that has to survive.
+		shopLog: refused,
+	});
+	if (bought) ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 }
 
 async function handleSellToNpc(ws, session, msg) {
@@ -1570,7 +1630,11 @@ async function handleSellToNpc(ws, session, msg) {
 	if (!npc) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const { sellToVendor } = await import("./engine/vendor.js");
 	const result = await sellToVendor(player, npc, msg.inventoryId, msg.quantity || 1);
-	await sendShopPanel(ws, npc, session.playerId, { sellResult: result.message, sellSuccess: result.success });
+	await sendShopPanel(ws, npc, session.playerId, {
+		sellResult: result.message,
+		sellSuccess: result.success,
+		shopLog: result.success ? [] : [result.message],
+	});
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 	}
@@ -1597,7 +1661,11 @@ async function handleSellAllToNpc(ws, session, msg) {
 		: sold
 			? `You sell ${sold} item${sold === 1 ? "" : "s"} for ${earned} credits. (${player.credits} total)`
 			: "Nothing to sell.";
-	await sendShopPanel(ws, npc, session.playerId, { sellResult, sellSuccess: !failMessage && sold > 0 });
+	await sendShopPanel(ws, npc, session.playerId, {
+		sellResult,
+		sellSuccess: !failMessage && sold > 0,
+		shopLog: failMessage ? [failMessage] : [],
+	});
 	if (sold) ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 }
 

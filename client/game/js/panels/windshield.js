@@ -5472,7 +5472,7 @@ const TYPE_MODEL = {
   // Reuses the shop mesh with its own iron-toned palette + warm sign, the same
   // "nearest existing model, bespoke colour" call the Ascendant campus makes.
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
-  butcher:          { type: 'shop',      pal: 'ty_butcher', neon: '#ff3e4a' },
+  butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
@@ -6538,6 +6538,19 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       for (const s of [-0.7, 0.7]) { const [cx, cy] = F(s * fh * 0.7, fh * 0.82); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, 0, h * 0.14, 'ty_door', seed + 9 + s * 3, night, alpha, true); }   // crates out front
       neonBlade(ctx, cam, dx, dy, h * 0.55, h * 0.85, m.neon || '#ffcf3e', night, alpha);
       if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,214,140', 12, alpha * 0.22);                 // lit aisles through the glass
+      break;
+    }
+    case 'butcher': {   // Meat Your Maker: a squat oxblood shopfront under a striped awning, and the smokehouse flue that gives it away from the air
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.62, pal, seed, night, alpha, true);              // single-storey shop
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, h * 0.62, h * 0.7, pal, seed + 1, night, alpha, false);    // flat roof with a lipped parapet
+      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.02, h * 0.16, h * 0.3, 'ty_door', seed + 2, night, alpha, false); }   // awning over the window
+      // THE SIGNATURE. Everything above is a low shop and reads like fifty other
+      // low shops; the flue is the one thing that says what is happening inside.
+      { const [sx, sy] = F(-fh * 0.55, -fh * 0.5); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.16, h * 0.62, h * 1.24, pal, seed + 3, night, alpha, false); }   // smokehouse flue
+      { const [cx, cy] = F(-fh * 0.55, -fh * 0.5); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.24, h * 1.24, h * 1.32, 'ty_door', seed + 4, night, alpha, false); }   // rain cap
+      { const [px, py] = F(-fh * 0.55, -fh * 0.5); glowPool(ctx, cam, px, py, h * 1.42, '150,150,158', 13, alpha * (night ? 0.2 : 0.3)); }   // the thread of smoke off the cap, heavier by day when it reads against sky
+      neonBlade(ctx, cam, dx, dy, h * 0.58, h * 0.88, m.neon || '#ff3e4a', night, alpha);
+      if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.24, '255,120,110', 12, alpha * 0.26); }   // the case lights through the window, red on red
       break;
     }
     case 'techstall': {   // Ampersand Electronics: a cluttered stall tucked under an overpass girder, strung with cyan tech-glow

@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { appendMsg, appendHtml } from '../render.js';
-import { sendDialogue, sendCmd, buyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
+import { sendDialogue, sendCmd, buyFromNpc, buyManyFromNpc, sellToNpc, sellAllToNpc, sendRaw } from '../net.js';
 
 let shopState = null; // { msg, mode, sort, sel, qty }
 // The zone the open dialogue/shop was started in. A conversation is face-to-face
@@ -375,23 +375,25 @@ export function openShop(msg) {
   // refresh keeps the prior baseline so the counter rolls to the new balance.
   if (!msg.buyResult && !msg.sellResult) lastShownCredits = null;
   // A REFUSAL MUST SURVIVE THE PANEL. The quip band only ever shows the latest
-  // line, and a burst of purchases (the take-listed button sends one `buy_npc`
-  // per item) produces one frame per item — so a refusal can be painted and
-  // overwritten inside the same tick, and a shop that turned you down flat looks
-  // exactly like a button that did nothing. The log is the record that can't be
-  // raced away: every refusal lands in #output, one line each, and it is also the
-  // only place a log-rung player sees it at all.
+  // line, and it is one line for a whole shelf-clearing purchase — so a refusal
+  // can be pushed off by the next frame, and a shop that turned you down flat
+  // reads as a button that did nothing. The log is the record: every refusal
+  // lands in #output, and it is also the only place a log-rung player sees it.
+  //
+  // WHICH lines those are is the SERVER's call (`shopLog`), not a guess made
+  // here by splitting the receipt — a multi-buy answers with a bought-N line
+  // and its refusals in one string, and the client has no business deciding
+  // which half is which.
   const resultText = msg.buyResult || msg.sellResult || null;
-  const resultOk = msg.buyResult ? msg.buySuccess : msg.sellSuccess;
-  if (resultText && !resultOk) {
+  for (const line of (msg.shopLog || [])) {
     // Named only when the line doesn't already name them — half the refusals are
     // written as the vendor doing something ("Grady puts it back"), and the other
     // half are bare ("That item isn't on the shelf right now."). The bare ones
     // need the name once they're out of the panel and in a busy log.
-    const named = msg.npcName && resultText.includes(msg.npcName);
-    appendHtml(named ? resultText : `${msg.npcName}: ${resultText}`, 'error');
-    dsfx('refuse');
+    const named = msg.npcName && line.includes(msg.npcName);
+    appendHtml(named ? line : `${msg.npcName}: ${line}`, 'error');
   }
+  if (msg.shopLog?.length) dsfx('refuse');
   // Only a fresh server frame shakes the band — a local re-render (sort, tab)
   // must not replay the animation on a refusal the player has already read.
   shopState = { msg, mode, sort, sel: shopState?.sel ?? null, qty: 1, freshResult: !!resultText };
@@ -604,7 +606,10 @@ function wireShopEvents() {
       : ((shopState.sections || [])[Number(b.dataset.sec)] || {}).buyable;
     if (!want || !want.length) return;
     b.disabled = true;                         // the refresh re-renders; this only guards a double-click
-    for (const it of want) buyFromNpc(msg.npcId, it.item_id, 1);
+    // ONE frame, not one per item. N separate buys raced each other's panel
+    // refreshes and the last one to land won, which is not the newest state —
+    // see handleBuyManyFromNpc. The server buys them in order and answers once.
+    buyManyFromNpc(msg.npcId, want.map(it => it.item_id));
   });
   const sellAll = root.querySelector('.shop-sellall');
   if (sellAll) sellAll.onclick = () => sellAllToNpc(msg.npcId);
