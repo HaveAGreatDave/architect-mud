@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "An NPC follows a player through the world until they arrive somewhere (or die on the way). The mechanic only — the quest half is the `escort` objective type in plugins/quests, which subscribes to escort.arrived.",
   "commands": ["escort"],
-  "hooks": [],
+  "hooks": ["aircraft.companions"],
   "actions": {
     "registers": ["ESCORT_START", "ESCORT_END"],
     "tagGated": []
   },
   "events": {
     "emits": ["escort.started", "escort.arrived", "escort.blocked", "escort.ended", "escort.lost"],
-    "consumes": ["zone.entered", "npc.killed", "player.death", "player.logout"]
+    "consumes": ["zone.entered", "npc.killed", "npc.transported", "player.death", "player.logout"]
   },
   "dependencies": []
 }

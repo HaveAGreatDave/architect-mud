@@ -17,6 +17,7 @@ import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
+import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
 import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent } from '../../server/engine/environment.js';
 
@@ -1309,6 +1310,9 @@ export function detach(player, { restore = true } = {}) {
   if (live) {
     live.occupants.delete(player.id);
     if (live.pilotId === player.id) live.pilotId = null;
+    // Your companions climb down with you — but only yours, and only onto ground
+    // you're actually standing on (a parked craft; airborne egress can't reach here).
+    if (!live.row.airborne) setDownCompanions(live, player.current_zone, { playerId: player.id });
   }
   if (player.posture === 'flying') forceStand(player, 'flight.detach');
   delete player.aircraftId;
@@ -1446,6 +1450,9 @@ export async function parkAt(live, zoneId) {
     // do for someone who walked in.
     emit('zone.entered', { actor: p, zone: occZone, from });
   }
+  // Anyone riding in the back (an escortee) gets out where the occupants do. This
+  // is the arrival for them — see companions.js.
+  setDownCompanions(live, occZone);
   await persist(live);
 }
 
@@ -1497,6 +1504,9 @@ export async function crash(live, reason = 'crash', byPlayer = null) {
   try { ({ bill: liabilityBill, casualties } = await applyCrashCollateral(live, surface, pilot)); }
   catch (e) { console.error(`[flight] crash collateral error: ${e.message}`); }
   const label = byPlayer ? `Shot down by ${byPlayer.handle}` : 'Died in an aircraft crash';
+  // Everyone in the back dies with the airframe — before the occupant loop, so no
+  // detach can set a companion down on the wreck tile instead.
+  killCompanions(live);
   const doomed = [...live.occupants];
   for (const pid of doomed) {
     const p = getLivePlayer(pid);

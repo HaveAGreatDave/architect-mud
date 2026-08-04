@@ -235,6 +235,9 @@
   "hooks": [
     "zone.describeRoom"
   ],
+  "extensionPoints": [
+    "aircraft.companions — gather-hook FIRED by flight at boarding (never handled here); return { npc } for an NPC that should ride along with this player. Seat-checked, pulled out of the world and frozen like a charter pilot, set down where the occupants land (with an `npc.transported` event), and killed with the airframe in a crash. The escort plugin answers it."
+  ],
   "routePrefix": "/flight",
   "dependencies": [
     "quests"

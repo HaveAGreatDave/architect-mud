@@ -32,6 +32,27 @@ the regress suite asserts, because a leaked freeze is an NPC that never moves ag
 State is RAM-only and dissolves on restart, like `follow` and parties. An escort is
 something you are doing right now, not something you have.
 
+## By air
+
+An escortee gets in the plane with you — your own aircraft or a charter, the seat
+next to yours either way. The rule above doesn't bend for it: they board only if
+they're standing in the room when you climb in (nobody is summoned to the ramp),
+they take a **real seat**, and if the aircraft goes in, they die in it.
+
+The mechanics are flight's, not this plugin's — `plugins/flight/companions.js`
+generalises the treatment a charter pilot riding in a cockpit already got (out of
+the world, frozen, set back down on landing). This plugin only answers *who*
+climbs aboard, through flight's `aircraft.companions` gather-hook, and hears about
+the far end as `npc.transported` — which it re-emits as an ordinary
+`escort.arrived`, so an escort objective completes the same whether you walked
+them there or flew them. Neither plugin imports the other.
+
+The one thing that had to change here is that **an escortee never follows a player
+who is aboard something**. Landing moves your `current_zone` across the map and
+fires `zone.entered` like any other arrival; without that guard the escortee you
+left on the departure ramp would teleport to the far field — the exact thing the
+walk refuses to do.
+
 ## Quests know nothing about this
 
 Per ADR-0002, objectives advance by subscribing to Events. This plugin emits

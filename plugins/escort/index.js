@@ -112,6 +112,11 @@ on('zone.entered', ({ actor, zone, from }) => {
   if (!npcId) return;
   const npc = getNpc(npcId);
   if (!npc || npc._dead) { endEscort(npcId, 'lost'); return; }
+  if (npc._aboard) return;                          // riding in the back — flight lands them
+  // Anything that moved you while you're aboard an aircraft (climbing into a cabin,
+  // touching down at the far end) is not a step you walked, and an escortee must
+  // never walk it: they either boarded with you or they're still on that ramp.
+  if (actor.aircraftId) return;
   if (npc.zone_id === zone) return;                 // already here (nothing to do)
   if (from && npc.zone_id !== from) {               // separated — wait to be collected
     tell(actor.id, `${npc.name} isn't with you. They were left behind somewhere back the way you came.`);
@@ -125,6 +130,39 @@ on('zone.entered', ({ actor, zone, from }) => {
     emit('escort.blocked', { actor, npc, zone });
     return;
   }
+  emit('escort.arrived', { actor, npc, zone });
+});
+
+// --- By air ----------------------------------------------------------------
+//
+// An escortee gets in the plane with you. Flight owns the mechanics (out of the
+// world, frozen, set back down on landing — the same treatment a charter pilot
+// riding in a cockpit already got); this plugin only answers WHO climbs aboard,
+// through flight's `aircraft.companions` gather-hook. Neither plugin imports the
+// other, exactly as with quests.
+//
+// Nothing here is a special case for flight: it's the ordinary escort contract
+// read one level up. They must be standing with you (a separated escortee is
+// still never teleported), they take a real seat, and if the aircraft goes in
+// they die in it — flight emits `npc.killed`, which the teardown below already
+// turns into `escort.lost`.
+function companionFor(player) {
+  const npc = escorteeOf(player?.id);
+  if (!npc || npc._dead) return undefined;
+  if (npc.zone_id !== player.current_zone) {
+    tell(player.id, `${npc.name} isn't here to get aboard with you.`);
+    return undefined;
+  }
+  return { npc };
+}
+
+// They were set down at the far end. That's an arrival — the same event a walked
+// step emits, so an escort objective completes whether you drove them there on
+// foot or flew them.
+on('npc.transported', ({ npc, zone, playerId }) => {
+  if (!npc?.id || byNpc.get(npc.id) !== playerId) return;
+  const actor = getLivePlayer(playerId);
+  if (actor) tell(playerId, `${npc.name} climbs down after you.`);
   emit('escort.arrived', { actor, npc, zone });
 });
 
@@ -188,6 +226,7 @@ function cmdEscort(args, raw, player, broadcast) {
 
   if (!sub) {
     if (!current) return { type: 'output', message: 'You are not escorting anyone. Type "escort <name>" to walk someone out.' };
+    if (current._aboard) return { type: 'output', message: `You are escorting ${current.name} — strapped in behind you.` };
     const z = getZone(current.zone_id);
     const here = current.zone_id === player.current_zone;
     return { type: 'output', message: `You are escorting ${current.name}${here ? ' — right behind you.' : ` — but they're back at ${z?.name || 'somewhere else'}.`}` };
@@ -216,6 +255,10 @@ function cmdEscort(args, raw, player, broadcast) {
 
 export const commands = {
   escort: cmdEscort,
+};
+
+export const hooks = {
+  'aircraft.companions': (player) => companionFor(player),
 };
 
 export const _test = { byNpc, byPlayer };

@@ -33,6 +33,7 @@ import {
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
   airfieldOf, fieldName,
 } from './state.js';
+import { boardCompanions } from './companions.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';
 import { rollHazards, commands as hazardCommands } from './hazards.js';
@@ -219,6 +220,9 @@ async function boardFound(found, player, broadcast) {
   } else {
     broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} climbs into the ${live.type.name}.` }, player.id);
   }
+  // Anyone walking with you climbs in too (an escortee, today) — asked for through
+  // the `aircraft.companions` hook, so flight never learns why they're with you.
+  await boardCompanions(player, live, { seats: effLoadout(live.row, live.type).seats || 1 });
   // Walkable cabin (the Leviathan): a passenger boards into the real interior rooms and
   // walks them on foot, instead of the synthesized cabin-window HUD. The pilot (an NPC on
   // a charter, or a player who takes the controls) still flies the cockpit sim — untouched.

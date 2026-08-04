@@ -33,6 +33,7 @@ import {
 } from './state.js';
 import { removePlayerFromZone } from '../../server/engine/world.js';
 import { pushHangarBay } from './hangars.js';
+import { boardCompanions, setDownCompanions } from './companions.js';
 import { prefersTextTravel } from './textmode.js';
 
 const SHIFT_HOURS = 8;
@@ -396,6 +397,11 @@ export async function embarkCharter(player, ch) {
   live.row.heading = String(Math.round(bearingDeg(ch.fx, ch.fy, ch.tx, ch.ty)));
   live.fx = ch.fx; live.fy = ch.fy; live.cont = null;
   const p = getLivePlayer(player.id);
+  // Anyone walking with the passenger rides along too — before the cabin/HUD branch,
+  // while their current_zone is still the hangar the companion is standing in.
+  // Seats include the pilot's, and the pilot hasn't climbed in yet (boardPilot is
+  // below this), so hold one back by hand.
+  await boardCompanions(p || player, live, { seats: Math.max(1, (live.type.seats || 1) - 1) });
   // Walkable cabin (the Leviathan): the passenger boards into the real interior rooms
   // and walks them for the whole ride, instead of the synthesized cabin-window HUD. Any
   // other craft: pulled out of the zone and strapped into the flying-posture HUD as before.
@@ -616,6 +622,8 @@ async function touchdown(ch, live) {
     p.current_zone = dropZone;
     getZone(dropZone)?.players.add(pid);
   }
+  // Companions land with the passenger, not with the deadhead leg home.
+  setDownCompanions(live, dropZone);
   await persist(live);
   pushHud(live);
   toOccupants(live, `<span class="text-cyan">${ch.pilotName}: "Touchdown — brakes, rolling out."</span>`);
@@ -685,6 +693,7 @@ async function cancelCharter(ch, msg) {
     }
     ch.paid = 0;
   }
+  if (live) setDownCompanions(live, ch.homeField);   // ride's off — everyone back on the ramp
   if (live) for (const pid of [...live.occupants]) { if (pid === ch.pilotId) continue; const p = getLivePlayer(pid); detach(p || { id: pid, aircraftId: ch.aircraftId }); if (p && msg) out(pid, `<span class="text-dim">${msg}</span>`); }
   liveAircraft.delete(ch.aircraftId);
   activeCharters.delete(ch.aircraftId);

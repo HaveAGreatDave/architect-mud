@@ -94,6 +94,62 @@ export default async function regress({ check, getPlayer }) {
     // endEscort on an NPC nobody is escorting is a silent no-op — every teardown
     // path calls it unconditionally.
     check('endEscort is a no-op for an unescorted NPC', endEscort(NPC) === false);
+
+    // ── By air ────────────────────────────────────────────────────────────────
+    // The escortee gets in the plane with you. Driven through flight's real
+    // companion module (the same functions boardFound / parkAt / crash call) and
+    // this plugin's real hook — nothing about the seam is mocked except the
+    // aircraft object itself, which is a plain record on the live side too.
+    const { boardCompanions, setDownCompanions, killCompanions } =
+      await import('../flight/companions.js');
+    const mkLive = () => ({ row: { id: 'ac_escort_test', airborne: 0 }, type: { name: 'Test Mule', seats: 2 }, occupants: new Set([player.id]) });
+
+    npc._dead = false; npc.zone_id = A; world.zones.get(A).npcs.add(NPC);
+    player.current_zone = A;
+    commands.escort(['test'], 'test', player, noop);
+
+    let live = mkLive();
+    await boardCompanions(player, live, { seats: 2 });
+    check('an escortee boards the aircraft with the player',
+      npc._aboard === 'ac_escort_test' && npc.zone_id === null && live.occupants.has(NPC),
+      `${npc._aboard}/${npc.zone_id}`);
+
+    // The landing moves the player, but it is not a step they walked — the walk
+    // subscriber must not try to march an aboard escortee across the map.
+    player.current_zone = B; player.aircraftId = 'ac_escort_test';
+    emit('zone.entered', { actor: player, zone: B, from: A });
+    await new Promise(r2 => setTimeout(r2, 30));
+    check('an aboard escortee is not walked by the landing', npc.zone_id === null, String(npc.zone_id));
+
+    arrived = null;
+    setDownCompanions(live, B);
+    await new Promise(r2 => setTimeout(r2, 30));
+    check('the escortee is set down where the aircraft lands',
+      npc.zone_id === B && npc._aboard === undefined, `${npc.zone_id}/${npc._aboard}`);
+    check('landing with an escortee aboard counts as an arrival',
+      arrived?.npc?.id === NPC && arrived?.zone === B, JSON.stringify({ n: arrived?.npc?.id, z: arrived?.zone }));
+    check('the escort survives the flight', escorteeOf(player.id)?.id === NPC);
+
+    // A seat that isn't there: no room means they stay on the ground, never a
+    // silent extra body in a two-seater.
+    live = mkLive();
+    npc.zone_id = B;
+    await boardCompanions(player, live, { seats: 1 });
+    check('a full aircraft leaves the escortee on the ground',
+      npc._aboard === undefined && npc.zone_id === B, `${npc._aboard}/${npc.zone_id}`);
+
+    // Going in with the airframe is a loss, not a dismissal — it's what a quest's
+    // `escort_lost` failure hangs on.
+    let lost = null;
+    on('escort.lost', (p) => { lost = p; });
+    live = mkLive();
+    await boardCompanions(player, live, { seats: 2 });
+    killCompanions(live);
+    await new Promise(r2 => setTimeout(r2, 30));
+    check('an escortee dies with the aircraft', npc._dead === true && npc._aboard === undefined);
+    check('a crash with an escortee aboard emits escort.lost', lost?.npc?.id === NPC);
+    check('no escort state is leaked by a crash', _test.byNpc.size === 0 && _test.byPlayer.size === 0);
+    delete player.aircraftId;
   } finally {
     endEscort(NPC, 'dismissed');
     world.npcs.delete(NPC);

@@ -27,6 +27,7 @@
 - **acquisition.js** — buy / rent / refuel.
 - **charter.js** — NPC-piloted charter flights (see §Charter below).
 - **checkride.js** — the guided-checkride tutorial (`checkride`).
+- **companions.js** — NPCs that ride along with a *player* (see §NPC companions).
 - **biomes.js** — overflight biomes.
 - **collateral.js** — ground collateral (crash/strike effects).
 - **livery.js** — aircraft liveries.
@@ -199,6 +200,26 @@ the "content is deliberate" rule. Instead:
     `aimQuality`) and lock-dwell timing remain 3D-only. AA and missiles are fully
     available, being server-authoritative dice already. RWR lock/launch warnings reach a
     text pilot as text rather than as an instrument strip.
+
+### NPC companions — somebody in the back *(as built, 2026-08-04)*
+The charter pilot proved an NPC can be an occupant: pulled out of the world (no zone),
+frozen from the AI tick by `npc._aboard` (`gameLoop`), set back down when the craft comes
+to rest. `companions.js` generalises that half so somebody **other than the pilot** can
+ride — the case that forced it is flying an **escortee** out instead of walking them.
+
+Flight never learns *why* an NPC is with a player. At boarding (self-flown `board` and
+`embarkCharter` both) it fires the **`aircraft.companions` gather-hook**; a plugin that
+has an NPC attached to that player answers `{ npc }`. Set-down happens wherever the
+occupants land (`parkAt`, charter `touchdown`, a rider's `detach`) and emits
+**`npc.transported`**, which is how the owning plugin hears about the arrival. A crash
+kills them with the airframe (`killCompanions`, called *before* the occupant death loop
+so no `detach` can set a body down on the wreck tile first).
+
+Three rules, all inherited rather than invented: a companion boards only if they are
+**standing in the room when the hatch closes** (nothing is summoned to the ramp and
+nothing is reserved — no room means they stay behind and you're told), they occupy a
+**real seat**, and they are a **real body aboard a real airframe**. The escort plugin
+is the only consumer today; see [plugins/escort/README.md](../plugins/escort/README.md).
 
 ### The sky is a computed overlay
 An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.
