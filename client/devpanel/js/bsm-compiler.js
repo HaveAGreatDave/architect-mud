@@ -465,7 +465,10 @@ function compileBsm(text) {
     // ACT 2 — The Boom  →  a chapter card between the movement of the story.
     if (/^ACT\s+\S/.test(ln)) {
       const rest = ln.slice(3).trim();
-      const m = rest.match(/^(\S+)\s*(?:[—–-]\s*(.+))?$/);
+      // The act number, then the subtitle. ":" is the house style (the em dash is
+      // reserved for the Architect and the Ascendants — see story.md, Tone), but the
+      // dash forms still split so older scripts keep their two-line card.
+      const m = rest.match(/^(\S+?):?\s*(?:[—–:-]\s*(.+))?$/);
       makeNode({
         type: 'overlay', overlayType: 'act_card',
         text: `ACT ${m ? m[1] : rest}`, subtext: (m && m[2]) ? m[2].trim() : '',

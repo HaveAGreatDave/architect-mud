@@ -2923,8 +2923,8 @@
         "duration_s": 8,
         "next": "bsm_358",
         "overlayType": "act_card",
-        "subtext": "",
-        "text": "ACT 2: New Year",
+        "subtext": "New Year",
+        "text": "ACT 2",
         "type": "overlay"
       },
       "bsm_358": {
@@ -4710,8 +4710,8 @@
         "duration_s": 8,
         "next": "bsm_516",
         "overlayType": "act_card",
-        "subtext": "",
-        "text": "ACT 3: The Reclamation",
+        "subtext": "The Reclamation",
+        "text": "ACT 3",
         "type": "overlay"
       },
       "bsm_516": {
@@ -8033,8 +8033,8 @@
         "duration_s": 8,
         "next": "bsm_809",
         "overlayType": "act_card",
-        "subtext": "",
-        "text": "ACT 4: Home",
+        "subtext": "Home",
+        "text": "ACT 4",
         "type": "overlay"
       },
       "bsm_809": {
@@ -9057,8 +9057,8 @@
         "duration_s": 8,
         "next": "bsm_10",
         "overlayType": "act_card",
-        "subtext": "",
-        "text": "ACT 1: The Open Signal",
+        "subtext": "The Open Signal",
+        "text": "ACT 1",
         "type": "overlay"
       },
       "bsm_90": {
