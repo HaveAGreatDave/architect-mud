@@ -11,6 +11,7 @@ import { world, streetExitFrom, isStreetLanding, isEnterableFacade } from '../..
 import { getItem } from '../../server/engine/items-cache.js';
 import { furnitureObjectType } from '../../server/engine/furniture-shop.js';
 import { query } from '../../server/models/db.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -86,6 +87,31 @@ export default async function regress({ run, check, getPlayer }) {
   check('unpaid is an instance key (SQL)', NOT_INSTANCED_SQL.includes("'unpaid'"), NOT_INSTANCED_SQL);
 
   check('shoplifting is a chargeable crime', getCrimeStars('shoplifting') > 0, String(getCrimeStars('shoplifting')));
+  // Deliberate, because the door asks you first and you answered it — well clear
+  // of the 1-star slip it was when walking out was silent.
+  check('shoplifting is charged as a deliberate act', getCrimeStars('shoplifting') >= 3, String(getCrimeStars('shoplifting')));
+
+  // ── The door prompt ────────────────────────────────────────────────────────
+  check('unpaid-door move gate registered', getRegisteredMoveGates().includes('commerce:unpaid-door'), getRegisteredMoveGates().join(','));
+
+  // Unarmed, yes/no say so rather than moving anybody: a stray `no` in chat must
+  // never walk the player out of a room.
+  r = await run('yes');
+  check('yes with nothing pending is refused', r?.type === 'error' && /waiting on an answer/i.test(r?.message || ''), r?.message);
+  r = await run('no');
+  check('no with nothing pending is refused', r?.type === 'error' && /waiting on an answer/i.test(r?.message || ''), r?.message);
+
+  // Arming is idempotent per door — the second ask is the ANSWER, which is what
+  // makes "warn once" one warning rather than a wall. Cleared, it arms again.
+  const armed = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_shop', direction: 'north' } });
+  check('the door prompt arms', armed?.armed === true, JSON.stringify(armed));
+  const again = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_shop', direction: 'north' } });
+  check('the same door does not ask twice', again?.armed === false, JSON.stringify(again));
+  const other = await dispatchAction({ type: 'commerce.arm_door_prompt', actor: getPlayer(), params: { owner: 'npc_regress_other_shop', direction: 'north' } });
+  check('a different shop asks for itself', other?.armed === true, JSON.stringify(other));
+  await dispatchAction({ type: 'commerce.clear_door_prompt', actor: getPlayer(), params: {} });
+  r = await run('yes');
+  check('a cleared prompt answers to nothing', r?.type === 'error', r?.message);
 
   // ── Self-service stock: the shop floor and the room behind it ───────────────
   // A `vendor_stock` case is filled by exactly ONE mechanic — the owning vendor's

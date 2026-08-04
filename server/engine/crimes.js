@@ -27,7 +27,7 @@ export const CRIME_DEFAULTS = {
   hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
   murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },
   theft:               { label: 'Theft',                        stars: 1.5, witness: 'any',    description: 'Pickpocketing or stealing a personal item.' },
-  shoplifting:         { label: 'Shoplifting',                   stars: 1,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The clerk is right there and the ceiling camera is pointed at the door — but a quiet lift on a busy floor still slips sometimes." },
+  shoplifting:         { label: 'Shoplifting',                   stars: 3,   witness: 'any',    description: "Walking out of a shop with goods off the shelf you never paid for. The door asks you first — you are told what you are still holding and given the chance to settle — so anyone who keeps walking has decided to steal, and it is charged as the deliberate act it is. The clerk is right there and the ceiling camera is pointed at the door, but a quiet lift on a busy floor still slips sometimes." },
   robbery:             { label: 'Robbery',                      stars: 2.5, witness: 'any',    description: 'Forcibly robbing another player at gunpoint.' },
   atm_robbery:         { label: 'ATM robbery',                  stars: 2,   witness: 'always', description: "Draining a compromised ATM's cash reserve." },
   burglary:            { label: 'Burglary',                     stars: 2,   witness: 'any',    description: 'Breaking into a private residence.' },

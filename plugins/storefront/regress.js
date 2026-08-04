@@ -9,11 +9,19 @@
 import { query } from '../../server/models/db.js';
 import { world, getZone } from '../../server/engine/world.js';
 import { getRegisteredActions } from '../../server/engine/actions.js';
+import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getAllLockTypes } from '../../server/engine/locks.js';
 import { reloadItem } from '../../server/engine/items-cache.js';
 import { authoredTerms, getDeed, releaseShop, mortgageTick, ownsShop, shopDisplayName, _test } from './index.js';
 
 export default async function regress({ run, check }) {
+  // The door asks before you shoplift out of a player's shop too — the gate that
+  // asks, and the settle action commerce's `yes` reaches back for.
+  check('unpaid-door move gate registered',
+    getRegisteredMoveGates().includes('storefront:unpaid-door'), getRegisteredMoveGates().join(','));
+  check('the door prompt has something to settle with',
+    getRegisteredActions().includes('storefront.settle_unpaid'), 'storefront.settle_unpaid missing');
+
   // ── Pure: authored terms are content, with defaults ────────────────────────
   const bare = authoredTerms({ flags: {} });
   check('unpriced unit falls back to the default terms', bare.price === 6000 && bare.term === 8 && bare.upkeep === 40, JSON.stringify(bare));

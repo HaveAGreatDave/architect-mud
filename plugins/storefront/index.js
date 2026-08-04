@@ -60,7 +60,8 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { on, emit } from '../../server/engine/events.js';
 import { fireHook } from '../../server/engine/plugins.js';
 import { sectionize } from '../../server/engine/classify.js';
@@ -1108,6 +1109,55 @@ async function pocketListing(listing, player) {
     `<span class="text-dim">It isn't yours yet — <b>buyware ${listing.name}</b> settles up at ${listing.price}c. ` +
     `Walking out with it is another matter.</span>` };
 }
+
+// The door asks first, exactly as a vendor's does — one prompt, one pair of
+// verbs, owned by commerce (`commerce.arm_door_prompt`), answered here through
+// our own settle action because a player's till takes money differently from a
+// vendor's counter. The gate charges nothing; the crime still fires on the
+// committed step below.
+registerAction({
+  type: 'storefront.settle_unpaid',
+  handler: async ({ actor }) => {
+    const owing = await carriedUnpaid(actor.id);
+    if (!owing.length) return { type: 'output', message: "You've nothing to settle." };
+    const lines = [], putBack = [];
+    for (const row of owing) {
+      const deed = getDeed(row.shop_zone);
+      const paid = deed?.owner_id ? await payForPocketed(row, actor, deed) : { type: 'error' };
+      if (paid.type === 'error') putBack.push(row); else lines.push(paid.message);
+    }
+    // Short: back on the display it came off, which is the one thing `buyware`
+    // tells you to do and never had a verb for.
+    for (const row of putBack) {
+      await query(`UPDATE player_inventory SET player_id=$1, custom_data = custom_data - '${SHOP_UNPAID}' WHERE id=$2`,
+        [stockOwner(row.shop_zone), row.id]);
+    }
+    if (putBack.length) {
+      lines.push(`<span class="text-dim">You can't cover ${putBack.map(r => r.name).join(', ')}. Back on the display ${putBack.length > 1 ? 'they go' : 'it goes'}, and you walk out with empty hands.</span>`);
+    }
+    return { type: 'buy', player_update: { credits: actor.credits }, message: lines.join('\n') };
+  },
+});
+
+registerMoveGate(async ({ player, from, to, direction }) => {
+  const deed = getDeed(from?.id);
+  if (!deed?.owner_id || from?.id === to?.id) return;
+  const owing = await carriedUnpaid(player.id, from.id);
+  if (!owing.length) return;
+
+  const armed = await dispatchAction({
+    type: 'commerce.arm_door_prompt', actor: player,
+    params: { owner: from.id, direction, settleAction: 'storefront.settle_unpaid' },
+  });
+  // Already asked (or the prompt isn't there to ask with): this step is the answer.
+  if (armed?.type === 'error' || armed?.armed === false) return;
+
+  const total = owing.reduce((s, r) => s + (r.price || 0), 0);
+  const names = owing.map(r => r.name).join(', ');
+  return { block: true, message:
+    `You're at the door of ${shopDisplayName(getZone(from.id), deed)} still holding <b>${names}</b>${total ? `, ${total}c unpaid` : ', unpaid'}.\n` +
+    `<span class="text-dim">Pay for ${owing.length > 1 ? 'them' : 'it'}? <b>yes</b> to settle up and go, <b>no</b> to walk out with ${owing.length > 1 ? 'them' : 'it'}.</span>` };
+}, 'storefront:unpaid-door');
 
 // Walking out still holding it. Fires on the committed step (not a move gate — a
 // gate can be vetoed downstream, and charging for a step that never happened would

@@ -404,6 +404,122 @@ async function cmdCheckout(player) {
   };
 }
 
+// ── The door asks first ──────────────────────────────────────────────────────
+// Nobody shoplifts by accident. Stepping out of a shop still holding unpaid
+// goods stops you ONCE, names what you're carrying and what it comes to, and
+// asks: `yes` settles at the counter and walks you out, `no` walks you out
+// anyway. Taking the same step again is `no` by another name — the warning is
+// spent, not a wall.
+//
+// The prompt is armed by a move gate but charges nothing: the crime still fires
+// on the committed step (zone.entered, below), because a gate can be vetoed
+// downstream and a theft charged for a step that never happened is a phantom.
+// Being asked plainly and walking anyway is what makes shoplifting a deliberate
+// 3-star act rather than the 1-star slip it used to be.
+const DOOR_TTL_MS = 120_000;
+const doorPrompt = new Map(); // playerId → { owner, direction, expires, settleAction, label }
+
+export function armDoorPrompt(player, prompt) {
+  doorPrompt.set(player.id, { ...prompt, expires: Date.now() + DOOR_TTL_MS });
+}
+const liveDoorPrompt = (playerId) => {
+  const p = doorPrompt.get(playerId);
+  if (!p) return null;
+  if (p.expires <= Date.now()) { doorPrompt.delete(playerId); return null; }
+  return p;
+};
+on('player.logout', ({ id }) => doorPrompt.delete(id));
+
+// Armed from another plugin's door (storefront's player-owned shops use the same
+// prompt with its own settle action) — the cross-plugin seam, so there is exactly
+// one yes/no at exactly one door.
+// Answers `armed: false` when this player has already been asked about this same
+// door — that is the caller's signal to let the step through rather than block
+// it again, so one warning stays one warning.
+registerAction({
+  type: 'commerce.arm_door_prompt',
+  handler: ({ actor, params }) => {
+    if (liveDoorPrompt(actor.id)?.owner === params.owner) return { type: 'noop', armed: false };
+    armDoorPrompt(actor, params);
+    return { type: 'noop', armed: true };
+  },
+});
+
+// Spent the moment the step it was asking about is taken — a `yes` answered after
+// you're already out on the street must never quietly walk you somewhere.
+registerAction({
+  type: 'commerce.clear_door_prompt',
+  handler: ({ actor }) => { doorPrompt.delete(actor.id); return { type: 'noop' }; },
+});
+
+// Settling a vendor's unpaid goods on the way out: the counter if you can reach
+// one, and if you simply haven't got the money, the goods go back on the shelf
+// rather than stranding you in the shop. Either way you leave clean.
+registerAction({
+  type: 'commerce.settle_unpaid',
+  handler: async ({ actor }) => {
+    const paid = await cmdCheckout(actor);
+    if (paid.type !== 'error') return paid;
+    const lifted = await carriedUnpaid(actor.id);
+    if (!lifted.length) return paid;
+    // Back on the shelf it came off, if the shelf is in this room — the same
+    // put-back the engine does for `put <thing> in <cooler>`. No cooler here
+    // (you're at the door of a back room, or it was a barrow) and the goods
+    // simply revert to the vendor's stock.
+    const { rows: shelves } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND flags->>'vendor_stock' IS NOT NULL LIMIT 1`, [actor.current_zone]);
+    if (shelves.length) {
+      await query(`UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL, custom_data = custom_data - 'unpaid'
+                    WHERE id = ANY($2::text[])`, [shelves[0].id, lifted.map(r => r.id)]);
+    } else {
+      await query(`DELETE FROM player_inventory WHERE id = ANY($1::text[])`, [lifted.map(r => r.id)]);
+    }
+    return { type: 'output', message:
+      `<span class="text-dim">You can't cover it. You put ${lifted.map(r => r.name).join(', ')} back where you found ${lifted.length > 1 ? 'them' : 'it'} and walk out with empty hands.</span>` };
+  },
+});
+
+registerMoveGate(async ({ player, from, to, direction }) => {
+  const owner = shopZoneOwner(from?.id);
+  if (!owner || shopZoneOwner(to?.id) === owner) return;   // not leaving a shop
+  const warned = liveDoorPrompt(player.id);
+  if (warned?.owner === owner) return;                     // already asked; this is the answer
+
+  const lifted = await carriedUnpaid(player.id, owner);
+  if (!lifted.length) return;
+
+  const vendor = world.npcs.get(owner);
+  const discount = vendor?.faction ? await getIdeologyDiscount(player.id, vendor.faction) : 0;
+  const total = vendor ? lifted.reduce((s, r) => s + unpaidPrice(vendor, r, discount), 0) : 0;
+  const names = lifted.map(r => `${r.quantity > 1 ? `${r.quantity}x ` : ''}${r.name}`).join(', ');
+  armDoorPrompt(player, { owner, direction, settleAction: 'commerce.settle_unpaid' });
+  return { block: true, message:
+    `You're at the door still holding <b>${names}</b>${total ? `, ${total}c unpaid` : ', unpaid'}.\n` +
+    `<span class="text-dim">Pay for ${lifted.length > 1 ? 'them' : 'it'}? <b>yes</b> to settle up and go, <b>no</b> to walk out with ${lifted.length > 1 ? 'them' : 'it'}.</span>` };
+}, 'commerce:unpaid-door');
+
+const walkOut = (player, direction) => dispatchAction({
+  type: 'MOVE', actor: player, params: { direction }, context: { broadcast: getBroadcast() },
+});
+
+async function cmdDoorAnswer(player, pay) {
+  const p = liveDoorPrompt(player.id);
+  if (!p) return { type: 'error', message: 'Nothing is waiting on an answer.' };
+  if (!pay) return walkOut(player, p.direction);   // the prompt stays armed — the gate reads it and lets you through
+
+  doorPrompt.delete(player.id);
+  // Whoever armed the prompt owns settling it — a vendor's counter and a player
+  // shop's till take money in quite different ways.
+  const settled = await dispatchAction({
+    type: p.settleAction || 'commerce.settle_unpaid', actor: player, params: {},
+    context: { broadcast: getBroadcast() },
+  });
+  if (settled?.message) {
+    sendToPlayer(player.id, { type: settled.type === 'error' ? 'output' : settled.type, message: settled.message, player_update: settled.player_update });
+  }
+  return walkOut(player, p.direction);
+}
+
 // Walking out with the mark still on it. Fires on the committed step (not a move
 // gate — a gate can still be vetoed downstream, and charging for a step that
 // never happened would be a phantom crime). Costs nothing on a normal move: the
@@ -411,6 +527,7 @@ async function cmdCheckout(player) {
 // with somewhere else to be reaches the query.
 on('zone.entered', async ({ actor: player, zone, from }) => {
   if (!player?.id || !from) return;
+  doorPrompt.delete(player.id);   // the step it was about has been taken
   const shopOwner = shopZoneOwner(from);
   if (!shopOwner || shopZoneOwner(zone) === shopOwner) return; // still inside
 
@@ -435,6 +552,9 @@ export const commands = {
   sell:    (args, raw, player) => cmdSell(args, player),
   balance: (args, raw, player) => cmdBalance(player),
   checkout: (args, raw, player) => cmdCheckout(player),
+  // Only ever meaningful with the door prompt armed; otherwise they say so.
+  yes:     (args, raw, player) => cmdDoorAnswer(player, true),
+  no:      (args, raw, player) => cmdDoorAnswer(player, false),
 };
 
 // Examining the counter offers Checkout — the verb is the counter's affordance,

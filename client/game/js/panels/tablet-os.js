@@ -2442,22 +2442,26 @@ function ensureStyles() {
     #tablet-os-overlay [class^="tos-bliss-"], #tablet-os-overlay [class*=" tos-bliss-"] {
       --bl-ink: color-mix(in srgb, var(--mg-accent) 30%, transparent);
       --bl-fill: color-mix(in srgb, var(--mg-accent) 7%, transparent); }
+    /* Every size in this app is an em off the register's own base rather than the
+       13.5px .tos-body one — a catalogue of 30-word listings read at .78em of 13.5px
+       was type you had to lean into. One number here moves the whole app. */
+    #tablet-os-overlay .tos-bliss-view { font-size:16px; line-height:1.45; }
     #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
       gap:12px; padding:0 0 9px; margin-bottom:12px; position:relative;
       border-bottom:2px solid var(--bl-ink); }
     #tablet-os-overlay .tos-bliss-head::after { content:''; position:absolute; left:0; right:0; bottom:-4px;
       height:1px; background:var(--bl-ink); opacity:.5; }
     #tablet-os-overlay .tos-bliss-app { font-size:1.35em; letter-spacing:.22em; font-weight:700; }
-    #tablet-os-overlay .tos-bliss-expand { font-size:.72em; opacity:.7; letter-spacing:.06em; margin-top:3px;
+    #tablet-os-overlay .tos-bliss-expand { font-size:.78em; opacity:.7; letter-spacing:.06em; margin-top:3px;
       text-transform:uppercase; }
     #tablet-os-overlay .tos-bliss-plate { text-align:right; flex:0 0 auto;
       border-left:1px solid var(--bl-ink); padding-left:12px; }
     #tablet-os-overlay .tos-bliss-sub { font-size:1.25em; font-weight:700; letter-spacing:.02em;
       white-space:nowrap; line-height:1.1; }
-    #tablet-os-overlay .tos-bliss-platenote { font-size:.68em; opacity:.66; letter-spacing:.1em;
+    #tablet-os-overlay .tos-bliss-platenote { font-size:.74em; opacity:.66; letter-spacing:.1em;
       text-transform:uppercase; margin-top:3px; white-space:nowrap; }
-    #tablet-os-overlay .tos-bliss-strap { font-size:.75em; opacity:.6; margin-bottom:12px; letter-spacing:.02em; }
-    #tablet-os-overlay .tos-bliss-notice { font-size:.85em; padding:8px 10px; margin-bottom:10px;
+    #tablet-os-overlay .tos-bliss-strap { font-size:.84em; opacity:.6; margin-bottom:12px; letter-spacing:.02em; }
+    #tablet-os-overlay .tos-bliss-notice { font-size:.92em; padding:8px 10px; margin-bottom:10px;
       border:1px solid var(--bl-ink); border-left-width:3px; background:var(--bl-fill); }
     #tablet-os-overlay .tos-bliss-grid { display:flex; flex-direction:column; gap:10px; }
     #tablet-os-overlay .tos-bliss-card { border:1px solid var(--bl-ink); padding:11px 12px; cursor:pointer;
@@ -2482,9 +2486,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-card .dim,
     #tablet-os-overlay .tos-bliss-tenurehead .dim,
     #tablet-os-overlay .tos-actions .dim { opacity:.72; font-weight:400; font-size:.85em; }
-    #tablet-os-overlay .tos-bliss-says { font-size:.86em; opacity:.95; margin-top:2px; }
-    #tablet-os-overlay .tos-bliss-phys { font-size:.78em; opacity:.7; margin-top:4px; letter-spacing:.02em; }
-    #tablet-os-overlay .tos-bliss-note { font-size:.78em; opacity:.72; margin-top:5px; }
+    #tablet-os-overlay .tos-bliss-says { font-size:.94em; opacity:.95; margin-top:2px; }
+    #tablet-os-overlay .tos-bliss-phys { font-size:.88em; opacity:.7; margin-top:4px; letter-spacing:.02em; }
+    #tablet-os-overlay .tos-bliss-note { font-size:.88em; opacity:.72; margin-top:5px; }
     /* The price is set as a plate, not a sentence: the figure large, the unit
        under it small and uppercase. It is the one number a register is for. */
     #tablet-os-overlay .tos-bliss-rate { text-align:right; margin-top:8px; padding-top:6px;
@@ -2492,7 +2496,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-ratefig { display:block; font-size:1.15em; font-weight:700; line-height:1.1; }
     #tablet-os-overlay .tos-bliss-rateunit { display:block; font-size:.62em; letter-spacing:.14em;
       text-transform:uppercase; opacity:.62; margin-top:1px; }
-    #tablet-os-overlay .tos-bliss-pairtag { font-size:.66em; letter-spacing:.16em; text-transform:uppercase;
+    #tablet-os-overlay .tos-bliss-pairtag { font-size:.72em; letter-spacing:.16em; text-transform:uppercase;
       display:inline-block; padding:2px 7px; margin-bottom:8px;
       border:1px solid var(--bl-ink); background:var(--bl-fill); }
     #tablet-os-overlay .tos-bliss-pairbox { border:1px solid var(--bl-ink); border-left-width:3px;
@@ -2500,7 +2504,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-detailwho { border:1px solid var(--bl-ink); padding:11px 12px; }
     /* Spec rows: label, dotted leader, value. The leader is what makes a stack of
        short rows read as a specification instead of as loose sentences. */
-    #tablet-os-overlay .tos-bliss-spec { margin:8px 0 0; font-size:.8em; }
+    #tablet-os-overlay .tos-bliss-spec { margin:8px 0 0; font-size:.9em; }
     #tablet-os-overlay .tos-bliss-specrow { display:flex; align-items:baseline; gap:6px; padding:3px 0;
       border-bottom:1px dotted color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-bliss-specrow:last-child { border-bottom:0; }
@@ -2509,9 +2513,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-spec.intimate dt { flex-basis:7.5em; }
     #tablet-os-overlay .tos-bliss-spec dd { flex:1 1 auto; margin:0; opacity:.95; }
     /* The one row the register would rather you skimmed. */
-    #tablet-os-overlay .tos-bliss-warned { margin-top:8px; padding:6px 9px; font-size:.79em;
+    #tablet-os-overlay .tos-bliss-warned { margin-top:8px; padding:6px 9px; font-size:.9em;
       border-left:3px solid var(--yellow); background:color-mix(in srgb, var(--yellow) 7%, transparent); }
-    #tablet-os-overlay .tos-bliss-warned span { display:block; font-size:.76em; letter-spacing:.14em;
+    #tablet-os-overlay .tos-bliss-warned span { display:block; font-size:.8em; letter-spacing:.14em;
       text-transform:uppercase; color:var(--yellow); opacity:.9; }
     #tablet-os-overlay .tos-bliss-warned p { margin:2px 0 0; opacity:.92; }
     /* Tenure ladder: each rung's bar is its rate against day one, so the discount
@@ -2538,7 +2542,7 @@ function ensureStyles() {
       padding:2px 6px; margin-left:6px; border:1px solid var(--bl-ink);
       color:var(--mg-accent); vertical-align:1px; }
     #tablet-os-overlay .tos-bliss-held.house { border-left:3px solid var(--mg-accent); }
-    #tablet-os-overlay .tos-bliss-blocked { font-size:.85em; opacity:.84; padding:11px;
+    #tablet-os-overlay .tos-bliss-blocked { font-size:.92em; opacity:.84; padding:11px;
       border:1px dashed var(--bl-ink); background:var(--bl-fill); }
     #tablet-os-overlay .tos-bliss-held { border:1px solid var(--bl-ink); padding:11px 12px; }
     #tablet-os-overlay .tos-bliss-heldtop { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
@@ -2552,20 +2556,20 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bliss-track i { display:block; height:100%;
       background:color-mix(in srgb, var(--mg-accent) 38%, transparent); }
     #tablet-os-overlay .tos-bliss-track.full i { background:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
-    #tablet-os-overlay .tos-bliss-warn { font-size:.75em; color:var(--yellow); margin-top:6px; }
+    #tablet-os-overlay .tos-bliss-warn { font-size:.85em; color:var(--yellow); margin-top:6px; }
     /* Temperament, voice sample and the explicit spec — the two halves of a
        listing that aren't a price. Traits are chips so they scan at a glance;
        the "be warned" row is the only coloured thing in the card, because it is
        the row that stops somebody buying the wrong person. */
     #tablet-os-overlay .tos-bliss-traits { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
-    #tablet-os-overlay .tos-bliss-traits span { font-size:.66em; letter-spacing:.12em; text-transform:uppercase;
+    #tablet-os-overlay .tos-bliss-traits span { font-size:.72em; letter-spacing:.12em; text-transform:uppercase;
       padding:2px 7px; border:1px solid var(--bl-ink); background:var(--bl-fill); opacity:.9; }
-    #tablet-os-overlay .tos-bliss-headline { font-size:.78em; opacity:.66; margin-top:5px; }
-    #tablet-os-overlay .tos-bliss-subhead { font-size:.66em; letter-spacing:.18em; text-transform:uppercase;
+    #tablet-os-overlay .tos-bliss-headline { font-size:.88em; opacity:.66; margin-top:5px; }
+    #tablet-os-overlay .tos-bliss-subhead { font-size:.74em; letter-spacing:.18em; text-transform:uppercase;
       opacity:.66; margin:12px 0 2px; border-top:1px solid var(--bl-ink); padding-top:8px; }
     /* Pulled quotes, not a paragraph: an oversized mark in the margin and the line
        hung off it. Roman, never italic — Courier's synthetic oblique smears. */
-    #tablet-os-overlay .tos-bliss-voice p { font-size:.84em; opacity:.92; margin:6px 0 0;
+    #tablet-os-overlay .tos-bliss-voice p { font-size:.94em; opacity:.92; margin:6px 0 0;
       padding-left:16px; position:relative; }
     #tablet-os-overlay .tos-bliss-voice p::before { content:'\\201C'; position:absolute; left:0; top:-2px;
       font-size:1.5em; line-height:1; opacity:.4; }
@@ -3994,11 +3998,12 @@ const TOS_APP_ICONS = {
   bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M5.6 6.6h12.8L12 13.9z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M4.2 5.4h15.6L12 14.4z"/><path d="M12 14.4v5"/><path d="M8.3 19.8h7.4"/><path d="M15.6 3.1l-2.2 4.4" stroke-opacity=".55"/><circle cx="13.4" cy="7.5" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Sports. A trophy would read as "achievements"; a pennant on a staff is
   // unambiguously a league table, and it holds its shape at tile size.
-  // A pennant said "team", not "sports" — and the app is scores and standings for
-  // two leagues, so it reads as a hanging SCOREBOARD: a lit panel on two struts with
-  // the away/home split down the middle and a digit block either side. Legible at
-  // 18px because the outline is one rectangle and the meaning is in the divider.
-  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3.2 4.6h17.6v11H3.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M3.2 4.6h17.6v11H3.2z"/><path d="M12 4.6v11" stroke-opacity=".55"/><path d="M6 9.2h3.4M14.6 9.2H18" stroke-width="2"/><path d="M6.4 12.6h2.6M15 12.6h2.6" stroke-opacity=".45"/><path d="M8 15.6l-1.6 3.9M16 15.6l1.6 3.9" stroke-opacity=".7"/><path d="M5.2 20.8h13.6" stroke-opacity=".7"/></svg>`,
+  // A pennant said "team" and the scoreboard that replaced it said "a screen with
+  // numbers on it" — at 18px the divider is the only thing carrying the meaning and
+  // it loses. A BASEBALL is one silhouette everybody already reads as sport, and the
+  // seams survive the tile because they're two arcs, not detail. Deadball is the
+  // flagship league; Cluster Puck rides along under it.
+  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><circle class="dim" cx="12" cy="12" r="8.2" fill="currentColor" fill-opacity=".16" stroke="none"/><circle cx="12" cy="12" r="8.2"/><path d="M6.9 5.9C9.5 8.7 9.5 15.3 6.9 18.1"/><path d="M17.1 5.9C14.5 8.7 14.5 15.3 17.1 18.1"/><path d="M8.6 8.4l1.6-.5M9.2 11.9h1.7M8.6 15.4l1.6.5" stroke-opacity=".6" stroke-width="1.3"/><path d="M15.4 8.4l-1.6-.5M14.8 11.9h-1.7M15.4 15.4l-1.6.5" stroke-opacity=".6" stroke-width="1.3"/></svg>`,
   codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
   // "where you stand" motif the app's charts use. Monochrome like the rest.
@@ -9628,8 +9633,10 @@ function renderBody() {
                : d.view === 'bliss_arrangement' ? renderBlissArrangement(d)
                : renderBlissListings(d);
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
-      ${d.notice ? `<div class="tos-bliss-notice">${esc(d.notice)}</div>` : ''}
-      ${body}
+      <div class="tos-bliss-view">
+        ${d.notice ? `<div class="tos-bliss-notice">${esc(d.notice)}</div>` : ''}
+        ${body}
+      </div>
     </div>`;
   }
   if (d.view === 'reel') {
