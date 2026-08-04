@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_wasteland_02",
+  "loudness": 0.3,
+  "message": "The ground here is glassed in a shallow patch, smooth as a plate.",
+  "theme": "wasteland",
+  "weight": 80
+}

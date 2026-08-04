@@ -1,0 +1,13 @@
+{
+  "description": "A drone core reflashed into something it was never asked to be, wired to a fragment of Architect substrate and packed into a case that used to hold a blood-glucose meter. It does not display anything. It gets warm, and the pitch of its whine changes when there is something nearby to listen to, and the people who build them insist that is the whole point.",
+  "flags": {},
+  "id": "item_signal_decoder",
+  "name": "Architect signal decoder",
+  "tags": {
+    "description": "A drone core reflashed into something it was never asked to be, wired to a fragment of Architect substrate and packed into a case that used to hold a blood-glucose meter. It does not display anything. It gets warm, and the pitch of its whine changes when there is something nearby to listen to, and the people who build them insist that is the whole point.",
+    "material": true
+  },
+  "type": "material",
+  "value": 640,
+  "weight": 700
+}

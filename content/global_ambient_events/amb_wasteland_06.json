@@ -1,0 +1,8 @@
+{
+  "enabled": 1,
+  "id": "amb_wasteland_06",
+  "loudness": 1.5,
+  "message": "Somewhere behind you, a loose panel begins to bang, then stops.",
+  "theme": "wasteland",
+  "weight": 80
+}

@@ -1,0 +1,37 @@
+{
+  "description": "A long-barrelled revolver in a finish that was once blueing and is now mostly the memory of it. The Kettleman was issued to transit guards by the crate, which is why every third pawn shop has one and none of them are worth anything. Six shots, no safety, and a trigger pull like dragging a chair across gravel.",
+  "flags": {},
+  "id": "item_kettleman_no4",
+  "name": "Kettleman No. 4 revolver",
+  "tags": {
+    "__own": {
+      "damage": {
+        "max": 11,
+        "min": 5
+      },
+      "damage_type": "kinetic",
+      "description": "A long-barrelled revolver in a finish that was once blueing and is now mostly the memory of it. The Kettleman was issued to transit guards by the crate, which is why every third pawn shop has one and none of them are worth anything. Six shots, no safety, and a trigger pull like dragging a chair across gravel.",
+      "min_skill": {
+        "firearms": 1
+      }
+    },
+    "__super": [
+      "weapon_firearms"
+    ],
+    "damage": {
+      "max": 11,
+      "min": 5
+    },
+    "damage_type": "kinetic",
+    "description": "A long-barrelled revolver in a finish that was once blueing and is now mostly the memory of it. The Kettleman was issued to transit guards by the crate, which is why every third pawn shop has one and none of them are worth anything. Six shots, no safety, and a trigger pull like dragging a chair across gravel.",
+    "min_skill": {
+      "firearms": 1
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
+  },
+  "type": "weapon",
+  "value": 150,
+  "weight": 1100
+}
