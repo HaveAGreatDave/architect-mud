@@ -4,7 +4,8 @@
   "description": "Injuries — one wound per body part, three severities, named by the damage type that caused them. Wounds appear, penalise, heal on their own, and can be treated with field medicine or cleared outright by a clinic. Enemies are wounded too (in-memory, dies with the mob), and `aim` lets a player call their shots at an accuracy cost.",
   "hooks": ["tick.minute", "player.appearanceNotes", "enemy.appearanceNotes", "item.consumed"],
   "commands": ["injuries", "aim"],
-  "events": { "emits": [], "consumes": [] },
+  "events": { "emits": [], "consumes": ["player.stop"] },
+  "moveGates": ["injury:grab"],
   "dataSchema": ["player_flags.injuries", "player_flags.taught_injuries"],
   "extensionPoints": [
     "severityOf(player, part) — sync, query-free severity read",
@@ -16,6 +17,9 @@
     "enemyWoundNote(enemy) — one clause for look/examine, or null",
     "player._aimPart — read by combat.js to bias the body-part roll",
     "TEACH_AIM (dialogue action, no params) — an NPC teaches `aim`, worded against the player's live weapon skill",
-    "enemy._injuryHitMod / _injuryFleeMod — read by combat.js; absent = unchanged"
+    "enemy._injuryHitMod / _injuryFleeMod — read by combat.js; absent = unchanged",
+    "enemyHasCapability(enemy, name) — sync check; true while any part granting that capability is un-maimed",
+    "grants.capability 'grab' on a body part — the creature holds you in the room until that part is maimed (move gate 'injury:grab')",
+    "enemyCapabilityNote(enemy) — one clause for examine naming what it can do to you, or null"
   ]
 }

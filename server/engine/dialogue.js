@@ -8,6 +8,7 @@
 // re-resolve which option a player clicked from the previous node) — both now
 // call the same filterDialogueOptions().
 import { dispatchAction } from './actions.js';
+import { emit } from './events.js';
 import { evalConditions, getFlag, registerConditionShape } from './flags.js';
 import { isNpcScheduledNow } from './broadcast-bridge.js';
 import { query } from '../models/db.js';
@@ -308,6 +309,11 @@ export async function renderDialogueNode(npc, nodeKey, player, context) {
   // limited per (player, NPC) inside the substrate, so re-entering root a dozen
   // times in one conversation counts once. Synchronous, memory-only, no query.
   if (atRoot && player && npc?.id) touchRelation(player, npc.id, { reason: 'dialogue' });
+  // …and it's also how a quest knows you went and spoke to someone. Fired on the
+  // ROOT node only, for the same reason touchRelation is: one conversation is one
+  // talk, however many options get clicked inside it. Quests' 'talk' objective is
+  // the consumer; dialogue itself stays ignorant of quests (ADR-0002).
+  if (atRoot && player && npc?.id) emit('npc.talked', { actor: player, npc });
   const mood = (atRoot || repMoved) ? await speakerMood(npc, player) : null;
   if (atRoot && !stage) stage = ARRIVAL_STAGE[npc.posture] || '';
 

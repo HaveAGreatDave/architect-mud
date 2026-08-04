@@ -134,9 +134,27 @@ function recompute(enemy) {
 //   grants.dodge      evasion the part provides. Ruin a lurker's fins and it
 //                     cannot slip you any more.
 //   grants.capability a named string other systems can gate on (`grab`, `spit`).
-//                     Nothing consumes these yet by design — the seam is here so
-//                     a behaviour can check it without this file learning about
-//                     that behaviour.
+//                     Consumed by plugins/injury/grab.js, which turns an intact
+//                     `grab` part into a move gate: a creature holding you does
+//                     not let you walk away. Other strings remain inert until
+//                     something asks for them — the seam is here so a behaviour
+//                     can check it without this file learning about that
+//                     behaviour.
+//
+// The three do NOT lose their grant on the same curve, and that is a decision
+// rather than an oversight:
+//
+//   component   ALL-OR-NOTHING. Lost only when every part granting it is maimed
+//               (`parts.every(dead)` below), so a pair of arms sharing a weapon
+//               behaves like a pair.
+//   capability  ALL-OR-NOTHING, by the mirror-image rule: any SURVIVING granter
+//               keeps adding it to the Set, so it holds until the last one is
+//               gone. The tar horror is the case this was shaped around — both
+//               tendrils grant `grab` AND component 0, so ruining the first
+//               costs it nothing and ruining the second costs it the grab and
+//               its only weapon at once. A cliff, deliberately.
+//   dodge       ADDITIVE. Each ruined fin takes its own share, so evasion
+//               degrades as a gradient rather than falling off a cliff.
 //
 // Deliberately NOT here: soak. Parts already carry their own typed `soak`, and a
 // second creature-wide plating number in the same block would be two knobs that

@@ -6,12 +6,17 @@
   "hooks": [],
   "routePrefix": "/quests",
   "actions": {
-    "registers": ["START_QUEST", "ADVANCE", "COMPLETE", "TURN_IN", "ABANDON_QUEST"],
+    "registers": ["START_QUEST", "ADVANCE", "COMPLETE", "TURN_IN", "ABANDON_QUEST", "FAIL_QUEST"],
     "tagGated": []
   },
   "events": {
-    "emits": ["quest.started", "quest.advanced", "quest.completed", "quest.turned_in", "quest.abandoned"],
-    "consumes": ["enemy.killed", "item.given", "zone.entered"]
+    "emits": ["quest.started", "quest.advanced", "quest.completed", "quest.turned_in", "quest.abandoned", "quest.failed"],
+    "consumes": [
+      "enemy.killed", "item.given", "zone.entered", "item.taken",
+      "npc.killed", "escort.arrived", "escort.lost", "npc.talked", "vendor.purchase", "vendor.sale",
+      "item.crafted", "hack.success", "item.equipped", "credits.changed", "weather.event",
+      "player.command", "quest.completed"
+    ]
   },
   "dependencies": ["economy"],
   "dataSchema": ["quests", "player_quests"]

@@ -42,7 +42,12 @@ import { buildImpairment } from './penalties.js';
 // separate module because the two halves share only `severityFor` — the enemy
 // side has no storage, no decay and no display, and mixing them would hide that.
 import './enemy.js';
+// Side-effect import: registers the 'injury:grab' move gate — the one consumer of
+// `grants.capability`. Separate from enemy.js because that file is sync-by-contract
+// on the combat hot path, and this is an async gate on the move path.
+import './grab.js';
 import { enemyWoundNote, partLabel } from './enemy.js';
+import { enemyCapabilityNote } from './grab.js';
 import {
   PARTS, PART_LABELS, SEVERITY_LABELS, SEVERITY_BANDS,
   BRUISED, MAIMED, typeRules, injuryName,
@@ -405,7 +410,10 @@ export const hooks = {
   // §8b — what's visibly wrong with a creature you are fighting. This is the
   // feedback loop that makes aiming at a limb worth doing: you work the leg, and
   // `examine` eventually tells you the leg is ruined.
-  'enemy.appearanceNotes': ({ target }) => enemyWoundNote(target) || undefined,
+  // Two clauses, in the order you need them: what it can DO to you (so you know
+  // what to aim at), then what is already wrong with it (so you know it worked).
+  'enemy.appearanceNotes': ({ target }) =>
+    [enemyCapabilityNote(target), enemyWoundNote(target)].filter(Boolean).join(' ') || undefined,
 
   // What a wound looks like from the outside. Only Maimed shows to others — a
   // bruise is not visible across a room, and this is the line that makes a bad

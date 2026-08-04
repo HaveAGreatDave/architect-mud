@@ -569,6 +569,117 @@ export default async function regress({ run, check, getPlayer }) {
     enemySeverity(grazed, 'maw') < MAIMED ? enemyHasCapability(grazed, 'grab') : true,
     `sev ${enemySeverity(grazed, 'maw')}`);
 
+  // A PAIR of granting parts is all-or-nothing, which is the tar horror's whole
+  // shape: both tendrils grant `grab` AND weapon component 0, so ruining the
+  // first costs it nothing and ruining the second costs it both at once.
+  // This is the assertion that pins the Set semantics in recomputeGrants against
+  // a future "fix" that makes capability behave like the additive dodge rule.
+  const twoHanded = enemyWith(
+    [{ part: 'left_tendril', weight: 20, grants: { component: 0, capability: 'grab' } },
+     { part: 'right_tendril', weight: 20, grants: { component: 0, capability: 'grab' } },
+     { part: 'mass', weight: 60 }],
+    [{ type: 'kinetic', min: 4, max: 8 }]);
+  ruin(twoHanded, 'left_tendril');
+  check('one ruined tendril does not break a two-handed grab',
+    enemyHasCapability(twoHanded, 'grab'));
+  check('...and it has not lost its weapon component either',
+    !twoHanded._lostComponents?.has(0));
+  ruin(twoHanded, 'right_tendril');
+  check('ruining the second tendril finally breaks the grab',
+    !enemyHasCapability(twoHanded, 'grab'));
+  check('...and takes the shared weapon component with it, in the same moment',
+    !!twoHanded._lostComponents?.has(0));
+
+  // ── The grab move gate (the consumer of grants.capability) ─────────────────
+  //
+  // Before this, `capability` was a seam with no consumer. These assert the
+  // behaviour on the other side of it, and — more importantly — every route OUT,
+  // because a hold with no exit is a softlock rather than a mechanic.
+  {
+    const { getRegisteredMoveGates } = await import('../../server/engine/movement-gates.js');
+    const { grabGate, grabberOn, enemyCapabilityNote } = await import('./grab.js');
+    const { world } = await import('../../server/engine/world.js');
+
+    const gates = getRegisteredMoveGates();
+    // Ordering is load-bearing: you should be told you are physically held
+    // before spending an attack cycle on the generic break-away. It falls out of
+    // alphabetical plugin load order today, which is exactly why it is asserted
+    // rather than trusted.
+    check('the grab gate resolves before the generic break-away',
+      gates.indexOf('injury:grab') >= 0 &&
+      gates.indexOf('injury:grab') < gates.indexOf('weapon:flee'),
+      gates.join(' → '));
+
+    const player = await getPlayer();
+    const zone = world.zones.get(player.current_zone);
+    const mk = (over = {}) => {
+      const e = enemyWith(
+        [{ part: 'maw', weight: 40, grants: { capability: 'grab' } }, { part: 'body', weight: 60 }],
+        [{ type: 'kinetic', min: 2, max: 4 }]);
+      Object.assign(e, { instanceId: `regress_grab_${Math.random().toString(36).slice(2, 7)}`,
+        name: 'the regress lurker', hit: 1, targetId: player.id }, over);
+      world.enemies.set(e.instanceId, e);
+      zone?.enemies?.add(e.instanceId);
+      return e;
+    };
+    const drop = (e) => { zone?.enemies?.delete(e.instanceId); world.enemies.delete(e.instanceId); };
+
+    check('nothing in the room means nothing is holding you', grabberOn(player) === null);
+
+    const idle = mk({ targetId: 'somebody_else' });
+    check('a creature that is not fighting you has no hold on you',
+      grabberOn(player) === null);
+    drop(idle);
+
+    const stunned = mk({ _stunnedUntil: Date.now() + 60000 });
+    check('a stunned creature has let go (which is what the taser is for)',
+      grabberOn(player) === null);
+    drop(stunned);
+
+    const dead = mk({ _dead: true });
+    check('a dead creature is not holding anyone', grabberOn(player) === null);
+    drop(dead);
+
+    const live = mk();
+    check('a live grabber with you as its target does have hold of you',
+      grabberOn(player)?.instanceId === live.instanceId);
+    check('examine warns you what it can do before it does it',
+      /holding on/.test(enemyCapabilityNote(live) || ''), enemyCapabilityNote(live));
+
+    // System moves are exempt: an elevator ride is not you wrestling free.
+    check('a system move is not contested',
+      (await grabGate({ player, opts: { bypassEncumbrance: true } })) === undefined);
+    check("weapon's own flee retry is not contested twice",
+      (await grabGate({ player, opts: { fleeing: true } })) === undefined);
+
+    // THE headline case: maim what holds you and the hold is simply gone. Note
+    // the gate is asked BEFORE and AFTER with nothing else changed.
+    let blockedWhileIntact = false;
+    for (let i = 0; i < 40 && !blockedWhileIntact; i++) {
+      if ((await grabGate({ player, opts: {} }))?.block) blockedWhileIntact = true;
+    }
+    check('an intact grab can stop you leaving', blockedWhileIntact);
+
+    ruin(live, 'maw');
+    let blockedAfterMaim = false;
+    for (let i = 0; i < 40 && !blockedAfterMaim; i++) {
+      if ((await grabGate({ player, opts: {} }))?.block) blockedAfterMaim = true;
+    }
+    check('ruin the part that holds you and you can walk away — every time',
+      !blockedAfterMaim);
+    check('...and examine stops warning about a grip it no longer has',
+      enemyCapabilityNote(live) === null);
+    drop(live);
+    player._grabbedBy = null;
+
+    // The softlock check. The contest is (rating - 1 - E) + (2d8-2d8) >= 0, so a
+    // zero-skill player needs the swing to clear E+1, and the swing caps at +14.
+    // Feeding a grabber's raw `hit` in would put the hardest grabbers past that
+    // in practice; the cap is what keeps every hold escapable at zero skill.
+    check('the worst grab in the game is still escapable with no Dodge at all',
+      14 >= (6 /* GRAB_MAX_RATING */) + 1);
+  }
+
   // ── Stunned ────────────────────────────────────────────────────────────────
   //
   // Two weapons have declared `status_chance: { stunned }` since long before the

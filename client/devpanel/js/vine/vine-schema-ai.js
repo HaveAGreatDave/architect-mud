@@ -114,6 +114,19 @@ const AI_ACTIONS = [
   ]},
   { type: 'CHECK_WORK', label: 'Check Work', params: [] },
   { type: 'ROAM',       label: 'Roam',       params: [{ key: 'interval_s', label: 'Interval (s)', type: 'number', default: 10 }] },
+  // Pursuit. Put it between HAS_TARGET and ATTACK: it no-ops when the target is
+  // already in the room, so ATTACK still runs on the same tick. Adding this node
+  // is what makes a creature keep its target after you leave the room — without
+  // it, a mob forgets you the instant you step out. Range is the creature's
+  // flags.leash_radius, pace is flags.chase_speed_s; neither is a node param.
+  { type: 'CHASE', label: 'Chase Target', params: [
+    // 'target' follows the combat target. 'flag' follows a player id stamped on the
+    // instance, which lets a unit pursue somebody it is deliberately NOT targeting
+    // — how the SPECTER-PD manhunt arrives to detain rather than to swing.
+    { key: 'quarry',     label: 'Quarry',            type: 'text',   default: 'target' },
+    { key: 'flag',       label: 'Quarry flag',       type: 'text',   default: 'suspect_id' },
+    { key: 'wander_pct', label: 'Wander chance 0-1', type: 'number', default: 0 },
+  ] },
   { type: 'GO_TO_STUDIO',       label: 'Go To Studio',        params: [] },
   // Vendor daily-routine actions (parameterless — driven by NPC fields + blackboard).
   { type: 'CHECK_VENDOR_WORK',  label: 'Check Vendor Work',    params: [] },

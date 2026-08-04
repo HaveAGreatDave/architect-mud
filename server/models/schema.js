@@ -1278,10 +1278,25 @@ export const SCHEMA_SQL = `
   -- deadline/bound-aircraft for instances).
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS quest_type TEXT NOT NULL DEFAULT 'standard';
   ALTER TABLE quests ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}';
+  -- 'fail_on' is the mirror of 'objectives': a list of the SAME condition shapes,
+  -- but each one BLOWS THE QUEST rather than advancing it. Evaluated by the same
+  -- predicates against the same events, so every objective type is usable as a
+  -- failure trigger for free. Two shapes are failure-only and have no objective
+  -- counterpart: { type:'timeout', count:<seconds> } (measured from started_at,
+  -- checked lazily — see the quests plugin) and { type:'escort_lost', target }.
+  -- Empty by default, which is every quest that existed before failure did.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS fail_on JSONB NOT NULL DEFAULT '[]';
+  -- 'penalties' is to failure what 'rewards' is to turn-in, and the same shape
+  -- minus items: { credits?, rep?:[{ideology,delta}], flags?:[{scope,flag,value}] }.
+  -- Credits are stated POSITIVE and taken (never pushing the player below zero).
+  -- Deliberately no item confiscation: the package being gone is usually WHY the
+  -- quest failed, so taking it is a no-op that reads like a bug.
+  ALTER TABLE quests ADD COLUMN IF NOT EXISTS penalties JSONB NOT NULL DEFAULT '{}';
 
   -- Per-player quest state. 'progress' is an integer array index-aligned to the
   -- quest's objectives. status: active → completed (all objectives met) → turned_in
-  -- → (or) abandoned (player bailed — e.g. jettisoned a flight contract's cargo).
+  -- → (or) abandoned (player bailed — e.g. jettisoned a flight contract's cargo)
+  -- → (or) failed (a quests.fail_on condition fired, or its timeout elapsed).
   CREATE TABLE IF NOT EXISTS player_quests (
     player_id TEXT NOT NULL,
     quest_id TEXT NOT NULL,
@@ -1291,6 +1306,17 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (player_id, quest_id)
   );
+  -- 'progress' is index-aligned to the quest's objectives, which silently breaks
+  -- when a live quest is EDITED: reorder or delete an objective in the devpanel and
+  -- every holder's counters now point at the wrong ones, with no error anywhere.
+  -- 'progress_keys' records the objective ids that the array was built against, so
+  -- progress can be re-keyed by id on read instead of trusting position. NULL means
+  -- a row from before this existed — treated as index-aligned and adopted as-is.
+  ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS progress_keys JSONB;
+  -- Row ids of the ground items a 'retrieve' objective auto-spawned for THIS player,
+  -- so abandoning or failing the quest can take them back out of the world. Without
+  -- it, taking and dropping a retrieve quest repeatedly litters the zone forever.
+  ALTER TABLE player_quests ADD COLUMN IF NOT EXISTS spawned JSONB NOT NULL DEFAULT '[]';
 
   -- Job board: a devpanel-authored pool of repeatable "gig" quests surfaced in a
   -- zone as legal early-money work. The board row holds only config (which quests

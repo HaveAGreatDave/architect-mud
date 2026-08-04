@@ -15,6 +15,26 @@
  *   { type:'give',  item_id:'pie', count:1, desc:'Hand over the pie' }
  *   { type:'visit', zone:'zone_sewers',     desc:'Reach the sewers' }
  *   { type:'retrieve', item_id:'relic', zone:'zone_sewers', spawn:true, count:1, desc:'Recover the relic' }
+ *   { type:'assassinate', target:'npc_vale', desc:'Put Vale in the ground' }
+ *   { type:'escort', target:'npc_vale', zone:'zone_clinic', desc:'Walk Vale to the clinic' }
+ *   { type:'talk',   target:'npc_grady',  desc:'Hear Grady out' }
+ *   { type:'buy',    target:'medkit', count:3, desc:'Buy three medkits' }
+ *   { type:'sell',   target:'scrap',  count:10, desc:'Offload ten scrap' }
+ *   { type:'craft',  target:'shiv',   desc:'Make yourself a shiv' }
+ *   { type:'hack',   zone:'zone_bodega', desc:'Crack the bodega till' }
+ *   { type:'equip',  item_id:'dinner_jacket', desc:'Turn up dressed for it' }
+ *   { type:'spend',  count:5000,      desc:'Blow ₵5000 in the Marquee District' }
+ *   { type:'survive', target:'acid_rain', desc:'Ride out an acid storm outdoors' }
+ * 'assassinate' names a PERSON (npc.killed, exact npc id or a name substring) where
+ * 'kill' names a species (enemy.killed, any three rats will do). 'escort' is met when
+ * plugins/escort reports that NPC arriving at `zone` with the player — the walking
+ * mechanic lives there and quests never references it, same as every other type.
+ * 'spend' is counted in CREDITS rather than repetitions — see the numeric-predicate
+ * note in trackEvent, which is what makes an amount-shaped objective expressible.
+ * 'survive' is the one type that isn't a single event (weather is global and carries
+ * no actor); it's a claim about where you stood across a storm — see its subscriber.
+ * Most types treat a missing `target` as "anything counts" (buy/sell/craft/hack/
+ * survive); kill/talk/assassinate/escort require one, because they name a thing.
  * A 'retrieve' objective advances when the player picks up its item_id (item.taken),
  * and — unless spawn===false — the engine drops `count` copies of that item onto the
  * `zone`'s ground the moment the quest starts, so it's always there to be found.
@@ -25,6 +45,18 @@
  * which the minimap/bigmap render as a route trace, same as the `gps` command.
  * Jobs (plugins/jobboard) are just quest rows started via START_QUEST/TURN_IN,
  * so they get this for free.
+ *
+ * Failure (quests.fail_on JSONB) is the MIRROR of objectives: the same condition
+ * shapes, judged by the same predicates against the same events, but each one blows
+ * the quest instead of advancing it —
+ *   fail_on: [{ type:'assassinate', target:'npc_witness', desc:'The witness died.' },
+ *             { type:'timeout', count:600 }]
+ * As an objective "assassinate npc_vale" means kill him; as a fail condition it
+ * means he must not die. That symmetry is why failure cost no new per-event code:
+ * every objective type was usable as a failure trigger the moment it existed.
+ * `timeout` and `escort_lost` are failure-only (no advancing counterpart). A failed
+ * quest is retryable unless `meta.failPermanent`. See the Failure section below.
+ *
  * Reward shape (quests.rewards JSONB):
  *   { credits:50, items:[{item_id,quantity}], flags:[{scope,flag,value}] }
  */
@@ -36,15 +68,30 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { grantXp } from '../../server/engine/ip.js';
+import { adjustReputation } from '../../server/engine/ideologies.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { isIndoorZone } from '../../server/engine/environment.js';
 
-// Mirror a quest's status into a player Flag (`quest_<id>` = active|completed|
-// turned_in) so Dialogue/Script Conditions can gate options on quest state through
-// the existing Flag mechanism — e.g. hide "Accept" once the flag is set, show
-// "Turn in" only while it equals 'completed' (CONTEXT.md: Flags are the state
-// Conditions read).
+// Mirror a quest's status into a player Flag so Dialogue/Script Conditions can gate
+// options on quest state through the existing Flag mechanism — e.g. hide "Accept"
+// once the flag is set, show "Turn in" only while it equals 'completed'
+// (CONTEXT.md: Flags are the state Conditions read).
+//
+// ⚠ THE FLAG KEY IS THE BARE QUEST ID — `quest_pest_control`, not `quest_quest_pest_control`.
+// This comment used to claim a `quest_<id>` prefix that the code has never applied,
+// which is worse than the missing namespace itself: an author reading it writes a
+// Condition against a key that can never match. Author Conditions against the quest
+// id exactly as it appears in the quest editor. The consequence to know is that
+// quest state shares the flat `player_flags` namespace with every other player
+// flag, so a quest id must not collide with an existing flag name.
+//
+// Also the single choke point for the hot-path gate: routing the Set through here
+// rather than through eight call sites is what makes it impossible for a new
+// lifecycle transition to update the status and forget the gate.
 function setQuestFlag(actor, questId, status) {
+  if (status === 'active') markQuestActive(actor, questId);
+  else markQuestInactive(actor, questId);
   return setFlag('player', questId, status, actor);
 }
 
@@ -63,6 +110,10 @@ const questCache = new Map(); // quest_id -> { quest, at }
 export function invalidateQuestCache(questId) {
   if (questId) questCache.delete(questId);
   else questCache.clear();
+  // The turn-in NPC is derived from dialogue, not from the quest row — but a quest
+  // being edited is the moment its wiring is most likely to have moved, and this
+  // cache is small. Cheaper to drop it than to reason about when it's still valid.
+  invalidateTurnInCache(questId);
 }
 
 async function loadQuest(questId) {
@@ -75,12 +126,17 @@ async function loadQuest(questId) {
   return quest;
 }
 
-async function loadPlayerQuest(playerId, questId) {
+// Re-keys progress against the quest's current objectives before handing the row
+// back, so no caller has to know the alignment problem exists. The quest row is
+// cached in memory, so this costs no extra round trip in the common case.
+export async function loadPlayerQuest(playerId, questId) {
   const { rows } = await query(
     'SELECT * FROM player_quests WHERE player_id=$1 AND quest_id=$2',
     [playerId, questId]
   );
-  return rows[0] || null;
+  const pq = rows[0] || null;
+  if (!pq) return null;
+  return realign(await loadQuest(questId), pq);
 }
 
 // The dispatcher's generic hand-in node (Marta Kell's `job_turnin`) fires a
@@ -111,6 +167,100 @@ async function refreshGigReadyFlag(actor) {
   else await clearFlag('player', 'gig_ready', actor);
 }
 
+// --- The hot-path gate -----------------------------------------------------
+//
+// `player._activeQuests` is a live-object Set of quest ids the player currently
+// has ACTIVE. Its only job is to let trackEvent answer "nothing to do" without a
+// round trip on a path that runs on every footstep. It is a cache of a cheap fact,
+// not a source of truth — trackEvent re-derives it from the DB whenever it does
+// query, so drift converges rather than persisting.
+//
+// Every lifecycle transition maintains it through these two helpers rather than
+// touching the Set inline, so a new transition can't half-maintain it.
+function markQuestActive(actor, questId) {
+  if (!actor) return;
+  (actor._activeQuests ||= new Set()).add(questId);
+}
+function markQuestInactive(actor, questId) {
+  actor?._activeQuests?.delete(questId);
+}
+
+// Hydrate the gate at login, so a returning player's first step doesn't have to
+// pay for a query to discover they have no quests. One query per login, on a path
+// that is already doing several.
+on('player.login', async ({ id }) => {
+  const actor = getLivePlayer(id);
+  if (!actor) return;
+  try {
+    const { rows } = await query(
+      "SELECT quest_id FROM player_quests WHERE player_id=$1 AND status='active'", [id]
+    );
+    actor._activeQuests = new Set(rows.map((r) => r.quest_id));
+  } catch (e) {
+    // Leave it unhydrated (nullish) rather than empty — an empty set would wrongly
+    // gate every event off for the whole session.
+    console.error('[quests] active-quest hydration failed:', e.message);
+  }
+});
+
+// --- Progress re-keying ----------------------------------------------------
+//
+// `progress` is an integer array index-aligned to `objectives`, and that alignment
+// is a lie the moment a live quest is edited. Reorder two objectives in the devpanel
+// — or delete one — and every player holding it now has counters pointing at the
+// wrong objectives: no migration, no detection, no error, just a quest log that
+// quietly reads wrong and a "kill 3 rats" that thinks it's a "visit the sewers".
+//
+// The objectives already carry stable ids (it's what `requires` gates on); the
+// progress array simply never used them. `progress_keys` records the id list the
+// array was built against, and everything re-keys on read. Objectives with no
+// authored id fall back to their index, which is exactly the old behaviour — so a
+// hand-written quest that never edits its objectives is unaffected.
+function objectiveKeys(quest) {
+  return (quest?.objectives || []).map((o, i) => o?.id || `#${i}`);
+}
+
+/**
+ * The progress array as it applies to the quest's CURRENT objectives.
+ * `changed` is true when re-keying actually moved something, which is the caller's
+ * cue to write the corrected array back.
+ */
+function alignProgress(quest, pq) {
+  const keys = objectiveKeys(quest);
+  const raw = Array.isArray(pq?.progress) ? pq.progress : [];
+  const old = Array.isArray(pq?.progress_keys) ? pq.progress_keys : null;
+  // A row predating progress_keys: trust its positions (that's all it ever had)
+  // and adopt today's keys, so the NEXT edit is handled properly.
+  if (!old) {
+    return { progress: keys.map((_, i) => Number(raw[i]) || 0), keys, changed: true };
+  }
+  if (old.length === keys.length && old.every((k, i) => k === keys[i])) {
+    return { progress: keys.map((_, i) => Number(raw[i]) || 0), keys, changed: false };
+  }
+  // Re-key. An objective added since the quest was taken starts at 0; one that was
+  // deleted takes its counter with it.
+  const byKey = new Map(old.map((k, i) => [k, Number(raw[i]) || 0]));
+  return { progress: keys.map((k) => byKey.get(k) || 0), keys, changed: true };
+}
+
+async function persistAlignment(playerId, questId, progress, keys) {
+  await query(
+    'UPDATE player_quests SET progress=$1, progress_keys=$2 WHERE player_id=$3 AND quest_id=$4',
+    [JSON.stringify(progress), JSON.stringify(keys), playerId, questId]
+  );
+}
+
+// Re-key in place and write back if it moved. Returns the row, so callers can keep
+// reading `pq.progress` exactly as before and never see the misalignment.
+async function realign(quest, pq) {
+  if (!quest || !pq) return pq;
+  const { progress, keys, changed } = alignProgress(quest, pq);
+  pq.progress = progress;
+  pq.progress_keys = keys;
+  if (changed) await persistAlignment(pq.player_id, pq.quest_id, progress, keys);
+  return pq;
+}
+
 function freshProgress(quest) {
   return (quest.objectives || []).map(() => 0);
 }
@@ -119,15 +269,46 @@ function freshProgress(quest) {
 // ground when the quest starts, unless the objective opts out (spawn===false, i.e.
 // the item is already placed in the world). A bad item_id/zone is logged, never
 // allowed to break quest start.
-async function spawnRetrieveItems(quest) {
+async function spawnRetrieveItems(actor, quest) {
+  const ids = [];
   for (const obj of (quest.objectives || [])) {
     if (obj.type !== 'retrieve' || obj.spawn === false || !obj.item_id || !obj.zone) continue;
     try {
-      await spawnOnGround(obj.item_id, obj.zone, obj.count || 1);
+      const id = await spawnOnGround(obj.item_id, obj.zone, obj.count || 1);
+      if (id) ids.push(id);
     } catch (e) {
       console.error('[quests] retrieve auto-spawn failed:', obj.item_id, '→', obj.zone, e.message);
     }
   }
+  // Remember exactly which rows we created, so ending the quest can take back the
+  // ones nobody picked up. Recorded by ROW ID, never by (item_id, zone) — the
+  // latter would also match an authored world item or another player's copy.
+  if (ids.length) {
+    await query('UPDATE player_quests SET spawned=$1 WHERE player_id=$2 AND quest_id=$3',
+      [JSON.stringify(ids), actor.id, quest.id]);
+  }
+}
+
+/**
+ * Take back whatever a quest's auto-spawn left in the world, on abandon, failure or
+ * a retake. Only rows STILL ON THE GROUND are removed: `player_id LIKE '\_ground\_%'`
+ * means an item somebody already picked up is theirs and stays theirs — vanishing
+ * loot out of an inventory would be a far worse bug than a stray item on a floor.
+ *
+ * Without this, taking and dropping a retrieve quest repeatedly littered the zone
+ * permanently, one copy per attempt, with nothing anywhere that could clean it up.
+ */
+async function despawnQuestItems(playerId, questId) {
+  const { rows } = await query(
+    'SELECT spawned FROM player_quests WHERE player_id=$1 AND quest_id=$2', [playerId, questId]
+  );
+  const ids = Array.isArray(rows[0]?.spawned) ? rows[0].spawned : [];
+  if (!ids.length) return 0;
+  const del = await query(
+    "DELETE FROM player_inventory WHERE id = ANY($1) AND player_id LIKE '\\_ground\\_%'", [ids]
+  );
+  await query("UPDATE player_quests SET spawned='[]' WHERE player_id=$1 AND quest_id=$2", [playerId, questId]);
+  return del.rowCount || 0;
 }
 
 function isComplete(quest, progress) {
@@ -359,12 +540,148 @@ function scheduleTask(actor, quest, objIndex, obj, seconds) {
   }, seconds * 1000);
 }
 
+// --- Failure ---------------------------------------------------------------
+//
+// `quests.fail_on` is the mirror of `quests.objectives`: the SAME condition shapes,
+// evaluated by the SAME predicates against the same events — but each one blows the
+// quest instead of advancing it. That's the whole design, and it's why adding
+// failure cost no new per-event code: every one of the fifteen objective types is
+// usable as a failure trigger the day it exists ("fails if you kill the witness",
+// "fails if you sell the package", "fails if you're seen").
+//
+// Two shapes are failure-only, because they have no advancing counterpart:
+//   { type:'timeout', count:<seconds> }   — measured from player_quests.started_at
+//   { type:'escort_lost', target:<npc> }  — the escortee died or was abandoned
+//
+// A failed quest is RETRYABLE by default (START_QUEST re-activates it), because a
+// permanent dead end in a living world should be something an author asks for, not
+// something they get by accident. `meta.failPermanent: true` opts into the lock.
+
+function failConditions(quest) {
+  return Array.isArray(quest?.fail_on) ? quest.fail_on : [];
+}
+
+// Seconds this quest allows, or 0 for untimed.
+function timeLimitOf(quest) {
+  const t = failConditions(quest).find((c) => c?.type === 'timeout');
+  return t ? Math.max(0, Number(t.count) || 0) : 0;
+}
+
+function failReasonLine(quest, cond) {
+  if (cond?.desc) return cond.desc;
+  if (cond?.type === 'timeout') return 'You ran out of time.';
+  if (cond?.type === 'escort_lost') return 'You lost the person you were escorting.';
+  return `${cond?.type || 'Something'} ${cond?.target || cond?.item_id || cond?.zone || ''}`.trim();
+}
+
+/**
+ * `quests.penalties` is to failure what `rewards` is to turn-in — the same shape
+ * minus items, applied through the same canonical service paths. Without it,
+ * failing cost you nothing you had, which made every failure condition purely
+ * cosmetic: you simply took the quest again.
+ *
+ * Credits are authored POSITIVE and taken. Floored at the player's balance rather
+ * than pushed negative — the debt systems that would give a negative balance
+ * meaning don't exist, and a player who can't buy food because a quest blew is a
+ * softlock, not a consequence.
+ *
+ * Returns a short " (−200₵, Ascendants −5)" tail for the failure line, because a
+ * penalty the player isn't told about is indistinguishable from a bug.
+ */
+async function applyPenalties(actor, quest) {
+  const pen = (quest?.penalties && typeof quest.penalties === 'object') ? quest.penalties : {};
+  const told = [];
+
+  const asked = Math.max(0, Number(pen.credits) || 0);
+  if (asked > 0) {
+    const taken = Math.min(asked, Math.max(0, Number(actor.credits) || 0));
+    if (taken > 0) {
+      await adjustCredits(actor, -taken, undefined, 'quest:penalty');
+      told.push(`−${taken}₵`);
+    }
+  }
+
+  for (const r of (Array.isArray(pen.rep) ? pen.rep : [])) {
+    const delta = Number(r?.delta) || 0;
+    if (!r?.ideology || !delta) continue;
+    try {
+      await adjustReputation(actor.id, r.ideology, delta, 'quest:penalty');
+      told.push(`${r.ideology} ${delta > 0 ? '+' : ''}${delta}`);
+    } catch (e) {
+      // A penalty naming an ideology that no longer exists must not swallow the
+      // failure itself — the quest is already failed by this point.
+      console.error('[quests] penalty rep adjust failed:', r.ideology, e.message);
+    }
+  }
+
+  for (const f of (Array.isArray(pen.flags) ? pen.flags : [])) {
+    if (!f?.flag) continue;
+    await dispatchAction({
+      type: 'SET_FLAG',
+      actor,
+      params: { scope: f.scope || 'player', flag: f.flag, value: f.value },
+    });
+  }
+
+  return told.length ? ` (${told.join(', ')})` : '';
+}
+
+/**
+ * Flip an active quest to 'failed'. Single writer for the status, the flag, the
+ * message and the event — every failure path (predicate match, timeout sweep, the
+ * FAIL_QUEST action) comes through here so none of them can half-fail a quest.
+ * Returns true if it actually failed something.
+ */
+async function failQuest(actor, quest, cond) {
+  const { rowCount } = await query(
+    `UPDATE player_quests SET status='failed', updated_at=EXTRACT(EPOCH FROM NOW())
+     WHERE player_id=$1 AND quest_id=$2 AND status IN ('active','completed')`,
+    [actor.id, quest.id]
+  );
+  // Guarded on the UPDATE actually hitting a row: two events in the same tick can
+  // both decide to fail the same quest, and the player should be told once. It's
+  // also the claim that keeps penalties from being applied twice — same reasoning
+  // as TURN_IN's claim-before-paying.
+  if (!rowCount) return false;
+  await setQuestFlag(actor, quest.id, 'failed');
+  await despawnQuestItems(actor.id, quest.id);   // don't leave its props on the floor
+  const cost = await applyPenalties(actor, quest);
+  const why = failReasonLine(quest, cond);
+  msg(actor.id, `<span class="msg-system">Quest failed: ${quest.name}. ${why}${cost}</span>`);
+  questLogLine(actor, quest.id, 'failed', `${quest.name} — ${why}`);
+  emit('quest.failed', { actor, quest_id: quest.id, reason: cond?.type || 'unknown' });
+  return true;
+}
+
+/**
+ * Has this quest's clock run out? Checked LAZILY rather than on a timer, and that
+ * is deliberate: a stored timer dies with the process, so a restart would hand
+ * every timed quest an extension. Derived from started_at instead, it survives
+ * anything.
+ *
+ * The reason lazy is not merely "good enough" but airtight: every path that could
+ * ADVANCE or TURN IN a quest runs this check first (trackEvent, finishObjectiveTick,
+ * ADVANCE, COMPLETE, TURN_IN). So an expired quest can be *noticed* late, but it can
+ * never be progressed or handed in late — there is no window in which the timeout
+ * has passed and the quest still pays out.
+ */
+async function expireIfTimedOut(actor, quest, pq) {
+  const limit = timeLimitOf(quest);
+  if (!limit) return false;
+  const started = Number(pq?.started_at) || 0;
+  if (!started || (Date.now() / 1000) - started < limit) return false;
+  return failQuest(actor, quest, failConditions(quest).find((c) => c.type === 'timeout'));
+}
+
 // Advances exactly ONE objective and runs the completion messaging — reloads
 // player_quests fresh so a task finishing seconds later never clobbers progress
 // made elsewhere meanwhile (or fires against a quest since abandoned/turned in).
 async function finishObjectiveTick(actor, quest, objIndex) {
   const pq = await loadPlayerQuest(actor.id, quest.id);
   if (!pq || pq.status !== 'active') return;
+  // A timed task can outlive the quest's own clock — the 15s of tile work you
+  // started with 5s left must not land.
+  if (await expireIfTimedOut(actor, quest, pq)) return;
   const objectives = quest.objectives || [];
   const obj = objectives[objIndex];
   if (!obj) return;
@@ -409,15 +726,63 @@ async function finishObjectiveTick(actor, quest, objIndex) {
 // Exported only so regress.js can await a deterministic tick instead of racing
 // the fire-and-forget event bus (emit() doesn't await subscribers) — never called
 // directly outside the on(...) subscribers below in production.
+// Per-player serialisation queue for trackEvent. `emit()` does not await its
+// subscribers, so two matching events in the same tick both READ the same progress,
+// both increment from it, and the second write silently discards the first — kill
+// three rats with one grenade and you get credit for one. The whole function is a
+// read-modify-write over player_quests, and there's no row lock to take without
+// dragging a transaction through the event bus.
+//
+// Chaining per player is the cheap fix and the right shape: quest events for ONE
+// player are inherently ordered anyway (they're that player's actions), while
+// different players never contend. A rejected link is swallowed so one player's
+// failure can't break the chain for their next event.
+const _trackQueue = new Map(); // playerId -> promise tail
 export async function trackEvent(actor, predicate) {
   if (!actor?.id) return;
+  const prev = _trackQueue.get(actor.id) || Promise.resolve();
+  const next = prev.then(() => trackEventLocked(actor, predicate)).catch((e) => {
+    console.error('[quests] trackEvent failed:', e.message);
+  });
+  // Only clear the tail if nothing else queued behind us, or a burst would leak.
+  _trackQueue.set(actor.id, next);
+  next.finally(() => { if (_trackQueue.get(actor.id) === next) _trackQueue.delete(actor.id); });
+  return next;
+}
+
+async function trackEventLocked(actor, predicate) {
+  // HOT PATH GATE. trackEvent is subscribed to zone.entered, so this function runs
+  // on every step every player takes — and it used to open with an awaited SELECT
+  // regardless of whether that player held a single quest. Prod Postgres is remote;
+  // latency lives in round-trip COUNT (docs/architecture.md), and quest DEFINITIONS
+  // were carefully cached for exactly this reason while the per-player rows were
+  // not. `_activeQuests` is a live-player-object Set maintained by every lifecycle
+  // transition below and hydrated at login, so the overwhelmingly common case — a
+  // player walking around with no active quest — now costs zero queries instead of
+  // one per tile. A nullish set means "not hydrated yet", which falls through to
+  // the query rather than wrongly reporting no quests.
+  if (actor._activeQuests?.size === 0) return;
   const { rows } = await query(
     "SELECT * FROM player_quests WHERE player_id=$1 AND status='active'",
     [actor.id]
   );
+  // Self-heal the gate from the authoritative answer, so a set that drifted (a
+  // direct DB write, a plugin bypassing the Actions) converges on the next event.
+  actor._activeQuests = new Set(rows.map((r) => r.quest_id));
   for (const pq of rows) {
     const quest = await loadQuest(pq.quest_id);
     if (!quest) continue;
+
+    // Failure is judged BEFORE progress, both ways round, and the order matters.
+    // The clock first: an expired quest must not be advanced by the very event
+    // that noticed it had expired. Then the fail_on conditions, against the same
+    // predicate the objectives are about to be judged by — one event cannot both
+    // blow a quest and advance it.
+    if (await expireIfTimedOut(actor, quest, pq)) continue;
+    const tripped = failConditions(quest).find((c) => c && c.type !== 'timeout' && predicate(c));
+    if (tripped) { await failQuest(actor, quest, tripped); continue; }
+
+    await realign(quest, pq);   // the quest may have been edited since it was taken
     const objectives = quest.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress.slice() : [];
     while (progress.length < objectives.length) progress.push(0);
@@ -438,7 +803,13 @@ export async function trackEvent(actor, predicate) {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
       if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
-      if (!predicate(obj)) return;
+      // A predicate normally answers yes/no and the counter ticks by one. It may
+      // instead return a NUMBER, which is the amount to add — that's what makes
+      // an objective measured in credits ('spend 5000') expressible at all, rather
+      // than only ones measured in repetitions ('buy 3 things').
+      const hit = predicate(obj);
+      if (!hit) return;
+      const step = typeof hit === 'number' ? hit : 1;
 
       // Reaching a visit objective's zone is a narrative beat in its own right —
       // log "<who> reached <zone>" whether the work is instant or a timed task.
@@ -451,7 +822,7 @@ export async function trackEvent(actor, predicate) {
         scheduleTask(actor, quest, i, obj, secs); // completes later, on its own timer
         return;
       }
-      progress[i] = (progress[i] || 0) + 1;
+      progress[i] = (progress[i] || 0) + step;
       changed = true;
       fireObjectiveEmote(actor, obj, taskKey(actor.id, quest.id, i), quest.id); // keyed → no back-to-back repeats
       if (progress[i] >= need) justFinished.push(obj);
@@ -513,6 +884,155 @@ on('item.taken', ({ actor, item }) => {
     obj.type === 'retrieve' && obj.item_id && item?.item_id === obj.item_id);
 });
 
+// An 'assassinate' objective names a PERSON, not a species — so unlike 'kill'
+// (which substring-matches an enemy type: any three rats will do) this is wired to
+// npc.killed and matches an exact npc id first, falling back to a name substring so
+// a quest can be authored against "Marta Kell" without looking the id up. Killing
+// an NPC was previously untracked by quests entirely.
+on('npc.killed', ({ actor, npc }) => {
+  // gameLoop emits npc.killed for NPC-on-NPC kills with no player actor at all —
+  // a bystander caught in a fight must never tick somebody's contract.
+  if (!actor?.id || !npc) return;
+  const id = String(npc.id || '');
+  const name = (npc.name || '').toLowerCase();
+  return trackEvent(actor, (obj) =>
+    obj.type === 'assassinate' && obj.target &&
+    (id === String(obj.target) || name.includes(String(obj.target).toLowerCase())));
+});
+
+// An 'escort' objective is met when the escorted NPC ARRIVES somewhere with the
+// player — the walking itself is plugins/escort's business (it emits this the
+// moment the escortee lands in the player's new zone), so quests stays ignorant of
+// the mechanic exactly as it is of kills and pickups. Matching on both npc and
+// zone is what makes it a destination and not just "took someone for a walk".
+on('escort.arrived', ({ actor, npc, zone }) => {
+  if (!actor?.id || !npc) return;
+  const id = String(npc.id || '');
+  const name = (npc.name || '').toLowerCase();
+  return trackEvent(actor, (obj) =>
+    obj.type === 'escort' && obj.target && obj.zone === zone &&
+    (id === String(obj.target) || name.includes(String(obj.target).toLowerCase())));
+});
+
+// escort_lost — failure-only, and the reason the escort system is worth having a
+// failure state for at all: the escortee is a live body, and losing it has to mean
+// something. Routed through trackEvent like everything else, so a quest with no
+// `fail_on` entry for it simply doesn't care.
+on('escort.lost', ({ actor, npc }) => {
+  if (!actor?.id || !npc) return;
+  const id = String(npc.id || '');
+  const name = (npc.name || '').toLowerCase();
+  return trackEvent(actor, (c) =>
+    c.type === 'escort_lost' &&
+    (!c.target || id === String(c.target) || name.includes(String(c.target).toLowerCase())));
+});
+
+// --- The commerce / craft / act objectives ---------------------------------
+//
+// Each of these is the same three lines: subscribe to an Event that already fired
+// somewhere in the world, and bump any objective that matches it. None of the
+// systems below know quests exist, and none of them changed to support this —
+// except the three Events that had to be ADDED because the act was never announced
+// at all (item.crafted in engine/crafting.js, vendor.sale in engine/vendor.js,
+// npc.talked in engine/dialogue.js). Everything else was already on the bus.
+
+// talk — go and speak to someone. Fires once per conversation (dialogue emits on
+// the ROOT node only), so re-clicking options inside one chat can't farm it.
+on('npc.talked', ({ actor, npc }) => {
+  if (!actor?.id || !npc) return;
+  const id = String(npc.id || '');
+  const name = (npc.name || '').toLowerCase();
+  return trackEvent(actor, (obj) =>
+    obj.type === 'talk' && obj.target &&
+    (id === String(obj.target) || name.includes(String(obj.target).toLowerCase())));
+});
+
+// buy / sell — a counter changing hands either way. `target` is an item id; an
+// objective with no target counts ANY transaction ("spend a day at the market"),
+// which is why the target check is optional here unlike kill/talk.
+on('vendor.purchase', ({ player, itemId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) =>
+    obj.type === 'buy' && (!obj.target || String(obj.target) === String(itemId)));
+});
+
+on('vendor.sale', ({ player, itemId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) =>
+    obj.type === 'sell' && (!obj.target || String(obj.target) === String(itemId)));
+});
+
+// craft — made with your own hands. Matches the OUTPUT item id (what the player
+// set out to make), not the recipe id, so an objective reads the way it's spoken.
+// Counts the stack: a critical craft that yields two satisfies "craft 2".
+on('item.crafted', ({ actor, item_id, quantity }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) =>
+    obj.type === 'craft' && (!obj.target || String(obj.target) === String(item_id))
+      ? Math.max(1, Number(quantity) || 1) : false);
+});
+
+// hack — any successful hack (storefront till, surveillance node, vendor safe).
+// `zone` narrows it to a specific target site; without one, any hack counts.
+on('hack.success', ({ player, zoneId }) => {
+  if (!player?.id) return;
+  return trackEvent(player, (obj) =>
+    obj.type === 'hack' && (!obj.zone || obj.zone === zoneId));
+});
+
+// equip — turn up wearing the right thing. `item.equipped` carries the inventory
+// row, so match its item_id like give/retrieve do.
+on('item.equipped', ({ actor, item }) => {
+  if (!actor?.id) return;
+  return trackEvent(actor, (obj) =>
+    obj.type === 'equip' && obj.item_id && item?.item_id === obj.item_id);
+});
+
+// spend — measured in CREDITS, not in transactions, which is what the numeric
+// predicate return above exists for: `count: 5000` means five thousand credits.
+// Only outgoing money counts, and only money that left your hands for something —
+// a bank transfer isn't spending, so reasons starting `bank:` are excluded.
+on('credits.changed', ({ actor, delta, reason }) => {
+  if (!actor?.id || !(delta < 0)) return;
+  if (String(reason || '').startsWith('bank:')) return;
+  return trackEvent(actor, (obj) =>
+    obj.type === 'spend' && (!obj.target || String(reason || '').includes(String(obj.target)))
+      ? Math.abs(delta) : false);
+});
+
+// --- survive ---------------------------------------------------------------
+//
+// The one objective here that isn't a single event. Weather is GLOBAL — `weather.event`
+// carries no actor at all — so surviving one can't be a predicate over a payload; it
+// has to be a claim about where a player was over TIME. Two moments make it:
+// at `peak` we snapshot who was standing outdoors, and when the event clears we credit
+// whoever from that set is still live and still outdoors.
+//
+// Sitting the storm out indoors is the failure case the whole objective exists to
+// exclude, so the outdoor test is taken at BOTH ends — ducking inside at the peak and
+// stepping back out for the all-clear earns nothing. isIndoorZone is the engine's own
+// shelter predicate (open_sky decks read as outdoors), not a second opinion.
+// The storm TYPE is carried over from the peak too — the clearing event reports
+// `{type:null}` by construction (it's the absence of a storm), so an objective
+// authored as "survive an acid storm" has nothing to match against at that end.
+let _stormWitnesses = null; // { type, ids:Set<playerId> } caught outdoors at the peak
+on('weather.event', ({ type, phase }) => {
+  const outdoors = (p) => p?.current_zone && !isIndoorZone(getZone(p.current_zone));
+  if (phase === 'peak') {
+    _stormWitnesses = { type, ids: new Set(getAllLivePlayers().filter(outdoors).map((p) => p.id)) };
+    return;
+  }
+  if (type) return;              // approach / passing — not over yet
+  const storm = _stormWitnesses;
+  _stormWitnesses = null;
+  if (!storm?.ids.size) return;
+  const survivors = getAllLivePlayers().filter((p) => storm.ids.has(p.id) && outdoors(p));
+  return Promise.all(survivors.map((p) => trackEvent(p, (obj) =>
+    obj.type === 'survive' &&
+    (!obj.target || String(obj.target) === String(storm.type)) &&
+    (!obj.zone || obj.zone === p.current_zone))));
+});
+
 // Doing anything other than waiting cancels an in-progress tile task. Fired for
 // every command (server/engine/commands/index.js) BEFORE it runs, so the move/act
 // that arrives on the tile never cancels the task it's about to start. A short
@@ -536,7 +1056,7 @@ on('player.command', ({ player, cmd }) => {
 // on the Quests app (client/game/js/dispatch.js -> tablet-os.js tabletQuestUpdate).
 // Fired for every lifecycle transition in one place rather than threading a send
 // through each mutation path above.
-for (const ev of ['quest.started', 'quest.advanced', 'quest.completed', 'quest.turned_in', 'quest.abandoned']) {
+for (const ev of ['quest.started', 'quest.advanced', 'quest.completed', 'quest.turned_in', 'quest.abandoned', 'quest.failed']) {
   on(ev, ({ actor }) => { if (actor?.id) sendToPlayer(actor.id, { type: 'quest_update' }); });
 }
 
@@ -563,23 +1083,42 @@ registerAction({
 
     const existing = await loadPlayerQuest(actor.id, quest_id);
     if (existing) {
-      if (existing.status === 'turned_in' && quest.repeatable) {
+      // A failed or ABANDONED quest can be taken again, and the counters (and the
+      // clock, via a fresh started_at) start over.
+      //
+      // Failed is retryable by default because a permanent dead end in a living
+      // world should be something an author ASKS for rather than something they get
+      // by accident — `meta.failPermanent` opts into the lock.
+      //
+      // Abandoned was a plain bug, found by the retake test below: `quest abandon`
+      // exists as a player verb and the tablet has a button for it, but START_QUEST
+      // only ever re-activated a turned_in+repeatable row — so bailing on a quest
+      // silently BLACKLISTED it forever. The NPC would still offer it and the accept
+      // would quietly do nothing. Changing your mind is not a punishment.
+      const retryable = (existing.status === 'failed' && !quest.meta?.failPermanent)
+        || existing.status === 'abandoned';
+      if (retryable || (existing.status === 'turned_in' && quest.repeatable)) {
+        // Retaking clears whatever the last attempt left lying around before the
+        // new attempt spawns its own — otherwise every retry of a retrieve quest
+        // adds another copy to the floor.
+        await despawnQuestItems(actor.id, quest_id);
         await query(
-          `UPDATE player_quests SET status='active', progress=$1, started_at=EXTRACT(EPOCH FROM NOW()),
-           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE player_id=$2 AND quest_id=$3`,
-          [JSON.stringify(freshProgress(quest)), actor.id, quest_id]
+          `UPDATE player_quests SET status='active', progress=$1, progress_keys=$2, spawned='[]',
+           started_at=EXTRACT(EPOCH FROM NOW()), updated_at=EXTRACT(EPOCH FROM NOW())
+           WHERE player_id=$3 AND quest_id=$4`,
+          [JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest)), actor.id, quest_id]
         );
       } else {
         return { type: 'quest', quest_id, started: false };
       }
     } else {
       await query(
-        'INSERT INTO player_quests (player_id,quest_id,status,progress) VALUES ($1,$2,$3,$4)',
-        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest))]
+        'INSERT INTO player_quests (player_id,quest_id,status,progress,progress_keys) VALUES ($1,$2,$3,$4,$5)',
+        [actor.id, quest_id, 'active', JSON.stringify(freshProgress(quest)), JSON.stringify(objectiveKeys(quest))]
       );
     }
     await setQuestFlag(actor, quest_id, 'active');
-    await spawnRetrieveItems(quest);
+    await spawnRetrieveItems(actor, quest);
     msg(actor.id, `<span class="msg-system">New quest: ${quest.name}.</span>\n${quest.description || ''}`);
     questLogLine(actor, quest_id, 'start', quest.name);
     emit('quest.started', { actor, quest_id });
@@ -597,6 +1136,7 @@ registerAction({
     const quest = await loadQuest(quest_id);
     const pq = quest && await loadPlayerQuest(actor.id, quest_id);
     if (!pq || pq.status !== 'active') return { type: 'error', message: 'No active quest to advance.' };
+    if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
 
     const objectives = quest.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress.slice() : [];
@@ -627,6 +1167,8 @@ registerAction({
     const quest = await loadQuest(quest_id);
     const pq = quest && await loadPlayerQuest(actor.id, quest_id);
     if (!pq) return { type: 'error', message: 'Quest not started.' };
+    if (pq.status === 'failed') return { type: 'error', message: 'That quest was failed.' };
+    if (await expireIfTimedOut(actor, quest, pq)) return { type: 'error', message: 'That quest has run out of time.' };
     if (!isComplete(quest, pq.progress || [])) return { type: 'error', message: 'Objectives not yet met.' };
     await query(
       "UPDATE player_quests SET status='completed', updated_at=EXTRACT(EPOCH FROM NOW()) WHERE player_id=$1 AND quest_id=$2",
@@ -653,9 +1195,40 @@ registerAction({
       msg(actor.id, `<span class="msg-system">You have already turned in ${quest.name}.</span>`);
       return { type: 'error', message: 'Already turned in.' };
     }
+    if (pq.status === 'failed') {
+      msg(actor.id, `<span class="msg-system">You failed ${quest.name}. There is nothing to hand in.</span>`);
+      return { type: 'error', message: 'That quest was failed.' };
+    }
+    // The clock is checked at the counter too, not only in the field: a quest whose
+    // deadline passed while you walked back to the turn-in must not pay out.
+    if (await expireIfTimedOut(actor, quest, pq)) {
+      return { type: 'error', message: 'That quest has run out of time.' };
+    }
     if (pq.status !== 'completed' && !isComplete(quest, pq.progress || [])) {
       msg(actor.id, `<span class="msg-system">You have not finished ${quest.name} yet.</span>`);
       return { type: 'error', message: 'You have not finished that quest yet.' };
+    }
+
+    // CLAIM THE ROW BEFORE PAYING OUT. This used to be the other way round — every
+    // reward was granted and the status written last, ~40 lines and a dozen awaits
+    // after the status was READ. Two hand-ins racing (the Tablet button and a
+    // dialogue node, or one impatient double-click) both passed the check above and
+    // both paid; and a throw anywhere in the grants left the quest 'completed', so
+    // it could simply be handed in again for a second full reward. On the only
+    // thing quests give you, that's a duplication exploit.
+    //
+    // One conditional UPDATE decides it: whoever flips the row wins, everyone else
+    // gets zero rows and stops. The deliberate trade is that a grant failing AFTER
+    // the claim loses the reward rather than duplicating it — a player short one
+    // payout is a support ticket, a player with infinite payouts is an economy.
+    const claim = await query(
+      `UPDATE player_quests SET status='turned_in', updated_at=EXTRACT(EPOCH FROM NOW())
+       WHERE player_id=$1 AND quest_id=$2 AND status IN ('active','completed')`,
+      [actor.id, quest_id]
+    );
+    if (!claim.rowCount) {
+      msg(actor.id, `<span class="msg-system">You have already turned in ${quest.name}.</span>`);
+      return { type: 'error', message: 'Already turned in.' };
     }
 
     // Grant rewards through the canonical Action/service paths.
@@ -689,11 +1262,10 @@ registerAction({
       });
     }
 
-    await query(
-      "UPDATE player_quests SET status='turned_in', updated_at=EXTRACT(EPOCH FROM NOW()) WHERE player_id=$1 AND quest_id=$2",
-      [actor.id, quest_id]
-    );
-    await setQuestFlag(actor, quest_id, 'turned_in');
+    await setQuestFlag(actor, quest_id, 'turned_in');   // status itself was claimed above
+    // Any spare copies the auto-spawn left unclaimed go with it — the quest is over,
+    // and a second relic on the sewer floor helps nobody.
+    await despawnQuestItems(actor.id, quest_id);
     const gains = [rewards.credits ? `+${rewards.credits}₵` : null, rewards.xp ? `+${rewards.xp} XP` : null].filter(Boolean);
     const creditLine = gains.length ? ` (${gains.join(', ')})` : '';
     msg(actor.id, `<span class="msg-system">Quest turned in: ${quest.name}.${creditLine}</span>`);
@@ -710,6 +1282,24 @@ registerAction({
 // Player bailed on an active quest (e.g. jettisoned a flight contract's cargo
 // mid-flight). Distinct from 'turned_in' so it never pays out and drops off the
 // quest log, but the row (and its history) stays for reference.
+// Fail a quest outright from dialogue or a script — "you told them, didn't you."
+// The authored route for a failure that no event can express, sitting alongside the
+// declarative `fail_on` conditions rather than replacing them.
+registerAction({
+  type: 'FAIL_QUEST',
+  handler: async ({ actor, params }) => {
+    const { quest_id, reason } = params;
+    if (!quest_id) return { type: 'error', message: 'FAIL_QUEST requires quest_id.' };
+    const quest = await loadQuest(quest_id);
+    const pq = quest && await loadPlayerQuest(actor.id, quest_id);
+    if (!pq || !['active', 'completed'].includes(pq.status)) {
+      return { type: 'error', message: 'No live quest to fail.' };
+    }
+    const failed = await failQuest(actor, quest, { type: 'scripted', desc: reason });
+    return { type: 'quest', quest_id, failed };
+  },
+});
+
 registerAction({
   type: 'ABANDON_QUEST',
   handler: async ({ actor, params }) => {
@@ -722,6 +1312,7 @@ registerAction({
       [actor.id, quest_id]
     );
     await setQuestFlag(actor, quest_id, 'abandoned');
+    await despawnQuestItems(actor.id, quest_id);
     emit('quest.abandoned', { actor, quest_id });
     return { type: 'quest', quest_id, abandoned: true };
   },
@@ -777,7 +1368,30 @@ registerAction({
 // dispatcher NPC (Marta at the Franchise Strip) exactly like any other quest.
 // Still returns null for quests with no NPC at all tied to them (flight
 // contracts) — callers fall back to the direct grant for those.
+// Memoised per quest. The scan below is an UNINDEXED full-table cast-and-LIKE over
+// every NPC's dialogue tree, and it ran TWICE on every quest completion (turnInHint
+// and routeToTurnIn each call it) — at precisely the moment the player is waiting on
+// a "quest complete" line. Dialogue trees are authored content, effectively static
+// at runtime, so the same TTL treatment the quest rows already get applies cleanly.
+// Misses are cached too (as null): a quest with no turn-in NPC at all — every flight
+// contract — is the case that would otherwise re-scan forever, having nothing to find.
+const TURNIN_CACHE_TTL_MS = 60_000;
+const turnInCache = new Map(); // quest_id -> { npc, at }
+
+export function invalidateTurnInCache(questId) {
+  if (questId) turnInCache.delete(questId);
+  else turnInCache.clear();
+}
+
 export async function findTurnInNpc(questId) {
+  const hit = turnInCache.get(questId);
+  if (hit && Date.now() - hit.at < TURNIN_CACHE_TTL_MS) return hit.npc;
+  const npc = await findTurnInNpcUncached(questId);
+  turnInCache.set(questId, { npc, at: Date.now() });
+  return npc;
+}
+
+async function findTurnInNpcUncached(questId) {
   const { rows } = await query(
     "SELECT id, name, home_zone, work_zone_id, dialogue_tree FROM npcs WHERE dialogue_tree::text LIKE '%TURN_IN%'"
   );
@@ -795,22 +1409,42 @@ export async function findTurnInNpc(questId) {
 
 // --- Player command: quest log ---------------------------------------------
 
+// "(4m left)" on a timed quest. A deadline the player can't see isn't a deadline,
+// it's an ambush — so the log states it plainly, and states it in the units it's
+// actually felt in. Empty for every untimed quest, which is nearly all of them.
+function timeLeftTag(pq) {
+  const limit = timeLimitOf({ fail_on: pq.fail_on });
+  if (!limit) return '';
+  const left = Math.max(0, Math.ceil((Number(pq.started_at) + limit) - Date.now() / 1000));
+  const txt = left >= 90 ? `${Math.ceil(left / 60)}m` : `${left}s`;
+  return ` <span class="text-yellow">(${txt} left)</span>`;
+}
+
 async function questLog(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const { rows } = await query(
-    `SELECT pq.*, q.name, q.objectives FROM player_quests pq
+    `SELECT pq.*, q.name, q.objectives, q.fail_on FROM player_quests pq
      JOIN quests q ON q.id = pq.quest_id
      WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned')
      ORDER BY pq.started_at`,
     [player.id]
   );
-  if (!rows.length) return { type: 'output', message: 'You have no active quests.' };
+  // Opening the log is a moment to settle any quest whose clock ran out — the
+  // lazy timeout is checked wherever a quest is looked at, not only where one is
+  // advanced, so a player who stopped to read their log isn't told a dead quest
+  // is still live. Failures drop out of the listing below.
+  for (const pq of rows) {
+    if (pq.status !== 'active') continue;
+    if (await expireIfTimedOut(player, { id: pq.quest_id, name: pq.name, fail_on: pq.fail_on }, pq)) pq.status = 'failed';
+  }
+  const live = rows.filter((pq) => pq.status !== 'failed');
+  if (!live.length) return { type: 'output', message: 'You have no active quests.' };
 
   const lines = ['<span class="msg-system">— Quests —</span>'];
-  for (const pq of rows) {
+  for (const pq of live) {
     const objectives = pq.objectives || [];
     const progress = Array.isArray(pq.progress) ? pq.progress : [];
-    const tag = pq.status === 'completed' ? ' (ready to turn in)' : '';
+    const tag = pq.status === 'completed' ? ' (ready to turn in)' : timeLeftTag(pq);
     // The tracked one is called out here because this log is the only place a
     // non-tablet player would ever see that tracking is a thing you can do.
     const mark = player.tracked_quest_id === pq.quest_id ? '<span class="text-cyan">▸</span> ' : '';
@@ -850,7 +1484,7 @@ async function openQuests(playerId) {
   const { rows } = await query(
     `SELECT pq.quest_id, pq.status, pq.progress, q.name, q.objectives FROM player_quests pq
      JOIN quests q ON q.id = pq.quest_id
-     WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned')
+     WHERE pq.player_id=$1 AND pq.status NOT IN ('turned_in', 'abandoned', 'failed')
      ORDER BY pq.started_at`,
     [playerId]
   );
@@ -957,11 +1591,12 @@ export const routeHandler = async (path, method, body, auth) => {
     if (path === '/quests' && method === 'POST') {
       const qid = body.id || `quest_${Date.now()}`;
       await query(
-        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,updated_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,EXTRACT(EPOCH FROM NOW()))`,
+        `INSERT INTO quests (id,name,description,objectives,rewards,repeatable,quest_type,meta,fail_on,penalties,updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,EXTRACT(EPOCH FROM NOW()))`,
         [qid, body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
-         body.quest_type || 'standard', JSON.stringify(body.meta || {})]
+         body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
+         JSON.stringify(body.penalties || {})]
       );
       invalidateQuestCache(qid);
       return { status: 201, body: { id: qid } };
@@ -969,10 +1604,11 @@ export const routeHandler = async (path, method, body, auth) => {
     if (id && method === 'PUT') {
       await query(
         `UPDATE quests SET name=$1,description=$2,objectives=$3,rewards=$4,repeatable=$5,quest_type=$6,meta=$7,
-         updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$8`,
+         fail_on=$8, penalties=$9, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$10`,
         [body.name || 'Untitled Quest', body.description || '',
          JSON.stringify(body.objectives || []), JSON.stringify(body.rewards || {}), body.repeatable ? 1 : 0,
-         body.quest_type || 'standard', JSON.stringify(body.meta || {}), id]
+         body.quest_type || 'standard', JSON.stringify(body.meta || {}), JSON.stringify(body.fail_on || []),
+         JSON.stringify(body.penalties || {}), id]
       );
       invalidateQuestCache(id);
       return { status: 200, body: { id } };

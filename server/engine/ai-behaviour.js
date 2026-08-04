@@ -26,6 +26,136 @@ const FLEE_DIFFICULTY = 6;
 const FLEE_RETRY_MS = 4000;
 const d8 = () => 1 + Math.floor(Math.random() * 8);
 
+// ── The leash ────────────────────────────────────────────────────────────────
+// ROAM is an unbiased random walk over the zone graph: it has no expected return,
+// so given a few hours a wanderer ends up anywhere the exits reach. The leash is
+// what makes a roaming mob a LOCAL problem, and it's also what makes CHASE safe
+// to have at all — an unbounded pursuit is exactly the thing that drags a mob
+// across the map.
+//
+// Deliberately NOT applied to two other movers:
+//   PATROL is already bounded by its authored waypoints. A radius on top would
+//          break legitimate long routes.
+//   FLEE   has one job — break contact. Filtering its exits by leash corners a
+//          fleeing mob against its own leash and hands the player a free kill on
+//          something the design says should get away. It clears targetId, and the
+//          next ROAM beat walks it home. Flee first, leash afterwards.
+const LEASH_RADIUS = 12;
+
+// Chebyshev tiles from the spawn tile. Three intents, three values — 0 must mean
+// PINNED rather than disabled, because zero is the obvious way to write "never
+// leaves its tile" and overloading it as the off-switch makes the tightest
+// possible leash silently do the opposite:
+//   undefined -> LEASH_RADIUS       (the default)
+//   -1        -> unleashed          (an authored world-wanderer)
+//   0         -> pinned to its tile
+//   1..n      -> that many tiles
+// Never write `Number(f) || LEASH_RADIUS` here: that maps both 0 and undefined to
+// the default and makes pinning impossible to express.
+function leashRadius(entity) {
+  const f = entity?.flags?.leash_radius;
+  if (f === undefined || f === null) return LEASH_RADIUS;
+  const n = Number(f);
+  return Number.isFinite(n) ? n : LEASH_RADIUS;
+}
+
+// O(1) distance from a mob's spawn tile. The leash runs on every roaming and
+// chasing instance, and enemies tick at 1 Hz, so this must never BFS —
+// getZonesInRadius is the right tool for CALL_BACKUP's rare event and the wrong
+// one here. Chebyshev rather than Manhattan because the map is 8-connected, so
+// Chebyshev IS hop count on open ground and a radius reads as "N tiles".
+//
+// Infinity means "definitively elsewhere" — a different map (an interior, the
+// sewers, a dreamscape), a different floor, or a zone with no grid position at
+// all. That's the answer we want: a mob that spawned outdoors and walked into a
+// shop IS off its patch.
+export function distanceFromSpawn(entity, zoneId) {
+  const home = getZone(entity?.spawnZoneId);
+  const here = getZone(zoneId);
+  if (!home || !here) return Infinity;
+  if ((home.map_id || null) !== (here.map_id || null)) return Infinity;
+  if ((home.grid_z ?? 0) !== (here.grid_z ?? 0)) return Infinity;
+  if (home.grid_x == null || here.grid_x == null) return Infinity;
+  if (home.grid_y == null || here.grid_y == null) return Infinity;
+  return Math.max(Math.abs(here.grid_x - home.grid_x), Math.abs(here.grid_y - home.grid_y));
+}
+
+// Which of these exits the leash actually permits. Same O(exits) the caller was
+// already paying, plus a handful of integer ops.
+//
+// Note the Infinity arithmetic is load-bearing and must not be "cleaned up":
+// `Infinity < Infinity` is false but `Infinity <= Infinity` is true, which is
+// what makes a mob stranded somewhere ungridded (indoors, off-map) fall through
+// to the non-increasing branch and take any exit rather than freezing.
+export function leashCandidates(entity, zoneId, exits) {
+  const radius = leashRadius(entity);
+  if (radius < 0 || !entity?.spawnZoneId) return exits;   // unleashed
+  if (radius === 0) return [];                            // pinned to its tile
+
+  const here = distanceFromSpawn(entity, zoneId);
+  if (here <= radius) {
+    const inside = exits.filter(z => distanceFromSpawn(entity, z) <= radius);
+    // Boxed in — every exit leaves the radius. Never freeze a mob over this; a
+    // frozen spawn is indistinguishable from a broken one.
+    return inside.length ? inside : exits;
+  }
+  // Outside: only steps that bring it home. Walks the grid gradient without a
+  // single BFS. A flat gradient (a wall, a dead end) falls back to anything that
+  // doesn't make it worse; if nothing qualifies it stands still this beat.
+  const closer = exits.filter(z => distanceFromSpawn(entity, z) < here);
+  if (closer.length) return closer;
+  return exits.filter(z => distanceFromSpawn(entity, z) <= here);
+}
+
+// ── Pursuit ──────────────────────────────────────────────────────────────────
+// How long a chaser will keep following without landing a hit. The leash bounds
+// pursuit in SPACE; this bounds it in TIME, so a mob can't shadow a player around
+// inside its own radius indefinitely.
+const CHASE_TIMEOUT_MS = 20000;
+// Enemies tick at 1 Hz, so an unthrottled chase steps once a second and outruns a
+// walking player. At 2s a walk cannot break contact but run mode can — which is
+// what makes running a decision rather than a formality. Per-enemy override:
+// flags.chase_speed_s.
+const CHASE_INTERVAL_MS = 2000;
+
+function chaseIntervalMs(entity) {
+  const s = Number(entity?.flags?.chase_speed_s);
+  return Number.isFinite(s) && s > 0 ? s * 1000 : CHASE_INTERVAL_MS;
+}
+
+// Does this creature's graph pursue? Cached per instance because it's a property
+// of the template, not of the moment — and because ATTACK consults it on the
+// combat hot path. A creature with no CHASE node keeps the historical behaviour of
+// dropping its target the instant the player leaves the room, so every enemy that
+// shipped before pursuit existed is bit-for-bit unchanged.
+export function canChase(entity) {
+  if (entity._canChase === undefined) {
+    const nodes = entity.behaviour_graph?.nodes;
+    entity._canChase = !!nodes && Object.values(nodes).some(n => n?.action_type === 'CHASE');
+  }
+  return entity._canChase;
+}
+
+// Where the current target is standing, whatever kind of thing it is. Returns null
+// if the target is gone, dead, or logged out — every caller treats that as "drop".
+// ATTACK's "target isn't here any more" branch. A non-chaser forgets you the
+// instant you leave the room, exactly as it always has. A chaser KEEPS the target
+// so its CHASE node has something to follow — that one distinction is the whole
+// difference between the world before pursuit and after it.
+function forgetsAbsentTarget(entity) {
+  return !canChase(entity);
+}
+
+function quarryZone(id) {
+  if (!id) return null;
+  const e = world.enemies.get(id);
+  if (e) return e._dead ? null : e.zoneId;
+  const n = world.npcs.get(id);
+  if (n) return n._dead ? null : n.zone_id;
+  const p = getLivePlayer(id);
+  return p ? p.current_zone : null;
+}
+
 // ── NPC lock-up law ──────────────────────────────────────────────────────────
 // An NPC securing a home or shutting up shop is the only lock in the game that
 // engages with nobody's hand on it, which makes it the only one that can shut a
@@ -529,12 +659,62 @@ function isEnemy(entity) {
   return entity.instanceId != null;
 }
 
+// May a hostile stand here? DESTINATION-ONLY, and that is not an accident: if this
+// also inspected where the mob is coming FROM, anything that ever ended up inside a
+// sanctuary (spawned before the tag, dropped there by a dev tool) could never leave
+// again. Walking out is always allowed.
+//
+// The three rules are separate on purpose:
+//   sanctuary   — already means "no hostile spawns, safe sleep, combat protection".
+//                 A mob walking in breaks the same promise by a different verb.
+//                 Blocking it is a bug fix, not a new rule.
+//   no_spawn    — the weaker, author-painted version of the same statement.
+//   enemy_barrier — the explicit "mobs stop here" paint. Deliberately NOT a blanket
+//                 cross-district check: districtFor falls back to `residential` for
+//                 any unclassified tile, so a blanket rule would freeze mobs at
+//                 arbitrary boundaries all over the map. This is also the runtime
+//                 backstop the Curtain has never had — today it holds only because
+//                 no exit link crosses it, which one mis-authored exit would undo.
+// The one exemption: a mob may ALWAYS return to where it came from. A tile can't
+// be off-limits to a creature that originated there, and without this an enemy
+// whose origin got tagged (or whose plugin spawns it somewhere protected) could
+// never go home — which for the emergency plugin's Arbiters, who despawn by
+// walking home via GO_HOME, would leak instances forever.
+// The law does not apply to the law. Sanctuary means "safe from the wilds and
+// from violence" — but SPECTER-PD is the institution that makes a room safe, and
+// being arrested in a public safe zone is exactly what should happen there. Without
+// this, ducking into any sanctuary stalled a manhunt permanently: huntStep calls
+// moveEntity directly and does not re-route on a refusal, so the unit would stand
+// at the threshold forever while the suspect sat inside.
+//
+// `flags.hunter` rather than the faction alone, because spawnHunter stamps it on
+// every tier of a manhunt — including the ★5 Arbiters, whose template carries no
+// faction at all. Wildlife, the Choir and the Ascendants stay bound by the law.
+function isEnforcement(entity) {
+  return !!entity?.flags?.hunter || entity?.faction === 'police';
+}
+
+function enemyMayEnter(to, entity) {
+  if (!to) return false;
+  if (to.id === entity?.spawnZoneId || to.id === entity?.home_zone) return true;
+  if (isEnforcement(entity)) return true;
+  if (to.flags?.no_spawn || to.flags?.enemy_barrier) return false;
+  if (isSanctuary(to)) return false;
+  return true;
+}
+
 // Entity pathing over the zone graph. NPCs walk the road grid (roads-preferring search) so
 // they commute/patrol along streets instead of cutting through buildings; enemies keep the
 // direct BFS line — a chase shouldn't take the scenic route. Falls through to plain BFS when
 // the entity is unknown. Shadows the raw findPath import for every AI call site below.
 function findPath(fromId, toId, entity) {
-  return findPathRaw(fromId, toId, entity && !isEnemy(entity) ? { roads: true } : {});
+  if (entity && !isEnemy(entity)) return findPathRaw(fromId, toId, { roads: true });
+  // Route around tiles this mob has already been refused (sanctuary, no_spawn, a
+  // barrier). `avoid` never excludes the target itself, so a waypoint that IS a
+  // forbidden tile still resolves a path and simply fails at the last step —
+  // which is the honest outcome for a badly authored route.
+  const avoid = entity?._ai?._leashAvoid;
+  return findPathRaw(fromId, toId, avoid?.size ? { avoid } : {});
 }
 
 // Pick a random zone the talk-show guest can plausibly "appear" in unseen: within a short
@@ -597,6 +777,24 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
       }
       return false;
     }
+  }
+
+  // ── Enemy destination law ───────────────────────────────────────────────────
+  // A hostile may not walk into a place the world has already declared off-limits
+  // to hostiles. Sanctuary and no_spawn have gated SPAWNING since they existed —
+  // they never gated WALKING, so a mob could stroll into the one square the rules
+  // promised was safe. moveEntity is the single writer for every mob tile change,
+  // so this is the only place the law can't be routed around.
+  if (isEnemy(entity) && !enemyMayEnter(getZone(newZoneId), entity)) {
+    // Remember the refusal so PATROL stops re-routing through it. Without this,
+    // findPath happily plots a course through a sanctuary, bounces off this line,
+    // clears its path and recomputes the identical route — a BFS loop at 1 Hz.
+    const ai = entity._ai;
+    if (ai) {
+      (ai._leashAvoid || (ai._leashAvoid = new Set())).add(newZoneId);
+      ai.patrolPath = [];
+    }
+    return false;
   }
 
   // Facade pass-through (mirrors cmdMove's revolving door): NPCs/enemies never
@@ -1031,11 +1229,12 @@ async function execAction(node, entity, ctx) {
       // Check if target is another enemy instance
       const enemyTarget = entity.flags?.attacks_enemies ? world.enemies.get(entity.targetId) : null;
       if (enemyTarget) {
-        if (enemyTarget._dead || enemyTarget.zoneId !== zoneId) {
+        if (enemyTarget._dead || (enemyTarget.zoneId !== zoneId && forgetsAbsentTarget(entity))) {
           entity.targetId = null;
           if (ai) ai.patrolPath = [];
           break;
         }
+        if (enemyTarget.zoneId !== zoneId) break; // held for CHASE; can't swing from here
         enemyAttackEnemy(entity, enemyTarget).then(result => {
           if (!result) return;
           broadcast(zoneId, { type: 'zone_event', message: result.message, refresh: result.killed });
@@ -1049,11 +1248,12 @@ async function execAction(node, entity, ctx) {
       // Check if target is an NPC (when attacks_npcs flag is set)
       const npcTarget = entity.flags?.attacks_npcs ? world.npcs.get(entity.targetId) : null;
       if (npcTarget) {
-        if (npcTarget._dead || npcTarget.zone_id !== zoneId) {
+        if (npcTarget._dead || (npcTarget.zone_id !== zoneId && forgetsAbsentTarget(entity))) {
           entity.targetId = null;
           if (ai) ai.patrolPath = [];
           break;
         }
+        if (npcTarget.zone_id !== zoneId) break; // held for CHASE
         enemyAttackNpc(entity, npcTarget).then(result => {
           if (!result) return;
           if (result.hit) {
@@ -1072,11 +1272,12 @@ async function execAction(node, entity, ctx) {
         break;
       }
       const target = getLivePlayer(entity.targetId);
-      if (!target || target.current_zone !== zoneId) {
+      if (!target || (target.current_zone !== zoneId && forgetsAbsentTarget(entity))) {
         entity.targetId = null;
         if (ai) ai.patrolPath = [];
         break;
       }
+      if (target.current_zone !== zoneId) break; // held for CHASE
       const firstStrikeDelay = entity.flags?.first_strike_delay_ms || 0;
       if (firstStrikeDelay > 0 && entity.lastAttack === 0) {
         const elapsed = Date.now() - (entity.aggroedAt || Date.now());
@@ -1225,6 +1426,108 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
+    // CHASE: follow the current target between zones, bounded by the leash.
+    // Sits between HAS_TARGET and ATTACK in the graph. Opt-in: a creature without
+    // this node forgets you the moment you step out, which is how every enemy
+    // behaved before pursuit existed.
+    // Params: none — pacing is flags.chase_speed_s, range is flags.leash_radius.
+    // CHASE: follow a quarry between zones, bounded by the leash.
+    //
+    // Params (all optional):
+    //   quarry     'target' (default) — follow entity.targetId
+    //              'flag'             — follow the player id in entity.flags[flag]
+    //   flag       which flag holds the quarry id in 'flag' mode ('suspect_id')
+    //   wander_pct 0..1 chance of stepping somewhere random instead of pathing
+    //
+    // The two modes exist because FOLLOWING and FIGHTING are different concerns,
+    // and only for wildlife do they coincide. A manhunt unit under ~4 stars must
+    // arrive and DETAIN rather than kill, so it is deliberately given no targetId
+    // (targetId is what makes the graph swing) — it is chasing somebody it is
+    // explicitly not targeting. Before this, that forced the police to carry their
+    // own duplicate pursuit loop.
+    case 'CHASE': {
+      if (!ai) break;
+      const hunting = params.quarry === 'flag';
+      const quarryId = hunting ? entity.flags?.[params.flag || 'suspect_id'] : entity.targetId;
+      if (!quarryId) break;
+
+      // Only a combat chase drops the target when it ends. In flag mode the
+      // quarry id belongs to whoever set the flag, and clearing it here would
+      // stamp on their state.
+      const giveUp = () => {
+        if (!hunting) entity.targetId = null;
+        ai.chasePath = []; ai._chaseSince = 0;
+      };
+
+      const targetZone = quarryZone(quarryId);
+      // Quarry dead, logged out, or otherwise gone.
+      if (!targetZone) { giveUp(); break; }
+      // Already on it — do nothing and let the rest of the graph run this same
+      // tick. This is the overwhelmingly common case and it must cost nothing.
+      if (targetZone === zoneId) { ai._chaseSince = 0; ai.chasePath = []; break; }
+
+      const nowMs = Date.now();
+      if (!ai._chaseSince) ai._chaseSince = nowMs;
+      // Give up in TIME as well as space, so a predator can't shadow someone
+      // around inside its own radius forever. NOT applied to a hunt: a manhunt is
+      // supposed to be relentless, and its lifecycle is owned by whatever declared
+      // it (heat decay, an arrest, a despawn) rather than by a stopwatch here.
+      if (!hunting && nowMs - ai._chaseSince > CHASE_TIMEOUT_MS) { giveUp(); break; }
+
+      // Give up in SPACE: the leash radius is the pursuit range. One knob sets both
+      // how far a thing wanders and how far it follows — a territorial mob with a
+      // short leash defends a small patch and abandons the chase almost at once,
+      // and a leash_radius of -1 pursues across the map.
+      const radius = leashRadius(entity);
+      if (radius >= 0 && entity.spawnZoneId && distanceFromSpawn(entity, targetZone) > radius) {
+        giveUp(); break;
+      }
+
+      if (ai._chaseNextAt && nowMs < ai._chaseNextAt) break;
+      ai._chaseNextAt = nowMs + chaseIntervalMs(entity);
+
+      const curZone = world.zones.get(zoneId);
+      // The imprecision of a search. A hunt that walks the shortest path every
+      // single step reads as a cursor snapping to you rather than somebody looking.
+      const wander = Number(params.wander_pct) || 0;
+      if (wander > 0 && Math.random() < wander) {
+        const nbrs = neighborZoneIds(curZone);
+        if (nbrs.length) {
+          ai.chasePath = [];
+          moveEntity(entity, nbrs[Math.floor(Math.random() * nbrs.length)], broadcast, query);
+        }
+        break;
+      }
+
+      // Fast path: the quarry is next door. This is the common case in a running
+      // chase and it takes no BFS at all.
+      if (curZone && neighborZoneIds(curZone).includes(targetZone)) {
+        ai.chasePath = [];
+        moveEntity(entity, targetZone, broadcast, query);
+        break;
+      }
+      // Further off — path to it, cached the same way PATROL caches its route.
+      if (!ai.chasePath?.length || ai.chaseTarget !== targetZone) {
+        ai.chaseTarget = targetZone;
+        const path = findPath(zoneId, targetZone, entity);
+        ai.chasePath = path ? path.slice(1) : [];
+        // Unreachable (no route, or every route runs through somewhere it may not
+        // go). A predator gives up; a hunt keeps casting about, because the map
+        // changes and the suspect moves.
+        if (!ai.chasePath.length) {
+          if (!hunting) { giveUp(); break; }
+          const nbrs = neighborZoneIds(curZone);
+          if (nbrs.length) moveEntity(entity, nbrs[Math.floor(Math.random() * nbrs.length)], broadcast, query);
+          break;
+        }
+      }
+      const step = ai.chasePath.shift();
+      // A refused step (locked door, sanctuary) invalidates the rest of the route;
+      // recompute next beat, which will route around it via _leashAvoid.
+      if (step && !moveEntity(entity, step, broadcast, query)) ai.chasePath = [];
+      break;
+    }
+
     // ROAM: move to a random adjacent zone every N seconds, looking for targets.
     // Used by enemies like Arbiters that hunt by wandering rather than fixed patrols.
     // Params: { interval_s: 10 }
@@ -1248,8 +1551,10 @@ async function execAction(node, entity, ctx) {
         break;
       }
 
-      // No target — step to a random adjacent zone
-      const exits = neighborZoneIds(curZone);
+      // No target — step to a random adjacent zone, but not off its patch. Inside
+      // the leash it wanders freely; outside, only steps that bring it back are on
+      // the table, so it walks home along the grid gradient.
+      const exits = leashCandidates(entity, zoneId, neighborZoneIds(curZone));
       if (exits.length) {
         const dest = exits[Math.floor(Math.random() * exits.length)];
         moveEntity(entity, dest, broadcast, query);

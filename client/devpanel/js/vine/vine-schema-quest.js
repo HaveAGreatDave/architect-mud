@@ -62,11 +62,48 @@ function _questReferencedIn(obj, questId) {
 }
 
 // The single target field's label + placeholder depend on the objective kind.
-const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit'], ['deliver', 'Deliver (flight)'], ['retrieve', 'Retrieve item (spawns)']];
+const _Q_KINDS = [
+  ['kill', 'Kill (a species of enemy)'], ['assassinate', 'Assassinate (a named NPC)'],
+  ['give', 'Give / turn in'], ['retrieve', 'Retrieve item (spawns)'],
+  ['visit', 'Visit'], ['escort', 'Escort NPC to a zone'], ['deliver', 'Deliver (flight)'],
+  ['talk', 'Talk to an NPC'], ['buy', 'Buy from a vendor'], ['sell', 'Sell to a vendor'],
+  ['craft', 'Craft an item'], ['equip', 'Equip / wear an item'],
+  ['hack', 'Hack something'], ['spend', 'Spend credits'], ['survive', 'Survive a storm outdoors'],
+];
+// Kinds carrying a SECOND zone field alongside their target ('Spawn / find zone' for
+// retrieve, 'Deliver them to' for escort). Both round-trip through the objective's
+// `zone` key — see fromQuest/toQuest.
+const _Q_ZONE_KINDS = new Set(['retrieve', 'escort']);
+// Kinds whose ONE field is a zone rather than a target — the objective's `zone` key
+// IS its target field, and there's no second box.
+const _Q_ZONE_ONLY = new Set(['visit', 'deliver', 'hack']);
+// Kinds where a blank target legitimately means "anything counts" (buy 3 of ANYTHING,
+// hack ANY till, survive ANY storm). Says so in the field label so it doesn't read
+// like an unfilled box.
+const _Q_ANY_OK = new Set(['buy', 'sell', 'craft', 'hack', 'spend', 'survive']);
+// Failure conditions reuse every objective kind (an event that ADVANCES a quest
+// reads just as well as one that BLOWS it), plus two that only make sense as
+// failures. Timeout leads because it's the common case.
+const _Q_FAIL_KINDS = [
+  ['timeout', 'Ran out of time'], ['escort_lost', 'Lost the escortee'],
+  ..._Q_KINDS.filter(([k]) => k !== 'deliver'),
+];
 function _qTargetLabel(kind) {
+  if (kind === 'escort_lost') return ['NPC id (or part of their name) — blank = any escortee', 'npc_vale'];
+  const any = _Q_ANY_OK.has(kind) ? ' — blank = anything counts' : '';
   if (kind === 'give' || kind === 'retrieve') return ['Item ID', 'medkit'];
-  if (kind === 'visit' || kind === 'deliver') return ['Zone ID', 'zone_downtown_alley'];
+  if (kind === 'equip') return ['Item ID', 'dinner_jacket'];
+  if (kind === 'buy' || kind === 'sell' || kind === 'craft') return [`Item ID${any}`, 'medkit'];
+  if (_Q_ZONE_ONLY.has(kind)) return [`Zone ID${any}`, 'zone_downtown_alley'];
+  if (kind === 'assassinate' || kind === 'escort' || kind === 'talk') return ['NPC id (or part of their name)', 'npc_vale'];
+  if (kind === 'spend') return [`Spent-on filter${any}`, 'vendor'];
+  if (kind === 'survive') return [`Storm type${any}`, 'acid_rain'];
   return ['Enemy target', 'sewer_rat'];
+}
+// 'spend' counts CREDITS, everything else counts repetitions — worth saying on the
+// field, since "count: 5000" reads as an absurd number of anything else.
+function _qCountLabel(kind) {
+  return kind === 'spend' ? 'Credits to spend' : 'Count';
 }
 
 // Flight-template settings — only shown when the quest node's questType is
@@ -173,7 +210,7 @@ const _questNodeDefs = {
       const [tlabel, tph] = _qTargetLabel(n.data.kind);
       return `
       ${_qHelp(id,
-        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, or retrieve an item. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it is always there to find. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
+        'One goal that advances by world events. Kind picks the event: kill an enemy, give/turn in an item, visit a zone, retrieve an item, assassinate a named NPC, or escort one somewhere. "Retrieve item" completes when the player picks up the named item, and (unless auto-spawn is off) drops a fresh copy into the spawn zone the moment the quest starts, so it is always there to find. "Assassinate" names a PERSON where "Kill" names a species — any three rats satisfy a kill, only that one NPC satisfies an assassination. "Escort" is met when that NPC ARRIVES at the delivery zone walking with the player; give the NPC flags.escortable, or have their dialogue fire ESCORT_START, and remember they can be killed on the way. The commerce/act kinds (buy, sell, craft, equip, hack, spend, survive) take a blank target to mean "anything counts". "Spend" is counted in CREDITS, not in purchases. "Survive" means standing OUTDOORS from the peak of a named storm through to the all-clear — ducking inside earns nothing. Draw an edge from another objective\'s "unlocks" port into this one to gate it — it stays hidden until the prerequisite is done. No incoming objective edge = available from quest start.',
         'kind: retrieve\ntarget: ancient_relic\nspawnZone: zone_sewers\ncount: 1\ndesc: Recover the ancient relic from the sewers'
       )}
       ${_qField('Kind', _qSelect('data.kind', _Q_KINDS, n.data.kind))}
@@ -182,7 +219,8 @@ const _questNodeDefs = {
       ${_qField('Spawn / find zone', _qInput('data.spawnZone', n.data.spawnZone, 'zone_sewers'))}
       ${_qField('Auto-spawn the item?', _qSelect('data.spawn', [['spawn', 'Yes — drop it in that zone on quest start'], ['nospawn', 'No — it already exists in the world']], n.data.spawn || 'spawn'))}
       ` : ''}
-      ${_qField('Count', _qInput('data.count', n.data.count ?? 1, '1', 'number'))}
+      ${n.data.kind === 'escort' ? _qField('Deliver them to (zone)', _qInput('data.spawnZone', n.data.spawnZone, 'zone_clinic')) : ''}
+      ${_qField(_qCountLabel(n.data.kind), _qInput('data.count', n.data.count ?? 1, n.data.kind === 'spend' ? '5000' : '1', 'number'))}
       ${_qField('Description', _qTextarea('data.desc', n.data.desc, 2))}
       ${_qField('Action lines — flavour shown to the room each tick (one per line, {who} = player; blank = none)',
         _qTextarea('data.emotes', n.data.emotes, 3))}
@@ -191,6 +229,69 @@ const _questNodeDefs = {
       <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the target field,${' '}reveal retrieve options, and show/hide the visit task timer.</div>
     `;
     },
+  },
+
+  // A failure condition. Deliberately the SAME kinds as an objective, because that
+  // is exactly what the runtime does with it: `quests.fail_on` is evaluated by the
+  // same predicates against the same events, only it blows the quest instead of
+  // advancing it. Two kinds are failure-only and have no objective counterpart —
+  // a timeout and a lost escortee.
+  fail: {
+    label: 'Fails if',
+    color: '#aa4444',
+    defaultData: { kind: 'timeout', target: '', count: 300, desc: '' },
+    renderBody: (n) => {
+      const k = n.data.kind || 'timeout';
+      const body = k === 'timeout'
+        ? `after ${Number(n.data.count) || 0}s`
+        : `${_escQ(k)}: ${_escQ(n.data.target || 'anything')}`;
+      return `<div style="font-size:11px;color:#dd8888">${body}</div>
+        ${n.data.desc ? `<div style="font-size:10px;color:var(--text-dim)">${_escQ((n.data.desc || '').slice(0, 48))}</div>` : ''}`;
+    },
+    getOutPorts: () => [],
+    renderProperties: (n, ed, id) => {
+      const kind = n.data.kind || 'timeout';
+      const [tlabel, tph] = _qTargetLabel(kind);
+      return `
+      ${_qHelp(id,
+        'A way this quest can BLOW. Same kinds as an objective and judged the same way — "assassinate npc_vale" as an objective means kill him, as a failure means he must not die. Two kinds are failure-only: "Ran out of time" (measured from the moment the quest was taken) and "Lost the escortee". A failed quest can be taken again from the start unless the quest node\'s meta sets failPermanent. Fail nodes need no edges — they are always live while the quest is.',
+        'kind: timeout\ncount: 600\ndesc: The meet was over by then.'
+      )}
+      ${_qField('Kind', _qSelect('data.kind', _Q_FAIL_KINDS, kind))}
+      ${kind === 'timeout'
+        ? _qField('Seconds allowed (from taking the quest)', _qInput('data.count', n.data.count ?? 300, '300', 'number'))
+        : _qField(tlabel, _qInput('data.target', n.data.target, tph))}
+      ${_qField('Failure line shown to the player (blank = a generic one)', _qTextarea('data.desc', n.data.desc, 2))}
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.4">Re-open this panel after changing Kind to relabel the field.</div>
+    `;
+    },
+  },
+
+  // What failing COSTS you. The mirror of Reward, and deliberately the same shape
+  // minus items — the package being gone is usually why the quest failed, so
+  // confiscating it is a no-op that reads like a bug. Edgeless like the fail nodes:
+  // penalties apply whenever the quest fails, however it failed.
+  penalty: {
+    label: 'Penalty',
+    color: '#8a5a2b',
+    defaultData: { credits: 0, rep: [], flags: [] },
+    renderBody: (n) => {
+      const reps = Array.isArray(n.data.rep) ? n.data.rep.length : 0;
+      const bits = [];
+      if (n.data.credits) bits.push(`−₵${n.data.credits}`);
+      if (reps) bits.push(`${reps} rep hit${reps > 1 ? 's' : ''}`);
+      return `<div style="font-size:11px;color:#cc9955">${bits.join(' + ') || '(no penalty)'}</div>`;
+    },
+    getOutPorts: () => [],
+    renderProperties: (n, ed, id) => `
+      ${_qHelp(id,
+        'Applied when this quest FAILS, however it failed. Without a penalty, failing costs you nothing you had and every failure condition is cosmetic — you just take the quest again. Credits are stated POSITIVE and taken; a player is never pushed below zero. Reputation is a list of {ideology, delta} — negative deltas are the point. No item confiscation: the thing you were carrying is usually already gone, which is WHY it failed.',
+        'credits: 200\nrep: [{"ideology":"ascendants","delta":-5}]\nflags: [{"scope":"player","flag":"vale_wont_talk","value":"true"}]'
+      )}
+      ${_qField('Credits taken', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
+      ${_qField('Reputation (JSON)', _qTextarea('data.rep', JSON.stringify(n.data.rep || [], null, 2), 3, true))}
+      ${_qField('Flags (JSON)', _qTextarea('data.flags', JSON.stringify(n.data.flags || [], null, 2), 3, true))}
+    `,
   },
 
   reward: {
@@ -259,7 +360,7 @@ window.VineQuestSchema = {
         desc: o.desc || '',
         // retrieve carries a spawn/find zone alongside its item target, and a
         // toggle for whether the engine drops the item in on quest start.
-        spawnZone: kind === 'retrieve' ? (o.zone || '') : '',
+        spawnZone: _Q_ZONE_KINDS.has(kind) ? (o.zone || '') : '',
         spawn: o.spawn === false ? 'nospawn' : 'spawn',
         // Action lines edited as one-per-line text (accepts the legacy singular `emote`);
         // task delay is per-objective (visit only) — both round-trip back in toQuest.
@@ -292,6 +393,34 @@ window.VineQuestSchema = {
       }
     });
 
+    // Failure nodes. Edgeless by design — a fail condition is live for as long as
+    // the quest is, so there is nothing for a wire to say. Laid out in a column
+    // under the quest node rather than in the objective flow, because they aren't
+    // steps in it.
+    (Array.isArray(rec.fail_on) ? rec.fail_on : []).forEach((f, i) => {
+      const p = f._vine || { x: 40, y: 260 + i * 130 };
+      nodes[`fail_${i}`] = {
+        type: 'fail', x: p.x, y: p.y,
+        data: {
+          kind: f.type || 'timeout',
+          target: f.target ?? f.item_id ?? f.zone ?? '',
+          count: f.count ?? 300,
+          desc: f.desc || '',
+        },
+      };
+    });
+
+    // Penalty node — one per graph, and only drawn when the quest actually has
+    // penalties, so an ordinary quest's canvas isn't cluttered by an empty box.
+    const pen = (rec.penalties && typeof rec.penalties === 'object') ? rec.penalties : {};
+    if (pen.credits || (pen.rep || []).length || (pen.flags || []).length) {
+      const pp = pen._vine || { x: 340, y: 260 + (rec.fail_on || []).length * 130 };
+      nodes.penalty = {
+        type: 'penalty', x: pp.x, y: pp.y,
+        data: { credits: pen.credits || 0, rep: pen.rep || [], flags: pen.flags || [] },
+      };
+    }
+
     // Reward node, fed by terminal objectives (or the quest itself if no objectives).
     const rewards = rec.rewards && typeof rec.rewards === 'object' ? rec.rewards : {};
     const rewardPos = rewards._vine || { x: rewardCol * 300 + 40, y: 60 };
@@ -318,7 +447,11 @@ window.VineQuestSchema = {
         .filter(e => e.toNode === id && vnodes[e.fromNode] && vnodes[e.fromNode].type === 'objective')
         .map(e => e.fromNode);
       const kind = node.data.kind || 'kill';
-      const key = (kind === 'give' || kind === 'retrieve') ? 'item_id' : (kind === 'visit' || kind === 'deliver') ? 'zone' : 'target';
+      // Which objective key the single target box writes to. Item-shaped kinds land
+      // in item_id, zone-shaped ones in zone, everything else in the generic target.
+      const key = (kind === 'give' || kind === 'retrieve' || kind === 'equip') ? 'item_id'
+        : _Q_ZONE_ONLY.has(kind) ? 'zone'
+        : 'target';
       const obj = {
         id,
         type: kind,
@@ -333,6 +466,10 @@ window.VineQuestSchema = {
         obj.zone = node.data.spawnZone || '';
         obj.spawn = node.data.spawn !== 'nospawn';
       }
+      // escort: the NPC lives in `target` (above), the delivery zone rides the same
+      // second field retrieve uses. No spawn toggle — the escortee is a real NPC
+      // already standing in the world, never conjured.
+      if (kind === 'escort') obj.zone = node.data.spawnZone || '';
       // Action lines: one-per-line text → array (only when non-empty, so an
       // untouched objective stays clean). Task delay is visit-only.
       const emotes = String(node.data.emotes || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -342,6 +479,35 @@ window.VineQuestSchema = {
       if (requires.length) obj.requires = requires;
       objectives.push(obj);
     }
+
+    // Failure conditions. Same key mapping as an objective, so an author who wrote
+    // "assassinate npc_vale" as a fail node gets the identical shape they'd get
+    // from the objective node — which is precisely why the runtime can judge both
+    // with one predicate.
+    const fail_on = [];
+    for (const [, node] of Object.entries(vnodes)) {
+      if (node.type !== 'fail') continue;
+      const kind = node.data.kind || 'timeout';
+      const cond = { type: kind, _vine: { x: node.x, y: node.y } };
+      if (kind === 'timeout') {
+        cond.count = Number(node.data.count) || 0;
+      } else {
+        const key = (kind === 'give' || kind === 'retrieve' || kind === 'equip') ? 'item_id'
+          : _Q_ZONE_ONLY.has(kind) ? 'zone'
+          : 'target';
+        cond[key] = node.data.target || '';
+      }
+      if (node.data.desc) cond.desc = node.data.desc;
+      fail_on.push(cond);
+    }
+
+    const penaltyNode = Object.entries(vnodes).find(([, n]) => n.type === 'penalty');
+    const penalties = penaltyNode ? {
+      credits: Number(penaltyNode[1].data.credits) || 0,
+      rep: Array.isArray(penaltyNode[1].data.rep) ? penaltyNode[1].data.rep : [],
+      flags: Array.isArray(penaltyNode[1].data.flags) ? penaltyNode[1].data.flags : [],
+      _vine: { x: penaltyNode[1].x, y: penaltyNode[1].y },
+    } : {};
 
     const rewards = rewardNode ? {
       credits: Number(rewardNode[1].data.credits) || 0,
@@ -380,6 +546,8 @@ window.VineQuestSchema = {
       meta,
       objectives,
       rewards,
+      fail_on,
+      penalties,
     };
   },
 };
