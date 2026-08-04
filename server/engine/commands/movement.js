@@ -455,7 +455,16 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // A gate may block silently (veto.silent) — e.g. the pacing plugin deferring a
   // too-fast step into its move queue — in which case no error line is shown; the
   // step is simply not executed now.
-  if (veto) return veto.silent ? null : { type:'error', message: veto.message, html: veto.html };
+  // A GATE'S MESSAGE IS PROSE, AND PROSE HERE IS HTML. Nine of the ten gates that
+  // write markup never set `html`, so the shoplifting door prompt was showing the
+  // player a literal `<b>` — the flag was opt-in and every author but one missed
+  // it, which makes it the wrong default rather than nine mistakes. Gate messages
+  // are server-authored (the one player-controlled string that reaches them, a
+  // storefront's shop_name, has `<>` stripped at the input boundary in
+  // `cmdRenameShop`), so this is the same trust level as every zone_event
+  // broadcast. `html: false` still opts out. `.msg` is `white-space: pre-wrap`,
+  // so the `\n` in a two-line prompt survives the switch to innerHTML.
+  if (veto) return veto.silent ? null : { type:'error', message: veto.message, html: veto.html !== false };
 
   let doorWasClosed = false;
   let doorWasLocked = false;

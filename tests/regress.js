@@ -1960,6 +1960,12 @@ getPlayer().stat_brawn = -999;
 r = await run(dir);
 check('encumbrance gate blocks move', r?.type === 'error' && /carrying too much/.test(r.message || ''), r?.message?.slice?.(0, 120));
 check('blocked move does not relocate', getPlayer().current_zone === before, getPlayer().current_zone);
+// A gate's message is prose and renders as HTML unless it opts out. This was
+// opt-in and nine of the ten gates that write markup never set it, so the
+// shoplifting door prompt showed the player a literal `<b>`. Asserted on the
+// plainest gate in the game precisely because it carries no markup of its own:
+// the flag has to ride EVERY block, not just the ones an author remembered.
+check('a blocked move renders as HTML', r?.html === true, `html=${r?.html}`);
 
 getPlayer().stat_brawn = 5;
 r = await run(dir);

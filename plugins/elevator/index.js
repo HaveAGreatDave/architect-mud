@@ -291,7 +291,9 @@ async function cmdFloor(args, raw, player, broadcast) {
   // laws are about walking and have no business queuing an elevator ride.
   const target = getZone(floor.zone);
   const gate = target && await runMoveGates({ player, from: zone, to: target, direction: 'up', door: null, opts: { bypassEncumbrance: true } });
-  if (gate?.block) return gate.silent ? null : { type: 'error', message: gate.message };
+  // Same contract as the walking path (see the note in commands/movement.js):
+  // a gate's message is prose, and it renders as HTML unless it opts out.
+  if (gate?.block) return gate.silent ? null : { type: 'error', message: gate.message, html: gate.html !== false };
   return board(player, floor);
 }
 
