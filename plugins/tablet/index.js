@@ -56,8 +56,12 @@
 // a fourth means adding a renderer there too. `nav` is an appId — tapping the card
 // opens that app.
 //
-// A card is TIED TO ITS TILE: stash the app under ⊕ on the home screen and its card
-// goes with it. `alwaysOn: true` opts out of that, and is for ALARMS only — a card
+// A card is TIED TO ITS TILE, but only to a tile the player THREW AWAY: fling the
+// app off the home screen and its card goes with it. An app that merely sits in the
+// default stash (anything outside TABLET_DEFAULT_HOME_APPS is stashed on a first
+// login) still gets to put its card up — otherwise an app's own widget preference
+// could never take effect without the player first hunting the tile out of ⊕.
+// `alwaysOn: true` opts out of even that, and is for ALARMS only — a card
 // whose job is to appear uninvited (the Wanted card is the one that has it, because
 // heat you have to subscribe to is not a warning). Don't set it to make a widget
 // feel important; the player arranged their home screen on purpose.

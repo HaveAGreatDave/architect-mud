@@ -695,7 +695,12 @@ function ensureStyles() {
        look like a gap, not like a missing tile — and only outlined while you're
        arranging, when it stops being empty space and starts being a target. */
     #tablet-os-overlay .tos-tile-gap { background:none; border:1px solid transparent;
-      box-shadow:none; cursor:default; }
+      box-shadow:none; cursor:pointer; }
+    /* Tapping a hole opens the add-apps sheet aimed at that cell, so it gets a hover
+       that says "something goes here" — still nothing at rest, because a deliberate
+       gap must keep looking like a gap. */
+    #tablet-os-overlay .tos-tile-gap:hover { border:1px dashed color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      background:color-mix(in srgb, var(--mg-accent) 6%, transparent); }
     #tablet-os-overlay .tos-grid-arranging .tos-tile-gap { border:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent);
       background:color-mix(in srgb, var(--mg-accent) 5%, transparent); }
     #tablet-os-overlay .tos-tile-gap.tos-drop-swap { border-style:solid; }
@@ -981,12 +986,19 @@ function ensureStyles() {
        full-size tiles — guaranteed to scroll. So this card is as wide as the tablet
        and its tiles are denser, which fits the whole stash in view. The group-naming
        sheet keeps the narrow default; only this one opts in. */
-    #tablet-os-overlay .tos-addsheet-card.wide { max-width:100%; padding:11px; }
-    #tablet-os-overlay .tos-addsheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(62px,1fr)); gap:6px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile { padding:6px 3px; border-radius:6px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:17px; margin-bottom:3px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon svg { width:18px; height:18px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+    /* The wide card takes the FULL height it's allowed rather than shrink-wrapping the
+       grid. Sizing to content made the sheet a short band floating mid-screen, which
+       forced the tiles small to fit — with the height claimed up front the same stash
+       gets bigger icons in the same number of rows. The grid pushes the header up. */
+    #tablet-os-overlay .tos-addsheet-card.wide { max-width:100%; height:94%; padding:11px;
+      display:flex; flex-direction:column; }
+    #tablet-os-overlay .tos-addsheet-card.wide .tos-addsheet-grid { flex:1 1 auto; align-content:start;
+      overflow:auto; }
+    #tablet-os-overlay .tos-addsheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:7px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile { padding:10px 3px; border-radius:7px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:23px; margin-bottom:5px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon svg { width:26px; height:26px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:9.5px; letter-spacing:.2px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
       font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
@@ -3968,7 +3980,11 @@ const TOS_APP_ICONS = {
   bar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M5.6 6.6h12.8L12 13.9z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M4.2 5.4h15.6L12 14.4z"/><path d="M12 14.4v5"/><path d="M8.3 19.8h7.4"/><path d="M15.6 3.1l-2.2 4.4" stroke-opacity=".55"/><circle cx="13.4" cy="7.5" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Sports. A trophy would read as "achievements"; a pennant on a staff is
   // unambiguously a league table, and it holds its shape at tile size.
-  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M7 4.4h12.2l-3.4 3.5 3.4 3.5H7z"/><path d="M7 2.8v18.4"/><path d="M4.6 21.2h4.8"/><path d="M10.4 7.9h4.2" stroke-opacity=".5"/></svg>`,
+  // A pennant said "team", not "sports" — and the app is scores and standings for
+  // two leagues, so it reads as a hanging SCOREBOARD: a lit panel on two struts with
+  // the away/home split down the middle and a digit block either side. Legible at
+  // 18px because the outline is one rectangle and the meaning is in the divider.
+  sports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M3.2 4.6h17.6v11H3.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M3.2 4.6h17.6v11H3.2z"/><path d="M12 4.6v11" stroke-opacity=".55"/><path d="M6 9.2h3.4M14.6 9.2H18" stroke-width="2"/><path d="M6.4 12.6h2.6M15 12.6h2.6" stroke-opacity=".45"/><path d="M8 15.6l-1.6 3.9M16 15.6l1.6 3.9" stroke-opacity=".7"/><path d="M5.2 20.8h13.6" stroke-opacity=".7"/></svg>`,
   codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="miter"><path class="dim" d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z" fill="currentColor" fill-opacity=".16" stroke="none"/><path d="M12 6.2C10.2 4.6 7.6 4 3.5 4.4v14C7.6 18 10.2 18.6 12 20.2c1.8-1.6 4.4-2.2 8.5-1.8v-14C16.4 4 13.8 4.6 12 6.2z"/><path d="M12 6.2v14"/><path d="M6 8.4h3.5M6 11.2h3.5M6 14h2.4" stroke-opacity=".75"/><circle cx="16.4" cy="11.4" r="3.1" stroke-opacity=".8"/><path d="M16.4 8.3v6.2M13.3 11.4h6.2" stroke-opacity=".45"/><circle cx="17.7" cy="10.1" r="1.15" fill="currentColor" stroke="none"/></svg>`,
   // Ideology = an alignment compass: crosshair axes + a plotted marker, the same
   // "where you stand" motif the app's charts use. Monochrome like the rest.
@@ -4139,6 +4155,7 @@ function seedDefaultHiddenApps(all) {
   // in whatever order the plugins happened to register.
   saveAppOrder(TABLET_DEFAULT_HOME_APPS.filter(id => all.some(a => a.id === id)));
   saveAppGroups([]);   // a re-seed can't leave a box holding apps that are now stashed
+  saveRemovedApps([]); // …nor a removal recorded against an arrangement that's gone
   try { localStorage.setItem(TABLET_HOME_SEED_KEY, String(TABLET_HOME_SEED_VERSION)); } catch {}
 }
 function saveHiddenApps(ids) {
@@ -4147,10 +4164,50 @@ function saveHiddenApps(ids) {
 function hideApp(id) {
   const h = loadHiddenApps();
   if (!h.includes(id)) { h.push(id); saveHiddenApps(h); }
+  markAppRemoved(id);
 }
 function unhideApp(id) {
   saveHiddenApps(loadHiddenApps().filter(x => x !== id));
+  saveRemovedApps(loadRemovedApps().filter(x => x !== id));
   saveAppGroups(loadAppGroups().map(g => ({ ...g, apps: g.apps.filter(x => x !== id) })));
+}
+
+// ── Removed vs merely stashed ────────────────────────────────────────────────
+// TWO DIFFERENT REASONS an app can be off the home grid, and only one of them is
+// a decision. The seed above stashes everything outside the default sixteen so a
+// first login isn't handed thirty tiles — that's the shipped arrangement, not the
+// player rejecting those apps. Flinging a tile off the tablet IS the player
+// rejecting it.
+//
+// The home CARDS need to tell those apart. Filtering them on the hidden list made
+// a card unreachable for any app that merely started stashed: Sports could have
+// its own widget preference set to `both` and still never draw, because `sports`
+// was never in the default sixteen and nothing the player did put it there. So a
+// card now shows for any app EXCEPT one that was explicitly removed, while the
+// grid keeps using the hidden list exactly as before — the tile arrangement is
+// untouched by this.
+const TABLET_APP_REMOVED_KEY = 'architect_tablet_removed_apps';
+function loadRemovedApps() {
+  let raw = null;
+  try { raw = localStorage.getItem(TABLET_APP_REMOVED_KEY); } catch { return []; }
+  if (raw === null) {
+    // Devices from before this key existed: the only removals we can prove are
+    // apps that the seed PUT on the home screen and that are stashed anyway —
+    // the player took those off by hand. A stashed non-default app is ambiguous
+    // (never added vs added-then-removed), and the honest reading of an ambiguous
+    // case is "not removed", which is the behaviour this change exists to give.
+    const derived = loadHiddenApps().filter(id => TABLET_DEFAULT_HOME_APPS.includes(id));
+    saveRemovedApps(derived);
+    return derived;
+  }
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+function saveRemovedApps(ids) {
+  try { localStorage.setItem(TABLET_APP_REMOVED_KEY, JSON.stringify(ids || [])); } catch {}
+}
+function markAppRemoved(id) {
+  const r = loadRemovedApps();
+  if (!r.includes(id)) { r.push(id); saveRemovedApps(r); }
 }
 
 // Home-grid app groups — the same client-only, per-device preference shape as the
@@ -4582,16 +4639,19 @@ function _applyWidgetChrome() {
 
 function renderHomeWidgets(widgets) {
   if (!widgetsEnabled()) return '';
-  // A card belongs to its app: stash the app under ⊕ and its card goes with it,
-  // add the app back and the card returns. The home screen you arranged is the one
-  // you get. (This runs after renderHomeApps in the same template, so the first-run
-  // default stash is already seeded by the time we read it.)
+  // A card shows unless you REMOVED its app — flinging a tile off the tablet takes
+  // its card with it, and adding the app back brings the card back. Merely being
+  // stashed under ⊕ is not a removal (see loadRemovedApps): an app that only ever
+  // sat in the default stash still gets to put a card up, which is what lets a
+  // per-app widget preference like Sports' mean something on its own. (This runs
+  // after renderHomeApps in the same template, so the first-run default stash is
+  // already seeded by the time we read it.)
   //
   // The exception is a card that declares `alwaysOn` — an ALARM, whose entire job
-  // is to appear uninvited. The app it opens may well be stashed; that's the point.
+  // is to appear uninvited. The app it opens may well be removed; that's the point.
   // The server owns that call (see the buildWidget contract), not this list.
-  const hidden = new Set(loadHiddenApps());
-  const cards = (widgets || []).filter(w => w.alwaysOn || !hidden.has(w.nav)).map(w => {
+  const removed = new Set(loadRemovedApps());
+  const cards = (widgets || []).filter(w => w.alwaysOn || !removed.has(w.nav)).map(w => {
     let body = '';
     if (w.kind === 'meters') {
       body = (w.rows || []).map(r => `<div class="tos-wg-meter">
@@ -4637,7 +4697,11 @@ function renderHomeWidgets(widgets) {
 
 // The "add removed apps" sheet — a client-side card over the home screen listing every
 // app the player has flung off the grid. Tap one to put it back. No server round trip.
-function openAddAppsSheet() {
+// `intoGap` is the id of a hole tile the sheet was opened FROM (see the
+// [data-home-gap] handler). Pass one and the chosen app lands in that exact cell
+// rather than at the end of the last page — tapping the space you want an app in
+// and having it appear somewhere else is the whole complaint this answers.
+function openAddAppsSheet(intoGap) {
   if (!_overlay) return;
   const screen = _overlay.querySelector('#tos-screen-inner');
   if (!screen) return;
@@ -4660,7 +4724,7 @@ function openAddAppsSheet() {
   const sheet = document.createElement('div');
   sheet.className = 'tos-addsheet';
   sheet.innerHTML = `<div class="tos-addsheet-card wide">
-    <div class="tos-addsheet-hdr"><span>Add apps · ${apps.length}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
+    <div class="tos-addsheet-hdr"><span>${intoGap ? 'Add app here' : 'Add apps'} · ${apps.length}</span><span class="tos-addsheet-x" data-addsheet-close title="Close">✕</span></div>
     ${body}
   </div>`;
   screen.appendChild(sheet);
@@ -4672,7 +4736,14 @@ function openAddAppsSheet() {
     // Same ceremony as an unlocked app: it installs onto the grid rather than
     // blinking into existence, and the sheet closes so you watch it land. (beginInstall
     // does the unhide, and pages to wherever it lands.)
-    beginInstall(el.getAttribute('data-readd-app'));
+    const appId = el.getAttribute('data-readd-app');
+    // Claim the hole BEFORE beginInstall, so the install animation plays on the
+    // tile in the cell that was tapped rather than chasing it to the last page.
+    if (intoGap) {
+      const order = loadAppOrder();
+      if (order.includes(intoGap)) saveAppOrder(order.map(x => (x === intoGap ? appId : x)));
+    }
+    beginInstall(appId);
     close();
     render();  // rebuild home from _data with the app restored
   }));
@@ -9873,6 +9944,16 @@ function wireBody() {
     if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
     openAddAppsSheet();
   });
+  // An empty cell is a PLACE, and tapping a place asks what goes in it. It stays a
+  // drop target and still falls through to the pager's swipe (nothing is bound on
+  // pointerdown here — only a completed click opens the sheet), so the arranging
+  // gestures are untouched.
+  _overlay.querySelectorAll('[data-home-gap]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (_suppressTileClick || _tosSelectMode) return;
+      openAddAppsSheet(el.getAttribute('data-home-gap'));
+    });
+  });
   // Toolbar: find, the widgets toggle, and restoring a stashed app straight out of
   // a search result.
   _overlay.querySelector('[data-home-search]')?.addEventListener('click', () => {
@@ -10597,6 +10678,7 @@ function wireTabletSettings() {
       localStorage.removeItem(TABLET_APP_ORDER_KEY);
       localStorage.removeItem(TABLET_APP_HIDDEN_KEY);
       localStorage.removeItem(TABLET_APP_GROUPS_KEY);
+      localStorage.removeItem(TABLET_APP_REMOVED_KEY);
       localStorage.removeItem(TABLET_HOME_SEED_KEY);   // …so the next render re-seeds the default set
     } catch {}
     const btn = e.currentTarget;
