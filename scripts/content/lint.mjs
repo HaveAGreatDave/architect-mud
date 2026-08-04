@@ -11,6 +11,9 @@
 //   • pk missing from the file, or filename not matching the pk
 //   • dangling FK references between content tables (a zone_spawn pointing at an
 //     enemy that has no file would restore broken on a fresh DB)
+//   • item_id references buried in JSONB (a vendor row, a recipe ingredient or
+//     output) that name an item with no file — a warning, since the usual cause
+//     is an item nobody has authored yet rather than a typo
 import { contentEntries } from '../../server/models/content-registry.js';
 import { SCHEMA_SQL } from '../../server/models/schema.js';
 import { validateTags, validateZoneColumns, TAG_CATALOG as CATALOG, ZONE_COLUMN_PREFIX } from '../../server/engine/tags.js';
@@ -504,6 +507,50 @@ export function lintContentTree(baseDir) {
         if (!Array.isArray(d.signature) || !d.signature.length) {
           warnings.push(`districts/${d.id}: no sensory lines — outdoor tiles here get no district ambience`);
         }
+      }
+    }
+  }
+
+  // ── item_id references inside JSONB ────────────────────────────────────────
+  // The FK pass above only sees real SQL columns. Every interesting item pointer
+  // is a key inside a JSONB blob instead — a vendor's `vendor_inventory[]`, a
+  // recipe's `ingredients[]` and `base_output`, a loot table's rows — so nothing
+  // checked them, and a fence spent an unknown length of time offering
+  // `item_ripsaw_chaimsword`: a typo for an item that does not exist under that
+  // spelling or the corrected one. It occupied a shelf slot and resolved to
+  // nothing.
+  //
+  // WARNING, not an error, and deliberately so. Some of these are not typos but
+  // items nobody has authored YET (a recipe whose OUTPUT is missing is the
+  // sharpest case — it is craftable, it consumes the ingredients, and it can
+  // hand back nothing). Failing the gate on those would block every unrelated
+  // deploy on somebody else's authoring backlog. A warning puts them in front of
+  // whoever is looking without holding the door shut.
+  {
+    const itemIds = pkSets.get('items')?.get('id');
+    if (itemIds) {
+      const seen = new Map();               // ref → Set(label), so one missing item reports once
+      const walk = (v, label) => {
+        if (Array.isArray(v)) { for (const x of v) walk(x, label); return; }
+        if (!v || typeof v !== 'object') return;
+        for (const [k, val] of Object.entries(v)) {
+          // A template placeholder (`${drink}`) is resolved at runtime by the
+          // script that owns it, and is not a reference this pass can judge.
+          if (k === 'item_id' && typeof val === 'string' && !val.includes('${')) {
+            if (!itemIds.has(val)) {
+              if (!seen.has(val)) seen.set(val, new Set());
+              seen.get(val).add(label);
+            }
+          } else walk(val, label);
+        }
+      };
+      // Every table, `items` included — an item that points at another item (a
+      // recipe card, a boxed set) is exactly as breakable as a vendor row.
+      for (const { entry, files } of entries) {
+        for (const f of files) walk(f.data, `${entry.table}/${f.name}`);
+      }
+      for (const [ref, where] of seen) {
+        warnings.push(`item_id "${ref}" does not exist, referenced by ${[...where].join(', ')} — that slot resolves to nothing`);
       }
     }
   }
