@@ -20,6 +20,20 @@ function renderGamesPanel(data) {
     <td>${seatCell(s)}</td>
   </tr>`).join('');
 
+  // Chess has no blinds and no buy-in: both sides put up the minimum bet, and
+  // that one number is the whole of the money on the board.
+  const chessMoneyHTML = t => `
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Minimum bet</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--text-dim)">₵</span>
+            <input type="number" id="mb-${t.id}" value="${t.minBet}" min="0" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+            <button class="action-btn" style="font-size:10px;padding:5px 10px" onclick="saveMinBet('${t.id}')">Save</button>
+          </div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:6px">a side — winner takes both, a draw returns them. 0 = free game.</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:10px">Spectators: ${t.spectatorCount}</div>
+        </div>`;
+
   const cardHTML = t => `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:14px 16px;margin:0 16px 12px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px">
@@ -28,14 +42,14 @@ function renderGamesPanel(data) {
           <span style="color:var(--text-dim);font-size:11px;margin-left:8px">${t.zoneName}</span>
         </div>
         <div style="font-size:11px;color:${t.phase === 'InProgress' ? 'var(--accent2)' : t.phase === 'WaitingForDealer' ? 'var(--red)' : 'var(--text-dim)'}">
-          ${t.phase}${t.dealerName ? ` — dealer: ${t.dealerName}` : ' — NO DEALER'}
+          ${t.phase}${t.kind === 'chess' ? '' : t.dealerName ? ` — dealer: ${t.dealerName}` : ' — NO DEALER'}
         </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
         <table style="width:100%">${seatRows(t)}</table>
 
-        <div>
+        ${t.kind === 'chess' ? chessMoneyHTML(t) : `<div>
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Blinds</div>
           <div style="display:flex;gap:8px;align-items:center">
             <input type="number" id="sb-${t.id}" value="${t.smallBlind}" min="1" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
@@ -50,7 +64,7 @@ function renderGamesPanel(data) {
             <button class="action-btn" style="font-size:10px;padding:5px 10px" onclick="saveBuyIn('${t.id}')">Save</button>
           </div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:10px">Spectators: ${t.spectatorCount}</div>
-        </div>
+        </div>`}
       </div>
     </div>`;
 
@@ -63,6 +77,14 @@ async function saveBlinds(tableId) {
   const r = await directAPI(`/gametable/tables/${tableId}/blinds`, 'POST', { smallBlind, bigBlind });
   if (r.error) { toast(r.error, true); return; }
   toast(`Blinds updated: ₵ ${smallBlind} / ₵ ${bigBlind}`);
+  loadPanel('games');
+}
+
+async function saveMinBet(tableId) {
+  const minBet = Number(document.getElementById(`mb-${tableId}`).value);
+  const r = await directAPI(`/gametable/tables/${tableId}/minbet`, 'POST', { minBet });
+  if (r.error) { toast(r.error, true); return; }
+  toast(minBet > 0 ? `Minimum bet updated: ₵ ${minBet}` : 'Board set to a free game');
   loadPanel('games');
 }
 

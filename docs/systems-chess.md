@@ -43,8 +43,19 @@ A subclass must provide `paneType`, `renderPaneFor(pid)`, `_checkAutoStart()` an
 - **No dealer is required.** Poker refuses to deal without one. Two people can play chess
   on a bench, so the host NPC is decoration here — `_dealerSay` already no-ops when
   nobody is present, and `_checkAutoStart` never gates on it.
-- **The stake is optional.** `config.stake: 0` is a free board and `buyInFor()` returns 0,
-  which skips TableBase's credits path entirely — no escrow, no payout, no refund branch.
+- **There are no blinds — there is a minimum bet.** Chess has no betting rounds to escalate,
+  so the felt's small/big blind pair means nothing here. A board has one number,
+  `config.minBet` (default **100**, alias `config.stake` for rows authored before the
+  rename), and both sides put up exactly that: `buyInFor()` returns it, winner takes both, a
+  draw returns them. `minBet: 0` is a free board and skips TableBase's credits path entirely
+  — no escrow, no payout, no refund branch. The dev panel's Games tab shows chess boards a
+  single **Minimum bet** field (`POST /gametable/tables/:id/minbet`) instead of
+  Blinds/Buy-in, and no dealer line.
+- **Every game is played for it, not just the first.** The seat is funded at sit-down by
+  TableBase's buy-in, and `_settleStake` empties it — so `startGame` runs `_collectStakes()`
+  first, topping each seat back up to `minBet` before `_begin()` deals the pieces. A player
+  who can't cover it is stood up; an NPC who can't busts out. Without this the rematch was
+  free.
 
 ---
 
@@ -411,13 +422,16 @@ has no AI opponents at all.
 |---|---|---|
 | Pool flag | `flags.poker_player` | `flags.chess_player` |
 | Strength/style | `flags.poker_persona` | `flags.chess_strength` (a `CHESS_PERSONAS` key), or `flags.chess_persona` to override fields |
-| Preflight | bankroll, buy-in, bust cooldown, a backer's restake | **stake must be 0** |
+| Bankroll / cooldown | `flags.poker_bankroll`, `flags.poker_cooldown_until` | `flags.chess_bankroll`, `flags.chess_cooldown_until` |
+| Preflight | bankroll, buy-in, bust cooldown, a backer's restake | the same, on chess's own keys |
 
-That last row is the one rule worth knowing: **nothing escrows a stake on an NPC's behalf**,
-so a bot seat at a staked board would pay a winner out of thin air. Chess refuses the summon
-rather than minting the pot ("*will play you, but not for money*"). The Inlaid Board is free,
-so this never bites in practice — but a staked board is one config key away, and this is what
-stops that key becoming a credit printer. Regress pins the refusal.
+The rule worth knowing: **a bot must bring its own money or the board mints credits**. An
+NPC's stake comes out of `flags.chess_bankroll` at `seatBot` and its winnings go back there
+at settle — the same bankroll/backer/bust-cooldown model the felt uses, now that the Inlaid
+Board plays for 100 a side. An opponent who can't cover the minimum is restaked by a backer
+if it's off cooldown, and busts out (cooldown, stands up) if it's cleaned out mid-session.
+Both games write those flags through one `TableBase._saveBotFlags()`. Regress pins the seat,
+the debited bankroll and the cooldown refusal.
 
 Two smaller rules: an NPC's AI is frozen while it sits (and **thawed on leave**, or a
 summoned opponent is stuck in the chair for an hour), and when the last human stands up any
@@ -464,8 +478,8 @@ like held whisky. Named in the same wry-financial register as the building's oth
 amenities (`Sweat Equity`, the gym): **Material Advantage** is a chess term and a wealth
 joke at once.
 
-A staked table is the same row with a number in `config.stake`. This one is free on
-purpose — the room is the flex, not the wager.
+The board plays for **₵ 100 a side** (`config.minBet`), which is also what any board that
+says nothing asks for. Set it to 0 for a free game.
 
 ---
 

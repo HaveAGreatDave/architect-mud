@@ -692,7 +692,7 @@ async function cmdTable(args, raw, player) {
     const lines = [
       `<b>${t.name}</b> — ${t.phase}`,
       `Seats: ${t.seatedCount()} / ${t.constructor.MAX_SEATS}`,
-      t.stake ? `Stake: ₵ ${t.stake.toLocaleString()} a side` : 'Stake: free game',
+      t.minBet ? `Minimum bet: ₵ ${t.minBet.toLocaleString()} a side` : 'Minimum bet: none — a free game',
       `Move clock: ${t.config.moveTimerSecs || 120}s`,
     ];
     return { type: 'output', message: lines.join('<br>') };
@@ -896,8 +896,8 @@ function chessHelpHTML(t) {
   const h = (s) => `<span style="color:var(--accent)">${s}</span>`;
   return [
     `<b>♟ ${t.name} — CHESS ♟</b>`,
-    t.stake
-      ? `₵ ${t.stake.toLocaleString()} a side. Winner takes the board; a draw returns both stakes.`
+    t.minBet
+      ? `₵ ${t.minBet.toLocaleString()} a side, minimum bet. Winner takes the board; a draw returns both stakes.`
       : `A free game. Nothing on it but your name.`,
     `Two players. Colours swap every game.`,
     ``,
@@ -1096,12 +1096,16 @@ async function clearAllTables() {
 const DEVPANEL_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
 function listTables() {
+  // A chess board has no blinds and no buy-in — one minimum bet is the whole of
+  // its money, so the panel is told which game this is and shows only that.
   return [...activeTables.values()].map(t => ({
     id: t.id,
     name: t.name,
+    kind: isChess(t) ? 'chess' : 'poker',
     zoneId: t.zoneId,
     zoneName: getZone(t.zoneId)?.name || t.zoneId,
     phase: t.phase,
+    minBet: isChess(t) ? t.minBet : null,
     smallBlind: t.config.smallBlind || 10,
     bigBlind: t.config.bigBlind || 20,
     buyIn: t.config.buyIn || t.config.minBuyIn || 100,
@@ -1135,6 +1139,19 @@ export async function routeHandler(path, method, body, auth) {
     if (!Number.isFinite(smallBlind) || smallBlind <= 0) return { status: 400, body: { error: 'Invalid small blind' } };
     if (!Number.isFinite(bigBlind) || bigBlind <= smallBlind) return { status: 400, body: { error: 'Big blind must be greater than small blind' } };
     await t.setConfig({ smallBlind, bigBlind });
+    return { status: 200, body: { ok: true } };
+  }
+
+  const minBetMatch = path.match(/^\/gametable\/tables\/([^/]+)\/minbet$/);
+  if (minBetMatch && method === 'POST') {
+    if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+    const t = activeTables.get(minBetMatch[1]);
+    if (!t) return { status: 404, body: { error: 'Table not found' } };
+    if (!isChess(t)) return { status: 400, body: { error: 'Only a chess board has a minimum bet' } };
+    const minBet = parseInt(body?.minBet, 10);
+    if (!Number.isFinite(minBet) || minBet < 0) return { status: 400, body: { error: 'Invalid minimum bet' } };
+    // Written under both names so the row reads the same to old and new code.
+    await t.setConfig({ minBet, stake: minBet });
     return { status: 200, body: { ok: true } };
   }
 

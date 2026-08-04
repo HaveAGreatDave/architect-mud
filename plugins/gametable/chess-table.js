@@ -8,11 +8,15 @@
 // Two deliberate differences from the felt next door:
 //   • No dealer is required. Poker can't deal without one; two people can play
 //     chess on a bench. A host NPC is decoration here, not a gate.
-//   • The stake is optional. `config.stake` of 0 (the default) is a free game
+//   • There are no blinds, because chess has no betting rounds — a board has a
+//     MINIMUM BET (`config.minBet`, default 100) and both sides put up exactly
+//     that. Winner takes both; a draw returns them. `minBet: 0` is a free game
 //     and no credits move at all — TableBase's buy-in path is skipped whole.
+//     (`config.stake` is the name this shipped under and is still read.)
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { world } from '../../server/engine/world.js';
 import { emit } from '../../server/engine/events.js';
 import { TableBase } from './table-base.js';
 import { ChessGame, fromAlgebraic, toAlgebraic, generateMoves } from './games/chess.js';
@@ -22,6 +26,7 @@ import { chessBotId, isChessBotId, decideBotMove, CHESS_PERSONAS } from './bot-c
 
 const START_DELAY_MS = 4_000;   // beat between the second player sitting and the first move
 const DEFAULT_MOVE_SECS = 120;  // chess is a thinking game; the felt's 30s would be cruel
+const DEFAULT_MIN_BET = 100;    // what a board asks of each side when it says nothing
 
 export class ChessTable extends TableBase {
   static MAX_SEATS = 2;
@@ -62,10 +67,17 @@ export class ChessTable extends TableBase {
 
   // A free table moves no credits; a staked one escrows the wager at the seat.
   buyInFor(_player) {
-    return Math.max(0, Number(this.config.stake) || 0);
+    return this.minBet;
   }
 
-  get stake() { return Math.max(0, Number(this.config.stake) || 0); }
+  // The one number this game has. `stake` is the older name for it and is kept
+  // as an alias so a table row authored before the rename still reads right.
+  get minBet() {
+    const raw = this.config.minBet ?? this.config.stake ?? DEFAULT_MIN_BET;
+    return Math.max(0, Math.floor(Number(raw) || 0));
+  }
+
+  get stake() { return this.minBet; }
 
   // ── AI opponent ────────────────────────────────────────────────────────────
   //
@@ -77,14 +89,26 @@ export class ChessTable extends TableBase {
 
   _botArrivedLine(npc) { return `${npc.name} sits down across the board.`; }
 
-  // The one thing that can turn an opponent away: money. Nothing escrows a stake
-  // on an NPC's behalf, so seating one at a staked board would let a player win
-  // credits from a seat that never put any in. Refuse rather than mint.
+  // The one thing that can turn an opponent away: money. A staked board must
+  // never pay out of thin air, so the NPC brings its own — the same bankroll /
+  // backer / bust-cooldown model the felt uses, on chess's own flag keys.
   async _botPreflight(npc) {
-    if (this.stake > 0) {
-      return { ok: false, error: `${npc.name} will play you, but not for money.` };
+    if (this.minBet <= 0) return { ok: true };
+    if (npc.flags?.chess_cooldown_until && Date.now() < npc.flags.chess_cooldown_until) {
+      return { ok: false, error: `${npc.name} lost the last of it across that board. Give it a while.` };
+    }
+    // Broke but off cooldown → a backer restakes them to a fresh bankroll.
+    const bankroll = this._botBankroll(npc);
+    if (bankroll < this.minBet) {
+      await this._saveBotFlags(npc, { chess_bankroll: Math.max(bankroll, this.minBet * 10) });
     }
     return { ok: true };
+  }
+
+  // What an NPC has to play with. The persona's number is the starting purse.
+  _botBankroll(npc) {
+    const persona = npc?.flags?.chess_persona || {};
+    return Math.max(0, Math.floor(Number(npc?.flags?.chess_bankroll ?? persona.bankroll ?? 0) || 0));
   }
 
   async seatBot(npc, preferredSeat = null) {
@@ -97,11 +121,18 @@ export class ChessTable extends TableBase {
     const named = CHESS_PERSONAS[npc.flags?.chess_strength] || CHESS_PERSONAS.hustler;
     const persona = { ...named, ...(npc.flags?.chess_persona || {}) };
 
+    // The NPC's own money goes on the seat, drawn from its bankroll — exactly
+    // what a player's buy-in does, so the pot is real on both sides.
+    const stake = this.minBet;
+    const bankroll = this._botBankroll(npc);
+    if (stake > 0 && bankroll < stake) return { ok: false, error: `${npc.name} hasn't got it to put up.` };
+
     let seatIdx = preferredSeat !== null && this.seats[preferredSeat] === null ? preferredSeat : null;
     if (seatIdx === null) seatIdx = this.seats.findIndex(s => s === null);
 
-    this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: 0, seatIdx, isBot: true, persona };
+    this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: stake, buyIn: stake, seatIdx, isBot: true, persona };
     if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze their AI so they stay in the chair
+    if (stake > 0) await this._saveBotFlags(npc, { chess_bankroll: bankroll - stake });
 
     this._checkAutoStart();
     await this._persist();
@@ -155,7 +186,61 @@ export class ChessTable extends TableBase {
     this._startTimer = setTimeout(() => this.startGame(), START_DELAY_MS);
   }
 
+  // Every game is played for the minimum bet, not just the first one. A seat is
+  // funded at sit-down by TableBase's buy-in, and the settle empties it — so a
+  // rematch has to put the money up again or the second game is free.
   startGame() {
+    if (this.phase === 'InProgress') return;
+    if (this.seatedCount() < 2) return;
+    this._collectStakes()
+      .then(ok => { if (ok) this._begin(); })
+      .catch(e => console.error('[gametable] chess stakes:', e.message));
+  }
+
+  // Top every seat up to the minimum bet. Anyone who can't cover it doesn't
+  // play: a player is stood up, an NPC busts out. Returns false if the game
+  // can't start, having already dealt with whoever couldn't pay.
+  async _collectStakes() {
+    const stake = this.minBet;
+    if (stake <= 0) return true;
+
+    for (const seat of this.seats.filter(Boolean)) {
+      const owed = stake - (seat.chips || 0);
+      if (owed <= 0) continue;
+
+      if (seat.isBot) {
+        const npc = world.npcs.get(seat.npcId);
+        const bankroll = this._botBankroll(npc);
+        if (bankroll < owed) { await this._bustBot(seat); return false; }
+        await this._saveBotFlags(npc || seat.npcId, { chess_bankroll: bankroll - owed });
+      } else {
+        const { rowCount } = await query(
+          'UPDATE players SET credits = credits - $1 WHERE id = $2 AND credits >= $1',
+          [owed, seat.playerId]
+        );
+        if (!rowCount) {
+          sendToPlayer(seat.playerId, { type: 'output', message: `You can't cover ₵ ${stake.toLocaleString()} a side. You stand up from the board.` });
+          await this.leaveTable(seat.playerId);
+          return false;
+        }
+        const { rows } = await query('SELECT credits FROM players WHERE id=$1', [seat.playerId]);
+        if (rows.length) sendToPlayer(seat.playerId, { type: 'player_update', credits: rows[0].credits });
+      }
+      seat.chips = stake;
+      seat.buyIn = stake;
+    }
+    return true;
+  }
+
+  // An NPC with nothing left to put up: park them on a cooldown and stand up.
+  async _bustBot(seat) {
+    const until = Date.now() + (this.config.botBustCooldownMs || 10 * 60 * 1000);
+    await this._saveBotFlags(seat.npcId, { chess_cooldown_until: until });
+    this._hostSay(`${seat.handle} turns out empty pockets and steps away from the board.`);
+    await this.leaveTable(seat.playerId);
+  }
+
+  _begin() {
     if (this.phase === 'InProgress') return;
     const seated = this.seats.filter(Boolean);
     if (seated.length < 2) return;
@@ -300,7 +385,13 @@ export class ChessTable extends TableBase {
     }
 
     for (const [seat, amount] of payouts) {
-      if (seat.isBot || amount <= 0) continue;
+      if (amount <= 0) continue;
+      if (seat.isBot) {
+        // The NPC's winnings go back where its stake came from.
+        const npc = world.npcs.get(seat.npcId);
+        await this._saveBotFlags(npc || seat.npcId, { chess_bankroll: this._botBankroll(npc) + amount });
+        continue;
+      }
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [amount, seat.playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [seat.playerId]);
       if (rows.length) sendToPlayer(seat.playerId, { type: 'player_update', credits: rows[0].credits });
@@ -347,6 +438,11 @@ export class ChessTable extends TableBase {
     if (seat.isBot) this._thawBot(seat.npcId);
 
     // Anything still on the seat (an unplayed stake) goes back.
+    if (seat.isBot && seat.chips > 0) {
+      const npc = world.npcs.get(seat.npcId);
+      await this._saveBotFlags(npc || seat.npcId, { chess_bankroll: this._botBankroll(npc) + seat.chips });
+      seat.chips = 0;
+    }
     if (!seat.isBot && seat.chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [seat.chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);

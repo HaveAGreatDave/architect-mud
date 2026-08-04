@@ -414,8 +414,8 @@ async function chessRegress(check) {
   // ── The AI opponent's seat ─────────────────────────────────────────────────
   //
   // The search was always here; nothing ever put it in a chair. What's pinned is
-  // the seam that does — and the one refusal that protects credits, since no NPC
-  // escrows a stake and a bot seat at a staked board would pay out of thin air.
+  // the seam that does — and the money, since a bot seat at a staked board must
+  // put up its own stake rather than paying the winner out of thin air.
   const { ChessTable } = await import('./chess-table.js');
   const { isChessBotId } = await import('./bot-chess.js');
   const { activeTables } = await import('./table-base.js');
@@ -425,7 +425,14 @@ async function chessRegress(check) {
   });
   const npc = { id: 'npc_regress_chess', name: 'Regress Opponent', zone_id: 'void', flags: { chess_strength: 'patzer' } };
 
-  const free = mkTable({ stake: 0 }, 'free');
+  // A board that says nothing about money still plays for the default minimum.
+  const silent = mkTable({}, 'silent');
+  check('chess: a board with no config asks for the default minimum bet', silent.minBet === 100, String(silent.minBet));
+  check('chess: minBet overrides the older stake key', mkTable({ stake: 50, minBet: 250 }, 'named').minBet === 250);
+  activeTables.delete(silent.id);
+  activeTables.delete(`chess_regress_${process.pid}_named`);
+
+  const free = mkTable({ minBet: 0 }, 'free');
   const seated = await free.summonBot(npc);
   check('chess bot: an opponent in the room sits down when summoned', seated.ok === true, seated.error);
   check('chess bot: the seat is a synthetic one', isChessBotId(free.seats[seated.seatIdx]?.playerId));
@@ -433,9 +440,21 @@ async function chessRegress(check) {
   const twice = await free.summonBot(npc);
   check('chess bot: the same opponent cannot be summoned twice', twice.ok === false);
 
-  const staked = mkTable({ stake: 500 }, 'staked');
-  const refused = await staked.summonBot(npc);
-  check('chess bot: refuses a staked board rather than minting the pot', refused.ok === false, refused.error);
+  const staked = mkTable({ minBet: 500 }, 'staked');
+  const stakedSeat = await staked.summonBot(npc);
+  check('chess bot: a backer restakes an empty opponent so a staked board can fill',
+    stakedSeat.ok === true, stakedSeat.error);
+  check('chess bot: the opponent puts its own money on the seat',
+    staked.seats[stakedSeat.seatIdx]?.chips === 500, String(staked.seats[stakedSeat.seatIdx]?.chips));
+  check('chess bot: the stake comes OUT of the bankroll rather than out of nowhere',
+    npc.flags.chess_bankroll === 5000 - 500, String(npc.flags.chess_bankroll));
+
+  // Cleaned out is cleaned out: an opponent on a bust cooldown stays away.
+  const cold = mkTable({ minBet: 500 }, 'cold');
+  const coldNpc = { ...npc, flags: { ...npc.flags, chess_cooldown_until: Date.now() + 60_000 } };
+  const refused = await cold.summonBot(coldNpc);
+  check('chess bot: a busted opponent refuses until the cooldown is up', refused.ok === false, refused.error);
+  activeTables.delete(cold.id);
 
   // Standing up must hand the NPC its own life back, or a summoned opponent is
   // frozen where it sits for the next hour.

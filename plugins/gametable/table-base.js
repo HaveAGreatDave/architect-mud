@@ -22,7 +22,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZoneNpcs } from '../../server/engine/world.js';
+import { getLivePlayer, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 
@@ -464,6 +464,20 @@ export class TableBase {
   }
 
   // ── Persistence ────────────────────────────────────────────────────────────
+
+  // Merge a patch into an AI opponent's NPC flags — a bankroll, a cooldown —
+  // writing the in-memory world copy as well as the row, so a re-seat later in
+  // the same session sees the new number. Both money games keep their money on
+  // the NPC this way; the flag KEYS are the subclass's business, not this one's.
+  async _saveBotFlags(npcOrId, patch) {
+    const npcId = typeof npcOrId === 'string' ? npcOrId : npcOrId?.id;
+    if (!npcId) return;
+    const npc = world.npcs.get(npcId) || (typeof npcOrId === 'object' ? npcOrId : null);
+    const flags = { ...(npc?.flags || {}), ...patch };
+    if (npc) npc.flags = flags;
+    await updateNpc(npcId, { flags })
+      .catch(e => console.error('[gametable] bot flag persist:', e.message));
+  }
 
   // Dev-panel config edit (blinds, buy-in, …) — merges into the live config so
   // it takes effect on the next round, and persists so it survives a restart.

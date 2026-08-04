@@ -6,7 +6,7 @@
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { emit } from '../../server/engine/events.js';
-import { getZonePlayers, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
+import { getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { TableBase, activeTables } from './table-base.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
@@ -635,13 +635,12 @@ export class GameTable extends TableBase {
   // Persist the bot's bankroll back to its NPC row (flags.poker_bankroll) and to
   // the in-memory world cache so a later re-seat sees the new balance.
   async _saveBotBankroll(npcOrId, bankroll) {
-    const npcId = typeof npcOrId === 'string' ? npcOrId : npcOrId.id;
-    const value = Math.max(0, Math.floor(bankroll));
-    const npc = world.npcs.get(npcId) || (typeof npcOrId === 'object' ? npcOrId : null);
-    const flags = { ...(npc?.flags || {}), poker_bankroll: value };
-    if (npc) npc.flags = flags;
-    await updateNpc(npcId, { flags })
-      .catch(e => console.error('[gametable] bot bankroll persist:', e.message));
+    await this._saveBotFlags(npcOrId, { poker_bankroll: Math.max(0, Math.floor(bankroll)) });
+  }
+
+  // The other half of a bust: the recovery cooldown, on the same flag path.
+  async _saveBotCooldown(npcOrId, until) {
+    await this._saveBotFlags(npcOrId, { poker_cooldown_until: until });
   }
 
   // Bots don't play each other — if no humans are left seated, any bots cash out.

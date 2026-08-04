@@ -11,9 +11,9 @@
 // and builds a ChessTable instead of a poker felt. Before chess existed the
 // column was stored and never read.
 //
-// `stake: 0` makes this a free board. A staked table is the same row with a
-// number in it — winner takes both stakes, a draw returns them. This one is
-// free on purpose: the room is the flex, not the wager.
+// Chess has no blinds — it has a MINIMUM BET, which both sides put up and the
+// winner takes (a draw returns them). 100 is what a board asks when its config
+// says nothing; `minBet: 0` would make this a free game and move no credits.
 //
 //   local:  node scripts/seed-solenne-chess.mjs
 //   prod:   node --env-file=.env.prod scripts/seed-solenne-chess.mjs
@@ -25,7 +25,8 @@ const ZONE_ID = 'zone_solenne_salon';
 const NAME = 'The Inlaid Board';
 
 const CONFIG = {
-  stake: 0,             // free game; set a number to play for credits
+  minBet: 100,          // a side; winner takes both, a draw returns them
+  stake: 100,           // the older name for the same number, kept in step
   moveTimerSecs: 180,   // nobody hurries in this room
   rematchDelaySecs: 15, // how long the final position stays up
 };
