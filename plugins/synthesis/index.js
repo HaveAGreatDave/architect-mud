@@ -808,6 +808,12 @@ async function chemLabHub(f, player) {
     const eff = await effectiveSkill(player, SYNTH_SKILL);
     if (eff >= SPLICE_MIN_SKILL) links.push(`<span class="action-link" data-raw-cmd="splice">splice</span>`);
   }
+  // The bench half of the Preparation Workspace HUD. It goes here rather than
+  // through a declaration-only specializedAction because this lab already HAS a
+  // hub — one place that says what the bench is for — and a second list beside
+  // it would be two answers to one question. The kitchen has no such hub, so its
+  // ranges advertise the same verb off the registry instead (plugins/cooking).
+  links.push(`<span class="action-link" data-raw-cmd="workspace">workspace</span>`);
   links.push(`<span class="action-link" data-raw-cmd="open ${n}">vault</span>`);
   return `<span class="text-dim">Lab:</span> ${links.join('  ')}`;
 }

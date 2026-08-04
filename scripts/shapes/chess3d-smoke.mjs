@@ -200,6 +200,30 @@ async function main() {
 			errs.push(`drag: unproject landed at ${world.map(n => n.toFixed(2))}, outside the picked square ${under.alg}`);
 		}
 
+		// AT EVERY ANGLE, and this is the regression: the drop is decided by
+		// flooring the hand's world position, so it must agree with the square
+		// picking says is under the cursor. It didn't when the hand travelled on
+		// a raised plane — the two rays met different squares and the ring lit
+		// somewhere the piece wasn't.
+		//
+		// Driven through moveDrag itself, not through a re-derivation: the bug
+		// was the HEIGHT that call site asked for, so an assertion that
+		// unprojects on its own terms would have passed straight through it.
+		mod.__smokeDrag.start(3, 1, 450, 300);
+		for (const view of ['down', 'down', 'down', 'left', 'left', 'up', 'up', 'right']) {
+			mod.__smokeView(view);
+			for (const [px, py] of [[450, 300], [380, 340], [520, 270], [450, 360]]) {
+				const sq = mod.__smokePick(px, py);
+				const w = mod.__smokeDrag.move(px, py);
+				if (!sq || !w) continue;
+				if (Math.floor(w[0]) !== sq.x || Math.floor(w[1]) !== sq.y) {
+					errs.push(`drag: at ${view}, the hand floors to (${Math.floor(w[0])},${Math.floor(w[1])}) but the cursor is over (${sq.x},${sq.y}) — drop and ring disagree`);
+				}
+			}
+		}
+		mod.__smokeDrag.end();
+		mod.__smokeView('reset');
+
 		if (!mod.__smokeDrag.start(3, 1, 450, 300)) {
 			errs.push('drag: could not pick a piece up off its own square');
 		} else {

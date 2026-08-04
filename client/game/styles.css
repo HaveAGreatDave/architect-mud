@@ -16275,7 +16275,49 @@ body.intro-cine-open { overflow: hidden; }
 	border-radius: 4px;
 	font-size: 0.85em;
 	min-height: 24px;
+	/* Anchor for the chat bubble, which hangs off the rail into the board. The
+	   z-index is load-bearing, not decoration: .chess-stage-wrap is a positioned
+	   box holding either a transformed stage or a canvas, and the top rail comes
+	   BEFORE it in the DOM — without this, a bubble hanging down from the far
+	   player's rail paints behind the board it's supposed to be over. */
+	position: relative;
+	z-index: 14;
 }
+
+/* ── Chat ───────────────────────────────────────────────────────────────────
+   A spoken line at the board, on the same 7-second timer and the same paper as
+   poker's. It hangs off the rail RIGHT, into the width the rail never uses —
+   name and captures sit hard left, so a bubble there covers the board's corner
+   rather than its middle, and the two players' bubbles can never collide. */
+.chess-chat {
+	position: absolute;
+	right: 6px;
+	max-width: min(46%, 320px);
+	background: #f4f1e4;
+	color: #16160f;
+	font-size: 15px;
+	line-height: 1.25;
+	padding: 5px 11px;
+	border-radius: 12px;
+	white-space: normal;
+	text-align: center;
+	z-index: 13;
+	pointer-events: none;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.55);
+	animation: chat-pop 0.18s ease-out;
+}
+.chess-chat::after {
+	content: '';
+	position: absolute;
+	right: 18px;
+	border: 5px solid transparent;
+}
+/* The far player's rail sits above the board, so their bubble opens downward
+   and the tail points back up at them. The near player's is the mirror. */
+.chess-chat.chat-top { top: calc(100% + 7px); }
+.chess-chat.chat-top::after { top: -9px; border-bottom-color: #f4f1e4; border-top: 0; }
+.chess-chat.chat-bottom { bottom: calc(100% + 7px); }
+.chess-chat.chat-bottom::after { bottom: -9px; border-top-color: #f4f1e4; border-bottom: 0; }
 .rail-white .rail-name { color: var(--chess-white); }
 .rail-black .rail-name { color: var(--chess-black); }
 .chess-rail.rail-active {

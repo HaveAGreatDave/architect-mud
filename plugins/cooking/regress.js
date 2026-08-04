@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { insertFurniture, deleteFurniture, getFurnitureById } from '../../server/engine/world.js';
+import { furnitureVerbs } from '../../server/engine/furnitureActions.js';
 import { computeDuration, checkCooking, _test as cookTest } from './cook.js';
 import { THAW_STAGES, COOK_STAGES, STOVE_SPEED, COOK_SECONDS_PER_KG, MIN_COOK_MS, stageText, BARE_VESSEL, PEAK_LINES, SLIPPING_LINES, FADING_LINES, STAGE_LINES, lineFor, stagesFor } from './config.js';
 import { PROFILES, LEGACY_BAND_INDEX, profileNameFor, profileNeedsPrep, needsPrep, validateProfiles, QUALITY_BANDS, bandIndex, donenessLevels, donenessLevel, donenessAt, achievedDoneness } from './profiles.js';
@@ -296,6 +297,20 @@ export default async function regress({ run, check, getPlayer }) {
     }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
 
     player.current_zone = Z;
+
+    // The range advertises the Preparation Workspace on its own examine. The HUD
+    // was fully working and completely unfindable — you had to already know the
+    // verb — which is the invisible-content case, so this asserts the range says
+    // so rather than that the verb runs.
+    {
+      const stoveRow = await getFurnitureById(STOVE);
+      const verbs = furnitureVerbs(stoveRow, player);
+      check('a range advertises the workspace HUD on examine', verbs.includes('workspace'), verbs.join(','));
+      // And it is genuinely gated: a piece of furniture that isn't a kitchen
+      // appliance must not offer a kitchen.
+      check('...but a plain fixture does not',
+        !furnitureVerbs({ id: 'x', name: 'crate', flags: {} }, player).includes('workspace'));
+    }
 
     // No stove reachable (none placed yet in a fresh sub-zone) + no oven carried → clean error.
     let r = await run('cook nonexistent food');

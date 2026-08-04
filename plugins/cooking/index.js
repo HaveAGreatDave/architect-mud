@@ -1856,6 +1856,21 @@ function kitchenSounds(zone) {
 
 export const specializedActions = [
   { verb: 'read', requiredTag: 'recipe_card', handler: readRecipeCard },
+  // Declaration-only (handler: null) — `workspace` is the workspace plugin's own
+  // command and this registers nothing at dispatch. It exists so a range, a
+  // microwave or a dish cabinet ADVERTISES the HUD on its examine: the verb was
+  // fully working and completely unfindable, which is the invisible-content case
+  // layer 1b of the regress exists to catch.
+  //
+  // COOKING declares it, not workspace, and that's the seam rather than an
+  // accident: `stove_tier` / `microwave` / `dish_cabinet` are cooking's
+  // vocabulary, and the workspace plugin knowing them would undo the whole point
+  // of joining the two through a gather-hook. The three flags are exactly the
+  // ones `workspaceProvider` gates on (see workspace.js `kitchenFurniture`), so
+  // the advertisement can never offer a workspace the provider would then refuse.
+  { verb: 'workspace', requiredFlag: 'stove_tier', handler: null },
+  { verb: 'workspace', requiredFlag: 'microwave', handler: null },
+  { verb: 'workspace', requiredFlag: 'dish_cabinet', handler: null },
 ];
 
 // The chance that eating this makes you ill, from the doneness stamped on it.

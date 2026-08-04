@@ -207,8 +207,20 @@ Three things are load-bearing:
   depth cue something not touching anything has.
 
 The inverse projection this needs is **closed-form for a point of known height**, which is
-all a drag requires: the hand carries the piece on a fixed horizontal plane, so the cursor
-ray meets it exactly once and the answer falls out of `project()`'s own algebra.
+all a drag requires: the hand travels on a fixed horizontal plane, so the cursor ray meets it
+exactly once and the answer falls out of `project()`'s own algebra.
+
+**The hand travels on the BOARD plane, and only the piece is lifted off it.** The first pass
+carried the hand at hover height instead, and that is what made the drop feel broken anywhere
+but straight down: a cursor ray meets the hover plane and the board plane at two different
+places — several ranks apart at a low pitch — so the piece hung visibly over one square while
+the ring lit on another, and **the middle of a tile, which is exactly where a player aims,
+could resolve to a square nowhere near the piece in their hand**. The fix isn't a smarter
+pick, it's deleting the second plane. Cursor, tether foot, ring and drop are then one square
+by construction at every angle, and `HOVER` is free to be whatever looks carried because it
+can no longer affect where anything lands. The smoke asserts the agreement **through
+`moveDrag` itself** rather than re-unprojecting, because the bug *was* the height that call
+site asked for.
 
 ### Check and checkmate
 
@@ -254,6 +266,22 @@ line twelve times over and cost 3000 stroke calls a frame against 384 now.
 from the pane's own CSS variables rather than hardcoded, because literal white-on-black loses
 the black army entirely at this brightness.
 
+**Nothing in the scene is a literal hex.** Every colour — deck, slab, rim light, etching,
+target discs, coordinates, the check shockwave, the floor glow — is mixed at mount out of the
+**active theme's** palette (`--cyan`, `--purple`, `--accent`, `--green`, `--red`, `--yellow`,
+`--bg`), so a player on a different `[data-theme]` gets a board built out of their own room
+rather than one pasted in from someone else's. `readColors` resolves them once per mount and
+everything downstream mixes from those.
+
+The mixing is where the groove is, and it's one number: **the board runs a diagonal ramp**.
+Light squares go `--cyan` → `--purple` corner to corner; dark squares run the same ramp
+*inverted* at a fraction of the strength, so the two cross in the middle; the etched grid runs
+it backwards again so the lines stay visible at both ends instead of fading out wherever the
+deck brightened. The **slab's rim light** steps the same hue there-and-back across its four
+sides (`0, ½, 1, ½` — a there-and-back so the seam where the last side meets the first has no
+jump), which matters because that strip is the only colour still on screen when the camera is
+nearly edge-on.
+
 **Coverage: `npm run chess3d:smoke`** (in `pretest:regress`). Same bar and same reason as
 `shapes:smoke` — a canvas renderer whose only execution path is "a player happens to be
 looking at it" has no coverage at all. It draws a full board with every piece type, both
@@ -276,6 +304,24 @@ legality. An empty destination gets a floating dot and an occupied one gets a ca
 two marks, because "go here" and "take that" are different decisions.
 
 The board flips for Black, so you always look across it from your own side.
+
+### Talking across the board
+
+`say` at a table is intercepted into `playerSay` on **`TableBase`** — which chess has shared
+all along — so the bubbles were already being collected. Chess simply never drew them, and a
+line spoken across the board went to the log and nowhere else. Rendering them was the whole
+fix.
+
+Chat rides the **rail**, which is this board's answer to poker's seat: each player has exactly
+one and it is unambiguously theirs, so there is no seat geometry to solve. The near rail's
+bubble opens upward and the far rail's opens down, both tails pointing back at whoever spoke,
+on the same paper and the same 7-second timer as poker's. It hangs off the rail **right**,
+into the width the rail never uses — name and captures sit hard left — so it covers a corner
+of the board rather than its middle and the two players' bubbles can't collide.
+
+The `z-index` on `.chess-rail` is load-bearing, not decoration: `.chess-stage-wrap` is a
+positioned box holding a transformed stage or a canvas and the top rail comes *before* it in
+the DOM, so without it the far player's bubble paints behind the board it's meant to be over.
 
 ---
 

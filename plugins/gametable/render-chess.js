@@ -49,9 +49,9 @@ export function renderChessPane(table, viewerId) {
   if (!game) {
     parts.push(idleBoardHTML(table, viewerId));
   } else {
-    parts.push(railHTML(game, flipped, 'top'));
+    parts.push(railHTML(table, game, flipped, 'top'));
     parts.push(boardHTML(table, game, viewerId, flipped));
-    parts.push(railHTML(game, flipped, 'bottom'));
+    parts.push(railHTML(table, game, flipped, 'bottom'));
     parts.push(statusHTML(table, game, viewerId));
     parts.push(logHTML(game));
   }
@@ -225,7 +225,7 @@ function idleBoardHTML(table, viewerId) {
 
 // The captured pieces belonging to one side, plus the material edge. Shown on
 // the rail of the player who TOOK them.
-function railHTML(game, flipped, edge) {
+function railHTML(table, game, flipped, edge) {
   const caps = game.captured();
   // Top rail belongs to the far player.
   const bottomColor = flipped ? 'b' : 'w';
@@ -240,9 +240,19 @@ function railHTML(game, flipped, edge) {
   const adv = edgeFor > 0 ? `<span class="rail-adv">+${Math.round(edgeFor / 100)}</span>` : '';
   const toMove = !game.isOver() && game.turn === color ? ' rail-active' : '';
 
+  // Chat rides the RAIL, which is this board's answer to poker's seat. The
+  // bubbles were already being collected — `say` at a table is intercepted into
+  // `playerSay` on TableBase, which every table game shares — chess just never
+  // drew them, so a line spoken across the board went to the log and nowhere
+  // else. Each player has exactly one rail and it is unambiguously theirs, so
+  // there is no seat geometry to solve: the near rail's bubble opens upward and
+  // the far rail's opens down, both pointing back at whoever said it.
+  const chat = seat && table.chatBubbles?.[seat.playerId];
+  const bubble = chat ? `<span class="chess-chat chat-${edge}">${esc(chat)}</span>` : '';
+
   return `<div class="chess-rail${toMove} rail-${color === 'w' ? 'white' : 'black'}">
     <span class="rail-name">${esc(seat?.handle || (color === 'w' ? 'White' : 'Black'))}</span>
-    <span class="rail-taken">${taken}</span>${adv}
+    <span class="rail-taken">${taken}</span>${adv}${bubble}
   </div>`;
 }
 

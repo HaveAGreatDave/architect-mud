@@ -49,6 +49,11 @@
     {
       "verb": "read",
       "requiredTag": "recipe_card"
+    },
+    {
+      "verb": "workspace",
+      "requiredFlag": "stove_tier",
+      "note": "Declaration-only. Advertises the workspace plugin's HUD on a range/microwave/dish cabinet — cooking declares it because the flags are cooking's vocabulary, not the workspace plugin's. Also registered for `microwave` and `dish_cabinet`."
     }
   ],
   "actions": {

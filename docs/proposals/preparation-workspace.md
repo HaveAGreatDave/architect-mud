@@ -97,6 +97,23 @@ the same ambiguity `cook` already has to settle in a room holding a stove and a 
 Where all food knowledge lives. Imports from its own plugin's existing pure modules and
 adds no simulation of its own.
 
+**How a player finds the HUD at all (as built).** The verb worked from day one and was
+completely unfindable — you had to already know it existed, which is the invisible-content
+case the regress's layer 1b was written for. A range, a microwave or a dish cabinet now
+**advertises `workspace` on its own examine**, via declaration-only specialized actions
+(`handler: null`) gated on `stove_tier` / `microwave` / `dish_cabinet`.
+
+**Cooking declares them, not the workspace plugin** — and that placement *is* the seam rather
+than an accident. Those three flags are cooking's vocabulary; the workspace plugin knowing
+them would undo the whole point of joining the two through a gather-hook. They are also
+exactly the flags `workspaceProvider` gates on, so the advertisement can never offer a
+workspace the provider would then refuse.
+
+The chem bench does the same thing by a different route: `plugins/synthesis` already has a
+`furniture.describe` **hub** — one place that says what the bench is for — so the link joins
+that list instead of registering a second one beside it. Two answers to one question is worse
+than either answer.
+
 ### The client
 
 - `client/game/js/panels/workspace.js`

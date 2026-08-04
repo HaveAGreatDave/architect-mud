@@ -112,7 +112,10 @@ let drag = null;
 let pendingDrop = null;
 let swayRaf = 0;
 
-// How high above the board the hand carries a piece, in squares.
+// How high above the board a carried piece hangs, in squares. The HAND itself
+// travels on the board plane (see dropTarget) — this only lifts the piece off
+// it, so the height is free to be whatever looks carried without ever affecting
+// which square the drop lands on.
 const HOVER = 1.55;
 // The pendulum. A piece hangs from a point just above its own crown and trails
 // the hand: the target tilt is proportional to hand SPEED, and a spring chases
@@ -219,15 +222,44 @@ function parsePane(pane) {
 
 // Team colours come from the pane's own CSS variables, so the board still tracks
 // the room palette rather than hardcoding two hexes here.
+// Nothing in the scene is a literal hex any more. Every colour on the board is
+// mixed at mount out of the ACTIVE THEME's palette, so a player on a different
+// [data-theme] gets a board built out of their own room rather than one that
+// looks pasted in from someone else's.
+//
+// The mixing is the groove. Two flat tones is a checkerboard; the light squares
+// instead run a ramp along the board's diagonal from --cyan to --purple and the
+// dark squares run the SAME ramp inverted, at a fraction of the strength — so
+// the deck shifts hue corner to corner and the two colours cross in the middle,
+// which is the thing you notice when the camera swings and nothing else moves.
 function readColors(pane) {
 	const cs = getComputedStyle(pane);
-	const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
+	const pick = (name, fallback) => toRgb(cs.getPropertyValue(name).trim() || fallback);
+	const cyan = pick('--cyan', '#28e5ff');
+	const purple = pick('--purple', '#b86bff');
+	const accent = pick('--accent', '#ff2ec4');
+	const deck = pick('--bg', '#05050a');
 	return {
-		white: pick('--chess-white', '#38e0d8'),
-		black: pick('--chess-black', '#e2479f'),
-		accent: pick('--cyan', '#38e0d8'),
+		// The two armies, still off the pane's own chess vars.
+		white: css(pick('--chess-white', '#38e0d8')),
+		black: css(pick('--chess-black', '#e2479f')),
+		accent: css(cyan),           // the board's structural light: rim, etching, coords
+		cyan, purple, accent2: accent, deck,
+		green: pick('--green', '#39ff8f'),
+		red: pick('--red', '#ff3b5c'),
+		yellow: pick('--yellow', '#f5e642'),
+		// A lit panel set into a dark deck, and a deck very nearly black — the
+		// contrast between them is what keeps a dim piece readable, so both ends
+		// of the ramp are anchored against the theme's own background.
+		litLo: mixRgb(deck, cyan, 0.20),
+		litHi: mixRgb(deck, purple, 0.20),
+		darkLo: mixRgb(deck, purple, 0.055),
+		darkHi: mixRgb(deck, cyan, 0.055),
 	};
 }
+
+const css = rgb => `rgb(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0})`;
+const mixRgb = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 // ── Projection ───────────────────────────────────────────────────────────────
 
@@ -290,17 +322,26 @@ function buildFaces() {
 	for (let i = 0; i < 4; i++) {
 		const a = corners[i], b = corners[(i + 1) % 4];
 		slabFace([[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], 0], [a[0], a[1], 0]],
-			'#080f16', { stroke: colors.accent, strokeAlpha: 0.55 });
+			css(mixRgb(colors.deck, colors.cyan, 0.06)), { stroke: colors.accent, strokeAlpha: 0.55 });
 		// A light strip let into the rim, all the way round. The board is a
 		// machine the game runs on, and this is the one detail that says so from
 		// every angle — it's the only thing still visible edge-on at a low camera.
+		//
+		// The strip runs the SAME diagonal ramp as the deck, one hue step per
+		// side, so the rim light crosses from --cyan to --accent as it goes round
+		// and the two opposite corners never read the same. It's the one piece of
+		// colour still on screen when the camera is nearly edge-on, which is
+		// exactly when a board most needs something to look at.
 		const inset = 0.05, lo = z0 * 0.62, hi = z0 * 0.34;
 		const ax = a[0] + (b[0] - a[0]) * inset, ay = a[1] + (b[1] - a[1]) * inset;
 		const bx = b[0] - (b[0] - a[0]) * inset, by = b[1] - (b[1] - a[1]) * inset;
+		// 0,1,2,1 round the four sides — a there-and-back, so the seam where the
+		// last side meets the first has no jump in it.
+		const hue = mixRgb(colors.cyan, colors.accent2, [0, 0.5, 1, 0.5][i]);
 		slabFace([[ax, ay, lo], [bx, by, lo], [bx, by, hi], [ax, ay, hi]],
-			rgba(toRgb(colors.accent), 0.75), { glow: colors.accent, glowSize: 12 });
+			rgba(hue, 0.78), { glow: css(hue), glowSize: 12 });
 	}
-	slabFace([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], '#04060a');
+	slabFace([[0, 0, z0], [BOARD, 0, z0], [BOARD, BOARD, z0], [0, BOARD, z0]], css(mixRgb(colors.deck, [0, 0, 0], 0.35)));
 
 	// Squares. The face colour carries every bit of board state — selection, the
 	// last move, check — because a flat lit panel is the only surface here that
@@ -312,7 +353,7 @@ function buildFaces() {
 		// An empty legal destination gets a floating disc; "go here" and "take
 		// that" stay different marks, as in the flat board.
 		if (sq.target) {
-			face(discPts(x + 0.5, y + 0.5, 0.16, 0.02), 'rgba(90,255,170,0.85)', { glow: '#5affaa' });
+			face(discPts(x + 0.5, y + 0.5, 0.16, 0.02), rgba(colors.green, 0.85), { glow: css(colors.green) });
 		}
 	}
 
@@ -378,8 +419,8 @@ function ghostFaces(into, boardFace) {
 	// nothing but the tether, so "nowhere to put this" reads as an absence.
 	const sq = drag.dropSq;
 	if (sq) {
-		boardFace(discPts(sq.x + 0.5, sq.y + 0.5, 0.42, 0.012), 'rgba(90,255,170,0.20)',
-			{ stroke: '#5affaa', strokeAlpha: 1, glow: '#5affaa' });
+		boardFace(discPts(sq.x + 0.5, sq.y + 0.5, 0.42, 0.012), rgba(colors.green, 0.20),
+			{ stroke: css(colors.green), strokeAlpha: 1, glow: css(colors.green) });
 	}
 	// A contact shadow under the hand, on the plane, wherever the hand actually is.
 	boardFace(discPts(drag.wx, drag.wy, 0.30, 0.005), 'rgba(0,0,0,0.5)', { soft: true });
@@ -435,7 +476,7 @@ function fxBoardFaces(face) {
 		if (p <= 0 || p >= 1) continue;
 		const r = 0.36 + (rmax - 0.36) * (1 - (1 - p) ** 2.2);
 		face(discPts(cx, cy, r, 0.014, 40), null,
-			{ stroke: `rgba(255,60,80,${((1 - p) * 0.85).toFixed(3)})`, strokeAlpha: 1, glow: '#ff4060', glowSize: 14 });
+			{ stroke: rgba(colors.red, ((1 - p) * 0.85).toFixed(3)), strokeAlpha: 1, glow: css(colors.red), glowSize: 14 });
 	}
 }
 
@@ -500,28 +541,39 @@ function discPts(cx, cy, r, z, n = 10) {
 // The light square is a lit panel set into a dark deck — a floor tile with power
 // behind it, not ivory. The dark square is very nearly black on purpose: the
 // contrast is what lets a dim piece stay readable standing on it.
+// The diagonal position of a square, 0 at the far-left corner and 1 at the
+// near-right one. The whole board ramp hangs off this one number.
+const ramp = sq => (sq.x + (7 - sq.y)) / 14;
+
 function squareFill(sq) {
-	if (sq.check) return 'rgba(210,40,60,0.75)';
-	if (sq.selected) return 'rgba(240,200,60,0.72)';
-	if (sq.capture) return 'rgba(220,60,70,0.45)';
-	if (sq.target) return 'rgba(60,220,150,0.28)';
-	if (sq.lastTo) return 'rgba(150,90,240,0.34)';
-	if (sq.lastFrom) return 'rgba(120,70,200,0.20)';
-	return sq.light ? '#152833' : '#05080c';
+	if (sq.check) return rgba(colors.red, 0.72);
+	if (sq.selected) return rgba(colors.yellow, 0.66);
+	if (sq.capture) return rgba(colors.red, 0.42);
+	if (sq.target) return rgba(colors.green, 0.26);
+	if (sq.lastTo) return rgba(colors.purple, 0.34);
+	if (sq.lastFrom) return rgba(colors.purple, 0.18);
+	const t = ramp(sq);
+	return css(sq.light
+		? mixRgb(colors.litLo, colors.litHi, t)
+		: mixRgb(colors.darkLo, colors.darkHi, 1 - t));
 }
 // Every square carries a faint circuit line. Lit squares get a brighter one, so
 // the grid itself reads as etched rather than drawn.
 function squareStroke(sq) {
-	if (sq.check) return '#ff4060';
-	if (sq.selected) return '#ffd23c';
-	if (sq.capture) return '#ff5a68';
-	if (sq.target) return '#5affaa';
-	return sq.light ? 'rgba(120,210,235,0.22)' : 'rgba(120,210,235,0.07)';
+	if (sq.check) return css(colors.red);
+	if (sq.selected) return css(colors.yellow);
+	if (sq.capture) return css(colors.red);
+	if (sq.target) return css(colors.green);
+	// The etching runs the ramp too, the other way round from the fill it sits
+	// on — so the grid stays visible at both ends of the board instead of fading
+	// out wherever the deck happens to have brightened.
+	const t = ramp(sq);
+	return rgba(mixRgb(colors.cyan, colors.purple, 1 - t), sq.light ? 0.24 : 0.09);
 }
 function squareGlow(sq) {
-	if (sq.check) return '#ff4060';
-	if (sq.selected) return '#ffd23c';
-	if (sq.target || sq.capture) return '#5affaa';
+	if (sq.check) return css(colors.red);
+	if (sq.selected) return css(colors.yellow);
+	if (sq.target || sq.capture) return css(colors.green);
 	return null;
 }
 
@@ -604,7 +656,7 @@ function pieceFaces(pc, face, boardFace) {
 		`rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},0.16)`,
 		{ stroke: `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},0.55)`, strokeAlpha: 1, glow: tint });
 	if (pc.checked) {
-		boardFace(discPts(cx, cy, prof[0][0] * 1.8, 0.008), 'rgba(255,60,80,0.32)', { soft: true, glow: '#ff4060' });
+		boardFace(discPts(cx, cy, prof[0][0] * 1.8, 0.008), rgba(colors.red, 0.32), { soft: true, glow: css(colors.red) });
 	}
 }
 
@@ -817,7 +869,7 @@ function draw() {
 
 	// Floor glow — the light the board is sitting in.
 	const g = ctx.createRadialGradient(w / 2, h * 0.55, 0, w / 2, h * 0.55, Math.max(w, h) * 0.5);
-	g.addColorStop(0, 'rgba(60,190,220,0.13)');
+	g.addColorStop(0, rgba(mixRgb(colors.cyan, colors.purple, 0.35), 0.14));
 	g.addColorStop(1, 'rgba(0,0,0,0)');
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, w, h);
@@ -844,7 +896,7 @@ function draw() {
 		if (a > 0.002) {
 			const corners = [[0, 0, 0.02], [BOARD, 0, 0.02], [BOARD, BOARD, 0.02], [0, BOARD, 0.02]].map(project);
 			ctx.save();
-			ctx.fillStyle = `rgba(190,25,45,${a.toFixed(3)})`;
+			ctx.fillStyle = rgba(mixRgb(colors.red, [0, 0, 0], 0.25), a.toFixed(3));
 			ctx.beginPath();
 			ctx.moveTo(corners[0][0], corners[0][1]);
 			for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
@@ -882,7 +934,7 @@ function drawTether([wx, wy]) {
 	const b = project([wx, wy, 0.01]);
 	ctx.save();
 	ctx.setLineDash([4, 5]);
-	ctx.strokeStyle = drag?.dropSq ? 'rgba(90,255,170,0.55)' : 'rgba(140,220,235,0.28)';
+	ctx.strokeStyle = drag?.dropSq ? rgba(colors.green, 0.55) : rgba(colors.cyan, 0.28);
 	ctx.lineWidth = 1;
 	ctx.beginPath();
 	ctx.moveTo(a[0], a[1]);
@@ -895,7 +947,7 @@ function drawTether([wx, wy]) {
 function drawCoords() {
 	ctx.save();
 	ctx.font = '11px var(--font-mono, monospace)';
-	ctx.fillStyle = 'rgba(140,220,235,0.55)';
+	ctx.fillStyle = rgba(colors.cyan, 0.55);
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
 	for (const sq of scene.squares) {
@@ -970,12 +1022,33 @@ function unproject(px, py, dz) {
 	return [4 + x1 * ca - y1 * sa, 4 + x1 * sa + y1 * ca];
 }
 
+// Where a carried piece would land — read off the piece's own foot, which is a
+// point on the BOARD PLANE and therefore the same point the cursor is over.
+//
+// The first pass carried the piece on a plane at HOVER height, and that is what
+// made the drop feel broken anywhere but straight down. A cursor ray meets the
+// hover plane and the board plane at two different places — several ranks apart
+// at a low pitch — so the piece hung visibly over one square while the ring lit
+// on another, and the middle of a tile, which is exactly where a player aims,
+// could resolve to a square nowhere near the piece in their hand.
+//
+// The fix isn't a smarter pick, it's removing the second plane: the hand travels
+// ON the board and the piece is drawn hanging ABOVE that point. Cursor, tether
+// foot, ring and drop are then one square by construction, at every camera
+// angle, with nothing to tune.
+function dropTarget() {
+	if (!drag || !scene) return null;
+	const fx0 = Math.floor(drag.wx), fy0 = Math.floor(drag.wy);
+	const sq = scene.squares.find(s => s.x === fx0 && s.y === fy0);
+	return sq?.cmd?.startsWith('chessmove') ? sq : null;
+}
+
 // Picking a piece up. The SELECT still goes to the server immediately — this is
 // the same `chesspick` a click sends, and the targets that come back are the
 // only squares the drop is allowed to land on. The drag is presentation over
 // the two-step the server already runs; the client still computes no legality.
 function startDrag(sq, pc, px, py) {
-	const at = unproject(px, py, HOVER) || [sq.x + 0.5, sq.y + 0.5];
+	const at = unproject(px, py, 0) || [sq.x + 0.5, sq.y + 0.5];
 	drag = {
 		from: { x: sq.x, y: sq.y },
 		type: pc.type, white: pc.white,
@@ -992,7 +1065,7 @@ function startDrag(sq, pc, px, py) {
 
 function moveDrag(px, py) {
 	if (!drag) return;
-	const at = unproject(px, py, HOVER);
+	const at = unproject(px, py, 0);
 	if (!at) return;
 	const now = performance.now();
 	const dt = drag.lastT ? Math.min(0.05, (now - drag.lastT) / 1000) : 0;
@@ -1004,9 +1077,7 @@ function moveDrag(px, py) {
 	}
 	drag.lastT = now;
 	drag.wx = at[0]; drag.wy = at[1];
-	// The drop square is whatever the SERVER marked as reachable under the hand.
-	const sq = pickSquare(px, py);
-	drag.dropSq = sq?.cmd?.startsWith('chessmove') ? sq : null;
+	drag.dropSq = dropTarget();
 	startSway();
 	requestDraw();
 }
@@ -1064,7 +1135,13 @@ function resolveDrop(px, py, ev) {
 	// would silently cancel a move the player made correctly. So the drop waits
 	// for the update instead (see mountChess3D).
 	const settled = scene.squares.some(s => s.selected && s.x === from.x && s.y === from.y);
-	const sq = pickSquare(px, py);
+	// The square under the PIECE, never the one under the cursor — the release
+	// has to honour the ring the player was looking at when they let go. See
+	// dropTarget.
+	const at = unproject(px, py, 0);
+	if (at) { drag.wx = at[0]; drag.wy = at[1]; }
+	const fx0 = Math.floor(drag.wx), fy0 = Math.floor(drag.wy);
+	const sq = scene.squares.find(s => s.x === fx0 && s.y === fy0) || null;
 	endDrag();
 	if (!sq) { cancelPick(ev); return; }
 	if (!settled) { pendingDrop = { x: sq.x, y: sq.y }; return; }
