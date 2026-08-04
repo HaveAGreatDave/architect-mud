@@ -538,6 +538,11 @@ function ensurePackStyles() {
     box-shadow:0 3px 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5); }
   .vm-btn.primary:active:not(:disabled) { box-shadow:0 0 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5); }
   .vm-btn:disabled { opacity:.38; cursor:not-allowed; }
+  /* Just vended: the tear button breathes, so the offer is visible without a
+     second modal landing on top of the machine you're still standing at. */
+  .vm-fresh { animation:vm-fresh 1.5s ease-in-out infinite; }
+  @keyframes vm-fresh { 0%,100%{ box-shadow:0 3px 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5); }
+    50%{ box-shadow:0 3px 0 #145a75, inset 0 1px 0 rgba(255,255,255,0.5), 0 0 16px rgba(127,232,255,0.75); } }
 
   /* The delivery flap. It gets HIT — the kick is what sells the vend. */
   .vm-hatch { margin:0 16px; border-radius:6px; padding:6px;
@@ -582,7 +587,17 @@ function ensurePackStyles() {
 const VM_BRAND = 'ARCHITECT DRAFT';
 const VM_TAGLINE = 'COLLECTED WORKS · SERIES 1';
 
-let machine = null;   // { overlay, close, data, pick, busy }
+// The cabinet now carries the brand in its own name, so the marquee's model line
+// must not say it twice — "ARCHITECT DRAFT · ARCHITECT DRAFT CARD MACHINE" reads
+// like a bug, because it is one. Strip the brand off the front and keep whatever
+// the fixture actually calls itself.
+function vmModel(name) {
+  const s = String(name || 'card dispenser').trim();
+  const bare = s.replace(new RegExp(`^${VM_BRAND}\\s*`, 'i'), '').trim();
+  return bare || s;
+}
+
+let machine = null;   // { overlay, close, data, pick, busy, justVended }
 
 // Three shelves of three. Codes are the SERVER's — the panel never invents a
 // coil, because the coil you press has to be the coil the verb charges you for.
@@ -602,7 +617,7 @@ export function openCardMachinePanel(msg) {
         <span class="vm-logo">◈</span>
         <div class="vm-names">
           <div class="vm-brand">${VM_BRAND}</div>
-          <div class="vm-model">${esc(String(msg.machine || 'CARD DISPENSER')).toUpperCase()} · ${VM_TAGLINE}</div>
+          <div class="vm-model">${esc(vmModel(msg.machine)).toUpperCase()} · ${VM_TAGLINE}</div>
         </div>
         <button class="vm-x" aria-label="Close">&#10005;</button>
       </div>
@@ -657,7 +672,7 @@ export function openCardMachinePanel(msg) {
     if (!btn) return;
     if (btn.disabled) { sfx('cards-deny'); return; }
     sfx('cards-ui');
-    if (btn.id === 'vm-open') { mounted.close(); sendCmdSilent('openpack'); return; }
+    if (btn.id === 'vm-open') { machine.justVended = false; mounted.close(); sendCmdSilent('openpack'); return; }
     // The coil travels with the verb. A typed `buypack confirm` with no code is
     // still valid — the server falls back to the fullest coil — so the panel and
     // the keyboard reach the same machine.
@@ -727,6 +742,7 @@ function renderMachine() {
   const max = Math.max(1, ...ranks.map(r => by[r] || 0));
   const packs = d.packs || 0;
   const canBuy = total > 0 && stocked > 0 && (d.credits ?? 0) >= d.price && !!machine.pick;
+  const fresh = !!machine.justVended && packs > 0;
   side.innerHTML =
     `<div class="vm-plate"><div class="vm-plate-lbl">YOUR CREDIT</div>` +
       `<div class="vm-plate-val">₵${(d.credits ?? 0).toLocaleString()}</div></div>` +
@@ -742,9 +758,15 @@ function renderMachine() {
         `<div class="vm-odd-lbl">${rarity(r).label.slice(0, 4)}</div></div>`;
     }).join('') + `</div>` +
     `<div class="vm-note">BUY-BACK ₵${d.scrapValue} A DUPE</div>` +
-    `<button class="vm-btn primary" id="vm-buy"${canBuy ? '' : ' disabled'}>` +
+    // A sleeve just hit the tray, so TEAR takes the primary button and BUY steps
+    // down to it. The offer has to be made at the moment the machine finishes
+    // delivering — that is when a player wants it — and it stays an OFFER: the
+    // panel doesn't open anything, doesn't close itself, and buying a second
+    // sleeve instead is one click away in the same place it always was.
+    `<button class="vm-btn${fresh ? '' : ' primary'}" id="vm-buy"${canBuy ? '' : ' disabled'}>` +
       `${machine.pick ? `BUY ${machine.pick} · ₵${d.price}` : 'SELECT A COIL'}</button>` +
-    `<button class="vm-btn" id="vm-open"${packs < 1 ? ' disabled' : ''}>TEAR ONE OPEN</button>`;
+    `<button class="vm-btn${fresh ? ' primary vm-fresh' : ''}" id="vm-open"${packs < 1 ? ' disabled' : ''}>` +
+      `${fresh ? 'TEAR IT OPEN' : 'TEAR ONE OPEN'}</button>`;
 
   const tray = machine.overlay.querySelector('#vm-tray');
   tray.classList.toggle('loaded', packs > 0);
@@ -762,7 +784,12 @@ function renderMachine() {
 export function cardMachineVend(msg) {
   sfx('cards-vend');
   if (machine) {
-    playVend(msg.slot, () => updateCardMachine({ credits: msg.credits, packs: msg.packs, slots: msg.slots }));
+    // Latched when the sleeve LANDS, not when the buy was sent, so the offer
+    // arrives with the object rather than ahead of it.
+    playVend(msg.slot, () => {
+      if (machine) machine.justVended = true;
+      updateCardMachine({ credits: msg.credits, packs: msg.packs, slots: msg.slots });
+    });
   }
   refreshInventory();
 }

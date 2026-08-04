@@ -432,16 +432,17 @@ function renderShop() {
   // haven't got it", so a second of the same thing isn't what the list asked for.
   // Unaffordable rows are left out of the button's count rather than queued to
   // fail — the shelf offers what it can actually sell you right now.
-  const wantedIn = (s) => {
+  const affordable = (items) => {
     if (mode !== 'buy') return [];
     let spent = 0;
-    return s.items.filter(it => {
+    return items.filter(it => {
       if (!it.wanted) return false;
       if (spent + (it.price || 0) > credits) return false;
       spent += it.price || 0;
       return true;
     });
   };
+  const wantedIn = (s) => affordable(s.items);
   const sectionHead = (s, i) => {
     const want = wantedIn(s);
     s.buyable = want;                    // what the button will actually purchase
@@ -455,8 +456,21 @@ function renderShop() {
       + `<span>${s.group || ''}</span>${btn}</div>`;
   };
   shopState.sections = sections;
+  // THE WHOLE SHOP, AT THE TOP — the same button the container panel puts above
+  // its shelves, for the same reason: sections are how a list reads, not how a
+  // shopping trip works. You came for what's on the list, wherever on the floor
+  // it is. It's also the only button a shop that doesn't section ever gets.
+  // Its budget is spent across the WHOLE floor rather than per shelf, so the
+  // count it advertises is the count it can actually buy.
+  const buyAll = affordable(list);
+  shopState.buyAll = buyAll;
+  const topBtn = buyAll.length
+    ? `<div class="shop-section has-wanted bare shop-takeall-top"><span></span>`
+      + `<button class="shop-takeall" data-sec="all" title="Buy one of each shopping-list item this vendor stocks — every shelf">`
+      + `▸ take everything listed (${buyAll.length}) — ${buyAll.reduce((n, it) => n + (it.price || 0), 0)}₵</button></div>`
+    : '';
   const rows = list.length
-    ? sections.map((s, i) => sectionHead(s, i) + s.items.map(renderRow).join('')).join('')
+    ? topBtn + sections.map((s, i) => sectionHead(s, i) + s.items.map(renderRow).join('')).join('')
     : `<div class="shop-empty">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
 
   let card;
@@ -556,10 +570,12 @@ function wireShopEvents() {
   };
   root.querySelectorAll('.shop-takeall').forEach(b => b.onclick = (e) => {
     e.stopPropagation();                       // the header isn't a row; don't select anything
-    const sec = (shopState.sections || [])[Number(b.dataset.sec)];
-    if (!sec) return;
+    const want = b.dataset.sec === 'all'
+      ? (shopState.buyAll || [])
+      : ((shopState.sections || [])[Number(b.dataset.sec)] || {}).buyable;
+    if (!want || !want.length) return;
     b.disabled = true;                         // the refresh re-renders; this only guards a double-click
-    for (const it of (sec.buyable || [])) buyFromNpc(msg.npcId, it.item_id, 1);
+    for (const it of want) buyFromNpc(msg.npcId, it.item_id, 1);
   });
   const sellAll = root.querySelector('.shop-sellall');
   if (sellAll) sellAll.onclick = () => sellAllToNpc(msg.npcId);

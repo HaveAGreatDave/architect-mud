@@ -4446,6 +4446,52 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('the ledger clamp can never kill (floors at 1)', p.hp === 1, JSON.stringify(p));
 }
 
+// ── Wear splits a stack ──────────────────────────────────────────────────────
+// `condition` is a column, so a merge used to keep one row's condition and throw
+// the other's away. A row that has taken any wear is now its own object forever.
+{
+  const { rowIsMergeable, MERGEABLE_SQL, NOT_INSTANCED_SQL } =
+    await import('../server/engine/inventory.js');
+
+  check('an untouched row still merges', rowIsMergeable({ condition: 1 }) === true);
+  check('a row with no condition at all merges (legacy rows)', rowIsMergeable({}) === true);
+  check('a worn row never merges', rowIsMergeable({ condition: 0.83 }) === false);
+  check('a nearly-pristine row is still its own object',
+    rowIsMergeable({ condition: 0.97 }) === false);
+  check('the instance-key rule still applies on top',
+    rowIsMergeable({ condition: 1, custom_data: { cook_quality: 'masterful' } }) === false);
+  check('MERGEABLE_SQL keeps the whole instance-key predicate',
+    MERGEABLE_SQL.startsWith(NOT_INSTANCED_SQL), MERGEABLE_SQL);
+  check('MERGEABLE_SQL guards the condition column', MERGEABLE_SQL.includes('condition'), MERGEABLE_SQL);
+}
+
+// ── What a container is FOR ──────────────────────────────────────────────────
+// A fridge is not a cupboard. The kind of thing a box takes is DERIVED from the
+// flags it already carries for other reasons, and it narrows the panel's stow
+// column and a bare `stow all` — never an item the player named themselves.
+{
+  const { containerFilter } = await import('../server/engine/commands/inventory.js');
+  const box = tags => ({ id: 'x', kind: 'furniture', tags });
+  const row = tags => ({ tags });
+
+  check('an ordinary crate filters nothing', containerFilter(box({ container: 5000 })) === null);
+  check('a shop display case is the vendor\'s business, not the engine\'s',
+    containerFilter(box({ preserves: 'cold', vendor_stock: 'npc_x' })) === null);
+
+  const fridge = containerFilter(box({ preserves: 'cold' }));
+  check('a cold box takes what spoils', !!fridge?.test(row({ perishable: true })));
+  check('a cold box does not propose your pistol', fridge?.test(row({ weapon: true })) === false);
+
+  const cabinet = containerFilter(box({ dish_cabinet: true }));
+  check('a dish cabinet takes a pot', !!cabinet?.test(row({ vessel: true })));
+  check('a dish cabinet takes a fork', !!cabinet?.test(row({ utensil: true })));
+  check('a dish cabinet does not take a steak', cabinet?.test(row({ perishable: true })) === false);
+
+  const wardrobe = containerFilter(box({ wardrobe: true }));
+  check('a wardrobe takes what has a body slot', !!wardrobe?.test(row({ slot: 'torso' })));
+  check('a wardrobe does not take a wrench', wardrobe?.test(row({ tool: true })) === false);
+}
+
 // ── Item facets: the shelf-sectioning substrate ──────────────────────────────
 // server/engine/classify.js decides whether a list of items sections itself and
 // along which axis. Pure functions over tags, so this is fixture-driven — no DB,

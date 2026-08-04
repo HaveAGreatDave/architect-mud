@@ -5,7 +5,7 @@ import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js'
 import { foodLoad, applyThirst } from '../bodily.js';
 import { satiationLine, slakeLine, portionLine } from '../appetite.js';
 import { dispatchAction, getRegisteredActions } from '../actions.js';
-import { burnCharge, rowIsInstanced, NOT_INSTANCED_SQL } from '../inventory.js';
+import { burnCharge, rowIsMergeable, MERGEABLE_SQL } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs, getZoneFurniture } from '../world.js';
 import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -18,6 +18,7 @@ import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
 import { sectionize, facetOf, AXIS_ORDER } from '../classify.js';
+import { conditionBand, wears } from '../durability.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -984,6 +985,22 @@ async function equipResolved(item, player, broadcast) {
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
 
+  // ONE OFF THE STACK. Equipping used to flip is_equipped on the whole row, so
+  // wearing one of `boots ×3` wore all three — and the moment the pair took a
+  // scuff, all three carried it (condition is per ROW). Split a single unit out
+  // first and equip that, which is what makes the wear that follows belong to
+  // the pair you actually put on and leaves the spares untouched in the pack.
+  if (item.quantity > 1) {
+    const solo = randomUUID();
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data, container_id)
+       SELECT $1, player_id, item_id, 1, condition, custom_data, container_id FROM player_inventory WHERE id=$2`,
+      [solo, item.id]
+    );
+    await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+    item = { ...item, id: solo, quantity: 1 };
+  }
+
   let result;
   if (slot === 'accessory') {
     result = await equipAccessory(item, player);
@@ -1108,6 +1125,35 @@ const UNPAID_CLEAR_SQL = `, custom_data = COALESCE(custom_data,'{}'::jsonb) - 'u
 const unpaidNote = name =>
   `<span class="text-dim">The ${name} isn't yours yet — pay at the counter (<b>checkout</b>) before you leave.</span>`;
 
+// ── What a container is FOR ──────────────────────────────────────────────────
+//
+// A fridge is not a cupboard and a wardrobe is not a toolbox. Each already says
+// so through a flag it has for other reasons — `preserves` runs the decay clock,
+// `dish_cabinet` is where the kitchen looks for a pot, `wardrobe` opens the
+// outfits panel — so the kind of thing a box is for is DERIVED from what it
+// already is, never authored a second time. A container with none of those
+// flags returns null and takes everything, exactly as before.
+//
+// A FILTER, NOT A LAW. This narrows two things and only two: the stow column in
+// the container panel, and a bare `stow all`. Naming an item, or naming your own
+// filter (`stow all pistols in the freezer`), still does precisely what you said
+// — putting a gun in the icebox is a thing people do and not a bug.
+const CONTAINER_FILTERS = [
+  ['preserves',    'things that spoil',  t => !!t.perishable],
+  ['dish_cabinet', 'kitchen kit',        t => !!(t.vessel || t.utensil || t.tableware || t.drinkware)],
+  ['wardrobe',     'things you can wear', t => !!t.slot],
+];
+export function containerFilter(container) {
+  // A shop's own display case sells whatever the shop sells; the vendor decides
+  // what's in it, so the engine must not second-guess the stock.
+  if (vendorStockOwner(container)) return null;
+  const flags = container?.tags || {};
+  for (const [flag, label, test] of CONTAINER_FILTERS) {
+    if (flags[flag]) return { label, test: row => test(row.tags || {}) };
+  }
+  return null;
+}
+
 // Container capacity in grams. Furniture containers default to 60000 (60kg) when unset.
 function containerCapacity(container) {
   return tagValue(container, 'container', container.kind === 'furniture' ? 60000 : 0);
@@ -1178,7 +1224,8 @@ async function cmdLookInContainer(nameStr, player) {
 
 async function describeContainer(container, player) {
   const cap = tagValue(container, 'container', 0);
-  const { rows } = await query(`SELECT pi.quantity,i.name,i.tags,i.type FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const { rows } = await query(`SELECT pi.quantity,pi.condition,i.name,i.tags,i.type FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  stampCondition(rows);
   const used = await containerContentsWeight(container.id);
   let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
   if (!rows.length) msg += `\n  It's empty.`;
@@ -1189,7 +1236,13 @@ async function describeContainer(container, player) {
     // which. A small or uniform box stays the flat list it has always been.
     for (const s of sectionize(rows)) {
       if (s.group) msg += `\n  <span class="text-dim">${s.group}</span>`;
-      for (const r of s.items) msg += `\n  ${s.group ? '  ' : ''}${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+      // The band rides the line for the same reason the panel shows a chip: two
+      // coats on a shelf are two DIFFERENT coats now, and a text player has to
+      // be able to tell which one they're pulling out.
+      for (const s2 of s.items) {
+        const band = s2.cond ? ` <span class="text-dim">(${s2.cond.label})</span>` : '';
+        msg += `\n  ${s.group ? '  ' : ''}${s2.name}${s2.quantity>1?` x${s2.quantity}`:''}${band}`;
+      }
     }
   }
   // Only one shelf is in front of you. Say what the others are called, or a
@@ -1199,6 +1252,20 @@ async function describeContainer(container, player) {
     : [];
   if (others.length) msg += `\n  <span class="text-dim">Also in here: ${others.map(c => c.label).join(', ')}.</span>`;
   return msg;
+}
+
+// Stamp the durability band on rows bound for the container panel, so a stack
+// the panel opens can label each row "Battered" without the client owning a
+// second copy of the BANDS table (it owns none — the label and the colour both
+// come from server/engine/durability.js). Only a row that has actually taken
+// wear gets a stamp: an untouched row is the norm and needs no chrome.
+function stampCondition(rows) {
+  for (const r of rows) {
+    if (!wears(r) || Number(r.condition ?? 1) >= 0.9999) continue;
+    const b = conditionBand(r.condition);
+    r.cond = { id: b.id, label: b.label, colour: b.colour };
+  }
+  return rows;
 }
 
 // Furniture containers flagged `restock_items` (a list of item ids) act as a
@@ -1230,6 +1297,7 @@ async function loadBoxContents(container) {
   const used = await containerContentsWeight(container.id);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   for (const r of containerItems) r.name = titleCaseName(r.name);
+  stampCondition(containerItems);
   // Stamp `group` for the panel. The rows already carry tags, so this costs
   // nothing; the client starts a new section wherever `group` changes, and rows
   // arrive in section order. An ungrouped box leaves `group` unset throughout.
@@ -1243,23 +1311,21 @@ async function buildContainerView(containerId, player) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'error', message:'Container not found.' };
   const { rows: allInv } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
-  for (const r of allInv) r.name = titleCaseName(r.name);       // list display — Title Case
+  for (const r of allInv) r.name = titleCaseName(r.name);   // list display — Title Case
+  stampCondition(allInv);
 
   const box = await loadBoxContents(container);
-  // A COLD box offers only what belongs in one. A fridge is not a cupboard —
-  // the reason to open it is the food that would otherwise spoil — so the
-  // stow column filters to `perishable`, the preservation plugin's own tag, and
-  // the panel and the decay clock therefore agree about what a fridge is for.
-  //
-  // A FILTER, NOT A LAW. `stow` itself is untouched: you can still put a pistol
-  // in the freezer by typing it, which is a thing people do and not a bug. This
-  // only stops the panel proposing every screwdriver you own as fridge contents.
-  const chilled = !!box.preserves;
-  const invItems = chilled ? allInv.filter(r => hasTag(r, 'perishable')) : allInv;
+  // A box offers only what belongs in one — the reason to open a fridge is the
+  // food that would otherwise spoil, and the reason to open a dish cabinet is
+  // the pot. See containerFilter: derived from the flags the box already has,
+  // and null (everything offered) for an ordinary crate.
+  const filter = containerFilter(container);
+  const invItems = filter ? allInv.filter(filter.test) : allInv;
 
   const view = { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), ...box, invItems };
-  if (chilled && invItems.length < allInv.length) {
-    view.invNote = `Only what spoils — ${allInv.length - invItems.length} other item${allInv.length - invItems.length === 1 ? '' : 's'} hidden.`;
+  if (filter && invItems.length < allInv.length) {
+    const hidden = allInv.length - invItems.length;
+    view.invNote = `Only ${filter.label} — ${hidden} other item${hidden === 1 ? '' : 's'} hidden.`;
   }
 
   // Paired container (e.g. a fridge's separate freezer box, same appliance,
@@ -1351,7 +1417,7 @@ async function cmdStowById(argStr, player, broadcast) {
     const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
     const moveQty = (reqQty && reqQty > 0 && reqQty < item.quantity && isStackable(item)) ? reqQty : null;
     if (moveQty) {
-      const { rows: ex } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [corpse.id, item.item_id]);
+      const { rows: ex } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND ${MERGEABLE_SQL} LIMIT 1`, [corpse.id, item.item_id]);
       if (ex.length) {
         await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [moveQty, ex[0].id]);
       } else {
@@ -1359,8 +1425,8 @@ async function cmdStowById(argStr, player, broadcast) {
       }
       await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [moveQty, item.id]);
     } else {
-      if (isStackable(item)) {
-        const { rows: ex } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [corpse.id, item.item_id]);
+      if (isStackable(item) && rowIsMergeable(item)) {
+        const { rows: ex } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND ${MERGEABLE_SQL} LIMIT 1`, [corpse.id, item.item_id]);
         if (ex.length) {
           await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, ex[0].id]);
           await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1386,7 +1452,7 @@ async function cmdStowById(argStr, player, broadcast) {
   // cook, an unpaid mark) is NOT stackable however its catalog row is tagged —
   // merging keeps the target's custom_data and drops the incoming row's, which
   // is how a minced cut silently un-minced itself on the way into a bowl.
-  const stackable = isStackable(item) && !rowIsInstanced(item);
+  const stackable = isStackable(item) && rowIsMergeable(item);
 
   // Partial stow: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
@@ -1396,7 +1462,7 @@ async function cmdStowById(argStr, player, broadcast) {
     const iw = item.weight || 0;
     const canFit = iw > 0 ? Math.min(reqQty, Math.floor((cap0 - used0) / iw)) : reqQty;
     if (canFit <= 0) return { type:'container_error', message:`${container.name} is full.` };
-    const { rows: ex0 } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
+    const { rows: ex0 } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${MERGEABLE_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (ex0.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [canFit, ex0[0].id]);
       await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
@@ -1420,7 +1486,7 @@ async function cmdStowById(argStr, player, broadcast) {
     if (stackable && itemWeight > 0 && item.quantity > 1) {
       const canFit = Math.floor((cap - used) / itemWeight);
       if (canFit > 0) {
-        const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
+        const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${MERGEABLE_SQL} LIMIT 1`, [container.id, item.item_id]);
         if (existing.length) {
           await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [canFit, existing[0].id]);
           await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
@@ -1439,7 +1505,7 @@ async function cmdStowById(argStr, player, broadcast) {
   }
 
   if (stackable) {
-    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${MERGEABLE_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1473,9 +1539,9 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   // Shop stock keeps its own row (never merges into what you already carry) so the
   // unpaid mark survives the trip to the counter — see vendorStockOwner.
   const vendorId = vendorStockOwner(container);
-  if (takeQty && isStackable(item) && !rowIsInstanced(item)) {
+  if (takeQty && isStackable(item) && rowIsMergeable(item)) {
     const { rows: exPull } = vendorId ? { rows: [] }
-      : await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
+      : await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${MERGEABLE_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (exPull.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, exPull[0].id]);
     } else {
@@ -1490,8 +1556,8 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
     return pvPart;
   }
 
-  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
-    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
+  if (!vendorId && isStackable(item) && rowIsMergeable(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${MERGEABLE_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1649,8 +1715,21 @@ async function cmdStow(argStr, player) {
 
   if (bulk) {
     const pool = await bulkStowPool(player);
-    const matches = (bulk.filter ? matchAllFilter(bulk.filter, pool) : pool)
+    let matches = (bulk.filter ? matchAllFilter(bulk.filter, pool) : pool)
       .filter(r => r.id !== container.id);   // never the bag inside itself
+    // Bare `stow all` at a box that is FOR something sweeps only what belongs in
+    // it — nobody typing it at a freezer means their rifle and their soap. A
+    // filter the player typed themselves is obeyed as written.
+    const cf = bulk.filter ? null : containerFilter(container);
+    let skipped = 0;
+    if (cf) {
+      const kept = matches.filter(cf.test);
+      skipped = matches.length - kept.length;
+      matches = kept;
+      if (!matches.length) {
+        return { type:'error', message:`${container.name} is for ${cf.label} — you aren't carrying any.` };
+      }
+    }
     if (!matches.length) {
       return { type:'error', message: bulk.filter ? `You don't have any "${bulk.filter}" to stow.` : `You aren't carrying anything to stow.` };
     }
@@ -1659,6 +1738,7 @@ async function cmdStow(argStr, player) {
       const r = await stowOne(row, container, player);
       messages.push(r.message);
     }
+    if (skipped) messages.push(`<span class="text-dim">You keep the rest — ${container.name} is for ${cf.label}.</span>`);
     return { type:'stow', message: messages.join('\n') };
   }
 
@@ -1688,8 +1768,8 @@ async function stowOne(item, container, player) {
 
   // Same guard `pull` uses on the way out: an instanced row never merges, or the
   // merge would keep the target's custom_data and drop this row's.
-  if (isStackable(item) && !rowIsInstanced(item)) {
-    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [container.id, item.item_id]);
+  if (isStackable(item) && rowIsMergeable(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND ${MERGEABLE_SQL} LIMIT 1`, [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -1755,8 +1835,8 @@ async function pullOne(item, container, player) {
   const vendorId = vendorStockOwner(container);
   // Shop stock never merges into what you already carry — it has to stay a
   // distinct, markable row so the counter (and the door) can tell it apart.
-  if (!vendorId && isStackable(item) && !rowIsInstanced(item)) {
-    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${NOT_INSTANCED_SQL} LIMIT 1`, [player.id, item.item_id]);
+  if (!vendorId && isStackable(item) && rowIsMergeable(item)) {
+    const { rows: existing } = await query(`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 AND ${MERGEABLE_SQL} LIMIT 1`, [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);

@@ -356,7 +356,7 @@ async function cmdBuyPack(args, raw, player, broadcast) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
   await giveSleeve(player.id, { ...taken, machine: machine.name });
 
-  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} grinds, and drops a foil sleeve into its tray for ${player.handle}.` }, player.id);
+  broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} grinds, and drops an Architect Draft sleeve into its tray for ${player.handle}.` }, player.id);
   return {
     type: 'cardmach_vend',
     machine: machine.name,
@@ -366,7 +366,10 @@ async function cmdBuyPack(args, raw, player, broadcast) {
     slots: slotsFor(machine, day),
     message: `Coil <b>${slot}</b> turns. The sleeve tips, drops, and the ${machine.name} kicks it into the tray — `
       + `<b>₵${PACK_PRICE}</b> gone, <b>₵${player.credits}</b> left. `
-      + `Tear it whenever you like: <span class="cmd">openpack</span>.`,
+      // The offer, in the log as well as on the panel: a player who bought by
+      // typing never sees the cabinet's button, and "you may open it now" is the
+      // whole point of the sleeve being a thing you carry rather than a payout.
+      + `Tear it now or keep it sealed — <span class="action-link cmd" data-action="cmd" data-cmd="openpack">openpack</span>.`,
   };
 }
 

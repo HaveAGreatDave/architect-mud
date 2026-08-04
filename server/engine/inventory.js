@@ -237,14 +237,33 @@ export const rowIsInstanced = row => {
 // that didn't have to happen.
 export const NOT_INSTANCED_SQL = `(custom_data IS NULL OR NOT jsonb_exists_any(custom_data, ARRAY[${INSTANCE_KEYS.map(k => `'${k}'`).join(',')}]))`;
 
+// ── Wear splits a stack ──────────────────────────────────────────────────────
+//
+// `condition` is a COLUMN, not an instance key, so the predicate above says
+// nothing about it — and two coats merging into `×2` used to keep the surviving
+// row's condition and throw the other's away. Since durability shipped, that
+// silently repaired one coat or ruined the other every time you tidied up.
+//
+// The rule: A ROW THAT HAS TAKEN ANY WEAR NEVER MERGES, in either direction.
+// Not "merge within a band" — Battered is a range, and two Battered coats are
+// still two different coats. Untouched is exactly 1.0, and only an item that
+// wears ever leaves it, so every stack that stacks today still stacks: ammo,
+// food and cassettes sit at 1.0 for life. The first scratch is what makes a
+// thing its own object, permanently — which is also what lets the container
+// panel offer a stack you can open and pick the good one out of.
+const FULL_CONDITION = 0.9999;                // REAL column; never compare to 1 exactly
+export const rowIsMergeable = (row) =>
+  !rowIsInstanced(row) && Number(row?.condition ?? 1) >= FULL_CONDITION;
+export const MERGEABLE_SQL = `${NOT_INSTANCED_SQL} AND (condition IS NULL OR condition >= ${FULL_CONDITION})`;
+
 // Move a ground inventory row into a player's inventory. Stacking-aware: a
 // stackable item merges into an existing unequipped stack the player already
 // holds. Returns the resulting row id.
 export async function pickUp(row, player) {
-  if (isStackable(row) && !rowIsInstanced(row)) {
+  if (isStackable(row) && rowIsMergeable(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0
-         AND ${NOT_INSTANCED_SQL} LIMIT 1`,
+         AND ${MERGEABLE_SQL} LIMIT 1`,
       [player.id, row.item_id]
     );
     if (rows.length) {
@@ -339,10 +358,10 @@ export async function burnCharge(row, itemTags) {
 
 // Hand a player's inventory row to another player. Stacking-aware, mirroring pickUp.
 export async function giveToPlayer(row, toPlayer) {
-  if (isStackable(row) && !rowIsInstanced(row)) {
+  if (isStackable(row) && rowIsMergeable(row)) {
     const { rows } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL
-         AND ${NOT_INSTANCED_SQL} LIMIT 1`,
+         AND ${MERGEABLE_SQL} LIMIT 1`,
       [toPlayer.id, row.item_id]
     );
     if (rows.length) {

@@ -294,7 +294,16 @@ mobile smart bar list them like any other affordance.
 card. You buy a sleeve and the sleeve decides. This is not a shop with a catalogue — the whole
 pleasure of the object is that somebody else's card falls out of it.
 
-**The pack.** ₵250 for a **foil sleeve**. How many cards is itself part of the pull:
+**The brand is ARCHITECT DRAFT**, and it is one name in three places on purpose — the item
+(`Architect Draft sleeve`), the fixture (`Architect Draft card machine`), and the marquee on the
+machine's panel. It works three ways at once: an architect DRAFTS, a collector DRAFTS a set, and
+being drafted is what happens to everybody whose face ends up in that pool without being asked.
+The tagline **COLLECTED WORKS** is the same joke one floor down — an architect's collected works
+is their portfolio, and yours is a shoebox of strangers. It is deliberately **not** the Coldwater
+Mint: the Mint is where a player goes to strike themselves, and a pack line borrowing that word
+would be advertising a service it doesn't sell.
+
+**The pack.** ₵250 for an **Architect Draft sleeve**. How many cards is itself part of the pull:
 
 | Sleeve | Chance |
 |---|---:|

@@ -23,6 +23,7 @@ import { getIdeologyDiscount } from './ideologies.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
+import { MERGEABLE_SQL } from './inventory.js';
 import { isConsumerFurniture } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
@@ -377,8 +378,11 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey 
         [player.id, picked.map(r => r.id)]
       );
     } else {
+      // A shop sells factory-fresh goods, so the row it merges into has to be
+      // factory-fresh too — buying a second jacket must not quietly inherit the
+      // condition of the one you've been wearing for a month (rowIsMergeable).
       const { rows: existing } = await q(
-        'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
+        `SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0 AND ${MERGEABLE_SQL}`,
         [player.id, itemId]
       );
       if (existing.length && isStackable(item) && !stamp) {

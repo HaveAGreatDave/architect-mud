@@ -249,6 +249,17 @@ export default async function regress({ run, check, getPlayer }) {
     check('a nonsense coil code falls back rather than crashing',
       r?.type === 'cardmach_vend' || r?.type === 'error', JSON.stringify(r)?.slice(0, 140));
 
+    // The offer to tear it NOW has to reach a player who bought by TYPING — they
+    // never see the cabinet's buttons, so a panel-only offer is half a feature.
+    // It must stay an offer: a vend that opened the sleeve itself would destroy
+    // the only reason the roll happens at the tear.
+    if (r?.type === 'cardmach_vend') {
+      check('the vend offers to open it, clickably',
+        /data-cmd="openpack"/.test(String(r.message || '')), String(r.message || '').slice(0, 200));
+      check('...but vending never opens the sleeve itself',
+        r.type !== 'cardpack_open' && !r.cards, JSON.stringify(r)?.slice(0, 140));
+    }
+
     // ── the coil decides the sleeve ──────────────────────────────────────────
     // This is the property the whole feature rests on: a sleeve's contents are
     // fixed when it is loaded, so the player's physical choice has real input on

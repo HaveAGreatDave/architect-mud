@@ -331,28 +331,33 @@ function renderList(listId, items, source, containerId) {
     list.appendChild(h);
   }
 
+  // ── A stack is ROWS, not a number ──────────────────────────────────────────
+  //
+  // Wear splits a stack (`rowIsMergeable`, server/engine/inventory.js): three
+  // jackets in three different states are three rows of the same item, because
+  // condition is per row and merging them would throw two of them away. So the
+  // panel folds same-item rows into ONE card you can open, and picking the
+  // Pristine one out of the pile is a click rather than a guess.
+  //
+  // The other kind of stack is untouched: identical unworn things merged into a
+  // single row upstream and still render as one card with a ×N badge. A pile
+  // only appears here because the rows genuinely differ.
+  const entries = [];
+  const byKey = new Map();
   for (const item of items) {
-    // Shelf headers, the same convention the shop panel uses: the server decides
-    // whether a box sections and sends the rows already in section order
-    // (server/engine/classify.js), so all the client does is notice the change.
-    // An ungrouped box has no `group` anywhere and emits no headers at all.
-    if (item.group && item.group !== lastGroup) {
-      const h = document.createElement('div');
-      h.className = 'ctr-section';
-      h.innerHTML = `<span>${item.group}</span>`;
-      const want = source !== 'inv'
-        ? items.filter(it => it.group === item.group && it.wanted)
-        : [];
-      // Per-section too, for the trip where you only want the cold half of it.
-      if (want.length) {
-        h.classList.add('has-wanted');
-        h.appendChild(takeAllBtn(want, `▸ take ${want.length} listed`, 'Take this section’s shopping-list items, in the amounts the recipes ask for'));
-      }
-      list.appendChild(h);
-    }
-    lastGroup = item.group || null;
+    const key = `${item.group || ''}|${item.item_id}|${item.name}`;
+    const prev = byKey.get(key);
+    if (prev) { prev.rows.push(item); continue; }
+    const entry = { group: item.group || null, rows: [item] };
+    byKey.set(key, entry);
+    entries.push(entry);
+  }
+
+  // One row's card — the whole of what a list entry used to be. `nested` is a
+  // row inside an opened pile, which reads as indented and carries its band.
+  const makeCard = (item, nested) => {
     const card = document.createElement('div');
-    card.className = 'ctr-item-card' + (item.wanted ? ' ctr-wanted' : '');
+    card.className = 'ctr-item-card' + (item.wanted ? ' ctr-wanted' : '') + (nested ? ' ctr-stack-row' : '');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
@@ -360,15 +365,21 @@ function renderList(listId, items, source, containerId) {
     // glance and the name keeps a single clean baseline.
     const qty = item.quantity > 1 ? `<span class="ctr-qty">×${item.quantity}</span>` : '';
     const wt = item.weight != null ? `<span class="ctr-meta">${formatWeight(item.weight)}</span>` : '';
+    // The durability band, stamped by the server (server/engine/durability.js
+    // owns the label AND the colour — the client keeps no copy of the ladder).
+    // Absent on anything untouched, which is nearly everything.
+    const cond = item.cond
+      ? `<span class="ctr-cond" style="color:${item.cond.colour};border-color:${item.cond.colour}" title="condition">${item.cond.label}</span>`
+      : '';
     // `wanted` is set by the cooking plugin's container.view hook — this row
     // answers something still on your shopping list. Same mark and same colour
     // as the shop board uses, because it is the same fact.
     const mark = item.wanted ? '<span class="ctr-mark" title="on your shopping list">▸</span>' : '';
-    card.innerHTML = `${mark}<span class="ctr-name">${item.name}</span>${qty}${wt}`;
+    card.innerHTML = `${mark}<span class="ctr-name">${item.name}</span>${cond}${qty}${wt}`;
 
+    const btn = document.createElement('button');
+    btn.className = 'ctr-action-btn';
     if (source === 'inv') {
-      const btn = document.createElement('button');
-      btn.className = 'ctr-action-btn';
       btn.textContent = 'stow';
       btn.title = 'Put into container';
       btn.onclick = async (e) => {
@@ -379,10 +390,7 @@ function renderList(listId, items, source, containerId) {
           sendCmdSilent(`stowid ${item.id} ${containerId}${qtyPart}`);
         }
       };
-      card.appendChild(btn);
     } else {
-      const btn = document.createElement('button');
-      btn.className = 'ctr-action-btn';
       btn.textContent = 'take';
       btn.title = 'Take from container';
       btn.onclick = async (e) => {
@@ -393,8 +401,8 @@ function renderList(listId, items, source, containerId) {
           sendCmdSilent(`pullid ${item.id}${qtyPart}`);
         }
       };
-      card.appendChild(btn);
     }
+    card.appendChild(btn);
 
     // Clicking the item itself opens what you can DO with it. A container panel
     // that only knows "stow" and "take" makes you close it, type `examine`, and
@@ -414,7 +422,65 @@ function renderList(listId, items, source, containerId) {
       e.dataTransfer.effectAllowed = 'move';
     };
     card.ondragend = () => card.classList.remove('dragging');
-    list.appendChild(card);
+    return card;
+  };
+
+  for (const entry of entries) {
+    const item = entry.rows[0];
+    // Shelf headers, the same convention the shop panel uses: the server decides
+    // whether a box sections and sends the rows already in section order
+    // (server/engine/classify.js), so all the client does is notice the change.
+    // An ungrouped box has no `group` anywhere and emits no headers at all.
+    if (item.group && item.group !== lastGroup) {
+      const h = document.createElement('div');
+      h.className = 'ctr-section';
+      h.innerHTML = `<span>${item.group}</span>`;
+      const want = source !== 'inv'
+        ? items.filter(it => it.group === item.group && it.wanted)
+        : [];
+      // Per-section too, for the trip where you only want the cold half of it.
+      if (want.length) {
+        h.classList.add('has-wanted');
+        h.appendChild(takeAllBtn(want, `▸ take ${want.length} listed`, 'Take this section’s shopping-list items, in the amounts the recipes ask for'));
+      }
+      list.appendChild(h);
+    }
+    lastGroup = item.group || null;
+
+    if (entry.rows.length === 1) { list.appendChild(makeCard(item, false)); continue; }
+
+    // The pile head. It is deliberately NOT a `.ctr-item-card` and carries no
+    // data-id: "stow all" / "take all" sweep the cards in the list, and a head
+    // that answered to those selectors would send a move for an id that doesn't
+    // exist while the real rows underneath went untouched.
+    const total = entry.rows.reduce((a, r) => a + (r.quantity || 1), 0);
+    const bands = [];
+    for (const r of entry.rows) {
+      const label = r.cond?.label || 'Pristine';
+      const found = bands.find(b => b.label === label);
+      if (found) found.n += (r.quantity || 1);
+      else bands.push({ label, n: r.quantity || 1, colour: r.cond?.colour || null });
+    }
+    const head = document.createElement('div');
+    head.className = 'ctr-stack-head';
+    const summary = bands.map(b =>
+      `<span class="ctr-cond"${b.colour ? ` style="color:${b.colour};border-color:${b.colour}"` : ''}>${b.label}${b.n > 1 ? ` ×${b.n}` : ''}</span>`).join('');
+    head.innerHTML =
+      `<span class="ctr-stack-caret">▸</span><span class="ctr-name">${item.name}</span>${summary}<span class="ctr-qty">×${total}</span>`;
+    head.title = `${total} of these, in ${bands.length} condition${bands.length === 1 ? '' : 's'} — open to pick one`;
+
+    const kids = document.createElement('div');
+    kids.className = 'ctr-stack-kids';
+    kids.hidden = true;
+    for (const r of entry.rows) kids.appendChild(makeCard(r, true));
+
+    head.onclick = () => {
+      kids.hidden = !kids.hidden;
+      head.classList.toggle('open', !kids.hidden);
+      head.querySelector('.ctr-stack-caret').textContent = kids.hidden ? '▸' : '▾';
+    };
+    list.appendChild(head);
+    list.appendChild(kids);
   }
 }
 

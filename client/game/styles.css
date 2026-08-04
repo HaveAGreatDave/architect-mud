@@ -5017,6 +5017,45 @@ body.fsim-external #look-resize-handle { display: none; }
 	background: rgba(255, 255, 255, 0.07);
 	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
 }
+/* The durability band on a row, and the same chip re-used to summarise a pile.
+   Colour comes down the wire from server/engine/durability.js — this rule owns
+   the SHAPE only, so the ladder is never described twice. */
+.ctr-cond {
+	flex-shrink: 0;
+	font-size: 9px;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
+	line-height: 1;
+	padding: 3px 5px;
+	border: 1px solid currentColor;
+	border-radius: 3px;
+	opacity: 0.85;
+}
+/* A pile of the same thing in different states. Reads as one card until you
+   open it, then the rows inside step in behind a rail so the pile still looks
+   like one entry in the list rather than a section of its own. */
+.ctr-stack-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 9px 10px;
+	min-height: 38px;
+	border: 1px dashed var(--border);
+	border-radius: 4px;
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+.ctr-stack-head:hover { border-color: var(--cyan); }
+.ctr-stack-head.open { border-style: solid; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.ctr-stack-caret { flex: 0 0 auto; color: var(--text-dim); font-size: 10px; }
+.ctr-stack-kids {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 6px 0 6px 10px;
+	margin-left: 4px;
+	border-left: 1px solid var(--border);
+}
 .ctr-meta {
 	flex-shrink: 0;
 	color: var(--text-dim);
@@ -5675,6 +5714,13 @@ body.fsim-external #look-resize-handle { display: none; }
 .shop-section:first-child { margin-top: 0; }
 .shop-section.has-wanted { display: flex; align-items: baseline; gap: 8px; }
 .shop-section.has-wanted > span { flex: 1; min-width: 0; }
+/* A flat (unsectioned) shop has no header text for the button to sit beside. */
+.shop-section.bare { border-bottom: none; padding-bottom: 0; justify-content: flex-end; }
+/* The whole-shop button sits above every shelf, so it is the widest thing in the
+   column rather than one more right-aligned chip among the headers. */
+.shop-section.shop-takeall-top { margin-top: 0; margin-bottom: 6px; }
+.shop-section.shop-takeall-top > span { display: none; }
+.shop-section.shop-takeall-top > .shop-takeall { flex: 1; padding: 5px 6px; font-size: 10px; opacity: 1; }
 .shop-card { padding-left: 14px; min-height: 0; display: flex; }
 .shop-card-empty {
 	color: var(--text-dim);

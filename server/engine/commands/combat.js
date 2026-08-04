@@ -4,6 +4,7 @@ import { getZoneProtection } from "../protection.js";
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { isStackable } from "../tags.js";
+import { rowIsMergeable, MERGEABLE_SQL } from "../inventory.js";
 import { titleCaseName } from "../text.js";
 import { emit } from "../events.js";
 import { randomUUID } from "crypto";
@@ -59,9 +60,12 @@ export async function buildLootView(corpse, player) {
 // item is stackable. Returns the item's display name. Emits item.taken like the
 // ground-pickup path so quest 'retrieve' objectives advance on corpse loot too.
 async function giveRowToPlayer(item, player) {
-	if (isStackable(item)) {
+	// A corpse is where WORN gear comes from, so this is the merge that most
+	// wanted the condition guard: the dead man's battered jacket must not fold
+	// into the pristine one already in your pack (see rowIsMergeable).
+	if (isStackable(item) && rowIsMergeable(item)) {
 		const { rows: existing } = await query(
-			"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL",
+			`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL AND ${MERGEABLE_SQL}`,
 			[player.id, item.item_id],
 		);
 		if (existing.length) {
@@ -256,9 +260,9 @@ async function cmdLootId(args, player) {
 	const takeQty = (qty && qty > 0 && qty < row.quantity) ? qty : null;
 	let name;
 	if (takeQty) {
-		if (isStackable(row)) {
+		if (isStackable(row) && rowIsMergeable(row)) {
 			const { rows: existing } = await query(
-				'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL',
+				`SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL AND ${MERGEABLE_SQL}`,
 				[player.id, row.item_id],
 			);
 			if (existing.length) {

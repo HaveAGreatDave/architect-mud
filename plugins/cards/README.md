@@ -75,7 +75,10 @@ stays true on a young pool.
 
 `buypack` does **not** transact. It returns `cardmach_panel` and the client opens the machine's face
 (`client/game/js/panels/cardpack.js`) — a **vending cabinet** branded **ARCHITECT DRAFT** (never "the Mint";
-minting is a player striking their own card at a terminal, and the machine doesn't sell that),
+minting is a player striking their own card at a terminal, and the machine doesn't sell that).
+The brand is **one name in three places** — the item (`Architect Draft sleeve`), the fixture
+(`Architect Draft card machine`), and the panel's marquee — so the sleeve in your pocket, the thing
+in the room list and the cabinet you're standing at all say the same word. It is
 deliberately not the shared minigame CRT chassis: a lit marquee, product on coils behind glass, no
 scanlines (there is no tube in it), an odds board drawn from the **live pool**, your balance, and a
 delivery flap that takes the hit when a sleeve drops. Clicking the machine in the room list opens this face directly (`flags.click_cmd`), so
@@ -94,6 +97,13 @@ off the live layout, one sound per stage.
 
 ₵250 buys a **`card_foil_sleeve` item** into your inventory. It is an ordinary item — carryable,
 droppable, giftable, storable — and it **holds no result**.
+
+**The machine offers to tear it for you, and only offers.** The moment the sleeve lands in the tray
+the panel's TEAR button takes the primary style and the vend's log line carries a clickable
+`openpack` — a player who bought by typing never sees the cabinet's buttons, so the offer has to
+exist in both places. It stays an offer: nothing auto-opens, the panel doesn't close itself, and
+buying a second sleeve is one click away where it always was. Carrying a sealed sleeve out of the
+room is the whole reason the roll happens at the tear.
 
 **The coil decides the sleeve; the pool decides the faces.** Each sleeve on a coil has a **seed**
 fixed when it was loaded, derived from (process salt, machine, game date, coil, depth) and stored on
