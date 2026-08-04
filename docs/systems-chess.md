@@ -155,9 +155,11 @@ knight's head and the king's cross are extruded polygons on a lathed base, plus 
 battlements and the queen's coronet as rings of small blocks. **The knight is the one piece
 whose orientation matters**, so it's the one piece turned to face down the board.
 
-**Rendering is on demand, never a rAF loop.** The scene is static between moves, so it
-redraws on a camera change or a pane update and otherwise costs nothing — that is what makes
-4000 faces in a 2D context affordable.
+**Rendering is on demand.** The scene is static between moves, so it redraws on a camera
+change or a pane update and otherwise costs nothing — that is what makes 4000 faces in a 2D
+context affordable. There are exactly **two** exceptions, both of them things that must keep
+moving after the input that started them: a piece dangling from the cursor, and a king in
+check. Each runs its own rAF loop and **each stops itself** the moment it settles.
 
 **Playing and looking are separate gestures**, and conflating them is a bug, not a
 simplification: when one press both picked a piece up and swung the camera, the few pixels
@@ -172,6 +174,69 @@ is the keyboard-free route to the same camera and the way back from a wild orbit
 
 The camera lives in `localStorage` and **survives the remount that happens on every single
 move**, which is the thing that would be maddening to lose.
+
+### Picking a piece up
+
+Because the camera is on middle and right, **left is free for the whole duration of a press**
+— so a piece comes off the board and **dangles from the cursor**, trailing the hand and
+swinging when it stops. It also *removed* a rule: a left-press that wandered more than a few
+pixels used to be discarded, which is exactly the gesture a player makes when they try to
+drag.
+
+The drag **decides nothing**. Mousedown fires the same `chesspick` a click sends, and the
+squares the server marks `chessmove` in reply are the only ones the drop can land on. Drop
+anywhere else and the piece goes back down via the selected square's *own* `chesspick none`
+— a verb the server wrote, not one this file invents. Drop where it started and nothing is
+sent at all: that's a click, and a click leaves the piece picked up with its targets showing.
+
+Three things are load-bearing:
+
+- **The drag is module state, not input state.** The server's reply to your own pickup
+  remounts the entire pane, rebuilding the canvas and every listener. Anything living in the
+  input closure would drop the piece out of your hand at the exact moment the board lit up
+  its targets — so the drag survives the remount and re-adopts the fresh listeners, and the
+  mount cancels it only if the piece is genuinely gone.
+- **A drop can beat the round trip.** A fast drag releases before the server has said where
+  the piece may go, and resolving that against a board with no targets on it would silently
+  eat a move the player made correctly. So a drop that lands before the update is **held**
+  and cashed against the board that arrives.
+- **The swing is a pendulum, not an animation curve.** The target tilt is proportional to
+  hand *speed* and a spring chases it, so the overshoot when the hand stops is what reads as
+  weight. It rotates about a hang point above the piece's crown — rotating about the base
+  would be a piece leaning, not a piece swinging. A dashed tether to the plane is the only
+  depth cue something not touching anything has.
+
+The inverse projection this needs is **closed-form for a point of known height**, which is
+all a drag requires: the hand carries the piece on a fixed horizontal plane, so the cursor
+ray meets it exactly once and the answer falls out of `project()`'s own algebra.
+
+### Check and checkmate
+
+The two moments in a chess game that are **events rather than positions**, and the flat board
+could only ever colour a square for them.
+
+**Check** throws a red shockwave off the king's square and puts a hard shudder through the
+king itself, rocking on its own foot. It's a warning, so it's over in about a second and the
+standing position is untouched. It fires **once per new check** — re-rendering the same
+position (a chat line, a resize, the opponent's clock) must not re-bang the drum.
+
+**Checkmate topples the king.** It is the oldest gesture in the game and the one thing a 3D
+piece can do that a 2D one cannot: it pivots on the contact edge of its own base and falls
+toward the near edge of the board — toward its own player, the way a resigning hand tips a
+king — accelerating rather than eased, with one small bounce when it lands. Unlike the check
+shudder it is **permanent**: the loop stops with the king down, because the position it fell
+out of is the record and a king that stood back up would be erasing it. A red wash comes up
+over the board with it, painted as a screen-space quad rather than emitted into the board
+sink — one quad spanning all 64 squares has an average depth *identical* to the average of
+the squares, which is the same coin-flip sort that once cost the board its checkerboard.
+
+**How it ended is a class, not a sentence.** `statusHTML` marks a checkmate with
+`chess-status-mate`, because a king can be standing in check when its player *resigns* —
+"the king is attacked and the game is over" is not the same fact as "checkmate", and the
+board must not topple for the first one.
+
+The swing, the shudder and the topple are the same operation — a rotation about a pivot —
+about three different points, which is the whole reason the second and third were cheap.
 
 **The set is lit metal, not painted plastic**, and three things do that work. The **ambient
 floor is low** (0.10), so faces turned away from the key light fall into the dark instead of
@@ -194,6 +259,15 @@ the black army entirely at this brightness.
 looking at it" has no coverage at all. It draws a full board with every piece type, both
 colours and every square state across six camera angles including both pitch clamps, and
 checks that picking returns a square. It proves the board *draws*, not that it looks right.
+
+It also drives the two moving parts, because neither is reachable from the DOM. The **drag**
+is round-tripped against the forward projection — unproject a screen point at board height
+and it must land inside the square picking says is under it — then a hand is dragged across
+the board and the pendulum swung to rest, asserting it stays finite, stays inside its clamp,
+and that the piece is drawn *once* (in hand, not also standing). The **effects** are scrubbed
+across their whole timeline a frame at a time, since the topple is the one transform here
+that moves through a full right angle and can invert geometry; the assertions are that the
+shockwave is really in the face sink and that the mated king actually moved.
 
 Selection is **server-side and two-step**: `chesspick e2` marks a piece and re-renders with
 its legal destinations lit, then a destination click sends the whole move. The extra round

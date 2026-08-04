@@ -248,7 +248,13 @@ function railHTML(game, flipped, edge) {
 
 function statusHTML(table, game, viewerId) {
   if (game.isOver()) {
-    return `<div class="chess-status chess-status-over">${esc(game.resultLine())}</div>`;
+    // How it ended is carried as a CLASS, not left for a reader to recover from
+    // the sentence. The 3D board topples the losing king on a checkmate and must
+    // not do it on a resignation — and a king can be standing in check when its
+    // player resigns, so "the king is attacked and the game is over" is not the
+    // same fact as "checkmate".
+    const mate = game.result?.reason === 'checkmate' ? ' chess-status-mate' : '';
+    return `<div class="chess-status chess-status-over${mate}">${esc(game.resultLine())}</div>`;
   }
   const actor = game.getCurrentActor();
   const mine = actor?.playerId === viewerId;

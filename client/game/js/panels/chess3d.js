@@ -32,9 +32,11 @@
 // polygon, so the sink holds plain geometry and skips the closure allocation —
 // there are ~4000 of them per frame.
 //
-// Rendering is ON DEMAND, never a rAF loop: the scene is static between moves,
-// so it redraws when the camera moves or the pane changes and otherwise costs
-// nothing. That's what makes 4000 faces in a 2D context affordable.
+// Rendering is ON DEMAND: the scene is static between moves, so it redraws when
+// the camera moves or the pane changes and otherwise costs nothing. That's what
+// makes 4000 faces in a 2D context affordable. The ONE exception is a piece in
+// hand — a pendulum has to keep integrating after the input that started it, so
+// dragging runs a rAF loop that stops itself the moment the swing settles.
 
 const RADIAL = 12;          // radial segments per lathe — 12 is round enough at this size
 const BOARD = 8;
@@ -98,6 +100,52 @@ let frameQueued = false;
 let resizeObs = null;
 let detachInput = null;
 
+// The piece currently hanging off the cursor, or null. MODULE state, not input
+// state, and that's load-bearing: the server's reply to your own pickup arrives
+// mid-drag and remounts the whole pane (see mountChess3D), so anything living in
+// attachInput's closure would drop the piece out of your hand at the exact
+// moment the board lit up its targets.
+let drag = null;
+// A drop that landed before the server had told us where the piece may go. See
+// resolveDrop — the drag is faster than the round trip, and losing the move to
+// that race is the one failure mode a drag has that a click doesn't.
+let pendingDrop = null;
+let swayRaf = 0;
+
+// How high above the board the hand carries a piece, in squares.
+const HOVER = 1.55;
+// The pendulum. A piece hangs from a point just above its own crown and trails
+// the hand: the target tilt is proportional to hand SPEED, and a spring chases
+// it, so the overshoot on stopping is what actually reads as weight. Tuned for
+// a swing that settles in well under a second — this is a chess piece on a
+// short string, not a wrecking ball.
+const SWAY_PER_SPEED = 0.085;   // radians per square/second of hand speed
+const SWAY_MAX = 0.40;          // radians — past this it reads as broken, not heavy
+const SWAY_STIFF = 105;
+const SWAY_DAMP = 9.5;
+const SWAY_VEL_DECAY = 9;       // how fast the hand's remembered speed bleeds off
+const SWAY_REST = 0.0025;       // below this the swing is over and the loop stops
+
+// The one thing on the board that ANIMATES ITSELF. Check and checkmate are the
+// two moments in a chess game that are events rather than positions, and the
+// flat board could only ever colour a square for them.
+//
+//   • CHECK — a red shockwave off the king's square and a hard shudder through
+//     the king itself. It's a warning, so it's over in under a second and
+//     leaves the standing position alone.
+//   • CHECKMATE — the king TOPPLES. It's the oldest gesture in the game and the
+//     only thing a 3D piece can do that a 2D one can't, and unlike the check
+//     shudder it is PERMANENT: the king stays down for as long as the finished
+//     board is on screen, because the position it fell out of is the record.
+let fx = null;              // { kind:'check'|'mate', x, y, t0, t }
+let fxRaf = 0;
+let lastCheck = null;       // the checked square last seen, so a NEW check fires once
+let lastMate = false;
+const CHECK_FX_SECS = 1.1;
+const MATE_FALL_DELAY = 0.42;   // the ring lands first, then the king goes
+const MATE_FALL_SECS = 0.8;
+const HALF_PI = Math.PI / 2;
+
 function loadCam() {
 	let saved = {};
 	try { saved = JSON.parse(localStorage.getItem(CAM_KEY)) || {}; } catch { /* first run */ }
@@ -159,7 +207,14 @@ function parsePane(pane) {
 			}
 		}
 	});
-	return { squares, pieces };
+	return {
+		squares, pieces,
+		// The ending, straight off the status line's class. A resignation is over
+		// without being mate, and a king can be standing in check when its player
+		// resigns — so these are two separate facts and the server states both.
+		over: !!pane.querySelector('.chess-status-over'),
+		mate: !!pane.querySelector('.chess-status-mate'),
+	};
 }
 
 // Team colours come from the pane's own CSS variables, so the board still tracks
@@ -264,17 +319,179 @@ function buildFaces() {
 	// Each piece gets its own face list. The plinth and contact shadow go into the
 	// BOARD list instead — they lie on the plane, so they belong to it.
 	for (const pc of scene.pieces) {
+		// The piece in your hand isn't standing anywhere. It's drawn last, in its
+		// own pass, because a dangling piece is over the board rather than on it
+		// and has no honest depth to sort by.
+		if (drag && pc.x === drag.from.x && pc.y === drag.from.y) continue;
 		const own = [];
-		pieceFaces(pc, into(own), face);
+		const emit = into(own);
+		// A king under fire moves. The transform wraps the emitter rather than
+		// being threaded through pieceFaces, the same trick the dragged piece uses.
+		const xf = fxTransform(pc);
+		pieceFaces(pc, xf ? (pts, fill, opts) => emit(pts.map(xf), fill, opts) : emit, face);
 		pieces.push({ depth: project([pc.x + 0.5, pc.y + 0.5, 0])[2], faces: own });
 	}
-	return { slab, board, pieces };
+	fxBoardFaces(face);
+
+	const ghost = drag ? ghostFaces(into, face) : null;
+	return { slab, board, pieces, ghost };
 }
 
-function discPts(cx, cy, r, z) {
+// Turn a point about a PIVOT: first about the world Y axis by `b`, then about
+// the world X axis by `a`, with `zOff` lifting the source geometry beforehand.
+// One helper, three users — the swing of a carried piece, the shudder of a king
+// in check, and the topple of a mated one are the same operation about three
+// different pivots, and that is the whole reason any of them was cheap to add.
+function rotator(pivot, a, b, zOff = 0) {
+	const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+	return p => {
+		const lx = p[0] - pivot[0], ly = p[1] - pivot[1], lz = p[2] + zOff - pivot[2];
+		const x1 = lx * cb + lz * sb;
+		const z1 = -lx * sb + lz * cb;
+		return [pivot[0] + x1, pivot[1] + ly * ca - z1 * sa, pivot[2] + ly * sa + z1 * ca];
+	};
+}
+
+// The dangling piece, plus the marks on the board that say where it would land.
+//
+// The piece geometry is the ORDINARY piece geometry: `pieceFaces` builds a lathe
+// around (x+0.5, y+0.5), so a fractional x/y puts it anywhere, and the swing is a
+// transform wrapped around the emitter rather than an argument threaded through
+// the dozen places that emit a point.
+function ghostFaces(into, boardFace) {
+	const pc = { x: drag.wx - 0.5, y: drag.wy - 0.5, type: drag.type, white: drag.white, checked: false, lifted: false };
+	const top = PROFILES[drag.type][PROFILES[drag.type].length - 1][1];
+	const hang = top + 0.10;           // the string is tied just above the crown
+	const zOff = HOVER - hang;
+	// Rotate about the hang point, not the base — that's the difference between
+	// a piece swinging and a piece leaning.
+	const swing = rotator([drag.wx, drag.wy, HOVER], drag.tiltX, drag.tiltY, zOff);
+
+	const faces = [];
+	const raw = into(faces);
+	const swung = (pts, fill, opts) => raw(pts.map(swing), fill, opts);
+	// The board emitter is stubbed out: the contact shadow and docking pad belong
+	// to a piece that's standing on a square, and this one isn't.
+	pieceFaces(pc, swung, () => {});
+
+	// Where it would land. The drop square gets a ring; an illegal one gets
+	// nothing but the tether, so "nowhere to put this" reads as an absence.
+	const sq = drag.dropSq;
+	if (sq) {
+		boardFace(discPts(sq.x + 0.5, sq.y + 0.5, 0.42, 0.012), 'rgba(90,255,170,0.20)',
+			{ stroke: '#5affaa', strokeAlpha: 1, glow: '#5affaa' });
+	}
+	// A contact shadow under the hand, on the plane, wherever the hand actually is.
+	boardFace(discPts(drag.wx, drag.wy, 0.30, 0.005), 'rgba(0,0,0,0.5)', { soft: true });
+	return { faces, foot: [drag.wx, drag.wy] };
+}
+
+// ── Check and checkmate ──────────────────────────────────────────────────────
+
+// What the king itself is doing. Null for every other piece and for every quiet
+// position, so the whole feature costs nothing until the moment it exists.
+function fxTransform(pc) {
+	if (!fx || pc.x !== fx.x || pc.y !== fx.y) return null;
+	const t = fx.t;
+	const cx = pc.x + 0.5, cy = pc.y + 0.5;
+
+	if (fx.kind === 'check') {
+		if (t > CHECK_FX_SECS) return null;
+		// A jolt through the piece, rocking on its own foot and dying away fast.
+		// Two frequencies slightly apart so it reads as a shudder rather than as
+		// a wobble on one axis.
+		const amp = 0.15 * Math.exp(-4.6 * t);
+		return rotator([cx, cy, 0], amp * Math.sin(t * 34), amp * 0.7 * Math.sin(t * 29 + 1.1));
+	}
+
+	// The topple. It pivots on the contact edge of its own base and falls toward
+	// the near edge of the board — toward its own player, which is the direction
+	// a resigning hand tips a king in.
+	const p = (t - MATE_FALL_DELAY) / MATE_FALL_SECS;
+	if (p <= 0) return null;
+	// Accelerating, not eased: it's falling, and an ease-out at the bottom would
+	// read as being lowered.
+	let th = HALF_PI * Math.min(1, p) ** 2;
+	if (p >= 1) {
+		// It lands on something hard. One small bounce, then it's over for good.
+		const b = t - MATE_FALL_DELAY - MATE_FALL_SECS;
+		th = HALF_PI - 0.09 * Math.exp(-8 * b) * Math.abs(Math.sin(b * 20));
+	}
+	return rotator([cx, cy - PROFILES[pc.type][0][0], 0], th, 0);
+}
+
+// The shockwave, on the board plane, so pieces stand in front of it.
+function fxBoardFaces(face) {
+	if (!fx) return;
+	const t = fx.t;
+	const cx = fx.x + 0.5, cy = fx.y + 0.5;
+	// [launch delay, duration, final radius] — one entry per ring. Check throws
+	// two quick small ones; mate throws three that run off the edge of the board.
+	const rings = fx.kind === 'check'
+		? [[0, 0.62, 2.4], [0.18, 0.62, 1.9]]
+		: [[0, 1.5, 6.2], [0.3, 1.5, 4.8], [0.6, 1.5, 3.4]];
+	for (const [t0, dur, rmax] of rings) {
+		const p = (t - t0) / dur;
+		if (p <= 0 || p >= 1) continue;
+		const r = 0.36 + (rmax - 0.36) * (1 - (1 - p) ** 2.2);
+		face(discPts(cx, cy, r, 0.014, 40), null,
+			{ stroke: `rgba(255,60,80,${((1 - p) * 0.85).toFixed(3)})`, strokeAlpha: 1, glow: '#ff4060', glowSize: 14 });
+	}
+}
+
+function startFx(kind, x, y) {
+	fx = { kind, x, y, t0: performance.now(), t: 0 };
+	if (!fxRaf) fxRaf = requestAnimationFrame(fxTick);
+	requestDraw();
+}
+
+function fxTick(t) {
+	fxRaf = 0;
+	if (!fx) return;
+	fx.t = (t - fx.t0) / 1000;
+	requestDraw();
+	// A check burns out and the board goes back to normal. A checkmate does NOT:
+	// the loop stops once the king has finished falling, and the frozen last
+	// frame IS the final position — a king that stood back up after the game
+	// ended would be undoing the only record of how it finished.
+	const done = fx.kind === 'check'
+		? fx.t > CHECK_FX_SECS
+		: fx.t > MATE_FALL_DELAY + MATE_FALL_SECS + 1.4;
+	if (done) {
+		if (fx.kind === 'check') fx = null;
+		requestDraw();
+		return;
+	}
+	fxRaf = requestAnimationFrame(fxTick);
+}
+
+function stopFx() {
+	fx = null;
+	if (fxRaf) cancelAnimationFrame(fxRaf);
+	fxRaf = 0;
+}
+
+// Fired off the board that just arrived. A check fires ONCE per new check —
+// re-rendering the same position (a chat line, a resize, the opponent's clock)
+// must not re-bang the drum.
+function syncFx() {
+	const king = scene.squares.find(s => s.check) || null;
+	const key = king?.alg || null;
+	if (scene.mate && king) {
+		if (!lastMate || fx?.kind !== 'mate') startFx('mate', king.x, king.y);
+	} else if (!scene.over && key && key !== lastCheck) {
+		startFx('check', king.x, king.y);
+	} else if (!scene.mate && fx?.kind === 'mate') {
+		stopFx();      // a new game on the same table — stand the king back up
+	}
+	lastCheck = key;
+	lastMate = scene.mate;
+}
+
+function discPts(cx, cy, r, z, n = 10) {
 	const pts = [];
-	for (let i = 0; i < 10; i++) {
-		const t = (i / 10) * Math.PI * 2;
+	for (let i = 0; i < n; i++) {
+		const t = (i / n) * Math.PI * 2;
 		pts.push([cx + Math.cos(t) * r, cy + Math.sin(t) * r, z]);
 	}
 	return pts;
@@ -605,7 +822,7 @@ function draw() {
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, w, h);
 
-	const { slab, board, pieces } = buildFaces();
+	const { slab, board, pieces, ghost } = buildFaces();
 
 	// Three passes, back to front, and every boundary between them is an ordering
 	// FACT rather than a sort: the slab is under the squares, the squares are
@@ -617,6 +834,26 @@ function draw() {
 	board.sort((a, b) => b.depth - a.depth);
 	for (const poly of board) paintFace(poly);
 
+	// The mate wash: the board's own light going red under the pieces. Painted
+	// as a SCREEN-SPACE quad over the finished board rather than emitted into the
+	// board sink, because one quad spanning all 64 squares has an average depth
+	// identical to the average of the squares — the exact coin-flip sort that
+	// once made the slab paint over the whole checkerboard.
+	if (fx?.kind === 'mate') {
+		const a = Math.min(0.20, Math.max(0, fx.t - MATE_FALL_DELAY) * 0.30);
+		if (a > 0.002) {
+			const corners = [[0, 0, 0.02], [BOARD, 0, 0.02], [BOARD, BOARD, 0.02], [0, BOARD, 0.02]].map(project);
+			ctx.save();
+			ctx.fillStyle = `rgba(190,25,45,${a.toFixed(3)})`;
+			ctx.beginPath();
+			ctx.moveTo(corners[0][0], corners[0][1]);
+			for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+			ctx.closePath();
+			ctx.fill();
+			ctx.restore();
+		}
+	}
+
 	// The pieces, far to near BY PIECE — exact for objects standing on a plane —
 	// then face by face inside each one.
 	pieces.sort((a, b) => b.depth - a.depth);
@@ -625,7 +862,33 @@ function draw() {
 		for (const poly of pc.faces) paintFace(poly);
 	}
 
+	// The piece in hand goes on top of everything, unconditionally. It is between
+	// the player and the board in the fiction and on the screen, and sorting it
+	// against the set would put it behind a pawn it's being carried over.
+	if (ghost) {
+		drawTether(ghost.foot);
+		ghost.faces.sort((a, b) => b.depth - a.depth);
+		for (const poly of ghost.faces) paintFace(poly);
+	}
+
 	drawCoords();
+}
+
+// The line from the hand down to the plane. Without it a piece held over the
+// far half of the board is ambiguous with a piece standing on the near half —
+// there's no other depth cue for something that isn't touching anything.
+function drawTether([wx, wy]) {
+	const a = project([wx, wy, HOVER]);
+	const b = project([wx, wy, 0.01]);
+	ctx.save();
+	ctx.setLineDash([4, 5]);
+	ctx.strokeStyle = drag?.dropSq ? 'rgba(90,255,170,0.55)' : 'rgba(140,220,235,0.28)';
+	ctx.lineWidth = 1;
+	ctx.beginPath();
+	ctx.moveTo(a[0], a[1]);
+	ctx.lineTo(b[0], b[1]);
+	ctx.stroke();
+	ctx.restore();
 }
 
 // Rank and file letters, painted flat on the board's rim so they turn with it.
@@ -681,6 +944,144 @@ function pickSquare(px, py) {
 	return best;
 }
 
+function pieceAt(x, y) {
+	return scene?.pieces.find(p => p.x === x && p.y === y) || null;
+}
+
+// ── Dragging ─────────────────────────────────────────────────────────────────
+
+// The inverse of project(), for the one case that has a closed form: a point of
+// KNOWN height. That's all a drag needs — the hand carries the piece on a fixed
+// horizontal plane at HOVER, so the cursor ray meets it exactly once and the
+// answer falls out of project()'s own algebra rather than out of a search.
+function unproject(px, py, dz) {
+	const u = px - canvas.clientWidth / 2;
+	const v = (canvas.clientHeight / 2 + canvas.clientHeight * 0.06) - py;
+	const ce = Math.cos(cam.pitch), se = Math.sin(cam.pitch);
+	const den = v * ce - cam.f * se;
+	// Degenerate only if the plane is edge-on to the camera, which the pitch
+	// clamp forbids — but a divide that can produce Infinity is worth the guard.
+	if (Math.abs(den) < 1e-6) return null;
+	const y1 = (cam.f * dz * ce + v * dz * se - v * cam.dist) / den;
+	const depth = y1 * ce - dz * se + cam.dist;
+	if (depth < 0.3) return null;
+	const x1 = (u * depth) / cam.f;
+	const ca = Math.cos(cam.yaw), sa = Math.sin(cam.yaw);
+	return [4 + x1 * ca - y1 * sa, 4 + x1 * sa + y1 * ca];
+}
+
+// Picking a piece up. The SELECT still goes to the server immediately — this is
+// the same `chesspick` a click sends, and the targets that come back are the
+// only squares the drop is allowed to land on. The drag is presentation over
+// the two-step the server already runs; the client still computes no legality.
+function startDrag(sq, pc, px, py) {
+	const at = unproject(px, py, HOVER) || [sq.x + 0.5, sq.y + 0.5];
+	drag = {
+		from: { x: sq.x, y: sq.y },
+		type: pc.type, white: pc.white,
+		wx: at[0], wy: at[1],
+		tiltX: 0, tiltY: 0, velX: 0, velY: 0, handX: 0, handY: 0,
+		dropSq: null, lastT: 0, fired: false,
+	};
+	// `chesspick none` means this piece is ALREADY the selected one — its targets
+	// are on screen and firing it again would put it down before we'd moved.
+	if (sq.cmd && sq.cmd !== 'chesspick none') fireCmd(sq.cmd, null);
+	if (canvas) canvas.style.cursor = 'grabbing';
+	requestDraw();
+}
+
+function moveDrag(px, py) {
+	if (!drag) return;
+	const at = unproject(px, py, HOVER);
+	if (!at) return;
+	const now = performance.now();
+	const dt = drag.lastT ? Math.min(0.05, (now - drag.lastT) / 1000) : 0;
+	if (dt > 0.001) {
+		// Blended rather than raw: a mouse delivers movement in bursts, and the
+		// pendulum driven off a raw per-event speed jitters instead of swinging.
+		drag.handX = drag.handX * 0.45 + ((at[0] - drag.wx) / dt) * 0.55;
+		drag.handY = drag.handY * 0.45 + ((at[1] - drag.wy) / dt) * 0.55;
+	}
+	drag.lastT = now;
+	drag.wx = at[0]; drag.wy = at[1];
+	// The drop square is whatever the SERVER marked as reachable under the hand.
+	const sq = pickSquare(px, py);
+	drag.dropSq = sq?.cmd?.startsWith('chessmove') ? sq : null;
+	startSway();
+	requestDraw();
+}
+
+// The pendulum integrates on its own clock, because the swing has to keep moving
+// (and settle) after the hand stops — the whole point of overshoot is that it
+// outlives the input that caused it.
+function startSway() {
+	if (swayRaf || !drag) return;
+	drag.lastT = drag.lastT || performance.now();
+	swayRaf = requestAnimationFrame(sway);
+}
+
+function sway(t) {
+	swayRaf = 0;
+	if (!drag) return;
+	const dt = Math.min(0.05, Math.max(0.001, (t - (drag.swayT || t)) / 1000));
+	drag.swayT = t;
+	// The hand's remembered speed bleeds off, so a hand that stops moving pulls
+	// the target back to vertical and the spring carries the piece home.
+	const bleed = Math.exp(-SWAY_VEL_DECAY * dt);
+	drag.handX *= bleed; drag.handY *= bleed;
+	const clamp = a => Math.max(-SWAY_MAX, Math.min(SWAY_MAX, a));
+	// Signs: the piece hangs BELOW the hang point, so a positive tilt about Y
+	// throws its foot in −x. Moving the hand toward +x should leave the foot
+	// behind, which is what makes it trail rather than lead.
+	const tgtY = clamp(drag.handX * SWAY_PER_SPEED);
+	const tgtX = clamp(-drag.handY * SWAY_PER_SPEED);
+	const step = (ang, vel, tgt) => {
+		vel += (tgt - ang) * SWAY_STIFF * dt;
+		vel *= Math.exp(-SWAY_DAMP * dt);
+		return [ang + vel * dt, vel];
+	};
+	[drag.tiltX, drag.velX] = step(drag.tiltX, drag.velX, tgtX);
+	[drag.tiltY, drag.velY] = step(drag.tiltY, drag.velY, tgtY);
+	requestDraw();
+	const moving = Math.abs(drag.tiltX) + Math.abs(drag.tiltY) > SWAY_REST
+		|| Math.abs(drag.velX) + Math.abs(drag.velY) > SWAY_REST * 4;
+	if (moving) swayRaf = requestAnimationFrame(sway);
+}
+
+function endDrag() {
+	drag = null;
+	if (swayRaf) cancelAnimationFrame(swayRaf);
+	swayRaf = 0;
+	if (canvas) canvas.style.cursor = 'grab';
+	requestDraw();
+}
+
+// Letting go. Three outcomes, and the third is the interesting one.
+function resolveDrop(px, py, ev) {
+	const from = drag.from;
+	// Did the board we're looking at come back from OUR pickup yet? A fast drag
+	// beats the round trip, and dropping on a square the server hasn't marked
+	// would silently cancel a move the player made correctly. So the drop waits
+	// for the update instead (see mountChess3D).
+	const settled = scene.squares.some(s => s.selected && s.x === from.x && s.y === from.y);
+	const sq = pickSquare(px, py);
+	endDrag();
+	if (!sq) { cancelPick(ev); return; }
+	if (!settled) { pendingDrop = { x: sq.x, y: sq.y }; return; }
+	if (sq.cmd?.startsWith('chessmove')) { fireCmd(sq.cmd, ev); return; }
+	// Dropped back where it came from: that's a click, and a click leaves the
+	// piece picked up with its targets showing.
+	if (sq.x === from.x && sq.y === from.y) return;
+	cancelPick(ev);
+}
+
+// Put it back down. The deselect verb is the SELECTED square's own command — the
+// server writes `chesspick none` there — rather than a string this file invents.
+function cancelPick(ev) {
+	const sel = scene?.squares.find(s => s.selected && s.cmd);
+	if (sel) fireCmd(sel.cmd, ev);
+}
+
 // ── Mount ────────────────────────────────────────────────────────────────────
 
 // Called after every table_update. The pane is brand new markup each time, so
@@ -696,6 +1097,20 @@ export function mountChess3D(paneRoot) {
 	scene = parsed;
 	colors = readColors(pane);
 	if (!cam) cam = loadCam();
+
+	syncFx();
+
+	// A drag survives the remount it caused — but only if the piece is still
+	// there. If the server moved or refused it, the hand is empty.
+	if (drag && !pieceAt(drag.from.x, drag.from.y)) endDrag();
+	// A drop that beat the server's reply, now cashed against the board that
+	// finally arrived.
+	if (pendingDrop) {
+		const sq = scene.squares.find(s => s.x === pendingDrop.x && s.y === pendingDrop.y);
+		pendingDrop = null;
+		if (sq?.cmd?.startsWith('chessmove')) fireCmd(sq.cmd, null);
+		else cancelPick(null);
+	}
 
 	wrap.innerHTML = '';
 	wrap.classList.add('chess-3d');
@@ -713,6 +1128,13 @@ export function mountChess3D(paneRoot) {
 }
 
 export function unmountChess3D() {
+	if (drag) endDrag();
+	pendingDrop = null;
+	stopFx();
+	// Deliberately NOT cleared: coming back to a board that is still in check
+	// should say so again, because you weren't looking the first time.
+	lastCheck = null;
+	lastMate = false;
 	detachInput?.();
 	resizeObs?.disconnect();
 	resizeObs = null;
@@ -740,7 +1162,10 @@ const TAP_SLOP = 10;
 // is judged by distance, not by which element it landed on — there is only one
 // element, and it's a canvas.
 function attachInput(pane) {
-	let mode = null;         // 'orbit' | 'play' | null
+	// A drag in flight re-adopts the fresh listeners: every table_update rebuilds
+	// this closure, and a mode that reset to null here would leave the piece
+	// hanging with nothing listening for the release.
+	let mode = drag ? 'drag' : null;   // 'orbit' | 'play' | 'drag' | null
 	let moved = 0, lx = 0, ly = 0;
 	let pinchDist = 0;
 
@@ -761,8 +1186,15 @@ function attachInput(pane) {
 		if (e.button === 0) {
 			// Left on a playable square is a move, full stop — the camera doesn't
 			// get a vote. Left anywhere else falls through to orbit.
-			const sq = pickSquare(...atCanvas(e.clientX, e.clientY));
-			mode = sq?.cmd ? 'play' : 'orbit';
+			const at = atCanvas(e.clientX, e.clientY);
+			const sq = pickSquare(...at);
+			const pc = sq && pieceAt(sq.x, sq.y);
+			// One of your own pieces comes off the board into your hand. A capture
+			// square carries `chessmove` and stays an ordinary click.
+			if (sq?.cmd?.startsWith('chesspick') && pc) {
+				startDrag(sq, pc, ...at);
+				mode = 'drag';
+			} else mode = sq?.cmd ? 'play' : 'orbit';
 		} else {
 			mode = 'orbit';    // middle and right are always the camera
 			e.preventDefault();
@@ -779,12 +1211,20 @@ function attachInput(pane) {
 		if (!mode) return;
 		moved += Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
 		if (mode === 'orbit') orbitTo(e.clientX, e.clientY);
-		else { lx = e.clientX; ly = e.clientY; }
+		else {
+			lx = e.clientX; ly = e.clientY;
+			if (mode === 'drag') moveDrag(...atCanvas(e.clientX, e.clientY));
+		}
 	};
 	const onWinUp = e => {
 		if (!mode) return;
 		const wasPlay = mode === 'play';
+		const wasDrag = mode === 'drag';
 		mode = null;
+		if (wasDrag) {
+			if (drag) resolveDrop(...atCanvas(e.clientX, e.clientY), e);
+			return;
+		}
 		if (!wasPlay) { saveCam(); return; }
 		// A press that started on a piece stays a move even if the hand wandered:
 		// the alternative is a player who "clicked" and nothing happened.
@@ -905,3 +1345,27 @@ export const __smokePick = (px, py) => pickSquare(px, py);
 // nothing about a merged sink LOOKS wrong until you orbit — so the smoke asserts
 // the split directly.
 export const __smokeFaces = () => buildFaces();
+// The drag, driven the way a hand drives it. Exported because the swing runs off
+// a rAF clock and a pointer that isn't in the room — there is no way to reach it
+// from the DOM, and an untested pendulum is a pendulum that divides by zero on
+// the first frame.
+export const __smokeDrag = {
+	start: (fx, fy, px, py) => {
+		const sq = scene.squares.find(s => s.x === fx && s.y === fy);
+		const pc = pieceAt(fx, fy);
+		if (sq && pc) startDrag(sq, pc, px, py);
+		return !!drag;
+	},
+	move: (px, py) => { moveDrag(px, py); return drag ? [drag.wx, drag.wy] : null; },
+	swing: t => { sway(t); return drag ? [drag.tiltX, drag.tiltY] : null; },
+	end: () => endDrag(),
+	unproject: (px, py, z) => unproject(px, py, z),
+};
+// Check and checkmate run on a clock nothing in a test can wait for, so the
+// clock is the seam: force the effect and scrub it to an instant.
+export const __smokeFx = (kind, x, y, t) => {
+	startFx(kind, x, y);
+	fx.t = t;
+	return fx;
+};
+export const __smokeFxOff = () => stopFx();

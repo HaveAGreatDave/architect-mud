@@ -120,9 +120,18 @@ async function main() {
 
 	// rAF has to actually run — the renderer draws in the callback, so a stub
 	// that swallows it would test nothing at all.
-	let pending = null;
-	globalThis.requestAnimationFrame = fn => { pending = fn; return 1; };
-	const flush = () => { const fn = pending; pending = null; fn?.(); };
+	// A QUEUE, not a single slot: a drag has two callers in flight at once — the
+	// redraw and the pendulum's next frame — and a stub that kept only the last
+	// one would swallow the draw and leave the renderer's frameQueued latched on,
+	// which looks exactly like a board that stopped drawing.
+	let pending = [];
+	let nextRaf = 1;
+	globalThis.requestAnimationFrame = fn => { pending.push(fn); return nextRaf++; };
+	globalThis.cancelAnimationFrame = () => {};
+	// Callbacks get a timestamp, because a real rAF does and the pendulum
+	// differences one against the last.
+	let frameT = 1000;
+	const flush = () => { const q = pending; pending = []; for (const fn of q) fn(frameT += 16); };
 
 	const errs = [];
 	const mod = await import('../../client/game/js/panels/chess3d.js');
@@ -171,6 +180,88 @@ async function main() {
 		if (pieces.some(p => !p.faces?.length)) errs.push('sinks: a piece group came back with no faces');
 	} catch (e) {
 		errs.push(`sinks: ${e.message}`);
+	}
+
+	// The drag. Three things can only fail here: the unproject (a closed-form
+	// inverse of the projection, which divides by a term that goes to zero at a
+	// camera angle the pitch clamp is supposed to forbid), the swung geometry
+	// (an extra transform wrapped around every point the piece emits), and the
+	// pendulum's first frame, whose dt is a difference against a clock that has
+	// not been read yet.
+	try {
+		mod.__smokeView('reset');
+		// Round-trip against the forward projection, which is the only honest
+		// check on a hand-solved inverse: unproject a screen point at board
+		// height and it must land inside the square picking says is under it.
+		const under = mod.__smokePick(450, 300);
+		const world = mod.__smokeDrag.unproject(450, 300, 0);
+		if (!under || !world) errs.push('drag: unproject came back null at the default camera');
+		else if (world[0] < under.x || world[0] > under.x + 1 || world[1] < under.y || world[1] > under.y + 1) {
+			errs.push(`drag: unproject landed at ${world.map(n => n.toFixed(2))}, outside the picked square ${under.alg}`);
+		}
+
+		if (!mod.__smokeDrag.start(3, 1, 450, 300)) {
+			errs.push('drag: could not pick a piece up off its own square');
+		} else {
+			// A hand crossing the board, then stopping — the swing has to survive
+			// both the motion and the settle.
+			for (let i = 0; i < 12; i++) mod.__smokeDrag.move(450 + i * 14, 300 - i * 6);
+			for (let i = 0; i < 40; i++) mod.__smokeDrag.swing(i * 16);
+			const tilt = mod.__smokeDrag.swing(700);
+			if (!tilt || !Number.isFinite(tilt[0]) || !Number.isFinite(tilt[1])) {
+				errs.push(`drag: the pendulum went non-finite (${tilt})`);
+			} else if (Math.abs(tilt[0]) > 0.5 || Math.abs(tilt[1]) > 0.5) {
+				errs.push(`drag: swing exceeded its clamp (${tilt[0].toFixed(2)}, ${tilt[1].toFixed(2)})`);
+			}
+			const f = mod.__smokeFaces();
+			if (!f.ghost?.faces?.length) errs.push('drag: the piece in hand drew nothing');
+			if (f.pieces.length !== 31) errs.push(`drag: ${f.pieces.length} pieces still standing — the dragged one was drawn twice`);
+			CALLS.fill = 0;
+			flush();
+			if (CALLS.fill < 500) errs.push('drag: the board did not draw with a piece in hand');
+			mod.__smokeDrag.end();
+			if (mod.__smokeFaces().pieces.length !== 32) errs.push('drag: the piece did not go back on the board');
+		}
+	} catch (e) {
+		errs.push(`drag: ${e.message}`);
+	}
+
+	// Check and checkmate. The king is transformed by a rotation about a pivot
+	// that moves through a full right angle, which is the one transform here that
+	// can invert geometry or send a point behind the camera — so scrub both
+	// effects across their whole timeline and make sure every frame still draws.
+	try {
+		for (const [kind, span] of [['check', 1.4], ['mate', 3.2]]) {
+			for (let t = 0; t <= span; t += 0.05) {
+				mod.__smokeFx(kind, 4, 0, t);
+				CALLS.fill = 0;
+				CALLS.stroke = 0;
+				flush();
+				if (CALLS.fill < 500) errs.push(`${kind} @${t.toFixed(2)}s: the board did not draw`);
+			}
+		}
+		// The shockwave has to actually be IN the scene partway through, or the
+		// loop above is asserting nothing but "it didn't throw". Counted off the
+		// face sink rather than off stroke calls, which the board itself makes
+		// hundreds of.
+		mod.__smokeFxOff();
+		const quiet = mod.__smokeFaces().board.length;
+		mod.__smokeFx('mate', 4, 0, 0.4);
+		const loud = mod.__smokeFaces().board.length;
+		mod.__smokeFxOff();
+		if (loud !== quiet + 2) errs.push(`fx: expected 2 shockwave rings on the board, got ${loud - quiet}`);
+		// And the king has to have MOVED. A topple that renders the piece exactly
+		// where it stood is the failure this whole effect would be invisible to.
+		// The black king on e8 — back rank, so y = 7.
+		const upright = JSON.stringify(mod.__smokeFaces().pieces);
+		mod.__smokeFx('mate', 4, 7, 2.0);
+		const fallen = JSON.stringify(mod.__smokeFaces().pieces);
+		mod.__smokeFxOff();
+		if (upright === fallen) errs.push('fx: the mated king did not move — the topple transform is a no-op');
+	} catch (e) {
+		errs.push(`fx: ${e.message}`);
+	} finally {
+		mod.__smokeFxOff();
 	}
 
 	try {
