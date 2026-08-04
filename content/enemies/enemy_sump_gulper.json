@@ -1,0 +1,164 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 14
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "maw",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "grants": {
+        "component": 1
+      },
+      "part": "gullet",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "body",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 40
+    },
+    {
+      "part": "left_limb",
+      "role": "mobility",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_limb",
+      "role": "mobility",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 35
+    },
+    {
+      "item": "item_gulper_roe",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 30
+    }
+  ],
+  "death_message": "The gulper deflates, and whatever it ate last flops out into the mud, unimpressed.",
+  "description": "Three feet of grey-green amphibian, mostly mouth, built on the principle that anything which fits is food and anything which does not will fit eventually. It sits in the shallows with only its eyes up. There is always something still moving in the sack of its throat.",
+  "dodge": 3,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy surges out of the shallows in a sheet of brown water.",
+      "$enemy opens a mouth that goes on considerably further than it should.",
+      "$enemy croaks once, low, and the marsh goes quiet around it."
+    ]
+  },
+  "hit": 5,
+  "hp_max": 30,
+  "id": "enemy_sump_gulper",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "item": "item_reagent_acid",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        20,
+        50
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    }
+  ],
+  "name": "sump gulper",
+  "weapon": [
+    {
+      "max": 5,
+      "min": 3,
+      "type": "kinetic"
+    },
+    {
+      "max": 3,
+      "min": 1,
+      "type": "energy"
+    }
+  ]
+}

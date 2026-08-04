@@ -1,0 +1,14 @@
+{
+  "description": "A disc of shell that grew clear instead of cloudy. Hold it up and the Basin goes very slightly the wrong colour.",
+  "flags": {},
+  "id": "item_silica_lens",
+  "name": "silica lens",
+  "tags": {
+    "description": "A disc of shell that grew clear instead of cloudy. Hold it up and the Basin goes very slightly the wrong colour.",
+    "material": true,
+    "stackable": true
+  },
+  "type": "material",
+  "value": 30,
+  "weight": 80
+}

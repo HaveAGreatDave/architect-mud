@@ -1,6 +1,61 @@
 {
-  "behavior": "patrol",
-  "behaviour_graph": {},
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "chase": {
+        "action_type": "CHASE",
+        "next": "low_hp",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "roam",
+        "ifTrue": "chase",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 25
+        },
+        "type": "condition"
+      },
+      "roam": {
+        "action_type": "ROAM",
+        "next": "loop",
+        "params": {
+          "interval_s": 12
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
   "body_parts": [
     {
       "part": "head",
@@ -52,7 +107,8 @@
       "$enemy produces sub-bass lock pulse."
     ],
     "first_strike_delay_ms": 1000,
-    "flies": true
+    "flies": true,
+    "leash_radius": 15
   },
   "hit": 1,
   "hp_max": 30,
@@ -88,8 +144,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "Architect Scout Drone",

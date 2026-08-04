@@ -50,16 +50,25 @@
       "weight": 8
     },
     {
+      "grants": {
+        "component": 1
+      },
       "part": "torso",
       "soak": {},
       "weight": 44
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "left_arm",
       "soak": {},
       "weight": 12
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "right_arm",
       "soak": {},
       "weight": 12
@@ -127,16 +136,21 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "a Redline horror",
   "weapon": [
     {
-      "max": 9,
-      "min": 4,
+      "max": 6,
+      "min": 3,
       "type": "kinetic"
+    },
+    {
+      "max": 3,
+      "min": 1,
+      "type": "energy"
     }
   ]
 }

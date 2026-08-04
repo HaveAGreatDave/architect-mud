@@ -1,0 +1,202 @@
+{
+  "behavior": "territorial",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "chase": {
+        "action_type": "CHASE",
+        "next": "low_hp",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "roam",
+        "ifTrue": "chase",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 12
+        },
+        "type": "condition"
+      },
+      "roam": {
+        "action_type": "ROAM",
+        "next": "loop",
+        "params": {
+          "interval_s": 20
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 4
+      },
+      "weight": 10
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "horns",
+      "role": "attack",
+      "soak": {
+        "kinetic": 6
+      },
+      "weight": 10
+    },
+    {
+      "part": "shoulders",
+      "soak": {
+        "kinetic": 5
+      },
+      "weight": 26
+    },
+    {
+      "part": "flank",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 28
+    },
+    {
+      "part": "hindquarter",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 16
+    },
+    {
+      "part": "legs",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 10
+    }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 40
+    },
+    {
+      "item": "item_bone_marrow",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    },
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    }
+  ],
+  "death_message": "The bull goes down on its knees first, which buys it a moment of dignity, then face-first into the hardpan, which spends it.",
+  "description": "Half a ton of hide gone hard as slate, with a hump of muscle across the shoulders and two horns that started as bone and finished as something you would pay for by the kilo. It eats the rock. Nobody has worked out how it does that, and nobody who has stood in front of one has felt it was the pressing question.",
+  "dodge": 3,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy scrapes a foreleg through the hardpan and throws up a rooster-tail of grit.",
+      "$enemy lowers its head. That is the entire warning you are getting.",
+      "$enemy bellows, and somewhere behind you a rock gives up and falls over."
+    ],
+    "first_strike_delay_ms": 1500,
+    "leash_radius": 5
+  },
+  "hit": 6,
+  "hp_max": 70,
+  "id": "enemy_rust_bull",
+  "loot_table": [
+    {
+      "item": "item_scrap_ore",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_reagent_nutrient",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "credits": [
+        40,
+        90
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "credits": [
+        200,
+        400
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "rust bull",
+  "weapon": [
+    {
+      "max": 14,
+      "min": 8,
+      "type": "kinetic"
+    }
+  ]
+}

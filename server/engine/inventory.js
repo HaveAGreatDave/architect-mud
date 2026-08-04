@@ -311,11 +311,17 @@ export async function spawnInContainer(itemId, containerId, qty = 1) {
   );
 }
 
+// Returns the new row's id, so a caller that may need to take the item back out of
+// the world later (a quest cleaning up after itself when it's abandoned) can name
+// exactly the row it created rather than guessing by item_id and zone — which would
+// also match items placed by an author or dropped by another player.
 export async function spawnOnGround(itemId, zoneId, qty = 1) {
+  const id = randomUUID();
   await query(
     'INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)',
-    [randomUUID(), groundOwner(zoneId), itemId, Math.max(1, Number(qty) || 1)]
+    [id, groundOwner(zoneId), itemId, Math.max(1, Number(qty) || 1)]
   );
+  return id;
 }
 
 // Burn one charge from a charged-pack row (item tag `pack_size` > 1, e.g. a pack

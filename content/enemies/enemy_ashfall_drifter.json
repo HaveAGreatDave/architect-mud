@@ -1,0 +1,188 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "roam",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 30
+        },
+        "type": "condition"
+      },
+      "roam": {
+        "action_type": "ROAM",
+        "next": "loop",
+        "params": {
+          "interval_s": 15
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "grants": {
+        "component": 1
+      },
+      "part": "crop",
+      "soak": {},
+      "weight": 8
+    },
+    {
+      "part": "breast",
+      "soak": {
+        "energy": 2
+      },
+      "weight": 26
+    },
+    {
+      "grants": {
+        "dodge": 2
+      },
+      "part": "left_wing",
+      "soak": {},
+      "weight": 20
+    },
+    {
+      "grants": {
+        "dodge": 2
+      },
+      "part": "right_wing",
+      "soak": {},
+      "weight": 20
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "talons",
+      "soak": {},
+      "weight": 16
+    }
+  ],
+  "butcher_difficulty": 5,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_cinder_tallow",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_rad_bile",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    }
+  ],
+  "death_message": "The drifter comes apart mid-air and arrives in several unrelated instalments.",
+  "description": "Wide, ragged, and grey to the bone, it rides the heat coming off the ash field on wings that look burnt through and somehow are not. Something in its crop glows. Whatever it eats out there, it has been eating it long enough to start giving the light back.",
+  "dodge": 8,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy banks overhead, and the ash under $player goes briefly dark.",
+      "$enemy screams once, thin and far off, and starts to drop.",
+      "$enemy beats a wingful of hot ash into $player's face."
+    ],
+    "flies": true,
+    "leash_radius": 6,
+    "radiates": true,
+    "radiation_damage": 2
+  },
+  "hit": 6,
+  "hp_max": 30,
+  "id": "enemy_ashfall_drifter",
+  "loot_table": [
+    {
+      "item": "item_glowing_scrap",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    },
+    {
+      "item": "item_reagent_nutrient",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        35,
+        80
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    }
+  ],
+  "name": "ashfall drifter",
+  "weapon": [
+    {
+      "max": 7,
+      "min": 4,
+      "type": "kinetic"
+    },
+    {
+      "max": 3,
+      "min": 2,
+      "type": "energy"
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 5
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "energy": 2
+      },
+      "weight": 12
+    },
+    {
+      "grants": {
+        "component": 1
+      },
+      "part": "torso",
+      "soak": {
+        "energy": 4,
+        "kinetic": 2
+      },
+      "weight": 34
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "left_arm",
+      "soak": {
+        "energy": 2
+      },
+      "weight": 16
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "right_arm",
+      "soak": {
+        "energy": 2
+      },
+      "weight": 16
+    },
+    {
+      "part": "legs",
+      "soak": {
+        "energy": 2
+      },
+      "weight": 22
+    }
+  ],
+  "butcher_difficulty": 9,
+  "butcher_table": [
+    {
+      "item": "item_cinder_tallow",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 35
+    },
+    {
+      "item": "item_rad_bile",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 30
+    }
+  ],
+  "death_message": "The saint sits down in the ash, dims like a filament, and leaves a scorch in the exact shape of sitting down.",
+  "description": "Man-shaped, roughly, and lit from inside like a stove with the door left open. The ash does not settle on it. It walks the burn in slow circuits and does not appear to be going anywhere in particular, which is somehow worse than if it were.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy turns toward $player, and the air between you gets a great deal warmer.",
+      "$enemy speaks. It is not language, but it has the shape of one.",
+      "$enemy's chest glows through, and the ash around it lifts and hangs there."
+    ],
+    "radiates": true,
+    "radiation_damage": 6
+  },
+  "hit": 7,
+  "hp_max": 55,
+  "id": "enemy_cinder_saint",
+  "loot_table": [
+    {
+      "item": "item_glowing_scrap",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 26
+    },
+    {
+      "item": "item_reagent_acid",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "item": "item_saintglass",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    },
+    {
+      "credits": [
+        60,
+        140
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    }
+  ],
+  "name": "cinder saint",
+  "weapon": [
+    {
+      "max": 8,
+      "min": 5,
+      "type": "kinetic"
+    },
+    {
+      "max": 7,
+      "min": 4,
+      "type": "energy"
+    }
+  ]
+}

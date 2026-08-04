@@ -12,6 +12,7 @@
   },
   "flags": {
     "district": "wilds",
+    "no_spawn": true,
     "radiation": 65,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",

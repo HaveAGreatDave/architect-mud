@@ -1,0 +1,144 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 25
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "throat",
+      "soak": {},
+      "weight": 8
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 38
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 14
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 14
+    },
+    {
+      "part": "legs",
+      "soak": {},
+      "weight": 14
+    }
+  ],
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 35
+    },
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    }
+  ],
+  "death_message": "The whistler folds up in the brush, and the sound it was making goes on for a second longer than it should.",
+  "description": "Long-limbed, hairless, wrapped in a crust of thorn-scab it grew rather than wore. Its throat is a bellows tuned to the sound of wind through dry scrub, and it has been practising for years. Nothing that walks toward the whistling ever comes back to complain about the accuracy.",
+  "dodge": 6,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy whistles, and for a moment it is only the wind.",
+      "$enemy calls in a voice that is almost exactly somebody you know.",
+      "$enemy shrieks, dropping the act entirely."
+    ],
+    "first_strike_delay_ms": 800
+  },
+  "hit": 5,
+  "hp_max": 20,
+  "id": "enemy_bramble_whistler",
+  "loot_table": [
+    {
+      "item": "item_tangled_wire",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    },
+    {
+      "credits": [
+        12,
+        35
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    }
+  ],
+  "name": "bramble whistler",
+  "weapon": [
+    {
+      "max": 6,
+      "min": 3,
+      "type": "kinetic"
+    }
+  ]
+}

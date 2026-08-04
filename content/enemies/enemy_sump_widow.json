@@ -1,0 +1,199 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 5
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 10
+    },
+    {
+      "part": "thorax",
+      "soak": {
+        "kinetic": 6
+      },
+      "weight": 26
+    },
+    {
+      "grants": {
+        "component": 1
+      },
+      "part": "venom_sac",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 8
+    },
+    {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
+      "part": "left_fore_limb",
+      "role": "attack",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 16
+    },
+    {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
+      "part": "right_fore_limb",
+      "role": "attack",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 16
+    },
+    {
+      "part": "hind_limbs",
+      "role": "mobility",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 24
+    }
+  ],
+  "butcher_difficulty": 9,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        3,
+        4
+      ],
+      "weight": 40
+    },
+    {
+      "item": "item_gulper_roe",
+      "qty": [
+        2,
+        4
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_mutant_gland",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 25
+    }
+  ],
+  "death_message": "The Widow's legs draw in one by one until she is a fist, and then the sump takes her back with a sound like a drain finally clearing.",
+  "description": "The deep marsh has one resident and this is it. Bigger than the shed it could not fit inside, jointed wrong in about four places, and coated in the same brown film as everything else down here so that the first thing you notice is usually the smell. The gulpers do not go where she is. That should have been the hint.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy rises out of the sump, and keeps rising.",
+      "$enemy does not hurry. Nothing about this requires hurrying.",
+      "$enemy folds a limb around $player, testing, the way you would check fruit."
+    ],
+    "first_strike_delay_ms": 600
+  },
+  "hit": 8,
+  "hp_max": 110,
+  "id": "enemy_sump_widow",
+  "loot_table": [
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_reagent_psycho",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "item": "item_widow_amber",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 2
+    },
+    {
+      "credits": [
+        150,
+        320
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    }
+  ],
+  "name": "the Sump Widow",
+  "weapon": [
+    {
+      "max": 15,
+      "min": 9,
+      "type": "kinetic"
+    },
+    {
+      "max": 5,
+      "min": 3,
+      "type": "energy"
+    }
+  ]
+}

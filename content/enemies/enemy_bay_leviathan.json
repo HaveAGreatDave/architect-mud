@@ -59,6 +59,9 @@
       "weight": 46
     },
     {
+      "grants": {
+        "dodge": 1
+      },
       "part": "coils",
       "soak": {
         "kinetic": 1
@@ -66,6 +69,9 @@
       "weight": 24
     },
     {
+      "grants": {
+        "dodge": 1
+      },
       "part": "fluke",
       "soak": {},
       "weight": 16
@@ -137,8 +143,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "bay leviathan",

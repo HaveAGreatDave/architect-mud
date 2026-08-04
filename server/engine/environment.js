@@ -727,7 +727,10 @@ function computeArtificialLight(powerStatus, light) {
 // Indoor Temperature Simulation
 // ---------------------------------------------------------------------------
 
-function isIndoorZone(z) {
+// Exported as the SSOT for "is this zone climatically sheltered" — the weather
+// half of the world asks it (indoor temp sim here; quests' 'survive' objective,
+// which must not credit someone who sat the storm out in a bar).
+export function isIndoorZone(z) {
   // open_sky = an open roof/deck: structurally part of a building (kept in the
   // power/building network via its raw is_interior flag) but climatically
   // OUTDOORS — it takes sky light, weather, and outdoor temp, not HVAC shelter.

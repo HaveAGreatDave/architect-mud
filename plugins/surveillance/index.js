@@ -14,9 +14,9 @@ import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, hasActivePlayers, world, insertFurniture, updateFurniture, deleteFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
-import { moveEntity } from '../../server/engine/ai-behaviour.js';
-import { findPath } from '../../server/engine/pathfinding.js';
+// Pathing, stepping and neighbour lookups all left with `huntStep` — the search is
+// the engine's CHASE node now, so this plugin no longer moves anything itself.
+import { exitTargets } from '../../server/engine/exits.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { hackDifficulty, breachMargin, hasHackDeck, damageHackDeck } from '../../server/engine/hack-gear.js';
 import { visibleIntoxication } from '../../server/engine/drugs.js';
@@ -1346,20 +1346,30 @@ function responseDelayMs(stars) {
 // zone instead of stepping toward the suspect — the "little random" in the hunt.
 const HUNT_RANDOM = 0.35;
 
-// Hunter behaviour: only engages when `searchAndPursue` has physically caught the
-// suspect in the same zone and set targetId. The search movement itself (heading
-// to the crime scene, then hunting toward the suspect with some randomness) is
-// driven server-side in searchAndPursue, not by the graph — so an idle hunter
-// just loops here until it finds its quarry.
+// Hunter behaviour. The SEARCH is the engine's shared CHASE node in `flag` mode:
+// it follows the suspect id stamped on the instance rather than a combat target,
+// which is what lets a unit hunt somebody it is deliberately not targeting (under
+// ~4 stars they arrive to detain, and a targetId would make the graph swing).
+//
+// This used to be a hand-rolled pursuit loop in this file — `huntStep` — written
+// before the engine had a CHASE node at all. Both walked a BFS path one zone per
+// beat with a dash of randomness; keeping two of them meant every fix to pathing,
+// door refusals, sanctuary law or route caching had to be made twice. The wander
+// and the pacing that made this hunt feel like a search are preserved as node
+// params (`wander_pct`) and instance flags (`chase_speed_s`), not lost.
 const WANTED_HUNTER_GRAPH = {
-  _start: 'check_target',
+  _start: 'search',
   nodes: {
+    // No-ops the moment the unit is standing on the suspect, so the engage half
+    // below still runs on the same tick.
+    search: { type: 'action', action_type: 'CHASE',
+      params: { quarry: 'flag', flag: 'suspect_id', wander_pct: HUNT_RANDOM }, next: 'check_target' },
     check_target: { type: 'condition', condition_type: 'HAS_TARGET', params: {}, ifTrue: 'check_cried', ifFalse: 'loop' },
     check_cried:  { type: 'condition', condition_type: 'FLAG_SET', params: { flag: 'cried', scope: 'self' }, ifTrue: 'attack', ifFalse: 'cry' },
     cry:          { type: 'action', action_type: 'SAY', params: { message: 'SPECTER-PD — STOP RESISTING. COMPLY.' }, next: 'set_cried' },
     set_cried:    { type: 'action', action_type: 'SET_FLAG', params: { flag: 'cried', scope: 'self', value: 'true' }, next: 'attack' },
     attack:       { type: 'action', action_type: 'ATTACK', params: {}, next: 'loop' },
-    loop:         { type: 'loop', next: 'check_target' },
+    loop:         { type: 'loop', next: 'search' },
   },
 };
 
@@ -2419,28 +2429,28 @@ function spawnHunter(template, zoneId, suspectId) {
   const inst = spawnEnemySync(template, zoneId);
   inst.behaviour_graph = WANTED_HUNTER_GRAPH;
   inst.home_zone = zoneId;
-  inst.flags = { ...(inst.flags || {}), hunter: true, suspect_id: suspectId };
+  inst.flags = {
+    ...(inst.flags || {}),
+    hunter: true,
+    // Read by the CHASE node in `flag` mode — who this unit is looking for.
+    suspect_id: suspectId,
+    // A manhunt does not have a home patch to be dragged back to: it goes where
+    // the suspect goes, across the whole map. -1 is the explicit "unleashed".
+    leash_radius: -1,
+    // One search step every 4s, matching the cadence the wanted tick used to move
+    // these units on by hand. Without this they would step at the 2s default and
+    // the whole manhunt would silently double in speed.
+    chase_speed_s: 4,
+  };
   inst.targetId = null;         // acquired by searchAndPursue only once co-located
   inst.aggroedAt = null;
   if (inst._ai) inst._ai.flags.cried = false;
   return inst.instanceId;
 }
 
-// One search step: usually pathfind a zone toward the suspect, but HUNT_RANDOM of
-// the time (or whenever there's no path) wander to a random neighbour instead —
-// that's the "little random" that lets a suspect give them the slip.
-function huntStep(e, targetZone, bc) {
-  let dest = null;
-  if (Math.random() >= HUNT_RANDOM) {
-    const path = findPath(e.zoneId, targetZone);
-    if (path && path.length >= 2) dest = path[1];
-  }
-  if (!dest) {
-    const nbrs = neighborZoneIds(getZone(e.zoneId));
-    if (nbrs.length) dest = nbrs[Math.floor(Math.random() * nbrs.length)];
-  }
-  if (dest && dest !== e.zoneId && bc) moveEntity(e, dest, bc, query);
-}
+// (The old `huntStep` lived here — a hand-rolled one-zone-per-beat pursuit written
+// before the engine had a CHASE node. It is now the shared node in `flag` mode; see
+// WANTED_HUNTER_GRAPH. The randomness it existed for survives as `wander_pct`.)
 
 // Every badge is a badge: any NPC flagged `police` — a street cop, a desk
 // sergeant, a Precinct 9 detention officer — makes a wanted suspect standing in
@@ -2476,7 +2486,6 @@ async function searchAndPursue(suspectId, s) {
   // zone roster, so without this a hunter reaching that zone would "arrest" a plane.)
   if (isAirborne(suspect)) return;
   const zone = suspect.current_zone;
-  const bc = getBroadcast();
 
   // Prune dead.
   for (const iid of [...s.hunters]) {
@@ -2502,14 +2511,20 @@ async function searchAndPursue(suspectId, s) {
   }
   if (deployed) sendToZone(spawnZone, { type: 'ambient', message: 'Boots and servos — a SPECTER-PD unit fans out from the scene, hunting.' });
 
-  // Engage if co-located; otherwise step toward the suspect and re-check on arrival.
+  // Engage if co-located. The SEARCH itself is no longer driven from here — each
+  // unit's own CHASE node walks it toward the suspect on the AI tick, so this loop
+  // only has to decide what happens once a unit arrives.
   for (const iid of s.hunters) {
     const e = world.enemies.get(iid);
     if (!e) { s.hunters.delete(iid); continue; }
+    // Keep the suspect id fresh — a unit mustered for one pursuit can outlive the
+    // star level that made it, and CHASE reads this flag every beat.
+    if (e.flags?.suspect_id !== suspectId) e.flags = { ...(e.flags || {}), suspect_id: suspectId };
     if (e.zoneId !== zone) {
+      // Not here yet: stay non-hostile so the graph does not swing at anyone on
+      // the way, and let CHASE keep walking it in.
       e.targetId = null;
       e.aggroedAt = null;
-      huntStep(e, zone, bc);
     }
     if (e.zoneId === zone) {
       if (s.stars <= APPREHEND_MAX) {

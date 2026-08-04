@@ -49,21 +49,42 @@
       "soak": {
         "kinetic": 1
       },
-      "weight": 1
+      "weight": 10
     },
     {
       "part": "torso",
       "soak": {
         "kinetic": 1
       },
-      "weight": 3
+      "weight": 40
     },
     {
-      "part": "legs",
+      "part": "left_arm",
       "soak": {
         "kinetic": 1
       },
-      "weight": 2
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 13
     }
   ],
   "butcher_difficulty": 5,
@@ -99,8 +120,8 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "SPECTER-PD Patrol Officer",

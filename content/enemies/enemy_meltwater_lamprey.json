@@ -1,0 +1,141 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 10
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
+      "part": "maw",
+      "soak": {},
+      "weight": 22
+    },
+    {
+      "part": "gill_row",
+      "soak": {},
+      "weight": 18
+    },
+    {
+      "part": "body",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 45
+    },
+    {
+      "grants": {
+        "dodge": 3
+      },
+      "part": "tail",
+      "soak": {},
+      "weight": 15
+    }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [
+    {
+      "item": "item_fresh_catch",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 35
+    },
+    {
+      "item": "item_mutant_gland",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 20
+    }
+  ],
+  "death_message": "The lamprey unlatches, thrashes twice, and goes still with its mouth still open in a perfect ring.",
+  "description": "A yard of muscle with a suction cup for a face and about nine hundred teeth arranged in rings inside it. It has no jaw, no eyes worth the name, and no reverse gear. Coldwater fishermen call the scars river kisses and refuse to elaborate.",
+  "dodge": 7,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy breaks the surface and is already attached.",
+      "$enemy grinds its rings of teeth in a slow, wet rotation.",
+      "$enemy does not let go of $player. It has never let go of anything."
+    ],
+    "first_strike_delay_ms": 400
+  },
+  "hit": 7,
+  "hp_max": 22,
+  "id": "enemy_meltwater_lamprey",
+  "loot_table": [
+    {
+      "item": "item_reagent_nutrient",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "credits": [
+        25,
+        60
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 16
+    }
+  ],
+  "name": "meltwater lamprey",
+  "weapon": [
+    {
+      "max": 12,
+      "min": 6,
+      "type": "kinetic"
+    }
+  ]
+}

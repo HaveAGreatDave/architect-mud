@@ -1,0 +1,180 @@
+{
+  "behavior": "territorial",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 10
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "crown",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 12
+    },
+    {
+      "part": "trunk",
+      "soak": {
+        "kinetic": 5
+      },
+      "weight": 42
+    },
+    {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
+      "part": "left_bough",
+      "role": "attack",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 18
+    },
+    {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
+      "part": "right_bough",
+      "role": "attack",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 18
+    },
+    {
+      "part": "root_mass",
+      "role": "mobility",
+      "soak": {
+        "kinetic": 4
+      },
+      "weight": 10
+    }
+  ],
+  "butcher_difficulty": 7,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        2,
+        3
+      ],
+      "weight": 30
+    },
+    {
+      "item": "item_mutated_bone",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 25
+    }
+  ],
+  "death_message": "The hulk comes down in sections and keeps rustling for a while afterward, which everyone agrees is unnecessary.",
+  "description": "A standing knot of thornwood, cable and something that was probably a person, grown together over an unhelpful number of years. It moves at the speed of a decision being reconsidered. It has never once needed to move faster.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": true,
+    "battle_cries": [
+      "$enemy shifts, and the whole thicket shifts with it.",
+      "$enemy reaches for $player with the unhurried confidence of something that has all afternoon.",
+      "$enemy makes a sound like a tree deciding."
+    ],
+    "first_strike_delay_ms": 2000
+  },
+  "hit": 6,
+  "hp_max": 60,
+  "id": "enemy_bracken_hulk",
+  "loot_table": [
+    {
+      "item": "item_salvaged_wiring",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 22
+    },
+    {
+      "item": "item_reagent_solvent",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 12
+    },
+    {
+      "credits": [
+        50,
+        110
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 18
+    },
+    {
+      "credits": [
+        180,
+        380
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "bracken hulk",
+  "weapon": [
+    {
+      "max": 13,
+      "min": 7,
+      "type": "kinetic"
+    }
+  ]
+}

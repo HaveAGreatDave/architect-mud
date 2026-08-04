@@ -45,6 +45,9 @@
       "weight": 24
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "upper_left_arm",
       "role": "attack",
       "soak": {
@@ -53,6 +56,9 @@
       "weight": 9
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "upper_right_arm",
       "role": "attack",
       "soak": {
@@ -61,6 +67,9 @@
       "weight": 9
     },
     {
+      "grants": {
+        "component": 1
+      },
       "part": "middle_left_arm",
       "role": "attack",
       "soak": {
@@ -69,6 +78,9 @@
       "weight": 8
     },
     {
+      "grants": {
+        "component": 1
+      },
       "part": "middle_right_arm",
       "role": "attack",
       "soak": {
@@ -77,6 +89,9 @@
       "weight": 8
     },
     {
+      "grants": {
+        "component": 2
+      },
       "part": "lower_left_arm",
       "role": "attack",
       "soak": {
@@ -85,6 +100,9 @@
       "weight": 7
     },
     {
+      "grants": {
+        "component": 2
+      },
       "part": "lower_right_arm",
       "role": "attack",
       "soak": {
@@ -164,8 +182,8 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "six-arm thresher",

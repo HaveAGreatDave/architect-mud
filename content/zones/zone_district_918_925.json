@@ -10,6 +10,7 @@
   },
   "flags": {
     "district": "wilds",
+    "no_spawn": true,
     "radiation": 15,
     "region_id": "region_coldwater",
     "terrain": "dirt_road"

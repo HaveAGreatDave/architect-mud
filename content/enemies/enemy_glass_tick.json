@@ -1,0 +1,119 @@
+{
+  "behavior": "territorial",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 15
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "shell",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 40
+    },
+    {
+      "part": "underside",
+      "soak": {},
+      "weight": 25
+    },
+    {
+      "part": "maw",
+      "soak": {},
+      "weight": 15
+    },
+    {
+      "part": "left_legs",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "right_legs",
+      "soak": {},
+      "weight": 10
+    }
+  ],
+  "butcher_difficulty": 3,
+  "butcher_table": [
+    {
+      "item": "item_silica_lens",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 40
+    }
+  ],
+  "death_message": "The tick's shell splits with a sound like a dropped bottle, and the wet parts inside stop being interesting almost immediately.",
+  "description": "A palm-wide disc of fused silica squatting flush with the hardpan, indistinguishable from the rock until it lifts. Underneath is a wet ring of mouthparts and a great many legs. It waits for something warm to stand on it, and the Basin obliges roughly once a week.",
+  "dodge": 5,
+  "faction": null,
+  "flags": {
+    "battle_cries": [
+      "$enemy shifts underfoot, and the ground turns out to have been a mouth.",
+      "$enemy scrapes a slow half-circle on the rock, keeping its shell between you and it.",
+      "$enemy chitters, a dry rattle like coins in a tin."
+    ],
+    "first_strike_delay_ms": 1200
+  },
+  "hit": 4,
+  "hp_max": 14,
+  "id": "enemy_glass_tick",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    }
+  ],
+  "name": "glass tick",
+  "weapon": [
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
+}

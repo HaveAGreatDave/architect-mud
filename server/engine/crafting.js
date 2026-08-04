@@ -8,6 +8,7 @@
  */
 import { query, withTransaction } from '../models/db.js';
 import { awardSkillUse, skillCheck, skillStatBonus } from './skills.js';
+import { emit } from './events.js';
 import { isStackable } from './tags.js';
 
 // In-memory recipe cache. DB is the source of truth; this is just fast read access.
@@ -210,6 +211,17 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   });
 
   await awardSkillUse(player.id, recipe.skill_id, skillResult.margin);
+
+  // Announced so systems that care about a player MAKING something (quests'
+  // 'craft' objective) never have to hook the craft path itself — emitted here
+  // rather than in plugins/crafting so every caller of attemptCraft fires it.
+  emit('item.crafted', {
+    actor: player,
+    item_id: recipe.base_output.item_id,
+    recipe_id: recipe.id,
+    quantity: outputQty,
+    critical,
+  });
 
   const critMsg = critical ? ' CRITICAL CRAFT — double output! ' : '';
   return {

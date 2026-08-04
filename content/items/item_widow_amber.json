@@ -1,0 +1,14 @@
+{
+  "description": "A hard orange knot from somewhere deep inside her, with a seam of something darker turning through it. There is nothing else like it in the Basin, because there is nothing else like her.",
+  "flags": {},
+  "id": "item_widow_amber",
+  "name": "knot of widow amber",
+  "tags": {
+    "description": "A hard orange knot from somewhere deep inside her, with a seam of something darker turning through it. There is nothing else like it in the Basin, because there is nothing else like her.",
+    "material": true,
+    "stackable": true
+  },
+  "type": "material",
+  "value": 420,
+  "weight": 150
+}

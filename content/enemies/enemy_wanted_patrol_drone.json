@@ -45,28 +45,45 @@
   },
   "body_parts": [
     {
-      "part": "head",
+      "part": "optic",
       "soak": {
         "energy": 2,
         "kinetic": 1
       },
-      "weight": 1
+      "weight": 10
     },
     {
-      "part": "torso",
+      "part": "chassis",
       "soak": {
         "energy": 2,
         "kinetic": 1
       },
-      "weight": 3
+      "weight": 42
     },
     {
-      "part": "legs",
+      "part": "lance",
+      "role": "attack",
       "soak": {
         "energy": 2,
         "kinetic": 1
       },
-      "weight": 2
+      "weight": 18
+    },
+    {
+      "part": "fore_legs",
+      "soak": {
+        "energy": 2,
+        "kinetic": 1
+      },
+      "weight": 15
+    },
+    {
+      "part": "hind_legs",
+      "soak": {
+        "energy": 2,
+        "kinetic": 1
+      },
+      "weight": 15
     }
   ],
   "butcher_difficulty": 5,
@@ -94,8 +111,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "SPECTER-PD Patrol Drone",

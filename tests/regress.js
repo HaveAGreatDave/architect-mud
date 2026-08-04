@@ -1064,6 +1064,179 @@ console.log('— layer 1g: broadcast / spawn / durable wait —');
   await clearFlag('world', 'regress_durable_ran');
 }
 
+// ── Layer 1g2: the enemy leash, pursuit, and the destination law ─────────────
+// ROAM is an unbiased random walk, so before the leash a wanderer eventually
+// reached anywhere the exit graph touched. These assert the three pieces that
+// bound it — and, just as importantly, that a creature WITHOUT the new opt-in
+// behaves exactly as it did before, since 44 shipped enemies depend on that.
+console.log('— layer 1g2: leash / chase / destination law —');
+{
+  const { distanceFromSpawn, leashCandidates, canChase, moveEntity } =
+    await import('../server/engine/ai-behaviour.js');
+  const { spawnEnemySync } = await import('../server/engine/world.js');
+
+  // A patch of real grid to measure against, so this tests the shipped map rather
+  // than a fixture's idea of one. Pick a home that actually HAS the neighbours the
+  // gradient checks need — an arbitrary first tile can sit on a map edge, which
+  // silently skipped the two most valuable assertions here.
+  const gridZones = [...world.zones.values()]
+    .filter(z => z.grid_x != null && z.grid_y != null && z.map_id);
+  const byPos = new Map(gridZones.map(z => [`${z.map_id}|${z.grid_z ?? 0}|${z.grid_x}|${z.grid_y}`, z]));
+  const near = (origin, dx, dy) =>
+    byPos.get(`${origin.map_id}|${origin.grid_z ?? 0}|${origin.grid_x + dx}|${origin.grid_y + dy}`);
+  const OFFSETS = [[1, 1], [1, 0], [0, 1], [-1, 0], [0, -1], [5, 0], [6, 0], [7, 0]];
+  const home = gridZones.find(z => OFFSETS.every(([dx, dy]) => near(z, dx, dy))) || gridZones[0];
+  check('leash fixture found a tile with room around it (else checks below skip)',
+    OFFSETS.every(([dx, dy]) => near(home, dx, dy)), home.id);
+  const at = (dx, dy) => near(home, dx, dy);
+
+  const mob = { instanceId: 'regress_leash_mob', spawnZoneId: home.id, flags: {}, _ai: {} };
+
+  check('distance from a mob to its own spawn tile is zero',
+    distanceFromSpawn(mob, home.id) === 0);
+
+  const diag = at(1, 1);
+  if (diag) {
+    check('distance is Chebyshev, so a diagonal step is 1 tile not 2',
+      distanceFromSpawn(mob, diag.id) === 1, `got ${distanceFromSpawn(mob, diag.id)}`);
+  }
+
+  const offMap = [...world.zones.values()].find(z => z.map_id && z.map_id !== home.map_id);
+  if (offMap) {
+    check('a zone on another map is definitively elsewhere, not a big number',
+      distanceFromSpawn(mob, offMap.id) === Infinity);
+  }
+  check('a zone with no grid position is elsewhere too',
+    distanceFromSpawn(mob, 'zone_that_does_not_exist_regress') === Infinity);
+
+  // ── the three-value radius encoding ──
+  // This is the assertion that matters most to a future refactor: it is very
+  // tempting to write `Number(f) || LEASH_RADIUS`, which silently maps BOTH 0 and
+  // undefined to the default and makes "pinned" impossible to express.
+  const exits = ['a', 'b', 'c'];
+  check('leash_radius -1 means unleashed: every exit stays on the table',
+    leashCandidates({ ...mob, flags: { leash_radius: -1 } }, home.id, exits).length === 3);
+  check('leash_radius 0 means PINNED, not unleashed',
+    leashCandidates({ ...mob, flags: { leash_radius: 0 } }, home.id, exits).length === 0);
+  check('a mob with no spawn stamp is unleashed (the feature is simply absent)',
+    leashCandidates({ instanceId: 'x', flags: {} }, home.id, exits).length === 3);
+
+  const neighbours = [at(1, 0), at(0, 1), at(-1, 0), at(0, -1)].filter(Boolean).map(z => z.id);
+  if (neighbours.length) {
+    check('inside the radius a mob wanders freely — every near exit is legal',
+      leashCandidates({ ...mob, flags: { leash_radius: 5 } }, home.id, neighbours).length === neighbours.length);
+    // radius 1 is the tightest MEANINGFUL leash: standing at home, every neighbour
+    // is exactly 1 away, so a tight leash paces its box rather than freezing.
+    check('radius 1 still lets a mob step off its own tile (it paces a 3x3 box)',
+      leashCandidates({ ...mob, flags: { leash_radius: 1 } }, home.id, neighbours).length === neighbours.length);
+  }
+
+  const far = at(6, 0);
+  const backOne = at(5, 0);
+  const further = at(7, 0);
+  if (far && backOne && further) {
+    const out = leashCandidates({ ...mob, flags: { leash_radius: 3 } }, far.id, [backOne.id, further.id]);
+    check('outside the radius only steps that bring it home are offered',
+      out.length === 1 && out[0] === backOne.id, out.join(','));
+  }
+
+  // ── pursuit is opt-in ──
+  const plainGraph = { nodes: { a: { type: 'action', action_type: 'ATTACK' } } };
+  const chaseGraph = { nodes: { a: { type: 'action', action_type: 'CHASE' } } };
+  check('a creature with no CHASE node does not pursue (every shipped enemy)',
+    canChase({ behaviour_graph: plainGraph }) === false);
+  check('a creature with a CHASE node pursues',
+    canChase({ behaviour_graph: chaseGraph }) === true);
+  check('a creature with no graph at all does not pursue',
+    canChase({}) === false);
+
+  // ── pursuit modes ──
+  // The police hunt somebody they are deliberately NOT targeting: under ~4 stars a
+  // unit must arrive and detain, and a targetId is what makes the graph swing. That
+  // is why CHASE grew a `flag` mode — and why the surveillance plugin was able to
+  // delete its own duplicate pursuit loop. These pin the seam that made that safe.
+  {
+    const { tickEntityAI } = await import('../server/engine/ai-behaviour.js');
+    const hunterGraph = {
+      _start: 's',
+      nodes: {
+        s: { type: 'action', action_type: 'CHASE',
+             params: { quarry: 'flag', flag: 'suspect_id' }, next: 'l' },
+        l: { type: 'loop', next: 's' },
+      },
+    };
+    const mk = () => ({
+      instanceId: 'regress_hunter', name: 'a regress unit', hp: 10, hp_max: 10,
+      zoneId: home.id, spawnZoneId: home.id, targetId: null,
+      flags: { hunter: true, suspect_id: 'nobody_regress', leash_radius: -1 },
+      behaviour_graph: hunterGraph,
+      _ai: { currentNode: null, waitUntil: null, patrolPath: [], flags: {} },
+    });
+
+    const noQuarry = mk();
+    noQuarry.flags.suspect_id = null;
+    // Must not throw and must not invent a target out of nothing.
+    await tickEntityAI(noQuarry, () => {}, null);
+    check('a hunt with nobody to hunt does nothing', noQuarry.targetId === null);
+
+    // The headline property: a flag-mode chase never writes targetId. If it did,
+    // every unit would arrive swinging and the whole detain-under-4-stars branch
+    // would be unreachable.
+    const hunting = mk();
+    for (let i = 0; i < 3; i++) await tickEntityAI(hunting, () => {}, null);
+    check('a flag-mode chase never acquires a combat target',
+      hunting.targetId === null, String(hunting.targetId));
+
+    // …and it must not clear the flag either: the id belongs to whoever set it,
+    // and a unit that forgot its suspect would stand still for the rest of the hunt.
+    check('…and never clears the suspect it was given',
+      hunting.flags.suspect_id === 'nobody_regress');
+
+    check('leash_radius -1 is what lets a manhunt cross the map',
+      leashCandidates(hunting, home.id, ['a', 'b', 'c']).length === 3);
+  }
+
+  // ── the destination law ──
+  // Sanctuary and no_spawn have gated SPAWNING since they existed; until now they
+  // never gated WALKING, so a mob could stroll into the one square the rules
+  // promised was safe.
+  const { rows: tmpl } = await query('SELECT * FROM enemies LIMIT 1');
+  const guarded = [...world.zones.values()].find(z => z.id !== home.id && z.enemies);
+  if (tmpl.length && guarded) {
+    const inst = spawnEnemySync(tmpl[0], home.id);
+    check('a spawned enemy records where it came from', inst.spawnZoneId === home.id);
+
+    const priorFlags = guarded.flags;
+    guarded.flags = { ...(priorFlags || {}), no_spawn: true };
+    const blocked = moveEntity(inst, guarded.id, () => {}, null);
+    check('an enemy may not WALK into a no-spawn zone, only fail to spawn there',
+      blocked === false);
+
+    // Destination-only, deliberately: if this also inspected where the mob came
+    // FROM, anything already standing in a protected zone could never leave.
+    inst.zoneId = guarded.id;
+    guarded.enemies.add(inst.instanceId);
+    const outward = moveEntity(inst, home.id, () => {}, null);
+    check('…but it may always walk back OUT of one', outward === true);
+
+    // The law does not apply to the law. A manhunt unit must be able to follow a
+    // suspect into a safe room — huntStep calls moveEntity directly and does not
+    // re-route on a refusal, so without this a cop stalls at the threshold forever
+    // while the suspect sits inside, and any sanctuary ends a manhunt permanently.
+    const cop = spawnEnemySync(tmpl[0], home.id);
+    cop.flags = { ...(cop.flags || {}), hunter: true };
+    check('a manhunt unit may follow a suspect into a sanctuary',
+      moveEntity(cop, guarded.id, () => {}, null) === true);
+    world.zones.get(cop.zoneId)?.enemies.delete(cop.instanceId);
+    world.enemies.delete(cop.instanceId);
+
+    guarded.flags = priorFlags;
+    world.zones.get(inst.zoneId)?.enemies.delete(inst.instanceId);
+    guarded.enemies.delete(inst.instanceId);
+    world.enemies.delete(inst.instanceId);
+  }
+}
+
 // ── Stale-fixture sweep (start of run, deliberately) ──────────────────────────
 //
 // Suite fixtures that live in the DB are created and deleted by straight-line code:
@@ -4272,32 +4445,43 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
 // Danger inference (Phase 3 of the zone redesign): spawn-derived, cached on the
 // world zone object, tag override > sanctuary > radiation floor > inference.
 {
-  const { zoneDanger, enemyThreat, bucketThreat, DANGER_RANK } = await import('../server/engine/danger.js');
-  const { computeZoneDanger, removeSpawn } = await import('../server/engine/world.js');
+  const { zoneDanger, zoneThreat, enemyThreat, bucketThreat, DANGER_RANK } = await import('../server/engine/danger.js');
+  const { computeZoneThreat, removeSpawn } = await import('../server/engine/world.js');
   const p = getPlayer();
   const homeZone = world.zones.get(p.current_zone);
-  const savedInferred = homeZone._dangerInferred;
+  const savedScore = homeZone._threatScore;
 
   check('enemyThreat scales with hp + damage',
     enemyThreat({ hp_max: 100, weapon: [{ min: 10, max: 20 }] }) === 220);
   check('bucketThreat rank order holds',
     bucketThreat(20) === 'low' && bucketThreat(70) === 'medium' && bucketThreat(120) === 'high' && bucketThreat(220) === 'lethal');
-  check('danger tag override wins', zoneDanger({ flags: { danger: 'lethal' }, _dangerInferred: 'low' }) === 'lethal');
-  check('sanctuary forces safe', zoneDanger({ flags: { sanctuary: true }, _dangerInferred: 'high' }) === 'safe');
-  check('radiation floors danger (lethal at 40+)', zoneDanger({ flags: { radiation: 45 }, _dangerInferred: 'low' }) === 'lethal');
-  check('inference cache read', zoneDanger({ flags: {}, _dangerInferred: 'medium' }) === 'medium');
+  check('danger tag override wins', zoneDanger({ flags: { danger: 'lethal' }, _threatScore: 20 }) === 'lethal');
+  check('sanctuary forces safe', zoneDanger({ flags: { sanctuary: true }, _threatScore: 120 }) === 'safe');
+  check('radiation floors danger (lethal at 40+)', zoneDanger({ flags: { radiation: 45 }, _threatScore: 20 }) === 'lethal');
+  check('threat cache buckets at read time', zoneDanger({ flags: {}, _threatScore: 70 }) === 'medium');
+
+  // A zero/absent score is 'safe', NOT bucketThreat(0) === 'low'. This is the
+  // no-spawns case, and it used to be carried by a separate hasSpawn flag.
+  check('no spawns reads safe, not low', zoneDanger({ flags: {}, _threatScore: 0 }) === 'safe');
+  check('absent cache reads safe', zoneDanger({ flags: {} }) === 'safe');
+
+  // zoneThreat exposes the raw number and ignores the band overrides.
+  check('zoneThreat returns the raw score', zoneThreat({ _threatScore: 137 }) === 137);
+  check('zoneThreat floors at 0', zoneThreat({}) === 0 && zoneThreat(null) === 0);
 
   // Cache recompute: a synthetic beefy spawn raises the zone; removing it recomputes.
   try {
     const synthId = 'regress_danger_spawn';
     world.spawnTimers.set(synthId, { spawn_id: synthId, zone_id: homeZone.id, hp_max: 100, weapon: [{ min: 10, max: 20 }], max_count: 0, spawn_weight: 0, respawn_seconds: 9999, nextSpawn: Number.MAX_SAFE_INTEGER });
-    computeZoneDanger(homeZone.id);
-    check('computeZoneDanger caches inferred danger from spawns', homeZone._dangerInferred === 'lethal', homeZone._dangerInferred);
+    computeZoneThreat(homeZone.id);
+    // The raw score only — NOT zoneDanger(homeZone), which a sanctuary tag or a
+    // danger override on the spawn room would legitimately pull off 'lethal'.
+    check('computeZoneThreat caches the raw score from spawns', homeZone._threatScore === 220, homeZone._threatScore);
     removeSpawn(synthId);
-    check('removeSpawn recomputes the zone danger', homeZone._dangerInferred !== 'lethal', homeZone._dangerInferred);
+    check('removeSpawn recomputes the zone threat', homeZone._threatScore !== 220, homeZone._threatScore);
   } finally {
     world.spawnTimers.delete('regress_danger_spawn');
-    homeZone._dangerInferred = savedInferred;
+    homeZone._threatScore = savedScore;
   }
   check('DANGER_RANK exports a total order', DANGER_RANK.safe < DANGER_RANK.low && DANGER_RANK.high < DANGER_RANK.lethal);
 }

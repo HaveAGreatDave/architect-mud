@@ -573,6 +573,14 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
     }
   });
 
+  // The mirror of vendor.purchase above — a counter BUYING from the player. Nothing
+  // announced a sale before, so quests' 'sell' objective had no event to hang on.
+  emit('vendor.sale', {
+    player: { id: player.id, handle: player.handle }, npcId: npc?.id,
+    itemId: invItem.item_id, tags: invItem.tags || {}, quantity: sellQty,
+    price: sellPrice, zoneId: player.current_zone,
+  });
+
   return {
     success: true,
     message: `You sell ${sellQty}x ${invItem.name} for ${sellPrice} credits. (${player.credits} total)`,

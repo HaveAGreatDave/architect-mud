@@ -272,12 +272,17 @@
     {
       "part": "torso",
       "soak": {},
-      "weight": 55
+      "weight": 42
     },
     {
       "part": "arms",
       "soak": {},
       "weight": 25
+    },
+    {
+      "part": "legs",
+      "soak": {},
+      "weight": 13
     }
   ],
   "butcher_difficulty": 6,
@@ -297,7 +302,7 @@
   "id": "enemy_tinnitus_saint",
   "loot_table": [
     {
-      "item": "item_scrap",
+      "item": "item_scrap_metal",
       "qty": [
         2,
         5
@@ -326,8 +331,8 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "The Tinnitus Saint",

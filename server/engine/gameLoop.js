@@ -110,7 +110,7 @@ async function forceNpcWorkRecheck() {
   try {
     for (const [, npc] of world.npcs) {
       if (npc._dead) continue;
-      if (npc._aboard) continue;   // riding aboard a vehicle (e.g. a charter pilot) — frozen
+      if (npc._aboard || npc._escorting) continue;   // riding aboard a vehicle, or walking with a player — frozen
       const ai = npc._ai;
       if (!ai || !npc.behaviour_graph?._start) continue;
       ai.waitUntil = null; // drop any pending WAIT (work-wait, have-life, or sleep)
@@ -716,6 +716,8 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   player._dodgeUntil = 0;
   player._powQueued = false;
   player._fleeIntent = null;
+  // Whatever had hold of you doesn't, on the other side of a respawn.
+  player._grabbedBy = null;
   player.combatTargetId = null;
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
@@ -1796,7 +1798,10 @@ async function npcWanderTick() {
 
     // Frozen while riding aboard a vehicle (e.g. a charter pilot flying a run) —
     // no AI, no wander; the plugin restores them to the world when they land.
-    if (npc._aboard) continue;
+    // Same freeze while being escorted by a player (plugins/escort): the escortee
+    // walks only when the player does, so its own graph must not stroll it back
+    // to its shift between the player's steps.
+    if (npc._aboard || npc._escorting) continue;
 
     // Self-heal: legacy autonomous NPCs (vendor/employed/unemployed/actor) seeded
     // without a graph get their type default so they tick on VINE instead of the

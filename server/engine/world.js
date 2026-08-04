@@ -6,7 +6,7 @@ import { districtFor, loadDistricts } from './districts.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
 import { hasTag } from './tags.js';
 import { registerProtectionProvider } from './protection.js';
-import { zoneDanger, enemyThreat, bucketThreat } from './danger.js';
+import { zoneDanger, enemyThreat } from './danger.js';
 import { resolveTerrain, resolveDefault, buildingIconSvg, BUILDING_TYPE_ICON, PROP_DEFAULTS, coerceProp } from '../../scripts/content/derive.mjs';
 
 // In-memory world state — same as before, DB is source of truth
@@ -67,7 +67,7 @@ export async function initWorld() {
   await applyExitOverrides();
   await loadNpcs();
   await loadSpawnTemplates();
-  computeAllZoneDanger();
+  computeAllZoneThreat();
   await loadApartments();
   await loadGlobalAmbients();
   await loadConnections();
@@ -637,39 +637,38 @@ export async function reloadSpawn(spawnId) {
   const t = rows[0];
   if (!t) {
     world.spawnTimers.delete(spawnId);
-    if (prev?.zone_id) computeZoneDanger(prev.zone_id);
+    if (prev?.zone_id) computeZoneThreat(prev.zone_id);
     return;
   }
   world.spawnTimers.set(spawnId, { ...t, nextSpawn: prev?.nextSpawn ?? Date.now() });
-  computeZoneDanger(t.zone_id);
+  computeZoneThreat(t.zone_id);
   // If the spawn moved zones, the old zone's inference changes too.
-  if (prev?.zone_id && prev.zone_id !== t.zone_id) computeZoneDanger(prev.zone_id);
+  if (prev?.zone_id && prev.zone_id !== t.zone_id) computeZoneThreat(prev.zone_id);
 }
 
 export function removeSpawn(spawnId) {
   const prev = world.spawnTimers.get(spawnId);
   world.spawnTimers.delete(spawnId);
-  if (prev?.zone_id) computeZoneDanger(prev.zone_id);
+  if (prev?.zone_id) computeZoneThreat(prev.zone_id);
 }
 
-// Inferred danger: max threat among the zone's spawn templates, bucketed.
-// Cached on the world zone object; zoneDanger() (danger.js) reads the cache
-// under its tag-override/sanctuary precedence. Recomputed at boot (initWorld)
+// Inferred danger: max threat among the zone's spawn templates, cached RAW.
+// The bucketing happens in zoneDanger() (danger.js) at read time, so the score
+// survives for anything that wants a gradient. Recomputed at boot (initWorld)
 // and by the reloadSpawn/removeSpawn hooks above — never per-tick.
-export function computeZoneDanger(zoneId) {
+export function computeZoneThreat(zoneId) {
   const zone = world.zones.get(zoneId);
   if (!zone) return;
-  let maxThreat = 0, hasSpawn = false;
+  let maxThreat = 0;
   for (const t of world.spawnTimers.values()) {
     if (t.zone_id !== zoneId) continue;
-    hasSpawn = true;
     maxThreat = Math.max(maxThreat, enemyThreat(t));
   }
-  zone._dangerInferred = hasSpawn ? bucketThreat(maxThreat) : 'safe';
+  zone._threatScore = maxThreat;
 }
 
-function computeAllZoneDanger() {
-  for (const zoneId of world.zones.keys()) computeZoneDanger(zoneId);
+function computeAllZoneThreat() {
+  for (const zoneId of world.zones.keys()) computeZoneThreat(zoneId);
 }
 
 async function loadApartments() {
@@ -1428,6 +1427,13 @@ export function spawnEnemySync(template, zoneId) {
     death_message: template.death_message, flags,
     behaviour_graph: template.behaviour_graph || {},
     zoneId, targetId: null, lastAttack: 0, statuses: [],
+    // Where this instance came from, so a roaming or chasing mob can find its way
+    // back. `zoneId` is mutated by every move, so the origin has to be recorded
+    // separately or it's gone after the first step. Deliberately NOT `home_zone`:
+    // every existing home_zone read is !isEnemy-guarded (an NPC's home is a place
+    // it holds a key to and locks up behind it), and stamping that field on a mob
+    // would quietly hand it NPC behaviours like GO_HOME.
+    spawnZoneId: zoneId,
     // Lore-appropriate enemies (skittish scavengers, slow lumbering mutants)
     // hesitate before their FIRST attack after aggroing — set the moment they
     // acquire a target, checked separately from the normal attack-interval pace.
@@ -1580,10 +1586,10 @@ export async function reloadZone(zoneId) {
     enemies: existing.enemies,
     npcs: existing.npcs,
     corpses: existing.corpses,
-    // Carry the inferred-danger cache forward — it's derived from spawnTimers,
+    // Carry the threat-score cache forward — it's derived from spawnTimers,
     // not the zones row, and recomputed only at boot and on spawn edits. A
     // zone save must not zero it until the next reboot.
-    _dangerInferred: existing._dangerInferred,
+    _threatScore: existing._threatScore,
   });
   await applyExitOverrides(zoneId);
 }

@@ -10,6 +10,7 @@
   },
   "flags": {
     "district": "wilds",
+    "no_spawn": true,
     "radiation": 25,
     "region_id": "region_coldwater",
     "terrain": "scrub"

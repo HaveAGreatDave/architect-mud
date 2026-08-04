@@ -1,0 +1,14 @@
+{
+  "description": "Ash fused where a saint sat down, lifted whole. Looking through it does something to the light that people who own one stop trying to describe.",
+  "flags": {},
+  "id": "item_saintglass",
+  "name": "pane of saintglass",
+  "tags": {
+    "description": "Ash fused where a saint sat down, lifted whole. Looking through it does something to the light that people who own one stop trying to describe.",
+    "material": true,
+    "stackable": true
+  },
+  "type": "material",
+  "value": 310,
+  "weight": 500
+}

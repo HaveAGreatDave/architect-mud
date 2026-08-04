@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_meltwater_lamprey",
+  "id": "zs_district_880_920_meltwater_lamprey",
+  "max_count": 1,
+  "respawn_seconds": 720,
+  "spawn_weight": 35,
+  "zone_id": "zone_district_880_920"
+}

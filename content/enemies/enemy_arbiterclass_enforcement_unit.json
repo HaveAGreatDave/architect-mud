@@ -50,16 +50,25 @@
       "weight": 10
     },
     {
+      "grants": {
+        "component": 1
+      },
       "part": "torso",
       "soak": {},
       "weight": 40
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "left_arm",
       "soak": {},
       "weight": 12
     },
     {
+      "grants": {
+        "component": 0
+      },
       "part": "right_arm",
       "soak": {},
       "weight": 12
@@ -117,16 +126,21 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "Arbiter-Class Enforcement Unit",
   "weapon": [
     {
-      "max": 20,
-      "min": 10,
+      "max": 12,
+      "min": 6,
       "type": "energy"
+    },
+    {
+      "max": 8,
+      "min": 4,
+      "type": "kinetic"
     }
   ]
 }

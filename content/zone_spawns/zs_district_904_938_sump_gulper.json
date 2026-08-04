@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_sump_gulper",
+  "id": "zs_district_904_938_sump_gulper",
+  "max_count": 1,
+  "respawn_seconds": 720,
+  "spawn_weight": 35,
+  "zone_id": "zone_district_904_938"
+}

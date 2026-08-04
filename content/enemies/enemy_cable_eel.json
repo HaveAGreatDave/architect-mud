@@ -45,11 +45,18 @@
   },
   "body_parts": [
     {
+      "grants": {
+        "component": 0
+      },
       "part": "head",
+      "role": "attack",
       "soak": {},
       "weight": 20
     },
     {
+      "grants": {
+        "component": 1
+      },
       "part": "torso",
       "soak": {},
       "weight": 60
@@ -110,16 +117,21 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "Cable Eel",
   "weapon": [
     {
-      "max": 6,
-      "min": 2,
+      "max": 4,
+      "min": 1,
       "type": "kinetic"
+    },
+    {
+      "max": 2,
+      "min": 1,
+      "type": "energy"
     }
   ]
 }

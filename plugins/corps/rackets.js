@@ -149,7 +149,10 @@ function findShopkeeper(player, nameArg) {
 function leanDifficulty(player, npc, zone) {
   const warmth = getRelation(player, npc.id)?.warmth || 0;
   const danger = zoneDanger(zone);
-  const dangerEase = danger === 'safe' ? 2 : (danger === 'moderate' ? 1 : 0);
+  // 'medium', not 'moderate' — zoneDanger() answers safe/low/medium/high/lethal.
+  // This branch read 'moderate' until 2026-08-03 and so never fired, which made
+  // every non-safe zone lean identically.
+  const dangerEase = danger === 'safe' ? 2 : (danger === 'medium' ? 1 : 0);
   return Math.max(3, 6 + Math.round(warmth / 25) - dangerEase);
 }
 

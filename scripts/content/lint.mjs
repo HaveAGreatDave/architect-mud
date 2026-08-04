@@ -153,6 +153,27 @@ export function lintContentTree(baseDir) {
           }
         }
       }
+      // Loot and butcher rows name an item in the key `item` — NOT `item_id`,
+      // which is what the generic JSONB item-reference scan keys on. So a typo'd
+      // drop passed lint AND passed regress and simply never dropped: the
+      // tinnitus saint carried a weight-100 "2-5 scrap" row pointing at
+      // `item_scrap`, an id that has never existed, so the game's second-hardest
+      // creature dropped nothing but credits for its entire life. Same silent
+      // class as the anatomy checks above, and it fails the same way.
+      if (entry.table === 'enemies') {
+        const itemPks = pkSets.get('items')?.get('id');
+        for (const t of ['loot_table', 'butcher_table']) {
+          if (!Array.isArray(f.data[t])) continue;
+          for (const r of f.data[t]) {
+            if (!r || typeof r !== 'object') continue;
+            if (typeof r.item !== 'string' || !r.item.trim()) {
+              errors.push(`${label}: ${t} has a row with no item id`);
+            } else if (itemPks && !itemPks.has(r.item)) {
+              errors.push(`${label}: ${t} drops "${r.item}", but no such item exists — this row can never drop`);
+            }
+          }
+        }
+      }
       // Item tags must exist in the tag catalog with the right value shape —
       // the engine gates on tag names, so a typo here is silently inert in prod.
       if (entry.table === 'items' && f.data.tags) {

@@ -1,0 +1,17 @@
+{
+  "description": "Rendered fat off something that lived in the burn. It sets grey, smells of struck matches, and fries anything you put in it beautifully.",
+  "flags": {},
+  "id": "item_cinder_tallow",
+  "name": "cinder tallow",
+  "tags": {
+    "consumable": true,
+    "description": "Rendered fat off something that lived in the burn. It sets grey, smells of struck matches, and fries anything you put in it beautifully.",
+    "food_noun": "tallow",
+    "food_profile": "fat_or_oil",
+    "restore_hunger": 8,
+    "stackable": true
+  },
+  "type": "consumable",
+  "value": 14,
+  "weight": 250
+}

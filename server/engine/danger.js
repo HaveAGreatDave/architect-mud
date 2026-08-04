@@ -5,12 +5,17 @@
 // did. Precedence in zoneDanger():
 //   1. `danger` tag override (hazard-flavor zones with no spawn rows)
 //   2. sanctuary ⇒ 'safe'
-//   3. cached inference (zone._dangerInferred, computed in world.js from
-//      world.spawnTimers at boot and on every spawn edit)
+//   3. the cached THREAT SCORE (zone._threatScore, computed in world.js from
+//      world.spawnTimers at boot and on every spawn edit), bucketed here
 //   4. 'safe' (no spawns, no override)
 //
+// The cache holds the raw score, not the band, so bucketThreat() stays the one
+// place the thresholds live and a caller that wants gradient rather than band
+// can read zoneThreat() directly. Before 2026-08-03 world.js bucketed on write
+// and cached the word, which threw the number away for good.
+//
 // Pure functions over plain objects only — NO world.js import. world.js sits
-// above this module (it computes and writes the _dangerInferred cache);
+// above this module (it computes and writes the _threatScore cache);
 // districts.js and describe.js import from here freely without cycles.
 import { tagValue } from './tags.js';
 import { isSanctuary, getZoneRadiation } from './zone-tags.js';
@@ -57,11 +62,22 @@ export function bucketThreat(score) {
 
 const VALID = new Set(Object.keys(DANGER_RANK));
 
+// The raw spawn-derived threat score for a zone, 0 when nothing spawns there.
+// Unlike zoneDanger() this ignores the tag override, sanctuary and the
+// radiation floor — it is only ever "how hard are the things that live here".
+export function zoneThreat(zone) {
+  const score = Number(zone?._threatScore);
+  return Number.isFinite(score) && score > 0 ? score : 0;
+}
+
 export function zoneDanger(zone) {
   if (!zone) return 'safe';
   const override = tagValue(zone, 'danger');
   if (VALID.has(override)) return override;
   if (isSanctuary(zone)) return 'safe';
-  const inferred = VALID.has(zone._dangerInferred) ? zone._dangerInferred : 'safe';
-  return RANK_NAME[Math.max(DANGER_RANK[inferred], radiationFloor(zone))];
+  // A zero score means no spawns at all, which is 'safe' — never bucketThreat(0),
+  // which would answer 'low' because it assumes something is there to score.
+  const score = zoneThreat(zone);
+  const inferred = score > 0 ? DANGER_RANK[bucketThreat(score)] : DANGER_RANK.safe;
+  return RANK_NAME[Math.max(inferred, radiationFloor(zone))];
 }

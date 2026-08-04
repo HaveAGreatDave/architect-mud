@@ -1,0 +1,8 @@
+{
+  "enemy_id": "enemy_glass_tick",
+  "id": "zs_district_931_931_glass_tick",
+  "max_count": 2,
+  "respawn_seconds": 600,
+  "spawn_weight": 45,
+  "zone_id": "zone_district_931_931"
+}

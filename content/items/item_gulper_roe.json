@@ -1,0 +1,23 @@
+{
+  "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which is not a high bar.",
+  "flags": {},
+  "id": "item_gulper_roe",
+  "name": "sump roe",
+  "tags": {
+    "consumable": true,
+    "description": "A double handful of grey-green eggs in a slick of their own jelly. Better than it looks, which is not a high bar.",
+    "food_noun": "roe",
+    "food_profile": "egg",
+    "needs_cooking": true,
+    "perishable": true,
+    "restore_hunger": 10,
+    "spoil_rate": "fast",
+    "stackable": true,
+    "status_chance": {
+      "food_poisoning": 0.4
+    }
+  },
+  "type": "consumable",
+  "value": 9,
+  "weight": 200
+}

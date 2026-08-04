@@ -8,6 +8,11 @@
         "next": "loop",
         "type": "action"
       },
+      "chase": {
+        "action_type": "CHASE",
+        "next": "low_hp",
+        "type": "action"
+      },
       "flee": {
         "action_type": "FLEE",
         "next": "loop",
@@ -16,7 +21,7 @@
       "has_target": {
         "condition_type": "HAS_TARGET",
         "ifFalse": "idle",
-        "ifTrue": "low_hp",
+        "ifTrue": "chase",
         "type": "condition"
       },
       "idle": {
@@ -46,6 +51,7 @@
   "body_parts": [
     {
       "part": "head",
+      "role": "attack",
       "soak": {},
       "weight": 10
     },
@@ -81,7 +87,9 @@
   "description": "A lean scavenger stitched together from dog and junkyard: copper-whisker muzzle, a hide of wire and scab. Hunts the wastes in packs and pulls down anything slower than it.",
   "dodge": 4,
   "faction": null,
-  "flags": {},
+  "flags": {
+    "leash_radius": 8
+  },
   "hit": 5,
   "hp_max": 14,
   "id": "enemy_wire_jackal",
@@ -108,8 +116,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "wire jackal",
