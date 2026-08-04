@@ -2457,12 +2457,32 @@ const TALKSHOW_GUEST_CALL_LEAD = 1;
 // (sportsSlotOfDay). No @airtime ⇒ every slot (continuous), same convention as sports.
 // `lead` looks AHEAD: lead 1 is also true during the slot before an airing one, which is how
 // the guest gets called in early (see TALKSHOW_GUEST_CALL_LEAD).
-function talkshowAiring(script, lead = 0) {
+function talkshowAiring(script, lead = 0, tailMin = 0) {
   const slots = script?.airSlots;
   if (!Array.isArray(slots) || !slots.length) return true;
   const now = sportsSlotOfDay();
   for (let k = 0; k <= lead; k++) if (slots.includes((now + k) % SPORTS_GAMES_PER_DAY)) return true;
+  // AND IT HAS TO LOOK BACKWARD TOO. The slot reserves a whole in-game 3-hour block
+  // (an hour of real time at timeScale 3) and the episode replays inside it, so an
+  // episode is routinely still on air when the block ticks over. `lead` called the
+  // guest in early and nothing ever held anyone late, so the flip walked the ENTIRE
+  // cast off the set mid-sentence — and the show, finding an empty studio, told
+  // viewers that John, Graham and tonight's guest had not yet arrived, several
+  // minutes after Graham had opened the programme.
+  //
+  // The grace is one episode long and only applies at the very top of the new slot,
+  // so it can never hold the cast through a block they aren't working.
+  if (tailMin > 0 && sportsSlotElapsedMin() < tailMin
+      && slots.includes((now - 1 + SPORTS_GAMES_PER_DAY) % SPORTS_GAMES_PER_DAY)) return true;
   return false;
+}
+// The trailing grace in IN-GAME minutes: one episode's real length converted by the
+// live timeScale, plus a minute of slack. Derived rather than a constant so the
+// window stays about one episode wide whatever speed the world is running at.
+const TALKSHOW_EPISODE_SEC = 300;   // @length in the .bsm; the assembled show runs to about this
+function talkshowCastTailMin() {
+  const scale = getEnvironmentState()?.timeScale || 1;
+  return Math.ceil((TALKSHOW_EPISODE_SEC / 60) * scale) + 1;
 }
 // Episode bucket = the in-game calendar day, so a fresh guest + fresh episode roll once a
 // day and every viewer (and every restart within that day) sees the same one.
@@ -4399,7 +4419,9 @@ registerNpcScheduleChecker((npcId) => {
       // The guest — and only the guest — comes on shift a slot early, because it's the only
       // one with a journey to make. See TALKSHOW_GUEST_CALL_LEAD.
       const lead = item.talkshowScript?.guestNpc === npcId ? TALKSHOW_GUEST_CALL_LEAD : 0;
-      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript, lead)) return true;
+      // The tail is for the WHOLE cast, not just the guest: an episode straddling the
+      // slot boundary needs everyone who is in it to still be standing there.
+      if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript, lead, talkshowCastTailMin())) return true;
     }
     let item = null;
     if (state.scheduleMode === 'daily') {

@@ -434,6 +434,27 @@ export default async function regress({ check, run, getPlayer }) {
   check('the rest of the cast is NOT called early (no lead ⇒ airtime only)',
     _test.talkshowAiring({ airSlots: [(_test.sportsSlotIndex() % _test.SPORTS_GAMES_PER_DAY + 1) % _test.SPORTS_GAMES_PER_DAY] }, 0) === false, 'airtime only');
 
+  // ── …and a going-home time ──────────────────────────────────────────────────
+  // The slot reserves a whole in-game 3-hour block and the episode replays inside it,
+  // so an episode is routinely still on air when the block ticks over. There was a
+  // lead-in and no lag-out, so the flip walked the ENTIRE cast off the set mid-show
+  // and the studio, now empty, told viewers nobody had arrived yet.
+  {
+    const G = _test.SPORTS_GAMES_PER_DAY;
+    const now = _test.sportsSlotIndex() % G;
+    const prev = { airSlots: [(now - 1 + G) % G] };   // aired last block, not this one
+    const far  = { airSlots: [(now + 3) % G] };       // nowhere near
+    // A generous tail stands in for "an episode could still be running".
+    check('the cast is held past the end of their slot while an episode may still be running',
+      _test.talkshowAiring(prev, 0, 9999) === true, 'held over');
+    check('the hold-over only applies to a slot that just aired',
+      _test.talkshowAiring(far, 0, 9999) === false, 'not held');
+    // Zero tail is the old behaviour, and must still be off the moment the slot ends —
+    // otherwise the grace is really just a second airing slot.
+    check('with no tail the cast goes off shift the instant the slot flips',
+      _test.talkshowAiring(prev, 0, 0) === false, 'clean flip');
+  }
+
   // ── Not asking the same question twice ──────────────────────────────────────
   // "What would you tell young people considering your line of work?" and "Did you always know
   // this was your calling?" are one question in two costumes. Drawing both made the show look

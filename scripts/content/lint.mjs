@@ -338,14 +338,22 @@ export function lintContentTree(baseDir) {
     // work_zone_id === home_zone: they are stationed where they live and never
     // commute, so a schedule would decide nothing for them. That is a legitimate
     // shape, not an omission.
-    // Studio-driven NPCs are exempt: a graph built on CHECK_WORK (rather than
-    // CHECK_VENDOR_WORK) gates on studio_zone_id and the BROADCAST schedule, and
-    // never reads vendor_schedule at all. A TV host is at the studio when their
-    // show is on and at home otherwise, which is correct, not absent. John Akerson
-    // and Graham Mercer are both this shape.
+    // Studio-driven NPCs are exempt: their graph gates on studio_zone_id and the
+    // BROADCAST schedule, and never reads vendor_schedule at all. A TV host is at
+    // the studio when their show is on and at home otherwise, which is correct,
+    // not absent. John Akerson and Graham Mercer are the CHECK_WORK shape.
+    //
+    // IS_BROADCAST_SCHEDULED is the same exemption by a different door. The talk
+    // show's guest doesn't commute from a home at all — it materialises backstage
+    // on a call time and walks in — so its graph consults the broadcast schedule
+    // directly and has no CHECK_WORK node. Without it listed here, clearing that
+    // NPC's vestigial vendor_schedule (the broadcast is the only schedule it has)
+    // failed the lint for never travelling to work, which is the opposite of true:
+    // it is the one cast member that does nothing BUT travel to work.
     const studioDriven = (f) => {
       const g = JSON.stringify(f.data.behaviour_graph || {});
-      return g.includes('CHECK_WORK') && !g.includes('CHECK_VENDOR_WORK');
+      if (g.includes('CHECK_VENDOR_WORK')) return false;
+      return g.includes('CHECK_WORK') || g.includes('IS_BROADCAST_SCHEDULED');
     };
     for (const f of npcFiles) {
       const { work_zone_id: work, home_zone: home, vendor_schedule: sched } = f.data;
