@@ -191,7 +191,9 @@ function renderEnvironmentHUD() {
     if (dt) dt.textContent = envUnreal ? '' : envDateStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
-    // `bf` is how the AIR feels and stays — that's the world describing itself.
+    // `bf` is how the AIR feels and stays — it sits at the right edge of the
+    // wetness row in the sidebar (the temp row's own right edge is the reading),
+    // which is what keeps every value on one column. It is how the AIR feels and stays — that's the world describing itself.
     // Your own core temperature does NOT appear here any more: it is one of the
     // things you are meant to feel through prose (shivering, sweating, the
     // hypothermia lines) rather than read off a gauge to two decimal places.

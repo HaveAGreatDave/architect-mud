@@ -1389,6 +1389,14 @@ body.fsim-external #look-resize-handle { display: none; }
 	margin-left: auto;
 	letter-spacing: 0.3px;
 }
+/* How the air feels rides the bottom row, hard right — the temperature, precip
+   and this all land on the same edge, so the panel reads as two columns rather
+   than three ragged ones. */
+#env-hud-sidebar .env-body-feel {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--text);
+}
 #env-hud-sidebar .env-wet-label {
 	color: var(--blue);
 	font-size: 11px;
