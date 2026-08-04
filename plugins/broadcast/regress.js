@@ -289,6 +289,34 @@ export default async function regress({ check, run, getPlayer }) {
   check('talkshow keeps each Q&A pair together (question then its own authored answer)',
     qi >= 0 && (cSays[qi + 1] || '').includes('MARKERA'), qi >= 0 ? (cSays[qi + 1] || 'nothing after') : 'no question');
 
+  // ── Applause is addressed to somebody ───────────────────────────────────────
+  // One flat applause deck, dealt in order, meant the swell behind "Ladies and
+  // gentlemen, {host}!" could be a line naming the GUEST — who at that point has
+  // not walked out and may still be crossing the city. Each entrance draws its own
+  // subject pool first, so a named line can only play over the entrance it names.
+  {
+    const aScript = { ...tsScript, pools: { ...tsScript.pools,
+      applause: ['( NEUTRAL swell )'],
+      applause_host: ['( HOSTONLY {host} strolls out )'],
+      applause_guest: ['( GUESTONLY {guest} takes the chair )'],
+    } };
+    const aSays = saysOf(_test.assembleTalkshowGraph(aScript, 'bc_ap', 'dayA', _test.talkshowPersonaFor(aScript, 'dayA')));
+    const hostIn  = aSays.findIndex(t => t.includes('Here is '));        // announce_host
+    const guestIn = aSays.findIndex(t => t.includes('Welcome '));        // guest_intro
+    const nextAfter = (i, m) => aSays.slice(i + 1).find(t => /HOSTONLY|GUESTONLY|NEUTRAL/.test(t)) || m;
+    check('the host entrance never draws a guest-named swell',
+      !/GUESTONLY/.test(nextAfter(hostIn, '')), nextAfter(hostIn, 'nothing'));
+    check('the guest entrance never draws a host-named swell',
+      !/HOSTONLY/.test(nextAfter(guestIn, '')), nextAfter(guestIn, 'nothing'));
+    // The neutral pool still has to be reachable, or the split has quietly turned
+    // three subject lines into the entire applause vocabulary.
+    check('the neutral applause pool is still in play', aSays.some(t => t.includes('NEUTRAL')), 'neutral reachable');
+    // A show that authored no subject pools must behave exactly as it did before.
+    const oldSays = saysOf(_test.assembleTalkshowGraph(tsScript, 'bc_ap2', 'dayA', _test.talkshowPersonaFor(tsScript, 'dayA')));
+    check('a show with no subject pools still gets its applause',
+      oldSays.some(t => t.includes('the crowd erupts')), 'fallback intact');
+  }
+
   // ── The empty chair ─────────────────────────────────────────────────────────
   // The guest is the one cast member with a journey to make: it materialises backstage and
   // WALKS to the studio. It used to come on shift at airtime, so it was still en route through

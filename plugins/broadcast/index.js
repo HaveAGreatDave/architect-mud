@@ -817,7 +817,7 @@ async function loadChannelRuntimes() {
         lastMsgKey: '',
         wasActive: false,
         currentFallbackMessages: [],
-        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false, standbyCardUp: false },
+        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false, standbyCardUp: false, airedAny: false },
         theme: ch.theme_id ? {
           id: ch.theme_id,
           name: ch.theme_name,
@@ -2621,17 +2621,34 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   // crucially — because we lean on the crowd to fill time, each SEGMENT draws fewer scripted
   // lines per night, leaving more of the pools unseen so the variety lasts across broadcasts.
   const reactionDeck = talkshowDraw(pools, 'audience', 40, tok, rand);
-  const applauseDeck = talkshowDraw(pools, 'applause', 12, tok, rand);
-  let rIdx = 0, aIdx = 0;
+  // APPLAUSE IS ADDRESSED TO SOMEBODY. One flat deck dealt in order meant the swell
+  // behind "Ladies and gentlemen, {host}!" could be a line that names the GUEST, who
+  // at that point in the running order has not walked out and may not even be in the
+  // building. Each entrance now draws its own subject pool first and falls through to
+  // the neutral one, so a named line can only ever play over the entrance it names.
+  // A show with no subject pools authored behaves exactly as it did before.
+  const applauseDecks = new Map();
+  const applauseIdx = new Map();
+  let rIdx = 0;
   const ambientBeat = (text, holdMs) => {
     if (!text) return;
     if (curAnchor !== '') { add({ type: 'npc_anchor', npc_id: '' }); curAnchor = ''; }
     add({ type: 'say', text, style: 'ambient', holdMs });
   };
   const react = () => { if (reactionDeck.length) ambientBeat(reactionDeck[rIdx++ % reactionDeck.length], 3500); };
-  const applause = () => {
-    if (applauseDeck.length) ambientBeat(applauseDeck[aIdx++ % applauseDeck.length], 4200);
-    else react();
+  // `who` is 'host' | 'guest' | undefined (a swell addressed to nobody in particular).
+  const applause = (who) => {
+    const key = who || '';
+    if (!applauseDecks.has(key)) {
+      const specific = who ? talkshowDraw(pools, `applause_${who}`, 6, tok, rand) : [];
+      applauseDecks.set(key, specific.concat(talkshowDraw(pools, 'applause', 12, tok, rand)));
+      applauseIdx.set(key, 0);
+    }
+    const deck = applauseDecks.get(key);
+    if (!deck.length) { react(); return; }
+    const i = applauseIdx.get(key);
+    applauseIdx.set(key, i + 1);
+    ambientBeat(deck[i % deck.length], 4200);
   };
 
   add({ type: 'start' });
@@ -2647,7 +2664,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
   lines(sidekick, talkshowDraw(pools, 'open', 1 + Math.floor(rand() * 2), tok, rand));   // 1–2
   lines(sidekick, talkshowDraw(pools, 'tease', 1 + Math.floor(rand() * 2), tok, rand));  // 1–2
   line(sidekick, talkshowFill(sportsPick(pools, rand, 'announce_host') || "Ladies and gentlemen — {host}!", tok));
-  applause();   // the host walks out to applause
+  applause('host');   // the host walks out to applause
 
   // ── THE HOST GATE ────────────────────────────────────────────────────────────────────
   // Graham has just said John's name to the room. Whether John is IN that room is a fact
@@ -2727,7 +2744,7 @@ function assembleTalkshowGraph(script, broadcastId, bucket, persona) {
 
     // ── The guest. John introduces, John interviews; Graham is not in this segment at all.
     line(host, talkshowFill(sportsPick(pools, rand, 'guest_intro') || "My next guest is {title}. Please welcome {guest}!", tok));
-    applause();   // the guest takes the stage
+    applause('guest');   // the guest takes the stage
 
     // THE CHAIR GATE. Everything past here depends on somebody actually sitting in it, and that
     // is a fact about the world at airtime, not about the script — the guest walks in across a
@@ -5428,6 +5445,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.hostAbsent = false;
     bb.absentDetectedAt = null;
     bb.techDiffMode = false;
+    // A fresh programme has aired nothing yet, so the delay card is back to
+    // "has not yet arrived" until this one puts a frame out.
+    bb.airedAny = false;
     bb.activeBroadcastId = graph._broadcastId;
     // Seek to mid-program position if tuning in partway through
     if (segElapsedSec > 0) {
@@ -5491,14 +5511,19 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       const who = missing.length ? _joinNames(missing) : (bb.npcAnchor || 'a cast member');
       const verb = missing.length > 1 ? 'have' : 'has';
       const slot = Math.floor(nowMs / 5000);
+      // "HAS NOT YET ARRIVED" IS ONLY TRUE BEFORE THE SHOW STARTS. This card was
+      // written for an empty stage at airtime and then reused for the cast walking
+      // OFF mid-show, which is a different sentence: viewers watched Graham announce
+      // John, watched the crowd applaud, and were then told nobody had turned up.
+      // `bb.airedAny` is set the first time a frame actually goes out, so the card
+      // can say the true thing in both cases.
+      const text = bb.airedAny
+        ? `PLEASE STAND BY\n\nWe have lost the studio floor — ${who} ${verb} left the set.\n\nWe apologise for the interruption and hope to resume shortly.`
+        : `PLEASE STAND BY\n\nTonight's programme is delayed — ${who} ${verb} not yet arrived in the studio.\n\nWe apologise for the inconvenience and thank you for your patience.`;
       return {
         style: 'overlay',
         key: `absent-delay:${channelId}:${slot}`,
-        overlay: {
-          overlayType: 'text_card',
-          text: `PLEASE STAND BY\n\nTonight's programme is delayed — ${who} ${verb} not yet arrived in the studio.\n\nWe apologise for the inconvenience and thank you for your patience.`,
-          duration: 0,
-        },
+        overlay: { overlayType: 'text_card', text, duration: 0 },
       };
     }
   }
@@ -5558,6 +5583,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           }
           raw = _garbleLine(raw, imp.level);
         }
+        bb.airedAny = true;   // something has now gone out; see the delay card
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';

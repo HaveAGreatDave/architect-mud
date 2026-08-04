@@ -211,17 +211,22 @@
         "( A wave of laughter, cut short by a flicker of the lights. )"
       ],
       "applause": [
-        "( The audience erupts as {host} strolls out. )",
         "( Applause and a couple of whistles fill the studio. )",
-        "( The crowd claps {guest} out to the chair. )",
-        "( Warm applause as {guest} sits down. )",
         "( Big applause. Somebody throws something. It's fine. )",
         "( The audience rises, a few of them, anyway. )",
         "( Applause, thin but sincere. )",
-        "( The crowd stands for {guest}, then remembers the seats cost extra and sits. )",
         "( Applause rolls in like it owes the room money. )",
-        "( Wild applause; a chair gives out; the show goes on. )",
-        "( The audience claps {host} out, half of them checking the exits first. )"
+        "( Wild applause; a chair gives out; the show goes on. )"
+      ],
+      "applause_host": [
+        "( The audience erupts as {host} strolls out. )",
+        "( The audience claps {host} out, half of them checking the exits first. )",
+        "( The band hits a sting and {host} walks into it like he owns the floor. )"
+      ],
+      "applause_guest": [
+        "( The crowd claps {guest} out to the chair. )",
+        "( Warm applause as {guest} sits down. )",
+        "( The crowd stands for {guest}, then remembers the seats cost extra and sits. )"
       ],
       "announce_host": [
         "Ladies and gentlemen... please welcome your host... {host}!",

@@ -158,19 +158,40 @@ Tonight: everything's fine, nothing's fine, and somewhere in between there's a m
 ( A wave of laughter, cut short by a flicker of the lights. )
 ::endlines
 
-# --- Applause: bigger crowd swells for entrances and the sign-off ({guest} token ok). -
+# --- Applause: bigger crowd swells for entrances and the sign-off. --------------------
+#
+# THREE POOLS, AND THE SPLIT IS LOAD-BEARING. These used to be one deck, drawn once
+# and dealt out in order, so the swell that played when Graham said "Ladies and
+# gentlemen, John Akerson!" could be "The crowd claps {guest} out to the chair" —
+# the audience applauding somebody who was still in a corridor somewhere. A line
+# that NAMES who is walking out belongs to that entrance and to no other.
+#
+#   applause        — neutral. Fits any entrance, and is the fallback for all of them.
+#   applause_host   — the host walking out to the desk. {host} only.
+#   applause_guest  — the guest coming out to the chair. {guest} only.
+#
+# Put a line in a subject pool ONLY if it names or implies that person; anything
+# that would read fine over either entrance belongs in the neutral pool, where it
+# gets used more.
 ::lines applause
-( The audience erupts as {host} strolls out. )
 ( Applause and a couple of whistles fill the studio. )
-( The crowd claps {guest} out to the chair. )
-( Warm applause as {guest} sits down. )
 ( Big applause. Somebody throws something. It's fine. )
 ( The audience rises, a few of them, anyway. )
 ( Applause, thin but sincere. )
-( The crowd stands for {guest}, then remembers the seats cost extra and sits. )
 ( Applause rolls in like it owes the room money. )
 ( Wild applause; a chair gives out; the show goes on. )
+::endlines
+
+::lines applause_host
+( The audience erupts as {host} strolls out. )
 ( The audience claps {host} out, half of them checking the exits first. )
+( The band hits a sting and {host} walks into it like he owns the floor. )
+::endlines
+
+::lines applause_guest
+( The crowd claps {guest} out to the chair. )
+( Warm applause as {guest} sits down. )
+( The crowd stands for {guest}, then remembers the seats cost extra and sits. )
 ::endlines
 
 # --- Announcer brings out the host (the {host} token = John's live name) --------
