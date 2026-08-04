@@ -754,6 +754,20 @@ function ensureStyles() {
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 3px 9px rgba(0,0,0,.3); }
     #tablet-os-overlay .tos-wg-title { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
       color:var(--tos-fg-dim2); margin-bottom:7px; }
+    /* Press-hold confirm. Sits over its own card and nothing else — the card is
+       still readable through it, because the question is about that card. */
+    #tablet-os-overlay .tos-widget { position:relative; }
+    #tablet-os-overlay .tos-widget.armed { border-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); }
+    #tablet-os-overlay .tos-wg-arm { position:absolute; inset:0; border-radius:8px; z-index:3;
+      display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px;
+      background:color-mix(in srgb, var(--bg, #0c1114) 82%, transparent); backdrop-filter:blur(1.5px); }
+    #tablet-os-overlay .tos-wg-armq { font-size:9.5px; letter-spacing:.6px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-armbtn { cursor:pointer; font-size:9.5px; letter-spacing:1.1px; text-transform:uppercase;
+      padding:3px 11px; border-radius:4px; color:var(--red, #e0413a);
+      border:1px solid color-mix(in srgb, var(--red, #e0413a) 45%, transparent); }
+    #tablet-os-overlay .tos-wg-armbtn.alt { color:var(--tos-fg-dim);
+      border-color:color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-wg-armbtn:hover { filter:brightness(1.25); }
     /* meters */
     #tablet-os-overlay .tos-wg-meter { display:grid; grid-template-columns:1fr auto; gap:2px 6px; margin-bottom:6px; }
     #tablet-os-overlay .tos-wg-mlabel { font-size:9.5px; letter-spacing:.4px; color:var(--tos-fg-dim); }
@@ -4629,6 +4643,54 @@ function setWidgetsEnabled(on) {
   _applyWidgetChrome();
 }
 
+// ── Per-card off switch ──────────────────────────────────────────────────────
+// Press and hold a card to put it away. The master toggle above is all-or-nothing
+// and the only other control was indirect (a card follows its app's tile), so the
+// gesture that turns ONE card off is the one the surface was missing: you switch a
+// card off while looking at the thing that annoyed you, which is the moment you
+// actually want it gone.
+//
+// Deliberately its own list rather than reusing `removed`: switching a card off
+// must not touch the home GRID. The app keeps its tile and you keep opening it —
+// you've turned off the summary, not the feature. It also beats `alwaysOn`, for
+// the same reason the master toggle does: a card you switched off by hand is not
+// something the game gets to switch back on.
+//
+// Restored under Settings → Layout → Home Widgets, which is the one place a
+// player looks for a surface they made disappear.
+const TABLET_WIDGETS_OFF_KEY = 'architect_tablet_widgets_off';
+// The card currently press-held, awaiting a confirm tap. Module state (not a
+// class on the node) because the whole home screen re-renders on every payload.
+let _tosWidgetArm = null;
+// Swallow the click that fires on the pointerup ending a press-hold — the same
+// job _suppressTileClick does for the tile drag, and for the same reason.
+let _suppressWidgetClick = false;
+function loadWidgetsOff() {
+  try { const a = JSON.parse(localStorage.getItem(TABLET_WIDGETS_OFF_KEY)); return Array.isArray(a) ? a : []; }
+  catch { return []; }
+}
+function saveWidgetsOff(ids) {
+  try { localStorage.setItem(TABLET_WIDGETS_OFF_KEY, JSON.stringify(ids || [])); } catch {}
+}
+function setWidgetOff(id, off) {
+  const cur = loadWidgetsOff().filter(x => x !== id);
+  saveWidgetsOff(off ? [...cur, id] : cur);
+}
+// The way back. Named by their APP, because that's what the player press-held —
+// the card's own title is written by the server and can change between renders
+// (the Sports card is "Live" or "Next on TV" depending on the hour), so it would
+// be a poor handle for a thing you're trying to find again. Absent entirely when
+// nothing is switched off: a row offering to restore nothing is just noise.
+function renderHiddenCardsRow() {
+  const offIds = loadWidgetsOff();
+  if (!offIds.length) return '';
+  const byId = new Map([...(_data?.apps || []), ...CLIENT_APPS].map(a => [a.id, a]));
+  const chips = offIds.map(id =>
+    `<span class="tos-btn-sub" data-widget-on="${esc(id)}" style="margin:0 4px 4px 0">${esc(byId.get(id)?.name || id)}</span>`).join('');
+  return `<div class="tos-set-row"><span class="tos-set-label">Hidden Cards<span class="tos-set-val">Press-held off the home screen</span></span>
+    <span style="display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:60%">${chips}</span></div>`;
+}
+
 // The chassis is sized for what's actually on the home screen: with cards off it
 // sheds the height it was only holding for them. Called on open and on every toggle,
 // so the device resizes in the same gesture that switches the cards.
@@ -4651,7 +4713,8 @@ function renderHomeWidgets(widgets) {
   // is to appear uninvited. The app it opens may well be removed; that's the point.
   // The server owns that call (see the buildWidget contract), not this list.
   const removed = new Set(loadRemovedApps());
-  const cards = (widgets || []).filter(w => w.alwaysOn || !removed.has(w.nav)).map(w => {
+  const off = new Set(loadWidgetsOff());
+  const cards = (widgets || []).filter(w => !off.has(w.nav) && (w.alwaysOn || !removed.has(w.nav))).map(w => {
     let body = '';
     if (w.kind === 'meters') {
       body = (w.rows || []).map(r => `<div class="tos-wg-meter">
@@ -4690,7 +4753,15 @@ function renderHomeWidgets(widgets) {
       return '';   // unknown kind — say nothing rather than something wrong
     }
     const nav = w.nav ? ` data-widget-nav="${esc(w.nav)}"` : '';
-    return `<div class="tos-widget"${nav}><div class="tos-wg-title">${esc(w.title || '')}</div>${body}</div>`;
+    // The press-held card wears its own confirm rather than opening a dialog over
+    // the home screen: the card you are deciding about stays legible underneath,
+    // and a tap anywhere else disarms it. Two taps to lose a card, never one.
+    const armed = w.nav && _tosWidgetArm === w.nav
+      ? `<div class="tos-wg-arm"><span class="tos-wg-armq">Hide this card?</span>
+         <span class="tos-wg-armbtn" data-widget-off="${esc(w.nav)}">Hide</span>
+         <span class="tos-wg-armbtn alt" data-widget-keep="1">Keep</span></div>`
+      : '';
+    return `<div class="tos-widget${armed ? ' armed' : ''}"${nav}><div class="tos-wg-title">${esc(w.title || '')}</div>${body}${armed}</div>`;
   }).filter(Boolean).join('');
   return cards ? `<div class="tos-widgets">${cards}</div>` : '';
 }
@@ -6076,6 +6147,7 @@ function renderTabletSettings(d) {
         <div class="tos-opt${widgetsEnabled() ? ' selected' : ''}" data-set-widgets="on" title="Show home widgets">On</div>
         <div class="tos-opt${!widgetsEnabled() ? ' selected' : ''}" data-set-widgets="off" title="Hide home widgets">Off</div>
       </div></div>` +
+      renderHiddenCardsRow() +
       `<div class="tos-set-row"><span class="tos-set-label">Sidebar Order<span class="tos-set-val">Drag order &amp; hidden panels</span></span>
         <span class="tos-btn-sub" data-reset-sidebar="1" style="margin:0">Reset to Default</span></div>` +
       `<div class="tos-set-row"><span class="tos-set-label">Home App Layout<span class="tos-set-val">Tile order, groups &amp; stashed apps</span></span>
@@ -9936,9 +10008,57 @@ function wireBody() {
       render();
     });
   }
-  // A home widget is a shortcut into the app that contributed it.
+  // A home widget is a shortcut into the app that contributed it — and a press-hold
+  // is how you put the card away. Same shape as the tile drag's arming press: a
+  // timer started on pointerdown, cancelled by movement or an early release, so a
+  // tap still opens the app and a scroll still scrolls.
   _overlay.querySelectorAll('[data-widget-nav]').forEach(el => {
-    el.addEventListener('click', () => nav(el.getAttribute('data-widget-nav'), null, null));
+    const id = el.getAttribute('data-widget-nav');
+    let press = null;
+    const clear = () => {
+      if (press) { clearTimeout(press.timer); press = null; }
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', clear);
+      window.removeEventListener('pointercancel', clear);
+    };
+    const onMove = (ev) => {
+      if (press && Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > 10) clear();
+    };
+    el.addEventListener('pointerdown', (ev) => {
+      if (ev.button > 0) return;
+      press = { x: ev.clientX, y: ev.clientY, timer: setTimeout(() => {
+        press = null;
+        _tosWidgetArm = id;
+        _suppressWidgetClick = true;   // the pointerup after a hold must not also open the app
+        sfx(TOS_SELECT_DEF);
+        render();
+      }, 450) };
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerup', clear);
+      window.addEventListener('pointercancel', clear);
+    });
+    el.addEventListener('click', (ev) => {
+      if (_suppressWidgetClick) { _suppressWidgetClick = false; return; }
+      if (ev.target.closest('.tos-wg-arm')) return;   // the confirm owns its own taps
+      // A tap on any OTHER card while one is armed just disarms — the same
+      // "press elsewhere to cancel" every other arming gesture here has.
+      if (_tosWidgetArm) { _tosWidgetArm = null; render(); return; }
+      nav(id, null, null);
+    });
+  });
+  _overlay.querySelectorAll('[data-widget-off]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      setWidgetOff(el.getAttribute('data-widget-off'), true);
+      _tosWidgetArm = null;
+      sfx(TOS_SELECT_DEF);
+      render();
+    });
+  });
+  _overlay.querySelector('[data-widget-keep]')?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    _tosWidgetArm = null;
+    render();
   });
   _overlay.querySelector('[data-tos-addapps]')?.addEventListener('click', () => {
     if (_suppressTileClick) return; // a drag just ended; don't also open the sheet
@@ -10471,6 +10591,14 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       setWidgetsEnabled(el.getAttribute('data-set-widgets') === 'on');
+      render();
+    });
+  });
+  // …and the way back for a single card put away with a press-hold.
+  _overlay.querySelectorAll('[data-widget-on]').forEach(el => {
+    el.addEventListener('click', () => {
+      sfx(TOS_SELECT_DEF);
+      setWidgetOff(el.getAttribute('data-widget-on'), false);
       render();
     });
   });
