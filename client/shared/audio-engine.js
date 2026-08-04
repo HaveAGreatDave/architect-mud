@@ -349,13 +349,40 @@
     gain.gain.linearRampToValueAtTime(sustainLevel, time + (adsr.a ?? 0.01) + (adsr.d ?? 0.05));
 
     const releaseTime = adsr.r ?? 0.15;
+    const attackEnd = time + (adsr.a ?? 0.01);
+    const decayEnd = attackEnd + (adsr.d ?? 0.05);
+
+    // WHERE THE ENVELOPE ACTUALLY IS AT `t` — computed from the schedule above
+    // rather than read off the AudioParam.
+    //
+    // This is what caused the phantom second sound. `release()` used to hold the
+    // envelope with `setValueAtTime(gain.gain.value, t)`, but `.value` is the
+    // param's value AT THE MOMENT OF THE CALL, and every release here is
+    // SCHEDULED AT BUILD TIME — before the note has started, when the param is
+    // still its untouched default of 1. So a cue that had already decayed to
+    // silence had full gain pinned back onto it at release, then ramped down
+    // over `r`. On a piano note that landed a couple of seconds after the strike,
+    // with the FM index already collapsed to its sustain timbre: a quieter,
+    // duller copy of the note you just played. An echo nobody wrote.
+    //
+    // Every one-shot with a hold — not just the instruments — was doing this.
+    function envelopeAt(t) {
+      if (t <= time) return 0;
+      if (t < attackEnd) return peak * ((t - time) / Math.max(1e-6, attackEnd - time));
+      if (t < decayEnd) {
+        const k = (t - attackEnd) / Math.max(1e-6, decayEnd - attackEnd);
+        return peak + (sustainLevel - peak) * k;
+      }
+      return sustainLevel;
+    }
+
     let released = false;
     function release(atTime) {
       if (released) return;
       released = true;
       const t = Math.max(atTime, ctx.currentTime);
       gain.gain.cancelScheduledValues(t);
-      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.setValueAtTime(envelopeAt(t), t);
       gain.gain.linearRampToValueAtTime(0, t + releaseTime);
       for (const n of nodes) {
         try { n.stop(t + releaseTime + 0.02); } catch { /* lfo already stopped */ }
@@ -1839,10 +1866,30 @@
       return h >>> 0;
     }
     function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+    // NAMED VOICES — the handful of speakers that are a CHARACTER rather than a
+    // face in the crowd, and so can't be left to the hash. Merged over the
+    // derived voice, so anything not overridden still comes from the name.
+    //
+    // 'architect' is the login greeting. The hash put it on the HIGH branch at
+    // f0 ≈ 174Hz with fshift > 1 — a short vocal tract talking near the top of
+    // its range, which is the recipe for nasal and thin. The thing welcoming you
+    // to Coldwater should sound like it's standing behind you, so: low and slow,
+    // a long tract, almost no lilt (a flat delivery is menacing when the words
+    // are pleasant), and a deep phrase-final fall.
+    const NAMED_VOICES = {
+      architect: {
+        f0: 78, fshift: 0.86, speed: 1.06, ring: 0,
+        oq: 0.48,            // pressed, not breathy — a closed glottis reads as weight
+        jitter: 0.005, breath: 0,
+        lilt: 0.035, decl: 0.18,
+      },
+    };
+
     function voiceFromName(name){
       const r = mulberry32(hashName(name)); const pick = arr => arr[Math.floor(r()*arr.length)];
+      const named = NAMED_VOICES[(name||'').toLowerCase().trim()];
       const high = r() < 0.5;
-      return {
+      return Object.assign({
         f0:     high ? 120+r()*55 : 82+r()*38,
         fshift: high ? 1.02+r()*0.16 : 0.9+r()*0.12,
         speed:  1.24+r()*0.24,   // brisker again — reads as speech, not dictation
@@ -1866,7 +1913,7 @@
         // reading" — a flat F0 is the single most robotic thing a formant synth does.
         lilt:   0.05+r()*0.05,   // how far F0 moves on a stressed vowel
         decl:   0.10+r()*0.05,   // phrase-final declination (pitch falls as breath goes)
-      };
+      }, named || null);
     }
 
     // ── Segment timing: ONE definition, two callers ──────────────────────────

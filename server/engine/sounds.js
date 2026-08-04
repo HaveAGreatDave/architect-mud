@@ -144,12 +144,18 @@ const AUDIO_STOP_THRESHOLD = 0.05;
 // beyond a shut door is at most barely audible but not fully sealed off.
 const DOOR_MUFFLE_GAIN = 1 / 9;
 
+// ONE COPY PER ZONE. The walk relaxes — a room first reached through a closed
+// door can be reached again, louder, by a longer open route — so broadcasting as
+// each entry is dequeued sent that room the same cue twice, at two different
+// gains. Two plays of one sound a beat apart is heard as an echo, not as a
+// louder sound. So the walk only resolves gains; the sending happens once it is
+// finished, exactly as `propagateSound` already does with its reach map.
 export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
   const visited = new Map([[originZoneId, loudness]]);
   const queue = [[originZoneId, loudness]];
   while (queue.length) {
     const [zoneId, gain] = queue.shift();
-    broadcastFn(zoneId, { type: 'audio_sfx', def: sfxDef, gain: Math.min(1, gain) });
+    if (gain < visited.get(zoneId)) continue;      // stale entry superseded by a louder path
     const hopGain = gain / 3;
     if (hopGain < AUDIO_STOP_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
@@ -164,6 +170,9 @@ export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
         queue.push([neighborId, nextGain]);
       }
     }
+  }
+  for (const [zoneId, gain] of visited) {
+    broadcastFn(zoneId, { type: 'audio_sfx', def: sfxDef, gain: Math.min(1, gain) });
   }
 }
 
