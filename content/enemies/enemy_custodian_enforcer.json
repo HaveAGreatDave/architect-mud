@@ -15,13 +15,26 @@
       },
       "has_target": {
         "condition_type": "HAS_TARGET",
-        "ifFalse": "idle",
+        "ifFalse": "rounds",
         "ifTrue": "low_hp",
         "type": "condition"
       },
       "idle": {
         "action_type": "IDLE",
         "next": "loop",
+        "type": "action"
+      },
+      "rounds": {
+        "action_type": "PATROL",
+        "next": "loop",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_asc_vats_registry",
+            "zone_asc_vats_hall"
+          ]
+        },
         "type": "action"
       },
       "loop": {

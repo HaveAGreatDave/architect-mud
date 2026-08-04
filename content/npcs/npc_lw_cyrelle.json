@@ -122,6 +122,105 @@
       ],
       "text": "\"Every red mark is one of the Architect's eyes.\" She sweeps a hand across the east of the Basin. \"Every one struck through is an eye we've closed. It looks like a small thing, one camera. It isn't. A blind spot is a place people can breathe, meet, move, a place the machine has to guess about. String enough of them together and you've got something it can't see at all. You've got a city with rooms of its own again.\""
     },
+    "ret_accept": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_lw_4"
+        }
+      ],
+      "options": [
+        {
+          "label": "At her pace.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then go and get her.\" She marks the Vats on the wall, and for once it isn't a red eye, it's a circle. \"Two rules and I'm not flexible on either. You do not put a Custodian in the ground. Kill one of their middle managers and by morning we didn't rescue a witness, we murdered a man in a polo shirt, and every name on that slate turns into paperwork nobody will read. Cosh them, lock them in a cupboard, walk around them, I don't care.\" She looks up. \"And you come back at her pace. Not yours. She's carrying everything she is and she can't run with it. If you get here without her, don't get here.\""
+    },
+    "ret_after": {
+      "options": [
+        {
+          "label": "I'll be around.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eleven thousand and forty.\" She says the number the way you'd test a weight. \"Every one of them a policy somebody's mother is still paying into. That's not a cult out there, that's a debt collector with a chapel.\" She looks past you at the woman on the crate. \"She keeps the room. She keeps the name. Anybody asks, she's Watch now, and the Watch don't file people.\""
+    },
+    "ret_offer": {
+      "options": [
+        {
+          "label": "Who is she?",
+          "next": "ret_offer2"
+        },
+        {
+          "label": "Not this one.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I told you the first day there'd be work. Cameras to close. Its little servants to inconvenience.\" She finally turns all the way round. \"And people to move out from under the machine's eye. That's the one I've never been able to hand anybody, because we've never had somebody inside worth moving. Now we do, and she found us.\""
+    },
+    "ret_offer2": {
+      "options": [
+        {
+          "label": "I'll walk her out.",
+          "next": "ret_accept"
+        },
+        {
+          "label": "Let me think about it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A sub-registrar in the Vats. Nine years filing the accounts they stopped paying to run.\" A short breath. \"She's not a defector, she's a clerk who read her own filing cabinet and couldn't stop. She'll hand us the whole archive. She won't do it from inside that building, and she can't get out of it on her own.\""
+    },
+    "ret_report": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_lw_4"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 300,
+          "ideology_id": "ideology_long_watch",
+          "reason": "Retention"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": -200,
+          "ideology_id": "ideology_ascendants",
+          "reason": "Retention"
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 12,
+          "path": "human"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": 8
+        }
+      ],
+      "options": [
+        {
+          "label": "Eleven thousand and forty.",
+          "next": "ret_after"
+        }
+      ],
+      "text": "Cyrelle looks at the woman sitting on a crate in her bunker, and then at the slate, and then at the woman again, and she takes the slate second. \"Nine years.\" She doesn't say it to you. \"Nine years of writing down who they were never going to bring back, and filing it, and coming in the next day.\" She thumbs the archive open, reads for a while, and her face does something Halloran would not believe if you told him. \"You understand what this is. It isn't proof they're a cult. Nobody cares about a cult. It's proof an insurer is selling a resurrection it has already decided not to perform.\""
+    },
+    "ret_reveal": {
+      "options": [
+        {
+          "label": "There's more. They keep the ones who lapse.",
+          "next": "ret_offer"
+        },
+        {
+          "label": "That's all I have.",
+          "next": "bye"
+        }
+      ],
+      "text": "She sets the grease pencil down and this time she does not pick it back up. \"Say the last part again.\" You do. Cyrelle stands very still in front of a map covered in eyes she has spent her life closing. \"So the payouts weren't going west to somebody. They were going west to themselves.\" A flat sound that isn't a laugh. \"An insurance company that owns the afterlife it's underwriting. No wonder they never argue a claim.\""
+    },
     "root": {
       "options": [
         {
@@ -172,6 +271,43 @@
           ],
           "label": "About that Halcyon money.",
           "next": "asc_report"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "halcyon_reveal",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_lw_4",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "I climbed the Spire. Halcyon is them.",
+          "next": "ret_reveal"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_lw_4",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "lw_q4_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "She's here. She's standing right there.",
+          "next": "ret_report"
         },
         {
           "label": "Later.",

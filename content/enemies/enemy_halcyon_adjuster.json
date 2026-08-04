@@ -1,0 +1,110 @@
+{
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "chase": {
+        "action_type": "CHASE",
+        "next": "low_hp",
+        "params": {
+          "quarry": "target"
+        },
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "hunt",
+        "ifTrue": "chase",
+        "type": "condition"
+      },
+      "hunt": {
+        "action_type": "CHASE",
+        "next": "loop",
+        "params": {
+          "flag": "suspect_id",
+          "quarry": "flag",
+          "wander_pct": 0.15
+        },
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 15
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    { "part": "head", "soak": {}, "weight": 10 },
+    { "part": "torso", "soak": {}, "weight": 40 },
+    { "part": "left_arm", "soak": {}, "weight": 12 },
+    { "part": "right_arm", "soak": {}, "weight": 12 },
+    { "part": "left_leg", "soak": {}, "weight": 13 },
+    { "part": "right_leg", "soak": {}, "weight": 13 }
+  ],
+  "butcher_difficulty": 6,
+  "butcher_table": [],
+  "death_message": "The lapel pin outlasts him by a few seconds: a small calm eye, still open, still logging.",
+  "description": "A charcoal suit cut for a man who is never expected to run, worn by something that has no intention of stopping. The lapel pin is a calm eye. It knows which account you are, it is not angry about it, and it has all night.",
+  "dodge": 3,
+  "faction": "ideology_ascendants",
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "\"Recovering company property.\"",
+      "\"You are interfering with a settlement.\"",
+      "\"The instrument is very clear on this point.\"",
+      "\"That asset is not yours to hold.\"",
+      "\"This is a recovery, not a dispute.\"",
+      "\"Claim's still open. So am I.\""
+    ],
+    "chase_speed_s": 5,
+    "first_strike_delay_ms": 2000,
+    "flee_skill": 3,
+    "leash_radius": -1
+  },
+  "hit": 3,
+  "hp_max": 70,
+  "id": "enemy_halcyon_adjuster",
+  "loot_table": [
+    {
+      "credits": [80, 160],
+      "item": "item_credit_chip",
+      "qty": [1, 1],
+      "weight": 70
+    },
+    {
+      "credits": [200, 420],
+      "item": "item_credit_chip",
+      "qty": [1, 1],
+      "weight": 4,
+      "super": true
+    }
+  ],
+  "name": "Adjuster, Halcyon Retention",
+  "weapon": [
+    { "max": 3, "min": 1, "type": "kinetic" }
+  ]
+}

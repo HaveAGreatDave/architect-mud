@@ -297,11 +297,12 @@ const _questNodeDefs = {
   reward: {
     label: 'Reward',
     color: '#b8912b',
-    defaultData: { credits: 0, items: [], flags: [] },
+    defaultData: { credits: 0, xp: 0, items: [], flags: [] },
     renderBody: (n) => {
       const items = Array.isArray(n.data.items) ? n.data.items.length : 0;
       const bits = [];
       if (n.data.credits) bits.push(`₵${n.data.credits}`);
+      if (n.data.xp) bits.push(`${n.data.xp} xp`);
       if (items) bits.push(`${items} item${items > 1 ? 's' : ''}`);
       return `<div style="font-size:11px;color:#b8912b">${bits.join(' + ') || '(no reward)'}</div>`;
     },
@@ -309,9 +310,10 @@ const _questNodeDefs = {
     renderProperties: (n, ed, id) => `
       ${_qHelp(id,
         'Granted when every objective feeding this node is complete. Items and flags are JSON arrays; leave blank for none.',
-        'credits: 250\nitems: [{"item_id":"pistol","quantity":1}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
+        'credits: 250\nxp: 50\nitems: [{"item_id":"pistol","quantity":1}]\nflags: [{"scope":"player","flag":"super_trusts_me","value":"true"}]'
       )}
       ${_qField('Credits', _qInput('data.credits', n.data.credits ?? 0, '0', 'number'))}
+      ${_qField('XP', _qInput('data.xp', n.data.xp ?? 0, '0', 'number'))}
       ${_qField('Items (JSON)', _qTextarea('data.items', JSON.stringify(n.data.items || [], null, 2), 3, true))}
       ${_qField('Flags (JSON)', _qTextarea('data.flags', JSON.stringify(n.data.flags || [], null, 2), 3, true))}
     `,
@@ -424,7 +426,7 @@ window.VineQuestSchema = {
     // Reward node, fed by terminal objectives (or the quest itself if no objectives).
     const rewards = rec.rewards && typeof rec.rewards === 'object' ? rec.rewards : {};
     const rewardPos = rewards._vine || { x: rewardCol * 300 + 40, y: 60 };
-    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, items: rewards.items || [], flags: rewards.flags || [] } };
+    nodes.reward = { type: 'reward', x: rewardPos.x, y: rewardPos.y, data: { credits: rewards.credits || 0, xp: rewards.xp || 0, items: rewards.items || [], flags: rewards.flags || [] } };
     const terminals = objs.filter(o => !dependedOn.has(o.id));
     if (terminals.length) terminals.forEach(o => edges.push({ fromNode: o.id, fromPort: 'unlocks', toNode: 'reward' }));
     else edges.push({ fromNode: 'quest', fromPort: 'start', toNode: 'reward' });
@@ -509,8 +511,13 @@ window.VineQuestSchema = {
       _vine: { x: penaltyNode[1].x, y: penaltyNode[1].y },
     } : {};
 
+    // xp must be carried here as well as rendered. It is paid at runtime
+    // (plugins/quests TURN_IN → grantXp) and shipped content relies on it, so a
+    // reward node that forgets it silently zeroes the XP of every quest ever
+    // opened and saved in this editor.
     const rewards = rewardNode ? {
       credits: Number(rewardNode[1].data.credits) || 0,
+      xp: Number(rewardNode[1].data.xp) || 0,
       items: Array.isArray(rewardNode[1].data.items) ? rewardNode[1].data.items : [],
       flags: Array.isArray(rewardNode[1].data.flags) ? rewardNode[1].data.flags : [],
       _vine: { x: rewardNode[1].x, y: rewardNode[1].y },

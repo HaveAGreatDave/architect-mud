@@ -1,0 +1,113 @@
+{
+  "category": null,
+  "description": "Halcyon does not delete a lapsed account, it keeps the copy and stops paying to run it, and there is a sub-registrar in the Vats who has spent nine years filing the ones nobody is coming back for. She will hand the Watch the whole archive. She will not do it from inside that building, and she cannot run. Get in without putting a Custodian in the ground, and walk her out to the Threshold at her pace.",
+  "fail_on": [
+    {
+      "count": 900,
+      "desc": "The Registry reconciles at shift change. After that she is a discrepancy, not a colleague.",
+      "id": "f_clock",
+      "type": "timeout"
+    },
+    {
+      "desc": "Nine dies once, messily, like anyone else. The only copy of her is in her hands.",
+      "id": "f_lost",
+      "target": "npc_asc_nine",
+      "type": "escort_lost"
+    },
+    {
+      "desc": "Do not kill a Custodian. Put one down and this stops being an account dispute and becomes a homicide on Ascendant ground, and the archive stops being evidence.",
+      "id": "f_blood",
+      "target": "Custodian",
+      "type": "kill"
+    }
+  ],
+  "id": "quest_lw_4",
+  "meta": {},
+  "name": "Retention",
+  "objectives": [
+    {
+      "count": 1,
+      "desc": "Get into the Registry in the Vats and stand the floor long enough to be sure it is between rounds.",
+      "emotes": [
+        "{who} keeps very still by the Registry door and listens to a Custodian's shoes going the other way.",
+        "{who} counts the gaps in the rounds and does not like the number."
+      ],
+      "id": "o_infil",
+      "taskSeconds": 6,
+      "type": "visit",
+      "zone": "zone_asc_vats_registry"
+    },
+    {
+      "count": 1,
+      "desc": "Pull the lapse archive off the Registry terminal. Quietly.",
+      "emotes": [
+        "{who} works the Registry terminal with one eye on the door.",
+        "{who} watches a column of eleven thousand names copy across, and stops reading them."
+      ],
+      "id": "o_ledger",
+      "requires": ["o_infil"],
+      "type": "hack",
+      "zone": "zone_asc_vats_registry"
+    },
+    {
+      "count": 1,
+      "desc": "Talk to Sub-Registrar Nine. Once she steps out from behind that desk there is no version of this where nobody notices.",
+      "id": "o_word",
+      "requires": ["o_ledger"],
+      "target": "npc_asc_nine",
+      "type": "talk"
+    },
+    {
+      "count": 1,
+      "desc": "Walk Nine out to the Threshold. She moves when you move and no faster, and Halcyon has opened a recovery.",
+      "emotes": [
+        "{who} matches Nine's pace, which is slower than {who} would like.",
+        "{who} checks the road behind them again."
+      ],
+      "id": "o_out",
+      "requires": ["o_word"],
+      "target": "npc_asc_nine",
+      "type": "escort",
+      "zone": "zone_lw_entry"
+    },
+    {
+      "count": 1,
+      "desc": "Put the slate in Cyrelle's hands.",
+      "id": "o_hand",
+      "item_id": "item_lapse_slate",
+      "requires": ["o_out"],
+      "type": "give"
+    }
+  ],
+  "penalties": {
+    "credits": 250,
+    "flags": [
+      {
+        "flag": "lw_q4_burned",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "rep": [
+      {
+        "delta": -90,
+        "ideology": "ideology_long_watch"
+      }
+    ]
+  },
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 450,
+    "flags": [
+      {
+        "flag": "lw_q4_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 90
+  },
+  "updated_at": "1785600000"
+}

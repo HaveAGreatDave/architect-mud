@@ -1,0 +1,14 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_lapse_slate",
+  "name": "sub-registrar's cortical slate",
+  "tags": {
+    "description": "A grey clerical slate, warm on one face the way a thing is warm when it has never once been switched off. Two files on it. One is the lapse archive: every account Halcyon stopped paying to run, and every copy it kept anyway. The other has no label, and is the only place Sub-Registrar Nine still exists in full.",
+    "misc": true,
+    "stackable": false
+  },
+  "type": null,
+  "value": 0,
+  "weight": 300
+}

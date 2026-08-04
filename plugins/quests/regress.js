@@ -433,7 +433,29 @@ export default async function regress({ run, check, getPlayer }) {
     await settle();
     check('a fail_on condition fails the quest', (await statusOf()) === 'failed', await statusOf());
 
+    // A `kill` fail_on is a PROHIBITION — "do this job without shooting anyone".
+    // It matches enemy names by SUBSTRING, which is the whole reason one clause
+    // can cover a species; quest_lw_4 leans on `Custodian` catching "Custodian
+    // Enforcer". Worth pinning: if that ever tightened to an exact match the
+    // clause would silently stop firing and the quest would look merely lenient.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Get there' }],
+      [{ type: 'kill', target: 'Custodian', desc: 'You put one of them in the ground.' }]
+    );
+    emit('enemy.killed', { actor: player, enemy: { name: 'Gutter Hound' } });
+    await settle();
+    check('killing something else does not trip a kill prohibition', (await statusOf()) === 'active', await statusOf());
+    emit('enemy.killed', { actor: player, enemy: { name: 'Custodian Enforcer' } });
+    await settle();
+    check('a kill fail_on matches the enemy name by substring', (await statusOf()) === 'failed', await statusOf());
+
     // …and a failed quest is not turn-in-able, whatever its progress says.
+    await mkFail(
+      [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Get there' }],
+      [{ type: 'assassinate', target: 'npc_regress_witness', desc: 'The witness died.' }]
+    );
+    emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
+    await settle();
     let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
     check('a failed quest cannot be turned in', r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
     check('…and it stays failed after the attempt', (await statusOf()) === 'failed', await statusOf());

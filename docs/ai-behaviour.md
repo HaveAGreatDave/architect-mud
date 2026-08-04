@@ -135,7 +135,7 @@ Out ports: `ifTrue`, `ifFalse`.
 
 ### `action`
 
-Executes one action and stops the tick. The cursor is saved to the `next` port's target so the following tick resumes from there rather than restarting from `_start`. If the action returns `'RUNNING'` (currently only PATROL walk mode does this), the cursor stays at the action node and it re-executes next tick.
+Executes one action and stops the tick. The cursor is saved to the `next` port's target so the following tick resumes from there rather than restarting from `_start`. If the action returns `'RUNNING'`, the cursor stays at the action node and it re-executes next tick — that is how every multi-tick move works (`PATROL` walk mode, `CHASE`, `GO_TO_WORK`, `GO_HOME`, `GO_TO_STUDIO`, `VENDOR_GO_TO_ATM`, `AT_WORK`, `AT_HOME_LIFE`).
 
 **Data:** `{ action_type, params }`
 
@@ -145,7 +145,8 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `ACQUIRE_TARGET` | `prefer: 'lowest_hp' \| 'random'` | Pick a player from the current zone as target |
 | `DROP_TARGET` | — | Clear `targetId`, `aggroedAt`; reset patrol state |
 | `PATROL` | `waypoints: [zone_id]`, `loop: bool`, `mode: 'walk' \| 'teleport'` | Step toward next waypoint; walk mode uses BFS (one zone per tick) |
-| `FLEE` | — | Move to an adjacent zone that doesn't hold the target, then clear aggro. Gated by one break-contact roll per attack cycle (`ai._fleeNextAt`): `flee_skill + (2d8−2d8)` vs difficulty 6, where `flee_skill` = `flags.flee_skill`, else the combat `dodge` stat, else 1; a fail keeps aggro and stays put. **Skipped when a player is actively pressing the attack** — `moveEntity` gates every mob tile-exit itself, so rolling here too would charge two checks for one escape. The editor exposes a `max_distance` param the engine ignores |
+| `FLEE` | — | Move to an adjacent zone that doesn't hold the target, then clear aggro. Gated by one break-contact roll per attack cycle (`ai._fleeNextAt`): `flee_skill + (2d8−2d8)` vs difficulty 6, where `flee_skill` = `flags.flee_skill`, else the combat `dodge` stat, else 1; a fail keeps aggro and stays put. **Skipped when a player is actively pressing the attack** — `moveEntity` gates every mob tile-exit itself, so rolling here too would charge two checks for one escape. Takes **no params**: it is one hop to an adjacent zone and then it drops the target, so there is no multi-hop retreat for a distance to bound (the editor used to offer a `max_distance` the engine never read) |
+| `CHASE` | `quarry: 'target' \| 'flag'`, `flag` (default `suspect_id`), `wander_pct` (0–1) | Follow a quarry between zones, one step per `flags.chase_speed_s` (default 2s). **Opt-in by construction:** a creature whose graph has no CHASE node drops its target the instant you leave the room, which is exactly how every enemy behaved before pursuit existed, so nothing that shipped earlier changed. `quarry:'target'` follows `entity.targetId`; `quarry:'flag'` follows the player id stored in `entity.flags[flag]`, which lets a unit pursue somebody it is deliberately **not** targeting (a manhunt unit that must arrive and detain rather than kill). Bounded in space by the leash and in time by `CHASE_TIMEOUT_MS` (20s without arriving) — except in `'flag'` mode, which is a persistent hunt and skips the timeout. `wander_pct` injects imprecision so a hunt reads as searching rather than cursor-snapping |
 | `ROAM` | `interval_s` (default 10) | Step to a random adjacent zone every N seconds, unless something targetable is already here (same flag rules as `TARGETABLE_IN_ZONE`). Hunt-by-wandering, vs. PATROL's fixed route |
 | `SAY` | `message`, `cooldown_s`, `once: bool` | Broadcast message to zone; respects cooldown and once-flag. A studio NPC away from its `studio_zone_id` never delivers the authored line — it falls back to chitchat |
 | `CALL_BACKUP` | `radius`, `faction_only: bool` | Alert same-faction enemies/NPCs within radius to adopt entity's target (30s cooldown) |
@@ -384,6 +385,50 @@ Every routed move — PATROL walk mode, the commutes (`GO_TO_WORK`/`GO_HOME`/`GO
 `ai-behaviour.js` shadows the raw import with its own wrapper ([ai-behaviour.js:254](../server/engine/ai-behaviour.js#L254)): NPCs path with `roads: true` so they commute along streets instead of cutting through buildings; enemies keep the direct BFS line.
 
 Pathfinding crosses map and interior/exterior boundaries freely — exits JSONB already encodes those connections.
+
+---
+
+## The leash, and where a mob may not go
+
+Two separate bounds, both on `entity.flags` rather than on any node's params. Neither is authored in
+the graph, so a designer tuning pursuit is editing the creature, not its behaviour tree.
+
+### `flags.leash_radius` — how far from home
+
+Chebyshev tiles from the mob's `spawnZoneId`, applied to **ROAM** and **CHASE** only. Zero is a real
+value, so never write `Number(f) || 12`:
+
+| value | meaning |
+|---|---|
+| unset | `LEASH_RADIUS` (12 tiles), the default |
+| `-1` | unleashed — an authored world-wanderer or a pursuer that does not give up at the district line |
+| `0` | pinned to its own tile |
+| `1..n` | that many tiles |
+
+A different map, floor, or an ungridded zone reads as `Infinity`, i.e. definitively off its patch.
+Deliberately **not** applied to PATROL (already bounded by its authored waypoints) or FLEE (bounding
+a fleeing mob by its own leash corners it and hands the player a free kill on something the design
+says should escape — it clears `targetId`, and the next ROAM beat walks it home).
+
+`flags.chase_speed_s` sets pursuit pace (default 2s/step). This is tuned so a **walking** player
+cannot break contact but run mode can, which is what makes running a decision rather than a
+formality. Raise it to give the player more room.
+
+### The destination law — sanctuary, `no_spawn`, `enemy_barrier`
+
+`enemyMayEnter` refuses to let a mob walk into a zone flagged `sanctuary`, `no_spawn`, or
+`enemy_barrier`, and `findPath` honours the refusal. A mob is exempted for its own `spawnZoneId` and
+`home_zone`.
+
+> ⚠ **`flags.hunter` is an exemption, not a pursuit enabler.** `isEnforcement()` (`flags.hunter`, or
+> `faction === 'police'`) exists so the law can follow a wanted player into a safe room. It has
+> nothing to do with CHASE, which reads `flags.suspect_id`. Setting `hunter` on a pursuer because it
+> sounds right will let it walk into every sanctuary in the game after the player, and the bug will
+> look like broken AI rather than a content mistake. Give a pursuer `suspect_id` and
+> `leash_radius: -1`; give it `hunter` only if it is genuinely the law.
+
+Content stamps `suspect_id` onto a spawned mob through the script `spawn` node's `flags` field —
+see [scripting.md](scripting.md).
 
 ---
 

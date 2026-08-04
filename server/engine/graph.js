@@ -161,8 +161,27 @@ async function runNode(node, ctx) {
         const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [spawnId]);
         if (!rows.length) { console.warn(`[graph] spawn: no enemy template ${spawnId}`); return node.next || null; }
         if (!getZone(zoneId)) { console.warn(`[graph] spawn: no zone ${zoneId}`); return node.next || null; }
+        // Identity-stamping. `${actor.id}` resolves HERE and nowhere else in the
+        // node vocabulary: it is what lets a script hand a mob the id of the
+        // player who tripped it, which is the only way content can author a
+        // CHASE node's `quarry:'flag'` hunt (ai-behaviour.js). Without it a
+        // spawned pursuer can only aggro, never hunt somebody by name.
+        const stampParams = ctx.actor ? { ...P, actor: ctx.actor } : P;
+        const stampFlags = node.flags ? interpDeep(node.flags, stampParams) : null;
+        // An override must be a graph OBJECT ({ _start, nodes }); a bare id would
+        // sail through and leave the instance with an AI that never ticks.
+        let graphOverride = node.behaviour_graph || null;
+        if (graphOverride && typeof graphOverride !== 'object') {
+          console.warn('[graph] spawn: behaviour_graph must be a graph object — ignored');
+          graphOverride = null;
+        }
         for (let i = 0; i < qty; i++) {
           const inst = spawnEnemySync(rows[0], zoneId);
+          // spawnEnemySync copies template.flags BY REFERENCE (world.js), so this
+          // must build a FRESH object — mutating in place would stamp the shared
+          // template and every later spawn of it would inherit this hunt.
+          if (stampFlags) inst.flags = { ...(inst.flags || {}), ...stampFlags };
+          if (graphOverride) inst.behaviour_graph = graphOverride;
           // Silence is an option — a tail you haven't noticed yet shouldn't announce itself.
           if (node.announce !== false) {
             ctx.broadcast?.(zoneId, {

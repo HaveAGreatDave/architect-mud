@@ -204,7 +204,7 @@ Scripts can nest up to 10 levels deep via `script` nodes. A `wait` node is non-b
 | `counter` | `scope`, `flag`, `delta`, `threshold`, `reset`, `ifTrue`, `ifFalse`, `next` | adds `delta` (default 1) to a numeric flag, then branches on `value >= threshold`. No threshold = bump and continue via `next`. `reset:true` zeroes the flag on a hit — that's how "every Nth time" is one node. Writes through `SET_FLAG`, so the audit trail holds |
 | `say` | `text`, `next` | sends text to the actor only |
 | `broadcast` | `text`, `zone`, `excludeActor`, `refresh`, `next` | sends text to **everyone in the room** — how a script makes a scene rather than a whisper. Defaults to the actor's zone; pass `zone` (or `${zone}`) for an actorless event |
-| `spawn` | `kind:'enemy'\|'item'`, `id`, `zone`, `container`, `quantity`, `announce`, `next` | puts an enemy instance (from an `enemies` template) or an item into a zone. `announce` overrides the stock arrival line; `announce: false` on an enemy arrives **silently** — for a tail the player hasn't noticed. `container` makes an item spawn a **dead drop** (below). A missing template/zone is logged and skipped, never fatal |
+| `spawn` | `kind:'enemy'\|'item'`, `id`, `zone`, `container`, `quantity`, `announce`, `flags`, `behaviour_graph`, `next` | puts an enemy instance (from an `enemies` template) or an item into a zone. `announce` overrides the stock arrival line; `announce: false` on an enemy arrives **silently** — for a tail the player hasn't noticed. `container` makes an item spawn a **dead drop** (below). `flags` / `behaviour_graph` stamp the spawned **instance** (enemies only, see below). A missing template/zone is logged and skipped, never fatal |
 | `script` | `scriptId`, `next` | runs sub-script by DB ID (depth+1) |
 | `wait` | `seconds`, `next` | suspends; resumes the continuation after the delay. **Under 120 s** it's a bare `setTimeout`; **at or past 120 s** it is parked in `script_waits` so a restart can't eat it (see below) |
 
@@ -274,6 +274,37 @@ token its script tree uses — including through `script` sub-graph hops.
 
 Dialogue can use the same graphs: `EXECUTE_SCRIPT` takes `scriptParams` (named to avoid colliding
 with the action's own `params` bag).
+
+### Stamping a spawned enemy (`flags`, `behaviour_graph`)
+
+An enemy `spawn` can write onto the **instance** it just created, which is what lets one template
+produce two mobs hunting two different people:
+
+```json
+{ "type": "spawn", "kind": "enemy", "id": "enemy_halcyon_adjuster",
+  "zone": "zone_asc_vats_hall", "quantity": 2, "announce": false,
+  "flags": { "suspect_id": "${actor.id}", "leash_radius": -1, "chase_speed_s": 5 } }
+```
+
+`${actor.id}` resolves **here and nowhere else** in the node vocabulary — it is the player who
+tripped the script. That token is the whole point: a `CHASE` node in `quarry: 'flag'` mode reads
+`entity.flags.suspect_id`, so without it content can only spawn something that aggros on whoever
+wanders past, never something that hunts one named person. See
+[ai-behaviour.md](ai-behaviour.md#the-leash-and-where-a-mob-may-not-go).
+
+`behaviour_graph` overrides the template's AI for this instance; it must be a graph **object**
+(`{ _start, nodes }`), and a bare id is refused with a warning rather than leaving a mob whose AI
+never ticks.
+
+Flags merge onto a **fresh** object. `spawnEnemySync` copies `template.flags` by reference, so
+stamping in place would poison the shared template and every later spawn of it would inherit the
+hunt. Two traps worth naming:
+
+- **Do not reach for `flags.hunter` to make something chase.** It is the police/enforcement
+  *exemption* from the sanctuary and `enemy_barrier` rules; a pursuer carrying it walks into safe
+  rooms after the player.
+- **Instance flags are RAM-only.** Nothing here is persisted; a restart takes the mob and its stamp
+  with it. That is usually what you want for a spawned pursuit.
 
 ### Dead drops
 

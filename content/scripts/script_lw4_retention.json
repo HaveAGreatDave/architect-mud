@@ -1,0 +1,29 @@
+{
+  "description": "Retention (quest_lw_4): the moment Sub-Registrar Nine steps out from behind the desk, Halcyon stops treating this as an HR matter and opens a recovery. Spawns two Adjusters into the Vat Hall next door, each stamped with the player's own id as suspect_id — that flag is what their CHASE node reads in quarry:flag mode, so they hunt THIS player specifically rather than aggroing on whoever wanders past. They arrive silently and unleashed (leash_radius -1); the player finds out they exist by being followed. Note there is deliberately no hunter flag: hunter is the enforcement exemption from the sanctuary rule, and an Adjuster carrying it would walk into the Long Watch bunker at the end of the escort.",
+  "graph": {
+    "nodes": {
+      "notice": {
+        "next": "pair",
+        "text": "Somewhere above you a terminal chimes once, politely, the way a terminal does when a file has been marked for recovery rather than review.",
+        "type": "say"
+      },
+      "pair": {
+        "announce": false,
+        "flags": {
+          "chase_speed_s": 5,
+          "leash_radius": -1,
+          "suspect_id": "${actor.id}"
+        },
+        "id": "enemy_halcyon_adjuster",
+        "kind": "enemy",
+        "quantity": 2,
+        "type": "spawn",
+        "zone": "zone_asc_vats_hall"
+      }
+    },
+    "start": "notice"
+  },
+  "id": "script_lw4_retention",
+  "name": "Retention — Halcyon opens a recovery",
+  "updated_at": "1785600000"
+}

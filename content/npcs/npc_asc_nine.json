@@ -1,0 +1,146 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "start": {
+        "next": "wait",
+        "type": "start"
+      },
+      "wait": {
+        "next": "start",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "\"Eleven thousand and forty. I could tell you the number in my sleep, and I do.\"",
+    "\"The Registrar holds the copies. I hold the ones nobody is paying for.\""
+  ],
+  "description": "A grey clerical shell one grade plainer than the Registrar's, and a woman inside it rather than a warm light. The projected badge reads SUB-REGISTRAR and a designation instead of a name. She keeps a slate face-down on the desk, which is not where the manual says to keep it.",
+  "dialogue_tree": {
+    "arrived": {
+      "options": [
+        {
+          "label": "Hello, Ilva.",
+          "next": "bye"
+        }
+      ],
+      "text": "She is sitting on a crate with the slate on her knees, in a room with no eye in the ceiling, and she has been staring at that ceiling for some time. \"They file us by designation because a designation can be reassigned and a name cannot.\" She looks up. \"Ilva. It was Ilva, before the Registry. You are the first person to be told that in nine years, so I would appreciate it if you used it.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "She turns the slate face-down again, out of nine years of habit, and then deliberately turns it back."
+    },
+    "commit": {
+      "actions": [
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_lapse_slate",
+          "quantity": 1
+        },
+        {
+          "action": "ESCORT_START",
+          "npc_id": "npc_asc_nine"
+        },
+        {
+          "action": "EXECUTE_SCRIPT",
+          "scriptId": "script_lw4_retention"
+        }
+      ],
+      "options": [
+        {
+          "label": "Stay at my shoulder.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then we go now, while the floor is between rounds.\" She puts the slate into your hands, and does not let go of it immediately. \"You carry it. If this goes badly I would rather it was not found on me, and I cannot run holding it anyway.\" She comes out from behind the desk, smaller than the shell made her look, and falls in at your shoulder. \"Slowly. Please. If we run we look like something worth stopping, and I have spent nine years learning exactly what this building stops.\""
+    },
+    "letter": {
+      "options": [
+        {
+          "label": "Then walk out holding it.",
+          "next": "commit"
+        },
+        {
+          "label": "That's not my problem.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have written the resignation four times. I never send it.\" She turns the slate over, face up, which is the first careless thing she has ever done in this room. \"Staff are covered by the same instrument as clients. I resign, my account lapses, and the only copy of me stops being a person and becomes inventory — filed by whoever they sit in this chair next. I know the shelf it goes on. I built the shelf.\" Her hands are not steady. \"Everything I am is on this slate. I cannot run carrying it. I have never run anywhere in my life.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "quest_lw_4",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "I've seen the lapse archive.",
+          "next": "terms"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "lw_q4_done",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "You're safe here.",
+          "next": "arrived"
+        },
+        {
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "The Sub-Registrar does not look up. \"The ledger is closed for the shift. If this is a lapse enquiry, I cannot discuss another party's account, and after that I am sorry, and after that there is nothing else I am permitted to say.\" A pause that runs a beat too long. \"You are not here about an account.\""
+    },
+    "terms": {
+      "options": [
+        {
+          "label": "Why are you telling me?",
+          "next": "letter"
+        },
+        {
+          "label": "Forget I asked.",
+          "next": "bye"
+        }
+      ],
+      "text": "Now she looks up. \"Then you know what I file. Not the paid dead — those go in the vat and wake up cross about the queue. I file the other kind.\" Her voice stays perfectly level, which is worse. \"Eleven thousand and forty accounts lapsed, and eleven thousand and forty copies kept. We do not delete them. Deleting them would be a write-off. We keep them, and we stop paying to run them, and upstairs there is a waiting room of relatives making payments on a reunion that Accounts declined in a meeting they were not invited to.\""
+    }
+  },
+  "faction": "ideology_ascendants",
+  "flags": {
+    "clothing_layers": [
+      "a plain grey clerical shell, one grade below the Registrar's",
+      "a projected badge reading SUB-REGISTRAR 9"
+    ],
+    "escortable": true,
+    "mis_willing": false,
+    "personality": "scientist",
+    "posted": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_asc_vats_registry",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_asc_nine",
+  "name": "Sub-Registrar Nine",
+  "npc_type": "civilian",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_asc_vats_registry"
+}

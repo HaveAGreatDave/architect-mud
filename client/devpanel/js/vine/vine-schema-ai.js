@@ -76,7 +76,12 @@ const AI_ACTIONS = [
     { key: 'mode',       label: 'Move mode',                           type: 'select',  options: ['walk', 'teleport'], default: 'walk' },
     { key: 'loop',       label: 'Loop back to start',                  type: 'boolean', default: true },
   ]},
-  { type: 'FLEE',            label: 'Flee',            params: [{ key: 'max_distance', label: 'Max distance (zones)', type: 'number', default: 3 }] },
+  // No params, deliberately. FLEE is ONE hop to an adjacent zone and then it
+  // clears targetId — there is no multi-hop retreat for a distance to bound, and
+  // every exit it chooses between is adjacent by definition. This used to offer a
+  // `max_distance` field that the engine never read. How hard it is to break away
+  // is `flags.flee_skill`; where it ends up afterwards is the next ROAM beat.
+  { type: 'FLEE',            label: 'Flee',            params: [] },
   { type: 'SAY',             label: 'Say',             params: [
     { key: 'message',    label: 'Message',           type: 'text',    default: '' },
     { key: 'once',       label: 'Say once only',     type: 'boolean', default: false },

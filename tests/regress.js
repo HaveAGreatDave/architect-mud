@@ -482,6 +482,82 @@ console.log('— layer 1e: script trigger registry —');
   }
 }
 
+// ── Layer 1e3: the spawn node stamps the INSTANCE, never the template ────────
+// `flags` + `${actor.id}` on a spawn node are what let content author a pursuit
+// that hunts one named player (a CHASE node in quarry:'flag' mode reads
+// entity.flags.suspect_id). Two things are worth a test rather than a reading:
+// that the token resolves to the triggering actor at all, and that the stamp
+// does NOT leak onto the shared template — spawnEnemySync copies template.flags
+// BY REFERENCE, so an in-place merge would make every later spawn of that
+// template inherit the previous hunt, and nothing would look wrong until two
+// different players were being chased by each other's pursuers.
+console.log('— layer 1e3: spawn node instance flags —');
+{
+  const { runGraph } = await import('../server/engine/graph.js');
+  const { world } = await import('../server/engine/world.js');
+  const { query } = await import('../server/models/db.js');
+
+  const TPL = 'enemy_regress_stamp';
+  const zoneId = [...world.zones.keys()][0];
+  const spawned = [];
+
+  try {
+    await query(
+      `INSERT INTO enemies (id,name,description,hp_max,flags,behaviour_graph)
+       VALUES ($1,'Regress Stamp Probe','',10,$2,'{}')
+       ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags`,
+      [TPL, JSON.stringify({ template_marker: true })]);
+
+    const zone = world.zones.get(zoneId);
+    const before = new Set(zone.enemies);
+    const mkGraph = () => ({
+      start: 'n1',
+      nodes: { n1: {
+        type: 'spawn', kind: 'enemy', id: TPL, zone: zoneId, announce: false,
+        flags: { suspect_id: '${actor.id}', leash_radius: -1 },
+      } },
+    });
+    const newOnes = () => [...zone.enemies].filter(id => !before.has(id)).map(id => world.enemies.get(id));
+
+    await runGraph(mkGraph(), { actor: { id: 'player_regress_alpha' } });
+    let fresh = newOnes();
+    fresh.forEach(e => spawned.push(e.instanceId));
+    check('spawn node stamps flags onto the instance', fresh[0]?.flags?.leash_radius === -1,
+      JSON.stringify(fresh[0]?.flags));
+    check('${actor.id} resolves to the triggering player',
+      fresh[0]?.flags?.suspect_id === 'player_regress_alpha', String(fresh[0]?.flags?.suspect_id));
+    check('the template\'s own flags survive the stamp', fresh[0]?.flags?.template_marker === true,
+      JSON.stringify(fresh[0]?.flags));
+
+    // The poisoning check: a second spawn for a DIFFERENT actor must not have
+    // rewritten the first one's quarry, and must not inherit it either.
+    const firstId = fresh[0]?.instanceId;
+    await runGraph(mkGraph(), { actor: { id: 'player_regress_beta' } });
+    const second = newOnes().find(e => e.instanceId !== firstId);
+    spawned.push(second?.instanceId);
+    check('a second spawn does not rewrite the first instance\'s stamp',
+      world.enemies.get(firstId)?.flags?.suspect_id === 'player_regress_alpha',
+      String(world.enemies.get(firstId)?.flags?.suspect_id));
+    check('a second spawn gets its own quarry, not the first one\'s',
+      second?.flags?.suspect_id === 'player_regress_beta', String(second?.flags?.suspect_id));
+
+    // A bare id where a graph object belongs must be refused, not assigned — an
+    // instance whose behaviour_graph is a string has an AI that never ticks.
+    await runGraph({ start: 'n1', nodes: { n1: {
+      type: 'spawn', kind: 'enemy', id: TPL, zone: zoneId, announce: false,
+      behaviour_graph: 'enemy_some_other_graph',
+    } } }, { actor: { id: 'player_regress_alpha' } });
+    const third = newOnes().find(e => ![firstId, second?.instanceId].includes(e.instanceId));
+    if (third) spawned.push(third.instanceId);
+    check('a string behaviour_graph override is refused', typeof third?.behaviour_graph !== 'string',
+      typeof third?.behaviour_graph);
+  } finally {
+    const zone = world.zones.get(zoneId);
+    for (const id of spawned) { if (id) { zone?.enemies?.delete(id); world.enemies.delete(id); } }
+    await query('DELETE FROM enemies WHERE id=$1', [TPL]).catch(() => {});
+  }
+}
+
 // ── Layer 1e2: every shipped trigger supplies its script's ${params} ─────────
 // A parameterised graph whose token is NOT supplied writes the literal key
 // `bar_${venue}_visits` — every venue silently collapsing onto one shared

@@ -142,13 +142,13 @@ const _scriptNodeDefs = {
   spawn: {
     label: 'Spawn',
     color: '#993344',
-    defaultData: { kind: 'enemy', id: '', zone: '', container: '', quantity: 1, announce: '' },
+    defaultData: { kind: 'enemy', id: '', zone: '', container: '', quantity: 1, announce: '', flags: {} },
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(n.data.kind || 'enemy')} × ${n.data.quantity || 1} → ${_escHtmlS(n.data.id || '(none)')}${n.data.container ? ` 📥 ${_escHtmlS(n.data.container)}` : ''}</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
       ${_helpBox(id,
-        'Puts something in the world: an enemy instance from an enemies template, or an item into a zone. Blank zone means the actor\'s room. Leave "announce" empty for the stock arrival line; type one to override it. An enemy with announce set to the literal word false arrives SILENTLY — for a tail the player has not noticed yet.\n\nDEAD DROP: give an item spawn a container (a furniture id, or a name to match in that zone) and the item goes INSIDE it rather than onto the open floor — really there, really retrievable, but not visible to the next person through the room. If the container cannot be found the drop is skipped, never dumped on the floor.',
-        'kind: item\nid: item_credit_chip\nzone: zone_mq_pigeon_bar\ncontainer: trash bin\n\n→ the chip is in the bin, waiting for whoever knows to look'
+        'Puts something in the world: an enemy instance from an enemies template, or an item into a zone. Blank zone means the actor\'s room. Leave "announce" empty for the stock arrival line; type one to override it. An enemy with announce set to the literal word false arrives SILENTLY — for a tail the player has not noticed yet.\n\nDEAD DROP: give an item spawn a container (a furniture id, or a name to match in that zone) and the item goes INSIDE it rather than onto the open floor — really there, really retrievable, but not visible to the next person through the room. If the container cannot be found the drop is skipped, never dumped on the floor.\n\nFLAGS (enemies only) are stamped onto the spawned instance, not the template — so two spawns from one template can hunt two different people. ${actor.id} resolves to the player who tripped the script, which is what a CHASE node in quarry:flag mode reads. Pair it with leash_radius:-1 for a pursuer that does not give up at the district line.\n\nDo NOT set flags.hunter to make something chase: hunter is the police/enforcement EXEMPTION from the sanctuary and enemy_barrier rules, and a mob carrying it will walk into a safe room after the player.',
+        'kind: enemy\nid: enemy_halcyon_adjuster\nannounce: false\nflags: { "suspect_id": "${actor.id}", "leash_radius": -1 }\n\n→ it arrives quietly, and it is looking for one specific person'
       )}
       ${_field('Kind', _select('data.kind', ['enemy', 'item'], n.data.kind))}
       ${_field('Template / Item ID', _textInput('data.id', n.data.id, 'enemy_alley_mugger'))}
@@ -156,6 +156,7 @@ const _scriptNodeDefs = {
       ${_field('Container (items only — dead drop)', _textInput('data.container', n.data.container, 'trash bin'))}
       ${_field('Quantity', `<input data-vine-field="data.quantity" data-vine-type="number" type="number" min="1" value="${n.data.quantity || 1}" style="${_inputStyle}">`)}
       ${_field('Announce (blank = stock line)', _textInput('data.announce', n.data.announce, ''))}
+      ${_field('Instance flags, enemies only (JSON)', _textarea('data.flags', JSON.stringify(n.data.flags || {}, null, 2), 4, 'json'))}
     `,
   },
   random: {
