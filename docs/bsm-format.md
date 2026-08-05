@@ -827,7 +827,7 @@ start → IS_BROADCAST_SCHEDULED?
 - **`TALKSHOW_APPEAR`** (engine AI action): while the show is on the clock and the guest is still parked in its hidden backstage zone (`home_zone` = `zone_talkshow_backstage`, an exit-less limbo), it teleports the guest into a random zone a few tiles from the studio that has **no players and no active camera/planted device** watching (`pickUnobservedZoneNear` + the `isZoneWatched` bridge). `GO_TO_WORK` then walks it onstage one zone per tick.
 - **`TALKSHOW_HIDE`** (engine AI action): off the clock, the moment the guest is standing somewhere unobserved it vanishes back to backstage; otherwise it walks toward the studio's exterior exit and re-checks each tick.
 - The host + sidekick use the ordinary `makeDefaultStudioGraph` commute (studio ↔ home).
-- **Call time (`TALKSHOW_GUEST_CALL_LEAD`).** The guest — and only the guest — is staffed from **one slot before** `@airtime`, because it's the only one of the three with a journey to make. Everyone else is on shift exactly while the episode airs.
+- **Call time (`TALKSHOW_GUEST_CALL_LEAD`).** The **whole cast** is staffed from **one slot before** `@airtime`. This was originally the guest's privilege alone, "because it's the only one of the three with a journey to make" — which stopped being true once the cast were housed. Graham Mercer sleeps in a Solenne apartment and `GO_TO_STUDIO` walks one tile per 15-second AI tick, so a host who comes on shift at the instant the slot opens is a quarter of an hour of stand-by card away from his own couch. The lead was never about the guest; it was about the walk. Daily non-talk-show slots get the same treatment on a different clock — see the **call time** note in [systems-broadcast.md](systems-broadcast.md#npc-hosts--studio-staffing).
 
 ### The chair gate
 
@@ -917,7 +917,7 @@ walked — so two stories in a row can't land on the same reaction.
 **Cold open:** `open` (reads `{time}`/`{temp}`/`{day}`) · `couch` (small talk, ~60% of mornings)
 **Weather window:** `weather.banner` (the caption strip, `TEXT | SUBTEXT`) · `weather.<type>` — one per weather type (`weather.rain`, `weather.snow`, `weather.ash`, `weather.fog`, …), falling back to `weather` · `weather.severe` (only when the day's `severity ≥ 0.45`) · `weather.ahead` (tomorrow; skipped when the forecast hasn't populated yet)
 **The Basin Beat (live news):** `beat.banner` · `beat.lead` (the host reads `{headline}`) · `beat.detail` (~50%, expands `{body}`/`{byline}`) · `beat.aside` (~40% on the lead story)
-**Rotating segment:** `segment.banner` · `segment` (the recurring bit — the hotplate, the mailbag, whatever the file supplies; ~80% of mornings)
+**The running order (shuffled, see below):** `segment.banner` · `segment` (the recurring bit — the hotplate, whatever the file supplies) · `mailbag.banner` · `mailbag` (a letter, read out and not really engaged with) · `sportsdesk.banner` · `sportsdesk.baseball` / `sportsdesk.hockey` (falling back to `sportsdesk`; reads the live league table) · `audience` (the couch addresses the people actually watching) · `plug` (the network plugging its own evening)
 **Your Morning Run-In (live alerts):** `runin.banner` · `runin.martial_law` · `runin.radiation` · `runin.blackout` (`{outages}`) · `runin.storm` · `runin.clear` — the runner picks **worst-first**, falling back to `runin`
 **Ticker & close:** `ticker.lead` (a plain prefix, not a pair) · `signoff` · `credits` (**not** alternatives — every line is a card of the same roll, so they're joined)
 
@@ -935,16 +935,35 @@ still airs.
 | `{hi}` `{lo}` `{tomorrow}` `{tomorrowTemp}` | the week's arc (falls back to today's reading before the forecast populates) |
 | `{headline}` `{body}` `{byline}` | *(Basin Beat pools)* the live story being read |
 | `{outages}` | *(run-in pools)* grid-connected zones currently dark |
+| `{leader}` `{leaderRecord}` | *(sports desk)* the Deadball table-topper, off the same standings cache the play-by-play reads |
+| `{puckLeader}` `{puckRecord}` | *(sports desk)* the same for the CPhL (`W-L-OTL`) |
+| `{tonight}` `{tonightTime}` | *(plug)* the day's last real slot on this channel, and its clock time |
+| `{watching}` | **RUNTIME token** — how many sets are tuned in *at the moment the line is spoken*, not at assembly. See below. |
+
+**Runtime tokens.** Almost everything above resolves when the day's show is assembled, which is what
+makes one show identical on every TV. `RUNTIME_TOKENS` (`{watching}`, `{viewers}`, `{clock}`,
+`{until_four}`) are the exception: the assembler deliberately leaves them standing and the graph
+walker fills them as the line airs (`_scriptedTokens`), so a couch that says *"all {watching} of you"*
+is telling the truth about the room. Any other unknown token is still blanked at assembly, so a typo
+can never leak a brace to air.
 
 ## Assembly order
 
 Each in-game day: `title_card` (+`@theme`) → `open` → *(~60%)* `couch` → **weather:** banner →
 `weather.<type>` → *(severe only)* `weather.severe` → *(~70%, forecast permitting)* `weather.ahead` →
 **Basin Beat:** banner → per story ×2: `beat.lead` → *(~50%)* `beat.detail` → *(~40%, lead only)*
-`beat.aside` → *(~80%)* **segment:** banner → `segment` → **run-in:** banner → `runin.<worst alert>` →
+`beat.aside` → **the running order** → **run-in:** banner → `runin.<worst alert>` →
 **`ticker`** (assembled: conditions · standing alerts · the headlines that missed the couch) →
 `signoff` → `credits`. Counts and optional beats are **seeded off the day**, so both the content and
 the shape change morning to morning; within a day it's stable, so every TV in the city agrees.
+
+**The middle of the show is a running order, not a fixed spine.** Five segments — `segment`,
+`mailbag`, `sportsdesk`, `audience`, `plug` — are **shuffled and weighted per day**, so two mornings
+differ in SHAPE rather than just in which line came out of the same slot. Each is allowed to find
+nothing and drop out: no game played yet ⇒ no sports desk (a desk with no sport is worse than none),
+nothing on later ⇒ no plug, no pool authored ⇒ not in today's programme. The two segments that are
+**never** shuffled and never optional are the **run-in** (it tells you whether the street outside will
+kill you, and it belongs immediately before the sign-off) and the **sign-off** itself.
 
 ## Compiler & runtime contract (as built)
 

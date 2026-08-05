@@ -460,6 +460,38 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
   return best;
 }
 
+// CALL TIME. How long before a slot opens its cast are already on the clock, expressed in
+// REAL minutes and converted to in-game seconds at read time — because the walk is real
+// (one tile per 15s AI tick) while the schedule is in-game (at timeScale 3 an in-game hour
+// is twenty real minutes). Sized for the longest commute the cast actually make: a Solenne
+// or Meridian apartment down to KSAB is 15–25 tiles, so ~6 real minutes of walking, and the
+// margin covers a lift, a locked door and the odd detour to a bathroom.
+const STAFF_CALL_LEAD_REAL_MIN = 12;
+function _staffCallLeadGameSec() {
+  const ts = getEnvironmentState()?.timeScale || 1;
+  return STAFF_CALL_LEAD_REAL_MIN * 60 * (ts > 0 ? ts : 1);
+}
+// The slot this NPC is due on within its call window, if any — the run-up counterpart to
+// _pickDailySlot. Wraps midnight, because a 06:00 breakfast show calls its couch at 05:00
+// (or the previous evening at a fast clock) and yesterday's day-mask is the one that decides
+// whether tomorrow's episode airs at all.
+function _staffCallSlot(playlist, gameSecs, dayOfWeek, npcId) {
+  const DAY = 86400;
+  const lead = _staffCallLeadGameSec();
+  for (const i of playlist || []) {
+    if (!i.npcStaff?.includes(npcId)) continue;
+    if (i.slotType === 'commercial_break') continue;
+    // Distance forward to this slot's opening, wrapped into [0, DAY).
+    const until = ((i.startTime - gameSecs) % DAY + DAY) % DAY;
+    if (until === 0 || until > lead) continue;
+    // The airing we're walking toward may be tomorrow's — mask against the day it opens on.
+    const airsOn = (gameSecs + until >= DAY) ? (dayOfWeek + 1) % 7 : dayOfWeek;
+    if (!_slotAirsOn(i, airsOn)) continue;
+    return i;
+  }
+  return null;
+}
+
 async function scanChannelDay(channelId) {
   const { rows: chRows } = await query('SELECT * FROM media_channels WHERE id=$1', [channelId]);
   if (!chRows.length) return null;
@@ -2499,8 +2531,17 @@ function talkshowPersonaFor(script, bucket) {
   return guests[seed % guests.length];
 }
 
+// Tokens an assembled show must NOT resolve, because their answer is only true at the moment
+// the line is spoken: how many sets are tuned in right now, what the clock says on THIS pass.
+// The assembler leaves them standing and the live walker's _subTokens fills them on air
+// (_scriptedTokens), which is what lets a couch acknowledge the actual audience. Everything
+// else resolves at assembly time so the whole city hears the identical show.
+const RUNTIME_TOKENS = new Set(['viewers', 'watching', 'clock', 'until_four']);
 function talkshowFill(line, tok) {
-  return String(line).replace(/\{(\w+)\}/g, (_, k) => (tok[k] !== undefined && tok[k] !== null ? String(tok[k]) : ''));
+  return String(line).replace(/\{(\w+)\}/g, (m, k) => {
+    if (tok[k] !== undefined && tok[k] !== null) return String(tok[k]);
+    return RUNTIME_TOKENS.has(k) ? m : '';
+  });
 }
 // TOPIC TAGS. An authored line may open with `[topic]`, which is a promise that no other line
 // sharing that topic appears in the same episode. Distinctness by line identity was never
@@ -3052,6 +3093,12 @@ function morningTokens(script, ctx) {
     hi: temps.length ? Math.max(...temps) : nowTemp, lo: temps.length ? Math.min(...temps) : nowTemp,
     tomorrow: String(tomorrow.weatherType || '').replace(/_/g, ' '), tomorrowTemp: Math.round(tomorrow.tempC ?? env.tempC ?? 0),
     outages: ctx.outages,
+    // Last night's league tables, read off the same standings cache the play-by-play uses,
+    // so the couch and the ballpark can never disagree about who is top.
+    leader: ctx.sports?.baseball?.team || '', leaderRecord: ctx.sports?.baseball?.record || '',
+    puckLeader: ctx.sports?.hockey?.team || '', puckRecord: ctx.sports?.hockey?.record || '',
+    // What this channel is putting out later today — the couch plugging its own network.
+    tonight: ctx.tonight || '', tonightTime: ctx.tonightTime || '',
   };
 }
 
@@ -3148,10 +3195,34 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
     });
   }
 
-  // A rotating recurring segment (the hotplate bit, the mailbag, whatever the file supplies).
-  if (rand() < 0.8) { banner('segment.banner'); beat('segment'); }
+  // THE MIDDLE OF THE SHOW IS A RUNNING ORDER, NOT A FIXED SPINE. Each of these is a real
+  // segment with its own banner and its own live source; the day's seed picks which ones make
+  // it to air and what order they run in. Two mornings in a row therefore have different
+  // SHAPES, not just different lines out of the same slots — which is the difference between
+  // a show and a template. Every one of them is allowed to find nothing and drop out: a
+  // segment with no pool authored, no game played and nothing on later simply isn't in today's
+  // programme, exactly as a real running order flexes around what the day gave you.
+  const segments = [
+    // The hotplate bit, the mailbag, whatever the file supplies.
+    { weight: 0.85, run: () => { banner('segment.banner'); return beat('segment'); } },
+    // A letter, read out and then not really engaged with.
+    { weight: 0.55, run: () => { banner('mailbag.banner'); return beat('mailbag'); } },
+    // Last night's ball, off the live standings. Skipped entirely before a game is played,
+    // because a sports desk with no sport is worse than no sports desk.
+    { weight: 0.7,  run: () => (tok.leader || tok.puckLeader)
+        ? (banner('sportsdesk.banner'), beat(tok.puckLeader && rand() < 0.5 ? ['sportsdesk.hockey', 'sportsdesk'] : ['sportsdesk.baseball', 'sportsdesk']))
+        : false },
+    // The couch talks to the people actually watching. `{watching}` is deliberately left
+    // unresolved here — it's filled at the moment the line is spoken, so the number is true.
+    { weight: 0.45, run: () => beat('audience') },
+    // Plugging the network's own evening.
+    { weight: 0.6,  run: () => tok.tonight ? beat('plug') : false },
+  ];
+  for (const s of sportsShuffle(segments, rand)) { if (rand() < s.weight) s.run(); }
 
-  // Your Morning Run-In — what the city is actually doing to you today.
+  // Your Morning Run-In — what the city is actually doing to you today. This one is NOT in the
+  // shuffle and is never optional: it's the segment that tells you whether the street outside
+  // is going to kill you, and it belongs immediately before the sign-off every morning.
   banner('runin.banner');
   beat([`runin.${morningRunInKey(ctx)}`, 'runin']);
 
@@ -3179,10 +3250,28 @@ function assembleMorningGraph(script, broadcastId, bucket, ctx) {
   return graph;
 }
 
+// The next real programme on this channel after the breakfast show, so the couch can plug its
+// own network with something that is genuinely on later. Daily schedules only — a loop channel
+// has no wall-clock evening to promise — and commercial breaks and the show itself don't count.
+// Nothing later today ⇒ no plug, and the segment drops out of the running order.
+function _morningPlug(state, item) {
+  if (!state || state.scheduleMode !== 'daily') return {};
+  const { dayOfWeek } = getEnvironmentState();
+  let best = null;
+  for (const i of state.playlist || []) {
+    if (i === item || i.slotType === 'commercial_break' || !i.broadcastName) continue;
+    if (i.startTime <= item.startTime) continue;
+    if (!_slotAirsOn(i, dayOfWeek)) continue;
+    if (!best || i.startTime > best.startTime) best = i;   // the day's LAST slot is its headline
+  }
+  if (!best) return {};
+  return { tonight: best.broadcastName, tonightTime: _fmtHHMM(best.startTime / 60) };
+}
+
 // Return today's assembled show for a morning playlist item, rebuilt when the in-game day
 // rolls. Cached on the item between ticks; the live reads (news generator, world alerts)
 // happen once per bucket, never per tick.
-async function getMorningGraph(item, nowMs) {
+async function getMorningGraph(item, nowMs, state = null) {
   const script = item.morningScript;
   if (!script) return null;
   const bucket = morningDayBucket();
@@ -3200,7 +3289,20 @@ async function getMorningGraph(item, nowMs) {
   // A grid-connected zone sitting dark is a fault, not an unwired ruin — so only zones that
   // have a generator count toward the morning's outage number.
   const outages = (env.powerMap || []).filter(z => z.generatorId && z.status === 'unpowered').length;
-  const ctx = { env, stories, outages, martialLaw: String(martialLaw) === 'true', radiation: String(radiation) === 'true' };
+  // Both league tables, warmed the same way the play-by-play warms them. A sport nobody has
+  // played yet yields no leader, and the sports desk drops out of the running order rather
+  // than reading an empty table out loud.
+  const sports = {};
+  for (const sport of ['baseball', 'hockey']) {
+    const rows = await refreshStandings(nowMs, sport).catch(() => []);
+    const top = (rows || [])[0];
+    if (top?.team) sports[sport] = { team: top.team, record: recordOf(top.team, sport) };
+  }
+  const ctx = {
+    env, stories, outages, sports,
+    martialLaw: String(martialLaw) === 'true', radiation: String(radiation) === 'true',
+    ..._morningPlug(state, item),
+  };
   item._morningGraph = assembleMorningGraph(script, item.broadcastId, bucket, ctx);
   item._morningBucket = bucket;
   return item._morningGraph;
@@ -3240,7 +3342,7 @@ async function getCurrentMessage(state, nowMs) {
       if (item.playback_mode === 'weather') {
         const wxGraph = getWeatherGraph(item);
         if (wxGraph) {
-          const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, _actedSeekSec(wxGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3265,7 +3367,7 @@ async function getCurrentMessage(state, nowMs) {
       if (item.playback_mode === 'news') {
         const nwGraph = await getNewsGraph(item, nowMs);
         if (nwGraph) {
-          const r = tickBroadcastGraph(state.channelId, nwGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, nwGraph, state, nowMs, _actedSeekSec(nwGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3276,7 +3378,7 @@ async function getCurrentMessage(state, nowMs) {
         const tsGraph = getTalkshowGraph(item, nowMs);
         if (tsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, tsGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, tsGraph, state, nowMs, _actedSeekSec(tsGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3284,10 +3386,10 @@ async function getCurrentMessage(state, nowMs) {
       // Morning show — today's episode, assembled from the live world and acted on the couch.
       // Its airtime IS this daily slot, so there's no separate gate.
       if (item.playback_mode === 'morning') {
-        const mnGraph = await getMorningGraph(item, nowMs);
+        const mnGraph = await getMorningGraph(item, nowMs, state);
         if (mnGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, mnGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, mnGraph, state, nowMs, _actedSeekSec(mnGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3298,7 +3400,7 @@ async function getCurrentMessage(state, nowMs) {
         const smGraph = await getSermonGraph(item, nowMs);
         if (smGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, smGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, smGraph, state, nowMs, _actedSeekSec(smGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3309,7 +3411,7 @@ async function getCurrentMessage(state, nowMs) {
         const gsGraph = getGameshowGraph(item, _normalizeBroadcastGraph, state.channelId);
         if (gsGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, gsGraph, state, nowMs, segElapsed);
+          const r = tickBroadcastGraph(state.channelId, gsGraph, state, nowMs, _actedSeekSec(gsGraph, segElapsed));
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3479,7 +3581,7 @@ async function getCurrentMessage(state, nowMs) {
       }
       // Morning show — today's episode, assembled from the live world and acted on the couch.
       if (item.playback_mode === 'morning') {
-        const mnGraph = await getMorningGraph(item, nowMs);
+        const mnGraph = await getMorningGraph(item, nowMs, state);
         if (mnGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const segElapsed = elapsed - item.startTime;
@@ -4443,9 +4545,13 @@ registerNpcScheduleChecker((npcId) => {
       // A cast member isn't on shift for an episode that doesn't air today — otherwise
       // a Friday-only talk show would commute its host to the studio all week.
       if (state.scheduleMode === 'daily' && !_slotAirsOn(item, dayOfWeek)) continue;
-      // The guest — and only the guest — comes on shift a slot early, because it's the only
-      // one with a journey to make. See TALKSHOW_GUEST_CALL_LEAD.
-      const lead = item.talkshowScript?.guestNpc === npcId ? TALKSHOW_GUEST_CALL_LEAD : 0;
+      // EVERYONE GETS A CALL TIME. This used to read "the guest — and only the guest — comes
+      // on shift a slot early, because it's the only one with a journey to make", which stopped
+      // being true the day the cast were housed: Graham Mercer sleeps in a Solenne apartment and
+      // GO_TO_STUDIO walks one tile per 15s AI tick, so a host who comes on shift at the
+      // instant the slot opens is a quarter of an hour of stand-by card away from the couch.
+      // The guest's lead was never about the guest — it was about the walk.
+      const lead = TALKSHOW_GUEST_CALL_LEAD;
       // The tail is for the WHOLE cast, not just the guest: an episode straddling the
       // slot boundary needs everyone who is in it to still be standing there.
       if (item.npcStaff?.includes(npcId) && talkshowAiring(item.talkshowScript, lead, talkshowCastTailMin())) return true;
@@ -4453,6 +4559,15 @@ registerNpcScheduleChecker((npcId) => {
     let item = null;
     if (state.scheduleMode === 'daily') {
       item = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
+      // CALL TIME, not airtime. A daily slot opens on the in-game clock and the show starts
+      // speaking on the first tick inside it, but the cast have to WALK there — one tile per
+      // 15s AI tick, from wherever they sleep. Reporting for duty at the instant the slot opens
+      // guaranteed an empty couch and a "has not yet arrived" card over the top of every
+      // programme. So a staff NPC is also on shift during the run-up to their next slot.
+      if (!item?.npcStaff?.includes(npcId)) {
+        const early = _staffCallSlot(state.playlist, gameSecs, dayOfWeek, npcId);
+        if (early) return true;
+      }
     } else if (state.playlist.length && state.totalDuration > 0) {
       // Loop/mixed/emergency: find which playlist item is currently playing
       const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
@@ -5353,6 +5468,47 @@ function nodeHoldMs(node) {
       return Math.max(2200, voiceMs + 900);
     }
   }
+}
+
+// Real-time length of ONE lap of an assembled graph, in seconds, measured with the same
+// holds the live walker uses. This is what an acted-live show actually occupies on air —
+// unlike _vineDuration, which bills every line a flat `interval` and walks `node.next` (a
+// property a normalized graph no longer has). 0 when nothing in the graph holds airtime.
+function _graphLapSec(graph) {
+  if (!graph?._start || !graph?.nodes) return 0;
+  const edges = graph.edges || [];
+  const TIMED = new Set(['say', 'ticker', 'camera_cut', 'overlay', 'show_overlay', 'title_card',
+    'event', 'npc_action', 'music', 'credits', 'tech_difficulties', 'wait']);
+  let total = 0, nodeId = graph._start;
+  const seen = new Set();
+  while (nodeId && !seen.has(nodeId)) {
+    seen.add(nodeId);
+    const node = graph.nodes[nodeId];
+    if (!node) break;
+    if (TIMED.has(node.type) && !(node.type === 'overlay' && node.data?.overlayType === 'letterbox')) {
+      total += Math.ceil(nodeHoldMs(node) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS / 1000;
+    }
+    nodeId = _resolveEdge(edges, nodeId, 'next');
+  }
+  return total;
+}
+
+// Seek offset for an ACTED-LIVE show in a daily slot, in real seconds.
+//
+// A daily slot is authored on the IN-GAME clock (start_time is seconds since midnight), but an
+// assembled show is a REAL-TIME performance: every node hold in it is real milliseconds. So the
+// in-game seconds into the slot have to be divided back down by the time scale before they can
+// be used as a seek offset, then wrapped onto one lap — a four-minute breakfast show replaying
+// inside a two-hour block. Handing the seeker raw in-game seconds (as this did) ran it
+// `timeScale` times too far and, because _seekGraph wraps implicitly, dropped viewers at an
+// effectively arbitrary phase — most often the back third: two lines and the credits, over and
+// over, on a show nobody had actually missed. The film branch has always guarded this (see
+// filmRunElapsed); every other assembled mode was walking in the wrong currency.
+function _actedSeekSec(graph, segElapsedGameSec) {
+  const ts = getEnvironmentState()?.timeScale || 1;
+  const real = Math.max(0, segElapsedGameSec) / (ts > 0 ? ts : 1);
+  const lap = _graphLapSec(graph);
+  return lap > 0 ? real % lap : real;
 }
 
 // Walk a VINE graph forward by segElapsedMs, setting bb.currentNode / bb.waitUntil
@@ -8054,6 +8210,10 @@ export const _test = {
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
   seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
+  graphLapSec: _graphLapSec, actedSeekSec: _actedSeekSec,
+  envTimeScale: () => getEnvironmentState()?.timeScale || 1,
+  staffCallSlot: _staffCallSlot, staffCallLeadGameSec: _staffCallLeadGameSec, STAFF_CALL_LEAD_REAL_MIN,
+  morningPlug: _morningPlug, RUNTIME_TOKENS,
   channelRuntime, recordBeat: _recordBeat, sendCatchUp,
   pickDailySlot: _pickDailySlot, filmDayMask,
   assembleSermonGraph, getSermonGraph,

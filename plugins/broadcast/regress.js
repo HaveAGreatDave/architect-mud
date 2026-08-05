@@ -2205,4 +2205,229 @@ export default async function regress({ check, run, getPlayer }) {
       check(`bsm: news pool '${pool}' has lines`, (news.newsScript.pools[pool] || []).length > 0, pool);
     }
   }
+
+  // ── Acted-live shows run on the REAL clock inside an in-game slot ────────────
+  // A daily slot is authored in in-game seconds since midnight; an assembled show is a
+  // real-time performance. Handing the seeker raw in-game seconds ran it `timeScale` laps
+  // too far and dropped nearly every viewer in the back third of the episode: two lines
+  // and the credits, over and over. These lock the conversion and the wrap.
+  {
+    const A = _test;
+    // 4 lines at a known hold, so a lap is arithmetic rather than a magic number.
+    const nodes = { start: { type: 'start', data: {} } };
+    const edges = [];
+    let prev = 'start';
+    for (let i = 1; i <= 4; i++) {
+      nodes[`l${i}`] = { type: 'say', data: { text: `line ${i}`, holdMs: 5000 } };
+      edges.push({ fromNode: prev, fromPort: 'next', toNode: `l${i}` });
+      prev = `l${i}`;
+    }
+    const g = { _start: 'start', nodes, edges, _normalized: true };
+
+    check('seek: a lap is measured with the walker\'s own holds', A.graphLapSec(g) === 20, String(A.graphLapSec(g)));
+    check('seek: a graph with no timed content has no lap', A.graphLapSec({ _start: 's', nodes: { s: { type: 'start', data: {} } }, edges: [] }) === 0, 'empty');
+
+    // The conversion itself. timeScale is whatever the live world is running at, so assert
+    // the RELATIONSHIP rather than a literal: an offset of one lap's worth of in-game
+    // seconds must land back at the top, not `timeScale` laps in.
+    const ts = A.envTimeScale ? A.envTimeScale() : null;
+    const lapGameSec = 20 * (ts || 1);
+    if (ts) {
+      check('seek: one lap of in-game seconds wraps to the top', Math.abs(A.actedSeekSec(g, lapGameSec)) < 0.001, String(A.actedSeekSec(g, lapGameSec)));
+      check('seek: half a lap lands half way in', Math.abs(A.actedSeekSec(g, lapGameSec / 2) - 10) < 0.001, String(A.actedSeekSec(g, lapGameSec / 2)));
+      // The actual bug: a two-hour block against a twenty-second show must never seek
+      // past the end of a lap, whatever the clock is doing.
+      const twoHours = 7200;
+      check('seek: a whole block still lands inside one lap',
+        A.actedSeekSec(g, twoHours) >= 0 && A.actedSeekSec(g, twoHours) < 20, String(A.actedSeekSec(g, twoHours)));
+    }
+    check('seek: a negative offset is treated as the top', A.actedSeekSec(g, -50) === 0, String(A.actedSeekSec(g, -50)));
+
+    // And the seeker itself, driven with a converted offset, lands on a real node rather
+    // than running off the end into the credits.
+    {
+      const bb = {};
+      A.seekGraph(g, bb, 12 * 1000, 0);
+      check('seek: a converted offset lands mid-show', bb.currentNode === 'l3', String(bb.currentNode));
+    }
+  }
+
+  // ── Call time: staff are on the clock BEFORE their slot opens ────────────────
+  // GO_TO_STUDIO walks one tile per 15s AI tick from wherever the cast sleep, so a host who
+  // comes on shift at the instant the slot opens is a stand-by card away from the couch.
+  {
+    const A = _test;
+    const DAY = 86400;
+    const lead = A.staffCallLeadGameSec();
+    check('call time: the lead is real minutes scaled to game seconds', lead > 0, String(lead));
+
+    const slot = { broadcastId: 'bc_am', startTime: 6 * 3600, duration: 7200, days: 127, npcStaff: ['npc_a'], playback_mode: 'morning' };
+    const list = [slot];
+    const S = (secs, dow = 3) => A.staffCallSlot(list, secs, dow, 'npc_a');
+
+    check('call time: called during the run-up', !!S(6 * 3600 - Math.min(lead, 3600) / 2), 'run-up');
+    check('call time: not called a whole day early', !S(6 * 3600 - lead - 600), 'too early');
+    check('call time: the open slot is not the call window', !S(6 * 3600), 'at airtime');
+    check('call time: somebody else\'s slot never calls you', !A.staffCallSlot(list, 6 * 3600 - 60, 3, 'npc_b'), 'other npc');
+
+    // A slot that doesn't air today must not commute its cast: the mask is checked against
+    // the day the slot OPENS on, which is what makes the midnight wrap correct.
+    const friOnly = [{ ...slot, broadcastId: 'bc_fri', days: 1 << 5 }];
+    check('call time: a day-restricted slot only calls on its day',
+      !A.staffCallSlot(friOnly, 6 * 3600 - 60, 3, 'npc_a'), 'wrong day');
+
+    // Midnight wrap: an early slot called from late the previous evening resolves the
+    // NEXT day's mask, not tonight's.
+    const early = [{ ...slot, startTime: 60, days: 127 }];
+    check('call time: the window wraps midnight', !!A.staffCallSlot(early, DAY - 60, 3, 'npc_a'), 'wrap');
+
+    // A commercial break has no cast and must never pull anyone in.
+    const adOnly = [{ ...slot, slotType: 'commercial_break' }];
+    check('call time: a commercial break calls nobody', !A.staffCallSlot(adOnly, 6 * 3600 - 60, 3, 'npc_a'), 'ad break');
+  }
+
+  // ── Runtime tokens survive assembly ─────────────────────────────────────────
+  // The couch talking to the actual audience only works if `{watching}` is still standing
+  // when the line reaches the walker. Assembly-time fill must leave it alone and blank
+  // everything else it doesn't know, or an authored line leaks a brace to air.
+  {
+    const A = _test;
+    check('tokens: a runtime token survives assembly',
+      A.talkshowFill('all {watching} of you', { temp: 3 }) === 'all {watching} of you',
+      A.talkshowFill('all {watching} of you', { temp: 3 }));
+    check('tokens: an unknown token is still blanked',
+      A.talkshowFill('a {nonsense} b', { temp: 3 }) === 'a  b',
+      JSON.stringify(A.talkshowFill('a {nonsense} b', { temp: 3 })));
+    check('tokens: a known token still resolves at assembly',
+      A.talkshowFill('{temp} degrees', { temp: 3 }) === '3 degrees',
+      A.talkshowFill('{temp} degrees', { temp: 3 }));
+    check('tokens: every runtime token is one the walker can fill',
+      [...A.RUNTIME_TOKENS].every(k => k in A.scriptedTokens('ch_none', {}, {})),
+      [...A.RUNTIME_TOKENS].join(','));
+  }
+
+  // ── The morning show is a running order, not a template ─────────────────────
+  // The middle segments are shuffled and weighted per day, so two mornings differ in SHAPE.
+  // Assembly must also stay deterministic within a day (every TV shows the same show) and
+  // must never emit a raw `>>` (a speaker change spoken out loud) or an empty line.
+  {
+    const A = _test;
+    const script = {
+      host: 'npc_h', cohost: 'npc_c',
+      pools: {
+        open: ['Morning! >> Yes.'],
+        couch: ['Sleep? >> No.'],
+        weather: ['It is {temp}. >> It is.'],
+        'weather.banner': ['WINDOW | X'],
+        'beat.lead': ['{headline}. >> Mm.'],
+        'beat.banner': ['BEAT | X'],
+        segment: ['Tip. >> Noted.'],
+        'segment.banner': ['HOTPLATE | X'],
+        mailbag: ['A letter. >> Next.'],
+        'mailbag.banner': ['MAILBAG | X'],
+        'sportsdesk.baseball': ['{leader} at {leaderRecord}. >> Somebody has to be.'],
+        'sportsdesk.hockey': ['{puckLeader} at {puckRecord}. >> On ice.'],
+        'sportsdesk.banner': ['SLATE | X'],
+        audience: ['All {watching} of you. >> {watching}.'],
+        plug: ['{tonight} at {tonightTime}. >> It is on regardless.'],
+        'runin.clear': ['Clean boards. >> Write it down.'],
+        'runin.banner': ['RUN-IN | X'],
+        signoff: ['That is us. >> Same sunrise.'],
+        credits: ['SHOW'],
+      },
+    };
+    const ctx = {
+      env: { time: '06:10', tempC: 3, dayOfWeek: 3, season: 'winter', forecast: [{ tempC: 3, severity: 0 }, { tempC: 2, weatherType: 'snow' }], currentWeatherType: 'clear' },
+      stories: [{ headline: 'A thing happened', body: 'b', byline: 'the wire' }],
+      outages: 0, martialLaw: false, radiation: false,
+      sports: { baseball: { team: 'Dynamo', record: '4-1' }, hockey: { team: 'Vig', record: '3-1-1' } },
+      tonight: 'The Late Lot', tonightTime: '21:00',
+    };
+    const sayText = (g) => Object.values(g.nodes).filter(n => n.type === 'say').map(n => n.data.text);
+
+    const g1 = A.assembleMorningGraph(script, 'bc_am', 'day-1', ctx);
+    const again = A.assembleMorningGraph(script, 'bc_am', 'day-1', ctx);
+    check('morning: the same day assembles the same show',
+      JSON.stringify(sayText(g1)) === JSON.stringify(sayText(again)), 'determinism');
+
+    // Shape variance across a week of buckets. Not every pair need differ, but a
+    // shuffled+weighted running order must not produce one single shape all week.
+    const shapes = new Set();
+    for (let d = 1; d <= 14; d++) {
+      const g = A.assembleMorningGraph(script, 'bc_am', `day-${d}`, ctx);
+      shapes.add(sayText(g).join('|'));
+      check(`morning: day ${d} speaks no raw speaker change`, !sayText(g).some(t => t.includes('>>')), 'raw >>');
+      check(`morning: day ${d} speaks no empty line`, !sayText(g).some(t => !t.trim()), 'empty line');
+      check(`morning: day ${d} still requires a present host`, g._requireHost === true, 'requireHost');
+    }
+    check('morning: the running order varies across the week', shapes.size > 1, `${shapes.size} shapes in 14`);
+
+    // The live segments have to actually reach air, and carry their live facts.
+    const week = [];
+    for (let d = 1; d <= 14; d++) week.push(...sayText(A.assembleMorningGraph(script, 'bc_am', `day-${d}`, ctx)));
+    check('morning: the sports desk reads the live table', week.some(t => /Dynamo at 4-1|Vig at 3-1-1/.test(t)), 'sportsdesk');
+    check('morning: the couch plugs the network\'s own evening', week.some(t => t.includes('The Late Lot at 21:00')), 'plug');
+    check('morning: the audience beat keeps its runtime token', week.some(t => t.includes('{watching}')), 'audience');
+
+    // And each of those drops out cleanly when its live source is empty, rather than
+    // reading a blank table or promising a programme that isn't on.
+    const bare = { ...ctx, sports: {}, tonight: '', tonightTime: '' };
+    const bareWeek = [];
+    for (let d = 1; d <= 14; d++) bareWeek.push(...sayText(A.assembleMorningGraph(script, 'bc_am', `day-${d}`, bare)));
+    check('morning: no sport played means no sports desk', !bareWeek.some(t => / at \./.test(t) || /^ at /.test(t)), 'empty table');
+    check('morning: nothing on later means no plug', !bareWeek.some(t => t.includes(' at .')), 'empty plug');
+    check('morning: the run-in is never dropped', bareWeek.some(t => t.includes('Clean boards')), 'runin always');
+    check('morning: the sign-off is never dropped', bareWeek.some(t => t.includes('That is us')), 'signoff always');
+  }
+
+  // ── The shipped Coldwater A.M. content ──────────────────────────────────────
+  // The pools are content, but two failures in them are invisible until air: a line with a
+  // SECOND `>>` (splitExchange only cuts once, so the rest is spoken aloud) and a pool the
+  // assembler asks for by name that isn't there.
+  {
+    const raw = JSON.parse(readFileSync(new URL('../../content/media_broadcasts/bc_coldwater_am.json', import.meta.url), 'utf8'));
+    const pools = (typeof raw.morning_pools === 'string' ? JSON.parse(raw.morning_pools) : raw.morning_pools)?.pools || {};
+    const lines = Object.entries(pools).flatMap(([k, v]) => (v || []).map(l => [k, l]));
+    check('coldwater am: the pools are populated', lines.length > 100, String(lines.length));
+    check('coldwater am: no line carries a second speaker change',
+      !lines.some(([, l]) => (String(l).match(/>>/g) || []).length > 1),
+      lines.filter(([, l]) => (String(l).match(/>>/g) || []).length > 1).map(([k]) => k).join(','));
+    check('coldwater am: no line is blank', !lines.some(([, l]) => !String(l).trim()), 'blank');
+    // Em dashes are an Ascendants/Architect voice tell and must not appear in station copy.
+    check('coldwater am: no em dashes in station copy', !lines.some(([, l]) => String(l).includes('—')),
+      lines.filter(([, l]) => String(l).includes('—')).map(([k]) => k).join(','));
+    for (const pool of ['open', 'couch', 'weather', 'runin.clear', 'signoff', 'credits', 'segment', 'mailbag', 'audience', 'plug', 'sportsdesk.baseball', 'sportsdesk.hockey']) {
+      check(`coldwater am: pool '${pool}' has lines`, (pools[pool] || []).length > 0, pool);
+    }
+    // The stand-by pool is what a viewer sees when the studio drops; empty means the bare
+    // engine string, which is the thing that read as the station being dead.
+    check('coldwater am: the channel has its own stand-by copy', (raw.fallback_messages || []).length > 0, String((raw.fallback_messages || []).length));
+
+    // Authoring aid, off by default: `AM_DUMP=1 node tests/regress.js` prints three
+    // consecutive mornings of the real shipped pools as they would go to air. The pools are
+    // comedy and the running order is shuffled, so the only way to know whether a change
+    // READS well (as opposed to merely assembling) is to look at three of them side by side.
+    if (process.env.AM_DUMP) {
+      const script = typeof raw.morning_pools === 'string' ? JSON.parse(raw.morning_pools) : raw.morning_pools;
+      const ctx = {
+        env: { time: '06:10', tempC: -4, feelsLikeC: -11, dayOfWeek: 2, season: 'winter', date: '2183-01-14',
+               currentWeatherType: 'snow', forecast: [{ tempC: -4, weatherType: 'snow', severity: 1, windKph: 22, precipChance: 0.6 }, { tempC: -6, weatherType: 'blizzard' }] },
+        stories: [{ headline: 'Ward clerk found alive in filing room', body: 'She had been there since Tuesday.', byline: 'the Sentinel' },
+                  { headline: 'Lift 4 at the Solenne cleared for use', body: 'Again.', byline: 'the wire' }],
+        outages: 0, martialLaw: false, radiation: false,
+        sports: { baseball: { team: 'Norval Dynamo', record: '7-2' }, hockey: { team: 'Coldwater Vig', record: '5-2-1' } },
+        tonight: 'The Last Lot', tonightTime: '21:00',
+      };
+      for (const day of ['2183-01-14', '2183-01-15', '2183-01-16']) {
+        const g = _test.assembleMorningGraph(script, 'bc_coldwater_am', day, ctx);
+        console.log(`\n──────── COLDWATER A.M. ${day} ────────`);
+        for (const n of Object.values(g.nodes)) {
+          if (n.type === 'say') console.log(`  ${n.data.text}`);
+          else if (n.type === 'overlay') console.log(`  [${n.data.text}${n.data.subtext ? ' / ' + n.data.subtext : ''}]`);
+          else if (n.type === 'ticker') console.log(`  >> ${n.data.text}`);
+          else if (n.type === 'credits') console.log(`  (credits)`);
+        }
+      }
+    }
+  }
 }
