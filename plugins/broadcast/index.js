@@ -511,7 +511,8 @@ async function scanChannelDay(channelId) {
   if (!ch.offline_graphic_id) add('info', 'no_offline_graphic', 'No offline graphic set — off-air / technical difficulties will show plain stand-by text, not a graphic.');
 
   const { rows: items } = await query(
-    `SELECT p.start_time, p.broadcast_id, p.days, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph
+    `SELECT p.start_time, p.broadcast_id, p.days, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph,
+            b.talkshow_pools, b.gameshow_pools, b.sports_pools
        FROM media_channel_playlist p JOIN media_broadcasts b ON b.id=p.broadcast_id
       WHERE p.channel_id=$1 ORDER BY p.start_time`, [channelId]
   );
@@ -522,6 +523,26 @@ async function scanChannelDay(channelId) {
     // everyday slot it sits on top of.
     const dayTag = _dayLabel(item.days);
     const label = (item.broadcast_name || item.broadcast_id) + (dayTag ? ` (${dayTag})` : '');
+    // AIRTIME vs SCHEDULE. An acted show carries its own @airtime gate (`airSlots`,
+    // in 3-in-game-hour blocks) on top of the slot the playlist books it into. The two
+    // are authored in different places and nothing used to compare them — so a show
+    // booked at noon with `@airtime 6` sat on a permanent technical-difficulties slate:
+    // its playlist slot came up, gameshowAiring()/talkshowAiring() said no, and the
+    // runner fell through to a start-only stored graph with nothing after it. That is
+    // silent, it looks like a transmitter fault, and it cost an evening to find once.
+    for (const [mode, pools] of [['talkshow', item.talkshow_pools], ['gameshow', item.gameshow_pools], ['sports', item.sports_pools]]) {
+      if (item.playback_mode !== mode) continue;
+      let ps = pools;
+      if (typeof ps === 'string') { try { ps = JSON.parse(ps); } catch { ps = null; } }
+      const slots = ps?.airSlots;
+      if (!Array.isArray(slots) || !slots.length) break;   // no @airtime ⇒ airs in whatever slot books it
+      const rowSlot = Math.floor((item.start_time % 86400) / (86400 / SPORTS_GAMES_PER_DAY));
+      if (slots.includes(rowSlot)) break;
+      const hh = (s) => `${String(s * (24 / SPORTS_GAMES_PER_DAY)).padStart(2, '0')}:00`;
+      add('error', 'airtime_slot_mismatch',
+        `'${label}' is scheduled at ${hh(rowSlot)} (block ${rowSlot}) but its @airtime is block(s) ${slots.join(', ')} (${slots.map(hh).join(', ')}) — it can never air in this slot and the channel drops to technical difficulties. Move the slot or change @airtime.`,
+        { broadcast: label });
+    }
     if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'news')    { add('info', 'news_live',    `'${label}' is a news broadcast — a fresh bulletin is assembled from the live news generator each airing, not statically scannable.`, { broadcast: label }); continue; }

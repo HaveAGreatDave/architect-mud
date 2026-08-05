@@ -61,40 +61,15 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [
-      {
-        "from": 19,
-        "to": 23
-      }
-    ],
-    "tue": [
-      {
-        "from": 19,
-        "to": 23
-      }
-    ],
-    "wed": [
-      {
-        "from": 19,
-        "to": 23
-      }
-    ],
-    "thu": [
-      {
-        "from": 19,
-        "to": 23
-      }
-    ],
-    "fri": [
-      {
-        "from": 19,
-        "to": 23
-      }
-    ],
+    "mon": [],
+    "tue": [],
+    "wed": [],
+    "thu": [],
+    "fri": [],
     "sat": [
       {
-        "from": 19,
-        "to": 23
+        "from": 18,
+        "to": 21
       }
     ],
     "sun": []
