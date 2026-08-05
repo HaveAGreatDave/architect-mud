@@ -327,6 +327,12 @@ That is the correct multiplayer behaviour and it costs **zero new state**.
 - **The plan stops at a loaded vessel and does not cook.** Heat is where the skill is —
   which burner, when to turn it, when to plate — and a HUD that pressed those buttons
   would be playing the interesting half of the game for you.
+- **The RUNBOOK does go all the way, because it presses nothing.** An opened recipe card
+  carries `walkthrough` — the whole dish as an ordered list of ordinary commands, pot out
+  of the cabinet through `plate` — derived from the same `pickFor` rows. It is written,
+  not run: the player presses each step. That is why it may name the burner and the drain
+  when `prepare` may not. A step with no verb behind it ("leave it alone") is prose and
+  gets no button, and the list never invents a verb to look complete.
 
 The alternative — `custom_data.reserved_by` plus an expiry — is rejected for v1 because
 every path that moves an item would have to honour it, which is the same

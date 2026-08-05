@@ -20,7 +20,7 @@ import { getZoneFurniture } from '../../server/engine/world.js';
 import { getZonePowerStatus, getZoneTemperature } from '../../server/engine/environment.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { checkCooking, cooksOnAppliances } from './cook.js';
-import { profileNameFor, isMedium, HANDLING_VERB } from './profiles.js';
+import { profileNameFor, isMedium, HANDLING_VERB, PROFILES, needsPrep } from './profiles.js';
 import { portionName, canChop } from './portions.js';
 import { prepText, canMarinate } from './prep.js';
 import { fondState } from './fond.js';
@@ -274,6 +274,116 @@ function shortfallRow(profile, need, template) {
   };
 }
 
+// ── The runbook: the whole dish, as commands ─────────────────────────────────
+//
+// The method prose above says what to do; this says what to TYPE. Same rule as
+// every other action on this panel — each step is a verb string a player could
+// have typed, composed against the rows `prepare` would actually pick, so the
+// runbook and the planner can never name different onions.
+//
+// It goes further than `prepare` deliberately: `prepare` STOPS at a loaded
+// vessel because it EXECUTES, and pressing the heat buttons for you would play
+// the interesting half of the kitchen. Nothing here executes. It is a written
+// list, and the player presses each one — which is the difference between a
+// recipe and an autocook.
+//
+// What it cannot express, it doesn't fake. "Off the heat before the gin goes in"
+// is one authored sentence with no verb behind it; the prose method says it and
+// this list stays quiet rather than inventing a `stove off` that doesn't exist.
+const HEAT_TIERS = ['low', 'mid', 'high'];
+
+function walkthroughFor(template, chosen, c, ctx) {
+  if (!chosen?.vessel || chosen.shortfall?.length) return [];
+  const step = (text, command = null, hint = null) => ({ text, command, hint });
+  const out = [];
+  const vessel = chosen.vessel;
+  const vName = shownName(vessel);
+  const boxName = id => c.boxes.find(f => f.id === id)?.name || 'storage';
+
+  // 1. Everything out of the boxes it's sitting in. A pot in a cabinet cannot be
+  //    stowed into, and an onion in the fridge cannot be chopped.
+  if (c.boxIds.has(vessel.container_id)) {
+    out.push(step(`Get the ${vName} out of the ${boxName(vessel.container_id)}.`, `pullid ${vessel.id}`));
+  }
+  for (const r of chosen.picks) {
+    if (c.boxIds.has(r.container_id)) {
+      out.push(step(`Get the ${shownName(r)} out of the ${boxName(r.container_id)}.`, `pullid ${r.id}`));
+    }
+  }
+
+  // 2. Knife work, on the rows that arrive whole. The profile says which those
+  //    are — the same `needsPrep` the cook itself penalises you for skipping.
+  for (const r of chosen.picks) {
+    if (!needsPrep(r) || !canChop(r)) continue;
+    out.push(step(`Cut the ${shownName(r)} down.`, `chop ${shownName(r)}`,
+      ctx.blade ? null : 'you have no blade in reach'));
+  }
+
+  // 3. Water. Dry starch cooks in liquid, not in heat — so the pan is filled
+  //    BEFORE the pasta goes in, which is also the order a cook would use.
+  const profiles = chosen.picks.map(profileNameFor).filter(Boolean);
+  const wet = profiles.includes('liquid') || (c.childrenOf.get(vessel.id) || []).some(r => profileNameFor(r) === 'liquid');
+  if (profiles.includes('dry_starch') && !wet) {
+    out.push(step(`Fill the ${vName} at the ${c.taps[0]?.name || 'tap'}.`, `fill ${vName}`,
+      c.taps.length ? 'pasta and rice will not cook without it' : 'no water source in this room'));
+  }
+
+  // 4. Load the pan, in the recipe's own ingredient order rather than the order
+  //    the picker happened to find things in.
+  const order = Object.keys(template.needs || {});
+  const loaded = [...chosen.picks].sort((a, b) =>
+    order.indexOf(profileNameFor(a)) - order.indexOf(profileNameFor(b)));
+  for (const r of loaded) {
+    out.push(step(`${shownName(r)} into the ${vName}.`, `stow ${shownName(r)} in ${vName}`));
+  }
+
+  // 5. On the heat, and then RIDE it. A stove's tier is a ceiling, not a
+  //    setting, so the burner steps are the recipe's curve read back as the
+  //    verb that sets it.
+  if (template.vessel === 'bowl' || template.vessel === 'bread') {
+    out.push(step(`Work it together. No heat — everything here is better raw.`, null));
+    return out;
+  }
+  out.push(step(`Get the ${vName} on the heat.`, `cook ${vName}`));
+
+  const used = order.map(n => PROFILES[n]).filter(p => p && !p.modifier);
+  const curved = used.find(p => p.heatCurve?.length > 1);
+  if (curved) {
+    const first = curved.heatCurve[0].tier;
+    const rest = curved.heatCurve[curved.heatCurve.length - 1].tier;
+    out.push(step(`Start it ${first}.`, `stove ${first}`));
+    if (rest !== first) out.push(step(`Drop it to ${rest} and leave it there.`, `stove ${rest}`));
+  } else {
+    const tiers = [...new Set(used.map(p => p.heatTolerance))]
+      .sort((a, b) => HEAT_TIERS.indexOf(a) - HEAT_TIERS.indexOf(b));
+    const tier = tiers[0] || 'mid';
+    out.push(step(`Hold it at ${tier} the whole way.`, `stove ${tier}`));
+  }
+
+  // 6. Handling. The verb is the profile's — a soup wants stirring, and telling
+  //    someone to flip it is how they learn that the expensive way.
+  const turnRow = loaded.find(r => (PROFILES[profileNameFor(r)]?.turns || 0) > 0);
+  if (turnRow) {
+    const p = profileNameFor(turnRow);
+    const turns = PROFILES[p].turns;
+    const verb = HANDLING_VERB[p] || 'flip';
+    for (let i = 0; i < turns; i++) {
+      out.push(step(`${verb === 'stir' ? 'Stir' : 'Turn'} the ${shownName(turnRow)}${turns > 1 ? ` (${i + 1} of ${turns})` : ''}.`,
+        `${verb} ${shownName(turnRow)}`, i === turns - 1 ? 'no more than this — fussing it costs you' : null));
+    }
+  } else {
+    out.push(step(`Leave it alone. Turning this one makes it worse.`, null));
+  }
+
+  // 7. Drain, then plate. Plating is the quality decision, so it is a step you
+  //    press and never one this list presses for you.
+  if (profiles.includes('dry_starch')) {
+    out.push(step(`Drain the ${vName} short of done.`, `drain ${vName}`, 'it keeps cooking in the sauce'));
+  }
+  out.push(step(`Plate it when you judge it right.`, `plate ${vName}`, 'ends it and decides the quality'));
+  return out;
+}
+
 function scoreRecipe(key, template, sig, ctx, band) {
   const also = sig[ALSO] || {};
   const missing = [];
@@ -357,6 +467,11 @@ function scoreRecipe(key, template, sig, ctx, band) {
     // of it — the Cookbook app has always shown all of this and the HUD was
     // throwing the rest away.
     method: methodLines(template),
+    // The same dish written as the commands that make it, against the rows the
+    // Assistant just highlighted. Empty when the recipe is short of something —
+    // a runbook whose fourth line names an onion you haven't got is a lie with
+    // line numbers.
+    walkthrough: chosen ? ctx.walk?.(template, chosen) || [] : [],
     ingredients: Object.entries(template.needs).map(([p, n]) => ingredientLine(p, n, template, itemInfo)),
     suggestion: methodLines(template)[0] || null,
     // Offered only when it would actually work. `prepare` re-validates anyway,
@@ -582,6 +697,9 @@ export async function buildKitchen(player) {
     // The one picker, shared with `prepare`. See pickFor.
     pick: t => pickFor(t, c),
   };
+  // Assigned after the literal because the runbook reads the same coarse gates
+  // the action layer does (is there a blade in reach) as well as the room.
+  ctx.walk = (t, chosen) => walkthroughFor(t, chosen, c, ctx);
 
   // What the Assistant may count as an ingredient: raw food anywhere in reach.
   // A finished dish is a meal, and something already on the heat is spoken for —

@@ -166,7 +166,18 @@ function renderWorkspaceText(view) {
             return `      ${esc(s.noun)}${s.amount ? ` <span class="text-dim">${esc(s.amount)}</span>` : ''}${where}`;
           }).join('\n')
           : '';
-        return `  <b>${esc(r.name)}</b>${pct}${short}${gear}${acts ? `  ${acts}` : ''}${detail}`;
+        // THE RUNBOOK REACHES THE LOG. A player at the bottom display rung is
+        // reading this instead of the panel, so a recipe they could actually
+        // make right now prints its whole command list — every step a link,
+        // which is the same dispatch the panel's buttons use. Only the ones
+        // that are ready carry one, which is what keeps this from becoming a
+        // wall: eight short recipes print eight headlines and no steps.
+        const walk = (r.walkthrough || []).length
+          ? '\n' + r.walkthrough.map((s, i) =>
+            `      <span class="text-dim">${i + 1}.</span> ${esc(s.text)}`
+            + (s.command ? `  ${link(s.command, s.command)}` : '')).join('\n')
+          : '';
+        return `  <b>${esc(r.name)}</b>${pct}${short}${gear}${acts ? `  ${acts}` : ''}${detail}${walk}`;
       }).join('\n'));
   }
   if (a?.note) out.push(`<span class="text-dim">${esc(a.note)}</span>`);

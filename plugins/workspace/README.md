@@ -180,6 +180,32 @@ individually.
 adds the shortfall to your shopping list (`plugins/cooking/shoplist.js`), which
 then marks matching stock when you walk into a shop.
 
+## `walkthrough` — the dish, written as commands
+
+An opened recipe carries `walkthrough: [{ text, command, hint }]` — the whole
+dish end to end, one step per line: pull the pot out of the cabinet, chop what
+arrives whole, fill the pan at the tap, stow each row in the recipe's own
+ingredient order, `cook`, ride the burner through the profile's heat curve,
+handle it the profile's own number of turns, drain, plate. Every step is a verb
+string a player could have typed, composed against the rows `pickFor` just
+picked, so the runbook and the highlight can never name different onions. The
+same steps print at the log rung, each one a link.
+
+**It carries no gameplay logic, and it is not `prepare`.** `prepare` executes
+and therefore stops at a loaded vessel; the runbook goes all the way to `plate`
+because it executes *nothing* — the player presses each step, which is the
+difference between a recipe and an autocook. The heat and the moment to plate
+stay theirs.
+
+**A step with no verb behind it is prose, not a button.** "Leave it alone —
+turning this makes it worse" has no command and gets none; "off the heat before
+the gin goes in" stays in the authored method above, because there is no `stove
+off`. The runbook never invents a verb to look complete.
+
+**Only a ready recipe carries one.** A runbook whose fourth line names an onion
+you haven't got is a lie with line numbers, so it's empty whenever the recipe is
+short — the shortfall rows are the useful answer there.
+
 ## Live refresh
 
 The panel polls **only while something is cooking** — `sendCmdSilent('workspace')`

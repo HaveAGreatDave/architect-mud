@@ -26,7 +26,15 @@ function allActions(view) {
   // The Assistant carries no actions today; walking it anyway means phase 4's
   // "Prepare Recipe" is swept by the verb check the day it lands, rather than
   // the day somebody remembers to widen this.
-  for (const g of view.assistant?.groups || []) eat(g.recipes);
+  for (const g of view.assistant?.groups || []) {
+    eat(g.recipes);
+    // The runbook is the same claim as an action — "this is a command you could
+    // have typed" — so it is swept by the same verb check. A step with no
+    // command is prose ("leave it alone"), and there is no verb to check.
+    for (const r of g.recipes || []) {
+      for (const s of r.walkthrough || []) if (s.command) out.push({ label: s.text, command: s.command });
+    }
+  }
   return out;
 }
 const labels = (list) => (list || []).map(a => a.label);
@@ -327,6 +335,20 @@ export default async function regress({ run, check, getPlayer }) {
     stew = findRecipe(await run('workspace'), 'stew');   // the dish above is undone; it's ready again
     check('a ready recipe offers to prepare itself',
       (stew.actions || []).some(x => x.command === 'prepare stew'), JSON.stringify(stew.actions));
+
+    // ── The runbook: the whole dish, written as commands ────────────────────
+    {
+      const w = stew.walkthrough || [];
+      check('a ready recipe carries a step-by-step runbook', w.length >= 3, JSON.stringify(w));
+      check('...that loads the pan before it lights it',
+        w.findIndex(s => /^stow /.test(s.command || '')) < w.findIndex(s => /^cook /.test(s.command || '')),
+        JSON.stringify(w.map(s => s.command)));
+      check('...and ends on plating, which is the player\'s call and never prepare\'s',
+        /^plate /.test(w[w.length - 1]?.command || ''), JSON.stringify(w[w.length - 1]));
+      check('...while every step names a row or a vessel, never an id',
+        !w.some(s => /\b(inv|item)_[0-9a-f-]{8}/.test(s.command || '') && !/^pullid /.test(s.command)),
+        JSON.stringify(w.map(s => s.command)));
+    }
 
     // ── The whole method, and exactly which rows it would use ───────────────
     check('a recipe carries its whole method, not just the first line',

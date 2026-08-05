@@ -281,6 +281,23 @@ function renderAssistant(a) {
         // catalog and may carry a <b> around the verb it wants you to type.
         body.push(`<div class="wsp-row wsp-step">${i + 1}. ${line}</div>`);
       });
+      // THE RUNBOOK. The method above says what to do; this says what to type,
+      // against the actual rows in this room. Every line carries a real command
+      // in `data-cmd`, so the panel dispatches it through the same pipeline a
+      // typed one goes through — and a step with no command (there is no verb
+      // for "leave it alone") is written as prose and simply isn't a button.
+      if ((r.walkthrough || []).length) {
+        body.push(`<div class="wsp-row wsp-step"> </div>`);
+        body.push(`<div class="wsp-row wsp-step wsp-mark-note">Step by step — press one at a time, and judge the heat yourself.</div>`);
+        (r.walkthrough || []).forEach((s, i) => {
+          const btn = s.command
+            ? `<span class="wsp-acts"><button class="wsp-act" data-cmd="${esc(s.command)}"`
+              + ` title="${esc(s.command)}${s.hint ? ` — ${esc(s.hint)}` : ''}">${esc(s.command)}</button></span>`
+            : '';
+          const hint = s.hint && !s.command ? `<span class="wsp-note"> · ${esc(s.hint)}</span>` : '';
+          body.push(`<div class="wsp-row wsp-step">${i + 1}. ${esc(s.text)}${hint}${btn}</div>`);
+        });
+      }
       if (wanted.size) {
         body.push(`<div class="wsp-row wsp-step wsp-mark-note">▸ marks what it would use, wherever it is${selected.size > 1 ? ` — numbered by recipe, so ▸${ordinals.get(r.key)} is this one` : ''}.</div>`);
       }
