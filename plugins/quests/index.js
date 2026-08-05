@@ -70,6 +70,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { grantXp } from '../../server/engine/ip.js';
 import { adjustReputation } from '../../server/engine/ideologies.js';
 import { findPath } from '../../server/engine/pathfinding.js';
+import { world } from '../../server/engine/world.js';
 import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { isIndoorZone } from '../../server/engine/environment.js';
 
@@ -1399,7 +1400,14 @@ async function findTurnInNpcUncached(questId) {
     const tree = npc.dialogue_tree || {};
     const hasTurnIn = (acts) => (acts || []).some((a) => a?.action === 'TURN_IN' && a.quest_id === questId);
     const found = Object.values(tree).some((node) => hasTurnIn(node.actions) || (node.options || []).some((o) => hasTurnIn(o.actions)));
-    if (found) return { npcId: npc.id, npcName: npc.name, zone: npc.work_zone_id || npc.home_zone };
+    // home_zone comes off the LIVE npc, not this row: a play-time relocation
+    // (npc_home_overrides) is merged into the live copy at load and never written
+    // back to the npcs table, so trusting the row here would point the quest log
+    // at the home an NPC was authored with rather than the one they moved to.
+    if (found) {
+      const live = world.npcs.get(npc.id);
+      return { npcId: npc.id, npcName: npc.name, zone: npc.work_zone_id || live?.home_zone || npc.home_zone };
+    }
   }
   try {
     const { turnInNpcForQuest } = await import('../jobboard/index.js');

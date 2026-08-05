@@ -2646,6 +2646,22 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (zone_id, direction, target_zone)
   );
 
+  -- Runtime home relocation layered over the authored npcs.home_zone (merged at
+  -- world load). Exactly the zone_exit_overrides problem in a different column:
+  -- home_zone is CONTENT and is NOT in the npcs excludeColumns, so a content
+  -- deploy upserts the authored value back over anything runtime wrote — a
+  -- defector walked to safety would reappear at her old desk on the next deploy.
+  -- Recording the move here puts it somewhere the deploy cannot reach.
+  -- One row per NPC: an NPC has one home, so relocating twice is an UPSERT
+  -- rather than a second row to reconcile.
+  CREATE TABLE IF NOT EXISTS npc_home_overrides (
+    npc_id TEXT PRIMARY KEY,
+    home_zone TEXT NOT NULL,
+    source TEXT,
+    reason TEXT,
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- Graffiti (graffiti plugin): one tag per street tile, sprayed onto the face of
   -- a building on an adjacent exit. Keyed on the zone you STAND in rather than the
   -- facade you paint, because that's the room it gets read from — and it's what

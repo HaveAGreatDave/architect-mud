@@ -482,6 +482,67 @@ console.log('— layer 1e: script trigger registry —');
   }
 }
 
+// ── Layer 1e4: a home override outlives the content deploy ───────────────────
+// npcs.home_zone is authored CONTENT and is NOT in the npcs excludeColumns, so
+// content:import upserts the authored value back over anything runtime wrote —
+// a relocation written there survives until the next deploy and then silently
+// reverts. npc_home_overrides is the runtime-class table that the deploy cannot
+// reach; this proves the merge happens and that the DB column is left alone.
+console.log('— layer 1e4: npc home overrides —');
+{
+  const { world, setNpcHomeOverride, clearNpcHomeOverride } = await import('../server/engine/world.js');
+  const { dispatchAction } = await import('../server/engine/actions.js');
+  const { query } = await import('../server/models/db.js');
+
+  const NPC = [...world.npcs.values()].find(n => n.home_zone && world.zones.has(n.home_zone));
+  const DEST = [...world.zones.keys()].find(z => z !== NPC?.home_zone);
+
+  if (!NPC || !DEST) {
+    check('npc home override: found a fixture NPC', false, 'no suitable NPC/zone in the world');
+  } else {
+    const authored = NPC.home_zone;
+    try {
+      await setNpcHomeOverride(NPC.id, DEST, { source: 'regress' });
+      check('setNpcHomeOverride repoints the live NPC', world.npcs.get(NPC.id).home_zone === DEST,
+        String(world.npcs.get(NPC.id).home_zone));
+
+      // The whole point: the authored column must be untouched, or the next
+      // export would serialise the relocation into the content files.
+      const { rows } = await query('SELECT home_zone FROM npcs WHERE id=$1', [NPC.id]);
+      check('…without writing the authored npcs.home_zone', rows[0].home_zone === authored,
+        `db=${rows[0].home_zone} authored=${authored}`);
+
+      const { rows: ov } = await query('SELECT home_zone FROM npc_home_overrides WHERE npc_id=$1', [NPC.id]);
+      check('…and the override row is what carries it', ov[0]?.home_zone === DEST, JSON.stringify(ov[0]));
+
+      // A relocation is about where they LIVE, not where they stand: no teleport.
+      check('setting a home does not teleport the NPC', world.npcs.get(NPC.id).zone_id !== DEST || authored === DEST,
+        String(world.npcs.get(NPC.id).zone_id));
+
+      // Clearing falls back to the authored home, re-read from the DB rather
+      // than from the live copy (which is the overridden one).
+      await clearNpcHomeOverride(NPC.id);
+      check('clearNpcHomeOverride restores the authored home', world.npcs.get(NPC.id).home_zone === authored,
+        String(world.npcs.get(NPC.id).home_zone));
+
+      // The content-facing route content actually uses.
+      let r = await dispatchAction({ type: 'SET_NPC_HOME', actor: null, params: { npc_id: NPC.id, zone_id: DEST } });
+      check('SET_NPC_HOME action relocates', r?.home_zone === DEST && world.npcs.get(NPC.id).home_zone === DEST, JSON.stringify(r));
+      r = await dispatchAction({ type: 'SET_NPC_HOME', actor: null, params: { npc_id: NPC.id } });
+      check('SET_NPC_HOME with no zone reverts to the authored home',
+        r?.cleared === true && world.npcs.get(NPC.id).home_zone === authored, JSON.stringify(r));
+
+      r = await dispatchAction({ type: 'SET_NPC_HOME', actor: null, params: { npc_id: 'npc_does_not_exist_regress', zone_id: DEST } });
+      check('SET_NPC_HOME on an unknown NPC errors rather than writing a row', r?.type === 'error', JSON.stringify(r));
+      r = await dispatchAction({ type: 'SET_NPC_HOME', actor: null, params: { npc_id: NPC.id, zone_id: 'zone_does_not_exist_regress' } });
+      check('SET_NPC_HOME to a dead zone is refused', r?.type === 'error', JSON.stringify(r));
+    } finally {
+      await query('DELETE FROM npc_home_overrides WHERE npc_id=$1', [NPC.id]).catch(() => {});
+      world.npcs.get(NPC.id).home_zone = authored;
+    }
+  }
+}
+
 // ── Layer 1e3: the spawn node stamps the INSTANCE, never the template ────────
 // `flags` + `${actor.id}` on a spawn node are what let content author a pursuit
 // that hunts one named player (a CHASE node in quarry:'flag' mode reads

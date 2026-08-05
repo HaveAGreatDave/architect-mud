@@ -521,6 +521,54 @@ export async function removeExitOverride(zoneId, direction, targetZone) {
   if (z) z.exits = removeExit(z.exits, direction, targetZone);
 }
 
+// ── Home overrides ───────────────────────────────────────────────────────────
+// The same problem as exit overrides, one table over. npcs.home_zone is authored
+// CONTENT and — unlike zone_id — is NOT in the npcs excludeColumns, so a content
+// deploy upserts the authored value straight back over anything runtime wrote.
+// A permanent relocation (a defector walked to safety, a tenant evicted) has to
+// live somewhere the deploy can't reach, so it lives here and is merged over the
+// authored value at load.
+//
+// Merging into home_zone rather than just placing the NPC is deliberate: every
+// reader of "where does this NPC live" already reads entity.home_zone (GO_HOME,
+// ambient-life home-life/intrusion, npc-drugs, mis, emergency), so one merge at
+// load fixes all of them with no call-site changes.
+
+async function loadNpcHomeOverrides() {
+  const { rows } = await query('SELECT npc_id, home_zone FROM npc_home_overrides');
+  return new Map(rows.map(r => [r.npc_id, r.home_zone]));
+}
+
+// Relocate an NPC's home for good. Deliberately does NOT write npcs.home_zone —
+// that column belongs to the content deploy, and writing it is the bug this
+// table exists to fix. Patches the live NPC so the change is felt immediately;
+// does not TELEPORT them, because a relocation is a statement about where they
+// live, not where they are standing this second (GO_HOME walks them there).
+export async function setNpcHomeOverride(npcId, zoneId, { source = null, reason = null } = {}) {
+  if (!npcId || !zoneId) return false;
+  if (!world.zones.has(zoneId)) {
+    console.warn(`[npc] home override for ${npcId} names a zone that doesn't exist (${zoneId}) — ignored`);
+    return false;
+  }
+  await query(
+    `INSERT INTO npc_home_overrides (npc_id, home_zone, source, reason)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (npc_id) DO UPDATE SET home_zone=$2, source=$3, reason=$4`,
+    [npcId, zoneId, source, reason]
+  );
+  syncNpc(npcId, { home_zone: zoneId });
+  return true;
+}
+
+// Drop a relocation and fall back to the authored home. Re-reads the authored
+// value from the DB rather than trusting the live copy, which is by definition
+// the overridden one.
+export async function clearNpcHomeOverride(npcId) {
+  await query('DELETE FROM npc_home_overrides WHERE npc_id=$1', [npcId]);
+  const { rows } = await query('SELECT home_zone FROM npcs WHERE id=$1', [npcId]);
+  if (rows.length) syncNpc(npcId, { home_zone: rows[0].home_zone });
+}
+
 async function loadZones() {
   const { rows } = await query('SELECT * FROM zones');
   for (const zone of rows) {
@@ -539,7 +587,10 @@ async function loadZones() {
 }
 
 async function loadNpcs() {
-  const { rows } = await query('SELECT * FROM npcs');
+  const [{ rows }, homeOverrides] = await Promise.all([
+    query('SELECT * FROM npcs'),
+    loadNpcHomeOverrides(),
+  ]);
   for (const npc of rows) {
     const live = {
       ...npc,
@@ -551,6 +602,15 @@ async function loadNpcs() {
       banter: npc.banter || [],
       _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
     };
+    // A play-time relocation beats BOTH the authored home and any stale zone_id:
+    // it is the most recent deliberate statement about where this NPC lives, and
+    // the authored value underneath it is exactly what the deploy keeps restoring.
+    // Setting zone_id too lets the placement logic below run unchanged.
+    const homeOverride = homeOverrides.get(npc.id);
+    if (homeOverride && world.zones.has(homeOverride)) {
+      live.home_zone = homeOverride;
+      live.zone_id = homeOverride;
+    }
     world.npcs.set(npc.id, live);
     // Position is RAM-only at runtime (autonomous movement never persists
     // zone_id) — the DB value is either the last deliberate placement

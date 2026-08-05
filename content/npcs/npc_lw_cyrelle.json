@@ -198,6 +198,12 @@
         {
           "action": "ADJUST_STANCE",
           "delta": 8
+        },
+        {
+          "action": "SET_NPC_HOME",
+          "npc_id": "npc_asc_nine",
+          "reason": "Retention — extracted to the Watch",
+          "zone_id": "zone_lw_entry"
         }
       ],
       "options": [

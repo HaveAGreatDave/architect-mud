@@ -55,6 +55,7 @@ Registered across `actions.js`, `graph.js` and `flags.js`:
 | `OPEN_STORAGE` | graph.js | Convenience alias for `OPEN_UI { ui:'storage' }` |
 | `OPEN_CRAFTING` | graph.js | Convenience alias for `OPEN_UI { ui:'crafting' }` |
 | `OPEN_SHOP` | graph.js | Load NPC vendor stock and send `dialogue_shop` to client |
+| `SET_NPC_HOME` | graph.js | `{ npc_id, zone_id?, reason? }` — relocate where an NPC **lives**, permanently. Not a teleport, and not `UPDATE npcs`: it records the move in `npc_home_overrides`, the one place a content deploy cannot revert (see [server.md → Overrides](server.md#overrides-runtime-state-layered-over-authored-content)). Omit `zone_id` to revert to the authored home. Use it when a rescue, defection or promotion should still be true after a restart |
 | `TRIGGER_EVENT` | graph.js | Emit an arbitrary event on the event bus |
 | `EXECUTE_SCRIPT` | graph.js | Run a script graph by ID or inline graph object |
 | `END_CONVERSATION` | graph.js | Send `dialogue_end` to client |

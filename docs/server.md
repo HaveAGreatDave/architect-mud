@@ -55,6 +55,36 @@ for transient zones, which have no connection rows by construction. See
 
 Several of these Maps are read tiers with a **mandatory write funnel** — a raw `UPDATE furniture`/`UPDATE npcs` silently desyncs them. See [architecture.md → Read Tiers](architecture.md#read-tiers-where-data-lives-at-runtime).
 
+### Overrides: runtime state layered over authored content
+
+Two columns are **authored content that runtime also needs to change**, and for both, writing the
+content column is a bug with a delay on it — the next CODEX deploy upserts the authored value back
+and the change silently reverts. Each has a `runtime`-class override table merged over the authored
+value at load, where the deploy cannot reach:
+
+| Authored column | Override table | Merged in | Written by |
+|---|---|---|---|
+| `zones.exits` | `zone_exit_overrides` | `applyExitOverrides` (load + `reloadZone`) | `addExitOverride` / `removeExitOverride` — generator utility rooms, the yacht gangway |
+| `npcs.home_zone` | `npc_home_overrides` | `loadNpcs` | `setNpcHomeOverride` / `clearNpcHomeOverride` — the `SET_NPC_HOME` action, i.e. dialogue and scripts |
+
+The home override is merged **into `entity.home_zone`** rather than just influencing placement, so
+every existing reader of "where does this NPC live" (`GO_HOME`, ambient-life home-life/intrusion,
+npc-drugs, mis, emergency) picks it up with no call-site change. It also wins over a stale `zone_id`,
+since a relocation is the most recent deliberate statement about where that NPC lives.
+
+Two rules worth knowing before you touch it:
+
+- **Never write `npcs.home_zone` to relocate an NPC.** That column is the *authored* home and is the
+  thing the override exists to survive. `zone_id` is excluded from content and so survives a deploy,
+  but it is a weak anchor — boot only trusts it if the zone still resolves, and `GO_HOME` would walk
+  the NPC back to `home_zone` anyway.
+- **Player ownership outranks an override.** `apartments.js` `rehomeNpc`/`clearNpcResidence` *clear*
+  the override rather than writing around it — leaving it would drag the NPC back into the owned unit
+  at the next boot and the squatter sweep would evict them again, forever.
+
+Anything reading a home out of the **DB** rather than the live NPC misses the merge. `findTurnInNpc`
+(quests) is the one such reader and reads `world.npcs` for exactly this reason.
+
 Any engine file that needs world state imports directly from `world.js`. There is no pub/sub or event bus between engine modules — they call each other synchronously or await shared helpers.
 
 ---

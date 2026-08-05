@@ -1,5 +1,5 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, getConnection } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership, moveNpcToZone, updateNpc, clearNpcHomeOverride, getConnection } from "./world.js";
 import { findPath } from "./pathfinding.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
@@ -398,6 +398,11 @@ export async function findNearestVacantApartment(fromZoneId, exceptZoneId) {
 // their new place; the AT_HOME_LIFE behaviour keeps them there. zone_id is persisted
 // because an eviction is a deliberate placement, not autonomous drift the loader skips.
 export async function rehomeNpc(npc, newZoneId) {
+	// An eviction outranks a play-time home override, and must CLEAR it rather
+	// than write around it: the override is re-merged over home_zone at every
+	// load, so leaving it in place would drag the NPC back into the owned unit
+	// on the next boot and the sweep would evict them again, forever.
+	await clearNpcHomeOverride(npc.id);
 	await updateNpc(npc.id, { home_zone: newZoneId, zone_id: newZoneId });
 	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
 	await query(
@@ -414,6 +419,7 @@ export async function rehomeNpc(npc, newZoneId) {
 // aren't left registered anywhere. Used only when the map has no vacancy.
 export async function clearNpcResidence(npc) {
 	const fallback = world.zones.has('zone_residential_lobby') ? 'zone_residential_lobby' : npc.home_zone;
+	await clearNpcHomeOverride(npc.id); // same precedence rule as rehomeNpc
 	await query('DELETE FROM npc_residences WHERE npc_id=$1', [npc.id]);
 	await updateNpc(npc.id, { home_zone: fallback, zone_id: fallback });
 	npc.home_zone = fallback;

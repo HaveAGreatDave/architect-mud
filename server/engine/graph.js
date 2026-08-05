@@ -32,7 +32,7 @@ import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions, getFlag } from './flags.js';
 import { interp, interpDeep } from './interp.js';
-import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding, world, spawnEnemySync, pickSpawnMessage, getLivePlayer } from './world.js';
+import { getZone, addPlayerToZone, removePlayerFromZone, resolveLanding, world, spawnEnemySync, pickSpawnMessage, getLivePlayer, setNpcHomeOverride, clearNpcHomeOverride } from './world.js';
 import { spawnOnGround, spawnInContainer } from './inventory.js';
 import { openShopSession } from './vendor-session.js';
 import { getItem } from './items-cache.js';
@@ -452,6 +452,32 @@ registerAction({
     context?.broadcast?.(zone_id, { type: 'zone_event', message: `${actor.handle} appears.` }, actor.id);
     emit('zone.entered', { actor, zone: zone_id, from });
     return { type: 'teleport', zone: zone_id };
+  },
+});
+
+// Relocate an NPC's home for good, from dialogue or a script.
+//
+// This is NOT a teleport — it changes where an NPC *lives*, which is what makes
+// a rescue, a defection or a promotion stick across a restart. The plain move
+// (TELEPORT-style) is undone by the next boot, because boot re-places NPCs at
+// home_zone; and writing npcs.home_zone directly is undone by the next content
+// deploy, because that column is authored content. setNpcHomeOverride is the
+// only route that survives both. Pass no zone_id to send them back to the home
+// their content file authored.
+registerAction({
+  type: 'SET_NPC_HOME',
+  handler: async ({ params }) => {
+    const npcId = params.npc_id || params.npc;
+    if (!npcId) return { type: 'error', message: 'SET_NPC_HOME requires npc_id.' };
+    if (!world.npcs.has(npcId)) return { type: 'error', message: `Unknown NPC: ${npcId}` };
+    const zoneId = resolveLanding(params.zone_id || params.zone); // facades forward into their interior
+    if (!zoneId) { // no destination = revert to the authored home
+      await clearNpcHomeOverride(npcId);
+      return { type: 'npc_home', npc_id: npcId, home_zone: null, cleared: true };
+    }
+    const ok = await setNpcHomeOverride(npcId, zoneId, { source: params.source || 'content', reason: params.reason || null });
+    if (!ok) return { type: 'error', message: `SET_NPC_HOME: unusable zone ${zoneId}` };
+    return { type: 'npc_home', npc_id: npcId, home_zone: zoneId };
   },
 });
 
