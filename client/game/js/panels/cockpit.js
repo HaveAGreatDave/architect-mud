@@ -16,12 +16,12 @@ import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
 import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx } from './engine-audio.js';
-import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
+import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
 import { applyFlightDrugFx, clearFlightDrugFx } from './flight-drugfx.js';
 import { sendCmdSilent } from '../net.js';
-import { hex2rgb, visorSpecFor } from './aircraft3d.js';
+import { hex2rgb, visorSpecFor, VIPER_SCALE } from './aircraft3d.js';
 
 // Touch-primary devices (phones/tablets) have no keyboard for rudder pedals, so their fin
 // auto-coordinates with the roll input; desktops (a fine pointer + keys) fly the rudder by hand
@@ -3313,6 +3313,61 @@ function yachtProximity(F) {
   return null;
 }
 
+// ── Rooftop helideck (the Solenne Sky Pad) ───────────────────────────────────────────────────
+// The catch window IS the drawn column: the radius and the ceiling are imported from the renderer
+// rather than restated here, so the ring you fly into is the ring that grabs you and the two can
+// never drift. The ceiling converts world-z → feet through the contact-altitude scale (600 ft/z).
+const ROOF_CATCH_CEIL_FT = ROOF_CATCH_CEIL_Z * 600;
+const ROOF_LAND_MS = 2800;   // guided descent from capture to skids-down
+
+// Nearest rooftop pad in the streamed window: a tile that is BOTH an airfield (kind 'field') and a
+// building (bt) — the rooftop-pad combination the renderer already understands. Its pad height comes
+// from the same captured model geometry CFIT reads, so the deck we land on is the deck we drew.
+function roofPadProximity(F) {
+  const map = F.map; if (!Array.isArray(map) || !map.length || !F.mapCenter || !F.pos) return null;
+  const R = (map.length - 1) / 2;
+  let best = null;
+  for (let ry = 0; ry < map.length; ry++) {
+    const row = map[ry]; if (!row) continue;
+    for (let rx = 0; rx < row.length; rx++) {
+      const c = row[rx]; if (!c || c.kind !== 'field' || !c.bt) continue;
+      const wx = F.mapCenter.x + (rx - R), wy = F.mapCenter.y + (ry - R);
+      const dist = Math.hypot(wx - F.pos.x, wy - F.pos.y);
+      if (dist > 4 || (best && dist >= best.dist)) continue;
+      const padFt = buildingRoofFtAt(wx, wy, c, wx, wy);
+      if (padFt > 0) best = { dist, padFt, tile: [wx, wy] };
+    }
+  }
+  return best;
+}
+
+// Capture: freeze the pilot's inputs out of the vertical/lateral solution and fly the last few
+// seconds onto the pad centre. No cinematic — a rooftop set-down is a working arrival, not the
+// Echelon's set piece, and the pilot keeps the view they were flying.
+function startRoofLanding(F, s, now, prox) {
+  F.roofLock = { t0: now, padFt: prox.padFt, tile: prox.tile,
+    from: { x: F.pos.x, y: F.pos.y, alt: s.altitude, hdg: s.heading } };
+  F.roofDeparted = false;   // a lift-off from this pad must leave the window before it can grab again
+  F.landGrade = 'A'; F.landFpm = Math.round(Math.max(0, -(s.vs || 0)));   // a guided set-down grades clean
+  if (F.toast) F.toast('PAD LOCK — the deck has you. Coming down.');
+}
+
+function stepRoofLanding(F, s, now) {
+  const L = F.roofLock, t = clampNum((now - L.t0) / ROOF_LAND_MS, 0, 1);
+  const ease = (x) => x * x * (3 - 2 * x);
+  const e = ease(t);
+  F.pos.x = L.from.x + (L.tile[0] - L.from.x) * e;
+  F.pos.y = L.from.y + (L.tile[1] - L.from.y) * e;
+  s.altitude = L.from.alt + (L.padFt - L.from.alt) * e;
+  s.airspeed = Math.max(0, s.airspeed * (1 - e));
+  s.vs = (L.padFt - L.from.alt) / Math.max(0.001, ROOF_LAND_MS / 1000) * 60 * (1 - e);   // fpm, easing to a hover
+  s.bank = 0; s.pitch = 6 * e;   // nose eases up into the flare as she settles
+  if (t < 1) return;
+  F.roofLock = null;
+  F.deckLandTile = L.tile;   // report the landing AT the pad tile, so the server parks us on the roof
+  finishLanding(F, s);
+}
+
 function startDeckLanding(F, s, now, prox) {
   // Her real heading (frames the deck-cam the way the sim just did) + her hull tile (so we report the
   // landing AT the Echelon, not at our smooth position — which can round a tile off her and get the
@@ -3507,8 +3562,17 @@ function stepDeckLanding(F, now) {
     // groundZ pins her gear to the physical helipad deck (its world-z in drawYacht), so `altDiff` is
     // her height in FEET ABOVE the pad — skids square on the deck at 0, not floating at eye height.
     groundZ: DECK_PAD_Z, altDiff: alt,
-    cls: F.cls, hdg: heliHdg, bank: 0, pitch: heliPitch,
-    livery: F.livery, sizeMul: 1.9, power, propSpin, propDisc: propSpin > 0.15 ? 1 : 0,
+    // `armed` is the AIRFRAME, not the master-arm switch: it picks the attack-heli mesh out of the
+    // class the Viper shares with the Dragonfly — the same expression the live external view uses
+    // (see the paintWindshield call in the frame loop). Without it the cinematic landed every
+    // gunship as a Dragonfly, and the deck contact measurements (skid height, rotor anchors) were
+    // taken off the wrong airframe too.
+    cls: F.cls, armed: F.cls === 'heli' && F.hardpoints > 0, hdg: heliHdg, bank: 0, pitch: heliPitch,
+    // The Viper mesh is already VIPER_SCALE (2×) larger than the Dragonfly's, so the cinematic's
+    // framing multiplier divides that back out — otherwise the gunship arrives at ~3.8× and
+    // overflows the pad it's landing on. Both airframes now fill the frame the same way.
+    livery: F.livery, sizeMul: (F.cls === 'heli' && F.hardpoints > 0) ? 1.9 / VIPER_SCALE : 1.9,
+    power, propSpin, propDisc: propSpin > 0.15 ? 1 : 0,
     lights: true, landing,
   };
   paintWindshield('fsim-ws', {
@@ -3695,6 +3759,31 @@ function fsimFrame(now) {
     if (F._thrBox === undefined) F._thrBox = document.getElementById('fsim-thr');
     if (F._thrBox) F._thrBox.classList.toggle('baulked', F.noseVisor > 0.02);
   }
+
+  // ── Rooftop helideck auto-land ────────────────────────────────────────────────────
+  // A rooftop pad is the one place in the city where you WANT to end up on top of a building,
+  // and every other system here exists to stop that happening (CFIT). So the pad gets the
+  // Echelon's contract instead: fly into the drawn catch column and the deck takes you down.
+  // The lock overrides the flight model for the last few seconds — CFIT is suppressed with it,
+  // because the tower we're descending onto is the destination, not an obstacle.
+  const roofProx = (F.heli && !F.landed && !F.deckCine && F.reportedAirborne) ? roofPadProximity(F) : null;
+  const roofArmed = !!(roofProx && !s.onGround && roofProx.dist <= ROOF_CATCH_R
+    && s.altitude <= roofProx.padFt + ROOF_CATCH_CEIL_FT && s.altitude >= roofProx.padFt - 40);
+  F.roofPadShow = !!(roofProx && roofProx.dist <= 3.5);   // the column is drawn from a way out — it's guidance
+  F.roofPadArmed = roofArmed;
+  if (roofProx && !F.roofLock && !roofArmed && !F.roofNoticed
+      && roofProx.dist <= ROOF_CATCH_R * 1.6 && s.altitude > roofProx.padFt + ROOF_CATCH_CEIL_FT
+      && s.altitude <= roofProx.padFt + ROOF_CATCH_CEIL_FT + 160) {
+    F.roofNoticed = true;
+    if (F.toast) F.toast('⚠ PAD GUIDANCE — descend into the green column and the deck will bring you down.');
+  }
+  // Departure latch, exactly as the Echelon has one: lifting off a pad flies you straight up through
+  // its own catch column, and without this the climb-out is grabbed and set back down. You've
+  // departed once you leave the radius or climb clear of the ceiling.
+  if (!roofArmed) F.roofDeparted = true;   // outside the radius or clear of the ceiling → armed again
+  if (roofArmed && !F.roofLock && F.roofDeparted !== false) startRoofLanding(F, s, now, roofProx);
+  if (F.roofLock) { stepRoofLanding(F, s, now); F.cfitCd = Math.max(F.cfitCd || 0, 1); }
+  else if (!roofProx) F.roofNoticed = false;
 
   // ── Building collision (CFIT) — flying into a tower you can see out the glass ─────
   // Checks the aircraft's swept path this frame against the deterministic building geometry
@@ -4235,6 +4324,9 @@ function fsimFrame(now) {
     // (brightens/quickens) the moment you're inside the capture window (F.onYacht), telling you
     // she's about to take you. Cleared during the deck-cam cinematic (that view draws its own).
     padDome: (F.heli && F.reportedAirborne && !F.deckCine) ? { armed: !!F.onYacht } : null,
+    // The same guidance over a ROOFTOP helideck (the Solenne Sky Pad). Drawn from a few tiles out so
+    // you can see where the approach is, and armed once you're inside the window / already locked.
+    roofPad: (F.heli && F.reportedAirborne && !F.deckCine && F.roofPadShow) ? { armed: !!(F.roofPadArmed || F.roofLock) } : null,
   });
   perfEnd();   // sim:paint
 

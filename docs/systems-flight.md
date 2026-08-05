@@ -53,6 +53,23 @@ isn't there for them. The pad ROOM is walled separately by `flags.residents_only
 [reference/world-rendering.md](reference/world-rendering.md) for how a rooftop pad renders
 as field *and* building on one tile.
 
+**Rooftop helidecks land by CATCH VOLUME, not by touchdown** *(built)*. A rooftop pad is the
+one place in the city where ending up on top of a building is the goal, and everything else
+in the sim (CFIT) exists to prevent exactly that — so the pad borrows the Echelon's contract
+instead of fighting it. A tile that is BOTH `kind:'field'` and a building draws the same
+holographic catch column the yacht's pad does, at the model's real roof height
+(`modelTopZAt`, the world-z twin of the `buildingRoofFtAt` probe CFIT already reads — one
+loop, so the pad you aim at and the pad you touch down on can never drift). Fly into it and
+`startRoofLanding` takes the last few seconds: the flight model is overridden onto the pad
+centre, **CFIT is suppressed with it** (the tower is the destination, not an obstacle), and
+the arrival is reported at the pad tile. `ROOF_CATCH_R`/`ROOF_CATCH_CEIL_Z` are **imported by
+the cockpit from the renderer**, so the ring you fly into is the ring that grabs you. There is
+no cinematic — a rooftop set-down is a working arrival, and the pilot keeps the view they were
+flying. A departure latch (as the Echelon has) stops a lift-off being re-grabbed by the column
+it climbs through. The Solenne's crown carries the marked deck itself: TLOF circle, painted H,
+perimeter lights — and **no antenna**, because a mast over a touchdown circle is the one thing
+that must never be there (its obstruction light moved to a perimeter post).
+
 Nine aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
 Grasshopper · Locust · **Viper**), three fuel types (avgas/jet/biofuel), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core

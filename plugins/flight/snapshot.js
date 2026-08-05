@@ -15,7 +15,10 @@ import { biomeOf } from './biomes.js';
 function deriveCell(z) {
   const flags = z.flags || {};
   const biome = biomeOf({ id: z.id, flags, danger: z.danger });
-  const road = (Array.isArray(flags.artery) && flags.artery.length) || /^(road_|runway_)/.test(flags.icon || '') ? 1 : 0;
+  // Every signal isRoadCell reads, PAINTED terrain included — the terrain paint was missing here,
+  // so the baked rig lost the 144 painted-only street tiles a live flight draws.
+  const road = (Array.isArray(flags.artery) && flags.artery.length) || /^(road_|runway_)/.test(flags.icon || '')
+    || flags.terrain === 'road' || flags.terrain === 'dirt_road' ? 1 : 0;
   const kind = flags.airfield_id ? 'field' : flags.airspace_restricted ? 'nofly' : 'land';
   const bt = flags.building_type || undefined;
   const bn = flags.building_name || undefined;
@@ -54,6 +57,7 @@ export function buildFlightSnapshot() {
   const fields = [];
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
+    if (z.grid_z != null && z.grid_z !== 0) continue;   // surface only — the Under shares the grid (see buildCoordIndex)
     const key = `${z.grid_x},${z.grid_y}`, rank = surfaceRank(z.flags || {});
     // Same collision rule as buildCoordIndex: a landmark/building tile (the Echelon) must win
     // its grid over a bare terrain tile stamped on the same cell, not lose to iteration order.

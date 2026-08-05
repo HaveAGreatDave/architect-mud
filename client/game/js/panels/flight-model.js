@@ -175,7 +175,7 @@ export const TYPES = {
     // thrust-deficit formula below (best rate sits at the droop knee, ~0.7 collective) and never
     // reaches this bound in either direction. Raising it buys nothing — the ceiling fade is the
     // knob that governs how high she gets, and vsGain the one that governs how twitchy the hover is.
-    vsGain: 850, vsMax: 1300, vsTau: 0.9,
+    vsGain: 850, vsGainUp: 1000, vsMax: 1300, vsTau: 0.9,   // vsGainUp: climb-only gain — a bit more rate on a full lever without touching how hard she sinks
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
     ceiling: 32000,
@@ -198,7 +198,7 @@ export const TYPES = {
     cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
     dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
     liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
-    vsGain: 1000, vsMax: 2100, vsTau: 1.0,   // a clamp the deficit formula never reaches — see the Dragonfly's note
+    vsGain: 1000, vsGainUp: 1250, vsMax: 2100, vsTau: 1.0,   // vsMax is a clamp the deficit formula never reaches — see the Dragonfly's note; vsGainUp is the climb-only gain (a gunship should out-climb the kit heli)
     vrsVs: 620,                           // high disc loading — settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
     ceiling: 34000,
@@ -457,8 +457,10 @@ function stepHeli(state, input, p, dt) {
   }
   // Sink HARDER than she climbs — chop the collective (or droop Nr) and the underpowered kit
   // heli drops away in a deep autorotative descent instead of mushing down gently.
+  // Climb and sink read SEPARATE gains: `vsGainUp` (falling back to vsGain) is the up side, so a
+  // type can be given more rate on a full lever without also dropping away harder when you chop it.
   const deficit = thrustV / hoverT - 1;
-  let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : p.vsGain), -p.vsMax * 2.6, p.vsMax);
+  let vsTarget = clamp(deficit * (deficit < 0 ? p.vsGain * 1.9 : (p.vsGainUp || p.vsGain)), -p.vsMax * 2.6, p.vsMax);
   // Ground cushion (in-ground-effect): within ~a rotor-diameter of the deck the downwash piles
   // into a lift cushion, so a descent SOFTENS as you near the ground — she eases onto the skids
   // instead of dropping the last few feet. Sink only; hover and climb are untouched.

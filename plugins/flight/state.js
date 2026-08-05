@@ -170,8 +170,14 @@ export function bearingDeg(fromX, fromY, toX, toY) {
 export function surfaceRank(flags = {}) {
   if (flags.yacht) return 3;                                             // bespoke landmark — always owns its tile
   if (flags.airfield_id || flags.building_type) return 2;               // airfield / building
+  // Road, by every signal isRoadCell reads — including PAINTED `terrain:'road'`/`dirt_road`.
+  // The terrain paint was missing here, so a painted street ranked as bare terrain and any
+  // other zone sharing its grid won the tile on last-iterated-wins: the asphalt simply wasn't
+  // in the payload and the street had a hole in it out the canopy. 144 of the world's 163 road
+  // tiles are painted-only, so this was most of them.
   if (/^(road_|runway_|statue)/.test(flags.icon || '')
-      || (Array.isArray(flags.artery) && flags.artery.length)) return 1; // road / artery / statue
+      || (Array.isArray(flags.artery) && flags.artery.length)
+      || flags.terrain === 'road' || flags.terrain === 'dirt_road') return 1; // road / artery / statue
   return 0;                                                             // plain terrain (water, land)
 }
 let _coordIndex = null;
@@ -227,6 +233,10 @@ export function buildCoordIndex() {
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   for (const z of getAllZones()) {
     if (z.map_id !== 'map_world' || z.grid_x == null || z.grid_y == null) continue;
+    // SURFACE only. The Under (grid_z −1/−2) shares the world grid with the street above it —
+    // 202 zones deep — and a sewer gallery is not what you see from an aircraft. It also has no
+    // road/building flags, so it ranked 0 and could take the tile off a painted street on a tie.
+    if (z.grid_z != null && z.grid_z !== 0) continue;
     const key = `${z.grid_x},${z.grid_y}`, prev = idx.get(key);
     // Keep the higher-priority tile when two zones collide on one grid (see surfaceRank).
     if (!prev || surfaceRank(z.flags || {}) > surfaceRank(prev.flags)) {

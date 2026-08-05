@@ -550,7 +550,9 @@ export function paintWindshield(id, view) {
   // ground blocks the under-view — exactly "rotate under unless it runs the camera into the ground".
   const EHbaseC = Math.max(0.05, RENDER_TUNE.eh + height * RENDER_TUNE.climbLift);
   const groundPitch = Math.asin(clamp((0.06 - EHbaseC) / Math.max(1e-3, orbR), -1, 1));
-  const extPitch = ext && !v.firing ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.15) : restPitch;
+  // NOT gated on v.firing — pulling the trigger must never move the camera. The orbit the
+  // player put the camera on is the orbit they keep, shooting or not.
+  const extPitch = ext ? clamp(v.extPitch != null ? v.extPitch : restPitch, groundPitch, 1.15) : restPitch;
   // Over-the-top distortion fix: a close chase cam looking straight down sits almost on top of the
   // craft, so buildings directly below streak and fan out and the view reads as uselessly zoomed-in.
   // As the orbit pitches UP past the resting angle toward top-down, pull the camera proportionally
@@ -3030,19 +3032,26 @@ export function buildingRoofFt(wx, wy, cell) {
 //
 // Deliberately reads the LIVE capture rather than the baked file: models whose shape varies with
 // the tile seed (rooftop clutter) collide as they are actually drawn on that tile.
-export function buildingRoofFtAt(wx, wy, cell, px, py) {
+export function buildingRoofFtAt(wx, wy, cell, px, py) { return modelTopAt(wx, wy, cell, px, py, true); }
+// The same probe answered in RENDER world-z instead of feet — what the rooftop-helipad guidance
+// column needs, since it is drawn in the world frame rather than flown in the altitude frame. One
+// loop, one answer: the pad you aim at and the pad you touch down on can never drift apart.
+export function modelTopZAt(wx, wy, cell, px, py) { return modelTopAt(wx, wy, cell, px, py, false); }
+function modelTopAt(wx, wy, cell, px, py, inFeet) {
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   const m = modelFor(cell);
   const floors = floorsOf(cell);
+  const hz = floorHeight(cell, seed);
   if (!m) {
     // No dedicated model (a biome archetype) — the old square, unchanged.
     const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
-    return (Math.abs(px - wx) <= foot && Math.abs(py - wy) <= foot) ? floors * FT_PER_FLOOR : 0;
+    const inBox = Math.abs(px - wx) <= foot && Math.abs(py - wy) <= foot;
+    return inBox ? (inFeet ? floors * FT_PER_FLOOR : hz) : 0;
   }
   const segs = shapeForModel(m, seed);
-  if (!segs || !segs.length) return floors * FT_PER_FLOOR;
-  const h = floorHeight(cell, seed);
+  if (!segs || !segs.length) return inFeet ? floors * FT_PER_FLOOR : hz;
+  const h = hz;
   if (!(h > 0)) return 0;
   const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
   // Into the model's own frame: undo the entrance rotation, then per segment undo its yaw.
@@ -3050,7 +3059,7 @@ export function buildingRoofFtAt(wx, wy, cell, px, py) {
   const ox = px - wx, oy = py - wy;
   const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
   const V = (p) => p[0] * fh + p[1] * h + p[2];
-  const ftPerZ = (floors * FT_PER_FLOOR) / h;   // world-z → feet, via the storey stack both agree on
+  const ftPerZ = inFeet ? (floors * FT_PER_FLOOR) / h : 1;   // world-z → feet, via the storey stack both agree on (1 = answer in world-z)
   let best = 0;
   for (const s of segs) {
     const cx = V(s.cx), cy = V(s.cy);
@@ -5602,6 +5611,49 @@ function dish(ctx, cam, dx, dy, wz, s0, alpha) {   // rooftop satellite dish
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const r = clamp(s0 / p.f, 2, 22);
   emitFace(decoDepth(p.f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(198,204,214,0.85)'; ctx.beginPath(); ctx.ellipse(p.sx, p.sy, r, r * 0.5, -0.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
 }
+// A ROOFTOP HELIDECK painted on a pad slab at world-z `z`, radius `r` (tile units): the aiming
+// circle, the touchdown "H" square inside it, the perimeter TLOF light ring, and one obstruction
+// post at the pad edge. Everything here is PAINT — no mass goes into the shape sink, so the deck
+// you collide with and land on is the slab underneath, and the markings can never become something
+// you fly into. The H is drawn in the pad's own frame and rotates with the tile's model yaw, so it
+// reads as a marking lying on the deck rather than a decal facing the camera.
+function helideck(ctx, cam, dx, dy, z, r, glow, paint, night, alpha, now, seed = 0, yaw = 0) {
+  if (SHAPE_SINK) return;                              // paint only — never geometry
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const P = (ox, oy, zz = z) => cam.proj(dx + ox * cy - oy * sy, dy + ox * sy + oy * cy, zz);
+  const c = P(0, 0); if (c.f <= 0.12) return;
+  const ring = (rr, n = 28) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * 6.2832, p = P(Math.cos(a) * rr, Math.sin(a) * rr); if (p.f <= 0.1) return null; pts.push(p); } return pts; };
+  const trace = (pts) => { if (!pts) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); };
+  const bar = (pts) => { if (pts.some(p => p.f <= 0.1)) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); };
+  emitFace(decoDepth(c.f), () => {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.lineJoin = 'round';
+    // Dark non-skid deck disc, so the pad reads as a surface and not as the tower's own roof colour.
+    const disc = ring(r * 0.98);
+    if (disc) { ctx.fillStyle = `rgba(26,28,32,${night ? 0.72 : 0.55})`; ctx.beginPath(); disc.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); }
+    // TLOF aiming circle + the inner touchdown circle.
+    ctx.strokeStyle = `rgba(${paint},${night ? 0.95 : 0.85})`; ctx.lineWidth = 2.2; trace(ring(r * 0.82));
+    ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${paint},0.55)`; trace(ring(r * 0.62));
+    // The H, in the deck's own frame: two uprights and a crossbar, as painted bars.
+    ctx.fillStyle = `rgba(${paint},${night ? 0.95 : 0.9})`;
+    const hh = r * 0.40, hw = r * 0.26, t = r * 0.085;
+    bar([P(-hw - t, -hh), P(-hw + t, -hh), P(-hw + t, hh), P(-hw - t, hh)]);
+    bar([P(hw - t, -hh), P(hw + t, -hh), P(hw + t, hh), P(hw - t, hh)]);
+    bar([P(-hw, -t), P(hw, -t), P(hw, t), P(-hw, t)]);
+    // Perimeter TLOF lights — the green ring a pilot actually flies to at night.
+    const lit = night ? 1 : 0.35;
+    for (let k = 0; k < 12; k++) {
+      const a = k / 12 * 6.2832, p = P(Math.cos(a) * r * 0.94, Math.sin(a) * r * 0.94); if (p.f <= 0.1) continue;
+      ctx.fillStyle = `rgba(120,255,170,${0.9 * lit})`;
+      if (night) { ctx.shadowColor = 'rgb(120,255,170)'; ctx.shadowBlur = 7; }
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, clamp(1.9 / p.f, 0.7, 3), 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+  });
+  if (night) glowPool(ctx, cam, dx, dy, z + 0.004, glow, 14, alpha * 0.28);   // deck floodlight wash
+  // Obstruction light on a perimeter post — clear of the touchdown circle, which is the whole
+  // reason the antenna mast that used to stand here is gone.
+  blinkLight(ctx, cam, dx + r * 0.92 * cy, dy + r * 0.92 * sy, z + 0.02, '255,90,90', now, seed, alpha);
+}
 function crossMark(ctx, cam, dx, dy, wz, alpha) {   // red medical cross billboard
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
   const p = cam.proj(dx, dy, wz); if (p.f <= 0.1) return; const s = clamp(9 / p.f, 2, 16);
@@ -6371,15 +6423,21 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const z = segZ(N) - h * 0.06, r = segW(N - 1) * 1.08;
         drawRing(ctx, cam, dx, dy, z, r, 16, `rgba(${warm},${night ? 0.95 : 0.52})`, 2.2, alpha);
         if (night) glowPool(ctx, cam, dx, dy, z, gold, 15, alpha * 0.3); }
-      // 5) Lantern crown — a short bright set-back box continuing the turn — + an antenna spire + warm beacon.
+      // 5) Lantern crown — a short bright set-back box continuing the turn — capped by the SKY PAD.
+      //    No antenna spire: this roof is a licensed helideck (af_solenne), and a mast over the
+      //    touchdown circle is the one thing that must never be there. The obstruction light moves
+      //    onto a perimeter post at the pad's edge, where a real helideck carries it.
       draw3DBoxAt(ctx, cam, dx, dy, segW(N) * 0.86, topZ, topZ + h * 0.26, pal, seed + 20, night, alpha, true, twist);
-      mast(ctx, cam, dx, dy, topZ + h * 0.26, topZ + h * 0.6, alpha, now, seed);
+      { const deckZ0 = topZ + h * 0.26, deckZ1 = deckZ0 + h * 0.04, padR = segW(N) * 1.15;
+        // The deck slab itself — wider than the lantern it caps, the way a helideck oversails its
+        // core. A captured box, so the sim collides with the pad you can see and lands ON it.
+        draw3DBoxAt(ctx, cam, dx, dy, padR, deckZ0, deckZ1, pal, seed + 21, night, alpha, true, twist);
+        helideck(ctx, cam, dx, dy, deckZ1 + 0.002, padR * 0.86, gold, warm, night, alpha, now, seed); }
       if (night) {
         glowPool(ctx, cam, dx, dy, baseZ, warm, 22, alpha * 0.3);                     // warm lobby wash
         glowPool(ctx, cam, dx, dy, baseZ + (topZ - baseZ) * 0.5, gold, 13, alpha * 0.2);  // mid sky-lobby glow
         glowPool(ctx, cam, dx, dy, topZ + h * 0.1, gold, 16, alpha * 0.32);            // crown halo
       }
-      blinkLight(ctx, cam, dx, dy, topZ + h * 0.6, gold, now, seed, alpha, 2);         // warm gold beacon on the spire
       break;
     }
     case 'chrome': {   // Chrome Court: a HIGH-TECH mirror-steel obelisk — a smooth tapered faceted chrome monolith
@@ -8242,13 +8300,21 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
     // Near-clip against the CAMERA, not the craft: in the external chase view the camera sits
     // `back` tiles behind the aircraft, so a building that has slipped behind the model is still
-    // well in front of the camera (fCam = f + back) and must keep drawing — clipping on the raw
+    // well in front of the camera (f + back) and must keep drawing — clipping on the raw
     // craft distance `f` popped it out the instant it passed the tail. Far stays on `f`.
-    const fCam = f + (cam.back || 0);
     // The Echelon is the chase SUBJECT (in the Helm view she's dead-centre) — never tile-cull her, or
     // zooming in / orbiting swings her tile across the near plane and pops the whole hull out. Her own
     // per-face near-clip in drawYacht handles anything that crosses the lens gracefully.
-    if (c.mark !== 'yacht' && (fCam <= VISIBLE_NEAR_F || f > FAR)) continue;
+    // …and the near test is per FOOTPRINT CORNER, not the tile centre. A tile is a whole tile wide:
+    // once its centre crosses the lens the building can still be filling half the screen beside/under
+    // you, and centre-culling made it VANISH exactly when it was closest — the one place a solid
+    // block must never blink out. Keep the tile while ANY corner is still ahead of the camera; the
+    // wall-by-wall NEAR_CLIP trim in draw3DBox/drawFacet handles whatever straddles the lens.
+    // A hair over half a tile (0.62) so a model that oversteps its footprint is covered too.
+    const HW = 0.62;
+    const cornerAhead = c.mark === 'yacht' || [[-HW, -HW], [HW, -HW], [HW, HW], [-HW, HW]]
+      .some(([a, b]) => (dx + a) * cam.sinh - (dy + b) * cam.cosh + (cam.back || 0) > VISIBLE_NEAR_F);
+    if (!cornerAhead || (c.mark !== 'yacht' && f > FAR)) continue;
     // Buildings hold FULL opacity all the way to the camera — NO near-pass fade — so a
     // building directly ahead of (or passing right beside/under) you never dissolves. Only
     // the far edge fades, and only as haze: distant blocks ghost UP out of the horizon rather
@@ -8479,6 +8545,15 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (decoNear && !m && night > 0.3 && h > 0.35 && (it.seed % 7) === 0) drawHoloAd(ctx, cam, it.dx, it.dy, fh, h, it.seed, now, alpha * night);   // rooftop holo-ad on ~1 in 7 tall buildings (was 1 in 4 — too many flickering at once)
     // Warm bloom over the lit windows so near towers read as emitting light at night.
     if (decoNear && night > 0.45) drawCityBloom(ctx, cam, it.dx, it.dy, h, night, alpha);
+    // ROOFTOP HELIDECK guidance — a building tile that is also an airfield (the Solenne sky pad) gets
+    // the Echelon's catch volume over its roof, at the model's real top. Same shape, same promise:
+    // fly into the column and she brings you down. Only drawn for a helicopter in the air (v.roofPad).
+    if (v.roofPad && it.c.kind === 'field') {
+      const padZ = modelTopZAt(it.wx, it.wy, it.c, it.wx, it.wy);
+      // Queued at the tile's own depth (like the yacht's dome), so a nearer tower occludes it
+      // rather than the beam painting over the skyline.
+      if (padZ > 0) emitFace(od, () => drawRoofPadCatch(ctx, cam, it.dx, it.dy, padZ, now, alpha, !!v.roofPad.armed));
+    }
   }
   // Ground AA emplacements ride the SHARED face queue too (each turret emitted at its tile-centre
   // depth), so a building between you and the site occludes it instead of the turret painting on top
@@ -8916,18 +8991,34 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
 // the contact-altitude frame (CONTACT_ALT_K = 1/600), so the column top reads as "enter the gate here,
 // descend, and you're grabbed at the deck" — matching the pre-capture notice (≤320ft) → capture (≤150ft).
 const PAD_CATCH_R = 0.5, PAD_CATCH_CEIL = 0.5;
+// Rooftop version of the same catch volume: a helideck on a tower gets the identical guidance the
+// Echelon's pad does, drawn straight in the world frame over the pad centre at its roof height.
+// `R`/`ceil` are the real capture window the cockpit checks, so the column is the rule, not an
+// illustration of it.
+export const ROOF_CATCH_R = 0.45, ROOF_CATCH_CEIL_Z = 0.5;
+function drawRoofPadCatch(ctx, cam, dx, dy, baseZ, now, alpha, armed) {
+  padCatchVolume(ctx, (ox, oy, z) => cam.proj(dx + ox, dy + oy, z), baseZ, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, now, alpha, armed);
+}
 function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
   const shr = Math.sin(hr), chr = Math.cos(hr);
   // padOY (fore-aft pad offset) + the catch radius shrink with the hull (YACHT_SCALE) so the dome rides
   // her scaled pad; baseZ tracks the flush helipad floor. CEIL is the altitude capture window (a real
   // approach height), so it stays in world-z and is NOT scaled by the hull size.
   const padOY = 0.28 * YACHT_SCALE, baseZ = 0.088 * YACHT_H * YACHT_SCALE, R = PAD_CATCH_R * YACHT_SCALE, CEIL = PAD_CATCH_CEIL;
-  const P = (ox, oy, z) => cam.proj(dx - oy * shr + ox * chr, dy + oy * chr + ox * shr, z);
+  // Hull-local projector with the fore-aft pad offset folded in, so the shared volume below is
+  // written purely in PAD-local coordinates and a rooftop pad can hand it a plain world projector.
+  padCatchVolume(ctx, (ox, oy, z) => cam.proj(dx - (padOY + oy) * shr + ox * chr, dy + (padOY + oy) * chr + ox * shr, z),
+    baseZ, R, CEIL, now, alpha, armed);
+}
+// The catch volume itself, in PAD-LOCAL coordinates: `P(ox, oy, z)` projects an offset from the pad
+// centre. Shared by the Echelon's deck and every rooftop helideck — one shape, so "the green column
+// means she'll take you" means the same thing wherever a pilot meets it.
+function padCatchVolume(ctx, P, baseZ, R, CEIL, now, alpha, armed) {
   const pulse = 0.5 + 0.5 * Math.sin(now * (armed ? 0.008 : 0.0035));
   const col = armed ? '86,240,150' : '120,205,255';
   const A = alpha * (armed ? 0.62 : 0.34);
   // A ring of screen points at radius r, height z — null if any vertex crosses the lens.
-  const ring = (r, z, n = 30) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, p = P(Math.cos(a) * r, padOY + Math.sin(a) * r, z); if (p.f <= 0.08) return null; pts.push(p); } return pts; };
+  const ring = (r, z, n = 30) => { const pts = []; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, p = P(Math.cos(a) * r, Math.sin(a) * r, z); if (p.f <= 0.08) return null; pts.push(p); } return pts; };
   const trace = (pts) => { if (!pts) return; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.stroke(); };
   ctx.save();
   ctx.strokeStyle = `rgb(${col})`; ctx.fillStyle = `rgb(${col})`; ctx.lineJoin = 'round';
@@ -8938,19 +9029,19 @@ function drawYachtPadDome(ctx, cam, dx, dy, hr, now, alpha, armed) {
   ctx.lineWidth = 2; ctx.globalAlpha = A * (0.7 + 0.3 * pulse); trace(base);                       // bright outer rim
   ctx.lineWidth = 1; ctx.globalAlpha = A * 0.5; trace(ring(R * 0.58, baseZ));                       // inner ring
   ctx.globalAlpha = A * 0.5;                                                                        // crosshair ticks
-  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), i0 = P(ca * R * 0.72, padOY + sa * R * 0.72, baseZ), i1 = P(ca * R, padOY + sa * R, baseZ); if (i0.f > 0.08 && i1.f > 0.08) { ctx.beginPath(); ctx.moveTo(i0.sx, i0.sy); ctx.lineTo(i1.sx, i1.sy); ctx.stroke(); } }
-  const cpt = P(0, padOY, baseZ + 0.004); if (cpt.f > 0.08) { ctx.globalAlpha = A; ctx.beginPath(); ctx.arc(cpt.sx, cpt.sy, 2.2, 0, 7); ctx.fill(); }   // centre pip
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), i0 = P(ca * R * 0.72, sa * R * 0.72, baseZ), i1 = P(ca * R, sa * R, baseZ); if (i0.f > 0.08 && i1.f > 0.08) { ctx.beginPath(); ctx.moveTo(i0.sx, i0.sy); ctx.lineTo(i1.sx, i1.sy); ctx.stroke(); } }
+  const cpt = P(0, 0, baseZ + 0.004); if (cpt.f > 0.08) { ctx.globalAlpha = A; ctx.beginPath(); ctx.arc(cpt.sx, cpt.sy, 2.2, 0, 7); ctx.fill(); }   // centre pip
 
   // ── Capture column — the VOLUME rising to the altitude ceiling; hover inside it to be caught ──
   ctx.lineWidth = 1; ctx.globalAlpha = A * 0.45; trace(ring(R, baseZ + CEIL));                      // ceiling ring
   ctx.globalAlpha = A * 0.4;                                                                        // cylinder-wall struts
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), b = P(ca * R, padOY + sa * R, baseZ), t = P(ca * R, padOY + sa * R, baseZ + CEIL); if (b.f > 0.08 && t.f > 0.08) { ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke(); } }
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), b = P(ca * R, sa * R, baseZ), t = P(ca * R, sa * R, baseZ + CEIL); if (b.f > 0.08 && t.f > 0.08) { ctx.beginPath(); ctx.moveTo(b.sx, b.sy); ctx.lineTo(t.sx, t.sy); ctx.stroke(); } }
   // Light bands sweeping UP the column (a tractor-beam read) — quicker + brighter when armed.
   const bands = armed ? 4 : 2;
   for (let m = 0; m < bands; m++) { const ph = ((now * (armed ? 0.0011 : 0.0006) + m / bands) % 1); ctx.globalAlpha = A * (1 - ph) * (armed ? 0.7 : 0.4); ctx.lineWidth = armed ? 2 : 1.4; trace(ring(R, baseZ + CEIL * ph)); }
 
   // Armed: a downward "set down here" chevron stack marching onto the pad centre.
-  if (armed) { ctx.lineWidth = 2; for (let k = 0; k < 3; k++) { const ph = ((now * 0.0016 + k / 3) % 1), z = baseZ + CEIL * 0.7 * (1 - ph), r = R * 0.3, cen = P(0, padOY, z), lp = P(-r, padOY, z), rp = P(r, padOY, z); if (cen.f > 0.08 && lp.f > 0.08 && rp.f > 0.08) { ctx.globalAlpha = A * (1 - ph) * 0.9; ctx.beginPath(); ctx.moveTo(lp.sx, lp.sy); ctx.lineTo(cen.sx, cen.sy); ctx.lineTo(rp.sx, rp.sy); ctx.stroke(); } } }
+  if (armed) { ctx.lineWidth = 2; for (let k = 0; k < 3; k++) { const ph = ((now * 0.0016 + k / 3) % 1), z = baseZ + CEIL * 0.7 * (1 - ph), r = R * 0.3, cen = P(0, 0, z), lp = P(-r, 0, z), rp = P(r, 0, z); if (cen.f > 0.08 && lp.f > 0.08 && rp.f > 0.08) { ctx.globalAlpha = A * (1 - ph) * 0.9; ctx.beginPath(); ctx.moveTo(lp.sx, lp.sy); ctx.lineTo(cen.sx, cen.sy); ctx.lineTo(rp.sx, rp.sy); ctx.stroke(); } } }
   ctx.restore();
 }
 
