@@ -780,7 +780,7 @@ async function ambientTick() {
     // Plugin hook first
     const pluginAmbient = await fireHook('zone.describeAmbient', zone);
     if (pluginAmbient) {
-      broadcastFn(zoneId, { type:'ambient', message:`<span class="msg-ambient">${pluginAmbient}</span>` });
+      broadcastFn(zoneId, { type:'ambient', message:`<span class="msg-ambient">${pluginAmbient}</span>`, flavour: true });
       continue;
     }
 
@@ -799,7 +799,10 @@ async function ambientTick() {
 
     // Propagate with sound reach — quiet ambients stay local, louder ones spread.
     registerInterrupt(zoneId, ambient.loudness, 6000);
-    propagateSound(zoneId, ambient.message, ambient.loudness, broadcastFn);
+    // flavour: the periodic room ambient is scene-setting, so it is dropped at the
+    // Display Mode `log` rung. Sounds raised by an EVENT still come through here
+    // unmarked and are always spoken.
+    propagateSound(zoneId, ambient.message, ambient.loudness, broadcastFn, true);
 
     // For exterior zones during active weather, occasionally layer a weather sound.
     const isExterior = !zone.flags?.is_interior;
@@ -903,7 +906,10 @@ async function stormTick() {
     const delay = 500 + Math.random() * 2500;
     const msg = THUNDER_MESSAGES[Math.floor(Math.random() * THUNDER_MESSAGES.length)];
     setTimeout(() => {
-      broadcastFn(zoneId, { type: 'ambient', message: msg });
+      // flavour: thunder repeats for as long as the storm runs. The storm's
+      // actual danger is carried by the ⚠ forecast band and the room's own
+      // warning line, both of which survive at every rung.
+      broadcastFn(zoneId, { type: 'ambient', message: msg, flavour: true });
       emit('weather.thunder', { zoneId });
     }, delay);
   }

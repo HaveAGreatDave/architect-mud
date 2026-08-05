@@ -105,6 +105,33 @@ const server = readFileSync('server/index.js', 'utf8');
 if (/stampToLog/.test(server)) ok('the server stamps toLog on outbound look/move');
 else bad('server/index.js no longer stamps toLog — the client will never be told to log the room');
 
+// ── A SILENT look is not an explicit one ─────────────────────────────────────
+// The client fires sendCmdSilent('look') from ~15 places to repaint the area
+// pane — the zone_event refresh when somebody ELSE leaves the room, the combat
+// refresh, take, every panel close. All arrive as `type: 'look'`, which means
+// FULL. Left unmarked, a bystander walking east reads the whole room aloud.
+if (/stampToLog\(player, result, !!msg\.silent\)/.test(server)) {
+  ok('a silent look is distinguished from an explicit one before it reaches the log');
+} else bad('stampToLog no longer receives msg.silent — every pane refresh will read the full room aloud');
+if (/silent && message\.type === 'look'/.test(server)) {
+  ok('a silent look is never rendered full');
+} else bad('stampToLog no longer special-cases a silent look — the brief contract is only half enforced');
+
+// ── Flavour is droppable ─────────────────────────────────────────────────────
+// Scene-setting ambience read aloud is a torrent with nothing in it, and unlike
+// a room description there is no keystroke that gets it back. Both broadcast
+// paths must honour the mark — sendToPlayer returns before `deliver` runs.
+const flavourGuards = (server.match(/message\.flavour && loggedPanelsSync/g) || []).length;
+if (flavourGuards >= 2) ok(`flavour ambience is dropped at the log rung on both broadcast paths (${flavourGuards} sites)`);
+else bad(`the flavour filter is present at ${flavourGuards} broadcast site(s) — the zone path AND the targeted path both need it`);
+
+// The mark must stay NARROW. Sound propagation carries gunshots and screams as
+// well as dripping pipes, so it must default to speaking.
+const sounds = readFileSync('server/engine/sounds.js', 'utf8');
+if (/propagateSound\([^)]*flavour = false/.test(sounds)) {
+  ok('propagateSound treats an unmarked sound as news, not flavour');
+} else bad('propagateSound no longer defaults flavour to false — an unmarked gunshot could go unspoken');
+
 // ── The command input is labelled ────────────────────────────────────────────
 // A placeholder is not a label: several screen readers drop it once anything is
 // typed, leaving the only input in the game unnamed.

@@ -45,11 +45,29 @@
 // fails to recognise anything, it MUST return the input unchanged. A brief that
 // silently eats the room is far worse than one that never fires.
 
-// Sections that survive a brief. Matched against the class attribute of a
-// top-level span/div in the description.
-const KEEP = [
+// ── Three tiers, not two ─────────────────────────────────────────────────────
+// The first version of this file had one KEEP list holding everything dynamic,
+// and a brief still ran to eight or nine lines: people, enemies, corpses, items,
+// vendors, furniture, buildings, sub-rooms, exits. Read aloud, walking a street
+// was still a wall of speech, and the two lines that actually matter — where you
+// are and what can hurt you — were somewhere in the middle of it.
+//
+// So a brief now has THREE tiers:
+//
+//   VITAL  → printed. Where you are, what is dangerous, who is here, how to
+//            leave. Everything that is either a hazard or a decision.
+//   TALLY  → NAMED, not printed. Contents you would act on deliberately rather
+//            than react to — items, furniture, vendors, buildings. Collapsed to
+//            one closing line, "Also here: items, furniture."
+//   DROP   → gone. Prose and flavour, identical every visit.
+//
+// The safety contract is unchanged and the TALLY tier is what preserves it:
+// nothing becomes invisible, because the brief still says the category is there
+// and `look` is still always full. One keystroke, as before.
+
+// Tier 1 — always printed.
+const VITAL = [
 	'zone-name',        // where you are — always
-	'zone-district',
 	'light-level',      // it is dark here / gloom / murk — gates what you can see
 	'rad-warning',      // ☢ — lethal, never abbreviate away
 	'safe-warning',
@@ -57,14 +75,30 @@ const KEEP = [
 	'players-label', 'players-row',
 	'npcs-label', 'npcs-row',
 	'enemies-label', 'enemies-row',
-	'corpses-label', 'corpses-row',
-	'items-label', 'items-row',
-	'vendors-label', 'vendors-row',
 	'exits-row', 'exits-label',
-	'buildings-row', 'buildings-label',
-	'rooms-row', 'rooms-label',
-	'furniture-label',  // the plain Furniture LIST. Not the woven prose — see DROP.
 ];
+
+// Tier 2 — collapsed into the closing "Also here:" line. Class prefix → the noun
+// it is announced as. These are things you go looking FOR; none of them can hurt
+// you between one step and the next, which is the line between this tier and
+// VITAL.
+const TALLY = {
+	items: 'items',
+	corpses: 'corpses',
+	vendors: 'vendors',
+	furniture: 'furniture',
+	buildings: 'buildings',
+	rooms: 'rooms',
+};
+const TALLY_CLASSES = new Map();
+for (const [prefix, noun] of Object.entries(TALLY)) {
+	TALLY_CLASSES.set(`${prefix}-row`, noun);
+	TALLY_CLASSES.set(`${prefix}-label`, noun);
+}
+
+// Retained so callers/tests that ask "does a brief contain this?" still get a
+// true answer: a brief may contain anything in either printed tier.
+const KEEP = [...VITAL, ...TALLY_CLASSES.keys(), 'zone-district'];
 
 // Sections a brief drops. Listed explicitly rather than inferred as "everything
 // not in KEEP", so that an UNRECOGNISED section is kept rather than lost — the
@@ -123,15 +157,25 @@ export function briefRoom(html) {
 
 	const lines = flattenFurnitureSections(html).split('\n');
 	const kept = [];
+	const alsoHere = [];                            // TALLY nouns, in encounter order
 	for (const line of lines) {
 		if (!line.trim()) continue;                 // blank spacers; re-added below
 		if (isInstalledRow(line)) continue;
 		const cls = classesOf(line);
-		// KEEP beats DROP on a mixed line. describe.js appends several sections with
-		// no leading newline, so two sections routinely share one line — and when
-		// they do, keeping too much is a non-event while dropping too much loses a
-		// room's contents. The bias is deliberate and must not be inverted.
-		if (cls.some((c) => DROP.includes(c)) && !cls.some((c) => KEEP.includes(c))) continue;
+		// VITAL beats TALLY beats DROP on a mixed line. describe.js appends several
+		// sections with no leading newline, so two sections routinely share one line
+		// — and when they do, keeping too much is a non-event while dropping too
+		// much loses a room's contents. The bias is deliberate and must not be
+		// inverted: a line carrying an exits row AND an items row prints whole.
+		const vital = cls.some((c) => VITAL.includes(c));
+		if (!vital) {
+			const nouns = cls.map((c) => TALLY_CLASSES.get(c)).filter(Boolean);
+			if (nouns.length) {
+				for (const n of nouns) if (!alsoHere.includes(n)) alsoHere.push(n);
+				continue;
+			}
+			if (cls.some((c) => DROP.includes(c))) continue;
+		}
 		if (!cls.length) {
 			// Unclassed text. This is the prose case when describeZone emits the
 			// description bare, so drop it ONLY when we have already kept the zone
@@ -144,8 +188,11 @@ export function briefRoom(html) {
 	// If abbreviating removed nothing, or removed so much that only the name is
 	// left with no exits, the transform did not understand this description.
 	// Hand back the original rather than a stub.
-	if (kept.length === lines.filter((l) => l.trim()).length) return html;
+	if (!alsoHere.length && kept.length === lines.filter((l) => l.trim()).length) return html;
 	if (kept.length < 2) return html;
+	// The TALLY tier's whole justification. Without this line the collapse would
+	// be a DROP and the room would silently stop having contents.
+	if (alsoHere.length) kept.push(`<span class="brief-more">Also here: ${alsoHere.join(', ')}.</span>`);
 	return kept.join('\n');
 }
 
@@ -168,4 +215,4 @@ export function markSeenZone(player, zoneId) {
 	return true;
 }
 
-export const _test = { briefRoom, KEEP, DROP };
+export const _test = { briefRoom, KEEP, DROP, VITAL, TALLY };

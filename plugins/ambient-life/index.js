@@ -134,11 +134,16 @@ function pickRoutine(zone, phase, weather) {
 // muffled into neighbouring rooms), otherwise just to the room it happens in.
 function emitLine(zoneId, text, loudness) {
   const html = `<span class="msg-ambient">${text}</span>`;
+  // `flavour` — NPC business happening near you is scenery, so it is dropped at
+  // the Display Mode `log` rung, where it would otherwise be read aloud on top of
+  // everything the player needs to hear. The interactive routines in fireRoutine
+  // are deliberately NOT marked: they carry a clickable opportunity, which makes
+  // them a decision rather than a mood.
   if (loudness > 0) {
     const broadcast = getBroadcast();
-    if (broadcast) propagateSound(zoneId, text, loudness, broadcast);
+    if (broadcast) propagateSound(zoneId, text, loudness, broadcast, true);
   } else {
-    sendToZone(zoneId, { type: 'ambient', message: html });
+    sendToZone(zoneId, { type: 'ambient', message: html, flavour: true });
   }
 }
 

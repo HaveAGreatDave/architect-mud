@@ -4211,7 +4211,15 @@ async function broadcastTick() {
             if (standingsOverlay) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: standingsOverlay });
             if (result.graphic) sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.graphic });
           }
-        } else if (ambientDue) {
+        } else if (ambientDue && !loggedPanelsSync(player)) {
+          // NOT overheard at the Display Mode `log` rung. This is a set somebody
+          // ELSE is watching, leaking one spoken line into the room every so
+          // often — scenery on screen, and read aloud it interleaves a stranger's
+          // game show with the player's own game, in the same voice, with no way
+          // to tell them apart. A player who wants the programme has `tv watch`,
+          // which reaches the log in full and is the deliberate act.
+          //
+          // Sync by contract — this is the broadcast tick (see `toLog` above).
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
         // Deck preview — independent of TV panel subscription. (The score-bug is a

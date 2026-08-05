@@ -133,6 +133,7 @@ function playBathroom(zoneId, npc, bathId) {
   const say = (pool) => sendToZone(zoneId, {
     type: 'ambient',
     message: `<span class="msg-ambient">${rand(pool).replace(/\{npc\}/g, npc.name)}</span>`,
+    flavour: true,   // scenery — dropped at the Display Mode `log` rung
   });
 
   say(BATHROOM_GOING);
@@ -231,7 +232,7 @@ function play(zoneId, npc, beats) {
       startCooldown(zoneId);
       return;
     }
-    sendToZone(zoneId, { type: 'ambient', message: `<span class="msg-ambient">${beats[i++]}</span>` });
+    sendToZone(zoneId, { type: 'ambient', message: `<span class="msg-ambient">${beats[i++]}</span>`, flavour: true });
     if (i >= beats.length) { activeHome.delete(zoneId); startCooldown(zoneId); return; }
     setTimeout(step, randInt(BEAT_GAP_MS[0], BEAT_GAP_MS[1]));
   };

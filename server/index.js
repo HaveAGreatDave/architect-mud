@@ -116,16 +116,39 @@ setGhostTokenStore((token, playerId, zoneId) => {
 // Mark a room description for the scrolling log when the player is on the bottom
 // Display Mode rung. Only `look`/`move` carry one; everything else is already a
 // log message. See the note at the handleCommand call site.
-function stampToLog(player, message) {
+// ⚠ `silent` is load-bearing, not bookkeeping. The client fires
+// `sendCmdSilent('look')` from about fifteen places that have nothing to do with
+// the player asking to look: the 800ms zone_event refresh (somebody ELSE walked
+// out of the room), the post-swing combat refresh, take, hangar/cockpit/poker
+// close. Every one of those arrives here as `type: 'look'` — which used to mean
+// FULL — so at the bottom rung a bystander heading east read the entire room
+// description aloud, and a fight repainted it every 300ms.
+//
+// A silent look exists to repaint the area pane, and at this rung the pane is
+// aria-hidden. So it is never full, and it is dropped outright when it would
+// only repeat the room we last logged: the event that triggered it ("Graham
+// Mercer heads east") is its own log line and IS the record. The contract holds
+// — an explicit `look` is still always full, and it is still one keystroke away.
+function stampToLog(player, message, silent = false) {
 	if (!message || (message.type !== 'look' && message.type !== 'move')) return message;
 	if (!loggedPanelsSync(player)) return message;
+	const zone = message.zone || player?.current_zone;
+	if (silent && message.type === 'look') {
+		// Same room as the last one we spoke ⇒ nothing has been said that this
+		// would add to. Say nothing.
+		if (player._logLastRoom === zone) return message;
+		player._logLastRoom = zone;
+		markSeenZone(player, zone);
+		return { ...message, toLog: true, logMessage: briefRoom(message.message) };
+	}
 	// The log copy of a room you have walked into BEFORE is abbreviated, so that
 	// crossing six rooms is not six paragraphs read aloud. An explicit `look` is
 	// never abbreviated, and neither is your first arrival anywhere — see the
 	// contract in engine/room-brief.js. The PANE copy stays full either way; only
 	// `toLog` carries the brief, because only the log repeats.
-	const first = markSeenZone(player, message.zone || player?.current_zone);
+	const first = markSeenZone(player, zone);
 	const full = message.type === 'look' || first;
+	player._logLastRoom = zone;
 	return { ...message, toLog: true, logMessage: full ? message.message : briefRoom(message.message) };
 }
 
@@ -139,6 +162,10 @@ function broadcast(
 ) {
 	const payload = JSON.stringify(message);
 	if (targetPlayerId) {
+		// The flavour rule below applies here too. This path is `sendToPlayer`, which
+		// returns before `deliver` ever runs — so without this line a flavour-marked
+		// message aimed at one player would quietly bypass the whole filter.
+		if (message.flavour && loggedPanelsSync(getLivePlayer(targetPlayerId))) return;
 		const ws = playerSockets.get(targetPlayerId);
 		if (ws?.readyState === 1) ws.send(payload);
 		return;
@@ -151,6 +178,20 @@ function broadcast(
 		if (excludePlayerId && session.playerId === excludePlayerId) return;
 		if (excludePlayerId2 && session.playerId === excludePlayerId2) return;
 		if (excludeSet && excludeSet.has(session.playerId)) return;
+		// ── Flavour is dropped at the `log` rung ────────────────────────────────
+		// `flavour: true` marks a message that carries no state and prompts no
+		// decision: idle NPC business, weather colour, district texture. Read on a
+		// screen it is atmosphere; read ALOUD it is a torrent between the player
+		// and everything they actually need to hear, and unlike a room description
+		// there is no keystroke that gets it back because there was nothing in it.
+		//
+		// Deliberately NARROW. Sound propagation (engine/sounds.js) is also
+		// "ambient" and is NEVER marked — a gunshot two rooms north is the single
+		// most useful thing a player navigating by ear is told all day.
+		//
+		// The check only runs on marked messages, so the ordinary broadcast path
+		// pays nothing, and it is sync by contract (the login-hydrated latch).
+		if (message.flavour && loggedPanelsSync(getLivePlayer(session.playerId))) return;
 		ws.send(payload);
 	};
 
@@ -1360,7 +1401,7 @@ async function handleGameCommand(ws, session, msg) {
 	// about to send. One site, and it cannot drift out of sync with the server.
 	ws.send(JSON.stringify({ type: 'sleep_state', sleeping: !!player.sleeping, dreaming: !!player.sleeping?.inDream }));
 	if (result) {
-		ws.send(JSON.stringify(stampToLog(player, result)));
+		ws.send(JSON.stringify(stampToLog(player, result, !!msg.silent)));
 		if (result.player_update)
 			ws.send(
 				JSON.stringify({
@@ -1416,6 +1457,14 @@ async function handleDialogue(ws, session, msg) {
 	// vendors that don't author their own shop door).
 	if (msg.choice === "__shop__") {
 		await openNpcShop(ws, session, npc);
+		return;
+	}
+
+	// Same gate `talk` applies at the root, re-checked on every node: a panel that
+	// was open when the vendor's shift ended can't be clicked on past closing.
+	const { isVendorRole, isVendorOffHours, vendorOffHoursLine } = await import("./engine/ai-behaviour.js");
+	if (isVendorRole(npc) && isVendorOffHours(npc)) {
+		ws.send(JSON.stringify({ type: "dialogue_end", message: vendorOffHoursLine(npc) }));
 		return;
 	}
 

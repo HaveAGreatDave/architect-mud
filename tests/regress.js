@@ -5259,15 +5259,63 @@ removeLivePlayer(P.id);
     '<span class="exits-row"><span class="exits-label">Exits:</span> north</span>',
   ].join('\n');
   const sb = briefRoom(SECTIONED);
+  // Furniture is now the TALLY tier — named in the closing line rather than
+  // listed — so the pin is that the room is still SAID to have furniture. The
+  // guard is unchanged in substance: if the flatten regressed to a drop, the
+  // whole prose+sections line would go and there would be no mention at all.
   check('brief: sectioned furniture survives sharing a line with the prose',
-    sb.includes('a steel stool') && sb.includes('a parts bin'), sb);
-  check('brief: …flattened to one Furniture row, not per-category',
-    !/Seating:/.test(sb) && !/Storage:/.test(sb) && /Furniture:/.test(sb), sb);
+    /Also here:[^<]*furniture/.test(sb), sb);
+  check('brief: …tallied once, not per-category',
+    !/Seating:/.test(sb) && !/Storage:/.test(sb)
+    && (sb.match(/furniture/g) || []).length === 1, sb);
   check('brief: …and the prose on that same line still goes',
     !/awnings/.test(sb), sb);
   // Utility fixtures: identical every visit and each entry repeats the room name.
   check('brief: the Installed row is dropped', !/Installed:/.test(sb), sb);
   check('brief: …but Exits, which share its class, are not', /Exits:/.test(sb), sb);
+
+  // ── The three tiers ────────────────────────────────────────────────────────
+  // VITAL is printed, TALLY is named, DROP is gone. The tally is what keeps the
+  // "nothing is ever lost" contract honest now that contents are not listed: a
+  // brief must still SAY the room has items, or a log-rung player walks over
+  // loot they were never told about.
+  const TIERED = [
+    '<span class="zone-name">Cutbank Alley</span>',
+    // Realistic lengths. A synthetic one-sentence room understates the win by a
+    // long way — the prose paragraph and the contents lists are what actually
+    // make a logged room unlistenable, and both are full-size here.
+    '<span class="room-desc">Somebody has been burning pallets in the doorway, and the smoke has nowhere '
+      + 'to go but up between the two blocks. Fire escapes ladder the brick on both sides, most of them '
+      + 'ending a full storey short of the ground. A gutter runs the length of the alley and carries '
+      + 'something that has not been rain for a long time.</span>',
+    '<span class="rad-warning">☢ The counter clicks steadily.</span>',
+    '<span class="enemies-row"><span class="enemies-label">Enemies:</span> a scav dog</span>',
+    '<span class="items-row"><span class="items-label">Items:</span> a bent rebar, a soaked paperback, '
+      + 'three spent casings, a cracked ration tin</span>',
+    '<span class="furniture-label">Furniture:</span> a dumpster, a stack of pallets, a standpipe',
+    '<span class="vendors-row"><span class="vendors-label">Vendors:</span> Grady</span>',
+    '<span class="exits-row"><span class="exits-label">Exits:</span> north, east</span>',
+  ].join('\n');
+  const tb = briefRoom(TIERED);
+  check('brief: a hazard is printed', /counter clicks/.test(tb), tb);
+  check('brief: …and so is anything that can attack you', /scav dog/.test(tb), tb);
+  check('brief: …and the way out', /north, east/.test(tb), tb);
+  check('brief: contents are named, not listed', !/bent rebar/.test(tb) && /Also here:[^<]*items/.test(tb), tb);
+  check('brief: …vendors too', !/Grady/.test(tb) && /Also here:[^<]*vendors/.test(tb), tb);
+  check('brief: the prose is gone entirely', !/pallets/.test(tb), tb);
+  // The whole point of the ask: SHORT read aloud, not merely shorter. Measured on
+  // the SPOKEN text — markup is free to a screen reader, so comparing HTML
+  // lengths would flatter a brief that is still a paragraph of speech.
+  const spoken = (s) => s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().length;
+  check('brief: a tiered brief is about a quarter of the speech',
+    spoken(tb) < spoken(TIERED) * 0.3, `${spoken(tb)}/${spoken(TIERED)} spoken chars`);
+  // A room with nothing in the tally tier gets no trailing line at all.
+  const BARE = [
+    '<span class="zone-name">Cutbank Alley</span>',
+    '<span class="room-desc">Somebody has been burning pallets in the doorway.</span>',
+    '<span class="exits-row"><span class="exits-label">Exits:</span> north</span>',
+  ].join('\n');
+  check('brief: an empty room adds no "Also here" line', !/Also here/.test(briefRoom(BARE)), briefRoom(BARE));
 }
 
 await sweepOrphanedPlayerRows();

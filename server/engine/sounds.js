@@ -119,7 +119,14 @@ function distancePrefix(distance, loudness) {
 
 // Propagate a sound from originZoneId outward. Calls broadcastFn for each zone.
 // broadcastFn(zoneId, payload)
-export function propagateSound(originZoneId, message, loudness, broadcastFn) {
+// `flavour` marks the sound as scene-setting rather than news — the periodic room
+// ambient ("water drips somewhere behind the wall") as opposed to a gunshot or a
+// scream. It rides the payload so the Display Mode `log` rung can drop the first
+// and keep the second; see the note in broadcast() in server/index.js. Default
+// false, so a caller that says nothing is treated as news. That direction is
+// deliberate: over-speaking is a nuisance, under-speaking is a player not being
+// told somebody just fired a gun next door.
+export function propagateSound(originZoneId, message, loudness, broadcastFn, flavour = false) {
   const reach = getSoundReach(originZoneId, loudness);
   for (const [zoneId, distance] of reach) {
     let text = distance === 0 ? message : dropWords(message, loudness, distance);
@@ -130,6 +137,7 @@ export function propagateSound(originZoneId, message, loudness, broadcastFn) {
       type: 'ambient',
       message: `<span class="${cssClass}">${prefix}${text}</span>`,
       loudness,
+      ...(flavour ? { flavour: true } : {}),
     });
   }
 }

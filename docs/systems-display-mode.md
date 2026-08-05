@@ -169,11 +169,31 @@ classic MUD `brief` contract:
   flag and no query on the every-move path.
 - Every arrival after that is brief.
 
-What survives is not "the short bits". It is **everything that could be different
-this time** — people, enemies, corpses, items, the furniture list, exits, and every
-warning and light-level line. What goes is what is a property of the room itself and
-therefore identical to last time: the prose paragraph, the woven-furniture second
-beat, ambient flavour. That is precisely why a brief is safe to repeat.
+#### Three tiers, not two
+
+The first version kept **everything dynamic** and a brief still ran to eight or nine
+lines. Read aloud, walking a street was still a wall of speech, and the two things
+that matter — where you are and what can hurt you — were somewhere in the middle of
+it. So a brief has three tiers:
+
+| Tier | What | Example |
+|---|---|---|
+| **VITAL** | printed | zone name, light level, ☢/safe/death warnings, players, NPCs, enemies, exits |
+| **TALLY** | *named*, not listed | items, corpses, vendors, furniture, buildings, sub-rooms → one closing `Also here: items, furniture.` |
+| **DROP** | gone | the prose paragraph, the woven-furniture beat, `Installed:`, ambient flavour |
+
+The split between the top two tiers is one question: **can this hurt you, or make
+you decide something, between one step and the next?** An enemy can. A dumpster
+cannot — you go looking for a dumpster.
+
+⚠ **The TALLY tier is what keeps the contract honest.** Collapsing contents to a
+label would be a DROP, and a `log`-rung player would walk over loot they were never
+told existed. It is not "furniture is unimportant", it is "furniture is one keystroke
+away and `look` is still always full". If you ever delete the `Also here:` line, you
+have converted a defer into a loss.
+
+Measured on spoken text (markup is free to a screen reader), a realistic room goes
+from ~530 characters to ~130. That ratio is pinned by a regress case.
 
 Two refinements on top of that rule, both about a log being *read* rather than
 *scanned*:
@@ -201,8 +221,76 @@ no leading newline, so two of them routinely share one line. When they do, keepi
 too much is a non-event while dropping too much loses a room's contents — the bias
 is deliberate and must not be inverted.
 
-*If you add a dynamic section to `describeZone`, add its class to `KEEP` — otherwise a
-`log`-rung player quietly stops being told about it.*
+*If you add a dynamic section to `describeZone`, put its class in `VITAL` or `TALLY`
+— otherwise a `log`-rung player quietly stops being told about it. An unrecognised
+class is KEPT, so the failure mode of forgetting is a slightly long brief, never a
+missing room.*
+
+### ⚠ A silent look is not a look
+
+The client fires `sendCmdSilent('look')` from about fifteen places that have nothing
+to do with the player asking to look: the 800 ms `zone_event` refresh (**somebody
+else walked out of the room**), the post-swing combat refresh, `take`, and every
+panel close (hangar, cockpit, poker, loot). All of them arrive at the server as
+`type: 'look'` — which meant **full**.
+
+The result was that at the bottom rung, a bystander heading east read the entire room
+description aloud, and a fight repainted it every 300 ms. The `look`-is-always-full
+rule was correct; the problem was that the server could not tell a player's look from
+the client's own housekeeping.
+
+`silent` was **already on the wire** (`sendCmdSilent` sets it, for idle-logoff
+stamping), so the fix is to pass it into `stampToLog`. A silent look:
+
+- is **never** full — it exists to repaint a pane that is `aria-hidden` at this rung;
+- is **dropped entirely** when the zone is the same as the last room logged
+  (`player._logLastRoom`), because the event that triggered it — *"Graham Mercer heads
+  east"* — is its own log line and **is** the record.
+
+The contract is untouched: a typed `look` is still always full.
+
+## Ambience: `flavour`
+
+The other half of the same problem. Idle NPC business, weather colour, district
+texture and a stranger's television are atmosphere on a screen and a **torrent** read
+aloud — and unlike a room description, there is no keystroke that gets them back,
+because there was nothing in them.
+
+So a message may carry `flavour: true`, and `broadcast()` in
+[server/index.js](../server/index.js) drops it for a recipient on the `log` rung.
+Two properties:
+
+- **Both broadcast paths honour it.** `sendToPlayer` returns before the `deliver`
+  filter ever runs, so the targeted path has its own guard. Pinned by `a11y:smoke`.
+- **The check only runs on marked messages**, and reads the login-hydrated latch, so
+  the ordinary broadcast path pays nothing and it is safe on a tick.
+
+**The mark is deliberately narrow, and the default direction matters.**
+`propagateSound(…, flavour = false)` treats an unmarked sound as *news*: over-speaking
+is a nuisance, under-speaking is a player not being told somebody fired a gun next
+door. Sound propagation carries both the periodic room ambient and the gunshot, so
+only the caller knows which it is.
+
+Marked today: the periodic zone ambient and the `zone.describeAmbient` plugin hook
+(gameLoop), thunder, `ambient-life`'s scenery lines and `home-life`'s domestic beats.
+
+**Not marked, on purpose:**
+
+- **Everything in `engine/sounds.js` by default** — see above.
+- **`ambient-life`'s interactive routines.** They carry a clickable opportunity
+  (`Tip ₵…`, `Buy a skewer ₵…`), which makes them a decision rather than a mood.
+- **Combat, dialogue, arrivals and departures.** Never flavour.
+
+### The overheard `[TV]` line
+
+Handled at source rather than by the mark, because it is `sendToPlayer` inside the
+broadcast tick and the rung was already being computed there. A set somebody *else*
+is watching leaks one spoken line into the room every so often; read aloud it
+interleaves a stranger's game show with the player's own game, in the same voice,
+with nothing to tell them apart.
+
+A player who wants the programme has `tv watch`, which reaches the log in full — the
+deliberate act. So the bystander line is simply not sent at the `log` rung.
 
 It works by transforming the **rendered markup**, not by threading a `brief` option
 through `describeZone`: that function has ~20 call sites across the engine and eight
