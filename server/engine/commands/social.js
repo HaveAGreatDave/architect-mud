@@ -4,7 +4,7 @@ import { propagateYell } from '../sounds.js';
 import { canAccessChannel, sendToChatChannel } from '../channels.js';
 import { renderDialogueNode } from '../dialogue.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { DEFAULT_CHITCHAT_LINES, formatChitchat, disturbSleeper } from '../ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
 import { emit } from '../events.js';
@@ -52,6 +52,18 @@ async function cmdTalk(targetStr, player, broadcast) {
     const msg = formatChitchat(npc.name, line);
     if (broadcast) broadcast(player.current_zone, msg, player.id);
     return msg;
+  }
+  // A vendor off the timetable doesn't hold shop conversations. Their dialogue
+  // tree IS the shop front — the wares option, the job hand-off, the "what can I
+  // do for you" — so leaving it open after hours let a player walk past a closed
+  // counter and buy through the panel anyway. Off the clock, they say so and
+  // that's the whole interaction. Gated on being an actual SELLER (isVendorRole),
+  // never on the schedule alone, or every employed NPC in the city would go mute
+  // at night. Covert dealers are exempt (their window is the dealer plugin's).
+  if (isVendorRole(npc) && isVendorOffHours(npc)) {
+    const msg = vendorOffHoursLine(npc);
+    if (broadcast) broadcast(player.current_zone, msg, player.id);
+    return { type: 'output', message: msg };
   }
   // Render the root node through the SHARED renderer (engine/dialogue.js) — the
   // same path option-clicks take via handleDialogue — so `talk` and subsequent

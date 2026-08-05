@@ -75,6 +75,17 @@ error between the two steps can't tear them:
   which is why the covert dealer is excluded from it as well. Listing a closed vendor there made the
   room promise something the trade path then refused, and hid the shift system entirely: you learned
   a shopkeeper's hours by being turned away rather than by looking.
+- **Off the clock, the dialogue tree shuts too.** A vendor's tree *is* their shop front (the wares
+  option, the job hand-off), so leaving it open after hours let a player walk past a closed counter
+  and buy through the panel anyway. `talk` ([social.js](../server/engine/commands/social.js)) and
+  every node click ([index.js](../server/index.js) `handleDialogue`) both check
+  `isVendorRole(npc) && isVendorOffHours(npc)` and answer with `vendorOffHoursLine` instead —
+  re-checked per node, so a panel left open when the shift ends can't be clicked on.
+  Two deliberate splits: **`isVendorOffHours` is the CLOCK half of `isVendorClosed` only** — absence
+  is left out, because a shopkeeper walking home mid-shift has no counter but is still a person you
+  can talk to; and the gate keys on **`isVendorRole`** (stock or a `vendor_shop_name`), never on
+  `vendor_schedule` alone, because *every employed NPC carries a schedule* — that's the commute
+  timetable — and gating on it would strike half the city mute after dark.
 - **Stock** comes from the NPC's `vendor_inventory` JSON — an array of `{ "item_id": "<id>", "price"?: <int>, "stock"?: <int> }`.
   Only `item_id` is required (the exact snake_case key — a `itemId` typo silently yields no stock; the NPC editor
   now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by

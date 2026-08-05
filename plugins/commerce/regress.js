@@ -2,7 +2,7 @@
 // production). Zone-independent paths only (the fake player's zone may or may
 // not contain a vendor).
 import { vendorGrudgeRemaining, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine } from '../../server/engine/ai-behaviour.js';
+import { isVendorClosed, hoursUntilOpen, openInPhrase, vendorClosedLine, isVendorOffHours, isVendorRole, vendorOffHoursLine } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { rowIsInstanced, NOT_INSTANCED_SQL } from '../../server/engine/inventory.js';
@@ -71,6 +71,25 @@ export default async function regress({ run, check, getPlayer }) {
   // Covert dealers keep their own window and are exempt from both.
   const covert = { name: 'Shade', flags: { covert: true }, vendor_schedule: { [today]: [{ from: 0, to: 0 }] } };
   check('covert dealers ignore vendor hours', !isVendorClosed(covert));
+
+  // Dialogue gate: off-hours silences a SELLER's tree, but never an ordinary
+  // employed NPC who merely carries a commute timetable.
+  if (hour < 20) {
+    const sched = { [today]: [{ from: hour + 2, to: hour + 3 }] };
+    check('an off-hours vendor is off-hours regardless of where they stand',
+      isVendorOffHours({ name: 'Shut', work_zone_id: 'zone_shop', zone_id: 'zone_shop', vendor_schedule: sched }));
+    check('an absent but on-shift vendor is NOT off-hours',
+      !isVendorOffHours({ name: 'Walker', work_zone_id: 'zone_shop', zone_id: 'zone_street', vendor_schedule: onShift }));
+    check('the off-hours brush-off is face to face, not about the counter',
+      /off the clock/.test(vendorOffHoursLine({ name: 'Shut', vendor_schedule: sched })));
+    check('covert dealers are never off-hours', !isVendorOffHours(covert));
+  }
+  check('a seller with stock reads as a vendor role',
+    isVendorRole({ name: 'Sells', vendor_inventory: [{ item_id: 'x' }] }));
+  check('a seller with only a shop name reads as a vendor role',
+    isVendorRole({ name: 'Sells', vendor_shop_name: 'Bodega Vu' }));
+  check('an employed NPC with a timetable but no stock is not a vendor role',
+    !isVendorRole({ name: 'Clerk', vendor_schedule: onShift }));
 
   check('shop-hours move gate registered', getRegisteredMoveGates().includes('commerce:shop-hours'), getRegisteredMoveGates().join(','));
 

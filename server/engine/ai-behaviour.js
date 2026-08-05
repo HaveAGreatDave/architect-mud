@@ -274,9 +274,26 @@ export function isVendorWorkTime(npc, env) {
 export function isVendorClosed(npc) {
   if (npc?.flags?.covert) return false;
   if (isVendorAbsent(npc)) return true;
+  return isVendorOffHours(npc);
+}
+
+// The CLOCK half of isVendorClosed, on its own: off the timetable, never mind
+// where they're standing. Absence is deliberately not folded in — a shopkeeper
+// walking home mid-shift is absent but not off duty, and the conversation paths
+// (unlike the counter) care about the person, not the shutter.
+export function isVendorOffHours(npc) {
+  if (npc?.flags?.covert) return false;
   const schedule = npc?.vendor_schedule;
   if (!schedule || !Object.keys(schedule).length) return false;
   return !isVendorWorkTime(npc, getEnvironmentState()).working;
+}
+
+// Does this NPC actually SELL something? `vendor_schedule` is carried by every
+// employed NPC (it's the commute timetable), so it alone can't be the test —
+// gating dialogue on it would silence half the city after dark. A shop is stock
+// or a shop name.
+export function isVendorRole(npc) {
+  return !!(npc?.vendor_shop_name || (npc?.vendor_inventory || []).length);
 }
 
 // A vendor who commutes is only open once they've actually WALKED IN. The clock
@@ -338,6 +355,18 @@ export function vendorClosedLine(npc) {
   return when
     ? `${name} shakes their head. "I'm off the clock right now — I open again in ${when}."`
     : `${name} shakes their head. "I'm off the clock right now — come back during business hours."`;
+}
+
+// The brush-off an off-the-clock vendor gives when a player tries to open their
+// dialogue tree. Unlike vendorClosedLine this is said FACE TO FACE — you're
+// standing in front of them, wherever they happen to be — so it never talks
+// about empty counters or shutters.
+export function vendorOffHoursLine(npc) {
+  const name = npc?.name || 'The vendor';
+  const when = openInPhrase(npc);
+  return when
+    ? `${name} waves you off. "Not now — I'm off the clock. Back in ${when}."`
+    : `${name} waves you off. "Not now — I'm off the clock."`;
 }
 
 // ── Chitchat ────────────────────────────────────────────────────────────────
@@ -2078,15 +2107,33 @@ async function execAction(node, entity, ctx) {
           const candidateZones = atmRows.map(r => r.zone_id).filter(Boolean);
           if (!candidateZones.length) break;
 
-          // BFS to find closest
-          let bestZone = null, bestDist = Infinity;
-          for (const z of candidateZones) {
-            const path = findPath(zoneId, z, entity);
-            if (path && path.length - 1 < bestDist) {
-              bestDist = path.length - 1;
-              bestZone = z;
-            }
+          // A day's takings go to the BANK, not to whatever lobby machine happens
+          // to be closest — otherwise every employed NPC in the district queues at
+          // the same hotel terminal and the place reads like a bank it isn't.
+          // A bank is derived, never authored: it's a zone a `bank_teller` NPC is
+          // posted in (home_zone, so an off-shift teller doesn't un-bank the hall).
+          // No query — world.npcs is in memory. Falls back to any ATM if no bank
+          // terminal is reachable.
+          const bankZones = new Set();
+          for (const n of world.npcs.values()) {
+            if (n?.flags?.bank_teller) bankZones.add(n.home_zone || n.zone_id);
           }
+          const preferred = candidateZones.filter(z => bankZones.has(z));
+
+          // BFS to find closest — bank terminals first, any terminal only if no
+          // bank hall is walkable from here.
+          let bestZone = null, bestDist = Infinity;
+          const pickNearest = (zones) => {
+            for (const z of zones) {
+              const path = findPath(zoneId, z, entity);
+              if (path && path.length - 1 < bestDist) {
+                bestDist = path.length - 1;
+                bestZone = z;
+              }
+            }
+          };
+          if (preferred.length) pickNearest(preferred);
+          if (!bestZone) pickNearest(candidateZones);
           if (!bestZone) break;
           ai.vendor_atm_zone = bestZone;
         } catch (e) {
@@ -2233,7 +2280,10 @@ export function buildDefaultVendorGraph() {
       start:          { type: 'start', next: 'check_work' },
       check_work:     { type: 'action', action_type: 'CHECK_VENDOR_WORK',
                         goToWork: 'go_to_work', haveLife: 'have_life',
-                        endShift: 'collect_safe', offWork: 'off_home_check' },
+                        endShift: 'cash_up', offWork: 'off_home_check' },
+      // Closing up takes as long as it takes. Shifts end on shared clock hours, so
+      // without this spread the whole district walks to the bank in one column.
+      cash_up:        { type: 'wait', seconds: 20, jitter: 900, next: 'collect_safe' },
       go_to_work:     { type: 'action', action_type: 'GO_TO_WORK', next: 'work_wait' },
       work_wait:      { type: 'wait', seconds: 60, next: 'player_check' },
       player_check:   { type: 'condition', condition_type: 'PLAYER_IN_ZONE',
@@ -2245,7 +2295,7 @@ export function buildDefaultVendorGraph() {
       atm_emote:      { type: 'action', action_type: 'EMOTE',
                         params: { message: 'steps up to the ATM terminal and makes a deposit.' },
                         next: 'atm_wait' },
-      atm_wait:       { type: 'wait', seconds: 10, next: 'deposit' },
+      atm_wait:       { type: 'wait', seconds: 10, jitter: 20, next: 'deposit' },
       deposit:        { type: 'action', action_type: 'VENDOR_DEPOSIT', next: 'post_shift' },
       post_shift:     { type: 'random', branches: [{ weight: 1 }, { weight: 5 }],
                         branch_0: 'have_life', branch_1: 'go_home_ps' },
@@ -2582,8 +2632,13 @@ export async function tickEntityAI(entity, ctx) {
       }
 
       case 'wait': {
+        // `jitter` (optional, seconds) spreads a wait over [seconds, seconds+jitter).
+        // Without it, every NPC that reaches the same node on the same tick — every
+        // vendor whose shift ends at 18:00, say — leaves in lockstep and arrives as
+        // a crowd. Rolled per visit, not cached, so a repeated wait re-spreads.
         const seconds = node.data?.seconds ?? 1;
-        ai.waitUntil = Date.now() + seconds * 1000;
+        const jitter = Math.max(0, node.data?.jitter ?? 0);
+        ai.waitUntil = Date.now() + (seconds + Math.random() * jitter) * 1000;
         ai.currentNode = resolveEdge(edges, nodeId, 'next'); // resume here after wait
         return;
       }

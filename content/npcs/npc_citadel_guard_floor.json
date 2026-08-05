@@ -14,11 +14,12 @@
       "atm_wait": {
         "next": "deposit",
         "seconds": 10,
-        "type": "wait"
+        "type": "wait",
+        "jitter": 20
       },
       "check_work": {
         "action_type": "CHECK_VENDOR_WORK",
-        "endShift": "collect_safe",
+        "endShift": "cash_up",
         "goToWork": "go_to_work",
         "haveLife": "have_life",
         "offWork": "off_home_check",
@@ -120,6 +121,12 @@
         "next": "player_check",
         "seconds": 60,
         "type": "wait"
+      },
+      "cash_up": {
+        "type": "wait",
+        "seconds": 20,
+        "jitter": 900,
+        "next": "collect_safe"
       }
     }
   },
