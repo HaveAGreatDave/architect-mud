@@ -16000,6 +16000,48 @@ body.intro-cine-open { overflow: hidden; }
 	padding-left: 16px;
 	font-size: 12px;
 }
+/* A RUNBOOK STEP IS A BUTTON, the whole line of it. The chip at the end of a row
+   is right for an action that hangs off a thing (Take, Stow); a walkthrough is a
+   column you press your way down, and hunting a small chip at the end of every
+   sentence is not that. So the step itself is the target, and the command sits on
+   the right where it stays readable — the panel teaches the verb, it doesn't
+   replace it. Reset the button chrome: this must read as a row, not a control. */
+.wsp-run {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	width: 100%;
+	text-align: left;
+	background: none;
+	border: none;
+	border-left: 2px solid transparent;
+	font: inherit;
+	font-size: 12px;
+	color: var(--text-dim);
+	padding: 1px 4px 1px 12px;
+	cursor: pointer;
+}
+.wsp-run:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-bright); border-left-color: var(--accent); }
+.wsp-run:focus-visible { outline: 1px solid var(--cyan); outline-offset: -1px; }
+.wsp-run-n { color: var(--text-muted, var(--text-dim)); opacity: .7; }
+/* The command, kept at the end of its own step: dim until you're on the line,
+   then legible — you learn `drain cast-iron skillet` by reading it where you
+   pressed it. `margin-left:auto` puts it against the right rule. */
+.wsp-run-cmd {
+	margin-left: auto;
+	padding-left: 10px;
+	color: var(--cyan);
+	opacity: .45;
+	font-size: 10px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+.wsp-run:hover .wsp-run-cmd { opacity: 1; }
+/* A step with no verb behind it — "leave it alone" is real advice and not a
+   command. It keeps the numbering and the indent and pointedly not the hover. */
+.wsp-run-idle { padding-left: 12px; opacity: .8; }
+
 /* Kit the room hasn't got. Dimmer than a step rather than an alarm — a missing
    spoon is a worse sauce, not a refusal, and the mark already says which. */
 .wsp-short { color: var(--text-muted, var(--text-dim)); opacity: .75; }

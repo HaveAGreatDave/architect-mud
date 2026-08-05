@@ -241,6 +241,10 @@ function renderAssistant(a) {
         + actionStrip(r.actions) + `</div>`;
       if (!open) return head;
 
+      // WHAT THE RECIPE IS lives in its own section (see `renderRecipeCard`) —
+      // ingredients, kit and method are a CARD you read, and they were burying
+      // the two things the Assistant is for underneath them. What stays here is
+      // what you're short of and what to press next.
       const body = [];
       // WHAT YOU HAVEN'T GOT, FIRST AND AS A LIST.
       //
@@ -265,37 +269,33 @@ function renderAssistant(a) {
         return `<div class="wsp-row wsp-step wsp-missing">`
           + `<span class="wsp-name">${esc(s.noun)}</span>${amount}${prep}${alt}${where}</div>`;
       }));
-      if ((r.shortfall || []).length && (r.ingredients || []).length) {
-        body.push(`<div class="wsp-row wsp-step"> </div>`);
-      }
-      for (const line of r.ingredients || []) body.push(`<div class="wsp-row wsp-step">· ${esc(line)}</div>`);
-      // What it's made IN, ticked against the room — the same question the
-      // ingredients above answer, asked of the cupboard instead of the fridge.
-      for (const g of r.kit || []) {
-        const mark = g.held ? '✓' : (g.req === 'required' ? '✗' : '·');
-        body.push(`<div class="wsp-row wsp-step${g.held ? '' : ' wsp-short'}">${mark} ${esc(g.label)}</div>`);
-      }
-      if ((r.ingredients || []).length && (r.method || []).length) body.push(`<div class="wsp-row wsp-step"> </div>`);
-      (r.method || []).forEach((line, i) => {
-        // Deliberately NOT escaped: the method comes from the server's own
-        // catalog and may carry a <b> around the verb it wants you to type.
-        body.push(`<div class="wsp-row wsp-step">${i + 1}. ${line}</div>`);
-      });
-      // THE RUNBOOK. The method above says what to do; this says what to type,
-      // against the actual rows in this room. Every line carries a real command
-      // in `data-cmd`, so the panel dispatches it through the same pipeline a
-      // typed one goes through — and a step with no command (there is no verb
-      // for "leave it alone") is written as prose and simply isn't a button.
+      // THE RUNBOOK. The method — over in the recipe card — says what to do; this
+      // says what to type, against the actual rows in this room.
+      //
+      // THE WHOLE LINE IS THE BUTTON. Every step carries a real command in
+      // `data-cmd`, dispatched through the same pipeline a typed one goes
+      // through, and pressing the sentence rather than hunting a chip at the end
+      // of it is the difference between a list with buttons on it and a thing you
+      // can walk straight down. The command still rides along on the right,
+      // because teaching the verb is the entire point of this panel. A step with
+      // no command (there is no verb for "leave it alone") stays prose and is
+      // deliberately not pressable.
       if ((r.walkthrough || []).length) {
         body.push(`<div class="wsp-row wsp-step"> </div>`);
         body.push(`<div class="wsp-row wsp-step wsp-mark-note">Step by step — press one at a time, and judge the heat yourself.</div>`);
         (r.walkthrough || []).forEach((s, i) => {
-          const btn = s.command
-            ? `<span class="wsp-acts"><button class="wsp-act" data-cmd="${esc(s.command)}"`
-              + ` title="${esc(s.command)}${s.hint ? ` — ${esc(s.hint)}` : ''}">${esc(s.command)}</button></span>`
-            : '';
-          const hint = s.hint && !s.command ? `<span class="wsp-note"> · ${esc(s.hint)}</span>` : '';
-          body.push(`<div class="wsp-row wsp-step">${i + 1}. ${esc(s.text)}${hint}${btn}</div>`);
+          const hint = s.hint ? `<span class="wsp-note"> · ${esc(s.hint)}</span>` : '';
+          if (!s.command) {
+            body.push(`<div class="wsp-row wsp-step wsp-run-idle"><span class="wsp-run-n">${i + 1}.</span> ${esc(s.text)}${hint}</div>`);
+            return;
+          }
+          // Not `.wsp-act` — that class is the small chip at the end of a row and
+          // its uppercase 10px border would undo the whole point of a full-width
+          // step. It carries `data-cmd` and the click handler takes both.
+          body.push(`<button type="button" class="wsp-row wsp-step wsp-run" data-cmd="${esc(s.command)}"`
+            + ` title="${esc(s.command)}${s.hint ? ` — ${esc(s.hint)}` : ''}">`
+            + `<span class="wsp-run-n">${i + 1}.</span> ${esc(s.text)}${hint}`
+            + `<span class="wsp-run-cmd">${esc(s.command)}</span></button>`);
         });
       }
       if (wanted.size) {
@@ -306,6 +306,35 @@ function renderAssistant(a) {
   ).join('');
   const note = a.note ? `<div class="wsp-row wsp-empty">${esc(a.note)}</div>` : '';
   return rows + note;
+}
+
+// THE RECIPE, as its own section.
+//
+// What a dish IS — what goes in it, what it's made in, how it's made — is a card
+// you read, and it does not belong inside a list of everything you could cook.
+// It used to unfold in place under the Assistant row, which pushed the two lines
+// that are actually about YOUR kitchen (what you're short of, what to press next)
+// off the bottom behind a dozen lines of catalog. So they split: the Assistant
+// keeps the judgement, this keeps the recipe.
+//
+// One section per open recipe, in the order they were opened — the same order
+// the ▸1/▸2 markers are numbered in, so a card can be matched to its marks.
+function renderRecipeCard(r) {
+  const body = [];
+  for (const line of r.ingredients || []) body.push(`<div class="wsp-row wsp-step">· ${esc(line)}</div>`);
+  // What it's made IN, ticked against the room — the same question the
+  // ingredients above answer, asked of the cupboard instead of the fridge.
+  for (const g of r.kit || []) {
+    const mark = g.held ? '✓' : (g.req === 'required' ? '✗' : '·');
+    body.push(`<div class="wsp-row wsp-step${g.held ? '' : ' wsp-short'}">${mark} ${esc(g.label)}</div>`);
+  }
+  if (body.length && (r.method || []).length) body.push(`<div class="wsp-row wsp-step"> </div>`);
+  (r.method || []).forEach((line, i) => {
+    // Deliberately NOT escaped: the method comes from the server's own catalog
+    // and may carry a <b> around the verb it wants you to type.
+    body.push(`<div class="wsp-row wsp-step">${i + 1}. ${line}</div>`);
+  });
+  return body.join('');
 }
 
 // The room's own state — power, which stove, how hot it is in here. It lives in
@@ -380,6 +409,15 @@ function render(data) {
   }
   if (data.assistant) {
     body.push(section('Recipe Assistant', renderAssistant(data.assistant), 'nothing to suggest'));
+    // ...and the card for each recipe you have open, below it. Nothing is open
+    // on a fresh panel, so this costs an untouched workspace no rows at all.
+    const byKey = new Map(allRecipes(data).map(r => [r.key, r]));
+    for (const key of ordinals.keys()) {
+      const r = byKey.get(key);
+      if (!r) continue;
+      const ord = ordinals.size > 1 ? `${ordinals.get(key)} · ` : '';
+      body.push(section(`Recipe — ${ord}${r.name}`, renderRecipeCard(r), 'nothing written down for it'));
+    }
   }
 
   el('workspace-body').innerHTML = body.join('');
@@ -420,7 +458,9 @@ export function initWorkspacePanel() {
       sendCmdSilent('workspace');
       return;
     }
-    const btn = e.target.closest('.wsp-act');
+    // `.wsp-run` is a whole runbook step; `.wsp-act` is a chip on a row. Both
+    // carry one command in `data-cmd`, and both run the same way.
+    const btn = e.target.closest('.wsp-act, .wsp-run');
     if (btn) { runAction(btn.getAttribute('data-cmd')); return; }
     const recipe = e.target.closest('[data-recipe]');
     if (recipe) selectRecipe(recipe.getAttribute('data-recipe'));

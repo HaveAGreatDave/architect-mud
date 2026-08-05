@@ -8,10 +8,28 @@ REM    scripts\oneshots.bat prod --forgive-xp    also writes off negative XP deb
 REM    scripts\oneshots.bat prod --dry-run       print what would run, touch nothing
 REM
 REM  WHY THIS FILE EXISTS
-REM  The CODEX deploy is additive (INSERT ... ON CONFLICT DO NOTHING), so it can
-REM  create rows but can never rewrite an existing one - and runtime-class columns
-REM  (npcs.zone_id, furniture.light_on, npcs.vendor_stock) are excluded from
-REM  content files entirely. Those two gaps are what every script below fills.
+REM  Two gaps in the CODEX deploy, and they are narrower than they look.
+REM
+REM    1. RUNTIME COLUMNS. npcs.zone_id, furniture.light_on, npcs.vendor_stock,
+REM       game_tables, struck trading cards - state the content tree does not
+REM       carry at all, because it is not authored. No file, so no deploy.
+REM    2. DELETIONS the git-diff pass cannot see - a row hand-made on prod and
+REM       never exported has no file to remove, so nothing tells the import it
+REM       is gone.
+REM
+REM  What is NOT a gap: rewriting an existing row. This header used to say the
+REM  import was additive (INSERT ... ON CONFLICT DO NOTHING) and "can never
+REM  rewrite an existing one". That is wrong, and believing it sent two
+REM  unnecessary scripts at prod on 2026-08-02. For any table with non-PK
+REM  columns the import is ON CONFLICT (pk) DO UPDATE SET <every file column>
+REM  (scripts/content/import.mjs - DO NOTHING is only the branch for PK-only
+REM  tables). Because a WHOLE COLUMN is replaced, editing a content file is
+REM  enough to change or even REMOVE a JSONB key: dropping flags.utility_room
+REM  from content/zones/*.json cleared it from 79 prod tiles with no script.
+REM
+REM  So before adding anything here, ask whether the new value can be derived
+REM  from the files. If it can, edit the files - that IS the deploy. A one-shot
+REM  is for state the files do not carry, or a table the pipeline does not own.
 REM  CI never runs any of them. See CLAUDE.md "Running a one-shot against prod".
 REM
 REM  WHAT BELONGS IN HERE - THE ONE TEST

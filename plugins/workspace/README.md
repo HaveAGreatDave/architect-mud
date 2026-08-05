@@ -165,6 +165,15 @@ still in the cabinet, the cut already in your hand: all flagged in place with a
 Selecting costs **no round trip**. The payload already carries `uses`; picking a
 recipe is a way of looking at what you already have.
 
+**The recipe gets its own section, below the Assistant** (client-side; the
+payload is unchanged). What a dish *is* — ingredients, kit, method — is a card
+you read, and unfolding it inside the list of everything you could cook pushed
+the two things the Assistant is actually for, *what you're short of* and *what to
+press next*, off the bottom behind a dozen lines of catalog. So: judgement stays
+in **Recipe Assistant** (the bar, the shortfall, the step-by-step), and the
+catalog moves to **Recipe — `<name>`**, one section per open recipe in the order
+you opened them, numbered to match the `▸1`/`▸2` marks.
+
 **Several at once.** Selection is a Set — planning a meal is more than one dish,
 and "what do I need for all of this" is the question worth answering. The
 highlight is the union, which slightly overstates when two recipes want the same
@@ -196,6 +205,13 @@ and therefore stops at a loaded vessel; the runbook goes all the way to `plate`
 because it executes *nothing* — the player presses each step, which is the
 difference between a recipe and an autocook. The heat and the moment to plate
 stay theirs.
+
+**The whole step is the button** (client). A chip on the end of a row is right
+for an action hanging off a *thing* — Take, Stow — but a runbook is a column you
+press your way down, and hunting a chip at the end of every sentence is not that.
+So the step itself is the target and the command rides on the right of it, dim
+until you're on the line: the panel still teaches the verb, it just doesn't make
+you aim at it.
 
 **A step with no verb behind it is prose, not a button.** "Leave it alone —
 turning this makes it worse" has no command and gets none; "off the heat before

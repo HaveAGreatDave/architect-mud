@@ -114,8 +114,11 @@ export default async function regress({ run, check, getPlayer }) {
     const t = DISHES.penne_alla_gin;
     const full = new Set(['item_penne', 'item_gin', 'item_tomato_paste', 'item_synth_cream']);
     check('penne alla gin exists as a pan dish', t?.vessel === 'pan', t?.vessel);
-    check('...and matches penne + gin + tomato + cream',
-      matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1, liquid: 2 }, t, full) > 0);
+    check('...and matches penne + gin + tomato + cream in hot fat',
+      matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1, fat_or_oil: 1, liquid: 2 }, t, full) > 0);
+    // The method says "into hot fat". A dry pan is a pan of tomato drying out.
+    check('...but never with no fat to cook the tomato down in',
+      matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1, liquid: 2 }, t, full) === -1);
     check('...but never without the gin',
       matchScore({ dry_starch: 1, soft_vegetable: 1, dairy: 1 }, t,
         new Set(['item_penne', 'item_tomato_paste', 'item_synth_cream'])) === -1);
@@ -123,7 +126,7 @@ export default async function regress({ run, check, getPlayer }) {
       matchScore({ soft_vegetable: 1, dairy: 1 }, t,
         new Set(['item_gin', 'item_tomato_paste', 'item_synth_cream'])) === -1);
     check('...nor without the tomato, which is the body of the sauce',
-      matchScore({ dry_starch: 1, dairy: 1, liquid: 2 }, t, full) === -1);
+      matchScore({ dry_starch: 1, dairy: 1, fat_or_oil: 1, liquid: 2 }, t, full) === -1);
     check('...nor without the cream that goes in last',
       matchScore({ dry_starch: 1, soft_vegetable: 1, liquid: 2 }, t, full) === -1);
     check('...and gin with two bottles of water is no longer a sauce',
@@ -158,6 +161,15 @@ export default async function regress({ run, check, getPlayer }) {
     check('...so does real stock', hasCookingLiquid([stock]));
     check('a dry pan of penne is not wet, which is what the gate turns on',
       !hasCookingLiquid([penne]));
+
+    // ...but the gate is about DRY starch. Boiled and drained pasta going into a
+    // pan of sauce carries no water and needs none — that is the whole two-vessel
+    // method, and the gate used to refuse it.
+    const { needsBoiling } = cookTest2;
+    const drained = { ...penne, custom_data: { cooked: true, finishable: true, drained: true } };
+    check('dry penne still has to boil', needsBoiling(penne));
+    check('...drained penne does not, so it can finish in a dry pan of sauce', !needsBoiling(drained));
+    check('...and nothing else was ever asked to boil', !needsBoiling(stock) && !needsBoiling(null));
 
     // The dish half. A medium must never satisfy a recipe asking for stock, or
     // the fix that stopped "penne, gin and two bottles of water" being a sauce
@@ -2225,7 +2237,8 @@ export default async function regress({ run, check, getPlayer }) {
           looseAt >= 0 && looseAt < parent, JSON.stringify(rows.map(i => i.label)));
         // ...and inside the group, the order is the order you cook in.
         check('components read in the order the dish is made in',
-          /tomato/i.test(members[0]?.label || '') && /gin/i.test(members[1]?.label || '') && /cream/i.test(members[2]?.label || ''),
+          /fat/i.test(members[0]?.label || '') && /tomato/i.test(members[1]?.label || '')
+            && /gin/i.test(members[2]?.label || '') && /cream/i.test(members[3]?.label || ''),
           JSON.stringify(members.map(i => i.label)));
 
         // A COMPONENT GROUP IS ALL-OR-NOTHING, so an older list that holds only
@@ -2242,7 +2255,7 @@ export default async function regress({ run, check, getPlayer }) {
           ])]);
         const grown = await getList(player.id);
         check('a half-written component group is completed on load',
-          grown.filter(e => e.part === 'the sauce').length === 3, JSON.stringify(grown.map(e => [e.v, e.part])));
+          grown.filter(e => e.part === 'the sauce').length === 4, JSON.stringify(grown.map(e => [e.v, e.part])));
         check('...with the ingredients the older list never knew about',
           grown.some(e => e.v === 'soft_vegetable') && grown.some(e => e.v === 'dairy'), JSON.stringify(grown.map(e => e.v)));
         check('...and the pasta outside it, still exactly one line',
@@ -2260,7 +2273,7 @@ export default async function regress({ run, check, getPlayer }) {
         const det2 = await run('tabletnav cookbook Shopping_List __part:penne_alla_gin:the_sauce');
         check('the sauce opens its own screen', det2?.view === 'detail', JSON.stringify({ v: det2?.view, m: det2?.message }));
         check('...listing every component it takes',
-          (det2?.detail?.rows || []).filter(r => /to buy|in hand/.test(String(r.value))).length === 3,
+          (det2?.detail?.rows || []).filter(r => /to buy|in hand/.test(String(r.value))).length === 4,
           JSON.stringify(det2?.detail?.rows));
         check('...and the method, read from the recipe rather than copied beside it',
           (det2?.detail?.rows || []).some(r => DISHES.penne_alla_gin.steps.includes(String(r.value))),

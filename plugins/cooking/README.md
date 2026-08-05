@@ -521,6 +521,22 @@ pasta on a dry hob is a scorch mark. Every starch recipe's method has said "salt
 the water" since the day it was written — this is that line finally being
 load-bearing rather than decorative.
 
+**Drained starch is exempt** (`needsBoiling`). Pasta that has already been boiled
+and drained is a *component finishing in the sauce*, not something waiting to
+cook, and a pan of tomato and cream holds no `liquid` row — so the un-exempted
+gate refused the ordinary two-vessel method outright:
+
+```
+fill pot · cook pot · drain pot · stow penne in pan · cook pan · plate pan
+```
+
+That is the method [`penne alla gin`](dishes.js) is written to, step by step: the
+pasta boils in the **pot**, the sauce is built in the **pan**, and the two only
+meet at the end. Everything in that chain is a verb the game already had; the
+only thing missing was the gate letting the last half of it happen. Filling the
+pan and boiling the pasta in the sauce pan still works — one vessel is a
+shortcut, not an error.
+
 ### `fill <vessel>` / `empty <vessel>`
 
 `fill` at furniture flagged `water_source` inserts **`item_water` as an ordinary

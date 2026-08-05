@@ -683,8 +683,13 @@ export const DISHES = {
     // The tomato band is wide on purpose — a 200g tube of concentrate is half a
     // unit and a fresh one is a quarter over, and both are a legitimate way to
     // make this. The requirement is that there IS tomato, not how much.
-    needs: { dry_starch: 1, soft_vegetable: [0.5, 1.5], dairy: 1 },
-    optional: ['liquid', 'aromatic', 'fat_or_oil', 'preserved'],
+    // THE FAT IS REQUIRED, because the method says "into hot fat" and a step that
+    // names an ingredient the recipe doesn't ask for is the same decorative lie
+    // "salt the water" was before the starch gate made it load-bearing. Tomato
+    // into a dry pan is not this dish — it's a pan of tomato drying out. Butter
+    // or oil, either; it's a modifier, so it seasons rather than scoring.
+    needs: { dry_starch: 1, soft_vegetable: [0.5, 1.5], dairy: 1, fat_or_oil: 1 },
+    optional: ['liquid', 'aromatic', 'preserved'],
     nameSlots: [],
     nameFormat: 'penne alla gin',
     seasoning: 2,
@@ -712,18 +717,23 @@ export const DISHES = {
     // `steps` are INDICES into this dish's own steps, never copied text: the
     // sauce's method is already written below and pointing at it means the two
     // can't drift apart.
-    parts: [{ label: 'the sauce', of: ['soft_vegetable', 'item_gin', 'dairy'], steps: [1, 2, 3] }],
+    parts: [{ label: 'the sauce', of: ['fat_or_oil', 'soft_vegetable', 'item_gin', 'dairy'], steps: [1, 2, 3, 4] }],
     notes: {
       dry_starch: 'a portion a head, no more',
       soft_vegetable: 'cooked down hard, before anything else goes in',
       dairy: 'in last, off the heat, once the alcohol has gone',
     },
+    // TWO VESSELS, and the method says so. The pasta boils in a POT and the sauce
+    // is built in the PAN, and the two only meet at the end — which is how anyone
+    // actually cooks this, and every verb in it is one the game already has:
+    // `fill pot`, `cook pot`, `drain pot`, `stow penne in pan`, `plate pan`.
     steps: [
-      'Salt the water heavily and get the penne in. Do not stir it about.',
-      'Tomato into hot fat and cook it down hard, until it darkens and stops being a sauce made of water.',
+      'Fill a pot at the tap and get it on the heat. Salt the water heavily, then the penne in. Do not stir it about.',
+      'Butter or oil into the pan while that goes, and let it get properly hot.',
+      'Tomato in and cook it down hard, until it darkens and stops being a sauce made of water.',
       'Off the heat — genuinely off it — in with the gin. It will hiss and try to catch. That is why it is off the heat.',
       'Back on low. Cream in last, and only once the alcohol has gone.',
-      'Drain the penne short of done and finish it in the pan, so the sauce catches in the ridges.',
+      'Drain the penne short of done and tip it into the pan, so the sauce catches in the ridges.',
     ],
     ceiling: 'masterful', difficulty: 9,
     blurb: 'Tomato cooked down hard, a slug of gin off the heat, cream in last. The alcohol goes, the juniper stays, and the sauce clings to the ridges the way it is supposed to.',

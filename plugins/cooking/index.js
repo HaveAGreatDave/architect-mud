@@ -71,6 +71,12 @@ const chopTool = player => resolveInventoryItem(player, { tag: ['can_chop', 'but
 // this asks about the pan, never about the dish.
 export const hasCookingLiquid = rows => (rows || []).some(r => profileNameFor(r) === 'liquid');
 
+// STARCH THAT STILL HAS TO BOIL. Dry pasta needs water; pasta that has already
+// been boiled and drained is a component finishing in the sauce, and demanding a
+// wet pan for it would refuse the ordinary two-vessel method — boil in the pot,
+// build the sauce in the pan, tip one into the other. `drain` stamps `cooked`.
+export const needsBoiling = row => profileNameFor(row) === 'dry_starch' && !row?.custom_data?.cooked;
+
 // ── Sound ────────────────────────────────────────────────────────────────────
 //
 // Cooking emits SEMANTIC audio events and never a sound. It says "a chop landed
@@ -307,7 +313,10 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
   // because the requirement is that the starch is submerged, not that it's
   // submerged in anything good. What you boiled it in is scored elsewhere (or,
   // for a medium, deliberately not scored at all).
-  const starch = foods.filter(r => profileNameFor(r) === 'dry_starch');
+  // Drained pasta is exempt — see `needsBoiling`. A pan of tomato and cream has
+  // no `liquid` row in it, so without that the gate refused the one method the
+  // recipe actually asks for.
+  const starch = foods.filter(needsBoiling);
   if (starch.length && !hasCookingLiquid(contents)) {
     return { type: 'error', message: vessel
       ? `Dry ${starch[0].name} in a dry ${vessel.name} will scorch, not cook. It needs liquid — <span class="text-dim">fill ${vessel.name}</span> at a tap, or put stock in it.`
@@ -2071,4 +2080,4 @@ export const hooks = {
 };
 
 // Exposed for the regression harness.
-export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents, hasCookingLiquid };
+export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents, hasCookingLiquid, needsBoiling };
