@@ -1,0 +1,8 @@
+{
+ "enemy_id": "enemy_deadhead_mutant",
+ "id": "zs_under_894_908_deadhead_mutant",
+ "max_count": 1,
+ "respawn_seconds": 480,
+ "spawn_weight": 40,
+ "zone_id": "zone_under_894_908"
+}

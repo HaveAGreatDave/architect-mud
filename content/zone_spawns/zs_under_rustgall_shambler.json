@@ -1,0 +1,8 @@
+{
+ "enemy_id": "enemy_rebar_shambler",
+ "id": "zs_under_rustgall_shambler",
+ "max_count": 1,
+ "respawn_seconds": 360,
+ "spawn_weight": 40,
+ "zone_id": "zone_under_rustgall"
+}

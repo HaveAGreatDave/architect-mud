@@ -1,8 +1,0 @@
-{
-  "enemy_id": "enemy_maint_drone",
-  "id": "zs_under_919_906_drone",
-  "max_count": 1,
-  "respawn_seconds": 500,
-  "spawn_weight": 30,
-  "zone_id": "zone_under_919_906"
-}

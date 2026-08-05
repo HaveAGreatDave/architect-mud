@@ -1,0 +1,164 @@
+{
+ "behavior": "aggressive",
+ "behaviour_graph": {
+  "_start": "start",
+  "nodes": {
+   "attack": {
+    "action_type": "ATTACK",
+    "next": "loop",
+    "type": "action"
+   },
+   "has_target": {
+    "condition_type": "HAS_TARGET",
+    "ifFalse": "idle",
+    "ifTrue": "attack",
+    "type": "condition"
+   },
+   "idle": {
+    "action_type": "IDLE",
+    "next": "loop",
+    "type": "action"
+   },
+   "loop": {
+    "next": "start",
+    "type": "loop"
+   },
+   "start": {
+    "next": "has_target",
+    "type": "start"
+   }
+  }
+ },
+ "body_parts": [
+  {
+   "part": "head",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 9
+  },
+  {
+   "part": "torso",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 47
+  },
+  {
+   "part": "left_arm",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 11
+  },
+  {
+   "part": "right_arm",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 11
+  },
+  {
+   "part": "left_leg",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 11
+  },
+  {
+   "part": "right_leg",
+   "soak": {
+    "edged": 2,
+    "kinetic": 4
+   },
+   "weight": 11
+  }
+ ],
+ "butcher_difficulty": 8,
+ "butcher_table": [],
+ "death_message": "The Sunless comes down across the outfall it has held for a lifetime, and for the first time in that lifetime the western mains are quiet.",
+ "description": "At the far end of the western mains, where the Under stops being sewer and starts being simply hole, something grew up around the last working outfall and stayed. It is pale as a root and roughly the shape of a person if a person kept going. It has never seen the surface and it does not believe in one.",
+ "dodge": 1,
+ "faction": null,
+ "flags": {
+  "attacks_npcs": false,
+  "battle_cries": [
+   "$enemy unfolds off the outfall, and it keeps unfolding, toward $player.",
+   "$enemy puts a hand flat on the brick beside $player almost gently.",
+   "The dark ahead of $player moves, and it is all $enemy."
+  ],
+  "first_strike_delay_ms": 8000
+ },
+ "hit": 7,
+ "hp_max": 95,
+ "id": "enemy_under_sunless",
+ "loot_table": [
+  {
+   "item": "item_scrap_metal",
+   "qty": [
+    2,
+    4
+   ],
+   "weight": 20
+  },
+  {
+   "item": "item_battery",
+   "qty": [
+    1,
+    2
+   ],
+   "weight": 14
+  },
+  {
+   "item": "item_medkit",
+   "qty": [
+    1,
+    1
+   ],
+   "weight": 10
+  },
+  {
+   "credits": [
+    150,
+    320
+   ],
+   "item": "item_credit_chip",
+   "qty": [
+    1,
+    1
+   ],
+   "weight": 28
+  },
+  {
+   "credits": [
+    340,
+    620
+   ],
+   "item": "item_credit_chip",
+   "qty": [
+    1,
+    1
+   ],
+   "super": true,
+   "weight": 4
+  }
+ ],
+ "name": "the Sunless",
+ "weapon": [
+  {
+   "max": 10,
+   "min": 5,
+   "type": "kinetic"
+  },
+  {
+   "max": 5,
+   "min": 2,
+   "type": "edged"
+  }
+ ]
+}

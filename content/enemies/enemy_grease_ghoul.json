@@ -1,0 +1,176 @@
+{
+ "behavior": "aggressive",
+ "behaviour_graph": {
+  "_start": "start",
+  "nodes": {
+   "attack": {
+    "action_type": "ATTACK",
+    "next": "loop",
+    "type": "action"
+   },
+   "flee": {
+    "action_type": "FLEE",
+    "next": "loop",
+    "type": "action"
+   },
+   "has_target": {
+    "condition_type": "HAS_TARGET",
+    "ifFalse": "idle",
+    "ifTrue": "low_hp",
+    "type": "condition"
+   },
+   "idle": {
+    "action_type": "IDLE",
+    "next": "loop",
+    "type": "action"
+   },
+   "loop": {
+    "next": "start",
+    "type": "loop"
+   },
+   "low_hp": {
+    "condition_type": "HP_BELOW",
+    "ifFalse": "attack",
+    "ifTrue": "flee",
+    "params": {
+     "pct": 10
+    },
+    "type": "condition"
+   },
+   "start": {
+    "next": "has_target",
+    "type": "start"
+   }
+  }
+ },
+ "body_parts": [
+  {
+   "part": "head",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 9
+  },
+  {
+   "part": "torso",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 47
+  },
+  {
+   "part": "left_arm",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 11
+  },
+  {
+   "part": "right_arm",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 11
+  },
+  {
+   "part": "left_leg",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 11
+  },
+  {
+   "part": "right_leg",
+   "soak": {
+    "kinetic": 2
+   },
+   "weight": 11
+  }
+ ],
+ "butcher_difficulty": 5,
+ "butcher_table": [
+  {
+   "item": "item_raw_meat",
+   "qty": [
+    1,
+    2
+   ],
+   "weight": 100
+  }
+ ],
+ "death_message": "The grease ghoul goes down in a slick and keeps sliding a little after it stops.",
+ "description": "It was somebody once, and then it spent a long time in the fat that cakes the western mains. The grease has taken it over the way frost takes a window. What is left moves fast, hits hard, and cannot be got hold of.",
+ "dodge": 2,
+ "faction": null,
+ "flags": {
+  "attacks_npcs": false,
+  "battle_cries": [
+   "$enemy comes off the wall at $player in a rush of stink.",
+   "$enemy wipes its face clear with one hand and fixes on $player.",
+   "Whatever is under all that grease makes a sound at $player."
+  ],
+  "first_strike_delay_ms": 6000
+ },
+ "hit": 5,
+ "hp_max": 44,
+ "id": "enemy_grease_ghoul",
+ "loot_table": [
+  {
+   "item": "item_scrap_metal",
+   "qty": [
+    1,
+    3
+   ],
+   "weight": 26
+  },
+  {
+   "item": "item_rag_bandage",
+   "qty": [
+    1,
+    2
+   ],
+   "weight": 15
+  },
+  {
+   "item": "item_battery",
+   "qty": [
+    1,
+    1
+   ],
+   "weight": 10
+  },
+  {
+   "credits": [
+    55,
+    130
+   ],
+   "item": "item_credit_chip",
+   "qty": [
+    1,
+    1
+   ],
+   "weight": 24
+  },
+  {
+   "credits": [
+    140,
+    300
+   ],
+   "item": "item_credit_chip",
+   "qty": [
+    1,
+    1
+   ],
+   "super": true,
+   "weight": 3
+  }
+ ],
+ "name": "grease ghoul",
+ "weapon": [
+  {
+   "max": 6,
+   "min": 3,
+   "type": "kinetic"
+  }
+ ]
+}

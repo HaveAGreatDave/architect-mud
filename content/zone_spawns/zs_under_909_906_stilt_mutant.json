@@ -1,8 +1,8 @@
 {
  "enemy_id": "enemy_stilt_mutant",
- "id": "zs_under_912_911_stilt_mutant",
+ "id": "zs_under_909_906_stilt_mutant",
  "max_count": 2,
  "respawn_seconds": 360,
  "spawn_weight": 45,
- "zone_id": "zone_under_912_911"
+ "zone_id": "zone_under_909_906"
 }
