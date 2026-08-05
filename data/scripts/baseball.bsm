@@ -269,6 +269,14 @@ Two for the price of one. {batter} bounces into a double play. The {team} dugout
 {batter} chops it right at 'em and they flip it around for a double play. Cruel game. {outs} away.
 ::endlines
 
+# --- Triple play: roughly one game in four hundred. Chip has never seen one either.
+::lines atbat.tripleplay
+Ground ball to the left side and — they got one, they got two, THEY GOT THREE. Triple play. {batter} into a triple play. I have called this game eleven years and I have never said that sentence.
+THREE. That is three outs on one pitch. {batter} hit into a triple play and the {team} bench does not know where to look. Nobody move. I need a minute.
+Around the horn — third, second, first, all of it, all at once. Triple play on {batter}. The inning is over and it never really started. {pitcher} just walks off like it's nothing. It is not nothing.
+{batter} rolls one into the teeth of it and they turn a TRIPLE play. Folks, whatever you paid to get in here, you're square with the house. Inning over.
+::endlines
+
 ::lines atbat.sacfly
 Deep enough! {batter} lifts a sacrifice fly, the runner tags from third and scores. He's out, but it counts on the board. {outs} away.
 {batter} gives himself up, fly ball to the track, the runner trots home. Traded an out for a run. {outs} down.

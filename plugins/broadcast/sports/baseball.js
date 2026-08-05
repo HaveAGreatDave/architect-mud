@@ -47,6 +47,12 @@ export function rollAtBat(rand = Math.random) {
 // roll. Double plays kill rallies (and tame blowouts); sac flies and productive
 // groundouts trade an out for a run or a base.
 const DP_CHANCE = 0.38;              // groundout, runner on 1st, <2 outs → two (~0.75 DP/team/game)
+// Triple play. The rarest thing in the sport that isn't a perfect game: roughly five a
+// season across the whole league, so it must stay a genuine event and never a party
+// trick. It needs the ONE alignment that makes three force-outs legal — nobody out,
+// runners on first and second, ball on the ground — and even then it almost never
+// happens. That gate is doing most of the work; the number just trims what's left.
+const TP_CHANCE = 0.007;             // groundout, 1st AND 2nd occupied, 0 outs → all three (measures to ~1 per 500 games; MLB is ~1 per 490)
 const SACFLY_CHANCE = 0.90;          // flyout, runner on 3rd, <2 outs → run scores, out
 const FORCE_ADVANCE_CHANCE = 0.60;   // non-DP groundout, runner on 1st → batter out at first, runners forced up (else fielder's choice, bases hold)
 const PRODUCTIVE_OUT_CHANCE = 0.35;  // other groundout nudges a runner on 2nd/3rd up (3rd scores)
@@ -81,7 +87,7 @@ const PITCH_TOTAL = PITCH_TYPES.reduce((s, o) => s + o.w, 0);
 const PLAY_DESC = {
   strikeout: 'Strikeout', groundout: 'Groundout', flyout: 'Flyout', popout: 'Pop Out',
   single: 'Single', double: 'Double', triple: 'Triple', walk: 'Walk', homerun: 'Home Run',
-  doubleplay: 'Double Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
+  doubleplay: 'Double Play', tripleplay: 'Triple Play', sacfly: 'Sacrifice Fly', productout: 'Groundout',
 };
 export function playDesc(b) {
   if (b.kind === 'homerun') return b.rbi >= 4 ? 'Grand Slam' : (b.rbi > 1 ? `Home Run — ${b.rbi} RBI` : 'Home Run');
@@ -170,10 +176,23 @@ export function simGame(matchup, players, rand = Math.random) {
         // Base/out-aware outs. A grounder with a man on first can turn two; a fly
         // ball with a man on third can be traded for a run; other grounders can
         // still push a runner over — a "productive out".
-        if (ab.kind === 'groundout' && bases[0] && outs < 2 && rand() < DP_CHANCE) {
+        if (ab.kind === 'groundout' && bases[0] && bases[1] && outs === 0 && rand() < TP_CHANCE) {
+          kind = 'tripleplay';                 // force at third, force at second, throw to first
+          bases[0] = bases[1] = false;
+          // A man on third is stranded where he stands — the inning ended before he
+          // could score. Deliberately no run, whatever he was doing on the play.
+          bases[2] = false;
+          outs = 3;
+        } else if (ab.kind === 'groundout' && bases[0] && outs < 2 && rand() < DP_CHANCE) {
           kind = 'doubleplay';                 // batter + the force at second
-          bases[0] = false;
           outs += 2;
+          // The other runners are NOT bystanders. A 6-4-3 with a man on third scores
+          // him — unless the play was the third out, in which case the run never
+          // counts. A man on second is forced up to third by the batter-runner.
+          if (outs < 3 && bases[2]) runs += 1;
+          bases[2] = bases[1];                 // second → third (forced by the force)
+          bases[1] = false;
+          bases[0] = false;
         } else if (ab.kind === 'flyout' && bases[2] && outs < 2 && rand() < SACFLY_CHANCE) {
           kind = 'sacfly';                      // runner tags from third and scores
           bases[2] = false; runs = 1;

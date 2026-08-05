@@ -168,6 +168,13 @@ function compileBsm(text) {
     return buf.join('\n').trim();
   }
 
+  // Strip only a MATCHED wrapping quote pair around the WHOLE value — never quotes that
+  // are part of the value. Quoting exists so a name with spaces survives; a nickname like
+  // "Big" Halvorsen or "Wheels" McGraw is the value, and the naive anchored strip this
+  // replaced ate its opening quote and shipped `Big" Halvorsen` to air. Same rule the
+  // ::guests parser already used; this is it applied everywhere a name is read.
+  const unquote = (s) => s.replace(/^(["'])([\s\S]*)\1$/, '$2');
+
   while (i < lines.length) {
     const ln = lines[i].trim();
 
@@ -184,27 +191,27 @@ function compileBsm(text) {
       const m = ln.match(/^@(\w+)\s*(.*)/);
       if (m) {
         const key = m[1], val = m[2].trim();
-        if (key === 'broadcast') meta.name = val.replace(/^["']|["']$/g, '');
+        if (key === 'broadcast') meta.name = unquote(val);
         else if (key === 'channel') meta.channel = val;
         else if (key === 'category') meta.category = val;
         else if (key === 'host') meta.host = val;
         else if (key === 'length') meta.length = parseFloat(val);
         else if (key === 'type') meta.type = val.toLowerCase();
         else if (key === 'sport') meta.sport = val.toLowerCase();               // sports: which sim to run (baseball)
-        else if (key === 'announcer') meta.announcer = val.replace(/^["']|["']$/g, ''); // sports/news: voiceover/announcer — a name string, NOT an npc_ id
+        else if (key === 'announcer') meta.announcer = unquote(val); // sports/news: voiceover/announcer — a name string, NOT an npc_ id
         // news: anchor(s) and field reporter(s) — plain NAME strings, repeatable, NOT npc_ ids.
         // First @anchor is the lead anchor ({anchor}); a second is the co-anchor ({anchor2}).
-        else if (key === 'anchor')   { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.anchors.push(nm); }
-        else if (key === 'reporter') { const nm = val.replace(/^["']|["']$/g, ''); if (nm) meta.reporters.push(nm); }
+        else if (key === 'anchor')   { const nm = unquote(val); if (nm) meta.anchors.push(nm); }
+        else if (key === 'reporter') { const nm = unquote(val); if (nm) meta.reporters.push(nm); }
         // news: the weather desk. A name string like the anchors — the bulletin's weather
         // segment reads the SAME live forecast DOOMCAST does, in this person's voice.
-        else if (key === 'meteorologist') meta.meteorologist = val.replace(/^["']|["']$/g, '');
+        else if (key === 'meteorologist') meta.meteorologist = unquote(val);
         // sports: feature only the game(s) covering these IN-GAME hours (0–23) each day —
         // one full game, grid-snapped, at a fixed time of day. Omit ⇒ continuous (back-to-back
         // games all day). "@airtime 19" → the evening (18:00–21:00) game airs daily.
         else if (key === 'airtime') meta.airSlots = [...new Set(val.split(/[,\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0 && n < 24).map(h => Math.floor(h / 3) % 8))];
         else if (key === 'titlecard') meta.titlecard = val;   // weather/news: graphic id shown before the report
-        else if (key === 'theme') meta.theme = val.replace(/^["']|["']$/g, '');  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
+        else if (key === 'theme') meta.theme = unquote(val);  // news/talkshow: intro theme sting — an audio_songs.name OR an audio_samples.name (quote names with spaces)
         // talkshow: the REAL studio cast — npc_ ids, acted live on stage (unlike news/sports names).
         // @host = desk host, @sidekick = announcer/bandleader who does the intro, @guest = the
         // reusable guest NPC renamed each episode. All three are spawned/placed by the importer.
@@ -228,10 +235,10 @@ function compileBsm(text) {
           }
         }
         // sermon: the unseen voice that opens and closes the service — a name, not an NPC.
-        else if (key === 'verger')   meta.verger = val.replace(/^["']|["']$/g, '');
-        else if (key === 'presents') meta.presents = val.replace(/^["']|["']$/g, '');
-        else if (key === 'rating')   meta.rating   = val.replace(/^["']|["']$/g, '');
-        else if (key === 'director') meta.director = val.replace(/^["']|["']$/g, '');
+        else if (key === 'verger')   meta.verger = unquote(val);
+        else if (key === 'presents') meta.presents = unquote(val);
+        else if (key === 'rating')   meta.rating   = unquote(val);
+        else if (key === 'director') meta.director = unquote(val);
         // gameshow: what the show asks ABOUT — the subject id registered in
         // plugins/broadcast/gameshow-subjects.js ('retail', 'basin'). Omit ⇒ retail,
         // which is what every game show was before subjects existed.
@@ -273,7 +280,7 @@ function compileBsm(text) {
       i++;
       const content = collectBlock('::endteams');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
-        teams.push(s.replace(/^["']|["']$/g, ''));
+        teams.push(unquote(s));
       }
       continue;
     }
@@ -284,7 +291,7 @@ function compileBsm(text) {
       i++;
       const content = collectBlock('::endplayers');
       for (const s of content.split('\n').map(t => t.trim()).filter(t => t && !t.startsWith('#'))) {
-        players.push(s.replace(/^["']|["']$/g, ''));
+        players.push(unquote(s));
       }
       continue;
     }

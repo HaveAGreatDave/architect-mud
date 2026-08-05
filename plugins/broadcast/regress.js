@@ -2133,6 +2133,58 @@ export default async function regress({ check, run, getPlayer }) {
     BB.foldExtras(acc2, { beats: [ab('Dunn', 'productout'), ab('Dunn', 'single')] });
     check('deadball: a productive out is still an at-bat', acc2.bats.get('Dunn').ab === 2, String(acc2.bats.get('Dunn').ab));
 
+    // ── The Gameday half-inning changeover ────────────────────────────────────
+    // The sub-screen only ever heard about at-bats, so through an inning break it
+    // held the last play's final frame — a batter still flagged out on first — while
+    // Chip talked over a photograph. The fix is a payload on the half's framing line,
+    // and this is its only observable: what rides the assembled graph.
+    {
+      const script = { teams: ['Rats', 'Kings', 'Crows', 'Vultures', 'Hawks', 'Bats', 'Moles', 'Gulls', 'Elks', 'Pikes', 'Wrens', 'Boars', 'Cranes', 'Newts', 'Owls', 'Stoats'], players: [], pools: { 'half.top': ['Top {inningOrd}.'], 'half.bottom': ['Bottom {inningOrd}.'], 'atbat.out': ['He is out.'], 'atbat.single': ['Base hit.'], chatter: ['Quiet out here.'] }, announcer: 'Chip Vega' };
+      const graph = _test.assembleSportsGraph(script, 'bc_regress', 12345, null);
+      const gds = Object.values(graph.nodes || {}).map(n => n.data && n.data.gameday).filter(Boolean);
+      const halves = gds.filter(g => g.phase === 'half');
+      const atbats = gds.filter(g => !g.phase);
+      check('gameday: the half-inning break carries a payload at all', halves.length >= 12, `${halves.length} half payloads`);
+      check('gameday: …one the client can tell apart from a play', halves.every(g => g.phase === 'half'), 'phase marker missing');
+      // Faking an at-bat's fields here would make a client animate a play that never
+      // happened. Their ABSENCE is the contract.
+      check('gameday: …carrying no play to animate', halves.every(g => !g.pitches && !g.basesBefore && !g.kind), 'a half payload looks like an at-bat');
+      // The linescore blanking out for the whole break was the original bug's twin —
+      // the one moment a viewer is actually reading it.
+      check('gameday: …but keeping the linescore alive', halves.every(g => g.line && Array.isArray(g.line.away) && g.line.away.length), 'half payload has no line snapshot');
+      check('gameday: …and naming who is batting', halves.every(g => g.battingTeam && g.inningOrd && (g.half === 'top' || g.half === 'bottom')), 'half payload is missing its framing');
+      check('gameday: at-bat payloads are untouched by all this', atbats.length > 0 && atbats.every(g => Array.isArray(g.pitches)), `${atbats.length} at-bat payloads`);
+    }
+
+    // ── Base/out-aware outs ───────────────────────────────────────────────────
+    // These rules are invisible in a box score but wrong in a way a viewer feels:
+    // a double play used to erase the runner from first and freeze everyone else,
+    // so a 6-4-3 with a man on third never scored the run it always scores.
+    {
+      const { simGame: sim } = await import('./sports/baseball.js');
+      const { sportsRng: rngOf } = await import('./rng.js');
+      let tp = 0, dpScored = 0, bad = [];
+      for (let s = 0; s < 4000; s++) {
+        for (const b of sim({ away: 'Rats', home: 'Kings' }, null, rngOf(s * 2654435761 + 7)).beats) {
+          if (b.type !== 'atbat') continue;
+          if (b.kind === 'doubleplay') {
+            if (b.rbi > 0) { dpScored++; if (b.outs >= 3) bad.push('DP scored on the third out'); }
+            if (b.bases[0]) bad.push('DP left the forced runner on first');
+          }
+          if (b.kind === 'tripleplay') {
+            tp++;
+            if (b.outs !== 3) bad.push(`TP ended the half at ${b.outs} outs`);
+            if (b.rbi > 0) bad.push('TP scored a run');
+            if (b.bases.some(Boolean)) bad.push('TP left a runner on');
+          }
+        }
+      }
+      check('deadball: a double play can drive in the run from third', dpScored > 0, 'never scored one in 4000 games');
+      check('deadball: …but never on the third out', !bad.includes('DP scored on the third out'), 'a run counted after the inning ended');
+      check('deadball: a triple play happens, and is rare', tp > 0 && tp < 40, `${tp} in 4000 games (want ~8)`);
+      check('deadball: a triple play always ends the half clean', !bad.length, [...new Set(bad)].join('; '));
+    }
+
     // Folding the same games twice must give the same race — the standings are a
     // recomputed fold, so any order- or state-dependence here shows up as leaders
     // that change every time someone types `standings`.

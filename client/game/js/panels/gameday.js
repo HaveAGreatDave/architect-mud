@@ -117,7 +117,7 @@ function _hitTrajectory(p) {
   const seed = _hashStr(`${p.batter}|${p.inning}|${p.half}|${pitches.map(x => `${x.velo}.${x.x}`).join(',')}`);
   const rng = _rng(seed);
   const angle = Math.round((rng() * 2 - 1) * 30);
-  const ground = kind === 'groundout' || kind === 'doubleplay' || kind === 'productout';
+  const ground = kind === 'groundout' || kind === 'doubleplay' || kind === 'tripleplay' || kind === 'productout';
   const fly = kind === 'flyout' || kind === 'popout' || kind === 'sacfly';
   const depthByKind = { popout: 0.44, flyout: 0.66, sacfly: 0.60, single: 0.62, double: 0.72, triple: 0.80, homerun: 1.02 };
   const depth = depthByKind[kind] ?? 0.5;
@@ -304,8 +304,9 @@ export function createGamedayView(host) {
   let field = null;          // the persistent .gd-field element (tokens live here)
   let cardTimer = null;      // auto-dismiss for the Gameday-native jumbotron card
   let standingsRows = [];    // last league table seen (rides the payload); persists between at-bats
+  let ambientOn = false;     // the between-plays idle loop is running (see _startAmbient)
 
-  function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; pendingCard = null; }
+  function _stop() { timers.forEach(clearTimeout); timers = []; playAnimating = false; ambientOn = false; pendingCard = null; }
   function _t(ms, fn) { timers.push(setTimeout(fn, Math.max(0, ms))); }
   function _sfx(def) { window.AudioEngine?.playSfx(def); }
   const _pitchSfx = (pt, terminal) => pt.result === 'swinging' ? SFX.whiff
@@ -368,7 +369,9 @@ export function createGamedayView(host) {
     const statusArrow = isTop ? '▲' : '▼';
     const runFlash = (outcome && p.rbi > 0) ? ' scored' : '';
     const outDots = [0, 1, 2].map(i => `<span class="gd-out${i < outs ? ' on' : ''}"></span>`).join('');
-    const playCard = outcome
+    const playCard = ctx.changeover
+      ? `<div class="gd-play pending"><div class="gd-play-desc">CHANGEOVER</div><div class="gd-play-bat">${_esc(p.battingTeam || '')} batting</div></div>`
+      : outcome
       ? `<div class="gd-play${runFlash}"><div class="gd-play-desc">${_esc(p.desc || '')}</div><div class="gd-play-bat">${_esc(p.batter || '')}</div></div>`
       : `<div class="gd-play pending"><div class="gd-play-desc">AT BAT</div><div class="gd-play-bat">${_esc(p.batter || '')}</div></div>`;
 
@@ -475,7 +478,19 @@ export function createGamedayView(host) {
       if (adv === 0) {   // an out — a few situational advances
         if (p.kind === 'sacfly' && b === 3) steps = 1;
         else if (p.kind === 'productout') steps = 1;
+        // A double play is not a freeze-frame for everyone else. The man on third
+        // scores on a 6-4-3 — unless it was the third out, which is what rbi tells us.
+        else if (p.kind === 'doubleplay' && b === 3) steps = p.rbi > 0 ? 1 : 0;
+        else if (p.kind === 'doubleplay' && b === 2) steps = 1;   // forced up to third by the batter-runner
         else if (p.kind === 'doubleplay' && b === 1) { _t(T_THROW * 2, () => { _crossBase(1); r.classList.add('outed'); _t(300, () => r.remove()); }); continue; }
+        // Triple play: the lead force at third goes first, then second, then the throw
+        // across. Staggering them is the whole read of the play — three separate outs,
+        // not one event, so the eye can follow the ball around the horn.
+        else if (p.kind === 'tripleplay' && (b === 1 || b === 2)) {
+          const at = b === 2 ? T_THROW : T_THROW * 2;
+          _t(at, () => { _crossBase(b); r.classList.add('outed'); _t(300, () => r.remove()); });
+          continue;
+        }
         else steps = 0;
       }
       if (steps > 0) runBases(r, b, steps, traj.mode === 'ground' ? 120 : 60);
@@ -486,7 +501,7 @@ export function createGamedayView(host) {
     if (adv >= 1) {
       const dest = Math.min(adv, 4);
       runBases(batter, 0, dest, 0, dest >= 4 ? T_RUN * 0.8 : T_RUN);
-    } else if (p.out && (p.kind === 'groundout' || p.kind === 'doubleplay' || p.kind === 'productout')) {
+    } else if (p.out && (p.kind === 'groundout' || p.kind === 'doubleplay' || p.kind === 'tripleplay' || p.kind === 'productout')) {
       // grounder: batter runs it out, thrown out at first
       _move(batter, 'b1', T_RUN, 'linear');
       _t(T_RUN, () => { batter.classList.add('outed'); _dust('b1'); });
@@ -505,10 +520,122 @@ export function createGamedayView(host) {
     });
   }
 
+  // ── Ambient: the ballpark between plays ─────────────────────────────────────
+  // apply() used to schedule the whole at-bat through _t() and then let the timer
+  // list run dry, so once a play settled the field became a photograph until the
+  // next beat arrived. Nothing was wrong on screen — but stopped-correct reads as
+  // hung, and on a chatter line or an inning break that's ten seconds of it.
+  //
+  // So the field idles instead of stopping. Small stuff, deliberately: a pitcher
+  // resetting on the rubber, an infielder taking a step, the catcher throwing down
+  // to second. Enough that the picture is alive, never so much that it competes
+  // with a play. Every motion goes through the same _t() timer list as everything
+  // else, which is what makes _stop() — and therefore the next at-bat — cancel it
+  // for free.
+  const AMB_MIN_MS = 1500, AMB_MAX_MS = 3200;
+  const AMB_POS = FIELDERS.map(([k]) => k);
+  function _jitter(key, amt) {
+    const el = field?.querySelector(`.gd-fielder[data-pos="${key}"]`);
+    if (!el) return;
+    const [fx, fy] = POS[key];
+    const dx = (Math.random() * 2 - 1) * amt, dy = (Math.random() * 2 - 1) * amt;
+    _move(el, [fx + dx, fy + dy], 700 + Math.random() * 500, 'ease-in-out');
+  }
+  function _startAmbient() {
+    if (!field || ambientOn) return;
+    ambientOn = true;
+    const tick = () => {
+      if (!ambientOn || !field || playAnimating) return;
+      const roll = Math.random();
+      if (roll < 0.30) {
+        _jitter('P', 0.006);                                   // pitcher resets on the rubber
+      } else if (roll < 0.42) {
+        // Catcher throws down to second and the middle infield flips it back. The one
+        // ambient beat that moves the BALL, so it stays rare — a ball in motion between
+        // plays must never be mistaken for a play.
+        const ball = field.querySelector('.gd-ball');
+        if (ball) {
+          _trail(POS.C, POS.b2, T_THROW);
+          _move(ball, 'b2', T_THROW, 'linear');
+          _t(T_THROW, () => { _sfx(SFX.glove); _trail(POS.b2, POS.mound, T_THROW); _move(ball, 'mound', T_THROW, 'linear'); });
+        }
+      } else {
+        _jitter(AMB_POS[Math.floor(Math.random() * AMB_POS.length)], 0.010);   // somebody shifts
+      }
+      _t(AMB_MIN_MS + Math.random() * (AMB_MAX_MS - AMB_MIN_MS), tick);
+    };
+    _t(AMB_MIN_MS, tick);
+  }
+
+  // ── The half-inning changeover ──────────────────────────────────────────────
+  // Rides the `phase: 'half'` payload the server now sends with the half's framing
+  // line. This is NOT an at-bat: there are no pitches and no play, so it clears the
+  // field rather than replaying anything — the previous half's last out is wiped, the
+  // bases go dark, and the new nine trot out from the dugout before settling into the
+  // ambient idle. Without it the panel simply held the last frame through the break.
+  function _applyHalf(p) {
+    const isTop = p.half === 'top';
+    const aScore = Number.isFinite(p.awayScore) ? p.awayScore : 0;
+    const hScore = Number.isFinite(p.homeScore) ? p.homeScore : 0;
+    const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
+    const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
+
+    host.innerHTML =
+      `<div class="gd-top"></div>` +
+      `<div class="gd-linescore"></div>` +
+      `<div class="gd-main">` +
+        `<div class="gd-fieldwrap"><div class="gd-field">${_fieldSvg()}${_fieldTokens()}${_fieldChrome()}</div></div>` +
+        `<div class="gd-rail"></div>` +
+      `</div>` +
+      `<div class="gd-winprob"></div>` +
+      `<div class="gd-caption"><span class="gd-cap-tag">◆ Chip Vega</span><span class="gd-cap-text">${_esc(caption)}</span></div>`;
+    field = host.querySelector('.gd-field');
+
+    const wipe = document.createElement('div'); wipe.className = 'gd-wipe';
+    host.appendChild(wipe);
+    requestAnimationFrame(() => wipe.classList.add('go'));
+    _t(720, () => wipe.remove());
+
+    // A fresh half starts empty, always: nobody on, nobody out. Saying so explicitly
+    // is what erases the previous half's terminal frame.
+    const ctx = {
+      p: { ...p, pitches: [], batter: '', desc: '', basesBefore: [false, false, false], basesAfter: [false, false, false] },
+      isTop, away, home, awayName: isTop ? p.battingTeam : p.fieldingTeam, homeName: isTop ? p.fieldingTeam : p.battingTeam,
+      aScore, hScore, cp: null, N: 0, outsBefore: 0, outsAfter: 0, runners: {}, traj: { batted: false }, changeover: true,
+    };
+    [0, 1, 2, 3].forEach(n => _litBase(n, false));
+    _paintSide(ctx, 0, false);
+
+    // The nine come out of the dugout, staggered, and take their positions.
+    FIELDERS.forEach(([k], idx) => {
+      const el = field.querySelector(`.gd-fielder[data-pos="${k}"]`);
+      if (!el) return;
+      _place(el, 'dugout');
+      el.style.opacity = '0';
+      _t(160 + idx * 90, () => { if (!el) return; el.style.opacity = ''; _move(el, k, 900, 'ease-out'); });
+    });
+    const ball = field.querySelector('.gd-ball');
+    _place(ball, 'mound');
+
+    _renderCard({ kind: 'half', inningOrd: p.inningOrd, half: p.half, batting: p.battingTeam, duration: 3.4 });
+
+    // tv.js holds every line that rides a gameday payload, because a play-by-play call
+    // must not land before the ball does. A changeover has no ball, so nothing would
+    // ever release it — the line would sit in pendingCaption and be spoken at the end
+    // of the NEXT at-bat, against the wrong play. Release it here, a beat in, so it
+    // reads with the fielders coming out.
+    const pend = pendingCaption;
+    pendingCaption = null;
+    if (pend) _t(420, () => { _showCaption(pend.text); if (pend.speak) pend.speak(); });
+
+    _t(160 + FIELDERS.length * 90 + 900, _startAmbient);
+  }
+
   function apply(p) {
     if (!host || !p) return;
     _stop();
     if (Array.isArray(p.standings) && p.standings.length) standingsRows = p.standings;   // freshest table; retained otherwise
+    if (p.phase === 'half') { _applyHalf(p); return; }
     const isTop = p.half === 'top';
     const away = isTop ? { abbr: p.battingAbbr } : { abbr: p.fieldingAbbr };
     const home = isTop ? { abbr: p.fieldingAbbr } : { abbr: p.battingAbbr };
@@ -520,7 +647,7 @@ export function createGamedayView(host) {
     const N = pitches.length;
     const cp = N > 1 ? pitches[N - 2] : null;
     const outsAfter = Math.max(0, Math.min(3, p.outs | 0));
-    const outsBefore = Math.max(0, outsAfter - (p.out ? (p.kind === 'doubleplay' ? 2 : 1) : 0));
+    const outsBefore = Math.max(0, outsAfter - (p.out ? (p.kind === 'tripleplay' ? 3 : p.kind === 'doubleplay' ? 2 : 1) : 0));
     const traj = _hitTrajectory(p);
 
     // Build the shell once; the field + its tokens persist through this at-bat so they
@@ -574,7 +701,7 @@ export function createGamedayView(host) {
       if (p.kind === 'homerun') _sfx(SFX.homer);
       else if (p.rbi > 0) _sfx(SFX.run);
       else if (p.kind === 'strikeout') _sfx(SFX.strikeout);
-      else if (p.out) { _sfx(SFX.out); if (p.kind === 'doubleplay') _t(150, () => _sfx(SFX.out)); }
+      else if (p.out) { _sfx(SFX.out); if (p.kind === 'doubleplay') _t(150, () => _sfx(SFX.out)); else if (p.kind === 'tripleplay') { _t(150, () => _sfx(SFX.out)); _t(300, () => _sfx(SFX.out)); } }
       else _sfx(SFX.base);
     });
 
@@ -596,6 +723,10 @@ export function createGamedayView(host) {
       if (pend) { _showCaption(pend.text); if (pend.speak) pend.speak(); }
       if (pendingCard) { const fx = pendingCard; pendingCard = null; _renderCard(fx); }
     });
+
+    // The play is over but the half is not. Hand off to the idle loop once everything
+    // has settled, so the gap before the next beat is a ballpark rather than a photo.
+    _t(outMs + ballFlight + Math.max(T_RUN * 5, T_FLY) + 900, _startAmbient);
   }
 
   // Paint a line into the caption bar with the slide-in animation.
@@ -628,6 +759,9 @@ export function createGamedayView(host) {
     homerun: (fx) => ({ title: fx.grand ? 'GRAND SLAM' : 'HOME RUN', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
     walkoff: (fx) => ({ title: 'WALK-OFF!', sub: [fx.batter, fx.team].filter(Boolean).join(' · '), cls: 'hot' }),
     doubleplay: () => ({ title: 'DOUBLE PLAY', sub: 'Two down', cls: 'out' }),
+    // Not a server sportsfx — the changeover renders this one itself.
+    half: (fx) => ({ title: `${String(fx.inningOrd || '').toUpperCase()}${fx.half === 'top' ? ' ▲' : ' ▼'}`, sub: fx.batting ? `${fx.batting} batting` : '', cls: '' }),
+    tripleplay: () => ({ title: 'TRIPLE PLAY', sub: 'Three down, one pitch', cls: 'hot' }),
     extras: (fx) => ({ title: 'EXTRA INNINGS', sub: fx.inningOrd ? `${fx.inningOrd} · Free Baseball` : 'Free Baseball', cls: '' }),
     gamewin: (fx) => ({ title: 'FINAL', sub: fx.winner ? `${fx.winner} ${fx.winScore}–${fx.loseScore}` : '', cls: 'final' }),
     matchup: (fx) => ({ title: 'DEADBALL', sub: (fx.away && fx.home) ? `${fx.away} vs ${fx.home}` : '', cls: '' }),

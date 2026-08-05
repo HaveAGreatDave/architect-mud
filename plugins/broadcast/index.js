@@ -1684,9 +1684,29 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     line: lineSnap.get(b) || null,
     standings: gdStandings,
   });
+  // The half-inning break. Until this existed the Gameday sub-screen only ever heard
+  // about at-bats, so through the whole changeover it held the LAST PLAY'S FINAL FRAME
+  // — a batter still flagged out standing on first, three outs lit — while Chip talked
+  // over a photograph. This is deliberately not an at-bat payload: `phase: 'half'` is
+  // the marker, and everything an at-bat needs to animate (pitches, bases, kind) is
+  // absent rather than faked, so a client that doesn't know the phase renders nothing
+  // instead of a wrong play.
+  const halfGameday = (b) => ({
+    phase: 'half',
+    battingTeam: b.battingName, fieldingTeam: b.fieldingName,
+    battingAbbr: sportsAbbr(b.battingName), fieldingAbbr: sportsAbbr(b.fieldingName),
+    inning: b.inning, inningOrd: sportsOrdinal(b.inning), half: b.half,
+    pitcher: b.pitcher || '',
+    awayScore: b.awayScore, homeScore: b.homeScore,
+    line: lineSnap.get(b) || null,
+    standings: gdStandings,
+  });
   const hrGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'homerun', batter: b.batter || '', team: b.battingName || '', grand: b.rbi >= 4, duration: 3.8 });
   const walkoffGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'walkoff', batter: b.batter || '', team: b.battingName || '', home: home.name, away: away.name, homeScore: b.homeScore, awayScore: b.awayScore, duration: 4.4 });
   const dpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'doubleplay', batter: b.batter || '', duration: 2.4 });
+  // The triple play holds a beat longer than the double play. It's the rarest thing the
+  // sim can produce (~1 per 400 games) and the card is most of the payoff.
+  const tpGraphic = (b) => ({ overlayType: 'sportsfx', kind: 'tripleplay', batter: b.batter || '', duration: 3.6 });
 
   // Pre-game records from the live standings (module cache, refreshed before airing).
   // When either team has a record on the board, the announcer works it into the
@@ -1724,6 +1744,10 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
     for (const h of halves) {
       const inn = h.start.inning;
       while (la.length < inn) { la.push(0); lh.push(0); }
+      // Snapshot the half's OPENING state too, not just its at-bats. The changeover
+      // payload rides h.start, and without this the Gameday linescore blanks out for
+      // the whole inning break — the one moment a viewer is actually reading it.
+      lineSnap.set(h.start, { away: la.slice(), home: lh.slice(), hAway: ha, hHome: hh });
       for (const b of h.atbats) {
         const a = Number.isFinite(b.awayScore) ? b.awayScore : pa;
         const hm = Number.isFinite(b.homeScore) ? b.homeScore : ph;
@@ -1741,7 +1765,7 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
   const extraHalves = halves.filter(h => h.start.inning >= 10);
 
   for (const h of regHalves) {
-    say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start));
+    say(pick(`half.${h.start.half}`, 'half'), beatTok(h.start), beatBug(h.start), null, halfGameday(h.start));
 
     const target = 6 + Math.floor(nrng() * 3);   // 6, 7, or 8 lines this half
     let spoken = 1;                                      // the framing line above
@@ -1766,8 +1790,15 @@ function assembleSportsGraph(script, broadcastId, slot, override) {
         say(pick('atbat.productout', 'atbat.groundout'), tok, sb, null, gd); spoken++;
         if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
         if (b.walkoff) { say(pick('walkoff'), tok, sb, walkoffGraphic(b)); spoken++; walkoffHalf = true; }
+      } else if (b.kind === 'tripleplay') {
+        // Never chattered over and never padded past — a triple play ends the half and
+        // is the only thing anyone in the park is going to talk about.
+        say(pick('atbat.tripleplay', 'atbat.doubleplay'), tok, sb, tpGraphic(b), gd); spoken++;
       } else if (b.kind === 'doubleplay') {
         say(pick('atbat.doubleplay'), tok, sb, dpGraphic(b), gd); spoken++;
+        // A double play can drive in a run (man on third, nobody out). The scoreboard
+        // has to say so — the DP line itself never mentions it.
+        if (b.rbi > 0) { say(pick('score.update'), tok, sb); spoken++; }
       } else if (b.rbi > 0) {
         say(pick('rbi'), tok, sb, null, gd); spoken++;
         say(pick('score.update'), tok, sb); spoken++;
@@ -8223,6 +8254,9 @@ export const _test = {
   // player — the Tablet TV's portable tuner has no zone furniture, so "did a program
   // come out the other end" is only observable this way.
   broadcastTick, tabletTuners,
+  // Exported so regress can assert what actually rides the wire to the Gameday
+  // sub-screen — the half-inning changeover payload has no other observable.
+  assembleSportsGraph,
   sportsGameForSlot, sportsMatchupForSlot, roundRobinRounds, sportsSlotIndex,
   sportsSlotMs, sportsAiring, SPORTS_GAMES_PER_DAY, nextAirSlot,
   assembleNewsGraph, newsFill, newsSceneNames,
