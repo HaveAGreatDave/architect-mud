@@ -3,7 +3,7 @@
 // yacht:board move gate + isInvited auth against the real loaded Echelon zones.
 import { runMoveGates } from '../../server/engine/movement-gates.js';
 import { getZone, getMinimapData, getAllZones } from '../../server/engine/world.js';
-import { isInvited } from './index.js';
+import { isInvited, isWater } from './index.js';
 
 // Center the minimap on a tile beside the Echelon's CURRENT exterior position. She's a
 // mobile vessel — a persisted `yacht_echelon_pos` (restored async at boot) or an in-run
@@ -19,6 +19,21 @@ const seesYacht = (viewer) => {
 };
 
 export default async function regress({ run, check, getPlayer }) {
+  // ── Navigable water: the predicate BOTH helm controls share ──
+  // `sail <dir>` walks it per step and `sailto` builds its A* set from it, so if it drifts off
+  // the world's real marker both controls die together and SILENTLY — the orders still parse,
+  // they just never find a tile to move to. That is what happened: this read a `flags.water`
+  // boolean deleted 2026-07-30, so it was `undefined` on all 862 water tiles and the Echelon
+  // could not move at all. Cross-checked against terrain (the SSOT) rather than restated, so a
+  // future migration of the marker fails HERE instead of at a stuck helm.
+  const waterTiles = getAllZones().filter(z => z.map_id === 'map_world' && (z.grid_z ?? 0) === 0
+    && z.flags?.terrain === 'water');
+  check('the basin has water tiles to sail', waterTiles.length > 0, `found ${waterTiles.length}`);
+  check('yacht agrees every water tile is navigable', waterTiles.every(isWater),
+    `${waterTiles.filter(z => !isWater(z)).length} of ${waterTiles.length} rejected`);
+  check('…and dry land is not', !isWater({ flags: { terrain: 'concrete' } }));
+  check('…nor is an untagged tile', !isWater({ flags: {} }) && !isWater(null));
+
   // ── Invite verbs: admin gate ──
   let r = await run('invite Somebody');
   check('invite refused for non-admin', r?.type === 'error' && /clearance/i.test(r.message || ''), r?.message);

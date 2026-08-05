@@ -25,7 +25,7 @@
 
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData, zoneTerrain } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { on } from '../../server/engine/events.js';
@@ -319,6 +319,18 @@ function worldTileAt(x, y) {
 // Fast water lookup for course charting. Water tiles are static content (git owns them; they never
 // change at runtime), so we build the coordinate set once and cache it — A* below hits it thousands
 // of times per course and must not loop every zone per probe. Built lazily on the first charting.
+// Navigable water is `flags.terrain` — the ground-surface SSOT (docs/systems-terrain.md).
+// The legacy `flags.water` boolean this used to test was DELETED 2026-07-30 and now sits on
+// no tile in the game, so every test here read `undefined`: `waterSet()` built EMPTY (so
+// `sailto` could never chart a course) and `sail <dir>` broke out on its first step (so a
+// manual order never found a tile to move to). Both helm controls were dead, silently and
+// together, because they share this one predicate. Same test the swimming plugin, the
+// pathfinder and combat's `isWaterZone` migrated to.
+// Exported ONLY so regress can cross-check it against the world's own terrain rather than
+// re-stating the predicate (a test that repeats the implementation would have gone green on
+// the dead flag too — which is exactly how this survived).
+export const isWater = (z) => !!z && zoneTerrain(z) === 'water';
+
 let _waterSet = null;
 function waterSet() {
   if (_waterSet) return _waterSet;
@@ -326,7 +338,7 @@ function waterSet() {
   for (const z of world.zones.values()) {
     if (z.map_id !== 'map_world' || z.id === EXTERIOR) continue;
     if ((z.grid_z ?? 0) !== 0) continue;
-    if (z.flags?.water) s.add(z.grid_x + ',' + z.grid_y);
+    if (isWater(z)) s.add(z.grid_x + ',' + z.grid_y);
   }
   _waterSet = s;
   return s;
@@ -611,12 +623,12 @@ async function cmdSail(args, raw, player, broadcast) {
   for (let i = 1; i <= SAIL_TILES; i++) {
     const px = ext.grid_x + dx * (i - 1), py = ext.grid_y + dy * (i - 1);   // the tile she's stepping FROM
     const nx = ext.grid_x + dx * i, ny = ext.grid_y + dy * i;
-    if (!worldTileAt(nx, ny)?.flags?.water) break;
+    if (!isWater(worldTileAt(nx, ny))) break;
     // A DIAGONAL step may not cut a land corner: both flanking orthogonal tiles must be water too —
     // exactly the guard the charted-course A* uses (chartCourse). Without this a `sail ne/se/sw/nw`
     // slips the hull diagonally between two land tiles, so she visibly clips the shoreline / a
     // waterfront building (the embassy) even though every tile she lands on is open water.
-    if (dx && dy && (!worldTileAt(px + dx, py)?.flags?.water || !worldTileAt(px, py + dy)?.flags?.water)) break;
+    if (dx && dy && (!isWater(worldTileAt(px + dx, py)) || !isWater(worldTileAt(px, py + dy)))) break;
     path.push([nx, ny]);
   }
   if (path.length < 2) {
