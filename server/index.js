@@ -68,8 +68,8 @@ import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 import { getSoundReach } from "./engine/sounds.js";
 import { getFlag, hydratePlayerFlags, evictPlayerFlags } from "./engine/flags.js";
-import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset } from "./engine/presentation.js";
-import { briefRoom, markSeenZone } from "./engine/room-brief.js";
+import { hydrateDisplayRung, loggedPanelsSync, seedDisplayRungIfUnset, setDisplayRung, RUNGS as DISPLAY_RUNGS } from "./engine/presentation.js";
+import { arrivalRoom } from "./engine/room-brief.js";
 import { hydrateRelations, flushRelations } from "./engine/relations.js";
 import { hydrateIdeologyProfile } from "./engine/ideologies.js";
 import { DOMINANT_FLAG, SECOND_FLAG } from "./engine/senses.js";
@@ -138,18 +138,20 @@ function stampToLog(player, message, silent = false) {
 		// would add to. Say nothing.
 		if (player._logLastRoom === zone) return message;
 		player._logLastRoom = zone;
-		markSeenZone(player, zone);
-		return { ...message, toLog: true, logMessage: briefRoom(message.message) };
+		// Housekeeping that happens to have landed you somewhere new — the same
+		// arrival line a move gets, for the same reason: nobody asked to look.
+		return { ...message, toLog: true, logMessage: arrivalRoom(message.message) };
 	}
-	// The log copy of a room you have walked into BEFORE is abbreviated, so that
-	// crossing six rooms is not six paragraphs read aloud. An explicit `look` is
-	// never abbreviated, and neither is your first arrival anywhere — see the
-	// contract in engine/room-brief.js. The PANE copy stays full either way; only
-	// `toLog` carries the brief, because only the log repeats.
-	const first = markSeenZone(player, zone);
-	const full = message.type === 'look' || first;
+	// WALKING IS NOT READING. A move logs where you are and what can hurt you and
+	// nothing else (`arrivalRoom`) — not even on the first arrival, because the
+	// player on this rung asked for as little as possible and a room they have
+	// never seen is exactly the room they would type `look` in. An explicit
+	// `look` is never abbreviated at all, which is the whole safety property:
+	// nothing is lost, only deferred by one keystroke. See engine/room-brief.js.
+	// The PANE copy stays full either way; only `toLog` carries the short one.
 	player._logLastRoom = zone;
-	return { ...message, toLog: true, logMessage: full ? message.message : briefRoom(message.message) };
+	const logMessage = message.type === 'look' ? message.message : arrivalRoom(message.message);
+	return { ...message, toLog: true, logMessage };
 }
 
 function broadcast(
@@ -903,7 +905,10 @@ async function handleAuth(ws, session, msg) {
 	// `player.login` handler pushes the cold open and a command sent after
 	// auth_success arrives too late to skip it. Login and register only — a
 	// reconnect is mid-session, where the server value is already authoritative.
-	await finishAuth(ws, session, rows[0], msg.displayRung);
+	// `displayRungExplicit` says the player PRESSED one on this visit, rather than
+	// the screen simply remembering last time's — which is the difference between
+	// an order and a seed. See seedDisplayRungIfUnset / setDisplayRung.
+	await finishAuth(ws, session, rows[0], msg.displayRung, !!msg.displayRungExplicit);
 }
 
 async function handleAuthToken(ws, session, msg) {
@@ -998,10 +1003,11 @@ function loginBodyTempMessage(tempC) {
 	return 'You feel uncomfortably warm.';
 }
 
-// `seedDisplayRung` is the auth screen's pre-login choice, or undefined. It is
-// applied ONLY to a player who has never chosen one (seedDisplayRungIfUnset), so
-// it can never override a rung set from another device.
-async function finishAuth(ws, session, player, seedDisplayRung) {
+// `seedDisplayRung` is the auth screen's pre-login choice, or undefined. Unless
+// `explicitDisplayRung` says the player pressed it on this visit it is applied
+// ONLY to a player who has never chosen one (seedDisplayRungIfUnset), so a
+// remembered radio can never override a rung set from another device.
+async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayRung = false) {
 	const existingWs = playerSockets.get(player.id);
 	if (existingWs && existingWs !== ws) {
 		existingWs.send(
@@ -1142,7 +1148,18 @@ async function finishAuth(ws, session, player, seedDisplayRung) {
 	// `loggedPanelsSync` to decide whether to push the wordless cold open at all,
 	// and until this existed that branch was dead for the only players it was
 	// written for (a brand-new character cannot have set a rung yet).
-	await seedDisplayRungIfUnset(livePlayer, seedDisplayRung);
+	//
+	// A rung the player PRESSED on the login screen is an instruction and is
+	// written straight through. Seed-only was right for a remembered radio and
+	// wrong for a pressed one: every account that had ever been to Settings has a
+	// stored rung, so choosing `log` at the door did nothing at all for anybody
+	// but a brand-new character — you pressed it, logged in, and got the
+	// graphical game with nothing to tell you why.
+	// Validated here rather than trusted: `setDisplayRung` coerces an unknown
+	// value to `visual`, so an unchecked explicit path would let a malformed
+	// message reset somebody's accessibility choice.
+	if (explicitDisplayRung && DISPLAY_RUNGS.includes(seedDisplayRung)) await setDisplayRung(livePlayer, seedDisplayRung);
+	else await seedDisplayRungIfUnset(livePlayer, seedDisplayRung);
 	await hydrateDisplayRung(livePlayer);
 	// Seed the resource diff-gate stamp (Phase 6) from the freshly-loaded row so
 	// the first resourceTick after login doesn't write values that never changed.

@@ -8,6 +8,7 @@ import { registerProtectionProvider } from "./protection.js";
 import { isSanctuary, allowsSleep } from "./zone-tags.js";
 import { ownsZone } from "./zone-filth.js";
 import { isWired } from "./drugs.js";
+import { loggedPanelsSync } from "./presentation.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
@@ -643,11 +644,17 @@ export async function cmdLockDoor(player, wantLocked) {
 		}
 	}
 
+	// Same rule as the door-lock verb (engine/commands/doors.js `terseLock`): at
+	// the bottom Display Mode rung the flavour collapses to the outcome, because
+	// spoken aloud on a door you use twenty times a day the only news in the
+	// sentence is whether it locked.
 	return {
 		type: "lock",
-		message: wantLocked
-			? "You lock the door behind you. Solid. For now."
-			: "You unlock the door.",
+		message: loggedPanelsSync(player)
+			? (wantLocked ? "Locked." : "Unlocked.")
+			: (wantLocked
+				? "You lock the door behind you. Solid. For now."
+				: "You unlock the door."),
 	};
 }
 

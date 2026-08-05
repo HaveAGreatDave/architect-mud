@@ -152,6 +152,43 @@ description is built at half a dozen places (movement.js, world.js, the login lo
 gametable's `paneOrLook`) and there is no single constructor to hook. The client
 then appends it as well.
 
+### ⚠ A pressed radio is an instruction; a remembered one is a seed
+
+The auth screen's Display Mode choice was applied through `seedDisplayRungIfUnset`
+— **never clobber**, so a library computer can't reset the rung you set on your
+phone. Correct for the radio the screen *restored*, and wrong for one the player
+just *pressed*: every account that has ever opened Settings has a stored rung, so
+choosing `log` at the door did nothing at all for anybody but a brand-new
+character. You pressed it, logged in, and got the graphical game with nothing to
+tell you why.
+
+So the client now says which it is. `watchDisplayRungChoice()` (net.js) sets a
+flag when a radio actually fires a `change` in this visit, and that rides the auth
+message as `displayRungExplicit`. `finishAuth` writes an explicit rung straight
+through with `setDisplayRung` (validated against `RUNGS` first — `setDisplayRung`
+coerces junk to `visual`, so an unchecked path would let a malformed message reset
+somebody's accessibility choice); everything else stays seed-only. **Auto-login
+with saved credentials never sends it** — nobody pressed anything.
+
+### Arrival lines — walking is not reading
+
+**A move logs where you are and what can hurt you. Nothing else.**
+`arrivalRoom()` keeps `zone-name`, `light-level`, the ☢/safe/death warnings and
+the enemies rows, and drops everything else — including the exits, the people and
+the `Also here:` tally that a *brief* keeps. An explicit `look` is still always
+full, so the contract is the same one, applied harder: **nothing is lost, only
+deferred by one keystroke.**
+
+The first-arrival exception is **gone**, and `markSeenZone`/`_logSeenZones` with
+it. It existed because a move used to be a description; now a move is a line and
+a description is something you ask for — and the room you have never seen is
+precisely the room you would type `look` in.
+
+`briefRoom` stays, as the fallback: an arrival that recognises nothing falls back
+**up** a level (arrival → brief → full), which is the same rule the rungs
+themselves follow, so a `describeZone` change can make an arrival too talkative
+but never silent.
+
 ### Brief rooms — and the one property that makes them safe
 
 Appending the full room on every move makes walking six rooms six paragraphs *read
@@ -280,6 +317,25 @@ Marked today: the periodic zone ambient and the `zone.describeAmbient` plugin ho
 - **`ambient-life`'s interactive routines.** They carry a clickable opportunity
   (`Tip ₵…`, `Buy a skewer ₵…`), which makes them a decision rather than a mood.
 - **Combat, dialogue, arrivals and departures.** Never flavour.
+
+## Flavour on a verb's OWN output: the lock lines
+
+A lock type authors its own sentence — *"The keycard reader flashes green. The
+lock disengages."* That is the right thing to read and a paragraph to hear on a
+door you use twenty times a day, where the only news is whether it locked. So at
+the `log` rung `lock`/`unlock` answer **`Locked.` / `Unlocked.`** — the door-tag
+verb (`terseLock` in [engine/commands/doors.js](../server/engine/commands/doors.js))
+and your own front door (`cmdLockDoor` in
+[engine/apartments.js](../server/engine/apartments.js)) alike.
+
+**It is a rendering choice, not a state change**, and it has one deliberate
+exception: a *refusal* still speaks the lock type's own `denied` line, because
+that one explains **why** and is information rather than decoration. Both are
+pinned by `a11y:smoke`.
+
+*This is the pattern to copy when some other verb's flavour turns out to be a
+paragraph where a word would do: collapse the OUTCOME line, keep every line that
+carries a reason, and change nothing about what happened.*
 
 ### The overheard `[TV]` line
 

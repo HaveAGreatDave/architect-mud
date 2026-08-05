@@ -1510,6 +1510,16 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
     check('brief: …and keeps the exits', /exits-row/.test(short), short.slice(0, 400));
   }
   check('brief: …and drops the prose paragraph', !/room-desc/.test(short), short.slice(0, 400));
+
+  // The ARRIVAL tier, against the same real room. A move says where you are and
+  // what can hurt you; everything else waits for `look`. Checked against the
+  // live renderer for the same reason brief is — it parses describeZone's markup.
+  const { arrivalRoom } = await import('../server/engine/room-brief.js');
+  const arr = arrivalRoom(full);
+  check('arrival: a real room shortens further than brief still',
+    arr.length <= short.length, `${arr.length} vs ${short.length}`);
+  check('arrival: …and still says where you are', /zone-name/.test(arr), arr.slice(0, 200));
+  check('arrival: …and drops the prose', !/room-desc/.test(arr), arr.slice(0, 400));
 }
 
 // ── Room pane: attached satellites and light clicks ──────────────────────────
@@ -5210,7 +5220,7 @@ removeLivePlayer(P.id);
 // full, and the transform bailing out rather than emitting a stub when it does
 // not recognise a description. Both are asserted here.
 {
-  const { briefRoom, markSeenZone } = await import('../server/engine/room-brief.js');
+  const { briefRoom, arrivalRoom } = await import('../server/engine/room-brief.js');
   const ROOM = [
     '<span class="zone-name">Marrow Street</span>',
     '<span class="room-desc">Rain sheets off the awnings. Somewhere a transformer hums itself to sleep, and the gutter carries a slick of something that was recently alive.</span>',
@@ -5237,14 +5247,39 @@ removeLivePlayer(P.id);
   try { briefRoom(null); briefRoom(undefined); briefRoom(''); } catch (e) { threw = e.message; }
   check('brief: rendering with no description does not throw', threw === null, threw);
 
-  // First arrival is full, every arrival after it is brief. Getting this
-  // inverted would abbreviate exactly the one visit whose prose you have never
-  // read — hiding content instead of repeating it.
-  const p = {};
-  check('brief: the first arrival at a room is full', markSeenZone(p, 'z1') === true);
-  check('brief: …the second is not', markSeenZone(p, 'z1') === false);
-  check('brief: …and a different room is full again', markSeenZone(p, 'z2') === true);
-  check('brief: a player with no zone is never abbreviated', markSeenZone(p, null) === true);
+  // ── The ARRIVAL tier: walking is not reading ───────────────────────────────
+  // A move says where you are and what can hurt you, and nothing else. The
+  // safety property is unchanged and rests entirely on `look` staying full,
+  // which stampToLog owns and a11y:smoke pins.
+  const DANGER = [
+    '<span class="zone-name">Marrow Street</span>',
+    '<span class="room-desc">Rain sheets off the awnings. A transformer hums.</span>',
+    '<span class="rad-warning">☢ The air crackles.</span>',
+    '<span class="enemies-label">Hostiles:</span> a scav dog',
+    '<span class="npcs-label">Here:</span> a vendor',
+    '<span class="exits-row"><span class="exits-label">Exits:</span> north, east</span>',
+  ].join('\n');
+  const a = arrivalRoom(DANGER);
+  check('arrival: where you are survives', a.includes('Marrow Street'), a);
+  check('arrival: …and what can kill you', a.includes('☢') && a.includes('scav dog'), a);
+  check('arrival: …the prose does not', !a.includes('transformer'), a);
+  // The three that used to survive a brief and now wait for `look`. This is the
+  // whole ask — as little as possible on a step — and it is only safe because
+  // `look` is one keystroke and still renders everything.
+  check('arrival: …nor the exits', !a.includes('Exits:'), a);
+  check('arrival: …nor who is standing about', !a.includes('a vendor'), a);
+  check('arrival: it is shorter than the brief of the same room',
+    a.length < briefRoom(DANGER).length, `${a.length} vs ${briefRoom(DANGER).length}`);
+
+  // Bail-out, same contract as brief: an unrecognised description comes back
+  // whole, and a shape that leaves nothing falls back UP to the brief rather
+  // than emitting a stub.
+  check('arrival: an unrecognised description is returned untouched', arrivalRoom(alien) === alien);
+  check('arrival: a name-only room still names itself',
+    arrivalRoom('<span class="zone-name">A Cell</span>').includes('A Cell'));
+  let athrew = null;
+  try { arrivalRoom(null); arrivalRoom(undefined); arrivalRoom(''); } catch (e) { athrew = e.message; }
+  check('arrival: rendering with no description does not throw', athrew === null, athrew);
 
   // ── Facet sections are FLATTENED, never dropped ────────────────────────────
   // describe.js emits the sections as a <div> with NO leading newline, so they

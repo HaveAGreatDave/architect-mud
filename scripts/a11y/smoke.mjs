@@ -80,12 +80,12 @@ else bad(`only ${guardedHides} setPaneSilent call(s) are gated on paneFreeForRoo
 {
   const brief = readFileSync('server/engine/room-brief.js', 'utf8');
   const server2 = readFileSync('server/index.js', 'utf8');
-  if (/briefRoom/.test(server2)) ok('the server abbreviates repeat rooms in the log');
-  else bad('server/index.js no longer calls briefRoom — every step logs a full paragraph');
+  if (/arrivalRoom/.test(server2)) ok('the server shortens a walked-into room in the log');
+  else bad('server/index.js no longer calls arrivalRoom — every step logs a full paragraph');
   // The safety property. An abbreviated `look` would make the information GONE
   // rather than one keystroke away, and the whole contract rests on that.
-  if (/type === 'look' \|\| first/.test(server2)) ok("…and never abbreviates an explicit `look` or a first arrival");
-  else bad('the full-render condition has changed — `look` and first arrivals MUST stay full, or brief becomes lossy');
+  if (/message\.type === 'look' \? message\.message/.test(server2)) ok("…and never abbreviates an explicit `look`");
+  else bad('the full-render condition has changed — an explicit `look` MUST stay full, or the short arrival becomes lossy');
   if (/appendHtml\(msg\.logMessage \|\| msg\.message/.test(dispatch)) ok('…and the client honours the brief copy');
   else bad('the client ignores msg.logMessage — the brief is computed and thrown away');
   // The transform parses another module's markup, so its bail-out is load-bearing.
@@ -131,6 +131,20 @@ const sounds = readFileSync('server/engine/sounds.js', 'utf8');
 if (/propagateSound\([^)]*flavour = false/.test(sounds)) {
   ok('propagateSound treats an unmarked sound as news, not flavour');
 } else bad('propagateSound no longer defaults flavour to false — an unmarked gunshot could go unspoken');
+
+// ── Lock flavour collapses at the bottom rung ────────────────────────────────
+// A lock type writes its own sentence ("The keycard reader flashes green. The
+// lock disengages."), which is the right thing to READ and a paragraph to hear
+// on a door you use twenty times a day. The only news in it is whether it
+// locked. Rendering only — the refusal keeps the type's own `denied` line,
+// because that one explains WHY.
+const doorsSrc = readFileSync('server/engine/commands/doors.js', 'utf8');
+if (/terseLock\(player,[\s\S]{0,200}?'Locked\.'/.test(doorsSrc) && /terseLock\(player,[\s\S]{0,200}?'Unlocked\.'/.test(doorsSrc)) {
+  ok('lock and unlock collapse to one word at the log rung');
+} else bad('the door lock/unlock flavour is no longer shortened at the log rung');
+const aptSrc = readFileSync('server/engine/apartments.js', 'utf8');
+if (/loggedPanelsSync\(player\)[\s\S]{0,120}?"Locked\."/.test(aptSrc)) ok('…and so does your own front door');
+else bad('the apartment lock verb still speaks its full flavour at the log rung');
 
 // ── The command input is labelled ────────────────────────────────────────────
 // A placeholder is not a label: several screen readers drop it once anything is
@@ -210,6 +224,16 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   const server3 = readFileSync('server/index.js', 'utf8');
   if (/seedDisplayRungIfUnset/.test(server3)) ok('…and the server seeds it before player.login fires');
   else bad('finishAuth no longer seeds the pre-login rung — the prologue will read undefined and play the cinematic anyway');
+
+  // A PRESSED radio is an instruction, not a seed. Seed-only was right for the
+  // radio the screen REMEMBERS and wrong for one the player just pressed: every
+  // account that has ever visited Settings has a stored rung, so without this
+  // the login-screen control did nothing at all for anybody but a brand-new
+  // character — you chose `log`, logged in, and got the graphical game.
+  if (/displayRungExplicit/.test(net)) ok('…and a rung the player PRESSED is marked as an explicit choice');
+  else bad('net.js no longer distinguishes a pressed rung from a remembered one — the login-screen choice is a no-op for any account that already has a rung');
+  if (/explicitDisplayRung && DISPLAY_RUNGS\.includes/.test(server3)) ok('…which the server honours over a stored rung, validated');
+  else bad('finishAuth no longer applies an explicit pre-login rung (or applies it unvalidated) — the choice is silently dropped');
 
   const tablet = readFileSync('plugins/tablet/index.js', 'utf8');
   const dm = tablet.slice(tablet.indexOf('displaymode:'), tablet.indexOf('displaymode:') + 400);

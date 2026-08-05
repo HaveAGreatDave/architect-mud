@@ -26,6 +26,7 @@ import {
 	closeConnection,
 	sendRaw,
 	restoreDisplayRungPref,
+	watchDisplayRungChoice,
 } from "./net.js";
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
@@ -306,6 +307,10 @@ if (_savedUser && _savedPass) {
 // disclosure if there was one. Runs before any auto-login hides the screen,
 // which is fine — nothing here sends anything.
 restoreDisplayRungPref();
+// ...and watch for the player actually pressing one, which is a different thing
+// from the radio being checked: a restored choice only seeds an account that has
+// none, a pressed one overrides whatever the account already had.
+watchDisplayRungChoice();
 
 document.getElementById("auth-submit").addEventListener("click", doAuth);
 document.getElementById("auth-password").addEventListener("keydown", (e) => {

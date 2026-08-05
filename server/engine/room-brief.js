@@ -196,23 +196,73 @@ export function briefRoom(html) {
 	return kept.join('\n');
 }
 
+// ── ARRIVAL: less than brief, because walking is not reading ─────────────────
+//
+// Brief was still a description. Six lines about who is here and where the exits
+// are, spoken on every single step, is a lot of speech to sit through when all
+// you did was walk north — and the player asking for the bottom rung is asking
+// for as little as possible, not for a shorter paragraph.
+//
+// So MOVING says where you are and what can hurt you, and NOTHING else. The
+// contract is unchanged and is what makes this safe: `look` is still always
+// full, and it is still one keystroke away. What used to be deferred by one
+// keystroke is simply deferred a little more often.
+//
+// WHAT SURVIVES A MOVE, and why it is exactly this:
+//   · the zone name — otherwise you cannot tell that you moved
+//   · the light level — it gates what looking would even show you
+//   · ☢ / safe / death warnings — lethal, and never abbreviated anywhere
+//   · enemies — the one thing in a room that acts on you before you can look
+//
+// Everything else — people, exits, items, furniture, the `Also here:` tally —
+// waits for `look`. Exits are the borderline case and they go: a room you have
+// walked into has an exit you walked in through, and asking is one word.
+const ARRIVAL = [
+	'zone-name',
+	'light-level',
+	'rad-warning',
+	'safe-warning',
+	'death-message',
+	'enemies-label', 'enemies-row',
+];
+
 /**
- * Should this arrival be rendered in full?
- *
- * True on the player's first arrival at a zone in this session — they have never
- * read the prose, so a brief would be hiding content, not repeating it. Tracked
- * in memory on the live player object: this is per-session by design (coming back
- * after a reconnect and getting the full room again is a feature, not a leak) and
- * so it needs no column, no flag and no query. See the persistence tiers in
- * docs/architecture.md — this is exactly the runtime-derived state that must not
- * become a DB write on the every-move path.
+ * The one-line version of a room, for a move at the `log` rung.
+ * Falls back to `briefRoom` — never to nothing — if the shape isn't understood.
  */
-export function markSeenZone(player, zoneId) {
-	if (!player || !zoneId) return true;
-	if (!player._logSeenZones) player._logSeenZones = new Set();
-	if (player._logSeenZones.has(zoneId)) return false;
-	player._logSeenZones.add(zoneId);
-	return true;
+export function arrivalRoom(html) {
+	if (typeof html !== 'string' || !html) return html;
+	if (!html.includes('zone-name')) return html;
+	const lines = flattenFurnitureSections(html).split('\n');
+	const kept = [];
+	for (const line of lines) {
+		if (!line.trim()) continue;
+		const cls = classesOf(line);
+		// Unclassed text after the name is the bare-prose case — the thing this is
+		// here to drop. Before the name it is a header we do not recognise, and
+		// dropping an unknown header is how a room goes missing.
+		if (!cls.length) { if (!kept.length) kept.push(line); continue; }
+		if (cls.some((c) => ARRIVAL.includes(c))) kept.push(line);
+	}
+	// Nothing recognised, or nothing left: hand back the brief rather than a stub.
+	// Falling back UP a level (arrival → brief → full) is the same rule the rungs
+	// themselves follow, and it means a describeZone change can make this too
+	// talkative but never silent.
+	if (!kept.length) return briefRoom(html);
+	return kept.join('\n');
 }
 
-export const _test = { briefRoom, KEEP, DROP, VITAL, TALLY };
+// THE FIRST-ARRIVAL EXCEPTION IS GONE, and so is the Set that tracked it.
+//
+// It said: your first arrival at a room is full, because you have never read
+// that prose and abbreviating it would hide content rather than repeat it. That
+// was the right rule while a move was still a description. Now a move is a line
+// and a description is something you ASK for — and the room you have never seen
+// is precisely the room you would type `look` in, so the exception was spending
+// a whole paragraph to pre-empt a command the player was about to type anyway.
+//
+// Deleted rather than left unread: it was a per-session Set on the live player
+// object, written on the every-move path, and state nothing consults is exactly
+// the kind of thing that gets re-consulted later by mistake.
+
+export const _test = { briefRoom, arrivalRoom, KEEP, DROP, VITAL, TALLY, ARRIVAL };

@@ -16,6 +16,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage, getS
 import { registerAction } from '../actions.js';
 import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../hack-gear.js';
 import { escAttr } from '../text.js';
+import { loggedPanelsSync } from '../presentation.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -172,6 +173,21 @@ export async function syncApartmentLock(door, lockState) {
   }
 }
 
+// ── Lock flavour at the bottom rung ──────────────────────────────────────────
+//
+// A lock type writes its own line — "The keycard reader flashes green. The lock
+// disengages." — and that is the right sentence to READ. Spoken, on a door you
+// go through twenty times a day, it is a paragraph where one word would do, and
+// the one word is the only part that is ever news: did it lock, or didn't it.
+//
+// So at the `log` rung the flavour collapses to the outcome and nothing else.
+// This is a rendering choice and NOT a state change: the lock did exactly the
+// same thing, the refusal still uses the type's own `denied` line (it explains
+// WHY and that is information, not decoration), and every other rung is
+// untouched. `loggedPanelsSync` reads the login latch, so this costs no query on
+// a path a player can spam.
+const terseLock = (player, flavour, outcome) => (loggedPanelsSync(player) ? outcome : flavour);
+
 async function cmdOpenDoor(args, raw, player, broadcast) {
   const door = resolveDoor(args, player);
   if (!door) return null;
@@ -219,7 +235,7 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   }
 
   await updateDoor(door, { lock_state: 'locked' });
-  return { type:'output', message: lockTag.messages?.lock ?? 'You lock the door.' };
+  return { type:'output', message: terseLock(player, lockTag.messages?.lock ?? 'You lock the door.', 'Locked.') };
 }
 
 async function cmdUnlockDoor(args, raw, player, broadcast) {
@@ -236,7 +252,7 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
 
   await updateDoor(door, { lock_state: 'unlocked' });
   broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
-  return { type:'output', message: lockTag.messages?.unlock ?? 'The lock disengages.' };
+  return { type:'output', message: terseLock(player, lockTag.messages?.unlock ?? 'The lock disengages.', 'Unlocked.') };
 }
 
 // The zone(s) on the other side of a door from wherever it's anchored.

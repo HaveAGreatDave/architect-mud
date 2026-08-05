@@ -201,6 +201,32 @@ function pickedDisplayRung() {
   return RUNGS.includes(v) ? v : null;
 }
 
+// DID THEY TOUCH IT THIS TIME? — the difference between a seed and an order.
+//
+// `restoreDisplayRungPref` pre-checks last time's answer, so a checked radio is
+// NOT evidence of a choice: an untouched screen carrying a restored `log` looks
+// identical to one somebody just clicked. The server rightly refuses to let a
+// mere seed overwrite a rung already stored on the account — otherwise a library
+// computer would reset the phone you set it on.
+//
+// But that made picking a rung on the login screen do NOTHING for every account
+// that had ever set one, which is every account that has been to Settings. The
+// player clicks Log, logs in, and gets the graphical game — nothing tells them
+// why. So the two cases are told apart here rather than guessed at over there:
+// a radio the player pressed in THIS visit is an explicit instruction and wins,
+// and everything else stays a seed that only fills an empty slot.
+let displayRungTouched = false;
+
+// Bound once at init on the fieldset, so it survives the radios being re-rendered
+// and needs no per-input listener.
+export function watchDisplayRungChoice() {
+  const set = document.querySelector('.auth-display-set');
+  if (!set) return;
+  set.addEventListener('change', (e) => {
+    if (e.target?.name === 'auth-display') displayRungTouched = true;
+  });
+}
+
 // The remembered choice, for paths that never show the auth screen at all
 // (auto-login with saved credentials). Same null-means-UNTOUCHED contract as
 // pickedDisplayRung — the radios simply aren't there to read.
@@ -272,6 +298,10 @@ export function doAuth() {
   // already pushed the cold open by then, which is the one thing this exists to
   // let a screen-reader player skip.
   const displayRung = pickedDisplayRung();
+  // Only a rung pressed in this visit is an instruction; a restored one is a
+  // seed. Registration is always a fresh account, so the distinction is moot
+  // there and the flag rides along either way.
+  const displayRungExplicit = displayRungTouched && !!displayRung;
   if (displayRung) rememberDisplayRung(displayRung);
 
   errEl.textContent = '';
@@ -308,7 +338,7 @@ export function doAuth() {
           : 'Account created. Check your email for a verification link before logging in.');
         return;
       }
-      _connection.send({ type: 'auth', username, password, displayRung });
+      _connection.send({ type: 'auth', username, password, displayRung, displayRungExplicit });
     }).catch(err => {
       clearTimeout(state.authTimeout);
       state.authPending = false;
@@ -318,7 +348,7 @@ export function doAuth() {
       errEl.style.color = 'var(--red)';
     });
   } else {
-    _connection.send({ type: 'auth', username, password, displayRung });
+    _connection.send({ type: 'auth', username, password, displayRung, displayRungExplicit });
   }
 }
 
