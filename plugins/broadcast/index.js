@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { textRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone, hasActivePlayers, insertFurniture, updateFurniture, deleteFurnitureWhere, getZoneFurniture, resolveLanding } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -33,6 +33,7 @@ import {
 } from './gameshow.js';
 import { installAudienceGate } from './audience.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
+import { findPath } from '../../server/engine/pathfinding.js';
 import { registerPurchaseStamp } from '../../server/engine/vendor.js';
 import { cmdListen } from '../../server/engine/commands/world.js';
 
@@ -467,6 +468,12 @@ function _pickDailySlot(playlist, gameSecs, dayOfWeek) {
 // or Meridian apartment down to KSAB is 15–25 tiles, so ~6 real minutes of walking, and the
 // margin covers a lift, a locked door and the odd detour to a bathroom.
 const STAFF_CALL_LEAD_REAL_MIN = 12;
+// How long a channel holds the "please stand by" card for a cast who never turned up
+// before it gives the slot away to the fallback slate. REAL milliseconds, because the
+// wait is one a viewer sits through. Sized off the call lead: the cast were due twelve
+// real minutes before the slot opened, so five more minutes past airtime means the walk
+// has had well over twice its budget and whatever went wrong is not traffic.
+const NO_SHOW_GRACE_MS = 5 * 60 * 1000;
 function _staffCallLeadGameSec() {
   const ts = getEnvironmentState()?.timeScale || 1;
   return STAFF_CALL_LEAD_REAL_MIN * 60 * (ts > 0 ? ts : 1);
@@ -492,6 +499,20 @@ function _staffCallSlot(playlist, gameSecs, dayOfWeek, npcId) {
   return null;
 }
 
+// Is this playlist row PERFORMED — i.e. does it need bodies standing on the studio floor
+// before it can go out? Deliberately the same test recalculateNpcSchedules uses to decide
+// what to staff, so the scan can never disagree with the thing it's auditing.
+function _isActedItem(channel, item) {
+  return channel.channel_type === 'live'
+    || ['weather', 'talkshow', 'morning', 'gameshow'].includes(item.playback_mode);
+}
+
+function _itemNpcStaff(item) {
+  let cond = item.conditions;
+  if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = null; } }
+  return Array.isArray(cond?.npc_staff) ? cond.npc_staff : [];
+}
+
 async function scanChannelDay(channelId) {
   const { rows: chRows } = await query('SELECT * FROM media_channels WHERE id=$1', [channelId]);
   if (!chRows.length) return null;
@@ -511,7 +532,7 @@ async function scanChannelDay(channelId) {
   if (!ch.offline_graphic_id) add('info', 'no_offline_graphic', 'No offline graphic set — off-air / technical difficulties will show plain stand-by text, not a graphic.');
 
   const { rows: items } = await query(
-    `SELECT p.start_time, p.broadcast_id, p.days, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph,
+    `SELECT p.start_time, p.broadcast_id, p.days, p.conditions, b.name AS broadcast_name, b.playback_mode, b.broadcast_graph,
             b.talkshow_pools, b.gameshow_pools, b.sports_pools
        FROM media_channel_playlist p JOIN media_broadcasts b ON b.id=p.broadcast_id
       WHERE p.channel_id=$1 ORDER BY p.start_time`, [channelId]
@@ -543,6 +564,46 @@ async function scanChannelDay(channelId) {
         `'${label}' is scheduled at ${hh(rowSlot)} (block ${rowSlot}) but its @airtime is block(s) ${slots.join(', ')} (${slots.map(hh).join(', ')}) — it can never air in this slot and the channel drops to technical difficulties. Move the slot or change @airtime.`,
         { broadcast: label });
     }
+    // ── CAN THE CAST ACTUALLY GET THERE? ──────────────────────────────────────
+    // Everything else in this scan checks the signal path — transmitter, graphics, songs,
+    // camera zones. None of it checked the one failure that looks identical to a dead
+    // transmitter from the sofa: the show is fine, and nobody turned up to be in it. Two
+    // ways that happens, both silent until now. (1) An acted slot with no `npc_staff` at
+    // all — nobody is ever on the clock for it, so nobody commutes and the channel holds a
+    // stand-by card forever. (2) A staffed NPC with no walkable route from where they sleep
+    // to the studio floor: GO_TO_WORK retries the same impossible hop every tick and warns
+    // to the server log at most once an hour, which nothing in-game ever surfaces.
+    if (_isActedItem(ch, item)) {
+      const staff = _itemNpcStaff(item);
+      if (!staff.length) {
+        add('error', 'no_staff',
+          `'${label}' is performed live but has no cast staffed on it — nobody is ever on shift for this slot, so nobody walks to the studio and the channel sits on a "please stand by" card. Run Recalculate Schedules; if that leaves it empty, the show's pools name no NPC.`,
+          { broadcast: label });
+      } else if (!ch.studio_zone_id) {
+        add('error', 'no_studio_zone',
+          `'${label}' is performed live but this channel has no studio zone set — its cast have nowhere to be called to.`,
+          { broadcast: label });
+      } else {
+        const studio = resolveLanding(ch.studio_zone_id);
+        for (const npcId of staff) {
+          const npc = world.npcs?.get(npcId);
+          if (!npc) { add('warn', 'missing_npc', `'${label}': staffed NPC '${npcId}' does not exist.`, { broadcast: label }); continue; }
+          // Where the commute STARTS. home_zone is the honest answer for resident cast;
+          // the talk-show guest materialises near the studio from a hidden backstage, so
+          // its backstage home is deliberately unroutable and must not be reported.
+          const from = npc.home_zone;
+          if (!from || from === studio || from === TALKSHOW_BACKSTAGE_ZONE) continue;
+          if (!getZone(from)) { add('warn', 'staff_home_missing', `'${label}': ${npc.name || npcId} has home zone '${from}', which does not exist — they have nowhere to commute from.`, { broadcast: label }); continue; }
+          const path = findPath(from, studio);
+          if (!path || path.length < 2) {
+            add('error', 'staff_unreachable',
+              `'${label}': ${npc.name || npcId} cannot walk from home ('${from}') to the studio ('${studio}') — no route. They will never arrive, and the slot will show a "please stand by" card until it gives up to the fallback slate.`,
+              { broadcast: label });
+          }
+        }
+      }
+    }
+
     if (item.playback_mode === 'weather') { add('info', 'weather_live', `'${label}' is a weather forecast — assembled live, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'sports')  { add('info', 'sports_live',  `'${label}' is a sports broadcast — a fresh game is simulated each airing, not statically scannable.`, { broadcast: label }); continue; }
     if (item.playback_mode === 'news')    { add('info', 'news_live',    `'${label}' is a news broadcast — a fresh bulletin is assembled from the live news generator each airing, not statically scannable.`, { broadcast: label }); continue; }
@@ -4677,12 +4738,28 @@ registerNpcNextShiftLookup((npcId) => {
 });
 
 // getNpcStudioZone: find the studio zone for the channel this NPC is staffed on
+// This is the zone CHECK_WORK, GO_TO_WORK, AT_WORK and the guest lifecycle all walk to, so
+// "first channel that happens to enumerate" is not good enough for anyone moonlighting: an
+// NPC staffed on two channels with different studios would be routed to whichever the Map
+// yielded first and could stand in the wrong building through their own airing. Prefer the
+// studio they are due at RIGHT NOW (on air, or inside their call window); fall back to the
+// soonest one they're booked on; and only then to any studio that staffs them at all — which
+// is what keeps a loop/mixed channel, with no wall-clock timetable to count down to, working
+// exactly as it did before.
 registerNpcStudioZoneLookup((npcId) => {
+  const { minutes, dayOfWeek } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  let anyStaffing = null;
   for (const state of channelRuntime.values()) {
     if (!state.studioZoneId) continue;
-    if (state.playlist.some(i => i.npcStaff?.includes(npcId))) return state.studioZoneId;
+    if (!state.playlist.some(i => i.npcStaff?.includes(npcId))) continue;
+    if (!anyStaffing) anyStaffing = state.studioZoneId;
+    if (state.scheduleMode !== 'daily') continue;
+    const now = _pickDailySlot(state.playlist, gameSecs, dayOfWeek);
+    if (now?.npcStaff?.includes(npcId)) return state.studioZoneId;
+    if (_staffCallSlot(state.playlist, gameSecs, dayOfWeek, npcId)) return state.studioZoneId;
   }
-  return null;
+  return anyStaffing;
 });
 
 // What a channel is airing RIGHT NOW, from live runtime timing (same clock the
@@ -5213,7 +5290,7 @@ function filmRunElapsed(item, gameSecondsSinceMidnight) {
 async function recalculateNpcSchedules() {
   const { rows: plItems } = await query(`
     SELECT p.id, p.channel_id, p.broadcast_id, p.conditions,
-           b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools,
+           b.broadcast_graph, b.playback_mode, b.talkshow_pools, b.morning_pools, b.gameshow_pools, b.weather_pools,
            c.channel_type, c.studio_zone_id
     FROM media_channel_playlist p
     JOIN media_broadcasts b ON b.id = p.broadcast_id
@@ -5278,11 +5355,27 @@ async function recalculateNpcSchedules() {
       for (const id of [gs?.host, gs?.sidekick]) if (id && !npcIds.includes(id)) npcIds.push(id);
     }
 
+    // A weather forecast's stored graph is start-only as well — the bulletin is assembled
+    // from the live forecast at airtime — so its weathercaster comes from weather_pools.host.
+    // Without this branch the derivation found no npc_anchor, bailed on the empty-cast guard
+    // below, and the caster was never staffed anywhere: assembleWeatherGraph still emitted an
+    // npc_anchor and stamped _requireHost, so the forecast was presence-gated on an NPC who
+    // had no work_zone_id, no studio graph and no reason to ever walk in. The channel then
+    // held a PLEASE STAND BY card over its entire slot, every day, forever — and the self-heal
+    // pass at the bottom actively reverted any hand-patched fix.
+    const isWeather = row.playback_mode === 'weather';
+    if (isWeather) {
+      let wx = row.weather_pools;
+      if (typeof wx === 'string') { try { wx = JSON.parse(wx); } catch { wx = null; } }
+      npcIds.length = 0;
+      for (const id of [wx?.host]) if (id && !npcIds.includes(id)) npcIds.push(id);
+    }
+
     // Only LIVE channels, WEATHER forecasts, TALK SHOWS, MORNING SHOWS and GAME SHOWS
     // physically staff the studio. For a scripted show, npc_anchor is speaker attribution
     // only — never staff it, and strip any stale staffing a previous (buggy) pass merged
     // into its conditions.
-    const staffsNpcs = row.channel_type === 'live' || row.playback_mode === 'weather' || isTalkshow || isMorning || isGameshow;
+    const staffsNpcs = row.channel_type === 'live' || isWeather || isTalkshow || isMorning || isGameshow;
     const studioZoneId = row.studio_zone_id || null;
 
     // Reconcile npc_staff in the item's conditions (merge for live/weather/talkshow, clear otherwise)
@@ -5330,10 +5423,11 @@ async function recalculateNpcSchedules() {
       }
     }
 
-    // Re-inject work-phase actions from the broadcast graph. Skipped for talk shows and
-    // morning shows — the episode is assembled live, so there's no baked per-NPC line
-    // sequence to extract, and the guest's lifecycle graph must not be overwritten.
-    if (!isTalkshow && !isMorning) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+    // Re-inject work-phase actions from the broadcast graph. Skipped for talk shows,
+    // morning shows and forecasts — the episode is assembled live, so there's no baked
+    // per-NPC line sequence to extract, and the guest's lifecycle graph must not be
+    // overwritten.
+    if (!isTalkshow && !isMorning && !isWeather) await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
   }
 
   // Self-heal: any NPC still routed to a studio zone but no longer legitimately
@@ -5766,6 +5860,31 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       return _techDiffMessage(state, channelId, nowMs);
     }
     if (bb.hostAbsent) {
+      // NO-SHOW POLICY. `absentDetectedAt` has been stamped since the presence gate was
+      // written and never once read, which meant "please stand by" was an unbounded
+      // promise: a cast member who was dead, jailed, or standing on the wrong side of a
+      // path that doesn't exist held a duration-0 card over the channel for the entire
+      // slot, and the only recovery was somebody physically walking in. A station does not
+      // apologise for two hours. Once the grace expires the programme is abandoned and the
+      // channel falls to its own stand-in slate (`fallback_messages` — the same slate a
+      // transmitter fault raises, which is the honest read: the show is not coming).
+      //
+      // Handing over takes two ticks by construction: the stand-by card is an overlay with
+      // duration 0, so it hangs on the client until something takes it down, and nothing
+      // downstream does. Clear it first, slate second — otherwise the fallback text plays
+      // underneath a PLEASE STAND BY the viewer can never get rid of.
+      //
+      // Recovery is unchanged and still automatic: the `_anyCastPresent` check at the top
+      // of this block clears hostAbsent, techDiffMode and this timer the moment anyone
+      // reaches the floor, so a cast member who turns up late still gets their show back.
+      if (bb.absentDetectedAt && nowMs - bb.absentDetectedAt > NO_SHOW_GRACE_MS) {
+        if (bb.standbyCardUp) {
+          bb.standbyCardUp = false;
+          return { overlay: null, key: `absent-giveup-clear:${channelId}:${nowMs}`, style: 'overlay' };
+        }
+        bb.techDiffMode = true;
+        return _techDiffMessage(state, channelId, nowMs);
+      }
       // A scheduled cast member hasn't reached the studio yet. Don't spam empty-studio
       // camera shots and don't drop to technical-difficulties (which reads as "signal
       // lost") — hold a clean, apologetic delay card naming who we're waiting on, and
@@ -9512,6 +9631,26 @@ export const routeHandler = async (path, method, body, auth) => {
 await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();
+
+// STAFFING IS DERIVED, SO DERIVE IT AT BOOT. `conditions.npc_staff` on a playlist row is
+// the only thing that makes a cast member "on shift" — CHECK_WORK, the call-time lookahead
+// and the sleep wake-up all read it, and nothing else writes it. Until now its only writers
+// were the playlist PUT handler and a dev-panel button, while every shipped playlist row in
+// `content/` carries `conditions: []` (the content pipeline doesn't own that key). So a
+// database seeded from git had no staffing at all: nobody was ever on the clock, nobody
+// commuted, and EVERY acted show sat on a PLEASE STAND BY card until a human remembered to
+// click Recalculate. Deriving it here makes a fresh seed and a restart behave like a
+// dev-panel save. It's a converging pass — it writes only rows whose staffing actually
+// changed — and it ends by reloading the channel runtimes, so the tick below starts on
+// correct state. Awaited (the first slot can open seconds after boot) but never fatal: a
+// broadcast plugin that can't staff its studios must still put pictures out.
+try {
+  const { updatedItems, updatedNpcs } = await recalculateNpcSchedules();
+  if (updatedItems || updatedNpcs) console.log(`[broadcast] staffing derived at boot: ${updatedItems} schedule item(s), ${updatedNpcs} NPC graph(s)`);
+} catch (err) {
+  console.warn('[broadcast] boot staffing recalculation failed:', err.message);
+}
+
 schedule('1s', broadcastTick);   // BROADCAST_TICK_MS
 
 // Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)

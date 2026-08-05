@@ -2304,6 +2304,69 @@ export default async function regress({ check, run, getPlayer }) {
     }
   }
 
+  // ── Everybody who has to be there is actually booked to be there ─────────────
+  // `conditions.npc_staff` is the ONLY thing that puts a cast member on the clock, and it
+  // is derived, not authored — so nothing in the content files can be inspected to tell
+  // whether a show has a cast. Two bugs lived in that blind spot for months: the derivation
+  // never handled `weather_pools.host`, so DOOMCAST's weathercaster was staffed nowhere
+  // while the forecast was still presence-gated on him; and nothing ran the derivation at
+  // boot, so a database seeded from git had no staffing at all and EVERY acted show sat on
+  // a stand-by card. Both are invisible in code review and obvious here: walk the live
+  // playlist and assert that anything performed has bodies booked, and that each of them
+  // has somewhere to be called to.
+  {
+    const { rows } = await query(`
+      SELECT p.id, p.conditions, b.name AS bname, b.playback_mode, c.channel_type, c.studio_zone_id
+        FROM media_channel_playlist p
+        JOIN media_broadcasts b ON b.id = p.broadcast_id
+        JOIN media_channels    c ON c.id = p.channel_id
+       WHERE p.broadcast_id IS NOT NULL
+    `);
+    const acted = rows.filter(r =>
+      r.channel_type === 'live' || ['weather', 'talkshow', 'morning', 'gameshow'].includes(r.playback_mode));
+    check('staffing: the world has acted programming to check', acted.length > 0, `${acted.length} acted slot(s)`);
+
+    const staffOf = (r) => {
+      let c = r.conditions;
+      if (typeof c === 'string') { try { c = JSON.parse(c); } catch { c = null; } }
+      return Array.isArray(c?.npc_staff) ? c.npc_staff : [];
+    };
+    const unstaffed = acted.filter(r => !staffOf(r).length);
+    check('staffing: every acted slot has a cast booked on it',
+      unstaffed.length === 0, unstaffed.map(r => r.bname).join(', ') || 'all staffed');
+
+    // The weather forecast specifically — the mode the derivation used to skip.
+    const wx = acted.filter(r => r.playback_mode === 'weather');
+    check('staffing: a forecast staffs its weathercaster',
+      wx.length === 0 || wx.every(r => staffOf(r).length),
+      wx.map(r => `${r.bname}:${staffOf(r).length}`).join(', ') || 'no forecasts');
+
+    // Booked is not the same as routed: an NPC with no work_zone_id never leaves home,
+    // because CHECK_WORK bails before it ever asks whether they're on shift.
+    const stranded = [];
+    for (const r of acted) {
+      if (!r.studio_zone_id) continue;
+      for (const id of staffOf(r)) {
+        const npc = world.npcs?.get(id);
+        if (npc && !npc.work_zone_id && !npc.studio_zone_id) stranded.push(`${npc.name || id} (${r.bname})`);
+      }
+    }
+    check('staffing: every booked cast member has a studio to walk to',
+      stranded.length === 0, stranded.join(', ') || 'all routed');
+  }
+
+  // ── GO_TO_STUDIO is not a second, worse commute ──────────────────────────────
+  // It used to be a hand-rolled walker doing a quarter of GO_TO_WORK's pace with no
+  // late-catch-up and no blocked-path warning, offered to authors in the VINE editor
+  // right next to the good one. Any graph that picked it missed its call.
+  {
+    const src = readFileSync(new URL('../../server/engine/ai-behaviour.js', import.meta.url), 'utf8');
+    check('commute: GO_TO_STUDIO shares GO_TO_WORK\'s body',
+      /case 'GO_TO_STUDIO':\s*\n\s*case 'GO_TO_WORK':/.test(src), 'fall-through present');
+    check('commute: no separate studio walker survives',
+      !/case 'GO_TO_STUDIO': \{/.test(src), 'duplicate removed');
+  }
+
   // ── Call time: staff are on the clock BEFORE their slot opens ────────────────
   // GO_TO_STUDIO walks one tile per 15s AI tick from wherever the cast sleep, so a host who
   // comes on shift at the instant the slot opens is a stand-by card away from the couch.

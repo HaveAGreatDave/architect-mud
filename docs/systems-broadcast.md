@@ -312,6 +312,8 @@ that cannot start. A partially-absent cast does **not** raise the card: the show
 short-handed and the missing actor's lines simply never air (see
 [Live realism](#live-realism-the-broadcast-is-the-studio)). Once `hostAbsent` is true, the walker short-circuits each tick and returns a clean, centred **`text_card` overlay** (`style: 'overlay'`) that names exactly who's missing — `_absentCastNames(graph, studioZoneId)` scans the graph's `npc_anchor` nodes and lists any not currently in the studio: *"PLEASE STAND BY — Tonight's programme is delayed — `<name(s)>` `has/have` not yet arrived in the studio. We apologise for the inconvenience…"*. This is deliberately **not** the technical-difficulties fallback (which reads as "signal lost") and **not** the old empty-studio camera spam — the viewer is told what's happening. The card holds (`duration: 0`, no auto-dismiss) and is re-emitted on a 5-second slot so late-tuners pick it up. The walker recovers automatically — clearing `hostAbsent` and resuming the graph — the instant `_absentCastNames` comes back empty (every scheduled anchor is back on the studio floor).
 
+**The card is not an unbounded promise.** `bb.absentDetectedAt` starts a `NO_SHOW_GRACE_MS` clock (5 **real** minutes past airtime — the cast were already called 12 real minutes early, so the walk has had well over twice its budget and whatever went wrong is not traffic). When it expires the programme is abandoned and the channel falls to its own stand-in slate: a cast member who is dead, jailed, or standing on the wrong side of a route that doesn't exist used to hold a `duration: 0` card over the channel for the entire slot, with no recovery but somebody physically walking in. Handover takes two ticks by construction — the stand-by overlay must be explicitly cleared before the slate goes up, or the fallback text plays underneath a PLEASE STAND BY the viewer can never dismiss. Recovery is unchanged and still automatic: `_anyCastPresent` clears `hostAbsent`, `techDiffMode` and the timer the moment anyone reaches the floor, so a late cast member still gets their show back.
+
 Technical-difficulties (`bb.techDiffMode`, a rotating line from `state.currentFallbackMessages`, default `'[TECHNICAL DIFFICULTIES] Please stand by.'`) is still reachable, but only for genuine signal failures — an explicit `tech_difficulties` node, a downed studio camera (`camera_cut` with the studio feed off/damaged), or a graph-walk error — never for a merely-late cast member.
 
 ### Node types
@@ -672,16 +674,20 @@ isZoneWatched(zoneId)
 
 ### NPC Work Scheduling (`recalculateNpcSchedules`)
 
-Broadcasts declare their on-screen hosts through `npc_anchor` nodes in their VINE graph. `recalculateNpcSchedules()` walks every scheduled broadcast, derives that set of NPCs, and:
+Broadcasts declare their on-screen hosts through `npc_anchor` nodes in their VINE graph — **except the assembled modes, whose stored graph is start-only and whose cast therefore comes from the pools instead**: `talkshow_pools` (host + sidekick + guest), `morning_pools` (host + cohost), `gameshow_pools` (host + sidekick) and `weather_pools` (**host**). A mode missing from that list is a structural, permanent no-show, and it is silent: `assembleWeatherGraph` still emits an `npc_anchor` and still stamps `_requireHost`, so the forecast was presence-gated on a caster who had no `work_zone_id`, no studio graph and no reason to ever walk in — and the self-heal pass at the bottom actively reverted any hand-patch. **Add the pool to the derivation in the same change that adds the mode.**
+
+`recalculateNpcSchedules()` walks every scheduled broadcast, derives that set of NPCs, and:
 
 - merges them into the playlist item's `conditions.npc_staff` (also surfaced at runtime as `runtime.playlist[].npcStaff`, populated in `loadChannelRuntimes`);
 - overwrites each host NPC's `behaviour_graph` with `makeDefaultStudioGraph(studioZoneId)` and sets its `work_zone_id` to the channel's studio zone, so the NPC's `GO_TO_WORK` behaviour resolves to the studio and it shows up when its slot is on air.
 
-It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/playlist`) and on demand via `POST /broadcast/recalculate-schedules`. The `studio_zone_id` (channel) and `work_zone_id`/`studio_zone_id` (npc) columns are the wiring this depends on.
+It runs automatically **at plugin boot**, on **every** playlist save (`PUT /broadcast/channels/:id/playlist`), and on demand via `POST /broadcast/recalculate-schedules`. The `studio_zone_id` (channel) and `work_zone_id`/`studio_zone_id` (npc) columns are the wiring this depends on.
+
+**Staffing is derived, so it is derived at boot.** `conditions.npc_staff` is the only thing that puts a cast member on the clock, and the content pipeline does not own that key — every playlist row in `content/` ships `conditions: []`. Without a boot pass, a database seeded from git had **no staffing at all**: nobody was ever on shift, nobody commuted, and every acted show sat on a stand-by card until a human clicked *Recalculate Schedules* in the dev panel. The boot call is converging (it writes only rows whose staffing changed), ends by reloading the channel runtimes, and is wrapped in a `try` — a plugin that can't staff its studios must still put pictures out. `scanChannelDay` now also reports `no_staff` / `staff_unreachable` / `staff_home_missing`, so an acted slot with no cast, or a cast member with no walkable route from `home_zone` to the studio, shows up in Channel Check instead of looking like a dead transmitter.
 
 <a id="npc-hosts--studio-staffing"></a>
 **Call time, not airtime.** A staff NPC comes on shift **before** their slot opens, because the walk
-to the studio is real: `GO_TO_STUDIO` moves one tile per 15-second AI tick, and the KSAB cast sleep in
+to the studio is real: the commute moves a few tiles per 15-second AI tick, and the KSAB cast sleep in
 Solenne and Meridian apartments 15–25 tiles away. Reporting for duty at the instant the slot opened
 guaranteed an empty couch and a **"has not yet arrived"** stand-by card over the top of every
 programme — a structural no-show, not bad luck.
@@ -694,6 +700,16 @@ programme — a structural no-show, not bad luck.
   commercial breaks, which have no cast.
 - **Talk shows** keep their own slot-granular lead (`TALKSHOW_GUEST_CALL_LEAD`), now applied to the
   **whole cast** rather than the guest alone. See [bsm-format.md](bsm-format.md#the-chair-gate).
+- **The sleep wake-up is in the same currency.** `getNextShiftWakeMs` wakes a vendor one *game* hour
+  before their counter shift, which is right for a shop's opening time and wrong for an air call: the
+  call lead is booked in *real* minutes because the walk is real. At any brisk `timeScale` a flat 60
+  game minutes is fewer real minutes than the lead itself, so a host woke up already late. The air
+  branch converts its real lead at the live clock and takes whichever is longer — it can only ever
+  wake somebody earlier, never later.
+- **`GO_TO_STUDIO` is `GO_TO_WORK` with the studio preferred**, one case falling through to the other
+  in `ai-behaviour.js`. It used to be a separate hand-rolled walker at a quarter of the pace, with no
+  late-arrival catch-up and no blocked-commute warning — offered to authors in the VINE editor right
+  next to the good one, with nothing to say which was which.
 
 **Stage occupancy rule:** only actors whose slot is on air right now stay on the studio stage. `AT_WORK` holds a scheduled actor at the studio; the moment a slot ends (`isNpcScheduledNow` → false) the graph routes to `HAVE_LIFE`, which — for any actor still inside the studio building — walks them out to the exterior world tile (one zone per tick) before starting their random off-shift wander. So an unscheduled actor never lingers on the stage. This is enforced engine-side in `HAVE_LIFE` (`server/engine/ai-behaviour.js`), keyed off the actor's studio zone via the broadcast bridge; the studio building is identified as every interior zone sharing the studio zone's `map_id`, and the exit is the stage's `flags.world_exit_zone` (fallback `exits.out`).
 

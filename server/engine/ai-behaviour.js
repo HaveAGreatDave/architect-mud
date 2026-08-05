@@ -432,6 +432,10 @@ function getNextShiftWakeMs(entity) {
   const nowMinutes = env.minutes;             // game minute-of-day, 0..1439
   const todayIdx = env.dayOfWeek % 7;         // ISO 1=Mon…7=Sun → 0=Sun…6=Sat (DAY_KEYS)
   const WAKE_LEAD_MIN = 60;                    // wake one game-hour before the shift
+  // Mirrors STAFF_CALL_LEAD_REAL_MIN in plugins/broadcast — kept as a local rather than
+  // imported, because the engine must not depend on a plugin. A few minutes more than the
+  // plugin's own lead, so the cast are awake before they're called, not as they're called.
+  const STUDIO_CALL_LEAD_REAL_MIN = 15;
   const MIN_GAP_MIN = 2;                       // ignore shifts essentially upon us
 
   // gap = game-minutes from now until the wake moment; convert to a real deadline.
@@ -460,8 +464,19 @@ function getNextShiftWakeMs(entity) {
 
   // Minutes until this NPC is next due on air (0 = on shift right now, null = staffed on
   // nothing that airs). Sync + in-memory by the bridge's contract, safe on this path.
+  // A STUDIO CALL IS NOT MEASURED IN THE SAME CURRENCY AS A COUNTER SHIFT. The vendor
+  // lead above is one GAME hour, which is fine because a shop's opening time is a game
+  // clock fact. An air call is not: the broadcast plugin books its cast in REAL minutes
+  // (the walk is real — one hop per 15s tick), so at any brisk timeScale a flat 60 game
+  // minutes shrinks to fewer real minutes than the call lead itself and the host wakes
+  // up already late for a call that opened before their alarm. Convert the real lead
+  // into game minutes at the live clock and take whichever is longer, so this can only
+  // ever wake somebody earlier, never later.
   const airGap = npcNextShiftInMins(entity.id);
-  if (airGap != null) consider(airGap - WAKE_LEAD_MIN);
+  if (airGap != null) {
+    const airLeadMin = Math.max(WAKE_LEAD_MIN, STUDIO_CALL_LEAD_REAL_MIN * (env.timeScale || 1));
+    consider(airGap - airLeadMin);
+  }
 
   if (soonestGap !== null) return realDeadline(soonestGap);
   // Nothing scheduled at all — wake at 07:00 game time (today if still ahead, else tomorrow).
@@ -1662,10 +1677,21 @@ async function execAction(node, entity, ctx) {
     case 'IDLE':
       break;
 
+    // GO_TO_STUDIO IS GO_TO_WORK WITH THE STUDIO PREFERRED. It used to be a separate
+    // hand-rolled walker fifteen lines further down, and it was strictly the worse one:
+    // one tile per 15s tick instead of four, no blocked-commute warning, no late-arrival
+    // catch-up, and a silent `return 'RUNNING'` forever when no path existed. It is
+    // offered in the VINE editor next to GO_TO_WORK with nothing to tell an author they
+    // are picking the crippled one — and a cast walking at a quarter speed blows through
+    // a call lead sized for the real walk. Same body, one difference: the studio wins the
+    // zone lookup, since that's the whole reason an author reached for this verb.
+    case 'GO_TO_STUDIO':
     case 'GO_TO_WORK': {
       if (!ai) break;
       const { zone_id, arrive_by, depart_early_minutes = 0 } = params;
-      const workZoneRaw = zone_id || entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      const workZoneRaw = type === 'GO_TO_STUDIO'
+        ? (zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id) || entity.work_zone_id)
+        : (zone_id || entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id));
       if (!workZoneRaw) break;
       // Facade → interior entry zone, so path + arrival agree (no-op for non-buildings).
       const workZone = resolveLanding(workZoneRaw);
@@ -2178,25 +2204,7 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
-    // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
-    case 'GO_TO_STUDIO': {
-      if (!ai) break;
-      const studioZone = resolveLanding(entity.studio_zone_id || getNpcStudioZone(entity.id)); // facade → interior entry
-      if (!studioZone || zoneId === studioZone) break; // already there or unscheduled
-
-      if (!ai.patrolPath.length || ai.patrolTarget !== studioZone) {
-        const path = findPath(zoneId, studioZone, entity);
-        if (!path || path.length < 2) return 'RUNNING';
-        ai.patrolPath = path.slice(1);
-        ai.patrolTarget = studioZone;
-      }
-
-      const nextZone = ai.patrolPath.shift();
-      if (!nextZone) return 'RUNNING';
-      const moved = moveEntity(entity, nextZone, broadcast, query);
-      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      return 'RUNNING';
-    }
+    // (GO_TO_STUDIO is handled with GO_TO_WORK above — see the note there.)
 
     // ── Talk-show guest lifecycle ────────────────────────────────────────────
     // The reusable guest lives off-world in a hidden backstage zone (entity.home_zone)
