@@ -155,7 +155,31 @@ field owner) — the engine just *drives* them, mirroring how the field advance 
   announce lines. Severity ramps: half in approach/passing, full at peak.
 - **Lifecycle:** `stepWeatherEvent()` advances phases by wall-clock and auto-rolls a new event
   (`AUTO_EVENT_CHANCE_PER_30S ≈ 1 per 2–3 game-days`). The engine calls it on the **30s tick** via the
-  `registerWeatherEventStep` provider seam and broadcasts returned lines sky-wide (`.weather-event`).
+  `registerWeatherEventStep` provider seam and delivers returned lines **by vantage** (`.weather-event`).
+
+### Vantage — an announce is a thing you are looking at
+
+Every phase line was written from outdoors and broadcast to everybody, so a player in a windowless
+bathroom was told that *a sick green glow crawls up the horizon*. `skyVantage(zoneId)`
+([environment.js](../server/engine/environment.js)) now answers **three** ways, and
+`announceWeatherEvent` delivers per occupied zone:
+
+| Vantage | Who | Gets |
+|---|---|---|
+| `open` | outdoors, an `open_sky` deck, **or a room with a window you can see out of** | the authored `line` |
+| `sealed` | indoors with no view out | the phase's `inside` variant — same beat, told through a wall |
+| `buried` | `grid_z < 0` | **nothing.** The Under has no horizon and no roof to hear rain on |
+
+- **A window counts as the sky**, by the same rule the light sim already uses: it must face outdoors
+  (no `zone_exterior`) and be see-through (`curtain_open`, or the glass broken). So drawing the curtain
+  against an acid storm does what a player expects.
+- **`inside` is optional and falls back to `line`**, so a future hero event with no indoor prose behaves
+  exactly as today — and regress asserts the two are *different strings* for every shipped phase, because
+  a fallback that quietly covers an unwritten line is the bug coming back.
+- **An unknown zone reads `open`.** This is the only announce a hero event gets, so the failure mode must
+  be saying too much, never leaving somebody standing in an ion storm nobody mentioned.
+- **The consequence is not the sightline.** The EMP blackout line is a plain string and still goes
+  **sky-wide, underground included** — the lights dying is news wherever you are standing.
 - **Field integration:** `currentBaseSeverity() = max(field.baseSeverity, eventSeverity())` feeds both
   `sampleWeatherAt` and the snapshot's `baseSeverity`, so **all four channels + the telegraph light up with
   zero new wiring**. At peak, an acid event stamps `precipType: 'acid'` on any tile already under precip

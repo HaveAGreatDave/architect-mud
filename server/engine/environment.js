@@ -1829,11 +1829,59 @@ export function registerWeatherEventCurrent(fn)  { weatherEventCurrent = fn; }
 export function activeWeatherEvent() { return weatherEventCurrent ? weatherEventCurrent() : null; }
 export function registerWeatherRegionRefresh(fn) { weatherRegionRefresh = fn; }
 
-// Broadcast weather-event announce lines to every player (sky-wide).
+// ── Can you see the sky from here? ───────────────────────────────────────────
+//
+// Three answers, because a hero weather event is announced as a thing you are
+// LOOKING AT and the announce used to go to everybody: a player in a windowless
+// bathroom was told that a sick green glow was crawling up the horizon.
+//
+//   open    outdoors, an open deck, or a room with a window you can see out of
+//           → the authored `line`, unchanged
+//   sealed  indoors with no view out → the event's `inside` variant: same beat,
+//           told as what reaches you through a wall
+//   buried  below ground → nothing at all. The Under has no horizon and no roof
+//           to hear rain on, so a line about either is fiction.
+//
+// A WINDOW COUNTS AS THE SKY, by the same rule the light sim already uses: it
+// must face outdoors (no `zone_exterior`) and be see-through (curtain open, or
+// the glass broken). One rule, so a curtain drawn against an acid storm does the
+// thing a player would expect it to do.
+//
+// Unknown zone ⇒ `open`. This is the only announce a hero event gets, so the
+// failure mode of a zone the engine can't place must be saying too much rather
+// than leaving somebody standing in an ion storm nobody mentioned.
+export function skyVantage(zoneId) {
+  const z = world.zones.get(zoneId);
+  if (!z) return 'open';
+  if ((z.grid_z ?? 0) < 0) return 'buried';
+  if (!isIndoorZone(z)) return 'open';
+  return hasSkyWindow(zoneId) ? 'open' : 'sealed';
+}
+
+function hasSkyWindow(zoneId) {
+  return state.windows.some(w =>
+    w.zone_interior === zoneId && !w.zone_exterior
+    && (w.curtain_open || w.glass_state === 'broken'));
+}
+
+// Deliver weather-event announce lines by vantage.
+//
+// A line may be a plain string (the EMP blackout, dev tools) — that goes to
+// everybody, because the lights dying is news wherever you are standing — or a
+// `{ open, inside }` pair, which is delivered per zone. Occupied zones only:
+// nobody is listening in the other five thousand.
 function announceWeatherEvent(lines) {
   if (!deps.broadcast || !lines?.length) return;
+  const wrap = (line) => ({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
   for (const line of lines) {
-    deps.broadcast({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
+    if (typeof line === 'string') { deps.broadcast(wrap(line)); continue; }
+    const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+    for (const zoneId of occupied) {
+      const vantage = skyVantage(zoneId);
+      if (vantage === 'buried') continue;
+      const text = vantage === 'open' ? line.open : line.inside;
+      if (text) deps.broadcast(zoneId, wrap(text));
+    }
   }
 }
 

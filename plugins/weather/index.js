@@ -350,23 +350,59 @@ function regionBiasAt(gx, gy) {
 //   pool      `.bsm` pool suffix — sky.<pool> / warn.<pool> / weather.<pool>
 //   sky       the pseudo weather-type the flight windshield renders it as
 //   severe    the one-word severity the news and the weatherman lean on
+// EVERY PHASE LINE IS WRITTEN FROM A PLACE.
+//
+// `line` is what you get with the sky in front of you: outdoors, on an open deck,
+// or through a window you can see out of. `inside` is the same beat told from a
+// room with a roof on it — nobody in a windowless bathroom watches a green glow
+// crawl up the horizon, and the announce used to say they did.
+//
+// `inside` is OPTIONAL and falls back to `line`, so a hero event authored without
+// it behaves exactly as it did before. Underground gets neither: see `skyVantage`
+// in engine/environment.js. What DOES still reach everybody is the consequence —
+// the EMP blackout line is broadcast sky-wide, because the lights going out is
+// news wherever you are standing.
 const NAMED_EVENTS = {
   ion_storm: {
     label: 'ion storm', severity: 0.9,
     present: { icon: '⚡', fx: 'ion_storm', audio: 'ion', pool: 'ion', sky: 'ion_storm', severe: 'catastrophic' },
     phases: {
-      approach: { secs: 90,  line: 'A sick green glow crawls up the horizon and the air begins to hum with static.' },
-      peak:     { secs: 240, line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.' },
-      passing:  { secs: 90,  line: 'The screaming static bleeds away. The ion storm is passing.' },
+      approach: {
+        secs: 90,
+        line: 'A sick green glow crawls up the horizon and the air begins to hum with static.',
+        inside: 'The lights dim, steady themselves, and dim again. The air goes thick and prickly, and the hair on your arms lifts.',
+      },
+      peak: {
+        secs: 240,
+        line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.',
+        inside: 'Every screen in the room whites out at once and the walls sing with it. Whatever is out there is directly overhead.',
+      },
+      passing: {
+        secs: 90,
+        line: 'The screaming static bleeds away. The ion storm is passing.',
+        inside: 'The prickle goes out of the air and the lights find their level again.',
+      },
     },
   },
   acid_rain: {
     label: 'acid rain', severity: 0.6, precipOverride: 'acid',
     present: { icon: '☣', fx: 'acid_rain', audio: 'acid', pool: 'acid', sky: 'acid_rain', severe: 'lethal' },
     phases: {
-      approach: { secs: 90,  line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.' },
-      peak:     { secs: 300, line: 'The downpour turns caustic — acid rain, hissing where it lands.' },
-      passing:  { secs: 90,  line: 'The rain loses its bite and washes clean again. The acid storm is passing.' },
+      approach: {
+        secs: 90,
+        line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.',
+        inside: 'A chemical reek works its way in under the door, sharp enough to taste. Something has changed about the rain.',
+      },
+      peak: {
+        secs: 300,
+        line: 'The downpour turns caustic — acid rain, hissing where it lands.',
+        inside: 'The rain on the roof has stopped drumming and started hissing, like something being slowly dissolved. Stay in.',
+      },
+      passing: {
+        secs: 90,
+        line: 'The rain loses its bite and washes clean again. The acid storm is passing.',
+        inside: 'The hissing overhead softens back into ordinary rain.',
+      },
     },
   },
 };
@@ -395,6 +431,14 @@ export function heroEventForDate(dateStr) {
   if (rand() >= HERO_EVENT_DAY_CHANCE) return null;
   const types = Object.keys(NAMED_EVENTS);
   return types[Math.floor(rand() * types.length)];
+}
+
+// The announce pair for one phase of one event, or null — exported so regress
+// can assert that every phase says something from BOTH vantages, indoors
+// included, rather than the fallback quietly covering an unwritten line.
+export function heroEventAnnounce(type, phase) {
+  const p = NAMED_EVENTS[type]?.phases?.[phase];
+  return p ? announceFor(p) : null;
 }
 
 // Presentation block for a type, or null. The one accessor every surface uses.
@@ -433,11 +477,16 @@ function currentBaseSeverity() {
   return Math.min(1, Math.max(field.baseSeverity, eventSeverity()));
 }
 
+// One phase's announce, as the pair the engine delivers by vantage. Always both
+// keys, so the engine never has to know which events bothered to author an
+// indoor variant.
+const announceFor = (phase) => ({ open: phase.line, inside: phase.inside || phase.line });
+
 function startWeatherEvent(type) {
   const def = NAMED_EVENTS[type];
   if (!def) return null;
   activeEvent = { type, phase: 'approach', phaseEndsAtMs: Date.now() + def.phases.approach.secs * 1000 };
-  return def.phases.approach.line;
+  return announceFor(def.phases.approach);
 }
 
 // Current event as { type, phase } | null — the signal the engine broadcasts to
@@ -478,7 +527,7 @@ function stepWeatherEvent() {
     if (!next) { activeEvent = null; break; }
     activeEvent.phase = next;
     activeEvent.phaseEndsAtMs = now + def.phases[next].secs * 1000;
-    lines.push(def.phases[next].line);
+    lines.push(announceFor(def.phases[next]));
   }
   return { lines, event: currentEventSnapshot() };
 }
