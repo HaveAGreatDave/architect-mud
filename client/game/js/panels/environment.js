@@ -396,10 +396,28 @@ export function refreshZoneVisibility(preloaded) {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
       // VISIBILITY_CLEAR on the server is 0.6 — any zone at or above that is
       // considered well-lit, so clear the filter entirely to preserve theme colors.
-      // Below 0.6, remap 0→0.6 to t=0→1 and dim text down to 0.2 at pitch dark.
-      const brightness = vis >= 0.6
-        ? ''
-        : `brightness(${(0.2 + 0.8 * (vis / 0.6)).toFixed(3)})`;
+      // Below 0.6, remap 0→0.6 to t=0→1 and dim the text toward DARK_FLOOR.
+      //
+      // The floor was 0.2 and a pitch-dark room was a log you squinted at rather
+      // than read. This is a READABILITY setting and nothing else: the server's
+      // `visibility` still drives to-hit, the stealth notice roll and what `look`
+      // shows you, all untouched, so the room is exactly as dangerous as it was.
+      //
+      // DAYLIGHT LIFT. A dark room with a bright day outside it is a room you can
+      // still read in — light gets in around a door, through a gap, off the
+      // street. So the floor lifts by up to DAY_LIFT at noon, tapering to nothing
+      // at night, and never past 1 (normal text is the ceiling; nothing about
+      // being in the dark should make the log brighter than usual).
+      //
+      // Except underground, where there is no sky to leak in. `buried` is the
+      // server's own answer (`skyVantage`), the same predicate that decides
+      // whether The Under hears a weather announcement.
+      const DARK_FLOOR = 0.35;
+      const DAY_LIFT = 0.15;
+      const daylight = v.buried ? 0 : Math.max(0, Math.min(1, v.daylight ?? 0));
+      const lift = 1 + DAY_LIFT * daylight;
+      const level = Math.min(1, (DARK_FLOOR + (1 - DARK_FLOOR) * (vis / 0.6)) * lift);
+      const brightness = vis >= 0.6 ? '' : `brightness(${level.toFixed(3)})`;
 
       // Flicker + pop only when the server signalled a grid power cut for this zone;
       // everything else (day/night, curtains, moving rooms) just fades.

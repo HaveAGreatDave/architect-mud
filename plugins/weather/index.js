@@ -352,16 +352,21 @@ function regionBiasAt(gx, gy) {
 //   severe    the one-word severity the news and the weatherman lean on
 // EVERY PHASE LINE IS WRITTEN FROM A PLACE.
 //
-// `line` is what you get with the sky in front of you: outdoors, on an open deck,
-// or through a window you can see out of. `inside` is the same beat told from a
-// room with a roof on it — nobody in a windowless bathroom watches a green glow
-// crawl up the horizon, and the announce used to say they did.
+// THREE, keyed to `skyVantage` in engine/environment.js:
 //
-// `inside` is OPTIONAL and falls back to `line`, so a hero event authored without
-// it behaves exactly as it did before. Underground gets neither: see `skyVantage`
-// in engine/environment.js. What DOES still reach everybody is the consequence —
-// the EMP blackout line is broadcast sky-wide, because the lights going out is
-// news wherever you are standing.
+//   line     the sky in front of you — outdoors, or on an open deck
+//   window   the same sky, framed. You are watching it, not standing in it, and
+//            the prose is deliberately calmer for it: glass between you and a
+//            thing is the whole reason going inside was worth doing
+//   inside   a room with a roof and no view out. Nobody in a windowless bathroom
+//            watches a green glow crawl up the horizon, and the announce used to
+//            tell them they did
+//
+// `window` and `inside` are OPTIONAL and fall back to `line`, so a hero event
+// authored without them behaves exactly as it did before. Underground gets none
+// of the three. What DOES still reach everybody is the CONSEQUENCE — the EMP
+// blackout is announced by the engine off the zones that actually went dark,
+// because the lights dying is news wherever you are standing.
 const NAMED_EVENTS = {
   ion_storm: {
     label: 'ion storm', severity: 0.9,
@@ -370,16 +375,19 @@ const NAMED_EVENTS = {
       approach: {
         secs: 90,
         line: 'A sick green glow crawls up the horizon and the air begins to hum with static.',
+        window: 'Through the glass, a sick green glow is crawling up the horizon. The window itself has started to buzz.',
         inside: 'The lights dim, steady themselves, and dim again. The air goes thick and prickly, and the hair on your arms lifts.',
       },
       peak: {
         secs: 240,
         line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.',
+        window: 'The sky goes white in the window frame, once and then again, and the glass sings in it. Whatever else it is, it is not out on the horizon any more.',
         inside: 'Every screen in the room whites out at once and the walls sing with it. Whatever is out there is directly overhead.',
       },
       passing: {
         secs: 90,
         line: 'The screaming static bleeds away. The ion storm is passing.',
+        window: 'The white goes out of the window and the glass stops singing. It is moving on.',
         inside: 'The prickle goes out of the air and the lights find their level again.',
       },
     },
@@ -391,16 +399,19 @@ const NAMED_EVENTS = {
       approach: {
         secs: 90,
         line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.',
+        window: 'The rain on the glass has gone yellow and slow, and it is leaving streaks behind it. Whatever is falling out there, it is not water.',
         inside: 'A chemical reek works its way in under the door, sharp enough to taste. Something has changed about the rain.',
       },
       peak: {
         secs: 300,
         line: 'The downpour turns caustic — acid rain, hissing where it lands.',
+        window: 'The glass is running with something that fizzes where it pools on the sill. You are on the right side of it. Stay there.',
         inside: 'The rain on the roof has stopped drumming and started hissing, like something being slowly dissolved. Stay in.',
       },
       passing: {
         secs: 90,
         line: 'The rain loses its bite and washes clean again. The acid storm is passing.',
+        window: 'The streaks on the glass thin out and start running clear again.',
         inside: 'The hissing overhead softens back into ordinary rain.',
       },
     },
@@ -477,10 +488,14 @@ function currentBaseSeverity() {
   return Math.min(1, Math.max(field.baseSeverity, eventSeverity()));
 }
 
-// One phase's announce, as the pair the engine delivers by vantage. Always both
-// keys, so the engine never has to know which events bothered to author an
-// indoor variant.
-const announceFor = (phase) => ({ open: phase.line, inside: phase.inside || phase.line });
+// One phase's announce, keyed by the vantage the engine will look it up with.
+// Always all three keys, so the engine never has to know which events bothered
+// to author the variants — an unauthored one is the outdoor line, as before.
+const announceFor = (phase) => ({
+  open: phase.line,
+  window: phase.window || phase.line,
+  sealed: phase.inside || phase.line,
+});
 
 function startWeatherEvent(type) {
   const def = NAMED_EVENTS[type];

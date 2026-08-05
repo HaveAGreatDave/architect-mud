@@ -1571,6 +1571,29 @@ body.fsim-external #look-resize-handle { display: none; }
 	filter: brightness(var(--vis-undim, 1));
 }
 
+/* WHAT HAPPENED opts out too. The dim models "you cannot see the ROOM", not
+   "you cannot read the game" — so a thing that HAPPENS stays legible in the
+   dark while the description of your surroundings goes on dimming. The city's
+   lights dying is the case that named this: it arrives at the exact moment the
+   filter slams to its floor, so the one line explaining the darkness was the
+   hardest line on the screen to read.
+
+   Room description, its contents, ambience and flavour are deliberately absent:
+   those ARE the room, and not being able to see them is the point. */
+.weather-event,
+.msg-system,
+.msg-combat,
+.msg-combat-incoming,
+.msg-death,
+.msg-error,
+.msg-say,
+.msg-emote,
+.msg-emote-me,
+.msg-zone-event,
+.msg-loot {
+	filter: brightness(var(--vis-undim, 1));
+}
+
 /* Keyboard-collapse transition for mobile */
 @media (max-width: 720px) {
 	#area-pane,

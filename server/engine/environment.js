@@ -1660,6 +1660,17 @@ export function getZoneVisibility(zoneId) {
   const precipActive = !isInterior && state.currentPrecip !== 'none';
   return {
     visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight,
+    // READABILITY, not perception. `daylight` is the raw sky level and `buried`
+    // is "there is no sky above this room at all" — the client's low-light text
+    // filter lifts its floor a little by day, on the reasoning that a dark room
+    // with any daylight around it is a room you can still read in.
+    //
+    // Deliberately NOT folded into `visibility`: that number feeds combat
+    // to-hit, the stealth notice roll and what `look` shows you, so brightening
+    // it to fix legibility would quietly rebalance three systems. The dark room
+    // stays exactly as dangerous; it is only the text that gets easier to read.
+    daylight: state.ambientLight,
+    buried: skyVantage(zoneId) === 'buried',
     outdoor: !isInterior,
     weatherType: state.weatherType,
     precipType: precipActive ? state.currentPrecip : 'none',
@@ -1831,21 +1842,25 @@ export function registerWeatherRegionRefresh(fn) { weatherRegionRefresh = fn; }
 
 // ── Can you see the sky from here? ───────────────────────────────────────────
 //
-// Three answers, because a hero weather event is announced as a thing you are
+// FOUR answers, because a hero weather event is announced as a thing you are
 // LOOKING AT and the announce used to go to everybody: a player in a windowless
 // bathroom was told that a sick green glow was crawling up the horizon.
 //
-//   open    outdoors, an open deck, or a room with a window you can see out of
-//           → the authored `line`, unchanged
-//   sealed  indoors with no view out → the event's `inside` variant: same beat,
-//           told as what reaches you through a wall
+//   open    outdoors or on an open deck → the authored `line`, unchanged
+//   window  indoors, with a window you can see out of → the `window` variant:
+//           the same sky, framed. You are watching it rather than standing in
+//           it, and the line says so — weather you are looking at through glass
+//           is not weather happening to you, and a player who went inside
+//           deserves to be told the difference
+//   sealed  indoors with no view out → the `inside` variant: same beat, told as
+//           what reaches you through a wall
 //   buried  below ground → nothing at all. The Under has no horizon and no roof
 //           to hear rain on, so a line about either is fiction.
 //
-// A WINDOW COUNTS AS THE SKY, by the same rule the light sim already uses: it
-// must face outdoors (no `zone_exterior`) and be see-through (curtain open, or
-// the glass broken). One rule, so a curtain drawn against an acid storm does the
-// thing a player would expect it to do.
+// A WINDOW IS SEE-THROUGH by the same rule the light sim already uses: it must
+// face outdoors (no `zone_exterior`) and be unobstructed (curtain open, or the
+// glass broken). So drawing the curtain against an acid storm drops you to
+// `sealed`, which is what a player would expect it to do.
 //
 // Unknown zone ⇒ `open`. This is the only announce a hero event gets, so the
 // failure mode of a zone the engine can't place must be saying too much rather
@@ -1855,7 +1870,7 @@ export function skyVantage(zoneId) {
   if (!z) return 'open';
   if ((z.grid_z ?? 0) < 0) return 'buried';
   if (!isIndoorZone(z)) return 'open';
-  return hasSkyWindow(zoneId) ? 'open' : 'sealed';
+  return hasSkyWindow(zoneId) ? 'window' : 'sealed';
 }
 
 function hasSkyWindow(zoneId) {
@@ -1866,10 +1881,9 @@ function hasSkyWindow(zoneId) {
 
 // Deliver weather-event announce lines by vantage.
 //
-// A line may be a plain string (the EMP blackout, dev tools) — that goes to
-// everybody, because the lights dying is news wherever you are standing — or a
-// `{ open, inside }` pair, which is delivered per zone. Occupied zones only:
-// nobody is listening in the other five thousand.
+// A line may be a plain string — that goes to everybody — or a
+// `{ open, window, sealed }` set keyed by vantage, delivered per zone. Occupied
+// zones only: nobody is listening in the other five thousand.
 function announceWeatherEvent(lines) {
   if (!deps.broadcast || !lines?.length) return;
   const wrap = (line) => ({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
@@ -1877,9 +1891,8 @@ function announceWeatherEvent(lines) {
     if (typeof line === 'string') { deps.broadcast(wrap(line)); continue; }
     const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
     for (const zoneId of occupied) {
-      const vantage = skyVantage(zoneId);
-      if (vantage === 'buried') continue;
-      const text = vantage === 'open' ? line.open : line.inside;
+      // One key per vantage. `buried` has no key by design — it hears nothing.
+      const text = line[skyVantage(zoneId)];
       if (text) deps.broadcast(zoneId, wrap(text));
     }
   }
@@ -1896,20 +1909,61 @@ function syncWeatherEventSignal(event) {
   if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
   emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
   // The EMP pulse. This is the only change-detected event seam in the file, so
-  // it's the one place a "fires exactly once, at the peak" effect can live.
-  if (event?.type === 'ion_storm' && event.phase === 'peak') firePulse();
+  // it's the one place a "fires exactly once, during the peak" effect can live.
+  //
+  // NOT AT THE INSTANT THE PEAK BEGINS. The peak line and the blackout landing in
+  // the same tick made the storm one beat — sky screams, city dies, done — with
+  // no stretch of being IN it. The pulse now falls a minute into the peak, which
+  // leaves time to read the sky, decide the lights are about to go, and get
+  // somewhere. Re-checked on arrival: a peak that somehow ended early (a dev
+  // trigger stepping on it) must not fire a pulse into a clear sky.
+  if (event?.type === 'ion_storm' && event.phase === 'peak') {
+    clearTimeout(pulseTimer);
+    pulseTimer = setTimeout(() => {
+      const live = weatherEventCurrent?.();
+      if (live?.type === 'ion_storm' && live.phase === 'peak') firePulse();
+    }, EMP_PULSE_DELAY_MS);
+  } else if (event?.type !== 'ion_storm') {
+    clearTimeout(pulseTimer);
+    pulseTimer = null;
+  }
 }
+// How far into the peak the grid goes down. The peak runs 240s, so this is the
+// first quarter of it spent underneath the thing before it takes the lights.
+const EMP_PULSE_DELAY_MS = 60_000;
+let pulseTimer = null;
 
 // The moment the sky takes the city's power out. Kept separate from the signal
 // above so the ordering is explicit: black the grid out FIRST, then say so, then
 // let subscribers (fried gear, augments, aircraft avionics) react to the same beat.
 async function firePulse() {
   const minutes = EMP_BLACKOUT_MIN;
-  try { await forceGridBlackout({ minutes, reason: 'emp' }); }
+  let res = null;
+  try { res = await forceGridBlackout({ minutes, reason: 'emp' }); }
   catch (e) { console.error(`[weather] EMP blackout failed: ${e.message}`); }
-  announceWeatherEvent([
-    'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
-  ]);
+  // TWO SIDES OF THE EDGE. Now that a pulse takes a section rather than the
+  // whole map, "every light in the city dies" is only true if you are standing
+  // in it. From outside you watch a piece of the skyline go out, which is the
+  // better line of the two and only exists because the blackout has an edge.
+  //
+  // Nobody outside the blast in a sealed room or underground hears anything:
+  // nothing happened to their lights and they cannot see the skyline.
+  const darkened = res?.darkened;
+  if (!darkened || res.wholeGrid) {
+    announceWeatherEvent([
+      'Every light in the city dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.',
+    ]);
+  } else if (deps.broadcast) {
+    const wrap = (line) => ({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
+    const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+    for (const zoneId of occupied) {
+      if (darkened.has(zoneId)) {
+        deps.broadcast(zoneId, wrap('Every light around you dies at once. Screens, streetlamps, the hum behind the walls — all of it, gone between one breath and the next.'));
+      } else if (skyVantage(zoneId) !== 'buried' && skyVantage(zoneId) !== 'sealed') {
+        deps.broadcast(zoneId, wrap('Across the rooftops a whole quarter of the city goes out at once, block after block, and does not come back.'));
+      }
+    }
+  }
   emit('weather.empPulse', { minutes });
 }
 // How long the grid stays down after a pulse, before generators start coming
@@ -3419,7 +3473,50 @@ export async function recomputePower() {
   return getPowerMap();
 }
 
-// EMP: knock the WHOLE grid down at once.
+// Where the pulse lands, as a map + grid coordinate.
+//
+// PREFERENTIALLY SOMEWHERE SOMEBODY IS STANDING. A blackout nobody is present
+// for is a database write; the storm is a thing that happens to players, so the
+// epicentre is rolled from the occupied zones and only falls back to a random
+// powered tile when the world is empty. That is a deliberate thumb on the scale
+// and it is invisible in play — the storm arrives where the game is being
+// played, which is the only place it could have been noticed anyway.
+function pulseEpicentre() {
+  const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+  const candidates = occupied.length ? occupied : [...powerZones.keys()];
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    const z = world.zones.get(candidates[Math.floor(Math.random() * candidates.length)]);
+    if (z && z.grid_x != null && z.grid_y != null) return { mapId: z.map_id, x: z.grid_x, y: z.grid_y };
+  }
+  return null;
+}
+
+// Chebyshev distance in tiles — a SQUARE footprint, because the map is a grid
+// and a circle drawn on one is a circle nobody can see the edge of anyway.
+// Deliberately ignores grid_z: the pulse takes the block, cellars included.
+const EMP_RADIUS_TILES = 12;
+
+// The junction boxes inside the blast, as a Set of generator ids. A box is in if
+// ANY zone it feeds is in — a building straddling the edge goes dark rather than
+// half-dark, which is both simpler and what a player would expect.
+function generatorsWithin(epi) {
+  const hit = new Set();
+  if (!epi) return hit;
+  for (const [zoneId, pz] of powerZones) {
+    if (!pz.generator_id) continue;
+    const gen = generatorRows.get(pz.generator_id);
+    // City plants are hardened and player generators are somebody's preparation
+    // paying off. Only the building-level distribution feeds fail — the same
+    // layer ordinary storm faults take out, one at a time instead of in a block.
+    if (!gen || gen.generator_type !== 'junction_box') continue;
+    const z = world.zones.get(zoneId);
+    if (!z || z.map_id !== epi.mapId || z.grid_x == null) continue;
+    if (Math.max(Math.abs(z.grid_x - epi.x), Math.abs(z.grid_y - epi.y)) <= EMP_RADIUS_TILES) hit.add(gen.id);
+  }
+  return hit;
+}
+
+// EMP: knock a SECTION of the grid down.
 //
 // It cannot write generators.status — Phase 1 of simulatePowerNetwork forcibly
 // resets every non-player generator to 'online' each cycle, so a raw status
@@ -3430,12 +3527,31 @@ export async function recomputePower() {
 //
 // Player generators are deliberately untouched: an unplugged portable genset in
 // a back room is exactly the sort of preparation that should pay off here.
-export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason = 'emp' } = {}) {
+//
+// ── IT IS A SECTION OF THE CITY, NOT THE CITY ────────────────────────────────
+// This used to take every non-player generator in the world, which made an ion
+// storm a light switch: everything, everywhere, at once. A pulse now lands on an
+// epicentre and reaches EMP_RADIUS_TILES around it, so a quarter of the map goes
+// dark with an edge you can walk to — and "where was it centred" becomes a thing
+// worth asking. The city plants stay up, so the dark is the building-level
+// distribution failing in a block: the same layer ordinary storm faults take out
+// one box at a time.
+//
+// `all: true` keeps the old everything-everywhere behaviour for any caller that
+// genuinely means the whole grid.
+export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason = 'emp', all = false } = {}) {
   const { query } = deps;
   const now = Date.now();
   const writes = [];
+  const epi = all ? null : pulseEpicentre();
+  const inBlast = all ? null : generatorsWithin(epi);
+  // An epicentre we could not place, or one whose blast holds nothing, would
+  // silently no-op — and a hero event that announces itself and then does
+  // nothing is worse than one that overreaches. Fall back to the whole grid.
+  const takeAll = all || !inBlast?.size;
   for (const gen of generatorRows.values()) {
     if (gen.generator_type === 'player') continue;
+    if (!takeAll && !inBlast.has(gen.id)) continue;
     const ms = (minutes + Math.random() * jitterMinutes) * 60_000;
     const flags = { ...(gen.flags || {}), recover_after: new Date(now + ms).toISOString() };
     gen.flags = flags;
@@ -3455,7 +3571,12 @@ export async function forceGridBlackout({ minutes = 6, jitterMinutes = 6, reason
   // sky-wide announce is the beat, and one line per zone would bury it.
   await simulatePowerNetwork(query, { weatherType: state.weatherType, reason, silentBlackout: true });
   loadZonePowerAndLighting();
-  return { ok: true, generators: writes.length };
+  // The zones that actually went dark, so the announce can tell the people
+  // standing in it from the people watching it happen a few blocks away.
+  const hitGens = new Set(writes.map(w => w[0]));
+  const darkened = new Set();
+  for (const [zoneId, pz] of powerZones) if (pz.generator_id && hitGens.has(pz.generator_id)) darkened.add(zoneId);
+  return { ok: true, generators: writes.length, epicentre: takeAll ? null : epi, wholeGrid: takeAll, darkened };
 }
 
 // Ghost-mode sabotage: force a zone fully offline right now. Zeroes its supply

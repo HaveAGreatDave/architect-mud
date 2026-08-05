@@ -166,20 +166,48 @@ bathroom was told that *a sick green glow crawls up the horizon*. `skyVantage(zo
 
 | Vantage | Who | Gets |
 |---|---|---|
-| `open` | outdoors, an `open_sky` deck, **or a room with a window you can see out of** | the authored `line` |
+| `open` | outdoors or on an `open_sky` deck | the authored `line` |
+| `window` | indoors, **with a window you can see out of** | the phase's `window` variant — the same sky, framed |
 | `sealed` | indoors with no view out | the phase's `inside` variant — same beat, told through a wall |
 | `buried` | `grid_z < 0` | **nothing.** The Under has no horizon and no roof to hear rain on |
 
-- **A window counts as the sky**, by the same rule the light sim already uses: it must face outdoors
-  (no `zone_exterior`) and be see-through (`curtain_open`, or the glass broken). So drawing the curtain
-  against an acid storm does what a player expects.
-- **`inside` is optional and falls back to `line`**, so a future hero event with no indoor prose behaves
-  exactly as today — and regress asserts the two are *different strings* for every shipped phase, because
-  a fallback that quietly covers an unwritten line is the bug coming back.
+- **A window is its own vantage, not a hole in the wall.** Watching an acid storm run down the glass is
+  not the same event as standing in it, and the prose says so — the window lines are deliberately calmer,
+  because glass between you and a thing is the entire reason going inside was worth doing.
+- **See-through** is the same rule the light sim already uses: the window must face outdoors
+  (no `zone_exterior`) and be unobstructed (`curtain_open`, or the glass broken). So drawing the curtain
+  against an acid storm drops you to `sealed`, which is what a player expects it to do.
+- **`window` and `inside` are optional and fall back to `line`**, so a future hero event with no indoor
+  prose behaves exactly as today — and regress asserts all three are *different strings* for every
+  shipped phase, because a fallback that quietly covers an unwritten line is the bug coming back.
 - **An unknown zone reads `open`.** This is the only announce a hero event gets, so the failure mode must
   be saying too much, never leaving somebody standing in an ion storm nobody mentioned.
-- **The consequence is not the sightline.** The EMP blackout line is a plain string and still goes
-  **sky-wide, underground included** — the lights dying is news wherever you are standing.
+- **The consequence is not the sightline.** The EMP blackout announce is driven off the zones that
+  actually went dark, not off vantage — the lights dying is news wherever you are standing, The Under
+  included.
+
+### The EMP takes a SECTION of the city, a minute into the peak
+
+Two changes to the pulse, both about it being an event you are inside rather than a switch being thrown:
+
+- **Epicentre + radius.** `forceGridBlackout` rolls an epicentre (preferentially an *occupied* zone —
+  a blackout nobody is present for is a database write) and knocks out every **junction box** whose
+  zone falls within `EMP_RADIUS_TILES = 12`, Chebyshev, same map, all `grid_z`. City plants stay up, so
+  the dark is the building-level distribution failing in a block — the same layer ordinary storm faults
+  take one box at a time. A quarter of the map goes out **with an edge you can walk to**, which makes
+  *where was it centred* a question worth asking. `{ all: true }` restores the old whole-grid behaviour,
+  and an epicentre that can't be placed (or whose blast is empty) falls back to it rather than no-op:
+  a hero event that announces itself and then does nothing is worse than one that overreaches.
+- **Two announce lines, because the blackout now has an outside.** In it: *"Every light around you dies
+  at once."* Out of it, with a view: *"Across the rooftops a whole quarter of the city goes out at once."*
+  Sealed or buried outside the blast hear nothing — nothing happened to their lights.
+- **It fires ~60s INTO the peak** (`EMP_PULSE_DELAY_MS`), not on the peak's first tick. Peak line and
+  blackout in the same tick made the whole storm one beat; the delay leaves time to read the sky, work
+  out the lights are about to go, and get somewhere. Re-checked on arrival, so a peak that ended early
+  can't fire a pulse into a clear sky.
+
+Player generators are still spared throughout — the unplugged genset in the back room is preparation
+that should visibly pay off.
 - **Field integration:** `currentBaseSeverity() = max(field.baseSeverity, eventSeverity())` feeds both
   `sampleWeatherAt` and the snapshot's `baseSeverity`, so **all four channels + the telegraph light up with
   zero new wiring**. At peak, an acid event stamps `precipType: 'acid'` on any tile already under precip

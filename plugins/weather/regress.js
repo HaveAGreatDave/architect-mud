@@ -49,10 +49,15 @@ export default async function regress({ check, getPlayer }) {
   for (const type of ['ion_storm', 'acid_rain']) {
     for (const phase of ['approach', 'peak', 'passing']) {
       const a = heroEventAnnounce(type, phase);
-      check(`${type}.${phase} announces from outside`, !!a?.open);
-      check(`${type}.${phase} announces from inside too`, !!a?.inside);
-      check(`${type}.${phase} tells the two apart`, a.open !== a.inside,
-        'the indoor line is the outdoor one verbatim — somebody indoors is being told what the sky looks like');
+      for (const vantage of ['open', 'window', 'sealed']) {
+        check(`${type}.${phase} announces from ${vantage}`, !!a?.[vantage]);
+      }
+      check(`${type}.${phase} tells all three vantages apart`,
+        new Set([a.open, a.window, a.sealed]).size === 3,
+        'a vantage is falling back to the outdoor line — somebody indoors is being told what the sky looks like');
+      // The key set IS the vantage set, minus `buried`, which hears nothing by
+      // having no key at all. A typo here is a phase that silently says nothing.
+      check(`${type}.${phase} has no line for underground`, a.buried === undefined);
     }
   }
   check('an unknown phase announces nothing', heroEventAnnounce('ion_storm', 'nope') === null);
@@ -70,12 +75,13 @@ export default async function regress({ check, getPlayer }) {
 
   if (outdoor) check('a street sees the sky', skyVantage(outdoor) === 'open', `${outdoor} → ${skyVantage(outdoor)}`);
   if (buried)  check('underground sees nothing', skyVantage(buried) === 'buried', `${buried} → ${skyVantage(buried)}`);
-  // A sealed room is `open` only if it has a window facing out — which is the
-  // feature, so this asserts the two possible answers rather than one.
+  // An interior is `window` only if it has one facing out and unobstructed —
+  // which is the feature, so this asserts the two possible answers rather than
+  // one. What it must NEVER be is `open`: a room with a roof is not outdoors.
   if (sealed) {
     const v = skyVantage(sealed);
-    check('an interior is either sealed or looking through a window',
-      v === 'sealed' || v === 'open', `${sealed} → ${v}`);
+    check('an interior is sealed, or looking through a window, but never open',
+      v === 'sealed' || v === 'window', `${sealed} → ${v}`);
   }
   // Fail LOUD, not silent: this is the only announce a hero event gets, so a
   // zone the engine cannot place must be told too much rather than nothing.

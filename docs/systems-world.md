@@ -221,6 +221,20 @@ The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldS
 - `getZoneStormIntensity` — local 0..1 storm intensity (drives lightning); fallback 0.5 under a global thunderstorm/storm.
 - `getZoneVisibility` — outdoor zones get extra dimming under a local cloud/precip cell (`1 − 0.5·cloudCover − 0.4·precip`), on top of the global weather + fog factors; interiors are lit only through windows.
 
+**⚠ `visibility` is perception; the client's text dimming is READABILITY. Keep them apart.**
+`visibility` feeds combat to-hit, the stealth notice roll and what `look` renders. The client
+separately puts a CSS `brightness()` on `#area-pane` and `#output`
+([panels/environment.js](../client/game/js/panels/environment.js)) so a dark room *reads* dark.
+That filter has its own floor (`DARK_FLOOR = 0.35`) and a **daylight lift**: it brightens by up to
+`DAY_LIFT = 0.15` at noon, tapering to nothing at night, on the reasoning that a dark room with a
+bright day around it is one you can still read in — light gets in around a door, off the street.
+The payload carries `daylight` (raw sky level) and `buried` (`skyVantage(zoneId) === 'buried'`, so
+The Under gets no lift — no sky to leak in) purely to drive it. **Never fix a legibility complaint by
+raising `visibility`**: that quietly rebalances three systems to make text easier to read.
+Individual message classes opt out of the dim entirely via `--vis-undim` (styles.css) — the rule
+there is *the dim models "you cannot see the room", not "you cannot read the game"*, so things that
+HAPPEN stay legible while the room description goes on dimming.
+
 `getWeatherMap` returns a full per-zone snapshot (plus field bounds/systems) for the dev weather map. `broadcastZoneWeather` pushes local temp/cloud/precip to occupied outdoor zones each 30s and emits `weather.zoneAmbience` for the audio layer.
 
 **Muffled rain bleed.** A tile that isn't directly under a storm cell but is exit-adjacent to one no longer goes silent: if its own local `precipRate` is below `MUFFLE_LOCAL_THRESHOLD` (0.12), `muffledNeighborPrecip` BFS's the outdoor exit graph up to `MUFFLE_RADIUS` (2) hops (mirroring the propagation shape in [sounds.js](../server/engine/sounds.js)) and borrows the loudest nearby cell's rate, attenuated `MUFFLE_FALLOFF` (0.45) per hop. `weather.zoneAmbience` carries the resulting `muffled` flag; the audio plugin cuts the precip bed's gain by `MUFFLE_GAIN_MULT` (0.5) when set. Roofs and other `open_sky` zones live on interior maps (`map_id !== 'map_world'`), so they never enter `broadcastZoneWeather`'s loop at all — they always hear their own zone's precip via `getZonePrecip`'s global fallback at full, unmuffled gain.
