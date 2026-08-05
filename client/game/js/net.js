@@ -39,7 +39,7 @@ export function initNet(messageHandler) {
           const username = localStorage.getItem('mud_remember_user');
           const password = localStorage.getItem('mud_remember_pass');
           if (username && password) {
-            _connection.send({ type: 'auth', username, password, displayRung });
+            _connection.send({ type: 'auth', username, password, displayRung: storedDisplayRung() });
           }
         }
       }
@@ -198,6 +198,15 @@ const RUNGS = ['visual', 'textgames', 'log'];
 function pickedDisplayRung() {
   const el = document.querySelector('input[name="auth-display"]:checked');
   const v = el && el.value;
+  return RUNGS.includes(v) ? v : null;
+}
+
+// The remembered choice, for paths that never show the auth screen at all
+// (auto-login with saved credentials). Same null-means-UNTOUCHED contract as
+// pickedDisplayRung — the radios simply aren't there to read.
+function storedDisplayRung() {
+  let v = null;
+  try { v = localStorage.getItem(DISPLAY_PREF_KEY); } catch { /* private mode */ }
   return RUNGS.includes(v) ? v : null;
 }
 
