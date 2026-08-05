@@ -629,10 +629,24 @@ const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id, AMB_P
 
 // The live, powered destructible power device in a zone (generator preferred),
 // or null if the room has none / it's smashed / the zone is blacked out.
+// A POWER DEVICE, not "anything with an HP bar". This asked for `hp_max != null`
+// and that is a test for DESTRUCTIBLE, which a microwave also passes — so every
+// Solenne apartment, the four Merrow units, the grocery and the laundromat were
+// running the utility-room hum off a kitchen appliance, a folding table or a row
+// of dryers. A machine-room drone in somebody's bedroom, forever, with nothing in
+// the room to explain it.
+//
+// The two types below are what the function was always describing: a generator
+// roars, its junction box hums. Anything else is furniture that happens to be
+// breakable.
+const POWER_DEVICE_TYPES = new Set(['generator', 'junction_box']);
+// Exported for regress: the bug was in what COUNTS, not in the loop plumbing.
+export const isPowerDevice = (f) => POWER_DEVICE_TYPES.has(f?.object_type) && f?.hp_max != null;
+
 function liveDeviceInZone(zoneId) {
   // power_zones.status is RAM-only derived state now, and furniture is cached —
   // so this is a walk of the zone's rows rather than a per-call join.
-  const candidates = getZoneFurniture(zoneId).filter(f => f.hp_max != null);
+  const candidates = getZoneFurniture(zoneId).filter(isPowerDevice);
   candidates.sort((a, b) => (b.object_type === 'generator') - (a.object_type === 'generator'));
   const dev = candidates[0];
   const live = dev && (dev.hp ?? 1) > 0 && getZonePowerStatus(zoneId) === 'powered';
