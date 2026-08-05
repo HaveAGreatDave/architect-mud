@@ -20,7 +20,7 @@ import { getZoneFurniture } from '../../server/engine/world.js';
 import { getZonePowerStatus, getZoneTemperature } from '../../server/engine/environment.js';
 import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { checkCooking, cooksOnAppliances } from './cook.js';
-import { profileNameFor, HANDLING_VERB } from './profiles.js';
+import { profileNameFor, isMedium, HANDLING_VERB } from './profiles.js';
 import { portionName, canChop } from './portions.js';
 import { prepText, canMarinate } from './prep.js';
 import { fondState } from './fond.js';
@@ -52,6 +52,9 @@ function kitchenFurniture(zoneId) {
     stoves: furn.filter(f => f.flags?.stove_tier),
     microwaves: furn.filter(f => f.flags?.microwave),
     boxes: furn.filter(f => f.object_type === 'container'),
+    // A tap. Not a gate on the HUD existing — a kitchen without one is a real
+    // kitchen — but `fill` needs one, so the HUD must know before it offers it.
+    taps: furn.filter(f => f.flags?.water_source),
   };
 }
 
@@ -177,6 +180,24 @@ function vesselActions(v, contents, ctx) {
   const out = [];
   const onHeat = ctx.appliances.some(f => f.flags?.vessel_id === v.id);
   const anyCooking = contents.some(r => r.custom_data?.cooking);
+
+  // WATER IN THE POT. The gate that dry starch now sits behind, so the HUD has
+  // to be able to say so — a player holding penne, a pot and a lit stove would
+  // otherwise be told "it will scorch" by a verb and nothing at all by the panel
+  // that exists to stop that happening. Coarse on purpose, like every provider
+  // gate here: `fill` re-checks the tap, the vessel kind and what's already in
+  // there, and the HUD only proposes.
+  const wet = contents.some(r => profileNameFor(r) === 'liquid');
+  const kind = tagValue(v, 'vessel_kind', null);
+  const boilable = kind !== 'bowl' && kind !== 'bread';
+  if (boilable && ctx.taps?.length && !wet && !anyCooking) {
+    out.push(act('fill', `fill ${name}`, contents.some(r => profileNameFor(r) === 'dry_starch')
+      ? 'pasta and rice will not cook without it'
+      : 'water from the tap, to boil in'));
+  }
+  if (boilable && !anyCooking && contents.some(isMedium)) {
+    out.push(act('empty', `empty ${name}`, 'tips the water back out'));
+  }
 
   if (onHeat) {
     // A stove's tier is a CEILING, not its only setting — riding the burner is
@@ -462,7 +483,7 @@ async function buildAssistant(player, reachableFood, ctx) {
 // what's in the room. Two queries; everything else is in-memory world state.
 async function collect(player) {
   const zoneId = player.current_zone;
-  const { stoves, microwaves, boxes } = kitchenFurniture(zoneId);
+  const { stoves, microwaves, boxes, taps } = kitchenFurniture(zoneId);
   const appliances = [...stoves, ...microwaves];
   const boxIds = new Set(boxes.map(f => f.id));
   // `fromNearby` on the cooking verbs reaches into a `dish_cabinet` and nowhere
@@ -521,13 +542,13 @@ async function collect(player) {
   const vessels = all.filter(isVessel);
   const vesselIds = new Set(vessels.map(v => v.id));
 
-  return { zoneId, stoves, microwaves, boxes, appliances, boxIds, dishCabIds,
+  return { zoneId, stoves, microwaves, boxes, taps, appliances, boxIds, dishCabIds,
            carried, all, byId, childrenOf, vessels, vesselIds };
 }
 
 export async function buildKitchen(player) {
   const c = await collect(player);
-  const { zoneId, stoves, microwaves, boxes, appliances, boxIds, dishCabIds,
+  const { zoneId, stoves, microwaves, boxes, taps, appliances, boxIds, dishCabIds,
           carried, all, byId, childrenOf, vessels, vesselIds } = c;
 
   // ── What's in reach — the coarse gates the action layer reads ─────────────
@@ -539,6 +560,7 @@ export async function buildKitchen(player) {
   const has = (tag, list = reachable) => list.some(r => hasTag(r, tag));
   const ctx = {
     stoves,
+    taps,
     appliances,
     blade: has('can_chop') || has('butchering'),
     spreadable: has('spreadable', carried),
@@ -564,8 +586,11 @@ export async function buildKitchen(player) {
   // What the Assistant may count as an ingredient: raw food anywhere in reach.
   // A finished dish is a meal, and something already on the heat is spoken for —
   // counting either would promise a stew you'd have to dismantle dinner to make.
+  // A MEDIUM is excluded for the same reason it never satisfies a `needs` entry
+  // in the pan: a pot of tap water is not a stock you have, and counting it
+  // would tell you a soup was one ingredient away when it is two.
   const reachableFood = all.filter(r =>
-    isFood(r) && !r.custom_data?.dish && !r.custom_data?.cooked && !r.custom_data?.cooking);
+    isFood(r) && !isMedium(r) && !r.custom_data?.dish && !r.custom_data?.cooked && !r.custom_data?.cooking);
 
   const contentsOf = id => (childrenOf.get(id) || [])
     .map(r => component(r, kindOf(r) || 'food', foodActions(r, ctx, { inVessel: true })));
@@ -682,6 +707,14 @@ export async function buildKitchen(player) {
     status.push({ label: 'Stove', value: 'NONE', state: 'off' });
   }
   if (microwaves.length) status.push({ label: 'Microwave', value: 'AVAILABLE', state: 'ok' });
+  // THE TAP IS EQUIPMENT NOW. It reads as scenery until the day a pan of pasta
+  // refuses to cook without it, and then it is the most important object in the
+  // room — so the kitchen's own status board says whether there is one, in the
+  // same breath as the stove. A kitchen with no tap is a real kitchen and is not
+  // an error: it says NONE and the player goes and fills the pot next door.
+  status.push(taps.length
+    ? { label: 'Water', value: taps[0].name.toUpperCase(), state: 'ok' }
+    : { label: 'Water', value: 'NONE', state: 'off' });
   // A zone the world cache has never heard of (a fixture, a transient waste
   // room) has no temperature to report. That is a missing status line, not a
   // failed panel.
@@ -778,6 +811,16 @@ function planFor(key, template, c) {
     if (c.boxIds.has(r.container_id)) steps.push(`pullid ${r.id}`);
     steps.push(`stow ${shownName(r)} in ${shownName(vessel)}`);
   }
+
+  // WATER IS A STEP. Pasta and rice will not cook without it, and `prepare`
+  // stopping at a pan the stove would refuse is exactly the sort of plan that
+  // teaches a player the HUD is lying to them. It stays a plain command like
+  // every other step — `fill` re-checks the tap and the pan for itself, so this
+  // is a proposal and not a second implementation of the gate.
+  const inVessel = c.childrenOf.get(vessel.id) || [];
+  const needsWater = [...picks, ...inVessel].some(r => profileNameFor(r) === 'dry_starch')
+    && ![...picks, ...inVessel].some(r => profileNameFor(r) === 'liquid');
+  if (needsWater && c.taps.length) steps.push(`fill ${shownName(vessel)}`);
 
   if (!steps.length) return { error: `Everything's already where it needs to be.` };
   return { label: titleFor(key), steps, vessel: shownName(vessel) };

@@ -1,0 +1,20 @@
+{
+  "description": "The counter simply dips, and at the bottom of the dip there is a drain. Water arrives out of a slot in the backsplash with no tap in sight, which takes some getting used to.",
+  "flags": {
+    "aliases": "kitchen sink,sink,basin,tap",
+    "water_source": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_e_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Solenne counter basin",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_solenne_apt_e"
+}

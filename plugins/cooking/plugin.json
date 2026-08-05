@@ -51,6 +51,16 @@
       "requiredTag": "recipe_card"
     },
     {
+      "verb": "fill",
+      "requiredTag": "vessel",
+      "note": "Puts WATER in a pot as an ordinary ingredient row (item_water, tags.cooking_medium), which is what dry starch now needs before it will cook. Registered ahead of the fillable plugin (alphabetical) and falls through for anything also tagged `fillable` — drinkware is a vessel too and stays entirely fillable's/drinks'. Needs flags.water_source furniture in the room; foul water stamps custom_data.hazards.disease_risk so plating carries it through."
+    },
+    {
+      "verb": "empty",
+      "requiredTag": "vessel",
+      "note": "Tips the cooking medium back out of a pot. Falls through unless the vessel actually holds one, so `empty <canteen>` still reaches the fillable plugin."
+    },
+    {
       "verb": "workspace",
       "requiredFlag": "stove_tier",
       "note": "Declaration-only. Advertises the workspace plugin's HUD on a range/microwave/dish cabinet — cooking declares it because the flags are cooking's vocabulary, not the workspace plugin's. Also registered for `microwave` and `dish_cabinet`."

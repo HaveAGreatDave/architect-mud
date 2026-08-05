@@ -1,0 +1,17 @@
+{
+  "description": "Water, in a pot, doing the one job water does.",
+  "flags": {},
+  "id": "item_water",
+  "name": "water",
+  "tags": {
+    "cooking_medium": true,
+    "description": "Water, in a pot, doing the one job water does.",
+    "food_noun": "water",
+    "food_profile": "liquid",
+    "hydrating": true,
+    "restore_thirst": 10
+  },
+  "type": "consumable",
+  "value": 0,
+  "weight": 400
+}

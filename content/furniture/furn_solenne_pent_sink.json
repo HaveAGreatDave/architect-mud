@@ -1,0 +1,20 @@
+{
+  "description": "A single block of dark stone hollowed out into a basin deep enough to lose a roasting tray in, with a bridge tap arched over it in unlacquered brass. It is the only thing in this kitchen that looks like it was made by hand, and it probably was.",
+  "flags": {
+    "aliases": "kitchen sink,sink,basin,tap",
+    "water_source": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_pent_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "stone scullery basin",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_solenne_penthouse"
+}

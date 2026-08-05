@@ -1637,10 +1637,19 @@ async function cmdSmell(args, raw, player) {
   const top = perceive(found, band);
   const note = acuityNote(acuity, 'sense of smell');
 
+  // You, before the early return. A clean room used to swallow this line whole:
+  // wet yourself in a room with nothing else in it and the game told you the air
+  // was fine, because the only report about YOUR body was computed after the
+  // "nothing here" exit. The room being clean is precisely when it matters.
+  const own = bodyOdourSelf(player);
+
   if (!top.length) {
-    return { type: 'output', message: acuity < 0
+    const nothing = acuity < 0
       ? `You breathe in and get almost nothing. Something is wrong with your nose.`
-      : `You breathe in. Nothing worth reporting — which around here counts as good news.` };
+      : `You breathe in. Nothing worth reporting — which around here counts as good news.`;
+    return { type: 'output', message: own
+      ? `You breathe in.\n  <span class="text-dim">${own}</span>`
+      : nothing };
   }
 
   const lines = top.map(s => `  ${s.text[0].toUpperCase()}${s.text.slice(1)}.`);
@@ -1660,7 +1669,6 @@ async function cmdSmell(args, raw, player) {
 
   // And the one contributor the room pass deliberately skipped: you. Always last,
   // always reported regardless of acuity — you don't need a good nose to know.
-  const own = bodyOdourSelf(player);
   if (own) lines.push(`  <span class="text-dim">${own}</span>`);
 
   return { type: 'output', message: `You breathe in.\n${lines.join('\n')}` };

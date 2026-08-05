@@ -507,6 +507,79 @@ row of five potatoes halved is ten halves, and each new row keeps the original
 `minced` is the exception and survives the cut, because that's what the thing
 *is* rather than something done to it.
 
+## Boiling — water as a cooking medium
+
+**Dry starch cooks in liquid, not in heat.** `cook` refuses a pan holding
+`dry_starch` unless something in that pan carries the `liquid` profile:
+
+> Dry box of penne in a dry cast-iron skillet will scorch, not cook. It needs
+> liquid — fill cast-iron skillet at a tap, or put stock in it.
+
+This is the only profile that refuses, and it refuses because it's the only one
+that is *inedible raw*: a potato left on a dry hob is merely a bad potato, dry
+pasta on a dry hob is a scorch mark. Every starch recipe's method has said "salt
+the water" since the day it was written — this is that line finally being
+load-bearing rather than decorative.
+
+### `fill <vessel>` / `empty <vessel>`
+
+`fill` at furniture flagged `water_source` inserts **`item_water` as an ordinary
+ingredient row inside the pan**. That's the whole design decision, and it was not
+the obvious one: the `fillable` plugin models fluid as a `fluid_amount` scalar on
+the container, and copying that here would have meant teaching `hadLiquid`,
+`deglaze`, fond suppression, the boil cue and every dish's `needs` about a second
+representation of "there is water in this". Rows, and all five already understand
+it.
+
+Registration order does the routing. Specialized actions fire alphabetically and
+`cooking` < `fillable`, so cookware is claimed here and **anything also tagged
+`fillable` falls straight through** — a mug is a `vessel` too, and stays entirely
+the drinks/fillable path. `empty` likewise falls through unless the pan actually
+holds a medium.
+
+Foul water is foul: the fill stamps `custom_data.hazards.disease_risk` from the
+same `bodily.toiletContamination` dispatch the canteen path uses, and
+[`hazards.js`](hazards.js) carries it onto the plate. Cooking is not a purifier
+here, same as everywhere else.
+
+### `tags.cooking_medium` — a liquid for the pan, nothing for the dish
+
+The medium tag is the whole trick, and it's one sentence: **water counts for
+every question about the PAN and no question about the DISH.**
+
+| Asks about the pan → medium counts | Asks about the dish → medium is invisible |
+|---|---|
+| the `dry_starch` gate | the dish signature and `matchDish` |
+| `hadLiquid` → fond suppression | the quality bands (it takes **no cook session**, so a pot of water can never reach `burnt`) |
+| boil vs. sizzle on the audio cue | the dish name |
+| the HUD's `fill`/`empty` offers | the Recipe Assistant's ingredient count |
+
+Without that split, "penne and two bottles of water" comes straight back as a
+valid pan of sauce — the exact bug [`dishes.js`](dishes.js) fixed by making the
+sauce named rather than counted — except now with a tap to make it free.
+
+`drain <vessel>` **deletes the medium**, which is what finally makes the verb an
+act rather than a timing trick. Stock is an ingredient and *stays*: draining
+ramen is a decision you'd have to make on purpose, and losing your broth to a
+mistyped verb is not a lesson. `plate` consumes the medium silently along with
+everything else — the water a dish was boiled in does not survive the dish.
+
+All of it is surfaced by the workspace HUD, in three places:
+
+- **A `Water` row on the Status board**, beside Power and Stove, naming the tap
+  or reading `NONE`. A tap reads as scenery right up until the day a pan of pasta
+  refuses to cook without one.
+- **`fill` / `empty` on the pan itself** in the Preparation Area, the first with
+  the hint *"pasta and rice will not cook without it"* when there's starch in
+  there.
+- **`prepare <recipe>` appends a `fill` step** to any starch plan, so it stops at
+  a pan the stove will actually accept rather than one it will refuse.
+
+Coarse gates, as always — the HUD proposes, `fill` decides. The whole chain is
+covered end to end in [plugins/workspace/regress.js](../workspace/regress.js):
+no tap → `cook` refused → tap added → Status names it → the pan offers `fill` →
+water lands as a row → `cook` works → `drain` empties it.
+
 ## Fond
 
 The only place in the system where one cook can see another. A good sear in a

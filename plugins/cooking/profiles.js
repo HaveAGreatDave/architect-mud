@@ -280,6 +280,15 @@ export const needsPrep = invRow => !isMinced(invRow) && profileNeedsPrep(profile
 export const isModifierProfile = name => !!PROFILES[name]?.modifier;
 export const isModifier = invRow => isModifierProfile(profileNameFor(invRow));
 
+// A COOKING MEDIUM is in the pan to carry heat rather than to be eaten: the
+// water pasta boils in. It is a liquid for every question about the PAN — is it
+// wet, does it lift fond, does it boil rather than sizzle, will dry starch cook
+// in it — and nothing at all for every question about the DISH. That split is
+// the whole tag. Water in the pot must never take a cook session (a pot of water
+// cannot burn), never score, and never satisfy a recipe asking for stock, or
+// "penne and two bottles of water" comes straight back as a valid pan of sauce.
+export const isMedium = invRow => !!(invRow?.tags?.cooking_medium);
+
 // A per-INSTANCE noun beats the class one: meat butchered off a feral dog is
 // tagged with what it came off, so it cooks into "feral dog and potato stew"
 // rather than the generic "meat and potato stew". Set by plugins/butchering.

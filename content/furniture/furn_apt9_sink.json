@@ -1,0 +1,20 @@
+{
+  "description": "A shallow basin bolted to the wall beside the hotplate, its enamel worn through to grey metal in a ring the size of a fist. The tap knocks twice before it gives you anything, and what it gives you is cold.",
+  "flags": {
+    "aliases": "kitchen sink,sink,basin,tap",
+    "water_source": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_apt9_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "chipped basin",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_apt_9"
+}

@@ -13,7 +13,7 @@
  * Actions (the builtin replay path can't reach plugin verbs).
  */
 import { query } from '../../server/models/db.js';
-import { stainClothing, stainZone, stainCreatureBodyPart, taintAir, depositIntoVessel, takeFilthInHand } from '../../server/engine/bodily.js';
+import { stainClothing, stainZone, stainCreatureBodyPart, soilBareSkin, taintAir, depositIntoVessel, takeFilthInHand } from '../../server/engine/bodily.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -180,20 +180,44 @@ async function equippedSlotsFor(player, slotNames) {
   return rows.map(r => r.slot);
 }
 
+// It doesn't stop at the hem. When legwear soaks a release, whatever is on the
+// feet gets it too — the alternative was boots that stayed factory-fresh through
+// a wetting, which is the one detail everybody notices.
+//
+// The FLOOR decision stays keyed on legwear alone, deliberately: boots don't stop
+// a stream. Feet are stained when the legs were, never instead of them, so a
+// clean unzip and a deliberate ground pee still leave them alone.
+async function stainLegsAndFeet(player, legSlots, type) {
+  const feet = await equippedSlotsFor(player, ['feet']);
+  await stainClothing(player, [...legSlots, ...feet], type);
+}
+
 async function involuntaryBowelRelease(player) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
   // Legwear on → it soaks into the clothing and never reaches the floor.
-  if (coveredSlots.length) await stainClothing(player, coveredSlots, 'feces');
-  else await stainZone(player.current_zone, 'feces');
-  sendToZone(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
+  if (coveredSlots.length) {
+    await stainLegsAndFeet(player, coveredSlots, 'feces');
+    player.digestive_load = 0;
+    sendToZone(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
+    return `<span style="color:var(--red)">Your body gives out. You lose control entirely. Your clothing is stained. The world will notice.</span>`;
+  }
+
+  // Nothing to catch it. It goes on the FLOOR and on YOU — both, because the
+  // puddle is anonymous and walking away from it used to be a full clean-up.
+  // Boots still catch what runs that far; bare feet wear it.
+  await stainZone(player.current_zone, 'feces');
+  const feet = await equippedSlotsFor(player, ['feet']);
+  if (feet.length) await stainClothing(player, feet, 'feces');
+  await soilBareSkin(player, 'feces', feet.length ? ['legs'] : ['legs', 'feet']);
   player.digestive_load = 0;
-  return `<span style="color:var(--red)">Your body gives out. You lose control entirely. Your clothing is stained. The world will notice.</span>`;
+  sendToZone(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
+  return `<span style="color:var(--red)">Your body gives out. You lose control entirely. There was nothing in the way, so it goes down your legs and onto the floor both. The world will notice.</span>`;
 }
 
 async function involuntaryBladderRelease(player) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
   // Legwear on → it soaks into the clothing and never reaches the floor.
-  if (coveredSlots.length) await stainClothing(player, coveredSlots, 'urine');
+  if (coveredSlots.length) await stainLegsAndFeet(player, coveredSlots, 'urine');
   else await stainZone(player.current_zone, 'urine');
   sendToZone(player.current_zone, { type:'zone_event', message:`A small puddle spreads near someone's feet.` }, player.id);
   player.hydration_load = 0;
@@ -329,7 +353,7 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
   const unzips = player.biological_sex === 'male' && covered.length > 0;
   let stained = false;
   if (!hasFacility && covered.length && !unzips) {
-    await stainClothing(player, covered, 'urine');
+    await stainLegsAndFeet(player, covered, 'urine');
     stained = true;
   }
   // Sitting/standing at a toilet you fully void; a rushed pee elsewhere doesn't.

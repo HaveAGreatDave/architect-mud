@@ -1,0 +1,20 @@
+{
+  "description": "A brushed-steel basin sunk flush into the counter, that being most of what this kitchen is. No range, no hob, just a convection unit and somewhere to fill a pot you have nowhere to boil.",
+  "flags": {
+    "aliases": "kitchen sink,sink,basin,tap",
+    "water_source": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_solenne_c_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "kitchen sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_solenne_apt_c"
+}

@@ -1,0 +1,20 @@
+{
+  "description": "A deep zinc trough set into the end of the counter, kept mirror-bright for the same reason everything else in here is: somebody wants you imagining it in your own kitchen. The tap is a long swan neck you could fill a stockpot under without tilting it.",
+  "flags": {
+    "aliases": "kitchen sink,sink,basin,tap",
+    "water_source": true,
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kitchenware_sink",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "demonstration sink",
+  "object_type": "sink",
+  "power_draw_kw": null,
+  "price": 120,
+  "zone_id": "zone_kitchenware"
+}

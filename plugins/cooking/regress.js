@@ -137,6 +137,45 @@ export default async function regress({ run, check, getPlayer }) {
       !(t.keyItems || []).some(id => /tomato/.test(id)), JSON.stringify(t.keyItems));
   }
 
+  // ── boiling: water as a cooking MEDIUM ────────────────────────────────────
+  //
+  // Pasta cooks in liquid, not in heat, and until this existed a box of penne on
+  // a dry hob arrived at `excellent`. The medium is the thing that makes the
+  // gate passable without making the pan of water an ingredient — so every case
+  // here is about the same split: a medium is a liquid for the PAN and nothing
+  // at all for the DISH.
+  {
+    const { isMedium } = await import('./profiles.js');
+    const { hasCookingLiquid } = cookTest2;
+    const water = { name: 'water', tags: { food_profile: 'liquid', cooking_medium: true } };
+    const stock = { name: 'bone broth', tags: { food_profile: 'liquid' } };
+    const penne = { name: 'box of penne', tags: { food_profile: 'dry_starch' } };
+
+    check('water in the pot is a medium', isMedium(water));
+    check('...and stock is not — it is an ingredient', !isMedium(stock));
+    check('...and neither is a thing with no tags at all', !isMedium(penne) && !isMedium(null));
+    check('a medium still reads as a liquid to the pan', hasCookingLiquid([water]));
+    check('...so does real stock', hasCookingLiquid([stock]));
+    check('a dry pan of penne is not wet, which is what the gate turns on',
+      !hasCookingLiquid([penne]));
+
+    // The dish half. A medium must never satisfy a recipe asking for stock, or
+    // the fix that stopped "penne, gin and two bottles of water" being a sauce
+    // is undone by a tap.
+    const { DISHES, matchScore, signature } = await import('./dishes.js');
+    const { profileNameFor } = await import('./profiles.js');
+    // signature() is fed the same filtered list plating feeds it — medium rows
+    // are excluded upstream, so this asserts the exclusion is what makes ramen
+    // refuse rather than any property of `signature` itself.
+    const forDish = rows => signature(rows.filter(r => !isMedium(r)), profileNameFor);
+    check('a pot of noodles and tap water is not ramen',
+      matchScore(forDish([penne, water]), DISHES.ramen, new Set(['item_ramen_noodles'])) === -1,
+      JSON.stringify(forDish([penne, water])));
+    check('...and the same pot with actual stock in it is',
+      matchScore(forDish([penne, stock]), DISHES.ramen, new Set(['item_ramen_noodles'])) > 0,
+      JSON.stringify(forDish([penne, stock])));
+  }
+
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
     a: stageText(COOK_STAGES, 0), b: stageText(COOK_STAGES, 1),
   });

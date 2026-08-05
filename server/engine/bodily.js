@@ -179,6 +179,25 @@ export async function takeFilthInHand(player, type, extra = {}) {
   return spawnFilth(player, type, null, extra);
 }
 
+// The third stain channel, alongside stainClothing (a garment) and stainZone (a
+// floor): filth on BARE SKIN, for when there was no garment to catch it.
+//
+// It exists because losing control with nothing on used to leave you personally
+// spotless — the floor took all of it and one room later you were clean, while
+// the same accident in trousers followed you around for days. Being less dressed
+// meant less consequence, which is exactly backwards.
+//
+// Same shape stainCreatureBodyPart writes, so `soilDescription` and `hygieneOf`
+// read it with no changes and `clearBodyStain` still clears it.
+export async function soilBareSkin(player, type, locations) {
+  if (!player?.id || !locations?.length) return false;
+  if (!player.appearance_data) player.appearance_data = {};
+  player.appearance_data.soiled_state = { type, locations };
+  await query('UPDATE players SET appearance_data=$1 WHERE id=$2',
+    [JSON.stringify(player.appearance_data), player.id]).catch(() => {});
+  return true;
+}
+
 // The counterpart to stainCreatureBodyPart: get one part clean again without
 // touching the rest. `soiled_state` only ever holds one entry, so clearing a part
 // that matches clears the state; a stain somewhere else survives, which is what

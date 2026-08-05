@@ -29,7 +29,7 @@ import {
   COOK_SECONDS_PER_KG, BAND_SCALE,
 } from './config.js';
 import { prepareCook, commitCooks, cookEnvironment, checkCooking, endSession, freeAppliance, sessionProfile, rescheduleNarration, cooksOnAppliances, forgetCook } from './cook.js';
-import { QUALITY_BANDS, PROFILES, bandIndex, profileNameFor, isModifier, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
+import { QUALITY_BANDS, PROFILES, bandIndex, profileNameFor, isModifier, isMedium, needsPrep, donenessLevels, defaultDoneness, achievedDoneness } from './profiles.js';
 import { evaluate } from './quality.js';
 import { handle as handleInteraction } from './interact.js';
 import './help.js';
@@ -64,6 +64,12 @@ import { DISCOVERY_IP, DISCOVERY_ATTEMPTS, MODIFIER_BONUS, MODIFIER_BONUS_CAP, O
 // what every knife in the game already carries, so all three existing blades
 // work without a content edit.
 const chopTool = player => resolveInventoryItem(player, { tag: ['can_chop', 'butchering'], topLevel: true, fromNearby: true });
+
+// IS THE PAN WET? One predicate, because four things now ask it — the dry-starch
+// gate, the boil cue, fond suppression and the HUD — and four spellings of the
+// same question is how they drift apart. A medium counts here and only here:
+// this asks about the pan, never about the dish.
+export const hasCookingLiquid = rows => (rows || []).some(r => profileNameFor(r) === 'liquid');
 
 // ── Sound ────────────────────────────────────────────────────────────────────
 //
@@ -252,13 +258,21 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
   // puts the food straight on the stove, which works but cooks worse.
   const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
   let foods;
+  // Everything in the pan, medium included — kept in scope past the branch
+  // because the dry-starch gate and the boil/sizzle cue both ask about the PAN
+  // rather than about what's cooking in it.
+  let contents = [];
   if (vessel) {
+    contents = await vesselContents(vessel.inv_id);
     // Anything profiled counts as an ingredient, whether or not it strictly
     // needs cooking — a tomato belongs on the heat. MODIFIERS are the exception:
     // fat and aromatics season the dish and never take a session of their own,
     // so they can't burn away to nothing while the main is still cooking.
-    foods = (await vesselContents(vessel.inv_id))
-      .filter(r => (hasTag(r, 'needs_cooking') || profileNameFor(r)) && !isModifier(r));
+    // A MEDIUM is the other exception, for the opposite reason: water is what
+    // the cooking happens IN, and a pot of water that can reach `burnt` is a
+    // pot of water nobody would ever leave alone.
+    foods = contents
+      .filter(r => (hasTag(r, 'needs_cooking') || profileNameFor(r)) && !isModifier(r) && !isMedium(r));
     // An EDIBLE vessel goes on the heat as an ingredient of its own dish — you
     // toast the bread, not just what's on it. Every other vessel is equipment
     // and stays out of the scoring.
@@ -278,6 +292,26 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
     const foodRow = await resolveInventoryItem(player, { name: nameStr, topLevel: true });
     if (!foodRow) return { type: 'error', message: `You don't have "${nameStr}".` };
     foods = [foodRow];
+  }
+
+  // DRY STARCH COOKS IN LIQUID, NOT IN HEAT.
+  //
+  // The one profile that refuses, and it refuses because it is the one profile
+  // that is INEDIBLE raw: dry penne on a dry hob does not slowly become pasta,
+  // it toasts and then scorches, and the game had it quietly arriving at
+  // `excellent` anyway. Every recipe that uses starch has said "salt the water"
+  // in its method since the day it was written; this is the line finally being
+  // load-bearing rather than decorative.
+  //
+  // Any liquid satisfies it — water from the tap, stock, the last of the milk —
+  // because the requirement is that the starch is submerged, not that it's
+  // submerged in anything good. What you boiled it in is scored elsewhere (or,
+  // for a medium, deliberately not scored at all).
+  const starch = foods.filter(r => profileNameFor(r) === 'dry_starch');
+  if (starch.length && !hasCookingLiquid(contents)) {
+    return { type: 'error', message: vessel
+      ? `Dry ${starch[0].name} in a dry ${vessel.name} will scorch, not cook. It needs liquid — <span class="text-dim">fill ${vessel.name}</span> at a tap, or put stock in it.`
+      : `${starch[0].name} doesn't cook in heat, it cooks in water. It needs a pot with something wet in it.` };
   }
 
   const stoves = stovesInZone(player.current_zone);
@@ -401,7 +435,10 @@ async function cookFood(nameStr, player, broadcast, wantAppliance = null) {
       // reads as "it's running" without pretending to loop for the whole cook.
       cookSfx(player, { action: 'microwave', intensity: 0.6, flow: 3 });
     } else {
-      const wet = loudest.profile === 'liquid';
+      // A WET PAN boils, whatever is in it. Read off the pan rather than off the
+      // loudest session, because the medium has no session: a pot of pasta water
+      // is the wettest thing in the kitchen and would otherwise have sizzled.
+      const wet = loudest.profile === 'liquid' || hasCookingLiquid(contents);
       const tier = { low: 0.35, mid: 0.6, high: 0.9 }[appliance.heatTier] ?? 0.5;
       cookSfx(player, {
         action: wet ? 'boil' : 'sizzle',
@@ -541,7 +578,7 @@ async function plateVessel(vessel, player) {
   // thing. So anything already carrying a session is excluded here or it would
   // be scored twice: once off its timeline and once at its raw target.
   const rawWorked = coldWork
-    ? contents.filter(r => profileNameFor(r) && !isModifier(r) && !r.custom_data?.cooking)
+    ? contents.filter(r => profileNameFor(r) && !isModifier(r) && !isMedium(r) && !r.custom_data?.cooking)
     : [];
   if (!cooking.length && !coldWork) return { type: 'error', message: `Nothing in the ${vessel.name} is on the heat.` };
   if (coldWork) {
@@ -568,6 +605,11 @@ async function plateVessel(vessel, player) {
   // than cooking alongside it. They still count toward the dish MATCH (a sear
   // genuinely requires fat) and are still consumed.
   const modifiers = contents.filter(r => isModifier(r));
+  // The medium is in the pan and is not part of the meal. It stays OUT of
+  // `inVessel` — out of the signature, out of the bands, out of the dish name —
+  // and is consumed with everything else at the end, because the water a dish
+  // was boiled in does not survive the dish.
+  const medium = contents.filter(r => isMedium(r));
 
   // An EDIBLE VESSEL is part of what it makes. Bread is the only one: a sandwich
   // is not "fillings served in a bread container", it IS the bread, and the
@@ -649,7 +691,10 @@ async function plateVessel(vessel, player) {
   // What the pan itself brings. Liquid in the pan lifts fond on its own, so the
   // same fact drives both what this dish collects and whether the pan keeps
   // anything afterwards — worked out once, here.
-  const hadLiquid = inVessel.some(r => profileNameFor(r) === 'liquid');
+  // The medium counts here and nowhere else: a pan boiled dry of pasta water
+  // kept no fond either, and that is a fact about the PAN rather than about
+  // what the dish was made of.
+  const hadLiquid = inVessel.some(r => profileNameFor(r) === 'liquid') || medium.length > 0;
   const fondBonus = fondModifier(vessel.custom_data?.fond, {
     deglazed: !!vessel.custom_data?.deglazed, hadLiquid, template,
   });
@@ -721,7 +766,7 @@ async function plateVessel(vessel, player) {
     `WITH consumed AS (DELETE FROM player_inventory WHERE id = ANY($1) RETURNING 1)
      INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data)
      SELECT $2, $3, $4, 1, 1.0, $5::jsonb`,
-    [inVessel.map(r => r.inv_id), randomUUID(), player.id, produced, JSON.stringify(stamp)]
+    [[...inVessel, ...medium].map(r => r.inv_id), randomUUID(), player.id, produced, JSON.stringify(stamp)]
   );
 
   // Does the pan keep anything? A sear leaves fond; a sauce lifts it and leaves
@@ -1616,6 +1661,13 @@ async function cmdDrain(args, raw, player) {
   const strainer = await resolveInventoryItem(player, { tag: 'dishware', topLevel: true, fromNearby: true });
   const clean = !!strainer && (strainer.tags?.dishware_kind === 'strainer');
 
+  // THE WATER ACTUALLY GOES. Draining used to end the starch's session and leave
+  // the pan exactly as wet as it was, which is why the verb read as a timing
+  // trick rather than as an act. A MEDIUM is what leaves — stock is an
+  // ingredient and stays, because draining ramen is a decision you'd have to
+  // make on purpose and losing your broth to a mistyped verb is not a lesson.
+  const mediumRows = rows.filter(isMedium);
+
   const out = [];
   for (const row of wet) {
     const session = row.custom_data.cooking;
@@ -1638,6 +1690,10 @@ async function cmdDrain(args, raw, player) {
     out.push(`${row.name} — ${band}${done ? `, ${done}` : ''}`);
   }
 
+  if (mediumRows.length) {
+    await query('DELETE FROM player_inventory WHERE id = ANY($1)', [mediumRows.map(r => r.inv_id)]);
+  }
+
   const how = clean
     ? `You tip the ${vessel?.name || 'pan'} into the ${strainer.name} and the water goes.`
     : `You drain it with the lid and your nerve. Some of it goes down the drain with the water.`;
@@ -1646,6 +1702,93 @@ async function cmdDrain(args, raw, player) {
     ...out.map(l => `  ${l}`),
     `<span class="text-dim">Still finishable — get it into the sauce before it sits.</span>`,
   ].join('\n') };
+}
+
+// ── fill / empty ─────────────────────────────────────────────────────────────
+//
+// A POT OF WATER, as an ordinary ingredient row.
+//
+// The obvious implementation was the one the `fillable` plugin already has — a
+// `fluid_amount` scalar on the vessel's custom_data — and it is the wrong one
+// here. Cooking has modelled liquid as ROWS IN THE PAN since the day it existed:
+// `hadLiquid`, `deglaze`, fond suppression, the boil cue and every dish's
+// `needs` all read contents. A second, parallel representation of "there is
+// water in this" would have meant teaching all five about it, and the first one
+// anybody forgot would be a silent bug. So filling a pot inserts water, and
+// every one of them already understands what that means.
+//
+// This is registered ahead of the fillable plugin (specialized actions fire in
+// registration order, and `cooking` < `fillable`), so it must fall through
+// cleanly for everything that isn't cookware — including drinkware, which is
+// `vessel` AND `fillable` and stays entirely the other plugin's business.
+const WATER_ITEM = 'item_water';
+
+async function waterSourceIn(zoneId) {
+  const { rows } = await query(
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`, [zoneId]);
+  return rows[0] || null;
+}
+
+// The cookware half of `fill`. Returns undefined — falls through — for anything
+// this plugin has no business with.
+async function fillVessel(args, raw, player) {
+  const nameStr = args.join(' ').replace(/\s+(?:from|at)\s+.*$/i, '').trim();
+  if (!nameStr) return undefined;
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
+  if (!vessel || hasTag(vessel, 'fillable')) return undefined;
+
+  // A bowl is mashed in and bread is stacked on. Neither ever sees heat, so
+  // water in one is not a cooking medium, it's a mess.
+  const kind = tagValue(vessel, 'vessel_kind', null);
+  if (kind === 'bowl' || kind === 'bread') {
+    return { type: 'error', message: `A ${vessel.name} is for working in, not for boiling in.` };
+  }
+
+  const src = await waterSourceIn(player.current_zone);
+  if (!src) return { type: 'error', message: `There's no water here to fill the ${vessel.name} from.` };
+
+  const contents = await vesselContents(vessel.inv_id);
+  if (contents.some(isMedium)) return { type: 'error', message: `The ${vessel.name} already has water in it.` };
+  if (contents.some(r => r.custom_data?.cooking)) {
+    return { type: 'error', message: `It's on the heat with something in it. Take it off before you go pouring water in.` };
+  }
+
+  // Water out of a fouled bowl is foul water, and a dish made with it is a foul
+  // dish. `hazards` on the row is the seam that already carries that through
+  // plating — see hazards.js — so nothing downstream needs to know where this
+  // particular liquid came from.
+  const contam = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: src.id } });
+  const foul = !!(contam?.fouled || contam?.peed);
+
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, container_id, custom_data)
+     VALUES ($1, $2, $3, 1, $4, $5::jsonb)`,
+    [randomUUID(), player.id, WATER_ITEM, vessel.inv_id, JSON.stringify(foul ? { hazards: { disease_risk: true } } : {})]
+  );
+
+  cookSfx(player, { action: 'pour', material: 'liquid', flow: 0.9 });
+  return { type: 'use', message: foul
+    ? `You fill the ${vessel.name} from the ${src.name}. <span style="color:var(--red)">The water comes out cloudy and wrong. Cooking in this will not make it clean.</span>`
+    : `You fill the ${vessel.name} from the ${src.name}.` };
+}
+
+// Tipping it away without draining anything. The counterpart to `fill` and the
+// only way to change your mind about what you were going to boil in.
+async function emptyVessel(args, raw, player) {
+  const nameStr = args.join(' ').trim();
+  if (!nameStr) return undefined;
+  const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
+  if (!vessel || hasTag(vessel, 'fillable')) return undefined;
+
+  const contents = await vesselContents(vessel.inv_id);
+  const mediumRows = contents.filter(isMedium);
+  if (!mediumRows.length) return undefined;   // nothing of ours here — fall through
+  if (contents.some(r => r.custom_data?.cooking)) {
+    return { type: 'error', message: `Not while it's on the heat with something cooking in it.` };
+  }
+  await query('DELETE FROM player_inventory WHERE id = ANY($1)', [mediumRows.map(r => r.inv_id)]);
+  cookSfx(player, { action: 'pour', material: 'liquid', flow: 1 });
+  return { type: 'use', message: `You tip the water out of the ${vessel.name}.` };
 }
 
 // ── cookbook ─────────────────────────────────────────────────────────────────
@@ -1856,6 +1999,10 @@ function kitchenSounds(zone) {
 
 export const specializedActions = [
   { verb: 'read', requiredTag: 'recipe_card', handler: readRecipeCard },
+  // Cookware only, and it self-checks that: a mug is `vessel` and `fillable`
+  // both, and stays the fillable plugin's. See fillVessel.
+  { verb: 'fill', requiredTag: 'vessel', handler: fillVessel },
+  { verb: 'empty', requiredTag: 'vessel', handler: emptyVessel },
   // Declaration-only (handler: null) — `workspace` is the workspace plugin's own
   // command and this registers nothing at dispatch. It exists so a range, a
   // microwave or a dish cabinet ADVERTISES the HUD on its examine: the verb was
@@ -1924,4 +2071,4 @@ export const hooks = {
 };
 
 // Exposed for the regression harness.
-export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents };
+export const _test = { donenessRisk, plateDoneness, findFreeStove, stovesInZone, labsInZone, cookStations, vesselStats, vesselContents, hasCookingLiquid };

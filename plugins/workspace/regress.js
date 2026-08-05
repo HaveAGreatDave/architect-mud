@@ -47,6 +47,8 @@ export default async function regress({ run, check, getPlayer }) {
   const POT = 'item_workspace_regress_pot';
   const BROTH = 'item_workspace_regress_broth';
   const SPUD = 'item_workspace_regress_spud';
+  const PENNE = 'item_workspace_regress_penne';
+  const TAP = 'furn_workspace_regress_sink';
 
   const made = [];
 
@@ -378,13 +380,104 @@ export default async function regress({ run, check, getPlayer }) {
     check('an ingredient that vanished between plan and run stops it cleanly, not silently',
       r2?.type === 'error' && /short/i.test(r2.message), JSON.stringify(r2));
 
+    // ── The tap, end to end ─────────────────────────────────────────────────
+    //
+    // Dry starch now refuses to cook without liquid, which means the HUD has a
+    // new way to strand somebody: offer `cook` on a pan the stove will reject.
+    // Everything below is one chain — the tap is in the room, the panel says so,
+    // the panel offers the verb, the verb puts water in the pan, and the pan
+    // then cooks. A break anywhere in it is a player standing at a stove being
+    // told no by a system that never told them why.
+    await query(
+      `INSERT INTO items (id,name,description,type,value,weight,tags) VALUES ($1,'test workspace penne','a test penne','misc',5,125,$2)
+       ON CONFLICT (id) DO UPDATE SET tags=$2, weight=125`,
+      [PENNE, JSON.stringify({ consumable: true, needs_cooking: true, food_profile: 'dry_starch' })]
+    );
+    await reloadItem(PENNE);
+
+    // Clear the bench so the only pan in play is the one this case is about.
+    await query('UPDATE player_inventory SET container_id=NULL WHERE container_id=$1', [potId]);
+    const penneId = randomUUID();
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,container_id) VALUES ($1,$2,$3,1,$4)`,
+      [penneId, player.id, PENNE, potId]);
+    made.push(penneId);
+
+    let w = await run('workspace');
+    check('a kitchen with no tap says so rather than staying silent about it',
+      w.status?.some(s => s.label === 'Water' && s.value === 'NONE'), JSON.stringify(w.status));
+
+    let dry = await run(`cook test workspace pot`);
+    check('dry starch on a dry stove is refused, not quietly cooked',
+      dry?.type === 'error' && /scorch/.test(dry.message), JSON.stringify(dry));
+
+    await insertFurniture({
+      id: TAP, name: 'test workspace sink', description: 'a test sink', object_type: 'sink',
+      zone_id: Z, flags: JSON.stringify({ water_source: true }),
+    }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+
+    w = await run('workspace');
+    check('...and with a tap in the room the Status board names it',
+      w.status?.some(s => s.label === 'Water' && /SINK/i.test(s.value)), JSON.stringify(w.status));
+    const potActs = labels(w.area.find(v => v.id === potId)?.actions);
+    check('...and the pan of pasta is offered the tap as a command',
+      potActs.includes('fill'), JSON.stringify(potActs));
+
+    const filled = await run('fill test workspace pot');
+    check('fill puts water in the pan', filled?.type === 'use' && /fill/i.test(filled.message), JSON.stringify(filled));
+    const water = (await query(
+      `SELECT id, item_id FROM player_inventory WHERE container_id=$1 AND item_id='item_water'`, [potId])).rows;
+    check('...as an ordinary ingredient ROW, not a flag on the vessel', water.length === 1, JSON.stringify(water));
+    if (water.length) made.push(water[0].id);
+
+    check('...and filling twice is refused rather than flooding the pan',
+      (await run('fill test workspace pot'))?.type === 'error');
+
+    check('empty tips it back out again', (await run('empty test workspace pot'))?.type === 'use');
+    check('...and the pan is dry afterwards',
+      !(await query(`SELECT 1 FROM player_inventory WHERE container_id=$1 AND item_id='item_water'`, [potId])).rows.length);
+
+    // `prepare` plans the fill rather than handing back a pan the stove will
+    // refuse. A saved recipe is the cheapest way to state "a dish of starch and
+    // nothing wet" — every starch dish in the catalog wants four other things in
+    // the pan before it reaches this branch.
+    {
+      await query('UPDATE player_inventory SET container_id=NULL WHERE id=$1', [penneId]);
+      await setFlagById(player.id, `${SAVED_PREFIX}boiled-penne`, JSON.stringify({
+        name: 'Boiled Penne', sig: 'pot|dry_starch:1',
+        vessel: 'pot', family: 'pasta', complexity: 1, best: 'good', author: player.handle,
+      }));
+      const planned = await run('prepare Boiled Penne');
+      check('prepare plans the tap when the dish needs water',
+        planned?.type === 'output' && /fill /.test(planned.message), JSON.stringify(planned));
+      check('...and the pan really is wet when it stops',
+        (await query(`SELECT 1 FROM player_inventory WHERE container_id=$1 AND item_id='item_water'`, [potId])).rows.length === 1);
+      await clearFlagsByPrefix(player.id, SAVED_PREFIX);
+      for (const row of (await query(
+        `SELECT id FROM player_inventory WHERE container_id=$1 AND item_id='item_water'`, [potId])).rows) made.push(row.id);
+    }
+
+    const wet = await run('cook test workspace pot');
+    check('...and now the same pan cooks', wet?.type !== 'error', JSON.stringify(wet));
+
+    const drained = await run('drain test workspace pot');
+    check('drain takes the starch off the heat', drained?.type === 'output', JSON.stringify(drained));
+    check('...and the water actually goes down the drain',
+      !(await query(`SELECT 1 FROM player_inventory WHERE container_id=$1 AND item_id='item_water'`, [potId])).rows.length);
+
+    // The other half of the routing: `empty` on a pan holding nothing of ours
+    // must NOT be claimed here, or the day a pan becomes fillable the drinks
+    // path silently loses the verb.
+    check('empty falls through for a pan holding no water of ours',
+      (await run('empty test workspace pot'))?.type !== 'use');
+
   } finally {
     player.current_zone = saved;
     if (made.length) await query(`DELETE FROM player_inventory WHERE id = ANY($1)`, [made]);
     await deleteFurniture(STOVE).catch(() => {});
     await deleteFurniture(CAB).catch(() => {});
+    await deleteFurniture(TAP).catch(() => {});
     await clearFlagsByPrefix(player.id, FLAG_PREFIX).catch(() => {});
-    const items = [PAN, STEAK, JUNK, BLADE, POT, BROTH, SPUD];
+    const items = [PAN, STEAK, JUNK, BLADE, POT, BROTH, SPUD, PENNE];
     await query('DELETE FROM items WHERE id = ANY($1)', [items]).catch(() => {});
     for (const id of items) deleteItemCache(id);
   }
