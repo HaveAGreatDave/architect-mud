@@ -176,10 +176,10 @@ export const REGISTRY = [
     // (reconcileApartmentDoorLocks). forcefield_locked is a purely ephemeral runtime
     // guard, never authored — excluded so it's never carried in files.
     excludeColumns: ['forcefield_locked'] },
-  { table: 'windows', class: 'content', pk: ['id'], readTier: 'boot', // environment.js state.windows, reloaded on dev edit
-    // curtain_open/glass_state are runtime-mutated (environment.js) but carry
-    // authored initial state, so they stay content.
-    note: 'runtime-mutated authored columns: curtain_open, glass_state' },
+  // No `windows` entry: a window is `zones.flags.window`, so it travels with its
+  // zone. The table is dropped in SCHEMA_SQL. It used to sit here with a note
+  // apologising for curtain_open/glass_state being runtime-mutated authored
+  // columns — that apology is what the flag-plus-RAM split removes.
   // sounds is near-dead: only the dev-panel CRUD reads it — the sound engine
   // (propagateSound et al.) takes literal loudness/message values, never this table.
   { table: 'sounds', class: 'content', pk: ['id'], readTier: 'cold' },

@@ -550,6 +550,8 @@
       help: 'Suppress the exit/room/building list in the room description; graph (movement, pathfinding, minimap) is untouched. Elevator cars use it so the floor panel is the sole exit UI.' },
     open_sky: { label: 'Open Sky', shape: 'flag', scope: 'zone', group: 'Zone: Structure',
       help: 'Outdoor zone aircraft can overfly/land; on interiors, an open roof.' },
+    window: { label: 'Window', shape: 'object', scope: 'zone', group: 'Zone: Structure',
+      help: 'This room has a window onto the outdoors: { name, description, light, visibility } — transmissions 0–1, default 0.8, and every key optional ({} is a plain window). It lets daylight in (the only ambient an interior gets), can be looked through, and its curtains can be drawn — and it is what decides whether you SEE an approaching storm or only feel it through the wall (skyVantage, engine/environment.js). Curtain and glass state are RUNTIME, held in RAM like a door lock: never author them here. Faces outdoors only; there is no window between two interior rooms.' },
     water_temp_c: { label: 'Water Temperature (°C)', shape: 'number', scope: 'zone', group: 'Zone: Structure',
       help: 'Override the temperature a submerged swimmer here drifts toward (default: 12°C surface / 7°C underwater). Lower = hypothermia faster; e.g. 26 for a warm lagoon.' },
     vessel: { label: 'Vessel (boardable from water)', shape: 'flag', scope: 'zone', group: 'Zone: Structure',

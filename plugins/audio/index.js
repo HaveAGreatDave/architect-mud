@@ -890,8 +890,16 @@ function knownWeatherAmbientIds() {
 const WEATHER_GAIN = 0.6;
 const MUFFLE_GAIN_MULT = 0.5; // per-hop cut for an outdoor tile hearing a neighboring storm cell's rain, not its own — 1 tile away = 0.5, 2 tiles = 0.25, so it spreads out
 
+// A LOCAL COPY OF THE ENGINE'S RULE, and it had drifted: the engine counts
+// anything below ground as sheltered (nothing down there has a sky), while this
+// one asked only about the interior flags — so the Under, whose tiles carry
+// none, was hearing rain fall on it. Kept local rather than imported because the
+// audio layer only ever needs the zone id, but the two must agree; if the engine
+// rule grows another clause, this follows it.
 function isIndoorZone(zoneId) {
   const z = getZone(zoneId);
+  if (z?.flags?.open_sky) return false;
+  if ((z?.grid_z ?? 0) < 0) return true;
   return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
 }
 

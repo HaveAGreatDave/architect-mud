@@ -497,21 +497,14 @@ export const SCHEMA_SQL = `
   ALTER TABLE global_ambient_events ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 100;
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS ambient_theme TEXT DEFAULT 'indoors';
 
-  -- Passive window light sources. zone_exterior = NULL means the window
-  -- faces the outdoors; non-NULL links two interior zones together.
-  CREATE TABLE IF NOT EXISTS windows (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT 'window',
-    description TEXT NOT NULL DEFAULT 'A window.',
-    zone_interior TEXT NOT NULL,
-    zone_exterior TEXT,
-    curtain_open INTEGER NOT NULL DEFAULT 1,
-    glass_state TEXT NOT NULL DEFAULT 'intact',
-    light_transmission FLOAT NOT NULL DEFAULT 0.8,
-    visibility_transmission FLOAT NOT NULL DEFAULT 0.8,
-    flags JSONB DEFAULT '{}'
-  );
-  ALTER TABLE windows ADD COLUMN IF NOT EXISTS handle TEXT;
+  -- A window is zones.flags.window now, not a row. The table bought exactly
+  -- three windows in a world of five thousand rooms, because authoring one meant
+  -- creating a whole entity; as a flag, a residence has a window by being a
+  -- residence. Curtain and glass are runtime state in RAM (engine/environment.js),
+  -- the same split doors use for lock_state, so a drawn curtain is never a
+  -- content diff. Dropped rather than left dead: an unread table with authored
+  -- rows in it is a thing somebody re-implements against later.
+  DROP TABLE IF EXISTS windows;
 
   CREATE TABLE IF NOT EXISTS doors (
     id TEXT PRIMARY KEY,
@@ -2769,7 +2762,6 @@ export const SCHEMA_SQL = `
   -- create the tables/columns first.
   CREATE INDEX IF NOT EXISTS idx_furniture_zone ON furniture(zone_id);
   CREATE INDEX IF NOT EXISTS idx_doors_zone ON doors(zone_id);
-  CREATE INDEX IF NOT EXISTS idx_windows_interior ON windows(zone_interior);
   CREATE INDEX IF NOT EXISTS idx_npcs_zone ON npcs(zone_id);
   CREATE INDEX IF NOT EXISTS idx_npcs_home_zone ON npcs(home_zone);
   CREATE INDEX IF NOT EXISTS idx_player_inventory_container ON player_inventory(container_id);

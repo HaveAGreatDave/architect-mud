@@ -14,7 +14,7 @@ Top-level mutable globals shared across every other file. Includes the auth toke
 ### `api.js`
 The two HTTP helpers used everywhere:
 
-- **`API(path, method, body)`** — the primary call wrapper. Automatically intercepts writes to stageable entity types (`/zones`, `/enemies`, `/items`, `/npcs`, `/furniture`, `/recipes`, `/mutations`, `/drugs`, `/windows`) and routes them through the staging pipeline (`/api/staging/stage`) instead of applying them directly. (`/scavenging-tables` is also staged, as the `scavenging_table` type.) Falls through to a direct fetch for reads and excluded sub-resource paths.
+- **`API(path, method, body)`** — the primary call wrapper. Automatically intercepts writes to stageable entity types (`/zones`, `/enemies`, `/items`, `/npcs`, `/furniture`, `/recipes`, `/mutations`, `/drugs`) and routes them through the staging pipeline (`/api/staging/stage`) instead of applying them directly. (`/scavenging-tables` is also staged, as the `scavenging_table` type.) Falls through to a direct fetch for reads and excluded sub-resource paths.
 - **`directAPI(path, method, body)`** — bypasses staging entirely. Used for live-world actions (spawn, despawn, reload zone, power commands, etc.) that should take effect immediately.
 
 Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType()`.
@@ -95,7 +95,7 @@ A dev-panel port of the client chat markup parser (`client/game/js/markup.js`). 
 Everything for the Zones list panel and the full zone editor form. The largest file.
 
 - **List/table**: `renderZonesTable(records)` — a district-first accordion, not a table. Tier 1 is the zone's district (`districtKeyFor`: `flags.district` override → id-prefix map → `danger`-based default); within a district, buildings lead, then named exteriors, then the bulk map grid collapsed into one Terrain-tiles fold. Interiors nest under their building, derived live from the exit graph. A region dropdown (`setZonesRegion`) scopes the whole list; `filterZones(q)` / `zToggle(header)` back search and expand/collapse (state in `_zonesExpanded`). Plus `deleteZoneRow(id)`, `cloneZoneRow(id)`.
-- **Zone editor form**: `zoneEditForm(rec, isNew)` — builds the entire zone editor: metadata fields, building/apartment fields, exits builder, and all subsection tabs (rooms, NPCs, doors, spawns, furniture, generators, windows). Roughly 700 lines.
+- **Zone editor form**: `zoneEditForm(rec, isNew)` — builds the entire zone editor: metadata fields, building/apartment fields, exits builder, and all subsection tabs (rooms, NPCs, doors, spawns, furniture, generators). Roughly 700 lines.
 - **Exits**: `renderExitsBuilder(selfId)`, `addExit(selfId)`, `removeExit(dir)`.
 - **Building fields**: `toggleBuildingFields(show, zoneId)`.
 - **Zone world dropdown**: `_worldExtZonesCache`, `populateWorldZonesDropdown(selectedId)`.
@@ -106,7 +106,7 @@ Everything for the Zones list panel and the full zone editor form. The largest f
 - **Constants**: `BUILDING_TYPES`.
 
 ### `zone-subeditors.js`
-Quick-edit sub-panels that open inside the zone editor without navigating away. Covers rooms, zone-attached NPCs, doors/locks, enemy spawns (add/remove from zone context), furniture (add/remove from zone context), and zone windows.
+Quick-edit sub-panels that open inside the zone editor without navigating away. Covers rooms, zone-attached NPCs, doors/locks, enemy spawns (add/remove from zone context), furniture (add/remove from zone context). Windows are a zone FLAG now (`flags.window`), edited with the zone itself.
 
 - **Rooms**: `openAddRoomForm()`, `submitAddRoom()`, `deleteRoomQuick()`.
 - **Zone NPCs**: `openAddNpcForm()`, `submitAddNpc()`, `openAddExistingNpcForm()`, `submitAddExistingNpc()`, `openEditNpcQuick()`, `submitEditNpcQuick()`, `deleteNpcQuick()`.

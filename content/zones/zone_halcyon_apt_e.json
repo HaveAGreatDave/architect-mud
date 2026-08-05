@@ -10,7 +10,13 @@
   "flags": {
     "building_type": "residential",
     "is_apartment": true,
-    "is_interior": true
+    "is_interior": true,
+    "window": {
+      "description": "A wide, clean pane with the district laid out below it, close enough to read the signage.",
+      "light": 0.85,
+      "name": "the window",
+      "visibility": 0.85
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

@@ -10,7 +10,13 @@
   },
   "flags": {
     "is_apartment": true,
-    "rent_cost": 50
+    "rent_cost": 50,
+    "window": {
+      "description": "A broad window with a hard chrome frame, spotless in a way that suggests somebody is paid for it.",
+      "light": 0.85,
+      "name": "the window",
+      "visibility": 0.85
+    }
   },
   "grid_x": 0,
   "grid_y": 1,

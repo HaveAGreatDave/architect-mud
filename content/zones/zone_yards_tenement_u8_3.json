@@ -11,7 +11,13 @@
   },
   "flags": {
     "is_apartment": true,
-    "rent_cost": 25
+    "rent_cost": 25,
+    "window": {
+      "description": "A narrow window gone yellow at the edges, the frame swollen and the sill crowded with grit.",
+      "light": 0.6,
+      "name": "the narrow window",
+      "visibility": 0.6
+    }
   },
   "grid_x": 0,
   "grid_y": 1,

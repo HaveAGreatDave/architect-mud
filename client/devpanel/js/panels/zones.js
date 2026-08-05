@@ -959,14 +959,6 @@ async function zoneEditForm(rec, isNew) {
       </select>
     </div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
-    ${rec.id ? `
-    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <label style="margin:0">Windows</label>
-        <button type="button" class="action-btn" style="font-size:11px;padding:3px 10px" onclick="zoneWindowAdd('${rec.id}')">+ Window</button>
-      </div>
-      <div id="zone-windows-list" style="min-height:24px"></div>
-    </div>` : `<div class="field" style="color:var(--text-dim);font-size:11px;font-style:italic">Save this zone first to add windows.</div>`}
     ${subSectionsHtml}
   `;
 }

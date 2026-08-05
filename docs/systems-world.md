@@ -166,9 +166,10 @@ ambients are suppressed while a louder sound is "in the air" (`getInterruptLoudn
 >   but no engine path ever `SELECT`s it to emit a sound; sound emission today is code-driven via
 >   `propagateSound`. Wiring a tag/event → `playSound(name)` lookup is the open task. (The unread
 >   `sounds.tags` ghost column was dropped.)
-> - Window **`visibility_transmission`** is authored on windows but every consumer reads only
->   `light_transmission`; peer-through keys off the linked zone's presence, not this value. Either wire it
->   into peer/look opacity or drop the field — needs a look-through design decision first.
+> - Window **`visibility`** is authored on a window but every consumer reads only `light`; peer-through
+>   keys off the window's presence, not this value. Either wire it into peer/look opacity or drop the
+>   key — needs a look-through design decision first. (Carried across from the old
+>   `visibility_transmission` column when windows became a flag.)
 
 ## Time, weather & environment
 
@@ -220,6 +221,35 @@ The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldS
 - `getZonePrecip` — the global 30m roll gates whether precip is active at all; the field decides which tiles are actually under it (`precipType`, `precipRate`).
 - `getZoneStormIntensity` — local 0..1 storm intensity (drives lightning); fallback 0.5 under a global thunderstorm/storm.
 - `getZoneVisibility` — outdoor zones get extra dimming under a local cloud/precip cell (`1 − 0.5·cloudCover − 0.4·precip`), on top of the global weather + fog factors; interiors are lit only through windows.
+
+### Windows are `zones.flags.window`
+
+Not a table. The `windows` table bought exactly **three** windows in a world of five thousand rooms,
+because authoring one meant creating a whole entity nobody wanted to create; as a flag, a residence has
+a window by *being* a residence — all 119 rentable units now do.
+
+```js
+flags.window = { name, description, light, visibility }   // every key optional; {} is a plain window
+```
+
+- **Faces outdoors, always.** The old table could point a window at another *interior* zone; one row
+  ever did, and supporting it meant every reader carrying a recursive light path for a feature nobody
+  used. Gone.
+- **⚠ The flag is authored; curtain and glass are RUNTIME.** `zones.flags` is a content column — git-owned,
+  exported, diffed — so a drawn curtain must never be written back into it or every closed curtain
+  becomes a content diff. State lives in a RAM map in [environment.js](../server/engine/environment.js),
+  exactly the split `door.lock_state` uses, and resets to the authored default on boot.
+- `getWindowsForZone(zoneId)` still returns a **list of rows in the old shape** (`{ id, name,
+  curtain_open, glass_state, … }`), which is why describe/housing/movement needed no changes at all —
+  and why the flag could become an array later without touching a single consumer.
+- The table is dropped in `SCHEMA_SQL`; there is no `windows` content directory and no `/windows` API.
+
+**⚠ Underground counts as indoors.** `isIndoorZone` answers true for `grid_z < 0` regardless of flags.
+The Under's tiles are *district* tiles on a lower level and carry no `is_interior`, so before this every
+climate question answered "outdoors" for them: a sewer was lit by the sun, went dark at night, took wind
+chill, received the local rain broadcast and ran the rain overlay. Answered in the SSOT rather than by
+flagging forty tiles, because a flag you must remember on every future sewer tile is a bug with a delay
+on it. (`plugins/audio` keeps a local copy of the rule — it must follow this one.)
 
 **⚠ `visibility` is perception; the client's text dimming is READABILITY. Keep them apart.**
 `visibility` feeds combat to-hit, the stealth notice roll and what `look` renders. The client

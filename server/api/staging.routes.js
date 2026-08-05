@@ -14,9 +14,7 @@ import {
   apiCreateFurniture, apiDeleteFurniture,
   apiCreateNpc, apiDeleteNpc, apiCreateItem, apiDeleteItem, apiCreateEnemy, apiDeleteEnemy,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
-  apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
-  apiCreateWindow, apiUpdateWindow, apiDeleteWindow,
-  apiCreateSpawn, apiDeleteZoneSpawn,
+  apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,  apiCreateSpawn, apiDeleteZoneSpawn,
   apiCreateScavengingTable, apiUpdateScavengingTable, apiDeleteScavengingTable,
 } from './routes.js';
 
@@ -131,9 +129,7 @@ const UPDATERS = {
   furniture: (id, data) => apiUpdateFurniture(id, data),
   recipe:    (id, data) => apiUpdateRecipe(id, data),
   mutation:  (id, data) => apiUpdateMutation(id, data),
-  drug:      (id, data) => apiUpdateDrug(id, data),
-  window:    (id, data) => apiUpdateWindow(id, data),
-  scavenging_table: (id, data) => apiUpdateScavengingTable(id, data),
+  drug:      (id, data) => apiUpdateDrug(id, data),  scavenging_table: (id, data) => apiUpdateScavengingTable(id, data),
   // A grouped building relocation: apply every touched zone's patch, then rebuild the
   // facade entrance-dir cache. Published atomically as one change, so a building never
   // ends up half-moved by a partial publish.
@@ -179,9 +175,7 @@ const CREATORS = {
   enemy:     (data) => apiCreateEnemy(data),
   item:      (data) => apiCreateItem(data),
   npc:       (data) => apiCreateNpc(data),
-  furniture: (data) => apiCreateFurniture(data),
-  window:    (data) => apiCreateWindow(data),
-  spawn:     (data) => apiCreateSpawn(data),
+  furniture: (data) => apiCreateFurniture(data),  spawn:     (data) => apiCreateSpawn(data),
   scavenging_table: (data) => apiCreateScavengingTable(data),
 };
 
@@ -192,9 +186,7 @@ const ORPHAN_TABLES = {
   zone_spawns:     'zone_id',
   generators:      'zone_id',
   power_zones:     'id',
-  lighting_states: 'zone_id',
-  windows:         'zone_interior',
-  items:           'zone_id',
+  lighting_states: 'zone_id',  items:           'zone_id',
 };
 
 const DELETERS = {
@@ -203,9 +195,7 @@ const DELETERS = {
   item:           (id) => apiDeleteItem(id),
   npc:            (id) => apiDeleteNpc(id),
   furniture:      (id) => apiDeleteFurniture(id),
-  generator:      (id) => removeGenerator(id).then(r => ({ status:200, body:r })),
-  window:         (id) => apiDeleteWindow(id),
-  spawn:          (id) => apiDeleteZoneSpawn(id),
+  generator:      (id) => removeGenerator(id).then(r => ({ status:200, body:r })),  spawn:          (id) => apiDeleteZoneSpawn(id),
   scavenging_table: (id) => apiDeleteScavengingTable(id),
   // Orphan cleanup: entity_id is "{table}:{refId}"
   orphan_cleanup: async (compositeId) => {

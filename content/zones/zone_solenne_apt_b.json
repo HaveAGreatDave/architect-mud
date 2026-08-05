@@ -13,7 +13,13 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 400,
-    "rest_multiplier": 1.5
+    "rest_multiplier": 1.5,
+    "window": {
+      "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
+      "light": 0.9,
+      "name": "the tall glass",
+      "visibility": 0.9
+    }
   },
   "grid_x": 1,
   "grid_y": -1,

@@ -10,7 +10,13 @@
     "west": "zone_embassy_floor_2nd"
   },
   "flags": {
-    "is_apartment": true
+    "is_apartment": true,
+    "window": {
+      "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.7,
+      "name": "the window",
+      "visibility": 0.7
+    }
   },
   "grid_x": 1,
   "grid_y": 0,

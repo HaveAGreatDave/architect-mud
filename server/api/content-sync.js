@@ -52,9 +52,7 @@ const ZONE_REF_FIELDS = {
   zones:          ['id'],
   npcs:           ['zone_id', 'home_zone'],
   furniture:      ['zone_id'],
-  zone_spawns:    ['zone_id'],
-  windows:        ['zone_interior', 'zone_exterior'],
-  apartments:     ['zone_id'],
+  zone_spawns:    ['zone_id'],  apartments:     ['zone_id'],
   npc_residences: ['zone_id'],
   maps:           ['entry_zone_id', 'parent_zone_id'],
 };
@@ -83,7 +81,7 @@ function syncZoneDeletion(deletedZoneIds) {
 const URLSEG_TABLE = {
   items: 'items', enemies: 'enemies', npcs: 'npcs', furniture: 'furniture',
   drugs: 'drugs', mutations: 'mutations', recipes: 'recipes', scripts: 'scripts',
-  windows: 'windows', doors: 'doors', sounds: 'sounds', spawns: 'zone_spawns',
+  doors: 'doors', sounds: 'sounds', spawns: 'zone_spawns',
   'scavenging-tables': 'scavenging_tables', 'ambient-events': 'global_ambient_events',
   maps: 'maps',
 };

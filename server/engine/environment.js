@@ -199,7 +199,6 @@ const state = {
   phase: 'day',
   zones: new Map(),         // zoneId -> { powerStatus, capacityKw, loadKw, hasEmergencyLighting, artificialLight }
   zoneTemps: new Map(),     // zoneId -> current indoor tempC (indoor zones only; outdoor zones use global state.tempC)
-  windows: [],              // all window rows from DB, refreshed on init and mutation
   lastTick1m: 0,           // epoch ms anchor for the last whole game-minute advanced; drives elapsed-based clock
   lastTick30m: 0,
   lastTick24h: 0,
@@ -374,7 +373,6 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   // so content marks one tile and the engine handles the spill (like the perimeter
   // gate glowing over its approach). Loaded once at init, same as always_lit.
   await loadBeaconLitZones(query);
-  await loadWindows(query);
   recalcAmbientAndVisibility();
   initIndoorTemps();
 
@@ -631,10 +629,58 @@ function loadZonePowerAndLighting() {
   else overloadSince = null;
 }
 
-export async function loadWindows(query) {
-  const { rows } = await query('SELECT * FROM windows').catch(() => ({ rows: [] }));
-  state.windows = rows;
+// ── Windows are a ZONE FLAG ──────────────────────────────────────────────────
+//
+// A window used to be its own table, its own content files and its own dev-panel
+// CRUD — and in a world of five thousand rooms that bought exactly THREE windows,
+// two of them in the same building. The cost of authoring one was the reason
+// nobody did. As a flag it is a property of the room, so a residence gets a
+// window by being a residence.
+//
+//   flags.window = true                      // a plain window, default prose
+//   flags.window = { name, description, light, visibility }
+//
+// Faces OUTDOORS, always. The old table could point a window at another interior
+// zone; exactly one row ever did, and carrying that case meant every reader
+// handling a recursive light path for a feature nobody used.
+//
+// ⚠ THE FLAG IS AUTHORED; THE STATE IS RUNTIME. `zones.flags` is a content
+// column — git-owned, exported, diffed — so a drawn curtain must never be
+// written into it or every closed curtain becomes a content diff. Curtain and
+// glass live in RAM, exactly the way `door.lock_state` does, and reset to the
+// authored default on boot. Nothing in the game breaks glass today; when
+// something does, this is the map it writes to.
+const DEFAULT_WINDOW = { name: 'window', description: 'A window.', light: 0.8, visibility: 0.8 };
+const windowState = new Map();   // zoneId -> { curtain_open, glass_state }
+
+function windowFlagOf(zoneId) {
+  const f = world.zones.get(zoneId)?.flags?.window;
+  if (!f) return null;
+  return typeof f === 'object' ? { ...DEFAULT_WINDOW, ...f } : { ...DEFAULT_WINDOW };
 }
+
+// The row shape the rest of the game already speaks. Keeping it identical is
+// what let this migration touch describe/housing/movement not at all: they were
+// written against `{ id, name, curtain_open, glass_state, … }` and still are.
+// `id` is derived from the zone, so it survives a restart the way a table pk did.
+function windowRowFor(zoneId) {
+  const flag = windowFlagOf(zoneId);
+  if (!flag) return null;
+  const st = windowState.get(zoneId) || { curtain_open: 1, glass_state: 'intact' };
+  return {
+    id: `win:${zoneId}`,
+    name: flag.name,
+    description: flag.description,
+    zone_interior: zoneId,
+    zone_exterior: null,
+    curtain_open: st.curtain_open,
+    glass_state: st.glass_state,
+    light_transmission: flag.light,
+    visibility_transmission: flag.visibility,
+  };
+}
+
+export async function loadWindows() { /* nothing to load — see windowFlagOf */ }
 
 // Build the set of zones flooded to full brightness by a light beacon: each
 // `flags.light_beacon` tile plus every same-map, same-level tile one grid-step
@@ -659,53 +705,45 @@ async function loadBeaconLitZones(query) {
   state.beaconLitZones = lit;
 }
 
-// Called by the API after a window is created/updated/deleted.
-export async function reloadWindows() {
-  if (deps.query) await loadWindows(deps.query);
-}
+// Kept as a no-op so the dev API's post-edit refresh stays a valid call: zone
+// flags are read live off `world.zones`, so a window edited in the panel is
+// already correct the moment the zone row is.
+export async function reloadWindows() { /* flags are read live */ }
 
-// Light reaching zone_interior through its windows.
-// Outdoor ambient is attenuated by weather, then by each window's transmission
-// and state. Interior-facing windows pass the other room's effective light.
+// Light reaching a zone through its window. Outdoor ambient, attenuated by
+// weather and then by the glass. A drawn curtain blocks it; broken glass passes
+// everything, which is the one way a window gets BETTER at its job.
 export function getWindowLightContribution(zoneId) {
+  const w = windowRowFor(zoneId);
+  if (!w) return 0;
+  if (!w.curtain_open && w.glass_state !== 'broken') return 0;
   const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
   const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
-  let best = 0;
-  for (const w of state.windows) {
-    if (w.zone_interior !== zoneId) continue;
-    if (!w.curtain_open && w.glass_state !== 'broken') continue; // blocked
-    const transmission = w.glass_state === 'broken' ? 1.0 : (w.light_transmission ?? 0.8);
-    let source;
-    if (!w.zone_exterior) {
-      // Faces outdoors — transmit global ambient dampened by weather
-      source = state.ambientLight * weatherFactor * fogFactor * transmission;
-    } else {
-      // Interior window — transmit the other room's effective light
-      const otherZone = state.zones.get(w.zone_exterior);
-      const otherArtificial = otherZone ? otherZone.artificialLight : 0;
-      source = Math.max(getWindowLightContribution(w.zone_exterior), otherArtificial) * transmission;
-    }
-    if (source > best) best = source;
-  }
-  return clamp01(best);
+  const transmission = w.glass_state === 'broken' ? 1.0 : (w.light_transmission ?? 0.8);
+  return clamp01(state.ambientLight * weatherFactor * fogFactor * transmission);
 }
 
-// All windows visible in a zone (for room description and look-through).
+// The zone's window as a one-element list (or none). A LIST because every caller
+// was written against one and because a room with two windows is a thing this
+// could grow back into — the flag would become an array and nothing downstream
+// would care.
 export function getWindowsForZone(zoneId) {
-  return state.windows.filter(w => w.zone_interior === zoneId);
+  const w = windowRowFor(zoneId);
+  return w ? [w] : [];
 }
 
-// Mutate a window's curtain or glass state in memory + DB.
+// Mutate a window's curtain or glass. RAM only, and deliberately: this is the
+// runtime half of the split above. `async` because every caller awaits it and
+// because breaking glass may one day want to persist somewhere that isn't a
+// content column.
 export async function setWindowState(windowId, updates) {
-  const w = state.windows.find(w => w.id === windowId);
-  if (!w) return null;
-  Object.assign(w, updates);
-  const { query: q } = deps;
-  if (updates.curtain_open !== undefined)
-    await q('UPDATE windows SET curtain_open=$1 WHERE id=$2', [updates.curtain_open, windowId]);
-  if (updates.glass_state !== undefined)
-    await q('UPDATE windows SET glass_state=$1 WHERE id=$2', [updates.glass_state, windowId]);
-  return w;
+  const zoneId = String(windowId || '').startsWith('win:') ? String(windowId).slice(4) : null;
+  if (!zoneId || !windowFlagOf(zoneId)) return null;
+  const st = windowState.get(zoneId) || { curtain_open: 1, glass_state: 'intact' };
+  if (updates.curtain_open !== undefined) st.curtain_open = updates.curtain_open;
+  if (updates.glass_state !== undefined) st.glass_state = updates.glass_state;
+  windowState.set(zoneId, st);
+  return windowRowFor(zoneId);
 }
 
 // Lumen thresholds for the log curve. 400 lm (1 lamp) → ~0.64 (just clear);
@@ -735,6 +773,17 @@ export function isIndoorZone(z) {
   // power/building network via its raw is_interior flag) but climatically
   // OUTDOORS — it takes sky light, weather, and outdoor temp, not HVAC shelter.
   if (z?.flags?.open_sky) return false;
+  // UNDERGROUND IS SHELTERED BY DEFINITION. The Under's tiles carry no
+  // `is_interior` — they are district tiles on a lower level — so every
+  // climate question answered "outdoors" for them: a sewer was lit by the sun
+  // and dark at night, took wind chill, received the local rain broadcast, and
+  // ran the rain overlay on the client. Nothing down there has a sky.
+  //
+  // Answered HERE rather than by flagging forty tiles, because this function is
+  // the stated SSOT for "is this zone climatically sheltered" and a flag we
+  // would have to remember on every future sewer tile is a bug with a delay on
+  // it. Same predicate `skyVantage` reads for `buried`.
+  if ((z?.grid_z ?? 0) < 0) return true;
   return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
 }
 
@@ -1615,8 +1664,7 @@ export function getZoneVisibility(zoneId) {
 
   // Interior zones (is_apartment / is_interior flag) don't receive outdoor
   // ambient directly — only through windows. Exterior zones use global ambient.
-  const hasWindows = state.windows.some(w => w.zone_interior === zoneId);
-  const windowLight = hasWindows ? getWindowLightContribution(zoneId) : 0;
+  const windowLight = getWindowLightContribution(zoneId);
   const isInterior = isIndoorZone(zone);
   const ambientContrib = isInterior ? windowLight : state.ambientLight;
 
@@ -1874,9 +1922,8 @@ export function skyVantage(zoneId) {
 }
 
 function hasSkyWindow(zoneId) {
-  return state.windows.some(w =>
-    w.zone_interior === zoneId && !w.zone_exterior
-    && (w.curtain_open || w.glass_state === 'broken'));
+  const w = windowRowFor(zoneId);
+  return !!w && (!!w.curtain_open || w.glass_state === 'broken');
 }
 
 // Deliver weather-event announce lines by vantage.

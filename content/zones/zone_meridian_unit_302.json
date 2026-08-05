@@ -10,7 +10,13 @@
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,
-    "terrain": "grass"
+    "terrain": "grass",
+    "window": {
+      "description": "A plain sash window, painted shut some years ago, with a view of the block opposite.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.75
+    }
   },
   "grid_x": 1,
   "grid_y": 0,

@@ -7,7 +7,7 @@
 // stops a future third event shipping with no icon, no bed, and no pools).
 import { heroEventForDate, heroEventPresentation, heroEventAnnounce } from './index.js';
 import { recomputeInsulation } from '../../server/engine/commands/inventory.js';
-import { skyVantage } from '../../server/engine/environment.js';
+import { skyVantage, isIndoorZone, getWindowsForZone, setWindowState } from '../../server/engine/environment.js';
 import { world } from '../../server/engine/world.js';
 
 const PRESENT_KEYS = ['icon', 'fx', 'audio', 'pool', 'sky', 'severe'];
@@ -86,6 +86,45 @@ export default async function regress({ check, getPlayer }) {
   // Fail LOUD, not silent: this is the only announce a hero event gets, so a
   // zone the engine cannot place must be told too much rather than nothing.
   check('an unknown zone still hears it', skyVantage('zone_does_not_exist') === 'open');
+
+  // ── The Under is sheltered, and nothing had ever said so ───────────────────
+  // Its tiles are DISTRICT tiles on a lower level: they carry no `is_interior`,
+  // so every climate question used to answer "outdoors" for them. A sewer was
+  // lit by the sun, dark at night, took wind chill, and had rain broadcast to
+  // it. `isIndoorZone` now answers on grid_z, which is the same fact `buried`
+  // reads — one rule, so the light sim and the weather announce cannot disagree.
+  if (buried) {
+    const z = world.zones.get(buried);
+    check('an underground tile counts as sheltered', isIndoorZone(z), buried);
+    check('...and has no window to be lit through', skyVantage(buried) === 'buried');
+  }
+  // The rule must not have swallowed the ordinary outdoor case with it.
+  if (outdoor) check('a street is still outdoors', !isIndoorZone(world.zones.get(outdoor)), outdoor);
+
+  // ── Windows are a zone flag now ────────────────────────────────────────────
+  // The table is gone; a window is `flags.window` plus runtime curtain/glass in
+  // RAM. Every residence has one, which is the whole reason for the move: a
+  // window used to cost a whole entity to author and the world had three.
+  const withWindow = [...world.zones.values()].filter(z => z.flags?.window);
+  check('the world has windows in it now', withWindow.length > 100, `${withWindow.length}`);
+  const anyApt = [...world.zones.values()].filter(z => z.flags?.is_apartment);
+  check('every rentable residence has one',
+    anyApt.every(z => !!z.flags.window), anyApt.filter(z => !z.flags.window).map(z => z.id).join(', '));
+  if (withWindow.length) {
+    const w = getWindowsForZone(withWindow[0].id);
+    check('a flagged zone yields one window row', w.length === 1, JSON.stringify(w));
+    check('...shaped the way every caller already reads it',
+      w[0].id && w[0].name && w[0].curtain_open === 1 && w[0].glass_state === 'intact', JSON.stringify(w[0]));
+    // Curtain state is RUNTIME. If this ever round-trips through zones.flags,
+    // every drawn curtain becomes a content diff.
+    await setWindowState(w[0].id, { curtain_open: 0 });
+    check('drawing the curtain changes the row', getWindowsForZone(withWindow[0].id)[0].curtain_open === 0);
+    check('...and never touches the authored flag', world.zones.get(withWindow[0].id).flags.window.curtain_open === undefined);
+    check('...and a drawn curtain seals the room off from the sky',
+      skyVantage(withWindow[0].id) === 'sealed' || !isIndoorZone(world.zones.get(withWindow[0].id)));
+    await setWindowState(w[0].id, { curtain_open: 1 });
+  }
+  check('a zone with no window flag has none', getWindowsForZone('zone_does_not_exist').length === 0);
 
   // ── Acid coverage: the gate the whole acid hazard is balanced against ──
   const p = getPlayer();

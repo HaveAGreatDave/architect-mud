@@ -164,7 +164,6 @@ async function openEdit(record, isNew) {
   // Populate the script node editor after DOM is ready
   if (currentPanel === 'scripts') renderScriptEditor();
   // Populate zone windows sub-section after DOM is ready
-  if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
   // Populate door list with the up-to-date template (initial render uses stale inline template)
   if (currentPanel === 'zones' && record?.id) refreshDoorList(record.id);
   // Populate world map exit dropdown if this is a building zone

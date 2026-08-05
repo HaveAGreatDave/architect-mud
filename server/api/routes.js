@@ -56,7 +56,7 @@ import { handleStagingApi } from './staging.routes.js';
 import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
-import { reloadWindows as reloadWindowsEnv, recomputePower, reloadPowerTopology, installRegionPlant, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
+import { recomputePower, reloadPowerTopology, installRegionPlant, getEnvironmentState, markPowerTopologyDirty } from '../engine/environment.js';
 import { ensureTunables, getTunable, reloadTunables } from '../engine/tunables.js';
 import { getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
@@ -408,10 +408,8 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path.startsWith('/drug-transforms/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrugTransform(decodeURIComponent(path.split('/')[2]),body));
   if (path.startsWith('/drug-transforms/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrugTransform(decodeURIComponent(path.split('/')[2])));
   if (path==='/dream-preview' && method==='POST') return requireDev(auth, ()=>apiPreviewDream(body));
-  if (path==='/windows' && method==='GET') return requireDev(auth, ()=>apiGetWindows(url));
-  if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
-  if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
-  if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
+  // No /windows routes: a window is `zones.flags.window` now, so it is edited
+  // with the zone that has it. See engine/environment.js.
   if (path==='/doors' && method==='GET') return requireDev(auth, apiGetDoors);
   if (path==='/doors' && method==='POST') return requireDev(auth, ()=>apiCreateDoor(body));
   if (path.startsWith('/doors/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDoor(path.split('/')[2],body));
@@ -1743,7 +1741,6 @@ export async function apiDeleteZone(id) {
       markPowerTopologyDirty(); // power_zones/generators/lighting_states live in RAM
       await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
       await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
-      await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
       await query('DELETE FROM media_cameras    WHERE zone_id=$1', [zid]);
       await query('DELETE FROM player_inventory WHERE player_id=$1', [`_ground_${zid}`]);
       // Delete NPCs homed in this zone, null out remaining references
@@ -3369,50 +3366,6 @@ async function apiDeleteScriptTrigger(id) {
     await loadScriptTriggers();
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
-}
-
-// --- Windows ---
-async function apiGetWindows(fullUrl) {
-  const zoneId = new URL('http://x' + fullUrl).searchParams.get('zone');
-  const { rows } = zoneId
-    ? await query('SELECT * FROM windows WHERE zone_interior=$1 OR zone_exterior=$1', [zoneId])
-    : await query('SELECT * FROM windows');
-  return { status:200, body:rows };
-}
-export async function apiCreateWindow(body) {
-  const { name='window', description='A window.', zone_interior, zone_exterior=null, curtain_open=1, glass_state='intact', light_transmission=0.8, visibility_transmission=0.8 } = body||{};
-  if (!zone_interior) return { status:400, body:{error:'zone_interior required'} };
-  // Auto-generate sequential id (window1, window2, …) if not provided.
-  let id = body.id;
-  if (!id) {
-    const { rows: existing } = await query(`SELECT id FROM windows WHERE id ~ '^window[0-9]+$'`);
-    const nums = existing.map(r => parseInt(r.id.replace('window',''),10)).filter(n => !isNaN(n));
-    const next = nums.length ? Math.max(...nums) + 1 : 1;
-    id = `window${next}`;
-  }
-  // Auto-generate handle from name if not provided.
-  const handle = body.handle || name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g,'');
-  await query('INSERT INTO windows (id,name,handle,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-    [id,name,handle,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission]);
-  await reloadWindowsEnv().catch(()=>{});
-  return { status:201, body:{id} };
-}
-export async function apiUpdateWindow(id, body) {
-  const { name, description, handle, zone_interior, zone_exterior, curtain_open, glass_state, light_transmission, visibility_transmission } = body||{};
-  await query(`UPDATE windows SET
-    name=COALESCE($1,name), handle=COALESCE($2,handle), description=COALESCE($3,description),
-    zone_interior=COALESCE($4,zone_interior), zone_exterior=$5,
-    curtain_open=COALESCE($6,curtain_open), glass_state=COALESCE($7,glass_state),
-    light_transmission=COALESCE($8,light_transmission), visibility_transmission=COALESCE($9,visibility_transmission)
-    WHERE id=$10`,
-    [name,handle,description,zone_interior,zone_exterior??null,curtain_open,glass_state,light_transmission,visibility_transmission,id]);
-  await reloadWindowsEnv().catch(()=>{});
-  return { status:200, body:{updated:true} };
-}
-export async function apiDeleteWindow(id) {
-  await query('DELETE FROM windows WHERE id=$1',[id]);
-  await reloadWindowsEnv().catch(()=>{});
-  return { status:200, body:{deleted:true} };
 }
 
 // --- Doors ---
