@@ -20,7 +20,7 @@
     "window": {
       "description": "The east wall is one unbroken sheet of glass, black-framed at the floor and the ceiling and nowhere in between. Eighteen floors of Coldwater hang in it, close enough to pick out a lit stairwell, high enough that none of it makes a sound.",
       "light": 0.9,
-      "name": "the east glass",
+      "name": "the east window",
       "visibility": 0.9
     }
   },

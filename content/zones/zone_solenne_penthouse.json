@@ -19,7 +19,7 @@
     "window": {
       "description": "Floor-to-ceiling glass runs the whole west wall, black-framed and seamless, holding the city out there like something in a case.",
       "light": 0.9,
-      "name": "the west glass",
+      "name": "the west window",
       "visibility": 0.9
     }
   },

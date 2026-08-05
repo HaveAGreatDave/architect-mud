@@ -17,7 +17,7 @@
     "window": {
       "description": "A tall pane runs floor to ceiling down one wall, black-framed, holding the city out there like something in a case.",
       "light": 0.9,
-      "name": "the tall glass",
+      "name": "the window",
       "visibility": 0.9
     }
   },

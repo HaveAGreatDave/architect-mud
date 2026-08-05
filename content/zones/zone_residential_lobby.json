@@ -21,7 +21,7 @@
     "window": {
       "description": "A window.",
       "light": 0.8,
-      "name": "window",
+      "name": "the window",
       "visibility": 0.8
     },
     "world_exit_zone": "zone_district_920_904"
