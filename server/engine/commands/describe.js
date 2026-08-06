@@ -957,7 +957,6 @@ export async function describeZone(zone, player, out = {}) {
 					[zone.id],
 				),
 	]);
-	const windows = getWindowsForZone(zone.id);
 	// PD street cams: woven into the room prose as a dim aside rather than listed
 	// as objects. Dark hides them (not a light source); concealed ones stay hidden.
 	const cameras = isDark
@@ -1369,19 +1368,12 @@ export async function describeZone(zone, player, out = {}) {
 			desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(", ")}`;
 		}
 	}
-	if (windows.length) {
-		const windowLinks = windows.map((w) => {
-			const curtainTag = w.curtain_open
-				? ""
-				: ' <span style="color:var(--text-dim)">(curtained)</span>';
-			const glassTag =
-				w.glass_state === "broken"
-					? ' <span style="color:var(--red)">(broken)</span>'
-					: "";
-			return `<span class="action-link furniture-link" data-ftype="window" data-action="look" data-target="through ${escAttr(w.name)}" title="Look through ${escAttr(w.name)}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
-		});
-		desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(", ")}`;
-	}
+	// NO `Windows:` ROW. A window became a property of the room rather than a thing
+	// standing in it, and a labelled row listing it read as inventory — a rentable
+	// flat announcing "Windows: The Window" above its furniture. The window is still
+	// there and `look through <window>` still works; the room simply stops itemising
+	// its own architecture. The dark-room prose (~line 849) still mentions windows as
+	// an aside, which is the register they belong in.
 
 	if (others.length) {
 		// A sleeper reads as one. `sleepingBodies` below is the OFFLINE list (a DB
