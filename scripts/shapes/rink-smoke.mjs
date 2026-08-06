@@ -98,6 +98,18 @@ for (const v of VIOLENT) {
     stub.runFrames(Math.round(v.at / 16.7));
     const hit = host.findAll('.gdr-skater').filter(s => s.classList.contains(v.cls));
     check(`a ${v.type} puts a body on the ice`, hit.length > 0, `no .${v.cls} skater`);
+    // …and puts it where the CAMERA is. A beat with no possession chain never went
+    // through the possession cut, so its men used to stay at their seed positions
+    // while the camera sat on the puck elsewhere — a man killed off-screen.
+    // The Y translate, not the `3` in `translate3d` — which a looser pattern grabs, and
+    // which reads as a camera parked at the top of the sheet no matter where it is.
+    const camOff = Math.abs(parseFloat((host.find('.gdr-cam').style.transform.match(/translate3d\([^,]*,\s*(-?[\d.]+)px/) || [0, 0])[1]));
+    const camH = host.find('.gdr-cam').offsetHeight, vh = host.find('.gdr-rink').clientHeight;
+    const inFrame = host.findAll('.gdr-skater').filter(s => {
+      const y = (parseFloat(s.style.top) / 100) * camH;
+      return y >= camOff - vh * 0.2 && y <= camOff + vh * 1.2;
+    });
+    check(`…and a ${v.type} happens on camera`, inFrame.length >= 6, `${inFrame.length}/10 men in frame`);
     stub.runFrames(240); stub.runTimers(9000);
   } catch (e) {
     check(`a ${v.type} puts a body on the ice`, false, e && e.stack ? e.stack.split('\n')[0] : String(e));
@@ -137,7 +149,7 @@ check('ten skaters take the ice', skaters.length === 10, `${skaters.length} men`
 check('both goalies dress', host.findAll('.gdr-goalie').length === 2);
 check('there is exactly one puck', host.findAll('.gdr-puck').length === 1);
 check('every skater wears a number and a position',
-  host.findAll('.gdr-sk-tag').length === 10 && host.findAll('.gdr-sk-tag').every(t => /^\d+(C|LW|RW|LD|RD)$/.test(t.textContent)),
+  host.findAll('.gdr-sk-tag').length === 10 && host.findAll('.gdr-sk-tag').every(t => /^\d+ (C|LW|RW|LD|RD)$/.test(t.textContent)),
   host.findAll('.gdr-sk-tag').map(t => t.textContent).join(','));
 
 const frac = (v) => parseFloat(String(v));

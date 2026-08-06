@@ -58,7 +58,10 @@ const GEO = {
   endDotX: [0.20, 0.80],
   neutralDotX: [0.415, 0.585],
   creaseR: 0.075,
-  netHalf: 0.085,                 // half the goal mouth, in y
+  // Half the goal mouth. A real net is 6ft on an 85ft sheet (0.035); this is wider
+  // so the cage still reads at panel size, but the old 0.085 drew a mouth almost half
+  // the width of a faceoff circle and the end zone looked like a diagram of a net.
+  netHalf: 0.052,
 };
 
 // Dot id → [x, y]. The ids are the sim's, and this table is the ONLY place that knows
@@ -91,18 +94,25 @@ const _py = (x) => `${(x * 100).toFixed(3)}%`;
 // the puck he plays, signed along his OWN attacking direction — so the identical
 // table describes a forechecking winger and a back-checking one, and the defence
 // ends up between the puck and its own net without that ever being stated.
+// THE DEPTHS ARE BOUNDED BY THE CAMERA, not by realism. A real five-man unit is spread
+// over half a zone; drawn at that spread the forwards and the defence were 0.26 of the
+// sheet apart — WIDER THAN THE VIEWPORT — so one team was always entirely off-screen and
+// the picture never showed a game, only a huddle. Nose to tail both teams now occupy
+// about half the visible window, which is what makes a rush read as a rush.
 const ROLES = [
-  { pos: 'C',  lane: 0.50, withPuck:  0.030, without: -0.030, grip: 0.55 },
-  { pos: 'LW', lane: 0.24, withPuck:  0.095, without:  0.010, grip: 0.42 },
-  { pos: 'RW', lane: 0.76, withPuck:  0.095, without:  0.010, grip: 0.42 },
-  { pos: 'LD', lane: 0.33, withPuck: -0.120, without: -0.165, grip: 0.30 },
-  { pos: 'RD', lane: 0.67, withPuck: -0.120, without: -0.165, grip: 0.30 },
+  { pos: 'C',  lane: 0.50, withPuck:  0.022, without: -0.022, grip: 0.55 },
+  { pos: 'LW', lane: 0.24, withPuck:  0.058, without:  0.004, grip: 0.42 },
+  { pos: 'RW', lane: 0.76, withPuck:  0.058, without:  0.004, grip: 0.42 },
+  { pos: 'LD', lane: 0.33, withPuck: -0.070, without: -0.098, grip: 0.30 },
+  { pos: 'RD', lane: 0.67, withPuck: -0.070, without: -0.098, grip: 0.30 },
 ];
 
 // Motion budget. A broadcast line holds ~10s on air, so the whole possession has to
 // resolve well inside that and still leave the outcome on screen to be read.
-const T_STEP = 340;          // between possession keyframes
-const T_SHOT = 190;          // the shot itself — fast, it's the only quick thing
+const T_STEP = 470;          // a carry — the man skating, so the puck moves at his pace
+const T_PASS = 210;          // off the stick and gone; a pass is the fast thing on the ice
+const T_WINDUP = 290;        // he plants and the stick comes back before the shot leaves
+const T_SHOT = 250;          // the shot itself — fast, it's the only quick thing
 const T_SETTLE = 620;        // the beat after the puck stops before the caption lands
 const T_DRAW = 520;          // faceoff: centres in, puck down, swept back
 
@@ -111,7 +121,7 @@ const T_DRAW = 520;          // faceoff: centres in, puck down, swept back
 // turns every pass into a lazy curve.
 const TAU_SKATER = 230;      // ms to close ~63% of the gap to his target
 const TAU_CARRIER = 120;     // the man with it reacts faster — he's chasing nothing
-const TAU_CAM = 260;         // camera lag; enough to feel operated rather than welded
+const TAU_CAM = 430;         // camera lag; enough to feel operated rather than welded
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -139,6 +149,12 @@ function _hash(str) {
 function _goalieSvg() {
   return (
     `<svg class="gdr-g-svg" viewBox="0 0 40 48" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
+      // WHICH WAY HE IS FACING has to be readable at a glance, and a symmetrical blob
+      // in a symmetrical crease is not. So the figure gets a front and a back that
+      // don't resemble each other: a bright directional cone off the mask showing the
+      // angle he's cutting down, and his skates behind him.
+      `<path class="gdr-g-face" d="M20 6 L4 -12 L36 -12 Z"/>` +
+      `<path class="gdr-g-heels" d="M13 45.5 h5 M22 45.5 h5"/>` +
       `<g class="gdr-g-body">` +
         // pads — the two big rectangles that splay in the butterfly
         `<g class="gdr-g-pad left"><rect x="7" y="22" width="9" height="22" rx="3"/>` +
@@ -170,15 +186,38 @@ function _goalieSvg() {
 // forecheck. The whole figure rotates to his heading; the number tag doesn't, because
 // an upside-down number is unreadable and a sweater number is the one thing on the ice
 // a broadcast viewer is actually trying to read.
-function _skaterSvg() {
+function _skaterSvg(num) {
   return (
     `<svg class="gdr-sk-svg" viewBox="-12 -14 24 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
       `<g class="gdr-sk-body">` +
-        `<path class="gdr-sk-stick" d="M4.5 1 L9 9 L4 11.5"/>` +
-        `<ellipse class="gdr-sk-torso" cx="0" cy="1.5" rx="5.2" ry="6.6"/>` +
-        `<path class="gdr-sk-arm left"  d="M-4.6 -0.5 L-7.4 4"/>` +
-        `<path class="gdr-sk-arm right" d="M 4.6 -0.5 L 7.4 4"/>` +
-        `<circle class="gdr-sk-helm" cx="0" cy="-4.2" r="3.5"/>` +
+        // The stick reaches well past the body — a hockey player's radius is his stick,
+        // not his shoulders, and drawing it short is what made the old figure read as a
+        // bird rather than a man. Blade flat on the ice at the end of it.
+        `<path class="gdr-sk-stick" d="M4.4 -0.8 L9 7.2"/>` +
+        `<path class="gdr-sk-blade" d="M9 7.2 L5.6 9.4"/>` +
+        // Skates, then breezers — a sliver of dark under the sweater is what gives the
+        // figure a bottom and stops it floating.
+        `<path class="gdr-sk-skate" d="M-3.9 8.6 L-1.3 8.6 M1.3 8.6 L3.9 8.6"/>` +
+        `<path class="gdr-sk-legs" d="M-2.3 4.4 L-2.7 8.2 M2.3 4.4 L2.7 8.2"/>` +
+        `<path class="gdr-sk-pants" d="M-4.4 3.1 h8.8 q0.7 0 0.6 1 l-0.3 2.1 q-0.1 0.9-1 0.9 h-7.4 q-0.9 0-1-0.9 l-0.3-2.1 q-0.1-1 0.6-1 z"/>` +
+        // Shoulders wider than the waist. That single proportion is most of what says
+        // "in pads" at eleven pixels.
+        `<path class="gdr-sk-torso" d="M-5.6 -2.6 q0-2.4 2-3.1 h7.2 q2 0.7 2 3.1 l-0.8 5.9 q-0.2 1.7-2 1.7 h-5.6 q-1.8 0-2-1.7 z"/>` +
+        // The shoulder yoke and the cuff stripes — a sweater is not a flat colour, and
+        // these two bands are what let two clubs with similar primaries stay apart.
+        `<path class="gdr-sk-yoke" d="M-5.5 -3.2 q2.6-2.4 5.5-2.4 q2.9 0 5.5 2.4 l-0.35 1.5 q-2.4-2.1-5.15-2.1 q-2.75 0-5.15 2.1 z"/>` +
+        `<path class="gdr-sk-arm left"  d="M-5.3 -1.6 L-7.7 2.6"/>` +
+        `<path class="gdr-sk-arm right" d="M 5.3 -1.6 L 6.4 0.4"/>` +
+        `<path class="gdr-sk-cuff" d="M-7.0 1.5 L-8.2 3.5 M6.0 -0.4 L7.0 1.2"/>` +
+        // Gloves. Two dark blocks at the ends of the arms; without them the sleeves
+        // just stop, and a stick growing out of nothing is the thing the eye catches.
+        `<ellipse class="gdr-sk-glove" cx="-8.2" cy="3.8" rx="1.5" ry="1.8"/>` +
+        `<ellipse class="gdr-sk-glove" cx="6.9" cy="1.5" rx="1.5" ry="1.8"/>` +
+        // The number rides ON the sweater and turns with him, which is what a back
+        // number does. It is the only text on the ice for nine of the ten men.
+        `<text class="gdr-sk-num" x="0" y="2">${num == null ? '' : num}</text>` +
+        `<circle class="gdr-sk-helm" cx="0" cy="-5.4" r="2.9"/>` +
+        `<path class="gdr-sk-cage" d="M-2 -7 q2-1.2 4 0"/>` +
       `</g>` +
     `</svg>`
   );
@@ -210,9 +249,9 @@ function _netSvg(side) {
       `<path class="gdr-net-frame" d="M${x0.toFixed(2)} ${lineY.toFixed(2)} L${x0.toFixed(2)} ${backY.toFixed(2)} L${x1.toFixed(2)} ${backY.toFixed(2)} L${x1.toFixed(2)} ${lineY.toFixed(2)}"/>` +
       // The two posts, drawn ON the goal line — the puck is only in when it's past
       // the plane they define, so they're the reference the crossing is read against.
-      `<circle class="gdr-net-post-cap" cx="${x0.toFixed(2)}" cy="${lineY.toFixed(2)}" r="1.5"/>` +
-      `<circle class="gdr-net-post-cap" cx="${x1.toFixed(2)}" cy="${lineY.toFixed(2)}" r="1.5"/>` +
-      `<g class="gdr-net-lamp"><circle cx="${(SHEET_W / 2).toFixed(2)}" cy="${(side < 0 ? backY - 4 : backY + 4).toFixed(2)}" r="2.4"/></g>` +
+      `<circle class="gdr-net-post-cap" cx="${x0.toFixed(2)}" cy="${lineY.toFixed(2)}" r="0.8"/>` +
+      `<circle class="gdr-net-post-cap" cx="${x1.toFixed(2)}" cy="${lineY.toFixed(2)}" r="0.8"/>` +
+      `<g class="gdr-net-lamp"><circle cx="${(SHEET_W / 2).toFixed(2)}" cy="${(side < 0 ? backY - 2.6 : backY + 2.6).toFixed(2)}" r="2.4"/></g>` +
     `</g>`
   );
 }
@@ -224,10 +263,42 @@ function _rinkSvg() {
   const R_CIRCLE = 15;   // 15ft radius on an 85ft sheet — the real one
   const dots = Object.entries(DOTS).map(([id, [x, y]]) => {
     const cx = _sx(y).toFixed(2), cy = _sy(x).toFixed(2);
-    const ring = (id === 'C' || /Z/.test(id)) ? `<circle class="gdr-dot-ring" cx="${cx}" cy="${cy}" r="${R_CIRCLE}"/>` : '';
-    return `<g class="gdr-dot ${id === 'C' ? 'centre' : /Z/.test(id) ? 'zone' : 'neutral'}" data-dot="${id}">` +
-      ring + `<circle class="gdr-dot-spot" cx="${cx}" cy="${cy}" r="1.8"/></g>`;
+    const zone = /Z/.test(id);
+    const ring = (id === 'C' || zone) ? `<circle class="gdr-dot-ring" cx="${cx}" cy="${cy}" r="${R_CIRCLE}"/>` : '';
+    // The four hash marks outside each end-zone circle. Nobody could name them, but a
+    // faceoff circle without them reads as a plain ring and a rink drawn out of memory.
+    let hash = '';
+    if (zone) {
+      for (const sx2 of [-1, 1]) for (const sy2 of [-1, 1]) {
+        const hx = +cx + sx2 * 3.2, hy = +cy + sy2 * (R_CIRCLE + 1.1);
+        hash += `<line class="gdr-hash" x1="${hx.toFixed(2)}" y1="${hy.toFixed(2)}" x2="${hx.toFixed(2)}" y2="${(hy - sy2 * 1.8).toFixed(2)}"/>`;
+      }
+    }
+    return `<g class="gdr-dot ${id === 'C' ? 'centre' : zone ? 'zone' : 'neutral'}" data-dot="${id}">` +
+      ring + hash + `<circle class="gdr-dot-spot" cx="${cx}" cy="${cy}" r="${id === 'C' ? 1.1 : 0.85}"/></g>`;
   }).join('');
+  // Centre ice. Every barn paints its own mark there, and the CPhL's is a disc with one
+  // line struck through it — the same drawing as the corner bug, faint enough under the
+  // play that it never competes with a man standing on it.
+  const centreMark = (() => {
+    const cx = SHEET_W / 2, cy = _sy(GEO.centre), r = 7.5;
+    return `<g class="gdr-centre-mark">` +
+      `<circle cx="${cx}" cy="${cy}" r="${r}"/>` +
+      `<line x1="${(cx - r * 0.8).toFixed(2)}" y1="${(cy + r * 0.48).toFixed(2)}" x2="${(cx + r * 0.8).toFixed(2)}" y2="${(cy - r * 0.48).toFixed(2)}"/>` +
+    `</g>`;
+  })();
+  // Scuffed ice. A sheet in the second period is not a clean white rectangle, and a
+  // faint scatter of blade marks is the cheapest thing that says the game has been
+  // going on a while. Fixed positions — the ice does not reshuffle itself per beat.
+  const scuffs = (() => {
+    const r = _rng(0x5ca77ed), out = [];
+    for (let i = 0; i < 46; i++) {
+      const x = 6 + r() * (SHEET_W - 12), y = 10 + r() * (SHEET_L - 20);
+      const len = 1.6 + r() * 4, ang = (r() - 0.5) * 2.6;
+      out.push(`<line class="gdr-scuff" x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${(x + Math.cos(ang) * len).toFixed(1)}" y2="${(y + Math.sin(ang) * len).toFixed(1)}"/>`);
+    }
+    return out.join('');
+  })();
   // The crease is a half-disc opening onto the ice, so it's mirrored per end.
   const crease = (side) => {
     const gy = _sy(side < 0 ? glL : glR), r = GEO.creaseR * SHEET_L * 0.5;
@@ -238,16 +309,28 @@ function _rinkSvg() {
     `<line class="gdr-line ${cls}" x1="${inset}" y1="${_sy(x).toFixed(2)}" x2="${(SHEET_W - inset).toFixed(2)}" y2="${_sy(x).toFixed(2)}"/>`;
   return (
     `<svg class="gdr-ice" viewBox="0 0 ${SHEET_W} ${SHEET_L}" preserveAspectRatio="none" aria-hidden="true">` +
+      // Arena light falls off toward the ends. A flat white rectangle is the tell that
+      // a rink was drawn rather than lit.
+      `<defs><linearGradient id="gdrIceGrad" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="#dce9f4"/><stop offset="0.32" stop-color="#f3f9fd"/>` +
+        `<stop offset="0.68" stop-color="#f3f9fd"/><stop offset="1" stop-color="#dce9f4"/>` +
+      `</linearGradient></defs>` +
       `<rect class="gdr-ice-bed" x="0" y="0" width="${SHEET_W}" height="${SHEET_L}" rx="14"/>` +
       // the two attacking zones, a shade colder than the neutral zone
       `<rect class="gdr-zone-att" x="0" y="0" width="${SHEET_W}" height="${_sy(blL).toFixed(2)}"/>` +
       `<rect class="gdr-zone-att" x="0" y="${_sy(blR).toFixed(2)}" width="${SHEET_W}" height="${(SHEET_L - _sy(blR)).toFixed(2)}"/>` +
+      scuffs +
+      centreMark +
       crease(-1) + crease(1) +
       across('goal', glL, 6) + across('goal', glR, 6) +
       across('blue', blL) + across('blue', blR) +
       across('red', GEO.centre) +
       dots +
       _netSvg(-1) + _netSvg(1) +
+      // The dasher boards, then the kickplate inside them. Two rings rather than one
+      // because the boards are a THING with a thickness, and the white face of them is
+      // most of what separates the ice from the building behind it.
+      `<rect class="gdr-kick" x="1.8" y="1.8" width="${(SHEET_W - 3.6).toFixed(2)}" height="${(SHEET_L - 3.6).toFixed(2)}" rx="13"/>` +
       `<rect class="gdr-boards" x="0.7" y="0.7" width="${(SHEET_W - 1.4).toFixed(2)}" height="${(SHEET_L - 1.4).toFixed(2)}" rx="14"/>` +
     `</svg>`
   );
@@ -296,6 +379,7 @@ export function createRinkView(host) {
   let carrier = null;           // { side, i } or null — whoever is carrying
   let flow = null;              // the puck's current segment
   let flowRng = _rng(1);
+  let puckTrailAt = 0;
   let clockOff = 0;             // ms, for the per-man wander phases
 
   function _stop() {
@@ -375,12 +459,67 @@ export function createRinkView(host) {
     puckState.hx = nx - puckState.x; puckState.hy = ny - puckState.y;
     puckState.x = nx; puckState.y = ny;
     _writeToken(puckEl(), nx, ny);
+    // A trail behind a fast puck. Not decoration: a six-pixel disc crossing a zone in
+    // half a second is genuinely hard to follow, and a short streak is what lets the
+    // eye pick up where it came FROM and therefore where it is going. Throttled off
+    // the clock rather than the frame rate so it looks the same on a slow machine.
+    const sp = Math.hypot(puckState.hx * SHEET_L, puckState.hy * SHEET_W);
+    if (sp > 0.55 && now - puckTrailAt > 26) { puckTrailAt = now; _spawn('gdr-ptrail', nx, ny, 260); }
     if (t >= 1) {
       if (f.onEnd) { const fn = f.onEnd; f.onEnd = null; fn(); }
       // A beat's chain schedules its own next segment; only the idle flow refills
       // itself, which is what stops idle motion from stepping on a live play.
       if (flow === f && f.idle) _nextIdleFlow();
       else if (flow === f && f.thenIdle) _nextIdleFlow();
+    }
+  }
+
+  // Where one man wants to be, given where the puck is. The single source of the
+  // formation — the per-frame integrator eases toward it, and a beat's opening CUT
+  // snaps to it, so a play never begins with ten men sprinting in from the last one.
+  function _targetFor(m, px, py, has, isCarrier, wander) {
+    const role = m.role, d = m.dir;
+    let tx, ty;
+    if (m.pin) {
+      // Held: locked up in a fight, pinned on the boards, or lying where he fell.
+      // Nothing about the puck moves him until whatever is holding him lets go.
+      [tx, ty] = m.pin;
+    } else if (isCarrier) {
+      // He IS the puck, near enough — a stride behind it, on his own attacking side.
+      tx = px - d * 0.012; ty = py;
+    } else {
+      tx = px + d * (has ? role.withPuck : role.without);
+      // `grip` is how strongly he follows the puck across the sheet. A centre shades
+      // over hard; a defenceman holds his lane, which is what keeps the pair spread
+      // across the front of their own net instead of both chasing the same corner.
+      ty = role.lane + (py - 0.5) * role.grip;
+      // Nobody stands still. Small, slow, out of phase per man — enough that the ice
+      // looks occupied between beats without anybody appearing to have somewhere to be.
+      if (wander) {
+        tx += Math.sin((clockOff + m.phase) / 1450) * 0.014;
+        ty += Math.cos((clockOff + m.phase * 1.7) / 1180) * 0.022;
+      }
+    }
+    // Inside the boards — and NEVER into the paint. The carrier tracks the puck, and
+    // the puck's last keyframe on a goal is inside the cage, so without this floor a
+    // shooter skated through his own shot and stood in the net holding it. A skater
+    // may crash the crease; he may not be behind the goal line in the goalmouth.
+    return [clamp(tx, 0.105, 0.895), clamp(ty, 0.06, 0.94)];
+  }
+
+  // The cut. A broadcast doesn't dolly from the last play to this one, and neither does
+  // this: at the top of a beat every man is PLACED in the formation the opening keyframe
+  // implies, facing the right way. Without it a beat opened with the whole rink sprinting
+  // in from wherever the previous beat left them, and the first second of every play was
+  // spent watching ten men run to their marks.
+  function _snapFormation(px, py) {
+    for (const m of men) {
+      const has = carrier && carrier.side === m.side;
+      const isCarrier = has && carrier.i === m.i;
+      const [tx, ty] = _targetFor(m, px, py, has, isCarrier, false);
+      m.x = tx; m.y = ty; m.speed = 0;
+      m.head = m.dir > 0 ? Math.PI : 0;
+      _writeSkater(m);
     }
   }
 
@@ -395,28 +534,7 @@ export function createRinkView(host) {
       const has = carrier && carrier.side === m.side;   // his side has the puck
       const isCarrier = carrier && carrier.side === m.side && carrier.i === m.i;
 
-      let tx, ty;
-      if (m.pin) {
-        // Held: locked up in a fight, pinned on the boards, or lying where he fell.
-        // Nothing about the puck moves him until whatever is holding him lets go.
-        [tx, ty] = m.pin;
-      } else if (isCarrier) {
-        // He IS the puck, near enough — a stride behind it, on his own attacking side.
-        tx = px - d * 0.012; ty = py;
-      } else {
-        tx = px + d * (has ? role.withPuck : role.without);
-        // `grip` is how strongly he follows the puck across the sheet. A centre shades
-        // over hard; a defenceman holds his lane, which is what keeps the pair spread
-        // across the front of their own net instead of both chasing the same corner.
-        ty = role.lane + (py - 0.5) * role.grip;
-        // Nobody stands still. Small, slow, out of phase per man — enough that the ice
-        // looks occupied between beats without anybody appearing to have somewhere to be.
-        tx += Math.sin((clockOff + m.phase) / 1450) * 0.014;
-        ty += Math.cos((clockOff + m.phase * 1.7) / 1180) * 0.022;
-      }
-      // Inside the boards, and out of the goalie's paint.
-      tx = clamp(tx, 0.035, 0.965); ty = clamp(ty, 0.06, 0.94);
-
+      const [tx, ty] = _targetFor(m, px, py, has, isCarrier, true);
       const tau = isCarrier ? TAU_CARRIER : TAU_SKATER;
       const k = 1 - Math.exp(-dt / tau);
       const nx = m.x + (tx - m.x) * k, ny = m.y + (ty - m.y) * k;
@@ -445,17 +563,42 @@ export function createRinkView(host) {
   // The camera. It tracks the puck along the sheet with a lead in the direction of
   // travel — an operator anticipates, and a camera that only ever centres what already
   // happened feels a half-second behind the play the whole night.
+  // A camera that leads hard and catches up fast whips, and a whipping camera makes a
+  // small black disc genuinely impossible to follow — the puck barely moves against the
+  // frame while the whole world slides under it. So the lead is small and the lag is
+  // long: the operator anticipates a little and settles slowly, and the puck is allowed
+  // to travel WITHIN the frame rather than being pinned to the middle of it.
+  // A DEADZONE, not a spring. Easing toward the puck every frame gives you exactly one
+  // of two bad cameras: tight enough to keep up and it whips on every pass, loose
+  // enough not to whip and a rush outruns it — the puck and half the players leave the
+  // frame, which is what was happening. So the camera holds perfectly still while the
+  // puck is anywhere in the middle of the picture, and only follows the amount by which
+  // it has left that band. Small movements cost nothing; a breakout is tracked; and
+  // there is a hard leash so a shot from the far blue line can never escape.
   function _advanceCamera(dt) {
-    const lead = clamp(puckState.hx * 14, -0.09, 0.09);
-    const want = clamp01(puckState.x + lead);
-    camY += (want - camY) * (1 - Math.exp(-dt / TAU_CAM));
     if (!cam || !rink) return;
     const ch = cam.offsetHeight, vh = rink.clientHeight;
     if (!ch || !vh) return;
-    // Never show past the end of the sheet: at the ends the camera stops and the puck
-    // travels within the frame, which is exactly what a real one does behind the net.
-    const maxOff = Math.max(0, ch - vh);
-    const off = clamp(camY * ch - vh / 2, 0, maxOff);
+    const vis = vh / ch;                              // how much of the sheet is in frame
+    const lead = clamp(puckState.hx * 5, -0.03, 0.03);
+    const target = clamp01(puckState.x + lead);
+    const err = target - camY;
+    const dead = vis * 0.15;
+    const outside = Math.abs(err) - dead;
+    if (outside > 0) {
+      // Escaping the frame entirely is worse than a fast pan, so past a third of the
+      // window the camera stops being polite about it.
+      const tau = Math.abs(err) > vis * 0.32 ? 120 : TAU_CAM;
+      const want = camY + Math.sign(err) * outside;
+      camY += (want - camY) * (1 - Math.exp(-dt / tau));
+    }
+    // A LITTLE past each end, and no further. Clamping hard at the sheet's edge jammed
+    // the net into the last few pixels of the frame exactly when the play was in tight
+    // and the net was the thing you needed to see. The overscroll shows end boards and
+    // crowd, which is what is actually behind a net, and it is capped so the ice can
+    // never drift into the middle of the picture.
+    const over = vh * 0.15;
+    const off = clamp(camY * ch - vh / 2, -over, Math.max(0, ch - vh) + over);
     cam.style.transform = `translate3d(0, ${-off.toFixed(1)}px, 0)`;
   }
 
@@ -582,13 +725,19 @@ export function createRinkView(host) {
     return out;
   }
 
+  // Only the man with the puck wears a name tag. Ten floating `##POS` labels collided
+  // with each other and buried the ice they were drawn over; NHL '94 tagged the man you
+  // were controlling and nobody else, for exactly this reason. The other nine are
+  // identified by the number on the sweater, which is where a number belongs.
+  const _clubVars = (colours) => (colours ? `--gdr-jersey:${colours[0]};--gdr-trim:${colours[1]};` : '');
+
   function _skaterMarkup(side, colours, team) {
-    const style = colours ? `--gdr-jersey:${colours[0]};--gdr-trim:${colours[1]};` : '';
+    const style = _clubVars(colours);
     const nums = _numbersFor(team);
     return ROLES.map((role, i) =>
       `<div class="gdr-skater ${side === 'a' ? 'att' : 'def'}${colours ? ' clubbed' : ''}" data-side="${side}" data-i="${i}" style="${style}">` +
-        _skaterSvg() +
-        `<span class="gdr-sk-tag">${nums[i]}${role.pos}</span>` +
+        _skaterSvg(nums[i]) +
+        `<span class="gdr-sk-tag">${nums[i]} ${role.pos}</span>` +
       `</div>`).join('');
   }
 
@@ -621,8 +770,10 @@ export function createRinkView(host) {
                 _skaterMarkup('a', p.awayColours || p.attackingColours, awayTeam) +
                 _skaterMarkup('h', p.homeColours || p.defendingColours, homeTeam) +
               `</div>` +
-              `<div class="gdr-goalie left pose-ready" data-side="l">${_goalieSvg()}</div>` +
-              `<div class="gdr-goalie right pose-ready" data-side="r">${_goalieSvg()}</div>` +
+              // Each keeper wears his own club, so the two ends of the sheet are never
+              // the same man in the same sweater facing opposite ways.
+              `<div class="gdr-goalie left pose-ready" data-side="l" style="${_clubVars(p.awayColours || p.attackingColours)}">${_goalieSvg()}</div>` +
+              `<div class="gdr-goalie right pose-ready" data-side="r" style="${_clubVars(p.homeColours || p.defendingColours)}">${_goalieSvg()}</div>` +
               `<div class="gdr-puck"></div>` +
             `</div>` +
           `</div>` +
@@ -692,30 +843,57 @@ export function createRinkView(host) {
 
     puckState.x = nodes[0].p[0]; puckState.y = nodes[0].p[1];
     _writeToken(puckEl(), puckState.x, puckState.y);
+    _snapFormation(puckState.x, puckState.y);
+    camY = puckState.x;                       // the cut takes the camera with it
     _goaliePose(side, 'ready');
 
     // Chain the keyframes: each segment's end schedules the next, so the whole rush is
     // one continuous motion rather than a queue of timers that can drift apart.
+    //
+    // EACH KIND OF TOUCH MOVES DIFFERENTLY, which is the whole difference between a
+    // sequence of positions and a passage of play. A carry is the man skating, so the
+    // puck travels at his pace and he travels with it. A PASS is off his stick and gone
+    // — twice the speed, dead straight, nobody carrying it while it's in the air, and
+    // the receiver only becomes the carrier when it ARRIVES. A SHOT is preceded by a
+    // wind-up: he plants, the puck sits still for a beat, and only then does it leave,
+    // which is the anticipation that makes a slapshot read as a slapshot.
     let idx = 1;
     const step = () => {
       if (idx >= nodes.length) return;
       const nd = nodes[idx], prev = nodes[idx - 1];
-      const shot = nd.ev === 'shot';
+      const ev = nd.ev;
       idx++;
-      if (nd.carrier >= 0) carrier = { side: attSide, i: Math.max(0, nd.carrier | 0) % ROLES.length };
-      if (nd.ev === 'entry') _flashLine(side);
-      if (nd.ev === 'pass') { _passTrail(prev.p, nd.p, T_STEP); carrier = null; }
-      if (shot) { _sfx('shot'); _windUp(attSide, carrier ? carrier.i : 0); carrier = null; }
-      _segment(nd.p[0], nd.p[1], T_STEP, {
-        ease: shot ? 'in' : 'smooth',
-        onEnd: () => {
-          // Whoever it was passed to picks it up on arrival — the carrier is the man
-          // the puck REACHED, which is the only reading that survives a deflection.
-          if (nd.ev === 'pass' && nd.carrier >= 0) carrier = { side: attSide, i: Math.max(0, nd.carrier | 0) % ROLES.length };
-          if (idx < nodes.length) step();
-          else _resolveShot(p, kind, save, side, nodes[nodes.length - 1]);
-        },
-      });
+      const held = { side: attSide, i: Math.max(0, nd.carrier | 0) % ROLES.length };
+      const done = () => {
+        if (idx < nodes.length) step();
+        else _resolveShot(p, kind, save, side, nodes[nodes.length - 1]);
+      };
+
+      if (ev === 'shot') {
+        // The wind-up. He stops, the puck sits, the stick comes back — and the shot
+        // itself is fired by _resolveShot, not here, so the release and the outcome
+        // are one motion instead of two that can disagree.
+        _windUp(attSide, carrier ? carrier.i : 0);
+        _segment(prev.p[0], prev.p[1], T_WINDUP, { ease: 'out', onEnd: () => {
+          _sfx('shot'); carrier = null; done();
+        } });
+        return;
+      }
+      if (ev === 'pass') {
+        // In the air, belonging to nobody.
+        carrier = null;
+        _passTrail(prev.p, nd.p, T_PASS);
+        _segment(nd.p[0], nd.p[1], T_PASS, { ease: 'out', onEnd: () => {
+          // The carrier is the man the puck REACHED — the only reading that survives
+          // a deflection or a pass that misses its man.
+          if (nd.carrier >= 0) { carrier = held; _receive(held); }
+          done();
+        } });
+        return;
+      }
+      if (nd.carrier >= 0) carrier = held;
+      if (ev === 'entry') _flashLine(side);
+      _segment(nd.p[0], nd.p[1], T_STEP, { ease: 'smooth', onEnd: done });
     };
     step();
   }
@@ -870,17 +1048,24 @@ export function createRinkView(host) {
     carrier = null;
     _goaliePose(side, save.cls, kind === 'goal' ? 2400 : 1400);
 
+    // A goal has to cross BETWEEN THE POSTS. The sim decides the outcome and the depth,
+    // not the lateral inch, and its keyframes were drawn against a wider cage than the
+    // one now painted — so the crossing point is pulled inside the mouth. This changes
+    // no outcome; it stops the picture from disagreeing with the call.
+    const mouth = (y) => clamp(y, 0.5 - GEO.netHalf * 0.72, 0.5 + GEO.netHalf * 0.72);
+
     if (kind === 'goal') {
       // THE ONE THAT MATTERS. The puck travels past the goal line — visibly past, the
       // line is drawn and it crosses it — and only then reaches the mesh, which bulges.
       // Two separate motions, because "crossed the line" and "in the net" are two
       // separate facts and the second is the consequence of the first.
-      _segment(gl, final.p[1], T_SHOT, { ease: 'in', onEnd: () => {
+      _segment(gl, mouth(final.p[1]), T_SHOT, { ease: 'in', onEnd: () => {
         _crossFlash(side);
         _sfx('horn', p.hornSeed);   // every barn's horn is that barn's horn
-        _segment(back - dir * 0.006, final.p[1], 150, { ease: 'out', onEnd: () => {
-          _bulge(side); _sfx('net'); _spawn('gdr-spray', back - dir * 0.02, final.p[1], 700);
-          _t(T_SETTLE, () => { _reveal(p); _nextIdleFlow(); });
+        _segment(back - dir * 0.006, mouth(final.p[1]), 150, { ease: 'out', onEnd: () => {
+          _bulge(side); _sfx('net'); _spawn('gdr-spray', back - dir * 0.02, mouth(final.p[1]), 700);
+          _t(T_SETTLE, () => _reveal(p));
+          _t(2400, () => _nextIdleFlow());
         } });
       } });
       _crowd('roar', T_SHOT + 260);
@@ -926,10 +1111,21 @@ export function createRinkView(host) {
     _segment(puckState.x, puckState.y, 1400, { thenIdle: true });
   }
 
+  // He plants and the stick comes back. The class runs slightly longer than the wind-up
+  // segment so the follow-through is still going as the puck leaves — a shooter who
+  // finishes his swing before the puck moves looks like he pushed it.
   function _windUp(side, i) {
     const m = men.find(mm => mm.side === side && mm.i === i);
     if (!m || !m.el) return;
-    m.el.classList.add('shooting'); _t(420, () => m.el.classList.remove('shooting'));
+    m.el.classList.add('shooting'); _t(T_WINDUP + 200, () => m.el.classList.remove('shooting'));
+  }
+  // Taking a pass. A short flash on the receiver, so the eye is told where the puck is
+  // about to belong rather than having to find the carrier ring again.
+  function _receive(who) {
+    const m = men.find(mm => mm.side === who.side && mm.i === who.i);
+    if (!m || !m.el) return;
+    m.el.classList.add('receiving'); _t(260, () => m.el.classList.remove('receiving'));
+    _sfx('drop');
   }
   function _flashLine(side) {
     const ln = rink && rink.querySelectorAll('.gdr-line.blue')[side === 'l' ? 0 : 1];
@@ -942,7 +1138,7 @@ export function createRinkView(host) {
   function _passTrail(from, to, ms) {
     for (let i = 1; i <= 3; i++) {
       const f = i / 4;
-      _t(ms * f * 0.6, () => _spawn('gdr-trail', from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f, 420));
+      _t(ms * f * 0.75, () => _spawn('gdr-trail', from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f, 420));
     }
   }
 
@@ -1085,6 +1281,12 @@ export function createRinkView(host) {
     attackDir = attackedNet === 'r' ? 1 : -1;
     carrier = { side: attackedNet === 'r' ? 'a' : 'h', i: 0 };
     _bindMen(p, attackedNet);
+    // Place them before the first frame, around wherever the puck actually is. A beat
+    // with no possession chain — a hit, a fight, a death — never went through the
+    // possession cut, so its men stayed at whatever seed positions they were built
+    // with while the camera sat on the puck somewhere else entirely: a man was killed
+    // on an empty sheet, off-camera, with the rink greying out around nobody.
+    _snapFormation(puckState.x, puckState.y);
     const pk = puckEl();
     if (pk) pk.classList.remove('caught');
     _writeToken(pk, puckState.x, puckState.y);

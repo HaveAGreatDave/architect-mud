@@ -578,6 +578,28 @@ side) hold a formation *relative to the puck*, and the puck keeps circulating th
 idle flow between beats. **The idle flow decides nothing**: no shot, goal or stat ever
 comes out of it, because the only events that exist are the ones the sim decided.
 
+Four rules the motion is built on, each fixing something that was visibly wrong:
+
+- **`ROLES` depths are bounded by the CAMERA, not by realism.** A real five-man unit
+  spreads over half a zone; drawn at that spread the forwards and the defence were 0.26
+  of the sheet apart — *wider than the viewport* — so one team was always entirely
+  off-screen. Both teams now occupy about half the visible window.
+- **A beat is a CUT.** `_snapFormation` places every man in the formation the opening
+  keyframe implies before the first frame — including for beats with no possession
+  chain (a hit, a fight, a death), which is what stopped a man being *killed off-camera
+  on an empty sheet* while the rink greyed out around nobody.
+- **The camera is a DEADZONE, not a spring.** Easing toward the puck every frame gives
+  you either a camera that whips on every pass or one a rush outruns. It now holds still
+  while the puck is anywhere mid-picture and follows only the amount by which it has
+  left that band, with a hard leash — and it may overscroll a little past each end, so
+  the net isn't jammed into the last few pixels exactly when you need to see it.
+- **Each kind of touch moves differently.** A carry travels at the skater's pace with
+  him; a **pass** is twice as fast, straight, and belongs to *nobody* while it's in the
+  air (the receiver becomes the carrier on arrival); a **shot** is preceded by a wind-up
+  where he plants and the puck sits still. Skaters are clamped out of the goalmouth, or
+  the carrier follows the puck's final keyframe *into the net* and stands there holding
+  it.
+
 **The violence reaches the ice.** `boards`, `injury`, `death` and `scrum` used to carry no
 gameday payload at all, so the announcer described a man going through the glass over a
 still picture — the league's whole character happening off-screen. They now ride the same
