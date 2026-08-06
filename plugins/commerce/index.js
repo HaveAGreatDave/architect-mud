@@ -20,6 +20,7 @@ import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../se
 import { isVendorClosed, vendorClosedLine, openInPhrase, formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { propagateSound } from '../../server/engine/sounds.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
@@ -520,6 +521,20 @@ async function cmdDoorAnswer(player, pay) {
   return walkOut(player, p.direction);
 }
 
+// What a robbed shopkeeper shouts at your back. Deliberately plain, and every
+// line NAMES you: the street hearing which door it came out of is half the point,
+// hearing WHO it came out after is the other half. Anyone within earshot gets your
+// handle whether or not the witness roll ever charges you.
+const SHOPLIFT_YELLS = [
+  (h) => `Hey! HEY! ${h}! Put that back!`,
+  (h) => `${h}, you little rat, that is MY stock!`,
+  (h) => `Thief! Somebody stop ${h}!`,
+  (h) => `I know your name, ${h}! ${h}!`,
+  (h) => `That is coming out of my till, ${h}, you piece of filth!`,
+  (h) => `Don't you ever come back in here, ${h}!`,
+  (h) => `Somebody grab ${h}! They just walked out with my stock!`,
+];
+
 // Walking out with the mark still on it. Fires on the committed step (not a move
 // gate — a gate can still be vetoed downstream, and charging for a step that
 // never happened would be a phantom crime). Costs nothing on a normal move: the
@@ -542,7 +557,16 @@ on('zone.entered', async ({ actor: player, zone, from }) => {
   sendToPlayer(player.id, { type:'output', message:
     `<span class="msg-danger">You walk out with ${lifted.map(r => r.name).join(', ')} unpaid for.${vendor ? ` Behind you, ${vendor.name} looks up.` : ''}</span>` });
   emit('shoplifting.caught', { player: { id: player.id, handle: player.handle }, zoneId: from });
-  if (vendor) holdVendorGrudge(player, vendor.id).catch(() => {});
+  if (vendor) {
+    holdVendorGrudge(player, vendor.id).catch(() => {});
+    // The shout is thrown from INSIDE the shop, at the shop's zone, so it travels
+    // the ordinary sound graph: the street tile you just stepped onto hears it
+    // ("Nearby, ..."), a shut door behind you muffles it, and anyone else within
+    // earshot hears it too. It is flavour in the strict sense — the charge is the
+    // witness roll's business and fired above regardless of who heard this.
+    const yell = SHOPLIFT_YELLS[Math.floor(Math.random() * SHOPLIFT_YELLS.length)](player.handle);
+    propagateSound(from, `${vendor.name} yells: "${yell}"`, 8, getBroadcast());
+  }
 });
 
 export const commands = {
