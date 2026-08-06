@@ -1239,7 +1239,12 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     ls2.fixture_count = lc2.cnt;
     ls2.total_lumens = lc2.lm;
     if (broadcast) {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span><br>', refresh: true });
+      // Not an emergency system — there isn't one on this path. This fires when a
+      // zone that was offline or browned out fits back under its ceiling, so it is
+      // the ORDINARY grid recovering, and it says so. "The supply" deliberately
+      // echoes the flicker line above it ("as the supply runs thin"), which is the
+      // state this one ends.
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">The grid comes back up. The supply steadies, and the lights with it.</span><br>', refresh: true });
     }
   }
 }
