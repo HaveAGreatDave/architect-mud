@@ -1704,7 +1704,7 @@ export function createTvView(root, opts = {}) {
         const availPx = content.clientWidth - 36;
         const availH = content.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
         const byWidth = availPx / (maxLen * 0.6);
-        const byHeight = availH / (lines.length * 1.3);   // 1.3 = the ascii line-height
+        const byHeight = availH / lines.length;   // 1.0 = the ascii line-height (block art tiles)
         const finalPx = Math.max(Math.min(byWidth, byHeight, 18), 7);
         node.style.fontSize = `${finalPx.toFixed(1)}px`;
       });
