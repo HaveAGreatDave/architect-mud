@@ -697,6 +697,20 @@ export const DISHES = {
     // specific thing by each. `nouns` is where an author says so — it's what
     // makes the card read "a tomato" rather than "one soft vegetable".
     nouns: { soft_vegetable: 'tomato', dairy: 'cream' },
+    // ...AND IT IS NOT JUST A LABEL. `nouns` said "tomato" to the card while the
+    // matcher went on accepting any soft vegetable at all, so a pan of penne, gin
+    // and lamp-grown greens plated as penne alla gin and the card printed "a
+    // tomato" over it. `requires` is the binding half of the same statement: the
+    // class still does the counting, but something in it has to answer to this
+    // name. Greens now fall through to an improvised pasta dish, which is what
+    // they are.
+    //
+    // Deliberately NOT applied wholesale to every `nouns` entry in the catalog.
+    // Half of them name a thing no item carries ("stock", "meatballs") and could
+    // never be a rule; the rest would have gone strict as a side effect of what
+    // the item catalog happens to contain on the day. A requirement is something
+    // an author states.
+    requires: { soft_vegetable: 'tomato', dairy: 'cream' },
     // THE SAUCE IS ONE THING MADE OF THREE. Tomato, gin and cream are not three
     // unrelated errands that happen to share a recipe — they are the sauce, and a
     // list that files them flat beside the pasta says nothing about that. `parts`
@@ -913,22 +927,75 @@ export function unitsOf(row, profileName) {
 // the Object.keys sweep that the allowed check walks.
 export const ALSO = Symbol('also');
 
+// WHAT THE THINGS IN THE PAN ARE CALLED, filed under the class each answers.
+//
+// Class matching is the rule and stays the rule — 44 of the 47 templates never
+// name an ingredient. But a handful of dishes mean ONE specific thing by a
+// generic class, and `soft_vegetable` was letting lamp-grown greens stand in for
+// the tomato in penne alla gin: same class, same units, and a pan of pasta and
+// salad leaves came out the other side wearing the name of a tomato sauce.
+//
+// `nouns` already said what the class meant, but only to the DISPLAY layer, so
+// the card read "a tomato" over a pan with no tomato in it. `requires` (below)
+// is the binding half, and this map is what it reads.
+//
+// Filed under the profile the noun ANSWERS, primary and secondary alike, because
+// the tin is `liquid` with `food_also: soft_vegetable` — the tomato in this sauce
+// has never been a soft vegetable by its primary profile, and a check that only
+// looked at the primary would have rejected the one ingredient it exists to
+// require.
+export const NOUNS = Symbol('nouns');
+
+// Every string a row could reasonably be called, lowercased: its declared
+// `food_noun` and its own name. Matching is substring, in both directions, so a
+// requirement of "tomato" is answered by "tinned tomatoes" and "tomato paste"
+// without the catalog having to agree on a singular.
+function rowNouns(r) {
+  const out = [];
+  const declared = (r?.tags || {}).food_noun;
+  if (typeof declared === 'string' && declared.trim()) out.push(declared.trim().toLowerCase());
+  if (typeof r?.name === 'string' && r.name.trim()) {
+    out.push(r.name.trim().toLowerCase().replace(STATE_WORDS, '').trim());
+  }
+  return out.filter(Boolean);
+}
+
+// Does anything filed under this class answer to this name?
+function nounSatisfied(sig, profile, want) {
+  const map = sig?.[NOUNS];
+  // A hand-built signature (the regress suite builds plenty) carries no noun map
+  // at all. There is nothing to check against, so the check passes: this can only
+  // ever narrow a match made from real rows, never invent one.
+  if (!map) return true;
+  const have = map[profile];
+  if (!have) return false;
+  const w = String(want).toLowerCase();
+  for (const noun of have) if (noun.includes(w) || w.includes(noun)) return true;
+  return false;
+}
+
 // A secondary contributes the SAME unit count as the primary, not a recount
 // against its own unitWeight — a 400g carton is one liquid, so it's one dairy.
 // Recounting would make it 4.4 dairy on cheese's 90g unit and blow every range.
 export function signature(rows, profileNameOf) {
   const sig = {};
   const also = {};
+  const nouns = {};
   const add = (map, key, n) => { map[key] = (map[key] || 0) + n; };
+  const addNouns = (key, r) => {
+    const set = nouns[key] || (nouns[key] = new Set());
+    for (const n of rowNouns(r)) set.add(n);
+  };
   for (const r of rows) {
     const name = profileNameOf(r);
     const key = name && PROFILES[name] ? name : 'unprofiled';
     const units = name && PROFILES[name] ? unitsOf(r, name) : portionOf(r) * stackOf(r);
     add(sig, key, units);
+    addNouns(key, r);
 
     // Declared on the item: `tags.food_also`. Milk is the case this exists for.
     const second = (r?.tags || {}).food_also;
-    if (second && PROFILES[second] && second !== key) add(also, second, units);
+    if (second && PROFILES[second] && second !== key) { add(also, second, units); addNouns(second, r); }
 
     // BUTTERED bread carries its own fat. Without this, buttering a slice and
     // putting it in a pan would fail to match a toastie for want of a fat that
@@ -937,7 +1004,16 @@ export function signature(rows, profileNameOf) {
     if (r?.custom_data?.buttered) add(also, 'fat_or_oil', 1);
   }
   sig[ALSO] = also;
+  sig[NOUNS] = nouns;
   return sig;
+}
+
+// The same narrowing question, per class, for anything that has to agree with
+// the matcher without being it — the Assistant scores class by class and has to
+// be able to say WHICH line is short, not just that the pan won't match.
+export function nounMet(sig, profile, template) {
+  const want = template?.requires?.[profile];
+  return !want || nounSatisfied(sig, profile, want);
 }
 
 const range = need => (Array.isArray(need) ? need : [need, need]);
@@ -975,6 +1051,13 @@ export const KEY_DISH_FLOOR = 100;
 export function matchScore(sig, template, itemIds = new Set()) {
   if (template.keyItems?.length) {
     for (const id of template.keyItems) if (!itemIds.has(id)) return -1;
+  }
+  // A CLASS THIS DISH MEANS ONE THING BY. See `requires` on the template and
+  // `NOUNS` above: keyItems can't express this, because a keyItem is an exact id
+  // and naming the tin would forbid the paste and the fresh one. The noun is the
+  // level the requirement actually lives at — it is tomato, however it's sold.
+  for (const [profile, want] of Object.entries(template.requires || {})) {
+    if (!nounSatisfied(sig, profile, want)) return -1;
   }
   const also = sig[ALSO] || {};
   let required = template.keyItems?.length ? KEY_DISH_FLOOR + template.keyItems.length : 0;
@@ -1391,6 +1474,23 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
       if (needs[profile]) errors.push(`${at('optional')} lists "${profile}", which is already required`);
     }
 
+    // `requires` narrows a class to a NAME, and the class has to be one this
+    // dish actually counts — a requirement on an optional profile would reject a
+    // pan for want of something the dish never asked for, and one on a profile
+    // the dish doesn't mention at all is a rule with nothing behind it.
+    for (const [profile, want] of Object.entries(t.requires || {})) {
+      if (!PROFILES[profile]) errors.push(`${at('requires')} names unknown profile "${profile}"`);
+      else if (!needs[profile]) errors.push(`${at('requires')} narrows "${profile}", which this dish does not require`);
+      if (typeof want !== 'string' || !want.trim()) errors.push(`${at(`requires.${profile}`)} must be a non-empty noun`);
+      // Say it once. `nouns` is the display half of the same statement and the
+      // two disagreeing means the card names one thing and the matcher demands
+      // another, which is the exact failure this field was added to end.
+      const shown = t.nouns?.[profile];
+      if (shown && String(shown).toLowerCase() !== String(want).toLowerCase()) {
+        errors.push(`${at(`requires.${profile}`)} is "${want}" but nouns.${profile} shows "${shown}" — the card would name something the matcher rejects`);
+      }
+    }
+
     // `notes` explains what a CLASS is for in this particular dish; `steps`
     // replaces the derived method wholesale. Both are presentation, but a note
     // about an ingredient the dish doesn't use would print advice for something
@@ -1436,6 +1536,17 @@ export function validateDishes(dishes = DISHES, bonus = KNOWN_RECIPE_BONUS) {
         if (!Number.isInteger(i) || i < 0 || i >= (t.steps || []).length) {
           errors.push(`${where}.steps[${i}] is not an index into this dish's ${(t.steps || []).length} steps`);
         }
+      }
+      // A part's steps are ALSO how the runbook labels each load step, pairing
+      // `of[i]` with `steps[i]` — which is what lets "in with the gin" be the
+      // sentence on the gin rather than "gin into the pan". That pairing is only
+      // meaningful when there is one step per ingredient, and a `parts` entry is
+      // allowed to point at fewer (a two-ingredient glaze described in one line
+      // is a legitimate thing to author). So this is not an error; the runbook
+      // simply falls back to its generic sentence. It's flagged only when the
+      // steps OUTNUMBER the ingredients, which no reading makes sense of.
+      if ((part.steps || []).length > members.length) {
+        errors.push(`${where} points at ${part.steps.length} step(s) for ${members.length} ingredient(s)`);
       }
     }
 

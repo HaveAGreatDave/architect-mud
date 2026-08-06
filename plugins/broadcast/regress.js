@@ -1345,6 +1345,25 @@ export default async function regress({ check, run, getPlayer }) {
     check('anyCastPresent is false for a zone that does not exist',
       _test.anyCastPresent(graph, '__no_such_zone__') === false, 'phantom cast');
 
+    // ON AIR OUTRANKS THE TIMETABLE. A cast member the runner is currently putting on
+    // air counts as working, so nothing walks them off the set mid-episode when their
+    // slot's window ticks over underneath them.
+    const onAirState = {};
+    const nowFake = Date.now();
+    check('the cast list is read off the graph, not the schedule',
+      [...(_test.graphCastIds(graph) || [])].join(',') === 'npc_host,npc_sidekick',
+      [...(_test.graphCastIds(graph) || [])].join(','));
+    check('nobody is held on set before a programme has aired',
+      _test.isOnAirNow(onAirState, 'npc_host', nowFake) === false, 'held with nothing on air');
+    _test.stampOnAirCast(onAirState, graph, nowFake);
+    check('an anchored actor is on shift while their show is on air',
+      _test.isOnAirNow(onAirState, 'npc_host', nowFake) === true, 'the cast were let go mid-show');
+    check('someone who is not in the show is not held by it',
+      _test.isOnAirNow(onAirState, 'npc_passerby', nowFake) === false, 'a bystander was put on shift');
+    check('the hold expires once the channel stops ticking',
+      _test.isOnAirNow(onAirState, 'npc_host', nowFake + _test.ON_AIR_CAST_HOLD_MS + 1) === false,
+      'the cast were pinned to the set forever');
+
     // Impaired delivery. A sober actor reads the script exactly as written.
     const line = 'The Basin wakes to clear skies and a curfew that ended at four.';
     check('a sober actor delivers the line verbatim',

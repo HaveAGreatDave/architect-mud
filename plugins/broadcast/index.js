@@ -4104,6 +4104,42 @@ function _anyCastPresent(graph, studioZoneId) {
   return false;
 }
 
+// Every NPC a graph anchors, cached on the graph — the cast list of the programme
+// itself rather than of the schedule row that booked it.
+function _graphCastIds(graph) {
+  if (!graph?.nodes) return null;
+  if (graph._castIds) return graph._castIds;
+  const ids = new Set();
+  for (const node of Object.values(graph.nodes)) {
+    if (node?.type === 'npc_anchor' && node.data?.npc_id) ids.add(node.data.npc_id);
+  }
+  return (graph._castIds = ids);
+}
+
+// ON AIR OUTRANKS THE TIMETABLE. The only thing keeping an actor on set is
+// isNpcScheduledNow (ai-behaviour.js walks them out of the building the first tick it
+// reads false, before their graph even runs), and that answer was derived purely from
+// the schedule: the playlist row's window, or — for the talk show — its @airtime block
+// plus the straddle grace added in 52507313f. Every acted mode straddles its own
+// boundary the same way the talk show does, so the same walk-off mid-sentence was still
+// reachable from a game show, a morning show or a weather slot, and the studio then told
+// viewers the cast had left the set.
+//
+// So the runner now reports who it is CURRENTLY PUTTING ON AIR, and that fact holds the
+// cast where they are, whatever the timetable thinks. Stamped per tick and read within a
+// short window, because the runner only ticks while somebody is watching — a channel that
+// goes unobserved must let its cast go home rather than pinning them on set forever.
+const ON_AIR_CAST_HOLD_MS = 60 * 1000;
+function _stampOnAirCast(state, graph, nowMs) {
+  const ids = _graphCastIds(graph);
+  if (!ids?.size) return;
+  state._onAirCast = ids;
+  state._onAirCastAt = nowMs;
+}
+function _isOnAirNow(state, npcId, nowMs) {
+  return !!state._onAirCast?.has(npcId) && (nowMs - (state._onAirCastAt || 0)) < ON_AIR_CAST_HOLD_MS;
+}
+
 // "Alice" / "Alice and Bob" / "Alice, Bob, and Carol"
 function _joinNames(names) {
   if (names.length <= 1) return names[0] || '';
@@ -4658,6 +4694,10 @@ registerNpcScheduleChecker((npcId) => {
   const gameSecs = (minutes ?? 0) * 60;
   const nowMs = Date.now();
   for (const state of channelRuntime.values()) {
+    // ON AIR FIRST. If the runner is currently playing a programme this NPC is anchored
+    // in, they are working, whatever any window says — the show they are in the middle of
+    // is the most authoritative statement of that there is.
+    if (_isOnAirNow(state, npcId, nowMs)) return true;
     // Talk-show cast are on-shift for the whole @airtime block, keyed to the in-game clock
     // (not the channel's loop position) — so the guest appears + commutes and the host/sidekick
     // hold the stage exactly while the episode airs, and clear off the moment it's over.
@@ -5817,6 +5857,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 
   // Tech-diff / show-delay only apply to truly-live unscripted channels
   if (!skipPresence) {
+    // This programme is on air right now and these people are in it — hold them on set
+    // for as long as that stays true. See ON_AIR_CAST_HOLD_MS.
+    if (liveActed) _stampOnAirCast(state, graph, nowMs);
     // Recover the instant the full cast is back on the studio floor.
     // The stage is no longer empty — start the show, even if it's short-handed.
     if (bb.hostAbsent && state.studioZoneId && _anyCastPresent(graph, state.studioZoneId)) {
@@ -8391,6 +8434,7 @@ export const _test = {
   subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
+  graphCastIds: _graphCastIds, stampOnAirCast: _stampOnAirCast, isOnAirNow: _isOnAirNow, ON_AIR_CAST_HOLD_MS,
   seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
   graphLapSec: _graphLapSec, actedSeekSec: _actedSeekSec,
   envTimeScale: () => getEnvironmentState()?.timeScale || 1,

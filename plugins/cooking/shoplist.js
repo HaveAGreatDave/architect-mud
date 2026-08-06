@@ -300,12 +300,25 @@ export function buyableExamples(profileName, template = null) {
   // doesn't get is the last word on whether the thing it names counts — a noun
   // only survives here if a real item carries the profile.
   const note = String(template?.notes?.[profileName] || '').toLowerCase();
+  // A CLASS THE DISH NARROWED IS NOT A CLASS TO SHOP FOR. `requires` says this
+  // soft vegetable has to be tomato, so listing "cabbage, greens or tomato" as
+  // the three answers to it would send two thirds of the shoppers home with
+  // something the matcher now rejects. Same field the matcher reads, so the
+  // shelf and the pan can't disagree about what counts.
+  const want = String(template?.requires?.[profileName] || '').toLowerCase();
   const cands = new Map();       // noun → rank tuple
   for (const item of getItemCache().values()) {
     const tags = item?.tags || {};
-    if (tags.food_profile !== profileName) continue;
+    // The tin is `liquid` with `food_also: soft_vegetable` — the narrowed class
+    // is answered by a secondary identity here, so the sweep has to see both or
+    // a required tomato would have no buyable answer at all.
+    const carries = want
+      ? (tags.food_profile === profileName || tags.food_also === profileName)
+      : tags.food_profile === profileName;
+    if (!carries) continue;
     const noun = String(tags.food_noun || item.name || '').toLowerCase().trim();
     if (!noun) continue;
+    if (want && !(noun.includes(want) || want.includes(noun))) continue;
     const at = note && new RegExp(`\\b${noun.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\b`).test(note)
       ? note.indexOf(noun.split(' ')[0]) : Infinity;
     const rank = [at, keyed.has(item.id) ? 0 : 1, noun];

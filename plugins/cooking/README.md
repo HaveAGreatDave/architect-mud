@@ -350,7 +350,44 @@ note is written for the cook and can name something the shop's shelf won't
 answer. The note still orders the examples (whatever it mentions first is
 offered first); it just doesn't get the last word on what counts. A class the
 dish has its own word for — `nouns`, or a single-unit key item — prints that
-word instead and is left alone.
+word instead and is left alone. A class the dish has **narrowed** with `requires`
+(below) is swept differently again: only nouns answering that requirement are
+offered, and the sweep looks at `food_also` as well as `food_profile`, because
+the tin of tomatoes is a `liquid` and the tomato in the sauce is exactly that
+secondary identity.
+
+### `requires` — a class the dish means one thing by
+
+`nouns` says what a generic class stands for in one particular dish, so the card
+reads "a tomato" rather than "one soft vegetable". It was **display only**, and
+the matcher went on accepting any member of the class: a pan of penne, gin and
+lamp-grown greens plated as **penne alla gin**, with the card printing "a tomato"
+over the top of it.
+
+`requires: { soft_vegetable: 'tomato' }` is the **binding half of the same
+statement**. The class still does the counting — weight, tolerance and units are
+untouched — but something in it has to answer to that name, matched as a
+substring in both directions against `food_noun` and the item's own name, so
+"tinned tomatoes" and "tomato paste" both pass without the catalog having to
+agree on a singular. It is filed under the class the noun *answers*, primary or
+`food_also` alike.
+
+Why not `keyItems`: a key item is an exact id and all of them are mandatory, so
+naming the tin would forbid the tube and the fresh one. **The noun is the level
+the requirement actually lives at** — it is tomato, however it's sold.
+
+It is **opt-in per dish and deliberately not derived from `nouns`**. Half the
+catalog's `nouns` name a thing no item carries at all ("stock", "meatballs") and
+could never be a rule, and promoting the rest would make eight dishes stricter as
+a side effect of what the item catalog happens to contain that day. A requirement
+is something an author states. `validateDishes` checks a `requires` entry narrows
+a class the dish actually needs, and that `nouns` and `requires` agree — the card
+naming one thing while the matcher demands another is the exact failure this
+field exists to end.
+
+The planner (`pickFor`), the Assistant's readiness score and the shopping list
+all read the same field, so none of them can hand you, highlight or send you
+shopping for the ingredient that guarantees the pan won't match.
 
 ### The list nests, three deep
 

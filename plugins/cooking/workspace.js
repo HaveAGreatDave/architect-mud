@@ -25,7 +25,7 @@ import { portionName, canChop } from './portions.js';
 import { prepText, canMarinate } from './prep.js';
 import { fondState } from './fond.js';
 import { getItem } from '../../server/engine/items-cache.js';
-import { DISHES, signature, ingredientLine, ingredientParts, keyNounFor, methodLines, unitsOf, ALSO, UNIT_TOLERANCE_LOW } from './dishes.js';
+import { DISHES, signature, ingredientLine, ingredientParts, keyNounFor, methodLines, unitsOf, nounMet, ALSO, UNIT_TOLERANCE_LOW } from './dishes.js';
 import { buyableExamples } from './shoplist.js';
 import { whereToBuyAll } from './stockists.js';
 import { cookbookState, savedRecipes, UNTRIED } from './knowledge.js';
@@ -292,6 +292,52 @@ function shortfallRow(profile, need, template) {
 // this list stays quiet rather than inventing a `stove off` that doesn't exist.
 const HEAT_TIERS = ['low', 'mid', 'high'];
 
+// THE ORDER THINGS GO IN, AND THE SENTENCE THAT GOES WITH EACH.
+//
+// Slots first, rows second. A slot is either an item id or a profile, drawn from
+// `parts[].of` where the dish has one — that list is ordered because the order is
+// the cooking order — and then whatever `needs` classes the parts didn't mention,
+// in declaration order. Every picked row is then dropped into the first slot it
+// answers, and anything left over (an optional the player added) goes on the end.
+//
+// A slot that came out of a `parts` entry carries that part's authored step text,
+// matched positionally: `of[i]` is described by `steps[i]`. Positional and not
+// clever, which is why `validateDishes` checks the two are the same length.
+function loadOrder(template, picks) {
+  const slots = [];
+  for (const part of template.parts || []) {
+    const members = part.of || [];
+    // One step per ingredient or no labels at all. A part that describes two
+    // ingredients in one sentence (a glaze: "whisk them together") has nothing
+    // positional to say, and pairing it anyway would put that sentence on the
+    // first ingredient and leave the second bare — a runbook that reads as if
+    // the author forgot a line rather than one that never had one.
+    const stepIdx = (part.steps || []).length === members.length ? part.steps : [];
+    members.forEach((key, i) => {
+      slots.push({ key, text: (template.steps || [])[stepIdx[i]] || null });
+    });
+  }
+  for (const key of Object.keys(template.needs || {})) {
+    if (!slots.some(s => s.key === key)) slots.push({ key, text: null });
+  }
+
+  const out = [];
+  const taken = new Set();
+  for (const slot of slots) {
+    for (const row of picks) {
+      if (taken.has(row.id)) continue;
+      const hit = slot.key.startsWith('item_')
+        ? row.item_id === slot.key
+        : answersTo(row, slot.key, template);
+      if (!hit) continue;
+      taken.add(row.id);
+      out.push({ row, text: slot.text });
+    }
+  }
+  for (const row of picks) if (!taken.has(row.id)) out.push({ row, text: null });
+  return out;
+}
+
 function walkthroughFor(template, chosen, c, ctx) {
   if (!chosen?.vessel || chosen.shortfall?.length) return [];
   const step = (text, command = null, hint = null) => ({ text, command, hint });
@@ -328,13 +374,29 @@ function walkthroughFor(template, chosen, c, ctx) {
       c.taps.length ? 'pasta and rice will not cook without it' : 'no water source in this room'));
   }
 
-  // 4. Load the pan, in the recipe's own ingredient order rather than the order
-  //    the picker happened to find things in.
-  const order = Object.keys(template.needs || {});
-  const loaded = [...chosen.picks].sort((a, b) =>
-    order.indexOf(profileNameFor(a)) - order.indexOf(profileNameFor(b)));
-  for (const r of loaded) {
-    out.push(step(`${shownName(r)} into the ${vName}.`, `stow ${shownName(r)} in ${vName}`));
+  // 4. Load the pan IN THE ORDER THE METHOD SAYS, and say what the method says
+  //    while doing it.
+  //
+  //    This used to be one flat sweep in `needs` declaration order with one
+  //    sentence for all of it — "tomato into the pan", "gin into the pan",
+  //    "cream into the pan" — which for penne alla gin is a runbook that
+  //    contradicts the recipe printed directly above it. That dish is tomato
+  //    reduced hard, then gin off the heat, then cream last, and the authored
+  //    steps have always said so; the generated list just wasn't reading them.
+  //
+  //    `parts` is where the order already lives: `of` is ONE ordered list
+  //    precisely because the order is the cooking order, and `steps` are indices
+  //    into the dish's own method. So the sentence a load step carries is the
+  //    authored one, never a paraphrase — the two cannot drift, because there is
+  //    only one of them.
+  //
+  //    It still does not fake what the sim can't express. "Off the heat before
+  //    the gin" is in the sentence and not in a command, because there is no
+  //    `stove off` to point at.
+  const loaded = loadOrder(template, chosen.picks);
+  for (const { row, text } of loaded) {
+    const name = shownName(row);
+    out.push(step(text ? `${text} (${name})` : `${name} into the ${vName}.`, `stow ${name} in ${vName}`));
   }
 
   // 5. On the heat, and then RIDE it. A stove's tier is a ceiling, not a
@@ -346,7 +408,7 @@ function walkthroughFor(template, chosen, c, ctx) {
   }
   out.push(step(`Get the ${vName} on the heat.`, `cook ${vName}`));
 
-  const used = order.map(n => PROFILES[n]).filter(p => p && !p.modifier);
+  const used = Object.keys(template.needs || {}).map(n => PROFILES[n]).filter(p => p && !p.modifier);
   const curved = used.find(p => p.heatCurve?.length > 1);
   if (curved) {
     const first = curved.heatCurve[0].tier;
@@ -362,7 +424,7 @@ function walkthroughFor(template, chosen, c, ctx) {
 
   // 6. Handling. The verb is the profile's — a soup wants stirring, and telling
   //    someone to flip it is how they learn that the expensive way.
-  const turnRow = loaded.find(r => (PROFILES[profileNameFor(r)]?.turns || 0) > 0);
+  const turnRow = loaded.map(l => l.row).find(r => (PROFILES[profileNameFor(r)]?.turns || 0) > 0);
   if (turnRow) {
     const p = profileNameFor(turnRow);
     const turns = PROFILES[p].turns;
@@ -396,9 +458,17 @@ function scoreRecipe(key, template, sig, ctx, band) {
     const min = range(need)[0] * UNIT_TOLERANCE_LOW;
     const have = (sig[profile] || 0) + (also[profile] || 0);
     total += 1;
-    if (have >= min - 1e-9) met += 1;
+    // ENOUGH OF IT IS NOT THE SAME AS THE RIGHT THING. A narrowed class can be
+    // met by weight and still be the wrong ingredient — a pan with a kilo of
+    // greens in it has all the soft vegetable penne alla gin asks for and none
+    // of the tomato — so the Assistant would have called it ready for a dish the
+    // matcher was about to refuse.
+    if (have >= min - 1e-9 && nounMet(sig, profile, template)) met += 1;
     else {
-      met += Math.max(0, have / min);
+      // Clamped: a wrong-ingredient line is short however much of it there is,
+      // and an unclamped ratio would let a pan of greens score ABOVE one holding
+      // the right thing in slightly too small a quantity.
+      met += Math.min(1, Math.max(0, have / min));
       missing.push(ingredientLine(profile, need, template, itemInfo));
       shortfall.push(shortfallRow(profile, need, template));
     }
@@ -873,6 +943,38 @@ export async function buildKitchen(player) {
 // Greedy per profile: take rows until the requirement's own tolerance-adjusted
 // floor is met, preferring what's already in your hands so the plan is as short
 // as the room allows.
+// DOES THIS ROW ANSWER THIS REQUIREMENT — the planner's copy of the two rules
+// the matcher applies, and the reason it can no longer hand you an ingredient
+// that guarantees the pan won't match.
+//
+// It was asking one question ("is its profile this class?") where the matcher
+// asks two, and got both halves of penne alla gin wrong for it. The cream is
+// `liquid` with `food_also: dairy`, so the planner could never satisfy that
+// dish's `dairy` with the one item in the game that IS its cream — it went
+// looking for cheese. And nothing looked at `requires` at all, so the tomato
+// class was answered by whatever soft vegetable came first alphabetically:
+// lamp-grown greens.
+function answersTo(row, profile, template) {
+  const primary = profileNameFor(row);
+  const also = (row?.tags || {}).food_also;
+  if (primary !== profile && also !== profile) return false;
+  const want = template?.requires?.[profile];
+  if (!want) return true;
+  const w = String(want).toLowerCase();
+  const names = [(row?.tags || {}).food_noun, row?.name]
+    .filter(n => typeof n === 'string' && n.trim())
+    .map(n => n.trim().toLowerCase());
+  return names.some(n => n.includes(w) || w.includes(n));
+}
+
+// A secondary identity contributes the SAME unit count as the primary, never a
+// recount against its own unitWeight — the identical rule `signature` applies,
+// and for the identical reason: a 400g carton is one liquid, so it is one dairy.
+function unitsForClass(row, profile) {
+  const primary = profileNameFor(row);
+  return unitsOf(row, primary === profile ? profile : (primary || profile));
+}
+
 function pickFor(template, c) {
   const kind = template.vessel;
   const candidates = c.vessels.filter(v => !kind || tagValue(v, 'vessel_kind', null) === kind);
@@ -905,10 +1007,14 @@ function pickFor(template, c) {
   const shortfall = [];
   for (const [profile, need] of Object.entries(template.needs)) {
     const min = range(need)[0] * UNIT_TOLERANCE_LOW;
-    let have = already.filter(r => profileNameFor(r) === profile)
-      .reduce((n, r) => n + unitsOf(r, profile), 0);
+    // A CLASS THIS DISH NARROWED TO A NAME. The matcher rejects a pan whose
+    // soft vegetable isn't a tomato, so a planner that reached for the greens
+    // would be picking the ingredient that guarantees the dish doesn't match —
+    // and then announcing the pan was ready. Same predicate the matcher uses.
+    const wants = r => answersTo(r, profile, template);
+    let have = already.filter(wants).reduce((n, r) => n + unitsForClass(r, profile), 0);
     const options = pool
-      .filter(r => !used.has(r.id) && profileNameFor(r) === profile)
+      .filter(r => !used.has(r.id) && wants(r))
       // Key items first — ramen without ramen noodles is soup — then whatever is
       // already in hand.
       .sort((a, b) =>
@@ -918,7 +1024,7 @@ function pickFor(template, c) {
     for (const r of options) {
       if (have >= min - 1e-9) break;
       used.add(r.id);
-      have += unitsOf(r, profile);
+      have += unitsForClass(r, profile);
       picks.push(r);
     }
     if (have < min - 1e-9) shortfall.push({ profile, need });

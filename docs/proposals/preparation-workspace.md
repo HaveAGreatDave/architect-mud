@@ -333,6 +333,19 @@ That is the correct multiplayer behaviour and it costs **zero new state**.
   not run: the player presses each step. That is why it may name the burner and the drain
   when `prepare` may not. A step with no verb behind it ("leave it alone") is prose and
   gets no button, and the list never invents a verb to look complete.
+- **It loads the pan in the METHOD's order, in the method's own words.** The load half
+  used to be one flat sweep in `needs` declaration order with one generated sentence for
+  every row — "tomato into the pan", "gin into the pan", "cream into the pan" — which for
+  penne alla gin is a runbook that contradicts the recipe printed directly above it (that
+  dish is tomato reduced hard, *then* gin off the heat, *then* cream last). `parts[].of` is
+  already an ordered list precisely because the order is the cooking order, and `parts[].steps`
+  are already indices into the dish's own method, so `loadOrder` pairs them positionally
+  and each load step carries **the authored sentence, never a paraphrase** — there is only
+  one copy of it, so the two can't drift. A part with fewer steps than ingredients (one line
+  describing a whole glaze) pairs nothing and falls back to the generic sentence, rather
+  than labelling the first ingredient and leaving the second bare. What the sim can't
+  express, it still doesn't fake: "off the heat before the gin" is in the sentence and not
+  in a command, because there is no `stove off` to point at.
 
 The alternative — `custom_data.reserved_by` plus an expiry — is rejected for v1 because
 every path that moves an item would have to honour it, which is the same

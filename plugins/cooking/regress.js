@@ -138,6 +138,39 @@ export default async function regress({ run, check, getPlayer }) {
     // `soft_vegetable`, two of them as a `food_also`.
     check('...the tomato is required as a class, so tin/tube/fresh all work',
       !(t.keyItems || []).some(id => /tomato/.test(id)), JSON.stringify(t.keyItems));
+
+    // ...BUT A CLASS IT NAMES IS A CLASS IT MEANS. `nouns` said "tomato" to the
+    // recipe card while the matcher accepted any soft vegetable at all, so a pan
+    // of penne, gin and lamp-grown greens plated as penne alla gin — and the
+    // card printed "a tomato" over the top of it. `requires` binds the two.
+    const { signature } = await import('./dishes.js');
+    const P = r => r.tags?.food_profile || null;
+    const row = (name, tags, weight) => ({ name, tags, weight, quantity: 1 });
+    // Weights are the profiles' own unit weights, so every one of these is
+    // exactly one of its class and nothing here fails for the boring reason.
+    const penneRow = row('box of penne', { food_profile: 'dry_starch' }, 125);
+    const ginRow = row('bottle of gin', { food_profile: 'liquid' }, 400);
+    const fatRow = row('cooking oil', { food_profile: 'fat_or_oil' }, 300);
+    const creamRow = row('synth cream', { food_profile: 'liquid', food_also: 'dairy', food_noun: 'cream' }, 400);
+    const tomatoRow = row('tin of tomatoes', { food_profile: 'liquid', food_also: 'soft_vegetable', food_noun: 'tomato' }, 400);
+    const greensRow = row('lamp-grown greens', { food_profile: 'soft_vegetable', food_noun: 'greens' }, 120);
+    const ids = new Set(['item_penne', 'item_gin']);
+    const sigOf = rows => signature(rows, P);
+
+    check('a tin of tomatoes answers the tomato the sauce is made of',
+      matchScore(sigOf([penneRow, ginRow, fatRow, tomatoRow, creamRow]), t, ids) > 0);
+    check('...and lamp-grown greens do not, however much soft vegetable they are',
+      matchScore(sigOf([penneRow, ginRow, fatRow, greensRow, creamRow]), t, ids) === -1);
+    check('...nor does a pile of them big enough to meet the weight',
+      matchScore(sigOf([penneRow, ginRow, fatRow, greensRow, { ...greensRow }, creamRow]), t, ids) === -1);
+    check('...and cheese is not the cream that goes in last',
+      matchScore(sigOf([penneRow, ginRow, fatRow, tomatoRow,
+        row('vat cheese', { food_profile: 'dairy', food_noun: 'vat cheese' }, 200)]), t, ids) === -1);
+    // The display half and the binding half are one statement, and the validator
+    // is what stops them drifting back apart.
+    check('...and what the card names is what the matcher demands',
+      Object.entries(t.requires || {}).every(([p, want]) => t.nouns?.[p] === want),
+      JSON.stringify([t.requires, t.nouns]));
   }
 
   // ── boiling: water as a cooking MEDIUM ────────────────────────────────────
