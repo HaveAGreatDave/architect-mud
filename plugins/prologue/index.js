@@ -662,12 +662,18 @@ on('player.login', async ({ id }) => {
 // of the login handler so `introdone` can trigger it, and guarded by an in-memory
 // claim (not a flag) because both callers can arrive within the same tick.
 // Longer than the client's start gate (it auto-begins at 20s if nobody clicks
-// "Begin") PLUS the full cinematic (57s) and its fade. Sized off the WORST case,
+// "Begin") PLUS the full cinematic and its fade. Sized off the WORST case,
 // not the usual one: if this fires while the sequence is still playing, the
 // arrival prose lands behind the overlay and scrolls past unread — the exact
 // failure the cold-open gating exists to prevent. See the start gate in
 // client/game/js/panels/intro-cinematic.js; the two numbers move together.
-const INTRO_FALLBACK_MS = 92000;
+//
+// 20s gate + RUN_MS 51s × SLOW 1.35 (≈69s) + the closing fade ≈ 90s, and this
+// keeps the same ~20s of headroom over that as it always had. It was 92000 when
+// the run was unscaled, which the tempo change would have quietly cut to about
+// two seconds of margin — enough to hold on a fast machine and fire over the
+// wordmark on a slow one.
+const INTRO_FALLBACK_MS = 110000;
 // If the interface question is never answered — a tab left open on the veil, a
 // client that lost the socket mid-tour — the prose comes anyway rather than the
 // player standing in a silent room forever. Generous, because a first-timer

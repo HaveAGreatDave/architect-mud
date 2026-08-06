@@ -45,6 +45,22 @@ import { shapeFor, shapeVal } from '../../../shared/building-shapes.js';
 
 const SEEN_KEY = 'introCinematicSeen';
 
+// ── The tempo ────────────────────────────────────────────────────────────────
+// Every number in this file is SCRIPT time; real time is script time × SLOW.
+// One constant, applied at the three places script ms become real ms — the beat
+// timers, the canvas clock, and the audio scheduler — so the picture, the words
+// and the music can never drift apart. Retiming the ~60 literals below by hand
+// could not have promised that, and the first missed one would have put a cue on
+// the wrong line, which the noise-hit comment already warns is worse than no cue.
+//
+// What deliberately does NOT scale: envelope SHAPES (a bell's 3.4s tail, a hit's
+// burst length, the pad swells) are the character of a sound rather than a
+// position in the record — a bell stretched to 4.6s is a different bell. They
+// keep their own seconds and simply land later. Nor do the two UI affordances
+// (the skip button's dwell), which answer to the player's hand, not the edit.
+const SLOW = 1.35;
+const T = (ms) => ms * SLOW;
+
 // ── The script ───────────────────────────────────────────────────────────────
 // `t` is the beat's start in ms; `hold` how long the line stays up. Phases run
 // underneath and change on their own schedule (PHASES below), so a line can sit
@@ -153,7 +169,7 @@ function startAudio() {
   filter.connect(master);
 
   const now = ctx.currentTime;
-  const at  = (p, v, t) => p.linearRampToValueAtTime(Math.max(0.0001, v), now + t / 1000);
+  const at  = (p, v, t) => p.linearRampToValueAtTime(Math.max(0.0001, v), now + T(t) / 1000);
   const voices = [];
 
   // ── The bed ──
@@ -217,8 +233,8 @@ function startAudio() {
       o.type = type;
       o.frequency.value = freq * Math.pow(2, cents / 1200);
       o.connect(g);
-      o.start(now + Math.max(0, inMs - 2200) / 1000);
-      o.stop(now + (outMs + 2600) / 1000);
+      o.start(now + T(Math.max(0, inMs - 2200)) / 1000);
+      o.stop(now + T(outMs + 2600) / 1000);
       voices.push(o);
     }
     // Long, symmetric swells. Nothing in this piece should ever arrive.
@@ -292,7 +308,7 @@ function startAudio() {
     o.type = 'sine';
     o.frequency.value = freq;
     const g = ctx.createGain();
-    const t0 = now + tMs / 1000;
+    const t0 = now + T(tMs) / 1000;
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.linearRampToValueAtTime(vol * gain, t0 + 0.05);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.4);
@@ -356,7 +372,7 @@ function startAudio() {
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 0.8;
     const g = ctx.createGain(); g.gain.value = vol * gain;
     src.connect(bp).connect(g).connect(ctx.destination);
-    const t0 = now + delayMs / 1000;
+    const t0 = now + T(delayMs) / 1000;
     src.start(t0);
     voices.push(src);
     if (!sub) return;
@@ -385,7 +401,7 @@ function startAudio() {
   // the degauss. Three voices, no samples. It lands exactly on P_VOID so the
   // picture and the sound go together — this is the cue that sells the cut.
   {
-    const t0 = now + P_VOID / 1000;
+    const t0 = now + T(P_VOID) / 1000;
     // 1. the flyback whine, sliding down and away as the line rate collapses
     const o = ctx.createOscillator();
     o.type = 'sawtooth';
@@ -431,7 +447,7 @@ function startAudio() {
   // the picture is back. It fades out under the city rather than stopping, so it
   // becomes room tone instead of an event.
   {
-    const t0 = now + P_CITY / 1000;
+    const t0 = now + T(P_CITY) / 1000;
     const th = ctx.createOscillator();
     th.type = 'sine';
     th.frequency.setValueAtTime(58, t0);
@@ -1415,7 +1431,7 @@ function startCanvas(cv, t0, reduced, skyline, shore) {
   }
 
   function frame() {
-    const t = performance.now() - t0;
+    const t = (performance.now() - t0) / SLOW;
     if (t > RUN_MS) return;
     ctx.clearRect(0, 0, w, h);
     const phase = phaseAt(t);
@@ -1585,6 +1601,10 @@ export function playIntroCinematic(onDone, skyline, shore) {
   const gateEl = _ov.querySelector('#intro-cine-gate');
 
   const later = (ms, fn) => _timers.push(setTimeout(fn, ms));
+  // A beat is a position in the RECORD, so it rides the tempo. `later` stays raw
+  // real-time for the skip affordance, which is answering the player's hand and
+  // has no business getting slower because the edit did.
+  const beat = (ms, fn) => later(T(ms), fn);
 
   // ── The start gate ─────────────────────────────────────────────────────────
   // Nothing runs until the player clicks. This is not politeness — it is the
@@ -1656,11 +1676,11 @@ export function playIntroCinematic(onDone, skyline, shore) {
     _audio = startAudio();
 
     for (const b of BEATS) {
-      later(b.t, () => {
+      beat(b.t, () => {
         lineEl.className = `intro-cine-line in ${b.cls || ''}`;
         lineEl.innerHTML = b.text;   // authored above; no player input reaches this
       });
-      later(b.t + b.hold, () => { lineEl.className = `intro-cine-line ${b.cls || ''}`; });
+      beat(b.t + b.hold, () => { lineEl.className = `intro-cine-line ${b.cls || ''}`; });
     }
 
     // The skip affordance is loud for six seconds, then recedes to a dim corner —
@@ -1669,9 +1689,9 @@ export function playIntroCinematic(onDone, skyline, shore) {
     // The mark arrives after the last line has finished leaving, holds, and is
     // still on screen when the overlay starts its fade — so the logo dissolves
     // INTO the game rather than being replaced by it.
-    later(LOGO_AT, () => _ov?.querySelector('#intro-cine-logo')?.classList.add('in'));
-    later(RUN_MS - 1600, () => _ov?.classList.add('closing'));
-    later(RUN_MS, () => finish('end'));
+    beat(LOGO_AT, () => _ov?.querySelector('#intro-cine-logo')?.classList.add('in'));
+    beat(RUN_MS - 1600, () => _ov?.classList.add('closing'));
+    beat(RUN_MS, () => finish('end'));
   }
 
   // Enter/Space START it while the gate is up (the same gesture the button
