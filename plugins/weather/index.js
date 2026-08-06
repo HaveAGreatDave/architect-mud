@@ -13,6 +13,7 @@ import { getAllLivePlayers } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { devTriggerWeatherEvent, registerWeatherEventCurrent } from '../../server/engine/environment.js';
 
 const SEASON_BY_MONTH = [
@@ -433,8 +434,15 @@ const AUTO_EVENT_CHANCE_PER_30S = 0.00002;
 // What stays hidden is WHEN in the day it lands: the roll below is per-30s
 // against a rate that makes arrival near-certain across a game day, so the band
 // is a warning, never a timetable.
-const HERO_EVENT_DAY_CHANCE = 0.12;              // ~1 hero day in 8
-const SCHEDULED_EVENT_CHANCE_PER_30S = 0.004;    // ~1-in-250 per tick on its day
+// 0.04 = ~1 hero day in 25. Read that in REAL time before tuning it: the world
+// runs at time_scale 3, so a game day is 8 real hours and three of them pass per
+// real day. With the ~98% arrival probability below, that is 0.04 × 3 × 0.98 =
+// 0.12 scheduled events per real day, plus the 0.058 the ambush path contributes,
+// for one hero event every ~5.7 real days of server uptime. It was 0.12, which is
+// one every ~2.4 days — the constant read as "rare" while the game clock quietly
+// tripled it.
+const HERO_EVENT_DAY_CHANCE = 0.04;              // ~1 hero day in 25
+const SCHEDULED_EVENT_CHANCE_PER_30S = 0.004;    // ~1-in-250 per tick on its day; ~98% across a game day's 960 ticks
 
 export function heroEventForDate(dateStr) {
   if (!dateStr) return null;
@@ -469,7 +477,18 @@ function heroFieldsFor(dateStr) {
 }
 
 let activeEvent = null;   // { type, phase, phaseEndsAtMs } | null
-let scheduledFiredFor = null;   // date string whose scheduled event already ran
+// The date string whose scheduled event already ran — the ONE piece of state in a
+// file that otherwise derives everything from the date, and so the one thing a
+// restart could lose. It did: this was memory-only, so every boot re-armed the
+// day's event, including after it had already been and gone. At ~38% arrival
+// within the following real hour, a session with a few restarts on a hero day saw
+// the same storm two or three times from a system that believed it fired once.
+//
+// Persisted as a world flag, hydrated ONCE at init and written at most once per
+// hero day, so the 30s tick stays synchronous and query-free — it is read on the
+// hot path and must never learn to await.
+const HERO_FIRED_FLAG = 'weather_hero_fired';
+let scheduledFiredFor = null;
 
 // Phase-ramped severity: half in approach/passing, full at peak.
 function eventSeverity() {
@@ -527,6 +546,10 @@ function stepWeatherEvent() {
     const scheduled = today && scheduledFiredFor !== today ? heroEventForDate(today) : null;
     if (scheduled && Math.random() < SCHEDULED_EVENT_CHANCE_PER_30S) {
       scheduledFiredFor = today;
+      // Fire-and-forget: the in-memory latch has already closed, so this write is
+      // only about surviving a restart. A failed write costs at worst one repeat
+      // after a reboot — never a stalled tick.
+      setFlag('world', HERO_FIRED_FLAG, today).catch(err => console.error('[weather] hero-fired flag write failed:', err.message));
       const line = startWeatherEvent(scheduled);
       if (line) lines.push(line);
     } else if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
@@ -822,6 +845,9 @@ on('generator.destroyed', ({ generatorType }) => {
 
 export const hooks = {
   'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger, registerWeatherRegionRefresh }) => {
+    // Recover the fired-latch before anything can tick, so a boot in the middle of
+    // a hero day knows the storm has already been.
+    scheduledFiredFor = (await getFlag('world', HERO_FIRED_FLAG)) ?? null;
     const forecast = await loadForecast(setWeatherState, climateProfile);
     const bounds = await computeBounds();
     seedField(forecast[0].date, forecast[0], bounds);

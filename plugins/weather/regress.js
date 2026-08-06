@@ -27,7 +27,12 @@ export default async function regress({ check, getPlayer }) {
     if (heroEventForDate(day)) hero++;
   }
   check('hero days actually occur', hero > 0, `${hero} in ${DAYS} days`);
-  check('hero days stay rare', hero / DAYS < 0.25, `${(hero / DAYS * 100).toFixed(1)}% of days`);
+  // The old bound was 0.25, which is five times the dial and would not have
+  // noticed it drifting. Read the target in REAL time: a game day is 8 real hours
+  // at time_scale 3, so this fraction is tripled before a player experiences it —
+  // 0.04 of game days is one hero event every ~5.7 real days. 0.10 leaves room for
+  // sampling noise on 400 days without letting the dial quietly double.
+  check('hero days stay rare', hero / DAYS < 0.10, `${(hero / DAYS * 100).toFixed(1)}% of days`);
 
   // ── Every event is fully presented ──
   for (const type of ['ion_storm', 'acid_rain']) {
