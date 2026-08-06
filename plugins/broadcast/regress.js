@@ -1324,6 +1324,22 @@ export default async function regress({ check, run, getPlayer }) {
     check('cameraLabel falls back to roster position for an unnumbered id',
       _test.cameraLabel('cam_weird', 1) === 'Camera 2', _test.cameraLabel('cam_weird', 1));
 
+    // The studio floor relay crosses from an innerHTML surface (the game log) to a
+    // renderMarkup one (every screen), which escapes — so a relayed room line has to
+    // shed its markup on the way to air or the tags air as literal text.
+    {
+      const speech = _test.plainAir('<span class="speech-line">Yolanda Sarr says, "Live from the ruins."</span>');
+      check('plainAir sheds the log wrapper and keeps the line',
+        speech === 'Yolanda Sarr says, "Live from the ruins."', speech);
+      check('plainAir leaves a line that was never wrapped alone',
+        _test.plainAir('A camera pivots.') === 'A camera pivots.', _test.plainAir('A camera pivots.'));
+      const ent = _test.plainAir('<span style="color:var(--yellow)">Bo &amp; Cass &lt;the twins&gt;</span>');
+      check('plainAir decodes entities back to the characters they stood for',
+        ent === 'Bo & Cass <the twins>', ent);
+      check('plainAir returns nothing for a message that was only markup',
+        _test.plainAir('<span class="x"></span>') === '', JSON.stringify(_test.plainAir('<span class="x"></span>')));
+    }
+
     const zid = '__regress_studio__';
     _test.zoneCameras.set(zid, [{ id: 'a', label: 'Camera 1' }, { id: 'b', label: 'Camera 2' }]);
     const st = {};

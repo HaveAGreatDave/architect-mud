@@ -290,6 +290,21 @@ function _cameraLabel(camId, idx) {
 // back up and re-air it — the acting layer already delivers those lines to air by
 // its own path. Untagged room events (players talking, things breaking) DO get
 // relayed: that's the audience seam.
+// A room event rendered for the game log, reduced to the line itself. The log pane
+// is an innerHTML surface, so everything the room emits carries markup; a television
+// is a `renderMarkup` surface, which escapes. Anything that crosses from the floor to
+// the air has to shed the transport on the way — see the `zone.broadcast` relay.
+// Entities are decoded because they were only ever an encoding of the character.
+const _AIR_ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' };
+function _plainAir(html) {
+  return String(html ?? '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;/g, m => _AIR_ENTITIES[m])
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function _stageLine(zoneId, message) {
   if (!zoneId || !message) return;
   sendToZone(zoneId, { type: 'output', message, _fromBroadcast: true });
@@ -1174,7 +1189,7 @@ function _fillCommercialTail(tail, ads, state = null, nowMs = 0) {
 // so it restarts from the top next time this slot airs, rather than resuming mid-pass
 // — and hand back a commercial-tail message. Returns undefined when not gated, meaning
 // the caller should proceed and tick the graph as normal.
-function _loopFillOrNull(state, item, graph, segElapsed, passDur) {
+function _loopFillOrNull(state, item, graph, segElapsed, passDur, nowMs = 0) {
   if (!item.loop || !(passDur > 0)) return undefined;
   const passesAvailable = Math.max(1, Math.floor(item.duration / passDur));
   const showWindow = passesAvailable * passDur;
@@ -3455,7 +3470,9 @@ async function getCurrentMessage(state, nowMs) {
       if (item.playback_mode === 'weather') {
         const wxGraph = getWeatherGraph(item);
         if (wxGraph) {
-          const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, _actedSeekSec(wxGraph, segElapsed));
+          const fill = _dailyLoopFill(state, item, wxGraph, segElapsed, nowMs);
+          if (fill.ad !== undefined) return fill.ad;
+          const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, fill.seek);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3480,7 +3497,9 @@ async function getCurrentMessage(state, nowMs) {
       if (item.playback_mode === 'news') {
         const nwGraph = await getNewsGraph(item, nowMs);
         if (nwGraph) {
-          const r = tickBroadcastGraph(state.channelId, nwGraph, state, nowMs, _actedSeekSec(nwGraph, segElapsed));
+          const fill = _dailyLoopFill(state, item, nwGraph, segElapsed, nowMs);
+          if (fill.ad !== undefined) return fill.ad;
+          const r = tickBroadcastGraph(state.channelId, nwGraph, state, nowMs, fill.seek);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3502,7 +3521,9 @@ async function getCurrentMessage(state, nowMs) {
         const mnGraph = await getMorningGraph(item, nowMs, state);
         if (mnGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, mnGraph, state, nowMs, _actedSeekSec(mnGraph, segElapsed));
+          const fill = _dailyLoopFill(state, item, mnGraph, segElapsed, nowMs);
+          if (fill.ad !== undefined) return fill.ad;
+          const r = tickBroadcastGraph(state.channelId, mnGraph, state, nowMs, fill.seek);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3513,7 +3534,9 @@ async function getCurrentMessage(state, nowMs) {
         const smGraph = await getSermonGraph(item, nowMs);
         if (smGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
-          const r = tickBroadcastGraph(state.channelId, smGraph, state, nowMs, _actedSeekSec(smGraph, segElapsed));
+          const fill = _dailyLoopFill(state, item, smGraph, segElapsed, nowMs);
+          if (fill.ad !== undefined) return fill.ad;
+          const r = tickBroadcastGraph(state.channelId, smGraph, state, nowMs, fill.seek);
           if (r) r.programName = item.broadcastName || null;
           return r;
         }
@@ -3651,7 +3674,7 @@ async function getCurrentMessage(state, nowMs) {
         if (wxGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const segElapsed = elapsed - item.startTime;
-          const gated = _loopFillOrNull(state, item, wxGraph, segElapsed, _vineDuration(wxGraph, item.message_interval || 5));
+          const gated = _loopFillOrNull(state, item, wxGraph, segElapsed, _vineDuration(wxGraph, item.message_interval || 5), nowMs);
           if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
         }
@@ -3678,7 +3701,7 @@ async function getCurrentMessage(state, nowMs) {
         if (nwGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const segElapsed = elapsed - item.startTime;
-          const gated = _loopFillOrNull(state, item, nwGraph, segElapsed, _vineDuration(nwGraph, item.message_interval || 5));
+          const gated = _loopFillOrNull(state, item, nwGraph, segElapsed, _vineDuration(nwGraph, item.message_interval || 5), nowMs);
           if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, nwGraph, state, nowMs);
         }
@@ -3698,7 +3721,7 @@ async function getCurrentMessage(state, nowMs) {
         if (mnGraph) {
           state.currentFallbackMessages = item.fallbackMessages || [];
           const segElapsed = elapsed - item.startTime;
-          const gated = _loopFillOrNull(state, item, mnGraph, segElapsed, _vineDuration(mnGraph, item.message_interval || 5));
+          const gated = _loopFillOrNull(state, item, mnGraph, segElapsed, _vineDuration(mnGraph, item.message_interval || 5), nowMs);
           if (gated !== undefined) return gated;
           return tickBroadcastGraph(state.channelId, mnGraph, state, nowMs);
         }
@@ -3721,7 +3744,7 @@ async function getCurrentMessage(state, nowMs) {
       if (item.broadcastGraph) {
         state.currentFallbackMessages = item.fallbackMessages || [];
         const segElapsed = elapsed - item.startTime;
-        const gated = _loopFillOrNull(state, item, item.broadcastGraph, segElapsed, item.passDuration);
+        const gated = _loopFillOrNull(state, item, item.broadcastGraph, segElapsed, item.passDuration, nowMs);
         if (gated !== undefined) return gated;
         return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       }
@@ -5074,17 +5097,25 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
   if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;
+  // A room event is HTML — the game log renders it with innerHTML, so speech arrives
+  // here as `<span class="speech-line">Name says, "…"</span>`. Every downstream screen
+  // (TV panel, deck preview, tablet tuner) runs its lines through `renderMarkup`, which
+  // HTML-ESCAPES first; the tags then air as literal text across the picture. Strip the
+  // markup once, here, so what goes to air is the line a viewer would have heard —
+  // and so a cassette records the line rather than the transport.
+  const airText = _plainAir(msg.message);
+  if (!airText) return;
   const sentDeck = new Set();
   const sentTv = new Set();
-  _recordDeckMessage(channelId, msg.message);
+  _recordDeckMessage(channelId, airText);
   for (const [viewZoneId, channelMap] of zoneTunings) {
     if (!channelMap.has(channelId)) continue;
     const players = getZonePlayers(viewZoneId);
     for (const player of players) {
-      sendToPlayer(player.id, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+      sendToPlayer(player.id, { type: 'broadcast', message: airText, channel: channelId, style: 'raw' });
       sentTv.add(player.id);
       if (deckWatchers.get(player.id) === channelId) {
-        sendToPlayer(player.id, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
+        sendToPlayer(player.id, { type: 'deck_broadcast', message: airText, channel: channelId, style: 'raw' });
         sentDeck.add(player.id);
       }
     }
@@ -5092,14 +5123,14 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   // Also send to deck watchers not already covered by a tuned zone
   for (const [playerId, watchChId] of deckWatchers) {
     if (watchChId !== channelId || sentDeck.has(playerId)) continue;
-    sendToPlayer(playerId, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
+    sendToPlayer(playerId, { type: 'deck_broadcast', message: airText, channel: channelId, style: 'raw' });
   }
   // Portable tuners see the studio floor too — the tablet is a receiver like any
   // other. Skip anyone the zone loop above already served, or a player holding a
   // tablet inside a tuned room gets the line twice.
   for (const [playerId, tunedId] of tabletTuners) {
     if (tunedId !== channelId || sentTv.has(playerId)) continue;
-    sendToPlayer(playerId, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+    sendToPlayer(playerId, { type: 'broadcast', message: airText, channel: channelId, style: 'raw' });
   }
   state.wasActive = true;
 });
@@ -5703,6 +5734,38 @@ function _actedSeekSec(graph, segElapsedGameSec) {
   const real = Math.max(0, segElapsedGameSec) / (ts > 0 ? ts : 1);
   const lap = _graphLapSec(graph);
   return lap > 0 ? real % lap : real;
+}
+
+// Daily-slot counterpart to _loopFillOrNull, and the reason it has to exist: a daily
+// slot carries no item.loop flag, because looping there is IMPLICIT — _actedSeekSec
+// ends in `real % lap`. That modulo will happily start a pass that cannot finish
+// before the slot ends, so a 12-minute bulletin in a 20-minute slot restarts at
+// minute 12 and is guillotined mid-sentence at minute 20. Same policy as everywhere
+// else instead: replay only whole passes, and give the remainder to the ad pool.
+// Units are the trap — a daily slot's duration is in GAME seconds while a graph's lap
+// is measured in REAL seconds, so the slot is divided down by timeScale before either
+// is compared to the other.
+// Returns { seek } to air the show at that offset, or { ad } to air a commercial
+// instead (ad may be null when the pool is empty — dead air beats a truncated show).
+function _dailyLoopFill(state, item, graph, segElapsedGameSec, nowMs) {
+  const ts = getEnvironmentState()?.timeScale || 1;
+  const scale = ts > 0 ? ts : 1;
+  const real = Math.max(0, segElapsedGameSec) / scale;
+  const lap = _graphLapSec(graph);
+  if (!(lap > 0) || !(item.duration > 0)) return { seek: real };
+  const passesAvailable = Math.max(1, Math.floor((item.duration / scale) / lap));
+  const showWindow = passesAvailable * lap;
+  if (real < showWindow) return { seek: real % lap };
+  // Park the graph so tomorrow's airing seeks cleanly from the top rather than
+  // resuming mid-pass, and free the blackboard for the ad's own graph to use.
+  const bb = state.graphBlackboard;
+  if (bb && bb.activeBroadcastId === graph._broadcastId) {
+    bb.currentNode = null;
+    bb.waitUntil = null;
+    bb.activeBroadcastId = null;
+  }
+  state.currentProgramName = null;
+  return { ad: _fillCommercialTail(real - showWindow, state.commercialBroadcasts || [], state, nowMs) };
 }
 
 // Walk a VINE graph forward by segElapsedMs, setting bb.currentNode / bb.waitUntil
@@ -8434,6 +8497,7 @@ export const _test = {
   subTokens: _subTokens, scriptedTokens: _scriptedTokens, untilFour: _untilFour, otherViewers: _otherViewers,
   garbleLine: _garbleLine, actorImpairment: _actorImpairment,
   cameraLabel: _cameraLabel, pickCamera: _pickCamera, anyCastPresent: _anyCastPresent, zoneCameras,
+  plainAir: _plainAir,
   graphCastIds: _graphCastIds, stampOnAirCast: _stampOnAirCast, isOnAirNow: _isOnAirNow, ON_AIR_CAST_HOLD_MS,
   seekGraph: _seekGraph, nodeHoldMs, broadcastDuration, filmBlocksNeeded, filmRunElapsed,
   graphLapSec: _graphLapSec, actedSeekSec: _actedSeekSec,
