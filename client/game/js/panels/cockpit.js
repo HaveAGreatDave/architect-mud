@@ -1219,7 +1219,15 @@ function buildingCollisionAt(F, s) {
     // wouldn't actually be drawing (too close under the nose, or still fading in from FAR out)
     // can't hurt you either. Same climb-out corridor rule on top of that: a building the
     // windshield culls dead-ahead-and-low right off the runway can't be collided with.
-    if (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F) continue;
+    // The near cull asks "is it far enough ahead to be on the glass" — which is the
+    // wrong question for the tile you are directly OVER, where f collapses through
+    // zero as you cross the roof. Sitting on top of a building is precisely when it
+    // must be solid, so a tile whose footprint still contains you skips the forward
+    // test entirely. 0.62 is the renderer's own corner half-width, so this is exactly
+    // the set of tiles the windshield keeps drawing — the must-be-visible-to-collide
+    // rule holds, it just no longer loses the roof beneath the skids.
+    const overhead = Math.abs(dx) <= 0.62 && Math.abs(dy) <= 0.62;
+    if (!overhead && (f <= VISIBLE_NEAR_F || f > VISIBLE_FAR_F)) continue;
     if (!climbOutClear(f, lat, height)) continue;
     // Departure climb-out: while still within the takeoff corridor (CLIMBOUT_MAX_F tiles of
     // where we lifted off), a building we haven't yet out-climbed is flown THROUGH, not hit.

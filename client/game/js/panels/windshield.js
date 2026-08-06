@@ -8293,7 +8293,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (c.kind === 'air') {
       wild = wildF && wildF[ry] ? wildF[ry][rx] : null;
       if (!wild || wild === 'sea' || c.self) continue;
-    } else if ((c.self && c.mark !== 'yacht') || ((c.kind === 'field' || c.biome === 'water') && c.mark !== 'yacht' && !c.bt)) {
+    // YOUR OWN TILE IS NOT AUTOMATICALLY EMPTY. The self-skip is right for ground —
+    // you are standing on it, there is nothing to draw — and it was wrong for the
+    // one case that matters most in the air: the moment a tower became the tile you
+    // were OVER, it stopped being drawn and the building vanished out from under
+    // you. That is why a rooftop could not be flown onto. The Echelon never had the
+    // bug because `mark === 'yacht'` was already excused from the same test — a
+    // hand-carved exception for one hull where the rule should have been general.
+    // Anything carrying a building (`bt`) is now excused on the same grounds: draw
+    // it, it is under you, and you are trying to land on it.
+    } else if (c.mark !== 'yacht' && !c.bt && (c.self || c.kind === 'field' || c.biome === 'water')) {
       continue;   // the Echelon is a field-on-water tile that DOES get a 3D model — drawn even on our OWN tile so the pilot sits on the helipad, not open water
                   // …and a ROOFTOP pad is a field tile carrying a real building (`bt`): draw the tower, the pad is on top of it
     }
