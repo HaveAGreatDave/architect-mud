@@ -50,6 +50,11 @@ const ROUTINE_PER_PERIOD = 7;
 // remembered for.
 const LOUD_CHANCE = new Set(['post', 'breakaway']);
 
+// How often the booth bothers describing HOW a routine chance was built. Every one and
+// the call becomes a stream of breakouts nobody can follow; never, and every chance in
+// the game arrives out of nowhere. A goal or a near-miss always gets one.
+const BUILDUP_ROUTINE = 0.45;
+
 export function narrate(ctx) {
   const {
     script, game, gs, ws, announcer,
@@ -111,6 +116,13 @@ export function narrate(ctx) {
     shooter: b.shooter || b.player || '',
     goalie: b.goalie || '',
     assist: b.assist || '',
+    // How the chance was built, read off the same keyframes the rink animates — so a
+    // pool line can put the rush in front of the outcome and the booth stops describing
+    // only the last half-second of a ten-second play. Empty on beats with no possession.
+    rush: b.rush || '',
+    // What he hit it with — so a pool line can say "slapshot" on the beat the rink is
+    // drawing a slapshot on.
+    shotType: b.shotType || '', shotLabel: b.shotLabel || '',
     player: b.player || b.shooter || '',
     strength: b.strength || '',
     infraction: b.infraction || '', penaltyMin: b.penaltyMin ?? '',
@@ -132,6 +144,12 @@ export function narrate(ctx) {
     sport: 'hockey',
     shooter: b.shooter || b.player || '', goalie: b.goalie || '',
     assist: b.assist || '',
+    // The rush, in words, on the same payload as the keyframes it was read from — so
+    // the rink can print the build-up while it is animating that exact build-up.
+    rush: b.rush || '',
+    // And WHAT HE HIT IT WITH, on the same payload again: the rink plays the wind-up the
+    // sim named, so a call of "slapshot" is a slapshot on screen. One fact, two outputs.
+    shotType: b.shotType || '', shotLabel: b.shotLabel || '',
     attackingTeam: b.teamName || '', defendingTeam: b.oppName || '',
     attackingAbbr: abbr(b.teamName || ''), defendingAbbr: abbr(b.oppName || ''),
     // The scoreboard is away/home and never attacking/defending — those flip beat to
@@ -314,6 +332,21 @@ export function narrate(ctx) {
   // The home barn's own colour first, the league-wide pool behind it.
   const chatter = (b) => { const l = pick(barnKey(home.name), 'chatter'); if (l) { say(l, tok(b), beatBug(b)); said++; } };
 
+  // THE PLAY BEFORE THE OUTCOME. The booth used to describe only the last half-second of
+  // a ten-second passage: the viewer watched a breakout, a zone entry and two passes and
+  // heard "saved". `b.rush` is the sim's own reading of the very keyframes the rink is
+  // about to animate, so this line and the picture are the same play by construction
+  // rather than by two authors happening to agree.
+  //
+  // Spoken FIRST and WITHOUT a gameday payload, deliberately: the outcome line still
+  // owns the cut to the new beat, so nothing about the existing timing moves and a beat
+  // that has no rush behaves exactly as it did before.
+  const buildUp = (b, t, sb, loud) => {
+    if (!b.rush) return;
+    if (!loud && nrng() >= BUILDUP_ROUTINE) return;
+    say(b.rush, t, sb); said++;
+  };
+
   for (const b of beats) {
     idx++;
     // Shots first, so the bug attached to THIS beat already counts this shot — a
@@ -368,6 +401,7 @@ export function narrate(ctx) {
 
       case 'goal': {
         const key = b.strength === 'pp' ? 'goal.pp' : b.strength === 'sh' ? 'goal.sh' : b.strength === 'en' ? 'goal.en' : 'goal';
+        buildUp(b, t, sb, true);
         say(pick(key, 'goal'), t, sb, goalFx(b), gameday(b, idx)); said++;
         say(pick('score.update'), t, sb); said++;
         break;
@@ -396,6 +430,7 @@ export function narrate(ctx) {
       case 'chance': {
         const loud = LOUD_CHANCE.has(b.kind);
         if (!loud && routine >= ROUTINE_PER_PERIOD) break;
+        buildUp(b, t, sb, loud);
         say(pick(`shot.${b.kind}`, 'shot.save'), t, sb, null, gameday(b, idx)); said++;
         if (!loud) routine++;
         // Booth colour rides on the quiet beats, never on top of a goal.

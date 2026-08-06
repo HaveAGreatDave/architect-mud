@@ -81,6 +81,25 @@ const DOTS = {
 //
 // The away end (model x = 0) lands at the TOP of the picture, which is the frame the
 // sim's `winnerSide` and its dot ids are already computed in.
+//
+// ── AND THE PICTURE IS 3/4, NOT PLAN ────────────────────────────────────────────
+// A pure top-down rink has one fatal problem that no amount of paint fixes: a man
+// skating toward the bottom of the screen is the SAME SPRITE ROTATED 180°, so his
+// helmet is below his feet and his number is upside down. It reads as a bug even when
+// it is geometrically perfect, because nobody has ever watched hockey from directly
+// above. NHL '94 never did this: it foreshortened the sheet and stood the players up
+// on it, so a skater is always a figure with his head at the top.
+//
+// SHEET_TILT is that foreshortening — the ice is drawn at 0.62 of its true length, as
+// if seen from up in the stands rather than from the roof. Two things fall out of it
+// for free and are worth stating, because both look like bugs if you don't expect them:
+//   · the faceoff circles become ELLIPSES, which is what a circle on a tilted plane is;
+//   · the tokens do NOT squash with it, because the tilt is applied by making the
+//     sheet's BOX shorter rather than by transforming it — so every man keeps his true
+//     height and stands up off the ice with no counter-transform anywhere.
+// The model frame is untouched. This is still a projection at the very edge, and
+// nothing upstream of it knows the picture is anything but a rectangle.
+const SHEET_TILT = 0.62;
 const SHEET_W = 85, SHEET_L = 200;
 const _sx = (y) => (1 - y) * SHEET_W;     // across the sheet → screen x
 const _sy = (x) => x * SHEET_L;           // along the sheet  → screen y
@@ -99,12 +118,17 @@ const _py = (x) => `${(x * 100).toFixed(3)}%`;
 // sheet apart — WIDER THAN THE VIEWPORT — so one team was always entirely off-screen and
 // the picture never showed a game, only a huddle. Nose to tail both teams now occupy
 // about half the visible window, which is what makes a rush read as a rush.
+// `grip` was raised across the board once the jobs above existed. The old values had the
+// whole unit barely shading toward the puck, so a play that went into a corner moved
+// nine men about two feet — the formation was correct and completely inert. A forward
+// now follows the puck across most of the width of the sheet and only the defence pair
+// really holds its lane, which is the one place holding a lane is the point.
 const ROLES = [
-  { pos: 'C',  lane: 0.50, withPuck:  0.022, without: -0.022, grip: 0.55 },
-  { pos: 'LW', lane: 0.24, withPuck:  0.058, without:  0.004, grip: 0.42 },
-  { pos: 'RW', lane: 0.76, withPuck:  0.058, without:  0.004, grip: 0.42 },
-  { pos: 'LD', lane: 0.33, withPuck: -0.070, without: -0.098, grip: 0.30 },
-  { pos: 'RD', lane: 0.67, withPuck: -0.070, without: -0.098, grip: 0.30 },
+  { pos: 'C',  lane: 0.50, withPuck:  0.022, without: -0.022, grip: 0.80 },
+  { pos: 'LW', lane: 0.24, withPuck:  0.058, without:  0.004, grip: 0.64 },
+  { pos: 'RW', lane: 0.76, withPuck:  0.058, without:  0.004, grip: 0.64 },
+  { pos: 'LD', lane: 0.33, withPuck: -0.070, without: -0.098, grip: 0.42 },
+  { pos: 'RD', lane: 0.67, withPuck: -0.070, without: -0.098, grip: 0.42 },
 ];
 
 // Motion budget. A broadcast line holds ~10s on air, so the whole possession has to
@@ -113,6 +137,9 @@ const T_STEP = 470;          // a carry — the man skating, so the puck moves a
 const T_PASS = 210;          // off the stick and gone; a pass is the fast thing on the ice
 const T_WINDUP = 290;        // he plants and the stick comes back before the shot leaves
 const T_SHOT = 250;          // the shot itself — fast, it's the only quick thing
+const T_DUMP = 260;          // flipped in behind them — it arrives long before he does
+const T_BATTLE = 640;        // loose along the wall, and two men are coming for it
+const T_DEKE = 520;          // a man beating a man happens slowly, in a phone box
 const T_SETTLE = 620;        // the beat after the puck stops before the caption lands
 const T_DRAW = 520;          // faceoff: centres in, puck down, swept back
 
@@ -120,8 +147,51 @@ const T_DRAW = 520;          // faceoff: centres in, puck down, swept back
 // does not, because a pass IS an instantaneous change of direction and smoothing it
 // turns every pass into a lazy curve.
 const TAU_SKATER = 230;      // ms to close ~63% of the gap to his target
-const TAU_CARRIER = 120;     // the man with it reacts faster — he's chasing nothing
-const TAU_CAM = 430;         // camera lag; enough to feel operated rather than welded
+// The man with it is the quickest thing on the ice, and this got quicker still once the
+// puck moved onto his blade: he now has a LATERAL offset to hold as well as a position,
+// so a slow constant left the blade trailing the puck through the first half of every
+// carry — the transient where it still looked like he was kicking it along.
+const TAU_CARRIER = 85;
+const TAU_CHASE = 105;       // racing a loose puck: the hardest anybody skates
+// HOW FAR A MAN'S BLADE IS FROM HIS SPINE, in model-y (fractions of the sheet's width).
+// DERIVED, not chosen: the blade sits ~0.43 of the way out from centre in a 32-unit
+// viewBox drawn at `.gdr-skater`'s 8.8% of the sheet, so 0.43 × 0.088 ≈ 0.038 — which on
+// an 85ft sheet is about three and a half feet of stick, the right answer for a reason
+// rather than by coincidence. **If the figure's width or the stick's length changes,
+// this changes with them**, or the puck slides off the end of the blade.
+const BLADE_REACH = 0.038;
+const TAU_WORKING = 165;     // forechecking or working to an outlet — with a purpose
+// Camera lag. DELIBERATELY SLOW. This started at 430ms and the picture was queasy to
+// watch for a whole period: the sheet is drawn much larger than the window, so a
+// half-second correction moves the entire world several hundred pixels under a puck
+// that has barely moved, and the eye reads that as the RINK sliding rather than the
+// play advancing. A long lag costs nothing — the deadzone below means the camera is
+// usually not moving at all — and what it buys is a picture you can look at.
+const TAU_CAM = 820;
+const TAU_GOALIE = 165;      // he is the quickest thing on the ice across six feet
+
+// ── the free puck ───────────────────────────────────────────────────────────────
+// A LOOSE PUCK IS NOT A KEYFRAME. Everything the sim decided — the carry, the pass,
+// the shot, where it ended up — arrives as a chain of points and is played back by
+// interpolating between them, because those are FACTS and a view may not re-derive a
+// fact. But the aftermath of a shot is not a fact: the sim says "pad save", it does not
+// say where the rebound went. That was being faked with one more straight lerp to a
+// hand-picked resting spot, which is why every rebound in the league died in a gentle
+// diagonal and no puck had ever hit the boards.
+//
+// So the aftermath is INTEGRATED instead: a velocity, ice friction, and dasher boards
+// that give some of it back. Nothing that comes out of here can change an outcome —
+// the puck is already dead in the sim's ledger by the time it gets a velocity — so a
+// carom is free to be genuinely unpredictable. Velocities are in FEET PER SECOND on
+// the real 85×200 sheet, which is the only frame in which a bounce angle is correct;
+// the two axes are converted separately on the way back into model units, or a puck
+// coming off the end boards would leave at the wrong angle.
+const PUCK_FRICTION = 0.60;  // fraction of speed kept per second — ice keeps most of it
+const BOARD_BOUNCE = 0.52;   // what the dashers give back
+const PUCK_DEAD = 3.5;       // ft/s below which it has stopped
+// The rink's inside face, in model units. Wider than the goal lines on purpose: a puck
+// belongs behind the net, and half the retrievals in hockey happen back there.
+const PUCK_BOUNDS = { x0: 0.014, x1: 0.986, y0: 0.030, y1: 0.970 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -146,34 +216,68 @@ function _hash(str) {
 //
 // Viewbox is 40×48, origin at his skates; he's placed by his centre and scaled by CSS
 // so the same markup serves both ends and any panel size.
+// HE STANDS TOO, in the same frame as the skaters — a top-down keeper lying in a crease
+// full of standing men was the last thing in the picture still drawn in plan, and it
+// read as a mask on the floor. Same convention as the skater: blades at y = 0, built
+// upward, never rotated. The two ends differ by FRONT vs BACK, not by 180° — the keeper
+// at the top of the picture faces down the ice toward you, the one at the bottom is
+// seen from behind, and each is standing the right way up.
+//
+// Every piece keeps its class name, because the save poses address exactly one limb
+// each and a glove save that also swings the blocker is a goalie having a seizure.
 function _goalieSvg() {
   return (
-    `<svg class="gdr-g-svg" viewBox="0 0 40 48" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
-      // WHICH WAY HE IS FACING has to be readable at a glance, and a symmetrical blob
-      // in a symmetrical crease is not. So the figure gets a front and a back that
-      // don't resemble each other: a bright directional cone off the mask showing the
-      // angle he's cutting down, and his skates behind him.
-      `<path class="gdr-g-face" d="M20 6 L4 -12 L36 -12 Z"/>` +
-      `<path class="gdr-g-heels" d="M13 45.5 h5 M22 45.5 h5"/>` +
+    `<svg class="gdr-g-svg" viewBox="-16 -32 32 36" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
+      `<ellipse class="gdr-g-shadow" cx="0" cy="0.4" rx="8.5" ry="2"/>` +
       `<g class="gdr-g-body">` +
-        // pads — the two big rectangles that splay in the butterfly
-        `<g class="gdr-g-pad left"><rect x="7" y="22" width="9" height="22" rx="3"/>` +
-          `<line class="gdr-g-pad-strap" x1="7.8" y1="28" x2="15.2" y2="28"/>` +
-          `<line class="gdr-g-pad-strap" x1="7.8" y1="35" x2="15.2" y2="35"/></g>` +
-        `<g class="gdr-g-pad right"><rect x="24" y="22" width="9" height="22" rx="3"/>` +
-          `<line class="gdr-g-pad-strap" x1="24.8" y1="28" x2="32.2" y2="28"/>` +
-          `<line class="gdr-g-pad-strap" x1="24.8" y1="35" x2="32.2" y2="35"/></g>` +
-        // chest & arm protector
-        `<path class="gdr-g-chest" d="M12 12 h16 a4 4 0 0 1 4 4 v10 a3 3 0 0 1-3 3 h-18 a3 3 0 0 1-3-3 v-10 a4 4 0 0 1 4-4 z"/>` +
-        // blocker (stick side) and the stick itself
-        `<g class="gdr-g-blocker"><rect x="29" y="14" width="8" height="11" rx="1.5"/></g>` +
-        `<g class="gdr-g-stick"><path d="M31 24 L31 41 L20 44" /></g>` +
-        // trapper — the one that closes
-        `<g class="gdr-g-glove"><path d="M3 15 q-2 5 1 9 q3 4 7 2 q2-1 1-4 l-2-7 z"/>` +
-          `<path class="gdr-g-glove-web" d="M4 17 q3 3 5 7"/></g>` +
-        // mask & cage
-        `<g class="gdr-g-head"><ellipse cx="20" cy="8" rx="6.5" ry="7"/>` +
-          `<path class="gdr-g-cage" d="M15 8 h10 M16 5 h8 M16 11 h8 M20 2 v12"/></g>` +
+        // THE PADS. Two slabs from the knee down and the widest thing on the ice — they
+        // are what a goalie IS from the shooter's point of view. Rolls down the face of
+        // each, a knee block at the top and a boot channel at the bottom, because a flat
+        // rectangle is a door and a real pad is an assembly.
+        `<g class="gdr-g-pad left"><rect x="-8.8" y="-13.4" width="7.0" height="13.4" rx="2.2"/>` +
+          `<path class="gdr-g-pad-roll" d="M-8.4 -13 v13 M-6.1 -13 v13 M-3.8 -13 v13"/>` +
+          `<line class="gdr-g-pad-strap" x1="-8.4" y1="-9.6" x2="-2.2" y2="-9.6"/>` +
+          `<line class="gdr-g-pad-strap" x1="-8.4" y1="-5" x2="-2.2" y2="-5"/>` +
+          `<rect class="gdr-g-pad-knee" x="-8.4" y="-13.2" width="6.2" height="2.6" rx="1"/></g>` +
+        `<g class="gdr-g-pad right"><rect x="1.8" y="-13.4" width="7.0" height="13.4" rx="2.2"/>` +
+          `<path class="gdr-g-pad-roll" d="M2.2 -13 v13 M4.5 -13 v13 M6.8 -13 v13"/>` +
+          `<line class="gdr-g-pad-strap" x1="2.2" y1="-9.6" x2="8.4" y2="-9.6"/>` +
+          `<line class="gdr-g-pad-strap" x1="2.2" y1="-5" x2="8.4" y2="-5"/>` +
+          `<rect class="gdr-g-pad-knee" x="2.2" y="-13.2" width="6.2" height="2.6" rx="1"/></g>` +
+        // Chest and arm protector — square and enormous, which is the silhouette. Shoulder
+        // floaters on top of it: the two blocks that make a keeper twice as wide as a man.
+        // ARMS. The blocker and the trapper used to float in space beside a rounded
+        // rectangle, which is exactly why the body read as a sausage with mittens: there
+        // was nothing CONNECTING him to his own hands. Two padded arms now run from the
+        // shoulders out to each, drawn under the chest so the shoulder overlaps them.
+        `<path class="gdr-g-arm" d="M-5.6 -23.2 L-8.0 -22.8 L-9.6 -18.6 L-7.2 -17.8 Z"/>` +
+        `<path class="gdr-g-arm" d="M5.6 -23.2 L8.0 -22.8 L9.4 -18.4 L7.0 -17.6 Z"/>` +
+        // Chest and belly, as two pieces rather than one slab: the chest protector sits
+        // proud over a narrower waist, and that step is most of what gives him a shape.
+        `<path class="gdr-g-chest" d="M-6.4 -24.2 h12.8 a2 2 0 0 1 2 2 v6.4 a1.6 1.6 0 0 1-1.6 1.6 h-13.6 a1.6 1.6 0 0 1-1.6-1.6 v-6.4 a2 2 0 0 1 2-2 z"/>` +
+        `<path class="gdr-g-belly" d="M-5.2 -14.2 h10.4 a1.4 1.4 0 0 1 1.4 1.4 v1.6 a1.2 1.2 0 0 1-1.2 1.2 h-10.8 a1.2 1.2 0 0 1-1.2-1.2 v-1.6 a1.4 1.4 0 0 1 1.4-1.4 z"/>` +
+        // The chest protector's own panels — a keeper's rig is a set of plates, and three
+        // seams across it are the cheapest way to stop it reading as one moulded shell.
+        `<path class="gdr-g-seam" d="M-6.0 -20.6 h12 M-6.0 -17.8 h12 M0 -24.0 v12"/>` +
+        `<path class="gdr-g-float" d="M-7.8 -24.4 h5.6 a1 1 0 0 1 1 1 v2.6 h-6.6 z M2.2 -24.4 h5.6 v3.6 h-5.6 a1 1 0 0 1-1-1 z"/>` +
+        // THE FUTURE PART, and it is one line rather than a costume: a live status bar
+        // across his chest rig in the club's own colour. Everything else about him is a
+        // keeper; this is the thing that says the keeper is wearing a machine.
+        `<rect class="gdr-g-rig" x="-3.6" y="-19.6" width="7.2" height="1.2" rx="0.6"/>` +
+        // Blocker on the stick side, with its own paddle face, and the stick from it.
+        `<g class="gdr-g-blocker"><rect x="7.2" y="-22.4" width="6.0" height="8.0" rx="1"/>` +
+          `<path class="gdr-g-blocker-face" d="M8.0 -21.4 v6.2 M9.6 -21.4 v6.2 M11.2 -21.4 v6.2"/></g>` +
+        `<g class="gdr-g-stick"><path d="M9.8 -14.4 L12.0 -1.2 M12.0 -1.2 L3.8 -0.3"/>` +
+          `<path class="gdr-g-paddle" d="M9.4 -13.6 L11.4 -3.4"/></g>` +
+        // The trapper — the one that closes — with its web.
+        `<g class="gdr-g-glove"><path d="M-8.2 -23 q-5.0 1.5-5.2 5.4 q-0.2 3.9 3.5 4.8 q3.3 0.8 4.4-2.2 l0.7-6.1 z"/>` +
+          `<path class="gdr-g-glove-web" d="M-9.8 -20.8 q-2.2 2.2-1.8 5.0 M-11.6 -18.8 q2.0 0.6 4.0 0.2"/></g>` +
+        // Mask and cage. The cage is the FRONT of him and vanishes on the far keeper,
+        // which is how the two ends stay told apart — and it now sits behind a visor
+        // glow, because in this league the mask is a display.
+        `<g class="gdr-g-head"><ellipse cx="0" cy="-27.6" rx="4.4" ry="4.2"/>` +
+          `<path class="gdr-g-visor" d="M-3.4 -28.6 q3.4-1.9 6.8 0 l-0.3 1.6 q-3.1-1.6-6.2 0 z"/>` +
+          `<path class="gdr-g-cage" d="M-2.8 -27.8 h5.6 M-2.4 -29.8 h4.8 M-2.4 -25.8 h4.8 M0 -30.6 v5.6"/></g>` +
       `</g>` +
     `</svg>`
   );
@@ -186,38 +290,301 @@ function _goalieSvg() {
 // forecheck. The whole figure rotates to his heading; the number tag doesn't, because
 // an upside-down number is unreadable and a sweater number is the one thing on the ice
 // a broadcast viewer is actually trying to read.
-function _skaterSvg(num) {
+// ── the anatomy ─────────────────────────────────────────────────────────────────
+// EVERY LIMB IS A NAMED PART WITH ITS OWN PIVOT, for two reasons that turned out to be
+// one reason. The first is animation: a stride is limbs turning at their joints, and a
+// figure whose arms are welded to its chest can only ever be a shape that slides. The
+// second is the CPhL. This is a league that carries men off and sometimes kills them,
+// and a limb that has a joint is a limb that can come OFF at that joint.
+//
+// So this table is the single source of what a man is made of. Each entry is drawn
+// RELATIVE TO ITS OWN PIVOT and wrapped in a translate to put the pivot where it lives,
+// which means the inner group's default SVG transform-origin (0,0) already IS the
+// shoulder, the hip, the neck — no `transform-box` guesswork, and the same markup
+// serves the man wearing the limb and the limb cartwheeling across the ice without it.
+// The figure STANDS. His skates are at the origin — which is his position on the ice —
+// and he is built upward from there, so placing him is placing his feet and not his
+// navel. He is drawn facing RIGHT and is mirrored for the other way; forward is +x.
+const LIMB = {
+  // The near arm carries the stick, and the stick is the whole 3/4 read: it leaves his
+  // hands at chest height and reaches DOWN AND FORWARD to a blade lying flat on the ice
+  // in front of him. That one diagonal is what tells you the ice is a receding plane
+  // rather than a wall, and it's why the stick is drawn long.
+  // ── THE GRIP ────────────────────────────────────────────────────────────────
+  // BOTH HANDS ARE ON THE STICK, and they are placed by solving for it rather than by
+  // eye. Before this only the near hand held anything: the far glove floated beside his
+  // hip with the shaft nowhere near it, so every man was carrying his stick one-handed
+  // while his other arm did nothing — which is what made the arms read as flapping
+  // beside the body instead of working.
+  //
+  // The shaft runs from a knob at (1.4, −18.4) down to the blade on the ice at
+  // (13.5, −1.5). Both gloves are points ON that line: the TOP hand at (2.0, −17.5) and
+  // the BOTTOM hand at (4.2, −14.5), each converted into its own arm's local frame.
+  // **If the shaft moves, those two glove positions must be re-solved with it** — that
+  // is the whole contract holding this together, and eyeballing it is what broke it.
+  armR: { pivot: [3.8, -21.4], svg:
+    // AN ARM HAS AN ELBOW. This was a single straight stroke from shoulder to glove —
+    // a spar, not a limb — which is why the figure's top half read as a mannequin no
+    // matter how well the legs were working. It is now an upper arm and a forearm meeting
+    // at a bent elbow, drawn as tapered shapes so the shoulder is thick with padding and
+    // the wrist is not, plus an elbow cap where a hockey player wears one.
+    // A SHOULDER CAP over the joint. Without it the upper arm simply began at the edge of
+    // the sweater — a limb sprouting from a torso rather than attached to it — and no
+    // amount of elbow detail below fixes a shoulder that isn't there. It is the padded
+    // cap a hockey player actually wears, and it rides with the arm so the joint stays
+    // covered through the whole swing instead of opening a gap at full extension.
+    `<path class="gdr-sk-shoulder" d="M-2.1 0.7 q-0.4-2.7 2.1-2.9 q2.5 0.2 2.1 2.9 q-2.1 1.0-4.2 0 z"/>` +
+    // UPPER ARM AND FOREARM AS TAPERED CURVES, not flat quads. A limb narrows from a
+    // padded shoulder to a wrist, and it does it along a curve — straight-edged trapezoids
+    // read as planks the moment they rotate, which is all these do. The two overlap deep
+    // at the elbow so the joint can swing through its whole range without ever opening a
+    // gap between them; the cap on top is what hides the seam.
+    // The BOTTOM hand, at local (0.4, 6.9) — a point on the shaft. The arm hangs almost
+    // straight down from the shoulder with a slight kick out at the elbow, which is
+    // what a lower hand on a stick actually does.
+    `<path class="gdr-sk-arm right" d="M-1.5 -0.9 q1.6-0.5 3.0 0.3 q0.4 1.6 0.6 3.5 q-1.2 0.8-2.4 0.5 q-0.6-2.1-1.2-4.3 z"/>` +
+    `<path class="gdr-sk-arm right" d="M0.0 2.9 q1.3-0.6 2.4-0.1 q0.3 2.0 0.2 3.9 q-1.0 0.7-2.0 0.4 q-0.3-2.1-0.6-4.2 z"/>` +
+    `<ellipse class="gdr-sk-elbow" cx="1.2" cy="3.2" rx="1.4" ry="1.25"/>` +
+    `<path class="gdr-sk-cuff" d="M0.5 5.4 L2.1 5.7"/>` +
+    `<ellipse class="gdr-sk-glove" cx="0.4" cy="6.9" rx="2.0" ry="1.8"/>` +
+    // A LONG stick, reaching all the way down to a blade lying flat on the ice out in
+    // front of him. It is the single most important line in the figure: that diagonal
+    // from chest height to ice level is what states that the ground is a receding plane
+    // and not a wall, and a short stick collapses the whole 3/4 read.
+    //
+    // AND IT HAS A WRIST. Welded to the shoulder the stick swung as one rigid spar, so
+    // every arm swing threw the blade through a huge arc and lifted it clean off the
+    // ice — the giveaway that the stick was a painted-on radius after all. It now pivots
+    // at the HANDS, inside the shoulder joint, and counter-rotates against the swing:
+    // the arms drive it, the wrists absorb most of the throw, and the blade stays down
+    // where a blade lives. It also lags the shoulder slightly, which is what makes the
+    // whole limb read as a chain of parts rather than one piece.
+    // …and inside the wrist, a YAW. The stick is the only part of a skater that reaches
+    // out into the world, so it is the only part that can say he is coming AT you rather
+    // than across you: swung low and in front when he skates at the camera, tucked high
+    // and behind when he skates away, straight out to the side in profile. Without it a
+    // man travelling down the ice was drawn in the identical pose as one travelling up
+    // it, and the only difference was which marking showed — which is exactly why they
+    // all looked like they were skating backwards.
+    // The wrist sits at the BOTTOM hand, and the shaft runs THROUGH it — up past the
+    // knob (which passes the top hand) and down to a blade flat on the ice. Pivoting
+    // here rather than at the top of the stick is what lets the lower hand stay put
+    // while the wrists roll, which is how a stick is actually worked.
+    `<g class="gdr-sk-wrist" transform="translate(0.4,6.9)"><g class="gdr-sk-wristj">` +
+      `<g class="gdr-sk-stickyaw">` +
+        `<path class="gdr-sk-stick" d="M-2.8 -3.9 L9.3 13.0"/>` +
+        `<path class="gdr-sk-blade" d="M9.3 13.0 L12.7 13.6"/>` +
+      `</g>` +
+    `</g></g>` },
+  // The far arm is the top hand, higher up the shaft and half hidden behind him. It hangs
+  // off the FAR shoulder, which on a turned body is higher, further back and closer to
+  // the spine — and it is drawn a size smaller, because it is further from the camera.
+  // Two arms of identical weight at identical heights is a figure facing you.
+  armL: { pivot: [-3.0, -20.6], svg:
+    `<path class="gdr-sk-shoulder far" d="M-1.8 0.6 q-0.35-2.4 1.8-2.6 q2.15 0.2 1.8 2.6 q-1.8 0.9-3.6 0 z"/>` +
+    // It CROSSES THE BODY to reach the knob — glove at local (5.0, 3.1), which is the
+    // point (2.0, −17.5) on the shaft. That diagonal across his chest is the pose the
+    // reference is full of, and the thing that was missing: this arm used to hang beside
+    // his hip holding nothing at all.
+    `<path class="gdr-sk-arm left" d="M-1.2 -0.7 q1.5-0.6 2.8 0.4 q0.7 0.9 1.3 1.8 q-0.7 1.0-1.9 1.0 q-1.1-1.5-2.2-3.2 z"/>` +
+    `<path class="gdr-sk-arm left" d="M2.0 1.1 q1.1-0.7 2.0 0.0 q0.7 0.9 1.2 1.8 q-0.6 0.9-1.6 0.9 q-0.9-1.3-1.6-2.7 z"/>` +
+    `<ellipse class="gdr-sk-elbow" cx="2.5" cy="1.9" rx="1.1" ry="1.0"/>` +
+    `<path class="gdr-sk-cuff" d="M3.6 2.4 L4.6 3.4"/>` +
+    `<ellipse class="gdr-sk-glove far" cx="5.0" cy="3.1" rx="1.6" ry="1.4"/>` },
+  // LEGS IN A SKATING STANCE — BENT AND SPLAYED. Drawn straight and parallel he stood
+  // to attention on skates; nobody in the reference is upright, because a skater's legs
+  // are always apart and always bent. Each is a tapered shape that kicks OUT from the
+  // hip through a knee and finishes on a blade well outside his own shoulders, which is
+  // the widest part of the pose and most of what reads as balance.
+  legL: { pivot: [-2.3, -14.0], svg:
+    `<path class="gdr-sk-legs" d="M2.2 0 L-1.9 0 L-3.6 6.9 L-4.4 12.2 L-1.8 12.4 L-0.1 7.1 Z"/>` +
+    `<path class="gdr-sk-boot" d="M-4.8 12.1 h3.2 l0.45 2.1 h-4.1 z"/>` +
+    `<path class="gdr-sk-skate" d="M-6.2 14.9 h5.6"/>` },
+  legR: { pivot: [2.3, -14.0], svg:
+    `<path class="gdr-sk-legs" d="M-2.2 0 L1.9 0 L3.6 6.9 L4.4 12.2 L1.8 12.4 L0.1 7.1 Z"/>` +
+    `<path class="gdr-sk-boot" d="M1.6 12.1 h3.2 l0.45 2.1 h-4.1 z"/>` +
+    `<path class="gdr-sk-skate" d="M0.6 14.9 h5.6"/>` },
+  // Head on top, where a head goes — SMALL, because what makes a hockey player a hockey
+  // player is that his shoulders are enormous and his head is not, and OFFSET toward the
+  // way he is facing. Sitting dead on the spine it read as a man staring straight down
+  // the camera; a head that leads the shoulders is most of what turns a front-on figure
+  // into a three-quarter one.
+  head: { pivot: [1.0, -26.6], svg:
+    // The skull is an egg, not a ball — wider across the back of the head than the face,
+    // which is the silhouette of a head seen from behind and to one side.
+    `<path class="gdr-sk-helm" d="M-3.6 -0.4 q0.2-3.4 3.4-3.4 q3.0 0 3.4 3.0 q0.3 2.6-1.6 3.6 q-2.0 1.0-3.6 0.4 q-1.8-0.7-1.6-3.6 z"/>` +
+    // The ear cup sits on the FAR side of the helmet, which only exists on a head that
+    // is turned. Nothing about a straight-on figure would show it.
+    `<ellipse class="gdr-sk-earcup" cx="-2.2" cy="0.4" rx="1.1" ry="1.3"/>` +
+    `<path class="gdr-sk-helmline" d="M-3.2 -1.2 q3.4-2.0 6.4 0.2"/>` +
+    // A FULL CAGE, and it is the loudest facing cue on the whole figure. It was one thin
+    // arc, which at this size is a scratch on the helmet; a real cage is a bright bowl of
+    // bars over the whole face, and a bright bowl on one side of a head is unmistakable
+    // even at eleven pixels. It exists only on the front, so a man coming at you and a
+    // man skating away are never in doubt. Drawn as a shell plus its bars so the shell
+    // can carry a dark fill — the shadow inside a cage is what stops it reading as a
+    // white blob stuck to his chin.
+    // THE MASK, ON HIS FACE. This used to hang off the SIDE of the skull — a cage seen
+    // edge-on, which is correct in profile and nonsense the moment a man skates straight
+    // at you: the one frame where you should be looking into a full grey cage, and instead
+    // it was a scratch at the edge of his head. It is centred on the face now and WIDENS
+    // with `--gdr-front`, so head-on you are looking right at it and in profile it
+    // narrows back to an edge. The dark field behind the bars carries as much of it as
+    // the bars do — a cage is a shadow with metal in front of it, and bars on their own
+    // read as a white smear on his chin.
+    `<g class="gdr-sk-cage">` +
+      `<ellipse class="gdr-sk-cage-shell" cx="0.4" cy="0.3" rx="3.0" ry="2.6"/>` +
+      `<path class="gdr-sk-cage-bar" d="M-2.4 -0.8 q2.8 1.0 5.6 0 M-2.6 0.5 q2.9 1.0 5.8 0 M-2.3 1.8 q2.6 0.9 5.2 0"/>` +
+      `<path class="gdr-sk-cage-bar" d="M0.4 -2.2 q0.5 2.6 0 5.0"/>` +
+    `</g>` },
+};
+// A part on the body: pivot group, then the joint group CSS rotates.
+// Three nested groups per limb, and they are three because they are driven by three
+// different things that must not fight each other:
+//   · `.gdr-sk-limb`   — the pivot. A translate to the joint, authored, never animated.
+//   · `.gdr-sk-stance` — where the limb sits for his current HEADING. Static per frame,
+//                        written from `--gdr-side` / `--gdr-front`.
+//   · `.gdr-sk-joint`  — what the limb is DOING: stride, crossover, dangle, shot.
+// A CSS animation always beats a static transform on the same element, so the heading and
+// the action cannot share a group — which is exactly why turning was being done by
+// squashing the whole figure instead. With a group of its own, a turn is limbs moving.
+function _limb(part) {
+  const L = LIMB[part];
+  return `<g class="gdr-sk-limb" data-part="${part}" transform="translate(${L.pivot[0]},${L.pivot[1]})">` +
+    `<g class="gdr-sk-stance"><g class="gdr-sk-joint">${L.svg}</g></g></g>`;
+}
+
+// A MAN, STANDING, SEEN FROM THE STANDS. The viewBox puts his blades at y = 0 and builds
+// him upward, so the element is anchored at his FEET — which is where a figure touches
+// the plane he's standing on, and the only anchor that makes a shadow land right.
+//
+// He never rotates. He MIRRORS to face left or right, and swaps between a front and a
+// back, which is exactly how a sprite set works and is the reason he is never upside
+// down. The number lives on the BACK, because that is where a sweater number is and
+// because a man skating away from you is the case where you need to read it.
+// The man himself, emitted twice — once upright and once flipped underneath him as his
+// reflection. Duplicated markup rather than a `<use>` because a `<use>` needs a unique
+// id per skater and ten of those in one document is a naming scheme nobody wants to
+// maintain; the classes are shared, so the reflection strides, leans and loses limbs
+// with him for free.
+function _bodySvg(num, team) {
   return (
-    `<svg class="gdr-sk-svg" viewBox="-12 -14 24 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
-      `<g class="gdr-sk-body">` +
-        // The stick reaches well past the body — a hockey player's radius is his stick,
-        // not his shoulders, and drawing it short is what made the old figure read as a
-        // bird rather than a man. Blade flat on the ice at the end of it.
-        `<path class="gdr-sk-stick" d="M4.4 -0.8 L9 7.2"/>` +
-        `<path class="gdr-sk-blade" d="M9 7.2 L5.6 9.4"/>` +
-        // Skates, then breezers — a sliver of dark under the sweater is what gives the
-        // figure a bottom and stops it floating.
-        `<path class="gdr-sk-skate" d="M-3.9 8.6 L-1.3 8.6 M1.3 8.6 L3.9 8.6"/>` +
-        `<path class="gdr-sk-legs" d="M-2.3 4.4 L-2.7 8.2 M2.3 4.4 L2.7 8.2"/>` +
-        `<path class="gdr-sk-pants" d="M-4.4 3.1 h8.8 q0.7 0 0.6 1 l-0.3 2.1 q-0.1 0.9-1 0.9 h-7.4 q-0.9 0-1-0.9 l-0.3-2.1 q-0.1-1 0.6-1 z"/>` +
-        // Shoulders wider than the waist. That single proportion is most of what says
-        // "in pads" at eleven pixels.
-        `<path class="gdr-sk-torso" d="M-5.6 -2.6 q0-2.4 2-3.1 h7.2 q2 0.7 2 3.1 l-0.8 5.9 q-0.2 1.7-2 1.7 h-5.6 q-1.8 0-2-1.7 z"/>` +
-        // The shoulder yoke and the cuff stripes — a sweater is not a flat colour, and
-        // these two bands are what let two clubs with similar primaries stay apart.
-        `<path class="gdr-sk-yoke" d="M-5.5 -3.2 q2.6-2.4 5.5-2.4 q2.9 0 5.5 2.4 l-0.35 1.5 q-2.4-2.1-5.15-2.1 q-2.75 0-5.15 2.1 z"/>` +
-        `<path class="gdr-sk-arm left"  d="M-5.3 -1.6 L-7.7 2.6"/>` +
-        `<path class="gdr-sk-arm right" d="M 5.3 -1.6 L 6.4 0.4"/>` +
-        `<path class="gdr-sk-cuff" d="M-7.0 1.5 L-8.2 3.5 M6.0 -0.4 L7.0 1.2"/>` +
-        // Gloves. Two dark blocks at the ends of the arms; without them the sleeves
-        // just stop, and a stick growing out of nothing is the thing the eye catches.
-        `<ellipse class="gdr-sk-glove" cx="-8.2" cy="3.8" rx="1.5" ry="1.8"/>` +
-        `<ellipse class="gdr-sk-glove" cx="6.9" cy="1.5" rx="1.5" ry="1.8"/>` +
-        // The number rides ON the sweater and turns with him, which is what a back
-        // number does. It is the only text on the ice for nine of the ten men.
-        `<text class="gdr-sk-num" x="0" y="2">${num == null ? '' : num}</text>` +
-        `<circle class="gdr-sk-helm" cx="0" cy="-5.4" r="2.9"/>` +
-        `<path class="gdr-sk-cage" d="M-2 -7 q2-1.2 4 0"/>` +
+    // ── DRAW ORDER IS ANATOMY ────────────────────────────────────────────────
+    // Order was: far arm, legs, body, marks, HEAD, near arm — and it was wrong at both
+    // ends. The near arm sat in front of the HEAD, so the moment he raised his hands
+    // (a check, the top of a slapshot) his own glove covered the mask, which is the
+    // single most important thing on the figure for reading which way he faces. And
+    // the far arm sat behind EVERYTHING, so when he turned to the camera and the stance
+    // swung it round to the front it stayed buried under the sweater — a man facing you
+    // with one arm.
+    //
+    // Now: legs, sweater, FAR ARM, markings, NEAR ARM, head. The far arm comes round in
+    // front of the chest where it belongs on a turned body; the number and crest stay
+    // legible over it; the near arm and its stick pass in front of the markings, which
+    // is what a stick hand does; and the head is last, so the mask is never covered by
+    // anything the man himself is holding.
+    `<g class="gdr-sk-body">` +
+      _limb('legL') + _limb('legR') +
+      // Breezers over the top of the thighs: a dark block at the hips that reads as
+      // padding rather than as a gap between a shirt and two legs.
+      `<path class="gdr-sk-pants" d="M-5.6 -16.0 h11.2 q1.3 0 1.2 1.4 l-0.8 4.2 q-0.15 1.2-1.4 1.2 h-9.2 q-1.25 0-1.4-1.2 l-0.8-4.2 q-0.1-1.4 1.2-1.4 z"/>` +
+      // HE HAS A NECK. The helmet used to sit straight down on the shoulder line, which
+      // is exactly what makes a figure read as a flat front-on sprite — there was no gap
+      // where a neck goes, so the head was just the top of the torso. Drawn before the
+      // sweater and the head so both overlap it and only the sliver between them shows.
+      `<path class="gdr-sk-neck" d="M-1.4 -24.4 h3.6 l-0.4 3.2 h-3.0 z"/>` +
+      // The sweater. SHOULDERS ENORMOUS, waist narrow — the reference figures are about
+      // two and a quarter shoulder-widths tall, and that squat, top-heavy proportion is
+      // most of what separates a hockey player from a stick man in a shirt.
+      //
+      // AND IT IS ASYMMETRIC, which is the actual difference between three-quarter and
+      // straight-on. The near shoulder (+x, the way he faces) is further out and sits
+      // LOWER; the far shoulder is pulled in and rides higher, because it is further from
+      // the camera and partly behind him. That sloped, uneven shoulder line is the single
+      // strongest cue that a body is turned — a symmetric trapezoid can only ever be a
+      // man facing you, however the rest of him is drawn.
+      `<path class="gdr-sk-torso" d="M-5.2 -21.2 q0.3-2.1 2.3-2.4 h6.4 q2.7 0.4 3.0 3.0 l-1.7 7.9 q-0.2 1.2-1.7 1.2 h-6.6 q-1.5 0-1.7-1.2 z"/>` +
+      // The shoulder yoke follows that same slope — a sweater is not a flat colour, and
+      // this band plus the cuffs is what lets two clubs with similar primaries stay apart.
+      `<path class="gdr-sk-yoke" d="M-5.2 -21.4 q2.6-2.9 5.6-2.9 q3.2 0 5.8 3.1 l0.26 2.1 q-2.7-2.9-6.06-2.9 q-2.96 0-5.34 2.7 z"/>` +
+      // The far side of the chest falls into shadow. One soft wedge, and it is doing the
+      // same job as the sloped shoulders: a plane turning away from the light is a plane
+      // that is turned at all.
+      `<path class="gdr-sk-shade" d="M-5.2 -21.2 q0.3-2.1 2.3-2.4 h2.0 l-0.8 11.1 h-1.8 q-1.5 0-1.7-1.2 z"/>` +
+      // The FAR arm, over the sweater and under the markings.
+      _limb('armL') +
+      // THE MARKINGS ARE PRINTED ON THE SWEATER, so they live INSIDE the body and move
+      // with every single thing it does — the lean, the ride, the mirror. They used to
+      // sit outside it, which kept the numerals the right way round but left them pinned
+      // in space while the torso bobbed and leaned underneath: the number visibly slid
+      // about on the shirt.
+      //
+      // The mirror is cancelled LOCALLY instead. `.gdr-sk-marks` translates to the middle
+      // of his chest — so the anchor mirrors with the body, and the crest stays on the
+      // chest of a turned figure — and `.gdr-sk-marks-flip` then applies the SAME scaleX
+      // again about that point. Two mirrors compose to none, so the glyphs come out
+      // upright while everything carrying them is still fully mirrored.
+      `<g class="gdr-sk-marks" transform="translate(0.6,-17.4)">` +
+        `<g class="gdr-sk-marks-flip">` +
+          `<text class="gdr-sk-num" x="0" y="0.7">${num == null ? '' : num}</text>` +
+          `<g transform="translate(0.2,-0.9)">${_crestSvg(team)}</g>` +
+        `</g>` +
+      `</g>` +
+      // The NEAR arm and its stick over the markings — the difference between a man
+      // holding a stick and a man standing behind one — and the HEAD over everything,
+      // so nothing he carries can ever cover his own mask.
+      _limb('armR') +
+      _limb('head') +
+    `</g>`
+  );
+}
+
+// ── the club crest ──────────────────────────────────────────────────────────────
+// A SWEATER HAS A CREST ON THE FRONT AND A NUMBER ON THE BACK, and that split is worth
+// more than the decoration: it means the two faces of the figure carry entirely different
+// markings, so which way a man is pointed is legible from his chest as well as his
+// helmet. Carrying a number on both sides — which is what this did — threw that away.
+//
+// DERIVED FROM THE CLUB NAME, exactly as the sim derives its colours: same input, same
+// method, so a club's crest is its crest every night and no logo ever has to cross the
+// wire for a cosmetic. Nothing here is authored per club and nothing can drift out of
+// step with the league.
+const CREST_EMBLEM = [
+  'M0 -2.6 L1.9 2.2 L0 0.9 L-1.9 2.2 Z',                 // a chevron
+  'M-2.2 -0.5 h4.4 v1.4 h-4.4 z',                        // a bar
+  'M0 -2.6 L0.8 -0.8 L2.6 -0.6 L1.2 0.7 L1.6 2.5 L0 1.6 L-1.6 2.5 L-1.2 0.7 L-2.6 -0.6 L-0.8 -0.8 Z', // a star
+  'M0 -2.6 L2.3 0 L0 2.6 L-2.3 0 Z',                     // a diamond
+  'M0.9 -2.7 L-1.9 0.5 h1.6 l-0.8 2.6 L2.0 -0.3 h-1.7 z', // a bolt
+  'M0 -2.4 a2.4 2.4 0 1 1 -0.01 0 M0 -0.9 a0.9 0.9 0 1 0 0.01 0',  // a ring
+];
+function _crestSvg(team) {
+  const h = _hash(team || 'cphl');
+  const emblem = CREST_EMBLEM[h % CREST_EMBLEM.length];
+  // The shield: flat across the shoulders of it, tapering to a point. Small, because at
+  // playing size this is five pixels and a busy crest is a smudge.
+  return (
+    `<g class="gdr-sk-crest">` +
+      `<path class="gdr-sk-crest-field" d="M-2.9 -3.6 h5.8 v3.1 q0 2.7-2.9 4.0 q-2.9-1.3-2.9-4.0 z"/>` +
+      `<path class="gdr-sk-crest-mark" d="${emblem}"/>` +
+    `</g>`
+  );
+}
+
+function _skaterSvg(num, team) {
+  return (
+    // The box runs well BELOW his blades, because the ice under him carries a
+    // reflection and the reflection is part of the figure.
+    `<svg class="gdr-sk-svg" viewBox="-16 -30 32 48" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
+      // THE FLIP GROUP. Mirroring happens here rather than on the body, so the man and
+      // his reflection turn around together and the numbers — outside it — never do.
+      `<g class="gdr-sk-flip">` +
+        // HE REFLECTS IN THE ICE. Every frame of the reference has it, and it is the
+        // cheapest thing in the whole picture that says "polished sheet" rather than
+        // "white background": the same body, flipped about the goal line of his own
+        // blades, squashed into the foreshortened plane and faded almost out. Drawn
+        // FIRST so the man himself covers its top edge, which is what hides the seam.
+        `<g class="gdr-sk-reflect">${_bodySvg(num, team)}</g>` +
+        _bodySvg(num, team) +
       `</g>` +
     `</svg>`
   );
@@ -254,6 +621,74 @@ function _netSvg(side) {
       `<g class="gdr-net-lamp"><circle cx="${(SHEET_W / 2).toFixed(2)}" cy="${(side < 0 ? backY - 2.6 : backY + 2.6).toFixed(2)}" r="2.4"/></g>` +
     `</g>`
   );
+}
+
+// ── the hoardings ───────────────────────────────────────────────────────────────
+// THE BARN SELLS ADVERTISING, and in Coldwater it sells it to Coldwater. Every name on
+// these boards is a business that exists in the world — you can walk into most of them —
+// which is worth more than any invented sponsor: a viewer who has bought a coffee at
+// Battery Acid and then sees it lit up on the dashers is being told the league is part of
+// the same city, without a word of exposition.
+//
+// They are LED panels, not painted boards, because it is not 1996 in Coldwater. Lit from
+// within, saturated, and cycling — the arena's own light source at ice level.
+const HOARDINGS = [
+  'BATTERY ACID COFFEE', 'BODEGA VU', 'GREASE EXPECTATIONS', 'MEAT YOUR MAKER',
+  'IN HOCK WE TRUST', 'OHM SWEET OHM', 'PERCUSSIVE MAINTENANCE', 'CO-PAY & PRAY',
+  'NUTS TO THAT', 'SALVAGE RITES', 'BONDED & BOTHERED', 'CHILL OUT LOGISTICS',
+  'SHELF LIFE', 'LATHER & LYE', 'PALLETS & PALS', 'SECOND SKIN',
+  'CITADEL FINANCIAL', 'HALCYON', 'ADEQUATE!', 'SENTIMENTAL VALUE PAWN',
+];
+// The board band, just inside the dashers.
+const AD_OUT = 1.5, AD_IN = 5.2;
+function _adRingSvg() {
+  const r = _rng(0xb0a4d5);
+  let out = '';
+  let n = 0;
+  const next = () => HOARDINGS[(n++) % HOARDINGS.length];
+  // A panel: the lit field, a brighter bleed along its inside edge (the light spilling
+  // onto the ice is most of why a rink at night looks like a rink at night), and the name.
+  const panel = (x, y, w, h, label, vertical) => {
+    const hue = 1 + ((n * 5) % 4);
+    out += `<g class="gdr-ad ad${hue}">` +
+      `<rect class="gdr-ad-field" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}"/>`;
+    // EVERY NAME IS FORCED TO FIT ITS PANEL. `textLength` with `spacingAndGlyphs` squeezes
+    // or stretches the whole string to an exact width, which is both the only way a board
+    // can carry "PERCUSSIVE MAINTENANCE" and "ADEQUATE!" without one overflowing and the
+    // other looking lost — and is genuinely what an LED board does with a long name.
+    // Without it the long names ran straight off their panels and out onto the ice.
+    if (vertical) {
+      // Rotated text on a sheet that is FORESHORTENED needs the squash undone along its
+      // advance direction, or the letters bunch into each other. After `rotate(-90)` the
+      // advance runs along the sheet's compressed axis, so it is pre-stretched by 1/0.62
+      // — and the glyph height, which now runs across the sheet, is left alone. The fit
+      // length has to be given in that same pre-stretched space, hence the × TILT.
+      const cx = x + w / 2, cy = y + h / 2;
+      const fit = (h - 1.6) * SHEET_TILT;
+      out += `<text class="gdr-ad-text" textLength="${fit.toFixed(2)}" lengthAdjust="spacingAndGlyphs"` +
+        ` transform="translate(${cx.toFixed(2)},${cy.toFixed(2)}) rotate(-90) scale(${(1 / SHEET_TILT).toFixed(3)},1)">${_esc(label)}</text>`;
+    } else {
+      out += `<text class="gdr-ad-text" textLength="${(w - 1.4).toFixed(2)}" lengthAdjust="spacingAndGlyphs"` +
+        ` x="${(x + w / 2).toFixed(2)}" y="${(y + h * 0.68).toFixed(2)}">${_esc(label)}</text>`;
+    }
+    out += `</g>`;
+  };
+  // The two ends, read face-on.
+  const endW = (SHEET_W - 2 * (AD_IN + 3)) / 3;
+  for (let i = 0; i < 3; i++) {
+    const x = AD_IN + 3 + i * endW;
+    panel(x, AD_OUT, endW - 0.6, AD_IN - AD_OUT, next(), false);
+    panel(x, SHEET_L - AD_IN, endW - 0.6, AD_IN - AD_OUT, next(), false);
+  }
+  // The two sides, which is most of what a viewer actually sees.
+  const sideH = (SHEET_L - 2 * (AD_IN + 10)) / 5;
+  for (let i = 0; i < 5; i++) {
+    const y = AD_IN + 10 + i * sideH;
+    panel(AD_OUT, y, AD_IN - AD_OUT, sideH - 1.2, next(), true);
+    panel(SHEET_W - AD_IN, y, AD_IN - AD_OUT, sideH - 1.2, next(), true);
+  }
+  void r;
+  return `<g class="gdr-ads" aria-hidden="true">${out}</g>`;
 }
 
 // Static rink markings, drawn at the sheet's real proportions. Pure — built once per
@@ -330,7 +765,10 @@ function _rinkSvg() {
       // The dasher boards, then the kickplate inside them. Two rings rather than one
       // because the boards are a THING with a thickness, and the white face of them is
       // most of what separates the ice from the building behind it.
-      `<rect class="gdr-kick" x="1.8" y="1.8" width="${(SHEET_W - 3.6).toFixed(2)}" height="${(SHEET_L - 3.6).toFixed(2)}" rx="13"/>` +
+      // The dasher band, and the hoardings lit inside it. The band had to get wider to
+      // hold them — it was 1.1 units of white, which is a line, not a set of boards.
+      _adRingSvg() +
+      `<rect class="gdr-kick" x="${AD_IN.toFixed(2)}" y="${AD_IN.toFixed(2)}" width="${(SHEET_W - AD_IN * 2).toFixed(2)}" height="${(SHEET_L - AD_IN * 2).toFixed(2)}" rx="11"/>` +
       `<rect class="gdr-boards" x="0.7" y="0.7" width="${(SHEET_W - 1.4).toFixed(2)}" height="${(SHEET_L - 1.4).toFixed(2)}" rx="14"/>` +
     `</svg>`
   );
@@ -373,6 +811,7 @@ export function createRinkView(host) {
   let raf = 0;
   let lastFrame = 0;
   let men = [];
+  let goalies = [];
   let puckState = { x: 0.5, y: 0.5, hx: 0, hy: 0 };
   let camY = 0.5;               // where along the sheet the camera is centred
   let attackDir = 1;            // +1 = the side with the puck is attacking the home end
@@ -380,6 +819,12 @@ export function createRinkView(host) {
   let flow = null;              // the puck's current segment
   let flowRng = _rng(1);
   let puckTrailAt = 0;
+  // Ten men digging in at once is ten shaved-ice noises on the same frame, which is a
+  // hiss and not a hockey rink. One in three, and only the hard stops.
+  let sprayLoud = 0;
+  // Who currently owns the chase/press job on each side, so it can be held rather than
+  // recomputed from scratch every frame. See the stickiness note in `_assignJobs`.
+  const jobHolder = { a: null, h: null };
   let clockOff = 0;             // ms, for the per-man wander phases
 
   function _stop() {
@@ -397,6 +842,7 @@ export function createRinkView(host) {
   const SFX = {
     shot: 'hk-puck-slap', chest: 'hk-check', pad: 'hk-pad-save', glove: 'hk-glove-save',
     post: 'hk-post', wide: 'hk-glass', block: 'hk-stick-hit', poke: 'hk-stick-hit',
+    boards: 'hk-puck-tick', glass: 'hk-glass', stop: 'hk-skate-stop',
     net: 'hk-net', horn: 'hk-goal-horn', periodHorn: 'hk-period-horn',
     drop: 'hk-puck-tick', sweep: 'hk-skate-scrape', whistle: 'hk-whistle',
     punch: 'hk-punch', punchMiss: 'hk-punch-miss', gloves: 'hk-gloves-drop',
@@ -443,7 +889,9 @@ export function createRinkView(host) {
     clockOff += dt;
 
     _advancePuck(now, dt);
-    _advanceMen(dt);
+    _advanceDebris(now, dt);
+    _advanceMen(now, dt);
+    _advanceGoalies(dt);
     _advanceCamera(dt);
   }
 
@@ -452,13 +900,14 @@ export function createRinkView(host) {
   function _advancePuck(now, dt) {
     if (!flow) { _nextIdleFlow(); }
     const f = flow;
+    if (f.phys) { _advanceFreePuck(f, now, dt); return; }
     const t = clamp((now - f.t0) / Math.max(1, f.ms), 0, 1);
     const e = f.ease === 'in' ? t * t : f.ease === 'out' ? 1 - (1 - t) * (1 - t) : t * t * (3 - 2 * t);
     const nx = f.x0 + (f.x1 - f.x0) * e;
     const ny = f.y0 + (f.y1 - f.y0) * e;
     puckState.hx = nx - puckState.x; puckState.hy = ny - puckState.y;
     puckState.x = nx; puckState.y = ny;
-    _writeToken(puckEl(), nx, ny);
+    _writeToken(puckEl(), nx, ny); _depth(puckZ, nx, 4);
     // A trail behind a fast puck. Not decoration: a six-pixel disc crossing a zone in
     // half a second is genuinely hard to follow, and a short streak is what lets the
     // eye pick up where it came FROM and therefore where it is going. Throttled off
@@ -474,6 +923,169 @@ export function createRinkView(host) {
     }
   }
 
+  // ONE INTEGRATOR, EVERY LOOSE THING. A puck sliding on ice and a severed arm sliding
+  // on ice are the same problem — a body with a velocity, friction under it and boards
+  // around it — and writing that twice would have been two things to keep in agreement
+  // for no gain. `o` is anything with {x, y, vx, vy}; it comes back moved, and the
+  // return value is the speed it hit a wall at, or 0.
+  //
+  // Friction is a per-SECOND decay rather than a per-frame one, so the puck slows the
+  // same on a 144Hz monitor as on a 30fps tablet.
+  function _stepFree(o, dt, friction) {
+    const s = dt / 1000;
+    const decay = Math.pow(friction == null ? PUCK_FRICTION : friction, s);
+    o.vx *= decay; o.vy *= decay;
+    let nx = o.x + (o.vx * s) / SHEET_L;
+    let ny = o.y + (o.vy * s) / SHEET_W;
+    const B = PUCK_BOUNDS;
+    // Reflect rather than clamp. A clamped body slides ALONG the wall it hit, which
+    // reads as a puck stuck to the glass; a reflected one comes back out into the play,
+    // and the rebound off the end boards is a thing hockey is largely made of.
+    let hit = 0;
+    if (ny < B.y0) { ny = B.y0 + (B.y0 - ny); o.vy = -o.vy * BOARD_BOUNCE; hit = 1; }
+    else if (ny > B.y1) { ny = B.y1 - (ny - B.y1); o.vy = -o.vy * BOARD_BOUNCE; hit = 1; }
+    if (nx < B.x0) { nx = B.x0 + (B.x0 - nx); o.vx = -o.vx * BOARD_BOUNCE; hit = 1; }
+    else if (nx > B.x1) { nx = B.x1 - (nx - B.x1); o.vx = -o.vx * BOARD_BOUNCE; hit = 1; }
+    o.x = nx; o.y = ny;
+    return hit ? Math.hypot(o.vx, o.vy) : 0;
+  }
+
+  function _advanceFreePuck(f, now, dt) {
+    const px = puckState.x, py = puckState.y;
+    f.x = px; f.y = py;
+    const wall = _stepFree(f, dt);
+    if (wall) _boardRattle(now, f.x, f.y, wall);
+    _puckHitsDebris(f, now);
+    _puckHitsMen(f, now);
+    const nx = f.x, ny = f.y;
+    puckState.hx = nx - px; puckState.hy = ny - py;
+    puckState.x = nx; puckState.y = ny;
+    _writeToken(puckEl(), nx, ny); _depth(puckZ, nx, 4);
+    const sp = Math.hypot(puckState.hx * SHEET_L, puckState.hy * SHEET_W);
+    if (sp > 0.55 && now - puckTrailAt > 26) { puckTrailAt = now; _spawn('gdr-ptrail', nx, ny, 260); }
+    // It has stopped. Idle circulation picks it up from exactly where it died, which is
+    // what makes a rebound that dribbles into the corner turn into a retrieval.
+    if (Math.hypot(f.vx, f.vy) < PUCK_DEAD) {
+      if (f.onEnd) { const fn = f.onEnd; f.onEnd = null; fn(); }
+      if (flow === f) _nextIdleFlow();
+    }
+  }
+
+  // ── debris ────────────────────────────────────────────────────────────────────
+  // What comes off a man goes into the SAME integrator the puck is in, because an arm
+  // on ice is a loose body on ice and there is no second physics for it. It slides, it
+  // caroms off the dashers, it spins down as it slows, and it stays where it ends up.
+  //
+  // A LIMB IS AN OBSTACLE. It is on the ice, so the puck can hit it — which is the one
+  // thing that makes the debris part of the game rather than a decal drawn near it, and
+  // it is also the funniest thing in the CPhL. It changes NOTHING: by the time anything
+  // is on the ice the sim has already banked the outcome, and only cosmetic idle
+  // circulation is ever running when a carom off a leg can happen.
+  const DEBRIS_FRICTION = 0.14;  // meat does not glide like vulcanised rubber
+  const DEBRIS_R = 0.020;        // its radius across the sheet, in model units
+  let debris = [];
+
+  function _advanceDebris(now, dt) {
+    if (!debris.length) return;
+    for (const d of debris) {
+      if (d.dead) continue;
+      const wall = _stepFree(d, dt, DEBRIS_FRICTION);
+      if (wall > 6) _boardRattle(now, d.x, d.y, wall);
+      // It spins down with it — a part that stops sliding but keeps rotating is a
+      // sprite on a timer, and the eye catches that immediately.
+      d.rot += d.spin * (dt / 1000);
+      d.spin *= Math.pow(0.22, dt / 1000);
+      if (d.el) {
+        d.el.style.left = _px(d.y); d.el.style.top = _py(d.x);
+        d.el.style.rotate = `${d.rot.toFixed(1)}deg`;
+        _depth(d, d.x);
+      }
+      // It leaves a trail. A limb skidding across a white sheet and arriving somewhere
+      // clean is the tell that it teleported; the smear is the evidence of the path, and
+      // it is what makes a viewer's eye run BACK along it to the man it came off.
+      const sp = Math.hypot(d.vx, d.vy);
+      if (sp > 5 && now - (d.smearAt || 0) > 55) { d.smearAt = now; _spawn('gdr-smear', d.x, d.y, 8000); }
+    }
+  }
+
+  // The puck finds a leg. A circle test against each part, resolved as an elastic-ish
+  // bounce that pushes BOTH of them — the puck goes off at an angle and the limb is
+  // knocked on, which is what sells it as a collision rather than a bounce off a wall
+  // that happens to be limb-shaped.
+  function _puckHitsDebris(f, now) {
+    if (!debris.length) return;
+    for (const d of debris) {
+      if (d.dead) continue;
+      const dx = (f.x - d.x) * SHEET_L, dy = (f.y - d.y) * SHEET_W;
+      const dist = Math.hypot(dx, dy);
+      const r = DEBRIS_R * SHEET_W;
+      if (dist > r || dist < 0.001) continue;
+      const nxn = dx / dist, nyn = dy / dist;
+      const into = f.vx * nxn + f.vy * nyn;
+      if (into > 0) continue;                     // already leaving it
+      f.vx -= 2 * into * nxn * 0.7; f.vy -= 2 * into * nyn * 0.7;
+      d.vx += into * nxn * 0.5; d.vy += into * nyn * 0.5;
+      // Push it clear, or a slow puck sits inside the limb re-colliding every frame.
+      f.x = d.x + (nxn * r * 1.02) / SHEET_L;
+      f.y = d.y + (nyn * r * 1.02) / SHEET_W;
+      if (now - boardRattleAt > 140) { boardRattleAt = now; _sfx('boards'); }
+      return;
+    }
+  }
+
+  // A LOOSE PUCK FINDS FEET. Ten men are standing in the middle of the physics and the
+  // puck was passing straight through all of them, which is the single most obvious way
+  // to see that a picture is two layers rather than one place. So a free puck bounces
+  // off a skater the way it bounces off anything else — off his SKATES, which is why
+  // the radius is small: a puck ticking off a man's feet in traffic is right, and a puck
+  // bouncing off a six-foot bubble around him is a pinball table.
+  //
+  // Only ever a FREE puck. A carried, passed or shot puck is on somebody's stick and is
+  // the sim's own keyframe — deflecting that would be the view overruling a fact.
+  const MAN_R = 0.013;
+  function _puckHitsMen(f, now) {
+    for (const m of men) {
+      if (m.pin) continue;                          // down, fighting, or dead — see below
+      const dx = (f.x - m.x) * SHEET_L, dy = (f.y - m.y) * SHEET_W;
+      const dist = Math.hypot(dx, dy);
+      const r = MAN_R * SHEET_W;
+      if (dist > r || dist < 0.001) continue;
+      const nxn = dx / dist, nyn = dy / dist;
+      const into = f.vx * nxn + f.vy * nyn;
+      if (into > 0) continue;
+      // Skates and shin pads deaden it. A puck off a man is slower than a puck off the
+      // glass, and that difference is most of what makes traffic look like traffic.
+      f.vx -= 2 * into * nxn * 0.55; f.vy -= 2 * into * nyn * 0.55;
+      f.x = m.x + (nxn * r * 1.03) / SHEET_L;
+      f.y = m.y + (nyn * r * 1.03) / SHEET_W;
+      if (-into > 14 && now - boardRattleAt > 150) { boardRattleAt = now; _sfx('block'); _spawn('gdr-snow', f.x, f.y, 340); }
+      return;
+    }
+  }
+
+  // Hand the puck a velocity and let go of it. `dirX`/`dirY` are model-frame directions
+  // (they need not be normalised); `speed` is feet per second.
+  function _kickPuck(dirX, dirY, speed, opts) {
+    const mag = Math.hypot(dirX * SHEET_L, dirY * SHEET_W) || 1;
+    flow = {
+      phys: true, t0: performance.now(),
+      vx: (dirX * SHEET_L / mag) * speed,
+      vy: (dirY * SHEET_W / mag) * speed,
+      onEnd: (opts && opts.onEnd) || null,
+    };
+    return flow;
+  }
+
+  // The dashers take one. Throttled, because a puck rattling around a corner can clip
+  // two walls in three frames and three overlapping bangs is a drum, not a rink.
+  let boardRattleAt = 0;
+  function _boardRattle(now, x, y, speed) {
+    if (now - boardRattleAt < 140 || speed < 8) return;
+    boardRattleAt = now;
+    _sfx(speed > 45 ? 'glass' : 'boards');
+    _spawn('gdr-ptrail', x, y, 220);
+  }
+
   // Where one man wants to be, given where the puck is. The single source of the
   // formation — the per-frame integrator eases toward it, and a beat's opening CUT
   // snaps to it, so a play never begins with ten men sprinting in from the last one.
@@ -485,20 +1097,68 @@ export function createRinkView(host) {
       // Nothing about the puck moves him until whatever is holding him lets go.
       [tx, ty] = m.pin;
     } else if (isCarrier) {
-      // He IS the puck, near enough — a stride behind it, on his own attacking side.
-      tx = px - d * 0.012; ty = py;
+      // THE PUCK GOES ON HIS BLADE, NOT UNDER HIS FEET. This used to put the man's own
+      // position on the puck — and since a standing figure is anchored at his SKATES,
+      // that drew every carrier in the league dribbling it with his boots. He is offset
+      // by his own stick reach instead, to whichever side he is currently facing, so the
+      // puck sits at the end of the blade the rig already draws.
+      //
+      // `BLADE_REACH` is measured off the artwork rather than picked: the blade sits
+      // about 0.43 of the way out from his spine in a viewBox that is `.gdr-skater` wide,
+      // which lands at ~3½ feet of stick — and it has to be derived that way, or the
+      // puck drifts off the stick the moment anybody resizes the figure.
+      // The BLEND, not the sign: mid-switch he stands square over the puck with the
+      // blade at his centre, which is what makes pulling it across his body a move you
+      // can watch rather than a frame where it teleports past his boots.
+      tx = px - d * 0.008;
+      ty = clamp01(py + m.faceBlend * BLADE_REACH);
+    } else if (m.mode === 'chase') {
+      // A LOOSE PUCK IS A RACE. Nobody carries it, so the nearest man from each side
+      // goes and GETS it — with a lead, because you skate to where a sliding puck is
+      // going and not to where it is. This is the single biggest reason the ice used to
+      // look like a formation drill: the puck would squirt into a corner and ten men
+      // would slide two feet sideways and carry on holding their lanes.
+      tx = clamp01(px + puckState.hx * 9);
+      ty = clamp01(py + puckState.hy * 9);
+    } else if (m.mode === 'support') {
+      // His side has it and he is close: he is an OUTLET. He works to a passing
+      // position off the carrier — up his own side of the ice and out toward his lane —
+      // rather than holding a fixed depth, which is what makes two men look like they
+      // are playing with each other instead of near each other.
+      tx = px + d * (0.030 + m.rank * 0.026);
+      ty = py + (role.lane - 0.5) * 0.62;
+    } else if (m.mode === 'press') {
+      // The other side has it and he is nearest: he FORECHECKS. He takes the angle —
+      // a step to the defensive side of the puck, so he is between it and his own net
+      // rather than trailing it, which is the difference between pressure and a chase.
+      tx = px - d * 0.018;
+      ty = py + (role.lane - 0.5) * 0.30;
     } else {
-      tx = px + d * (has ? role.withPuck : role.without);
-      // `grip` is how strongly he follows the puck across the sheet. A centre shades
-      // over hard; a defenceman holds his lane, which is what keeps the pair spread
-      // across the front of their own net instead of both chasing the same corner.
-      ty = role.lane + (py - 0.5) * role.grip;
-      // Nobody stands still. Small, slow, out of phase per man — enough that the ice
-      // looks occupied between beats without anybody appearing to have somewhere to be.
+      // HE PLAYS HIS OWN AREA. Every off-puck man used to target the identical
+      // puck-relative offset, so the whole five-man unit translated as one rigid body:
+      // the puck moved a foot and ten men moved a foot, in perfect lockstep, which is the
+      // single most artificial thing a crowd of tokens can do. Three things break that up
+      // and none of them is randomness for its own sake.
+      //
+      // ONE — HIS OWN PATCH. Each man carries a small seeded bias on his depth and his
+      // lane, so the unit is not a lattice and two men in the same role never stand at
+      // mirrored coordinates.
+      tx = px + d * (has ? role.withPuck : role.without) + m.biasX;
+      // TWO — HIS INTEREST FALLS OFF WITH DISTANCE. A winger three zones from the puck
+      // does not slide across the ice because it moved in the far corner; he holds his
+      // lane and lets it come to him. Close to the play he shades over hard. This is what
+      // turns one sliding formation into five men each minding their own area.
+      const away = Math.abs(px - m.x);
+      const interest = 1 / (1 + away * 7);
+      ty = role.lane + m.biasY + (py - 0.5) * role.grip * interest;
+      // THREE — he drifts inside it, on his own clock. Bigger and slower than the old
+      // shared wander, and scaled per man, so a stretch of quiet ice reads as five people
+      // patrolling rather than five sprites vibrating in sympathy.
       if (wander) {
-        tx += Math.sin((clockOff + m.phase) / 1450) * 0.014;
-        ty += Math.cos((clockOff + m.phase * 1.7) / 1180) * 0.022;
+        tx += Math.sin((clockOff + m.phase) / (1900 * m.wanderRate)) * 0.020 * m.wanderAmp;
+        ty += Math.cos((clockOff + m.phase * 1.7) / (1500 * m.wanderRate)) * 0.034 * m.wanderAmp;
       }
+      return [clamp(tx, 0.105, 0.895), clamp(ty, 0.06, 0.94)];
     }
     // Inside the boards — and NEVER into the paint. The carrier tracks the puck, and
     // the puck's last keyframe on a goal is inside the cage, so without this floor a
@@ -517,8 +1177,14 @@ export function createRinkView(host) {
       const has = carrier && carrier.side === m.side;
       const isCarrier = has && carrier.i === m.i;
       const [tx, ty] = _targetFor(m, px, py, has, isCarrier, false);
-      m.x = tx; m.y = ty; m.speed = 0;
+      m.x = tx; m.y = ty; m.speed = 0; m.lean = 0;
       m.head = m.dir > 0 ? Math.PI : 0;
+      // He faces the way he attacks from the very first frame of the cut. A CUT is the
+      // one place facing is allowed to be instantaneous — it's a different camera shot,
+      // not a man turning — so the blend is slammed to match rather than eased.
+      m.showBack = m.dir < 0;
+      m.faceBlend = m.faceWant = m.face;
+      if (m.crossing) { m.crossing = false; m.el?.classList.remove('crossing'); }
       _writeSkater(m);
     }
   }
@@ -526,8 +1192,53 @@ export function createRinkView(host) {
   // Formation. Every man targets a point derived from the puck and his role, so the
   // whole team shifts as one when the puck moves — which is the thing that reads as
   // hockey rather than ten independent wanderers.
-  function _advanceMen(dt) {
+  // WHO REACTS TO THE PUCK, decided fresh every frame. Each side's men are ranked by
+  // their real distance to it, and the top one or two are given a job — chase it, support
+  // the man who has it, or forecheck the man who has it. Everyone else holds the
+  // formation as before, which is what keeps the picture a hockey team rather than ten
+  // men all converging on the same square foot of ice.
+  //
+  // The ranking is by SHEET distance, not model distance, so the narrow axis isn't
+  // treated as though it were as long as the rink.
+  function _assignJobs() {
+    for (const side of ['a', 'h']) {
+      const list = [];
+      for (const m of men) {
+        if (m.side !== side) continue;
+        m.mode = null; m.rank = 99;
+        if (m.pin) continue;      // down, fighting, dead — he reacts to nothing
+        list.push(m);
+        m.dist = Math.hypot((m.x - puckState.x) * SHEET_L, (m.y - puckState.y) * SHEET_W);
+      }
+      list.sort((a, b) => a.dist - b.dist);
+      // STICKY. Two men within a hair of each other swap rank 0 several times a second,
+      // and since a chaser and a lane-holder want completely different places to be,
+      // that churn threw both of them back and forth every frame — one of the three
+      // sources of the shaking. The incumbent keeps the job unless somebody is
+      // meaningfully closer, so ties resolve to whoever had it.
+      const prev = jobHolder[side];
+      if (prev && !prev.pin && list.length > 1 && list[0] !== prev) {
+        const inc = list.indexOf(prev);
+        if (inc > 0 && list[inc].dist < list[0].dist * 1.25) {
+          list.splice(inc, 1); list.unshift(prev);
+        }
+      }
+      jobHolder[side] = list[0] || null;
+      const hasIt = carrier && carrier.side === side;
+      list.forEach((m, i) => {
+        m.rank = i;
+        const isCarrier = hasIt && carrier.i === m.i;
+        if (isCarrier) return;                       // he IS the puck; handled elsewhere
+        if (!carrier) { if (i === 0) m.mode = 'chase'; return; }
+        if (hasIt) { if (i <= 1) m.mode = 'support'; return; }
+        if (i === 0) m.mode = 'press';
+      });
+    }
+  }
+
+  function _advanceMen(now, dt) {
     const px = puckState.x, py = puckState.y;
+    _assignJobs();
     for (const m of men) {
       const role = ROLES[m.i];
       const d = m.dir;                                  // his own attacking direction
@@ -535,7 +1246,18 @@ export function createRinkView(host) {
       const isCarrier = carrier && carrier.side === m.side && carrier.i === m.i;
 
       const [tx, ty] = _targetFor(m, px, py, has, isCarrier, true);
-      const tau = isCarrier ? TAU_CARRIER : TAU_SKATER;
+      // A man with a JOB skates harder than a man holding a lane, and a man racing for a
+      // loose puck skates hardest of all. This is where "they move with the puck" is
+      // actually felt: without it the chaser has the right destination and still ambles
+      // toward it at positional speed.
+      // Per-man reaction, so the ten of them never arrive together. A shared time
+      // constant makes a formation move like one object no matter how much its targets
+      // differ; jobs are the exception, because a man who has been SENT somewhere is
+      // supposed to go there at the pace the job demands.
+      const tau = isCarrier ? TAU_CARRIER
+        : m.mode === 'chase' ? TAU_CHASE
+        : (m.mode === 'press' || m.mode === 'support') ? TAU_WORKING
+        : TAU_SKATER * m.react;
       const k = 1 - Math.exp(-dt / tau);
       const nx = m.x + (tx - m.x) * k, ny = m.y + (ty - m.y) * k;
       const vx = nx - m.x, vy = ny - m.y;
@@ -548,15 +1270,198 @@ export function createRinkView(host) {
       // picture stands up) and each axis is weighted by the sheet's real proportions,
       // or a man crossing the narrow axis appears to turn twice as far as he did.
       const sp = Math.hypot(vx, vy);
+      // Screen deltas, which is the frame facing is decided in: across the sheet is
+      // negated (model y runs the other way once the picture stands up) and along it is
+      // foreshortened by the tilt, so a man drifting sideways on a squashed sheet isn't
+      // judged to be skating up-ice.
+      const sdx = -vy * SHEET_W, sdy = vx * SHEET_L * SHEET_TILT;
+      // FACING IS DECIDED ON A SMOOTHED SIGNAL, NOT AN INSTANTANEOUS ONE, and that turned
+      // out to be the whole fix. Hysteresis on the raw per-frame velocity was not enough:
+      // every man carries a slow cosine WANDER so the ice looks occupied between beats,
+      // and that wander's own peak lateral speed is several times any threshold worth
+      // setting. A man standing still was therefore being told he had changed direction
+      // once a second, and turned around — the violent shaking, with no actual movement
+      // behind it. Low-passing over ~400ms averages the wander away to nothing while
+      // leaving a real change of direction completely intact; the hysteresis on top then
+      // only has to reject what's left.
+      // The filter and the threshold are SET AGAINST THE WANDER, deliberately. The
+      // wander is a cosine of ~1180ms period and 0.022 amplitude, whose peak lateral
+      // speed lands around 0.16 in these units — so a 400ms filter only attenuated it to
+      // ~0.07 and a 0.055 threshold still let it through, which is why men kept turning
+      // around while standing still. A 700ms filter puts the wander's residue near 0.04
+      // and the bar at 0.15, comfortably above it; a man genuinely crossing the sheet
+      // reads several times that, so real turns are untouched.
+      const kf = Math.min(1, dt / 700);
+      m.sdx += (sdx - m.sdx) * kf;
+      m.sdy += (sdy - m.sdy) * kf;
+      // TURNING AROUND IS A MOVE, NOT A SIGN CHANGE. `faceWant` is the discrete answer
+      // and `faceBlend` is the continuous one that eases toward it, and everything reads
+      // the blend. That one indirection buys both of the things that were wrong here:
+      //
+      //   · A CARRIER CAN SWITCH STICK SIDE AGAIN. He couldn't, because an instantaneous
+      //     mirror teleported his blade to his other hip and dragged the puck through his
+      //     skates on the way. Easing the blend means his lateral offset travels from one
+      //     side to the other over ~200ms — he PULLS THE PUCK ACROSS HIS BODY, which is
+      //     the move a real player makes, and the mirror itself flips at the midpoint,
+      //     exactly when the puck is in front of him and the blade is at his centre.
+      //   · Nobody snaps. Even an off-puck man rotates through the turn now.
+      //
+      // A carrier needs a decisively bigger signal to commit, because switching hands is
+      // a deliberate act and a winger drifting is not.
+      // EIGHT HEADINGS OUT OF ONE DRAWING. Mirroring alone gives a man exactly two looks —
+      // facing left and facing right — so a whole team drifting up the ice was a row of
+      // profiles, and "coming at the camera" was indistinguishable from "crossing in front
+      // of it". A sprite set solves this with five drawings; the same read comes out of one
+      // by FORESHORTENING it.
+      //
+      // Screen heading θ is measured from straight-away: 0 is up the ice, π is at the
+      // camera, ±π/2 is square across. |cos θ| is then how square-on he is, and it drives
+      // his apparent WIDTH — a man facing you shows his whole chest, a man in profile
+      // shows a shoulder. Together with the mirror (which way) and the front/back swap
+      // (toward or away) that is eight legible headings, continuously.
+      const yaw = Math.atan2(m.sdx, -m.sdy);
+      const squareOn = 0.52 + 0.48 * Math.abs(Math.cos(yaw));
+      // Quantised, or this is a style write per man per frame for a value nobody can see
+      // change at that resolution.
+      const tb = Math.round(squareOn * 20);
+      if (tb !== m.turnBand) { m.turnBand = tb; m.el.style.setProperty('--gdr-turn', (tb / 20).toFixed(2)); }
+      // HOW MUCH OF HIS FRONT YOU CAN SEE, continuously: 0 skating straight away, 1
+      // coming straight at the camera, and everything between. The cage, the crest and
+      // the back number cross-fade on this rather than snapping on a class, which is what
+      // makes a man turning through profile a man TURNING rather than a man who suddenly
+      // became a different sprite. Straight down the ice at the camera is `front = 1` —
+      // full mask, full crest, no number — which is the frame that has to read hardest.
+      //
+      // Ramped rather than linear so the exchange happens across the middle of the turn
+      // instead of dragging a half-visible number all the way round.
+      const front = clamp01((((1 - Math.cos(yaw)) / 2) - 0.30) / 0.40);
+      const fb = Math.round(front * 20);
+      if (fb !== m.frontBand) { m.frontBand = fb; m.el.style.setProperty('--gdr-front', (fb / 20).toFixed(2)); }
+      // AND THE STICK SWINGS THROUGH THE SAME ANGLE. This is the cue that was missing:
+      // the body mirrors left and right, so a man skating AT the camera and one skating
+      // AWAY were the identical drawing with a different badge on it — which is why a
+      // whole team travelling up the ice looked like it was skating backwards. The stick
+      // reaches out into the world, so it is the part that can point at you: swung low
+      // and in front coming at the camera, tucked high and behind going away, straight
+      // out to the side in profile.
+      const sy = Math.round(-Math.cos(yaw) * 58);
+      if (sy !== m.stickBand) { m.stickBand = sy; m.el.style.setProperty('--gdr-stickyaw', `${sy}deg`); }
+      // HOW SIDE-ON HE IS — and it is NOT the inverse of the body squash, which is why it
+      // needs its own number. A torso is widest facing the camera; a SKATE BLADE is the
+      // opposite, longest across the screen in profile and pointing straight at you
+      // head-on. Drawn as fixed horizontal lines they pointed right whatever he was
+      // doing, so a man skating at the camera stood on two sideways blades.
+      const side = Math.round(Math.abs(Math.sin(yaw)) * 20);
+      if (side !== m.sideBand) { m.sideBand = side; m.el.style.setProperty('--gdr-side', (side / 20).toFixed(2)); }
+      const faceWant = m.sdx < 0 ? -1 : 1;
+      if (faceWant !== m.faceWant && Math.abs(m.sdx) > (isCarrier ? 0.34 : 0.15)) m.faceWant = faceWant;
+      m.faceBlend += (m.faceWant - m.faceBlend) * Math.min(1, dt / 190);
+      m.face = m.faceBlend < 0 ? -1 : 1;
+      // HE CROSSES OVER. A skater changing direction at speed doesn't swivel — he steps
+      // one skate over the other, and that is the most recognisable thing a hockey player
+      // does with his feet. Driven off the lean (which is already the turn rate) with a
+      // deliberate gap between the on and off thresholds, or a man hovering at the edge
+      // of a turn would flicker between striding and crossing.
+      const crossing = m.crossing ? (Math.abs(m.lean) > 3.5 && m.speed > 0.11) : (Math.abs(m.lean) > 7 && m.speed > 0.16);
+      if (crossing !== m.crossing) { m.crossing = crossing; m.el?.classList.toggle('crossing', crossing); }
+      const wantBack = m.sdy < 0;
+      if (wantBack !== m.showBack && Math.abs(m.sdy) > 0.15) m.showBack = wantBack;
+      let turn = 0;
       if (sp > 0.00025) {
         const want = Math.atan2(-vy * SHEET_W, -vx * SHEET_L);
         let da = want - m.head;
         while (da > Math.PI) da -= Math.PI * 2;
         while (da < -Math.PI) da += Math.PI * 2;
-        m.head += da * Math.min(1, dt / 120);
+        turn = da * Math.min(1, dt / 120);
+        m.head += turn;
       }
+      const wasSpeed = m.speed;
       m.speed += (sp * 1000 - m.speed) * Math.min(1, dt / 200);
+      // HE LEANS INTO IT. A skater turning at speed is not an upright figure that has
+      // rotated — he is a man on two thin blades who must put his shoulders inside the
+      // arc or fall over, and that lean is most of what separates skating from sliding.
+      // Proportional to turn rate AND to speed, because a man crossing over at a
+      // standstill leans nowhere; low-passed so it builds and releases through the turn
+      // rather than snapping on at the first frame of it.
+      // Capped much tighter than the old shear was. A standing figure past about 12° off
+      // vertical stops reading as leaning and starts reading as falling over.
+      const wantLean = clamp(-(turn / Math.max(0.001, dt / 1000)) * 5 * clamp(m.speed / 0.28, 0, 1), -12, 12);
+      m.lean += (wantLean - (m.lean || 0)) * Math.min(1, dt / 140);
+      // Snow. He sheds it when he digs in — hard on the brakes, or hard around a corner
+      // — which are exactly the two moments a top-down figure has no other way to say
+      // that anything strenuous just happened.
+      const decel = (wasSpeed - m.speed) / Math.max(0.001, dt / 1000);
+      const digging = (decel > 0.55 && wasSpeed > 0.18) || (Math.abs(m.lean) > 15 && m.speed > 0.2);
+      if (digging && now - (m.sprayAt || 0) > 190) {
+        m.sprayAt = now;
+        _spawn('gdr-snow', m.x, m.y, 460);
+        if (decel > 1.1 && sprayLoud++ % 3 === 0) _sfx('stop');
+      }
+      _cutIce(m, now);
+      _tripOver(m, now);
       _writeSkater(m);
+    }
+  }
+
+  // ── the ice remembers ─────────────────────────────────────────────────────────
+  // THE SHEET IS CONSUMED BY BEING SKATED ON. The rink was authored with a fixed scatter
+  // of scuffs, which says "this game has been going a while" exactly once and then says
+  // nothing ever again — the same forty-six marks in the same forty-six places while ten
+  // men skate over clean ice all night. Every stride now CUTS, along the man's heading,
+  // and the cut stays. Over a beat the traffic pattern of the play writes itself into the
+  // surface: the lane the rush came up is visibly chewed and the far corner is not.
+  //
+  // Bounded, FIFO, and static once drawn — a cut is one <line> that is never touched
+  // again, so two hundred of them cost one paint and nothing per frame.
+  // Tuned DOWN hard once the sheet was foreshortened: the same cadence that read as
+  // light scuffing on a full-length plan view scribbled the whole zone solid once the
+  // ice was compressed to 0.62 and the visible band held twice as much of it. The play
+  // has to stay the brightest thing on the sheet.
+  const MAX_CUTS = 90;
+  let cuts = [];
+  function _cutIce(m, now) {
+    if (m.pin || m.speed < 0.16) return;
+    // Faster men cut more often, which is what makes a breakaway leave a streak and a
+    // man drifting in the neutral zone leave the occasional nick.
+    if (now - (m.cutAt || 0) < 640 - clamp(m.speed, 0, 0.5) * 700) return;
+    m.cutAt = now;
+    const layer = q('.gdr-cuts'); if (!layer) return;
+    // Along his heading, in SHEET units — the figure is drawn facing up, so his heading
+    // maps back through the same negation the rotation used.
+    const len = 1.2 + clamp(m.speed, 0, 0.5) * 5;
+    const ux = -Math.cos(m.head), uy = -Math.sin(m.head);
+    const x = _sx(m.y), y = _sy(m.x);
+    const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    ln.setAttribute('x1', (x - ux * len * 0.5).toFixed(2));
+    ln.setAttribute('y1', (y - uy * len * 0.5).toFixed(2));
+    ln.setAttribute('x2', (x + ux * len * 0.5).toFixed(2));
+    ln.setAttribute('y2', (y + uy * len * 0.5).toFixed(2));
+    ln.setAttribute('class', 'gdr-cut');
+    layer.appendChild(ln);
+    cuts.push(ln);
+    while (cuts.length > MAX_CUTS) cuts.shift().remove();
+  }
+
+  // A LIMB ON THE ICE IS A HAZARD. If a severed leg can stop a puck it can certainly
+  // stop a man, and a rink where the debris is inert is a rink where the debris is
+  // scenery. He goes down, he gets up, and it costs nothing but the picture — no beat,
+  // no outcome and no stat has ever come out of a man falling over.
+  function _tripOver(m, now) {
+    if (m.pin || m.speed < 0.14 || !debris.length) return;
+    for (const d of debris) {
+      if (d.dead) continue;
+      const dx = (m.x - d.x) * SHEET_L, dy = (m.y - d.y) * SHEET_W;
+      if (Math.hypot(dx, dy) > DEBRIS_R * SHEET_W * 1.4) continue;
+      m.pin = [m.x + (m.x - d.x) * 2.2, m.y + (m.y - d.y) * 2.2];
+      m.el?.classList.add('down');
+      _spawn('gdr-snow', m.x, m.y, 520);
+      _sfx('stop');
+      _crowd('gasp', 200);
+      // He kicks it on as he goes over it, which is why the same leg doesn't trip the
+      // whole team in the same two seconds.
+      d.vx += (d.x - m.x) * SHEET_L * 3; d.vy += (d.y - m.y) * SHEET_W * 3;
+      _t(1500, () => { if (m.el) { m.pin = null; m.el.classList.remove('down'); } });
+      return;
     }
   }
 
@@ -580,15 +1485,22 @@ export function createRinkView(host) {
     const ch = cam.offsetHeight, vh = rink.clientHeight;
     if (!ch || !vh) return;
     const vis = vh / ch;                              // how much of the sheet is in frame
-    const lead = clamp(puckState.hx * 5, -0.03, 0.03);
+    // The lead is small on purpose and got smaller. Anticipation that overshoots is
+    // just a second source of motion arguing with the first.
+    const lead = clamp(puckState.hx * 3, -0.018, 0.018);
     const target = clamp01(puckState.x + lead);
     const err = target - camY;
-    const dead = vis * 0.15;
+    // A WIDE deadzone. The puck is allowed to live anywhere in the middle 56% of the
+    // frame without the camera acknowledging it at all — most passes, most of the
+    // circulation between beats and every scramble in a corner now cost zero motion,
+    // which is what makes the remaining motion mean something.
+    const dead = vis * 0.28;
     const outside = Math.abs(err) - dead;
     if (outside > 0) {
-      // Escaping the frame entirely is worse than a fast pan, so past a third of the
-      // window the camera stops being polite about it.
-      const tau = Math.abs(err) > vis * 0.32 ? 120 : TAU_CAM;
+      // Escaping the frame entirely is worse than a fast pan, so once the puck is most
+      // of the way to the edge the camera stops being polite about it. Raised with the
+      // deadzone so the two don't overlap into a permanent hurry.
+      const tau = Math.abs(err) > vis * 0.44 ? 260 : TAU_CAM;
       const want = camY + Math.sign(err) * outside;
       camY += (want - camY) * (1 - Math.exp(-dt / tau));
     }
@@ -602,6 +1514,31 @@ export function createRinkView(host) {
     cam.style.transform = `translate3d(0, ${-off.toFixed(1)}px, 0)`;
   }
 
+  // ── depth ─────────────────────────────────────────────────────────────────────
+  // THE PICTURE IS 3/4, SO DRAWING ORDER IS A POSITION, NOT A CONSTANT. Every token had
+  // a fixed z-index — goalies 3, skaters 2 — which meant a keeper drew in front of every
+  // man on the ice no matter where anybody was standing. A forward parked at the top of
+  // the crease, unambiguously nearer the camera than the goalie behind him, vanished
+  // behind him instead.
+  //
+  // The sheet's far end is at the TOP of the picture, so model `x` IS depth: the larger
+  // it is, the lower on screen and the nearer the camera, and the later it must be
+  // painted. Skaters, goalies and severed limbs all share one scale so they interleave
+  // with each other rather than each obeying its own layer.
+  //
+  // Quantised into bands and only written on a change: this is a style write per token
+  // per frame otherwise, and z-index churn on twenty elements is not free.
+  const Z_BANDS = 300;
+  function _depth(o, x, bias) {
+    const band = 10 + Math.round(clamp01(x) * Z_BANDS) + (bias || 0);
+    if (band !== o.zBand) { o.zBand = band; if (o.el) o.el.style.zIndex = String(band); }
+  }
+  // The puck sorts by depth like everything else, but with a nudge: it is the object the
+  // viewer is tracking, and at the same depth as a body it should be the one you can see.
+  // A few bands is enough to win a tie without letting it float over a man properly in
+  // front of it.
+  const puckZ = { el: null, zBand: 0 };
+
   function _writeToken(el, x, y) {
     if (!el) return;
     el.style.left = _px(y); el.style.top = _py(x);
@@ -609,9 +1546,61 @@ export function createRinkView(host) {
   function _writeSkater(m) {
     if (!m.el) return;
     m.el.style.left = _px(m.y); m.el.style.top = _py(m.x);
-    if (m.svg) m.svg.style.transform = `rotate(${(m.head * 180 / Math.PI).toFixed(1)}deg)`;
+    _depth(m, m.x);
+    // HE IS NEVER ROTATED, and that is the whole point of the 3/4. A standing figure
+    // spun to face down-screen is a man standing on his head; a standing figure MIRRORED
+    // is a man facing the other way. So heading becomes two discrete facts — which side
+    // he faces, and whether you are looking at his front or his back — plus a lean, and
+    // his helmet stays above his skates no matter where the play goes.
+    //
+    // Both are latched with a dead band. A man drifting almost straight up the ice has a
+    // lateral velocity that crosses zero constantly, and reading the raw sign would flip
+    // him left/right several times a second.
+    // A LEAN IS A ROTATION ABOUT HIS SKATES, NOT A SHEAR. This was a `skewX`, which
+    // slants a figure's verticals without moving its feet — on a top-down blob that
+    // passed for leaning, but on a standing man it visibly WARPS him: his head slides
+    // sideways off a body that stays put. He now rotates about the bottom of the box,
+    // which is where his blades are, so the whole man tips the way a man tips.
+    //
+    // A LEAN IS SOMETHING HIS BODY DOES, not something done to his bounding box. Rotating
+    // the whole figure was the second attempt at this (the first was a `skewX`, which
+    // sheared him) and it is wrong in the same way: tipping a finished drawing is a
+    // transform, and a viewer reads it as the sprite being tilted rather than as a man
+    // leaning. It is nearly gone from the transform now — a couple of degrees of body
+    // roll, no more — and the real weight of a turn is carried by the CROSSOVER, which is
+    // limbs moving at their joints. That is the difference between animating a figure and
+    // rotating a picture of one.
+    if (m.svg) m.svg.style.transform = `rotate(${((m.lean || 0) * 0.28).toFixed(1)}deg)`;
+    // FACING IS A CUSTOM PROPERTY, not a transform string, and that is what lets it reach
+    // more than one place at once. The body reads it to mirror; the markings printed on
+    // the sweater read the SAME value to cancel that mirror locally; and the reflection —
+    // which carries its own copy of the whole body — picks both up for free instead of
+    // needing to be found and written to separately.
+    if (m.face !== m.wasFace) { m.el.style.setProperty('--gdr-face', String(m.face)); m.wasFace = m.face; }
+    if (m.showBack !== m.wasBack) { m.el.classList.toggle('away', m.showBack); m.wasBack = m.showBack; }
     const fast = m.speed > 0.16;
     if (fast !== m.wasFast) { m.el.classList.toggle('striding', fast); m.wasFast = fast; }
+    // THE STRIDE IS ALWAYS RUNNING; his speed sets its TEMPO and its AMPLITUDE. This
+    // used to be gated on `fast`, so a man crossing the threshold popped between an
+    // animated cycle and a frozen pose — legs snapping to neutral in a single frame,
+    // ten times a beat. Driving two numbers instead of a switch means a man barely
+    // moving runs a slow shallow version of the same cycle (weight shifting) and a man
+    // on a breakaway runs a quick deep one, with nothing in between to pop across.
+    //
+    // BOTH ARE QUANTISED, and that is not a micro-optimisation. Rewriting the duration
+    // restarts the animation, so a man accelerating smoothly would twitch in place on
+    // every frame; coarse bands mean it re-times a few times across a whole rush.
+    const sp = clamp(m.speed, 0, 0.45);
+    const dur = Math.round((0.92 - sp * 1.35) * 12);      // 12ths of a second
+    const amp = Math.round(3 + sp * 30);                  // unitless degrees
+    // THE DURATION IS THE DANGEROUS ONE. Rewriting it RESTARTS the animation, so a man
+    // whose speed sits on a band boundary re-triggers his own stride every frame and
+    // shakes violently in place — the loudest of the three jitters. It only changes on a
+    // TWO-band move now, and the bands are coarser, so hovering can't retrigger it.
+    // Amplitude is safe to write freely: it is read inside the keyframes, so changing it
+    // re-resolves the running animation smoothly instead of restarting it.
+    if (Math.abs(dur - m.strideBand) >= 2) { m.strideBand = dur; m.el.style.setProperty('--gdr-stride', `${(dur / 12).toFixed(3)}s`); }
+    if (amp !== m.ampBand) { m.ampBand = amp; m.el.style.setProperty('--gdr-amp', String(amp)); }
     const isCarrier = carrier && carrier.side === m.side && carrier.i === m.i;
     if (isCarrier !== m.wasCarrier) { m.el.classList.toggle('carrier', isCarrier); m.wasCarrier = isCarrier; }
   }
@@ -662,15 +1651,38 @@ export function createRinkView(host) {
   // the puck — the depth of a goalie's game is lateral, and a still goalie reads as a
   // dead sprite. Driven off the loop rather than the beat, so he tracks the idle puck
   // as attentively as a live one.
-  function _goalieTrack(side, puckY, ms) {
-    const g = goalieEl(side); if (!g) return;
-    const gl = side === 'l' ? GEO.goalLine[0] : GEO.goalLine[1];
-    // He plays out from the line a little, and covers only a fraction of the lateral
-    // spread — overselling this makes him look like he's on rails.
-    const depth = side === 'l' ? gl + 0.020 : gl - 0.020;
-    const y = 0.5 + (clamp01(puckY) - 0.5) * 0.42;
-    g.style.transition = ms ? `left ${ms}ms cubic-bezier(.4,0,.3,1), top ${ms}ms cubic-bezier(.4,0,.3,1)` : 'none';
-    _writeToken(g, depth, y);
+  // HE STANDS ON THE ANGLE, and that is a geometry problem with a real answer rather
+  // than a fraction to taste. A goalie's whole job is to put himself on the straight
+  // line between the puck and the middle of his net, some distance out along it; how
+  // far out is the only judgement in it. The old version covered a flat 0.42 of the
+  // puck's lateral spread on a stepped 560ms transition, which meant he drifted the
+  // wrong way on a puck in tight (the closer it gets, the MORE he has to move, not
+  // less) and arrived in six visible hops.
+  //
+  // He is integrated on the frame loop now, from the same puck the picture is showing.
+  function _advanceGoalies(dt) {
+    for (const g of goalies) {
+      if (!g.el || !g.el.isConnected) continue;
+      const gl = g.side === 'l' ? GEO.goalLine[0] : GEO.goalLine[1];
+      const outward = g.side === 'l' ? 1 : -1;
+      const dist = Math.abs(puckState.x - gl);
+      // Out to cut the angle when the play is up the ice, back on his post when it is
+      // in tight. A keeper sitting deep in his crease on a point shot is the most
+      // obviously wrong thing a hockey picture can show, and he was doing it all night.
+      const out = clamp(0.010 + dist * 0.20, 0.010, 0.052);
+      const tx = gl + outward * out;
+      // The similar-triangles bit: at `out` along a line `dist` long, he has covered
+      // out/dist of the puck's offset from centre. Clamped so a puck behind the goal
+      // line can't walk him out of his own net.
+      const ty = clamp(0.5 + (puckState.y - 0.5) * clamp(out / Math.max(0.04, dist), 0, 1), 0.5 - 0.17, 0.5 + 0.17);
+      const k = 1 - Math.exp(-dt / TAU_GOALIE);
+      g.x += (tx - g.x) * k; g.y += (ty - g.y) * k;
+      _writeToken(g.el, g.x, g.y);
+      // He sorts with the skaters, so a man in front of the net is in front of him and a
+      // man behind the goal line is behind him — which is the entire fix for keepers
+      // that used to be painted over everybody on the ice.
+      _depth(g, g.x);
+    }
   }
   function _goaliePose(side, cls, holdMs) {
     const g = goalieEl(side); if (!g) return;
@@ -678,12 +1690,25 @@ export function createRinkView(host) {
     g.dataset.side = side;
     if (holdMs) _t(holdMs, () => { if (g.isConnected) g.className = `gdr-goalie ${side === 'l' ? 'left' : 'right'} pose-ready`; });
   }
-  // Both goalies re-square themselves on a slow cadence off the live puck.
-  function _goalieIdlePulse() {
-    if (!sheet || !sheet.isConnected) return;
-    _goalieTrack('l', puckState.y, 620);
-    _goalieTrack('r', puckState.y, 620);
-    _t(560, _goalieIdlePulse);
+  // Bind the two keepers to the loop. They start ON their line rather than easing in
+  // from wherever the last mount left them.
+  function _bindGoalies() {
+    goalies = ['l', 'r'].map((side) => {
+      const el = goalieEl(side);
+      const gl = side === 'l' ? GEO.goalLine[0] : GEO.goalLine[1];
+      // The transition the pulse used to drive would now fight the integrator for the
+      // same two properties, and two things writing one style is how a goalie ends up
+      // skating to places nobody sent him.
+      if (el) el.style.transition = 'none';
+      const g = { side, el, x: gl + (side === 'l' ? 0.014 : -0.014), y: 0.5 };
+      _writeToken(el, g.x, g.y);
+      // Depth at MOUNT, not only in the loop. The skaters get theirs from
+      // `_snapFormation`, which runs synchronously; the keepers only got theirs on the
+      // first animation frame, so for one frame — and for the whole of a backgrounded
+      // tab, where rAF never fires at all — they had no place in the paint order.
+      _depth(g, g.x);
+      return g;
+    });
   }
 
   // ── the net ───────────────────────────────────────────────────────────────────
@@ -695,6 +1720,39 @@ export function createRinkView(host) {
     const net = q(`.gdr-net[data-side="${side}"]`);
     if (net) { net.classList.add('scored'); _t(2600, () => net.classList.remove('scored')); }
   }
+  // THE BUILDING GOES OFF. A goal was the loudest thing in the sim and one of the
+  // quietest things in the picture — a mesh bulge and a lamp, over a rink that carried
+  // on looking exactly as it had a frame earlier. Three things fire together, and they
+  // are three because a goal is a moment the whole arena participates in:
+  //   the CAMERA reacts (a short punch in, the operator flinching toward it),
+  //   the BUILDING lights up (the lamp and the hoardings), and
+  //   four thousand people take a photograph.
+  // The flashes are scattered across the STANDS and off the sheet entirely, which is
+  // where cameras are; putting them on the ice would read as lightning.
+  function _goalPunch(side) {
+    if (!rink) return;
+    rink.classList.add('scored');
+    _t(1500, () => rink && rink.classList.remove('scored'));
+    const layer = q('.gdr-flashes'); if (!layer) return;
+    const r = _rng(_hash(`flash${side}${Math.round(camY * 1000)}`));
+    // They don't all go at once — a stadium's flashes are a scatter over a second and a
+    // half, and firing them on one frame is a lightning strike rather than a crowd.
+    for (let i = 0; i < 26; i++) {
+      _t(60 + r() * 1400, () => {
+        if (!layer.isConnected) return;
+        const el = document.createElement('div');
+        el.className = 'gdr-flash';
+        // Left third or right third of the camera — the tiers, never the ice.
+        el.style.left = `${(r() < 0.5 ? r() * 15 : 85 + r() * 15).toFixed(1)}%`;
+        // Around the camera's own centre, spread about the height of the visible band —
+        // flashes going off well outside the frame are flashes nobody sees.
+        el.style.top = `${(camY * 100 + (r() - 0.5) * 20).toFixed(1)}%`;
+        layer.appendChild(el);
+        _t(420, () => el.remove());
+      });
+    }
+  }
+
   function _clang(side) {
     const net = q(`.gdr-net[data-side="${side}"]`);
     if (net) { net.classList.remove('rang'); void net.getBoundingClientRect(); net.classList.add('rang'); _t(700, () => net.classList.remove('rang')); }
@@ -736,7 +1794,7 @@ export function createRinkView(host) {
     const nums = _numbersFor(team);
     return ROLES.map((role, i) =>
       `<div class="gdr-skater ${side === 'a' ? 'att' : 'def'}${colours ? ' clubbed' : ''}" data-side="${side}" data-i="${i}" style="${style}">` +
-        _skaterSvg(nums[i]) +
+        _skaterSvg(nums[i], team) +
         `<span class="gdr-sk-tag">${nums[i]} ${role.pos}</span>` +
       `</div>`).join('');
   }
@@ -763,8 +1821,14 @@ export function createRinkView(host) {
         `<div class="gdr-rink">` +
           `<div class="gdr-cam">` +
             `<div class="gdr-stands" aria-hidden="true"></div>` +
+            // Camera flashes fire in the BUILDING, not on the ice, so they need a layer
+            // spanning the whole camera rather than the sheet the tokens live on.
+            `<div class="gdr-flashes" aria-hidden="true"></div>` +
             `<div class="gdr-sheet">` +
               _rinkSvg() +
+              // Blade cuts go in their own layer over the markings and under everything
+              // that moves — the ice is scored, not the lines painted on it.
+              `<svg class="gdr-cuts" viewBox="0 0 ${SHEET_W} ${SHEET_L}" preserveAspectRatio="none" aria-hidden="true"></svg>` +
               `<div class="gdr-fx"></div>` +
               `<div class="gdr-skaters">` +
                 _skaterMarkup('a', p.awayColours || p.attackingColours, awayTeam) +
@@ -783,6 +1847,11 @@ export function createRinkView(host) {
           `<span class="gdr-strip-desc">${_esc(p.desc || '')}</span>` +
           `<span class="gdr-strip-names">${_esc(p.shooter || '')}${p.assist ? ` · assist ${_esc(p.assist)}` : ''}${p.goalie ? ` · vs ${_esc(p.goalie)}` : ''}</span>` +
         `</div>` +
+        // THE BUILD-UP, IN WORDS, OVER THE BUILD-UP. The sim reads it off the very
+        // keyframes this view is splining, so the sentence and the picture are the same
+        // rush by construction rather than by two authors agreeing. Absent entirely on a
+        // beat with no possession — a fight has no zone entry to describe.
+        (p.rush ? `<div class="gdr-rush">${_esc(p.rush)}</div>` : '') +
         `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
       `</div>`
     );
@@ -814,10 +1883,31 @@ export function createRinkView(host) {
         const m = {
           side, i, el, dir, role,
           svg: el ? el.querySelector('.gdr-sk-svg') : null,
+          body: el ? el.querySelector('.gdr-sk-flip') : null,
+          wasFace: null,
           x: clamp01(0.5 - dir * (0.10 + i * 0.03)), y: role.lane,
           // Facing the way he attacks: the home end is the BOTTOM of the picture.
           head: dir > 0 ? Math.PI : 0,
-          speed: 0, phase: r() * 6000, wasFast: false, wasCarrier: false, pin: null,
+          speed: 0, lean: 0, sprayAt: 0, strideBand: 0, ampBand: 0, cutAt: 0,
+          // Facing, latched: which way he is mirrored, and whether you see his back.
+          // A man attacking the home end is skating DOWN the picture, toward you.
+          // Facing is a discrete WANT, a continuous BLEND that eases toward it, and the
+          // sign of the blend. Everything that positions him reads the blend.
+          face: 1, faceWant: 1, faceBlend: 1, crossing: false,
+          showBack: dir < 0, wasBack: null, wasFace: null,
+          // Low-passed screen velocity — the signal facing is actually decided on, so
+          // the per-man wander can't be mistaken for a change of direction.
+          sdx: 0, sdy: dir > 0 ? 1 : -1,
+          phase: r() * 6000, wasFast: false, wasCarrier: false, pin: null,
+          // HIS OWN PATCH AND HIS OWN CLOCK. Seeded per man, so the same fixture always
+          // ices the same ten individuals, and no two of them stand on a lattice or drift
+          // in sympathy. `react` is the one that does the most work: ten men easing toward
+          // their targets with an identical time constant move as ONE OBJECT however
+          // different their targets are, and that shared lag is most of what read as a
+          // formation sliding about rather than five people skating.
+          biasX: (r() - 0.5) * 0.036, biasY: (r() - 0.5) * 0.07,
+          wanderRate: 0.75 + r() * 0.7, wanderAmp: 0.65 + r() * 0.8,
+          react: 0.78 + r() * 0.55,
         };
         men.push(m);
         _writeSkater(m);
@@ -842,7 +1932,7 @@ export function createRinkView(host) {
     for (const m of men) m.dir = (m.side === attSide) ? attackDir : -attackDir;
 
     puckState.x = nodes[0].p[0]; puckState.y = nodes[0].p[1];
-    _writeToken(puckEl(), puckState.x, puckState.y);
+    _writeToken(puckEl(), puckState.x, puckState.y); _depth(puckZ, puckState.x, 4);
     _snapFormation(puckState.x, puckState.y);
     camY = puckState.x;                       // the cut takes the camera with it
     _goaliePose(side, 'ready');
@@ -873,8 +1963,12 @@ export function createRinkView(host) {
         // The wind-up. He stops, the puck sits, the stick comes back — and the shot
         // itself is fired by _resolveShot, not here, so the release and the outcome
         // are one motion instead of two that can disagree.
-        _windUp(attSide, carrier ? carrier.i : 0);
-        _segment(prev.p[0], prev.p[1], T_WINDUP, { ease: 'out', onEnd: () => {
+        // The wind-up lasts as long as THIS shot's wind-up: the puck sits on his blade
+        // for the length of the load and leaves when the load finishes. A fixed duration
+        // was what made a one-timer and a slapshot the same event with different words.
+        const wind = SHOT_WIND[p.shotType] || T_WINDUP;
+        _windUp(attSide, carrier ? carrier.i : 0, p.shotType);
+        _segment(prev.p[0], prev.p[1], wind, { ease: 'out', onEnd: () => {
           _sfx('shot'); carrier = null; done();
         } });
         return;
@@ -891,9 +1985,18 @@ export function createRinkView(host) {
         } });
         return;
       }
-      if (nd.carrier >= 0) carrier = held;
+      // A BATTLE IS A PUCK NOBODY OWNS. Dropping the carrier is the whole behaviour:
+      // the per-frame job assignment immediately sees a loose puck and sends the nearest
+      // man from EACH side after it, so the two of them converge on the same corner and
+      // race for it — which is the picture the booth is describing at the same moment.
+      if (ev === 'battle') carrier = null;
+      else if (nd.carrier >= 0) carrier = held;
       if (ev === 'entry') _flashLine(side);
-      _segment(nd.p[0], nd.p[1], T_STEP, { ease: 'smooth', onEnd: done });
+      // Each touch takes its own time. A dump-in is a flip and a chase, so the puck
+      // travels fast and arrives before the men do; a deke is a man beating a man, which
+      // is slow because it happens in a phone box.
+      const ms = ev === 'dump' ? T_DUMP : ev === 'battle' ? T_BATTLE : ev === 'deke' ? T_DEKE : T_STEP;
+      _segment(nd.p[0], nd.p[1], ms, { ease: ev === 'dump' ? 'out' : 'smooth', onEnd: done });
     };
     step();
   }
@@ -917,9 +2020,18 @@ export function createRinkView(host) {
   // describing a body going through the glass over a photograph of five men standing
   // in a diamond. Every violent beat the sim emits now happens ON the ice.
   //
-  // The server names the sides in its own att/def frame ('att' is always the away
-  // club), so the client never has to know a club name to work out who ate it.
-  const _sideOf = (tag, fallback) => (tag === 'def' ? 'h' : tag === 'att' ? 'a' : fallback);
+  // WHOSE SWEATER. The narrator derives an att/def tag onto every violent beat — 'att'
+  // is always the away club — so that is read first and is the documented contract the
+  // broadcast regress enforces. The club NAME is checked as a fallback, because the
+  // payload carries `victimTeam`/`hitterTeam` too and a beat that ever arrives without
+  // the tag should still put the right body on the boards rather than a coin-flip one.
+  function _sideOf(tag, team, p, fallback) {
+    if (tag === 'def') return 'h';
+    if (tag === 'att') return 'a';
+    if (team && p && team === p.awayTeam) return 'a';
+    if (team && p && team === p.homeTeam) return 'h';
+    return fallback;
+  }
   // Pick a man deterministically from a name, so the same hit puts the same sweater on
   // the boards for everybody watching — and so a defenceman doesn't get hit as the
   // centre on one screen and as a winger on the next.
@@ -930,6 +2042,80 @@ export function createRinkView(host) {
   // The nearest wall to a point — a hit finishes at the boards, and which boards is
   // simply whichever ones were closer.
   const _nearBoards = (y) => (y < 0.5 ? 0.075 : 0.925);
+
+  // ── dismemberment ─────────────────────────────────────────────────────────────
+  // A limb comes off. Two things happen and they are deliberately separate: the part is
+  // HIDDEN on the man (he is now a man with one arm, and stays one for the rest of the
+  // beat), and a COPY of it is thrown across the ice as its own token, spinning, in his
+  // club's colours, leaving a smear where it lands.
+  //
+  // The copy is drawn from the same LIMB table the body is, so the arm on the ice is
+  // the arm that was on the shoulder and cannot drift from it. It inherits the man's
+  // club classes and his `--gdr-jersey` custom properties by copying his style
+  // attribute, which is the only reason a severed sleeve is the right colour without
+  // this code knowing anything about a palette.
+  //
+  // NOTHING HERE DECIDES ANYTHING. The sim already said the man is out or dead; this is
+  // the picture of a fact, and no limb ever changes a score.
+  function _sever(m, part, seed) {
+    if (!m || !m.el || !LIMB[part]) return;
+    if (m.el.classList.contains(`sev-${part}`)) return;
+    m.el.classList.add(`sev-${part}`);
+    const L = LIMB[part];
+    const r = _rng(seed >>> 0);
+    const el = _spawn('gdr-gore', m.x, m.y, 5200);
+    if (!el) return;
+    el.className = `gdr-gore ${m.el.className.replace('gdr-skater', '').replace(/sev-\S+/g, '')}`;
+    el.setAttribute('style', `${el.getAttribute('style') || ''};${m.el.getAttribute('style') || ''}`);
+    el.innerHTML = `<svg viewBox="-12 -14 24 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">` +
+      `<g transform="translate(${L.pivot[0]},${L.pivot[1]})">${L.svg}</g></svg>`;
+    // And now it is a body on the ice, not an animation. Thrown off him in a direction
+    // it keeps, at a speed the ice takes back off it — the same integrator the puck is
+    // in, so where it comes to rest is nobody's decision and it can be hit.
+    const ang = r() * Math.PI * 2;
+    const speed = 16 + r() * 22;
+    const d = {
+      el, x: m.x, y: m.y, dead: false,
+      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
+      rot: 0, spin: (500 + r() * 700) * (r() < 0.5 ? -1 : 1),
+    };
+    debris.push(d);
+    _t(5000, () => { d.dead = true; debris = debris.filter(x => x !== d); });
+    _spawn('gdr-blood', m.x, m.y, 9000);
+    _splatter(m.x, m.y, ang, r);
+  }
+
+  // ARTERIAL. A pool under a man says he is bleeding; a SPLATTER says something happened
+  // to him — the difference is direction. The droplets are thrown in a cone about the way
+  // the limb went, so the mess points back at the event, and they land at a spread of
+  // distances so it reads as a spray rather than a ring of dots. Fixed once they land:
+  // blood on ice does not animate, it just stays there being blood.
+  function _splatter(x, y, ang, r) {
+    for (let i = 0; i < 14; i++) {
+      const a = ang + (r() - 0.5) * 1.5;
+      const dist = 0.012 + r() * r() * 0.085;      // squared, so most land near him
+      const dx = Math.cos(a) * dist, dy = Math.sin(a) * dist * (SHEET_L / SHEET_W) * 0.35;
+      const el = _spawn('gdr-splat', clamp01(x + dy), clamp01(y + dx), 9000);
+      if (!el) continue;
+      const s = (0.35 + r() * 1.1).toFixed(2);
+      el.style.setProperty('--sx', s);
+      // A drop that hits at an angle is a streak, not a dot, and it points the way it
+      // was travelling — which is what makes a splatter readable as one event.
+      el.style.rotate = `${(a * 180 / Math.PI).toFixed(0)}deg`;
+      el.style.setProperty('--sd', (0.6 + r() * 2.2).toFixed(2));
+    }
+  }
+
+  // WHICH PART. Off the victim's name, so every screen watching the broadcast loses the
+  // same arm — a man who is decapitated on one client and merely dearmed on the next is
+  // two different games. A head is only ever taken on a death: a decapitated man who
+  // gets up in four minutes is a joke the league doesn't need help making.
+  const LIMBS_SURVIVABLE = ['armL', 'armR', 'legL', 'legR'];
+  function _severPart(name, fatal) {
+    const h = _hash(`${name || 'unknown'}|${fatal ? 'fatal' : 'hurt'}`);
+    if (fatal && (h % 5) === 0) return 'head';
+    return LIMBS_SURVIVABLE[h % LIMBS_SURVIVABLE.length];
+  }
 
   function _down(m, cls) {
     if (!m || !m.el) return;
@@ -947,8 +2133,8 @@ export function createRinkView(host) {
   // building's reaction all hang behind it, because a crowd that reacts on the same
   // frame as the collision sounds like it was expecting it.
   function _playHit(p) {
-    const vSide = _sideOf(p.victimSide, 'h');
-    const hSide = _sideOf(p.hitterSide, vSide === 'a' ? 'h' : 'a');
+    const vSide = _sideOf(p.victimSide, p.victimTeam, p, 'h');
+    const hSide = _sideOf(p.hitterSide, p.hitterTeam, p, vSide === 'a' ? 'h' : 'a');
     const victim = _manFor(vSide, p.victim, 1);
     const hitter = _manFor(hSide, p.hitter, 4);
     if (!victim || !hitter) return;
@@ -957,6 +2143,13 @@ export function createRinkView(host) {
     // Both men converge on the wall, the hitter arriving from the inside.
     victim.pin = [hx, wall];
     hitter.pin = [hx, wall + (wall < 0.5 ? 0.055 : -0.055)];
+    // HE CLOSES WITH HIS HANDS UP AND HIS STICK ACROSS, which is what a check looks like
+    // for the half-second before it lands — a man arriving with his arms out and the
+    // shaft turned across the victim's chest. The old version had the hitter simply
+    // teleport a foot closer and flash a scale pulse, so a body check was two tokens
+    // overlapping. Both men wear a pose class through the approach.
+    hitter.el?.classList.add('checking');
+    victim.el?.classList.add('bracing');
     _t(300, () => {
       hitter.pin = [hx, wall + (wall < 0.5 ? 0.028 : -0.028)];
       hitter.el?.classList.add('swing');
@@ -973,19 +2166,32 @@ export function createRinkView(host) {
     });
     // He gets up — unless the sim follows this beat with an injury, which arrives as
     // its own beat and re-pins him. Play never stopped, so the puck keeps circulating.
-    _t(1900, () => { _up(victim); hitter.pin = null; });
+    _t(1900, () => {
+      _up(victim); hitter.pin = null;
+      hitter.el?.classList.remove('checking'); victim.el?.classList.remove('bracing');
+    });
   }
 
   // He isn't getting up. The man is helped off toward the near boards and out of the
   // picture, which is the whole visible consequence of an injury: his club is now
   // playing a man short, and the empty lane is how you see it.
   function _playInjury(p) {
-    const vSide = _sideOf(p.victimSide, 'h');
-    const victim = _manFor(vSide, p.victim, 1);
+    // The sim calls him `player` on this beat and `victim` on the hit that caused it.
+    const name = p.player || p.victim;
+    const vSide = _sideOf(p.victimSide, p.victimTeam || p.teamName, p, 'h');
+    const victim = _manFor(vSide, name, 1);
     if (!victim) return;
     _down(victim);
     _sfx('whistle');
     _crowd('groan', 320);
+    // HOW BADLY. `slotsOut` is the sim's own severity — how many games he'll miss — so
+    // the picture reads that rather than rolling its own. A man out for a game took a
+    // bad one; a man out for three left something on the ice, and the empty sleeve is
+    // the only reason a viewer would believe the number.
+    if ((p.slotsOut | 0) >= 3) {
+      _t(220, () => _sever(victim, _severPart(name, false), _hash(`${name}|${p.clock || ''}`)));
+      _crowd('gasp', 240);
+    }
     _spawn('gdr-whistle', victim.x, victim.y, 900);
     _t(1200, () => {
       // Off toward the boards, and gone.
@@ -1001,12 +2207,17 @@ export function createRinkView(host) {
   // again until the next beat — which is the only time this view is deliberately
   // still, and the stillness is the point.
   function _playDeath(p) {
-    const vSide = _sideOf(p.victimSide, 'h');
-    const victim = _manFor(vSide, p.victim, 1);
+    const name = p.player || p.victim;
+    const vSide = _sideOf(p.victimSide, p.victimTeam || p.teamName, p, 'h');
+    const victim = _manFor(vSide, name, 1);
     if (!victim) return;
     _down(victim, 'dead');
     victim.el?.classList.add('down');
     _spawn('gdr-blood', victim.x, victim.y, 9000);
+    // He came apart. This is the beat the league is named for, and the one place the
+    // rig's joints earn their keep twice over — the same pivot that swung the arm all
+    // night is where the arm leaves him.
+    _t(120, () => _sever(victim, _severPart(name, true), _hash(`${name}|dead`)));
     rink?.classList.add('mourning');
     _sfx('whistle');
     _crowd('groan', 500);
@@ -1064,6 +2275,7 @@ export function createRinkView(host) {
         _sfx('horn', p.hornSeed);   // every barn's horn is that barn's horn
         _segment(back - dir * 0.006, mouth(final.p[1]), 150, { ease: 'out', onEnd: () => {
           _bulge(side); _sfx('net'); _spawn('gdr-spray', back - dir * 0.02, mouth(final.p[1]), 700);
+          _goalPunch(side);
           _t(T_SETTLE, () => _reveal(p));
           _t(2400, () => _nextIdleFlow());
         } });
@@ -1077,20 +2289,48 @@ export function createRinkView(host) {
     // block dies out at the top of the circle.
     const stopX = gl - dir * save.stop * 0.30;
     _segment(stopX, final.p[1], T_SHOT, { ease: 'out', onEnd: () => {
-      const rest = (x, y, ms) => _segment(x, y, ms, { ease: 'out', thenIdle: true });
+      // THE REBOUND IS NOT A DESTINATION. Each of these hands the puck a direction and
+      // a speed and lets the ice have it: away from the net, away from whatever it hit,
+      // with the lateral sign taken from the side of the sheet the shot came from so a
+      // puck kicked off the right pad goes to the right-hand corner. Where it finishes
+      // is nobody's decision — it is wherever friction and the boards leave it.
+      const away = final.p[1] < 0.5 ? -1 : 1;      // the side of the ice it came from
+      const spread = () => (flowRng() - 0.5) * 0.9;
       // Iron. The only non-goal the building reacts to, so it gets the gasp.
-      if (kind === 'post') { _clang(side); _sfx('post'); _crowd('gasp'); rest(stopX - dir * 0.06, final.p[1] < 0.5 ? 0.08 : 0.92, 420); }
-      else if (kind === 'wide') { _sfx('wide'); rest(gl + dir * 0.03, final.p[1] < 0.5 ? 0.06 : 0.94, 300); }
-      else if (kind === 'blocked') { _spawn('gdr-block', stopX, final.p[1], 600); _sfx('block'); rest(stopX - dir * 0.09, final.p[1], 420); }
-      else if (kind === 'pad') { _sfx('pad'); rest(stopX - dir * 0.10, final.p[1] < 0.5 ? 0.16 : 0.84, 380); }
-      else if (kind === 'glove') { _sfx('glove'); _stickPuckToGlove(side, final.p[1]); }
-      else if (kind === 'breakaway') { _sfx('poke'); rest(stopX - dir * 0.07, final.p[1], 320); }
-      else {
+      if (kind === 'post') {
+        // Off the pipe it goes SIDEWAYS and it goes hard — a post is a rejection at
+        // nearly the speed the shot arrived with, which is why the whole building
+        // hears it and then watches the puck end up in the far corner.
+        _clang(side); _sfx('post'); _crowd('gasp');
+        _kickPuck(-dir * 0.35, away * (0.7 + flowRng() * 0.5), 62 + flowRng() * 22);
+      } else if (kind === 'wide') {
+        // It missed. So it does not stop beside the net — it carries on into the end
+        // boards behind the cage and comes back out, which is the whole reason a
+        // missed shot is still a scoring chance ten feet later.
+        _sfx('wide');
+        _kickPuck(dir * 1, away * 0.35, 54 + flowRng() * 16);
+      } else if (kind === 'blocked') {
+        // Off a shin pad: dead quick, and back the way it came.
+        _spawn('gdr-block', stopX, final.p[1], 600); _sfx('block');
+        _kickPuck(-dir * 0.8, spread(), 22 + flowRng() * 14);
+      } else if (kind === 'pad') {
+        // He kicked it. A pad rebound is the dangerous one — it comes off HARD and
+        // into the slot, which is why the ring of forwards converging on it reads.
+        _sfx('pad');
+        _kickPuck(-dir * 0.75, away * (0.5 + flowRng() * 0.6), 34 + flowRng() * 16);
+      } else if (kind === 'glove') { _sfx('glove'); _stickPuckToGlove(side, final.p[1]); }
+      else if (kind === 'breakaway') {
+        // Poked off his stick — it barely goes anywhere, and that is the picture.
+        _sfx('poke');
+        _kickPuck(-dir * 0.5, spread(), 14 + flowRng() * 8);
+      } else {
         // plain save: held on the chest, and if the sim says he froze it, the whistle
         _sfx('chest');
         // He covered it. The whistle is the reason the next beat is a faceoff in this end.
         if (p.frozen) { _spawn('gdr-whistle', stopX, final.p[1], 900); _t(140, () => _sfx('whistle')); _holdPuck(side, final.p[1]); }
-        else rest(stopX - dir * 0.05, final.p[1], 340);
+        // He didn't hold it. Off the chest a puck drops nearly straight down and sits
+        // in the blue paint — slow, short, and exactly where nobody wants it.
+        else _kickPuck(-dir * 0.9, spread() * 0.6, 12 + flowRng() * 8);
       }
       _t(T_SETTLE, () => _reveal(p));
     } });
@@ -1114,10 +2354,21 @@ export function createRinkView(host) {
   // He plants and the stick comes back. The class runs slightly longer than the wind-up
   // segment so the follow-through is still going as the puck leaves — a shooter who
   // finishes his swing before the puck moves looks like he pushed it.
-  function _windUp(side, i) {
+  // EVERY SHOT IS THE SHOT THE SIM NAMED. The booth says "slapshot" off `shotType`, and
+  // this plays that exact wind-up off the same field — so the call and the picture cannot
+  // describe two different shots. Each type gets its own class and its own duration,
+  // because the whole difference between them is TIMING: a slapshot is a long load and a
+  // violent release, a snap shot has almost no load at all, and a one-timer has none by
+  // definition because the puck never stopped.
+  const SHOT_WIND = {
+    slap: 470, wrist: 250, snap: 170, backhand: 290, onetimer: 90, tip: 70, wrap: 330,
+  };
+  function _windUp(side, i, type) {
     const m = men.find(mm => mm.side === side && mm.i === i);
     if (!m || !m.el) return;
-    m.el.classList.add('shooting'); _t(T_WINDUP + 200, () => m.el.classList.remove('shooting'));
+    const kind = SHOT_WIND[type] ? type : 'wrist';
+    m.el.classList.add('shooting', `shot-${kind}`);
+    _t(SHOT_WIND[kind] + 220, () => m.el.classList.remove('shooting', `shot-${kind}`));
   }
   // Taking a pass. A short flash on the receiver, so the eye is told where the puck is
   // about to belong rather than having to find the carrier ring again.
@@ -1251,7 +2502,7 @@ export function createRinkView(host) {
         `<div class="gdr-cap"><span class="gdr-cap-text">${_esc(caption)}</span></div>` +
       `</div>`;
     // No ice on screen — the loop and the beat helpers must not try to move tokens.
-    rink = null; cam = null; sheet = null; men = []; _stopLoop();
+    rink = null; cam = null; sheet = null; men = []; goalies = []; debris = []; cuts = []; _stopLoop();
     _t(T_SETTLE, () => _reveal(p));
   }
 
@@ -1289,11 +2540,17 @@ export function createRinkView(host) {
     _snapFormation(puckState.x, puckState.y);
     const pk = puckEl();
     if (pk) pk.classList.remove('caught');
-    _writeToken(pk, puckState.x, puckState.y);
+    // A new mount is a new element, so the depth tracker has to be re-pointed at it and
+    // its band forgotten — or the puck keeps whatever z-index the last beat left it on.
+    puckZ.el = pk; puckZ.zBand = 0;
+    _writeToken(pk, puckState.x, puckState.y); _depth(puckZ, puckState.x, 4);
     camY = puckState.x;
     flow = null;
+    // A new beat rebuilds the sheet, so last beat's parts went with the old DOM. The
+    // list has to go with them or the integrator keeps stepping orphans forever.
+    debris = []; cuts = [];
+    _bindGoalies();
     _startLoop();
-    _goalieIdlePulse();
   }
 
   function apply(p) {
@@ -1364,7 +2621,7 @@ export function createRinkView(host) {
   function clear() {
     _stop(); _clearCard(); _stopLoop();
     if (host) host.innerHTML = '';
-    rink = null; cam = null; sheet = null; men = [];
+    rink = null; cam = null; sheet = null; men = []; goalies = []; debris = []; cuts = [];
     caption = ''; pendingCaption = null; last = null; flow = null; carrier = null;
   }
 

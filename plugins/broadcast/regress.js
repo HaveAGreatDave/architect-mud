@@ -1906,12 +1906,20 @@ export default async function regress({ check, run, getPlayer }) {
     const seenTypes = new Set(), usedPools = new Set();
     const unfilled = [], strayScorers = [], notCrossed = [];
     const gdViolent = new Set();
-    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0;
-    for (let slot = 0; slot < 24; slot++) {
+    let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0, gamesPlayed = 0;
+    // A WIDE SLATE, because one of the things asserted below is RARE. A death needs a
+    // game tied after regulation AND an overtime fatal roll, which is a compound tail —
+    // at 24 games it appeared or didn't depending on the seed, so any change that
+    // shifted the RNG stream (moving one `rand()` call in the sim) could turn the death
+    // assertion red without anything being broken. The sample is the fix: the check is
+    // "the sim can still produce one and it reaches the ice", and that needs enough
+    // games for "can" to be a fair question.
+    for (let slot = 0; slot < 64; slot++) {
       const seed = sportsHash(slot, 0);
       const matchup = { away: teams[slot % teams.length], home: teams[(slot * 7 + 5) % teams.length], teams };
       if (matchup.away === matchup.home) continue;
       const game = HOCKEY.simGame(matchup, players, sportsRng(seed));
+      gamesPlayed++;
       for (const b of game.beats) {
         seenTypes.add(b.type);
         if (b.type === 'goal') goals++;
@@ -2064,13 +2072,16 @@ export default async function regress({ check, run, getPlayer }) {
     }
 
     // ── faceoffs happen where the RULE says ───────────────────────────────────
-    // Centre ice is reserved for a goal or the start of a period. Everything else is
-    // an end-zone or neutral dot. A sudden-death winner ends the game with no drop,
-    // so centre drops are (goals + periods) minus those.
+    // Centre ice is reserved for a goal or the start of a period. Everything else is an
+    // end-zone or neutral dot. The shortfall is exactly the games that ENDED on a goal
+    // with no drop after it — a sudden-death winner — so the tolerance is ONE PER GAME
+    // rather than a constant. It was a flat `- 4`, silently tuned to a 24-game slate,
+    // and went red the moment the slate grew and again whenever the RNG stream shifted;
+    // a bound that scales with the sample says what it means and stops doing that.
     check('hockey: faceoffs happen at every stoppage', faceoffs > goals + periods, `${faceoffs} draws`);
     check('hockey: centre ice is only after a goal or a period start',
-      centreDrops <= goals + periods && centreDrops >= (goals + periods) - 4,
-      `${centreDrops} centre vs ${goals} goals + ${periods} periods`);
+      centreDrops <= goals + periods && centreDrops >= (goals + periods) - gamesPlayed,
+      `${centreDrops} centre vs ${goals} goals + ${periods} periods over ${gamesPlayed} games`);
 
     // ── persistent injuries ───────────────────────────────────────────────────
     // Injuries carrying across games is the one feature that makes a game depend on the

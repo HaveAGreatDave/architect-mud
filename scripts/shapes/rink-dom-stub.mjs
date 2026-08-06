@@ -20,13 +20,26 @@ class El {
     this.children = [];
     this.parent = null;
     this.text = '';
-    this.style = new Proxy({}, { set: (t, k, v) => { t[k] = v; return true; }, get: (t, k) => (k in t ? t[k] : '') });
+    // `setProperty` is how a custom property (`--gdr-stride`) is written — a real
+    // CSSStyleDeclaration has it, and the view drives the stride cadence through it.
+    const decl = {
+      setProperty(k, v) { this[k] = v; },
+      getPropertyValue(k) { return this[k] == null ? '' : this[k]; },
+      removeProperty(k) { delete this[k]; },
+    };
+    this.style = new Proxy(decl, { set: (t, k, v) => { t[k] = v; return true; }, get: (t, k) => (k in t ? t[k] : '') });
     // The rink reads these to size the camera. Fixed values: a tall sliding surface
     // inside a short window, which is the case the camera clamp actually has to handle.
     this.offsetHeight = this.tagName === 'DIV' ? 1000 : 0;
     this.clientHeight = 400;
     this.offsetWidth = 520;
   }
+  // The gore tokens copy a man's `style` attribute wholesale to inherit his club's
+  // custom properties, which is a get/set of the attribute rather than of `.style`.
+  setAttribute(k, v) { this.attrs.set(String(k), String(v)); }
+  getAttribute(k) { const v = this.attrs.get(String(k)); return v == null ? null : v; }
+  removeAttribute(k) { this.attrs.delete(String(k)); }
+  hasAttribute(k) { return this.attrs.has(String(k)); }
   get isConnected() { let n = this; while (n.parent) n = n.parent; return n.__root === true; }
   get classList() {
     const self = this;
@@ -136,6 +149,10 @@ export function __install() {
 
   const doc = {
     createElement: (tag) => new El(tag),
+    // Blade cuts are real SVG <line> elements appended one at a time, which is a
+    // namespaced create — an ordinary createElement would produce an HTML element the
+    // browser refuses to render inside an <svg>.
+    createElementNS: (_ns, tag) => new El(tag),
     body: new El('body'),
   };
   globalThis.document = doc;

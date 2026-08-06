@@ -438,7 +438,7 @@ There is **no show-type registry** — a type is a `playback_mode` string branch
 
 Two shows share the `sports` pipeline: **DEADBALL** (baseball, `bc_1783289744953`) and
 **CLUSTER PUCK** (CPhL hockey, `bc_cluster_puck`). Both live on KSAB-TV at 18:00 —
-Deadball Mon/Wed/Fri/Sun, Cluster Puck **Tue + Thu**, The Open Signal Saturday. A
+Deadball Mon/Wed/Fri, Cluster Puck **Tue + Thu + Sun**, Jackpot Protocol Saturday. A
 script declares its code with `@sport`, and **that is the only thing that selects a
 sport module**; nothing else in the pipeline may branch on it.
 
@@ -603,9 +603,316 @@ Four rules the motion is built on, each fixing something that was visibly wrong:
 **The violence reaches the ice.** `boards`, `injury`, `death` and `scrum` used to carry no
 gameday payload at all, so the announcer described a man going through the glass over a
 still picture — the league's whole character happening off-screen. They now ride the same
-payload, carrying `victim`/`hitter` and a **`victimSide`/`hitterSide` in the view's own
-att/def frame** so the client never needs a club name to put the right sweater on the
-boards. Regress asserts all four reach the ice with a victim and a side.
+payload, carrying `victim`/`hitter` (a `boards` beat) or `player` (an `injury` or a
+`death`), each with the club's **name** — `victimTeam`/`hitterTeam`/`teamName`.
+
+The **narrator** — not the sim — derives `victimSide`/`hitterSide` onto the gameday
+payload from those names (`'att'` is always the away club), which is the tag the view
+reads and the broadcast regress enforces. The view falls back to matching the club name
+against the payload's own `awayTeam`/`homeTeam` if the tag is ever absent, and the smoke
+fixtures now carry **the sim's real field names** (`player`/`teamName` on an injury or a
+death, `victim`/`victimTeam` on a hit) so a fixture cannot quietly disagree with the
+payload the view actually receives.
+
+**Loose things are simulated; decided things are not.** This is the line the rink is
+built on. Everything the sim decided — the carry, the pass, the shot, the outcome —
+arrives as keyframes and is interpolated, because those are facts and a view may not
+re-derive a fact. But *where a rebound ends up* was never a fact: the sim says "pad
+save", not where the puck went. That used to be one more straight lerp to a hand-picked
+resting spot, which is why every rebound in the league died in a gentle diagonal and no
+puck had ever touched the boards.
+
+Aftermath is **integrated** instead — velocity, ice friction, and dashers that give some
+of it back (`_stepFree`). Velocities are feet per second on the real 85×200 sheet, the
+only frame in which a bounce angle is correct; the two axes convert separately on the way
+back into model units, or a puck off the end boards leaves at the wrong angle. A post
+ricochets sideways at nearly shot speed; a wide shot *carries on into the end boards and
+comes back out*, which is why a missed shot is still a chance ten feet later. Nothing
+from here can change an outcome — the puck is already dead in the sim's ledger by the
+time it is given a velocity — so a carom is free to be genuinely unpredictable.
+
+**THE PICTURE IS 3/4, NOT PLAN — and that is the change everything else hangs off.** A
+pure top-down rink has one fatal problem no amount of paint fixes: a man skating toward
+the bottom of the screen is the same sprite rotated 180°, so his helmet is below his feet
+and his number is upside down. It reads as a bug even when it is geometrically perfect,
+because nobody has ever watched hockey from directly above. NHL '94/'96 never did it:
+they foreshortened the sheet and stood the players up on it.
+
+`SHEET_TILT` (0.62) is that foreshortening, and it is applied by making the sheet's **box
+shorter**, never by transforming anything — which is precisely why the men, the puck and
+the debris keep their true size and stand up off the ice with no counter-transform
+anywhere. Two consequences look like bugs if you don't expect them and are both correct:
+the faceoff circles become **ellipses** (what a circle on a tilted plane is), and the
+visible band holds nearly twice as much of the rink's length. **`SHEET_TILT` and the
+`.gdr-cam` aspect-ratio must move together** — the CSS says so at the rule.
+
+The skater is now **a standing figure that never rotates**. Heading became two discrete
+latched facts — which way he is mirrored, and whether you see his front or his back —
+plus a lean, so his helmet is above his blades wherever the play goes. Things swap on the
+`away` class, and each is real kit rather than a cartoon cue. **No face is ever drawn on
+him.**
+
+**The front and the back of a sweater share no ink at all**, which is what makes facing
+legible from the chest as well as the helmet. His **number is only on his back**; his
+chest carries the **club crest**. It used to be a number on both — two sizes of the same
+marking, telling a viewer nothing about which way he was pointed. The crest is **derived
+from the club name exactly as the sim derives its colours**: same input, same method, so a
+club's crest is its crest every night, nothing is authored per club, and no logo has to
+cross the wire for a cosmetic. It's printed the way a real crest is — the club's second
+colour as the field with the mark knocked out of it in the primary, which also means it
+can never come out the same value as the shirt it sits on.
+
+The other half is the **full cage**, and it is the loudest facing cue on the figure. It
+was one thin arc, which at this size is a scratch on the helmet; a real cage is a bright
+bowl of bars over the whole face, and a bright bowl on one side of a head is unmistakable
+at eleven pixels. The dark shell behind the bars is load-bearing — a cage is a shadow with
+metal in front of it, and without it the thing reads as a white blob stuck to his chin.
+The stick blade also sits lower on screen when it is nearer the camera.
+
+**The figure is ASYMMETRIC, and that is what makes it three-quarter rather than
+straight-on.** Standing the men up and foreshortening the ice got the scene into 3/4, but
+the men themselves were still symmetric front-on sprites that mirrored — and a symmetric
+trapezoid can only ever be a man facing you, however the rest of him is drawn. Because
+`+x` is *always* the way he faces (the whole body mirrors), every asymmetry can be
+authored once and stays correct both ways. Four of them do the work: the **near shoulder**
+is further out and sits **lower** while the far one is pulled in and rides high, so the
+shoulder line **slopes**; the **head is offset** toward his facing and the skull is an egg
+rather than a ball; an **ear cup** sits on the far side of the helmet, a piece of kit that
+only exists on a head that is turned; and the far side of the chest falls into **shadow**.
+The far arm hangs off the higher, further shoulder and is drawn a size smaller, because it
+is further from the camera.
+
+**And he has a neck.** The helmet used to sit straight down on the shoulder line, so the
+head was simply the top of the torso — the single loudest reason the figures read flat.
+The neck is drawn before both the sweater and the head so only the sliver between them
+shows, which is all a neck ever is at this size.
+
+Proportions came from the reference directly, and three of them are load-bearing:
+he is about **2¼ shoulder-widths tall** (squat and top-heavy, not a stick man in a
+shirt); his legs are **bent and splayed** into a stance with the blades outside his own
+shoulders, because nobody in a hockey game stands to attention; and he carries a
+permanent **forward lean**, applied inside the mirror so it follows his facing for free.
+He also **reflects in the ice** — the same body flipped about his blades, squashed and
+faded — which is the cheapest thing in the whole picture that says *polished sheet*
+rather than *white background*. One gotcha worth knowing: the **lean is a rotate about his blades, never a `skewX`** — a
+shear slants a figure's verticals without moving its feet, which on a standing man
+visibly warps him.
+
+**The markings are PRINTED ON the sweater**, and getting that right took two goes. A
+mirrored numeral is a mirrored numeral — every man skating left wore his number backwards
+— so they were first moved *outside* the mirrored group. That fixed the numerals and
+broke something worse: outside the body they inherit none of its lean, ride or mirror, so
+they stayed pinned in space while the torso bobbed and leaned underneath them, and the
+number visibly slid around on the shirt.
+
+They live **inside** the body now and cancel the mirror **locally**: `.gdr-sk-marks`
+translates to the middle of his chest — an anchor that is itself inside the body, so it
+travels to the chest of a *turned* figure — and `.gdr-sk-marks-flip` applies the same
+`scaleX` again about that point. Two mirrors compose to none, so the glyphs come out
+upright while everything carrying them stays fully mirrored, leaning and riding. Facing is
+a **custom property** (`--gdr-face`) rather than a written transform for exactly this
+reason: the same value is needed in three places — the body, the markings that cancel it,
+and the reflection's own copy of the whole body — and one property reaches all of them.
+`rink-smoke` counts **twenty** crests and numbers rather than ten, and that count *is* the
+assertion: the reflection duplicates everything the body carries, so ten would mean they
+had drifted back outside it.
+
+**EIGHT HEADINGS OUT OF ONE DRAWING.** Mirroring alone gives a man two looks — facing left
+and facing right — so a team drifting up the ice was a row of profiles and "coming at the
+camera" was indistinguishable from "crossing in front of it". Screen heading `yaw` is
+measured from straight-away, and four separate numbers are derived from it, each driving a
+different part because **they do not agree with each other**:
+
+| property | drives | max when |
+|---|---|---|
+| `--gdr-front` | mask width, crest↔number, **arms swinging round to the front** | facing camera |
+| `--gdr-side` | blade length and stride width — **the opposite of the torso** | profile |
+| `--gdr-stickyaw` | the stick swings low-and-forward ↔ high-and-behind | ±, zero in profile |
+| `--gdr-turn` | a whisper of body roll, and nothing else any more | facing camera **or** away |
+
+**A TURN IS LIMBS MOVING, NOT A SQUASHED SPRITE.** The first version of this scaled the
+whole figure horizontally, which is a cheap way to fake a heading and looks like precisely
+what it is. There is a full limb rig here, so the heading is now carried by the rig: the
+arms come round in front of his chest as he turns to face you and hang at his side in
+profile, the stride narrows, the mask widens on his face, the stick yaws and the blades
+foreshorten. Each limb therefore has **three** nested groups — `limb` (the authored
+pivot), `stance` (where it sits for this heading) and `joint` (what it is *doing*: stride,
+crossover, dangle, shot) — because a CSS animation always beats a static transform on the
+same element, so heading and action cannot share a group. That collision is the whole
+reason turning had been done by squashing in the first place.
+
+That last one is the trap worth naming: a skate blade is *not* the same shape problem as a
+chest. Drawn as fixed horizontal lines the blades pointed right whatever the man was
+doing, so somebody skating at the camera stood on two sideways skates. And the **mask used
+to hang off the side of the skull** — a cage seen edge-on, correct in profile and nonsense
+the moment a man skates straight at you. It is centred on the face now and widens with
+`--gdr-front`, so head-on you look into a full grey cage and in profile it narrows back to
+an edge. The dark field behind the bars carries as much of it as the bars do: a cage is a
+shadow with metal in front of it, and bars alone read as a white smear on his chin.
+
+**A lean is something a body does, not something done to a bounding box.** This was a
+`skewX` (which shears a figure's verticals without moving its feet), then a whole-figure
+rotate — wrong the same way, because tipping a finished drawing reads as the *sprite*
+being tilted. It is nearly gone from the transform now; the weight of a turn is carried by
+the **crossover**, which is limbs moving at their joints.
+
+**The building.** The dashers carry **lit LED hoardings naming real Coldwater businesses** —
+Battery Acid Coffee, Grease Expectations, In Hock We Trust, Co-Pay & Pray — because the
+arena advertising the city you can actually walk around in is worth more than any invented
+sponsor. Every name is forced to its panel with `textLength`/`spacingAndGlyphs`, which is
+both what an LED board really does with a long name and the only reason
+"PERCUSSIVE MAINTENANCE" doesn't run off onto the ice. The bowl behind them is **denser and
+brighter at the ice and thins into the dark as it climbs** — that range, not the dot
+grids, is what makes a crowd read as depth — with sparse saturated points up in the gloom:
+four thousand people looking at their screens instead of the game.
+
+**The puck is the most-looked-at object on the screen and is built like it.** It was a
+flat black circle 2.4% of the sheet wide — nearly two feet across, bigger than a man's
+chest, and drawn in plan on a surface that isn't. It is now a shade over a stick-blade
+wide (the object a viewer actually judges it against) and rendered as the **cylinder** it
+is: a top face that is an ellipse at the sheet's own 0.62 tilt, the vulcanised side wall
+below it, and a contact shadow so it sits *on* the ice rather than over it — which is
+also what makes it findable when it is moving fast. The size is deliberately generous:
+a true 3in puck on an 85ft sheet is 0.3% and invisible, so **don't "correct" it to
+reality.**
+
+**The stride is asymmetric, and always running.** Two things made the old one a shuffle,
+neither of them artwork. First it was a **sine** — `alternate` between two keyframes with
+`ease-in-out`, so the leg spent as long going out as coming back, at the same speed. A
+real stride is violent and lopsided: a hard fast push off the edge, then a long slow
+recovery gliding the foot back under. The cycle now spends ~16% of its period pushing and
+the rest recovering, and that ratio alone is most of the difference. Second it **switched
+on and off** at a speed threshold, so every man popped between an animated cycle and a
+frozen pose, legs snapping to neutral in one frame. Nothing is gated now: the cycle always
+runs and speed drives two custom properties instead — `--gdr-stride` (tempo) and
+`--gdr-amp` (a unitless degree count the keyframes multiply). A man barely moving runs a
+slow shallow version that reads as shifting his weight, and there is no threshold to pop
+across. **Both are quantised into coarse bands** — rewriting an animation's duration
+restarts it, so a smoothly accelerating man would twitch in place every frame otherwise.
+On top of the legs: the arms counter them a beat late, the body **rides** up on each push,
+and the head counters the ride so his eyes stay level. The ride lives on `.gdr-sk-body`
+rather than the flip group on purpose — the reflection wraps its own copy of that group in
+a `scale(1,-0.52)`, so it sinks exactly when he rises, for free.
+
+**They move WITH the puck.** The formation used to be the whole model: every man held a
+lane offset from the puck, so the puck could squirt into a corner and ten men would shade
+two feet sideways and carry on standing in a diamond. Jobs are now assigned every frame
+off each side's real distance to the puck — **chase** it when nobody owns it, **support**
+the man who does, **forecheck** the man who doesn't — and a man with a job skates harder
+than a man holding a lane, which is where "they move with the puck" is actually felt. The
+assignment is **sticky**: two men a hair apart would otherwise swap the job several times
+a second and throw each other back and forth. Lane `grip` went up across the board too;
+only the defence pair really holds position now, which is the one place holding position
+is the point.
+
+**Changing direction is a move, not a sign change.** Facing is three values now — a
+discrete `faceWant`, a continuous `faceBlend` that eases toward it, and the sign of the
+blend — and everything that positions a man reads **the blend**. That one indirection buys
+both halves of turning. A **carrier can switch stick side** again (he couldn't, because an
+instantaneous mirror teleported the blade to his other hip and dragged the puck through
+his skates on the way): his lateral offset now travels across over ~200 ms, so he **pulls
+the puck across his body**, and the mirror flips at the midpoint — exactly when the offset
+is zero and the blade is at his centre. That is precisely what `rink-smoke` asserts, since
+the flip instant is the one place the old bug was visible.
+
+And he **crosses over**. A skater changing direction at speed steps one skate over the
+other rather than swivelling. The **near** leg is the one that crosses — a drawing-order
+decision as much as an anatomical one, since SVG has no z-index and `legR` is emitted last,
+so it is the only leg that can pass in *front* of its partner. It's driven off the lean
+(already the turn rate) with a deliberate gap between the on and off thresholds, and it
+deliberately does **not** scale with `--gdr-amp`: a man crosses over the same way whether
+he's flat out or barely moving.
+
+**The puck rides on his blade, not under his boots.** A standing figure is anchored at his
+skates, so putting the carrier's own position on the puck drew every man in the league
+dribbling it with his feet. He is offset by `BLADE_REACH` instead — **derived from the
+artwork, not chosen** (the blade sits ~0.43 out from his spine in a viewBox drawn at the
+skater's own width, landing at ~3½ feet of stick), so **if the figure's width or the
+stick's length changes, that constant changes with them.** A carrier also **never turns
+around**: flipping him mid-rush swings the blade to his other side and drags the puck
+straight through his skates on the way.
+
+**Three things used to make men shake violently in place, and all three were thresholds.**
+Which way a man faces, whether you see his front or his back, and — loudest — the stride
+DURATION, because rewriting it *restarts* the animation, so a man sitting on a band
+boundary re-triggered his own stride every frame. The facing fix is the interesting one:
+hysteresis alone wasn't enough, because every man carries a slow cosine **wander** whose
+own peak lateral speed exceeds any threshold worth setting, so a man standing still was
+told he'd changed direction once a second. Facing is decided on a **700 ms low-passed**
+velocity now, which averages the wander away while leaving a real turn intact. Duration
+changes only on a two-band move; amplitude is safe to write freely because it's read
+*inside* the keyframes and re-resolves without restarting. `rink-smoke` measures this as
+a **worst one-second window per man** — a total says nothing, since over eight seconds of
+circulation men legitimately turn with the puck several times.
+
+**The stick has a wrist.** Welded to the shoulder it swung as one rigid spar, so every arm
+swing threw the blade through a huge arc and lifted it clean off the ice — the giveaway
+that it was a painted-on radius after all. It pivots at the **hands** now, inside the
+shoulder joint, and counter-rotates against the swing at a bit over half the amplitude:
+the arms drive it, the wrists absorb the throw, the blade stays down. It also **lags** the
+shoulder by a few percent of the cycle, which is most of what makes the limb read as a
+chain rather than one piece. A carrier's wrists do the actual dangling (at two-thirds the
+arm's period, so the two never line up the same way twice), and a shot **whips** — the
+blade lags going back, then overtakes the hands coming through.
+
+**The skater is a rig, and the rig is why limbs come off.** `LIMB` is the single table of
+what a man is made of: five named parts (`armR`, `armL`, `legL`, `legR`, `head`), each
+drawn *relative to its own pivot* and wrapped in a translate that puts the pivot at the
+shoulder, the hip, the neck. An SVG group's default `transform-origin` is 0,0 of its own
+user space, so after that translate the origin already **is** the joint — no
+`transform-box` guesswork, and nothing drifts when the figure is scaled.
+
+That buys two things at once. Animation: legs alternate about the hips, arms counter them
+about the shoulders, and **the stick belongs to the right arm** so it sweeps with the
+hands rather than being a painted-on radius — the NHL '96 read. A carrier's stickhandle
+overrides the stride (his hands work the puck whether or not his feet are moving) and a
+shot overrides both. Tempo is per-man: the loop writes `--gdr-stride` from his actual
+speed, quantised so an accelerating man doesn't restart his own animation every frame.
+
+And dismemberment. `_sever` hides the part on the man and throws **a copy of the same
+`LIMB` markup** — so the arm on the ice is the arm that was on the shoulder and cannot
+drift from it — inheriting his club colours by copying his `style` attribute. Which part
+is hashed off the victim's **name**, so every screen watching the broadcast loses the
+same arm; **a head is only ever taken on a death**. An injury takes a limb only when the
+sim's own `slotsOut` is 3 or more, so severity is read from a fact rather than rolled.
+
+**A severed limb goes into the puck's integrator, not a keyframe.** An arm on ice is a
+loose body on ice, and writing that physics twice would be two things to keep in
+agreement for no gain. It slides, caroms off the dashers, spins down as it slows, and
+stops where friction leaves it (meat glides far worse than vulcanised rubber, hence
+`DEBRIS_FRICTION`). **And the puck can hit it** — a circle test that pushes both bodies,
+which is what makes the debris part of the game rather than a decal near it. It changes
+nothing: only cosmetic idle circulation is ever running when a carom off a leg can
+happen. The smoke suite steps frames and re-reads the style to prove the limb *travels,
+spins and comes to rest* — a CSS throw would look identical on screen and fail there.
+
+**The booth calls the rush, not just the outcome.** The announcer's entire account of a
+scoring chance used to be its last event — *"saved"* — laid over ten seconds of a play he
+never mentioned: the viewer watched a breakout, a zone entry and two passes and heard
+about none of them. `describeRush` in [hockey.js](../plugins/broadcast/sports/hockey.js)
+walks **the same possession keyframes the rink is about to animate** and says what
+happened on the way up the ice, naming the men the carrier indices already point at. It
+decides and invents nothing, which is exactly why the call cannot disagree with the
+picture — the one failure mode a generated play-by-play has that a human one doesn't.
+
+The line rides the beat as `rush`, reaching the announcer as a `{rush}` token and the
+rink as its own quiet strip under the score line, so the words and the picture arrive
+together. It is spoken **before** the outcome and **without** a gameday payload, so the
+outcome line still owns the cut and a beat with no possession behaves exactly as before.
+A goal or a near-miss always gets one; routine chances get one 45% of the time, because
+every chance narrated in full is a stream of breakouts nobody can follow. Fixing this
+also exposed that `synthPossession` hardcoded `carrier: 0` on the breakout — the same man
+broke his club out on every rush of every game, invisible while the chain was only
+animated and glaring the moment the booth started naming him.
+
+**The goalie stands on the angle**, which is geometry with a real answer rather than a
+fraction to taste: he plays out along the line from the puck to the middle of his net and
+covers `out/dist` of its offset from centre. He comes out to cut the angle when the play
+is up the ice and retreats to his post when it is in tight — the old version covered a
+flat 0.42 of the lateral spread on a stepped 560 ms transition, so he drifted the *wrong
+way* on a puck in tight (the closer it is, the more he must move) and arrived in visible
+hops. He is on the frame loop now, with his CSS transition explicitly cleared so two
+things are never writing the same two properties.
 
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js) — one mark,
 drawn by the score bug, the full-screen graphics, the rink header, the idle screen and

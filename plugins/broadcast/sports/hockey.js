@@ -308,21 +308,114 @@ export function synthPossession(seed, kind, side) {
   const rand = sportsRng(seed);
   const dir = side === 0 ? 1 : -1;
   const startX = side === 0 ? 0.22 : 0.78, netX = side === 0 ? 0.955 : 0.045;
-  const nodes = [{ t: 0, p: [startX, 0.28 + rand() * 0.44], ev: 'breakout', carrier: 0 }];
+  // WHO STARTS IT IS ROLLED, not fixed at zero. With a hardcoded carrier the same man
+  // broke his club out on every single rush of every game — invisible while the chain
+  // was only ever animated, and glaring the moment the booth started naming him.
+  const nodes = [{ t: 0, p: [startX, 0.28 + rand() * 0.44], ev: 'breakout', carrier: Math.floor(rand() * 5) }];
   const n = 2 + Math.floor(rand() * 3);
   for (let i = 1; i <= n; i++) {
     const f = i / (n + 1);
+    // MORE KINDS OF TOUCH, because both halves of the broadcast read this list. The
+    // chain used to alternate between exactly two middle events — a pass or a cycle —
+    // so every rush in the league was built the same way and the booth had two verbs to
+    // describe it with. A `battle` is a puck nobody owns yet (carrier −1), which the
+    // rink turns into a genuine race between the two nearest men; a `deke` and a `dump`
+    // are things one man does. All of it is COLOUR: the outcome arrived decided.
+    const r = rand();
+    const ev = i === 1 ? 'entry'
+      : r < 0.30 ? 'pass'
+      : r < 0.50 ? 'cycle'
+      : r < 0.68 ? 'battle'
+      : r < 0.84 ? 'deke'
+      : 'dump';
     nodes.push({
       t: Math.round(f * 0.8 * 100) / 100,
       p: [startX + (netX - startX) * f * (0.72 + rand() * 0.5), 0.16 + rand() * 0.68],
-      ev: i === 1 ? 'entry' : (rand() < 0.5 ? 'pass' : 'cycle'),
-      carrier: Math.floor(rand() * 5),
+      ev,
+      // A loose puck belongs to nobody until somebody wins it — which is exactly what
+      // `carrier: -1` already means everywhere else in this chain.
+      carrier: ev === 'battle' ? -1 : Math.floor(rand() * 5),
     });
   }
   nodes.push({ t: 0.88, p: [netX - dir * (0.07 + rand() * 0.05), 0.36 + rand() * 0.28], ev: 'shot', carrier: -1 });
   const endY = kind === 'wide' ? (rand() < 0.5 ? 0.2 : 0.8) : 0.42 + rand() * 0.16;
   nodes.push({ t: 1, p: [kind === 'blocked' ? netX - dir * 0.14 : netX, endY], ev: kind, carrier: -1 });
   return nodes;
+}
+
+// ── the build-up ─────────────────────────────────────────────────────────────
+// THE WORDS AND THE PICTURE TELL THE SAME RUSH. The possession keyframes were animated
+// by the rink and thrown away by the booth, so the announcer's entire account of a
+// scoring chance was its LAST event — "saved" — laid over ten seconds of a play he never
+// mentioned. The viewer watched a breakout, a zone entry and two passes, and heard about
+// none of it. This walks the SAME chain the view splines and says what happened on the
+// way up the ice, naming the men the carrier indices already point at.
+//
+// It decides nothing and invents nothing. It is a reading of keyframes that exist, which
+// is precisely why the call can never disagree with what is on the screen — the one
+// failure mode a generated play-by-play has that a human one doesn't.
+const RUSH = {
+  breakout: ['carries it out of his own end', 'starts it from behind his own net', 'digs it out of the corner', 'takes it up the boards'],
+  entry: ['gains the line', 'carries it in over the blue', 'steps into the zone', 'walks it in'],
+  cycle: ['works it down low', 'takes it behind the net', 'cycles it along the wall', 'holds it in the corner'],
+  carry: ['drives the middle', 'cuts across the slot', 'pushes it wide'],
+  // A man beating a man. The one event in the chain that is about somebody losing.
+  deke: ['puts a man on his hip', 'dangles through the first check', 'cuts back and leaves him', 'toe-drags around a stick'],
+  dump: ['chips it in behind them', 'dumps it deep', 'flips it in and goes after it'],
+};
+// A loose puck belongs to nobody, so it needs a sentence with no owner in it — the
+// carrier index on a `battle` node is −1 and there is deliberately no man to name until
+// somebody wins it.
+const RUSH_BATTLE = ['it comes loose along the wall', 'the puck is free in the corner', 'a scramble for it below the dot', 'they both go in after it'];
+const RUSH_WON = ['comes out with it', 'wins it', 'digs it free', 'comes up with the puck'];
+const RUSH_PASS = ['finds', 'feeds', 'slides it across to', 'puts it on the tape of', 'drops it back for'];
+
+// `names` is the attacking side's skaters in the order the carrier indices count.
+export function describeRush(nodes, names, rand) {
+  if (!Array.isArray(nodes) || !Array.isArray(names) || !names.length) return '';
+  const who = (i) => names[((i | 0) % names.length + names.length) % names.length] || '';
+  const parts = [];
+  let holder = null;
+  for (const n of nodes) {
+    // Four clauses, not three. A battle costs a clause to say the puck came loose and
+    // another to say who won it, so a three-clause cap swallowed the entry or the shot
+    // set-up every time one appeared.
+    if (!n || n.ev === 'shot' || parts.length >= 4) continue;
+    // The outcome events (goal, save, wide…) are the END of the chain and are the
+    // announcer's own line — the build-up stops at the shot, deliberately.
+    if (!RUSH[n.ev] && n.ev !== 'pass' && n.ev !== 'battle') continue;
+    if (n.ev === 'battle') {
+      // Nobody owns it, so nobody is named — and whoever holds it next won it, which is
+      // the next clause writing itself. This is why `battle` sets `holder` to null.
+      parts.push(pick(RUSH_BATTLE, rand));
+      holder = null;
+      continue;
+    }
+    if (n.ev === 'pass') {
+      const to = who(n.carrier);
+      // A pass with nobody holding it yet has no sentence — skip rather than invent a
+      // passer, because a named man who wasn't there is worse than a shorter call.
+      if (!holder || !to || to === holder) { holder = to || holder; continue; }
+      parts.push(`${parts.length ? '' : `${holder} `}${pick(RUSH_PASS, rand)} ${to}`);
+      holder = to;
+      continue;
+    }
+    const man = who(n.carrier);
+    if (!man) continue;
+    // Straight out of a loose puck, the first thing said about the man who has it is
+    // that he WON it — "the puck is free in the corner, Voss comes out with it" — which
+    // is what turns two adjacent clauses into one passage of play.
+    if (holder === null && parts.length) { parts.push(`${man} ${pick(RUSH_WON, rand)}`); holder = man; continue; }
+    // NAME HIM WHENEVER THE PUCK CHANGES HANDS, not only in the first clause. Naming
+    // only once read as a single man doing everything — and then produced sentences
+    // like "Renna digs it out … feeds Renna", because the carrier had silently changed
+    // twice in between and the pass appeared to be to himself.
+    parts.push(`${man === holder ? '' : `${man} `}${pick(RUSH[n.ev], rand)}`);
+    holder = man;
+  }
+  if (!parts.length) return '';
+  const s = parts.join(', ');
+  return s.charAt(0).toUpperCase() + s.slice(1) + '.';
 }
 
 // The fight exchange, same idea: a beat sequence the view can render richly or
@@ -408,6 +501,36 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
     let roll = rand() * total;
     for (let i = 0; i < CHANCE_TABLE.length; i++) { roll -= weights[i]; if (roll <= 0) return CHANCE_TABLE[i]; }
     return CHANCE_TABLE[0];
+  }
+
+  // ── HOW IT WAS SHOT ─────────────────────────────────────────────────────────
+  // The sim decided WHETHER a chance went in and never what it was struck with, so every
+  // goal in the league was hit the same way: the booth said "he scores" and the rink
+  // played one generic wind-up. The type is rolled here, on the same beat as the outcome,
+  // so the words and the animation are reading the identical fact — a slapshot is called a
+  // slapshot AND drawn as one, and neither can drift from the other.
+  //
+  // WEIGHTED BY WHAT ACTUALLY HAPPENED. A one-timer and a tip-in are things you do to a
+  // pass, so they are only reachable when the chain ends in one; a wraparound comes from
+  // behind the net, so it needs the puck to have been down low. Rolling these blind would
+  // put wraparounds on point shots.
+  function rollShot(nodes) {
+    const last = Array.isArray(nodes) ? nodes[nodes.length - 2] : null;
+    const offPass = !!last && last.ev === 'pass';
+    const downLow = !!last && Array.isArray(last.p) && (last.p[0] > 0.88 || last.p[0] < 0.12);
+    const table = [
+      { id: 'wrist', w: 300, label: 'wrist shot' },
+      { id: 'snap', w: 170, label: 'snap shot' },
+      { id: 'slap', w: 150, label: 'slapshot' },
+      { id: 'backhand', w: 105, label: 'backhand' },
+      { id: 'onetimer', w: offPass ? 210 : 0, label: 'one-timer' },
+      { id: 'tip', w: offPass ? 120 : 0, label: 'tip-in' },
+      { id: 'wrap', w: downLow ? 90 : 0, label: 'wraparound' },
+    ];
+    let total = 0; for (const t of table) total += t.w;
+    let roll = rand() * total;
+    for (const t of table) { roll -= t.w; if (roll <= 0) return t; }
+    return table[0];
   }
 
   function penalise(team, at, forced) {
@@ -557,10 +680,17 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         const assist = mates.length && rand() < 0.72 ? mates[Math.floor(rand() * mates.length)] : null;
         if (assist) assist.assists += 1;
         const hat = shooter.goals === 3;
+        const goalNodes = synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1);
+        const goalShot = rollShot(goalNodes);
         push({ type: 'goal', shooter: shooter.name, assist: assist ? assist.name : '', goalie,
           teamName: att.name, oppName: def.name, strength, hattrick: hat,
           shooterGoals: shooter.goals, section: ordinal(period),
-          possession: synthPossession(Math.floor(rand() * 1e9), 'goal', attackAway ? 0 : 1) });
+          // How it was built. Read off the same keyframes the rink is about to animate.
+          rush: describeRush(goalNodes, live(att).map(s => s.name), rand),
+          // WHAT HE HIT IT WITH, on the same beat as the outcome, so the call and the
+          // animation are reading one fact rather than two that can disagree.
+          shotType: goalShot.id, shotLabel: goalShot.label,
+          possession: goalNodes });
         if (hat) push({ type: 'hattrick', player: shooter.name, teamName: att.name, section: ordinal(period) });
         if (sudden) { gameOver = true; break; }
         faceoff('C', 'goal');   // a goal is the ONLY thing that sends it back to centre
@@ -568,9 +698,13 @@ export function simGame(matchup, players, rand = Math.random, opts = {}) {
         // The goalie either covers it (whistle → a draw in his own end) or it stays
         // live. This is what makes end-zone dots the commonest in the game.
         const frozen = (out.kind === 'save' || out.kind === 'glove') && rand() < FREEZE_ON_SAVE;
+        const chanceNodes = synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1);
+        const chanceShot = rollShot(chanceNodes);
         push({ type: 'chance', kind: out.kind, shot: out.shot, shooter: shooter.name, goalie,
           teamName: att.name, oppName: def.name, strength, frozen, section: ordinal(period),
-          possession: synthPossession(Math.floor(rand() * 1e9), out.kind, attackAway ? 0 : 1) });
+          rush: describeRush(chanceNodes, live(att).map(s => s.name), rand),
+          shotType: chanceShot.id, shotLabel: chanceShot.label,
+          possession: chanceNodes });
         if (frozen) faceoff(endDot(def), 'freeze');
       }
     }

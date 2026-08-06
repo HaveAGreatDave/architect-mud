@@ -10872,12 +10872,16 @@ body.ck-fullscreen #mob-hud-env {
 	background: #0a1420;
 	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.75), 0 0 18px rgba(0, 0, 0, 0.5);
 }
-/* 0.66 of the cam's width is ice; the sheet's own 85:200 then fixes the height, so
-   cam aspect = 1 : (200/85 × 0.66) = 1 : 1.5529. **These two numbers must move
-   together** — deriving the height from the sheet rather than typing one is what
-   keeps the ice undistorted at any panel size, and a stretched rink turns every
-   faceoff circle into an egg. The remaining third of the width is the building. */
-.gdr-cam { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1 / 1.5529; will-change: transform; }
+/* THE SHEET IS FORESHORTENED, because the picture is 3/4 and not a plan. 0.66 of the
+   cam's width is ice; the sheet's own 85:200 fixes the height; and SHEET_TILT (0.62 in
+   gameday-rink.js) squashes that height as if you were watching from up in the stands
+   rather than from the roof. So cam aspect = 1 : (200/85 × 0.66 × 0.62) = 1 : 0.9628.
+   **These numbers must move together with SHEET_TILT** — the tilt is applied by making
+   this BOX shorter rather than by transforming anything, which is precisely why the
+   men, the puck and the debris keep their true size and stand UP off the ice with no
+   counter-transform anywhere. The circles becoming ellipses is not a bug: that is what
+   a circle painted on a tilted plane looks like. */
+.gdr-cam { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1 / 0.9628; will-change: transform; }
 .gdr-sheet { position: absolute; left: 17%; right: 17%; top: 0; bottom: 0; }
 .gdr-ice { position: absolute; inset: 0; width: 100%; height: 100%; }
 
@@ -10890,25 +10894,66 @@ body.ck-fullscreen #mob-hud-env {
    still frame. Only the outer strips are ever visible — the sheet covers the rest. */
 /* Extends past both ends of the sheet, so the camera's overscroll behind a net
    shows end boards and crowd rather than the empty backdrop. */
+/* ── THE BUILDING ────────────────────────────────────────────────────────────
+   Only the outer strips of this are ever visible — the sheet covers the middle
+   two-thirds — so what it has to sell is the crowd along the two side boards.
+
+   THE OLD ONE WAS A UNIFORM FIELD. Three dot grids at one density from the ice to
+   the roof, plus a painted band pretending to be ad hoardings, which is now
+   genuinely redundant: the dashers carry real lit hoardings of their own. A real
+   bowl is not uniform in any direction — it is DENSER AND BRIGHTER at the ice and
+   thins into the dark as it climbs, because the near rows are lit by the rink.
+
+   And it is Coldwater, so the dark half of the bowl is full of little bright
+   points: screens, cig ends, whatever people are looking at instead of the game. */
 .gdr-stands {
 	position: absolute; top: -14%; bottom: -14%; left: 0; right: 0;
 	background:
+		/* The rail and the glass, right at the ice edge — the hard line that separates
+		   the building from the sheet, and the thing that makes the crowd sit BEHIND
+		   something rather than float beside the boards. */
+		linear-gradient(90deg,
+			transparent 0 16.2%, rgba(150, 205, 245, 0.5) 16.2% 16.6%, rgba(255,255,255,0.13) 16.6% 17%,
+			transparent 17% 83%, rgba(255,255,255,0.13) 83% 83.4%, rgba(150, 205, 245, 0.5) 83.4% 83.8%,
+			transparent 83.8%),
 		/* Tier steps — the rows a crowd actually sits in. Without them the dot field
 		   reads as a circuit board rather than as people. */
-		repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.34) 0 1px, transparent 1px 13px),
-		/* Three clashing dot grids: heads, at three colours and three spacings. */
-		radial-gradient(circle at 1px 1px, rgba(232, 206, 168, 0.55) 1px, transparent 1.3px) 0 0 / 5px 6px,
-		radial-gradient(circle at 1px 1px, rgba(126, 174, 222, 0.5) 1px, transparent 1.3px) 2px 3px / 7px 7px,
-		radial-gradient(circle at 1px 1px, rgba(206, 96, 96, 0.42) 1px, transparent 1.3px) 4px 1px / 9px 9px,
-		/* Upper deck dark, lower bowl lighter, then the lit ad hoardings right at the
-		   ice edge — the bright band against the boards is the single most recognisable
-		   thing about a televised rink. */
+		/* Softer than they were: at full strength the steps beat against the head grids
+		   and the whole bowl came out as plaid rather than as people on steps. */
+		repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.26) 0 1px, transparent 1px 12px),
+		/* SCREENS IN THE DARK. Sparse, saturated, and only readable up in the gloom of
+		   the upper deck — four thousand people not watching the hockey. */
+		radial-gradient(circle at 1px 1px, rgba(120, 240, 255, 0.9) 0.7px, transparent 1.1px) 3px 5px / 29px 23px,
+		radial-gradient(circle at 1px 1px, rgba(255, 170, 90, 0.75) 0.7px, transparent 1.1px) 14px 11px / 37px 31px,
+		/* Heads. Four grids at four spacings and four skin/kit tones so no row repeats. */
+		radial-gradient(circle at 1px 1px, rgba(236, 212, 176, 0.62) 1px, transparent 1.35px) 0 0 / 5px 6px,
+		radial-gradient(circle at 1px 1px, rgba(126, 174, 222, 0.5) 1px, transparent 1.35px) 2px 3px / 7px 7px,
+		radial-gradient(circle at 1px 1px, rgba(206, 96, 96, 0.42) 1px, transparent 1.35px) 4px 1px / 9px 9px,
+		radial-gradient(circle at 1px 1px, rgba(88, 70, 58, 0.55) 1px, transparent 1.35px) 1px 5px / 11px 8px,
+		/* The bowl itself: lit at the ice, falling away into the roof. */
+		/* Steeper than it was. The near rows are washed by the rink's own light and the
+		   roof is nearly black, and it is that RANGE — not the dots — that makes a bowl
+		   read as depth rather than as a flat speckled wall. */
 		linear-gradient(90deg,
-			#080f18 0%, #101d2c 3%, #1a2c40 9%,
-			#2f5d86 14.5%, #3d7bad 15.5%, #2f5d86 17%,
+			#03060b 0%, #070d15 3%, #0e1b27 7%,
+			#1b3145 11%, #2c4d6b 14%, #3a6389 16.4%,
 			#0b1420 17%, #0b1420 83%,
-			#2f5d86 83%, #3d7bad 84.5%, #2f5d86 85.5%,
-			#1a2c40 91%, #101d2c 97%, #080f18 100%);
+			#3a6389 83.6%, #2c4d6b 86%, #1b3145 89%,
+			#0e1b27 93%, #070d15 97%, #03060b 100%);
+	/* A crowd is never still. One slow drift across the head grids is enough to say
+	   so, and slow enough that it can never pull the eye off the play. */
+	animation: gdr-crowd 14s linear infinite;
+}
+/* Only the head layers move — the rail, the tiers and the bowl are architecture. */
+@keyframes gdr-crowd {
+	0% { background-position: 0 0, 0 0, 3px 5px, 14px 11px, 0 0, 2px 3px, 4px 1px, 1px 5px, 0 0; }
+	100% { background-position: 0 0, 0 0, 3px 5px, 14px 11px, 5px 0, -5px 3px, 4px 4px, -3px 5px, 0 0; }
+}
+/* The near rows are lit by the rink; the upper deck is not. A vertical wash over the
+   whole thing, so the crowd fades into the roof instead of tiling to the edge. */
+.gdr-stands::after {
+	content: ''; position: absolute; inset: 0; pointer-events: none;
+	background: linear-gradient(0deg, rgba(3, 7, 12, 0.72) 0%, rgba(3, 7, 12, 0) 22%, rgba(3, 7, 12, 0) 78%, rgba(3, 7, 12, 0.72) 100%);
 }
 /* A soft darkening at the very edges, so the sheet reads as continuing past the
    frame rather than ending at it. Deliberately shallow — an earlier, heavier one
@@ -10926,7 +10971,33 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-hash { stroke: #d02f3f; stroke-width: 0.3; }
 /* The dasher boards and the kickplate inside them — the boards are a thing with a
    thickness, and their white face is most of what separates ice from building. */
-.gdr-kick { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-width: 1.8; }
+.gdr-kick { fill: none; stroke: rgba(226, 238, 248, 0.8); stroke-width: 1.2; }
+/* ── THE HOARDINGS ───────────────────────────────────────────────────────────
+   LED panels ringing the dashers, carrying real Coldwater businesses. Lit from
+   WITHIN rather than painted — it is not 1996 in this city — so each one is a
+   saturated field with a glow, and the ring of them is the arena's own light
+   source at ice level. Four hues cycling, so the boards read as a row of separate
+   screens bought by separate people and not as one long banner. */
+.gdr-ad-field { fill: #0d1a28; stroke: rgba(150, 210, 255, 0.28); stroke-width: 0.22; }
+.gdr-ad-text {
+	font-family: var(--font-mono); font-size: 2.05px; font-weight: 700;
+	text-anchor: middle; letter-spacing: 0.12px; fill: #dff1ff;
+}
+.gdr-ad.ad1 .gdr-ad-field { fill: #10283d; }
+.gdr-ad.ad1 .gdr-ad-text { fill: #7fd4ff; }
+.gdr-ad.ad2 .gdr-ad-field { fill: #2a1230; }
+.gdr-ad.ad2 .gdr-ad-text { fill: #ff8ad8; }
+.gdr-ad.ad3 .gdr-ad-field { fill: #0e2a20; }
+.gdr-ad.ad3 .gdr-ad-text { fill: #7dffc4; }
+.gdr-ad.ad4 .gdr-ad-field { fill: #2e2408; }
+.gdr-ad.ad4 .gdr-ad-text { fill: #ffd27a; }
+/* They breathe. A dead-still ring of screens is a painted board again; a slow,
+   out-of-phase pulse is a wall of displays. Long periods on purpose — this must
+   never compete with the play for attention. */
+.gdr-ads > g { animation: gdr-ad-pulse 7s ease-in-out infinite; }
+.gdr-ads > g:nth-child(3n) { animation-duration: 9s; animation-delay: -3s; }
+.gdr-ads > g:nth-child(3n+1) { animation-duration: 11s; animation-delay: -6s; }
+@keyframes gdr-ad-pulse { 0%, 100% { opacity: 0.86; } 50% { opacity: 1; } }
 /* The two attacking zones sit a shade colder than the neutral zone — real sheets
    read this way under arena light and it makes the blue lines legible at a glance. */
 .gdr-zone-att { fill: rgba(150, 195, 225, 0.13); }
@@ -10971,8 +11042,37 @@ body.ck-fullscreen #mob-hud-env {
 @keyframes gdr-lamp { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.35; } }
 
 /* ── tokens ──────────────────────────────────────────────────────────────────── */
+/* THE ICE REMEMBERS. Blade cuts written by the loop as the men skate, over the painted
+   markings and under everything that moves. Static once drawn — each is one <line> that
+   is never touched again, so the whole accumulated pattern costs one paint. */
+.gdr-cuts { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Faint on purpose. These accumulate for a whole beat and the play has to stay the
+   brightest thing on the sheet — cuts you consciously notice are a texture competing
+   with the men drawn over them. */
+.gdr-cut {
+	stroke: rgba(116, 160, 194, 0.13); stroke-width: 0.26; stroke-linecap: round;
+	animation: gdr-cut-in 0.6s ease-out backwards;
+}
+/* A cut is carved, not stamped — it arrives sharp and settles into the surface. */
+@keyframes gdr-cut-in { from { stroke: rgba(150, 200, 235, 0.5); stroke-width: 0.5; } }
+
+/* Four thousand people take a photograph. Scattered over the tiers, never over the ice —
+   a flash on the sheet reads as lightning, not as a crowd. */
+.gdr-flashes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 6; }
+.gdr-flash {
+	position: absolute; width: 7px; height: 7px; border-radius: 50%; transform: translate(-50%, -50%);
+	background: radial-gradient(circle, #fff, rgba(255, 255, 255, 0.5) 40%, transparent 70%);
+	animation: gdr-flash 0.4s ease-out forwards;
+}
+@keyframes gdr-flash { 0% { opacity: 0; scale: 0.4; } 18% { opacity: 1; scale: 1.5; } 100% { opacity: 0; scale: 0.8; } }
+
 .gdr-fx, .gdr-skaters { position: absolute; inset: 0; pointer-events: none; }
-.gdr-skater, .gdr-puck, .gdr-goalie { position: absolute; transform: translate(-50%, -50%); }
+.gdr-puck, .gdr-goalie { position: absolute; transform: translate(-50%, -50%); }
+/* A STANDING FIGURE IS ANCHORED AT HIS FEET, not his middle. His blades are the part
+   that touches the ice, so that is the point his model position has to land on — and
+   it is the only anchor under which his shadow, his stick blade and the puck he is
+   carrying all agree about where the plane is. */
+.gdr-skater { position: absolute; transform: translate(-50%, -62.5%); }
 /* ── the skater ──────────────────────────────────────────────────────────────
    A man, not a dot. At this zoom there is room for a body, a helmet and a stick,
    and the stick is the load-bearing part: it's what makes the direction he faces
@@ -10981,13 +11081,131 @@ body.ck-fullscreen #mob-hud-env {
    The FIGURE rotates to his heading; the number TAG does not, because an upside-
    down number is unreadable and the sweater number is the one thing on the ice a
    broadcast viewer is actually trying to read. */
-.gdr-skater { width: 6.4%; aspect-ratio: 24 / 28; z-index: 2; filter: drop-shadow(0 1px 1.5px rgba(10, 25, 40, 0.55)); }
-.gdr-sk-svg { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; }
+/* The BOX is much taller than the man, because the bottom third of it is the ice under
+   him carrying his reflection. His blades sit at 62.5% down the box, which is where the
+   anchor above puts him. */
+/* NO FIXED z-index ON ANYTHING THAT STANDS ON THE ICE. Skaters, goalies, severed limbs
+   and the puck are all painted in DEPTH order, written per-frame by the view from their
+   position along the sheet — see `_depth`. Constants here are what put every goalie in
+   front of every skater regardless of who was nearer the camera, so a forward at the top
+   of the crease disappeared behind the keeper he was standing in front of. */
+.gdr-skater { width: 8.8%; aspect-ratio: 32 / 48; }
+/* Origin at his BLADES (the y=0 line, 62.5% down the box), so a lean pivots on the ice
+   like a lean rather than sliding his whole body sideways. */
+.gdr-sk-svg { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 62.5%; }
+/* The mirror and the permanent forward lean live HERE, driven by `--gdr-face` (±1), which
+   the view writes on the skater. An SVG group's default transform-origin is 0,0 of its
+   own user space — which in this viewBox is his spine at ice level — so scaleX(-1) turns
+   him around on the spot and the lean tips him over his own blades.
+
+   A CUSTOM PROPERTY RATHER THAN A WRITTEN TRANSFORM, because the same value is needed in
+   three places — here, on the markings that have to cancel it, and inside the reflection's
+   own copy of the whole body — and one property reaches all of them. */
+.gdr-sk-flip { transform: scaleX(var(--gdr-face, 1)) rotate(-7deg); transform-origin: 0 0; }
+/* TWO MIRRORS COMPOSE TO NONE. The markings are PRINTED ON THE SWEATER, so they sit
+   inside the body and inherit its lean, its ride and its mirror — then undo just the
+   mirror, about their own anchor on his chest. The anchor is inside the body too, so it
+   still travels to the chest of a TURNED figure; only the glyphs come back upright.
+   Keeping them outside the body instead is what left the number sliding around on a shirt
+   that was leaning and bobbing without it. */
+.gdr-sk-marks-flip { transform: scaleX(var(--gdr-face, 1)); transform-origin: 0 0; }
+/* THE REFLECTION. Flipped about the ice line, squashed into the foreshortened plane,
+   faded and softened — a polished sheet returns a smeared, shortened copy, never a
+   sharp one. Drawn under the man so his own feet cover the seam. */
+.gdr-sk-reflect {
+	transform: scale(1, -0.52); transform-origin: 0 0;
+	opacity: 0.20; filter: blur(0.35px);
+}
+/* Nothing in the reflection is ever the thing you read — it carries no cage detail and
+   no shadow of its own, or the ice would appear to have a second, dimmer game on it. */
+.gdr-sk-reflect .gdr-sk-cage, .gdr-sk-reflect .gdr-sk-helmline { display: none; }
+/* He lays a shadow on the ice; it belongs to the PLANE, so it never mirrors with him. */
+.gdr-sk-shadow { fill: rgba(24, 54, 82, 0.26); }
+.gdr-sk-boot { fill: #0f1922; stroke: rgba(0, 0, 0, 0.6); stroke-width: 0.35; }
+/* Socks: the club's trim wrapped round the shin, which is where a hockey sock is and
+   which stops both legs being one dark slab. */
+.gdr-skater.clubbed .gdr-sk-legs { fill: var(--gdr-trim); }
+.gdr-sk-helmline { fill: none; stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.6; }
+/* The neck. Only a sliver of it is ever visible between the collar and the helmet, and
+   that sliver is most of what stops the head reading as the top of the torso. */
+.gdr-sk-neck { fill: #2a3340; }
+.gdr-skater.clubbed .gdr-sk-neck { fill: color-mix(in srgb, var(--gdr-jersey) 45%, #101820); }
+/* The ear cup — a piece of helmet that only exists on a head that is TURNED. */
+.gdr-sk-earcup { fill: rgba(0, 0, 0, 0.28); }
+/* The far side of the chest, falling away from the light. */
+.gdr-sk-shade { fill: rgba(0, 0, 0, 0.20); }
+.gdr-sk-reflect .gdr-sk-shade, .gdr-sk-reflect .gdr-sk-earcup { display: none; }
+/* FRONT OR BACK — and it has to be OBVIOUS, without drawing a face on him. Four things
+   swap on one class, and every one of them is real hockey kit rather than a cartoon cue:
+     · the big BACK number, which only a man skating away from you shows;
+     · the small CHEST number, which only a man coming at you shows;
+     · the CAGE on the front of his helmet, absent when you're behind him;
+     · and the stick blade, which sits lower on screen when it is nearer the camera.
+   That last one is the depth cue that does the most work, because it moves. */
+/* CROSS-FADED ON `--gdr-front`, not switched on a class. `--gdr-front` is how much of his
+   front you can see — 0 skating straight away, 1 coming straight at the camera — so the
+   mask, the crest and the back number hand over smoothly through the whole turn instead
+   of a man becoming a different sprite as he crosses profile. Coming straight down the
+   ice is front = 1: full cage, full crest, no number. */
+.gdr-skater .gdr-sk-num { opacity: calc(1 - var(--gdr-front, 0)); }
+.gdr-skater .gdr-sk-crest { opacity: var(--gdr-front, 1); }
+.gdr-skater .gdr-sk-cage { opacity: var(--gdr-front, 1); }
+/* The crest is the club's second colour on his sweater, with the mark knocked out of it
+   in the primary — which is how a real crest is printed and, more usefully here, means
+   it can never be the same value as the shirt it sits on. */
+.gdr-sk-crest-field { fill: #e8edf2; stroke: rgba(0, 0, 0, 0.5); stroke-width: 0.35; }
+.gdr-sk-crest-mark { fill: #2a3746; }
+.gdr-skater.clubbed .gdr-sk-crest-field { fill: var(--gdr-trim); }
+.gdr-skater.clubbed .gdr-sk-crest-mark { fill: var(--gdr-jersey); }
+.gdr-skater.away .gdr-sk-helmline { stroke: rgba(0, 0, 0, 0.5); stroke-width: 1; }
+.gdr-skater .gdr-sk-stick, .gdr-skater .gdr-sk-blade { transition: translate 0.25s ease-out; }
+.gdr-skater.away .gdr-sk-stick, .gdr-skater.away .gdr-sk-blade { translate: 0 -2.6px; }
+/* `.gdr-sk-num-front` is gone — a number on the chest was the same marking as the one on
+   his back at a different size, and told a viewer nothing about which way he was facing.
+   The club CREST lives there now. */
 .gdr-sk-torso { fill: #b9d6ea; stroke: rgba(8, 22, 38, 0.9); stroke-width: 0.9; stroke-linejoin: round; }
 .gdr-sk-helm { fill: #2a3746; stroke: rgba(8, 22, 38, 0.9); stroke-width: 0.7; }
-.gdr-sk-cage { fill: none; stroke: #cfe0ee; stroke-width: 0.8; stroke-linecap: round; }
-.gdr-sk-arm { fill: none; stroke: #b9d6ea; stroke-width: 2.4; stroke-linecap: round; }
-.gdr-sk-legs { fill: none; stroke: #16222f; stroke-width: 1.7; stroke-linecap: round; }
+/* THE CAGE — the loudest facing cue on the figure, and the whole reason a man coming at
+   you is never mistakable for one skating away. The dark shell behind the bars is what
+   stops it reading as a white blob stuck to his chin: a cage is a shadow with metal in
+   front of it, not a bright patch. */
+.gdr-sk-cage-shell { fill: rgba(14, 22, 32, 0.66); stroke: rgba(0, 0, 0, 0.3); stroke-width: 0.25; }
+.gdr-sk-cage-bar { fill: none; stroke: #d6e5f2; stroke-width: 0.42; stroke-linecap: round; }
+.gdr-sk-reflect .gdr-sk-cage-bar { stroke-width: 0.7; }
+/* The mask WIDENS as he turns toward the camera and narrows to an edge in profile —
+   which is what a face plate does, and is why it can be one drawing rather than two. */
+.gdr-sk-cage { transform: scaleX(calc(0.34 + 0.66 * var(--gdr-front, 1))); transform-origin: 0.4px 0.3px; }
+
+/* SKATE BLADES ARE THE OPPOSITE OF THE TORSO. A chest is widest facing the camera; a
+   blade is longest ACROSS the screen in profile and points straight at you head-on. As
+   fixed horizontal lines they pointed right whatever the man was doing, so somebody
+   skating at the camera stood on two sideways blades. `--gdr-side` is |sin(yaw)| — how
+   side-on he is — and it foreshortens the boot and the blade on their own. */
+.gdr-sk-skate, .gdr-sk-boot {
+	transform: scaleX(calc(0.3 + 0.7 * var(--gdr-side, 1)));
+	transform-box: fill-box; transform-origin: 50% 50%;
+}
+/* Arms are SHAPES now, not strokes: an upper arm and a forearm that meet at an elbow,
+   tapering from a padded shoulder to a wrist. A single straight stroke is a spar, and it
+   was what kept the figure's top half reading as a mannequin however well the legs moved. */
+.gdr-sk-arm { fill: #b9d6ea; stroke: rgba(8, 22, 38, 0.75); stroke-width: 0.35; stroke-linejoin: round; }
+.gdr-sk-elbow { fill: #1b2836; stroke: rgba(0, 0, 0, 0.5); stroke-width: 0.3; }
+/* The shoulder cap, riding with the arm so the joint stays covered through the swing.
+   Without it the upper arm began at the edge of the sweater — a limb sprouting from a
+   torso rather than attached to one. */
+/* THE FAR SIDE IS FURTHER AWAY, and drawing it at the same value as the near side is
+   what flattens a 3/4 figure back into a paper doll. The far arm, its shoulder cap and
+   its glove all sit a step darker — the cheapest depth cue there is, and it costs one
+   filter rather than a second set of colours to keep in step with the club's. */
+.gdr-sk-arm.left, .gdr-sk-shoulder.far, .gdr-sk-glove.far { filter: brightness(0.72); }
+.gdr-sk-shoulder { fill: #b9d6ea; stroke: rgba(8, 22, 38, 0.7); stroke-width: 0.4; stroke-linejoin: round; }
+.gdr-skater.att .gdr-sk-shoulder { fill: #d99b30; }
+.gdr-skater.def .gdr-sk-shoulder { fill: #5590c4; }
+.gdr-skater.clubbed .gdr-sk-shoulder { fill: color-mix(in srgb, var(--gdr-jersey) 88%, #fff); }
+.gdr-skater.clubbed .gdr-sk-elbow { fill: color-mix(in srgb, var(--gdr-trim) 70%, #0c141c); }
+/* Legs are SHAPES now, not strokes — tapered from thigh to ankle, which is what stops a
+   standing figure reading as a torso on stilts. */
+.gdr-sk-legs { fill: #1b2a3a; stroke: rgba(0, 0, 0, 0.55); stroke-width: 0.4; stroke-linejoin: round; }
 .gdr-sk-skate { fill: none; stroke: #dfe9f2; stroke-width: 1.2; stroke-linecap: round; }
 .gdr-sk-stick { fill: none; stroke: #caa05e; stroke-width: 1.1; stroke-linecap: round; }
 .gdr-sk-blade { fill: none; stroke: #2b2b2b; stroke-width: 1.5; stroke-linecap: round; }
@@ -11009,15 +11227,24 @@ body.ck-fullscreen #mob-hud-env {
 	stroke: rgba(0, 0, 0, 0.55); stroke-width: 1.1; letter-spacing: -0.4px;
 }
 .gdr-skater.att .gdr-sk-torso { fill: #e8a83c; stroke: #4a2e05; }
-.gdr-skater.att .gdr-sk-arm { stroke: #b97f1c; }
+.gdr-skater.att .gdr-sk-arm { fill: #b97f1c; }
 .gdr-skater.def .gdr-sk-torso { fill: #5f9ed6; stroke: #14293f; }
-.gdr-skater.def .gdr-sk-arm { stroke: #3d76a8; }
+.gdr-skater.def .gdr-sk-arm { fill: #3d76a8; }
 /* A club with its own colours wears them — the trim is on the SLEEVES rather than as
    an outline, which is how a real sweater tells two similar primaries apart. */
 .gdr-skater.clubbed .gdr-sk-torso { fill: var(--gdr-jersey); stroke: rgba(0, 0, 0, 0.75); }
-.gdr-skater.clubbed .gdr-sk-arm { stroke: var(--gdr-trim); }
+/* SLEEVES ARE THE SWEATER, not the trim. Filling them with the second colour meant a club
+   whose trim is near-black wore black arms and black legs and a black helmet, and the
+   whole figure collapsed to a dark blob with one coloured panel on it. The trim belongs on
+   the cuffs, the socks and the yoke — the bands — which is where a real sweater puts it. */
+.gdr-skater.clubbed .gdr-sk-arm { fill: var(--gdr-jersey); }
 /* Helmets match the sweater, the way a club kits its men. */
-.gdr-skater.clubbed .gdr-sk-helm { fill: var(--gdr-jersey); }
+/* THE HELMET IS THE TRIM, NOT THE SWEATER. Filled with the jersey colour it was the
+   same value as the shoulders directly beneath it, and a standing figure whose head
+   matches its torso is a bowling pin — the head has to separate from the body or the
+   whole silhouette collapses into one blob at this size. The club's own second colour
+   does it, so nothing here has to know a palette. */
+.gdr-skater.clubbed .gdr-sk-helm { fill: var(--gdr-trim); stroke: rgba(0, 0, 0, 0.85); stroke-width: 0.9; }
 
 /* Number and position, the NHL-broadcast tag — shown for the CARRIER ONLY. Ten of
    these collided with each other and buried the ice they were drawn over. */
@@ -11038,24 +11265,404 @@ body.ck-fullscreen #mob-hud-env {
 }
 @keyframes gdr-carrier { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 /* Moving fast enough to be striding rather than gliding. */
-.gdr-skater.striding .gdr-sk-arm { animation: gdr-stride 0.34s ease-in-out infinite alternate; }
-@keyframes gdr-stride { from { stroke-width: 2.2; } to { stroke-width: 3; } }
+/* ── the rig ─────────────────────────────────────────────────────────────────
+   Every limb is a `.gdr-sk-limb` translated to its own joint, wrapping a
+   `.gdr-sk-joint` that this stylesheet rotates. An SVG group's default
+   transform-origin is 0,0 of its own user space — which after the pivot
+   translate IS the shoulder or the hip — so none of these need transform-box
+   and none of them can drift when the figure is scaled to a different panel. */
+.gdr-sk-joint { transform-origin: 0 0; }
+
+/* ── THE STRIDE ──────────────────────────────────────────────────────────────
+   TWO THINGS MADE THE OLD ONE A SHUFFLE, and neither was the artwork.
+
+   FIRST, IT WAS A SINE. `alternate` between two keyframes with ease-in-out is a
+   pendulum: the leg spent as long going out as coming back, at the same speed. That
+   is not skating. A stride is violently ASYMMETRIC — a hard, fast push off the edge
+   and then a long, slow recovery gliding the foot back underneath. The cycle below
+   spends about a fifth of its time pushing and the rest recovering, and that ratio
+   alone is most of the difference between a man skating and a man shuffling.
+
+   SECOND, IT SWITCHED ON AND OFF. The animation was gated on a `striding` class that
+   flipped at a speed threshold, so every man popped between "animated" and "frozen
+   mid-pose" as he crossed it — legs snapping back to neutral in one frame. The cycle
+   now ALWAYS runs; what his speed changes is its TEMPO (`--gdr-stride`) and its
+   AMPLITUDE (`--gdr-amp`, a unitless degree count the keyframes multiply). A man
+   standing still runs a very slow, very shallow version of the same cycle, which
+   reads as shifting his weight, and there is no threshold to pop across at all. */
+.gdr-skater [data-part="legR"] .gdr-sk-joint { animation: gdr-push var(--gdr-stride, 0.62s) linear infinite; }
+/* The other leg is the same cycle, half a period out — a negative delay rather than a
+   reversal, so the two stay locked whatever the tempo does. */
+.gdr-skater [data-part="legL"] .gdr-sk-joint {
+	animation: gdr-push var(--gdr-stride, 0.62s) linear infinite;
+	animation-delay: calc(var(--gdr-stride, 0.62s) * -0.5);
+}
+/* The per-keyframe easing is doing as much work as the shape here. The push DECELERATES
+   into full extension (`ease-out`) the way a leg runs out of travel; the hold is flat;
+   and the recovery is a long `ease-in-out` glide back under him. With one easing across
+   the whole cycle the corners of the shape were visible as little hitches. */
+@keyframes gdr-push {
+	0%   { transform: rotate(calc(var(--gdr-amp, 9) * -0.75deg)); animation-timing-function: cubic-bezier(.2, .75, .35, 1); }
+	16%  { transform: rotate(calc(var(--gdr-amp, 9) * 1deg)); animation-timing-function: ease-out; }   /* THE PUSH — fast */
+	30%  { transform: rotate(calc(var(--gdr-amp, 9) * 0.86deg)); animation-timing-function: ease-in-out; }  /* held, extended */
+	72%  { transform: rotate(calc(var(--gdr-amp, 9) * -0.42deg)); animation-timing-function: ease-in-out; }
+	100% { transform: rotate(calc(var(--gdr-amp, 9) * -0.75deg)); }   /* gathered under him */
+}
+
+/* THE ARMS GO WITH THE STICK, which is the whole NHL '96 read: the stick is not a
+   painted-on radius, it is the thing at the end of the arms, and it sweeps across the
+   front of him as he strides. Both arms turn together — both hands are on the stick —
+   but the near one carries it, so the blade describes the arc. They run COUNTER to the
+   legs, which is what arms do, and it is the difference between a man skating and a man
+   being dragged. Same asymmetry, gentler, and offset a beat behind the push so the
+   shoulders answer the legs rather than moving with them. */
+.gdr-skater [data-part="armL"] .gdr-sk-joint,
+.gdr-skater [data-part="armR"] .gdr-sk-joint {
+	animation: gdr-armswing var(--gdr-stride, 0.62s) linear infinite;
+	animation-delay: calc(var(--gdr-stride, 0.62s) * -0.28);
+}
+@keyframes gdr-armswing {
+	0%   { transform: rotate(calc(var(--gdr-amp, 9) * 0.62deg)); animation-timing-function: cubic-bezier(.25, .8, .4, 1); }
+	20%  { transform: rotate(calc(var(--gdr-amp, 9) * -0.72deg)); animation-timing-function: ease-out; }
+	36%  { transform: rotate(calc(var(--gdr-amp, 9) * -0.55deg)); animation-timing-function: ease-in-out; }
+	74%  { transform: rotate(calc(var(--gdr-amp, 9) * 0.30deg)); animation-timing-function: ease-in-out; }
+	100% { transform: rotate(calc(var(--gdr-amp, 9) * 0.62deg)); }
+}
+
+/* ── THE CROSSOVER ───────────────────────────────────────────────────────────
+   A skater changing direction at speed does not swivel — he steps one skate OVER
+   the other and pulls himself round, and it is the most recognisable thing a hockey
+   player does with his feet. It replaces the stride for as long as he's turning.
+
+   The NEAR leg is the one that crosses, and that is a drawing-order decision as much
+   as an anatomical one: legR is emitted after legL, and SVG has no z-index, so the
+   near leg is the only one that can pass in FRONT of its partner instead of
+   disappearing behind it. It swings hard across the body and lifts, while the far
+   leg holds its edge and pushes underneath — which is the actual mechanic.
+
+   Faster than the stride (0.62×) because a crossover is a quick shuffle of the feet,
+   and it deliberately does NOT scale with `--gdr-amp`: a man crosses over the same
+   way whether he is flat out or barely moving, and only does it at all when the lean
+   says he is genuinely turning. */
+.gdr-skater.crossing [data-part="legR"] .gdr-sk-joint {
+	animation: gdr-crossover calc(var(--gdr-stride, 0.62s) * 0.62) ease-in-out infinite;
+}
+@keyframes gdr-crossover {
+	0%   { transform: rotate(20deg) translate(0, 0); }
+	38%  { transform: rotate(-26deg) translate(-2.6px, -1.4px); }   /* over the other skate */
+	60%  { transform: rotate(-18deg) translate(-2.2px, -0.2px); }   /* set down, weight on */
+	100% { transform: rotate(20deg) translate(0, 0); }
+}
+/* The far leg holds the edge and pushes out from under him, half a beat behind. */
+.gdr-skater.crossing [data-part="legL"] .gdr-sk-joint {
+	animation: gdr-crossunder calc(var(--gdr-stride, 0.62s) * 0.62) ease-in-out infinite;
+	animation-delay: calc(var(--gdr-stride, 0.62s) * -0.20);
+}
+@keyframes gdr-crossunder {
+	0%   { transform: rotate(-8deg); }
+	44%  { transform: rotate(16deg); }      /* driving out, holding the turn */
+	100% { transform: rotate(-8deg); }
+}
+/* Arms open across the turn while the feet do it — a crossover is a whole-body move,
+   and arms still pumping fore-and-aft underneath it is the tell that it isn't. */
+.gdr-skater.crossing [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.crossing [data-part="armR"] .gdr-sk-joint {
+	animation: gdr-crossarm calc(var(--gdr-stride, 0.62s) * 0.62) ease-in-out infinite;
+}
+@keyframes gdr-crossarm {
+	0%   { transform: rotate(-14deg); }
+	38%  { transform: rotate(10deg); }
+	100% { transform: rotate(-14deg); }
+}
+
+/* ── THE WRIST ───────────────────────────────────────────────────────────────
+   The stick pivots at the hands and COUNTER-ROTATES against the shoulder, which is
+   what keeps the blade on the ice while the arms are working. Amplitude is a shade
+   over half the arm's and the sign is inverted, so the blade travels a fraction of
+   the arc the hands do — exactly what a real pair of wrists is for.
+
+   It also lags the shoulder by a few percent of the cycle. That offset is small
+   enough that nobody will consciously see it and is most of what makes the arm read
+   as a chain of parts rather than one rigid spar: the hands lead, the stick follows. */
+.gdr-sk-wristj { transform-origin: 0 0; }
+/* THE STICK'S YAW — the one thing that distinguishes skating AT the camera from skating
+   away from it. The body only mirrors left/right, so toward and away were the same
+   drawing with a different badge; the stick reaches out into the world and can point at
+   you. Transitioned rather than snapped, so a man turning sweeps his stick round with
+   him. Sits inside the wrist so the stride, the dangle and the shot all still drive it. */
+.gdr-sk-stickyaw {
+	/* Yawed AND foreshortened, on the same `--gdr-side` the blades use — a stick pointing
+	   at the camera or away from it is shorter across the screen than one held out across
+	   it, for exactly the reason a skate blade is. Without this the away pose kept its
+	   full profile reach and read as a man towing a stick along behind him. */
+	/* Gently. At 0.6 the head-on stick shrank to a nub in his glove — technically what a
+	   foreshortened object does, and useless, because the stick is how you read a hockey
+	   player. A stick stays a stick; it just loses a quarter of its reach. */
+	transform: rotate(var(--gdr-stickyaw, 0deg)) scale(calc(0.78 + 0.22 * var(--gdr-side, 1)));
+	transform-origin: 0 0;
+	transition: transform 0.28s ease-out;
+}
+.gdr-skater .gdr-sk-wristj {
+	animation: gdr-wrist var(--gdr-stride, 0.62s) linear infinite;
+	animation-delay: calc(var(--gdr-stride, 0.62s) * -0.22);
+}
+@keyframes gdr-wrist {
+	0%   { transform: rotate(calc(var(--gdr-amp, 9) * -0.34deg)); animation-timing-function: cubic-bezier(.25, .8, .4, 1); }
+	20%  { transform: rotate(calc(var(--gdr-amp, 9) * 0.40deg)); animation-timing-function: ease-out; }
+	36%  { transform: rotate(calc(var(--gdr-amp, 9) * 0.30deg)); animation-timing-function: ease-in-out; }
+	74%  { transform: rotate(calc(var(--gdr-amp, 9) * -0.16deg)); animation-timing-function: ease-in-out; }
+	100% { transform: rotate(calc(var(--gdr-amp, 9) * -0.34deg)); }
+}
+
+/* HE RIDES UP AND DOWN. A skater rises onto the pushing leg and sinks as he recovers,
+   twice per full cycle — one rise per push. Without it the whole figure travels at a
+   constant height and the legs look like they are working underneath a floating torso,
+   which is the other half of why the old one read as a shuffle.
+
+   On `.gdr-sk-body` rather than the flip group ON PURPOSE: the reflection wraps its own
+   copy of the body in a scale(1,-0.52), so putting the ride inside that group makes the
+   reflection sink exactly when he rises, for free. A reflection that bobbed WITH him
+   would be the one thing on the sheet visibly not obeying a mirror. */
+/* NO WHOLE-BODY SQUASH. Turning used to be `scaleX` on the entire figure, which is a
+   cheap way to fake a heading and looks like exactly what it is: a squashed character.
+   There is a full limb rig here, so a turn is LIMBS MOVING — the stance groups below
+   swing the arms round and narrow the stride, the mask widens on the face, the stick
+   yaws and the blades foreshorten. `--gdr-turn` survives only as a whisper of body
+   roll, because a chest genuinely is a little narrower in profile. */
+.gdr-sk-body { transform: scaleX(calc(0.88 + 0.12 * var(--gdr-turn, 1))); transform-origin: 0 0; }
+
+/* ── THE STANCE ──────────────────────────────────────────────────────────────
+   Where each limb sits for the heading he is on, on its own group so the stride,
+   the crossover and the shot can keep animating the joint underneath without
+   either overwriting the other.
+
+   ARMS COME ROUND as he turns to face you: at the camera both are in front of his
+   chest, in profile they hang at his side. That single movement does more for the
+   read than any amount of scaling ever did, because it is what a body actually does. */
+.gdr-sk-stance { transform-origin: 0 0; }
+/* THE SWING IS CENTRED ON PROFILE AND GOES BOTH WAYS, which the first version didn't:
+   it only ever rotated the arms FORWARD, so at `front = 0` they sat at their base reach
+   and a man skating away had an arm slung out behind him. The base pose is the PROFILE
+   pose, so the term is `(0.5 - front)` — negative coming at you (arms come round in
+   front of the chest), positive going away (arms tuck down and hug his sides, where a
+   man's arms are when you are looking at his back). */
+[data-part="armR"] .gdr-sk-stance {
+	transform: rotate(calc((0.5 - var(--gdr-front, 0.5)) * 44deg))
+	           translate(calc(var(--gdr-front, 0.5) * -1.1px), 0);
+}
+/* The far arm swings by the SAME angle as the near one, deliberately. Both hands are on
+   one shaft, so anything that rotates them by different amounts pulls the top hand off
+   the stick — their pivots differ, so this only keeps them together approximately, but
+   approximately is the whole trick a two-bone sprite grip runs on. */
+[data-part="armL"] .gdr-sk-stance {
+	transform: rotate(calc((0.5 - var(--gdr-front, 0.5)) * 44deg))
+	           translate(calc(var(--gdr-front, 0.5) * 0.6px), 0);
+}
+/* LEGS NARROW toward the camera and open across it. The legs are drawn SPLAYED, because
+   that is the stance in profile — but head-on that same splay put every man in an
+   impossible crab stance with his feet a body-width apart. Rotation alone couldn't fix
+   it: the pair has to physically close, so they TRANSLATE toward the spine as well,
+   by nearly the whole hip offset, which is what puts his feet under him. */
+[data-part="legR"] .gdr-sk-stance {
+	transform: translate(calc((1 - var(--gdr-side, 1)) * -1.7px), 0)
+	           rotate(calc(var(--gdr-side, 1) * 9deg - 6deg));
+}
+[data-part="legL"] .gdr-sk-stance {
+	transform: translate(calc((1 - var(--gdr-side, 1)) * 1.7px), 0)
+	           rotate(calc(var(--gdr-side, 1) * -9deg + 6deg));
+}
+/* And the head turns on the neck rather than being scaled with the torso. */
+[data-part="head"] .gdr-sk-stance { transform: translate(calc(var(--gdr-front, 0) * -0.9px), 0); }
+.gdr-sk-body { animation: gdr-ride calc(var(--gdr-stride, 0.62s) * 0.5) linear infinite; }
+@keyframes gdr-ride {
+	0%   { translate: 0 calc(var(--gdr-amp, 9) * 0.05px); }
+	16%  { translate: 0 calc(var(--gdr-amp, 9) * -0.07px); }
+	100% { translate: 0 calc(var(--gdr-amp, 9) * 0.05px); }
+}
+
+/* THE MAN WITH THE PUCK IS STICKHANDLING, and that beats the stride — a carrier's
+   hands are working the puck in front of him whether he is skating hard or coasting,
+   at his own quick cadence and never at the pace of his feet. Wider, faster, and
+   independent of `--gdr-stride` on purpose. */
+.gdr-skater.carrier [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.carrier [data-part="armR"] .gdr-sk-joint { animation: gdr-dangle 0.46s ease-in-out infinite alternate; }
+@keyframes gdr-dangle { from { transform: rotate(-17deg); } to { transform: rotate(13deg); } }
+/* AND THE WRISTS DO THE ACTUAL DANGLING. A carrier's hands move a little; his BLADE
+   moves a lot, sweeping the puck side to side in front of him. Running at two-thirds
+   the arm's period rather than a multiple of it, the two never line up the same way
+   twice — which is what stops a stickhandle looking like a metronome. */
+.gdr-skater.carrier .gdr-sk-wristj { animation: gdr-dangle-wrist 0.31s ease-in-out infinite alternate; }
+@keyframes gdr-dangle-wrist {
+	from { transform: rotate(24deg) translate(0.4px, -0.3px); }
+	to   { transform: rotate(-20deg) translate(-0.5px, 0.2px); }
+}
+
+/* THE HEAD RIDES LEVEL while the body works under it. It counters the ride at the same
+   rate, which is what a head actually does — a skater's eyes stay on the puck and his
+   shoulders do the moving. Without it the whole figure pumps as one rigid sprite. */
+.gdr-skater [data-part="head"] .gdr-sk-joint { animation: gdr-headbob calc(var(--gdr-stride, 0.62s) * 0.5) linear infinite; }
+@keyframes gdr-headbob {
+	0%   { transform: translate(0, calc(var(--gdr-amp, 9) * -0.028px)); }
+	16%  { transform: translate(0, calc(var(--gdr-amp, 9) * 0.04px)); }
+	100% { transform: translate(0, calc(var(--gdr-amp, 9) * -0.028px)); }
+}
 .gdr-skater.shooting .gdr-sk-svg { animation: gdr-wind 0.49s cubic-bezier(.3,-0.4,.4,1.5); }
 /* Load, then release: he coils back, then snaps through it. */
 @keyframes gdr-wind { 0% { scale: 1; rotate: 0deg; } 40% { scale: 1.16; rotate: -26deg; } 62% { scale: 1.1; rotate: 18deg; } 100% { scale: 1; rotate: 0deg; } }
+/* And the arms swing the shot. The body's wind-up above is the weight transfer; THIS is
+   the stick going back over his shoulder and coming through the puck, and it outranks
+   both the stride and the stickhandle for as long as it runs. */
+.gdr-skater.shooting [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shooting [data-part="armR"] .gdr-sk-joint { animation: gdr-swingthru 0.47s cubic-bezier(.3, -0.4, .4, 1.5); }
+@keyframes gdr-swingthru { 0% { transform: rotate(0deg); } 42% { transform: rotate(-56deg); } 70% { transform: rotate(38deg); } 100% { transform: rotate(0deg); } }
+
+/* ── EVERY SHOT IS THE SHOT THE SIM NAMED ────────────────────────────────────
+   `shotType` rides the beat, the booth says it and these draw it, so a call of
+   "slapshot" is a slapshot on screen. The difference between them is almost
+   entirely TIMING — how long he loads and how violently he releases — so each
+   gets its own duration rather than a reskin of one swing.
+
+   SLAPSHOT: the big one. The stick goes up over his shoulder, hangs there, and
+   comes down through the puck. Longest load in the game and the only one with a
+   backswing you can see coming. */
+.gdr-skater.shot-slap [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shot-slap [data-part="armR"] .gdr-sk-joint { animation: gdr-slap 0.69s cubic-bezier(.25, -0.5, .3, 1.6); }
+@keyframes gdr-slap {
+	0% { transform: rotate(0deg); }
+	34% { transform: rotate(-96deg); }   /* stick up over the shoulder */
+	48% { transform: rotate(-88deg); }   /* the hang at the top */
+	70% { transform: rotate(52deg); }    /* down through it */
+	100% { transform: rotate(0deg); }
+}
+.gdr-skater.shot-slap .gdr-sk-wristj { animation: gdr-slap-whip 0.69s cubic-bezier(.25, -0.4, .3, 1.5); }
+@keyframes gdr-slap-whip {
+	0% { transform: rotate(0deg); }
+	34% { transform: rotate(-52deg); }
+	66% { transform: rotate(78deg); }    /* the blade beats the hands through the puck */
+	100% { transform: rotate(0deg); }
+}
+/* SNAP SHOT: almost no load. All wrists, released before a defender can close. */
+.gdr-skater.shot-snap [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shot-snap [data-part="armR"] .gdr-sk-joint { animation: gdr-snap 0.30s cubic-bezier(.2, 0, .2, 1.4); }
+@keyframes gdr-snap { 0% { transform: rotate(0deg); } 30% { transform: rotate(-22deg); } 62% { transform: rotate(30deg); } 100% { transform: rotate(0deg); } }
+.gdr-skater.shot-snap .gdr-sk-wristj { animation: gdr-snap-whip 0.30s cubic-bezier(.2, 0, .2, 1.5); }
+@keyframes gdr-snap-whip { 0% { transform: rotate(0deg); } 28% { transform: rotate(-30deg); } 58% { transform: rotate(56deg); } 100% { transform: rotate(0deg); } }
+/* BACKHAND: he sweeps it the OTHER way, off the back of the blade. Mirrored
+   against every other shot in the file, which is exactly what a backhand is. */
+.gdr-skater.shot-backhand [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shot-backhand [data-part="armR"] .gdr-sk-joint { animation: gdr-backhand 0.51s cubic-bezier(.3, -0.3, .35, 1.4); }
+@keyframes gdr-backhand { 0% { transform: rotate(0deg); } 40% { transform: rotate(46deg); } 72% { transform: rotate(-40deg); } 100% { transform: rotate(0deg); } }
+.gdr-skater.shot-backhand .gdr-sk-wristj { animation: gdr-backhand-whip 0.51s cubic-bezier(.3, -0.3, .35, 1.4); }
+@keyframes gdr-backhand-whip { 0% { transform: rotate(0deg); } 38% { transform: rotate(40deg); } 68% { transform: rotate(-62deg); } 100% { transform: rotate(0deg); } }
+/* ONE-TIMER: no load at all — the puck never stopped, so he is already swinging
+   when it arrives. Starts at full backswing and only comes through. */
+.gdr-skater.shot-onetimer [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shot-onetimer [data-part="armR"] .gdr-sk-joint { animation: gdr-onetimer 0.34s cubic-bezier(.1, 0, .25, 1.6); }
+@keyframes gdr-onetimer { 0% { transform: rotate(-74deg); } 55% { transform: rotate(56deg); } 100% { transform: rotate(0deg); } }
+.gdr-skater.shot-onetimer .gdr-sk-wristj { animation: gdr-onetimer-whip 0.34s cubic-bezier(.1, 0, .25, 1.6); }
+@keyframes gdr-onetimer-whip { 0% { transform: rotate(-40deg); } 52% { transform: rotate(74deg); } 100% { transform: rotate(0deg); } }
+/* TIP-IN: he doesn't shoot at all. The blade turns a few degrees in traffic and
+   the puck changes direction — the smallest movement that can score a goal. */
+.gdr-skater.shot-tip .gdr-sk-wristj { animation: gdr-tip 0.26s ease-out; }
+@keyframes gdr-tip { 0% { transform: rotate(0deg); } 45% { transform: rotate(-26deg); } 100% { transform: rotate(0deg); } }
+/* WRAPAROUND: he carries it around the post, so it is a long low sweep across
+   his body rather than a strike at all. */
+.gdr-skater.shot-wrap [data-part="armL"] .gdr-sk-joint,
+.gdr-skater.shot-wrap [data-part="armR"] .gdr-sk-joint { animation: gdr-wrap 0.55s ease-in-out; }
+@keyframes gdr-wrap { 0% { transform: rotate(28deg); } 60% { transform: rotate(-34deg); } 100% { transform: rotate(0deg); } }
+.gdr-skater.shot-wrap .gdr-sk-wristj { animation: gdr-wrap-whip 0.55s ease-in-out; }
+@keyframes gdr-wrap-whip { 0% { transform: rotate(-30deg); } 60% { transform: rotate(44deg); } 100% { transform: rotate(0deg); } }
+/* The blade WHIPS. It lags the hands going back, then overtakes them coming through —
+   the stick loading and releasing is the entire reason a slapshot looks like a slapshot
+   and not like a man waving. The overshoot past the arm's own peak is the release. */
+.gdr-skater.shooting .gdr-sk-wristj { animation: gdr-whip 0.49s cubic-bezier(.3, -0.3, .35, 1.4); }
+@keyframes gdr-whip {
+	0%   { transform: rotate(0deg); }
+	38%  { transform: rotate(-34deg); }   /* still going back as the arms start down */
+	64%  { transform: rotate(52deg); }    /* through the puck, ahead of the hands */
+	100% { transform: rotate(0deg); }
+}
 .gdr-skater.receiving .gdr-sk-svg { animation: gdr-recv 0.26s ease-out; }
 @keyframes gdr-recv { 50% { scale: 1.14; } }
+/* ── THE CHECK ───────────────────────────────────────────────────────────────
+   A body check is a POSE before it is an impact, and for half a second before it
+   lands that pose is unmistakable: the hitter arrives with his hands up and the
+   shaft turned across the other man's chest, and the man about to eat it braces
+   and drops his shoulder. It used to be two tokens overlapping and a scale pulse. */
+.gdr-skater.checking [data-part="armR"] .gdr-sk-joint,
+.gdr-skater.checking [data-part="armL"] .gdr-sk-joint { animation: gdr-handsup 0.42s ease-out forwards; }
+@keyframes gdr-handsup { to { transform: rotate(-64deg); } }
+/* The stick comes ACROSS — flat, level, in front of him. */
+.gdr-skater.checking .gdr-sk-stickyaw { transform: rotate(96deg); transition: transform 0.32s ease-out; }
+.gdr-skater.checking .gdr-sk-body { transform: scaleX(calc(var(--gdr-turn, 1) * 1.06)); }
+/* And the man taking it drops his shoulder into it rather than standing there. */
+.gdr-skater.bracing .gdr-sk-svg { transition: rotate 0.3s ease-out; rotate: -11deg; }
+.gdr-skater.bracing [data-part="armR"] .gdr-sk-joint { animation: gdr-brace 0.4s ease-out forwards; }
+@keyframes gdr-brace { to { transform: rotate(28deg); } }
+
 .gdr-skater.fighting .gdr-sk-torso { stroke: #ff4646; stroke-width: 2; filter: drop-shadow(0 0 4px rgba(255, 70, 70, 0.9)); }
 .gdr-skater.swing .gdr-sk-svg { animation: gdr-swing 0.12s ease-out; }
 @keyframes gdr-swing { 50% { scale: 1.25; } }
 .gdr-skater.hit .gdr-sk-svg { animation: gdr-hit 0.15s ease-out; }
 @keyframes gdr-hit { 50% { scale: 0.84; } }
 
+/* ── what's left of him ──────────────────────────────────────────────────────
+   A severed part is hidden ON THE MAN and thrown as its own token; these are the
+   hidden half. One rule per part rather than an attribute selector on a list,
+   because a man can lose two and both have to stay gone. */
+.gdr-skater.sev-armL [data-part="armL"],
+.gdr-skater.sev-armR [data-part="armR"],
+.gdr-skater.sev-legL [data-part="legL"],
+.gdr-skater.sev-legR [data-part="legR"],
+.gdr-skater.sev-head [data-part="head"] { display: none; }
+/* The stump. A dark blot at the joint, so the gap reads as a wound and not as a
+   drawing error — an arm that is simply absent looks like the sprite failed to load. */
+.gdr-skater[class*="sev-"] .gdr-sk-torso { stroke: #7a1520; stroke-width: 1.4; }
+
+/* The part itself. Its POSITION AND SPIN ARE NOT CSS — it is a body in the same
+   integrator the puck is in, and the view writes left/top/rotate every frame, because
+   a limb that slides on ice and caroms off the dashers cannot be a keyframe. The only
+   thing left here is the fade at the end of its life, which is the one part of it that
+   really is just a timer. */
+.gdr-gore {
+	position: absolute; transform: translate(-50%, -50%);
+	width: 6.4%; aspect-ratio: 24 / 28; pointer-events: none;
+	animation: gdr-gore-fade 5s linear forwards;
+	filter: drop-shadow(0 1px 1.5px rgba(10, 25, 40, 0.55));
+}
+.gdr-gore svg { width: 100%; height: 100%; overflow: visible; }
+@keyframes gdr-gore-fade { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── THE PUCK ────────────────────────────────────────────────────────────────
+   The most-looked-at object on the screen, and it was a flat black circle 2.4% of
+   the sheet wide — nearly two feet across, bigger than a man's chest, drawn in
+   plan on an ice surface that isn't. Two things are wrong with that and both got
+   fixed: the SCALE, and the fact that a puck is a CYLINDER.
+
+   Scale: it is now a shade over a stick-blade wide, which is the object a viewer
+   actually judges it against. A truly correct 3in puck on an 85ft sheet is 0.3% and
+   invisible, so this is the smallest size that still reads at panel resolution —
+   deliberately generous, and stated here so nobody "corrects" it to reality.
+
+   Cylinder: lying on a plane foreshortened to 0.62, the top face is an ELLIPSE at
+   that ratio, and below it you see the vulcanised SIDE WALL. Three layers do it —
+   the wall, the top face with its light coming from the same corner as everything
+   else on the ice, and a contact shadow so it sits ON the sheet rather than over
+   it. That shadow is also what makes it findable when it is moving fast. */
 .gdr-puck {
-	width: 2.4%; aspect-ratio: 1; border-radius: 50%; z-index: 5;
-	background: radial-gradient(circle at 34% 28%, #6a6a6a, #0a0a0a 68%);
-	box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0, 0, 0, 0.7);
-	z-index: 4;
+	width: 1.15%; aspect-ratio: 1 / 0.62;
+	filter: drop-shadow(0 1.5px 1.5px rgba(12, 30, 48, 0.55));
+}
+/* the side wall — the same ellipse, dropped, so the overlap reads as thickness */
+.gdr-puck::before {
+	content: ''; position: absolute; inset: 0; border-radius: 50%;
+	background: #08090b; transform: translateY(40%);
+}
+/* the top face */
+.gdr-puck::after {
+	content: ''; position: absolute; inset: 0; border-radius: 50%;
+	background: radial-gradient(ellipse at 34% 24%, #5d6167 0%, #2b2e33 46%, #121317 100%);
+	box-shadow: inset 0 -0.5px 0 rgba(255, 255, 255, 0.12);
 }
 .gdr-puck.caught { opacity: 0; transition: opacity 0.1s; }
 
@@ -11066,10 +11673,17 @@ body.ck-fullscreen #mob-hud-env {
    (top of the picture) is the one turned around. Which way he faces has to be
    readable at a glance, so the figure has a front and a back that don't resemble
    each other: a bright angle cone off the mask, and his heels behind him. */
-.gdr-goalie { width: 6.6%; aspect-ratio: 40 / 48; z-index: 3; filter: drop-shadow(0 1px 2px rgba(10, 25, 40, 0.5)); }
-.gdr-goalie.left { transform: translate(-50%, -50%) rotate(180deg); }
-.gdr-g-face { fill: var(--gdr-jersey, #7fd4ff); opacity: 0.16; }
-.gdr-g-heels { stroke: #dfe9f2; stroke-width: 1.4; stroke-linecap: round; }
+/* Anchored at his blades, like every other standing figure. He is WIDER than a skater
+   and no taller, which is the whole silhouette of the position. */
+.gdr-goalie { width: 10.4%; aspect-ratio: 32 / 36; }
+.gdr-goalie, .gdr-goalie.left { position: absolute; transform: translate(-50%, -88%); }
+/* The far keeper is seen from BEHIND — no cage, and the angle cone off his mask is not
+   pointing at you. He is not upside down; nobody in this picture is any more. */
+.gdr-goalie.right .gdr-g-cage { opacity: 0; }
+.gdr-g-shadow { fill: rgba(24, 54, 82, 0.26); }
+/* `.gdr-g-face` and `.gdr-g-heels` are gone with the plan-view keeper — a directional
+   cone and a pair of heels were how a TOP-DOWN blob said which way it faced, and a
+   figure that stands up says it by standing up. */
 /* Each keeper wears his own club, so the two ends are never the same man twice. */
 .gdr-goalie .gdr-g-chest { fill: var(--gdr-jersey, #2b3d52); }
 .gdr-goalie .gdr-g-head ellipse { fill: var(--gdr-trim, #f2f5f8); }
@@ -11078,6 +11692,36 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-g-chest { fill: #2b3d52; stroke: #16222f; stroke-width: 0.6; }
 .gdr-g-pad rect { fill: #f2f5f8; stroke: #2b3d52; stroke-width: 0.7; }
 .gdr-g-pad-strap { stroke: #b9c6d2; stroke-width: 0.6; }
+/* The rolls down a pad's face, the knee block, the blocker's paddle ribs — a keeper is an
+   ASSEMBLY of gear, and a flat slab reads as a door. */
+.gdr-g-pad-roll { fill: none; stroke: rgba(120, 150, 176, 0.45); stroke-width: 0.35; }
+.gdr-g-pad-knee { fill: rgba(120, 150, 176, 0.3); stroke: #2b3d52; stroke-width: 0.4; }
+.gdr-g-blocker-face { fill: none; stroke: rgba(90, 118, 142, 0.5); stroke-width: 0.35; }
+.gdr-g-paddle { fill: none; stroke: #b8863a; stroke-width: 2.6; stroke-linecap: round; }
+/* Shoulder floaters: the two blocks that make a keeper twice as wide as a man. */
+.gdr-g-float { fill: #35485e; stroke: #16222f; stroke-width: 0.5; stroke-linejoin: round; }
+/* Arms that actually connect him to his own hands — without them the blocker and the
+   trapper float beside a rounded rectangle and the whole keeper reads as a sausage. */
+.gdr-g-arm { fill: #2b3d52; stroke: #16222f; stroke-width: 0.45; stroke-linejoin: round; }
+.gdr-goalie .gdr-g-arm { fill: color-mix(in srgb, var(--gdr-jersey, #2b3d52) 82%, #0a1017); }
+/* A narrower waist under a chest that sits proud of it. That step is the shape. */
+.gdr-g-belly { fill: #24344a; stroke: #16222f; stroke-width: 0.45; }
+.gdr-goalie .gdr-g-belly { fill: color-mix(in srgb, var(--gdr-jersey, #24344a) 60%, #0a1017); }
+/* The plates of the rig. A keeper's chest is an assembly, not one moulded shell. */
+.gdr-g-seam { fill: none; stroke: rgba(0, 0, 0, 0.32); stroke-width: 0.4; }
+.gdr-goalie .gdr-g-float { fill: color-mix(in srgb, var(--gdr-jersey, #35485e) 78%, #0b1219); }
+/* THE FUTURE, in one line: a live status bar across his chest rig, lit in his club's own
+   colour. Everything else about him is a hockey goalie — this is the piece that says the
+   goalie is wearing a machine. It pulses because it is reporting something. */
+.gdr-g-rig {
+	fill: var(--gdr-trim, #7fd4ff); opacity: 0.9;
+	filter: drop-shadow(0 0 1.2px var(--gdr-trim, #7fd4ff));
+	animation: gdr-g-rig 2.6s ease-in-out infinite;
+}
+@keyframes gdr-g-rig { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* The mask is a display. A thin lit band across the brow, above the cage. */
+.gdr-g-visor { fill: var(--gdr-trim, #7fd4ff); opacity: 0.75; }
+.gdr-goalie.right .gdr-g-visor { opacity: 0; }
 .gdr-g-blocker rect { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
 .gdr-g-glove path { fill: #e8edf2; stroke: #2b3d52; stroke-width: 0.7; }
 .gdr-g-glove-web { fill: none; stroke: #9fb0c0; stroke-width: 0.5; }
@@ -11116,7 +11760,28 @@ body.ck-fullscreen #mob-hud-env {
 .pose-beaten .gdr-g-glove { transform: translate(-4px, 5px) rotate(30deg); }
 
 /* ── transient effects ───────────────────────────────────────────────────────── */
-.gdr-trail, .gdr-spray, .gdr-block, .gdr-hit, .gdr-whistle, .gdr-ptrail { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+.gdr-trail, .gdr-spray, .gdr-block, .gdr-hit, .gdr-whistle, .gdr-ptrail, .gdr-snow { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+/* Shaved ice, thrown when a man digs in — the one thing a top-down figure has to say
+   that the stop or the turn cost him something. Behind the skaters, never over them. */
+/* SPLATTER. A pool under a man says he is bleeding; a splatter says something HAPPENED to
+   him, and the difference is direction. Each drop is a streak elongated along the way it
+   was travelling (`--sd`), scaled by how big it landed (`--sx`), and it does not animate:
+   blood on ice stays where it lands being blood. */
+.gdr-splat {
+	position: absolute; pointer-events: none; z-index: 1;
+	width: 1.1%; aspect-ratio: 1; border-radius: 50%;
+	background: rgba(138, 12, 22, 0.85);
+	transform: translate(-50%, -50%) scaleX(var(--sd, 1.4)) scale(var(--sx, 1));
+	animation: gdr-splat-in 0.22s ease-out;
+}
+@keyframes gdr-splat-in { from { opacity: 0; } }
+
+.gdr-snow {
+	width: 2.2%; aspect-ratio: 1; border-radius: 50%; z-index: 1;
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.62), rgba(220, 238, 250, 0.18) 55%, transparent 72%);
+	animation: gdr-snow 0.46s ease-out forwards;
+}
+@keyframes gdr-snow { to { opacity: 0; transform: translate(-50%, -50%) scale(1.9); } }
 /* The streak behind a moving puck. Not decoration — a six-pixel disc crossing a zone
    in half a second is genuinely hard to follow, and the streak is what lets the eye
    pick up where it came from and therefore where it is going. */
@@ -11150,6 +11815,17 @@ body.ck-fullscreen #mob-hud-env {
 @keyframes gdr-shove { from { translate: 0 0; } to { translate: 6% -4%; } }
 /* The pool. Long-lived on purpose — it is still there when the next beat starts,
    because on this league's ice it would be. */
+/* The trail a sliding limb drags behind it. Small, dark, and it STAYS — a limb that
+   skids across a white sheet and arrives somewhere clean teleported; the smear is the
+   evidence of the path, and it is what makes the eye run back along it to the man. */
+.gdr-smear {
+	position: absolute; transform: translate(-50%, -50%); pointer-events: none; z-index: 1;
+	width: 2.6%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle, rgba(140, 14, 24, 0.78), rgba(100, 10, 18, 0.34) 58%, transparent 76%);
+	animation: gdr-smear-in 0.35s ease-out;
+}
+@keyframes gdr-smear-in { from { opacity: 0; scale: 0.4; } }
+
 .gdr-blood {
 	position: absolute; transform: translate(-50%, -50%); pointer-events: none;
 	width: 7%; aspect-ratio: 1; border-radius: 50%;
@@ -11165,6 +11841,17 @@ body.ck-fullscreen #mob-hud-env {
 /* Everything stops. The one moment this view is deliberately still. */
 .gdr-rink.mourning .gdr-sheet { filter: saturate(0.45) brightness(0.78); transition: filter 1.2s ease-out; }
 
+/* THE OPERATOR FLINCHES TOWARD IT. A goal was the loudest thing in the sim and one of
+   the quietest things in the picture — a mesh bulge over a rink that carried on looking
+   exactly as it had a frame earlier. A short punch in, and the whole building comes up
+   in the lamp's colour for a beat. Scale on the CAM, so the camera moves and the ice
+   does not deform. */
+.gdr-rink.scored .gdr-cam { animation: gdr-punch 1.4s cubic-bezier(.16, .9, .3, 1); }
+@keyframes gdr-punch { 0% { scale: 1; } 12% { scale: 1.055; } 100% { scale: 1; } }
+.gdr-rink.scored { box-shadow: inset 0 0 60px rgba(255, 46, 60, 0.42), 0 0 26px rgba(255, 46, 60, 0.35); transition: box-shadow 0.18s ease-out; }
+.gdr-rink.scored .gdr-stands { animation: gdr-barn 1.4s ease-out; }
+@keyframes gdr-barn { 0%, 100% { filter: none; } 14% { filter: brightness(1.7) saturate(1.4); } }
+
 .gdr-strip {
 	flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; padding: 3px 10px;
 	background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(120, 200, 240, 0.2); border-radius: 3px;
@@ -11173,6 +11860,13 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-strip-desc { font-weight: 900; letter-spacing: 2px; color: #9fe4ff; text-transform: uppercase; }
 .gdr-strip-names { flex: 1 1 auto; color: rgba(210, 232, 246, 0.62); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* The build-up. Quieter than the caption, because it is what LED to the thing the
+   announcer is about to say rather than the thing itself. */
+.gdr-rush {
+	flex: 0 0 auto; padding: 2px 10px; font-family: var(--font-mono); font-size: 11px;
+	color: rgba(180, 214, 236, 0.82); letter-spacing: 0.2px;
+	animation: gd-cap-in 0.3s ease-out;
+}
 .gdr-cap { flex: 0 0 auto; min-height: 30px; padding: 4px 10px; background: rgba(0,0,0,0.5); border-left: 2px solid #4fd2ff; border-radius: 2px; }
 .gdr-cap-text { font-size: 12.5px; line-height: 1.45; color: var(--tv-text, #dceaf4); }
 .gdr-cap-text.in { animation: gd-cap-in 0.3s ease-out; }
