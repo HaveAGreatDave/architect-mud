@@ -39,6 +39,25 @@ export default async function regress({ run, check, getPlayer }) {
   check('object_type toilet recognised', isToilet({ name: 'steel bowl', object_type: 'toilet', flags: {} }) === true);
   check('non-toilet furniture ignored', isToilet({ name: 'a wooden chair', object_type: 'furniture', flags: {} }) === false);
 
+  // ── The room only hears a bowl when there is one ────────────────────────────
+  // Half the fart pool was written with porcelain under it and then played over
+  // every other target: a man squatting in an alley was told his fart echoed off
+  // the bowl, and the street was told the noise came from "the toilet nearby".
+  // The split is only worth anything if the general pool stays clean, so assert
+  // that rather than trusting it — this is the check that catches the next line
+  // somebody writes while picturing a bathroom.
+  {
+    const { _test: bodilyTest } = await import('./index.js');
+    const porcelain = /\b(bowl|toilet|cistern|porcelain|seat)\b/i;
+    const dirty = bodilyTest.FART_LINES.filter(l => porcelain.test(l.self) || porcelain.test(l.zone));
+    check('fart: the general pool names no plumbing',
+      dirty.length === 0, dirty.map(l => l.self).join(' | ') || 'clean');
+    check('fart: the toilet pool exists and is about the toilet',
+      bodilyTest.FART_LINES_TOILET.length > 0
+        && bodilyTest.FART_LINES_TOILET.every(l => porcelain.test(l.self) || porcelain.test(l.zone)),
+      `${bodilyTest.FART_LINES_TOILET.length} line(s)`);
+  }
+
   // Contaminated-water seam: the water + fillable plugins ask over these actions.
   const { dispatchAction } = await import('../../server/engine/actions.js');
   const clean = await dispatchAction({ type: 'bodily.toiletContamination', params: { furnitureId: 'no-such-toilet' } });

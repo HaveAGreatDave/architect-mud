@@ -801,7 +801,26 @@ on('bodily.sfx', ({ zoneId, playerId, cue, surface, intensity, style }) => {
   }
   if (!zoneId) return;
   if (cue === 'flush') { sendToZone(zoneId, { type: 'audio_sfx', def: SFX_FLUSH }); return; }
-  if (cue === 'plop')  { sendToZone(zoneId, { type: 'audio_sfx', def: SFX_PLOP }); return; }
+  // SFX_PLOP is a wet drop — a body of water closing over something. That is only
+  // true over a bowl. On concrete, on a chair, on a person, the same cue announces
+  // a toilet the room hasn't got, which is the audible half of the lie the fart
+  // lines used to tell in text. Anything that isn't water gets a dull landing
+  // instead: `none` deliberately, not the stream's own surface name — the impact
+  // table knows wood/metal/ceramic and would silently fall back to `none` anyway,
+  // and passing a key it doesn't have would read as a lookup that means something.
+  // Concrete and flesh are both non-resonant here; INTENSITY is what separates
+  // them, because the transport carries no `weight` — `impact` derives weight from
+  // intensity, so the one number has to do both jobs. Higher reads heavier and
+  // duller, which is soft ground and a body; lower is the sharper, shorter tap of
+  // paving.
+  if (cue === 'plop') {
+    if (surface && surface !== 'water') {
+      proc({ action: 'impact', surface: 'none', intensity: surface === 'concrete' ? 0.3 : 0.65 }, 0.5);
+      return;
+    }
+    sendToZone(zoneId, { type: 'audio_sfx', def: SFX_PLOP });
+    return;
+  }
 });
 
 // ── Weather ambience (reactive) ───────────────────────────────────────────

@@ -473,7 +473,11 @@ function stillInPosition(player, session) {
 function tickFart(player, session, chance) {
   if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
   if (Math.random() < chance) {
-    const f = pick(FART_LINES);
+    // Only a toilet gets the toilet lines. Everywhere else — ground, furniture,
+    // a person you are squatting over — draws from the pool that names nothing.
+    const f = pick(session.target?.kind === 'toilet'
+      ? [...FART_LINES, ...FART_LINES_TOILET]
+      : FART_LINES);
     sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${f.self}</span>` });
     sendToZone(session.zoneId, { type: 'ambient', message: `<span class="msg-ambient">${f.zone}</span>` }, player.id);
     emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart', intensity: pressureOf(player.digestive_load) });
@@ -488,7 +492,12 @@ function tickFart(player, session, chance) {
 // Occasional wet plop while pooping — sound only, no text spam.
 function tickPlop(player, session) {
   if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
-  if (Math.random() < 0.5) emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'plop' });
+  // A plop is water taking something. Squatting on concrete there is no water to
+  // take it, so the cue carries the same surface the stream does and the wet drop
+  // is reserved for the one surface that can actually make it — otherwise the room
+  // hears a bowl that isn't there, which is the audible half of the same lie the
+  // fart lines used to tell.
+  if (Math.random() < 0.5) emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'plop', surface: session.streamSurface });
   session.timers.push(setTimeout(() => tickPlop(player, session), 5000 + Math.random() * 4000));
 }
 
@@ -1544,11 +1553,22 @@ const NPC_POOP_WITNESS = [
   `dry-heaves. "The smell. Oh god, the smell."`,
 ];
 
+// A fart during the routine. TWO POOLS, because half of these lines were written
+// with a porcelain bowl under them and then played over every other target: a man
+// squatting in an alley was told his fart echoed off the bowl, and the street was
+// told the noise came from "the toilet nearby" when there wasn't one in the
+// district. The bowl is what makes those lines funny, and it's also what makes
+// them a lie anywhere else. So the acoustics of a toilet live in their own pool
+// and are only reachable from a toilet; everything below works squatting anywhere.
 const FART_LINES = [
-  { self: `A fart escapes you, echoing off the bowl.`,                 zone: `A wet, echoing sound comes from the toilet nearby.` },
-  { self: `You let one rip. No dignity in here anyway.`,               zone: `An unmistakable trumpeting noise rings out nearby.` },
-  { self: `A long, mournful fart announces your progress.`,            zone: `A long, mournful sound drifts from the direction of the toilet.` },
+  { self: `You let one rip. No dignity in this position anyway.`,      zone: `An unmistakable trumpeting noise rings out nearby.` },
+  { self: `A long, mournful fart announces your progress.`,            zone: `A long, mournful sound drifts from somewhere close by.` },
   { self: `Something squeaks out. You wince.`,                         zone: `A brief squeak carries through the air nearby.` },
+];
+export const _test = { get FART_LINES() { return FART_LINES; }, get FART_LINES_TOILET() { return FART_LINES_TOILET; } };
+const FART_LINES_TOILET = [
+  { self: `A fart escapes you, echoing off the bowl.`,                 zone: `A wet, echoing sound comes from the toilet nearby.` },
+  { self: `The bowl turns a small noise into a large one. Acoustics.`, zone: `Something amplified and undignified rings out of the toilet.` },
 ];
 
 const DIGESTIVE_PRESSURE = [

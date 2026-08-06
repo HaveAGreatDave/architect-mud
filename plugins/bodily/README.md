@@ -13,6 +13,7 @@ Relief is a **timed routine onto a target** — a toilet, the ground, furniture,
 - **poop** drops legwear and squats for 20–40s.
 - **pee** takes 10s, standing for male and sitting for female.
 - Farts are **pressure-scaled**; plops and surface-varied pee-stream cues go out through `bodily.sfx`.
+- **Nothing names the bowl unless there is one.** Fart lines come from two pools — a general one that names no plumbing, and `FART_LINES_TOILET`, reachable only when `session.target.kind === 'toilet'`. The acoustics of porcelain are what make those lines funny and also what makes them a lie in an alley, where the room was being told a noise came from "the toilet nearby" in a district that has none. Same rule in audio: the `plop` cue now carries the stream's surface, and only `water` gets the wet drop — everything else lands dull, because a plop is water closing over something. A regress case asserts the general pool stays clean, since the failure mode is somebody writing the next line while picturing a bathroom.
 
 ## The social layer
 NPCs **yell when peed on**. Bystanders recoil at public elimination, and that also emits `bodily.publicRelief` → an **indecent-exposure charge**. Toilets stay **fouled until flushed**.
