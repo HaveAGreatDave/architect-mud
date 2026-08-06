@@ -26,7 +26,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { flushAllRelations } from './relations.js';
 import { flushAllWear } from './durability.js';
-import { effectiveStat, fatigueOf, FATIGUE_RUINED } from './condition.js';
+import { effectiveStat, fatigueOf, fatigueLabel, FATIGUE_RUINED } from './condition.js';
 import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
@@ -1662,7 +1662,17 @@ async function resourceTick() {
     }
 
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
-    if (messages.length || bodyTempChanged || player.sanity !== prevSanity) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c,sanity:player.sanity} }, null, playerId);
+    // FATIGUE RIDES A TICK IT WAS ALREADY PAYING FOR. `tired` is derived above,
+    // sync and query-free, so carrying it costs nothing on the wire beyond a
+    // number — but the gate above it fires on messages and temperature, and a
+    // player standing still with a stable body temp could go a long while
+    // without one. The BAND is what the HUD shows, and it changes four times
+    // between sleeps, so pushing on a band change keeps the pane honest and the
+    // socket quiet. Not a meter and not a per-tick write: nothing here is stored.
+    const tiredBand = fatigueLabel(tired);
+    const bandChanged = player._lastFatigueBand !== tiredBand;
+    player._lastFatigueBand = tiredBand;
+    if (messages.length || bodyTempChanged || bandChanged || player.sanity !== prevSanity) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c,sanity:player.sanity,fatigue:Math.round(tired)} }, null, playerId);
 
     if (player.hp <= 0) {
       await handlePlayerDeath(player, null, lethalCause);

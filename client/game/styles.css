@@ -1403,6 +1403,20 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--blue);
 	font-size: 11px;
 }
+/* Rested is scenery; wrecked is a warning. The label carries its own colour so
+   the row is readable at a glance without a second icon doing the work. */
+.env-fatigue-label {
+	font-size: 11px;
+	color: var(--text-dim);
+}
+.env-fatigue-label.env-tired { color: var(--text); }
+.env-fatigue-label.env-exhausted { color: var(--orange); }
+.env-fatigue-label.env-wrecked { color: var(--red); }
+.env-fatigue-pct {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--text-dim);
+}
 #env-hud-sidebar .env-weather-label {
 	color: var(--text);
 	font-size: 11px;

@@ -19,7 +19,7 @@ import { query } from '../../server/models/db.js';
 import { registerTabletApp, normScreen } from './registry.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
 import { statusLabels } from '../../server/engine/effects.js';
-import { conditionReport, fatigueOf, FATIGUE_TIRED, FATIGUE_EXHAUSTED, FATIGUE_RUINED } from '../../server/engine/condition.js';
+import { conditionReport, fatigueOf, fatigueLabel, FATIGUE_TIRED, FATIGUE_EXHAUSTED, FATIGUE_RUINED } from '../../server/engine/condition.js';
 import { getDrugStatus, visibleIntoxication } from '../../server/engine/drugs.js';
 import { hygieneOf } from '../../server/engine/hygiene.js';
 import { bandFor as sanityBandFor } from '../sanity/index.js';
@@ -98,8 +98,9 @@ function buildMeters(player) {
       pct: Math.max(4, Math.min(100, Math.round((tempOff / 8) * 100))), band: tempBand, invert: true,
       note: `${temp.toFixed(1)}°C — ${tempNote}` },
     { key: 'fatigue', label: 'Fatigue', value: tired, max: 100, pct: tired, band: bandLow(tired), invert: true,
-      note: tired >= FATIGUE_RUINED ? 'wrecked — sleep now' : tired >= FATIGUE_EXHAUSTED ? 'exhausted'
-        : tired >= FATIGUE_TIRED ? 'tired' : 'rested' },
+      // One ladder, shared with the Environment pane — see FATIGUE_BANDS. The
+      // urgency is the app's own: this is the screen you open to be told to act.
+      note: tired >= FATIGUE_RUINED ? 'wrecked — sleep now' : fatigueLabel(tired).toLowerCase() },
   ];
 
   const intox = Math.round(player.intoxication || 0);

@@ -53,6 +53,7 @@ import {
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield, reconcileApartmentDoorLocks, reconcileNpcHomesVsOwnership } from "./engine/apartments.js";
 import { wakeFromDream } from "./engine/dreamscape.js";
+import { fatigueOf } from "./engine/condition.js";
 import { startKeepalive } from "./keepalive.js";
 import { startUsageLog } from "./usage-log.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -1234,7 +1235,13 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	ws.send(
 		JSON.stringify({
 			type: "auth_success",
-			player: livePlayer,
+			// Fatigue is DERIVED and deliberately not stored on the player — see
+			// condition.js. It is stamped onto a COPY for the wire so the HUD has a
+			// reading the moment you log in rather than waiting for the first band
+			// change, and so no second number is left sitting on the live object
+			// going stale behind the one that's true. The resource tick keeps it
+			// current from here.
+			player: { ...livePlayer, fatigue: Math.round(fatigueOf(livePlayer)) },
 			env: envHUD,
 			apiToken,
 			reconnectToken,

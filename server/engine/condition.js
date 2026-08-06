@@ -138,6 +138,28 @@ export const FATIGUE_TIRED = 50;          // the first band you can feel — ~36
 export const FATIGUE_EXHAUSTED = 65;      // ~47h
 export const FATIGUE_RUINED = 85;         // ~61h — past here it costs you your mind
 
+// THE WORDS FOR THOSE BANDS, next to the numbers that define them.
+//
+// The tablet's Health app had its own inline ladder, which was fine while it was
+// the only thing in the game that said how tired you were out loud. The moment
+// the Environment pane said it too, two ladders meant one surface could call you
+// exhausted while the other still called you tired — the same class of drift the
+// wetness HUD avoids by mirroring WETNESS_LABELS. One list, both readers.
+//
+// `rested` is a real answer and never blank: a rail that shows nothing until you
+// are already suffering can't be read as "I am fine", only as "the HUD is
+// broken".
+const FATIGUE_BANDS = [
+  [FATIGUE_RUINED, 'Wrecked'],
+  [FATIGUE_EXHAUSTED, 'Exhausted'],
+  [FATIGUE_TIRED, 'Tired'],
+];
+
+export function fatigueLabel(v) {
+  for (const [floor, label] of FATIGUE_BANDS) if (v >= floor) return label;
+  return 'Rested';
+}
+
 // Real minutes in a bed to clear a full night's fatigue.
 //
 // Expressed as an OUTCOME rather than a ratio, because the ratio it replaced was

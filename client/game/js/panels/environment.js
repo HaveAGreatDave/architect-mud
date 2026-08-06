@@ -207,6 +207,7 @@ function renderEnvironmentHUD() {
   const mPrecipRow = document.getElementById('env-precip-intensity-m')?.parentElement;
   if (mPrecipRow && !envUnreal) mPrecipRow.style.display = precipLabel ? '' : 'none';
   renderWetnessRow();
+  renderFatigueRow();
 }
 
 // Your own soaking, read straight off the live player object — the wetness tick
@@ -224,8 +225,43 @@ function renderWetnessRow() {
   }
 }
 
+// Mirrors FATIGUE_BANDS in server/engine/condition.js — the same ladder the
+// tablet's Health app reads, so the pane and the app never disagree about
+// whether you are tired or exhausted.
+const FATIGUE_BANDS = [
+  [85, 'Wrecked', 'env-wrecked'],
+  [65, 'Exhausted', 'env-exhausted'],
+  [50, 'Tired', 'env-tired'],
+];
+
+function fatigueBand(v) {
+  for (const [floor, label, cls] of FATIGUE_BANDS) if (v >= floor) return [label, cls];
+  return ['Rested', ''];
+}
+
+// Your own clock, off the live player object — the resource tick carries
+// `fatigue` on a band change and login seeds it, so there is no polling here.
+// The row never hides: "Rested" is an answer, and a rail that only appears once
+// you are suffering reads as broken rather than as fine. Only the unreal
+// (dream/void) case drops it, same rule as wetness — a body asleep somewhere
+// else has no waking hours to report.
+function renderFatigueRow() {
+  const [label, cls] = fatigueBand(Math.round(state.player?.fatigue ?? 0));
+  for (const suffix of ['', '-m']) {
+    const row = document.getElementById(`env-fatigue-row${suffix}`);
+    const el  = document.getElementById(`env-fatigue${suffix}`);
+    const pct = document.getElementById(`env-fatigue-pct${suffix}`);
+    if (el) {
+      el.textContent = label;
+      el.className = `env-fatigue-label ${cls}`.trim();
+    }
+    if (pct) pct.textContent = envUnreal ? '' : `${Math.round(state.player?.fatigue ?? 0)}%`;
+    if (row) row.style.display = envUnreal ? 'none' : '';
+  }
+}
+
 // Called when the player object changes (resource ticks carry wetness).
-export function refreshWetnessHUD() { renderWetnessRow(); }
+export function refreshWetnessHUD() { renderWetnessRow(); renderFatigueRow(); }
 
 let _lastServerTick = 0;
 

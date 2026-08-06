@@ -376,7 +376,7 @@ export function updateVitals(p) {
   setBar('thi', p.thirst, 100);
   setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
-  refreshWetnessHUD();   // wetness rides the environment HUD, not the vitals bars
+  refreshWetnessHUD();   // wetness and fatigue ride the environment HUD, not the vitals bars
   // Mobile hunger/thirst mirror whatever the sidebar is hiding. The compact bars carry no
   // `data-lr-key`, so list-reorder cannot manage them; hiding them here keeps one decision
   // driving both layouts instead of letting the phone disagree with the desktop.

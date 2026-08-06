@@ -692,6 +692,11 @@
 				<div class="env-hud-row env-hud-weather">
 					<span class="env-precip-label" id="env-precip-intensity-m"></span>
 				</div>
+				<div class="env-hud-row env-hud-weather" id="env-fatigue-row-m">
+					<span style="font-size: 9px; color: var(--text-dim)">◔</span>
+					<span class="env-fatigue-label" id="env-fatigue-m">Rested</span>
+					<span class="env-fatigue-pct" id="env-fatigue-pct-m"></span>
+				</div>
 				<div class="env-hud-row env-hud-weather" id="env-wet-row-m" style="display: none">
 					<span style="font-size: 10px; color: var(--blue)">💧</span>
 					<span class="env-wet-label" id="env-wetness-m"></span>
@@ -958,6 +963,15 @@
 							<span
 								class="env-precip-label"
 								id="env-precip-intensity"></span>
+						</div>
+						<!-- The body's own clock. Every other row in this block is two
+						     columns — a thing on the left, its reading hard right — so
+						     this one is too: the band as the word you read, the number
+						     as the thing that moves between words. -->
+						<div class="env-hud-row env-hud-weather" id="env-fatigue-row">
+							<span id="env-fatigue-icon" style="font-size: 10px; color: var(--text-dim)">◔</span>
+							<span class="env-fatigue-label" id="env-fatigue">Rested</span>
+							<span class="env-fatigue-pct" id="env-fatigue-pct"></span>
 						</div>
 						<div class="env-hud-row env-hud-weather" id="env-wet-row" style="display: none">
 							<span id="env-wet-icon" style="font-size: 10px; color: var(--blue)">💧</span>
