@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CPhL Rink — preview harness</title>
+<!-- Serve over HTTP, never file:// — the view is an ES module and file:// blocks the
+     import, which shows up as a black panel rather than an error. -->
+<link rel="stylesheet" href="../client/game/styles.css">
+<style>
+	body { margin: 0; background: #05080d; font-family: system-ui, sans-serif; color: #cfe4f4; }
+	.stage { position: relative; width: 900px; height: 520px; margin: 24px auto; background: #0b1119; border: 1px solid #1d3348; }
+	/* The real container is `display:none` until tv.js adds `.on`, and is inset for
+	   the TV chrome that isn't here. Both overridden so the harness shows the panel
+	   at the size it gets in the set. */
+	#tv-gameday { inset: 0 !important; }
+	.bar { width: 900px; margin: 0 auto; display: flex; gap: 8px; flex-wrap: wrap; font: 12px/1.6 monospace; }
+	.bar button { background: #14293d; color: #9fe4ff; border: 1px solid #2f6fd0; padding: 4px 9px; cursor: pointer; }
+	.bar span { opacity: 0.6; align-self: center; }
+</style>
+</head>
+<body>
+<div class="stage"><div id="tv-gameday" class="on"></div></div>
+<div class="bar" id="bar"><span>auto-cycling every 9s · click a beat to force it</span></div>
+<script type="module">
+import { createRinkView } from '../client/game/js/panels/gameday-rink.js';
+
+const view = createRinkView(document.getElementById('tv-gameday'));
+// Harness only — lets a console (or a screenshot script) park a specific beat and
+// hold it, which is the only way to inspect an end of the ice deliberately.
+window.__rink = view;
+
+const CLUBS = {
+	away: { name: 'Slaglands Slashers', abbr: 'SS', colours: ['#c8a13a', '#2a1d05'] },
+	home: { name: 'Wastes Drifters',    abbr: 'WD', colours: ['#7fb2dd', '#10283f'] },
+};
+
+let score = [3, 3], clock = 761;
+
+// A beat shaped exactly like hockey-narrator.js builds one, so the harness exercises
+// the real payload rather than a convenient fiction.
+function beat(kind, over = {}) {
+	clock -= 37;
+	const toHome = (over.toHome ?? Math.random() < 0.5);
+	const end = toHome ? 0.955 : 0.045;
+	const mid = toHome ? 0.74 : 0.26;
+	const out = toHome ? 0.30 : 0.70;
+	return {
+		sport: 'hockey', type: kind === 'goal' ? 'goal' : 'chance', kind,
+		shooter: toHome ? '"Compress" Duguay' : 'Asbestos McQuaid',
+		goalie: toHome ? 'Renna Voss' : 'Marguerite Okonkwo-Bell',
+		assist: 'Ibarra',
+		attackingTeam: toHome ? CLUBS.away.name : CLUBS.home.name,
+		defendingTeam: toHome ? CLUBS.home.name : CLUBS.away.name,
+		awayTeam: CLUBS.away.name, homeTeam: CLUBS.home.name,
+		awayAbbr: CLUBS.away.abbr, homeAbbr: CLUBS.home.abbr,
+		awayColours: CLUBS.away.colours, homeColours: CLUBS.home.colours,
+		attackingColours: toHome ? CLUBS.away.colours : CLUBS.home.colours,
+		defendingColours: toHome ? CLUBS.home.colours : CLUBS.away.colours,
+		section: '2nd', clock: `${(clock / 60) | 0}:${String(clock % 60).padStart(2, '0')}`, clockSecs: clock,
+		strength: 'even', rivalry: true,
+		awayScore: score[0], homeScore: score[1],
+		desc: kind, hornSeed: 7,
+		possession: [
+			{ t: 0, p: [out, 0.50], ev: 'carry', carrier: 3 },
+			{ t: 1, p: [(out + mid) / 2, 0.22], ev: 'pass', carrier: 1 },
+			{ t: 2, p: [mid, 0.36], ev: 'entry', carrier: 1 },
+			{ t: 3, p: [end, 0.46], ev: 'shot', carrier: 0 },
+		],
+		...over,
+	};
+}
+
+const CAPTIONS = {
+	goal: 'He walks out from the corner and roofs it — and this barn comes apart.',
+	save: 'Shot from the point, and the keeper swallows it whole.',
+	glove: 'Snapped out of the air. That is a robbery in progress.',
+	pad: 'Off the pad and into the corner, nobody home to bury the rebound.',
+	post: 'IRON. Four thousand people made the same noise at the same time.',
+	wide: 'Wide of the far post and around the boards.',
+	blocked: 'Blocked in the lane, and he wears that one.',
+	breakaway: 'In alone — and poked off his stick at the last instant.',
+	faceoff: 'Drawn clean back to the point.',
+	fight: 'Gloves are off and the linesmen are giving them room.',
+};
+
+const SEQ = [
+	() => beat('save'), () => beat('glove'),
+	() => beat('save', { type: 'faceoff', kind: 'faceoff', possession: null, dot: 'aZL', winnerSide: 'att', winner: '"Compress" Duguay', loser: 'Ibarra' }),
+	() => beat('post'), () => beat('blocked'),
+	() => { score[1]++; return beat('goal', { toHome: true }); },
+	() => beat('pad'), () => beat('breakaway'), () => beat('wide'),
+	() => beat('save', { type: 'fight', kind: 'fight', possession: null, winnerSide: 'att', winner: '"Compress" Duguay', loser: 'Asbestos McQuaid',
+		exchange: [{ thrower: '"Compress" Duguay', landed: true }, { thrower: 'Asbestos McQuaid', landed: false }, { thrower: '"Compress" Duguay', landed: true }] }),
+];
+
+let i = 0;
+function fire(p) {
+	view.apply(p);
+	const k = p.type === 'faceoff' ? 'faceoff' : p.type === 'fight' ? 'fight' : p.kind;
+	setTimeout(() => view.setCaption(CAPTIONS[k] || p.desc), 900);
+	if (p.kind === 'goal') setTimeout(() => view.showCard({ kind: 'hockeygoal', shooter: p.shooter, assist: p.assist, strength: 'even', duration: 3.5 }), 2200);
+}
+function next() { fire(SEQ[i++ % SEQ.length]()); }
+
+for (const k of ['save', 'glove', 'pad', 'post', 'wide', 'blocked', 'breakaway', 'goal']) {
+	const b = document.createElement('button');
+	b.textContent = k; b.onclick = () => fire(beat(k));
+	document.getElementById('bar').appendChild(b);
+}
+{
+	const b = document.createElement('button');
+	b.textContent = 'idle'; b.onclick = () => view.showIdle();
+	document.getElementById('bar').appendChild(b);
+}
+
+next();
+setInterval(next, 9000);
+</script>
+</body>
+</html>
