@@ -10855,14 +10855,48 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-head-str.sh { background: rgba(255,190,60,0.16); color: #ffd27a; border-color: rgba(255,190,60,0.45); }
 .gdr-head-str.en { background: rgba(255,60,70,0.18); color: #ff9aa2; border-color: rgba(255,60,70,0.5); }
 
-/* The sheet. 2:1-ish so the zones keep their real proportions. */
+/* ── viewport · camera · sheet ────────────────────────────────────────────────
+   Three elements, three jobs. `.gdr-rink` is the CLIPPING WINDOW and fills the
+   panel. `.gdr-cam` is the sliding surface — taller than the window, translated
+   by the view's rAF loop to keep the puck in frame. `.gdr-sheet` is the ice, and
+   is the positioned parent every token measures itself against, which is why the
+   tokens never have to know the camera exists.
+
+   The sheet stands VERTICALLY (nets top and bottom) at its true 85:200, inset
+   from the cam's edges so there is room for the stands to sit past the boards.
+   A whole sheet laid across a landscape panel puts every man at three pixels;
+   standing it up and zooming in is what makes the sport readable at all. */
 .gdr-rink {
-	position: relative; flex: 1 1 auto; min-height: 0; align-self: center;
-	width: 100%; aspect-ratio: 100 / 52; max-height: 100%;
-	border-radius: 7px; overflow: hidden;
-	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.55), 0 0 18px rgba(0, 0, 0, 0.5);
+	position: relative; flex: 1 1 auto; min-height: 0; align-self: stretch;
+	width: 100%; overflow: hidden; border-radius: 6px;
+	background: #0a1420;
+	box-shadow: inset 0 0 34px rgba(0, 10, 20, 0.75), 0 0 18px rgba(0, 0, 0, 0.5);
 }
+/* 0.82 of the cam's width is ice; the sheet's own 85:200 then fixes the height,
+   so cam aspect = 1 : (200/85 × 0.82) = 1 : 1.929. Getting this ratio from the
+   sheet rather than typing a height is what keeps the ice undistorted at any
+   panel size — a stretched rink turns every faceoff circle into an egg. */
+.gdr-cam { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1 / 1.9294; will-change: transform; }
+.gdr-sheet { position: absolute; left: 9%; right: 9%; top: 0; bottom: 0; }
 .gdr-ice { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* The building past the boards. A repeating dot field reads as a crowd at this
+   scale and costs nothing; it also gives the camera's motion something to move
+   AGAINST, without which a scrolling sheet of white looks like a still frame. */
+.gdr-stands {
+	position: absolute; inset: 0;
+	background:
+		repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 7px),
+		repeating-linear-gradient(90deg, rgba(120,170,210,0.10) 0 3px, transparent 3px 9px),
+		linear-gradient(90deg, #16283a 0%, #1d3348 9%, #101c2a 9.5%, #101c2a 90.5%, #1d3348 91%, #16283a 100%);
+	opacity: 0.9;
+}
+/* A soft darkening at the top and bottom of the window, so the sheet reads as
+   continuing past the frame rather than ending at it. */
+.gdr-vignette {
+	position: absolute; inset: 0; pointer-events: none; z-index: 6;
+	background: linear-gradient(180deg, rgba(4,10,18,0.85) 0%, transparent 14%, transparent 86%, rgba(4,10,18,0.85) 100%);
+}
 .gdr-ice-bed { fill: #e8f2fa; }
 /* The two attacking zones sit a shade colder than the neutral zone — real sheets
    read this way under arena light and it makes the blue lines legible at a glance. */
@@ -10870,9 +10904,9 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-crease { fill: rgba(90, 170, 225, 0.30); stroke: #2f7fd0; stroke-width: 0.4; vector-effect: non-scaling-stroke; }
 .gdr-boards { fill: none; stroke: rgba(30, 60, 85, 0.75); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
 .gdr-line { vector-effect: non-scaling-stroke; }
-.gdr-line.blue { stroke: #2f6fd0; stroke-width: 2.6; }
-.gdr-line.red { stroke: #d02f3f; stroke-width: 2.6; }
-.gdr-line.goal { stroke: #d02f3f; stroke-width: 1.1; }
+.gdr-line.blue { stroke: #2f6fd0; stroke-width: 4; }
+.gdr-line.red { stroke: #d02f3f; stroke-width: 4; }
+.gdr-line.goal { stroke: #d02f3f; stroke-width: 1.6; }
 .gdr-line.blue.lit { stroke: #7fd4ff; filter: drop-shadow(0 0 4px #4fd2ff); transition: stroke 0.12s; }
 /* The moment of crossing. The goal line itself flares — the puck's position is the
    fact, and this is the fact being READ, which is what a video review is. */
@@ -10910,31 +10944,58 @@ body.ck-fullscreen #mob-hud-env {
 /* ── tokens ──────────────────────────────────────────────────────────────────── */
 .gdr-fx, .gdr-skaters { position: absolute; inset: 0; pointer-events: none; }
 .gdr-skater, .gdr-puck, .gdr-goalie { position: absolute; transform: translate(-50%, -50%); }
-.gdr-skater {
-	width: 2.6%; aspect-ratio: 1; border-radius: 50%;
-	background: radial-gradient(circle at 35% 30%, #fff, #b9d6ea 60%, #6f9dbd);
-	border: 1px solid rgba(10, 30, 50, 0.7);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+/* ── the skater ──────────────────────────────────────────────────────────────
+   A man, not a dot. At this zoom there is room for a body, a helmet and a stick,
+   and the stick is the load-bearing part: it's what makes the direction he faces
+   readable, which is what makes a forecheck look like a forecheck.
+
+   The FIGURE rotates to his heading; the number TAG does not, because an upside-
+   down number is unreadable and the sweater number is the one thing on the ice a
+   broadcast viewer is actually trying to read. */
+.gdr-skater { width: 9%; aspect-ratio: 24 / 28; z-index: 2; }
+.gdr-sk-svg { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 50%; }
+.gdr-sk-torso { fill: #b9d6ea; stroke: rgba(8, 22, 38, 0.85); stroke-width: 1.1; }
+.gdr-sk-helm { fill: #f2f7fb; stroke: rgba(8, 22, 38, 0.85); stroke-width: 1; }
+.gdr-sk-arm { fill: none; stroke: #b9d6ea; stroke-width: 2.2; stroke-linecap: round; }
+.gdr-sk-stick { fill: none; stroke: #d8a24a; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.gdr-skater.att .gdr-sk-torso, .gdr-skater.att .gdr-sk-arm { fill: #e8a83c; stroke: #6d4408; }
+.gdr-skater.att .gdr-sk-arm { stroke: #e8a83c; }
+.gdr-skater.def .gdr-sk-torso, .gdr-skater.def .gdr-sk-arm { fill: #5f9ed6; stroke: #1d3f61; }
+.gdr-skater.def .gdr-sk-arm { stroke: #5f9ed6; }
+/* A club with its own colours wears them — the trim outline is what keeps two
+   clubs with similar primaries still telling apart at this size. */
+.gdr-skater.clubbed .gdr-sk-torso { fill: var(--gdr-jersey); stroke: var(--gdr-trim); stroke-width: 1.4; }
+.gdr-skater.clubbed .gdr-sk-arm { stroke: var(--gdr-jersey); }
+.gdr-skater.clubbed .gdr-sk-helm { fill: var(--gdr-trim); }
+
+/* Number and position, the NHL-broadcast tag. Sits under the man and never turns. */
+.gdr-sk-tag {
+	position: absolute; left: 50%; top: 86%; transform: translateX(-50%);
+	font-family: var(--font-mono); font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+	color: #eaf4ff; text-shadow: 0 0 3px #000, 0 1px 2px #000; white-space: nowrap; pointer-events: none;
 }
-.gdr-skater.att { background: radial-gradient(circle at 35% 30%, #ffe9a8, #e8a83c 60%, #a86f18); }
-.gdr-skater.def { background: radial-gradient(circle at 35% 30%, #cfe6ff, #5f9ed6 60%, #2c5f92); }
-/* A club with its own colours wears them — the trim ring is what keeps two clubs
-   with similar primaries still telling apart at this size. */
-.gdr-skater.clubbed {
-	background: radial-gradient(circle at 35% 30%, var(--gdr-trim), var(--gdr-jersey) 62%, var(--gdr-jersey));
-	border-color: var(--gdr-jersey);
-	box-shadow: 0 0 0 1px var(--gdr-trim), 0 1px 3px rgba(0, 0, 0, 0.45);
+/* The man with it. A ring under his skates — the same job NHL '94's star did:
+   tell you instantly which of ten men the puck belongs to. */
+.gdr-skater.carrier::before {
+	content: ''; position: absolute; left: 50%; top: 52%; width: 130%; aspect-ratio: 1;
+	transform: translate(-50%, -50%); border-radius: 50%;
+	border: 1.5px solid rgba(255, 220, 120, 0.9); box-shadow: 0 0 8px rgba(255, 200, 80, 0.55);
+	animation: gdr-carrier 1.1s ease-in-out infinite;
 }
-.gdr-skater.shooting { animation: gdr-wind 0.4s ease-out; }
-@keyframes gdr-wind { 0% { transform: translate(-50%,-50%) scale(1); } 45% { transform: translate(-50%,-50%) scale(1.42); } 100% { transform: translate(-50%,-50%) scale(1); } }
-.gdr-skater.fighting { box-shadow: 0 0 8px rgba(255, 70, 70, 0.8); }
-.gdr-skater.swing { animation: gdr-swing 0.12s ease-out; }
-@keyframes gdr-swing { 50% { transform: translate(-50%,-50%) scale(1.3) rotate(12deg); } }
-.gdr-skater.hit { animation: gdr-hit 0.15s ease-out; }
-@keyframes gdr-hit { 50% { transform: translate(-42%,-56%) scale(0.86); } }
+@keyframes gdr-carrier { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* Moving fast enough to be striding rather than gliding. */
+.gdr-skater.striding .gdr-sk-arm { animation: gdr-stride 0.34s ease-in-out infinite alternate; }
+@keyframes gdr-stride { from { stroke-width: 2.2; } to { stroke-width: 3; } }
+.gdr-skater.shooting .gdr-sk-svg { animation: gdr-wind 0.4s ease-out; }
+@keyframes gdr-wind { 0%, 100% { scale: 1; } 45% { scale: 1.3; } }
+.gdr-skater.fighting .gdr-sk-torso { stroke: #ff4646; stroke-width: 2; filter: drop-shadow(0 0 4px rgba(255, 70, 70, 0.9)); }
+.gdr-skater.swing .gdr-sk-svg { animation: gdr-swing 0.12s ease-out; }
+@keyframes gdr-swing { 50% { scale: 1.25; } }
+.gdr-skater.hit .gdr-sk-svg { animation: gdr-hit 0.15s ease-out; }
+@keyframes gdr-hit { 50% { scale: 0.84; } }
 
 .gdr-puck {
-	width: 1.5%; aspect-ratio: 1; border-radius: 50%;
+	width: 2.2%; aspect-ratio: 1; border-radius: 50%; z-index: 4;
 	background: radial-gradient(circle at 36% 30%, #4a4a4a, #050505 70%);
 	box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 1px 4px rgba(0, 0, 0, 0.7);
 	z-index: 4;
@@ -10944,8 +11005,10 @@ body.ck-fullscreen #mob-hud-env {
 /* ── the goalie ──────────────────────────────────────────────────────────────
    Placed by his centre; the right-hand net's man is mirrored so both face the play.
    Each pose moves ONE limb — that's what makes the save types distinguishable. */
-.gdr-goalie { width: 7.5%; aspect-ratio: 40 / 48; z-index: 3; }
-.gdr-goalie.right { transform: translate(-50%, -50%) scaleX(-1); }
+/* Both men face the ice, which with the sheet stood up means the AWAY end's goalie
+   (top of the picture) is the one turned around. */
+.gdr-goalie { width: 14%; aspect-ratio: 40 / 48; z-index: 3; }
+.gdr-goalie.left { transform: translate(-50%, -50%) rotate(180deg); }
 .gdr-g-svg { width: 100%; height: 100%; overflow: visible; }
 .gdr-g-body > * { transition: transform 0.16s cubic-bezier(.2, 1.4, .3, 1); transform-box: fill-box; transform-origin: center; }
 .gdr-g-chest { fill: #2b3d52; stroke: #16222f; stroke-width: 0.6; }
@@ -10999,6 +11062,37 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-hit { width: 5%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(255,70,70,0.85), transparent 68%); animation: gdr-spray 0.3s ease-out forwards; }
 .gdr-whistle { width: 3.4%; aspect-ratio: 1; border-radius: 50%; background: #ffd24a; box-shadow: 0 0 10px rgba(255,210,74,0.9); animation: gdr-fade 0.9s ease-out forwards; }
 
+/* ── the violence ────────────────────────────────────────────────────────────
+   The CPhL's whole character is that men are carried off and occasionally killed,
+   and until now the ice sat still through every one of those calls. A body has
+   three states past upright: down, helped off, and not getting up. */
+.gdr-skater.down .gdr-sk-svg { transition: rotate 0.25s ease-out, scale 0.25s ease-out; rotate: 74deg; scale: 0.82; }
+.gdr-skater.down .gdr-sk-torso { fill: #6e7c88; }
+/* Helped off and out of the picture — his club is a man short, and the empty lane
+   is how a viewer sees that without being told. */
+.gdr-skater.leaving { transition: opacity 1.4s ease-in; opacity: 0; }
+/* Not getting up. */
+.gdr-skater.dead .gdr-sk-torso { fill: #7a2028; stroke: #ff4d5a; }
+.gdr-skater.dead .gdr-sk-helm { fill: #4a1218; }
+.gdr-skater.shoving .gdr-sk-svg { animation: gdr-shove 0.28s ease-in-out infinite alternate; }
+@keyframes gdr-shove { from { translate: 0 0; } to { translate: 6% -4%; } }
+/* The pool. Long-lived on purpose — it is still there when the next beat starts,
+   because on this league's ice it would be. */
+.gdr-blood {
+	position: absolute; transform: translate(-50%, -50%); pointer-events: none;
+	width: 7%; aspect-ratio: 1; border-radius: 50%;
+	background: radial-gradient(circle, rgba(150, 16, 26, 0.9), rgba(110, 10, 18, 0.5) 55%, transparent 74%);
+	animation: gdr-pool 1.6s ease-out forwards;
+}
+@keyframes gdr-pool { from { opacity: 0; scale: 0.2; } to { opacity: 1; scale: 1; } }
+/* The glass takes it. The cheapest cue in the building and the most recognisable. */
+.gdr-boards.shook { stroke: #ffd24a; animation: gdr-shook 0.55s ease-out; }
+@keyframes gdr-shook { 0%, 100% { stroke-width: 1.4; } 30% { stroke-width: 5; } }
+.gdr-rink.jolt .gdr-cam { animation: gdr-jolt 0.3s ease-out; }
+@keyframes gdr-jolt { 0%, 100% { translate: 0 0; } 25% { translate: -0.7% 0; } 65% { translate: 0.5% 0; } }
+/* Everything stops. The one moment this view is deliberately still. */
+.gdr-rink.mourning .gdr-sheet { filter: saturate(0.45) brightness(0.78); transition: filter 1.2s ease-out; }
+
 .gdr-strip {
 	flex: 0 0 auto; display: flex; align-items: baseline; gap: 10px; padding: 3px 10px;
 	background: rgba(0, 0, 0, 0.42); border: 1px solid rgba(120, 200, 240, 0.2); border-radius: 3px;
@@ -11029,7 +11123,10 @@ body.ck-fullscreen #mob-hud-env {
 .gdr-jumbo.dead .gdr-jumbo-title { color: #dfe9f2; text-shadow: none; letter-spacing: 7px; }
 .gdr-jumbo.final .gdr-jumbo-title { color: #fff; }
 
-.gdr-idle { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+/* The lockup sits OVER live ice now rather than replacing it — the sub-screen's
+   whole claim is that there's a game on, so a warmup under a scrim says it and a
+   blank card doesn't. */
+.gdr-idle { position: absolute; inset: 0; z-index: 7; background: rgba(4, 10, 18, 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 .gdr-idle .cphl-mark { animation: gd-idle-pulse 2.4s ease-in-out infinite; }
 .gdr-idle-sub { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: rgba(210,232,246,0.45); }
 

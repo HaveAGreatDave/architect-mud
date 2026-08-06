@@ -1905,6 +1905,7 @@ export default async function regress({ check, run, getPlayer }) {
     // ── the sim + the narrator over a real slate ──────────────────────────────
     const seenTypes = new Set(), usedPools = new Set();
     const unfilled = [], strayScorers = [], notCrossed = [];
+    const gdViolent = new Set();
     let goals = 0, faceoffs = 0, centreDrops = 0, periods = 0, lines = 0;
     for (let slot = 0; slot < 24; slot++) {
       const seed = sportsHash(slot, 0);
@@ -1938,6 +1939,18 @@ export default async function regress({ check, run, getPlayer }) {
         }
         if (gd.type === 'faceoff' && !RINK.DOTS[gd.dot]) unfilled.push(`bad dot ${gd.dot}`);
         if ((gd.type === 'chance' || gd.type === 'goal') && !RINK.SAVE[gd.kind]) unfilled.push(`no SAVE pose for ${gd.kind}`);
+        // THE VIOLENCE REACHES THE ICE. This league's character is that men are carried
+        // off and occasionally killed, and every one of those calls used to arrive at
+        // the rink as nothing at all — the announcer describing a body going through
+        // the glass over a still picture. A violent beat has to carry a payload, and
+        // that payload has to name a victim and the SIDE he plays for, or the view
+        // cannot put the right sweater on the boards.
+        if (['boards', 'injury', 'death'].includes(gd.type)) {
+          gdViolent.add(gd.type);
+          if (!gd.victim) unfilled.push(`${gd.type} names no victim`);
+          if (gd.victimSide !== 'att' && gd.victimSide !== 'def') unfilled.push(`${gd.type} victim on no side`);
+        }
+        if (gd.type === 'scrum') gdViolent.add('scrum');
       };
       HOCKEY.narrate({
         script: {}, game, gs: { seed, game }, slot, ws: false, announcer: 'Tug Brennan',
@@ -1956,6 +1969,11 @@ export default async function regress({ check, run, getPlayer }) {
     check('hockey: no unfilled tokens reach the air', unfilled.length === 0, unfilled.slice(0, 3).join(' | '));
     check('hockey: scorers belong to a club that played', strayScorers.length === 0, strayScorers.slice(0, 3).join(','));
     check('hockey: the narrator produced play-by-play', lines > 100, `${lines} lines`);
+    // Every violent beat reaches the rink with something to draw. Before this the ice
+    // sat still through the half of the sport the league is actually known for.
+    for (const t of ['boards', 'injury', 'death', 'scrum']) {
+      check(`hockey: a "${t}" reaches the ice, not just the air`, gdViolent.has(t), [...gdViolent].join(',') || 'none');
+    }
 
     // TEXT PARITY. Every beat the sim can emit must be narratable, and every pool the
     // script ships must be reachable — the two halves of "nothing exists only as an

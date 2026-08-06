@@ -172,6 +172,18 @@ export function narrate(ctx) {
       : b.type === 'fight' ? (b.winnerTeam === away.name ? 'att' : 'def') : '',
     fighters: Array.isArray(b.fighters) ? b.fighters.slice() : null,
     exchange: b.exchange || null,
+    // ── the violence ────────────────────────────────────────────────────────
+    // A hit, an injury, a death and a scrum are beats the announcer has always
+    // called and the ice has never shown, which made the rink a highlight reel of
+    // the polite half of the sport. They ride the same payload as everything else;
+    // what they need beyond it is WHO and, for a hit, WHICH SIDE ate it — a body
+    // going into the boards is only legible if it's the right body.
+    hitter: b.hitter || '', victim: b.victim || b.player || '',
+    hitterTeam: b.hitterTeam || '', victimTeam: b.victimTeam || b.teamName || '',
+    // In the view's own att/def frame, so the client never has to know club names.
+    victimSide: (b.victimTeam || b.teamName) ? ((b.victimTeam || b.teamName) === away.name ? 'att' : 'def') : '',
+    hitterSide: b.hitterTeam ? (b.hitterTeam === away.name ? 'att' : 'def') : '',
+    slotsOut: b.slotsOut || 0,
     // A compact league snapshot, so the rink can carry a standings dock the way the
     // baseball Gameday does. Warmed before the graph assembles; empty before the
     // CPhL has played a game, which the dock renders as simply absent.
@@ -404,20 +416,24 @@ export function narrate(ctx) {
         boxes.push({ against: b.loserTeam, until: b.clock - 5 * 60 });
         break;
 
+      // The violent beats carry a Gameday payload for the same reason a goal does:
+      // the rink is supposed to be showing what the announcer is describing, and a
+      // league where men are carried off and occasionally killed cannot have those
+      // be the only calls the ice sits still through.
       case 'boards':
-        say(pick('boards'), t, sb); said++;
+        say(pick('boards'), t, sb, null, gameday(b, idx)); said++;
         break;
 
       case 'injury':
-        say(pick('injury'), t, sb); said++;
+        say(pick('injury'), t, sb, null, gameday(b, idx)); said++;
         break;
 
       case 'death':
-        say(pick('death'), t, sb, deathFx(b)); said++;
+        say(pick('death'), t, sb, deathFx(b), gameday(b, idx)); said++;
         break;
 
       case 'scrum':
-        say(pick('scrum'), t, sb); said++;
+        say(pick('scrum'), t, sb, null, gameday(b, idx)); said++;
         break;
 
       case 'pull':

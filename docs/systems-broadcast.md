@@ -558,8 +558,44 @@ the mesh at 0.975, which bulges. Regress asserts every simulated goal crosses. T
 is an articulated SVG (mask, chest, blocker, trapper, two pads, stick) with a pose per
 save type, because every save in the sim is a *different* save.
 
+**The sheet stands up and the camera chases the puck** (NHL '94's answer to the same
+problem). A whole 200×85 rink drawn end-to-end across a landscape panel puts every man at
+three pixels; instead the ice is drawn TALL and LARGER THAN THE VIEWPORT, and `.gdr-cam`
+slides under a clipping window to keep the puck in frame. Three elements, three jobs:
+`.gdr-rink` clips, `.gdr-cam` slides, `.gdr-sheet` is the coordinate space every token is
+positioned against — so no token knows the camera exists. **The model frame never
+rotates:** the sim's `x`-along/`y`-across coordinates, GEO and DOTS are untouched and
+standing the picture up is a projection (`_sx`/`_sy`) applied at the very edge. Rotating
+the model instead would mean reinterpreting every coordinate the server sends. The sheet
+SVG is authored at the real 85×200, so a faceoff circle is a *circle*; the CSS
+`aspect-ratio` on `.gdr-cam` is derived from that and **must stay in step with it** or
+every circle on the ice becomes an egg.
+
+**The ice is never still.** A beat lands about every ten seconds; the view used to
+animate it and then hold its last frame for the other nine, which reads as a photograph
+of hockey. A rAF loop now owns every token — ten skaters (numbered, with sticks, five a
+side) hold a formation *relative to the puck*, and the puck keeps circulating through an
+idle flow between beats. **The idle flow decides nothing**: no shot, goal or stat ever
+comes out of it, because the only events that exist are the ones the sim decided.
+
+**The violence reaches the ice.** `boards`, `injury`, `death` and `scrum` used to carry no
+gameday payload at all, so the announcer described a man going through the glass over a
+still picture — the league's whole character happening off-screen. They now ride the same
+payload, carrying `victim`/`hitter` and a **`victimSide`/`hitterSide` in the view's own
+att/def frame** so the client never needs a club name to put the right sweater on the
+boards. Regress asserts all four reach the ice with a victim and a side.
+
 Branding lives in [cphl-brand.js](../client/game/js/panels/cphl-brand.js) — one mark,
-drawn by the score bug, the full-screen graphics, the rink header and the idle screen.
+drawn by the score bug, the full-screen graphics, the rink header, the idle screen and
+**the Gameday toggle itself**, which wears a puck on a hockey night and a baseball
+otherwise (`_brandGamedayBtn` in tv.js).
+
+[scripts/shapes/rink-smoke.mjs](../scripts/shapes/rink-smoke.mjs) is the view's only
+automated coverage and runs in `pretest:regress`: it drives `apply()` through every beat
+type over a hand-cranked DOM + clock ([rink-dom-stub.mjs](../scripts/shapes/rink-dom-stub.mjs))
+and asserts ten men take the ice, the camera moves, the puck still circulates with no new
+beat, and a death leaves a body that stays where it fell. It proves the view **runs**,
+not that it looks right — there is no pixel comparison.
 
 ### Sound banks
 

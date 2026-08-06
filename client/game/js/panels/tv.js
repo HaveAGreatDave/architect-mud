@@ -879,10 +879,31 @@ export function createTvView(root, opts = {}) {
     return _gamedayView;
   }
 
+  // The toggle wears the sport it would open. A baseball is a lie on a hockey night —
+  // and the button is the only affordance telling a viewer the sub-screen exists at
+  // all, so it has to name the right game. The puck is the league's own mark, which
+  // is a disc with one line struck through it, so the button and everything else in
+  // the CPhL presentation come from the same drawing.
+  function _brandGamedayBtn(sport) {
+    const btn = el('gameday-btn');
+    if (!btn || btn.dataset.sport === sport) return;
+    btn.dataset.sport = sport;
+    if (sport === 'hockey') {
+      btn.innerHTML = cphlMark('15px');
+      btn.title = 'Rinkside — live play on the ice';
+      btn.setAttribute('aria-label', 'Rinkside view');
+    } else {
+      btn.innerHTML = '&#x26BE;';
+      btn.title = 'Gameday — animated play-by-play';
+      btn.setAttribute('aria-label', 'Gameday view');
+    }
+  }
+
   function _handleGameday(gd) {
     _lastGameday = gd;
     const btn = el('gameday-btn');
     if (btn) btn.classList.add('avail');
+    _brandGamedayBtn(gd && gd.sport === 'hockey' ? 'hockey' : 'baseball');
     if (_gamedayOpen) _gamedayViewFor(gd, el('gameday')).apply(gd);
   }
 
@@ -909,6 +930,11 @@ export function createTvView(root, opts = {}) {
     _gamedayView = null; _gamedaySport = null;   // next sport mounts its own view
     el('gameday')?.classList.remove('on');
     el('gameday-btn')?.classList.remove('on', 'avail');
+    // Forget which sport branded it, so the next broadcast re-marks the button rather
+    // than inheriting the last one's — a hockey puck over a ballgame is the same lie
+    // in the other direction.
+    const btn = el('gameday-btn');
+    if (btn) delete btn.dataset.sport;
   }
 
   // ── TV guide sub-screen ───────────────────────────────────────────────────
