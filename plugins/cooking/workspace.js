@@ -889,11 +889,24 @@ function pickFor(template, c) {
     && !r.custom_data?.dish && !r.custom_data?.cooked && !r.custom_data?.cooking
     && !c.vesselIds.has(r.container_id));
 
+  // WHAT IS ALREADY IN THE PAN COUNTS. The pool deliberately excludes anything
+  // sitting in a vessel — a row in someone else's stockpot is not yours to plan
+  // with — but the pan THIS plan chose is the one place that exclusion was
+  // wrong: penne already in the skillet had to be fetched from somewhere a
+  // second time, so `prepare` announced you were short of the box the HUD was
+  // listing two lines above it. It needs no `stow` step, so it seeds `have` and
+  // never joins `picks`. Media are skipped for the usual reason — water counts
+  // for every question about the pan and none about the dish.
+  const already = (vessel ? c.childrenOf.get(vessel.id) || [] : []).filter(r =>
+    isFood(r) && !isMedium(r)
+    && !r.custom_data?.dish && !r.custom_data?.cooked && !r.custom_data?.cooking);
+
   const picks = [];
   const shortfall = [];
   for (const [profile, need] of Object.entries(template.needs)) {
     const min = range(need)[0] * UNIT_TOLERANCE_LOW;
-    let have = 0;
+    let have = already.filter(r => profileNameFor(r) === profile)
+      .reduce((n, r) => n + unitsOf(r, profile), 0);
     const options = pool
       .filter(r => !used.has(r.id) && profileNameFor(r) === profile)
       // Key items first — ramen without ramen noodles is soup — then whatever is

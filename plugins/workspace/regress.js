@@ -392,6 +392,12 @@ export default async function regress({ run, check, getPlayer }) {
 
     r2 = await run('prepare stew');
     check('a second prepare has nothing left to do', r2?.type === 'error', JSON.stringify(r2));
+    // WHAT IS ALREADY IN THE PAN COUNTS. The pool skips rows inside a vessel, and
+    // for every vessel but the one this plan chose that is right. For THAT one it
+    // read as absence, so a loaded pot came back "you're short of broth" while the
+    // Assistant two lines above scored the same recipe at 100%.
+    check('...and says so, rather than claiming you are short of what is in the pot',
+      /already/i.test(r2.message) && !/short/i.test(r2.message), JSON.stringify(r2));
 
     // THE case for the whole design: the world moved, so the step that depended
     // on it fails and the run stops — no reservation, nothing stranded.

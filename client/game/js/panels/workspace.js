@@ -13,6 +13,7 @@
 // the panel keeps no state the server needs to hear about: closing it is a
 // purely local act, refreshing it is one more `workspace`.
 import { sendCmd, sendCmdSilent } from '../net.js';
+import { makeDraggable } from './confirm.js';
 
 let active = false;
 // The last payload, kept so selecting a recipe can re-render without a round
@@ -43,10 +44,19 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 
 function el(id) { return document.getElementById(id); }
 
+// Bound once, on first open. The box is never recreated — render() only rewrites
+// its inner sections — so a dragged position survives every refresh, and re-opening
+// the panel puts it back where the player left it rather than snapping to centre.
+let dragBound = false;
+
 export function openWorkspacePanel(data) {
   active = true;
   render(data);
   el('workspace-panel').classList.add('active');
+  if (!dragBound) {
+    const box = el('workspace-box'), handle = el('workspace-header');
+    if (box && handle) { makeDraggable(box, handle); dragBound = true; }
+  }
 }
 
 export function refreshWorkspacePanel(data) {

@@ -15843,7 +15843,16 @@ body.intro-cine-open { overflow: hidden; }
 	justify-content: center;
 }
 #workspace-panel.active { display: flex; }
+/* Absolutely positioned and centred by transform rather than by the parent's
+   flexbox, because that is the shape `makeDraggable` moves: it clears the
+   transform and writes left/top from the box's own rect, so the first drag
+   picks the window up exactly where it was sitting. A flex-centred child would
+   ignore both. */
 #workspace-box {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
 	background: var(--bg2);
 	border: 1px solid var(--cyan);
 	padding: 18px 20px;
@@ -15861,6 +15870,8 @@ body.intro-cine-open { overflow: hidden; }
 	display: flex;
 	align-items: baseline;
 	gap: 10px;
+	cursor: grab;
+	user-select: none;
 	border-bottom: 3px double var(--border);
 	padding-bottom: 8px;
 }
