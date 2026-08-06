@@ -2997,7 +2997,15 @@ export function buildingHeightZ(wx, wy, cell) {
   const k = cell.kind, bi = cell.biome;
   // A rooftop pad (a `bt` building tile that also carries an airfield_id) keeps its
   // mass — the tower is still there to fly into; only bare field surfaces are clear.
-  if (k === 'air' || cell.self || (k === 'field' && !cell.bt) || k === 'nofly'
+  // `cell.self` used to zero this, and it is the third place the own-tile
+  // assumption cost something. A tower does not stop having a roof because you
+  // flew over it: this feeds modelTopAt, so the moment the Solenne became your
+  // tile its pad height read 0 — which is why roofPadProximity dropped it (it
+  // requires padFt > 0) at exactly the radius the catch arms at, and why the pad
+  // never took an aircraft the way the Echelon's does. Bare fields are still
+  // cleared by the `field && !bt` arm below, which is the case self was standing
+  // in for.
+  if (k === 'air' || (k === 'field' && !cell.bt) || k === 'nofly'
       || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return floorHeight(cell, seed);
@@ -6402,7 +6410,16 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // 1) Lit stone podium the tower rises from (no street-overhanging entrance canopy).
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.34, 0, baseZ, pal, seed + 4, night, alpha, true);
       // 2) The champagne-glass shaft — thin plates, gentle quarter-turn, stepping inward at each tier.
-      for (let i = 0; i < N; i++) draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, i === N - 1, segYaw(i));
+      // EVERY PLATE CAPS, not just the top one. `segW` only ever narrows (the taper within each
+      // tier plus the two setbacks), so each plate leaves a ring of the plate below it uncovered —
+      // and with `capTop` reserved for i === N-1 that ring was an open hole looking straight down
+      // into a hollow shell. It reads as the building being see-through along its edges, because
+      // the quarter-turn twist is what widens the exposed sliver most at the corners. A ledge has
+      // a top surface; this draws it. Only the plates that genuinely step in pay for a cap.
+      for (let i = 0; i < N; i++) {
+        const capped = i === N - 1 || segW(i + 1) < segW(i) - 1e-6;
+        draw3DBoxAt(ctx, cam, dx, dy, segW(i), segZ(i), segZ(i + 1), pal, seed + i, night, alpha, capped, segYaw(i));
+      }
       // 3) Warm gold light-runners tracing two opposite corners up the tapering stack.
       for (const dir of [[-1, -1], [1, 1]]) {
         const pts = [];

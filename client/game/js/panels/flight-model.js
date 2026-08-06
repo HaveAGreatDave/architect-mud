@@ -172,10 +172,13 @@ export const TYPES = {
     // hover point gives a modest vs (low vsGain), and vs eases in with real inertia (higher
     // vsTau) instead of snapping to the cap the instant you lift a skid off the ground.
     // vsMax is a CLAMP, not a climb rate: on the heli branch the achievable vs comes out of the
-    // thrust-deficit formula below (best rate sits at the droop knee, ~0.7 collective) and never
-    // reaches this bound in either direction. Raising it buys nothing — the ceiling fade is the
-    // knob that governs how high she gets, and vsGain the one that governs how twitchy the hover is.
-    vsGain: 850, vsGainUp: 1000, vsMax: 1300, vsTau: 0.9,   // vsGainUp: climb-only gain — a bit more rate on a full lever without touching how hard she sinks
+    // thrust-deficit formula below (best rate sits at the droop knee, ~0.7 collective — past that
+    // Nr droops faster than the lever gains). vsGainUp is what actually sets the climb, and it is
+    // the right knob because it is the climb-ONLY gain: she goes up harder without dropping away
+    // any harder when you chop the lever. The ceiling fade still governs how high she gets, and
+    // vsGain how twitchy the hover is. vsMax is raised to stay clear of the new rate rather than
+    // quietly becoming the thing that decides it.
+    vsGain: 850, vsGainUp: 1400, vsMax: 1900, vsTau: 0.9,   // ~1720 fpm at the droop knee
     vrsVs: 480,                           // settling-with-power onset (fpm sink) when slow + powered
     rollFric: 11,                         // skid friction on the ground — skids bite and stop her quickly (no long rollout)
     ceiling: 32000,
@@ -198,7 +201,14 @@ export const TYPES = {
     cyclicThrust: 5.0,                    // heavy, powerful disc — real acceleration off a lean
     dragP: 0.00105,                       // slippery armoured body: holds speed, high top end
     liftMax: 2.4, hoverThrust: 1.0,       // strong power margin even loaded on the rails
-    vsGain: 1000, vsGainUp: 1250, vsMax: 2100, vsTau: 1.0,   // vsMax is a clamp the deficit formula never reaches — see the Dragonfly's note; vsGainUp is the climb-only gain (a gunship should out-climb the kit heli)
+    // A GUNSHIP SHOULD OUT-CLIMB THE KIT HELI, and this line said so while doing the
+    // opposite. The deficit is `coll·Nr·liftMax / hoverThrust − 1`, and the Viper's
+    // liftMax (2.4) is LOWER than the Dragonfly's (2.7) because she is heavier for her
+    // disc — so at the droop knee she made ~0.98 against the Mini 500's ~1.23, and the
+    // old 1250 gain turned that into a slower absolute climb than the kit heli's.
+    // Corrected on the gain rather than on liftMax, which would also have moved her
+    // hover authority and where she falls into her own downwash.
+    vsGain: 1000, vsGainUp: 2100, vsMax: 2800, vsTau: 1.0,   // ~2050 fpm at the droop knee
     vrsVs: 620,                           // high disc loading — settles later, then bites harder
     rollFric: 9,                          // wheeled gear, but she stops short (no rollout)
     ceiling: 34000,
