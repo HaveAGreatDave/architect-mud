@@ -32,7 +32,7 @@
 
 import { createServer } from 'node:http';
 import { readFile, writeFile, rename, stat } from 'node:fs/promises';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds } from '../../scripts/content/lib.mjs';
@@ -89,7 +89,11 @@ const TABLES = [
   // parsed once instead of on every pan.
   'enemies',
   'furniture', 'npcs', 'generators', 'security_devices', 'zone_spawns',
-  'job_boards', 'media_cameras', 'media_channels', 'npc_residences', 'aa_sites', 'windows',
+  // `windows` was here until a window became a property of the room (0d228c79c)
+  // and `SCHEMA_SQL` dropped the table. Nothing repointed this list, so the
+  // Studio died on its own boot with an ENOENT scandir naming a directory git
+  // had correctly deleted.
+  'job_boards', 'media_cameras', 'media_channels', 'npc_residences', 'aa_sites',
 ];
 const tree = {};
 let palette = null;
@@ -107,6 +111,12 @@ function loadTree() {
   for (const t of TABLES) {
     const dir = join(CONTENT_DIR, t);
     const rows = new Map();
+    // A table in TABLES with no directory is a stale list, not missing content —
+    // say which table, because a bare ENOENT stack out of readdirSync sends you
+    // looking for a deleted folder instead of the line that still names it.
+    if (!existsSync(dir)) {
+      throw new Error(`studio: TABLES lists "${t}" but ${dir} does not exist — drop it from TABLES in serve.mjs, or the table is genuinely missing from content/.`);
+    }
     for (const f of readdirSync(dir).filter(n => n.endsWith('.json'))) {
       const p = join(dir, f);
       const row = JSON.parse(readFileSync(p, 'utf8'));
