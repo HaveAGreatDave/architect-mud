@@ -221,6 +221,54 @@ export default async function regress({ run, check, getPlayer }) {
       JSON.stringify(forDish([penne, stock])));
   }
 
+  // THE PICKER AND THE KEY ITEM IT COULD NOT SEE.
+  //
+  // `pickFor` is the one place `prepare` and the Assistant's walkthrough both go
+  // for "which rows would this recipe use", and it used to walk `needs` and only
+  // `needs`. penne alla gin is keyed on the gin, whose profile is `liquid` — a
+  // class that dish lists as OPTIONAL — so the gin was never picked, the plan
+  // gathered a pan without it, and the generated step list silently dropped the
+  // one beat the dish is named after while still calling the recipe ready.
+  {
+    const { _test: wsTest } = await import('./workspace.js');
+    const { pickFor, loadOrder } = wsTest;
+    const row = (id, item_id, name, tags, weight) =>
+      ({ id, item_id, name, tags, weight, quantity: 1, container_id: null, custom_data: {} });
+    const pan = row(1, 'item_pan', 'cast-iron skillet', { vessel: true, vessel_kind: 'pan' }, 900);
+    const rows = [
+      pan,
+      row(2, 'item_penne', 'box of penne', { food_profile: 'dry_starch' }, 500),
+      row(3, 'item_tomato', 'tomato', { food_profile: 'soft_vegetable', food_noun: 'tomato' }, 120),
+      row(4, 'item_cream', 'carton of cream', { food_profile: 'liquid', food_also: 'dairy', food_noun: 'cream' }, 400),
+      row(5, 'item_butter_analog', 'butter-analog', { food_profile: 'fat_or_oil' }, 250),
+      row(6, 'item_gin', 'bottle of gin', { food_profile: 'liquid', food_noun: 'gin' }, 400),
+      // The ingredient that used to answer the tomato class first and wreck the
+      // whole dish. It stays in the room so this also pins the `requires` gate.
+      row(7, 'item_greens', 'lamp-grown greens', { food_profile: 'soft_vegetable' }, 300),
+    ];
+    const kitchen = {
+      all: rows, vessels: [pan], vesselIds: new Set([pan.id]),
+      boxIds: new Set(), childrenOf: new Map(),
+    };
+    const picked = pickFor(DISHES.penne_alla_gin, kitchen);
+    const names = picked.picks.map(r => r.name);
+    check('the picker reaches for the gin, though the recipe never counts liquid',
+      names.includes('bottle of gin'), names.join(', '));
+    check('...and the plan is short of nothing', !picked.shortfall.length, JSON.stringify(picked.shortfall));
+    check('...and still refuses the greens, because the tomato is required',
+      !names.includes('lamp-grown greens'), names.join(', '));
+    check('...and the gin loads on its own authored step, off the heat',
+      /in with the gin/i.test(loadOrder(DISHES.penne_alla_gin, picked.picks)
+        .find(s => s.row.item_id === 'item_gin')?.text || ''),
+      JSON.stringify(loadOrder(DISHES.penne_alla_gin, picked.picks).map(s => [s.row.name, s.text])));
+
+    // A key item that isn't in the room is a shortfall, which is what stops the
+    // walkthrough being generated for a dish that would refuse.
+    const noGin = pickFor(DISHES.penne_alla_gin, { ...kitchen, all: rows.filter(r => r.item_id !== 'item_gin') });
+    check('no gin in the room is a shortfall, not a quiet omission',
+      noGin.shortfall.some(s => s.item === 'item_gin'), JSON.stringify(noGin.shortfall));
+  }
+
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
     a: stageText(COOK_STAGES, 0), b: stageText(COOK_STAGES, 1),
   });

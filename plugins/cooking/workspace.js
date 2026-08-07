@@ -1029,6 +1029,23 @@ function pickFor(template, c) {
     }
     if (have < min - 1e-9) shortfall.push({ profile, need });
   }
+
+  // A KEY ITEM IS NOT ALWAYS A CLASS THE RECIPE COUNTS. penne alla gin is keyed
+  // on the gin, whose profile is `liquid` — and this dish lists liquid under
+  // `optional`, never `needs`. So the loop above had no reason to reach for it:
+  // `prepare` gathered a pan with no gin in it, the walkthrough dropped the one
+  // step the dish is named after, and the scorer went on reporting the recipe as
+  // ready because IT reads `keyItems` and the picker didn't. The class loop
+  // answers "enough of what?"; this answers "and the specific thing it has to
+  // be", for every key item the classes didn't already happen to bring.
+  const haveIds = new Set([...already, ...picks].map(r => r.item_id));
+  for (const id of template.keyItems || []) {
+    if (haveIds.has(id)) continue;
+    const row = pool.find(r => !used.has(r.id) && r.item_id === id);
+    if (!row) { shortfall.push({ item: id }); continue; }
+    used.add(row.id);
+    picks.push(row);
+  }
   return { vessel, picks, shortfall };
 }
 
@@ -1036,7 +1053,13 @@ function planFor(key, template, c) {
   const { vessel, picks, shortfall } = pickFor(template, c);
   if (!vessel) return { error: `You've no ${template.vessel || 'vessel'} to make that in.` };
   if (shortfall.length) {
-    return { error: `You're short: ${shortfall.map(s => ingredientLine(s.profile, s.need, template, itemInfo)).join('; ')}.` };
+    // A missing key item is named outright — it is one specific thing and no
+    // class line could describe it — while a missing class is still described as
+    // the class it is.
+    const said = shortfall.map(s => s.item
+      ? (itemInfo(s.item)?.name || s.item.replace(/^item_/, '').replace(/_/g, ' '))
+      : ingredientLine(s.profile, s.need, template, itemInfo));
+    return { error: `You're short: ${said.join('; ')}.` };
   }
 
   const steps = [];
@@ -1103,3 +1126,8 @@ export function workspaceProvider(player) {
     plan: planKitchen,
   };
 }
+
+// The picker, for the regress suite only. `prepare` and the Assistant both go
+// through `pickFor`, so testing it tests both — and the one thing worth pinning
+// is that a key item on a profile the recipe never counts still gets picked up.
+export const _test = { pickFor, answersTo, loadOrder };
