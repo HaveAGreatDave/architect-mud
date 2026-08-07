@@ -1,0 +1,19 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet. A dehumidifier the size of a footlocker sits beside it with a hose run into the floor drain, and a card taped to its housing reads DO NOT SWITCH OFF FOR ANY REASON INCLUDING FIRE.",
+  "exits": {
+    "up": "zone_mintcond_floor"
+  },
+  "flags": {
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_mintcond_floor",
+  "map_id": "map_int_mintcond",
+  "name": "Mint Condition — Shop Floor — Utility Room",
+  "parent_zone": "zone_district_919_913"
+}

@@ -1,24 +1,29 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
-  "exits": {
-    "east": "zone_district_920_913",
-    "north": "zone_district_919_912",
-    "south": "zone_district_919_914",
-    "west": "zone_district_918_913"
-  },
-  "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
-  },
-  "grid_x": 919,
-  "grid_y": 913,
-  "grid_z": 0,
-  "id": "zone_district_919_913",
-  "map_id": "map_world",
-  "name": "Grasslands",
-  "parent_zone": null
+ "ambient_events": [],
+ "ambient_theme": "urban",
+ "bg_color": "#2a2620",
+ "color": "#8ba36a",
+ "description": "A narrow shopfront squeezed onto the last dry corner of Ironside before the grass takes over, painted a green that was chosen to look expensive and did not manage it. The window is triple-glazed, barred, and dressed with more care than anything else on the street: nine comics on nine little easels, each one under its own small lamp, each one in a sleeve, none of them for sale. A card in the corner of the display reads DO NOT TAP THE GLASS. The sign above the door is hand-lettered gold on black — MINT CONDITION — and under it, smaller: COMICS · CARDS · TAPES · NO EXCEPTIONS.",
+ "exits": {
+  "north": "zone_district_919_912",
+  "south": "zone_mintcond_floor"
+ },
+ "flags": {
+  "building_name": "Mint Condition",
+  "building_type": "comic_shop",
+  "district": "residential",
+  "entrance": "north",
+  "facade": true,
+  "is_building": true,
+  "region_id": "region_coldwater",
+  "world_exit_zone": "zone_district_919_912"
+ },
+ "grid_x": 919,
+ "grid_y": 913,
+ "grid_z": 0,
+ "id": "zone_district_919_913",
+ "map_id": "map_world",
+ "marker": "MC",
+ "name": "Mint Condition",
+ "parent_zone": null
 }

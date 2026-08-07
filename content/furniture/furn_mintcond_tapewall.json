@@ -1,0 +1,26 @@
+{
+  "description": "Floor to ceiling pigeonholes, one tape to a hole, alphabetised and numbered. In front of each is a little card slot, and in each slot either a blank card, meaning the tape is in, or a card with a name and a date on it in blunt pencil, meaning it is out and when it is due back. About a third of the slots have names in them. Two have names with a line drawn under them, twice.",
+  "flags": {
+    "click_cmd": "rentals",
+    "interactions": [],
+    "notable": true,
+    "tape_rental": true,
+    "tape_shelf": [
+      "item_betatape_sister_steel",
+      "item_betatape_meter_reader",
+      "item_betatape_captain_quorum",
+      "item_betatape_night_shift",
+      "item_betatape_form_nine"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_mintcond_tapewall",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the tape wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mintcond_back"
+}

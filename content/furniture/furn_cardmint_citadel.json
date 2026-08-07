@@ -1,8 +1,6 @@
 {
-  "description": "A brass-cased press set into the marble beside the cash terminals, small enough to miss and loud enough not to. A card slot, a camera lens the size of a coin, and a plate that reads STRIKE YOUR OWN. Whatever it takes a picture of, it never gives back.",
+  "description": "A brass-cased press set into the marble beside the cash terminals, small enough to miss and loud enough not to. The card slot has been taped over and the camera lens behind it has been unscrewed and taken away. A printed notice sits in the plate where STRIKE YOUR OWN used to be: CIVIC SELF-ISSUANCE HAS BEEN DISCONTINUED. THIS FUNCTION IS NOW PROVIDED PRIVATELY.",
   "flags": {
-    "card_mint": true,
-    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },
@@ -13,7 +11,7 @@
   "lumen_output": null,
   "name": "Coldwater Mint terminal",
   "object_type": "terminal",
-  "power_draw_kw": 1.2,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_citadel_hall"
 }

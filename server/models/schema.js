@@ -1149,6 +1149,41 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_pnr_player ON player_npc_relations(player_id);
 
+  -- ── Tape rentals (plugins/videostore) ─────────────────────────────────────
+  -- One row per tape taken off a rental wall. Per-player runtime state, so it is
+  -- deliberately NOT in the content registry and never exports.
+  --
+  -- The dates are GAME-DAY INDICES (server/engine/zone-filth.js gameDayIndex), not
+  -- timestamps, and that is the whole design: the late fee is DERIVED on read from
+  -- (today - due_day), so nothing ticks, nothing accrues in the background, and a
+  -- server that was off for a week does not owe anybody a catch-up pass. The same
+  -- reasoning as the corps rackets' fearNow().
+  --
+  -- \`debt\` is the one piece of state that must persist: a fee the borrower could
+  -- not pay when they brought the tape back. An open row (returned_day IS NULL) or
+  -- any unpaid debt is what closes the wall to them.
+  --
+  -- FK to players CASCADE for the same reason player_achievements has one — a write
+  -- for a non-existent player must fail loudly rather than orphan. item_id and
+  -- furniture_id are deliberately NOT FKs: content is re-imported and those rows come
+  -- and go, and a rental against a tape that no longer exists is still a debt.
+  CREATE TABLE IF NOT EXISTS tape_rentals (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    furniture_id TEXT NOT NULL,
+    taken_day INTEGER NOT NULL,
+    due_day INTEGER NOT NULL,
+    returned_day INTEGER,
+    debt INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_tape_rentals_open
+    ON tape_rentals (player_id) WHERE returned_day IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_tape_rentals_debt
+    ON tape_rentals (player_id) WHERE debt > 0;
+  CREATE INDEX IF NOT EXISTS idx_tape_rentals_out
+    ON tape_rentals (furniture_id, item_id) WHERE returned_day IS NULL;
+
   -- ── Accolades (plugins/accolades) ─────────────────────────────────────────
   -- One row per (player, entry) the moment an entry is first observed. The
   -- composite PK is the whole unlock guard: a re-trigger is an ON CONFLICT DO

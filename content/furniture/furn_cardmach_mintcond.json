@@ -1,0 +1,19 @@
+{
+  "description": "A cabinet in the corner by the door, kept immaculate — the perspex polished, all nine coils loaded, the price card printed rather than written. There is a strip of gaffer tape on the floor half a metre out from it, and a sign above the tape reading OPEN THEM AT THE COUNTER LIKE A PERSON.",
+  "flags": {
+    "click_cmd": "buypack",
+    "interactions": [],
+    "notable": true,
+    "vends_packs": 1
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmach_mintcond",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "Architect Draft card machine",
+  "object_type": "fixture",
+  "power_draw_kw": 0.4,
+  "price": 0,
+  "zone_id": "zone_mintcond_floor"
+}

@@ -91,7 +91,7 @@
   "butcher_difficulty": 5,
   "butcher_table": [],
   "death_message": "Employee of the Month, the badge reads. Third quarter, four years running.",
-  "description": "Polo shirt. Khaki pants. Body armor under both. The most dangerous middle manager you'll ever meet.",
+  "description": "Polo shirt. Khaki pants. Body armor under both. A laminated escalation matrix rides in the breast pocket, and he has never once had to look at it. The most dangerous middle manager you'll ever meet.",
   "dodge": 1,
   "faction": "ideology_ascendants",
   "flags": {
@@ -100,18 +100,18 @@
       "\"That’s a formal warning.\"",
       "\"This is not optional anymore.\"",
       "\"Documenting noncompliance.\"",
-      "\"Voice raised. Last warning.\"",
-      "\"Escalation is now required.\"",
+      "\"Floor's restricted. That's policy, not me.\"",
+      "\"I am escalating this to Retention.\"",
       "\"Immediate compliance is expected.\""
     ],
     "first_strike_delay_ms": 1000
   },
   "hit": 1,
   "hp_max": 55,
-  "id": "enemy_custodian_enforcer",
+  "id": "enemy_halcyon_supervisor",
   "loot_table": [
     {
-      "item": "item_custodian_badge",
+      "item": "item_halcyon_badge",
       "qty": [
         1,
         1
@@ -144,7 +144,7 @@
       "super": true
     }
   ],
-  "name": "Custodian Enforcer",
+  "name": "Supervisor, Halcyon Compliance",
   "weapon": [
     {
       "max": 2,

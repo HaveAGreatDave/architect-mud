@@ -560,7 +560,10 @@ async function cmdJackResolve(args, raw, player, broadcast) {
 
 async function cmdDrain(args, raw, player) {
   const atm = await findAtmInZone(player.current_zone);
-  if (!atm) return { type: 'error', message: "Nothing worth draining here." };
+  // A chained specialized action SELF-GATES: no terminal here means this verb was
+  // not aimed at us, so hand it back rather than answering for a room we have
+  // nothing in. Everything past this point is about a real ATM, and stays ours.
+  if (!atm) return undefined;
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down." };
   if (!hasMaintenanceAccess(atm.id, player.id)) return { type: 'error', message: 'MAINTENANCE access required. Jack the terminal first.' };
@@ -780,12 +783,36 @@ export const commands = {
   withdraw: cmdWithdraw,
   jack: cmdJack,
   jackresolve: cmdJackResolve,
-  drain: cmdDrain,
+  // `drain` is deliberately NOT here — see the specializedActions block below.
   '.hackpreview': cmdHackPreview,
 };
 
 export const specializedActions = [
   { verb: 'use', requiredTag: 'atm', handler: doUseAtm },
+  // `drain` IS NOT A COMMAND-MAP VERB, and cannot be.
+  //
+  // The command registry is a Map: one verb, one handler, last registration
+  // wins. `cooking` also registers `drain` (tip the water off the pasta) and
+  // loads after us, so this handler was simply gone — a player at a jacked
+  // terminal typed `drain` and was told that it's pasta and rice that come out
+  // of their water. There was no fall-through to reach, because there is no
+  // chain: an overwritten command handler is unreachable, full stop.
+  //
+  // The specialized-action registry is the seam that DOES chain — it fires every
+  // handler for a verb in turn and continues on `undefined`. So the fix isn't to
+  // fight cooking for the word; it's to stop competing for it. Cooking keeps the
+  // command, declines what isn't a vessel, and this runs against the terminal.
+  //
+  // `visibleFor` gates DISCOVERABILITY only, never the handler: an ordinary
+  // cash machine must not advertise `drain` on examine, but a player who knows
+  // the verb can still type it and get the honest refusal. That's the difference
+  // between a secret and a lock.
+  {
+    verb: 'drain',
+    requiredTag: 'atm',
+    visibleFor: (entity, viewer) => !!viewer && hasMaintenanceAccess(entity?.id, viewer.id),
+    handler: cmdDrain,
+  },
 ];
 
 console.log('[atm] Plugin loaded.');

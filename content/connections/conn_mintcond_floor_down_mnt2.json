@@ -1,0 +1,9 @@
+{
+  "a": "zone_mintcond_floor",
+  "b": "zone_util_zone_mintcond_floor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_mintcond_floor_down_mnt2",
+  "lockable": false,
+  "one_way": false
+}

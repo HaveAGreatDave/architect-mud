@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_betatape_captain_quorum",
+  "name": "betatape: CAPTAIN QUORUM",
+  "tags": {
+    "beta_cassette": true,
+    "broadcast_id": "bc_captain_quorum",
+    "description": "A cassette in a shell of municipal green, which is not a colour anybody has manufactured since. The case is the original: hinged, printed, with a little slot inside for a card that is still in there. The spine label is not handwritten. Nothing about this tape is handwritten.\n\n  ┌───────────────────────────────┐\n  │ ░░░░░  CAPTAIN QUORUM  II     │\n  │ ░   ░  ───────────────────────│\n  │ ░░░░░  DIRECTORATE · 13 MIN   │\n  │  ( )    ( )   REEL 2 SPLICED  │\n  │ ═══════════════════════════   │\n  └───────────────────────────────┘\n\nThe card in the case reads, in printed capitals: RETURN TO YOUR CIVIC LIBRARY WITHIN SEVEN DAYS. There is no civic library.",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 60,
+  "weight": 220
+}

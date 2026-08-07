@@ -193,8 +193,24 @@ and stats are the same today as they were at series open — so the system can s
 unattended (§5) and they never go stale. Nothing living is being captured, so nothing has to be
 handed over.
 
-**Where.** A `card_mint` terminal — furniture, one per major district, plus the Coldwater Mint proper.
-Not a bare verb: standing somewhere specific is what makes the footer's zone line mean anything.
+**Where.** A `card_mint` terminal — furniture. Not a bare verb: standing somewhere specific is what
+makes the footer's zone line mean anything.
+
+**There is now exactly ONE, and that is the point** (changed 2026-08-07). It shipped as five —
+one per major district plus the Coldwater Mint proper — on the reasoning that a terminal you have
+to walk to should not be a trek. That was the wrong reasoning: five civic terminals made minting a
+municipal errand, indistinguishable from renewing a permit, and the footer's zone line said
+*Citadel Hall* on almost every card in the pool. A record of a person on a particular day should
+not be issued by a bank. The press now lives at **Mint Condition**, the comic shop on Ironside
+(`zone_mintcond_floor`), whose proprietor bought the decommissioned civic presses at auction one at
+a time and rebuilt them into the one good one — so the walk is the feature, the zone line means
+something, and the shop that already deals in graded paper is the shop that strikes it.
+
+The five old terminals were **not deleted**. They are still furniture, redescribed as decommissioned
+(taped-over slots, a folded queue rail, a casino OUT OF ORDER strip that has read that for a while),
+and the `card_mint` key was *removed from the file* rather than the file removed — the content import
+replaces the whole `flags` column, so editing the file clears the flag in prod, while deleting the
+file would leave the prod row exactly as it was.
 
 **Verb.** `mint` at the terminal. It runs a **preview first** — the full card, rendered, with any
 region that came up empty called out — then asks for confirmation. Nobody should pay and *then*

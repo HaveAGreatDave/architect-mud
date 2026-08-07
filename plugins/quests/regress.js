@@ -435,17 +435,17 @@ export default async function regress({ run, check, getPlayer }) {
 
     // A `kill` fail_on is a PROHIBITION — "do this job without shooting anyone".
     // It matches enemy names by SUBSTRING, which is the whole reason one clause
-    // can cover a species; quest_lw_4 leans on `Custodian` catching "Custodian
-    // Enforcer". Worth pinning: if that ever tightened to an exact match the
-    // clause would silently stop firing and the quest would look merely lenient.
+    // can cover a species; quest_lw_4 leans on `Supervisor` catching "Supervisor,
+    // Halcyon Compliance". Worth pinning: if that ever tightened to an exact match
+    // the clause would silently stop firing and the quest would look merely lenient.
     await mkFail(
       [{ id: 'o0', type: 'visit', zone: 'zone_regress_nowhere', taskSeconds: 0, count: 1, desc: 'Get there' }],
-      [{ type: 'kill', target: 'Custodian', desc: 'You put one of them in the ground.' }]
+      [{ type: 'kill', target: 'Supervisor', desc: 'You put one of them in the ground.' }]
     );
     emit('enemy.killed', { actor: player, enemy: { name: 'Gutter Hound' } });
     await settle();
     check('killing something else does not trip a kill prohibition', (await statusOf()) === 'active', await statusOf());
-    emit('enemy.killed', { actor: player, enemy: { name: 'Custodian Enforcer' } });
+    emit('enemy.killed', { actor: player, enemy: { name: 'Supervisor, Halcyon Compliance' } });
     await settle();
     check('a kill fail_on matches the enemy name by substring', (await statusOf()) === 'failed', await statusOf());
 

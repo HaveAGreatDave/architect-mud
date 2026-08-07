@@ -1,8 +1,6 @@
 {
-  "description": "A records-office press, older than the bank ones and prouder about it. A hand-lettered card taped to the housing reads A CARD IS A RECORD. THE RECORD IS PERMANENT. Somebody has added, in pen, SO ARE YOU.",
+  "description": "A records-office press, older than the bank ones and prouder about it. Decommissioned, and clearly by somebody who loved it: the housing has been wiped down, the cover is a proper fitted one rather than a bin liner, and the hand-lettered card is still taped to the front. A CARD IS A RECORD. THE RECORD IS PERMANENT. Somebody has added, in pen, SO ARE YOU, and somebody later still has added, in pencil, MOVED TO IRONSIDE. ASK FOR EMMETT.",
   "flags": {
-    "card_mint": true,
-    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },
@@ -13,7 +11,7 @@
   "lumen_output": null,
   "name": "archival mint press",
   "object_type": "terminal",
-  "power_draw_kw": 1.2,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_records_reading"
 }

@@ -1,8 +1,6 @@
 {
-  "description": "A mint press bolted between two rows of deposit boxes, on the theory that anyone already storing valuables might like to become one. The plate is polished; the queue rail in front of it is not.",
+  "description": "A mint press bolted between two rows of deposit boxes, on the theory that anyone already storing valuables might like to become one. It is dark. The queue rail in front of it has been folded flat against the wall, and the notice cable-tied to it directs you to a shop on Ironside Street with a hand-drawn map on the back that is, at best, approximate.",
   "flags": {
-    "card_mint": true,
-    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },
@@ -13,7 +11,7 @@
   "lumen_output": null,
   "name": "deposit-gallery mint press",
   "object_type": "terminal",
-  "power_draw_kw": 1.2,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_citadel_gallery"
 }

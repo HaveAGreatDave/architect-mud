@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221f26",
+  "description": "Deeper than it is wide, and every inch of it accounted for. Spinner racks down the middle, sleeved back-issues wall to wall in graded rows, and a glass counter at the far end lit from underneath so the cards inside float on a shelf of white light. The air is cold and dry — dehumidifier running somewhere behind the wall, because paper is the whole business — and it smells of newsprint, warm electronics and, faintly, of soup. Handwritten cards are taped to everything. ASK BEFORE HANDLING. GRADING IS NOT A CONVERSATION. NO, IT IS NOT WORTH THAT.",
+  "exits": {
+    "down": "zone_util_zone_mintcond_floor",
+    "north": "zone_district_919_913",
+    "west": "zone_mintcond_back"
+  },
+  "flags": {
+    "building_name": "Mint Condition",
+    "building_type": "comic_shop",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_913"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_mintcond_floor",
+  "map_id": "map_int_mintcond",
+  "name": "Mint Condition — Shop Floor",
+  "parent_zone": "zone_district_919_913"
+}

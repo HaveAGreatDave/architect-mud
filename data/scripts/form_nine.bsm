@@ -1,0 +1,182 @@
+@broadcast "FORM 9"
+@channel ch_7_1782953079593
+@category film
+@type film
+@length 660
+@presents "no distributor"
+@rating "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED"
+@director "unknown"
+@titlecard form_nine_title
+
+::cast
+CLERK | The Clerk | who drew the thing
+OFFICIAL | The Official | who took it
+VOICE | (off camera) | whoever was holding the camera
+::endcast
+
+::asset form_nine_title
+
+        ███████  ██████  ██████  ███    ███
+        ██      ██    ██ ██   ██ ████  ████
+        █████   ██    ██ ██████  ██ ████ ██
+        ██      ██    ██ ██   ██ ██  ██  ██
+        ██       ██████  ██   ██ ██      ██
+
+                        █████
+                       ██   ██
+                        ██████
+                            ██
+                        █████
+
+        ─────────────────────────────────────────
+          THIS TAPE WAS NOT MADE BY A FILM UNIT
+             COPY IT.  DO NOT SELL IT.
+        ─────────────────────────────────────────
+
+::endasset
+
+::scene PICTURE
+
+TITLE form_nine_title
+
+SHOT
+No letterbox. No frame line. Whoever shot this had a consumer deck and a lamp and did not know the word for any of it.
+SHOT_END
+
+♪ Room tone. A radiator. That is the entire soundtrack of this picture. ♪
+
+SLUG A CORRIDOR | UNKNOWN
+
+SHOT
+A queue, filmed from the back. Twelve people. A strip light with a kink in it. The camera does not move for two minutes and forty seconds.
+SHOT_END
+
+VOICE:
+Are you going to say anything?
+
+CLERK:
+I'm ninth.
+
+ACT 1: The Queue
+
+SHOT
+The shutter comes down on the service window. Everybody leaves. The camera stays.
+SHOT_END
+
+SHOT
+One man is still standing in the corridor.
+SHOT_END
+
+VOICE:
+They've shut.
+
+CLERK:
+They've shut today.
+
+VOICE:
+They'll shut tomorrow.
+
+CLERK:
+Then I'll be here tomorrow.
+
+SLUG THE SAME CORRIDOR | LATER, HOW MUCH LATER IS NOT RECORDED
+
+SHOT
+The same wall. The same man. The strip light has been changed; you can tell because it is straight now.
+SHOT_END
+
+NARRATOR:
+Fourteen weeks of tape exist. Eleven minutes of it are in this print. The rest is a wall.
+
+ACT 2: Form 9
+
+SLUG AN OFFICE | THE ONLY TIME THE CAMERA WAS ALLOWED IN
+
+SHOT
+A table. Two people on one side. The Clerk on the other, exactly the same size in frame as he was in the corridor, because the camera has not been moved and nobody thought to move it.
+SHOT_END
+
+OFFICIAL:
+You understand this doesn't go anywhere.
+
+CLERK:
+It goes to you.
+
+OFFICIAL:
+And then it goes in a drawer.
+
+CLERK:
+Then it's in a drawer.
+
+OFFICIAL:
+Do you know how many of these we get? Nine. Nine last year. Nine is a rounding error.
+
+CLERK:
+Then it costs you nothing to take it.
+
+SHOT
+The Official takes it. The tape runs on for another forty seconds afterwards with nobody saying anything, because whoever was holding the camera did not know to stop.
+SHOT_END
+
+TECH_DIFFICULTIES 5
+
+INTERMISSION 30
+
+ACT 3: Ten
+
+SLUG OUTSIDE | RAIN
+
+SHOT
+Two men under an overhang. The audio is almost entirely rain.
+SHOT_END
+
+VOICE:
+Did they take it?
+
+CLERK:
+Yes.
+
+VOICE:
+Does that mean anything?
+
+CLERK:
+No.
+
+VOICE:
+Then why?
+
+SHOT
+He thinks about it for long enough that on most copies the viewer assumes the tape has stuck.
+SHOT_END
+
+CLERK:
+Because next year it'll be ten.
+
+SLUG THE CORRIDOR | LAST ROLL
+
+SHOT
+The service window with the shutter down and a printed notice taped to it: THIS OFFICE HAS BEEN CLOSED. ENQUIRIES BY POST.
+SHOT_END
+
+SHOT
+A man sitting on the floor against the wall with a folder open on his knees, writing.
+SHOT_END
+
+NARRATOR:
+It was forty by the third year. They had to print more.
+
+NARRATOR:
+That is the whole of the victory, and the picture is aware of how that sounds.
+
+CREDITS 16
+FORM 9
+
+The Clerk .............. would not give his name to the camera
+The Official ........... did not know she was being filmed
+The Voice .............. whoever was holding it
+
+THERE IS NO DISTRIBUTOR AND THERE ARE NO RIGHTS.
+IF SOMEBODY CHARGED YOU TO WATCH THIS, TAKE YOUR MONEY BACK OFF THEM.
+END_CREDITS
+
+END

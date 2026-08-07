@@ -2,6 +2,7 @@
   "name": "surveillance",
   "version": "0.6.1",
   "description": "SPECTER — player spy networks + a witnessed-crime wanted system. P1-5: plant/hub/record/counterplay/devices. P6: 0-5 star wanted, escalating police tiers up to Arbiters, evidence + bounties. Also consumes storefront.staffWitnessed — hired shop staff (plugins/storefront) are a forced witness for shoplifting/hacking, the same convention as vendor.safeHackWitnessed.",
+  "after": ["bodily"],
   "commands": [
     "plant",
     "retrieve",

@@ -24,7 +24,7 @@ export const DANGER_RANK = { safe: 0, low: 1, medium: 2, high: 3, lethal: 4 };
 const RANK_NAME = ['safe', 'low', 'medium', 'high', 'lethal'];
 
 // Threat score = staying power + hurting power. Calibrated against live
-// content (2026-07): slag rat ≈ 20, wire jackal ≈ 42, custodian enforcer ≈ 67,
+// content (2026-07): slag rat ≈ 20, wire jackal ≈ 42, halcyon supervisor ≈ 67,
 // SPECTER trooper ≈ 126, arbiter-class unit ≈ 220. Re-run the calibration
 // sweep (scratchpad danger-calibration.mjs pattern) if enemy stats rebalance.
 const WEAPON_WEIGHT = 8;

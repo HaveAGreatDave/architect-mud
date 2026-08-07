@@ -1,24 +1,23 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_920_914",
-    "north": "zone_district_919_913",
-    "south": "zone_district_919_915",
-    "west": "zone_district_918_914"
-  },
-  "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "terrain": "grass"
-  },
-  "grid_x": 919,
-  "grid_y": 914,
-  "grid_z": 0,
-  "id": "zone_district_919_914",
-  "map_id": "map_world",
-  "name": "Grasslands",
-  "parent_zone": null
+ "ambient_events": [],
+ "ambient_theme": "forest",
+ "color": "#8ba36a",
+ "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+ "exits": {
+  "east": "zone_district_920_914",
+  "south": "zone_district_919_915",
+  "west": "zone_district_918_914"
+ },
+ "flags": {
+  "district": "residential",
+  "region_id": "region_coldwater",
+  "terrain": "grass"
+ },
+ "grid_x": 919,
+ "grid_y": 914,
+ "grid_z": 0,
+ "id": "zone_district_919_914",
+ "map_id": "map_world",
+ "name": "Grasslands",
+ "parent_zone": null
 }

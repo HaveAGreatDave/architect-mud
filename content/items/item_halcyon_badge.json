@@ -1,0 +1,13 @@
+{
+  "description": "Useful for bluffing a Halcyon floor checkpoint.",
+  "flags": {},
+  "id": "item_halcyon_badge",
+  "name": "Halcyon compliance badge",
+  "tags": {
+    "description": "Useful for bluffing a Halcyon floor checkpoint.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 40,
+  "weight": 50
+}

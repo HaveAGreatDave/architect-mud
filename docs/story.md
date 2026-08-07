@@ -103,12 +103,15 @@ Exempt: NPCs with `faction: ideology_ascendants`, and anything spoken in the Arc
 > **Superseded as mechanics, kept as texture.** None of the five below ship as an org. They
 > were reworked into the **ideologies** — nine `ideology_*` orgs on a stance axis + a categorical
 > path ([systems-ideologies.md](systems-ideologies.md), [design.md](design.md)). The names below
-> survive only in world flavour (a Custodian Enforcer is an enemy; a Breaker is a thing NPCs say).
+> survive only in world flavour (a Custodian is a caretaker NPC in the Old Coldwater ruins; a
+> Breaker is a thing NPCs say). The corporate-middle-management vibe this table once gave the
+> Custodians moved to **Halcyon Assurance**, whose Compliance supervisors and Retention adjusters
+> are the ones who actually escalate at you.
 > Anything that reads this table as a faction roster will build against orgs that don't exist.
 
 | Faction | Power Base | Belief | Vibe |
 |---|---|---|---|
-| The Custodians | Old corporate arcologies | The Architect is a god to be served | Cult meets middle management |
+| The Custodians | Old corporate arcologies | The Architect is a god to be served | Unarmed keepers of the record; verger energy, clipboards, no teeth |
 | The Breakers | Wasteland gangs | Tech must be destroyed | Luddite biker gang energy |
 | The Archivists | Underground libraries | Knowledge is the only power | Paranoid academics |
 | The Franchise | Surviving fast food / retail chains | Commerce will save us | Sinister retail loyalty program |

@@ -6,16 +6,15 @@
     "\"The Architect maintains. We merely file the paperwork.\"",
     "\"This district is under Custodial care. Kindly do not deface the ruins.\""
   ],
-  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that the Custodians are simply its middle management. He will explain this to you at length, whether or not you asked.",
+  "description": "Deacon Ferrin tends the ruins of Old Coldwater the way a verger tends a cathedral: reverently, and with a clipboard. He believes the Architect maintains all things and that a Custodian's only duty is to keep an honest record of what it maintained, so that somebody will know what was here. He will explain this to you at length, whether or not you asked.",
   "dialogue_tree": {},
-  "faction": "ideology_ascendants",
+  "faction": null,
   "flags": {
     "clothing_layers": [
       "a hi-vis vestment worn over a charcoal three-piece suit",
       "a starched white shirt with a fraying collar",
       "pressed grey briefs"
     ],
-    "faction_guard": true,
     "personality": "corporate"
   },
   "home_activities": [],

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_mintcond_floor",
+  "id": "zone_util_zone_mintcond_floor",
+  "max_capacity_kw": 1000,
+  "name": "Mint Condition — Shop Floor — Utility Room",
+  "source_type": "junction_box"
+}

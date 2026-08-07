@@ -1650,15 +1650,40 @@ export const _plating = { platingBonus, PLATE_BONUS, PLATTER_BONUS, PLATTER_MIN_
 // obvious act is how a system stops being usable.
 const DRAIN_PENALTY = 1;   // bands lost doing it with the lid and your nerve
 
+// A COMMON WORD IS BORROWED, NEVER OWNED. `drain` is also what you do to a cash
+// machine you have just jacked, and the command registry is a Map — one verb, one
+// handler, last registration wins, no chain. So this handler answering everything
+// didn't just outrank the ATM's, it DELETED it: a player at a drained-out terminal
+// typed `drain` and was told that it's pasta and rice that come out of their
+// water. Nothing about that was recoverable downstream.
+//
+// The rule is the one `move north` taught the chess table: claim the cases you own
+// and hand the rest back. `undefined` continues to the specialized actions, which
+// DO chain, and the ATM's drain is registered there now.
+//
+// What we own is a named thing that resolved to something of ours. A bare `drain`
+// is not that — it is zone-scoped, which is the ATM's whole shape and never ours,
+// since a pot must be named. Neither is a name that matches nothing you're
+// carrying. Once a vessel or an item HAS resolved, the answer is ours even when it
+// is a refusal, because at that point we know what they meant.
 async function cmdDrain(args, raw, player) {
   const nameStr = args.join(' ').trim();
-  if (!nameStr) return { type: 'error', message: `Drain what?` };
+  // Bare `drain` is the ATM's exact shape — zone-scoped, no target — and a pot
+  // always has to be named. So we only keep it when there is actually a vessel in
+  // reach to be talking about; in a kitchen that is still "Drain what?", and at a
+  // cash machine it is the ATM's, which is the point.
+  if (!nameStr) {
+    const anyVessel = await resolveInventoryItem(player, { tag: 'vessel', topLevel: true, fromNearby: true });
+    return anyVessel ? { type: 'error', message: `Drain what? The ${anyVessel.name}, if it's pasta you mean.` } : undefined;
+  }
 
   const vessel = await resolveInventoryItem(player, { tag: 'vessel', name: nameStr, topLevel: true, fromNearby: true });
   const rows = vessel
     ? await vesselContents(vessel.inv_id)
     : [await resolveInventoryItem(player, { name: nameStr, topLevel: false })].filter(Boolean);
-  if (!rows.length) return { type: 'error', message: vessel ? `There's nothing in the ${vessel.name}.` : `You don't have "${nameStr}".` };
+  // A named vessel we found but that is empty is still our sentence to say. A name
+  // that resolved to nothing at all belongs to whoever else wants it.
+  if (!rows.length) return vessel ? { type: 'error', message: `There's nothing in the ${vessel.name}.` } : undefined;
 
   // Only wet starch is drainable. Draining a steak is not a thing, and saying so
   // plainly teaches the profile better than a generic refusal would.

@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_betatape_form_nine",
+  "name": "betatape: FORM 9",
+  "tags": {
+    "beta_cassette": true,
+    "broadcast_id": "bc_form_nine",
+    "description": "A cassette with no case and no printed anything, the shell a scavenged one with the old label scraped off in a hurry, so a shred of somebody else's title is still stuck under the corner. It has been copied from a copy from a copy and it looks it.\n\n  ┌───────────────────────────────┐\n  │        F O R M   9            │\n  │ ──────────────────────────────│\n  │  COPY THIS TAPE · 11 MIN      │\n  │  ( )    ( )   GEN 4 OR WORSE  │\n  │ ═══════════════════════════   │\n  └───────────────────────────────┘\n\nWritten across the top in ballpoint, biting into the plastic: \"RUN OFF AS MANY AS YOU LIKE. DO NOT PAY FOR IT AND DO NOT CHARGE FOR IT.\"",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 15,
+  "weight": 220
+}

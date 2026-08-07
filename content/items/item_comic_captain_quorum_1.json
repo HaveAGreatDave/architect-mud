@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_captain_quorum_1",
+  "name": "CAPTAIN QUORUM #1 — reading copy",
+  "tags": {
+    "description": "A pre-Collapse civic title, and it shows: the paper is better than anything printed since, the colours are flat and confident, and the whole thing was clearly paid for by somebody who wanted you to feel a particular way about committees. The cover has a man in a sash and a cape addressing a seated crowd with one finger raised. THE MOTION CARRIES! Nobody in the crowd is drawn with a face.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 90,
+  "weight": 80
+}

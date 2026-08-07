@@ -156,14 +156,21 @@ export async function loadPlugins() {
     console.log(`✓ Loaded ${loadedPlugins.length} plugin(s)`);
   }
 
-  // Report plugin verbs that shadow engine builtins — the shadowed builtin is
-  // dead code by dispatch order, which should be a visible fact, not a
-  // surprise. Dynamic import: commands/index.js imports this module.
+  // Report plugin verbs that shadow engine builtins — the builtin is no longer
+  // reachable BY THAT VERB, which should be a visible fact, not a surprise.
+  //
+  // It used to say "builtin is dead code", and that was wrong in a dangerous
+  // direction: unreachable as a verb is not the same as unused as a function.
+  // `cmdMove` has 37 callers outside commands/ — flight, jail, apartments,
+  // dreams and voidwalking all move players by calling it directly — and
+  // `cmdSay`, `cmdExamine` and `cmdRepair` have nine, six and five. A reader who
+  // believed this line and deleted the "dead" handler would take the game apart.
+  // Dynamic import: commands/index.js imports this module.
   try {
     const { builtinCommandNames } = await import('./commands/index.js');
     const shadowed = [...commands.keys()].filter(c => builtinCommandNames().includes(c));
     if (shadowed.length) {
-      console.log(`  ℹ Plugin verbs shadowing engine builtins (builtin is dead code): ${shadowed.join(', ')}`);
+      console.log(`  ℹ Plugin verbs shadowing engine builtins (builtin unreachable by this verb; the function may still be called directly): ${shadowed.join(', ')}`);
     }
   } catch { /* commands module unavailable in isolated tests — skip the report */ }
 }

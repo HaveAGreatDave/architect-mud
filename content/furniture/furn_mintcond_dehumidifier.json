@@ -1,0 +1,16 @@
+{
+  "description": "A grey box on castors with a hose out of its belly into the floor drain, drawing the damp out of the whole building one bucket at a time. The gauge on the front reads 41% and has a pencil mark beside it at 45, and another, angrier, at 50. It runs day and night. It is why the stock upstairs is worth anything.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_mintcond_dehumidifier",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "industrial dehumidifier",
+  "object_type": "appliance",
+  "power_draw_kw": 1.1,
+  "price": 0,
+  "zone_id": "zone_util_zone_mintcond_floor"
+}

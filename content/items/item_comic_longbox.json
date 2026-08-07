@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_longbox",
+  "name": "long box",
+  "tags": {
+    "description": "A white cardboard box the length of a forearm with a lid and two cut-out handles, flat-packed and taped along the seams. It holds about three hundred books upright, which sounds like a lot until you have three hundred books."
+  },
+  "type": "media",
+  "value": 40,
+  "weight": 900
+}

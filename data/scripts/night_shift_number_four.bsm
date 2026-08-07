@@ -1,0 +1,179 @@
+@broadcast "NIGHT SHIFT AT NUMBER FOUR"
+@channel ch_7_1782953079593
+@category film
+@type film
+@length 840
+@presents "Meltwater Drive-In Releasing"
+@rating "CERTIFIED: NOT FOR THE NERVOUS"
+@director "Auggie Prine"
+@titlecard night_shift_title
+
+::cast
+DELPH | Ada Delph | the new hand
+FOREMAN | The Foreman | who signs the forms
+THE POUR | (uncredited) | itself
+::endcast
+
+::asset night_shift_title
+
+   ███    ██ ██  ██████  ██   ██ ████████
+   ████   ██ ██ ██       ██   ██    ██
+   ██ ██  ██ ██ ██   ███ ███████    ██
+   ██  ██ ██ ██ ██    ██ ██   ██    ██
+   ██   ████ ██  ██████  ██   ██    ██
+
+    ███████ ██   ██ ██ ███████ ████████
+    ██      ██   ██ ██ ██         ██
+    ███████ ███████ ██ █████      ██
+         ██ ██   ██ ██ ██         ██
+    ███████ ██   ██ ██ ██         ██
+
+              A T   N U M B E R   F O U R
+
+          "SIXTY-ONE WENT IN.  THE METAL KNOWS."
+
+::endasset
+
+::scene PICTURE
+
+LETTERBOX on
+
+TITLE night_shift_title
+
+♪ A single held organ note, recorded in a stairwell, badly. ♪
+
+SHOT
+An unofficial sequel to a picture the studio did not own, shot in eleven nights in a foundry that was still working days. Everything you see is real and nothing you hear is.
+SHOT_END
+
+SLUG NUMBER FOUR FOUNDRY | THIRD SHIFT
+
+SHOT
+A woman signs a book at a gate under a lamp with moths in it. This is ADA DELPH and she has never held a ladle in her life.
+SHOT_END
+
+NARRATOR:
+They were forty hands short that winter and they were not fussy about it.
+
+ACT 1: The New Hand
+
+SHOT
+The floor. Heat haze rendered by shooting through a fire, which is the sort of thing Prine did instead of paying for an effect.
+SHOT_END
+
+FOREMAN:
+You stand there. You don't stand there. Anything comes off the ladle, you don't look at it, you move.
+
+DELPH:
+What was here before me?
+
+FOREMAN:
+A man.
+
+DELPH:
+Where'd he go?
+
+SHOT
+The Foreman does not answer. He signs something and walks out of frame, and the camera stays on the doorway he left through for eleven full seconds.
+SHOT_END
+
+♪ The organ note has not stopped. It has not stopped since the titles. ♪
+
+ACT 2: The Count
+
+SLUG THE POUR | 0340
+
+SHOT
+The ladle tips. White metal into a mould, and the whole top of the frame goes to bare light.
+SHOT_END
+
+NARRATOR:
+There is a thing every foundry hand knows and no foundry will write down: the pour makes a sound, and the sound is different on a night when the count is wrong.
+
+SHOT
+DELPH, at the rail, listening. She has been on the floor four nights and she has already started to listen.
+SHOT_END
+
+DELPH:
+That's a different note.
+
+FOREMAN:
+That's the same note it's been for thirty years.
+
+DELPH:
+It's a different note.
+
+SHOT
+Close on the mould. The metal, settling. And in the settling — for two frames, and only two, and they are two of the most argued-about frames in Coldwater cinema — something that is not a defect in the casting.
+SHOT_END
+
+TECH_DIFFICULTIES 7
+
+SHOT
+The tape you are watching has been copied at least four times and the two frames are gone. They are gone from almost every copy. Ask the man who rented it to you; he will tell you, at length, which prints still have them.
+SHOT_END
+
+INTERMISSION 40
+
+ACT 3: The Reading
+
+SLUG THE OFFICE | BEFORE DAWN
+
+SHOT
+A ledger open on a desk. Names in a column. A great many names.
+SHOT_END
+
+DELPH:
+Sixty-one names and none of them clocked out.
+
+FOREMAN:
+They were reassigned.
+
+DELPH:
+To WHERE.
+
+FOREMAN:
+There's a form. It goes up. It doesn't come back.
+
+SHOT
+She looks at him for a long time. He does not look away, and Prine holds it until it stops being a stand-off and becomes something sadder.
+SHOT_END
+
+FOREMAN:
+I've asked.
+
+SLUG THE FLOOR | THE LAST POUR OF THE SHIFT
+
+SHOT
+DELPH at the rail. The ladle coming over. The light coming up.
+SHOT_END
+
+NARRATOR:
+She stayed eleven years.
+
+NARRATOR:
+She never once got used to the note.
+
+FADE out 3
+
+SHOT
+The gate. The book. The lamp. The moths. A new hand signing in, whose face we do not see.
+SHOT_END
+
+FADE in 2
+
+LETTERBOX off
+
+CREDITS 18
+NIGHT SHIFT AT NUMBER FOUR
+
+Ada Delph .............. the new hand
+The Foreman ............ who signs the forms
+The Pour ............... itself
+
+A MELTWATER DRIVE-IN RELEASING PICTURE
+
+No foundry gave permission for any of this.
+END_CREDITS
+
+END

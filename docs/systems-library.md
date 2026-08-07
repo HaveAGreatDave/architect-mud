@@ -40,6 +40,16 @@ the panel.
 **Every title must be public domain IN THE UNITED STATES.** The server is
 US-hosted, so that is the bar regardless of where a player sits.
 
+**The rule is about REAL literature, and the in-universe comics are the other case.**
+Four titles on the shelf were written for this game (`book_comic_*` — The Meter Reader,
+Sister Steel, Captain Quorum, The Grievance). Nothing about them needs clearing, because
+nobody else owns them; they exist because the world already referenced comics it had never
+written. They are authored the same way as everything else — `content/books/*.json`,
+chapters, the same two readers — and they carry an in-universe `author`/`year` with a
+`source` line that says plainly that they are fiction, so the provenance field can never be
+mistaken for a Gutenberg citation later. **Adding another original is free; adding another
+real book is the thing that needs checking.**
+
 Orwell's *1984* is deliberately **absent**. It is PD in the UK, EU, Canada and
 Australia (Orwell died 1950, life+70), but US copyright runs 95 years from
 publication — so it is protected in the US **until 2045**. *Brave New World*
@@ -59,6 +69,16 @@ where I live"; check the title's US status on Project Gutenberg before adding it
 | The Scarlet Plague | London | 1912 | 6 |
 | The Sleeper Awakes | Wells | 1910 | 26 |
 | We | Zamyatin (Zilboorg tr., 1924) | 1924 | 41 |
+| *The Meter Reader #1: The Reading* | Aldous & Sable | 2039 | 3 |
+| *Sister Steel #1: Tempered* | Ilse Marek | 2041 | 3 |
+| *Captain Quorum and the Motion to Adjourn* | Civic Morale Directorate | 2027 | 2 |
+| *The Grievance #1: Form 9* | anonymous | 2058 | 1 |
+
+The italicised four are **in-universe originals**, not literature — see the copyright note
+above. Physical copies are sold by Emmett Sloat at Mint Condition on Ironside Street, and
+two of them have (bad) film adaptations you can rent off his back-room wall; the scans on
+the tablet are free to everybody, which is a thing he will tell you about himself before
+you can ask.
 
 ## Read tier — the load-bearing constraint
 

@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_sleeve",
+  "name": "mylar sleeve and board",
+  "tags": {
+    "description": "A crystal-clear archival sleeve with a stiff white backing board, sold as a pair. Slip the board in behind the book, slide the book into the sleeve, fold the flap. The whole transaction takes four seconds and adds thirty years to a piece of paper.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 9,
+  "weight": 15
+}

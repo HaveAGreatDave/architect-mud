@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_grievance_1",
+  "name": "THE GRIEVANCE #1 — reading copy",
+  "tags": {
+    "description": "Photocopied, folded, and stapled off-centre by a human being in a hurry. Thirty-two pages of hard black linework about a man whose only power is that he cannot be made to go away. The cover is a queue seen from behind, receding to a service window, and at the front of it one figure standing very still. FORM 9. The back cover is an address that no longer exists and an invitation to write in.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 25,
+  "weight": 60
+}

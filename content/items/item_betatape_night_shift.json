@@ -1,0 +1,15 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_betatape_night_shift",
+  "name": "betatape: NIGHT SHIFT AT NUMBER FOUR",
+  "tags": {
+    "beta_cassette": true,
+    "broadcast_id": "bc_night_shift_number_four",
+    "description": "A fat little cassette in a shell that has been warm too often, so the plastic has gone slightly soft at the corners. The window is scratched in an arc where somebody wound it back to the same place over and over with a pencil.\n\n  ┌───────────────────────────────┐\n  │ ▒▒▒▒▒  NIGHT SHIFT  /  No.4   │\n  │ ▒   ▒  ───────────────────────│\n  │ ▒▒▒▒▒  DRIVE-IN PRINT · 14MIN │\n  │  ( )    ( )   TWO FRAMES GONE │\n  │ ═══════════════════════════   │\n  └───────────────────────────────┘\n\nUnderneath, in marker, in a hand that pressed hard: \"THE FRAMES ARE NOT ON THIS ONE EITHER. STOP ASKING.\"",
+    "media_cassette": true
+  },
+  "type": "media",
+  "value": 45,
+  "weight": 220
+}

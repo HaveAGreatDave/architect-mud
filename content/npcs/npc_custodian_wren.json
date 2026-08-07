@@ -79,14 +79,13 @@
       "text": "\"Name.\" She does not look up. The pen is already moving. \"Purpose of visit. Duration of stay. If you are here to loot the ruins, I need that in section four, not section two. Section two is for salvage, and salvage requires a permit you do not have.\""
     }
   },
-  "faction": "ideology_ascendants",
+  "faction": null,
   "flags": {
     "clothing_layers": [
       "a laminated tabard hung with cleaning-rota clipboards",
       "a grey pencil-skirt suit",
       "a beige bra and briefs"
     ],
-    "faction_guard": true,
     "personality": "official"
   },
   "home_activities": [],

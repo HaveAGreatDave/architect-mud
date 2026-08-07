@@ -1,0 +1,213 @@
+@broadcast "CAPTAIN QUORUM: A FRIENDLY AMENDMENT"
+@channel ch_7_1782953079593
+@category film
+@type film
+@length 780
+@presents "Civic Morale Directorate"
+@rating "APPROVED FOR ALL RATEPAYERS"
+@director "uncredited"
+@titlecard captain_quorum_title
+
+::cast
+QUORUM | Captain Quorum | Chair of the Assembly
+AMENDER | The Amender | a gentleman of the third row
+CLERK | The Clerk | keeper of the minutes
+::endcast
+
+::asset captain_quorum_title
+
+    ██████ █████ ██████ ████████ █████ ██ ██   ██
+   ██     ██   ██ ██   ██   ██   ██   ██ ██ ███ ███
+   ██     ███████ ██████    ██   ███████ ██ ██ █ ██
+   ██     ██   ██ ██        ██   ██   ██ ██ ██   ██
+    ██████ ██   ██ ██       ██   ██   ██ ██ ██   ██
+
+        ██████  ██  ██  █████  ██████  ██   ██ ███    ███
+       ██    ██ ██  ██ ██   ██ ██   ██ ██   ██ ████  ████
+       ██    ██ ██  ██ ██   ██ ██████  ██   ██ ██ ████ ██
+       ██ ▄▄ ██ ██  ██ ██   ██ ██   ██ ██   ██ ██  ██  ██
+        ██████   ████   █████  ██   ██  █████  ██      ██
+
+           in  "A  F R I E N D L Y   A M E N D M E N T"
+
+              THE MOTION CARRIES.  IT ALWAYS CARRIES.
+
+::endasset
+
+::scene PICTURE
+
+LETTERBOX on
+
+TITLE captain_quorum_title
+
+♪ A brass fanfare in municipal green. Six bars. It will be back. ♪
+
+SHOT
+The print is immaculate. That is the first thing anybody notices and the last thing anybody forgets: eighty years on, this stock is better than anything the basin has made since, and the greens are still green.
+SHOT_END
+
+SLUG THE CIVIC HALL | THE YEAR OF THE THIRD RESERVOIR
+
+SHOT
+Bunting. A dais. Two hundred citizens in the seats, and the extras have all been directed to face front and not to move their heads.
+SHOT_END
+
+NARRATOR:
+The Directorate produced eleven of these. Nine are lost. This is not one of the good ones.
+
+ACT 1: The Chair Recognises
+
+SHOT
+CAPTAIN QUORUM enters to applause that starts a half-second before he appears.
+SHOT_END
+
+QUORUM:
+Friends! Neighbours! Ratepayers! The business before us is SHORT and the afternoon is LONG!
+
+SHOT
+The crowd laughs on cue. Some of them are a beat late and you can see which ones.
+SHOT_END
+
+CLERK:
+A written amendment, Captain. From the gentleman in the third row.
+
+QUORUM:
+An AMENDMENT! Splendid! The system WORKS!
+
+SLUG THE THIRD ROW | ONE MOMENT LATER
+
+SHOT
+A man stands up. He is the only person in the hall shot in close-up, which in a Directorate picture is not a compliment.
+SHOT_END
+
+AMENDER:
+I move that the meter clause be struck.
+
+QUORUM:
+The gentleman moves that the meter clause be struck! Is the motion SECONDED?
+
+SHOT
+A long pan across two hundred people, none of whom move.
+SHOT_END
+
+QUORUM:
+The motion FAILS for want of a second! Next business!
+
+NARRATOR:
+Twenty-one seconds. There is a stopwatch on the print and the Directorate was proud of it.
+
+ACT 2: The Gentleman Persists
+
+SLUG THE CIVIC HALL | THE FOLLOWING WEEK
+
+SHOT
+The same hall. The same bunting. The same man, standing up again.
+SHOT_END
+
+AMENDER:
+I move that the meter clause be struck.
+
+QUORUM:
+Is the motion SECONDED?
+
+SHOT
+Nobody moves. Except, at the very back of frame, in the corner, out of focus, somebody's hand.
+SHOT_END
+
+♪ The fanfare tries to start and stops. ♪
+
+QUORUM:
+... I'm sorry?
+
+SLUG THE CIVIC HALL | THE WEEK AFTER THAT
+
+SHOT
+Four hands.
+SHOT_END
+
+SLUG THE CIVIC HALL | THE WEEK AFTER THAT
+
+SHOT
+Forty.
+SHOT_END
+
+TECH_DIFFICULTIES 6
+
+SHOT
+REEL TWO IS DAMAGED on every surviving print, always at the same place, which the collectors' consensus holds is not a coincidence and the archivists' consensus holds is a bad splice. Both parties have written at length.
+SHOT_END
+
+INTERMISSION 40
+
+ACT 3: The Motion Carries
+
+SLUG THE CIVIC HALL | LATE
+
+SHOT
+The hall is dark except for the dais. QUORUM is alone at the lectern with the gavel in front of him and does not pick it up.
+SHOT_END
+
+QUORUM:
+Clerk. How many.
+
+CLERK:
+All of them, Captain.
+
+QUORUM:
+That isn't a number.
+
+CLERK:
+No, Captain.
+
+SHOT
+He straightens his sash. The costume department made four of those and this is the last one, and it is visibly the last one.
+SHOT_END
+
+QUORUM:
+Then the motion is seconded.
+
+QUORUM:
+And the motion is DEBATED.
+
+QUORUM:
+And the motion, having been debated —
+
+SHOT
+He picks up the gavel. The Directorate's animation unit put a starburst behind this shot and it is the single most expensive frame in the picture.
+SHOT_END
+
+QUORUM:
+— CARRIES.
+
+♪ The fanfare, at last, all six bars, and about a tone flat. ♪
+
+FADE out 3
+
+SLUG THE CIVIC HALL | THE FOLLOWING SPRING
+
+SHOT
+An empty hall with the chairs stacked. On the far wall, low, half hidden behind them: a small painted-over cabinet with a little glass window.
+SHOT_END
+
+NARRATOR:
+The meter clause was struck.
+
+NARRATOR:
+The meters stayed.
+
+FADE in 2
+
+LETTERBOX off
+
+CREDITS 18
+CAPTAIN QUORUM in "A FRIENDLY AMENDMENT"
+
+Captain Quorum .......... a man who read the Standing Orders
+The Amender ............. third row, aisle seat
+The Clerk ............... keeper of the minutes
+
+PRODUCED BY THE CIVIC MORALE DIRECTORATE
+Printed by authority. Not to be retained after the period of currency.
+END_CREDITS
+
+END

@@ -1,0 +1,16 @@
+{
+  "description": "A squat beige unit with a tape sitting in it, whirring, counter ticking down. There is a strip of tape across the top with BE KIND written on it in marker, and underneath, in the same hand, pressed harder: THIS IS NOT A JOKE.",
+  "flags": {
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_mintcond_rewinder",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "tape rewinder",
+  "object_type": "appliance",
+  "power_draw_kw": 0.15,
+  "price": 0,
+  "zone_id": "zone_mintcond_back"
+}

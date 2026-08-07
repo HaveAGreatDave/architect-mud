@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_sister_steel_1",
+  "name": "SISTER STEEL #1 — reading copy",
+  "tags": {
+    "description": "A comic with a cover that has gone slightly purple the way cheap red ink does: a woman in welding leathers holding a length of rebar like a staff, standing in the doorway of a foundry with the light behind her. SHE WAS SOMEBODY’S SISTER FIRST. The interior paper is coarse enough to feel through the sleeve. Somebody has written a name in the top corner of the first page and then scribbled it out, badly.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 55,
+  "weight": 80
+}

@@ -1,26 +1,25 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "city",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
-  "exits": {
-    "east": "zone_district_919_913",
-    "north": "zone_district_918_912",
-    "south": "zone_district_918_914",
-    "west": "zone_district_917_913"
-  },
-  "flags": {
-    "artery": [
-      "The Gate Road"
-    ],
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "terrain": "road"
-  },
-  "grid_x": 918,
-  "grid_y": 913,
-  "grid_z": 0,
-  "id": "zone_district_918_913",
-  "map_id": "map_world",
-  "name": "The Gate Road",
-  "parent_zone": null
+ "ambient_events": [],
+ "ambient_theme": "city",
+ "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+ "exits": {
+  "north": "zone_district_918_912",
+  "south": "zone_district_918_914",
+  "west": "zone_district_917_913"
+ },
+ "flags": {
+  "artery": [
+   "The Gate Road"
+  ],
+  "district": "residential",
+  "region_id": "region_coldwater",
+  "terrain": "road"
+ },
+ "grid_x": 918,
+ "grid_y": 913,
+ "grid_z": 0,
+ "id": "zone_district_918_913",
+ "map_id": "map_world",
+ "name": "The Gate Road",
+ "parent_zone": null
 }

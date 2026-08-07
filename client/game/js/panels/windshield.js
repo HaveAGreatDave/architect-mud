@@ -2834,6 +2834,8 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // green bathhouse tile, soot-warmed brick, canvas-grey, and a corner shop's old paint.
   ty_adequate: [78, 66, 52], ty_bolt: [58, 56, 50], ty_soak: [46, 66, 64],
   ty_broth: [72, 52, 42], ty_secondskin: [62, 60, 54], ty_kessel: [70, 62, 50],
+  // Mint Condition — a deep bottle-green shopfront paint that was chosen to look expensive.
+  ty_mintcond: [38, 62, 52],
   // Ration Nine — a state ration depot: cold concrete, roller shutter, no charm intended.
   ty_ration: [84, 84, 78],
   // Bespoke named-building shells — a distinct wall tone per silhouette below.
@@ -2936,6 +2938,7 @@ const BLDG_TYPE_3D = {
   outfitter:        { a: 'citycore',    h: 0.13 }, // Layers
   bodega:           { a: 'oldcoldwater', h: 0.11 }, // Bodega Vu, on the Ironside corner
   butcher:          { a: 'oldcoldwater', h: 0.10 }, // Meat Your Maker, single storey with a flat roof
+  comic_shop:       { a: 'oldcoldwater', h: 0.13 }, // Mint Condition, on the last dry corner of Ironside
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — heights come from
   // flags.floors on each facade; these are the archetype/fallback if a model fails to load.
   asc_spire:        { a: 'uptown',     h: 0.50 },
@@ -5514,6 +5517,9 @@ const TYPE_MODEL = {
   noodle_bar:        { type: 'noodlebar',         pal: 'ty_broth',      neon: '#ff5a3e' },
   outfitter:         { type: 'outfitter',         pal: 'ty_secondskin', neon: '#ffb43a' },
   bodega:            { type: 'bodega',            pal: 'ty_kessel',     neon: '#ffe08a' },
+  // Ironside, one corner south of the casino — a narrow deep shopfront under a gold-on-black
+  // blade sign, its whole street face given over to one lit and barred display window.
+  comic_shop:        { type: 'comicshop',         pal: 'ty_mintcond',   neon: '#ffd24a' },
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md).
   asc_spire:  { type: 'asc_spire',  pal: 'ty_asc_spire' },
   asc_gate:   { type: 'asc_gate',   pal: 'ty_asc_gate' },
@@ -7612,6 +7618,18 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       }
       if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.84, wallTop * 0.78, m.neon || '#ffe08a', night, alpha, 'BODEGA VU');
       if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.20, '255,215,150', 10, alpha * 0.30); }
+      break;
+    }
+    case 'comicshop': {   // Mint Condition — a narrow deep shopfront: one barred lit window, a gold blade sign, and a roof unit that runs all night
+      const wallTop = h * 0.86;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, 0, wallTop, pal, seed, night, alpha, true);                                     // deep and narrow — the plan is a corridor
+      { const [wx, wy] = F(0, fh * 0.64); draw3DBoxAt(ctx, cam, wx, wy, fh * 0.66, wallTop * 0.30, wallTop * 0.70, 'ty_office', seed + 1, night, alpha, false); }   // the display window, glazed floor to sign
+      { const [sx, sy] = F(0, fh * 0.68); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.70, wallTop * 0.72, wallTop * 0.84, 'ty_door', seed + 2, night, alpha, false); }     // the black board the gold lettering sits on
+      { const [gx, gy] = F(-fh * 0.44, fh * 0.66); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, wallTop * 0.66, 'ty_door', seed + 3, night, alpha, false); }         // the security grille rolled up beside the door
+      { const [rx, ry] = F(0, -fh * 0.10); draw3DBoxAt(ctx, cam, rx, ry, fh * 0.26, wallTop, wallTop + h * 0.16, 'ty_door', seed + 4, night, alpha, true); }        // the dehumidifier plant on the roof, which never stops
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.58, wallTop * 0.78, m.neon || '#ffd24a', night, alpha, 'MINT CONDITION');
+      if (frontVis) { const [nx, ny] = F(fh * 0.34, fh * 0.62); neonBlade(ctx, cam, nx, ny, wallTop * 0.72, wallTop + h * 0.26, m.neon || '#ffd24a', night, alpha); }
+      if (night) { const [wx, wy] = F(0, fh * 0.70); glowPool(ctx, cam, wx, wy, h * 0.18, '255,210,120', 10, alpha * 0.34); }   // nine little display lamps, left on
       break;
     }
     case 'sentinel': {   // Coldwater Sentinel — a narrow storefront newsroom under a guyed press mast, its window a wall of feed-screens

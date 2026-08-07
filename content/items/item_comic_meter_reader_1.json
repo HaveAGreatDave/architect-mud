@@ -1,0 +1,13 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "item_comic_meter_reader_1",
+  "name": "THE METER READER #1 — reading copy",
+  "tags": {
+    "description": "A slim comic in a plain sleeve, forty pages, stapled through the spine. The cover is a man in a municipal utility tabard standing in a stairwell with a clipboard, drawn from below so he looks enormous, and the tagline runs up the side: HE ONLY WANTS THE NUMBER. This is a reading copy, which is the trade’s way of saying it has been read: the spine is rolled, the corners are soft, and somebody’s thumb has worn a pale patch into the bottom right of every page.",
+    "stackable": true
+  },
+  "type": "media",
+  "value": 55,
+  "weight": 80
+}

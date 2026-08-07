@@ -1,0 +1,19 @@
+{
+  "description": "A mint press on a low plinth at the end of the counter, kept under a dust cover between customers, with a strip of carpet in front of it worn down to the weave. This is the good one. The civic presses were decommissioned and this is where they went, one at a time, bought at auction and rebuilt on a bench in the back room by a man who has strong opinions about registration error. A brass plate on the housing has been engraved, by hand, and reads: IT IS A RECORD OF YOU. STAND UP STRAIGHT.",
+  "flags": {
+    "card_mint": true,
+    "click_cmd": "mint",
+    "interactions": [],
+    "notable": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_cardmint_mintcond",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the Mint Condition press",
+  "object_type": "terminal",
+  "power_draw_kw": 1.4,
+  "price": 0,
+  "zone_id": "zone_mintcond_floor"
+}

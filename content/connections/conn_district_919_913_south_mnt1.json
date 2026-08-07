@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_919_913",
+  "b": "zone_mintcond_floor",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_district_919_913_south_mnt1",
+  "lockable": true,
+  "one_way": false
+}

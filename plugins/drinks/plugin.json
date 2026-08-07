@@ -2,6 +2,7 @@
   "name": "drinks",
   "version": "1.0.0",
   "description": "Mixology and hot drinks. `mix` builds a drink in a REUSABLE vessel (tags.drinkware) out of ingredient PROFILES, never item ids; `brew` needs a hot-water appliance (furniture flags.brew_tier). A finished drink lives on the vessel's custom_data as a serving count and a quality band — you carry it, drink it down, decant it, and rinse it out. Alcohol is DERIVED from the ingredients' tags.abv and lands through the existing drug_alcohol laced path on each swallow, so intoxication behaves exactly as it does for a bottled cocktail. Cold mixing needs only a vessel in hand.",
+  "after": ["crafting"],
   "commands": [
     "mix",
     "brew",

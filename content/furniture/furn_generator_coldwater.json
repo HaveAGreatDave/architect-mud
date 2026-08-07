@@ -2,8 +2,7 @@
   "description": "A colossal city-grade turbine generator, its armoured casing streaked with grime and hazard chevrons. Banks of indicator lights stutter across its control face; a heavy sealed hacking port is bolted shut beneath a cracked screen. It ROARS.",
   "flags": {
     "destructible": true,
-    "generator_id": "gen_zone_powerplantnew_1782069598190",
-    "requires_demolition": true
+    "generator_id": "gen_zone_powerplantnew_1782069598190"
   },
   "hp": 5000,
   "hp_max": 5000,

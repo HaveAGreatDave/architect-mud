@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Halcyon does not delete a lapsed account, it keeps the copy and stops paying to run it, and there is a sub-registrar in the Vats who has spent nine years filing the ones nobody is coming back for. She will hand the Watch the whole archive. She will not do it from inside that building, and she cannot run. Get in without putting a Custodian in the ground, and walk her out to the Threshold at her pace.",
+  "description": "Halcyon does not delete a lapsed account, it keeps the copy and stops paying to run it, and there is a sub-registrar in the Vats who has spent nine years filing the ones nobody is coming back for. She will hand the Watch the whole archive. She will not do it from inside that building, and she cannot run. Get in without putting a floor supervisor in the ground, and walk her out to the Threshold at her pace.",
   "fail_on": [
     {
       "count": 900,
@@ -15,9 +15,9 @@
       "type": "escort_lost"
     },
     {
-      "desc": "Do not kill a Custodian. Put one down and this stops being an account dispute and becomes a homicide on Ascendant ground, and the archive stops being evidence.",
+      "desc": "Do not kill a Halcyon supervisor. Put one down and this stops being an account dispute and becomes a homicide on Ascendant ground, and the archive stops being evidence.",
       "id": "f_blood",
-      "target": "Custodian",
+      "target": "Supervisor",
       "type": "kill"
     }
   ],
@@ -29,7 +29,7 @@
       "count": 1,
       "desc": "Get into the Registry in the Vats and stand the floor long enough to be sure it is between rounds.",
       "emotes": [
-        "{who} keeps very still by the Registry door and listens to a Custodian's shoes going the other way.",
+        "{who} keeps very still by the Registry door and listens to a supervisor's shoes going the other way.",
         "{who} counts the gaps in the rounds and does not like the number."
       ],
       "id": "o_infil",

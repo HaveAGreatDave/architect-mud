@@ -1,0 +1,17 @@
+{
+  "name": "videostore",
+  "version": "1.0.0",
+  "description": "Renting a tape off a wall, and being chased for it. The tapes already worked — a `media_cassette` item carrying a `broadcast_id` has loaded into any deck since broadcast shipped — but nothing ever gave a tape a reason to come BACK, which is the whole difference between a video shop and a vendor with a theme. A rental wall is furniture flagged `tape_rental`, its stock the authored `flags.tape_shelf` list (never 'every beta cassette in the game', or one shop's private stock would appear on every wall the moment somebody adds a tape elsewhere). The stock is FINITE AND SHARED: a copy that is out is a copy nobody else can have, and that is the only scarcity the system has or needs. `borrow` charges a small fee, hands over an ORDINARY inventory row and sets a due date; `returntape` takes it back and charges what it derives; `rentals` reads the wall; `settle` clears a debt. NOTHING TICKS AND NOTHING ACCRUES — the late fee is computed on read from `today - due_day`, both game-day indices (the corp-rackets `fearNow` pattern), so an offline week owes nobody a catch-up pass and there is no midnight job walking open rentals. Past three weeks overdue the shop stops waiting and bills for the print. The borrowed tape carries NO rental marker, so it drops, trades and gets stolen like anything else while the rental row survives all of it — the shop lent you the TITLE, not the row, and losing it is what the replacement charge is for. A debt closes the WALL and nothing else: no wanted level, no hostility, no lockout from the rest of the shop. One table, written only on borrow/return/settle; no tick, no boot load, no hot-path read.",
+  "commands": ["rentals", "borrow", "returntape", "settle"],
+  "objectGatedCommands": {
+    "rentals": { "discoverVia": "tape_rental", "note": "Surfaced by a declaration-only specialized action under requiredFlag tape_rental, and as the click_cmd on the wall itself." },
+    "borrow": { "discoverVia": "tape_rental", "note": "Same shape. Refuses while any debt is outstanding." },
+    "returntape": { "discoverVia": "tape_rental", "note": "Same shape. Named `returntape` rather than `return` so it can never shadow a control-flow-shaped word; with one tape out it takes no argument." },
+    "settle": { "discoverVia": "tape_rental", "note": "Same shape. Pays off every debt row at once; the only thing that reopens the wall." }
+  },
+  "dataSchema": ["tape_rentals"],
+  "extensionPoints": [
+    "furniture.flags.tape_rental",
+    "furniture.flags.tape_shelf"
+  ]
+}

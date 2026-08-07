@@ -1,0 +1,704 @@
+{
+  "broadcast_graph": {
+    "_start": "bsm_0",
+    "nodes": {
+      "bsm_0": {
+        "type": "start",
+        "_vine": {
+          "x": 80,
+          "y": 80
+        },
+        "next": "bsm_pre_0"
+      },
+      "bsm_1": {
+        "type": "overlay",
+        "overlayType": "letterbox",
+        "on": true,
+        "text": "",
+        "duration_s": 0,
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
+        "next": "bsm_2"
+      },
+      "bsm_2": {
+        "type": "title_card",
+        "graphic_id": "captain_quorum_title",
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3"
+      },
+      "bsm_3": {
+        "type": "say",
+        "text": "♪ A brass fanfare in municipal green. Six bars. It will be back. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4"
+      },
+      "bsm_4": {
+        "type": "say",
+        "text": "The print is immaculate. That is the first thing anybody notices and the last thing anybody forgets: eighty years on, this stock is better than anything the basin has made since, and the greens are still green.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5"
+      },
+      "bsm_5": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "THE YEAR OF THE THIRD RESERVOIR",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6"
+      },
+      "bsm_6": {
+        "type": "say",
+        "text": "Bunting. A dais. Two hundred citizens in the seats, and the extras have all been directed to face front and not to move their heads.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7"
+      },
+      "bsm_7": {
+        "type": "say",
+        "text": "The Directorate produced eleven of these. Nine are lost. This is not one of the good ones.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8"
+      },
+      "bsm_8": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 1",
+        "subtext": "The Chair Recognises",
+        "duration_s": 8,
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9"
+      },
+      "bsm_9": {
+        "type": "say",
+        "text": "CAPTAIN QUORUM enters to applause that starts a half-second before he appears.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10"
+      },
+      "bsm_10": {
+        "type": "say",
+        "text": "Captain Quorum says, \"Friends! Neighbours! Ratepayers! The business before us is SHORT and the afternoon is LONG!\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 80,
+          "y": 400
+        },
+        "next": "bsm_11"
+      },
+      "bsm_11": {
+        "type": "say",
+        "text": "The crowd laughs on cue. Some of them are a beat late and you can see which ones.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 400
+        },
+        "next": "bsm_12"
+      },
+      "bsm_12": {
+        "type": "say",
+        "text": "The Clerk says, \"A written amendment, Captain. From the gentleman in the third row.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 520,
+          "y": 400
+        },
+        "next": "bsm_13"
+      },
+      "bsm_13": {
+        "type": "say",
+        "text": "Captain Quorum says, \"An AMENDMENT! Splendid! The system WORKS!\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 740,
+          "y": 400
+        },
+        "next": "bsm_14"
+      },
+      "bsm_14": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE THIRD ROW",
+        "subtext": "ONE MOMENT LATER",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 960,
+          "y": 400
+        },
+        "next": "bsm_15"
+      },
+      "bsm_15": {
+        "type": "say",
+        "text": "A man stands up. He is the only person in the hall shot in close-up, which in a Directorate picture is not a compliment.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 560
+        },
+        "next": "bsm_16"
+      },
+      "bsm_16": {
+        "type": "say",
+        "text": "The Amender says, \"I move that the meter clause be struck.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 300,
+          "y": 560
+        },
+        "next": "bsm_17"
+      },
+      "bsm_17": {
+        "type": "say",
+        "text": "Captain Quorum says, \"The gentleman moves that the meter clause be struck! Is the motion SECONDED?\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 520,
+          "y": 560
+        },
+        "next": "bsm_18"
+      },
+      "bsm_18": {
+        "type": "say",
+        "text": "A long pan across two hundred people, none of whom move.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 560
+        },
+        "next": "bsm_19"
+      },
+      "bsm_19": {
+        "type": "say",
+        "text": "Captain Quorum says, \"The motion FAILS for want of a second! Next business!\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 960,
+          "y": 560
+        },
+        "next": "bsm_20"
+      },
+      "bsm_20": {
+        "type": "say",
+        "text": "Twenty-one seconds. There is a stopwatch on the print and the Directorate was proud of it.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 720
+        },
+        "next": "bsm_21"
+      },
+      "bsm_21": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 2",
+        "subtext": "The Gentleman Persists",
+        "duration_s": 8,
+        "_vine": {
+          "x": 300,
+          "y": 720
+        },
+        "next": "bsm_22"
+      },
+      "bsm_22": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "THE FOLLOWING WEEK",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 520,
+          "y": 720
+        },
+        "next": "bsm_23"
+      },
+      "bsm_23": {
+        "type": "say",
+        "text": "The same hall. The same bunting. The same man, standing up again.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 720
+        },
+        "next": "bsm_24"
+      },
+      "bsm_24": {
+        "type": "say",
+        "text": "The Amender says, \"I move that the meter clause be struck.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 960,
+          "y": 720
+        },
+        "next": "bsm_25"
+      },
+      "bsm_25": {
+        "type": "say",
+        "text": "Captain Quorum says, \"Is the motion SECONDED?\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 80,
+          "y": 880
+        },
+        "next": "bsm_26"
+      },
+      "bsm_26": {
+        "type": "say",
+        "text": "Nobody moves. Except, at the very back of frame, in the corner, out of focus, somebody's hand.",
+        "style": "narration",
+        "_vine": {
+          "x": 300,
+          "y": 880
+        },
+        "next": "bsm_27"
+      },
+      "bsm_27": {
+        "type": "say",
+        "text": "♪ The fanfare tries to start and stops. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 520,
+          "y": 880
+        },
+        "next": "bsm_28"
+      },
+      "bsm_28": {
+        "type": "say",
+        "text": "Captain Quorum says, \"... I'm sorry?\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 740,
+          "y": 880
+        },
+        "next": "bsm_29"
+      },
+      "bsm_29": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "THE WEEK AFTER THAT",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 960,
+          "y": 880
+        },
+        "next": "bsm_30"
+      },
+      "bsm_30": {
+        "type": "say",
+        "text": "Four hands.",
+        "style": "narration",
+        "_vine": {
+          "x": 80,
+          "y": 1040
+        },
+        "next": "bsm_31"
+      },
+      "bsm_31": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "THE WEEK AFTER THAT",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 300,
+          "y": 1040
+        },
+        "next": "bsm_32"
+      },
+      "bsm_32": {
+        "type": "say",
+        "text": "Forty.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 1040
+        },
+        "next": "bsm_33"
+      },
+      "bsm_33": {
+        "type": "tech_difficulties",
+        "duration": 6,
+        "_vine": {
+          "x": 740,
+          "y": 1040
+        },
+        "next": "bsm_34"
+      },
+      "bsm_34": {
+        "type": "say",
+        "text": "REEL TWO IS DAMAGED on every surviving print, always at the same place, which the collectors' consensus holds is not a coincidence and the archivists' consensus holds is a bad splice. Both parties have written at length.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 1040
+        },
+        "next": "bsm_35"
+      },
+      "bsm_35": {
+        "type": "overlay",
+        "overlayType": "intermission",
+        "text": "INTERMISSION",
+        "subtext": "",
+        "duration_s": 40,
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36"
+      },
+      "bsm_36": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "ACT 3",
+        "subtext": "The Motion Carries",
+        "duration_s": 8,
+        "_vine": {
+          "x": 300,
+          "y": 1200
+        },
+        "next": "bsm_37"
+      },
+      "bsm_37": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "LATE",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 520,
+          "y": 1200
+        },
+        "next": "bsm_38"
+      },
+      "bsm_38": {
+        "type": "say",
+        "text": "The hall is dark except for the dais. QUORUM is alone at the lectern with the gavel in front of him and does not pick it up.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 1200
+        },
+        "next": "bsm_39"
+      },
+      "bsm_39": {
+        "type": "say",
+        "text": "Captain Quorum says, \"Clerk. How many.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 960,
+          "y": 1200
+        },
+        "next": "bsm_40"
+      },
+      "bsm_40": {
+        "type": "say",
+        "text": "The Clerk says, \"All of them, Captain.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 80,
+          "y": 1360
+        },
+        "next": "bsm_41"
+      },
+      "bsm_41": {
+        "type": "say",
+        "text": "Captain Quorum says, \"That isn't a number.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 300,
+          "y": 1360
+        },
+        "next": "bsm_42"
+      },
+      "bsm_42": {
+        "type": "say",
+        "text": "The Clerk says, \"No, Captain.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 520,
+          "y": 1360
+        },
+        "next": "bsm_43"
+      },
+      "bsm_43": {
+        "type": "say",
+        "text": "He straightens his sash. The costume department made four of those and this is the last one, and it is visibly the last one.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 1360
+        },
+        "next": "bsm_44"
+      },
+      "bsm_44": {
+        "type": "say",
+        "text": "Captain Quorum says, \"Then the motion is seconded.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 960,
+          "y": 1360
+        },
+        "next": "bsm_45"
+      },
+      "bsm_45": {
+        "type": "say",
+        "text": "Captain Quorum says, \"And the motion is DEBATED.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 80,
+          "y": 1520
+        },
+        "next": "bsm_46"
+      },
+      "bsm_46": {
+        "type": "say",
+        "text": "Captain Quorum says, \"And the motion, having been debated —\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 300,
+          "y": 1520
+        },
+        "next": "bsm_47"
+      },
+      "bsm_47": {
+        "type": "say",
+        "text": "He picks up the gavel. The Directorate's animation unit put a starburst behind this shot and it is the single most expensive frame in the picture.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 1520
+        },
+        "next": "bsm_48"
+      },
+      "bsm_48": {
+        "type": "say",
+        "text": "Captain Quorum says, \"— CARRIES.\"",
+        "style": "verbatim",
+        "_vine": {
+          "x": 740,
+          "y": 1520
+        },
+        "next": "bsm_49"
+      },
+      "bsm_49": {
+        "type": "say",
+        "text": "♪ The fanfare, at last, all six bars, and about a tone flat. ♪",
+        "style": "ambient",
+        "_vine": {
+          "x": 960,
+          "y": 1520
+        },
+        "next": "bsm_50"
+      },
+      "bsm_50": {
+        "type": "overlay",
+        "overlayType": "fade",
+        "fade": "out",
+        "text": "",
+        "duration_s": 3,
+        "_vine": {
+          "x": 80,
+          "y": 1680
+        },
+        "next": "bsm_51"
+      },
+      "bsm_51": {
+        "type": "overlay",
+        "overlayType": "lower_third",
+        "text": "THE CIVIC HALL",
+        "subtext": "THE FOLLOWING SPRING",
+        "graphic_id": "",
+        "duration_s": 6,
+        "_vine": {
+          "x": 300,
+          "y": 1680
+        },
+        "next": "bsm_52"
+      },
+      "bsm_52": {
+        "type": "say",
+        "text": "An empty hall with the chairs stacked. On the far wall, low, half hidden behind them: a small painted-over cabinet with a little glass window.",
+        "style": "narration",
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53"
+      },
+      "bsm_53": {
+        "type": "say",
+        "text": "The meter clause was struck.",
+        "style": "narration",
+        "_vine": {
+          "x": 740,
+          "y": 1680
+        },
+        "next": "bsm_54"
+      },
+      "bsm_54": {
+        "type": "say",
+        "text": "The meters stayed.",
+        "style": "narration",
+        "_vine": {
+          "x": 960,
+          "y": 1680
+        },
+        "next": "bsm_55"
+      },
+      "bsm_55": {
+        "type": "overlay",
+        "overlayType": "fade",
+        "fade": "in",
+        "text": "",
+        "duration_s": 2,
+        "_vine": {
+          "x": 80,
+          "y": 1840
+        },
+        "next": "bsm_56"
+      },
+      "bsm_56": {
+        "type": "overlay",
+        "overlayType": "letterbox",
+        "on": false,
+        "text": "",
+        "duration_s": 0,
+        "_vine": {
+          "x": 300,
+          "y": 1840
+        },
+        "next": "bsm_57"
+      },
+      "bsm_57": {
+        "type": "credits",
+        "text": "CAPTAIN QUORUM in \"A FRIENDLY AMENDMENT\"\n\nCaptain Quorum .......... a man who read the Standing Orders\nThe Amender ............. third row, aisle seat\nThe Clerk ............... keeper of the minutes\n\nPRODUCED BY THE CIVIC MORALE DIRECTORATE\nPrinted by authority. Not to be retained after the period of currency.",
+        "duration": 18,
+        "_vine": {
+          "x": 520,
+          "y": 1840
+        }
+      },
+      "bsm_pre_0": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "CIVIC MORALE DIRECTORATE",
+        "subtext": "presents",
+        "duration_s": 5,
+        "_vine": {
+          "x": 80,
+          "y": -120
+        },
+        "next": "bsm_pre_1"
+      },
+      "bsm_pre_1": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "APPROVED FOR ALL RATEPAYERS",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "duration_s": 5,
+        "_vine": {
+          "x": 300,
+          "y": -120
+        },
+        "next": "bsm_pre_2"
+      },
+      "bsm_pre_2": {
+        "type": "overlay",
+        "overlayType": "act_card",
+        "text": "A film by uncredited",
+        "subtext": "",
+        "duration_s": 5,
+        "_vine": {
+          "x": 520,
+          "y": -120
+        },
+        "next": "bsm_1"
+      }
+    }
+  },
+  "category": "film",
+  "channel_id": "ch_7_1782953079593",
+  "created_by": null,
+  "description": "A pre-Collapse civic morale feature about a man whose superpower is procedure. The stock is better than anything printed since and the politics have not aged so much as fossilised.",
+  "enabled": 1,
+  "fallback_messages": [],
+  "film_meta": {
+    "presents": "Civic Morale Directorate",
+    "rating": "APPROVED FOR ALL RATEPAYERS",
+    "director": "uncredited",
+    "cast": [
+      {
+        "label": "QUORUM",
+        "name": "Captain Quorum",
+        "role": "Chair of the Assembly"
+      },
+      {
+        "label": "AMENDER",
+        "name": "The Amender",
+        "role": "a gentleman of the third row"
+      },
+      {
+        "label": "CLERK",
+        "name": "The Clerk",
+        "role": "keeper of the minutes"
+      }
+    ],
+    "title": "captain_quorum_title",
+    "theme": "",
+    "airSlots": null,
+    "airDays": null,
+    "runtime": 780
+  },
+  "gameshow_pools": null,
+  "id": "bc_captain_quorum",
+  "loop": 1,
+  "message_interval": 5,
+  "messages": [],
+  "morning_pools": null,
+  "name": "CAPTAIN QUORUM: A FRIENDLY AMENDMENT",
+  "news_pools": null,
+  "override_duration": 780,
+  "playback_mode": "film",
+  "sermon_pools": null,
+  "sports_pools": null,
+  "tags": [],
+  "talkshow_pools": null,
+  "updated_at": "1785500000",
+  "weather_pools": null
+}

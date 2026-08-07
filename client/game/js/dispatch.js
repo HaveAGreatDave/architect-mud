@@ -346,6 +346,20 @@ const handlers = {
     refreshZoneVisibility();
   },
 
+  // THE ROOM CHANGED UNDER YOU AND YOU DIDN'T ASK. Waking from a dream, an
+  // eviction, a trip ending — the server moves you and then says "look again".
+  //
+  // It carries no payload deliberately: what a `look` means depends on who you
+  // are by the time it lands (flight overrides the verb mid-air), so re-asking
+  // gets the right one rather than a room description composed for whoever the
+  // server thought you were. The reply comes back through `look` above.
+  //
+  // This existed on the server from the start and had NO handler here — six send
+  // sites firing into `if (!handler) return;`. The wake-from-dream path printed
+  // "the room reassembles itself around you" and then sent the one message that
+  // would have made that true.
+  force_look: () => sendCmdSilent('look'),
+
   move: (msg) => {
     // Walking into a walk-in hangar races the server's `hangar_bay_open` push
     // against this plain-text room description — whichever lands second wins.
@@ -1435,7 +1449,11 @@ function flashFirework(rgb, intensity) {
 
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];
-  if (!handler) return;
+  // A message with no handler is DROPPED SILENTLY, and that silence is why
+  // `force_look` went six call sites and an entire project history without
+  // anyone noticing it did nothing. Still a drop — an unknown type must never
+  // break the stream — but it says so now, to the console, once per message.
+  if (!handler) { console.debug(`[dispatch] no handler for '${msg.type}' — message dropped`); return; }
   // Never let one bad message (e.g. a malformed broadcast graphic) throw and break
   // the message stream — log it and carry on with the next server message.
   try {

@@ -1,23 +1,22 @@
 {
-  "ambient_events": [],
-  "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
-  "exits": {
-    "south": "zone_district_920_914",
-    "west": "zone_district_919_913"
-  },
-  "flags": {
-    "district": "residential",
-    "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
-  },
-  "grid_x": 920,
-  "grid_y": 913,
-  "grid_z": 0,
-  "id": "zone_district_920_913",
-  "map_id": "map_world",
-  "name": "Grasslands",
-  "parent_zone": null
+ "ambient_events": [],
+ "ambient_theme": "forest",
+ "color": "#8ba36a",
+ "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+ "exits": {
+  "south": "zone_district_920_914"
+ },
+ "flags": {
+  "district": "residential",
+  "region_id": "region_coldwater",
+  "scavenging_table_id": "scav_west_wastes",
+  "terrain": "grass"
+ },
+ "grid_x": 920,
+ "grid_y": 913,
+ "grid_z": 0,
+ "id": "zone_district_920_913",
+ "map_id": "map_world",
+ "name": "Grasslands",
+ "parent_zone": null
 }

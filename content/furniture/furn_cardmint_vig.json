@@ -1,8 +1,6 @@
 {
-  "description": "A mint press wedged between two slot banks, housing scratched to hell and lit like a prize. The house takes a picture of you at your best and then keeps it, which is the most honest thing in the building.",
+  "description": "A mint press wedged between two slot banks, housing scratched to hell and still lit like a prize, because the house never turns a light off. The slot is dead. A strip of casino-branded tape across it reads OUT OF ORDER in a font chosen to suggest this is temporary. It has read that for a while.",
   "flags": {
-    "card_mint": true,
-    "click_cmd": "mint",
     "interactions": [],
     "notable": true
   },
@@ -13,7 +11,7 @@
   "lumen_output": null,
   "name": "the Lucky Bastard house press",
   "object_type": "terminal",
-  "power_draw_kw": 1.2,
+  "power_draw_kw": 0,
   "price": 0,
   "zone_id": "zone_casino_interior"
 }
