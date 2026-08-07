@@ -468,7 +468,18 @@ function scoreRecipe(key, template, sig, ctx, band) {
       // Clamped: a wrong-ingredient line is short however much of it there is,
       // and an unclamped ratio would let a pan of greens score ABOVE one holding
       // the right thing in slightly too small a quantity.
-      met += Math.min(1, Math.max(0, have / min));
+      const qty = Math.min(1, Math.max(0, have / min));
+      // ...AND THE CLAMP ALONE WAS NOT ENOUGH. A row that fails only on its NOUN
+      // has all the weight the class asks for, so `qty` is a full 1 and the line
+      // scored exactly as if it were satisfied — which is how a recipe filed
+      // under "Missing Ingredients", with tomato and cream named in the shortfall
+      // directly beneath it, printed 100%. A percentage that reads done beside a
+      // list of what's missing is the panel arguing with itself.
+      //
+      // Half, and not zero: a pan of greens is genuinely nearer this dish than an
+      // empty one — you have the class, you have the wrong thing in it — and
+      // genuinely not done. So it can never read as either.
+      met += nounMet(sig, profile, template) ? qty : Math.min(qty, 0.5);
       missing.push(ingredientLine(profile, need, template, itemInfo));
       shortfall.push(shortfallRow(profile, need, template));
     }
@@ -1130,4 +1141,4 @@ export function workspaceProvider(player) {
 // The picker, for the regress suite only. `prepare` and the Assistant both go
 // through `pickFor`, so testing it tests both — and the one thing worth pinning
 // is that a key item on a profile the recipe never counts still gets picked up.
-export const _test = { pickFor, answersTo, loadOrder };
+export const _test = { pickFor, answersTo, loadOrder, scoreRecipe };

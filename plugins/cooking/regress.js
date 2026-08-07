@@ -267,6 +267,43 @@ export default async function regress({ run, check, getPlayer }) {
     const noGin = pickFor(DISHES.penne_alla_gin, { ...kitchen, all: rows.filter(r => r.item_id !== 'item_gin') });
     check('no gin in the room is a shortfall, not a quiet omission',
       noGin.shortfall.some(s => s.item === 'item_gin'), JSON.stringify(noGin.shortfall));
+
+    // THE BAR AND THE LIST HAVE TO AGREE. A line that fails only on its NOUN has
+    // all the weight the class asks for, so the clamped ratio was a full 1 and it
+    // scored as if satisfied — which filed penne alla gin under "Missing
+    // Ingredients", printed tomato and cream in the shortfall beneath it, and put
+    // 100% on the bar above. Half credit: nearer than an empty pan, and not done.
+    const { scoreRecipe } = wsTest;
+    const held = [
+      row(0, 'item_penne', 'box of penne', { food_profile: 'dry_starch' }, 500),
+      row(0, 'item_gin', 'bottle of gin', { food_profile: 'liquid', food_noun: 'gin' }, 400),
+      row(0, 'item_butter_analog', 'butter-analog', { food_profile: 'fat_or_oil' }, 250),
+      row(0, 'item_greens', 'lamp-grown greens', { food_profile: 'soft_vegetable' }, 300),
+      row(0, 'item_ration_cheese', 'ration cheese', { food_profile: 'dairy' }, 200),
+    ];
+    const ctxOf = rows => ({
+      itemIds: new Set(rows.map(r => r.item_id)), stoves: [{}],
+      vesselKinds: new Set(['pan']), kitTags: new Set(['can_chop', 'can_turn']),
+    });
+    const scoreWith = rows =>
+      scoreRecipe('penne_alla_gin', DISHES.penne_alla_gin, signature(rows, profileNameFor), ctxOf(rows), null);
+
+    const wrongVeg = scoreWith(held);
+    check('a pan of greens and cheese is still short the tomato and the cream',
+      wrongVeg.missing.length === 2, JSON.stringify(wrongVeg.missing));
+    check('...so it cannot read 100% over a list of what it is missing',
+      wrongVeg.pct < 100, wrongVeg.pct);
+    check('...but it beats holding none of the class at all',
+      wrongVeg.pct > scoreWith(held.filter(r => !/greens|cheese/.test(r.name))).pct,
+      [wrongVeg.pct, scoreWith(held.filter(r => !/greens|cheese/.test(r.name))).pct]);
+
+    const right = scoreWith([
+      ...held.filter(r => !/greens|cheese/.test(r.name)),
+      row(0, 'item_tomato', 'tomato', { food_profile: 'soft_vegetable', food_noun: 'tomato' }, 120),
+      row(0, 'item_cream', 'carton of cream', { food_profile: 'liquid', food_also: 'dairy', food_noun: 'cream' }, 400),
+    ]);
+    check('the right ingredients read 100% and nothing missing',
+      right.pct === 100 && !right.missing.length, [right.pct, right.missing]);
   }
 
   check('stage text is monotonic and covers 0..1', stageText(COOK_STAGES, 0) === 'raw, glistening' && stageText(COOK_STAGES, 1) === 'cooked through, a faint char forming', {
