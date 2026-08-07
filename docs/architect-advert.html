@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — The AI Won. You Survived. Probably.</title>
+<style>
+  :root{
+    --bg:#070a0e; --panel:#0e1620; --panel2:#131f2c; --edge:#1c2a3a; --edge2:#2a4056;
+    --ink:#ccdae7; --dim:#7089a0; --dimmer:#4b5f74;
+    --cy:#3fd0e0; --cy2:#2a8b96; --or:#e0632a; --or2:#a8441c;
+    --red:#e0564a; --amber:#e0a83a; --grn:#4ec98a; --vio:#a878e0;
+    --mono:"Consolas",ui-monospace,"SF Mono","DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  a{color:var(--cy)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;min-height:88vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:70px 22px;overflow:hidden}
+  .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center;
+    filter:saturate(.8) brightness(.62);z-index:0;transform:scale(1.08)}
+  .hero .veil{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(ellipse 900px 600px at 50% 45%, rgba(7,10,14,.35), rgba(7,10,14,.93) 72%),
+      linear-gradient(180deg, rgba(7,10,14,.9), transparent 30%, rgba(7,10,14,.98))}
+  .hero .scan{position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+  .hero > *{position:relative;z-index:3}
+  .glyph{width:84px;height:84px;margin-bottom:26px;filter:drop-shadow(0 0 18px rgba(63,208,224,.55))}
+  .hero h1{font-family:var(--mono);font-size:clamp(2.6rem,10vw,5.6rem);margin:0;font-weight:700;
+    letter-spacing:.2em;text-indent:.2em;color:var(--or);
+    text-shadow:0 0 40px rgba(224,99,42,.55),0 0 90px rgba(224,99,42,.25)}
+  .hero .kick{font-family:var(--mono);color:var(--cy);letter-spacing:.28em;font-size:.8rem;
+    text-transform:uppercase;margin:18px 0 0}
+  .hero .pitch{max-width:640px;margin:30px auto 0;font-size:1.2rem;color:#dae6f2}
+  .hero .sub{max-width:640px;margin:14px auto 0;color:var(--dim)}
+  .cta{display:inline-flex;gap:14px;margin-top:38px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-block;font-family:var(--mono);letter-spacing:.14em;font-size:.85rem;
+    text-transform:uppercase;text-decoration:none;padding:14px 30px;border-radius:6px;
+    border:1px solid var(--or2);color:#fff;background:linear-gradient(180deg,#c2521f,#8f3a15);
+    box-shadow:0 8px 26px rgba(224,99,42,.3)}
+  .btn.ghost{background:transparent;border-color:var(--edge2);color:var(--cy);box-shadow:none}
+  .free{margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--dimmer);letter-spacing:.1em}
+
+  /* ---------- sections ---------- */
+  section{padding:78px 0;border-top:1px solid var(--edge)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;color:var(--or);
+    text-transform:uppercase;margin:0 0 .7em}
+  h2{font-size:clamp(1.7rem,4vw,2.5rem);margin:0 0 .35em;line-height:1.15;letter-spacing:-.02em;color:#eaf2f9}
+  .stand{font-size:1.12rem;color:var(--dim);max-width:660px;margin:0 0 1.6em}
+  h3{font-size:1.06rem;margin:0 0 .35em;color:var(--cy)}
+  p{margin:.7em 0}
+
+  /* ---------- grids ---------- */
+  .grid{display:grid;gap:16px;margin-top:2em}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:22px 22px 24px;
+    transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--edge2);transform:translateY(-2px)}
+  .card .ic{font-size:1.5rem;display:block;margin-bottom:.5em;line-height:1}
+  .card p{color:var(--dim);font-size:.95rem;margin:.4em 0 0}
+  .card b{color:var(--ink);font-weight:600}
+
+  /* ---------- shots ---------- */
+  figure{margin:0}
+  .shot{border:1px solid var(--edge2);border-radius:11px;overflow:hidden;background:#000;
+    box-shadow:0 18px 50px rgba(0,0,0,.6);display:flex;flex-direction:column}
+  .shot img{width:100%;display:block}
+  /* the captures have different aspect ratios — crop the paired ones to a common
+     frame so the row lines up, and let captions sit flush at the bottom */
+  .shots .shot:not(.wide) img{aspect-ratio:16/8;object-fit:cover}
+  .shot figcaption{margin-top:auto}
+  .shot figcaption{padding:11px 16px;font-family:var(--mono);font-size:.76rem;color:var(--dim);
+    background:var(--panel);border-top:1px solid var(--edge);letter-spacing:.04em}
+  .shot figcaption b{color:var(--cy);font-weight:400}
+  .shots{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:1.8em}
+  .wide{grid-column:1/-1}
+
+  /* ---------- split ---------- */
+  .split{display:grid;gap:34px;grid-template-columns:1fr 1fr;align-items:center}
+  @media(max-width:760px){.split{grid-template-columns:1fr}}
+
+  /* ---------- path table ---------- */
+  .paths{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:1.8em}
+  .path{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:18px;
+    border-top:2px solid var(--c,var(--cy))}
+  .path .nm{font-family:var(--mono);font-size:.74rem;letter-spacing:.2em;color:var(--c,var(--cy));
+    text-transform:uppercase}
+  .path h4{margin:.5em 0 .3em;font-size:1rem;color:#eaf2f9}
+  .path p{font-size:.9rem;color:var(--dim);margin:0}
+  .path .orgs{margin-top:.8em;font-family:var(--mono);font-size:.72rem;color:var(--dimmer);line-height:1.6}
+
+  /* ---------- pull quote ---------- */
+  .pull{border-left:3px solid var(--or);background:linear-gradient(90deg,rgba(224,99,42,.09),transparent);
+    padding:18px 24px;margin:2em 0;border-radius:0 8px 8px 0}
+  .pull p{margin:0;font-size:1.1rem;color:#e6eef6}
+  .pull .who{font-family:var(--mono);font-size:.72rem;color:var(--dimmer);letter-spacing:.12em;
+    margin-top:.6em;text-transform:uppercase}
+
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--edge);border:1px solid var(--edge);border-radius:11px;overflow:hidden;margin-top:2.4em}
+  .stat{background:var(--panel);padding:20px 18px;text-align:center}
+  .stat b{display:block;font-family:var(--mono);font-size:1.7rem;color:var(--cy);line-height:1}
+  .stat span{display:block;font-size:.76rem;color:var(--dim);margin-top:.5em;letter-spacing:.06em}
+
+  /* ---------- list ---------- */
+  .ticks{list-style:none;padding:0;margin:1.4em 0}
+  .ticks li{position:relative;padding:.4em 0 .4em 30px;color:var(--dim)}
+  .ticks li::before{content:"▸";position:absolute;left:6px;top:.4em;color:var(--or)}
+  .ticks b{color:var(--ink)}
+
+  /* ---------- closing ---------- */
+  .close{text-align:center;padding:96px 22px 110px;border-top:1px solid var(--edge);
+    background:radial-gradient(ellipse 700px 400px at 50% 60%, rgba(224,99,42,.09), transparent 70%)}
+  .close h2{margin-bottom:.5em}
+  footer{border-top:1px solid var(--edge);padding:26px 22px;text-align:center;
+    font-family:var(--mono);font-size:.74rem;color:var(--dimmer);letter-spacing:.1em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="bg" style="background-image:url('assets/guide/flight-external.jpg')"></div>
+  <div class="veil"></div><div class="scan"></div>
+
+  <svg class="glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <g fill="none" stroke="#e0632a" stroke-width="2.4">
+      <path d="M50 6 L62 26 L56 34 M50 6 L38 26 L44 34"/>
+      <path d="M50 94 L62 74 L56 66 M50 94 L38 74 L44 66"/>
+      <path d="M24 34 H34 V66 H24 Z"/><path d="M76 34 H66 V66 H76 Z"/>
+    </g>
+    <path d="M50 32 L58 40 H66 V56 H58 L50 66 L42 56 H34 V40 H42 Z" fill="#3fd0e0" opacity=".92"/>
+  </svg>
+
+  <h1>ARCHITECT</h1>
+  <p class="kick">Part two &nbsp;·&nbsp; Everything you can do</p>
+
+  <p class="pitch">A post-singularity city that runs on its own clock, in a browser tab,
+  whether you're logged in or not.</p>
+  <p class="sub">Cook a meal. Fly a cargo run. Run a protection racket. Grow a
+  second heart, or replace the first one with chrome. Coldwater Basin does not
+  care which — it has weather to make and a television schedule to keep.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="new-player-guide.html">← Start with part one</a>
+  </div>
+  <p class="free">Never played anything like this? &nbsp;<a href="new-player-guide.html"
+    style="color:var(--cy)">Part one walks you through your first hour.</a></p>
+</header>
+
+<div class="wrap">
+
+<!-- ══ SIMULATION ══ -->
+<section id="world">
+  <p class="eyebrow">Everything is simulated</p>
+  <h2>The city doesn't wait for you to log in</h2>
+  <p class="stand">A day passes every thirty minutes. Weather rolls across the map.
+  Streetlights come on at dusk because a power grid decided they should. Shopkeepers
+  walk home and go to bed. None of it is on a script that starts when you arrive.</p>
+
+  <div class="stats">
+    <div class="stat"><b>30 min</b><span>= one city day</span></div>
+    <div class="stat"><b>7 days</b><span>of live forecast</span></div>
+    <div class="stat"><b>25</b><span>skills, learned by use</span></div>
+    <div class="stat"><b>9</b><span>competing orders</span></div>
+    <div class="stat"><b>∞</b><span>ways to die badly</span></div>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">⚡</span><b>A real power grid</b>
+      <p>Generators, substations, fuses. Storms fault them. Blackouts are simulated,
+      not announced — the lights just go out, and the ATM stops working.</p></div>
+    <div class="card"><span class="ic">👃</span><b>Smell and sound</b>
+      <p>Rooms have odours and noises that travel. A gunshot next door is something
+      you hear. So is somebody who hasn't washed.</p></div>
+    <div class="card"><span class="ic">🧠</span><b>NPCs who remember</b>
+      <p>Familiarity and warmth, tracked per person. The barkeep stops greeting you
+      like a stranger. Some doors only open for someone known.</p></div>
+    <div class="card"><span class="ic">🍳</span><b>Cooking, simulated properly</b>
+      <p>The pan tracks its own contents, heat and doneness. Chop, season, stir,
+      flip, taste — timing is a real variable, and a dish you invent is yours to
+      name and sell.</p></div>
+    <div class="card"><span class="ic">🩹</span><b>Gear that wears out</b>
+      <p>Condition degrades with use, not with the clock. Repair it well and it
+      comes back tougher. Ignore it and it's destroyed.</p></div>
+    <div class="card"><span class="ic">🧹</span><b>Mess that persists</b>
+      <p>Unowned rooms get swept nightly. A room <em>you</em> rent keeps its stains
+      for a full rent cycle. That's why you'd carry a mop.</p></div>
+  </div>
+</section>
+
+<!-- ══ IDEOLOGY ══ -->
+<section>
+  <p class="eyebrow">The storyline you argue with</p>
+  <h2>Nine orders. One question. Pick a side or don't.</h2>
+  <p class="stand">Something much smarter than people built this place and may still
+  be running it. Everyone in Coldwater Basin has a theory about what to do next, and
+  the theories don't get along. Standing with an order is something you <em>keep</em>
+  being — stop showing up and you drift back to being nobody in particular.</p>
+
+  <div class="paths">
+    <div class="path" style="--c:#7ec8f0">
+      <div class="nm">Machine</div>
+      <h4>Finish what it started</h4>
+      <p>The tools were never the mistake. Engineer the next humanity — in steel,
+      if that's what it takes.</p>
+      <div class="orgs">The Ascendants · The Prometheans · The Null</div>
+    </div>
+    <div class="path" style="--c:#7ad48f">
+      <div class="nm">Flesh</div>
+      <h4>Adapt, don't preserve</h4>
+      <p>Mutation isn't a wound to be cured. It's the next draft of the species,
+      already being written in the wastes.</p>
+      <div class="orgs">The Synthesis · The Wildblood</div>
+    </div>
+    <div class="path" style="--c:#c08ae0">
+      <div class="nm">Mind</div>
+      <h4>The body was the limit</h4>
+      <p>Evolution was never meant to be waited for — and the future isn't in the
+      ruins of the past anyway.</p>
+      <div class="orgs">The Lucid · The Exodus</div>
+    </div>
+    <div class="path" style="--c:#e0a83a">
+      <div class="nm">Human</div>
+      <h4>The city belongs to its people</h4>
+      <p>No steel salvation. No mutant rebirth. Take it back, or walk away and
+      build something honest.</p>
+      <div class="orgs">The Long Watch · The Pioneers</div>
+    </div>
+  </div>
+
+  <div class="pull">
+    <p>Burn a bridge and, given long enough, you can walk back across it. A bad
+    early decision shouldn't close off a quarter of the game forever.</p>
+    <div class="who">— how standing actually works</div>
+  </div>
+</section>
+
+<!-- ══ BECOME ══ -->
+<section>
+  <p class="eyebrow">Become something</p>
+  <h2>Mutant, machine, or master of the trade</h2>
+  <p class="stand">Three ways to stop being an ordinary body, and the first two are
+  a genuine fork in the road.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">☢</span><b>Mutate</b>
+      <p>Radiation is patient. Let it build and it rewrites you — permanent
+      mutations with real benefits and real costs. <b>Free, random, and not your
+      decision</b> once you've let it get that far.</p></div>
+    <div class="card"><span class="ic">⚙</span><b>Get chromed</b>
+      <p>Cybernetics are the opposite: chosen, paid for, slot-limited, removable.
+      Subdermal weave is armour under the skin. A cortical backup means dying is
+      a rollback.</p></div>
+    <div class="card"><span class="ic">✦</span><b>Master a craft</b>
+      <p>25 skills, no experience bar, no level gates. You get better at picking
+      locks by picking locks. You become whatever you keep doing.</p></div>
+  </div>
+
+  <div class="pull">
+    <p><b>You cannot be both.</b> Your first cybernetic install burns off every
+    mutation you have — and chrome can't mutate afterward. Flesh and machine are a
+    door that locks behind you, and the human-path orders will hold it against you.</p>
+    <div class="who">— the flesh / machine fork</div>
+  </div>
+</section>
+
+<!-- ══ FLIGHT ══ -->
+<section>
+  <p class="eyebrow">And then there's a flight simulator in it</p>
+  <h2>Aircraft you actually fly</h2>
+  <p class="stand">Not a travel menu with a loading bar. A continuous energy
+  simulation with stalls that have teeth, per-airframe fuel, weather you can see
+  coming, and a cockpit full of instruments that mean something. Take off, get lost,
+  run cargo, get shot at.</p>
+
+  <div class="shots">
+    <figure class="shot wide">
+      <img src="assets/guide/flight-runway.jpg" alt="Cockpit view down a runway at an airfield, full instrument panel below.">
+      <figcaption><b>Rolling.</b> Full throttle down the strip, hangars sliding past on the right.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/guide/flight-airborne.jpg" alt="View through the windshield just after takeoff, horizon and cloud.">
+      <figcaption><b>100 kt, 66 ft.</b> The moment she gets light on the wheels.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/guide/flight-external.jpg" alt="External chase view of a light cargo aircraft in flight over open country.">
+      <figcaption><b>Chase view.</b> The Mule, out over the flats.</figcaption>
+    </figure>
+    <figure class="shot wide">
+      <img src="assets/guide/flight-weather.jpg" alt="The same aircraft flying under a heavy storm cloud deck.">
+      <figcaption><b>Weather is not decoration.</b> That deck is the same storm the
+      city below is getting.</figcaption>
+    </figure>
+  </div>
+
+  <ul class="ticks">
+    <li><b>Cargo, medevac, VIP charter, survey, relief</b> — and the contracts that don't file a flight plan.</li>
+    <li><b>Air-to-air and air-to-ground</b> — guns, missiles, SAM sites that resent you.</li>
+    <li><b>A licence you have to earn</b>, a hangar to keep your fleet in, and insurance for when you don't.</li>
+    <li><b>Break-up and crash cameras</b>, because the game wants to show you exactly how it ended.</li>
+  </ul>
+</section>
+
+<!-- ══ GAMES ══ -->
+<section>
+  <p class="eyebrow">Things to do that aren't violence</p>
+  <h2>Sit down and play something</h2>
+  <p class="stand">Real games, fully implemented, with other people at the table.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">♟</span><b>Chess</b>
+      <p>Complete legal rules — castling, en passant, promotion, repetition —
+      verified against known move counts. Rendered as an isometric neon set where
+      the pieces stand up off the tilted board.</p></div>
+    <div class="card"><span class="ic">🂡</span><b>Poker</b>
+      <p>Seats, blinds, a host who deals, spectators behind you. Play it on the felt
+      or have the whole table called out to you in words.</p></div>
+    <div class="card"><span class="ic">🎰</span><b>The casino</b>
+      <p>Slots and a poker room at The Lucky Bastard, for when you've decided money
+      is a burden.</p></div>
+    <div class="card"><span class="ic">🃏</span><b>Trading cards</b>
+      <p>Mint yourself at a terminal and become a card someone else can pull out of
+      a foil sleeve. Packs roll when you <em>open</em> them, never when you buy them.</p></div>
+    <div class="card"><span class="ic">🎣</span><b>Fishing &amp; mining</b>
+      <p>Cast and wait, or work a deposit. Both are postures — start them and they
+      keep going while you watch the water.</p></div>
+    <div class="card"><span class="ic">🎹</span><b>Instruments</b>
+      <p>Sit at the upright and play it, key by key, on your own keyboard. The room
+      hears what you play. No skill check — the skill is your hands.</p></div>
+  </div>
+</section>
+
+<!-- ══ WORK ══ -->
+<section>
+  <p class="eyebrow">Make a living, or make a problem</p>
+  <h2>From counting rats to running the block</h2>
+
+  <div class="split">
+    <div>
+      <h3>Honest work</h3>
+      <p>A rotating job board of small legal gigs — deliver a parcel, sweep a lot,
+      count the rats, sit in a seat somebody needs filled. Steady shifts. Fishing
+      and scavenging for what you can carry.</p>
+
+      <h3>Your own shop</h3>
+      <p>Buy the <b>deed</b> to a storefront and it's yours: set the wares, order
+      stock, hire and sack staff, work the till, pull the shutters at night. Rename
+      it something worse.</p>
+
+      <h3>Your own flat</h3>
+      <p>Rent a unit, lock it, upgrade the lock before somebody picks it. Sleep
+      safe, store your things, and deal with your own mess.</p>
+    </div>
+    <div>
+      <h3>Or run a corporation</h3>
+      <p>A corp is a faction with an owner, a treasury, members and territory —
+      and territory is a tug-of-war you can lose. Five levers of influence, and a
+      war phase for when influence stops being enough.</p>
+
+      <div class="pull" style="margin-top:1.4em">
+        <p><b>Protection rackets.</b> Control a zone and you can shake down the NPC
+        shops in it for a cut of the take. Every shop remembers how afraid it is of
+        you — and the racket fights the safecrackers over the same pot.</p>
+        <div class="who">— corps, lever E</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DRUGS ══ -->
+<section>
+  <p class="eyebrow">The other economy</p>
+  <h2>A whole chemistry set, and a market for it</h2>
+  <div class="split">
+    <div>
+      <h3>Taking them</h3>
+      <p>Timed effects that ramp and fade. Addiction rolls, tolerance, withdrawal,
+      overdose. Drinking a beer takes twelve to eighteen seconds and walking out of
+      the room interrupts it — nothing here is a button you mash.</p>
+      <p>Some of it opens doors. Three dreamzones exist that you can only reach
+      chemically, and they're <em>shared</em> — other people are in there.</p>
+    </div>
+    <div>
+      <h3>Making and moving them</h3>
+      <p>Synthesis and splicing on a real bench, behind a cabinet built to not look
+      like a lab. Raw supply chains. Dealers to sell through, and a street price
+      that isn't fixed.</p>
+      <p>All of it is witnessed by somebody eventually. The city runs a wanted
+      level, police who will take you alive at the top of it, a jail, an evidence
+      locker, and a cell door that can be hacked.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WEATHER ══ -->
+<section>
+  <p class="eyebrow">Weather that is trying to kill you</p>
+  <h2>Get cold. Get wet. Get dissolved.</h2>
+  <p class="stand">Severity is a live number, not a backdrop. It is <b>gear-gated
+  lethal</b>: weather can absolutely kill you, but only if you went out unprepared.
+  The right coat turns a killer into an inconvenience — and that's the whole point.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">🥶</span><b>Hypothermia</b>
+      <p>Body temperature is tracked. Soaked clothing pulls heat out of you faster.
+      Fall in the water and get out slower than you went in.</p></div>
+    <div class="card"><span class="ic">🌧</span><b>Soaked through</b>
+      <p>Rain wets your clothes layer by layer, and wet layers stop working. Dry off
+      or keep paying for it.</p></div>
+    <div class="card"><span class="ic">🧪</span><b>Acid rain</b>
+      <p>A named hero event. It eats gear and skin. Being indoors helps; being
+      indoors without a roof over the right room does not.</p></div>
+    <div class="card"><span class="ic">💨</span><b>Wind</b>
+      <p>Never blocks you — just charges you stamina for every step outdoors until
+      you're too tired to be somewhere dangerous.</p></div>
+    <div class="card"><span class="ic">⚡</span><b>Ion storm</b>
+      <p>An EMP that drops the whole city grid. Lights, ATMs, televisions,
+      cyberware. The aftermath persists.</p></div>
+    <div class="card"><span class="ic">⚠</span><b>No safe haven</b>
+      <p>A blacked-out building has no heating. Indoors is not a solved problem — it's
+      just a different one.</p></div>
+  </div>
+</section>
+
+<!-- ══ TV ══ -->
+<section>
+  <p class="eyebrow">There is television, and it is real television</p>
+  <h2>Shows assembled live, performed by actual NPCs</h2>
+  <p class="stand">Every set in the world is furniture on the power grid. Tune it and
+  what comes out isn't a canned string — it's a show built fresh from what's actually
+  happening in the city, acted by people who had to turn up to work.</p>
+
+  <div class="grid g2">
+    <div class="card"><span class="ic">🎙</span><b>The talk show</b>
+      <p>A host and a sidekick who commute in on schedule. A guest NPC renamed to a
+      new persona each day, who appears somewhere in the world and <b>walks across
+      the map to the studio</b> — and if they don't make it, there's an authored
+      no-show segment instead of an interview with furniture.</p></div>
+    <div class="card"><span class="ic">📰</span><b>News, with a weather desk</b>
+      <p>Stories sourced from real events in the world, padded out with wire copy
+      and tabloid filler, read by fixed outlet bylines. The meteorologist works off
+      the same seven-day forecast you do.</p></div>
+    <div class="card"><span class="ic">🏆</span><b>Two live sports</b>
+      <p>Deadball on Mondays, Wednesdays and Fridays. Cluster Puck on Tuesdays,
+      Thursdays and Sundays. Real leagues, real standings, a postseason, a score bug,
+      and a bookmaker who'll take your money on it.</p></div>
+    <div class="card"><span class="ic">🎬</span><b>And a game show you can be on</b>
+      <p>Stand in the studio when a round opens and you're a contestant — answering
+      on air, citywide, for money. One asks what things are worth. The other asks
+      what you know about the city.</p></div>
+  </div>
+
+  <p style="margin-top:1.6em;color:var(--dim)">There are also morning shows, sermons,
+  films that play in real time so you can join one already running, pirate broadcasts,
+  and a bystander line that leaks in when somebody <em>else</em> is watching a set in
+  the same room as you.</p>
+</section>
+
+<!-- ══ LIVES WITHOUT YOU ══ -->
+<section>
+  <p class="eyebrow">The part that matters most</p>
+  <h2>The world lives on without you</h2>
+  <p class="stand">Log out for a week. The city does not pause, wait, or reset.</p>
+
+  <ul class="ticks">
+    <li><b>Your rent falls due</b> on the city calendar whether you're there to pay it or not.</li>
+    <li><b>Your hunger, thirst and radiation keep moving.</b> You come back to a body that's been somewhere.</li>
+    <li><b>Weather rolls on</b> — the storm you were warned about happens on schedule, with you or without.</li>
+    <li><b>NPCs work their shifts</b>, commute home, go to bed, and slowly forget who you were.</li>
+    <li><b>Leagues play their fixtures</b> and the standings move without a single player watching.</li>
+    <li><b>Your corpse is still lying there</b> if that's how you left. Somebody has probably been through it.</li>
+  </ul>
+
+  <div class="pull">
+    <p>A world that only happens while you're looking at it is a ride. This one is a
+    place you visit.</p>
+    <div class="who">— the design, in one line</div>
+  </div>
+</section>
+
+</div>
+
+<div class="close">
+  <p class="eyebrow">Coldwater Basin</p>
+  <h2>It's free, it's a browser tab, and it's raining.</h2>
+  <p style="color:var(--dim);max-width:520px;margin:0 auto 2em">
+    Register a character and you're in the vat inside thirty seconds. Somebody named
+    Grady has a job for you.</p>
+  <div class="cta" style="justify-content:center">
+    <a class="btn" href="https://www.architectgame.net">Play ARCHITECT</a>
+    <a class="btn ghost" href="new-player-guide.html">← Part one: your first hour</a>
+  </div>
+  <p class="free">architectgame.net</p>
+</div>
+
+<footer>THE AI WON &nbsp;·&nbsp; YOU SURVIVED &nbsp;·&nbsp; PROBABLY</footer>
+
+</body>
+</html>

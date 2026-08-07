@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — A Guide for Your First Hour</title>
+<style>
+  /* Shared design tokens — kept identical to architect-advert.html so the two
+     pages read as one publication. */
+  :root{
+    --bg:#070a0e; --bg2:#0c1119; --panel:#0e1620; --panel2:#131f2c;
+    --edge:#1c2a3a; --edge2:#2a4056;
+    --ink:#ccdae7; --dim:#7089a0; --dimmer:#4b5f74;
+    --cy:#3fd0e0; --cy-dim:#2a8b96; --cy2:#2a8b96;
+    --or:#e0632a; --or-dim:#a8441c; --or2:#a8441c;
+    --red:#e0564a; --amber:#e0a83a; --grn:#4ec98a; --vio:#a878e0;
+    --mono:"Consolas",ui-monospace,"SF Mono","DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 50% -80px, rgba(63,208,224,.09), transparent 70%),
+      radial-gradient(ellipse 700px 400px at 90% 40%, rgba(224,99,42,.05), transparent 70%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 10px}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;text-align:center;padding:88px 0 56px;margin-bottom:26px;
+    border-bottom:1px solid var(--edge);overflow:hidden;
+  }
+  .hero::after{ /* scanlines */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+  }
+  .glyph{width:96px;height:96px;margin:0 auto 22px;display:block;
+    filter:drop-shadow(0 0 14px rgba(63,208,224,.45))}
+  .hero h1{
+    font-family:var(--mono);font-size:clamp(2.4rem,8vw,4rem);margin:0;
+    letter-spacing:.22em;text-indent:.22em;color:var(--or);font-weight:700;
+    text-shadow:0 0 26px rgba(224,99,42,.5);
+  }
+  .tag{font-family:var(--mono);color:var(--cy);font-size:.82rem;letter-spacing:.2em;
+    margin:14px 0 0;text-transform:uppercase}
+  .lede{max-width:600px;margin:26px auto 0;color:var(--dim);font-size:1.08rem}
+
+  /* ---------- headings ---------- */
+  h2{
+    font-size:1.5rem;margin:4em 0 .1em;letter-spacing:-.01em;color:#e8f0f7;
+    display:flex;align-items:baseline;gap:.7em;
+  }
+  h2::before{
+    content:attr(data-n);font-family:var(--mono);font-size:.72rem;color:var(--or);
+    border:1px solid var(--or-dim);border-radius:4px;padding:.25em .5em;
+    letter-spacing:.1em;flex:none;background:rgba(224,99,42,.08);
+  }
+  h2 + .sub{color:var(--dimmer);font-family:var(--mono);font-size:.8rem;
+    letter-spacing:.13em;text-transform:uppercase;margin:.2em 0 1.6em;padding-left:3.1em}
+  h3{font-size:1.02rem;margin:2.2em 0 .3em;color:var(--cy);
+    font-family:var(--mono);letter-spacing:.04em}
+  p,li{margin:.65em 0}
+  ol,ul{padding-left:1.3em}
+  code{font-family:var(--mono);font-size:.9em;background:var(--panel2);
+    border:1px solid var(--edge2);border-radius:4px;padding:.12em .4em;color:var(--cy)}
+
+  /* ---------- terminal ---------- */
+  .term{
+    background:linear-gradient(180deg,#0c1119,#0a0e15);
+    border:1px solid var(--edge2);border-radius:9px;margin:1.6em 0;overflow:hidden;
+    box-shadow:0 12px 34px rgba(0,0,0,.55), inset 0 0 60px rgba(63,208,224,.03);
+  }
+  .term .bar{
+    background:var(--panel);border-bottom:1px solid var(--edge);
+    padding:7px 14px;font-family:var(--mono);font-size:.7rem;
+    letter-spacing:.16em;color:var(--dimmer);text-transform:uppercase;
+    display:flex;align-items:center;gap:8px;
+  }
+  .term .bar i{width:8px;height:8px;border-radius:50%;background:var(--or);
+    box-shadow:0 0 8px var(--or);flex:none;font-style:normal}
+  .term pre{
+    margin:0;padding:16px 18px;font-family:var(--mono);font-size:.86rem;line-height:1.75;
+    white-space:pre-wrap;overflow-x:auto;color:var(--ink);
+  }
+  .you{color:var(--cy);font-weight:600}
+  .sys{color:var(--or)}
+  .hit{color:var(--red)}
+  .ex{color:var(--cy-dim);text-decoration:underline dotted}
+  .npc{color:var(--amber)}
+  .good{color:var(--grn)}
+
+  /* ---------- notes ---------- */
+  .note{
+    background:linear-gradient(90deg,rgba(224,168,58,.09),rgba(224,168,58,.02));
+    border:1px solid rgba(224,168,58,.28);border-left:3px solid var(--amber);
+    border-radius:8px;padding:15px 18px;margin:1.8em 0;
+  }
+  .note .lbl{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;
+    color:var(--amber);text-transform:uppercase;display:block;margin-bottom:.3em}
+  .note.cy{background:linear-gradient(90deg,rgba(63,208,224,.09),rgba(63,208,224,.02));
+    border-color:rgba(63,208,224,.28);border-left-color:var(--cy)}
+  .note.cy .lbl{color:var(--cy)}
+
+  /* ---------- tables ---------- */
+  .cmds{width:100%;border-collapse:separate;border-spacing:0;margin:1.4em 0;
+    background:var(--panel);border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+  .cmds td{padding:.62em .9em;border-bottom:1px solid var(--edge);font-size:.94rem}
+  .cmds tr:last-child td{border-bottom:0}
+  .cmds tr:hover td{background:var(--panel2)}
+  .cmds td:first-child{font-family:var(--mono);white-space:nowrap;color:var(--cy);
+    width:1%;border-right:1px solid var(--edge);background:rgba(0,0,0,.22)}
+
+  /* ---------- meters ---------- */
+  .meters{display:grid;gap:10px;margin:1.6em 0}
+  .meter{background:var(--panel);border:1px solid var(--edge);border-radius:8px;
+    padding:11px 15px;display:grid;grid-template-columns:78px 1fr;
+    gap:14px;align-items:center}
+  .meter b{font-family:var(--mono);font-size:.8rem;letter-spacing:.1em;color:var(--ink)}
+  .meter .bar{grid-column:1/-1;height:5px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden}
+  .meter .bar i{display:block;height:100%;border-radius:3px}
+  .meter p{margin:0;font-size:.88rem;color:var(--dim)}
+  @media(max-width:560px){.meter{grid-template-columns:1fr}}
+
+  /* ---------- map figure ---------- */
+  figure{margin:2em 0;background:var(--panel);border:1px solid var(--edge);
+    border-radius:10px;padding:20px 18px 12px}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{color:var(--dimmer);font-size:.83rem;font-family:var(--mono);
+    text-align:center;margin-top:12px;letter-spacing:.05em}
+
+  /* ---------- steps ---------- */
+  .steps{list-style:none;padding:0;counter-reset:s;margin:1.6em 0}
+  .steps li{counter-increment:s;position:relative;padding:12px 16px 12px 58px;
+    background:var(--panel);border:1px solid var(--edge);border-radius:8px;margin-bottom:9px}
+  .steps li::before{
+    content:counter(s,decimal-leading-zero);position:absolute;left:16px;top:12px;
+    font-family:var(--mono);font-size:.82rem;color:var(--or);
+    border:1px solid var(--or-dim);border-radius:4px;padding:.1em .4em;
+    background:rgba(224,99,42,.08);
+  }
+  .shot{margin:2em 0;border:1px solid var(--edge2);border-radius:9px;overflow:hidden;
+    background:var(--panel)}
+  .shot img{width:100%;display:block}
+  .shot figcaption{padding:10px 14px;margin:0;text-align:left;border-top:1px solid var(--edge)}
+
+  /* ---------- UI recreation ---------- */
+  .ui{
+    border:1px solid var(--edge2);border-radius:9px;overflow:hidden;margin:1.6em 0;
+    background:#0a0e14;font-family:var(--mono);font-size:11px;line-height:1.55;
+    box-shadow:0 14px 40px rgba(0,0,0,.6);
+  }
+  .ui .top{display:flex;justify-content:space-between;align-items:center;
+    padding:7px 12px;border-bottom:1px solid var(--edge);background:#0c1119}
+  .ui .top .lg{color:var(--or);letter-spacing:.18em;font-weight:700}
+  .ui .top .rt{color:var(--dim)}
+  .ui .top .rt b{color:var(--cy);font-weight:400}
+  .ui .body{display:grid;grid-template-columns:150px 1fr}
+  @media(max-width:600px){.ui .body{grid-template-columns:1fr}
+    .ui .side{display:none}}
+  .ui .side{border-right:1px solid var(--edge);background:#0a0e14}
+  .ui .blk{border-bottom:1px solid var(--edge);padding:8px 10px}
+  .ui .h{color:var(--dimmer);letter-spacing:.16em;font-size:9px;margin-bottom:6px}
+  .ui .mini{color:var(--cy-dim);text-align:center;letter-spacing:2px;line-height:1.9}
+  .ui .mini b{color:var(--grn)}
+  .ui .vrow{display:flex;justify-content:space-between;color:var(--dim);font-size:10px}
+  .ui .vbar{height:3px;border-radius:2px;background:rgba(0,0,0,.6);margin:2px 0 7px;overflow:hidden}
+  .ui .vbar i{display:block;height:100%}
+  .ui .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:4px}
+  .ui .pad span{border:1px solid var(--edge2);border-radius:3px;text-align:center;
+    padding:5px 0;color:var(--dimmer);font-size:10px}
+  .ui .pad span.on{border-color:var(--grn);color:var(--grn);background:rgba(78,201,138,.1)}
+  .ui .env{color:var(--dim);font-size:10px}
+  .ui .env .t{color:var(--ink);font-size:13px}
+  .ui .main{display:flex;flex-direction:column;min-height:280px}
+  .ui .pane{padding:12px 14px;flex:none}
+  .ui .split{height:4px;background:#0c1119;border-top:1px solid var(--edge2);
+    border-bottom:1px solid #060a0f;position:relative}
+  .ui .split::after{content:"";position:absolute;left:50%;top:1px;width:40px;height:2px;
+    margin-left:-20px;background:var(--edge2);border-radius:1px}
+  .ui .log{padding:10px 14px;color:var(--ink);flex:1;
+    display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+  .ui .log .echo{color:var(--cy)}
+  .ui .rn{color:var(--or);letter-spacing:.14em;font-size:13px;font-weight:700}
+  .ui .safe{border:1px solid var(--grn);color:var(--grn);border-radius:3px;
+    font-size:9px;padding:1px 5px;margin-left:8px;letter-spacing:.1em}
+  .ui .rt2{color:var(--dimmer);font-style:italic;margin:3px 0 9px}
+  .ui .desc{color:var(--ink);margin-bottom:10px}
+  .ui .rooms{color:var(--dim);margin-top:auto}
+  .ui .lnk{color:var(--cy);text-decoration:underline dotted}
+  .ui .amb{color:var(--dimmer);font-style:italic;margin:14px 0 0}
+  .ui .inp{border-top:1px solid var(--edge);padding:8px 14px;color:var(--dimmer)}
+  .ui .sbar{display:flex;flex-wrap:wrap;gap:5px;padding:8px 12px;
+    border-top:1px solid var(--edge);background:#0c1119}
+  .ui .sbar span{border:1px solid var(--or-dim);color:var(--or);border-radius:3px;
+    padding:3px 9px;font-size:10px;background:rgba(224,99,42,.07)}
+  .cal{counter-reset:c;list-style:none;padding:0;margin:1.4em 0}
+  .cal li{counter-increment:c;position:relative;padding:6px 0 6px 40px;
+    font-size:.94rem;border-bottom:1px solid var(--edge)}
+  .cal li:last-child{border-bottom:0}
+  .cal li::before{content:counter(c);position:absolute;left:0;top:6px;
+    width:24px;height:24px;line-height:23px;text-align:center;border-radius:50%;
+    font-family:var(--mono);font-size:.72rem;color:var(--cy);
+    border:1px solid var(--cy-dim);background:rgba(63,208,224,.1)}
+  .cal b{color:var(--ink)}
+
+  /* ---------- interactive regions ---------- */
+  .hint{font-family:var(--mono);font-size:.8rem;color:var(--dimmer);
+    letter-spacing:.04em;margin:1.8em 0 .6em}
+  .hint span{display:none}
+  @media(hover:hover){.hint span{display:inline}}
+  kbd{font-family:var(--mono);font-size:.9em;border:1px solid var(--edge2);
+    border-bottom-width:2px;border-radius:3px;padding:0 .3em;color:var(--dim)}
+  .ui .reg{cursor:help;outline:none;transition:opacity .12s,box-shadow .12s;
+    position:relative}
+  .ui.live .reg::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    border:1px solid transparent;border-radius:3px;transition:border-color .12s;
+  }
+  .ui.live.on .reg{opacity:.28}
+  .ui.live .reg.sel{opacity:1}
+  .ui.live .reg.sel::after{border-color:var(--cy);
+    box-shadow:0 0 0 1px rgba(63,208,224,.35),0 0 22px rgba(63,208,224,.22) inset}
+  .ui.live .reg.lock::after{border-color:var(--or);
+    box-shadow:0 0 0 1px rgba(224,99,42,.45),0 0 22px rgba(224,99,42,.20) inset}
+  .ui.live.pinned .reg{cursor:default}
+  .ui.live .split.reg{min-height:10px}
+  .explain{
+    border:1px solid var(--edge2);border-left:3px solid var(--cy);border-radius:8px;
+    padding:14px 18px;margin:12px 0 1.8em;background:var(--panel);min-height:92px;
+  }
+  .explain .eh{font-family:var(--mono);font-size:.78rem;letter-spacing:.16em;
+    color:var(--cy);text-transform:uppercase;margin-bottom:.4em;
+    display:flex;align-items:center;gap:.7em;flex-wrap:wrap}
+  .explain .ed{font-size:.96rem;color:var(--ink)}
+  .explain .ed.idle{color:var(--dimmer);font-style:italic}
+  .explain .pin{display:none;font-size:.66rem;letter-spacing:.14em;
+    border:1px solid var(--or-dim);color:var(--or);border-radius:3px;
+    padding:.15em .5em;background:rgba(224,99,42,.1)}
+  .explain.locked{border-left-color:var(--or)}
+  .explain.locked .eh{color:var(--or)}
+  .explain.locked .pin{display:inline-block}
+
+  /* ---------- day timeline ---------- */
+  .day{margin:1.8em 0;padding-left:0;list-style:none}
+  .day > li{position:relative;padding:0 0 28px 26px;border-left:1px solid var(--edge);
+    margin-left:126px}
+  .day > li:last-child{border-left-color:transparent;padding-bottom:0}
+  .day .clk{position:absolute;left:-126px;top:-3px;width:104px;text-align:right;
+    font-family:var(--mono);font-size:.76rem;color:var(--or);letter-spacing:.08em}
+  .day .clk small{display:block;color:var(--dimmer);font-size:.92em;letter-spacing:.04em}
+  .day > li::before{content:"";position:absolute;left:-4.5px;top:5px;width:8px;height:8px;
+    border-radius:50%;background:var(--bg);border:1px solid var(--cy);
+    box-shadow:0 0 8px rgba(63,208,224,.5)}
+  .day h4{margin:0 0 .3em;font-size:1rem;color:#e8f0f7;font-weight:600}
+  .day p{margin:.3em 0}
+  .day .vb{font-family:var(--mono);font-size:.82rem;color:var(--cy-dim);
+    margin-top:.5em;display:block}
+  @media(max-width:620px){
+    .day > li{padding-left:16px;margin-left:8px}
+    .day .clk{position:static;width:auto;text-align:left;margin-bottom:.3em}
+    .day .clk small{display:inline;margin-left:.6em}
+  }
+
+  /* ---------- shared CTA / cross-links (same as architect-advert.html) ---------- */
+  .cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-block;font-family:var(--mono);letter-spacing:.14em;font-size:.85rem;
+    text-transform:uppercase;text-decoration:none;padding:14px 30px;border-radius:6px;
+    border:1px solid var(--or2);color:#fff;background:linear-gradient(180deg,#c2521f,#8f3a15);
+    box-shadow:0 8px 26px rgba(224,99,42,.3)}
+  .btn.ghost{background:transparent;border-color:var(--edge2);color:var(--cy);box-shadow:none}
+  .free{margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--dimmer);
+    letter-spacing:.1em;text-align:center}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;color:var(--or);
+    text-transform:uppercase;margin:0 0 .7em}
+  .close{text-align:center;padding:80px 22px 90px;margin-top:3em;
+    border-top:1px solid var(--edge);
+    background:radial-gradient(ellipse 700px 400px at 50% 60%, rgba(224,99,42,.09), transparent 70%)}
+  .close h2{display:block;font-size:clamp(1.6rem,4vw,2.3rem);margin:0 0 .5em;color:#eaf2f9}
+  .close h2::before{content:none}
+  .close p{color:var(--dim);max-width:540px;margin:0 auto 1.6em}
+  .nextcard{display:block;text-decoration:none;background:var(--panel);
+    border:1px solid var(--edge2);border-radius:11px;padding:22px 24px;margin:2.4em 0 0;
+    transition:border-color .15s,transform .15s}
+  .nextcard:hover{border-color:var(--cy2);transform:translateY(-2px)}
+  .nextcard .lbl2{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;color:var(--or);
+    text-transform:uppercase}
+  .nextcard h4{margin:.5em 0 .3em;font-size:1.15rem;color:#eaf2f9}
+  .nextcard p{margin:0;color:var(--dim);font-size:.95rem}
+  .nextcard .go{display:inline-block;margin-top:.7em;font-family:var(--mono);
+    font-size:.78rem;color:var(--cy);letter-spacing:.08em}
+
+  hr{border:0;border-top:1px solid var(--edge);margin:4em 0 2em}
+  .foot{color:var(--dimmer);font-family:var(--mono);font-size:.85rem;text-align:center;
+    letter-spacing:.08em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <g fill="none" stroke="#e0632a" stroke-width="2.4">
+      <path d="M50 6 L62 26 L56 34 M50 6 L38 26 L44 34"/>
+      <path d="M50 94 L62 74 L56 66 M50 94 L38 74 L44 66"/>
+      <path d="M24 34 H34 V66 H24 Z"/><path d="M76 34 H66 V66 H76 Z"/>
+    </g>
+    <path d="M50 32 L58 40 H66 V56 H58 L50 66 L42 56 H34 V40 H42 Z"
+          fill="#3fd0e0" opacity=".9"/>
+  </svg>
+  <h1>ARCHITECT</h1>
+  <p class="tag">Part one &nbsp;·&nbsp; Your first hour</p>
+  <p class="lede">A guide to your first hour in Coldwater Basin — what you're looking
+  at, what to type, and what will kill you.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="architect-advert.html">See everything you can do →</a>
+  </div>
+  <p class="free">No install &nbsp;·&nbsp; No download &nbsp;·&nbsp; Open a tab and you're in</p>
+</header>
+
+<div class="wrap">
+
+<h2 data-n="01">How it works</h2>
+<p class="sub">Reading, typing, and a city on a clock</p>
+
+<p>ARCHITECT runs in a browser tab and it is built on writing: you read where you
+are, and you type what you do. But the writing is the spine, not the whole animal.
+Hanging off it are a live minimap, a drag-and-drop inventory, a pocket tablet with
+thirty-odd apps, a television you can genuinely sit and watch, lock-picking and
+hacking minigames, a neon chess set, a poker table — and, a long way out, a flight
+simulator you fly looking out of a cockpit window.</p>
+
+<p>What it doesn't have is a pause button. The city keeps its own time whether
+you're logged in or not: a day passes every thirty minutes, weather rolls across
+the map, streetlights come on at dusk.</p>
+
+<p>You are one person in that city. You have a body with meters attached to it,
+an inventory, a bank balance, and skills that get better only by being used.
+Nothing is on rails. There's no quest arrow. The game's answer to <em>what
+should I do</em> is generally <em>whatever you can afford</em>.</p>
+
+<h3>What you're looking at</h3>
+<p>The whole game is one screen: a thin strip of readouts down the left, buttons
+along the bottom, and — the important part — the middle split into <b>two
+panes</b>.</p>
+
+<p>The <b>top pane is the room</b>, and it keeps itself current. Walk somewhere
+and it repaints with the new room. Someone else walks out and it repaints without
+them. You don't refresh it and you don't ask for it; it is simply always showing
+where you are right now.</p>
+
+<p>The <b>bottom pane is the log</b>, and it scrolls. That's the running account
+of what <em>happened</em> — things said, blows landed, a door unlocking, a
+stranger's television bleeding through the wall. It only ever grows downward.</p>
+
+<div class="note cy">
+  <span class="lbl">Why this matters</span>
+  Older games of this kind make you type <code>look</code> constantly to find out
+  where you are. Here you don't — the room is already on screen, and it stays
+  right. What you'll actually use is <code>examine</code> (or just <code>x</code>)
+  to inspect a <em>thing</em>: <code>x sully</code>, <code>x corkboard</code>. The
+  smartbar counts them for you — <span style="color:var(--or)">Examine (4)</span>
+  means four things here are worth a closer look.
+</div>
+
+<p class="hint" id="ui-hint">Hover or tap any part of the screen below to find out
+what it does. <span>Use <kbd>Tab</kbd> and <kbd>↑</kbd><kbd>↓</kbd> to step through
+the regions.</span> Click to pin one while you read.</p>
+
+<div class="ui" id="ui">
+  <div class="top">
+    <span class="lg">ARCHITECT</span>
+    <span class="reg rt" data-r="purse" tabindex="0">Kestrel &nbsp; <b>₵ 214</b></span>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="blk reg" data-r="map" tabindex="0"><div class="h">MAP</div>
+        <div class="mini">· · ·<br>· <b>◆</b> ·<br>· · ·</div></div>
+      <div class="blk reg" data-r="vitals" tabindex="0"><div class="h">VITALS</div>
+        <div class="vrow"><span>HP</span><span>82</span></div>
+        <div class="vbar"><i style="width:82%;background:#4ec98a"></i></div>
+        <div class="vrow"><span>Stamina</span><span>64</span></div>
+        <div class="vbar"><i style="width:64%;background:#e0632a"></i></div>
+      </div>
+      <div class="blk reg" data-r="dpad" tabindex="0"><div class="h">D-PAD</div>
+        <div class="pad"><span>in</span><span class="on">N</span><span>↑</span>
+          <span class="on">W</span><span>·</span><span class="on">E</span>
+          <span>out</span><span>S</span><span>↓</span></div></div>
+      <div class="blk reg" data-r="env" tabindex="0"><div class="h">ENVIRONMENT</div>
+        <div class="env"><span class="t">21:40</span> &nbsp; Sun 27 Sep 2076<br>
+          9°C · Raining<br>· Dim &nbsp; · Hungry</div></div>
+      <div class="blk reg" data-r="online" tabindex="0"><div class="h">ONLINE (3)</div>
+        <div class="env">Kestrel (you)</div></div>
+    </div>
+    <div class="main">
+      <div class="pane reg" data-r="pane" tabindex="0">
+        <div><span class="rn">BASIN SWILL</span><span class="safe">SAFE</span></div>
+        <div class="rt2">· the Lower Docks ·</div>
+        <div class="desc">A long bar of scratched composite, lit badly. Rain hammers
+          the window. <span class="lnk">Sully</span> is behind the bar, drying a glass
+          that will never be clean. A <span class="lnk">corkboard</span> by the door
+          is furred with notices.</div>
+        <div class="rooms">Exits: [North] <span class="lnk">The Quay</span>,
+          [East] <span class="lnk">Back Room</span>,
+          [Out] <span class="lnk">Dock Street</span></div>
+      </div>
+      <div class="split reg" data-r="split" tabindex="0"></div>
+      <div class="log reg" data-r="log" tabindex="0">
+        <div class="amb">Somewhere upstairs, a chair scrapes.</div>
+        <div class="amb">Rain steps up against the window.</div>
+        <div>Graham Mercer heads <b style="color:var(--ink);font-weight:400">north</b>.</div>
+        <div><span style="color:var(--amber)">Sully says,</span> "You want that on
+          a tab, or are we pretending?"</div>
+        <div class="echo">&gt; buy whiskey</div>
+        <div style="color:var(--grn)">→ You buy a measure of well whiskey for ₵12.</div>
+      </div>
+    </div>
+  </div>
+  <div class="inp reg" data-r="input" tabindex="0">&gt; Type a command...</div>
+  <div class="sbar reg" data-r="smartbar" tabindex="0"><span>Tablet</span><span>INV</span>
+    <span>Quests</span><span>Sit</span><span>Examine (4)</span><span>Search</span>
+    <span>Buy</span><span>Talk</span></div>
+</div>
+
+<div class="explain" id="explain" hidden aria-live="polite">
+  <div class="eh"><span id="e-title">The screen</span>
+    <span class="pin">Pinned — click again or press Esc to release</span></div>
+  <div class="ed" id="e-desc">Point at a region above.</div>
+</div>
+
+<ol class="cal" id="legend">
+<li data-for="purse"><b>Your name and purse.</b> The credits shown are the ones
+<em>on your body</em> — the losable half. Banked money isn't here.</li>
+<li data-for="map"><b>The minimap.</b> You in the middle, rooms around you,
+coloured by how dangerous they are. Green edges are safe, red is not.</li>
+<li data-for="vitals"><b>Vitals.</b> A live readout of the meters in section 03.
+Health and stamina sit here permanently; the rest surface when they start to
+matter.</li>
+<li data-for="dpad"><b>The d-pad.</b> Lit buttons are exits that actually exist —
+so you can cross the entire city by clicking, without knowing a compass
+direction. <code>in</code> and <code>out</code> are doors.</li>
+<li data-for="env"><b>Environment.</b> City time and date, temperature, weather,
+and how well lit it is. The last line is your body reporting in — <em>Hungry</em>
+there is the game warning you before it becomes a problem.</li>
+<li data-for="online"><b>Who's online.</b> Everyone currently in the world, not
+just this room. It's a small city; you'll recognise names fast.</li>
+<li data-for="pane"><b>The room pane.</b> Where you are, right now. Name, safety
+tag, description, exits — repainted automatically whenever anything changes, so
+it's never out of date. Underlined words are clickable: people, scenery,
+exits.</li>
+<li data-for="split"><b>The divider.</b> Drag it. If you're exploring, give the
+room more space; if you're in a fight or deep in conversation, give the log
+more.</li>
+<li data-for="log"><b>The log.</b> What <em>happened</em>, in order, scrolling
+down. Speech, combat, people coming and going, your own commands echoed back and
+their results. The room pane tells you where you are; the log tells you the
+story.</li>
+<li data-for="input"><b>The command line.</b> Where you type. Every button and
+link on this screen is a shortcut to something you could type here yourself.</li>
+<li data-for="smartbar"><b>The smartbar.</b> Context buttons for what's possible
+in <em>this</em> room — it changes as you walk. The fastest way to find out what
+a place lets you do, and where <span style="color:var(--or)">Examine (4)</span>
+tells you how many things here reward a closer look.</li>
+</ol>
+
+<h3>How a turn works</h3>
+<p>You read the room, then type one short instruction. The answer comes back in
+the log; if the instruction changed the room, the pane above updates itself.</p>
+
+<div class="term">
+  <div class="bar"><i></i>the log</div>
+<pre><span class="you">&gt; x sully</span>
+A heavy man in his sixties with a burn scar up one forearm. He has the
+expression of someone who has heard your story before.
+
+<span class="you">&gt; talk sully</span>
+<span class="npc">Sully:</span> "You look like six credits and a bad decision. Drink?"
+
+<span class="you">&gt; north</span>
+<span class="sys">→ You step out onto the quay. Rain, and the smell of the water.</span>
+   <span class="sys">(the room pane above has already changed)</span></pre>
+</div>
+
+<p>Commands are <em>verb, then thing</em>: <code>x sully</code>,
+<code>take bottle</code>, <code>attack rat</code>. Short and flat. If you type
+something the game doesn't recognise it just says so and nothing happens —
+typing the wrong thing is free, so experiment.</p>
+
+<div class="note cy">
+  <span class="lbl">You don't have to type</span>
+  Exits, people, enemies, corpses and items are <b>clickable right there in the
+  room text</b> — the underlined bits. Clicking one types the sensible command
+  for you. Plenty of people play mostly by clicking and reach for the keyboard
+  only when they want something specific.
+</div>
+
+<h2 data-n="02">Where you wake up</h2>
+<p class="sub">The vat, the tablet, the street</p>
+
+<p>You start in a cloning facility, because in this city dying is a service you
+subscribe to rather than an ending. You'll be walked out through a short
+corridor and handed a <b>tablet</b> — map, bank, messages, reference library.
+Open it early.</p>
+
+<p>Then the door opens onto Coldwater Basin and you're on your own.</p>
+
+<h3>Moving</h3>
+<p>The world is a grid of rooms joined by compass directions. Every room lists
+its exits. You travel one room at a time.</p>
+
+<table class="cmds">
+<tr><td>n s e w</td><td>North, south, east, west</td></tr>
+<tr><td>u &nbsp; d</td><td>Up and down — stairs, ladders, lifts</td></tr>
+<tr><td>in &nbsp; out</td><td>Through a door — into a shop, back onto the street</td></tr>
+<tr><td>map</td><td>An overhead sketch of what's around you</td></tr>
+</table>
+
+<p>Buildings are entered by walking at the door from the street outside, and left
+the same way. The lit arrows on the d-pad are the exits that exist, so you can
+navigate the entire city without knowing a single compass direction.</p>
+
+<h2 data-n="03">The five things keeping you alive</h2>
+<p class="sub">Your body, tracked in real time</p>
+
+<p>These drain continuously — while you play, and while you're away.</p>
+
+<div class="meters">
+  <div class="meter"><b>HP</b><p>Damage taken. Zero is death — survivable, but expensive.</p>
+    <div class="bar"><i style="width:82%;background:linear-gradient(90deg,#e0564a,#e0824a)"></i></div></div>
+  <div class="meter"><b>HUNGER</b><p>Eat. Food is cheap and everywhere.</p>
+    <div class="bar"><i style="width:64%;background:linear-gradient(90deg,#e0a83a,#e0c93a)"></i></div></div>
+  <div class="meter"><b>THIRST</b><p>Drink. Drains faster than hunger.</p>
+    <div class="bar"><i style="width:48%;background:linear-gradient(90deg,#3fa8e0,#3fd0e0)"></i></div></div>
+  <div class="meter"><b>RADIATION</b><p>Climbs outdoors and in bad places. Rots you slowly.</p>
+    <div class="bar"><i style="width:26%;background:linear-gradient(90deg,#7ac93a,#4ec98a)"></i></div></div>
+  <div class="meter"><b>SANITY</b><p>Frays from violence, isolation and worse. Low sanity lies to you.</p>
+    <div class="bar"><i style="width:71%;background:linear-gradient(90deg,#9a6ae0,#c06ae0)"></i></div></div>
+</div>
+
+<p>None of these will kill you in the first hour. All of them will kill you in
+the fifth if you ignore them. Check with <code>stats</code>; buy a meal before
+you need one.</p>
+
+<div class="note">
+  <span class="lbl">Radiation is the sneaky one</span>
+  It doesn't hurt. It just climbs — and high enough, it hands you a permanent
+  mutation you didn't ask for. Some mutations are good. That is not a plan.
+</div>
+
+<h2 data-n="04">Money, and getting some</h2>
+<p class="sub">Credits, banks, vendors</p>
+
+<p>Currency is credits (₵), held in two places: <b>cash on your body</b>, which
+anyone can take off your corpse, and a <b>bank balance</b>, which they can't.
+ATMs are scattered around the city.</p>
+
+<table class="cmds">
+<tr><td>balance</td><td>What you've got, carried and banked</td></tr>
+<tr><td>deposit 200</td><td>At an ATM — the safe half</td></tr>
+<tr><td>withdraw 50</td><td>The spendable half</td></tr>
+<tr><td>shop sully</td><td>See what a vendor sells</td></tr>
+<tr><td>buy beer</td><td>Hand over credits</td></tr>
+<tr><td>sell scrap</td><td>The reverse — vendors buy what they deal in</td></tr>
+</table>
+
+<p>Early income is honest work: a job board with small rotating gigs, things
+worth scavenging off the ground, and vendors who'll take junk off your hands.
+Later income is less honest. That's between you and the police.</p>
+
+<h2 data-n="05">Carrying things</h2>
+<p class="sub">Inventory, gear, wear and tear</p>
+
+<table class="cmds">
+<tr><td>i</td><td>Your inventory and what you're wearing, as a panel</td></tr>
+<tr><td>take lighter</td><td>Pick something up</td></tr>
+<tr><td>drop lighter</td><td>Put it down — it stays there</td></tr>
+<tr><td>equip jacket</td><td>Wear or wield something</td></tr>
+<tr><td>use stimpack</td><td>The generic "do the obvious thing with this"</td></tr>
+<tr><td>stow knife in bag</td><td>Containers hold items and travel with you</td></tr>
+</table>
+
+<p>Gear wears out with use. A coat that's taken a beating says so when you
+<code>x</code> it, and there are people who repair things for a fee. Gear
+at zero condition is <b>destroyed outright</b> — don't ride a good weapon into
+the ground.</p>
+
+<h2 data-n="06">Violence</h2>
+<p class="sub">Slow, decisive, and worth avoiding</p>
+
+<p>Fighting resolves on a cooldown of a few seconds. There's no advantage in
+mashing keys, and a large advantage in choosing the fight.</p>
+
+<div class="term">
+  <div class="bar"><i></i>Rust Alley — combat</div>
+<pre><span class="you">&gt; attack scav</span>
+You swing the pipe wrench at the scav's <span class="hit">head</span> — it connects with a wet crack.
+The scav lunges, opening a <span class="hit">gash across your left arm</span>. You are bleeding.
+
+<span class="you">&gt; attack scav</span>
+Your wrench takes him down. He does not get up.
+
+<span class="you">&gt; loot corpse</span>
+You take: <span class="good">41 credits</span>, <span class="good">a chipped blade</span>, <span class="good">half a ration bar</span>.</pre>
+</div>
+
+<p>Hits land on specific body parts, armour soaks specific damage types, and
+bleeding keeps costing HP after the fight ends. Bodies are lootable by anyone
+for about ten minutes — including yours.</p>
+
+<h3>Two kinds of ground</h3>
+
+<figure>
+<svg viewBox="0 0 640 250" aria-label="Diagram: the safe city core, the gate, and the hostile ground beyond.">
+  <defs>
+    <linearGradient id="safe" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fd0e0" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#3fd0e0" stop-opacity=".05"/>
+    </linearGradient>
+    <linearGradient id="wild" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0632a" stop-opacity=".20"/>
+      <stop offset="1" stop-color="#e0632a" stop-opacity=".04"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="20" y="16" width="600" height="128" rx="8" fill="url(#safe)" stroke="#2a8b96"/>
+  <text x="40" y="46" fill="#3fd0e0" font-family="Consolas,monospace" font-size="15"
+        letter-spacing="2">COLDWATER BASIN — THE CITY</text>
+  <text x="40" y="72" fill="#6c8497" font-family="Consolas,monospace" font-size="12">
+    Bars · shops · clinics · apartments · job board · banks</text>
+  <text x="40" y="94" fill="#6c8497" font-family="Consolas,monospace" font-size="12">
+    Other players CANNOT attack you here.</text>
+  <text x="40" y="116" fill="#4ec98a" font-family="Consolas,monospace" font-size="12">
+    ▸ Spend your first hour entirely inside this box.</text>
+
+  <!-- curtain -->
+  <g>
+    <line x1="20" y1="164" x2="285" y2="164" stroke="#e0a83a" stroke-width="3"/>
+    <line x1="355" y1="164" x2="620" y2="164" stroke="#e0a83a" stroke-width="3"/>
+    <line x1="20" y1="158" x2="285" y2="158" stroke="#e0a83a" stroke-width="1" opacity=".45"/>
+    <line x1="355" y1="158" x2="620" y2="158" stroke="#e0a83a" stroke-width="1" opacity=".45"/>
+    <text x="300" y="152" fill="#e0a83a" font-family="Consolas,monospace" font-size="11"
+          text-anchor="middle">THE CURTAIN</text>
+    <path d="M320 150 L320 180" stroke="#e0a83a" stroke-width="1.5" stroke-dasharray="3 4"/>
+    <text x="320" y="196" fill="#e0a83a" font-family="Consolas,monospace" font-size="12"
+          text-anchor="middle" letter-spacing="1">THE SOUTH GATE</text>
+  </g>
+
+  <rect x="20" y="206" width="600" height="34" rx="8" fill="url(#wild)" stroke="#a8441c"/>
+  <text x="40" y="228" fill="#e0632a" font-family="Consolas,monospace" font-size="12"
+        letter-spacing="1">BEYOND — full loot, live PvP, things that hunt you</text>
+</svg>
+<figcaption>The city is safe. Through the gate, nothing is.</figcaption>
+</figure>
+
+<p>The city core is safe ground: other players can't attack you there. Past the
+edges — the badlands west of town, and the wastes south through the Curtain —
+they can, and whatever you were carrying is theirs if they win.</p>
+
+<div class="note">
+  <span class="lbl">The rule the city runs on</span>
+  Bank your money, and don't carry anything out there you'd be sad to lose.
+</div>
+
+<h3>Dying</h3>
+<p>You wake up back in the vat. You keep <b>every skill you ever earned</b>; you
+lose what was on your body, which is now lying wherever you fell for anyone to
+pick up. Death is a setback and an errand, not a restart.</p>
+
+<h2 data-n="07">Getting better at things</h2>
+<p class="sub">Twenty-five skills, no experience bar</p>
+
+<p>You improve a skill by doing the thing. Picking locks makes you better at
+locks; missing punches makes you better at punching. Check progress with
+<code>skills</code>.</p>
+
+<p>This is why the game rewards being curious. The cooking, the fishing, the
+chemistry, the flying — none of it is locked behind a level. It's locked behind
+you having tried it a few times and been bad at it first.</p>
+
+<h2 data-n="08">Other people</h2>
+<p class="sub">Talking, and being remembered</p>
+
+<table class="cmds">
+<tr><td>say hello</td><td>Speak aloud to the room</td></tr>
+<tr><td>me shrugs</td><td>A freeform action line — <code>me leans on the bar</code></td></tr>
+<tr><td>talk grady</td><td>Start a conversation with an NPC</td></tr>
+<tr><td>who</td><td>Who else is online</td></tr>
+</table>
+
+<p>The NPCs remember you. Talk to the same barkeep enough times and he stops
+greeting you like a stranger; some will do things for someone they know that
+they'd never do for a walk-in. Rudeness persists too.</p>
+
+<h2 data-n="09">Living here</h2>
+<p class="sub">What the city is actually for</p>
+
+<p>The survival meters are the floor, not the point. Once you're not about to die,
+Coldwater Basin turns out to be mostly about ordinary life done properly — a room
+of your own, a decent meal, a drink with the game on. Everything below is a system
+in its own right, and none of it is required.</p>
+
+<h3>A place of your own</h3>
+
+<p>Vacant units advertise themselves. Stand in one and type <code>rent</code>.
+From then on it's yours: it locks, it holds your things, and sleeping in a safe
+room you own recovers you faster than dossing anywhere else.</p>
+
+<table class="cmds">
+<tr><td>rent</td><td>Take the unit you're standing in</td></tr>
+<tr><td>lock / unlock</td><td>The door. Use it.</td></tr>
+<tr><td>upgrade lock</td><td>Better lock, harder to pick — worth it once you own anything</td></tr>
+<tr><td>sleep</td><td>Timed recovery, scaled by how safe the place is</td></tr>
+<tr><td>deed</td><td>Buy a <em>shopfront</em>, if you'd rather be a landlord than a tenant</td></tr>
+</table>
+
+<p>Rent falls due on the city calendar, and the city clock is fast — a day is
+thirty real minutes, so a week's rent comes round in a couple of real days. Miss
+it and you're out. The tablet's Calendar app tracks the due date.</p>
+
+<div class="note">
+  <span class="lbl">Your mess is now your problem</span>
+  Unowned rooms get swept clean nightly by somebody else. A room <em>you own</em>
+  keeps its stains for a full rent cycle — which is the entire reason to own a
+  mop.
+</div>
+
+<h3>The kitchen</h3>
+
+<p>Cooking is a full craft, not a crafting menu. You chop, season, heat and time
+things, and the pan can be wrong in ways it will tell you about.</p>
+
+<table class="cmds">
+<tr><td>chop / mince / cut</td><td>Prep an ingredient before it goes in</td></tr>
+<tr><td>marinate / cure / butter</td><td>Slower preparations, better results</td></tr>
+<tr><td>cook</td><td>Start the pan. Needs a stove, and needs to make sense</td></tr>
+<tr><td>stir / flip / taste</td><td>Work it while it cooks — this is where the skill lives</td></tr>
+<tr><td>plate</td><td>Serve it up</td></tr>
+<tr><td>cookbook / recipe</td><td>What you know; save a combination you invented</td></tr>
+<tr><td>shoplist</td><td>What you still need to buy, derived from your inventory</td></tr>
+<tr><td>prepare &lt;recipe&gt;</td><td>Walks the steps for you — and stops at the stove, because heat is the part you're supposed to do</td></tr>
+</table>
+
+<p>One thing catches everyone out: <b>dry starch needs liquid.</b> A pan of pasta
+with nothing in it refuses to cook, so <code>fill</code> a vessel at a water source
+first.</p>
+
+<h3>A drink, and the fact that it takes time</h3>
+
+<p>Finished drinks live on the <em>vessel</em>, not as some new object — which is
+the whole point of owning a good mug. <code>mix</code> at a bar, <code>brew</code>
+if there's a machine for it.</p>
+
+<p>The detail worth knowing: drinking a beer is a <b>timed act</b>. Twelve to
+eighteen seconds, narrated as you go, with the effect landing at the end — and
+walking out of the room interrupts it. Sitting still to finish one is a deliberate
+thing the game asks of you.</p>
+
+<h3>The television</h3>
+
+<p>Every set in the game is a real piece of furniture on the real power grid. Find
+one, and:</p>
+
+<table class="cmds">
+<tr><td>watch tv</td><td>Start watching whatever's on</td></tr>
+<tr><td>tune &lt;n&gt;</td><td>Change the channel</td></tr>
+<tr><td>tune 0</td><td>Switch the set off — for the whole room</td></tr>
+<tr><td>tv off</td><td>Stop watching, and leave it on for everyone else</td></tr>
+</table>
+
+<p>Channels run a genuine schedule, and the programmes are assembled live rather
+than replayed — news, sport, talk shows, films. It's worth an evening on its own
+once you have somewhere to sit.</p>
+
+<div class="note cy">
+  <span class="lbl">You can be on television</span>
+  Game shows are the one broadcast you can be <em>inside</em>. Stand in the studio
+  when a round opens and you're a contestant — answer with <code>guess</code>, on
+  air, citywide, for money. One asks what things are worth; the other asks what
+  you know about the city.
+</div>
+
+<h3>The game's on</h3>
+
+<p>Two sports run real seasons with real standings: <b>Deadball</b> (baseball) on
+Mondays, Wednesdays and Fridays, and <b>Cluster Puck</b> (hockey) on Tuesdays,
+Thursdays and Sundays. Games are simulated fresh, called by commentary, and carry
+a score bug on screen.</p>
+
+<table class="cmds">
+<tr><td>standings</td><td>The league tables</td></tr>
+<tr><td>wager</td><td>Put money on a game</td></tr>
+<tr><td>worldseries / cup</td><td>The postseason, when it comes round</td></tr>
+</table>
+
+<p>A bar with the set on is the room's game, not yours — which is the best version
+of this: sit down, order something, and let the place watch it with you.</p>
+
+<h3>Weather, which is trying to kill you</h3>
+
+<p>The forecast runs seven days ahead and you can read it on the tablet. Most of
+it is texture. Some of it is not.</p>
+
+<ul>
+<li><b>Severe weather is lethal — but only to the unprepared.</b> The right coat
+turns a killer into an inconvenience. That's the whole design.</li>
+<li><b>There is no free safe haven indoors.</b> A blacked-out building has no
+heating, and cold kills inside just as well as out.</li>
+<li><b>Wind costs stamina</b> on every outdoor step. It never blocks you; it just
+bleeds you.</li>
+<li><b>Named events happen.</b> Acid rain. An ion storm that drops the entire city
+grid — lights, ATMs, televisions.</li>
+<li><b>The warning is vague on purpose.</b> A ⚠ severe band on the forecast tells
+you something is coming that week. It doesn't tell you what, or exactly when.</li>
+</ul>
+
+<div class="note">
+  <span class="lbl">Take the coat</span>
+  Cheap, boring, and the difference between weather being scenery and weather
+  being the thing that killed you.
+</div>
+
+<h2 data-n="10">Your first hour</h2>
+<p class="sub">Grady, two clonejackers, and a hole in the road</p>
+
+<p>You don't have to invent something to do. There's a proper opening chain, and
+it's built to teach you the game by making you use it.</p>
+
+<h3>Find Grady</h3>
+
+<p>Off Ironside there's a cramped front room made of corrugated sheet and honest
+intentions, with flashlights and coils of spare cells hanging off every nail:
+<b>Two-Cell Supply</b>. Behind the crates that serve as a counter is <b>Grady
+"Two-Cell" Okonkwo</b>, who watches the door the way a fisherman watches a net.</p>
+
+<p>He sells the boring things that keep you alive — water, jerky, bandages,
+batteries, lights — at prices a newborn can afford. <code>talk grady</code>.</p>
+
+<h3>The First Hour</h3>
+
+<p>Grady has a complaint. Clonejackers are working the strip south of the Embassy,
+and they're killing his business by killing his customers — people exactly like
+you, about an hour younger. He'd like two of them gone, and his stolen flashlight
+cells back.</p>
+
+<ol class="steps">
+<li>Head south past the Embassy's warm lights. Quests draw a <b>green GPS line</b>
+on your map — follow it, or hit <b>AUTO</b> and let your legs do it.</li>
+<li><code>attack clonejacker</code>. Twice, on two different clonejackers. This is
+your first real fight and it is meant to be winnable.</li>
+<li><code>loot</code> the bodies until you find Grady's cells.</li>
+<li>Walk back and hand them over.</li>
+</ol>
+
+<p>He pays ₵120, some jerky and bandages — and a <b>lucky flashlight</b>. Take
+note of that flashlight. It is not a souvenir.</p>
+
+<h3>Down the Drain</h3>
+
+<p>Because his next problem is underground. The storm drain on Ironside is backing
+up with vermin, and vermin work their way up — toward the vats where people like
+you are grown.</p>
+
+<p>So you go down the rusted ladder into <b>the Under</b>, the sewer level beneath
+the city, and cull six of the things living in it. Rats, roaches, slimes; they all
+count. It pays ₵180.</p>
+
+<div class="note cy">
+  <span class="lbl">Notice what just happened</span>
+  Grady armed you, then sent you somewhere dark. The flashlight from the first job
+  is the equipment for the second — and if you go down without a light, you'll
+  find out exactly why the game gave you one. That's the whole design in
+  miniature: the city hands you a tool, then a reason.
+</div>
+
+<h3>After that</h3>
+
+<ol class="steps">
+<li><code>stats</code> — see what's draining. Spend some of Grady's money on food and water before it matters.</li>
+<li>Buy something to wear and something to hit with. <code>equip</code> both.</li>
+<li>Head for the <b>franchise strip job board</b> — rotating legal gigs, small money, no way to die. Counting rats, delivering parcels, sitting in a seat someone needs filled.</li>
+<li>Bank what you don't need to carry. <code>deposit</code> at any ATM.</li>
+<li>Walk down to the South Gate and <em>look</em> at it — the guards, the turrets, the killing ground past the Curtain. Don't walk through. That's for a later night, with a full pack and someone else along.</li>
+</ol>
+
+<h2 data-n="11">A day in the life</h2>
+<p class="sub">Much later, when the city is yours</p>
+
+<p>None of this is hour one. It's what an ordinary day looks like a long way in,
+and it's here so you know what's out there rather than as anything to aim at. A
+city day is thirty real minutes, so this is a couple of evenings' play, not a
+career.</p>
+
+<ol class="day">
+
+<li><span class="clk">06:40<small>your flat</small></span>
+<h4>Wake up somewhere that's yours</h4>
+<p>You come round in a rented unit with the door locked behind you, which is
+already a different game from sleeping rough. Sleep ran its recovery; if you
+dreamt, that was its own thing — three or four rooms generated just for you and
+dissolved when you woke, while your body lay here in the dark being lootable.</p>
+<span class="vb">wake · x mirror · shower</span></li>
+
+<li><span class="clk">07:10<small>the kitchen</small></span>
+<h4>Coffee, and the news</h4>
+<p><code>brew</code> something hot — it stays hot on a derived timer, so don't
+leave it. On the tablet: overnight headlines and the seven-day forecast. There's a
+⚠ on Thursday. You make a note to have the coat by then.</p>
+<span class="vb">brew coffee · tablet · forecast</span></li>
+
+<li><span class="clk">08:30<small>the strip</small></span>
+<h4>Work, of whatever kind you've chosen</h4>
+<p>Maybe it's honest: a shift, a job off the board, a shopfront you hold the
+<code>deed</code> to, with staff you hired and stock you ordered. Maybe you fly —
+freight, medevac, VIP charter, or the ones that don't file a flight plan. Maybe
+it's a corp, and your day is territory and influence and somebody else's
+treasury.</p>
+<span class="vb">work · wares · stock · fly · corp</span></li>
+
+<li><span class="clk">11:00<small>out past the rim</small></span>
+<h4>Get something out of the ground</h4>
+<p>Fishing off the quay with the right rod, mining a deposit with the right tool,
+scavenging a ruin on a perpetual search that runs until it empties out or
+something interrupts it. All three are postures: you start them, and they keep
+going while you watch the water.</p>
+<span class="vb">cast · mine · search · swim</span></li>
+
+<li><span class="clk">13:20<small>your kitchen again</small></span>
+<h4>Cook properly, for once</h4>
+<p>Not a ration bar. Something chopped and marinated and watched, off a recipe you
+worked out yourself and saved under a name only you use. The good stuff is worth
+real money to people who can't cook, and the very best of it can't be improvised
+— it has to be learned.</p>
+<span class="vb">chop · marinate · cook · stir · plate</span></li>
+
+<li><span class="clk">15:00<small>somewhere private</small></span>
+<h4>The business you don't advertise</h4>
+<p>A bench behind a cabinet that doesn't look like a lab. Synthesis, splicing,
+something curing. Or the other trades: a lock that isn't yours, a pocket that
+isn't yours, a network of eyes you've paid for reporting who walked where. All of
+it is witnessed by somebody eventually, and the city keeps a wanted level.</p>
+<span class="vb">synthesize · splice · pick · sneak · hub</span></li>
+
+<li><span class="clk">18:00<small>the bar</small></span>
+<h4>A beer, and the game's on</h4>
+<p>Sit down. Order. Drink it slowly, because that's the only way it works. The set
+in the corner has the Deadball game on and half the room is watching it — there's
+money on it, some of it yours. Somebody's at the piano and is actually playing it,
+key by key, on their own keyboard.</p>
+<span class="vb">sit · buy beer · watch tv · wager · play piano</span></li>
+
+<li><span class="clk">20:30<small>upstairs</small></span>
+<h4>Cards, chess, or a worse idea</h4>
+<p>A poker table with real seats and a host who deals. A neon chess set rendered in
+three-quarter view where the pieces stand up off the board. The casino, if you
+hate money. Or trading cards — packs from a machine, and the odd feeling of
+opening one to find a stranger who minted themselves at a terminal last week.</p>
+<span class="vb">sit · bet · move e4 · openpack</span></li>
+
+<li><span class="clk">23:00<small>the gate</small></span>
+<h4>Out, if you're going out</h4>
+<p>The Under for something specific. The badlands with people you trust. South
+through the Curtain into the Wildlands, which is the version of this where you
+write a will first. Full loot, live PvP, and things that hunt.</p>
+<span class="vb">south · attack · flee · loot</span></li>
+
+<li><span class="clk">02:00<small>or a cell</small></span>
+<h4>However it ends</h4>
+<p>Home to your own bed and a mess you'll have to mop yourself, because a room you
+own keeps its filth. Or Holding, with your gear in an evidence locker and a cell
+door somebody could hack. Or the vat, with everything you were carrying lying
+somewhere out in the dark for whoever finds it first.</p>
+<span class="vb">sleep · rent · wake</span></li>
+
+</ol>
+
+<div class="note cy">
+  <span class="lbl">The point of all that</span>
+  There's no track you're supposed to be on. The pilot, the cook, the card sharp,
+  the chemist and the person who just likes owning a nice flat are all playing the
+  game correctly. Skills only go up by use, so you become whatever you keep
+  doing.
+</div>
+
+<h2 data-n="12">When you're stuck</h2>
+<p class="sub">Five commands that always answer</p>
+
+<table class="cmds">
+<tr><td>help</td><td>The full command list, always</td></tr>
+<tr><td>map</td><td>Where am I, and what's near</td></tr>
+<tr><td>stats</td><td>What's wrong with me</td></tr>
+<tr><td>i</td><td>What have I got</td></tr>
+<tr><td>x &lt;thing&gt;</td><td>What <em>is</em> that</td></tr>
+</table>
+
+<div class="note cy">
+  <span class="lbl">If the screen isn't working for you</span>
+  Tablet → Settings → General → <b>Display Mode</b>, or type
+  <code>displaymode log</code>. That folds the whole game down into one plain
+  scrolling transcript — no panes, no panels, everything narrated in order. It's
+  built for screen readers, and it's a genuine way to play rather than a stripped
+  one: the minigames still run, called out in words. <code>displaymode visual</code>
+  puts it back.
+</div>
+
+<p>And the honest answer for everything else: <b>try the verb.</b> If it doesn't
+exist the game says so and you've lost nothing. Half of learning this city is
+discovering that <code>fish</code>, <code>cook</code>, <code>sing</code> and
+<code>fly</code> all do something.</p>
+
+<a class="nextcard" href="architect-advert.html">
+  <span class="lbl2">Part two</span>
+  <h4>Everything you can do in Coldwater Basin</h4>
+  <p>The nine competing orders and the argument they're having. Mutation versus
+  chrome. The flight simulator. Chess, poker and the card machine. Running a shop,
+  or a corporation with a protection racket. The chemistry trade. Weather that
+  kills. Television with a cast that has to turn up to work.</p>
+  <span class="go">Read part two →</span>
+</a>
+
+</div>
+
+<div class="close">
+  <p class="eyebrow">Coldwater Basin</p>
+  <h2>It's free, it's a browser tab, and it's raining.</h2>
+  <p>Register a character and you're in the vat inside thirty seconds. Somebody
+  named Grady has a job for you.</p>
+  <div class="cta" style="justify-content:center">
+    <a class="btn" href="https://www.architectgame.net">Play ARCHITECT</a>
+    <a class="btn ghost" href="architect-advert.html">Part two →</a>
+  </div>
+  <p class="free">architectgame.net</p>
+</div>
+
+<p class="foot" style="padding:0 22px 60px">COLDWATER BASIN RUNS WHETHER YOU'RE
+WATCHING OR NOT. TAKE A COAT.</p>
+
+<script>
+(function(){
+  var ui = document.getElementById('ui'),
+      legend = document.getElementById('legend'),
+      box = document.getElementById('explain'),
+      title = document.getElementById('e-title'),
+      desc = document.getElementById('e-desc');
+  if(!ui || !legend || !box) return;
+
+  // The legend list is the single source of truth for this copy — the panel
+  // reads it, so the two can never disagree. With no JS the list just stays.
+  var copy = {};
+  [].forEach.call(legend.children, function(li){
+    var k = li.getAttribute('data-for'); if(!k) return;
+    var b = li.querySelector('b');
+    copy[k] = {
+      t: b ? b.textContent.replace(/\.$/,'') : k,
+      d: (function(){ var c = li.cloneNode(true); var bb = c.querySelector('b');
+                      if(bb) bb.remove(); return c.innerHTML.trim(); })()
+    };
+  });
+
+  var regions = [].slice.call(ui.querySelectorAll('.reg')).filter(function(r){
+    return copy[r.getAttribute('data-r')];
+  });
+  if(!regions.length) return;
+
+  legend.hidden = true;
+  box.hidden = false;
+  ui.classList.add('live');
+
+  var IDLE = 'Point at a region above, or click one to pin it.';
+  var locked = null;   // a pinned region outranks hover until released
+
+  function paint(r){
+    var c = copy[r.getAttribute('data-r')];
+    ui.classList.add('on');
+    regions.forEach(function(x){
+      var pinned = (x === r && locked === r);
+      x.classList.toggle('sel', x === r);
+      x.classList.toggle('lock', pinned);
+      x.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    });
+    title.textContent = c.t;
+    desc.innerHTML = c.d;
+    desc.classList.remove('idle');
+  }
+  function idle(){
+    ui.classList.remove('on');
+    regions.forEach(function(r){
+      r.classList.remove('sel','lock');
+      r.setAttribute('aria-pressed','false');
+    });
+    title.textContent = 'The screen';
+    desc.innerHTML = IDLE;
+    desc.classList.add('idle');
+  }
+  function show(r){                       // hover / focus — never beats a pin
+    if(locked || !copy[r.getAttribute('data-r')]) return;
+    paint(r);
+  }
+  function unlock(){
+    locked = null;
+    ui.classList.remove('pinned');
+    box.classList.remove('locked');
+  }
+  function toggle(r){
+    if(locked === r){ unlock(); paint(r); return; }   // release, keep it shown
+    locked = r;
+    ui.classList.add('pinned');
+    box.classList.add('locked');
+    paint(r);
+  }
+  function release(){
+    if(!locked) return;
+    unlock();
+    if(ui.matches(':hover') || ui.contains(document.activeElement)) return;
+    idle();
+  }
+
+  regions.forEach(function(r, i){
+    r.setAttribute('role','button');
+    r.setAttribute('aria-label', copy[r.getAttribute('data-r')].t);
+    r.setAttribute('aria-pressed','false');
+    r.addEventListener('mouseenter', function(){ show(r); });
+    r.addEventListener('focus', function(){ show(r); });
+    r.addEventListener('click', function(e){ e.preventDefault(); toggle(r); r.focus(); });
+    r.addEventListener('keydown', function(e){
+      var k = e.key, n = null;
+      if(k === 'Enter' || k === ' '){ e.preventDefault(); toggle(r); return; }
+      if(k === 'Escape'){ if(locked){ release(); } else { r.blur(); idle(); } return; }
+      if(k === 'ArrowDown' || k === 'ArrowRight') n = regions[(i+1) % regions.length];
+      else if(k === 'ArrowUp' || k === 'ArrowLeft') n = regions[(i-1+regions.length) % regions.length];
+      if(n){ e.preventDefault(); n.focus(); }
+    });
+  });
+
+  // Clicking anywhere outside the diagram releases the pin.
+  document.addEventListener('click', function(e){
+    if(locked && !ui.contains(e.target)) release();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && locked) release();
+  });
+
+  ui.addEventListener('mouseleave', function(){
+    if(!locked && !ui.contains(document.activeElement)) idle();
+  });
+  ui.addEventListener('focusout', function(){
+    setTimeout(function(){
+      if(!locked && !ui.contains(document.activeElement) && !ui.matches(':hover')) idle();
+    }, 0);
+  });
+
+  idle();
+})();
+</script>
+</body>
+</html>
