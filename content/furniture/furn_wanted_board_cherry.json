@@ -1,0 +1,16 @@
+{
+  "description": "The Cherry Pit's board is behind the bar rather than out on the floor, angled so it can be read from two stools and nowhere else, which was a decision somebody made and has never explained. The paper on it is newer than the Grind House's and there is less of it — this room settles most of its business before anything reaches a printer. What does get printed here tends to carry a larger number. A coin slot sits under a small brass plate that once said something else entirely and now says nothing at all, the letters worn off by thumbs, and the sheets go up crooked because whoever staples them is generally holding a drink.",
+  "flags": {
+    "wanted_board": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wanted_board_cherry",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "WANTED board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_mq_cherry_floor"
+}

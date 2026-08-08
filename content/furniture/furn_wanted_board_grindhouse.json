@@ -1,0 +1,16 @@
+{
+  "description": "A sheet of chipboard the size of a door, screwed to the wall between the toilets and the fire exit, which are the two places in this building everybody eventually walks past. It is not a noticeboard, whatever the bar insists to anyone official who asks. Down the left-hand side a coin slot and a thermal printer have been let into the wood with a jigsaw and no apology, and the printer is always warm. The rest is paper: WANTED sheets stapled over WANTED sheets stapled over the ghosts of WANTED sheets, four fingers thick in the middle and going brown at the edges, so that the board has a grain to it now, like something felled. Nobody takes an old one down. They just staple the new one on top, and the wall gets slowly heavier with everybody this city has ever been angry at.",
+  "flags": {
+    "wanted_board": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wanted_board_grindhouse",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "WANTED board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_grindhouse_interior"
+}

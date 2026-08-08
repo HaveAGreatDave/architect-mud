@@ -188,7 +188,8 @@ nothing, silently; wire a reader first.
 | `atm` | atm | ATM terminal (pairs with `atm_units` row) |
 | `bed` | posture/sleep | sleepable |
 | `broadcast_device_type` / `broadcast_receiver` / `broadcast_transmitter` | broadcast | broadcast hardware role |
-| `bulletin` | leaderboard | READ shows the server leaderboard |
+| `bulletin` | leaderboard | READ shows the server leaderboard — **also carries bounty sheets** (bounty treats it as a board) |
+| `wanted_board` | bounty | a WANTED board: `bounty` posts here, `redeem` pays out here, `read` lists the open contracts |
 | `camera_id` | broadcast | media_cameras row this camera feeds |
 | `channel_id` | broadcast | channel a deck/TV is tuned to |
 | `chargen` | prologue | character-generation terminal |

@@ -1,0 +1,16 @@
+{
+  "description": "A cork board in a cafe, with a lost cat on it and a guitar for sale and a card offering to tutor mathematics, and in among all of that, at eye height, in the middle, printed on the same thermal paper as everything else, four sheets with people's faces described on them and a price underneath. Nobody has moved the lost cat. The coin slot is set discreetly into the frame's lower rail and painted the same green as the wall, and the printer inside is quiet enough that the room does not usually notice it going. Bishop's has never advertised that the board does this. It simply does, the way the toaster does, and the regulars have long since stopped seeing it.",
+  "flags": {
+    "wanted_board": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_wanted_board_bishops",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cork board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_solenne_salon"
+}

@@ -347,6 +347,7 @@ export const REGISTRY = [
   { table: 'org_ranks', class: 'player' },           // player-crew org structure
   { table: 'org_members', class: 'player' },
   { table: 'sports_bets', class: 'player' },
+  { table: 'bounties', class: 'player' },            // player-funded contracts + their escrow
   { table: 'yacht_invites', class: 'player' },       // The Echelon invite list — approved players
   { table: 'password_reset_tokens', class: 'player' },
   { table: 'email_verification_tokens', class: 'player' },

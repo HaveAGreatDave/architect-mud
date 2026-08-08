@@ -1,0 +1,11 @@
+{
+  "name": "bounty",
+  "version": "1.0.0",
+  "description": "Player-funded bounties. `bounty <name> <amount> [why]` at a WANTED board escrows your own credits against another player's head; the sheet names the target and the reward but never the backer (the target can `bounty unmask` to pay for the name). Killing somebody with paper out leaves a severed head in their corpse — a real, lootable, stealable item — and `redeem` at any board pays whoever is holding it, not necessarily whoever took it. Unclaimed contracts expire after 7 days and refund the escrow whole; `bounty cancel` pulls one early for a 25% penalty. Posters render as text first (the log always gets the full sheet) with the client panel as a skin.",
+  "hooks": ["furniture.describe"],
+  "commands": ["bounty", "bounties", "redeem"],
+  "specializedActions": [{ "verb": "read", "requiredTag": "wanted_board" }],
+  "objectGatedCommands": {
+    "redeem": { "discoverVia": "wanted_board", "exposed": false, "note": "LOGGED GAP, by design: `redeem` is surfaced by the board's furniture.describe hook (a teachVerb link on every board) and by the kill message that mints the head, not by a specializedAction. It is deliberately NOT a specialized `redeem` on the board — the verb takes a HEAD from your inventory, not the board, and hanging it off the furniture would read as though the board were the thing being redeemed." }
+  }
+}

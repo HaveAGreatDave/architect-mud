@@ -22,6 +22,7 @@ import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './
 import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
+import { openWantedPoster } from './panels/wantedposter.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
@@ -1041,6 +1042,10 @@ const handlers = {
   // bottom Display Mode rung the cinematic is suppressed and the record is all
   // you get — which this file's own note says loses nothing.
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  // Same shape as cardpack_open, and for the same reason: `message` carries the
+  // whole sheet as characters and always prints, so the paper overlay is pure
+  // theatre. The server stamps render:'log' at the bottom Display Mode rung.
+  wanted_poster: (msg) => { if (msg.message) appendHtml(msg.message, 'loot'); if (msg.render !== 'log') openWantedPoster(msg); },
   insurance_panel: (msg) => { openInsurancePanel(msg); },
   insurance_action: (msg) => {
     appendHtml(msg.message, 'loot');
