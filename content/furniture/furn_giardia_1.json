@@ -1,0 +1,14 @@
+{
+  "description": "A cut-down oil drum with a grate over it and a pot on the grate. The fire is banked, never out. Someone is always responsible for it and everyone knows who.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_giardia_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drum fire",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_giardia_shop"
+}

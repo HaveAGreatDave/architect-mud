@@ -1,23 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "color": "#c08a3e",
+  "description": "A workshop front with the roller door up and a bench pulled half into the street, because the light is better out here and Watts likes to be seen working. WATTS THE DAMAGE is stencilled on the roller in letters that have been repainted at least four times, each slightly out of register with the last. Something inside is arcing, blue and regular, like a slow heartbeat.",
   "exits": {
     "east": "zone_district_917_907",
-    "north": "zone_district_916_906",
-    "west": "zone_district_915_907"
+    "west": "zone_watts_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Watts The Damage",
+    "building_type": "hardware",
+    "district": "yards",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_907"
   },
   "grid_x": 916,
   "grid_y": 907,
   "grid_z": 0,
   "id": "zone_district_916_907",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "WD",
+  "name": "Watts The Damage",
   "parent_zone": null
 }

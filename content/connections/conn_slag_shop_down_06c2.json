@@ -1,0 +1,9 @@
+{
+  "a": "zone_slag_shop",
+  "b": "zone_util_zone_slag_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_slag_shop_down_06c2",
+  "lockable": false,
+  "one_way": false
+}

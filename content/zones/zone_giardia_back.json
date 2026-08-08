@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#20231a",
+  "description": "The gutted bus the whole camp is built against, seats out, floor swept, bedrolls in rows down what used to be the aisle. This is where the camp's people sleep and where Ma Cinder keeps the things she will not sell at any price: water filters, the good pot, and a shoebox nobody is allowed to open.",
+  "exits": {
+    "west": "zone_giardia_shop"
+  },
+  "flags": {
+    "building_name": "Camp Giardia",
+    "building_type": "diner",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_905_906"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_giardia_back",
+  "map_id": "map_int_giardia",
+  "name": "Camp Giardia — The Bus Shell",
+  "parent_zone": "zone_district_905_906"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_916_905",
+  "b": "zone_hulls_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_916_905_west_c47f",
+  "lockable": true,
+  "one_way": false
+}

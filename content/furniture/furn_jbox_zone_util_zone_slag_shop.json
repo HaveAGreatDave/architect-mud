@@ -1,0 +1,17 @@
+{
+  "description": "A steel cabinet of breakers and bus bar, warm to the touch and humming.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_slag_shop"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_jbox_zone_util_zone_slag_shop",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "Junction Box",
+  "object_type": "junction_box",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_util_zone_slag_shop"
+}

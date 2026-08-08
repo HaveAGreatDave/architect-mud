@@ -1,0 +1,14 @@
+{
+  "description": "Plain, waist-high, bolted down, and bare. There is nothing on it, ever, except briefly whatever you came to sell.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slip_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the counter",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slip_shop"
+}

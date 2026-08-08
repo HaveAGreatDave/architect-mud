@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b2224",
+  "description": "A plank loft over a long steam box that hasn't been fired in years, its lid warped open like something crawled out. Timber is stacked by the wall in lengths and grades, labelled for a boat that will not be built. A cot in the corner says he doesn't always go home.",
+  "exits": {
+    "east": "zone_hulls_shop"
+  },
+  "flags": {
+    "building_name": "Hulls Angels",
+    "building_type": "wharf",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_905"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hulls_back",
+  "map_id": "map_int_hulls",
+  "name": "Hulls Angels — Loft & Steam Box",
+  "parent_zone": "zone_district_916_905"
+}

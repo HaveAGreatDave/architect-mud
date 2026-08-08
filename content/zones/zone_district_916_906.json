@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "color": "#6a6275",
+  "description": "A narrow frontage between two wider ones, with no sign at all. The door is good: steel core, three hinges, a spyhole at the height of a short woman's eye. The window is bricked to a slot and the slot is glazed with wire glass. People who need to find it find it, and the ones who don't, don't.",
   "exits": {
     "east": "zone_district_917_906",
-    "north": "zone_district_916_905",
-    "south": "zone_district_916_907",
-    "west": "zone_district_915_906"
+    "west": "zone_slip_shop"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "The Slip",
+    "building_type": "fence",
+    "district": "yards",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_906"
   },
   "grid_x": 916,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_916_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SL",
+  "name": "The Slip",
   "parent_zone": null
 }

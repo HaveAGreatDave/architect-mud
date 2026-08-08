@@ -1,0 +1,14 @@
+{
+  "description": "A row of beans planted along the waterline, staked with wire. Most have been eaten down to the stem. The stakes have been replaced more times than the beans.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_giardia_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bean row",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_giardia_back"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Scarred, burned, and buried under the middle of six jobs. A brass-cased multimeter sits in the one clear space, where it is always put back.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_watts_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "repair bench",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_watts_shop"
+}

@@ -1,0 +1,19 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped utility space: bare board, sweating conduit, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_watts_shop"
+  },
+  "flags": {
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_watts_shop",
+  "map_id": "map_int_watts",
+  "name": "Watts The Damage — Utility Room",
+  "parent_zone": "zone_district_916_907"
+}

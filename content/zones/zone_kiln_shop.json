@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#251815",
+  "description": "Inside the kiln itself, which is round, and which holds the day's heat long after dark. The stock is the point and it is arranged like it: rad-bands on a hook rail at eye level, pills behind the counter, and a working counter tube on the wall that clicks over the conversation the entire time you are in here. Slake does not turn it off for customers.",
+  "exits": {
+    "down": "zone_util_zone_kiln_shop",
+    "east": "zone_district_895_903",
+    "west": "zone_kiln_back"
+  },
+  "flags": {
+    "building_name": "Fired & Forgotten",
+    "building_type": "shop",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kiln_shop",
+  "map_id": "map_int_kiln",
+  "name": "Fired & Forgotten — Shop",
+  "parent_zone": "zone_district_895_903"
+}

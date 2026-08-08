@@ -1,0 +1,14 @@
+{
+  "description": "Every tool outlined in paint, every outline filled. A workshop this tidy is not a busy one.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_hulls_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shadow-board wall",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_hulls_shop"
+}

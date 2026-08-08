@@ -1,0 +1,14 @@
+{
+  "description": "The window, bricked down to a letterbox and glazed with wire glass. Enough to see a shape at the door. Not enough to see a face.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slip_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wire-glass slot",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slip_shop"
+}

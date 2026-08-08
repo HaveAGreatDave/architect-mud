@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#251815",
+  "description": "Deeper into the kiln, through the crack, where the brick is glazed black and still warm to the back of the hand. Slake sleeps in here because it is the warmest place for thirty miles and the walls are two feet thick. Crates of stock are stacked against the curve, and a second counter tube on the wall reads noticeably lower than the one out front.",
+  "exits": {
+    "east": "zone_kiln_shop"
+  },
+  "flags": {
+    "building_name": "Fired & Forgotten",
+    "building_type": "shop",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_895_903"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_kiln_back",
+  "map_id": "map_int_kiln",
+  "name": "Fired & Forgotten — The Firing Chamber",
+  "parent_zone": "zone_district_895_903"
+}

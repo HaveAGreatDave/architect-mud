@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#241f19",
+  "description": "The old lever floor, cleared of levers. Manifests hang from bulldog clips on wire strung wall to wall, so you walk through paper to get anywhere. A pigeonhole rack behind the counter holds a slot for every siding in the Basin, most of them empty, three of them stuffed. The whole room smells of axle grease and carbon paper.",
+  "exits": {
+    "down": "zone_util_zone_trackmarks_shop",
+    "north": "zone_trackmarks_back",
+    "south": "zone_district_917_903"
+  },
+  "flags": {
+    "building_name": "Track Marks Freight",
+    "building_type": "forwarder",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_trackmarks_shop",
+  "map_id": "map_int_trackmarks",
+  "name": "Track Marks Freight — Shop",
+  "parent_zone": "zone_district_917_903"
+}

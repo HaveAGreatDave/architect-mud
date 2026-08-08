@@ -1,0 +1,14 @@
+{
+  "description": "Bulldog clips on a wire, sagging under years of freight manifests. Nothing is filed. Everything is findable, by Dolan, and by nobody else.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_trackmarks_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "manifest wires",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

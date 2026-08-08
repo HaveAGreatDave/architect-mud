@@ -1,0 +1,14 @@
+{
+  "description": "Planks on trestles, benches either side, worn to a shine by years of elbows. The camp eats in shifts because it does not all fit at once.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_giardia_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "long trestle",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_giardia_shop"
+}

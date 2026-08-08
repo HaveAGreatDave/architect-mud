@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_hulls_back",
+  "max_capacity_kw": 200,
+  "name": "Hulls Angels — Loft & Steam Box",
+  "source_type": "city_grid"
+}

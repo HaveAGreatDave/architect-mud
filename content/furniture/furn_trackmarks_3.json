@@ -1,0 +1,14 @@
+{
+  "description": "A steel plate set flush in the floor by the door, worn mirror-bright by decades of boots and handcarts. The dial that used to read it is long gone.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_trackmarks_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "weighbridge plate",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_back"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "The size of a small room, roofed in corrugate, dug into the hardpan on the windward side. It has wheels. Nobody has seen it move.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slag_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hand-cart",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slag_back"
+}

@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#241d16",
+  "description": "Where the machines that will never work again go to be useful anyway. Stripped chassis hang from hooks by their own cabling, picked over for the one part that fits the job out front. Watts calls this room the donor wall and talks to it, which the neighbours have stopped finding strange.",
+  "exits": {
+    "east": "zone_watts_shop"
+  },
+  "flags": {
+    "building_name": "Watts The Damage",
+    "building_type": "hardware",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_907"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_watts_back",
+  "map_id": "map_int_watts",
+  "name": "Watts The Damage — The Donor Wall",
+  "parent_zone": "zone_district_916_907"
+}

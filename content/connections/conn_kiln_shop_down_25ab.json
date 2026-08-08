@@ -1,0 +1,9 @@
+{
+  "a": "zone_kiln_shop",
+  "b": "zone_util_zone_kiln_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_kiln_shop_down_25ab",
+  "lockable": false,
+  "one_way": false
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_slip_shop",
+  "b": "zone_util_zone_slip_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_slip_shop_down_b3ed",
+  "lockable": false,
+  "one_way": false
+}

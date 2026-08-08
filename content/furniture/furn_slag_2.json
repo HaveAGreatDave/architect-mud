@@ -1,0 +1,14 @@
+{
+  "description": "A bell on a pole with the rope run down to where the Clinkerman sits. It rings when anything heavy moves on the flats. It rings more than you would like.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slag_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "bell pole",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slag_shop"
+}

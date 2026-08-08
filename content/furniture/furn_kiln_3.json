@@ -1,0 +1,14 @@
+{
+  "description": "The split that runs the full height of the kiln, patched with sheet steel and bolts. On a still day you can hear the wind come down it from the top like something breathing.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kiln_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cracked crown",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kiln_back"
+}

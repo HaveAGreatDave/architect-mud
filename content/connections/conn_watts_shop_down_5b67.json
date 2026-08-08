@@ -1,0 +1,9 @@
+{
+  "a": "zone_watts_shop",
+  "b": "zone_util_zone_watts_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_watts_shop_down_5b67",
+  "lockable": false,
+  "one_way": false
+}

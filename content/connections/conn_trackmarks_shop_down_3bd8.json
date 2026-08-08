@@ -1,0 +1,9 @@
+{
+  "a": "zone_trackmarks_shop",
+  "b": "zone_util_zone_trackmarks_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_trackmarks_shop_down_3bd8",
+  "lockable": false,
+  "one_way": false
+}

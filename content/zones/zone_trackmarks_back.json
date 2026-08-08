@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#241f19",
+  "description": "Up under the roof, where the signalman used to sit and watch a mile of track. The glass is gone and the view is scaffolding now. A camp bed, a kettle, and a wall of tally marks that stopped being counted at some point and were never wiped off.",
+  "exits": {
+    "south": "zone_trackmarks_shop"
+  },
+  "flags": {
+    "building_name": "Track Marks Freight",
+    "building_type": "forwarder",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_917_903"
+  },
+  "grid_x": 0,
+  "grid_y": -1,
+  "grid_z": 0,
+  "id": "zone_trackmarks_back",
+  "map_id": "map_int_trackmarks",
+  "name": "Track Marks Freight — Signal Loft",
+  "parent_zone": "zone_district_917_903"
+}

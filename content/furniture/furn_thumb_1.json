@@ -1,0 +1,14 @@
+{
+  "description": "A pan on chains big enough to weigh a person, and the counterweight sits a hair off true. It has always sat a hair off true. Osric will tell you that himself, cheerfully, before he weighs your salvage on it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thumb_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "brass hanging-scale",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thumb_shop"
+}

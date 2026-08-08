@@ -4,7 +4,6 @@
   "color": "#b8a880",
   "description": "A shelf of pale sand and shingle, ridged where the water works it and works it again. Bootprints fill and blur behind you almost politely. Further out the basin lies flat and lightless, and nothing crossing it moves in a way you'd care to name.",
   "exits": {
-    "east": "zone_district_917_903",
     "north": "zone_district_916_902",
     "south": "zone_district_916_904",
     "west": "zone_district_915_903"

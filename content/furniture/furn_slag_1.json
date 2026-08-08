@@ -1,0 +1,14 @@
+{
+  "description": "Salvage laid out in grades on planks, and the grades are real even if the system behind them is entirely inside one man's head. Move a piece to the wrong board and he will move it back mid-sentence.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_slag_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sorted boards",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_slag_shop"
+}

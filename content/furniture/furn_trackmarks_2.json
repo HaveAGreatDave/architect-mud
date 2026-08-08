@@ -1,0 +1,14 @@
+{
+  "description": "A slot for every siding in the Basin. Three are stuffed with paper. The rest hold dust and one dead wasp.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_trackmarks_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "pigeonhole rack",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_trackmarks_shop"
+}

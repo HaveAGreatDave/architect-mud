@@ -1,0 +1,14 @@
+{
+  "description": "Rad-bands hung at eye level in size order, every one of them ticking faintly and slightly out of time with the others.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_kiln_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "hook rail",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_kiln_shop"
+}

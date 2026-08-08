@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_905_906",
+  "b": "zone_giardia_shop",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_district_905_906_east_49d7",
+  "lockable": true,
+  "one_way": false
+}

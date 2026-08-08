@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "color": "#9a7d4a",
+  "description": "A gatehouse hut beside the Gate Road, one tile short of the South Gate, positioned so that everything walking out and everything dragging itself back in goes past the window. A brass hanging-scale is bolted to the frame outside, big enough to weigh a person, and the pan swings gently whether or not there is wind. THUMB ON THE SCALE is burned into the lintel.",
   "exits": {
-    "east": "zone_district_920_918",
-    "north": "zone_district_919_917",
-    "south": "zone_district_919_919",
+    "east": "zone_thumb_shop",
     "west": "zone_district_918_918"
   },
   "flags": {
-    "district": "residential",
+    "building_name": "Thumb On The Scale",
+    "building_type": "junkyard",
+    "district": "wasteland",
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_918_918"
   },
   "grid_x": 919,
   "grid_y": 918,
   "grid_z": 0,
   "id": "zone_district_919_918",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TB",
+  "name": "Thumb On The Scale",
   "parent_zone": null
 }

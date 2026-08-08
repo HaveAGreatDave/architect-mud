@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
+  "color": "#8f4f3a",
+  "description": "A pitch rather than a shop: a hand-cart the size of a room, roofed over with corrugate and dug into the hardpan so the wind goes over it. It sits where the west road starts to empty out, which is where everything dragging itself back from the flats has to pass. Sorted salvage is laid out on boards either side in grades, and a bell on a pole rings whenever anything heavy moves out there, which it does. SLAG & WARES is chalked on the tailboard and re-chalked most weeks.",
   "exits": {
     "east": "zone_district_901_903",
-    "north": "zone_district_900_902",
-    "south": "zone_district_900_904",
-    "west": "zone_district_899_903"
+    "west": "zone_slag_shop"
   },
   "flags": {
+    "building_name": "Slag & Wares",
+    "building_type": "junkyard",
     "district": "wasteland",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_901_903"
   },
   "grid_x": 900,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_900_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SW",
+  "name": "Slag & Wares",
   "parent_zone": null
 }

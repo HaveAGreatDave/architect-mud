@@ -1,0 +1,19 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped utility space: bare board, sweating conduit, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_slag_shop"
+  },
+  "flags": {
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_slag_shop",
+  "map_id": "map_int_slag",
+  "name": "Slag & Wares — Utility Room",
+  "parent_zone": "zone_district_900_903"
+}

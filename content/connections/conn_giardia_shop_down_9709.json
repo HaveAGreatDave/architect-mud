@@ -1,0 +1,9 @@
+{
+  "a": "zone_giardia_shop",
+  "b": "zone_util_zone_giardia_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_giardia_shop_down_9709",
+  "lockable": false,
+  "one_way": false
+}

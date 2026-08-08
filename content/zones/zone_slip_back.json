@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1a20",
+  "description": "The room the goods actually live in, and the reason the front is so bare. Shelving to the ceiling, everything boxed and unlabelled, everything positioned so that no two things that came from the same job are stored together. A ledger on the desk is written in a shorthand only one person can read.",
+  "exits": {
+    "east": "zone_slip_shop"
+  },
+  "flags": {
+    "building_name": "The Slip",
+    "building_type": "fence",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slip_back",
+  "map_id": "map_int_slip",
+  "name": "The Slip — Behind the Curtain",
+  "parent_zone": "zone_district_916_906"
+}

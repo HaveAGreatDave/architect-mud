@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_895_903",
+  "b": "zone_kiln_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_895_903_west_4c78",
+  "lockable": true,
+  "one_way": false
+}

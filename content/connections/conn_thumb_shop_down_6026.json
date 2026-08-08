@@ -1,0 +1,9 @@
+{
+  "a": "zone_thumb_shop",
+  "b": "zone_util_zone_thumb_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_thumb_shop_down_6026",
+  "lockable": false,
+  "one_way": false
+}

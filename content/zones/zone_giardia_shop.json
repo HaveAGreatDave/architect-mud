@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#20231a",
+  "description": "Under the tarp, where the cooking happens and the camp eats in shifts. A long trestle, benches worn to a shine, and a pot on the drum that has never once been empty and never once been washed out to the metal. Ma Cinder's stock is stacked behind her in crates, and what she is willing to sell you is decided per person, on the spot.",
+  "exits": {
+    "down": "zone_util_zone_giardia_shop",
+    "east": "zone_giardia_back",
+    "west": "zone_district_905_906"
+  },
+  "flags": {
+    "building_name": "Camp Giardia",
+    "building_type": "diner",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_905_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_giardia_shop",
+  "map_id": "map_int_giardia",
+  "name": "Camp Giardia — Shop",
+  "parent_zone": "zone_district_905_906"
+}

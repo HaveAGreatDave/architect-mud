@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_kiln_shop",
+  "id": "zone_util_zone_kiln_shop",
+  "max_capacity_kw": 1000,
+  "name": "Fired & Forgotten — Utility Room",
+  "source_type": "city_grid"
+}

@@ -1,24 +1,29 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "color": "#a8895e",
+  "description": "A dead signal box at the top of the cut, three storeys of rusted lever frame with the windows knocked out and replaced by freight manifests. Somebody has painted TRACK MARKS FREIGHT across the boards in yard-marking yellow, and under it, smaller and much older, the rail company's name nobody says out loud any more. A weighbridge plate is set into the ground at the door, worn to a shine.",
   "exits": {
-    "north": "zone_district_917_902",
-    "south": "zone_district_917_904",
-    "west": "zone_district_916_903"
+    "north": "zone_trackmarks_shop",
+    "south": "zone_district_917_904"
   },
   "flags": {
-    "district": "wasteland",
+    "building_name": "Track Marks Freight",
+    "building_type": "forwarder",
+    "district": "yards",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_917_904"
   },
   "grid_x": 917,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_917_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "TK",
+  "name": "Track Marks Freight",
   "parent_zone": null
 }

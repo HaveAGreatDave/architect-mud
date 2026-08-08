@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c1a20",
+  "description": "A counter, a chair on your side of it, and a curtain behind. Nothing is displayed, because nothing here is for browsing: you say what you have, she says a number, and one of you leaves. The room is scrupulously clean, which is its own kind of statement about what happens in it.",
+  "exits": {
+    "down": "zone_util_zone_slip_shop",
+    "east": "zone_district_916_906",
+    "west": "zone_slip_back"
+  },
+  "flags": {
+    "building_name": "The Slip",
+    "building_type": "fence",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_906"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slip_shop",
+  "map_id": "map_int_slip",
+  "name": "The Slip — Shop",
+  "parent_zone": "zone_district_916_906"
+}

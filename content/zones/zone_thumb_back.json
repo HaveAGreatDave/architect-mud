@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#221d15",
+  "description": "Behind a curtain, a bench where the day's weighing gets broken down into what it actually is: copper here, ferrous there, the interesting third pile that does not get a label. Trays of unsorted grit wait their turn. A cot in the corner explains why the gate has never once found him closed.",
+  "exits": {
+    "west": "zone_thumb_shop"
+  },
+  "flags": {
+    "building_name": "Thumb On The Scale",
+    "building_type": "junkyard",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_919_918"
+  },
+  "grid_x": 1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thumb_back",
+  "map_id": "map_int_thumb",
+  "name": "Thumb On The Scale — The Sorting Bench",
+  "parent_zone": "zone_district_919_918"
+}

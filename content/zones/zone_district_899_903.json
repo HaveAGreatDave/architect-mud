@@ -4,7 +4,6 @@
   "color": "#8ba36a",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_district_900_903",
     "north": "zone_district_899_902",
     "south": "zone_district_899_904",
     "west": "zone_district_898_903"

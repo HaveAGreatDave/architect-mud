@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#241d16",
+  "description": "A repair bench runs the length of the room under a rack of task lamps, every one of them aimed at the same square foot. Dead machines are stacked along the far wall in the order they came in, each with a tag wired to it. The floor is swept. The bench is not, and never will be, because a swept bench is a bench nobody is using.",
+  "exits": {
+    "down": "zone_util_zone_watts_shop",
+    "east": "zone_district_916_907",
+    "west": "zone_watts_back"
+  },
+  "flags": {
+    "building_name": "Watts The Damage",
+    "building_type": "hardware",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_907"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_watts_shop",
+  "map_id": "map_int_watts",
+  "name": "Watts The Damage — Shop",
+  "parent_zone": "zone_district_916_907"
+}

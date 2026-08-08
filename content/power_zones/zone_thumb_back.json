@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_thumb_back",
+  "max_capacity_kw": 200,
+  "name": "Thumb On The Scale — The Sorting Bench",
+  "source_type": "city_grid"
+}

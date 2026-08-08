@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_trackmarks_shop",
+  "max_capacity_kw": 200,
+  "name": "Track Marks Freight — Shop",
+  "source_type": "city_grid"
+}

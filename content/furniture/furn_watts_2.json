@@ -1,0 +1,14 @@
+{
+  "description": "Dead appliances in the order they arrived, each with a handwritten tag wired to a handle. The oldest tag has gone brown and is dated a long time ago.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_watts_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "tagged machine stack",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_watts_shop"
+}

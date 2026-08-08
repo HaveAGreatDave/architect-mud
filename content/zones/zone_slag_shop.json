@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#231713",
+  "description": "Under the corrugate, out of the sun, in the shade of the cart itself. The Clinkerman's whole trade is spread on boards within arm's reach of where he sits: sorted, graded and priced by a system he has never written down. The bell rope runs past his shoulder. He does not stop talking, and he does not stop listening to the flats either.",
+  "exits": {
+    "down": "zone_util_zone_slag_shop",
+    "east": "zone_district_900_903",
+    "west": "zone_slag_back"
+  },
+  "flags": {
+    "building_name": "Slag & Wares",
+    "building_type": "junkyard",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_900_903"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_slag_shop",
+  "map_id": "map_int_slag",
+  "name": "Slag & Wares — Shop",
+  "parent_zone": "zone_district_900_903"
+}

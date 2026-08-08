@@ -1,0 +1,25 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1b2224",
+  "description": "A hull sits on the stocks down the middle of the shed, forty feet of her, ribbed and planked to the waist and going no further. Everything else in here is arranged around not touching her. The tools and stock are on the walls in shadow-boards, every outline filled, which tells you Keel has more time than customers.",
+  "exits": {
+    "down": "zone_util_zone_hulls_shop",
+    "east": "zone_district_916_905",
+    "west": "zone_hulls_back"
+  },
+  "flags": {
+    "building_name": "Hulls Angels",
+    "building_type": "wharf",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_916_905"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_hulls_shop",
+  "map_id": "map_int_hulls",
+  "name": "Hulls Angels — Shop",
+  "parent_zone": "zone_district_916_905"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Shallow trays of grit and fragments, part-picked. Copper in one, ferrous in another, and a third heap that Osric has not explained to anybody.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thumb_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "sorting trays",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thumb_shop"
+}

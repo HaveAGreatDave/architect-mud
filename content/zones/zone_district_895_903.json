@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
+  "color": "#b05a3c",
+  "description": "The last building before the ground starts ticking. A brick bottle-kiln, cracked from crown to base and patched with sheet steel, with a shop built into the split. Somebody has whitewashed FIRED & FORGOTTEN around the curve of it in letters four feet high, so it can be read from a long way east. From here the horizon west has a colour that horizons should not have.",
   "exits": {
     "east": "zone_district_896_903",
-    "north": "zone_district_895_902",
-    "south": "zone_district_895_904",
-    "west": "zone_district_894_903"
+    "west": "zone_kiln_shop"
   },
   "flags": {
+    "building_name": "Fired & Forgotten",
+    "building_type": "shop",
     "district": "wasteland",
+    "entrance": "east",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_896_903"
   },
   "grid_x": 895,
   "grid_y": 903,
   "grid_z": 0,
   "id": "zone_district_895_903",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "FF",
+  "name": "Fired & Forgotten",
   "parent_zone": null
 }

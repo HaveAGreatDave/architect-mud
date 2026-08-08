@@ -1,0 +1,14 @@
+{
+  "description": "Six lamps on articulated arms, all aimed at the same square foot of bench. Move one and Watts will move it back without appearing to notice he did.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_watts_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "task lamp rack",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_watts_back"
+}

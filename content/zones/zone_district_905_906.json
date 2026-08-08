@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "color": "#7d8a4e",
+  "description": "A camp on the pond shore that has been here long enough to stop being temporary: tarpaulin over a bus shell, a cook fire in a cut-down drum, and a hand-lettered board reading CAMP GIARDIA that is either a warning or an advertisement depending on how hungry you are. Somebody has planted a row of beans along the waterline. Something has eaten most of them.",
   "exits": {
-    "east": "zone_district_906_906",
-    "north": "zone_district_905_905",
-    "south": "zone_district_905_907",
+    "east": "zone_giardia_shop",
     "west": "zone_district_904_906"
   },
   "flags": {
+    "building_name": "Camp Giardia",
+    "building_type": "diner",
     "district": "docks",
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_904_906"
   },
   "grid_x": 905,
   "grid_y": 906,
   "grid_z": 0,
   "id": "zone_district_905_906",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "CG",
+  "name": "Camp Giardia",
   "parent_zone": null
 }
