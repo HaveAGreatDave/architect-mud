@@ -84,12 +84,12 @@ function ensureStyles() {
   #admin-body { display:flex; flex-direction:column; min-height:0; }
   .adm-head { display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid #2a3540; }
   .adm-title { color:#eaf6ff; font-weight:bold; letter-spacing:2px; }
-  .adm-role { margin-left:auto; font-size:10px; letter-spacing:2px; color:#ffcf3e; text-transform:uppercase;
+  .adm-role { margin-left:auto; font-size:0.625rem; letter-spacing:2px; color:#ffcf3e; text-transform:uppercase;
     border:1px solid #4a3b12; border-radius:4px; padding:1px 7px; }
   .adm-x { background:none; border:1px solid #2a3540; color:#8fb0c6; border-radius:5px; cursor:pointer; padding:2px 9px; }
   .adm-x:hover { background:#1a2730; }
   .adm-list { overflow-y:auto; padding:10px 12px; }
-  .adm-cat { font-size:9px; letter-spacing:3px; color:#5f8299; margin:10px 2px 6px; border-bottom:1px solid #1e2833; padding-bottom:3px; }
+  .adm-cat { font-size:0.5625rem; letter-spacing:3px; color:#5f8299; margin:10px 2px 6px; border-bottom:1px solid #1e2833; padding-bottom:3px; }
   .adm-cat:first-child { margin-top:2px; }
   .adm-cmd { display:flex; align-items:center; gap:10px; width:100%; text-align:left; cursor:pointer; font-family:inherit;
     background:linear-gradient(160deg,#2a333c,#161c22 70%); border:1px solid #263039; border-radius:7px;
@@ -97,11 +97,11 @@ function ensureStyles() {
   .adm-cmd:hover { border-color:#4fb8e0; color:#eaf6ff; }
   .adm-syntax { flex:0 0 auto; white-space:nowrap; }
   .adm-verb { color:#7fc0ff; font-weight:bold; letter-spacing:1px; }
-  .adm-args { color:#7fae99; font-size:11px; }
-  .adm-desc { flex:1 1 auto; min-width:0; font-size:11px; color:#8fb0c6; overflow:hidden; text-overflow:ellipsis; }
-  .adm-go { flex:0 0 auto; color:#4fb8e0; font-size:13px; }
+  .adm-args { color:#7fae99; font-size:0.6875rem; }
+  .adm-desc { flex:1 1 auto; min-width:0; font-size:0.6875rem; color:#8fb0c6; overflow:hidden; text-overflow:ellipsis; }
+  .adm-go { flex:0 0 auto; color:#4fb8e0; font-size:0.8125rem; }
   .adm-empty { color:#5f8299; text-align:center; padding:24px 10px; }
-  .adm-foot { border-top:1px solid #2a3540; padding:7px 14px; font-size:10px; color:#5f8299; letter-spacing:1px; }
+  .adm-foot { border-top:1px solid #2a3540; padding:7px 14px; font-size:0.625rem; color:#5f8299; letter-spacing:1px; }
   @media (max-width:560px) { .adm-cmd { flex-wrap:wrap; } .adm-desc { flex-basis:100%; } }
   `;
   document.head.appendChild(st);

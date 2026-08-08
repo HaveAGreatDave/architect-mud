@@ -25,7 +25,7 @@ function ensureStyles() {
   st.id = 'textcockpit-styles';
   st.textContent = `
     #area-content:has(.tck) { height:100%; }
-    .tck { font-family:'Courier New',monospace; font-size:12px; line-height:1.25;
+    .tck { font-family:'Courier New',monospace; font-size:0.75rem; line-height:1.25;
       color:#9fe0c4; background:linear-gradient(170deg,#0b1512,#060b09 70%);
       border:1px solid #10261e; border-radius:6px; padding:8px 10px;
       height:100%; box-sizing:border-box; overflow:auto; white-space:pre; }
@@ -53,7 +53,7 @@ function ensureStyles() {
     .tck .mp-field { color:#5ce2ff; font-weight:700; text-shadow:0 0 5px rgba(92,226,255,.6); }
     .tck .mp-me { color:#ffb63a; font-weight:700; text-shadow:0 0 6px rgba(255,150,40,.8); }
     .tck-cols { display:flex; gap:18px; align-items:flex-start; }
-    @media (max-width:700px){ .tck { font-size:11px; } .tck-cols { gap:10px; } }
+    @media (max-width:700px){ .tck { font-size:0.6875rem; } .tck-cols { gap:10px; } }
   `;
   document.head.appendChild(st);
 }

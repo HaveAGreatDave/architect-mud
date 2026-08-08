@@ -1514,14 +1514,14 @@ function openSoundPicker(sfxList) {
 
   const title = document.createElement('div');
   title.textContent = 'Create Sound';
-  title.style.cssText = 'color:var(--text-bright,#fff);font-size:14px;font-weight:bold;letter-spacing:1px';
+  title.style.cssText = 'color:var(--text-bright,#fff);font-size:0.875rem;font-weight:bold;letter-spacing:1px';
 
   const selectLabel = document.createElement('label');
   selectLabel.textContent = 'Sound FX:';
-  selectLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:12px';
+  selectLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:0.75rem';
 
   const select = document.createElement('select');
-  select.style.cssText = 'background:var(--bg,#111);color:var(--text,#ccc);border:1px solid var(--border,#444);padding:4px 8px;font-family:monospace;font-size:12px;width:100%';
+  select.style.cssText = 'background:var(--bg,#111);color:var(--text,#ccc);border:1px solid var(--border,#444);padding:4px 8px;font-family:monospace;font-size:0.75rem;width:100%';
   for (const s of sfxList) {
     const opt = document.createElement('option');
     opt.value = s.id;
@@ -1530,7 +1530,7 @@ function openSoundPicker(sfxList) {
   }
 
   const loudnessLabel = document.createElement('label');
-  loudnessLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:12px;display:flex;justify-content:space-between';
+  loudnessLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:0.75rem;display:flex;justify-content:space-between';
   const loudnessText = document.createElement('span');
   loudnessText.textContent = 'Loudness:';
   const loudnessVal = document.createElement('span');

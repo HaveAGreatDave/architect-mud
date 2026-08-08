@@ -159,7 +159,7 @@ export function renderMarkup(raw) {
 export const STATUS_TEMPLATE = '[b][color=#00ffff][system]ARCHITECT LIVE STATS[/system][/color][/b]  |  [player]$name[/player]  |  [u]ZONE:$zone[/u]  |  HP:[color=red]$hp/$maxhp[/color]  |  SAN:[i]$san[/i]  |  RAD:[s]$rad[/s]  |  TEMP:[b]$temp[/b]  |  CREDITS:[color=#00ff99]$credits[/color]  |  XP:$xp  |  [item]$weapon[/item] ACTIVE';
 
 export const MARKUP_HELP_HTML = `
-<div style="font-family:var(--font-mono);font-size:12px;line-height:1.8;color:var(--text)">
+<div style="font-family:var(--font-mono);font-size:0.75rem;line-height:1.8;color:var(--text)">
   <div style="color:var(--accent);margin-bottom:4px">── Formatting ──────────────────────</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[b]text[/b]</span> <strong>bold</strong></div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[i]text[/i]</span> <em>italic</em></div>
@@ -195,5 +195,5 @@ export const MARKUP_HELP_HTML = `
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$home</span> home zone name</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$kills / $pkills / $deaths</span> combat stats</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$hunger / $thirst / $stamina</span> survival stats</div>
-  <div style="color:var(--text-dim);margin-top:6px;font-size:11px">Type .status to broadcast your live stats. Markup applies in whisper &amp; channels only.</div>
+  <div style="color:var(--text-dim);margin-top:6px;font-size:0.6875rem">Type .status to broadcast your live stats. Markup applies in whisper &amp; channels only.</div>
 </div>`.trim();

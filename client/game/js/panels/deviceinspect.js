@@ -51,8 +51,8 @@ function ensureStyles() {
     #device-inspect-overlay .di-frame { animation:di-boot .28s ease-out; }
     #device-inspect-overlay .di-frame svg { display:block; width:100%; height:auto; }
     @keyframes di-boot { 0%{opacity:0; transform:scale(.985)} 100%{opacity:1; transform:scale(1)} }
-    #device-inspect-overlay .di-close { position:absolute; top:8px; right:8px; z-index:3; width:26px; height:26px;
-      background:#12171b; color:#8fb0bb; border:1px solid #3a464e; border-radius:2px; cursor:pointer; font-size:13px; }
+    #device-inspect-overlay .di-close { position:absolute; top:8px; right:8px; z-index:3; width:2em; height:2em;
+      background:#12171b; color:#8fb0bb; border:1px solid #3a464e; border-radius:2px; cursor:pointer; font-size:0.8125rem; }
     #device-inspect-overlay .di-close:hover { color:#ff4a5b; border-color:#ff4a5b; }
     @keyframes di-blinkA { 0%,100%{opacity:1} 45%{opacity:.15} }
     @keyframes di-blinkB { 0%{opacity:.3} 50%{opacity:1} 100%{opacity:.3} }
@@ -70,7 +70,7 @@ function ensureStyles() {
     #device-inspect-overlay .di-actions { display:flex; gap:8px; margin-top:8px; }
     #device-inspect-overlay .di-btn { flex:1; padding:9px 6px; background:#12171b; color:#8fb0bb;
       border:1px solid #3a464e; border-radius:2px; cursor:pointer; font-family:'Courier New',monospace;
-      font-size:12px; font-weight:bold; letter-spacing:2px; text-transform:uppercase; transition:all .12s;
+      font-size:0.75rem; font-weight:bold; letter-spacing:2px; text-transform:uppercase; transition:all .12s;
       box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5); }
     #device-inspect-overlay .di-btn:hover { transform:translateY(1px); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.5); }
     #device-inspect-overlay .di-btn-attack { color:#ff6a78; border-color:#5a2a30; }

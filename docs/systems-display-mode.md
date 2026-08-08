@@ -456,6 +456,99 @@ chrome, and this has to be readable before we know who is logging in. It is only
 a seed and a memory; `auth_success` mirrors whatever the server settled on back into
 it, so the direction of authority never inverts.
 
+## The type scale — text that actually enlarges *(built 2026-08-07)*
+
+Display Mode serves the player who cannot see the screen. The Font Size setting
+serves the much larger group who can see it *if it is bigger*, and until now it
+mostly didn't.
+
+`--font-size-base` sat on `body`. Meanwhile **629 font-sizes in `styles.css` were
+hardcoded px**, so raising the setting enlarged the log and the room pane and left
+the sidebar, the smartbar, every label, every button and every panel at 11px. It
+looked like a working control and stopped helping at exactly the point it started
+mattering.
+
+**The scale is now one declaration.** `html { font-size: var(--font-size-base) }`,
+and every font-size in `styles.css` and `index.html` is a `rem` measured against a
+**16px reference root**. At the default rung the sheet renders pixel-identically to
+before the conversion — the conversion is an identity transform, and the scale only
+does anything once you move it.
+
+Three rules keep a larger scale from tearing the layout apart:
+
+- **Only type is in `rem`.** Borders, structural widths, scrollbars and canvas art
+  stay px, so the boxes don't drift when the text inside them grows.
+- **A text box's own metrics are in `em`.** 92 box metrics across 65 rules that set
+  both a font-size and a px height/width were re-expressed against *that rule's own*
+  font-size — a 28px square button whose glyph is 14px is `2em × 2em`. It grows with
+  its own label instead of clipping it, and a circular button stays circular.
+- **A touch target has a px floor.** `min-height`/`min-width` of 36px or more is a
+  thumb, not typography: those became `max(36px, 2.77em)` so they may grow with the
+  text and can never shrink below what a thumb needs at the Small rung. 21 of them.
+
+### Two traps in the conversion
+
+**iOS zooms the viewport when it focuses an input under 16px.** `#cmd-input` and the
+auth fields therefore keep `max(1rem, 16px)` — a floor in *absolute* px, the one
+place a bare rem is wrong. `a11y:smoke` matches bare `font-size: Npx` only, so these
+pass deliberately.
+
+**The phone auto-fit used to overrule the setting entirely.** `applyMobileScale`
+(`client/game/js/main.js`) writes `--font-size-base` from viewport width on every
+compact device. That was harmless when the var only drove the log; now that it is
+the root, it silently overwrote the pills — so the Font Size setting did *nothing at
+all* for the player most likely to need it. A size the player presses sets
+`fontSizeChosen` and wins; the auto-fit only runs for a size nobody has chosen. Its
+floor also went 10 → 12, because a 10px root now takes a 9px label to 5.6px.
+
+The ladder reaches **32px = 200% of the reference root**, which is what WCAG 1.4.4
+asks for. A shorter ladder is a setting that quits before the problem does.
+
+### What is verified
+
+`a11y:smoke` fails on: the `html` rule going missing, **any** bare px font-size
+reappearing in `styles.css` or `index.html` (one px value is a piece of the
+interface that can never grow again), the top rung dropping below 32, and
+`fontSizeChosen` disappearing from either side of the mobile seam.
+
+### The panels — and the line down the middle of them
+
+About half the client's type lives in CSS template strings under
+`client/game/js/panels/`. **554 of those are now rem across 14 files**; ~350 are
+deliberately left in px, and the split is the point.
+
+**A surface you READ scales. A surface you ACT through has a text rung instead.**
+That is the Display Mode contract restated, not a second rule. The cockpit's 7px
+instrument labels, the hangar bay, the splice lab, the card-pack reveal, the fishing
+overlay, the four visual minigames and the corp map all stay px: they are positioned
+art, enlarging their labels would overlap the gauge or the tile beside them, and the
+accessible path off every one of them is `displaymode textgames` — a bigger cockpit
+was never the answer. The reading surfaces — the tablet, Whisper, the corp console,
+`who`, the keypad, the admin dialog, and the log path through `net`/`dispatch`/
+`markup` — all scale.
+
+`a11y:smoke` holds that list, so moving a file across it is a decision somebody makes
+on purpose rather than a sweep nobody noticed.
+
+**`textui.js` and `textcockpit.js` are on the scaling side, and that one matters
+most.** They were hardcoded at 12px — the accessible presentation itself was the
+surface you couldn't enlarge, which is the ladder bottoming out on its own bottom
+rung.
+
+### The tablet chassis grows with the type
+
+`.tos-panel` was `width:min(760px,96vw); height:820px` — a fixed box. Doubling the
+text inside a box that doesn't move is how you get a device that clips. It is now
+`min(47.5rem,96vw)` × `min(51.25rem,94vh)`: exactly 760×820 at the default rung, and
+at 200% it asks for twice that and the viewport clamps take over. Big text, big
+device, with `.tos-scroll` absorbing whatever is still left over — which is how a
+real handset behaves when you turn its text size up. `--tos-tile-h` went to rem with
+it, so the home grid's rows grow with their own labels.
+
+Whisper's private text-size control was `5pt/8pt/11pt`. Absolute units *override* the
+global scale instead of composing with it, so the one panel with its own size knob
+was the one panel that ignored the setting. Same rendered sizes, now in rem.
+
 ## Escape hatches
 
 A rung is a default, never a lockout. A system may offer a per-moment override that

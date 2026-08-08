@@ -128,7 +128,11 @@ let _textSize = "medium"; // 'small' | 'medium' | 'large'
 let _motdData = null;
 let _motdDims = {}; // { big:{w,h}, medium:{w,h}, small:{w,h} } — cached from off-screen measure
 
-const FONT_SIZES = { small: "5pt", medium: "8pt", large: "11pt" };
+// rem, not pt: an absolute unit here would override the global type scale rather
+// than compose with it, so a player reading at the 200% rung would open Whisper
+// and find the one panel that ignored them. Same rendered size at the default rung
+// as the 5/8/11pt these replace.
+const FONT_SIZES = { small: "0.4167rem", medium: "0.6667rem", large: "0.9167rem" };
 
 function _loadSettings() {
 	try {
@@ -855,37 +859,37 @@ function _renderUsersTab(log) {
 	}
 	if (pms.length > 0) {
 		html +=
-			'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Conversations</div>';
+			'<div style="padding:8px 10px 4px;font-size:0.625rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Conversations</div>';
 		for (const [handle, convo] of pms) {
 			const h = handle.replace(/"/g, "&quot;");
 			const badge =
 				convo.unread > 0
-					? `<span style="background:var(--red);color:#fff;font-size:9px;font-weight:bold;min-width:12px;height:12px;padding:0 3px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center">${convo.unread}</span>`
+					? `<span style="background:var(--red);color:#fff;font-size:0.5625rem;font-weight:bold;min-width:12px;height:12px;padding:0 3px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center">${convo.unread}</span>`
 					: "";
-			html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border)"><button data-pm="${h}" style="flex:1;text-align:left;background:transparent;border:none;color:var(--text);font-family:var(--font-mono);font-size:12px;cursor:pointer;padding:0">${_esc(handle)}</button>${badge}<button data-pm-close="${h}" title="Close conversation" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;line-height:1;width:16px;height:16px;padding:0;cursor:pointer;border-radius:2px">×</button></div>`;
+			html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border)"><button data-pm="${h}" style="flex:1;text-align:left;background:transparent;border:none;color:var(--text);font-family:var(--font-mono);font-size:0.75rem;cursor:pointer;padding:0">${_esc(handle)}</button>${badge}<button data-pm-close="${h}" title="Close conversation" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:0.6875rem;line-height:1;width:16px;height:16px;padding:0;cursor:pointer;border-radius:2px">×</button></div>`;
 		}
 	}
 
 	if (_channels.size > 0) {
 		html +=
-			'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Channels</div>';
+			'<div style="padding:8px 10px 4px;font-size:0.625rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Channels</div>';
 		for (const [id] of _channels) {
 			const h = id.replace(/"/g, "&quot;");
-			html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--yellow)">${_esc(_channelLabel(id))}</span><button data-channel="${h}" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:9px;padding:2px 6px;cursor:pointer;border-radius:2px">open</button></div>`;
+			html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:0.75rem;color:var(--yellow)">${_esc(_channelLabel(id))}</span><button data-channel="${h}" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:0.5625rem;padding:2px 6px;cursor:pointer;border-radius:2px">open</button></div>`;
 		}
 	}
 
 	html +=
-		'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>' +
+		'<div style="padding:8px 10px 4px;font-size:0.625rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>' +
 		(_onlinePlayers.length
 			? _onlinePlayers
 					.map((p) => {
 						const h = p.handle.replace(/"/g, "&quot;");
-						return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${_esc(p.handle)}</span><button data-whisper="${h}" title="Whisper ${_esc(p.handle)}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
+						return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:0.75rem;color:var(--text)">${_esc(p.handle)}</span><button data-whisper="${h}" title="Whisper ${_esc(p.handle)}" style="background:transparent;border:none;color:var(--accent);font-size:0.8125rem;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
 					})
 					.join("")
-			: '<div style="padding:10px 10px;color:var(--text-dim);font-size:11px">No other players online.</div>') +
-		'<div style="padding:6px 10px"><button data-refresh-online style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
+			: '<div style="padding:10px 10px;color:var(--text-dim);font-size:0.6875rem">No other players online.</div>') +
+		'<div style="padding:6px 10px"><button data-refresh-online style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:0.625rem;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
 
 	log.innerHTML = html;
 
@@ -1156,7 +1160,7 @@ async function _openWhisperByHandle(handle) {
 		const log = document.getElementById("whisper-log");
 		if (log) {
 			const err = document.createElement("div");
-			err.style.cssText = "padding:6px 0;color:var(--red);font-size:11px";
+			err.style.cssText = "padding:6px 0;color:var(--red);font-size:0.6875rem";
 			err.textContent = `"${handle}" is not online.`;
 			log.appendChild(err);
 			log.scrollTop = log.scrollHeight;
@@ -1311,7 +1315,7 @@ export function initWhisperPanel() {
 	emojiBtn.textContent = "😊";
 	emojiBtn.title = "Insert emoji";
 	emojiBtn.style.cssText =
-		"background:transparent;border:1px solid var(--border);color:var(--text);font-size:14px;padding:3px 7px;cursor:pointer;border-radius:2px;flex-shrink:0;line-height:1";
+		"background:transparent;border:1px solid var(--border);color:var(--text);font-size:0.875rem;padding:3px 7px;cursor:pointer;border-radius:2px;flex-shrink:0;line-height:1";
 
 	const emojiPicker = document.createElement("div");
 	emojiPicker.style.cssText = [
@@ -1329,7 +1333,7 @@ export function initWhisperPanel() {
 		);
 		if (code) btn.title = `:${code}:`;
 		btn.style.cssText =
-			"background:transparent;border:none;font-size:18px;cursor:pointer;padding:2px;border-radius:2px;line-height:1";
+			"background:transparent;border:none;font-size:1.125rem;cursor:pointer;padding:2px;border-radius:2px;line-height:1";
 		btn.addEventListener("mouseenter", () => {
 			btn.style.background = "var(--bg3)";
 		});

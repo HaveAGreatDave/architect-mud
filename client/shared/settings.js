@@ -272,7 +272,11 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-sidebar', settings.sidebarPosition || 'left');
   document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.setAttribute('data-dpad-size', settings.dpadSize || 'small');
-  document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
+  // The ROOT font size — client/game/styles.css hangs `html { font-size }` off it
+  // and every font-size in that sheet is a rem, so this one line scales the whole
+  // interface. Keep the fallback in step with DEFAULT_SETTINGS above and with the
+  // pre-module boot script in client/game/index.html.
+  document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '16') + 'px');
   // Smart UI: the contextual per-room action bar (#smart-bar, panels/smartbar.js)
   // is now always on, every device — it's the primary command surface (Tablet +
   // room verbs) since the quick-cmds bar was retired, so it's no longer togglable.

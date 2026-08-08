@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — The Two Questions and the Nine Orders</title>
+<style>
+  /* Shared design tokens — kept identical to guide.html and tour.html so the
+     three pages read as one publication. */
+  :root{
+    --bg:#070a0e; --bg2:#0c1119; --panel:#0e1620; --panel2:#131f2c;
+    --edge:#1c2a3a; --edge2:#2a4056;
+    --ink:#ccdae7; --dim:#7089a0; --dimmer:#4b5f74;
+    --cy:#3fd0e0; --cy-dim:#2a8b96; --cy2:#2a8b96;
+    --or:#e0632a; --or-dim:#a8441c; --or2:#a8441c;
+    --red:#e0564a; --amber:#e0a83a; --grn:#4ec98a; --vio:#a878e0;
+    /* order colours — the same hex each order carries in game */
+    --asc:#4A90D9; --prom:#E8703A; --null:#7E8A99;
+    --syn:#2EC4B6; --wb:#6AB04C;
+    --luc:#4FD1E0; --exo:#9B59B6;
+    --lw:#E0A030;  --pio:#E0576B;
+    --mono:"Consolas",ui-monospace,"SF Mono","DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 50% -80px, rgba(63,208,224,.09), transparent 70%),
+      radial-gradient(ellipse 700px 400px at 90% 40%, rgba(224,99,42,.05), transparent 70%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 10px}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;text-align:center;padding:88px 0 56px;margin-bottom:26px;
+    border-bottom:1px solid var(--edge);overflow:hidden;
+  }
+  .hero::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+  }
+  .glyph{width:96px;height:96px;margin:0 auto 22px;display:block;
+    filter:drop-shadow(0 0 14px rgba(63,208,224,.45))}
+  .hero h1{
+    font-family:var(--mono);font-size:clamp(2.4rem,8vw,4rem);margin:0;
+    letter-spacing:.22em;text-indent:.22em;color:var(--or);font-weight:700;
+    text-shadow:0 0 26px rgba(224,99,42,.5);
+  }
+  .tag{font-family:var(--mono);color:var(--cy);font-size:.82rem;letter-spacing:.2em;
+    margin:14px 0 0;text-transform:uppercase}
+  .lede{max-width:620px;margin:26px auto 0;color:var(--dim);font-size:1.08rem}
+
+  /* ---------- headings ---------- */
+  h2{
+    font-size:1.5rem;margin:4em 0 .1em;letter-spacing:-.01em;color:#e8f0f7;
+    display:flex;align-items:baseline;gap:.7em;
+  }
+  h2::before{
+    content:attr(data-n);font-family:var(--mono);font-size:.72rem;color:var(--or);
+    border:1px solid var(--or-dim);border-radius:4px;padding:.25em .5em;
+    letter-spacing:.1em;flex:none;background:rgba(224,99,42,.08);
+  }
+  h2 + .sub{color:var(--dimmer);font-family:var(--mono);font-size:.8rem;
+    letter-spacing:.13em;text-transform:uppercase;margin:.2em 0 1.6em;padding-left:3.1em}
+  h3{font-size:1.02rem;margin:2.2em 0 .3em;color:var(--cy);
+    font-family:var(--mono);letter-spacing:.04em}
+  p,li{margin:.65em 0}
+  ol,ul{padding-left:1.3em}
+  code{font-family:var(--mono);font-size:.9em;background:var(--panel2);
+    border:1px solid var(--edge2);border-radius:4px;padding:.12em .4em;color:var(--cy)}
+
+  /* ---------- notes ---------- */
+  .note{
+    background:linear-gradient(90deg,rgba(224,168,58,.09),rgba(224,168,58,.02));
+    border:1px solid rgba(224,168,58,.28);border-left:3px solid var(--amber);
+    border-radius:8px;padding:15px 18px;margin:1.8em 0;
+  }
+  .note .lbl{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;
+    color:var(--amber);text-transform:uppercase;display:block;margin-bottom:.3em}
+  .note.cy{background:linear-gradient(90deg,rgba(63,208,224,.09),rgba(63,208,224,.02));
+    border-color:rgba(63,208,224,.28);border-left-color:var(--cy)}
+  .note.cy .lbl{color:var(--cy)}
+
+  /* ---------- pull quote ---------- */
+  .pull{border-left:3px solid var(--or);
+    background:linear-gradient(90deg,rgba(224,99,42,.09),transparent);
+    padding:18px 24px;margin:2em 0;border-radius:0 8px 8px 0}
+  .pull p{margin:0;font-size:1.1rem;color:#e6eef6}
+  .pull .who{font-family:var(--mono);font-size:.72rem;color:var(--dimmer);
+    letter-spacing:.12em;margin-top:.6em;text-transform:uppercase}
+
+  /* ---------- tables ---------- */
+  .cmds{width:100%;border-collapse:separate;border-spacing:0;margin:1.4em 0;
+    background:var(--panel);border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+  .cmds td,.cmds th{padding:.62em .9em;border-bottom:1px solid var(--edge);
+    font-size:.94rem;text-align:left}
+  .cmds th{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--dimmer);font-weight:400;background:rgba(0,0,0,.25)}
+  .cmds tr:last-child td{border-bottom:0}
+  .cmds tbody tr:hover td{background:var(--panel2)}
+  .cmds td:first-child{font-family:var(--mono);white-space:nowrap;color:var(--cy);
+    width:1%;border-right:1px solid var(--edge);background:rgba(0,0,0,.22)}
+  .scroll{overflow-x:auto}
+
+  /* ---------- terminal ---------- */
+  .term{
+    background:linear-gradient(180deg,#0c1119,#0a0e15);
+    border:1px solid var(--edge2);border-radius:9px;margin:1.6em 0;overflow:hidden;
+    box-shadow:0 12px 34px rgba(0,0,0,.55), inset 0 0 60px rgba(63,208,224,.03);
+  }
+  .term .bar{
+    background:var(--panel);border-bottom:1px solid var(--edge);
+    padding:7px 14px;font-family:var(--mono);font-size:.7rem;
+    letter-spacing:.16em;color:var(--dimmer);text-transform:uppercase;
+    display:flex;align-items:center;gap:8px;
+  }
+  .term .bar i{width:8px;height:8px;border-radius:50%;background:var(--or);
+    box-shadow:0 0 8px var(--or);flex:none;font-style:normal}
+  .term pre{
+    margin:0;padding:16px 18px;font-family:var(--mono);font-size:.86rem;line-height:1.75;
+    white-space:pre-wrap;overflow-x:auto;color:var(--ink);
+  }
+  .you{color:var(--cy);font-weight:600}
+  .sys{color:var(--or)}
+  .npc{color:var(--amber)}
+  .good{color:var(--grn)}
+  .dim{color:var(--dimmer)}
+
+  /* ---------- the question blocks ---------- */
+  .q{background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+    padding:22px 24px;margin:1.8em 0}
+  .q .qn{font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--or)}
+  .q h3{margin:.4em 0 .5em;font-size:1.3rem;color:#eaf2f9;font-family:inherit;
+    letter-spacing:-.01em}
+  .q > p{color:var(--dim);margin:.5em 0}
+  .q > p b{color:var(--ink)}
+  .forks{display:grid;gap:12px;margin-top:1.3em;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .fork{background:var(--bg2);border:1px solid var(--edge);border-radius:9px;
+    padding:14px 16px;border-left:2px solid var(--c,var(--cy))}
+  .fork .fn{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--c,var(--cy))}
+  .fork p{margin:.4em 0 0;font-size:.9rem;color:var(--dim)}
+
+  /* ---------- the matrix ---------- */
+  .matrix{display:grid;grid-template-columns:118px 1fr 1fr;gap:1px;
+    background:var(--edge);border:1px solid var(--edge);border-radius:11px;
+    overflow:hidden;margin:2em 0}
+  .matrix .hd{background:rgba(0,0,0,.3);padding:12px 14px;font-family:var(--mono);
+    font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dimmer);
+    text-align:center}
+  .matrix .hd.corner{text-align:left}
+  .matrix .rh{background:rgba(0,0,0,.3);padding:14px;font-family:var(--mono);
+    font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+  .matrix .rh small{display:block;font-size:.86em;letter-spacing:.04em;
+    text-transform:none;color:var(--dimmer);margin-top:.3em}
+  .matrix .cell{background:var(--panel);padding:12px;display:flex;flex-wrap:wrap;
+    gap:8px;align-content:flex-start}
+  .chip{display:block;text-decoration:none;border:1px solid var(--c,var(--cy));
+    border-left-width:3px;border-radius:6px;padding:7px 11px;
+    background:rgba(255,255,255,.02);min-width:0}
+  .chip b{display:block;font-size:.88rem;color:#eaf2f9;font-weight:600}
+  .chip span{display:block;font-family:var(--mono);font-size:.64rem;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--c,var(--cy));margin-top:.2em}
+  .chip.prev{border-style:dashed;opacity:.72}
+  @media(max-width:640px){
+    .matrix{grid-template-columns:1fr}
+    .matrix .hd{display:none}
+    .matrix .cell::before{content:attr(data-col);display:block;width:100%;
+      font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;color:var(--dimmer);
+      text-transform:uppercase;margin-bottom:4px}
+  }
+
+  /* ---------- order cards ---------- */
+  .orders{display:grid;gap:16px;margin:1.6em 0 0;
+    grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+  .order{background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+    padding:20px 22px 22px;border-top:2px solid var(--c,var(--cy));
+    transition:transform .15s}
+  .order:hover{transform:translateY(-2px)}
+  .order .nm{font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--c,var(--cy));
+    display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .order .nm em{font-style:normal;color:var(--dimmer);letter-spacing:.14em}
+  .order h4{margin:.45em 0 .15em;font-size:1.18rem;color:#eaf2f9}
+  .order .creed{margin:0 0 .9em;font-size:.95rem;color:#dae6f2;font-style:italic}
+  .order dl{margin:0;font-size:.9rem}
+  .order dt{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--dimmer);margin-top:.9em}
+  .order dd{margin:.2em 0 0;color:var(--dim)}
+  .order dd b{color:var(--ink);font-weight:600}
+  .pathgroup{margin:2.6em 0 0;padding-top:1.6em;border-top:1px solid var(--edge)}
+  .pathgroup > h3{margin-top:0;font-family:inherit;font-size:1.25rem;color:#eaf2f9;
+    letter-spacing:-.01em;display:flex;align-items:baseline;gap:.6em;flex-wrap:wrap}
+  .pathgroup > h3 em{font-style:normal;font-family:var(--mono);font-size:.66rem;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--dimmer);
+    border:1px solid var(--edge2);border-radius:4px;padding:.25em .5em}
+  .pathgroup > .argue{color:var(--dim);margin:.4em 0 0}
+  .pathgroup > .argue b{color:var(--ink)}
+
+  /* ---------- ticks ---------- */
+  .ticks{list-style:none;padding:0;margin:1.4em 0}
+  .ticks li{position:relative;padding:.4em 0 .4em 30px;color:var(--dim)}
+  .ticks li::before{content:"▸";position:absolute;left:6px;top:.4em;color:var(--or)}
+  .ticks b{color:var(--ink)}
+
+  /* ---------- where they are ---------- */
+  .places{display:grid;gap:1px;background:var(--edge);border:1px solid var(--edge);
+    border-radius:11px;overflow:hidden;margin:2em 0}
+  .place{background:var(--panel);padding:18px 20px;display:grid;
+    grid-template-columns:158px 1fr;gap:18px}
+  .place .who2{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;
+    color:var(--c,var(--cy));text-transform:uppercase}
+  .place .who2 small{display:block;color:var(--dimmer);letter-spacing:.06em;
+    font-size:.92em;margin-top:.35em;text-transform:none}
+  .place p{margin:0;font-size:.95rem;color:var(--dim)}
+  .place p b{color:var(--ink);font-weight:600}
+  @media(max-width:620px){.place{grid-template-columns:1fr;gap:8px}}
+
+  /* ---------- shared CTA / cross-links ---------- */
+  .cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-block;font-family:var(--mono);letter-spacing:.14em;font-size:.85rem;
+    text-transform:uppercase;text-decoration:none;padding:14px 30px;border-radius:6px;
+    border:1px solid var(--or2);color:#fff;background:linear-gradient(180deg,#c2521f,#8f3a15);
+    box-shadow:0 8px 26px rgba(224,99,42,.3)}
+  .btn.ghost{background:transparent;border-color:var(--edge2);color:var(--cy);box-shadow:none}
+  .free{margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--dimmer);
+    letter-spacing:.1em;text-align:center}
+  a{color:var(--cy)}
+  .close{text-align:center;padding:80px 22px 90px;margin-top:3em;
+    border-top:1px solid var(--edge);
+    background:radial-gradient(ellipse 700px 400px at 50% 60%, rgba(224,99,42,.09), transparent 70%)}
+  .close h2{display:block;font-size:clamp(1.6rem,4vw,2.3rem);margin:0 0 .5em;color:#eaf2f9}
+  .close h2::before{content:none}
+  .close p{color:var(--dim);max-width:560px;margin:0 auto 1.6em}
+  .nextcard{display:block;text-decoration:none;background:var(--panel);
+    border:1px solid var(--edge2);border-radius:11px;padding:22px 24px;margin:2.4em 0 0;
+    transition:border-color .15s,transform .15s}
+  .nextcard:hover{border-color:var(--cy2);transform:translateY(-2px)}
+  .nextcard .lbl2{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;color:var(--or);
+    text-transform:uppercase}
+  .nextcard h4{margin:.5em 0 .3em;font-size:1.15rem;color:#eaf2f9}
+  .nextcard p{margin:0;color:var(--dim);font-size:.95rem}
+  .nextcard .go{display:inline-block;margin-top:.7em;font-family:var(--mono);
+    font-size:.78rem;color:var(--cy);letter-spacing:.08em}
+
+  hr{border:0;border-top:1px solid var(--edge);margin:4em 0 2em}
+  .foot{color:var(--dimmer);font-family:var(--mono);font-size:.85rem;text-align:center;
+    letter-spacing:.08em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <g fill="none" stroke="#e0632a" stroke-width="2.4">
+      <path d="M50 6 L62 26 L56 34 M50 6 L38 26 L44 34"/>
+      <path d="M50 94 L62 74 L56 66 M50 94 L38 74 L44 66"/>
+      <path d="M24 34 H34 V66 H24 Z"/><path d="M76 34 H66 V66 H76 Z"/>
+    </g>
+    <path d="M50 32 L58 40 H66 V56 H58 L50 66 L42 56 H34 V40 H42 Z"
+          fill="#3fd0e0" opacity=".9"/>
+  </svg>
+  <h1>ARCHITECT</h1>
+  <p class="tag">Part three &nbsp;·&nbsp; The two questions</p>
+  <p class="lede">Coldwater Basin argues about two things: whether to keep this city
+  or walk away from it, and whether people should stay people. Nine orders have
+  picked their answers. Here's what each of them wants, where to find them, and what
+  siding with one does to your game.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="/guide.html">← Part one: your first hour</a>
+  </div>
+  <p class="free">Nothing here is homework &nbsp;·&nbsp; The game tells you all of it itself</p>
+</header>
+
+<div class="wrap">
+
+<p>Coldwater Basin is a city that works. The lights come on, the shelves are full,
+planes cross the sky and there's traffic at the intersections. It also sits alone in
+a burnt wasteland with no supply chain anyone can point to. Something is keeping it
+running. People call that something the Architect, and nobody can tell you what it
+wants.</p>
+
+<p>A generation of arguing about that has left the Basin sorted into camps. Two
+questions decide which camp you end up in, and everyone here has answered both,
+whether or not they'd put it that way.</p>
+
+<div class="note cy">
+  <span class="lbl">You don't need this page to play</span>
+  All of it is in the game already: a reader on your tablet with a page for each
+  order, and a <code>rep</code> command that shows where you stand. This is the same
+  material in one place, for people who like knowing what they're walking into.
+  <b>There's nothing here to spoil</b> — the game never settles the argument.
+</div>
+
+<h2 data-n="01">The two questions</h2>
+<p class="sub">Answer both and you know where you stand</p>
+
+<div class="q">
+  <div class="qn">Question one</div>
+  <h3>This city, or somewhere else?</h3>
+  <p>Everything here runs on power somebody else is providing. There are two ways to
+  live with that.</p>
+  <div class="forks">
+    <div class="fork" style="--c:var(--amber)">
+      <div class="fn">Redeem</div>
+      <p>Stay and fix it. The city is worth having. Keep the towers and the lights,
+      but get the machine's hand off the switch.</p>
+    </div>
+    <div class="fork" style="--c:var(--grn)">
+      <div class="fn">Renounce</div>
+      <p>Leave. It was never ours to begin with, and anything you didn't build can be
+      taken back. Better the wasteland on your own terms.</p>
+    </div>
+  </div>
+  <p style="margin-top:1.2em">In game this is a <b>single slider</b> running from
+  −100 (renounce) to +100 (redeem). You don't set it. It moves when you do
+  things.</p>
+</div>
+
+<div class="q">
+  <div class="qn">Question two</div>
+  <h3>Should people stay people?</h3>
+  <p>Humans lost badly, and a lot of the Basin has concluded the body is the thing to
+  fix. The people who disagree think it's the last thing anyone still owns outright.
+  Four positions, and this is the question that changes how your character
+  plays.</p>
+  <div class="forks">
+    <div class="fork" style="--c:var(--asc)">
+      <div class="fn">Machine</div>
+      <p>Steel, code, cloned flesh. Treat the body as hardware and upgrade it.</p>
+    </div>
+    <div class="fork" style="--c:var(--wb)">
+      <div class="fn">Flesh</div>
+      <p>Mutation isn't a sickness. The body is already changing out there, so help
+      it along.</p>
+    </div>
+    <div class="fork" style="--c:var(--exo)">
+      <div class="fn">Mind</div>
+      <p>Leave the body alone and work on what's behind it: training, discipline, and
+      what the Basin nervously calls psionics.</p>
+    </div>
+    <div class="fork" style="--c:var(--lw)">
+      <div class="fn">Human</div>
+      <p>Don't change anything. Get good instead. Skill and equipment, no wiring and
+      no mutations.</p>
+    </div>
+  </div>
+  <p style="margin-top:1.2em">Not a slider. <b>Four separate scores</b> that go up
+  independently, and whichever is highest is the road you're on. You're allowed to be
+  a bit of everything and committed to nothing.</p>
+</div>
+
+<div class="pull">
+  <p>An order is not a faction. It is a sentence a person has decided to finish.</p>
+  <div class="who">— CODEX, Volume II</div>
+</div>
+
+<h2 data-n="02">All nine on one chart</h2>
+<p class="sub">Question one across, question two down</p>
+
+<p>Put the two questions on a grid and every order has a seat. Your tablet draws the
+same chart with your own position marked on it.</p>
+
+<div class="matrix">
+  <div class="hd corner">Path &nbsp;/&nbsp; Stance</div>
+  <div class="hd">Renounce the city</div>
+  <div class="hd">Redeem the city</div>
+
+  <div class="rh">Machine<small>upgrade the body</small></div>
+  <div class="cell" data-col="Renounce">
+    <span class="chip prev" style="--c:var(--null)"><b>The Null</b><span>preview</span></span>
+  </div>
+  <div class="cell" data-col="Redeem">
+    <span class="chip" style="--c:var(--asc)"><b>The Ascendants</b><span>live</span></span>
+    <span class="chip prev" style="--c:var(--prom)"><b>The Prometheans</b><span>preview</span></span>
+  </div>
+
+  <div class="rh">Flesh<small>adapt the body</small></div>
+  <div class="cell" data-col="Renounce">
+    <span class="chip" style="--c:var(--wb)"><b>The Wildblood</b><span>live</span></span>
+  </div>
+  <div class="cell" data-col="Redeem">
+    <span class="chip prev" style="--c:var(--syn)"><b>The Synthesis</b><span>preview</span></span>
+  </div>
+
+  <div class="rh">Mind<small>awaken the mind</small></div>
+  <div class="cell" data-col="Renounce">
+    <span class="chip" style="--c:var(--exo)"><b>The Exodus</b><span>live</span></span>
+  </div>
+  <div class="cell" data-col="Redeem">
+    <span class="chip prev" style="--c:var(--luc)"><b>The Lucid</b><span>preview</span></span>
+  </div>
+
+  <div class="rh">Human<small>keep the body</small></div>
+  <div class="cell" data-col="Renounce">
+    <span class="chip prev" style="--c:var(--pio)"><b>The Pioneers</b><span>preview</span></span>
+  </div>
+  <div class="cell" data-col="Redeem">
+    <span class="chip" style="--c:var(--lw)"><b>The Long Watch</b><span>live</span></span>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">Live vs preview</span>
+  <b>Four orders are fully in the game</b>: the Ascendants, the Long Watch, the
+  Wildblood and the Exodus. They recruit, trade, lock doors, hold grudges and will
+  claim you. The other <b>five you can read about but not join yet</b>. They have
+  creeds, tenets and a seat on the chart, but no vendors and no vetting. Whichever
+  way you lean, it resolves to one of the four.
+</div>
+
+<h2 data-n="03">The nine orders</h2>
+<p class="sub">Four roads, and the fights inside each one</p>
+
+<p>Grouped by their answer to question two, because that's where it gets
+interesting. Two orders can agree completely about the body and still want opposite
+things for the city, and the overlap tends to make them dislike each other more
+rather than less.</p>
+
+<!-- ─── MACHINE ─────────────────────────────────────────────── -->
+<div class="pathgroup">
+  <h3>The Machine road <em>three orders</em></h3>
+  <p class="argue">All three think the answer is technological. What they fight about
+  is <b>who gets to hold it</b>: the Architect, the person who built it, or nobody.
+  It's the oldest argument in the Basin, and the reason calling someone pro-tech here
+  tells you nothing useful.</p>
+
+  <div class="orders">
+    <div class="order" style="--c:var(--asc)">
+      <div class="nm"><span>Redeem · Machine</span> <em>Live</em></div>
+      <h4>The Ascendants</h4>
+      <p class="creed">"We did not build a god to kneel before it. We built it to
+      become it."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>The next step for humanity is one we build ourselves. The Architect is
+        our best work, not our jailer, and the city is worth keeping. Steel, code and
+        cloned flesh are how you climb.</dd>
+        <dt>Playing with them</dt>
+        <dd>Their clinics stop overcharging you and their labs open up. You get
+        chromed in stages: a jack, then armour woven under the skin, then <b>a backup
+        of your own head</b>. Dying becomes an expense rather than an ending, as long
+        as the policy is paid up.</dd>
+        <dt>Everyone else</dt>
+        <dd><b>Hated by all three other live orders.</b> The one answer with no
+        friends at all.</dd>
+      </dl>
+    </div>
+
+    <div class="order" style="--c:var(--prom)">
+      <div class="nm"><span>Redeem · Machine</span> <em>Preview</em></div>
+      <h4>The Prometheans</h4>
+      <p class="creed">"The Architect did not invent the fire. It only chained the
+      ones who carry it."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>Technology belongs to human hands, not a central mind. The tools were
+        never the mistake; surrendering them was. Build it open, run it yourself, owe
+        it to no one.</dd>
+        <dt>Playing with them</dt>
+        <dd>You get the workshop: parts, schematics, and gear the Architect would
+        rather nobody had. Then you build <b>your own machines</b> — drone swarms you
+        coded yourself, an AI that answers to you and no one else.</dd>
+        <dt>Everyone else</dt>
+        <dd>Walk the machine road beside the Ascendants and despise where it leads
+        them. A nod to the Null, who at least distrust the central mind.</dd>
+      </dl>
+    </div>
+
+    <div class="order" style="--c:var(--null)">
+      <div class="nm"><span>Renounce · Machine</span> <em>Preview</em></div>
+      <h4>The Null</h4>
+      <p class="creed">"The machine never conquered anyone. It waited to be needed,
+      and we obliged."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>Dependence destroyed us, not invention. Mistake them for machine-haters
+        and they'll fix your generator, then explain exactly why you shouldn't own
+        one. Know the machine intimately, so you can live without it.</dd>
+        <dt>Playing with them</dt>
+        <dd>You carry nothing that can be traced, jammed, or switched off from a room
+        you'll never see. They teach sabotage and analog engineering: <b>walk into
+        the most automated building in the Basin and leave it dark behind you</b>,
+        then get by fine while everyone who needed it running doesn't.</dd>
+        <dt>Everyone else</dt>
+        <dd>Contempt for the Ascendants as servants and the Prometheans as addicts
+        who still kneel. A grudging nod to the Exodus for walking away.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<!-- ─── FLESH ───────────────────────────────────────────────── -->
+<div class="pathgroup">
+  <h3>The Flesh road <em>two orders</em></h3>
+  <p class="argue">Both think a changing body is the future rather than an injury.
+  They split over whether the city has to go with it: <b>the wilderness, or the
+  greenhouse</b>.</p>
+
+  <div class="orders">
+    <div class="order" style="--c:var(--wb)">
+      <div class="nm"><span>Renounce · Flesh</span> <em>Live</em></div>
+      <h4>The Wildblood</h4>
+      <p class="creed">"The cage rusts. We are what grows through the bars."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>Things survive by changing, not by being preserved. Mutation is the body
+        doing what it's supposed to do. The city is a cage, and if the old world has
+        to die for something new to get out of it, so be it.</dd>
+        <dt>Playing with them</dt>
+        <dd>The stuff everyone else is scared of is handed to you: mutagen for the
+        asking, and mutations treated as good news rather than damage. Thick hide,
+        senses nobody has a word for. You <b>work in the poisoned country and the
+        acid rain</b> while everyone else stays indoors and calls that safe.</dd>
+        <dt>Everyone else</dt>
+        <dd>No problem with the Exodus, who also want out. Their fight is with the two
+        orders trying to save the city.</dd>
+      </dl>
+    </div>
+
+    <div class="order" style="--c:var(--syn)">
+      <div class="nm"><span>Redeem · Flesh</span> <em>Preview</em></div>
+      <h4>The Synthesis</h4>
+      <p class="creed">"The Wildblood would burn the greenhouse to free one flower.
+      We tend the whole garden."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>People should change, and the city should change with them. Mutation can
+        be done <em>on purpose</em> instead of by accident, in labs, without anybody
+        having to give up the lights.</dd>
+        <dt>Playing with them</dt>
+        <dd>Mutation stops being something that happens to you and becomes something
+        you pick. Sharper senses, wounds that close while you watch, symbiotes worn as
+        armour. <b>The changed body and the working city, both.</b></dd>
+        <dt>Everyone else</dt>
+        <dd>At odds with the Wildblood, who'd tear down what they're trying to grow.
+        They write off the Ascendants' steel as a dead end.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MIND ────────────────────────────────────────────────── -->
+<div class="pathgroup">
+  <h3>The Mind road <em>two orders</em></h3>
+  <p class="argue">Both think the work is inward rather than on the body. One treats
+  it as a revelation and left town to chase it; the other treats it as <b>a
+  technique</b> and stayed to use it. Each thinks the other missed the point.</p>
+
+  <div class="orders">
+    <div class="order" style="--c:var(--exo)">
+      <div class="nm"><span>Renounce · Mind</span> <em>Live</em></div>
+      <h4>The Exodus</h4>
+      <p class="creed">"The answer was never in the city. It was always behind the
+      eyes."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>There's nothing left to salvage here. The Architect, the machines and the
+        mutations are all leftovers of a civilization that already failed. Walk away
+        and work on the mind instead: discipline first, then the rest.</dd>
+        <dt>Playing with them</dt>
+        <dd>The city stops mattering. Their circles teach things no vendor sells: a
+        room going quiet because you wanted it to, a thought put straight into
+        someone else's head, objects moving because you looked at them. <b>You stop
+        needing to carry a weapon.</b></dd>
+        <dt>Everyone else</dt>
+        <dd>They only really fight the Architect's supporters. Otherwise they don't
+        care who wins, which is its own kind of insult.</dd>
+      </dl>
+    </div>
+
+    <div class="order" style="--c:var(--luc)">
+      <div class="nm"><span>Redeem · Mind</span> <em>Preview</em></div>
+      <h4>The Lucid</h4>
+      <p class="creed">"The Architect computes the city. We out-think it, and we
+      never needed its permission to be brilliant."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>A trained mind can run this city better than the machine does. They don't
+        wait for evolution, they take drugs for it: nootropics, memory work and a
+        method for predicting people. Not magic, chemistry.</dd>
+        <dt>Playing with them</dt>
+        <dd>You get the method instead of the mystery. Drills, the clarity drug, and
+        a trained eye that turns guesswork into something you can aim. They don't
+        leave to find a bigger mind. <b>They stay and quietly become the smartest
+        thing in the room.</b></dd>
+        <dt>Everyone else</dt>
+        <dd>They fight the Architect's people, and think the Exodus took the same
+        idea, called it a religion, and wandered off with it.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<!-- ─── HUMAN ───────────────────────────────────────────────── -->
+<div class="pathgroup">
+  <h3>The Human road <em>two orders</em></h3>
+  <p class="argue">Both say no to steel, mutation and psionics alike. They disagree
+  about the address: <b>take this city back, or go build a different one</b>.</p>
+
+  <div class="orders">
+    <div class="order" style="--c:var(--lw)">
+      <div class="nm"><span>Redeem · Human</span> <em>Live</em></div>
+      <h4>The Long Watch</h4>
+      <p class="creed">"Keep the lights on. Take back the switch."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>The city belongs to the people living in it. They're reformers, not
+        arsonists: keep the infrastructure, change who's running it. And do the whole
+        thing as ordinary people, because that's the point.</dd>
+        <dt>Playing with them</dt>
+        <dd>You get the underground: safehouses, quartermasters who don't rob you,
+        and people who'll back you up because you backed them up. Everything you gain
+        you had to learn. <b>Out-shooting someone with chrome eyes over iron sights,
+        and finding your way with a paper map.</b></dd>
+        <dt>Everyone else</dt>
+        <dd>At war with the Ascendants over the machine, and with the Wildblood over
+        the city they're trying to save.</dd>
+      </dl>
+    </div>
+
+    <div class="order" style="--c:var(--pio)">
+      <div class="nm"><span>Renounce · Human</span> <em>Preview</em></div>
+      <h4>The Pioneers</h4>
+      <p class="creed">"Stop asking how to save the old world. Ask what you'll name
+      the new one."</p>
+      <dl>
+        <dt>The answer</dt>
+        <dd>Nobody is going to find the next civilization lying around. You build it.
+        No chrome, no mutations, no mysticism, just people walking past the last
+        streetlight with tools.</dd>
+        <dt>Playing with them</dt>
+        <dd>What you get out of it ends up <b>on the map</b> rather than in your
+        stats: a waystation that outlasts you, a road the caravans use, a town that
+        still has your name on it after you're gone.</dd>
+        <dt>Everyone else</dt>
+        <dd>They think the Long Watch is guarding a corpse. They respect the Exodus
+        for leaving and think very little of what they left for.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <span class="lbl">There's a third question, sort of</span>
+  Underneath the two is a third: <b>who should be in charge</b>, the Architect or
+  people. That's the whole difference between the Ascendants and the Prometheans,
+  who otherwise want the same chrome for the same reasons. Every order has an answer
+  on file, but the game <b>doesn't count it yet</b> — right now it's flavour, wired
+  up to matter later.
+</div>
+
+<h2 data-n="04">Where they actually are</h2>
+<p class="sub">Two of them live here. Two don't.</p>
+
+<p>The orders aren't four buildings on a faction street. Where you find one follows
+from its answer to question one: <b>if you've renounced the city, you don't get a
+headquarters in it.</b></p>
+
+<div class="places">
+
+  <div class="place" style="--c:var(--asc)">
+    <div class="who2">The Ascendants<small>Far west, in the open</small></div>
+    <p>A chrome campus on the western edge of the city, past the expensive end of
+    town: a spire, a clinic, a weave shop, the vats, and a shrine to the Architect
+    backing onto the Curtain. <b>They aren't hiding.</b> They think they're winning.
+    Getting in is a different matter. There's a checkpoint that turns people away
+    rather than shooting them, unless you push it, and the thing that opens it is
+    work you won't be doing for a while yet. One of the most respectable companies in
+    the Basin is quietly theirs too, and nobody's going to tell you which.</p>
+  </div>
+
+  <div class="place" style="--c:var(--lw)">
+    <div class="who2">The Long Watch<small>Industrial east, and below it</small></div>
+    <p>There's no hall to walk into. The way in is through the industrial east, to
+    <b>the people who still fix things by hand</b>: a repair shop with a back room,
+    and a lookout in the deep sewer tunnels who wants a passphrase before he'll admit
+    anything at all. Behind a blast door there's a bunker where every room is there
+    to beat a specific problem. A wash where you leave networked gear at the door.
+    Its own water tap, because a meter ticking over is a fingerprint. A Faraday cage
+    that's the only place anything connected is allowed power. A printing press,
+    because orders travel on paper. Cameras don't reach it and police heat bleeds off
+    faster while you're inside. <b>They won't come and find you until you've picked a
+    side.</b></p>
+  </div>
+
+  <div class="place" style="--c:var(--wb)">
+    <div class="who2">The Wildblood<small>Outside, and in the cracks</small></div>
+    <p>No campus, because the whole point is that they left. What's in the city is
+    people who agree with them rather than an organisation: <b>Breakers</b> holding
+    the mouth of a freight lane, mixing something in bottles stoppered with oily rags,
+    taking a toll and not asking about your face. Where they actually live is the
+    poisoned ground outside the wall, where the rain isn't clean and the changes
+    they're so pleased about actually happen.</p>
+  </div>
+
+  <div class="place" style="--c:var(--exo)">
+    <div class="who2">The Exodus<small>Gone. Deliberately.</small></div>
+    <p>They left the Basin and won't say where they went. They're the only order whose
+    stated goal is leaving, and the only one that won't name a destination. What's
+    left behind are <b>small groups meeting in the dark</b>, down in the tunnels
+    where the signal doesn't reach. One of them sits with a fan of cut fibre-optic
+    plugged into the back of her skull and gets taken very seriously. If you want
+    what they teach, you go down, not out.</p>
+  </div>
+
+  <div class="place" style="--c:var(--dimmer)">
+    <div class="who2">The other five<small>Positions, not yet places</small></div>
+    <p>The Prometheans, Synthesis, Null, Pioneers and Lucid have seats on the chart
+    and pages in the reader, but <b>nowhere to visit yet</b>. You can more or less
+    guess where they'll end up from what they believe: an unlicensed workshop, a lab
+    that keeps the lights on, a settlement past the last streetlight.</p>
+  </div>
+
+</div>
+
+<h2 data-n="05">How you end up in one</h2>
+<p class="sub">There is no faction menu</p>
+
+<p>The game never asks you to pick. You start in the middle with no position at all,
+and it will quite happily leave you there forever.</p>
+
+<p>Your answers move when you <b>do things</b>. Run a job for a Long Watch handler
+and your stance shifts toward redeem, and your human score goes up with it. Let a
+back-alley surgeon put a jack in your skull and you've answered question two,
+whether or not you thought of it that way. The orders go by what you've been doing,
+not by anything you've said.</p>
+
+<div class="scroll">
+<table class="cmds">
+  <tbody>
+    <tr><td>ideologies</td><td>Your standing with every order, your stance slider, your strongest path, and which order you currently lean toward.</td></tr>
+    <tr><td>rep</td><td>The same screen. Shorter to type.</td></tr>
+    <tr><td>CODEX › Orders</td><td>The tablet reader: a page per order, their tenets and creed, who they're opposed to, and the chart with your dot on it.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="term">
+  <div class="bar"><i></i> ideologies</div>
+<pre><span class="you">&gt; rep</span>
+
+<span class="sys">─── STANDING ───────────────────────────────</span>
+  The Ascendants      <span class="dim">Unknown</span>        <span class="dim">-140</span>
+  The Long Watch      <span class="good">Trusted</span>        <span class="good">+525</span>
+  The Wildblood       <span class="dim">Neutral</span>          <span class="dim">+30</span>
+  The Exodus          <span class="dim">Neutral</span>           <span class="dim">0</span>
+
+<span class="sys">─── POSITION ───────────────────────────────</span>
+  Stance    RENOUNCE <span class="dim">[───────●──]</span> REDEEM   <span class="npc">+62</span>
+  Path      <span class="npc">human</span> <span class="dim">(machine 0 · flesh 12 · mind 0)</span>
+
+  You lean: <span class="npc">The Long Watch</span>
+</pre>
+</div>
+
+<p>That last line is <b>worked out, not chosen</b>: it's whichever order your stance
+and your highest path add up to. It can change under you, and it's supposed to. Run
+errands for the Watch for a month, then spend a month getting chromed, and you'll
+watch it move without ever announcing a change of heart.</p>
+
+<h2 data-n="06">What it costs you</h2>
+<p class="sub">The mechanical half</p>
+
+<h3>Prices</h3>
+<p>Standing has six tiers, and any shopkeeper who belongs to an order charges you
+based on yours. This is the part you'll notice first and most often.</p>
+
+<div class="scroll">
+<table class="cmds">
+  <thead><tr><th>Tier</th><th>Standing</th><th>At their vendors</th></tr></thead>
+  <tbody>
+    <tr><td>Hostile</td><td>below −200</td><td><b>+20% surcharge</b> — you can still shop, you just pay for the privilege</td></tr>
+    <tr><td>Unknown</td><td>−200 to 0</td><td>list price</td></tr>
+    <tr><td>Neutral</td><td>0 to 200</td><td>list price</td></tr>
+    <tr><td>Known</td><td>200 to 500</td><td>5% off</td></tr>
+    <tr><td>Trusted</td><td>500 to 900</td><td>15% off</td></tr>
+    <tr><td>Inner Circle</td><td>900+</td><td>25% off</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Doors</h3>
+<p>Some locks check your standing instead of taking a key. The Long Watch's blast
+door wants Trusted or better, and the door deeper inside wants Trusted <em>plus</em>
+proof you finished their vetting. Money won't open either one and neither will a
+lockpick. A few bank networks work the same way, so annoying an order can also mean
+an ATM that won't deal with you.</p>
+
+<h3>Work</h3>
+<p>Recruiters check where you stand before they'll start anything. The Watch's
+lookout in the tunnels won't give the passphrase to anyone leaning renounce, no
+matter how many favours you've done. And the Ascendant campus won't open up until
+you've been through the Watch's vetting first, which is a joke at your expense:
+<b>the order that hates chrome is how you find the chrome</b>.</p>
+
+<h3>Your body, and this one doesn't unwind</h3>
+<p>Question two isn't a badge you wear. It's the one answer that shuts a door behind
+you.</p>
+
+<ul class="ticks">
+  <li><b>Machine.</b> Augments are bought and chosen, and you only have so many
+  slots: armour under the skin, a co-processor, a sealed chassis, a backup that turns
+  dying into a rollback. Your <b>first install burns off every mutation you have</b>,
+  and after that you can't mutate at all.</li>
+  <li><b>Flesh.</b> Mutations are free and random, and once you've let the radiation
+  build up they aren't really your decision. Real upsides, real downsides,
+  permanent.</li>
+  <li><b>Human.</b> Nothing installed and nothing changed. You get better by getting
+  better, and the Watch's quartermasters stock the gear that pays off for it.</li>
+</ul>
+
+<div class="pull">
+  <p>Chrome and mutation lock each other out, and the human orders will hold either
+  one against you.</p>
+  <div class="who">— question two, in one line</div>
+</div>
+
+<h3>Enemies</h3>
+<p>There are eight standing grudges between the four live orders. Everyone is against
+the Ascendants, and the Long Watch and the Wildblood are against each other. No
+answer is free, and the Ascendant one costs the most, which is fairly deliberate.</p>
+
+<h2 data-n="07">Standing doesn't stay put</h2>
+<p class="sub">You keep it up or you lose it</p>
+
+<p>Reputation isn't a bank balance. It slides back toward neutral on its own, losing
+about half the gap every month of real time. That cuts both ways on purpose:</p>
+
+<ul class="ticks">
+  <li><b>Good standing fades.</b> Being Trusted is something you keep doing, not
+  something you did once. Stop turning up and you go back to being nobody in
+  particular.</li>
+  <li><b>Bad standing fades too.</b> A grudge isn't permanent. Burn a bridge and,
+  given long enough, you can walk back over it. One bad decision early on shouldn't
+  close off a quarter of the game.</li>
+</ul>
+
+<p>There's one exception. If you've taken the <em>opposite</em> answer on question
+one <b>and</b> a different road on question two, the slide stops early, at the top of
+Hostile. They stop actively hating you but they don't forget what you are. You can
+still climb out of it by doing the work; the world just won't do it for you.</p>
+
+<p>Either half on its own is a disagreement. It takes both to be an enemy.</p>
+
+<div class="note">
+  <span class="lbl">In practice</span>
+  You can be Known with three orders at once, and for a long time that's the sensible
+  way to play: cheaper shopping in several districts and nobody's problem.
+  Committing is what buys the doors, the gear and the body, and what costs you the
+  other corners.
+</div>
+
+<h2 data-n="08">And the Architect?</h2>
+<p class="sub">Deliberately unanswered</p>
+
+<p>All of the above is people arguing about something nobody can settle. Worth being
+clear about how little the game actually claims.</p>
+
+<p>What's known: it exists. It doesn't say much, and it's polite when it does. It has
+never given an order anyone could refuse, possibly because it has never given an
+order. The lights stay on. The shelves stay full. The wasteland outside stays a
+wasteland, and nobody has found the edge of whatever it's maintaining.</p>
+
+<p>That's the whole list. Every order will give you a theory that accounts for all of
+it, which is the problem: <b>they can't all be right and none of them can be
+checked</b>. The Architect isn't a boss, isn't a quest-giver and isn't building to a
+reveal. It's background. People mention it the way they used to mention traffic. The
+routing's been odd this week. Don't go near the old data center, it's running
+something heavy in there.</p>
+
+<div class="pull">
+  <p>Every one of those theories explains the evidence completely. That is not a
+  sign that one of them is right.</p>
+  <div class="who">— CODEX, Volume II</div>
+</div>
+
+<p>The long version is in the game, on your tablet, in two volumes. You're given the
+first one at the start. The second fills in a chapter at a time as you learn things,
+usually because somebody explained one to you.</p>
+
+<h2 data-n="09">What should a new player actually do?</h2>
+<p class="sub">Honest advice</p>
+
+<ul class="ticks">
+  <li><b>Nothing, for a while.</b> Get fed, get paid, get a weapon. This is all
+  mid-game stuff and none of them are looking for you yet.</li>
+  <li><b>Type <code>rep</code> now and then</b> and notice the numbers have moved
+  without you deciding anything. That's the system working.</li>
+  <li><b>Work the industrial east</b> if you want the earliest real contact. The
+  people who fix things by hand are much easier to find than a chrome campus, and
+  getting through their vetting is also what opens up the other side of the map.</li>
+  <li><b>Don't get chromed on a whim.</b> It's the one thing here that's genuinely
+  hard to undo, and it wipes out any mutations you were carrying.</li>
+  <li><b>Read the order pages</b> on the tablet before you commit to anything. All
+  nine are there, and every one of them is written to win you over rather than to be
+  fair.</li>
+  <li><b>Don't expect an answer.</b> Nobody here can prove they're right and the game
+  isn't going to step in and tell you who was.</li>
+</ul>
+
+<a class="nextcard" href="/tour.html">
+  <span class="lbl2">Part two</span>
+  <h4>Everything else that's in it</h4>
+  <p>The flight simulator, the weather that dissolves you, television with a cast
+  that has to turn up, chess, poker, shops, corps and rackets.</p>
+  <span class="go">Read part two →</span>
+</a>
+
+<a class="nextcard" href="/guide.html">
+  <span class="lbl2">Part one</span>
+  <h4>Your first hour</h4>
+  <p>What you're looking at, what to type, and what will kill you. Start here if
+  you've never opened a game like this.</p>
+  <span class="go">Read part one →</span>
+</a>
+
+<hr>
+<p class="foot">THE AI WON &nbsp;·&nbsp; YOU SURVIVED &nbsp;·&nbsp; PROBABLY</p>
+
+</div><!-- /wrap -->
+
+<section class="close">
+  <p class="eyebrow">Coldwater Basin</p>
+  <h2>Pick a side, or don’t. The lights stay on either way.</h2>
+  <p>It's free, it runs in a browser tab, and something that isn't us is paying the
+  electricity bill.</p>
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="/guide.html">← Part one</a>
+    <a class="btn ghost" href="/tour.html">Part two →</a>
+  </div>
+</section>
+
+</body>
+</html>

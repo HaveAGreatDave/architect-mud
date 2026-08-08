@@ -90,9 +90,23 @@ settings.density = _isMobile() ? "compact" : "comfortable";
 // using the stored fontSize value (which was picked for a different screen size).
 function applyMobileScale() {
 	if (settings.density !== "compact") return;
-	// ~28px of content per character column fits comfortably; clamp between 10–18px.
+	// An explicit Font Size pick wins over the auto-fit. The fit exists because a
+	// size chosen on a desktop is meaningless on a handset; it is not a reason to
+	// refuse a size chosen ON the handset.
+	if (settings.fontSizeChosen) {
+		document.documentElement.style.setProperty(
+			"--font-size-base",
+			(settings.fontSize || "16") + "px",
+		);
+		return;
+	}
+	// ~28px of content per character column fits comfortably; clamp between 12–18px.
+	// The floor used to be 10. It was safe when --font-size-base only drove the log
+	// and the chrome stayed at its hardcoded px sizes; now it is the ROOT font size,
+	// so a 10px root would take a 9px label down to 5.6px. 12 is the narrowest root
+	// the rest of the scale still reads at, and it only binds below ~340px wide.
 	const byWidth = Math.floor(window.innerWidth / 28);
-	const sz = Math.max(10, Math.min(18, byWidth));
+	const sz = Math.max(12, Math.min(18, byWidth));
 	document.documentElement.style.setProperty("--font-size-base", sz + "px");
 }
 

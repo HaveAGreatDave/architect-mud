@@ -470,8 +470,8 @@ function showColdStart(opts = {}) {
   // "waking" message. Neither names the hosting tier — that's our plumbing,
   // not something a player can act on.
   const body = opts.db
-    ? '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:11px">Just a moment...</span></div>'
-    : '<div style="color:var(--text-dim);font-size:12px;line-height:1.6">Connecting to the world.<br>This can take up to a minute.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
+    ? '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:0.6875rem">Just a moment...</span></div>'
+    : '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Connecting to the world.<br>This can take up to a minute.<br><span style="color:var(--text);font-size:0.6875rem">Reconnecting automatically...</span></div>';
   let el = document.getElementById('cold-start-notice');
   if (!el) {
     el = document.createElement('div');
@@ -482,8 +482,8 @@ function showColdStart(opts = {}) {
   // The button doesn't replace the automatic retry, it just skips the wait —
   // the backoff has usually grown to 15s by the time anyone is impatient enough
   // to look for it.
-  const btn = '<button id="cold-start-retry" style="margin-top:14px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:inherit;font-size:11px;letter-spacing:1px;padding:6px 16px;cursor:pointer;border-radius:2px">RECONNECT NOW</button>';
-  el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body + btn;
+  const btn = '<button id="cold-start-retry" style="margin-top:14px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:inherit;font-size:0.6875rem;letter-spacing:1px;padding:6px 16px;cursor:pointer;border-radius:2px">RECONNECT NOW</button>';
+  el.innerHTML = '<div style="color:var(--accent);font-size:0.8125rem;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body + btn;
   el.style.display = 'block';
   el.querySelector('#cold-start-retry').onclick = (e) => {
     const b = e.currentTarget;

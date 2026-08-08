@@ -31,23 +31,23 @@ function ensureStyles() {
       box-shadow:0 18px 50px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
       animation:kp-boot .22s ease-out; }
     @keyframes kp-boot { 0%{opacity:0;transform:scale(.985)} 100%{opacity:1;transform:scale(1)} }
-    #keypad-overlay .kp-brand { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#8d7a52; }
-    #keypad-overlay .kp-state { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:#6f6252; }
-    #keypad-overlay .kp-readout { margin:10px 0 12px; height:34px; display:flex; align-items:center; justify-content:center;
-      letter-spacing:12px; font-size:22px; color:#f0dca8; text-indent:12px;
+    #keypad-overlay .kp-brand { font-size:0.6875rem; letter-spacing:2.5px; text-transform:uppercase; color:#8d7a52; }
+    #keypad-overlay .kp-state { font-size:0.625rem; letter-spacing:2px; text-transform:uppercase; color:#6f6252; }
+    #keypad-overlay .kp-readout { margin:10px 0 12px; height:1.545em; display:flex; align-items:center; justify-content:center;
+      letter-spacing:12px; font-size:1.375rem; color:#f0dca8; text-indent:12px;
       background:#0a0908; border:1px solid rgba(200,161,90,.28); border-radius:3px;
       box-shadow:inset 0 0 14px rgba(200,161,90,.12); }
     #keypad-overlay .kp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
-    #keypad-overlay .kp-key { padding:11px 0; text-align:center; font-size:17px; color:#e6d3a6; cursor:pointer;
+    #keypad-overlay .kp-key { padding:11px 0; text-align:center; font-size:1.0625rem; color:#e6d3a6; cursor:pointer;
       background:linear-gradient(180deg,#2a2721,#16150f); border:1px solid rgba(200,161,90,.26); border-radius:3px;
       user-select:none; transition:background .1s, border-color .1s, transform .05s; }
     #keypad-overlay .kp-key:hover { border-color:rgba(200,161,90,.6); background:linear-gradient(180deg,#332f27,#1b1913); }
     #keypad-overlay .kp-key:active { transform:translateY(1px); }
-    #keypad-overlay .kp-key.kp-wide { grid-column:span 3; font-size:13px; letter-spacing:2px; }
+    #keypad-overlay .kp-key.kp-wide { grid-column:span 3; font-size:0.8125rem; letter-spacing:2px; }
     #keypad-overlay .kp-key.kp-go { color:#8fe0a0; border-color:rgba(143,224,160,.4); }
-    #keypad-overlay .kp-msg { margin-top:10px; min-height:15px; font-size:11px; letter-spacing:.5px; color:#8d7a52; text-align:center; }
+    #keypad-overlay .kp-msg { margin-top:10px; min-height:1.364em; font-size:0.6875rem; letter-spacing:.5px; color:#8d7a52; text-align:center; }
     #keypad-overlay .kp-msg.kp-bad { color:#ff6b7f; }
-    #keypad-overlay .kp-foot { margin-top:8px; font-size:10px; letter-spacing:1px; color:#5f5541; text-align:center; }
+    #keypad-overlay .kp-foot { margin-top:8px; font-size:0.625rem; letter-spacing:1px; color:#5f5541; text-align:center; }
     #keypad-overlay .kp-foot span { cursor:pointer; text-decoration:underline; }
   `;
   document.head.appendChild(s);

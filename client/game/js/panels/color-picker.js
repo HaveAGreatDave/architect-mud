@@ -86,15 +86,15 @@ function ensureStyles() {
       0 0 22px color-mix(in srgb, var(--hb-atm-accent) 18%, transparent); }
   @keyframes hbCpIn { from { opacity:0; transform:translateY(-6px) scale(0.97); } to { opacity:1; transform:none; } }
   .hb-cp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
-  .hb-cp-title { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
-  .hb-cp-close { width:22px; height:22px; padding:0; line-height:1; font-family:inherit; font-size:12px; cursor:pointer;
+  .hb-cp-title { font-size:0.5625rem; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); }
+  .hb-cp-close { width:1.833em; height:1.833em; padding:0; line-height:1; font-family:inherit; font-size:0.75rem; cursor:pointer;
     color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--hb-surf), var(--hb-surf-lo));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:6px;
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi); transition:filter .12s, color .12s; }
   .hb-cp-close:hover { filter:brightness(1.15); color:var(--tos-fg); border-color:var(--hb-atm-accent); }
   .hb-cp-close:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
   .hb-cp-foot { display:flex; gap:8px; margin-top:10px; }
-  .hb-cp-done { flex:1 1 auto; padding:8px; font-family:inherit; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+  .hb-cp-done { flex:1 1 auto; padding:8px; font-family:inherit; font-size:0.6875rem; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
     color:var(--tos-fg); border:1px solid var(--hb-atm-accent); border-radius:7px;
     background:linear-gradient(165deg, color-mix(in srgb, var(--hb-atm-accent) 32%, var(--bg2)), color-mix(in srgb, var(--hb-atm-accent) 15%, var(--bg2)));
     box-shadow:inset 0 1px 0 var(--hb-bevel-hi), inset 0 -2px 4px var(--hb-bevel-lo), 0 2px 5px rgba(0,0,0,0.28), 0 0 12px color-mix(in srgb, var(--hb-atm-accent) 30%, transparent);
@@ -116,7 +116,7 @@ function ensureStyles() {
   .hb-cp-q { height:16px; padding:0; border-radius:4px; cursor:pointer; border:1px solid rgba(0,0,0,0.35);
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.3); transition:transform .1s, box-shadow .1s; }
   .hb-cp-q:hover { transform:scale(1.18); box-shadow:0 0 8px color-mix(in srgb, var(--hb-atm-accent) 60%, transparent); }
-  .hb-cp-hex-input { flex:0 0 92px; box-sizing:border-box; padding:6px 8px; font-family:inherit; font-size:11px; text-align:center; letter-spacing:1px;
+  .hb-cp-hex-input { flex:0 0 92px; box-sizing:border-box; padding:6px 8px; font-family:inherit; font-size:0.6875rem; text-align:center; letter-spacing:1px;
     color:var(--tos-fg); background:color-mix(in srgb, var(--hb-atm-accent) 8%, var(--bg2));
     border:1px solid color-mix(in srgb, var(--hb-atm-accent) 30%, transparent); border-radius:7px; outline:none; }
   .hb-cp-hex-input:focus { border-color:var(--hb-atm-accent); box-shadow:0 0 0 2px color-mix(in srgb, var(--hb-atm-accent) 22%, transparent); }

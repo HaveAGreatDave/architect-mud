@@ -241,6 +241,95 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   else ok('`displaymode` is reachable without a tablet');
 }
 
+// ── The type scale ───────────────────────────────────────────────────────────
+// WCAG 1.4.4 asks that text scale to 200% without loss of content or function.
+// The Font Size setting used to sit on `body` while 629 font-sizes in styles.css
+// were hardcoded px, so raising it enlarged the log and the room pane and left
+// the sidebar, the smartbar, every label and every panel at 11px — a setting
+// that looked like it worked and stopped helping exactly where it mattered.
+//
+// The fix is one line (`html { font-size: var(--font-size-base) }`) plus the
+// invariant below: nothing in the sheet may reintroduce an absolute font-size,
+// because a single px value is a piece of the interface that never grows again.
+{
+  if (/^html\s*\{[^}]*font-size:\s*var\(--font-size-base\)/m.test(css)) {
+    ok('the root font-size is driven by --font-size-base — the setting scales the whole interface');
+  } else {
+    bad('styles.css no longer hangs `html { font-size: var(--font-size-base) }` — the Font Size setting now scales nothing but whatever still inherits it');
+  }
+
+  // `max(1rem, 16px)` is deliberately not matched: an input under 16px makes iOS
+  // zoom the viewport on focus, so those two need an absolute floor.
+  const stray = [];
+  css.split('\n').forEach((line, i) => {
+    if (/(^|[^-\w])font-size:\s*[0-9.]+px/.test(line)) stray.push(i + 1);
+  });
+  if (stray.length) {
+    bad(`${stray.length} absolute px font-size(s) in styles.css (line${stray.length > 1 ? 's' : ''} ${stray.slice(0, 8).join(', ')}${stray.length > 8 ? ', …' : ''}) — use rem against the 16px reference root, or that text can never be enlarged`);
+  } else ok('every font-size in styles.css is relative');
+
+  const strayHtml = [];
+  html.split('\n').forEach((line, i) => {
+    if (/(^|[^-\w])font-size:\s*[0-9.]+px/.test(line)) strayHtml.push(i + 1);
+  });
+  if (strayHtml.length) {
+    bad(`${strayHtml.length} absolute px font-size(s) in index.html (line${strayHtml.length > 1 ? 's' : ''} ${strayHtml.slice(0, 8).join(', ')}${strayHtml.length > 8 ? ', …' : ''}) — the auth screen and the sidebar live here`);
+  } else ok('every font-size in index.html is relative');
+
+  // The setting is only as good as its top rung. 32px = 200% of the reference.
+  const tos = readFileSync('client/game/js/panels/tablet-os.js', 'utf8');
+  const grp = tos.slice(tos.indexOf("key: 'fontSize'"), tos.indexOf("key: 'fontSize'") + 700);
+  const rungs = [...grp.matchAll(/v: '(\d+)'/g)].map(m => +m[1]);
+  if (Math.max(...rungs, 0) >= 32) ok(`Font Size reaches ${Math.max(...rungs)}px (${Math.round(Math.max(...rungs) / 16 * 100)}% of the reference root)`);
+  else bad(`Font Size tops out at ${Math.max(...rungs, 0)}px — WCAG 1.4.4 wants 200% of the 16px root, i.e. a 32 rung`);
+
+  // ── The reading surfaces whose CSS lives in JS ─────────────────────────────
+  // Roughly half the client's type is in template strings under js/panels/. The
+  // split is NOT arbitrary and is not "whatever we got to": a surface you READ
+  // scales, a surface you ACT through has a text rung instead (that is the whole
+  // Display Mode contract above). Scaling a flight instrument's 7px label would
+  // overlap the gauge beside it and buy nobody anything, because the accessible
+  // path off the cockpit is `displaymode textgames`, not a bigger cockpit.
+  //
+  // Moving a file between these lists is a real decision. Make it here.
+  const SCALES = [
+    'panels/tablet-os', 'panels/whisper', 'panels/corp-console', 'panels/who',
+    'panels/admin', 'panels/keypad', 'panels/color-picker', 'panels/deviceinspect',
+    'panels/textui', 'panels/textcockpit', 'panels/minigame-common',
+    'net', 'dispatch', 'markup',
+  ];
+  const strayJs = [];
+  for (const f of SCALES) {
+    const src = readFileSync(`client/game/js/${f}.js`, 'utf8');
+    const hits = (src.match(/(^|[^-\w])font-size:\s*[0-9.]+px/g) || []).length;
+    if (hits) strayJs.push(`${f}.js (${hits})`);
+  }
+  if (strayJs.length) {
+    bad(`absolute px font-size(s) reintroduced in a reading surface: ${strayJs.join(', ')} — these are the panels a player enlarges text to read`);
+  } else ok(`every font-size in the ${SCALES.length} reading-surface panels is relative`);
+
+  // The two text rungs are the accessible PRESENTATION. If they were left at a
+  // hardcoded 12px the ladder would bottom out on a surface nobody can enlarge.
+  for (const f of ['textui', 'textcockpit']) {
+    const src = readFileSync(`client/game/js/panels/${f}.js`, 'utf8');
+    if (/font-size:\s*[0-9.]+rem/.test(src)) ok(`${f}.js scales — the text rung is not a fixed-size surface`);
+    else bad(`${f}.js has no relative font-size — the text presentation itself cannot be enlarged`);
+  }
+
+  // A device chassis in px is a box the text outgrows. In rem the DEVICE grows
+  // and the viewport clamps take over, which is the behaviour a real handset has.
+  const tosSrc = readFileSync('client/game/js/panels/tablet-os.js', 'utf8');
+  if (/\.tos-panel\s*\{\s*width:min\([0-9.]+rem/.test(tosSrc)) ok('the tablet chassis scales with the type, rather than trapping it');
+  else bad('the .tos-panel chassis is back to absolute px — enlarged tablet text now has nowhere to go');
+
+  // On a phone the width auto-fit WRITES --font-size-base, so without an opt-out
+  // it silently overrules the pills for the players most likely to need them.
+  const mainJs = readFileSync('client/game/js/main.js', 'utf8');
+  if (/fontSizeChosen/.test(mainJs) && /fontSizeChosen/.test(tos)) {
+    ok('an explicitly chosen font size outranks the mobile width auto-fit');
+  } else bad('applyMobileScale no longer honours fontSizeChosen — the Font Size setting does nothing at all on a phone');
+}
+
 // ── Live regions elsewhere ───────────────────────────────────────────────────
 // The rule is NOT "exactly one live region" — that was too strong. A one-token,
 // user-triggered readout is a legitimate ARIA pattern. The real constraint is

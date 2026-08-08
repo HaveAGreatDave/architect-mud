@@ -269,7 +269,12 @@ function ensureStyles() {
        parsed as JavaScript, and ensureStyles threw "no is not defined" at runtime.
        A node --check passes anyway, because the result is still valid JS — so the only
        symptom is the tablet silently refusing to open. */
-    #tablet-os-overlay .tos-panel { width:min(760px,96vw); height:820px; max-height:94vh; display:flex; flex-direction:column;
+    /* The chassis is sized in rem, so the DEVICE grows with the type scale instead
+       of the text growing inside a box that doesn't. 47.5rem/51.25rem is exactly
+       760/820px at the default rung; at the 200% rung it asks for twice that and
+       the viewport clamps take over, which is the right answer — big text, big
+       device, and .tos-scroll absorbs whatever is still left over. */
+    #tablet-os-overlay .tos-panel { width:min(47.5rem,96vw); height:min(51.25rem,94vh); max-height:94vh; display:flex; flex-direction:column;
       position:relative; overflow:hidden; color:var(--mg-accent); transform-origin:center center;
       background:
         linear-gradient(160deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 14%, transparent 30%),
@@ -349,7 +354,7 @@ function ensureStyles() {
     #tablet-os-overlay *::-webkit-scrollbar-thumb:hover {
       background:color-mix(in srgb, var(--mg-accent) 68%, transparent); }
     #tablet-os-overlay *::-webkit-scrollbar-corner { background:transparent; }
-    #tablet-os-overlay .tos-body { padding:14px 13px; font-size:13.5px; }
+    #tablet-os-overlay .tos-body { padding:14px 13px; font-size:0.8438rem; }
     /* ── Sticky chrome ───────────────────────────────────────────────────────
        The status row (location · clock) and the breadcrumb (Back) live INSIDE
        the scrolling body, so on any long screen they scrolled away — you lost
@@ -382,17 +387,17 @@ function ensureStyles() {
     #tablet-os-overlay .tos-boot { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column;
       align-items:center; justify-content:center; gap:7px; background:var(--bg, #0c1114); }
     #tablet-os-overlay .tos-boot-logo { width:36px; height:36px; border-radius:50%; border:2px solid var(--mg-accent);
-      display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:bold; color:var(--mg-accent);
+      display:flex; align-items:center; justify-content:center; font-size:1.1875rem; font-weight:bold; color:var(--mg-accent);
       text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 70%, transparent);
       box-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent), inset 0 0 8px color-mix(in srgb, var(--mg-accent) 25%, transparent);
       margin-bottom:2px; animation:tos-boot-flicker .9s ease-in-out; }
-    #tablet-os-overlay .tos-boot-title { font-size:20px; letter-spacing:8px; color:var(--mg-accent);
+    #tablet-os-overlay .tos-boot-title { font-size:1.25rem; letter-spacing:8px; color:var(--mg-accent);
       text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 65%, transparent); animation:tos-boot-flicker .9s ease-in-out; }
-    #tablet-os-overlay .tos-boot-sub { font-size:10px; letter-spacing:3px; color:var(--mg-accent); opacity:.55; text-transform:uppercase; }
+    #tablet-os-overlay .tos-boot-sub { font-size:0.625rem; letter-spacing:3px; color:var(--mg-accent); opacity:.55; text-transform:uppercase; }
     @keyframes tos-boot-flicker { 0%{opacity:0} 10%{opacity:1} 14%{opacity:.25} 18%{opacity:1} 100%{opacity:1} }
 
     /* Header strip: time / location, persistent regardless of screen */
-    #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-hdr { display:flex; justify-content:space-between; font-size:0.6875rem; letter-spacing:1px; color:var(--tos-fg-dim); margin-bottom:8px; text-transform:uppercase; }
     #tablet-os-overlay .tos-hdr b { color:var(--mg-accent); }
     #tablet-os-overlay .tos-hdr-right { display:inline-flex; align-items:center; gap:9px; }
     #tablet-os-overlay .tos-hdr-left, #tablet-os-overlay .tos-hdr-loc { align-self:center; }
@@ -401,7 +406,7 @@ function ensureStyles() {
        It's a button because it opens the Alarm app — styled back down to look like
        part of the bar rather than a control. */
     #tablet-os-overlay .tos-hdr-clock {
-      font: inherit; font-size:17px; line-height:1; letter-spacing:.5px;
+      font: inherit; font-size:1.0625rem; line-height:1; letter-spacing:.5px;
       font-variant-numeric:tabular-nums; color:var(--mg-accent);
       background:none; border:0; padding:0 1px; margin:0; cursor:pointer;
       transition:opacity .15s linear, text-shadow .15s linear;
@@ -420,7 +425,7 @@ function ensureStyles() {
        the rest of the screen text) and, once locked, a steady WEAK SIGNAL · OFF GRID
        that stays put for the rest of the crossing. No gating either way. */
     #tablet-os-overlay .tos-void-badge { display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono,monospace);
-      font-size:9px; font-weight:700; letter-spacing:1.5px; color:var(--mg-accent); text-transform:uppercase; }
+      font-size:0.5625rem; font-weight:700; letter-spacing:1.5px; color:var(--mg-accent); text-transform:uppercase; }
     #tablet-os-overlay .tos-void-badge.searching { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-void-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--mg-accent);
       box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 70%, transparent); animation:tos-void-badge-pulse 2.6s ease-in-out infinite; }
@@ -440,8 +445,8 @@ function ensureStyles() {
        (JS-driven, see runVoidFirmwareBoot) — no whole-screen strobing anywhere. */
     #tablet-os-overlay .tos-void-boot { position:absolute; inset:0; z-index:6; display:flex; flex-direction:column;
       justify-content:center; gap:2px; padding:16px 18px; background:var(--bg, #0c1114);
-      font-family:var(--font-mono,monospace); font-size:10.5px; letter-spacing:.6px; }
-    #tablet-os-overlay .tos-void-boot-hd { color:var(--mg-accent); font-size:11.5px; letter-spacing:2.5px; font-weight:700;
+      font-family:var(--font-mono,monospace); font-size:0.6563rem; letter-spacing:.6px; }
+    #tablet-os-overlay .tos-void-boot-hd { color:var(--mg-accent); font-size:0.7188rem; letter-spacing:2.5px; font-weight:700;
       text-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent); margin-bottom:2px; }
     #tablet-os-overlay .tos-void-boot-rule { border-top:1px solid color-mix(in srgb, var(--mg-accent) 35%, transparent); margin:2px 0 6px; }
     #tablet-os-overlay .tos-void-bootline { color:var(--tos-fg-dim); white-space:pre; overflow:hidden; text-overflow:ellipsis;
@@ -473,7 +478,7 @@ function ensureStyles() {
       63%{opacity:1} 65%{opacity:.25} 67%{opacity:.85} 69%{opacity:1} 88%{opacity:1} 90%{opacity:.5} 92%{opacity:1} }
     [data-motion="off"] #tablet-os-overlay .tos-panel.tos-void-searching .tos-scroll { animation:none; opacity:.85; }
     #tablet-os-overlay .tos-void-hunt { position:absolute; left:0; right:0; bottom:0; z-index:7; pointer-events:none;
-      padding:5px 0 6px; text-align:center; font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:2px;
+      padding:5px 0 6px; text-align:center; font-family:var(--font-mono,monospace); font-size:0.5625rem; letter-spacing:2px;
       text-transform:uppercase; color:var(--tos-fg-dim);
       background:linear-gradient(to top, color-mix(in srgb, var(--bg, #0c1114) 92%, transparent), transparent); }
     #tablet-os-overlay .tos-panel:not(.tos-void-searching) .tos-void-hunt { display:none; }
@@ -508,10 +513,10 @@ function ensureStyles() {
       background:repeating-linear-gradient(0deg, rgba(255,255,255,.045) 0 1px, transparent 1px 3px), #05070a; }
     #tablet-os-overlay .tos-tv-dead-bars { display:flex; gap:0; width:76%; height:46px; border-radius:3px; overflow:hidden; opacity:.5; }
     #tablet-os-overlay .tos-tv-dead-bars i { flex:1; }
-    #tablet-os-overlay .tos-tv-dead-t { font-family:var(--font-mono,monospace); font-size:12px; font-weight:700; letter-spacing:4px;
+    #tablet-os-overlay .tos-tv-dead-t { font-family:var(--font-mono,monospace); font-size:0.75rem; font-weight:700; letter-spacing:4px;
       color:var(--mg-accent); text-transform:uppercase; animation:tos-void-textflicker 2.6s steps(1,end) infinite; }
     [data-motion="off"] #tablet-os-overlay .tos-tv-dead-t { animation:none; }
-    #tablet-os-overlay .tos-tv-dead-s { font-family:var(--font-mono,monospace); font-size:9.5px; letter-spacing:2px;
+    #tablet-os-overlay .tos-tv-dead-s { font-family:var(--font-mono,monospace); font-size:0.5938rem; letter-spacing:2px;
       color:var(--tos-fg-dim); text-transform:uppercase; }
 
     /* Player summary strip: persistent across every screen. Pseudo-3D raised
@@ -519,20 +524,20 @@ function ensureStyles() {
        shadow, instead of a flat near-black box. */
     #tablet-os-overlay .tos-summary { display:flex; justify-content:space-between; gap:10px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
-      border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:6px; padding:9px 11px; margin-bottom:11px; font-size:12.5px; flex-wrap:wrap;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:6px; padding:9px 11px; margin-bottom:11px; font-size:0.7813rem; flex-wrap:wrap;
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.2); }
     #tablet-os-overlay .tos-summary span { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-summary b { color:var(--tos-fg); }
 
     /* Breadcrumb + back */
-    #tablet-os-overlay .tos-crumb { display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); margin-bottom:9px; }
+    #tablet-os-overlay .tos-crumb { display:flex; align-items:center; gap:8px; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); margin-bottom:9px; }
     #tablet-os-overlay .tos-crumb .tos-back { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:2px 8px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-crumb .tos-back:hover { filter:brightness(1.15); }
     #tablet-os-overlay .tos-crumb .tos-back:active { transform:translateY(1px); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
     /* In-app tab strip (renderTosTabs) — sits under the breadcrumb, e.g. Frontier's Routes / Map. */
     #tablet-os-overlay .tos-tabs { display:flex; gap:4px; margin-bottom:11px; border-bottom:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-tab { font:inherit; font-size:12px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    #tablet-os-overlay .tos-tab { font:inherit; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
       color:var(--tos-fg-dim); background:none; border:0; border-bottom:2px solid transparent; padding:6px 12px; margin-bottom:-1px; }
     #tablet-os-overlay .tos-tab:hover { color:var(--tos-fg); }
     #tablet-os-overlay .tos-tab.active { color:var(--mg-accent); border-bottom-color:var(--mg-accent);
@@ -547,8 +552,8 @@ function ensureStyles() {
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 2px 5px rgba(0,0,0,0.22);
       transition:filter .12s, box-shadow .12s, transform .05s; }
     /* Notification badge (e.g. SPECTER reels waiting to be clipped). */
-    #tablet-os-overlay .tos-tile .tos-tile-badge { position:absolute; top:-5px; right:-5px; min-width:16px; height:16px; padding:0 4px; border-radius:9px;
-      font-size:10px; font-weight:bold; line-height:16px; color:#fff; background:var(--red,#e0413a); box-shadow:0 0 7px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
+    #tablet-os-overlay .tos-tile .tos-tile-badge { position:absolute; top:-5px; right:-5px; min-width:1.6em; height:1.6em; padding:0 4px; border-radius:9px;
+      font-size:0.625rem; font-weight:bold; line-height:1.6em; color:#fff; background:var(--red,#e0413a); box-shadow:0 0 7px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
     #tablet-os-overlay .tos-tile:hover { filter:brightness(1.15);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo), 0 3px 8px rgba(0,0,0,0.28), 0 0 14px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-tile:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
@@ -565,7 +570,7 @@ function ensureStyles() {
       background:conic-gradient(var(--mg-accent) calc(var(--ipct,0) * 1%), color-mix(in srgb, var(--mg-accent) 16%, transparent) 0);
       -webkit-mask:radial-gradient(circle, transparent 11px, #000 12px); mask:radial-gradient(circle, transparent 11px, #000 12px); }
     #tablet-os-overlay .tos-install-pct { position:absolute; left:0; right:0; bottom:9px; pointer-events:none;
-      font-size:10px; letter-spacing:.5px; color:var(--mg-accent); text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+      font-size:0.625rem; letter-spacing:.5px; color:var(--mg-accent); text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     /* The one-shot flash when it completes and the tile goes live. */
     @keyframes tos-installed { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--mg-accent) 70%, transparent); }
       100% { box-shadow:0 0 0 14px transparent; } }
@@ -579,9 +584,9 @@ function ensureStyles() {
     .tos-tile-drag { position:fixed; z-index:9300; pointer-events:none; box-sizing:border-box; text-align:center;
       display:flex; flex-direction:column; align-items:center; justify-content:center; margin:0;
       transform:scale(1.07); opacity:.96; box-shadow:0 8px 22px rgba(0,0,0,.5); }
-    .tos-tile-drag .tos-icon { font-size:21px; display:block; margin-bottom:4px; }
+    .tos-tile-drag .tos-icon { font-size:1.3125rem; display:block; margin-bottom:4px; }
     .tos-tile-drag .tos-icon svg { width:22px; height:22px; }
-    .tos-tile-drag .tos-name { font-size:11px; letter-spacing:.5px; }
+    .tos-tile-drag .tos-name { font-size:0.6875rem; letter-spacing:.5px; }
     /* Dragged off the tablet: the clone reddens to signal "release = remove". */
     .tos-tile-drag.tos-tile-removing { transform:scale(.92); opacity:.7;
       border-color:var(--red,#e0413a) !important; box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px color-mix(in srgb, var(--red,#e0413a) 60%, transparent); }
@@ -608,7 +613,7 @@ function ensureStyles() {
        cards sit at the same place on every page and with any number of apps. Sized
        rows (not 1fr) are the point — 1fr rows collapse when a page is half empty,
        which slid everything below them up and made the furniture move. */
-    #tablet-os-overlay { --tos-tile-h:66px; }
+    #tablet-os-overlay { --tos-tile-h:4.125rem; }
     #tablet-os-overlay .tos-homegrid { grid-auto-flow:row dense;
       grid-auto-rows:var(--tos-tile-h); align-content:start;
       min-height:calc(var(--tos-tile-h) * 4 + 8px * 3); }
@@ -627,7 +632,7 @@ function ensureStyles() {
     /* Label: a thin strip INSIDE the box's own footprint, so grouping never asks the
        grid for extra height. The member tiles give up those few pixels, not the page. */
     #tablet-os-overlay .tos-appgroup-tab { flex:0 0 auto; display:flex; align-items:center; gap:5px; cursor:grab;
-      padding:1px 3px 3px; font-size:8px; letter-spacing:1.1px; text-transform:uppercase; min-width:0; }
+      padding:1px 3px 3px; font-size:0.5rem; letter-spacing:1.1px; text-transform:uppercase; min-width:0; }
     #tablet-os-overlay .tos-appgroup-tab:active { cursor:grabbing; }
     /* Inner grid: as many columns as the box is wide, filling the rest of the box.
        Members sit flush (gap:0) so the tint reads as ONE region rather than five
@@ -652,9 +657,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-grp-inner .ge-t.ge-r { border-top-right-radius:7px; }
     #tablet-os-overlay .tos-grp-inner .ge-b.ge-l { border-bottom-left-radius:7px; }
     #tablet-os-overlay .tos-grp-inner .ge-b.ge-r { border-bottom-right-radius:7px; }
-    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:17px; margin-bottom:2px; }
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:1.0625rem; margin-bottom:2px; }
     #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:18px; height:18px; }
-    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:8.5px; letter-spacing:.2px;
+    #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:0.5313rem; letter-spacing:.2px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     #tablet-os-overlay .tos-appgroup-swatch { width:6px; height:6px; border-radius:50%; flex:0 0 auto;
       background:var(--tos-grp, var(--mg-accent)); box-shadow:0 0 4px color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 70%, transparent); }
@@ -684,7 +689,7 @@ function ensureStyles() {
        grid of tiles under the pointer would be both heavy and illegible. Same
        fixed/unscoped placement as .tos-tile-drag. */
     .tos-group-drag { position:fixed; z-index:9300; pointer-events:none; display:flex; align-items:center; gap:6px;
-      padding:6px 12px; border-radius:7px; font-size:10.5px; letter-spacing:.6px; text-transform:uppercase;
+      padding:6px 12px; border-radius:7px; font-size:0.6563rem; letter-spacing:.6px; text-transform:uppercase;
       color:var(--tos-fg, #eee); background:color-mix(in srgb, var(--tos-grp, var(--mg-accent)) 22%, #14181b);
       border:1px solid var(--tos-grp, var(--mg-accent)); box-shadow:0 8px 22px rgba(0,0,0,.5); }
     .tos-group-drag .tos-appgroup-swatch { background:var(--tos-grp, var(--mg-accent)); }
@@ -707,10 +712,10 @@ function ensureStyles() {
     /* Page-turn edges — live only while a tile or a box is in the air. They start
        as a hint and light up under the finger; the fill is the dwell you're holding
        for, so the page never turns without warning you first. */
-    #tablet-os-overlay .tos-page-edge { position:absolute; top:0; bottom:34px; width:42px; z-index:60;
+    #tablet-os-overlay .tos-page-edge { position:absolute; top:0; bottom:34px; width:1.909em; z-index:60;
       pointer-events:none; display:flex; align-items:center; justify-content:center;
       opacity:.32; transition:opacity .15s ease, background-color .15s ease;
-      font-size:22px; line-height:1; color:var(--mg-accent);
+      font-size:1.375rem; line-height:1; color:var(--mg-accent);
       background:linear-gradient(to right, color-mix(in srgb, var(--mg-accent) 20%, transparent), transparent); }
     #tablet-os-overlay .tos-page-edge.left { left:0; }
     #tablet-os-overlay .tos-page-edge.right { right:0;
@@ -752,7 +757,7 @@ function ensureStyles() {
       transition:filter .12s, box-shadow .12s; }
     #tablet-os-overlay .tos-widget:hover { filter:brightness(1.1);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 3px 9px rgba(0,0,0,.3); }
-    #tablet-os-overlay .tos-wg-title { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+    #tablet-os-overlay .tos-wg-title { font-size:0.5313rem; letter-spacing:1.6px; text-transform:uppercase;
       color:var(--tos-fg-dim2); margin-bottom:7px; }
     /* Press-hold confirm. Sits over its own card and nothing else — the card is
        still readable through it, because the question is about that card. */
@@ -761,8 +766,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-arm { position:absolute; inset:0; border-radius:8px; z-index:3;
       display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px;
       background:color-mix(in srgb, var(--bg, #0c1114) 82%, transparent); backdrop-filter:blur(1.5px); }
-    #tablet-os-overlay .tos-wg-armq { font-size:9.5px; letter-spacing:.6px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-wg-armbtn { cursor:pointer; font-size:9.5px; letter-spacing:1.1px; text-transform:uppercase;
+    #tablet-os-overlay .tos-wg-armq { font-size:0.5938rem; letter-spacing:.6px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-armbtn { cursor:pointer; font-size:0.5938rem; letter-spacing:1.1px; text-transform:uppercase;
       padding:3px 11px; border-radius:4px; color:var(--red, #e0413a);
       border:1px solid color-mix(in srgb, var(--red, #e0413a) 45%, transparent); }
     #tablet-os-overlay .tos-wg-armbtn.alt { color:var(--tos-fg-dim);
@@ -770,8 +775,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-armbtn:hover { filter:brightness(1.25); }
     /* meters */
     #tablet-os-overlay .tos-wg-meter { display:grid; grid-template-columns:1fr auto; gap:2px 6px; margin-bottom:6px; }
-    #tablet-os-overlay .tos-wg-mlabel { font-size:9.5px; letter-spacing:.4px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-wg-mnote { grid-column:2; grid-row:1; font-size:8.5px; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-wg-mlabel { font-size:0.5938rem; letter-spacing:.4px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-mnote { grid-column:2; grid-row:1; font-size:0.5313rem; color:var(--tos-fg-dim2);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:96px; text-align:right; }
     #tablet-os-overlay .tos-wg-mbar { grid-column:1 / -1; height:4px; border-radius:2px; overflow:hidden;
       background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
@@ -781,11 +786,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-mfill.band-crit { background:var(--red, #e0413a); }
     /* Glyph-led lines: a big mark carries the meaning, the words confirm it. */
     #tablet-os-overlay .tos-wg-glyphed { display:flex; align-items:center; gap:9px; min-width:0; }
-    #tablet-os-overlay .tos-wg-glyph { flex:0 0 auto; font-size:24px; line-height:1; opacity:.9;
+    #tablet-os-overlay .tos-wg-glyph { flex:0 0 auto; font-size:1.5rem; line-height:1; opacity:.9;
       filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent)); }
     #tablet-os-overlay .tos-wg-lstack { flex:1; min-width:0; }
-    #tablet-os-overlay .tos-wg-line.lead { font-size:12.5px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-wg-line.lead + .tos-wg-line { font-size:9.5px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-wg-line.lead { font-size:0.7813rem; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-wg-line.lead + .tos-wg-line { font-size:0.5938rem; color:var(--tos-fg-dim); }
     /* bar: a stacked proportion + a keyed legend. */
     #tablet-os-overlay .tos-wg-track { display:flex; height:9px; border-radius:5px; overflow:hidden; gap:1px;
       background:rgba(0,0,0,.45); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
@@ -794,7 +799,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-seg.tone-warn { background:var(--yellow, #d8c23f); }
     #tablet-os-overlay .tos-wg-seg.tone-bad  { background:var(--red, #e0413a); }
     #tablet-os-overlay .tos-wg-legend { display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:7px; }
-    #tablet-os-overlay .tos-wg-key { display:inline-flex; align-items:center; gap:4px; font-size:9px;
+    #tablet-os-overlay .tos-wg-key { display:inline-flex; align-items:center; gap:4px; font-size:0.5625rem;
       letter-spacing:.3px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-wg-swatch { width:7px; height:7px; border-radius:2px; flex:0 0 auto; }
     #tablet-os-overlay .tos-wg-swatch.tone-good { background:var(--mg-accent); }
@@ -802,17 +807,17 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wg-swatch.tone-bad  { background:var(--red, #e0413a); }
     /* stat */
     #tablet-os-overlay .tos-wg-stat { display:flex; align-items:baseline; gap:7px; min-width:0; }
-    #tablet-os-overlay .tos-wg-icon { font-size:22px; line-height:1;
+    #tablet-os-overlay .tos-wg-icon { font-size:1.375rem; line-height:1;
       filter:drop-shadow(0 0 6px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
-    #tablet-os-overlay .tos-wg-big { font-size:19px; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
-    #tablet-os-overlay .tos-wg-sub { flex:1; min-width:0; font-size:9.5px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-wg-big { font-size:1.1875rem; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
+    #tablet-os-overlay .tos-wg-sub { flex:1; min-width:0; font-size:0.5938rem; color:var(--tos-fg-dim);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; }
     #tablet-os-overlay .tos-wg-stat.tone-warn .tos-wg-big { color:var(--yellow, #d8c23f); }
     #tablet-os-overlay .tos-wg-stat.tone-bad .tos-wg-big { color:var(--red, #e0413a); }
-    #tablet-os-overlay .tos-wg-note { margin-top:6px; font-size:8.5px; letter-spacing:.3px; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-wg-note { margin-top:6px; font-size:0.5313rem; letter-spacing:.3px; color:var(--tos-fg-dim2);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* lines */
-    #tablet-os-overlay .tos-wg-line { display:flex; gap:6px; justify-content:space-between; font-size:10px;
+    #tablet-os-overlay .tos-wg-line { display:flex; gap:6px; justify-content:space-between; font-size:0.625rem;
       color:var(--tos-fg); margin-bottom:4px; min-width:0; }
     #tablet-os-overlay .tos-wg-line > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-wg-lsub { color:var(--tos-fg-dim2); white-space:nowrap; }
@@ -834,12 +839,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-hbar-btn.on { color:var(--mg-accent);
       border-color:color-mix(in srgb, var(--mg-accent) 55%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 0 10px color-mix(in srgb, var(--mg-accent) 20%, transparent); }
-    #tablet-os-overlay .tos-hbar-ic { font-size:14px; line-height:1; }
+    #tablet-os-overlay .tos-hbar-ic { font-size:0.875rem; line-height:1; }
     #tablet-os-overlay .tos-hbar-ic.srch { color:var(--mg-accent); padding:0 2px 0 4px; }
-    #tablet-os-overlay .tos-hbar-lb { font-size:7.5px; letter-spacing:.8px; text-transform:uppercase;
+    #tablet-os-overlay .tos-hbar-lb { font-size:0.4688rem; letter-spacing:.8px; text-transform:uppercase;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
     /* Find field — takes the whole strip while it's open; Done gives the row back. */
-    #tablet-os-overlay .tos-hbar-input { flex:1 1 auto; min-width:0; padding:5px 8px; font:inherit; font-size:12px;
+    #tablet-os-overlay .tos-hbar-input { flex:1 1 auto; min-width:0; padding:5px 8px; font:inherit; font-size:0.75rem;
       color:var(--tos-fg); background:var(--bg, #0c1114); border-radius:6px;
       border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); }
     #tablet-os-overlay .tos-hbar.searching .tos-hbar-btn { flex:0 0 auto; min-width:52px; }
@@ -863,29 +868,29 @@ function ensureStyles() {
     html[data-density="compact"] #tablet-os-overlay .tos-anchor { left:0; top:0; transform:none; width:100vw; }
     /* Tighter tiles: the icon carries the recognition, the label just confirms it.
        The row height shrinks with them so the reserved four-row block still fits. */
-    html[data-density="compact"] #tablet-os-overlay { --tos-tile-h:56px; }
+    html[data-density="compact"] #tablet-os-overlay { --tos-tile-h:3.5rem; }
     html[data-density="compact"] #tablet-os-overlay .tos-homegrid { min-height:calc(var(--tos-tile-h) * 4 + 6px * 3); }
     html[data-density="compact"] #tablet-os-overlay .tos-grid { gap:6px; }
     html[data-density="compact"] #tablet-os-overlay .tos-tile { padding:7px 3px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:3px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon { font-size:1.125rem; margin-bottom:3px; }
     html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-icon svg { width:19px; height:19px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name { font-size:9px; letter-spacing:.2px;
+    html[data-density="compact"] #tablet-os-overlay .tos-tile .tos-name { font-size:0.5625rem; letter-spacing:.2px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner { gap:3px; }
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile { padding:3px 2px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:15px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon { font-size:0.9375rem; }
     html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-icon svg { width:16px; height:16px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:7.5px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-grp-inner .tos-tile .tos-name { font-size:0.4688rem; }
     /* Toolbar keeps its labels (they are what make the icons legible to a newcomer)
        but gives up padding; the widget cards go single-file so nothing is squeezed
        to an unreadable width. */
     html[data-density="compact"] #tablet-os-overlay .tos-hbar-btn { padding:4px 2px 3px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:7px; letter-spacing:.4px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-hbar-lb { font-size:0.4375rem; letter-spacing:.4px; }
     html[data-density="compact"] #tablet-os-overlay .tos-widgets { grid-template-columns:1fr; gap:6px; }
     /* Touch targets: the page dots are 6px of paint, so they keep their generous
        invisible padding and gain a little more room to be thumbed. */
     html[data-density="compact"] #tablet-os-overlay .tos-page-dot { padding:8px; }
-    html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:17px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-page-arrow { padding:4px 10px; font-size:1.0625rem; }
     /* No cards: SPEND the widget space on the tiles instead of shrinking the chassis.
        Shrinking was the first answer and it was the wrong one — the panel got shorter
        but the grid still sat in the top two-thirds with a band of nothing under it, so
@@ -901,21 +906,21 @@ function ensureStyles() {
        have taken theirs, so four rows genuinely use the screen instead of leaving a
        band of nothing under the toolbar. min-height follows automatically: it's a calc
        on this same variable. */
-    #tablet-os-overlay.tos-no-widgets { --tos-tile-h:116px; }
+    #tablet-os-overlay.tos-no-widgets { --tos-tile-h:7.25rem; }
     /* Centre the icon+label in the taller row rather than letting them sit at the top
        with the growth all below them. */
     #tablet-os-overlay.tos-no-widgets .tos-tile { display:flex; flex-direction:column;
       align-items:center; justify-content:center; padding:8px 6px; border-radius:9px; }
-    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:30px; margin-bottom:9px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.875rem; margin-bottom:9px; }
     #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:31px; height:31px; }
-    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:11.5px; letter-spacing:.6px; }
+    #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:0.7188rem; letter-spacing:.6px; }
     #tablet-os-overlay.tos-no-widgets .tos-grid { gap:10px; }
     /* Groups keep their proportions inside the bigger grid rather than inheriting the
        full tile size (a group is a sub-grid — its tiles are meant to read as smaller). */
     #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile { padding:7px 4px; }
-    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon { font-size:20px; margin-bottom:3px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon { font-size:1.25rem; margin-bottom:3px; }
     #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-icon svg { width:21px; height:21px; }
-    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-name { font-size:9.5px; }
+    #tablet-os-overlay.tos-no-widgets .tos-grp-inner .tos-tile .tos-name { font-size:0.5938rem; }
     /* A short window (not a phone) — just don't let the chassis exceed the viewport. */
     @media (max-height:860px) {
       #tablet-os-overlay .tos-panel { height:94vh; }
@@ -925,20 +930,20 @@ function ensureStyles() {
        height moves; the tile keeps its centred layout at every size, so a label can
        never end up clipped the way it did when this scaled padding instead. */
     @media (max-height:760px) {
-      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:96px; }
-      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:26px; margin-bottom:7px; }
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:6rem; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.625rem; margin-bottom:7px; }
       #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:27px; height:27px; }
     }
     @media (max-height:660px) {
-      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:78px; }
-      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:22px; margin-bottom:5px; }
+      #tablet-os-overlay.tos-no-widgets { --tos-tile-h:4.875rem; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon { font-size:1.375rem; margin-bottom:5px; }
       #tablet-os-overlay.tos-no-widgets .tos-tile .tos-icon svg { width:23px; height:23px; }
-      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:10px; }
+      #tablet-os-overlay.tos-no-widgets .tos-tile .tos-name { font-size:0.625rem; }
     }
     @media (max-height:620px) {
       #tablet-os-overlay .tos-tile { padding:6px 3px; }
-      #tablet-os-overlay .tos-tile .tos-icon { font-size:18px; margin-bottom:2px; }
-      #tablet-os-overlay .tos-tile .tos-name { font-size:9.5px; }
+      #tablet-os-overlay .tos-tile .tos-icon { font-size:1.125rem; margin-bottom:2px; }
+      #tablet-os-overlay .tos-tile .tos-name { font-size:0.5938rem; }
     }
 
     /* Page dots — only rendered past one page, so a small home screen looks exactly
@@ -952,7 +957,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-page-dot:hover { background-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); transform:scale(1.2); }
     #tablet-os-overlay .tos-page-dot.on { background-color:var(--mg-accent);
       box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
-    #tablet-os-overlay .tos-page-arrow { cursor:pointer; padding:2px 7px; font-size:15px; line-height:1;
+    #tablet-os-overlay .tos-page-arrow { cursor:pointer; padding:2px 7px; font-size:0.9375rem; line-height:1;
       color:var(--tos-fg-dim); user-select:none; }
     #tablet-os-overlay .tos-page-arrow:hover { color:var(--mg-accent); }
     #tablet-os-overlay .tos-page-arrow.off { opacity:.25; pointer-events:none; }
@@ -970,18 +975,18 @@ function ensureStyles() {
       border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       box-shadow:0 -4px 16px rgba(0,0,0,.35), inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-selbar-n { flex:1; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-selbar-n b { color:var(--mg-accent); font-size:12.5px; }
+    #tablet-os-overlay .tos-selbar-n { flex:1; font-size:0.6563rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-selbar-n b { color:var(--mg-accent); font-size:0.7813rem; }
     /* Group sheet (name + colour), reusing the add-apps card chrome below. */
     #tablet-os-overlay .tos-grp-input { width:100%; box-sizing:border-box; padding:7px 9px; margin-bottom:12px;
-      font:inherit; font-size:12.5px; color:var(--tos-fg); background:var(--bg, #0c1114);
+      font:inherit; font-size:0.7813rem; color:var(--tos-fg); background:var(--bg, #0c1114);
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); border-radius:6px; }
     #tablet-os-overlay .tos-grp-swatches { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
     #tablet-os-overlay .tos-grp-sw { width:24px; height:24px; border-radius:50%; cursor:pointer;
       border:2px solid transparent; box-shadow:0 1px 4px rgba(0,0,0,.45); transition:transform .1s; }
     #tablet-os-overlay .tos-grp-sw.on { border-color:var(--tos-fg); transform:scale(1.14); }
     #tablet-os-overlay .tos-grp-btns { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
-    #tablet-os-overlay .tos-grp-btn { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:11px;
+    #tablet-os-overlay .tos-grp-btn { cursor:pointer; padding:6px 13px; border-radius:6px; font-size:0.6875rem;
       letter-spacing:.7px; text-transform:uppercase; color:var(--tos-fg);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
@@ -1010,19 +1015,19 @@ function ensureStyles() {
       overflow:auto; }
     #tablet-os-overlay .tos-addsheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:7px; }
     #tablet-os-overlay .tos-addsheet-grid .tos-tile { padding:10px 3px; border-radius:7px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:23px; margin-bottom:5px; }
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon { font-size:1.4375rem; margin-bottom:5px; }
     #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-icon svg { width:26px; height:26px; }
-    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:9.5px; letter-spacing:.2px;
+    #tablet-os-overlay .tos-addsheet-grid .tos-tile .tos-name { font-size:0.5938rem; letter-spacing:.2px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
     #tablet-os-overlay .tos-addsheet-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
-      font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-addsheet-x { cursor:pointer; color:var(--mg-accent); font-size:14px; padding:0 4px; }
+      font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-addsheet-x { cursor:pointer; color:var(--mg-accent); font-size:0.875rem; padding:0 4px; }
     #tablet-os-overlay .tos-addsheet-x:hover { filter:brightness(1.2); }
-    #tablet-os-overlay .tos-tile .tos-icon { font-size:21px; display:block; margin-bottom:4px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tile .tos-icon { font-size:1.3125rem; display:block; margin-bottom:4px; color:var(--tos-fg); }
     #tablet-os-overlay .tos-tile .tos-icon svg { width:22px; height:22px; display:inline-block; vertical-align:middle; }
     /* Two-tone: primary uses currentColor (theme fg); the .dim parts pick up a muted derived tone. */
     #tablet-os-overlay .tos-tile .tos-icon svg .dim { color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-tile .tos-name { font-size:11px; letter-spacing:.5px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-tile .tos-name { font-size:0.6875rem; letter-spacing:.5px; color:var(--tos-fg); }
     /* Journey glow — the Frontier tile pulses in the accent while you're out on a
        void crossing (renderHomeApps adds .tos-tile-glow). currentColor drives the SVG. */
     #tablet-os-overlay .tos-tile-glow .tos-icon { color:var(--mg-accent);
@@ -1032,8 +1037,8 @@ function ensureStyles() {
     [data-motion="off"] #tablet-os-overlay .tos-tile-glow .tos-icon { animation:none; }
     /* Arcade tile icon: the circled-"A" ARCHITECT logo — the same mark as the
        tablet's boot screen (.tos-boot-logo), sized to the tile icon slot. */
-    #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:22px; height:22px; border-radius:50%; box-sizing:border-box;
-      display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold; line-height:1;
+    #tablet-os-overlay .tos-tile .tos-icon .tos-ic-a { width:1.692em; height:1.692em; border-radius:50%; box-sizing:border-box;
+      display:inline-flex; align-items:center; justify-content:center; font-size:0.8125rem; font-weight:bold; line-height:1;
       color:var(--mg-accent); border:2px solid var(--mg-accent);
       text-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 70%, transparent);
       box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
@@ -1046,8 +1051,8 @@ function ensureStyles() {
       transition:filter .12s, box-shadow .12s, transform .05s; }
     #tablet-os-overlay .tos-list-item:hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.22); }
     #tablet-os-overlay .tos-list-item:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
-    #tablet-os-overlay .tos-list-item .tos-li-label { color:var(--tos-fg); font-size:13.5px; display:flex; justify-content:space-between; gap:8px; }
-    #tablet-os-overlay .tos-list-item .tos-li-sub { color:var(--tos-fg-dim); font-size:12px; }
+    #tablet-os-overlay .tos-list-item .tos-li-label { color:var(--tos-fg); font-size:0.8438rem; display:flex; justify-content:space-between; gap:8px; }
+    #tablet-os-overlay .tos-list-item .tos-li-sub { color:var(--tos-fg-dim); font-size:0.75rem; }
     /* Two-level list (opt-in via item.group / item.child). A heading reads as a
        label rather than a button — flat, no bevel, no hover lift — and its
        children sit indented under it with a rail joining them to it. */
@@ -1056,7 +1061,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-list-item.tos-li-group:first-child { margin-top:0; }
     #tablet-os-overlay .tos-list-item.tos-li-group:hover { filter:none; box-shadow:none; }
     #tablet-os-overlay .tos-list-item.tos-li-group:active { transform:none; box-shadow:none; }
-    #tablet-os-overlay .tos-list-item.tos-li-group .tos-li-label { font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-list-item.tos-li-group .tos-li-label { font-size:0.75rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); }
     #tablet-os-overlay .tos-list-item.tos-li-child { margin-left:14px; border-left:2px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); border-radius:0 6px 6px 0; }
     /* An option is one of several answers to the line above it, not another
        errand — so it reads as a quiet aside: no panel, no badge, no hover lift. */
@@ -1064,7 +1069,7 @@ function ensureStyles() {
       border-left:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:0; box-shadow:none; cursor:default; }
     #tablet-os-overlay .tos-list-item.tos-li-option:hover { filter:none; box-shadow:none; }
     #tablet-os-overlay .tos-list-item.tos-li-option:active { transform:none; box-shadow:none; }
-    #tablet-os-overlay .tos-list-item.tos-li-option .tos-li-label { color:var(--tos-fg-dim); font-size:12px; }
+    #tablet-os-overlay .tos-list-item.tos-li-option .tos-li-label { color:var(--tos-fg-dim); font-size:0.75rem; }
     /* An option that resolves to a real shelf item IS worth opening — it gets the
        pointer back, quietly, without ever growing the panel an option must not have. */
     #tablet-os-overlay .tos-list-item.tos-li-option[data-open-item] { cursor:pointer; }
@@ -1079,7 +1084,7 @@ function ensureStyles() {
     /* An OR is the one word that stops a run of alternatives reading as a run of
        errands. Quiet, but never absent — it does the work the missing checkbox
        only hints at. */
-    #tablet-os-overlay .tos-li-or { color:var(--mg-accent); font-size:10px; letter-spacing:1.5px;
+    #tablet-os-overlay .tos-li-or { color:var(--mg-accent); font-size:0.625rem; letter-spacing:1.5px;
       text-transform:uppercase; opacity:0.75; margin-right:7px; }
     /* A PART is a component of the line above it — one of the several things that
        make one thing. It keeps its box and its badge (you buy all of them) and is
@@ -1087,27 +1092,27 @@ function ensureStyles() {
        levels have in common. */
     #tablet-os-overlay .tos-list-item.tos-li-part { margin-left:30px; padding:6px 9px;
       border-left:2px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:0 5px 5px 0; }
-    #tablet-os-overlay .tos-list-item.tos-li-part .tos-li-label { font-size:12.5px; }
+    #tablet-os-overlay .tos-list-item.tos-li-part .tos-li-label { font-size:0.7813rem; }
     /* The last option in a run carries the gap to the next line. */
     #tablet-os-overlay .tos-list-item.tos-li-option + .tos-list-item:not(.tos-li-option) { margin-top:7px; }
-    #tablet-os-overlay .tos-badge { font-size:10.5px; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-badge { font-size:0.6563rem; letter-spacing:1px; padding:2px 6px; border-radius:3px; text-transform:uppercase; }
     #tablet-os-overlay .tos-badge.ready { color:#7bffb0; border:1px solid #244; background:#0c1a15; }
     #tablet-os-overlay .tos-badge.active { color:#ffcf4a; border:1px solid #3a3018; background:#1a150a; }
     #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-badge.illegal { color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; }
-    #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:12.5px; line-height:1.5; padding:20px 4px; text-align:center; }
+    #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:0.7813rem; line-height:1.5; padding:20px 4px; text-align:center; }
     /* Calendar app — month grid (view: 'calendar'). Monochrome like the rest of the tablet. */
     #tablet-os-overlay .tos-cal { margin-bottom:12px; }
     #tablet-os-overlay .tos-cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-    #tablet-os-overlay .tos-cal-title { color:var(--tos-fg); font-size:13.5px; letter-spacing:1px; text-transform:uppercase; }
-    #tablet-os-overlay .tos-cal-nav { cursor:pointer; user-select:none; color:var(--tos-fg-dim); padding:1px 10px; border-radius:5px; font-size:15px; line-height:1.3;
+    #tablet-os-overlay .tos-cal-title { color:var(--tos-fg); font-size:0.8438rem; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-cal-nav { cursor:pointer; user-select:none; color:var(--tos-fg-dim); padding:1px 10px; border-radius:5px; font-size:0.9375rem; line-height:1.3;
       border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-cal-nav:hover { color:var(--mg-accent); filter:brightness(1.12); }
     #tablet-os-overlay .tos-cal-nav:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-cal-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:3px; }
-    #tablet-os-overlay .tos-cal-dow { text-align:center; font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim2); padding-bottom:2px; }
+    #tablet-os-overlay .tos-cal-dow { text-align:center; font-size:0.625rem; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim2); padding-bottom:2px; }
     #tablet-os-overlay .tos-cal-cell { position:relative; aspect-ratio:1/1; display:flex; align-items:flex-start; justify-content:center; padding-top:4px;
-      border-radius:5px; font-size:12px; color:var(--tos-fg-dim);
+      border-radius:5px; font-size:0.75rem; color:var(--tos-fg-dim);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-cal-cell.tos-cal-pad { background:none; border:none; }
     #tablet-os-overlay .tos-cal-cell.tos-cal-has { cursor:default; color:var(--tos-fg); border-color:color-mix(in srgb, var(--mg-accent) 34%, transparent); }
@@ -1118,7 +1123,7 @@ function ensureStyles() {
        centred, clipped to the cell. Two lines max — a month cell is barely two words
        wide, so shortEventText() does the heavy lifting server-side of the ellipsis. */
     #tablet-os-overlay .tos-cal-ev { position:absolute; left:2px; right:2px; top:52%;
-      font-size:7.5px; line-height:1.15; letter-spacing:.1px; text-align:center; color:var(--tos-fg-dim);
+      font-size:0.4688rem; line-height:1.15; letter-spacing:.1px; text-align:center; color:var(--tos-fg-dim);
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     #tablet-os-overlay .tos-cal-has .tos-cal-ev { color:var(--tos-fg); }
     #tablet-os-overlay .tos-cal-more { color:var(--mg-accent); margin-left:2px; font-weight:bold; }
@@ -1134,17 +1139,17 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cal-cell.tos-cal-has { background:color-mix(in srgb, var(--mg-accent) 9%, var(--tos-surface-lo)); }
     /* Per-quest action log (client-only), foot of a quest's detail screen. */
     #tablet-os-overlay .tos-qlog { margin-top:14px; padding-top:10px; border-top:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-qlog-hdr { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
-    #tablet-os-overlay .tos-qlog-beat { font-size:12.5px; font-weight:700; color:var(--mg-accent); padding:5px 0 3px; }
+    #tablet-os-overlay .tos-qlog-hdr { font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-bottom:6px; }
+    #tablet-os-overlay .tos-qlog-beat { font-size:0.7813rem; font-weight:700; color:var(--mg-accent); padding:5px 0 3px; }
     #tablet-os-overlay .tos-qlog-done { color:var(--tos-fg); }
-    #tablet-os-overlay .tos-qlog-line { font-size:12px; padding:2px 0 2px 10px; color:var(--tos-fg-dim); line-height:1.45; }
+    #tablet-os-overlay .tos-qlog-line { font-size:0.75rem; padding:2px 0 2px 10px; color:var(--tos-fg-dim); line-height:1.45; }
 
     /* Detail view */
-    #tablet-os-overlay .tos-detail-name { font-size:18px; color:var(--tos-fg); margin-bottom:4px; }
-    #tablet-os-overlay .tos-detail-desc { font-size:12.5px; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
+    #tablet-os-overlay .tos-detail-name { font-size:1.125rem; color:var(--tos-fg); margin-bottom:4px; }
+    #tablet-os-overlay .tos-detail-desc { font-size:0.7813rem; color:var(--tos-fg-dim); margin-bottom:11px; line-height:1.5; }
     /* Long-form reading. Wider leading and a capped measure — a chapter set at the
        panel's full width is a wall, and nobody finishes a wall. */
-    #tablet-os-overlay .tos-detail-body { font-size:13.5px; line-height:1.72; color:var(--tos-fg); max-width:62ch; margin-bottom:12px; }
+    #tablet-os-overlay .tos-detail-body { font-size:0.8438rem; line-height:1.72; color:var(--tos-fg); max-width:62ch; margin-bottom:12px; }
     #tablet-os-overlay .tos-detail-body p { margin:0 0 0.95em; }
 
     /* ── The book (library chapters) ────────────────────────────────────────────
@@ -1154,7 +1159,7 @@ function ensureStyles() {
        warmed toward parchment, so a green terminal gets a green-tinged vellum rather
        than a beige rectangle nobody asked for. */
     #tablet-os-overlay .tos-book { position:relative; max-width:60ch; padding:20px 22px 18px 30px;
-      border-radius:3px 8px 8px 3px; font-size:14px; line-height:1.78; letter-spacing:.1px;
+      border-radius:3px 8px 8px 3px; font-size:0.875rem; line-height:1.78; letter-spacing:.1px;
       font-family:Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
       color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
       background:
@@ -1191,7 +1196,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-book .tos-gloss { border-bottom-color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
     /* The title above a chapter reads as a title page, not a UI label. */
     #tablet-os-overlay .tos-book-title { font-family:Georgia, 'Palatino Linotype', serif;
-      font-size:16px; letter-spacing:2px; text-transform:none; }
+      font-size:1rem; letter-spacing:2px; text-transform:none; }
     /* ── The shelf, a cover, a table of contents ────────────────────────────────
        Every colour here is derived: --bk-hue comes from a hash of the book's id
        (see bookHue), and the cloth mixes that hue into the THEME's own surface, so
@@ -1211,10 +1216,10 @@ function ensureStyles() {
       border-color:color-mix(in srgb, var(--mg-accent) 45%, var(--tos-border));
       box-shadow:0 6px 16px -8px rgba(0,0,0,.7); }
     #tablet-os-overlay .tos-lib-card-txt { min-width:0; flex:1; }
-    #tablet-os-overlay .tos-lib-card-title { font-family:Georgia,'Palatino Linotype',serif; font-size:13.5px;
+    #tablet-os-overlay .tos-lib-card-title { font-family:Georgia,'Palatino Linotype',serif; font-size:0.8438rem;
       color:var(--tos-fg); line-height:1.25; }
-    #tablet-os-overlay .tos-lib-card-by { font-size:11px; color:var(--tos-fg-dim); margin-top:2px; font-style:italic; }
-    #tablet-os-overlay .tos-lib-card-meta { font-size:10.5px; color:var(--tos-fg-dim); margin-top:3px; opacity:.8; }
+    #tablet-os-overlay .tos-lib-card-by { font-size:0.6875rem; color:var(--tos-fg-dim); margin-top:2px; font-style:italic; }
+    #tablet-os-overlay .tos-lib-card-meta { font-size:0.6563rem; color:var(--tos-fg-dim); margin-top:3px; opacity:.8; }
 
     /* The plate. Cloth, a foil rule, a stamped monogram, and the spine's shadow. */
     #tablet-os-overlay .tos-lib-plate { position:relative; flex:none; border-radius:2px 4px 4px 2px;
@@ -1229,14 +1234,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-lib-plate-spine { position:absolute; left:0; top:0; bottom:0; width:6px;
       border-radius:2px 0 0 2px; background:linear-gradient(90deg, rgba(0,0,0,.5), transparent); }
     #tablet-os-overlay .tos-lib-plate-mono { font-family:'Trajan Pro', Georgia, serif; font-weight:bold;
-      letter-spacing:1px; font-size:14px; color:color-mix(in srgb, var(--mg-accent) 62%, #e8d8ae);
+      letter-spacing:1px; font-size:0.875rem; color:color-mix(in srgb, var(--mg-accent) 62%, #e8d8ae);
       text-shadow:0 1px 0 rgba(0,0,0,.5); }
-    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-mono { font-size:28px; letter-spacing:2px; }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-mono { font-size:1.75rem; letter-spacing:2px; }
     #tablet-os-overlay .tos-lib-plate-rule { width:56%; height:1px;
       background:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
-    #tablet-os-overlay .tos-lib-plate-year { font-size:8.5px; letter-spacing:1.5px;
+    #tablet-os-overlay .tos-lib-plate-year { font-size:0.5313rem; letter-spacing:1.5px;
       color:color-mix(in srgb, #e8d8ae 55%, transparent); }
-    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-year { font-size:11px; }
+    #tablet-os-overlay .tos-lib-plate-lg .tos-lib-plate-year { font-size:0.6875rem; }
 
     /* Progress. Thin, accent-coloured, and only ever drawn for a book you started —
        an empty bar on every unopened title reads as a chore list. */
@@ -1249,10 +1254,10 @@ function ensureStyles() {
     /* Cover page: the plate beside the blurb, set on the same parchment as a page. */
     #tablet-os-overlay .tos-lib-cover { display:flex; gap:16px; align-items:flex-start; margin-bottom:12px; }
     #tablet-os-overlay .tos-lib-cover-txt { min-width:0; flex:1; }
-    #tablet-os-overlay .tos-lib-cover-title { font-family:Georgia,'Palatino Linotype',serif; font-size:18px;
+    #tablet-os-overlay .tos-lib-cover-title { font-family:Georgia,'Palatino Linotype',serif; font-size:1.125rem;
       color:var(--tos-fg); line-height:1.2; }
-    #tablet-os-overlay .tos-lib-cover-by { font-size:12px; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
-    #tablet-os-overlay .tos-lib-blurb { margin-top:9px; font-size:13px; line-height:1.66; max-width:56ch;
+    #tablet-os-overlay .tos-lib-cover-by { font-size:0.75rem; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-lib-blurb { margin-top:9px; font-size:0.8125rem; line-height:1.66; max-width:56ch;
       font-family:Georgia,'Palatino Linotype',serif;
       color:color-mix(in srgb, var(--tos-fg) 92%, #d9c39a);
       padding:11px 13px; border-radius:3px 6px 6px 3px;
@@ -1260,23 +1265,23 @@ function ensureStyles() {
                                          color-mix(in srgb, var(--tos-surface-lo) 88%, #b9975f));
       border:1px solid color-mix(in srgb, #6b5433 40%, var(--tos-border)); }
     #tablet-os-overlay .tos-lib-facts { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:9px;
-      font-size:11px; letter-spacing:.4px; color:var(--tos-fg-dim); text-transform:uppercase; }
-    #tablet-os-overlay .tos-lib-prov { margin-top:8px; font-size:10.5px; line-height:1.5; opacity:.65;
+      font-size:0.6875rem; letter-spacing:.4px; color:var(--tos-fg-dim); text-transform:uppercase; }
+    #tablet-os-overlay .tos-lib-prov { margin-top:8px; font-size:0.6563rem; line-height:1.5; opacity:.65;
       color:var(--tos-fg-dim); max-width:56ch; }
 
     /* Table of contents: leader dots out to a reading time, the way a printed one
        runs out to a page number. Chapters behind the bookmark dim; the bookmark
        itself gets the ribbon. */
     #tablet-os-overlay .tos-lib-toc { margin-bottom:12px; }
-    #tablet-os-overlay .tos-lib-toc-head { font-family:Georgia,'Palatino Linotype',serif; font-size:12px;
+    #tablet-os-overlay .tos-lib-toc-head { font-family:Georgia,'Palatino Linotype',serif; font-size:0.75rem;
       letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim);
       padding-bottom:6px; margin-bottom:4px; border-bottom:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-lib-toc-row { display:flex; align-items:baseline; gap:8px; cursor:pointer;
       padding:7px 8px; border-radius:3px; border-left:2px solid transparent;
-      font-family:Georgia,'Palatino Linotype',serif; font-size:13px; color:var(--tos-fg); }
+      font-family:Georgia,'Palatino Linotype',serif; font-size:0.8125rem; color:var(--tos-fg); }
     #tablet-os-overlay .tos-lib-toc-row:hover { background:color-mix(in srgb, var(--mg-accent) 12%, transparent);
       border-left-color:color-mix(in srgb, var(--mg-accent) 60%, transparent); }
-    #tablet-os-overlay .tos-lib-toc-n { flex:none; width:2.1em; text-align:right; font-size:11px;
+    #tablet-os-overlay .tos-lib-toc-n { flex:none; width:2.1em; text-align:right; font-size:0.6875rem;
       color:var(--tos-fg-dim); font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-lib-toc-t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
     /* The leaders. A repeating dot gradient rather than a row of literal periods,
@@ -1284,7 +1289,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-lib-toc-dots { flex:1; min-width:12px; height:1em; align-self:flex-end;
       background-image:radial-gradient(circle, color-mix(in srgb, var(--tos-fg-dim) 55%, transparent) 1px, transparent 1px);
       background-size:5px 5px; background-position:0 .72em; background-repeat:repeat-x; opacity:.6; }
-    #tablet-os-overlay .tos-lib-toc-len { flex:none; font-size:10.5px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-lib-toc-len { flex:none; font-size:0.6563rem; color:var(--tos-fg-dim);
       font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-lib-toc-read { opacity:.55; }
     #tablet-os-overlay .tos-lib-toc-at { border-left-color:var(--mg-accent);
@@ -1293,7 +1298,7 @@ function ensureStyles() {
     html[data-density="compact"] #tablet-os-overlay .tos-lib-shelf { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
     html[data-density="compact"] #tablet-os-overlay .tos-lib-plate-lg { width:82px; height:118px; }
 
-    html[data-density="compact"] #tablet-os-overlay .tos-book { padding:14px 14px 12px 20px; font-size:13.5px; }
+    html[data-density="compact"] #tablet-os-overlay .tos-book { padding:14px 14px 12px 20px; font-size:0.8438rem; }
     html[data-density="compact"] #tablet-os-overlay .tos-book p:first-of-type::first-letter { font-size:3em; }
     /* The sentence the voice is on. Background rather than colour, so the
        highlight survives every theme without fighting the palette. */
@@ -1306,11 +1311,11 @@ function ensureStyles() {
       content:attr(data-gloss); position:absolute; left:0; top:1.55em; z-index:5;
       width:max-content; max-width:min(30ch,70vw); padding:6px 9px;
       background:var(--bg); border:1px solid var(--mg-accent); border-radius:4px;
-      font-size:11.5px; font-weight:400; line-height:1.45; color:var(--tos-fg);
+      font-size:0.7188rem; font-weight:400; line-height:1.45; color:var(--tos-fg);
       box-shadow:0 4px 14px rgba(0,0,0,.5); white-space:normal;
     }
     #tablet-os-overlay .tos-narrate { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
-    #tablet-os-overlay .tos-narrate-hint { font-size:11px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-narrate-hint { font-size:0.6875rem; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-narrate-min[disabled] { opacity:.4; cursor:default; }
     /* A detail row is a label and a value, and it used to be a bare flex pair with
        nothing stopping either side shrinking — so a value longer than the card
@@ -1318,7 +1323,7 @@ function ensureStyles() {
        A min-width of 0 is what lets a flex child wrap at all; without it the text
        simply refuses to fold. */
     #tablet-os-overlay .tos-row { display:flex; justify-content:space-between; gap:14px; align-items:baseline;
-      padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:13px; }
+      padding:5px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); font-size:0.8125rem; }
     #tablet-os-overlay .tos-row span:first-child { color:var(--tos-fg-dim); flex:0 1 auto; min-width:0; overflow-wrap:anywhere; }
     #tablet-os-overlay .tos-row span:last-child { color:var(--tos-fg); flex:1 1 auto; min-width:0; text-align:right; overflow-wrap:anywhere; }
     /* PROSE IS NOT A COLUMN. A sentence right-aligned against a label is a ragged
@@ -1326,7 +1331,7 @@ function ensureStyles() {
        small caps heading and the text runs full width, left-aligned, at a line
        height you can actually read. Same data, two layouts, chosen by length. */
     #tablet-os-overlay .tos-row.tos-row-block { flex-direction:column; align-items:stretch; gap:3px; padding:7px 0; }
-    #tablet-os-overlay .tos-row.tos-row-block .tos-row-k { font-size:10px; letter-spacing:1.4px; text-transform:uppercase;
+    #tablet-os-overlay .tos-row.tos-row-block .tos-row-k { font-size:0.625rem; letter-spacing:1.4px; text-transform:uppercase;
       color:var(--mg-accent); opacity:0.8; }
     #tablet-os-overlay .tos-row.tos-row-block .tos-row-v { text-align:left; line-height:1.6; color:var(--tos-fg); }
     /* A continuation — a further step, another line of the same block — carries no
@@ -1339,22 +1344,22 @@ function ensureStyles() {
       color-mix(in srgb, var(--mg-accent) 30%, transparent), transparent); }
     /* A section heading inside a card. Same small-caps voice as the list's group
        rows, so a card and a list read as the same document. */
-    #tablet-os-overlay .tos-row-head { font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+    #tablet-os-overlay .tos-row-head { font-size:0.625rem; letter-spacing:1.6px; text-transform:uppercase;
       color:var(--mg-accent); margin:14px 0 5px; padding-bottom:4px;
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); }
     #tablet-os-overlay .tos-row-head:first-child { margin-top:0; }
 
     /* Help reader (Help app chapter view) */
-    #tablet-os-overlay .tos-help-blurb { font-size:12.5px; color:var(--tos-fg-dim); line-height:1.5; margin-bottom:13px; }
+    #tablet-os-overlay .tos-help-blurb { font-size:0.7813rem; color:var(--tos-fg-dim); line-height:1.5; margin-bottom:13px; }
     #tablet-os-overlay .tos-help-sec { margin-bottom:13px; }
-    #tablet-os-overlay .tos-help-head { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); margin-bottom:5px; padding-bottom:3px;
+    #tablet-os-overlay .tos-help-head { font-size:0.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); margin-bottom:5px; padding-bottom:3px;
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); }
-    #tablet-os-overlay .tos-help-p { font-size:13px; color:var(--tos-fg); line-height:1.55; margin-bottom:5px; }
+    #tablet-os-overlay .tos-help-p { font-size:0.8125rem; color:var(--tos-fg); line-height:1.55; margin-bottom:5px; }
     #tablet-os-overlay .tos-help-p.mono { color:var(--tos-fg-dim); background:var(--tos-surface-lo);
       border:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); border-radius:4px; padding:6px 9px; white-space:pre-wrap; word-break:break-word; }
 
     /* Objective checkboxes (quest detail) */
-    #tablet-os-overlay .tos-obj { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:13px; }
+    #tablet-os-overlay .tos-obj { display:flex; gap:7px; align-items:baseline; padding:3px 0; font-size:0.8125rem; }
     #tablet-os-overlay .tos-obj .tos-check { color:#7bffb0; }
     #tablet-os-overlay .tos-obj.pending .tos-check { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-obj.pending { color:var(--tos-fg-dim); }
@@ -1363,7 +1368,7 @@ function ensureStyles() {
        brightest / most "pressable" thing on the screen. Text color is computed
        against the accent itself (--tos-btn-fg), not --bg2. */
     #tablet-os-overlay .tos-actions { display:flex; gap:9px; margin-top:12px; flex-wrap:wrap; }
-    #tablet-os-overlay .tos-btn { padding:9px 14px; border-radius:5px; font-family:'Courier New',monospace; font-size:13.5px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    #tablet-os-overlay .tos-btn { padding:9px 14px; border-radius:5px; font-family:'Courier New',monospace; font-size:0.8438rem; font-weight:bold; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
       color:var(--tos-btn-fg, #04120f); border:1px solid color-mix(in srgb, var(--mg-accent) 85%, black);
       background:linear-gradient(165deg, color-mix(in srgb, var(--mg-accent) 100%, white 20%), var(--mg-accent) 55%, color-mix(in srgb, var(--mg-accent) 100%, black 15%));
       box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 45%, transparent), inset 0 1px 0 var(--tos-bevel-hi), inset 0 -3px 3px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.25);
@@ -1372,15 +1377,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 4px rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-btn.disabled { opacity:.4; cursor:default; pointer-events:none; filter:grayscale(.5); }
 
-    #tablet-os-overlay .tos-error { color:#ff7a86; font-size:13px; padding:16px 4px; text-align:center; }
+    #tablet-os-overlay .tos-error { color:#ff7a86; font-size:0.8125rem; padding:16px 4px; text-align:center; }
 
     /* Corp dashboard: centred name header + boxed sections ("cards"). */
     #tablet-os-overlay .tos-corp-head { text-align:center; margin:8px 0 4px; }
-    #tablet-os-overlay .tos-corp-name { font-size:19px; letter-spacing:1px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-corp-sub { font-size:12px; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-corp-name { font-size:1.1875rem; letter-spacing:1px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-corp-sub { font-size:0.75rem; color:var(--tos-fg-dim); margin-top:3px; }
     #tablet-os-overlay .tos-card { margin-top:11px; padding:9px 11px; border-radius:7px;
       border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); background:var(--tos-surface-lo); }
-    #tablet-os-overlay .tos-card-h { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); opacity:.9; margin-bottom:5px; }
+    #tablet-os-overlay .tos-card-h { font-size:0.625rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--mg-accent); opacity:.9; margin-bottom:5px; }
     #tablet-os-overlay .tos-card .tos-row:last-child { border-bottom:none; }
     /* Corp view: full-height flex column so the page nav always pins to the
        bottom of the screen (fixed location on every corp page). */
@@ -1388,14 +1393,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-corp-scroll { flex:1 1 auto; }
 
     /* Corp: founding-cost warning */
-    #tablet-os-overlay .tos-founding-warn { margin:12px 0; font-size:12px; line-height:1.5; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-founding-warn { margin:12px 0; font-size:0.75rem; line-height:1.5; color:var(--tos-fg-dim);
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); border-radius:6px; padding:9px 11px; background:var(--tos-surface-lo); }
     #tablet-os-overlay .tos-founding-warn b { color:var(--mg-accent); }
     /* Free colour-wheel row (corp colour) — a big native swatch + live hex readout. */
     #tablet-os-overlay .tos-color-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:7px; }
     #tablet-os-overlay input.tos-color-lg { width:46px; height:34px; }
-    #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:11px; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-color-hex { font-family:'Courier New',monospace; font-size:0.8125rem; letter-spacing:1px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-color-hint { flex:1 1 100%; font-size:0.6875rem; color:var(--tos-fg-dim2); }
 
     /* ── Codex ───────────────────────────────────────────────────────────────
        A reading surface, so it deliberately breaks the tablet's instrument look:
@@ -1404,72 +1409,72 @@ function ensureStyles() {
        monospace/caps idiom so the app still reads as part of the device. */
     #tablet-os-overlay .tos-cx-root { --cx-serif: Georgia,'Times New Roman',serif; animation:tos-fade .28s ease; }
     #tablet-os-overlay .tos-cx-hero { text-align:center; padding:16px 0 20px; border-bottom:1px solid var(--tos-border); margin-bottom:16px; }
-    #tablet-os-overlay .tos-cx-hero-eyebrow { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-cx-hero-title { font-size:31px; letter-spacing:12px; margin:7px 0 5px; color:var(--tos-fg); text-indent:12px;
+    #tablet-os-overlay .tos-cx-hero-eyebrow { font-size:0.625rem; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cx-hero-title { font-size:1.9375rem; letter-spacing:12px; margin:7px 0 5px; color:var(--tos-fg); text-indent:12px;
       text-shadow:0 0 22px color-mix(in srgb,var(--mg-accent) 40%,transparent); }
-    #tablet-os-overlay .tos-cx-hero-title.small { font-size:20px; letter-spacing:5px; text-indent:5px; }
-    #tablet-os-overlay .tos-cx-hero-sub { font-family:var(--cx-serif); font-style:italic; font-size:13px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-hero-title.small { font-size:1.25rem; letter-spacing:5px; text-indent:5px; }
+    #tablet-os-overlay .tos-cx-hero-sub { font-family:var(--cx-serif); font-style:italic; font-size:0.8125rem; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-cx-shelf { display:flex; flex-direction:column; gap:9px; }
     #tablet-os-overlay .tos-cx-shelf-row { display:flex; align-items:center; gap:12px; cursor:pointer; padding:12px 13px; border-radius:7px;
       border:1px solid var(--tos-border); background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); transition:border-color .16s,transform .16s; }
     #tablet-os-overlay .tos-cx-shelf-row:hover { border-color:color-mix(in srgb,var(--mg-accent) 55%,transparent); transform:translateX(2px); }
-    #tablet-os-overlay .tos-cx-glyph { font-size:21px; color:var(--mg-accent); text-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 55%,transparent); }
+    #tablet-os-overlay .tos-cx-glyph { font-size:1.3125rem; color:var(--mg-accent); text-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 55%,transparent); }
     #tablet-os-overlay .tos-cx-shelf-txt { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
-    #tablet-os-overlay .tos-cx-shelf-title { font-size:14px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-cx-shelf-sub { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-cx-shelf-meta { font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
-    #tablet-os-overlay .tos-cx-shelf-meta b { color:var(--mg-accent); margin-left:8px; font-size:14px; }
+    #tablet-os-overlay .tos-cx-shelf-title { font-size:0.875rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-cx-shelf-sub { font-family:var(--cx-serif); font-size:0.7813rem; font-style:italic; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-shelf-meta { font-size:0.6563rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-cx-shelf-meta b { color:var(--mg-accent); margin-left:8px; font-size:0.875rem; }
     #tablet-os-overlay .tos-cx-prog { display:block; height:2px; margin-top:4px; background:var(--tos-surface-lo); border-radius:2px; overflow:hidden; max-width:190px; }
     #tablet-os-overlay .tos-cx-prog.wide { max-width:none; flex:1; height:3px; }
     #tablet-os-overlay .tos-cx-prog i { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 8px var(--mg-accent); }
-    #tablet-os-overlay .tos-cx-foot { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); text-align:center; margin:18px 0 4px; }
+    #tablet-os-overlay .tos-cx-foot { font-family:var(--cx-serif); font-style:italic; font-size:0.75rem; color:var(--tos-fg-dim2); text-align:center; margin:18px 0 4px; }
     /* Volume contents */
     #tablet-os-overlay .tos-cx-volhead { padding-bottom:13px; border-bottom:1px solid var(--tos-border); margin-bottom:13px; text-align:center; }
-    #tablet-os-overlay .tos-cx-note { font-family:var(--cx-serif); font-style:italic; font-size:12px; color:var(--tos-fg-dim2); max-width:44ch; margin:0 auto; }
-    #tablet-os-overlay .tos-cx-progline { display:flex; align-items:center; gap:9px; margin-top:11px; font-size:10.5px; letter-spacing:1.4px;
+    #tablet-os-overlay .tos-cx-note { font-family:var(--cx-serif); font-style:italic; font-size:0.75rem; color:var(--tos-fg-dim2); max-width:44ch; margin:0 auto; }
+    #tablet-os-overlay .tos-cx-progline { display:flex; align-items:center; gap:9px; margin-top:11px; font-size:0.6563rem; letter-spacing:1.4px;
       text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-cx-progline b { color:var(--mg-accent); }
     #tablet-os-overlay .tos-cx-index { display:flex; flex-direction:column; }
     #tablet-os-overlay .tos-cx-entry { display:flex; align-items:flex-start; gap:13px; padding:13px 4px; border-bottom:1px solid var(--tos-border); cursor:pointer; }
     #tablet-os-overlay .tos-cx-entry:hover:not(.locked) .tos-cx-etitle { color:var(--mg-accent); }
     #tablet-os-overlay .tos-cx-entry.locked { cursor:default; opacity:.72; }
-    #tablet-os-overlay .tos-cx-n { font-family:var(--cx-serif); font-size:16px; color:var(--tos-fg-dim2); min-width:30px; text-align:right; padding-top:1px; }
+    #tablet-os-overlay .tos-cx-n { font-family:var(--cx-serif); font-size:1rem; color:var(--tos-fg-dim2); min-width:1.875em; text-align:right; padding-top:1px; }
     #tablet-os-overlay .tos-cx-etxt { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
-    #tablet-os-overlay .tos-cx-etitle { font-size:14px; letter-spacing:1.2px; color:var(--tos-fg); transition:color .16s; }
-    #tablet-os-overlay .tos-cx-elede { font-family:var(--cx-serif); font-size:12.5px; font-style:italic; color:var(--tos-fg-dim); line-height:1.45; }
+    #tablet-os-overlay .tos-cx-etitle { font-size:0.875rem; letter-spacing:1.2px; color:var(--tos-fg); transition:color .16s; }
+    #tablet-os-overlay .tos-cx-elede { font-family:var(--cx-serif); font-size:0.7813rem; font-style:italic; color:var(--tos-fg-dim); line-height:1.45; }
     /* A sealed entry shows its shape and nothing else — bars, not text. The body
        never leaves the server for a locked chapter, so this is honest, not a mask. */
     #tablet-os-overlay .tos-cx-redact { display:flex; flex-direction:column; gap:4px; margin:1px 0 2px; }
     #tablet-os-overlay .tos-cx-redact i { display:block; height:7px; border-radius:2px; background:repeating-linear-gradient(90deg,
       color-mix(in srgb,var(--tos-fg) 22%,transparent) 0 9px, transparent 9px 13px); }
-    #tablet-os-overlay .tos-cx-hint { font-family:var(--cx-serif); font-size:12px; font-style:italic; color:color-mix(in srgb,var(--mg-accent) 70%,var(--tos-fg-dim2)); }
-    #tablet-os-overlay .tos-cx-lock { font-size:9.5px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-cx-hint { font-family:var(--cx-serif); font-size:0.75rem; font-style:italic; color:color-mix(in srgb,var(--mg-accent) 70%,var(--tos-fg-dim2)); }
+    #tablet-os-overlay .tos-cx-lock { font-size:0.5938rem; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
       border:1px solid var(--tos-border); border-radius:3px; padding:3px 6px; white-space:nowrap; }
-    #tablet-os-overlay .tos-cx-open { font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; padding-top:2px; }
+    #tablet-os-overlay .tos-cx-open { font-size:0.625rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; padding-top:2px; }
     /* The read */
     #tablet-os-overlay .tos-cx-readbar { margin-bottom:9px; }
-    #tablet-os-overlay .tos-cx-back { cursor:pointer; font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cx-back { cursor:pointer; font-size:0.6563rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-cx-back:hover { color:var(--mg-accent); }
     #tablet-os-overlay .tos-cx-read { max-width:60ch; margin:0 auto; padding:6px 2px 4px; }
-    #tablet-os-overlay .tos-cx-num { font-family:var(--cx-serif); font-size:13px; letter-spacing:5px; color:var(--mg-accent); text-align:center; }
-    #tablet-os-overlay .tos-cx-eyebrow { font-size:9.5px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); text-align:center; margin-top:7px; }
-    #tablet-os-overlay .tos-cx-title { font-family:var(--cx-serif); font-size:27px; font-weight:400; line-height:1.15; text-align:center;
+    #tablet-os-overlay .tos-cx-num { font-family:var(--cx-serif); font-size:0.8125rem; letter-spacing:5px; color:var(--mg-accent); text-align:center; }
+    #tablet-os-overlay .tos-cx-eyebrow { font-size:0.5938rem; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); text-align:center; margin-top:7px; }
+    #tablet-os-overlay .tos-cx-title { font-family:var(--cx-serif); font-size:1.6875rem; font-weight:400; line-height:1.15; text-align:center;
       margin:9px 0 11px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-cx-lede { font-family:var(--cx-serif); font-style:italic; font-size:14px; line-height:1.6; text-align:center;
+    #tablet-os-overlay .tos-cx-lede { font-family:var(--cx-serif); font-style:italic; font-size:0.875rem; line-height:1.6; text-align:center;
       color:var(--tos-fg-dim); margin:0 auto; max-width:46ch; }
-    #tablet-os-overlay .tos-cx-rule { text-align:center; letter-spacing:9px; font-size:8px; color:var(--tos-fg-dim2); margin:19px 0; }
+    #tablet-os-overlay .tos-cx-rule { text-align:center; letter-spacing:9px; font-size:0.5rem; color:var(--tos-fg-dim2); margin:19px 0; }
     #tablet-os-overlay .tos-cx-rule.top { margin:17px 0 15px; }
-    #tablet-os-overlay .tos-cx-p { font-family:var(--cx-serif); font-size:15px; line-height:1.72; color:var(--tos-fg); margin:0 0 15px; }
-    #tablet-os-overlay .tos-cx-drop { float:left; font-size:44px; line-height:.86; padding:3px 9px 0 0; color:var(--mg-accent);
+    #tablet-os-overlay .tos-cx-p { font-family:var(--cx-serif); font-size:0.9375rem; line-height:1.72; color:var(--tos-fg); margin:0 0 15px; }
+    #tablet-os-overlay .tos-cx-drop { float:left; font-size:2.75rem; line-height:.86; padding:3px 9px 0 0; color:var(--mg-accent);
       text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
-    #tablet-os-overlay .tos-cx-pull { font-family:var(--cx-serif); font-size:17px; font-style:italic; line-height:1.5; text-align:center;
+    #tablet-os-overlay .tos-cx-pull { font-family:var(--cx-serif); font-size:1.0625rem; font-style:italic; line-height:1.5; text-align:center;
       color:var(--mg-accent); margin:22px 0; padding:14px 12px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
       border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent);
       text-shadow:0 0 20px color-mix(in srgb,var(--mg-accent) 30%,transparent); }
-    #tablet-os-overlay .tos-cx-end { text-align:center; font-size:13px; color:var(--tos-fg-dim2); margin:6px 0 2px; }
+    #tablet-os-overlay .tos-cx-end { text-align:center; font-size:0.8125rem; color:var(--tos-fg-dim2); margin:6px 0 2px; }
     #tablet-os-overlay .tos-cx-nav { display:flex; justify-content:space-between; gap:10px; margin-top:15px; padding-top:13px; border-top:1px solid var(--tos-border); }
-    #tablet-os-overlay .tos-cx-step { cursor:pointer; font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-cx-step { cursor:pointer; font-size:0.6563rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim);
       max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-cx-step:hover { color:var(--mg-accent); }
     #tablet-os-overlay .tos-cx-step.off { opacity:.35; cursor:default; }
@@ -1482,9 +1487,9 @@ function ensureStyles() {
       #tablet-os-overlay .tos-cx-back { display:inline-block; padding:11px 8px; margin:-11px -8px; }
     }
     @media (max-width:560px) {
-      #tablet-os-overlay .tos-cx-hero-title { font-size:25px; letter-spacing:8px; }
-      #tablet-os-overlay .tos-cx-title { font-size:22px; }
-      #tablet-os-overlay .tos-cx-p { font-size:14.5px; }
+      #tablet-os-overlay .tos-cx-hero-title { font-size:1.5625rem; letter-spacing:8px; }
+      #tablet-os-overlay .tos-cx-title { font-size:1.375rem; }
+      #tablet-os-overlay .tos-cx-p { font-size:0.9063rem; }
     }
 
     /* ── Ideology reader ─────────────────────────────────────────────────────
@@ -1509,7 +1514,7 @@ function ensureStyles() {
       box-shadow:0 0 7px color-mix(in srgb,var(--ic,var(--mg-accent)) 25%,transparent); }
     #tablet-os-overlay .tos-ideo-nav::-webkit-scrollbar-thumb:hover { background:color-mix(in srgb,var(--ic,var(--mg-accent)) 65%,transparent); }
     #tablet-os-overlay .tos-ideo-navsep { flex:0 0 auto; align-self:stretch; width:1px; margin:2px 6px 0; background:linear-gradient(180deg,transparent,var(--tos-border) 30%,var(--tos-border) 70%,transparent); }
-    #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:11px; letter-spacing:1.3px; text-transform:uppercase;
+    #tablet-os-overlay .tos-ideo-tab { flex:0 0 auto; cursor:pointer; user-select:none; font-size:0.6875rem; letter-spacing:1.3px; text-transform:uppercase;
       color:var(--tos-fg-dim); padding:6px 9px; border-radius:6px; white-space:nowrap; border:1px solid var(--tos-border);
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-ideo-tab b { color:var(--ic,var(--mg-accent)); }
@@ -1518,14 +1523,14 @@ function ensureStyles() {
       text-shadow:0 0 10px color-mix(in srgb,var(--ic,var(--mg-accent)) 55%,transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi),0 0 14px color-mix(in srgb,var(--ic,var(--mg-accent)) 26%,transparent); }
     #tablet-os-overlay .tos-ideo-page { animation:tos-fade .28s ease; }
-    #tablet-os-overlay .tos-ideo-lbl { font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); display:flex; align-items:center; gap:8px; margin:0 0 9px; }
+    #tablet-os-overlay .tos-ideo-lbl { font-size:0.6875rem; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim); display:flex; align-items:center; gap:8px; margin:0 0 9px; }
     #tablet-os-overlay .tos-ideo-lbl::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,var(--tos-border),transparent); }
     #tablet-os-overlay .tos-ideo-panel { border-radius:9px; padding:12px 13px; margin-bottom:15px;
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo));
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi),inset 0 -2px 4px var(--tos-bevel-lo),0 3px 8px rgba(0,0,0,0.3); border:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-ideo-chart { display:block; width:100%; max-width:420px; margin-inline:auto; height:auto; max-height:52vh; font-family:'Courier New',monospace; }
-    #tablet-os-overlay .tos-ideo-lean { text-align:center; font-size:13.5px; letter-spacing:.4px; color:var(--tos-fg-dim); margin-top:9px; }
-    #tablet-os-overlay .tos-ideo-note { font-size:13.5px; line-height:1.6; color:var(--tos-fg-dim); margin:0; }
+    #tablet-os-overlay .tos-ideo-lean { text-align:center; font-size:0.8438rem; letter-spacing:.4px; color:var(--tos-fg-dim); margin-top:9px; }
+    #tablet-os-overlay .tos-ideo-note { font-size:0.8438rem; line-height:1.6; color:var(--tos-fg-dim); margin:0; }
     #tablet-os-overlay .tos-ideo-note b { color:var(--tos-fg); }
     #tablet-os-overlay .tos-ideo-dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-bar { height:6px; border-radius:3px; background:rgba(0,0,0,.45); overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
@@ -1536,62 +1541,62 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ideo-sigwrap { flex:0 0 26px; display:flex; }
     #tablet-os-overlay .tos-ideo-sigwrap.big { flex:0 0 44px; }
     #tablet-os-overlay .tos-ideo-sig { width:100%; height:auto; }
-    #tablet-os-overlay .tos-ideo-sname { flex:0 0 116px; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-sname { flex:0 0 116px; font-size:0.8125rem; letter-spacing:1px; text-transform:uppercase; color:var(--ic); }
     #tablet-os-overlay .tos-ideo-stand .tos-ideo-bar { flex:1 1 auto; }
-    #tablet-os-overlay .tos-ideo-tv { flex:0 0 68px; text-align:right; font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-ideo-tv { flex:0 0 68px; text-align:right; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; }
     /* Emerging (expansion) orders — a preview, not yet live */
     #tablet-os-overlay .tos-ideo-stand.emerging { opacity:.62; }
     #tablet-os-overlay .tos-ideo-stand.emerging:hover { opacity:.82; }
     #tablet-os-overlay .tos-ideo-bar.emerging i { opacity:.7; box-shadow:none; }
-    #tablet-os-overlay .tos-ideo-substand { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-ideo-substand { font-size:0.625rem; letter-spacing:2px; text-transform:uppercase; color:var(--tos-fg-dim2);
       margin:16px 0 8px; padding-top:11px; border-top:1px dashed var(--tos-line, rgba(255,255,255,.12)); }
     #tablet-os-overlay .tos-ideo-tab.emerging { opacity:.6; }
     #tablet-os-overlay .tos-ideo-tab.emerging.on { opacity:1; }
-    #tablet-os-overlay .tos-ideo-emerge { font-size:10px; letter-spacing:2px; text-transform:uppercase; margin-top:5px;
+    #tablet-os-overlay .tos-ideo-emerge { font-size:0.625rem; letter-spacing:2px; text-transform:uppercase; margin-top:5px;
       color:var(--ic,var(--tos-fg-dim2)); opacity:.85; }
     /* Order page */
     #tablet-os-overlay .tos-ideo-ohead { display:flex; align-items:center; gap:12px; margin-bottom:4px; }
-    #tablet-os-overlay .tos-ideo-oname { font-size:22px; letter-spacing:1.5px; text-transform:uppercase; line-height:1.1; }
-    #tablet-os-overlay .tos-ideo-motto { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:3px; }
+    #tablet-os-overlay .tos-ideo-oname { font-size:1.375rem; letter-spacing:1.5px; text-transform:uppercase; line-height:1.1; }
+    #tablet-os-overlay .tos-ideo-motto { font-size:0.6875rem; letter-spacing:3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:3px; }
     #tablet-os-overlay .tos-ideo-tags { display:flex; gap:6px; flex-wrap:wrap; margin:11px 0 14px; }
-    #tablet-os-overlay .tos-ideo-tag { font-size:11px; letter-spacing:1.3px; text-transform:uppercase; padding:5px 10px; border-radius:5px;
+    #tablet-os-overlay .tos-ideo-tag { font-size:0.6875rem; letter-spacing:1.3px; text-transform:uppercase; padding:5px 10px; border-radius:5px;
       color:var(--ic); border:1px solid color-mix(in srgb,var(--ic) 40%,transparent); background:color-mix(in srgb,var(--ic) 12%,transparent); }
-    #tablet-os-overlay .tos-ideo-lore { font-family:Georgia,serif; font-size:14.5px; line-height:1.6; color:var(--tos-fg); margin:0 0 4px; }
-    #tablet-os-overlay .tos-ideo-lore .drop { float:left; font-size:38px; line-height:.82; padding:2px 8px 0 0; font-family:Georgia,serif; }
+    #tablet-os-overlay .tos-ideo-lore { font-family:Georgia,serif; font-size:0.9063rem; line-height:1.6; color:var(--tos-fg); margin:0 0 4px; }
+    #tablet-os-overlay .tos-ideo-lore .drop { float:left; font-size:2.375rem; line-height:.82; padding:2px 8px 0 0; font-family:Georgia,serif; }
     /* Second paragraph — the second-person "what aligning does for you" pitch. */
-    #tablet-os-overlay .tos-ideo-exp { font-family:Georgia,serif; font-size:14.5px; line-height:1.6; color:var(--tos-fg); margin:12px 0 4px; }
-    #tablet-os-overlay .tos-ideo-pull { font-family:Georgia,serif; font-style:italic; font-size:14.5px; line-height:1.5; border-left:2px solid; padding:2px 0 2px 12px; margin:13px 0; }
+    #tablet-os-overlay .tos-ideo-exp { font-family:Georgia,serif; font-size:0.9063rem; line-height:1.6; color:var(--tos-fg); margin:12px 0 4px; }
+    #tablet-os-overlay .tos-ideo-pull { font-family:Georgia,serif; font-style:italic; font-size:0.9063rem; line-height:1.5; border-left:2px solid; padding:2px 0 2px 12px; margin:13px 0; }
     #tablet-os-overlay .tos-ideo-tenets { list-style:none; padding:0; margin:0; }
-    #tablet-os-overlay .tos-ideo-tenets li { position:relative; padding:7px 0 7px 21px; font-size:13.5px; line-height:1.45; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-ideo-tenets li { position:relative; padding:7px 0 7px 21px; font-size:0.8438rem; line-height:1.45; color:var(--tos-fg-dim);
       border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 10%,transparent); }
     #tablet-os-overlay .tos-ideo-tenets li:last-child { border-bottom:0; }
-    #tablet-os-overlay .tos-ideo-tenets li::before { content:"◆"; position:absolute; left:2px; top:8px; font-size:8px; color:var(--ic); }
+    #tablet-os-overlay .tos-ideo-tenets li::before { content:"◆"; position:absolute; left:2px; top:8px; font-size:0.5rem; color:var(--ic); }
     #tablet-os-overlay .tos-ideo-pathbox { display:flex; align-items:center; gap:12px; }
     #tablet-os-overlay .tos-ideo-pathbox .pm { flex:0 0 80px; }
-    #tablet-os-overlay .tos-ideo-pathbox .pml { font-size:10px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:5px; }
-    #tablet-os-overlay .tos-ideo-pathbox .pt { font-size:13px; line-height:1.5; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-pathbox .pml { font-size:0.625rem; letter-spacing:1.3px; text-transform:uppercase; color:var(--tos-fg-dim2); margin-top:5px; }
+    #tablet-os-overlay .tos-ideo-pathbox .pt { font-size:0.8125rem; line-height:1.5; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-shead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
-    #tablet-os-overlay .tos-ideo-shead .rp { font-size:19px; letter-spacing:1px; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-ideo-shead .nx { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-shead .rp { font-size:1.1875rem; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-ideo-shead .nx { font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-ladder { display:flex; flex-direction:column; }
-    #tablet-os-overlay .tos-ideo-rung { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-rung .pip { flex:0 0 10px; height:10px; border-radius:50%; border:1px solid var(--tos-fg-dim2); background:transparent; }
     #tablet-os-overlay .tos-ideo-rung .rl { flex:1 1 auto; }
-    #tablet-os-overlay .tos-ideo-rung .pk { font-size:10px; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ideo-rung .pk { font-size:0.625rem; color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-ideo-rung.done { color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-rung.done .pip { background:var(--ic); border-color:var(--ic); box-shadow:0 0 8px var(--ic); }
     #tablet-os-overlay .tos-ideo-rung.here { color:var(--ic); text-shadow:0 0 8px color-mix(in srgb,var(--ic) 45%,transparent); }
     #tablet-os-overlay .tos-ideo-rung.here .pip { background:var(--ic); border-color:#fff; box-shadow:0 0 12px var(--ic); }
     #tablet-os-overlay .tos-ideo-rung.here .pk { color:var(--ic); }
     #tablet-os-overlay .tos-ideo-chips { display:flex; flex-wrap:wrap; gap:6px; }
-    #tablet-os-overlay .tos-ideo-chip { font-size:11.5px; letter-spacing:.8px; padding:6px 10px; border-radius:5px; border:1px solid var(--tos-border);
+    #tablet-os-overlay .tos-ideo-chip { font-size:0.7188rem; letter-spacing:.8px; padding:6px 10px; border-radius:5px; border:1px solid var(--tos-border);
       background:linear-gradient(165deg,var(--tos-surface-hi),var(--tos-surface-lo)); color:var(--tos-fg-dim); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-ideo-chip em { font-style:normal; color:var(--tos-fg-dim2); font-size:10px; letter-spacing:1.3px; text-transform:uppercase; margin-right:5px; }
+    #tablet-os-overlay .tos-ideo-chip em { font-style:normal; color:var(--tos-fg-dim2); font-size:0.625rem; letter-spacing:1.3px; text-transform:uppercase; margin-right:5px; }
     #tablet-os-overlay .tos-ideo-chip.foe { border-color:color-mix(in srgb,#e05555 45%,transparent); color:#eba0a0; }
     #tablet-os-overlay .tos-ideo-chip.warn { border-color:color-mix(in srgb,#E0A030 40%,transparent); color:#e6c98f; }
-    #tablet-os-overlay .tos-ideo-empty { font-size:13px; line-height:1.5; color:var(--tos-fg-dim2); font-style:italic; font-family:Georgia,serif; padding:2px 0; margin:0; }
+    #tablet-os-overlay .tos-ideo-empty { font-size:0.8125rem; line-height:1.5; color:var(--tos-fg-dim2); font-style:italic; font-family:Georgia,serif; padding:2px 0; margin:0; }
     #tablet-os-overlay .tos-ideo-legend { display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
-    #tablet-os-overlay .tos-ideo-legend span { display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ideo-legend span { display:flex; align-items:center; gap:6px; font-size:0.6875rem; letter-spacing:.8px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-ideo-legend i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 7px currentColor; }
     @keyframes tos-fade { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
 
@@ -1605,13 +1610,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-bw-dots { display:flex; gap:5px; flex:0 0 auto; }
     #tablet-os-overlay .tos-bw-dots i { width:10px; height:10px; border-radius:50%; display:block; box-shadow:inset 0 0 2px rgba(0,0,0,0.4); }
     #tablet-os-overlay .tos-bw-dots i.r { background:#ff5f57; } #tablet-os-overlay .tos-bw-dots i.y { background:#febc2e; } #tablet-os-overlay .tos-bw-dots i.g { background:#28c840; }
-    #tablet-os-overlay .tos-bw-url { flex:1; font-family:'Courier New',monospace; font-size:11px; letter-spacing:.5px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-bw-url { flex:1; font-family:'Courier New',monospace; font-size:0.6875rem; letter-spacing:.5px; color:var(--tos-fg-dim);
       background:var(--tos-surface-hi); border:1px solid var(--tos-bevel-lo); border-radius:4px; padding:3px 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-bw-body { padding:11px 12px; }
     #tablet-os-overlay .tos-bw-body .tos-color-row { margin-top:0; }
 
     /* Page nav (Skills & Stats — fixed-size pages instead of a growing list) */
-    #tablet-os-overlay .tos-page-nav { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); text-transform:uppercase; }
+    #tablet-os-overlay .tos-page-nav { display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:0.6875rem; letter-spacing:1px; color:var(--tos-fg-dim); text-transform:uppercase; }
     #tablet-os-overlay .tos-page-btn { cursor:pointer; color:var(--mg-accent); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:3px; padding:4px 10px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-page-btn:hover { filter:brightness(1.15); }
@@ -1620,7 +1625,7 @@ function ensureStyles() {
     /* Settings — the Tablet's own theme picker (not the full game settings
        panel), plus a link out to the full theme editor for deep customization. */
     #tablet-os-overlay .tos-theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:6px; }
-    #tablet-os-overlay .tos-theme-btn { cursor:pointer; text-align:center; padding:8px 5px; border-radius:6px; font-size:12px;
+    #tablet-os-overlay .tos-theme-btn { cursor:pointer; text-align:center; padding:8px 5px; border-radius:6px; font-size:0.75rem;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); color:var(--tos-fg);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 1px 3px rgba(0,0,0,0.18);
@@ -1629,7 +1634,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-theme-btn:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-theme-btn.selected { border-color:var(--mg-accent); box-shadow:0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 1px 0 var(--tos-bevel-hi); color:var(--mg-accent); font-weight:bold; }
     /* Theme colour swatch — the theme previews itself (own bg + accent dot). */
-    #tablet-os-overlay .tos-theme-sw { display:flex; align-items:center; gap:7px; cursor:pointer; padding:7px 8px; border-radius:6px; font-size:11.5px; overflow:hidden;
+    #tablet-os-overlay .tos-theme-sw { display:flex; align-items:center; gap:7px; cursor:pointer; padding:7px 8px; border-radius:6px; font-size:0.7188rem; overflow:hidden;
       border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 1px 3px rgba(0,0,0,.25);
       transition:transform .05s, box-shadow .12s, filter .12s; }
     #tablet-os-overlay .tos-theme-sw:hover { filter:brightness(1.08); }
@@ -1640,19 +1645,19 @@ function ensureStyles() {
     #tablet-os-overlay .tos-theme-sw .tos-sw-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* Compact theme trigger — the active theme as a single swatch that opens the
        picker sheet, instead of laying the whole swatch list out on the page. */
-    #tablet-os-overlay .tos-theme-trigger { display:flex; align-items:center; gap:7px; cursor:pointer; min-width:150px; max-width:52vw; padding:6px 9px; border-radius:6px; font-size:12px; overflow:hidden;
+    #tablet-os-overlay .tos-theme-trigger { display:flex; align-items:center; gap:7px; cursor:pointer; min-width:max(150px, 12.5em); max-width:52vw; padding:6px 9px; border-radius:6px; font-size:0.75rem; overflow:hidden;
       border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 1px 3px rgba(0,0,0,.25);
       transition:transform .05s, filter .12s; }
     #tablet-os-overlay .tos-theme-trigger:hover { filter:brightness(1.1); }
     #tablet-os-overlay .tos-theme-trigger:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-theme-trigger .tos-sw-ac { width:13px; height:13px; border-radius:50%; flex:0 0 auto; box-shadow:0 0 5px currentColor; border:1px solid rgba(0,0,0,.35); }
     #tablet-os-overlay .tos-theme-trigger .tos-sw-name { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #tablet-os-overlay .tos-theme-trigger .tos-trigger-caret { flex:0 0 auto; font-size:11px; opacity:.75; }
+    #tablet-os-overlay .tos-theme-trigger .tos-trigger-caret { flex:0 0 auto; font-size:0.6875rem; opacity:.75; }
     /* Theme-picker sheet — the scrollable list that slides up over the settings
        screen when a theme trigger is tapped. */
     #tablet-os-overlay .tos-theme-sheet { animation:tos-sheet-in .18s ease-out; }
     #tablet-os-overlay .tos-sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:8px; margin-bottom:4px;
-      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); font-size:13px; letter-spacing:.5px; color:var(--mg-accent); font-weight:bold; }
+      border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); font-size:0.8125rem; letter-spacing:.5px; color:var(--mg-accent); font-weight:bold; }
     @keyframes tos-sheet-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
     /* Full settings app — option-pill rows, sliders, colour swatch. Mirrors the
@@ -1662,7 +1667,7 @@ function ensureStyles() {
     /* Settings page tabs — grouped pages instead of one long scroll (mirrors the
        game settings' grouping: Appearance / Layout / Sound / Game). */
     #tablet-os-overlay .tos-set-tabs { display:flex; gap:6px; margin-bottom:4px; flex-wrap:wrap; }
-    #tablet-os-overlay .tos-set-tab { cursor:pointer; padding:6px 12px; border-radius:6px 6px 0 0; font-size:12px; letter-spacing:.5px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-set-tab { cursor:pointer; padding:6px 12px; border-radius:6px 6px 0 0; font-size:0.75rem; letter-spacing:.5px; color:var(--tos-fg-dim);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-bottom:none;
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi); transition:filter .12s; }
@@ -1670,15 +1675,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-set-tab.sel { color:var(--mg-accent); font-weight:bold; border-color:var(--mg-accent); box-shadow:0 -2px 8px color-mix(in srgb, var(--mg-accent) 22%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-set-page { border-top:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); padding-top:4px; }
     #tablet-os-overlay .tos-set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 12%, transparent); }
-    #tablet-os-overlay .tos-set-label { font-size:13px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-set-val { font-size:11px; color:var(--tos-fg-dim); margin-left:6px; }
+    #tablet-os-overlay .tos-set-label { font-size:0.8125rem; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-set-val { font-size:0.6875rem; color:var(--tos-fg-dim); margin-left:6px; }
     #tablet-os-overlay .tos-opts { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
     /* Label-less audio toggles: the on/off icons carry the meaning (tooltip'd),
        so the row is a centered pair of larger buttons instead of a labelled row. */
     #tablet-os-overlay .tos-set-row.tos-iconrow { justify-content:center; gap:22px; flex-wrap:wrap; }
     #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opts { justify-content:center; flex:0 0 auto; }
-    #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opt { min-width:44px; font-size:16px; padding:6px 12px; }
-    #tablet-os-overlay .tos-opt { cursor:pointer; min-width:30px; text-align:center; padding:5px 9px; border-radius:5px; font-size:13px; line-height:1.1;
+    #tablet-os-overlay .tos-set-row.tos-iconrow .tos-opt { min-width:max(44px, 2.75em); font-size:1rem; padding:6px 12px; }
+    #tablet-os-overlay .tos-opt { cursor:pointer; min-width:2.308em; text-align:center; padding:5px 9px; border-radius:5px; font-size:0.8125rem; line-height:1.1;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); color:var(--tos-fg);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo);
@@ -1692,28 +1697,28 @@ function ensureStyles() {
        rather than another list of controls. */
     #tablet-os-overlay .tos-about { display:flex; flex-direction:column; align-items:center; justify-content:center;
       gap:14px; text-align:center; padding:26px 14px 22px; }
-    #tablet-os-overlay .tos-about-mark { font-size:26px; letter-spacing:6px; text-transform:uppercase; font-weight:bold;
+    #tablet-os-overlay .tos-about-mark { font-size:1.625rem; letter-spacing:6px; text-transform:uppercase; font-weight:bold;
       color:var(--mg-accent); text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-about-rule { width:132px; height:1px; background:linear-gradient(90deg, transparent, var(--mg-accent), transparent); opacity:.7; }
-    #tablet-os-overlay .tos-about-by { font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-about-names { font-size:14px; line-height:1.7; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-about-by { font-size:0.6875rem; letter-spacing:2.5px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-about-names { font-size:0.875rem; line-height:1.7; color:var(--tos-fg); }
     /* Was a one-line italic tagline (a quote about the city); it now carries the
        support ask, which is body copy rather than a quotation — so no italic,
        and a little more width to breathe over two or three lines. */
-    #tablet-os-overlay .tos-about-tag { font-size:11px; color:var(--tos-fg-dim); max-width:300px; line-height:1.65; }
+    #tablet-os-overlay .tos-about-tag { font-size:0.6875rem; color:var(--tos-fg-dim); max-width:300px; line-height:1.65; }
     #tablet-os-overlay .tos-about-bmc { display:inline-flex; align-items:center; gap:9px; margin-top:4px; cursor:pointer;
-      padding:9px 16px; border-radius:7px; font-size:12.5px; letter-spacing:.6px; text-decoration:none; color:var(--tos-fg);
+      padding:9px 16px; border-radius:7px; font-size:0.7813rem; letter-spacing:.6px; text-decoration:none; color:var(--tos-fg);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 2px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,.25);
       transition:filter .12s, box-shadow .12s, transform .05s; }
     #tablet-os-overlay .tos-about-bmc:hover { filter:brightness(1.15); box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 38%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-about-bmc:active { transform:translateY(1px); }
-    #tablet-os-overlay .tos-about-bmc .tos-about-cup { font-size:16px; line-height:1; }
+    #tablet-os-overlay .tos-about-bmc .tos-about-cup { font-size:1rem; line-height:1; }
     #tablet-os-overlay input.tos-color { width:34px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:4px; background:none; cursor:pointer; vertical-align:middle; }
     /* Smaller secondary buttons (Full Theme Editor…, Tablet Theme…) so they sit
        under a section without the full accent-fill weight of a .tos-btn. */
-    #tablet-os-overlay .tos-btn-sub { display:inline-block; cursor:pointer; margin-top:8px; padding:6px 11px; border-radius:5px; font-size:12px; letter-spacing:.5px; color:var(--mg-accent);
+    #tablet-os-overlay .tos-btn-sub { display:inline-block; cursor:pointer; margin-top:8px; padding:6px 11px; border-radius:5px; font-size:0.75rem; letter-spacing:.5px; color:var(--mg-accent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
@@ -1732,10 +1737,10 @@ function ensureStyles() {
        stays legible on light themes (bright mint on a cream bg is unreadable) —
        --tos-shub is set by applyTabletTheme() from the effective bg luminance. */
     #tablet-os-overlay .tos-surv { --shub: var(--tos-shub, #39ff9e); }
-    #tablet-os-overlay .tos-surv-hdr { display:flex; justify-content:space-between; align-items:center; font-size:12px; letter-spacing:1.5px; text-transform:uppercase; color:var(--shub); margin-bottom:8px; text-shadow:0 0 8px color-mix(in srgb, var(--shub) 55%, transparent); }
+    #tablet-os-overlay .tos-surv-hdr { display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--shub); margin-bottom:8px; text-shadow:0 0 8px color-mix(in srgb, var(--shub) 55%, transparent); }
     #tablet-os-overlay .tos-surv-hdr .tos-surv-rec { color:#ff5a68; }
     #tablet-os-overlay .tos-alerts { display:flex; flex-direction:column; gap:3px; margin-bottom:9px; max-height:74px; overflow-y:auto; }
-    #tablet-os-overlay .tos-alert { font-size:11px; color:color-mix(in srgb, var(--shub) 80%, #fff); background:color-mix(in srgb, var(--shub) 8%, var(--bg,#0c1114)); border-left:2px solid var(--shub); padding:2px 7px; border-radius:2px; }
+    #tablet-os-overlay .tos-alert { font-size:0.6875rem; color:color-mix(in srgb, var(--shub) 80%, #fff); background:color-mix(in srgb, var(--shub) 8%, var(--bg,#0c1114)); border-left:2px solid var(--shub); padding:2px 7px; border-radius:2px; }
     #tablet-os-overlay .tos-alert b { color:var(--shub); }
     #tablet-os-overlay .tos-cam-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
     #tablet-os-overlay .tos-cam { cursor:pointer; border:1px solid color-mix(in srgb, var(--shub) 34%, transparent); border-radius:5px; overflow:hidden;
@@ -1744,28 +1749,28 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cam:hover { filter:brightness(1.12); box-shadow:0 0 10px color-mix(in srgb, var(--shub) 30%, transparent); }
     #tablet-os-overlay .tos-cam:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-cam.sel { border-color:var(--shub); box-shadow:0 0 12px color-mix(in srgb, var(--shub) 42%, transparent); }
-    #tablet-os-overlay .tos-cam-head { display:flex; justify-content:space-between; gap:6px; align-items:baseline; padding:5px 7px 3px; font-size:11.5px; color:color-mix(in srgb, var(--shub) 85%, #fff); }
-    #tablet-os-overlay .tos-cam-head .tos-cam-kind { font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-cam-feed { position:relative; min-height:56px; padding:6px 8px; margin:0 6px; border-radius:3px; font-size:11px; line-height:1.35; color:color-mix(in srgb, var(--shub) 88%, #fff);
+    #tablet-os-overlay .tos-cam-head { display:flex; justify-content:space-between; gap:6px; align-items:baseline; padding:5px 7px 3px; font-size:0.7188rem; color:color-mix(in srgb, var(--shub) 85%, #fff); }
+    #tablet-os-overlay .tos-cam-head .tos-cam-kind { font-size:0.5938rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-cam-feed { position:relative; min-height:max(56px, 5.091em); padding:6px 8px; margin:0 6px; border-radius:3px; font-size:0.6875rem; line-height:1.35; color:color-mix(in srgb, var(--shub) 88%, #fff);
       background:var(--bg,#0a0e10); border:1px solid color-mix(in srgb, var(--shub) 18%, transparent);
       background-image:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.28) 2px 3px); text-shadow:0 0 5px color-mix(in srgb, var(--shub) 45%, transparent); }
-    #tablet-os-overlay .tos-cam-feed.dead { color:var(--tos-fg-dim2); text-align:center; display:flex; align-items:center; justify-content:center; letter-spacing:2px; text-transform:uppercase; font-size:10.5px; text-shadow:none; }
-    #tablet-os-overlay .tos-cam-foot { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:4px 7px 6px; font-size:10px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cam-feed.dead { color:var(--tos-fg-dim2); text-align:center; display:flex; align-items:center; justify-content:center; letter-spacing:2px; text-transform:uppercase; font-size:0.6563rem; text-shadow:none; }
+    #tablet-os-overlay .tos-cam-foot { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:4px 7px 6px; font-size:0.625rem; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-rec { color:#ff5a68; font-weight:bold; letter-spacing:1px; text-shadow:0 0 6px rgba(255,90,104,.6); }
     #tablet-os-overlay .tos-rec .tos-acc-dot { animation:tos-acc-blink 1.1s steps(1) infinite; }
     @keyframes tos-acc-blink { 0%,50%{opacity:1} 51%,100%{opacity:.25} }
     #tablet-os-overlay .tos-cam-focus { margin-bottom:10px; border:1px solid var(--shub); border-radius:6px; padding:8px; background:color-mix(in srgb, var(--shub) 7%, var(--bg,#0c1114)); box-shadow:0 0 14px color-mix(in srgb, var(--shub) 22%, transparent); }
-    #tablet-os-overlay .tos-cam-focus .tos-cam-feed { min-height:82px; margin:0; font-size:12px; }
+    #tablet-os-overlay .tos-cam-focus .tos-cam-feed { min-height:max(82px, 6.833em); margin:0; font-size:0.75rem; }
     #tablet-os-overlay .tos-surv-links { display:flex; gap:8px; margin:11px 0 3px; }
-    #tablet-os-overlay .tos-surv-link { cursor:pointer; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--shub); border:1px solid color-mix(in srgb, var(--shub) 40%, transparent); border-radius:4px; padding:5px 11px;
+    #tablet-os-overlay .tos-surv-link { cursor:pointer; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--shub); border:1px solid color-mix(in srgb, var(--shub) 40%, transparent); border-radius:4px; padding:5px 11px;
       background:color-mix(in srgb, var(--shub) 10%, var(--bg2,#12181b)); }
     #tablet-os-overlay .tos-surv-link:hover { filter:brightness(1.15); box-shadow:0 0 10px color-mix(in srgb, var(--shub) 30%, transparent); }
-    #tablet-os-overlay .tos-buf-head { margin:9px 0 4px; font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--shub) 70%, #fff); }
-    #tablet-os-overlay .tos-buf { max-height:120px; overflow-y:auto; border:1px solid color-mix(in srgb, var(--shub) 22%, transparent); border-radius:3px; background:var(--bg,#0a0e10); padding:5px 7px; font-size:11px; line-height:1.45;
+    #tablet-os-overlay .tos-buf-head { margin:9px 0 4px; font-size:0.5938rem; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--shub) 70%, #fff); }
+    #tablet-os-overlay .tos-buf { max-height:120px; overflow-y:auto; border:1px solid color-mix(in srgb, var(--shub) 22%, transparent); border-radius:3px; background:var(--bg,#0a0e10); padding:5px 7px; font-size:0.6875rem; line-height:1.45;
       background-image:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.22) 2px 3px); }
-    #tablet-os-overlay .tos-buf.empty { color:var(--tos-fg-dim2); font-size:11px; padding:8px 7px; text-align:center; }
+    #tablet-os-overlay .tos-buf.empty { color:var(--tos-fg-dim2); font-size:0.6875rem; padding:8px 7px; text-align:center; }
     #tablet-os-overlay .tos-buf-line { padding:1px 0; }
-    #tablet-os-overlay .tos-buf-t { color:var(--tos-fg-dim2); font-size:9.5px; }
+    #tablet-os-overlay .tos-buf-t { color:var(--tos-fg-dim2); font-size:0.5938rem; }
     /* Speech vs. narration/emote colour apart, and both key off theme tokens so the
        split re-skins per theme: speech = the tablet accent, narration = phosphor. */
     #tablet-os-overlay .tos-buf-line.say .tos-buf-txt { color:color-mix(in srgb, var(--mg-accent) 78%, #fff); }
@@ -1774,32 +1779,32 @@ function ensureStyles() {
     #tablet-os-overlay .tos-buf::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--shub) 30%, transparent); border-radius:3px; }
     #tablet-os-overlay .tos-buf-full { color:#ff5a68; font-weight:bold; letter-spacing:1px; }
     #tablet-os-overlay .tos-cam-live { color:#ff5a68; font-weight:bold; letter-spacing:1px; }
-    #tablet-os-overlay .tos-cam-fullbar { margin:7px 0 2px; padding:4px 7px; font-size:10px; letter-spacing:.5px; text-align:center; color:#ffd0d4; background:color-mix(in srgb, #ff5a68 16%, var(--bg,#0c1114)); border:1px solid color-mix(in srgb, #ff5a68 40%, transparent); border-radius:3px; }
+    #tablet-os-overlay .tos-cam-fullbar { margin:7px 0 2px; padding:4px 7px; font-size:0.625rem; letter-spacing:.5px; text-align:center; color:#ffd0d4; background:color-mix(in srgb, #ff5a68 16%, var(--bg,#0c1114)); border:1px solid color-mix(in srgb, #ff5a68 40%, transparent); border-radius:3px; }
 
     /* ── Microreel viewer (SPECTER's own inline replay — no separate deck) ────────
        A CRT screen playing back a saved recording: header (zone/date/evidence), a
        framed screen with a HUD, transport controls, and a colour-coded transcript. */
     #tablet-os-overlay .tos-reel { --shub: var(--tos-shub, #39ff9e); display:flex; flex-direction:column; gap:9px; }
-    #tablet-os-overlay .tos-reel-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--shub); text-shadow:0 0 8px color-mix(in srgb, var(--shub) 50%, transparent); }
-    #tablet-os-overlay .tos-reel-date { font-size:10px; color:var(--tos-fg-dim); letter-spacing:.5px; text-transform:none; }
-    #tablet-os-overlay .tos-reel-evi { font-size:10.5px; letter-spacing:1px; color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; border-radius:3px; padding:3px 8px; }
+    #tablet-os-overlay .tos-reel-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; color:var(--shub); text-shadow:0 0 8px color-mix(in srgb, var(--shub) 50%, transparent); }
+    #tablet-os-overlay .tos-reel-date { font-size:0.625rem; color:var(--tos-fg-dim); letter-spacing:.5px; text-transform:none; }
+    #tablet-os-overlay .tos-reel-evi { font-size:0.6563rem; letter-spacing:1px; color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; border-radius:3px; padding:3px 8px; }
     #tablet-os-overlay .tos-reel-screen { position:relative; border:1px solid var(--shub); border-radius:6px; padding:12px 12px 26px; min-height:70px; background:var(--bg,#0a0e10);
       background-image:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.28) 2px 3px); box-shadow:inset 0 0 22px color-mix(in srgb, var(--shub) 14%, transparent); }
-    #tablet-os-overlay .tos-reel-frame { font-size:13px; line-height:1.4; min-height:34px; text-shadow:0 0 5px color-mix(in srgb, var(--shub) 40%, transparent); }
+    #tablet-os-overlay .tos-reel-frame { font-size:0.8125rem; line-height:1.4; min-height:2.615em; text-shadow:0 0 5px color-mix(in srgb, var(--shub) 40%, transparent); }
     #tablet-os-overlay .tos-reel-frame.say { color:color-mix(in srgb, var(--mg-accent) 82%, #fff); }
     #tablet-os-overlay .tos-reel-frame.event { color:color-mix(in srgb, var(--shub) 88%, #fff); font-style:italic; }
-    #tablet-os-overlay .tos-reel-hud { position:absolute; left:12px; right:12px; bottom:6px; display:flex; justify-content:space-between; font-size:9.5px; letter-spacing:1px; color:color-mix(in srgb, var(--shub) 70%, #fff); }
+    #tablet-os-overlay .tos-reel-hud { position:absolute; left:12px; right:12px; bottom:6px; display:flex; justify-content:space-between; font-size:0.5938rem; letter-spacing:1px; color:color-mix(in srgb, var(--shub) 70%, #fff); }
     #tablet-os-overlay .tos-reel-transport { display:flex; align-items:center; gap:6px; }
-    #tablet-os-overlay .tos-reel-btn { cursor:pointer; font-size:12px; padding:5px 10px; border-radius:4px; color:var(--shub); background:color-mix(in srgb, var(--shub) 10%, var(--bg2,#12181b)); border:1px solid color-mix(in srgb, var(--shub) 34%, transparent); }
+    #tablet-os-overlay .tos-reel-btn { cursor:pointer; font-size:0.75rem; padding:5px 10px; border-radius:4px; color:var(--shub); background:color-mix(in srgb, var(--shub) 10%, var(--bg2,#12181b)); border:1px solid color-mix(in srgb, var(--shub) 34%, transparent); }
     #tablet-os-overlay .tos-reel-btn:hover { filter:brightness(1.16); }
     #tablet-os-overlay .tos-reel-btn.tos-reel-play { font-weight:bold; }
     #tablet-os-overlay .tos-reel-scrub { flex:1; accent-color:var(--shub); }
-    #tablet-os-overlay .tos-reel-transcript { max-height:150px; overflow-y:auto; border:1px solid color-mix(in srgb, var(--shub) 20%, transparent); border-radius:3px; background:var(--bg,#0a0e10); padding:5px 7px; font-size:11px; line-height:1.45; }
+    #tablet-os-overlay .tos-reel-transcript { max-height:150px; overflow-y:auto; border:1px solid color-mix(in srgb, var(--shub) 20%, transparent); border-radius:3px; background:var(--bg,#0a0e10); padding:5px 7px; font-size:0.6875rem; line-height:1.45; }
     #tablet-os-overlay .tos-reel-line { padding:2px 4px; border-radius:2px; cursor:pointer; }
     #tablet-os-overlay .tos-reel-line.say .tos-buf-txt { color:color-mix(in srgb, var(--mg-accent) 78%, #fff); }
     #tablet-os-overlay .tos-reel-line.event .tos-buf-txt { color:color-mix(in srgb, var(--shub) 82%, #fff); font-style:italic; }
     #tablet-os-overlay .tos-reel-line.cur { background:color-mix(in srgb, var(--shub) 16%, transparent); box-shadow:inset 2px 0 0 var(--shub); }
-    #tablet-os-overlay .tos-reel-tc { color:var(--tos-fg-dim2); font-size:9.5px; }
+    #tablet-os-overlay .tos-reel-tc { color:var(--tos-fg-dim2); font-size:0.5938rem; }
     #tablet-os-overlay .tos-reel-empty { color:var(--tos-fg-dim2); text-align:center; padding:10px; letter-spacing:2px; }
     #tablet-os-overlay .tos-reel-transcript::-webkit-scrollbar { width:5px; }
     #tablet-os-overlay .tos-reel-transcript::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--shub) 30%, transparent); border-radius:3px; }
@@ -1812,14 +1817,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gear { display:flex; flex-direction:column; gap:9px; }
     #tablet-os-overlay .tos-gear-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     #tablet-os-overlay .tos-gl-group { display:inline-flex; border-radius:6px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-gl { cursor:pointer; padding:5px 10px; font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-gl { cursor:pointer; padding:5px 10px; font-size:0.6563rem; letter-spacing:.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-gl:last-child { border-right:none; }
     #tablet-os-overlay .tos-gl:hover { filter:brightness(1.14); }
     #tablet-os-overlay .tos-gl.active { color:var(--mg-accent); font-weight:bold; background:color-mix(in srgb, var(--mg-accent) 16%, var(--tos-surface-lo)); box-shadow:inset 0 0 11px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
     #tablet-os-overlay .tos-gear-carry { display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
     #tablet-os-overlay .tos-gear-bar { width:118px; height:5px; border-radius:3px; overflow:hidden; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); }
     #tablet-os-overlay .tos-gear-bar span { display:block; height:100%; background:var(--mg-accent); box-shadow:0 0 6px var(--mg-accent); }
-    #tablet-os-overlay .tos-gear-carry-txt { font-size:10px; letter-spacing:.5px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-gear-carry-txt { font-size:0.625rem; letter-spacing:.5px; color:var(--tos-fg-dim); }
 
     /* The doll is a fixed-aspect stage matching the silhouette PNG, so the masked
        figure fills it edge-to-edge and each slot box's percentage anchor lands over
@@ -1845,11 +1850,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gload-side { grid-column:1; justify-self:start; width:100%; max-width:230px; min-width:0; display:flex; flex-direction:column; gap:7px; }
     #tablet-os-overlay .tos-gload-doll { grid-column:2; display:flex; flex-direction:column; align-items:center; gap:4px; }
     /* Below-feet feedback line (equip errors), accent, hidden until it has a message. */
-    #tablet-os-overlay .tos-gload-fb { min-height:15px; font-size:11px; letter-spacing:.4px; text-align:center; color:var(--mg-accent); opacity:0; transition:opacity .15s; text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
+    #tablet-os-overlay .tos-gload-fb { min-height:1.364em; font-size:0.6875rem; letter-spacing:.4px; text-align:center; color:var(--mg-accent); opacity:0; transition:opacity .15s; text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
     #tablet-os-overlay .tos-gload-fb.show { opacity:1; }
     /* Top-right cluster (col 3): layer selector + carry + total-armor + insulation. */
     #tablet-os-overlay .tos-gload-far { grid-column:3; justify-self:end; align-self:start; display:flex; flex-direction:column; align-items:flex-end; gap:9px; padding-top:2px; }
-    #tablet-os-overlay .tos-gstat { display:flex; align-items:center; gap:5px; color:var(--mg-accent); font-size:14px; font-variant-numeric:tabular-nums; }
+    #tablet-os-overlay .tos-gstat { display:flex; align-items:center; gap:5px; color:var(--mg-accent); font-size:0.875rem; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-gstat svg { width:17px; height:17px; flex:0 0 auto; filter:drop-shadow(0 0 3px color-mix(in srgb, var(--mg-accent) 40%, transparent)); }
     #tablet-os-overlay .tos-gstat-armor { cursor:pointer; border-radius:5px; padding:2px 4px; margin:-2px -4px; transition:background .12s; }
     #tablet-os-overlay .tos-gstat-armor:hover { background:color-mix(in srgb, var(--mg-accent) 16%, transparent); }
@@ -1858,33 +1863,33 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gtip { position:fixed; z-index:9500; pointer-events:none; min-width:132px; max-width:220px; padding:9px 11px; border-radius:8px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent);
       box-shadow:0 6px 22px rgba(0,0,0,0.5), inset 0 1px 0 var(--tos-bevel-hi); color:var(--mg-accent); }
-    #tablet-os-overlay .tos-gtip-name { font-size:12.5px; color:var(--mg-accent); }
-    #tablet-os-overlay .tos-gtip-slot { font-size:8.5px; letter-spacing:1px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); margin-bottom:4px; }
-    #tablet-os-overlay .tos-gtip-sec { font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); margin:4px 0 2px; }
-    #tablet-os-overlay .tos-gtip-row { display:flex; justify-content:space-between; gap:12px; font-size:11px; padding:1.5px 0; }
+    #tablet-os-overlay .tos-gtip-name { font-size:0.7813rem; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-gtip-slot { font-size:0.5313rem; letter-spacing:1px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); margin-bottom:4px; }
+    #tablet-os-overlay .tos-gtip-sec { font-size:0.5313rem; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); margin:4px 0 2px; }
+    #tablet-os-overlay .tos-gtip-row { display:flex; justify-content:space-between; gap:12px; font-size:0.6875rem; padding:1.5px 0; }
     #tablet-os-overlay .tos-gtip-row > span:first-child { color:color-mix(in srgb, var(--mg-accent) 66%, transparent); }
     #tablet-os-overlay .tos-gtip-row.tos-gtip-dim { color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
     #tablet-os-overlay .tos-gtip-type { display:inline-flex; align-items:center; gap:4px; }
     #tablet-os-overlay .tos-gtip-type svg { width:13px; height:13px; }
-    #tablet-os-overlay .tos-gtip-soak { display:flex; align-items:center; gap:6px; font-size:11px; padding:1.5px 0; }
+    #tablet-os-overlay .tos-gtip-soak { display:flex; align-items:center; gap:6px; font-size:0.6875rem; padding:1.5px 0; }
     #tablet-os-overlay .tos-gtip-ico { display:inline-flex; }
     #tablet-os-overlay .tos-gtip-ico svg { width:14px; height:14px; }
     #tablet-os-overlay .tos-gtip-soak .tos-gtip-val { margin-left:auto; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-gtip-hint { margin-top:6px; padding-top:5px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); font-size:9px; letter-spacing:.4px; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
+    #tablet-os-overlay .tos-gtip-hint { margin-top:6px; padding-top:5px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 20%, transparent); font-size:0.5625rem; letter-spacing:.4px; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); }
 
     /* Armor breakdown popup — reuses the .tos-idp shell; per-type rows with icons. */
     #tablet-os-overlay .tos-gbrk { max-width:250px; }
     #tablet-os-overlay .tos-gbrk-list { display:flex; flex-direction:column; gap:2px; }
-    #tablet-os-overlay .tos-gbrk-row { display:flex; align-items:center; gap:9px; font-size:13px; padding:5px 4px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 14%, transparent); color:var(--mg-accent); }
+    #tablet-os-overlay .tos-gbrk-row { display:flex; align-items:center; gap:9px; font-size:0.8125rem; padding:5px 4px; border-top:1px solid color-mix(in srgb, var(--mg-accent) 14%, transparent); color:var(--mg-accent); }
     #tablet-os-overlay .tos-gbrk-row.zero { color:color-mix(in srgb, var(--mg-accent) 40%, transparent); }
     #tablet-os-overlay .tos-gbrk-ico { display:inline-flex; flex:0 0 auto; }
     #tablet-os-overlay .tos-gbrk-ico svg { width:19px; height:19px; }
     #tablet-os-overlay .tos-gbrk-name { flex:1; }
-    #tablet-os-overlay .tos-gbrk-val { font-size:15px; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
+    #tablet-os-overlay .tos-gbrk-val { font-size:0.9375rem; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
     /* The weakest slot, beside the total. A big total hides a bare head, and the bare
        head is what actually kills you. */
-    #tablet-os-overlay .tos-gbrk-worst { font-style:normal; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:10.5px; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
+    #tablet-os-overlay .tos-gbrk-worst { font-style:normal; font-size:0.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-gbrk-foot { margin-top:8px; font-size:0.6563rem; color:color-mix(in srgb, var(--mg-accent) 62%, transparent); }
     #tablet-os-overlay .tos-doll-fig { position:absolute; inset:0; background:var(--mg-accent);
       -webkit-mask:url('/assets/femsil-mask.png') center / contain no-repeat;
       mask:url('/assets/femsil-mask.png') center / contain no-repeat;
@@ -1902,9 +1907,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gslot { position:absolute; z-index:2; display:flex; flex-direction:column; gap:0; padding:3px 6px; min-width:76px; max-width:44%; border-radius:5px; user-select:none; touch-action:none;
       background:color-mix(in srgb, var(--tos-surface-lo) 88%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo), 0 2px 6px rgba(0,0,0,0.35); backdrop-filter:blur(1px); transition:border-color .15s, box-shadow .15s; }
-    #tablet-os-overlay .tos-gslot-label { font-size:8px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-gslot-label { font-size:0.5rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
     /* Two lines before it gives up, so a long name wraps instead of vanishing. */
-    #tablet-os-overlay .tos-gslot-item { font-size:10px; line-height:1.2; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-gslot-item { font-size:0.625rem; line-height:1.2; color:var(--tos-fg-dim);
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
     /* An EMPTY slot is just a label — the em-dash placeholder was making every bare
        box as tall as a filled one, which is most of the crowding on a half-dressed
@@ -1942,22 +1947,22 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gslot-over { border-color:var(--mg-accent) !important; box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 
     #tablet-os-overlay .tos-gear-stats { display:flex; flex-direction:column; gap:5px; }
-    #tablet-os-overlay .tos-gear-sec { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); margin-top:5px; opacity:.85; }
-    #tablet-os-overlay .tos-gear-soak { width:100%; border-collapse:collapse; font-size:11.5px; }
-    #tablet-os-overlay .tos-gear-soak th { font-weight:normal; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); padding:3px 4px; text-align:center; }
+    #tablet-os-overlay .tos-gear-sec { font-size:0.625rem; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); margin-top:5px; opacity:.85; }
+    #tablet-os-overlay .tos-gear-soak { width:100%; border-collapse:collapse; font-size:0.7188rem; }
+    #tablet-os-overlay .tos-gear-soak th { font-weight:normal; font-size:0.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); padding:3px 4px; text-align:center; }
     #tablet-os-overlay .tos-gear-soak th:first-child, #tablet-os-overlay .tos-gear-soak td:first-child { text-align:left; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-gear-soak td { padding:4px; text-align:center; color:var(--tos-fg-dim2); border-top:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent); }
     #tablet-os-overlay .tos-gear-soak td.has { color:var(--mg-accent); font-weight:bold; }
     #tablet-os-overlay .tos-gear-fx { display:flex; flex-wrap:wrap; gap:6px; }
-    #tablet-os-overlay .tos-gear-fx span { font-size:11px; padding:3px 10px; border-radius:11px; color:var(--tos-fg); background:color-mix(in srgb, var(--mg-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); }
-    #tablet-os-overlay .tos-gear-fx.empty { color:var(--tos-fg-dim2); font-size:11.5px; }
+    #tablet-os-overlay .tos-gear-fx span { font-size:0.6875rem; padding:3px 10px; border-radius:11px; color:var(--tos-fg); background:color-mix(in srgb, var(--mg-accent) 14%, transparent); border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); }
+    #tablet-os-overlay .tos-gear-fx.empty { color:var(--tos-fg-dim2); font-size:0.7188rem; }
 
     /* Carried tray + the drag-to-ground zone. Cards drag onto the doll to equip or
        onto the zone to drop; the per-card ⤓ button moved to the Inventory tab
        (.tos-ginv-drop), so .tos-gcard-drop below is now unused by the tray and kept
        only so a card rendered with one still styles correctly. */
     #tablet-os-overlay .tos-gtray { display:flex; flex-direction:column; gap:5px; min-height:72px; padding:4px; border-radius:6px; border:1px dashed color-mix(in srgb, var(--mg-accent) 16%, transparent); }
-    #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:11.5px; padding:4px 2px; display:flex; align-items:center; justify-content:center; min-height:60px; text-align:center; }
+    #tablet-os-overlay .tos-gtray-empty { color:var(--tos-fg-dim2); font-size:0.7188rem; padding:4px 2px; display:flex; align-items:center; justify-content:center; min-height:max(60px, 5.217em); text-align:center; }
     #tablet-os-overlay .tos-gcard { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:5px; user-select:none; touch-action:none;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s, opacity .12s; }
@@ -1966,12 +1971,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-gcard.dragging { opacity:.45; }
     /* Wraps to two lines rather than ellipsising — the tray is a column, so vertical
        room is the one thing it has plenty of. */
-    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:12.5px; line-height:1.3; color:var(--tos-fg);
+    #tablet-os-overlay .tos-gcard-name { flex:1; min-width:0; font-size:0.7813rem; line-height:1.3; color:var(--tos-fg);
       display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
-    #tablet-os-overlay .tos-gcard-meta { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
-    #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:14px; line-height:1; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
+    #tablet-os-overlay .tos-gcard-meta { font-size:0.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-gcard-drop { flex:0 0 auto; cursor:pointer; font-size:0.875rem; line-height:1; color:color-mix(in srgb, var(--mg-accent) 60%, transparent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:4px; padding:2px 7px; transition:color .12s, border-color .12s, background .12s; }
     #tablet-os-overlay .tos-gcard-drop:hover { color:var(--mg-accent); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
-    #tablet-os-overlay .tos-gear-drop { margin-top:2px; text-align:center; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); padding:8px; border-radius:6px;
+    #tablet-os-overlay .tos-gear-drop { margin-top:2px; text-align:center; font-size:0.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:color-mix(in srgb, var(--mg-accent) 55%, transparent); padding:8px; border-radius:6px;
       border:1px dashed color-mix(in srgb, var(--mg-accent) 30%, transparent); background:color-mix(in srgb, var(--tos-surface-lo) 60%, transparent); transition:border-color .12s, color .12s, background .12s; }
     #tablet-os-overlay .tos-gear-drop-over { border-color:var(--mg-accent); border-style:solid; color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     /* Tray highlights when a worn slot box is dragged over it (unequip target). */
@@ -1980,36 +1985,36 @@ function ensureStyles() {
     /* Gear tabs (Loadout / Inventory). */
     /* INV expands its acronym at the top of the app — the title sits on the row above
        the tabs, which stay flex-end, so it reads as a masthead rather than a heading. */
-    #tablet-os-overlay .tos-inv-title { align-self:flex-start; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+    #tablet-os-overlay .tos-inv-title { align-self:flex-start; font-size:0.6875rem; letter-spacing:2px; text-transform:uppercase;
       color:var(--tos-fg-dim); margin-bottom:-6px; }
-    #tablet-os-overlay .tos-inv-title b { color:var(--mg-accent); font-size:15px; letter-spacing:3px; margin-right:8px; }
+    #tablet-os-overlay .tos-inv-title b { color:var(--mg-accent); font-size:0.9375rem; letter-spacing:3px; margin-right:8px; }
     #tablet-os-overlay .tos-gtabs { display:inline-flex; align-self:flex-end; border-radius:7px; overflow:hidden; border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-gtab { cursor:pointer; padding:7px 20px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
+    #tablet-os-overlay .tos-gtab { cursor:pointer; padding:7px 20px; font-size:0.6875rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--tos-fg-dim); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-right:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-gtab:last-child { border-right:none; }
     #tablet-os-overlay .tos-gtab:hover { filter:brightness(1.14); }
     #tablet-os-overlay .tos-gtab.active { color:var(--mg-accent); font-weight:bold; background:color-mix(in srgb, var(--mg-accent) 16%, var(--tos-surface-lo)); box-shadow:inset 0 0 11px color-mix(in srgb, var(--mg-accent) 26%, transparent); }
 
     /* Pager (◂ n/m ▸), shared by the loadout tray + Inventory tab. */
-    #tablet-os-overlay .tos-gpager { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 2px; font-size:11px; letter-spacing:1px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-gpg { cursor:pointer; min-width:30px; padding:3px 9px; font-size:13px; line-height:1; color:var(--mg-accent); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); border-radius:5px; box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
+    #tablet-os-overlay .tos-gpager { display:flex; align-items:center; justify-content:center; gap:14px; padding:4px 0 2px; font-size:0.6875rem; letter-spacing:1px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-gpg { cursor:pointer; min-width:2.308em; padding:3px 9px; font-size:0.8125rem; line-height:1; color:var(--mg-accent); background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); border-radius:5px; box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-gpg:hover:not([disabled]) { filter:brightness(1.16); }
     #tablet-os-overlay .tos-gpg[disabled] { opacity:.35; cursor:default; }
 
     /* Inventory tab: full paged pack, one tappable row per item. */
-    #tablet-os-overlay .tos-ginv-title { font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-ginv-title { font-size:0.75rem; letter-spacing:2px; text-transform:uppercase; color:var(--mg-accent); }
     #tablet-os-overlay .tos-ginv-list { display:flex; flex-direction:column; gap:4px; margin-top:4px; }
     #tablet-os-overlay .tos-ginv-row { display:flex; align-items:center; gap:8px; cursor:pointer; padding:8px 10px; border-radius:5px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s; }
     #tablet-os-overlay .tos-ginv-row:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
-    #tablet-os-overlay .tos-ginv-name { flex:1; min-width:0; font-size:12.5px; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #tablet-os-overlay .tos-ginv-slot { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-ginv-name { flex:1; min-width:0; font-size:0.7813rem; color:var(--tos-fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-ginv-slot { font-size:0.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); white-space:nowrap; }
     /* Per-row weight — tabular so the column reads as a column, and dim enough that
        the name still wins the row. */
-    #tablet-os-overlay .tos-ginv-wt { flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); white-space:nowrap; }
+    #tablet-os-overlay .tos-ginv-wt { flex:0 0 auto; font-size:0.625rem; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); white-space:nowrap; }
     /* ⤓, moved here off the Gear tab. Sits quiet until the row is hovered so a list of
        twenty things isn't twenty invitations to throw them away. */
-    #tablet-os-overlay .tos-ginv-drop { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+    #tablet-os-overlay .tos-ginv-drop { flex:0 0 auto; cursor:pointer; font-size:0.8125rem; line-height:1; padding:2px 6px; border-radius:4px;
       color:color-mix(in srgb, var(--mg-accent) 42%, transparent); background:transparent;
       border:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); opacity:.5; transition:opacity .12s, color .12s, border-color .12s, background .12s; }
     #tablet-os-overlay .tos-ginv-row:hover .tos-ginv-drop { opacity:1; }
@@ -2017,14 +2022,14 @@ function ensureStyles() {
     /* ⇧ wear/wield · ⇩ take off. Brighter than ⤓ and always legible rather than
        hover-revealed, because putting kit ON is the thing you came to this list to do —
        dropping it is the destructive one that should stay quiet. */
-    #tablet-os-overlay .tos-ginv-eqbtn { flex:0 0 auto; cursor:pointer; font-size:13px; line-height:1; padding:2px 6px; border-radius:4px;
+    #tablet-os-overlay .tos-ginv-eqbtn { flex:0 0 auto; cursor:pointer; font-size:0.8125rem; line-height:1; padding:2px 6px; border-radius:4px;
       color:color-mix(in srgb, var(--mg-accent) 82%, #fff); background:color-mix(in srgb, var(--mg-accent) 10%, transparent);
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent); transition:color .12s, border-color .12s, background .12s; }
     #tablet-os-overlay .tos-ginv-eqbtn:hover { border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 26%, transparent); }
     /* Taking something off is the quieter half of the same control. */
     #tablet-os-overlay .tos-ginv-eqbtn.off { color:var(--tos-fg-dim); background:transparent; border-color:color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-ginv-eqbtn.off:hover { color:var(--mg-accent); border-color:color-mix(in srgb, var(--mg-accent) 45%, transparent); }
-    #tablet-os-overlay .tos-ginv-eq { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
+    #tablet-os-overlay .tos-ginv-eq { font-size:0.5625rem; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent); white-space:nowrap; }
     /* ── What's in your hand ────────────────────────────────────────────────────
        The wielded weapon, pinned above the paged list. It gets a real block with a
        label rather than just being sorted first, because an unlabelled pinned row
@@ -2033,7 +2038,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-hand { margin:6px 0 2px; padding:6px 7px 4px; border-radius:6px;
       background:color-mix(in srgb, var(--mg-accent) 7%, transparent);
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); }
-    #tablet-os-overlay .tos-ginv-handlab { font-size:8.5px; letter-spacing:1.6px; text-transform:uppercase;
+    #tablet-os-overlay .tos-ginv-handlab { font-size:0.5313rem; letter-spacing:1.6px; text-transform:uppercase;
       color:color-mix(in srgb, var(--mg-accent) 66%, transparent); margin-bottom:4px; }
     /* The row itself, held: a lit left edge so it reads as "active" at a glance even
        with the badge text unread. */
@@ -2043,12 +2048,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-ginv-eq.wielding { font-weight:bold;
       color:color-mix(in srgb, var(--mg-accent) 80%, #fff);
       text-shadow:0 0 7px color-mix(in srgb, var(--mg-accent) 45%, transparent); }
-    #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:15px; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-ginv-chev { flex:0 0 auto; font-size:0.9375rem; color:var(--tos-fg-dim2); }
     /* The primary-verb chip: the one thing this item is FOR (Use / Read / Eat / …),
        shown on the row itself and tappable straight through, so a player never has
        to guess which verb an object wants. It shimmers on a slow loop — the same
        "this is the next move" language as the prose's .verb-teach. */
-    #tablet-os-overlay .tos-ginv-verb { flex:0 0 auto; cursor:pointer; font-size:9px; letter-spacing:1.5px; text-transform:uppercase;
+    #tablet-os-overlay .tos-ginv-verb { flex:0 0 auto; cursor:pointer; font-size:0.5625rem; letter-spacing:1.5px; text-transform:uppercase;
       padding:3px 9px; border-radius:3px; white-space:nowrap; color:var(--mg-accent); position:relative; overflow:hidden;
       background:color-mix(in srgb, var(--mg-accent) 14%, transparent);
       border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); }
@@ -2068,8 +2073,8 @@ function ensureStyles() {
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); transition:filter .12s, border-color .12s; }
     #tablet-os-overlay .tos-ginv-grouphead:hover { border-color:color-mix(in srgb, var(--mg-accent) 48%, transparent); filter:brightness(1.08); }
-    #tablet-os-overlay .tos-ginv-groupname { flex:1; min-width:0; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-ginv-groupcount { flex:0 0 auto; font-size:10px; padding:1px 7px; border-radius:9px;
+    #tablet-os-overlay .tos-ginv-groupname { flex:1; min-width:0; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-ginv-groupcount { flex:0 0 auto; font-size:0.625rem; padding:1px 7px; border-radius:9px;
       background:color-mix(in srgb, var(--mg-accent) 16%, transparent); color:var(--tos-fg-dim2); }
 
     /* Item-detail sheet (tap a row on the Inventory tab). */
@@ -2082,17 +2087,17 @@ function ensureStyles() {
       box-shadow:0 8px 30px rgba(0,0,0,0.55), inset 0 1px 0 var(--tos-bevel-hi); }
     /* Monochrome: everything is a tint of the accent (no grays, no red). */
     #tablet-os-overlay .tos-idp-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    #tablet-os-overlay .tos-idp-name { font-size:14px; color:var(--mg-accent); }
-    #tablet-os-overlay .tos-idp-qty { color:color-mix(in srgb, var(--mg-accent) 60%, transparent); font-size:12px; }
-    #tablet-os-overlay .tos-idp-x { cursor:pointer; font-size:13px; line-height:1; color:var(--mg-accent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); border-radius:4px; padding:3px 8px; }
+    #tablet-os-overlay .tos-idp-name { font-size:0.875rem; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-idp-qty { color:color-mix(in srgb, var(--mg-accent) 60%, transparent); font-size:0.75rem; }
+    #tablet-os-overlay .tos-idp-x { cursor:pointer; font-size:0.8125rem; line-height:1; color:var(--mg-accent); background:transparent; border:1px solid color-mix(in srgb, var(--mg-accent) 45%, transparent); border-radius:4px; padding:3px 8px; }
     #tablet-os-overlay .tos-idp-x:hover { background:color-mix(in srgb, var(--mg-accent) 20%, transparent); border-color:var(--mg-accent); }
-    #tablet-os-overlay .tos-idp-desc { font-size:11.5px; line-height:1.45; color:color-mix(in srgb, var(--mg-accent) 72%, transparent); }
+    #tablet-os-overlay .tos-idp-desc { font-size:0.7188rem; line-height:1.45; color:color-mix(in srgb, var(--mg-accent) 72%, transparent); }
     #tablet-os-overlay .tos-idp-stats { display:flex; flex-direction:column; gap:2px; }
-    #tablet-os-overlay .tos-idp-stat { display:flex; justify-content:space-between; gap:10px; font-size:11.5px; padding:3px 0; border-top:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); }
-    #tablet-os-overlay .tos-idp-stat span:first-child { color:color-mix(in srgb, var(--mg-accent) 58%, transparent); text-transform:uppercase; letter-spacing:.5px; font-size:9.5px; align-self:center; }
+    #tablet-os-overlay .tos-idp-stat { display:flex; justify-content:space-between; gap:10px; font-size:0.7188rem; padding:3px 0; border-top:1px solid color-mix(in srgb, var(--mg-accent) 16%, transparent); }
+    #tablet-os-overlay .tos-idp-stat span:first-child { color:color-mix(in srgb, var(--mg-accent) 58%, transparent); text-transform:uppercase; letter-spacing:.5px; font-size:0.5938rem; align-self:center; }
     #tablet-os-overlay .tos-idp-stat span:last-child { color:var(--mg-accent); text-align:right; }
     #tablet-os-overlay .tos-idp-verbs { display:flex; flex-wrap:wrap; gap:7px; margin-top:2px; }
-    #tablet-os-overlay .tos-idp-verb { cursor:pointer; flex:1 1 auto; padding:8px 12px; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent);
+    #tablet-os-overlay .tos-idp-verb { cursor:pointer; flex:1 1 auto; padding:8px 12px; font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; color:var(--mg-accent);
       background:color-mix(in srgb, var(--mg-accent) 14%, var(--tos-surface-lo)); border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent); border-radius:6px; }
     #tablet-os-overlay .tos-idp-verb:hover { filter:brightness(1.15); }
     /* Drop stays monochrome but reads as the "outer" action — hollow, brighter border. */
@@ -2104,7 +2109,7 @@ function ensureStyles() {
        conversation chips, a scrolling message log, and a send row. */
     #tablet-os-overlay .tos-chat { display:flex; flex-direction:column; gap:9px; }
     #tablet-os-overlay .tos-chat-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:3px; }
-    #tablet-os-overlay .tos-chat-tab { position:relative; cursor:pointer; white-space:nowrap; padding:6px 11px; border-radius:5px; font-size:12px; letter-spacing:.5px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-chat-tab { position:relative; cursor:pointer; white-space:nowrap; padding:6px 11px; border-radius:5px; font-size:0.75rem; letter-spacing:.5px; color:var(--tos-fg-dim);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo);
@@ -2112,12 +2117,12 @@ function ensureStyles() {
     #tablet-os-overlay .tos-chat-tab:hover { filter:brightness(1.15); }
     #tablet-os-overlay .tos-chat-tab:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-chat-tab.sel { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
-    #tablet-os-overlay .tos-chat-pip { margin-left:6px; font-size:9.5px; font-weight:bold; color:#fff; background:var(--red,#e0413a); border-radius:8px; padding:0 5px; line-height:15px; display:inline-block; vertical-align:middle; }
-    #tablet-os-overlay .tos-chat-x { margin-left:7px; font-size:10px; line-height:1; color:var(--tos-fg-dim2); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:3px; padding:1px 4px; vertical-align:middle; }
+    #tablet-os-overlay .tos-chat-pip { margin-left:6px; font-size:0.5938rem; font-weight:bold; color:#fff; background:var(--red,#e0413a); border-radius:8px; padding:0 5px; line-height:1.579em; display:inline-block; vertical-align:middle; }
+    #tablet-os-overlay .tos-chat-x { margin-left:7px; font-size:0.625rem; line-height:1; color:var(--tos-fg-dim2); border:1px solid color-mix(in srgb, var(--mg-accent) 22%, transparent); border-radius:3px; padding:1px 4px; vertical-align:middle; }
     #tablet-os-overlay .tos-chat-x:hover { color:var(--accent-ink,#fff); border-color:var(--mg-accent); background:color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     #tablet-os-overlay .tos-chat-log { height:320px; max-height:44vh; overflow-y:auto; padding:9px 10px; border-radius:6px;
       background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
-      box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); font-size:13px; line-height:1.45; }
+      box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); font-size:0.8125rem; line-height:1.45; }
     #tablet-os-overlay .tos-chat-log::-webkit-scrollbar { width:6px; }
     #tablet-os-overlay .tos-chat-log::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
     /* MOTD view: the ascii-art <pre> is far wider than the tablet, so hide the
@@ -2128,20 +2133,20 @@ function ensureStyles() {
     #tablet-os-overlay .tos-motd pre { display:inline-block; margin:0; transform-origin:top left;
       font-family:var(--font-mono); white-space:pre; line-height:1.3; color:var(--tos-fg); }
     #tablet-os-overlay .tos-chat-msg { padding:4px 0; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent); }
-    #tablet-os-overlay .tos-chat-from { display:block; font-size:11px; color:var(--mg-accent); margin-bottom:2px; }
+    #tablet-os-overlay .tos-chat-from { display:block; font-size:0.6875rem; color:var(--mg-accent); margin-bottom:2px; }
     #tablet-os-overlay .tos-chat-from.me { color:var(--tos-fg-dim); font-style:italic; }
     #tablet-os-overlay .tos-chat-text { color:var(--tos-fg); word-break:break-word; }
     #tablet-os-overlay .tos-chat-input-row { display:flex; gap:8px; align-items:center; }
     /* Input blends with the message-log background (same --bg) with a legible,
        high-contrast text colour (--tos-fg), rather than a mismatched dark box. */
     #tablet-os-overlay .tos-chat-input-row input { flex:1; min-width:0; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 28%, transparent);
-      color:var(--tos-fg); font-family:'Courier New',monospace; font-size:13px; padding:8px 10px; border-radius:5px; outline:none; }
+      color:var(--tos-fg); font-family:'Courier New',monospace; font-size:0.8125rem; padding:8px 10px; border-radius:5px; outline:none; }
     #tablet-os-overlay .tos-chat-input-row input::placeholder { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-chat-input-row input:focus { border-color:var(--mg-accent); box-shadow:0 0 6px color-mix(in srgb, var(--mg-accent) 30%, transparent); }
     /* Emoji picker: a ☺ button that opens a grid popup above the input. */
     #tablet-os-overlay .tos-chat-emoji-wrap { position:relative; flex:0 0 auto; }
     #tablet-os-overlay .tos-chat-emoji-btn { cursor:pointer; background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 28%, transparent);
-      color:var(--tos-fg-dim); font-size:16px; line-height:1; padding:7px 9px; border-radius:5px; }
+      color:var(--tos-fg-dim); font-size:1rem; line-height:1; padding:7px 9px; border-radius:5px; }
     #tablet-os-overlay .tos-chat-emoji-btn:hover { color:var(--mg-accent); border-color:var(--mg-accent); }
     #tablet-os-overlay .tos-chat-emoji-pop { display:none; position:absolute; bottom:calc(100% + 6px); left:0; z-index:5; width:248px; max-height:184px; overflow-y:auto;
       background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:6px; padding:6px; box-shadow:0 6px 18px rgba(0,0,0,.5);
@@ -2149,7 +2154,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-chat-emoji-pop.open { display:grid; }
     #tablet-os-overlay .tos-chat-emoji-pop::-webkit-scrollbar { width:6px; }
     #tablet-os-overlay .tos-chat-emoji-pop::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-    #tablet-os-overlay .tos-chat-emoji { cursor:pointer; text-align:center; font-size:18px; line-height:1; padding:4px 0; border-radius:4px; }
+    #tablet-os-overlay .tos-chat-emoji { cursor:pointer; text-align:center; font-size:1.125rem; line-height:1; padding:4px 0; border-radius:4px; }
     #tablet-os-overlay .tos-chat-emoji:hover { background:color-mix(in srgb, var(--mg-accent) 22%, transparent); }
     /* Users hub — a directory of players online now (its own tab), each row
        tappable to open/start a PM. Fills the same space the message log would. */
@@ -2157,21 +2162,21 @@ function ensureStyles() {
       background:var(--bg, #0c1114); border:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent);
       box-shadow:inset 0 1px 3px rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-chat-users-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px;
-      font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
+      font-size:0.5938rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 14%, transparent); }
     #tablet-os-overlay .tos-chat-userlist { max-height:320px; overflow-y:auto; }
     #tablet-os-overlay .tos-chat-userlist::-webkit-scrollbar { width:6px; }
     #tablet-os-overlay .tos-chat-userlist::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
     #tablet-os-overlay .tos-chat-user { display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer;
-      padding:9px 11px; font-size:13px; color:var(--tos-fg); border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent);
+      padding:9px 11px; font-size:0.8125rem; color:var(--tos-fg); border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 10%, transparent);
       transition:background .12s; }
     #tablet-os-overlay .tos-chat-user:last-child { border-bottom:none; }
     #tablet-os-overlay .tos-chat-user:hover { background:color-mix(in srgb, var(--mg-accent) 12%, transparent); }
     #tablet-os-overlay .tos-chat-user:active { background:color-mix(in srgb, var(--mg-accent) 20%, transparent); }
     #tablet-os-overlay .tos-chat-user-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    #tablet-os-overlay .tos-chat-user-pm { flex:0 0 auto; font-size:14px; color:var(--mg-accent); }
-    #tablet-os-overlay .tos-chat-none { font-size:11px; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-chat-refresh { flex:0 0 auto; cursor:pointer; font-size:12px; color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); border-radius:4px; padding:4px 8px;
+    #tablet-os-overlay .tos-chat-user-pm { flex:0 0 auto; font-size:0.875rem; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-chat-none { font-size:0.6875rem; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-chat-refresh { flex:0 0 auto; cursor:pointer; font-size:0.75rem; color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); border-radius:4px; padding:4px 8px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-chat-refresh:hover { filter:brightness(1.15); }
 
@@ -2192,21 +2197,21 @@ function ensureStyles() {
     #tablet-os-overlay .tos-cm-tile.contested { animation:tos-cm-pulse 1.4s ease-in-out infinite; }
     @keyframes tos-cm-pulse { 0%,100%{box-shadow:inset 0 0 0 2px rgba(255,207,74,.25)} 50%{box-shadow:inset 0 0 0 2px rgba(255,207,74,.95),0 0 9px rgba(255,207,74,.5)} }
     #tablet-os-overlay .tos-cm-tile.sel { outline:2px solid #fff; outline-offset:-2px; z-index:3; }
-    #tablet-os-overlay .tos-cm-tile .tn { font-size:8px; line-height:1.05; font-weight:700; }
-    #tablet-os-overlay .tos-cm-tile .ti { font-size:8px; font-weight:700; opacity:.92; }
-    #tablet-os-overlay .tos-cm-tile .b-cur { position:absolute; top:0; right:2px; font-size:9px; color:#fff; text-shadow:0 0 4px #000; }
-    #tablet-os-overlay .tos-cm-tile .b-hq { position:absolute; top:0; left:2px; font-size:8px; opacity:.85; }
-    #tablet-os-overlay .tos-cm-tile .b-star { position:absolute; bottom:0; right:2px; font-size:9px; color:#ffd54a; text-shadow:0 0 5px rgba(255,213,74,.8); }
-    #tablet-os-overlay .tos-cm-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
+    #tablet-os-overlay .tos-cm-tile .tn { font-size:0.5rem; line-height:1.05; font-weight:700; }
+    #tablet-os-overlay .tos-cm-tile .ti { font-size:0.5rem; font-weight:700; opacity:.92; }
+    #tablet-os-overlay .tos-cm-tile .b-cur { position:absolute; top:0; right:2px; font-size:0.5625rem; color:#fff; text-shadow:0 0 4px #000; }
+    #tablet-os-overlay .tos-cm-tile .b-hq { position:absolute; top:0; left:2px; font-size:0.5rem; opacity:.85; }
+    #tablet-os-overlay .tos-cm-tile .b-star { position:absolute; bottom:0; right:2px; font-size:0.5625rem; color:#ffd54a; text-shadow:0 0 5px rgba(255,213,74,.8); }
+    #tablet-os-overlay .tos-cm-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:0.75rem; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-cm-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
-    #tablet-os-overlay .tos-cm-legend { display:flex; flex-wrap:wrap; gap:6px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-cm-legend { display:flex; flex-wrap:wrap; gap:6px 12px; margin:9px 0 4px; font-size:0.625rem; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-cm-lg { display:flex; align-items:center; gap:4px; }
     #tablet-os-overlay .tos-cm-lg .sw { width:10px; height:10px; border-radius:2px; }
     #tablet-os-overlay .tos-cm-detail { margin-top:6px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); padding-top:8px; }
-    #tablet-os-overlay .tos-cm-note { font-size:11.5px; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
+    #tablet-os-overlay .tos-cm-note { font-size:0.7188rem; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
     #tablet-os-overlay .tos-cm-tug { position:relative; height:12px; border-radius:6px; background:#ff5a6a; overflow:hidden; border:1px solid #000; margin-top:4px; }
     #tablet-os-overlay .tos-cm-tug i { display:block; height:100%; background:linear-gradient(90deg,var(--mg-accent),#7bffb0); box-shadow:0 0 8px var(--mg-accent); }
-    #tablet-os-overlay .tos-cm-tugrow { display:flex; justify-content:space-between; font-size:10px; margin:3px 0 8px; }
+    #tablet-os-overlay .tos-cm-tugrow { display:flex; justify-content:space-between; font-size:0.625rem; margin:3px 0 8px; }
     #tablet-os-overlay .tos-cm-tugrow .my { color:var(--mg-accent); } #tablet-os-overlay .tos-cm-tugrow .rv { color:#ff5a6a; } #tablet-os-overlay .tos-cm-tugrow .dim { color:var(--tos-fg-dim2); }
     #tablet-os-overlay .tos-btn.tos-btn-hot { color:#fff; border-color:#ff5a6a;
       background:linear-gradient(165deg, #ff7a86, #ff5a6a 55%, #c93a46);
@@ -2217,10 +2222,10 @@ function ensureStyles() {
        (interior/zone/regional), a GPS toolbar, and the same 2n-1 expanded grid
        the corp map uses — but with the full map's land-use / danger / POI look.
        Tap a tile to plot a GPS route to it (mirrored to the sidebar minimap). */
-    #tablet-os-overlay .tos-map-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-map-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:0.75rem; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-map-bar .tos-map-route { flex:1 1 auto; min-width:120px; }
     #tablet-os-overlay .tos-map-bar .tos-map-route b { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-map-mini { cursor:pointer; padding:6px 11px; border-radius:5px; font-size:11.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--mg-accent);
+    #tablet-os-overlay .tos-map-mini { cursor:pointer; padding:6px 11px; border-radius:5px; font-size:0.7188rem; letter-spacing:.5px; text-transform:uppercase; color:var(--mg-accent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-map-mini:hover { filter:brightness(1.15); }
@@ -2230,7 +2235,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-ctl { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin:6px 0; }
     #tablet-os-overlay .tos-map-zoom { display:inline-flex; margin-left:auto; gap:0; border-radius:6px; overflow:hidden;
       border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); }
-    #tablet-os-overlay .tos-mz { cursor:pointer; width:32px; height:30px; font-size:18px; line-height:1; color:var(--mg-accent);
+    #tablet-os-overlay .tos-mz { cursor:pointer; width:1.778em; height:1.667em; font-size:1.125rem; line-height:1; color:var(--mg-accent);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); border:none; border-left:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-mz:first-child { border-left:none; }
@@ -2267,7 +2272,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
     #tablet-os-overlay .tos-map-tile.sel { outline:2px dashed var(--mg-accent); outline-offset:-2px; z-index:3; }
     #tablet-os-overlay .tos-map-tile.cur { border-color:var(--mg-accent); box-shadow:0 0 9px color-mix(in srgb,var(--mg-accent) 60%,transparent), inset 0 0 0 1px var(--mg-accent); }
-    #tablet-os-overlay .tos-map-tile .mt-icon { font-size:16px; line-height:1; }
+    #tablet-os-overlay .tos-map-tile .mt-icon { font-size:1rem; line-height:1; }
     /* Edge-to-edge 1:1 tiles render their zone-icon SVG (road connector / building
        rooftop / runway / statue) as a mask filled with the tile's colour, like the
        full map's mm-icon. */
@@ -2276,15 +2281,15 @@ function ensureStyles() {
     /* Label mode — a two-letter building code centred on its tile, over a dark
        plate so it reads on any land-use colour. */
     #tablet-os-overlay .tos-map-tile .mt-code { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      font-size:13px; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
+      font-size:0.8125rem; font-weight:700; letter-spacing:.5px; color:#fff; text-shadow:0 0 3px #000,0 1px 2px #000;
       background:radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,.15)); pointer-events:none; z-index:2; }
     /* An authored marker (spec.label.kind==='mark') — sewer corridor pieces, the ◍ on a
        tile with a way up, anything a human drew. Structure, not a code: the tile's own
        ink, no plate, and it never replaces the footprint. */
     #tablet-os-overlay .tos-map-tile .mt-code.mt-mark { font-weight:400; letter-spacing:0; color:inherit;
       opacity:.75; background:none; text-shadow:0 1px 2px #000; }
-    #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:9px; color:var(--mg-accent); text-shadow:0 0 4px #000; }
-    #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:9px; color:#ffcf4a; text-shadow:0 0 4px #000; }
+    #tablet-os-overlay .tos-map-tile .mt-you { position:absolute; top:0; right:2px; font-size:0.5625rem; color:var(--mg-accent); text-shadow:0 0 4px #000; }
+    #tablet-os-overlay .tos-map-tile .mt-dest { position:absolute; top:0; left:2px; font-size:0.5625rem; color:#ffcf4a; text-shadow:0 0 4px #000; }
     /* Journey map — an off-grid "survey terminal" shown in place of the city map when
        out in the void. Reuses the shared .mm-x-* trail markup (crossingInnerHtml) as the
        hero: a big vertical "core sample" of the route, client-zoomable (--tos-void-scale),
@@ -2307,15 +2312,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-journey > * { position:relative; z-index:1; }
     #tablet-os-overlay .tos-journey-hdr { display:flex; justify-content:space-between; align-items:center; gap:8px 14px; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-journey-hdr-r { display:flex; align-items:center; gap:12px; }
-    #tablet-os-overlay .tos-journey-nosig { font-size:12px; letter-spacing:3px; color:var(--red); opacity:.85;
+    #tablet-os-overlay .tos-journey-nosig { font-size:0.75rem; letter-spacing:3px; color:var(--red); opacity:.85;
       text-shadow:0 0 8px color-mix(in srgb, var(--red) 45%, transparent); animation:tos-nosig-flicker 2.4s steps(1) infinite; }
     @keyframes tos-nosig-flicker { 0%,92%,100%{opacity:.85} 94%{opacity:.3} 96%{opacity:.85} 98%{opacity:.4} }
     [data-motion="off"] #tablet-os-overlay .tos-journey-nosig { animation:none; }
-    #tablet-os-overlay .tos-journey-coord { font-family:var(--font-mono,monospace); font-size:11px; letter-spacing:1.5px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-journey-coord { font-family:var(--font-mono,monospace); font-size:0.6875rem; letter-spacing:1.5px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-journey-coord b { color:var(--tos-fg); letter-spacing:2px; font-weight:600; }
     /* Void zoom stepper — client-only scale on the trail (no server round trip). */
     #tablet-os-overlay .tos-void-zoom { display:inline-flex; border:1px solid var(--tos-border); border-radius:6px; overflow:hidden; }
-    #tablet-os-overlay .tos-vz { font-family:var(--font-mono,monospace); font-size:14px; line-height:1; width:26px; height:24px; border:0; cursor:pointer;
+    #tablet-os-overlay .tos-vz { font-family:var(--font-mono,monospace); font-size:0.875rem; line-height:1; width:1.857em; height:1.714em; border:0; cursor:pointer;
       background:color-mix(in srgb, var(--tos-fg) 6%, transparent); color:var(--tos-fg); }
     #tablet-os-overlay .tos-vz + .tos-vz { border-left:1px solid var(--tos-border); }
     #tablet-os-overlay .tos-vz:hover:not(:disabled) { background:color-mix(in srgb, var(--mg-accent) 22%, transparent); }
@@ -2361,20 +2366,20 @@ function ensureStyles() {
     #tablet-os-overlay .tos-journey-rail.left { align-items:flex-end; text-align:right; }
     #tablet-os-overlay .tos-journey-rail.right { align-items:flex-start; }
     #tablet-os-overlay .tos-journey-readout { font-family:var(--font-mono,monospace); display:flex; flex-direction:column; gap:2px; }
-    #tablet-os-overlay .tos-journey-readout span { font-size:9px; letter-spacing:2px; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-journey-readout b { font-size:13px; letter-spacing:1px; color:var(--tos-fg); font-weight:600; }
+    #tablet-os-overlay .tos-journey-readout span { font-size:0.5625rem; letter-spacing:2px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-journey-readout b { font-size:0.8125rem; letter-spacing:1px; color:var(--tos-fg); font-weight:600; }
     #tablet-os-overlay .tos-journey-readout b.nofix { color:var(--red); opacity:.85; }
     #tablet-os-overlay .tos-journey-chips { display:flex; flex-direction:column; gap:6px; }
-    #tablet-os-overlay .tos-journey-quiet { font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:2px; color:var(--tos-fg-dim); opacity:.7; }
+    #tablet-os-overlay .tos-journey-quiet { font-family:var(--font-mono,monospace); font-size:0.5625rem; letter-spacing:2px; color:var(--tos-fg-dim); opacity:.7; }
     @media (max-width:640px) {
       #tablet-os-overlay .tos-journey-stage { grid-template-columns:1fr; justify-items:center; gap:16px; }
       #tablet-os-overlay .tos-journey-rail, #tablet-os-overlay .tos-journey-rail.left { align-items:center; text-align:center; flex-direction:row; flex-wrap:wrap; justify-content:center; }
     }
-    #tablet-os-overlay .tos-jchip { font-family:var(--font-mono,monospace); font-size:9px; letter-spacing:1px; padding:3px 8px; border-radius:4px; border:1px solid var(--tos-border); color:var(--tos-fg-dim); white-space:nowrap; }
+    #tablet-os-overlay .tos-jchip { font-family:var(--font-mono,monospace); font-size:0.5625rem; letter-spacing:1px; padding:3px 8px; border-radius:4px; border:1px solid var(--tos-border); color:var(--tos-fg-dim); white-space:nowrap; }
     #tablet-os-overlay .tos-jchip.hazard { color:var(--red); border-color:color-mix(in srgb, var(--red) 55%, transparent); background:color-mix(in srgb, var(--red) 12%, transparent); }
     #tablet-os-overlay .tos-jchip.dead { color:var(--red); border-color:color-mix(in srgb, var(--red) 45%, transparent); }
     #tablet-os-overlay .tos-jchip.gate { color:var(--green); border-color:color-mix(in srgb, var(--green) 50%, transparent); background:color-mix(in srgb, var(--green) 10%, transparent); }
-    #tablet-os-overlay .tos-journey-hint { font-size:12px; font-style:italic; color:var(--tos-fg-dim); text-align:center; padding:10px 14px 20px; }
+    #tablet-os-overlay .tos-journey-hint { font-size:0.75rem; font-style:italic; color:var(--tos-fg-dim); text-align:center; padding:10px 14px 20px; }
     /* Tileable terrain: drop the border/rounding so water & parkland read as one
        expanse. Fill colour is set inline (grey asphalt for roads, authored blue/green
        for water/grass) and is the whole of the ground — no terrain carries a texture.
@@ -2389,19 +2394,19 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-tile .tos-edge-south { bottom:0; left:20%; right:20%; height:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-east { right:0; top:20%; bottom:20%; width:2px; }
     #tablet-os-overlay .tos-map-tile .tos-edge-west { left:0; top:20%; bottom:20%; width:2px; }
-    #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:12px; line-height:1; pointer-events:none; }
+    #tablet-os-overlay .tos-map-link { display:flex; align-items:center; justify-content:center; color:color-mix(in srgb,var(--mg-accent) 40%,transparent); font-size:0.75rem; line-height:1; pointer-events:none; }
     #tablet-os-overlay .tos-map-link.art { color:#c9a24a; font-weight:bold; text-shadow:0 0 6px rgba(201,162,74,.55); }
-    #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:10px; color:var(--tos-fg-dim); }
+    #tablet-os-overlay .tos-map-legend { display:flex; flex-wrap:wrap; gap:5px 12px; margin:9px 0 4px; font-size:0.625rem; color:var(--tos-fg-dim); }
     /* Building-name legend — clickable chips tied to their map tiles. */
     #tablet-os-overlay .tos-map-bldgs { margin:8px 0 2px; }
-    #tablet-os-overlay .tos-map-bldgs-t { font-size:10px; text-transform:uppercase; letter-spacing:.6px; color:var(--tos-fg-dim); opacity:.8; margin-bottom:5px; }
+    #tablet-os-overlay .tos-map-bldgs-t { font-size:0.625rem; text-transform:uppercase; letter-spacing:.6px; color:var(--tos-fg-dim); opacity:.8; margin-bottom:5px; }
     #tablet-os-overlay .tos-map-bldgs-list { display:flex; flex-wrap:wrap; gap:5px 6px; }
-    #tablet-os-overlay .tos-map-bldg { cursor:pointer; font-size:11px; padding:3px 8px; border-radius:11px; color:var(--tos-fg-dim); transition:filter .12s;
+    #tablet-os-overlay .tos-map-bldg { cursor:pointer; font-size:0.6875rem; padding:3px 8px; border-radius:11px; color:var(--tos-fg-dim); transition:filter .12s;
       background:color-mix(in srgb,var(--mg-accent) 8%,transparent); border:1px solid color-mix(in srgb,var(--mg-accent) 22%,transparent); }
     #tablet-os-overlay .tos-map-bldg:hover { filter:brightness(1.25); }
     #tablet-os-overlay .tos-map-bldg.sel { color:#04120f; background:var(--mg-accent); border-color:var(--mg-accent); box-shadow:0 0 8px color-mix(in srgb,var(--mg-accent) 45%,transparent); }
     #tablet-os-overlay .tos-map-detail { margin-top:6px; border-top:1px solid color-mix(in srgb,var(--mg-accent) 16%,transparent); padding-top:8px; }
-    #tablet-os-overlay .tos-map-note { font-size:11.5px; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
+    #tablet-os-overlay .tos-map-note { font-size:0.7188rem; color:var(--tos-fg-dim); line-height:1.5; padding:6px 2px; }
     /* Map app fills the screen so the panel itself never scrolls: the body is a
        flex column pinned to 100% height, the map + rail take the slack, and all
        scrolling/panning happens inside them (drag = pan the map, not the page). */
@@ -2445,7 +2450,7 @@ function ensureStyles() {
     /* Every size in this app is an em off the register's own base rather than the
        13.5px .tos-body one — a catalogue of 30-word listings read at .78em of 13.5px
        was type you had to lean into. One number here moves the whole app. */
-    #tablet-os-overlay .tos-bliss-view { font-size:16px; line-height:1.45; }
+    #tablet-os-overlay .tos-bliss-view { font-size:1rem; line-height:1.45; }
     #tablet-os-overlay .tos-bliss-head { display:flex; align-items:flex-end; justify-content:space-between;
       gap:12px; padding:0 0 9px; margin-bottom:12px; position:relative;
       border-bottom:2px solid var(--bl-ink); }
@@ -2578,10 +2583,10 @@ function ensureStyles() {
        Bars first, words second. The four bands are the only colour vocabulary
        in the app; everything (meters, drug load, affliction rails) reuses them,
        so "red" always means the same thing wherever it appears on the screen. */
-    #tablet-os-overlay .tos-vt-sect { font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase;
+    #tablet-os-overlay .tos-vt-sect { font-size:0.6563rem; letter-spacing:1.8px; text-transform:uppercase;
       color:var(--tos-fg-dim); font-weight:bold; margin:14px 0 7px; }
     #tablet-os-overlay .tos-vt-sect:first-child { margin-top:4px; }
-    #tablet-os-overlay .tos-vt-notice { font-size:12.5px; color:var(--tos-fg); font-weight:bold; line-height:1.5;
+    #tablet-os-overlay .tos-vt-notice { font-size:0.7813rem; color:var(--tos-fg); font-weight:bold; line-height:1.5;
       border:1px solid var(--border); border-left:3px solid var(--mg-accent); padding:9px 11px; margin-bottom:12px;
       background:var(--tos-surface-lo); white-space:pre-line; }
     #tablet-os-overlay .tos-vt-meters { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:11px 16px; }
@@ -2590,8 +2595,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-readouts { display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
       gap:9px 16px; margin-top:12px; }
     #tablet-os-overlay .tos-vt-readout { display:flex; flex-direction:column; gap:2px; min-width:0; }
-    #tablet-os-overlay .tos-vt-rlbl { font-size:8.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-vt-rval { font-size:12.5px; color:var(--tos-fg); line-height:1.35; }
+    #tablet-os-overlay .tos-vt-rlbl { font-size:0.5313rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-vt-rval { font-size:0.7813rem; color:var(--tos-fg); line-height:1.35; }
     #tablet-os-overlay .tos-vt-rval.warn { color:var(--yellow, #d8c23f); }
     #tablet-os-overlay .tos-vt-rval.bad { color:var(--orange, #e08a3a); }
     #tablet-os-overlay .tos-vt-rval.crit { color:var(--red, #e0413a); font-weight:bold; }
@@ -2605,7 +2610,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:column; align-items:center; gap:9px;
       padding:12px 10px; }
     #tablet-os-overlay .tos-vt-cols .tos-vt-dollstage { width:100%; max-width:158px; }
-    #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:0 0 auto; width:100%; text-align:center; font-size:11.5px; }
+    #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:0 0 auto; width:100%; text-align:center; font-size:0.7188rem; }
     @media (max-width:620px) {
       #tablet-os-overlay .tos-vt-cols { grid-template-columns:minmax(0,1fr); gap:0; }
       #tablet-os-overlay .tos-vt-cols .tos-vt-doll { flex-direction:row; align-items:center; gap:16px; padding:6px 4px 10px; }
@@ -2613,7 +2618,7 @@ function ensureStyles() {
       #tablet-os-overlay .tos-vt-cols .tos-vt-dolldet { flex:1 1 auto; text-align:left; }
     }
     #tablet-os-overlay .tos-vt-mlbl { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
-      font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
+      font-size:0.6563rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
     #tablet-os-overlay .tos-vt-mlbl .v { letter-spacing:.6px; text-transform:none; font-variant-numeric:tabular-nums;
       white-space:nowrap; opacity:.9; }
     #tablet-os-overlay .tos-vt-track { height:10px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
@@ -2632,8 +2637,8 @@ function ensureStyles() {
       border:1px solid var(--border); border-left:3px solid var(--mg-accent); color:var(--tos-fg);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 4px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-vt-quick:hover { border-color:var(--mg-accent); }
-    #tablet-os-overlay .tos-vt-quick .act { font-size:13px; font-weight:bold; letter-spacing:.4px; }
-    #tablet-os-overlay .tos-vt-quick .itm { font-size:10.5px; letter-spacing:1.2px; color:var(--tos-fg-dim); font-weight:bold; }
+    #tablet-os-overlay .tos-vt-quick .act { font-size:0.8125rem; font-weight:bold; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-vt-quick .itm { font-size:0.6563rem; letter-spacing:1.2px; color:var(--tos-fg-dim); font-weight:bold; }
     #tablet-os-overlay .tos-vt-affs { display:flex; flex-direction:column; gap:7px; }
     #tablet-os-overlay .tos-vt-aff { position:relative; padding:8px 11px 8px 14px; border:1px solid var(--border);
       background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
@@ -2642,8 +2647,8 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-aff.good::before { background:#4fae63; }
     #tablet-os-overlay .tos-vt-aff.bad::before  { background:#c0342e; }
     #tablet-os-overlay .tos-vt-aff.drug::before { background:#8f6fd0; }
-    #tablet-os-overlay .tos-vt-affname { font-size:13px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
-    #tablet-os-overlay .tos-vt-affdet { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    #tablet-os-overlay .tos-vt-affname { font-size:0.8125rem; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-affdet { font-size:0.7188rem; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
     /* Paper doll. The figure is deliberately crude — it is a diagnostic readout
        on a cheap medical suite, not an anatomy plate. Colour carries everything. */
     #tablet-os-overlay .tos-vt-doll { display:flex; align-items:center; gap:16px; padding:6px 4px 10px;
@@ -2660,9 +2665,9 @@ function ensureStyles() {
        shape: a readout, two reels, and a selection band across them. */
     #tablet-os-overlay .tos-alarm { padding:4px 6px 12px; }
     #tablet-os-overlay .tos-al-face { text-align:center; padding:6px 0 10px; }
-    #tablet-os-overlay .tos-al-now { font-family:var(--font-mono,monospace); font-size:44px; line-height:1;
+    #tablet-os-overlay .tos-al-now { font-family:var(--font-mono,monospace); font-size:2.75rem; line-height:1;
       letter-spacing:3px; color:var(--tos-fg); text-shadow:0 0 18px color-mix(in srgb, var(--mg-accent) 55%, transparent); }
-    #tablet-os-overlay .tos-al-nowlab { font-size:9px; letter-spacing:2px; text-transform:uppercase;
+    #tablet-os-overlay .tos-al-nowlab { font-size:0.5625rem; letter-spacing:2px; text-transform:uppercase;
       color:var(--tos-fg-dim,var(--text-dim)); margin-top:3px; }
 
     /* The setter. Fixed height with the band pinned across the middle — the reels
@@ -2671,11 +2676,11 @@ function ensureStyles() {
        incidents because one is a live problem and the other is a closed one. */
     #tablet-os-overlay .tos-blotter { display:flex; flex-direction:column; gap:0; }
     #tablet-os-overlay .tos-blot-row { display:flex; align-items:baseline; gap:7px;
-      padding:5px 2px; border-bottom:1px dotted var(--border); font-size:12px; line-height:1.45; }
+      padding:5px 2px; border-bottom:1px dotted var(--border); font-size:0.75rem; line-height:1.45; }
     #tablet-os-overlay .tos-blot-row:last-child { border-bottom:none; }
     #tablet-os-overlay .tos-blot-body { flex:1; }
     #tablet-os-overlay .tos-blot-mark { color:var(--tos-fg-dim,var(--text-dim)); opacity:.7; }
-    #tablet-os-overlay .tos-blot-when { font-size:10px; color:var(--tos-fg-dim,var(--text-dim)); opacity:.75; flex:0 0 auto; }
+    #tablet-os-overlay .tos-blot-when { font-size:0.625rem; color:var(--tos-fg-dim,var(--text-dim)); opacity:.75; flex:0 0 auto; }
     #tablet-os-overlay .tos-blot-row.warrant { background:rgba(255,59,92,0.06); }
     #tablet-os-overlay .tos-blot-stars { color:var(--red,#ff3b5c); letter-spacing:1px; flex:0 0 auto; }
     #tablet-os-overlay .tos-blot-quiet { padding:12px 4px; font-style:italic;
@@ -2701,23 +2706,23 @@ function ensureStyles() {
       scroll-behavior:auto; }
     #tablet-os-overlay .tos-al-reel.dragging .tos-al-cell { cursor:grabbing; transition:none; }
     #tablet-os-overlay .tos-al-pad { height:47px; }
-    #tablet-os-overlay .tos-al-cell { height:38px; line-height:38px; text-align:center; scroll-snap-align:center;
-      font-family:var(--font-mono,monospace); font-size:26px; letter-spacing:2px;
+    #tablet-os-overlay .tos-al-cell { height:1.462em; line-height:1.462em; text-align:center; scroll-snap-align:center;
+      font-family:var(--font-mono,monospace); font-size:1.625rem; letter-spacing:2px;
       color:var(--tos-fg-dim,var(--text-dim)); opacity:0.45; cursor:pointer; user-select:none;
       transition:opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease; }
     #tablet-os-overlay .tos-al-cell:hover { opacity:0.8; }
     #tablet-os-overlay .tos-al-cell.sel { opacity:1; color:var(--tos-fg);
       text-shadow:0 0 14px color-mix(in srgb, var(--mg-accent) 60%, transparent); }
     #tablet-os-overlay .tos-al-cell:focus { outline:none; }
-    #tablet-os-overlay .tos-al-colon { align-self:center; font-family:var(--font-mono,monospace); font-size:26px;
+    #tablet-os-overlay .tos-al-colon { align-self:center; font-family:var(--font-mono,monospace); font-size:1.625rem;
       color:var(--tos-fg); opacity:0.7; z-index:3; }
 
-    #tablet-os-overlay .tos-al-preview { text-align:center; font-size:12px; color:var(--tos-fg-dim,var(--text-dim)); }
-    #tablet-os-overlay .tos-al-preview b { font-family:var(--font-mono,monospace); font-size:15px; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-al-preview { text-align:center; font-size:0.75rem; color:var(--tos-fg-dim,var(--text-dim)); }
+    #tablet-os-overlay .tos-al-preview b { font-family:var(--font-mono,monospace); font-size:0.9375rem; color:var(--tos-fg); }
     #tablet-os-overlay .tos-al-btns { display:flex; gap:8px; justify-content:center; margin:10px 0 6px; }
-    #tablet-os-overlay .tos-al-status { text-align:center; font-size:11px; color:var(--tos-fg); opacity:0.85; }
+    #tablet-os-overlay .tos-al-status { text-align:center; font-size:0.6875rem; color:var(--tos-fg); opacity:0.85; }
     #tablet-os-overlay .tos-al-status-off { opacity:0.55; }
-    #tablet-os-overlay .tos-al-note { margin-top:8px; text-align:center; font-size:10px; line-height:1.5;
+    #tablet-os-overlay .tos-al-note { margin-top:8px; text-align:center; font-size:0.625rem; line-height:1.5;
       color:var(--tos-fg-dim,var(--text-dim)); opacity:0.6; }
     @media (prefers-reduced-motion: reduce) {
       #tablet-os-overlay .tos-al-cell { transition:none; }
@@ -2759,33 +2764,33 @@ function ensureStyles() {
     #tablet-os-overlay .tos-vt-doll-part.sel > * { fill:var(--tos-fg); fill-opacity:.13; }
     #tablet-os-overlay .tos-vt-doll-part:focus { outline:none; }
     #tablet-os-overlay .tos-vt-doll-part:focus > * { fill:var(--tos-fg); fill-opacity:.13; }
-    #tablet-os-overlay .tos-vt-dolldet { flex:1 1 auto; min-width:0; font-size:12px; font-weight:bold;
+    #tablet-os-overlay .tos-vt-dolldet { flex:1 1 auto; min-width:0; font-size:0.75rem; font-weight:bold;
       line-height:1.6; color:var(--tos-fg-dim); }
-    #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg);
+    #tablet-os-overlay .tos-vt-clear { padding:26px 8px; text-align:center; font-size:0.875rem; color:var(--tos-fg);
       font-weight:bold; line-height:1.8; }
-    #tablet-os-overlay .tos-vt-clear span { color:var(--tos-fg-dim); font-size:12.5px; }
+    #tablet-os-overlay .tos-vt-clear span { color:var(--tos-fg-dim); font-size:0.7813rem; }
     #tablet-os-overlay .tos-vt-item { display:flex; align-items:center; justify-content:space-between; gap:12px;
       padding:9px 11px; margin-bottom:7px; border:1px solid var(--border);
       background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-vt-itemtxt { min-width:0; }
-    #tablet-os-overlay .tos-vt-itemname { font-size:13.5px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
-    #tablet-os-overlay .tos-vt-itemname .qty { color:var(--tos-fg-dim); margin-left:6px; font-size:11.5px; }
-    #tablet-os-overlay .tos-vt-itemeff { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
-    #tablet-os-overlay .tos-vt-flag { display:inline-block; margin-left:7px; padding:1px 6px; font-size:9.5px;
+    #tablet-os-overlay .tos-vt-itemname { font-size:0.8438rem; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-itemname .qty { color:var(--tos-fg-dim); margin-left:6px; font-size:0.7188rem; }
+    #tablet-os-overlay .tos-vt-itemeff { font-size:0.7188rem; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; line-height:1.5; }
+    #tablet-os-overlay .tos-vt-flag { display:inline-block; margin-left:7px; padding:1px 6px; font-size:0.5938rem;
       letter-spacing:1.2px; text-transform:uppercase; border:1px solid var(--border); color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-vt-flag.bad { color:#e08a84; border-color:#8d3c37; }
     #tablet-os-overlay .tos-vt-sub { padding:11px 12px; margin-bottom:8px; border:1px solid var(--border);
       background:linear-gradient(180deg, var(--tos-surface-hi), var(--tos-surface-lo));
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-vt-subhead { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
-    #tablet-os-overlay .tos-vt-subhead .n { font-size:14px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-vt-subhead .n { font-size:0.875rem; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
     #tablet-os-overlay .tos-vt-subgrid { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:3px 10px; margin-top:8px;
-      font-size:11px; letter-spacing:1.1px; color:var(--tos-fg-dim); font-weight:bold; }
+      font-size:0.6875rem; letter-spacing:1.1px; color:var(--tos-fg-dim); font-weight:bold; }
     #tablet-os-overlay .tos-vt-subgrid b { color:var(--tos-fg); font-variant-numeric:tabular-nums; letter-spacing:.4px; }
-    #tablet-os-overlay .tos-vt-subload { font-size:10.5px; letter-spacing:1.1px; color:var(--tos-fg-dim);
+    #tablet-os-overlay .tos-vt-subload { font-size:0.6563rem; letter-spacing:1.1px; color:var(--tos-fg-dim);
       font-weight:bold; margin-top:5px; }
-    #tablet-os-overlay .tos-vt-subwd { font-size:11.5px; color:var(--tos-fg-dim); font-weight:bold; margin-top:7px; }
+    #tablet-os-overlay .tos-vt-subwd { font-size:0.7188rem; color:var(--tos-fg-dim); font-weight:bold; margin-top:7px; }
     #tablet-os-overlay .tos-vt-subwd.bad { color:#e08a84; }
     @media (max-width:520px) {
       #tablet-os-overlay .tos-vt-subgrid { grid-template-columns:auto 1fr; }
@@ -2797,13 +2802,13 @@ function ensureStyles() {
        it is deliberately anonymous — a named gap would be a shopping list. */
     #tablet-os-overlay .tos-bnd-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
-    #tablet-os-overlay .tos-bnd-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
-    #tablet-os-overlay .tos-bnd-sub { font-size:11px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
-    #tablet-os-overlay .tos-bnd-count { font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
+    #tablet-os-overlay .tos-bnd-app { font-size:1rem; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
+    #tablet-os-overlay .tos-bnd-sub { font-size:0.6875rem; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
+    #tablet-os-overlay .tos-bnd-count { font-size:0.6563rem; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
       text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-bnd-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
+    #tablet-os-overlay .tos-bnd-count b { display:block; font-size:1.4375rem; color:var(--mg-accent); letter-spacing:1px; }
     #tablet-os-overlay .tos-bnd-meter { margin:12px 0 16px; }
-    #tablet-os-overlay .tos-bnd-meter-lbl { display:flex; justify-content:space-between; font-size:10px;
+    #tablet-os-overlay .tos-bnd-meter-lbl { display:flex; justify-content:space-between; font-size:0.625rem;
       letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:5px; }
     #tablet-os-overlay .tos-bnd-meter-lbl .v { color:var(--mg-accent); font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-bnd-meter-bar { height:5px; border-radius:3px; background:rgba(255,255,255,0.07); overflow:hidden; }
@@ -2812,7 +2817,7 @@ function ensureStyles() {
 
     #tablet-os-overlay .tos-bnd-shelf { margin-bottom:18px; }
     #tablet-os-overlay .tos-bnd-shelf-head { display:flex; justify-content:space-between; align-items:baseline;
-      font-size:10px; letter-spacing:2.4px; text-transform:uppercase; font-weight:bold; color:var(--c,#8b98a8); }
+      font-size:0.625rem; letter-spacing:2.4px; text-transform:uppercase; font-weight:bold; color:var(--c,#8b98a8); }
     #tablet-os-overlay .tos-bnd-ratio { color:var(--tos-fg-dim); letter-spacing:1.2px; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-bnd-bar { height:3px; border-radius:2px; margin:5px 0 9px;
       background:rgba(255,255,255,0.07); overflow:hidden; }
@@ -2825,40 +2830,40 @@ function ensureStyles() {
       transition:transform .13s ease, box-shadow .2s ease, border-color .2s ease; }
     #tablet-os-overlay .tos-bnd-card:hover { transform:translateY(-3px);
       border-color:var(--c,#8b98a8); box-shadow:0 6px 18px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--c,#8b98a8) 45%, transparent); }
-    #tablet-os-overlay .tos-bnd-name { font-size:11px; font-weight:bold; color:var(--tos-fg); line-height:1.25; word-break:break-word; }
-    #tablet-os-overlay .tos-bnd-type { font-size:8.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim); margin-top:3px; }
-    #tablet-os-overlay .tos-bnd-marks { font-size:8.5px; line-height:1.3; color:var(--c,#8b98a8); opacity:.85; margin-top:4px; }
-    #tablet-os-overlay .tos-bnd-qty { position:absolute; top:5px; right:6px; font-size:9px; font-weight:bold;
+    #tablet-os-overlay .tos-bnd-name { font-size:0.6875rem; font-weight:bold; color:var(--tos-fg); line-height:1.25; word-break:break-word; }
+    #tablet-os-overlay .tos-bnd-type { font-size:0.5313rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-bnd-marks { font-size:0.5313rem; line-height:1.3; color:var(--c,#8b98a8); opacity:.85; margin-top:4px; }
+    #tablet-os-overlay .tos-bnd-qty { position:absolute; top:5px; right:6px; font-size:0.5625rem; font-weight:bold;
       letter-spacing:.5px; color:#0b0f14; background:var(--c,#8b98a8); border-radius:8px; padding:1px 5px; }
     /* The gap. Dashed, dim, and nameless. */
-    #tablet-os-overlay .tos-bnd-slot { min-height:62px; border-radius:6px; display:flex; align-items:center; justify-content:center;
-      font-size:15px; color:color-mix(in srgb, var(--c,#8b98a8) 35%, transparent);
+    #tablet-os-overlay .tos-bnd-slot { min-height:max(62px, 4.133em); border-radius:6px; display:flex; align-items:center; justify-content:center;
+      font-size:0.9375rem; color:color-mix(in srgb, var(--c,#8b98a8) 35%, transparent);
       border:1px dashed color-mix(in srgb, var(--c,#8b98a8) 28%, transparent); background:rgba(0,0,0,0.16); }
-    #tablet-os-overlay .tos-bnd-more { min-height:62px; border-radius:6px; display:flex; align-items:center; justify-content:center;
-      text-align:center; font-size:9px; letter-spacing:1px; color:var(--tos-fg-dim); border:1px dashed var(--border); }
-    #tablet-os-overlay .tos-bnd-empty { text-align:center; padding:34px 12px; font-size:12px; color:var(--tos-fg-dim); line-height:1.9; }
-    #tablet-os-overlay .tos-bnd-empty span { font-size:10.5px; letter-spacing:1.2px; }
+    #tablet-os-overlay .tos-bnd-more { min-height:max(62px, 6.889em); border-radius:6px; display:flex; align-items:center; justify-content:center;
+      text-align:center; font-size:0.5625rem; letter-spacing:1px; color:var(--tos-fg-dim); border:1px dashed var(--border); }
+    #tablet-os-overlay .tos-bnd-empty { text-align:center; padding:34px 12px; font-size:0.75rem; color:var(--tos-fg-dim); line-height:1.9; }
+    #tablet-os-overlay .tos-bnd-empty span { font-size:0.6563rem; letter-spacing:1.2px; }
 
     #tablet-os-overlay .tos-bnd-detail { padding:4px 0 10px; }
     #tablet-os-overlay .tos-bnd-face { padding:12px; border-radius:8px;
       background:linear-gradient(170deg, rgba(255,255,255,0.05), rgba(0,0,0,0.3));
       border:1px solid color-mix(in srgb, var(--c,#8b98a8) 60%, transparent);
       box-shadow:0 0 26px color-mix(in srgb, var(--c,#8b98a8) 22%, transparent); }
-    #tablet-os-overlay .tos-bnd-face .card-face { display:block; font-size:12px; line-height:1.55; }
+    #tablet-os-overlay .tos-bnd-face .card-face { display:block; font-size:0.75rem; line-height:1.55; }
     #tablet-os-overlay .tos-bnd-foot { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
-      margin-top:10px; font-size:9.5px; letter-spacing:1.2px; color:var(--tos-fg-dim); }
+      margin-top:10px; font-size:0.5938rem; letter-spacing:1.2px; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-bnd-dupe { color:#c07b3a; }
 
     #tablet-os-overlay .tos-acc-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
       padding-bottom:11px; border-bottom:1px solid var(--border); }
-    #tablet-os-overlay .tos-acc-app { font-size:16px; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
-    #tablet-os-overlay .tos-acc-sub { font-size:11px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
-    #tablet-os-overlay .tos-acc-count { font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
+    #tablet-os-overlay .tos-acc-app { font-size:1rem; letter-spacing:5px; text-transform:uppercase; color:var(--tos-fg); font-weight:bold; }
+    #tablet-os-overlay .tos-acc-sub { font-size:0.6875rem; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; margin-top:3px; }
+    #tablet-os-overlay .tos-acc-count { font-size:0.6563rem; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold;
       text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-acc-count b { display:block; font-size:23px; color:var(--mg-accent); letter-spacing:1px; }
+    #tablet-os-overlay .tos-acc-count b { display:block; font-size:1.4375rem; color:var(--mg-accent); letter-spacing:1px; }
     #tablet-os-overlay .tos-acc-meter { margin:13px 0 15px; }
     #tablet-os-overlay .tos-acc-meter-lbl { display:flex; justify-content:space-between; align-items:baseline;
-      font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:6px; }
+      font-size:0.6563rem; letter-spacing:1.8px; text-transform:uppercase; color:var(--tos-fg-dim); font-weight:bold; margin-bottom:6px; }
     #tablet-os-overlay .tos-acc-meter-lbl .v { color:var(--tos-fg-dim); letter-spacing:1px; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-track { height:11px; position:relative; overflow:hidden; background:var(--tos-surface-lo);
       border:1px solid var(--border); box-shadow:inset 0 1px 3px var(--tos-bevel-lo); }
@@ -2873,15 +2878,15 @@ function ensureStyles() {
     #tablet-os-overlay .tos-acc-row::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
       background:var(--mg-accent); opacity:.5; }
     #tablet-os-overlay .tos-acc-row.first::before { opacity:1; box-shadow:0 0 9px var(--mg-accent); }
-    #tablet-os-overlay .tos-acc-title { font-size:15px; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
-    #tablet-os-overlay .tos-acc-line { font-size:14px; color:var(--tos-fg); font-weight:bold; margin-top:5px; line-height:1.6; max-width:54ch; }
+    #tablet-os-overlay .tos-acc-title { font-size:0.9375rem; color:var(--tos-fg); font-weight:bold; letter-spacing:.3px; }
+    #tablet-os-overlay .tos-acc-line { font-size:0.875rem; color:var(--tos-fg); font-weight:bold; margin-top:5px; line-height:1.6; max-width:54ch; }
     #tablet-os-overlay .tos-acc-foot { display:flex; justify-content:space-between; align-items:baseline; margin-top:9px;
-      font-size:10.5px; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; font-variant-numeric:tabular-nums; }
+      font-size:0.6563rem; letter-spacing:1.4px; color:var(--tos-fg-dim); font-weight:bold; font-variant-numeric:tabular-nums; }
     #tablet-os-overlay .tos-acc-foot .xp { color:var(--mg-accent); }
-    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:14px; color:var(--tos-fg); font-weight:bold; line-height:1.8; }
-    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim); font-size:12.5px; }
+    #tablet-os-overlay .tos-acc-empty { padding:26px 8px; text-align:center; font-size:0.875rem; color:var(--tos-fg); font-weight:bold; line-height:1.8; }
+    #tablet-os-overlay .tos-acc-empty span { color:var(--tos-fg-dim); font-size:0.7813rem; }
     #tablet-os-overlay .tos-acc-endfile { margin-top:13px; padding-top:11px; border-top:1px dashed var(--border);
-      font-size:10.5px; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; text-align:center; }
+      font-size:0.6563rem; letter-spacing:1.6px; color:var(--tos-fg-dim); font-weight:bold; text-align:center; }
 
     /* ── News app — "The Coldwater Sentinel" ────────────────────────────────────
        The feed is dressed as a newsprint sheet. The paper look is done by
@@ -2904,11 +2909,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-mast-rule { border-top:3px double var(--tos-fg); }
     #tablet-os-overlay .tos-mast-rule.top { margin-bottom:8px; }
     #tablet-os-overlay .tos-mast-rule.bot { margin-top:8px; }
-    #tablet-os-overlay .tos-mast-name { font-size:30px; line-height:1.02; font-weight:bold; letter-spacing:1px;
+    #tablet-os-overlay .tos-mast-name { font-size:1.875rem; line-height:1.02; font-weight:bold; letter-spacing:1px;
       margin:0; color:var(--tos-fg); text-shadow:0 1px 0 rgba(255,255,255,0.4); font-variant:small-caps; }
-    #tablet-os-overlay .tos-mast-motto { font-size:11px; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
+    #tablet-os-overlay .tos-mast-motto { font-size:0.6875rem; font-style:italic; color:var(--tos-fg-dim); margin-top:3px; }
     #tablet-os-overlay .tos-mast-line { display:flex; justify-content:space-between; gap:8px;
-      font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
+      font-size:0.5938rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim); }
     #tablet-os-overlay .tos-mast-line span:nth-child(2) { flex:1; text-align:center; }
     #tablet-os-overlay .tos-mast-line span:last-child { text-align:right; }
 
@@ -2917,14 +2922,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-art { padding:11px 0; border-top:1px solid color-mix(in srgb, var(--tos-fg) 22%, transparent); }
     #tablet-os-overlay .tos-art:first-of-type { border-top:none; padding-top:2px; }
     #tablet-os-overlay .tos-art-kicker { text-align:center; margin-bottom:8px; }
-    #tablet-os-overlay .tos-art-title { display:inline-block; font-size:12px; font-weight:bold; letter-spacing:2px;
+    #tablet-os-overlay .tos-art-title { display:inline-block; font-size:0.75rem; font-weight:bold; letter-spacing:2px;
       text-transform:uppercase; color:var(--tos-fg); border-bottom:2px solid var(--mg-accent); padding-bottom:2px; }
-    #tablet-os-overlay .tos-art-sub { display:block; font-size:11px; font-style:italic; color:var(--tos-fg-dim); margin-top:4px; }
+    #tablet-os-overlay .tos-art-sub { display:block; font-size:0.6875rem; font-style:italic; color:var(--tos-fg-dim); margin-top:4px; }
 
     /* Standings widget — a compact league table. Zebra rows, leader row nudged to
        the accent, run-diff dimmed. */
-    #tablet-os-overlay .tos-standings { width:100%; border-collapse:collapse; font-size:12.5px; }
-    #tablet-os-overlay .tos-standings th { text-align:right; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
+    #tablet-os-overlay .tos-standings { width:100%; border-collapse:collapse; font-size:0.7813rem; }
+    #tablet-os-overlay .tos-standings th { text-align:right; font-size:0.5938rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2);
       padding:7px 8px; border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); }
     #tablet-os-overlay .tos-standings td { text-align:right; padding:6px 8px; color:var(--tos-fg); border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 8%, transparent); }
     #tablet-os-overlay .tos-standings tbody tr:last-child td { border-bottom:none; }
@@ -2936,34 +2941,34 @@ function ensureStyles() {
 
     /* Headlines widget — a stack of one-liner stories with a LIVE/WIRE tag. */
     #tablet-os-overlay .tos-news-list { padding:4px 2px; }
-    #tablet-os-overlay .tos-headline { display:flex; gap:8px; align-items:baseline; padding:7px 9px; font-size:12.5px; line-height:1.4;
+    #tablet-os-overlay .tos-headline { display:flex; gap:8px; align-items:baseline; padding:7px 9px; font-size:0.7813rem; line-height:1.4;
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 9%, transparent); }
     #tablet-os-overlay .tos-headline:last-child { border-bottom:none; }
-    #tablet-os-overlay .tos-hl-tag { flex:0 0 auto; font-size:8.5px; font-weight:bold; letter-spacing:1px; padding:2px 5px; border-radius:3px; margin-top:1px; }
+    #tablet-os-overlay .tos-hl-tag { flex:0 0 auto; font-size:0.5313rem; font-weight:bold; letter-spacing:1px; padding:2px 5px; border-radius:3px; margin-top:1px; }
     #tablet-os-overlay .tos-hl-tag.live { color:#ff5a68; border:1px solid #4a1a1e; background:#1a0a0c; }
     #tablet-os-overlay .tos-hl-tag.tabloid { color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--mg-accent) 24%, transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-hl-text { color:var(--tos-fg); }
-    #tablet-os-overlay .tos-hl-by { color:var(--tos-fg-dim2); font-style:italic; font-size:11px; white-space:nowrap; }
+    #tablet-os-overlay .tos-hl-by { color:var(--tos-fg-dim2); font-style:italic; font-size:0.6875rem; white-space:nowrap; }
 
     /* Weather widget — a tappable "now" card (glyph + big temp + a stat rail),
        with a 7-day forecast strip that expands beneath it. */
     #tablet-os-overlay .tos-wx-now { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;
       padding:11px 13px; cursor:pointer; }
     #tablet-os-overlay .tos-wx-now:hover { background:color-mix(in srgb, var(--mg-accent) 6%, transparent); }
-    #tablet-os-overlay .tos-wx-glyph { font-size:30px; line-height:1; }
+    #tablet-os-overlay .tos-wx-glyph { font-size:1.875rem; line-height:1; }
     #tablet-os-overlay .tos-wx-main { min-width:0; }
-    #tablet-os-overlay .tos-wx-temp { font-size:22px; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
-    #tablet-os-overlay .tos-wx-tempf { font-size:12px; font-weight:normal; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-wx-cond { font-size:11.5px; text-transform:capitalize; color:var(--tos-fg-dim); margin-top:1px; }
+    #tablet-os-overlay .tos-wx-temp { font-size:1.375rem; font-weight:bold; color:var(--tos-fg); letter-spacing:.5px; }
+    #tablet-os-overlay .tos-wx-tempf { font-size:0.75rem; font-weight:normal; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-wx-cond { font-size:0.7188rem; text-transform:capitalize; color:var(--tos-fg-dim); margin-top:1px; }
     #tablet-os-overlay .tos-wx-stats { display:flex; gap:14px; }
     #tablet-os-overlay .tos-wx-stat { display:flex; flex-direction:column; align-items:flex-end; }
-    #tablet-os-overlay .tos-wx-k { font-size:8.5px; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
-    #tablet-os-overlay .tos-wx-v { font-size:13px; color:var(--tos-fg); }
-    #tablet-os-overlay .tos-wx-toggle { grid-column:1 / -1; font-size:10px; letter-spacing:1px; text-transform:uppercase;
+    #tablet-os-overlay .tos-wx-k { font-size:0.5313rem; letter-spacing:1px; text-transform:uppercase; color:var(--tos-fg-dim2); }
+    #tablet-os-overlay .tos-wx-v { font-size:0.8125rem; color:var(--tos-fg); }
+    #tablet-os-overlay .tos-wx-toggle { grid-column:1 / -1; font-size:0.625rem; letter-spacing:1px; text-transform:uppercase;
       color:var(--mg-accent); text-align:right; }
     #tablet-os-overlay .tos-wx-forecast { border-top:1px solid color-mix(in srgb, var(--mg-accent) 18%, transparent); padding:2px 2px 4px; }
     #tablet-os-overlay .tos-wx-day { display:grid; grid-template-columns:44px 22px 1fr auto auto auto; align-items:center; gap:8px;
-      padding:6px 11px; font-size:12px; color:var(--tos-fg);
+      padding:6px 11px; font-size:0.75rem; color:var(--tos-fg);
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 9%, transparent); }
     #tablet-os-overlay .tos-wx-day:last-child { border-bottom:none; }
     #tablet-os-overlay .tos-wx-day:first-child { color:var(--mg-accent); }
@@ -2976,25 +2981,25 @@ function ensureStyles() {
     #tablet-os-overlay .tos-wx-dico { text-align:center; }
     #tablet-os-overlay .tos-wx-dcond { text-transform:capitalize; color:var(--tos-fg-dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-wx-dtemp { text-align:right; font-variant-numeric:tabular-nums; }
-    #tablet-os-overlay .tos-wx-dwind, #tablet-os-overlay .tos-wx-dhum { text-align:right; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); font-size:11px; }
+    #tablet-os-overlay .tos-wx-dwind, #tablet-os-overlay .tos-wx-dhum { text-align:right; font-variant-numeric:tabular-nums; color:var(--tos-fg-dim2); font-size:0.6875rem; }
 
     /* Newsprint overrides — how the widgets read once inside the paper. The LIVE/
        WIRE chips become inky serif labels; the lead story gets a drop-capped,
        stacked treatment like a front-page splash. */
     #tablet-os-overlay .tos-newspaper .tos-news-list { padding:2px 0; }
-    #tablet-os-overlay .tos-newspaper .tos-headline { padding:6px 2px; font-size:12.5px; }
+    #tablet-os-overlay .tos-newspaper .tos-headline { padding:6px 2px; font-size:0.7813rem; }
     #tablet-os-overlay .tos-newspaper .tos-hl-tag { border-radius:0; padding:1px 4px; letter-spacing:1.5px; }
     #tablet-os-overlay .tos-newspaper .tos-hl-tag.live { color:var(--mg-accent); border:1px solid var(--mg-accent); background:transparent; }
     #tablet-os-overlay .tos-newspaper .tos-hl-tag.tabloid { color:var(--tos-fg-dim); border:1px solid color-mix(in srgb, var(--tos-fg) 30%, transparent); background:transparent; }
     /* Every wire/live story reads at the front-page splash size, not just the
        lead — stacked, large serif, and tappable. The drop-cap stays exclusive to
        the very first story so the page still has one clear lead. */
-    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline { display:block; font-size:16px; line-height:1.42; cursor:pointer; }
+    #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline { display:block; font-size:1rem; line-height:1.42; cursor:pointer; }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:hover .tos-hl-text { color:var(--mg-accent); }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child { padding-top:0; }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline .tos-hl-tag { margin-bottom:5px; }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline:first-child .tos-hl-text::first-letter {
-      float:left; font-size:40px; line-height:0.72; font-weight:bold; padding:4px 7px 0 0; color:var(--mg-accent); }
+      float:left; font-size:2.5rem; line-height:0.72; font-weight:bold; padding:4px 7px 0 0; color:var(--mg-accent); }
     #tablet-os-overlay .tos-newspaper .tos-art.lead .tos-headline .tos-hl-by { display:inline; white-space:normal; }
 
     /* Story popup — a little reader window that opens over the tablet when a
@@ -3013,32 +3018,32 @@ function ensureStyles() {
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border-bottom:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -2px 3px var(--tos-bevel-lo); }
-    #tablet-os-overlay .tos-nw-mark { flex:0 0 auto; font-size:13px; line-height:1; color:var(--mg-accent);
+    #tablet-os-overlay .tos-nw-mark { flex:0 0 auto; font-size:0.8125rem; line-height:1; color:var(--mg-accent);
       text-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 60%, transparent); }
     #tablet-os-overlay .tos-nw-url { flex:1; min-width:0; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-      font-family:var(--font-mono,monospace); font-size:10.5px; letter-spacing:.3px; color:var(--tos-fg);
+      font-family:var(--font-mono,monospace); font-size:0.6563rem; letter-spacing:.3px; color:var(--tos-fg);
       background:linear-gradient(165deg, var(--tos-surface-lo), var(--tos-surface));
       border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); border-radius:11px; padding:3px 10px;
       box-shadow:inset 0 1px 2px var(--tos-bevel-lo); }
-    #tablet-os-overlay .tos-nw-x { flex:0 0 auto; width:22px; height:22px; line-height:1; cursor:pointer;
+    #tablet-os-overlay .tos-nw-x { flex:0 0 auto; width:1.833em; height:1.833em; line-height:1; cursor:pointer;
       border:1px solid color-mix(in srgb, var(--mg-accent) 40%, transparent); border-radius:4px;
-      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); color:var(--mg-accent); font-size:12px;
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); color:var(--mg-accent); font-size:0.75rem;
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), inset 0 -1px 1px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-nw-x:hover { color:var(--tos-fg); box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 0 10px color-mix(in srgb, var(--mg-accent) 40%, transparent); }
     #tablet-os-overlay .tos-nw-x:active { transform:translateY(1px); box-shadow:inset 0 2px 4px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-nw-page { overflow-y:auto; padding:16px 18px 18px; color:#1c1811;
       background:#f4eede; background-image:linear-gradient(0deg, rgba(120,100,60,0.05), rgba(120,100,60,0.05)); }
     #tablet-os-overlay .tos-nw-kicker { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
-    #tablet-os-overlay .tos-nw-tag { font-size:8.5px; font-weight:bold; letter-spacing:1.5px; padding:1px 5px;
+    #tablet-os-overlay .tos-nw-tag { font-size:0.5313rem; font-weight:bold; letter-spacing:1.5px; padding:1px 5px;
       color:#4b4237; border:1px solid rgba(0,0,0,0.35); }
     #tablet-os-overlay .tos-nw-tag.live { color:#7d1c12; border-color:#7d1c12; }
-    #tablet-os-overlay .tos-nw-by { font-size:11px; font-style:italic; color:#7a7060; }
-    #tablet-os-overlay .tos-nw-headline { margin:0 0 10px; font-size:21px; line-height:1.24; font-weight:bold; color:#1c1811;
+    #tablet-os-overlay .tos-nw-by { font-size:0.6875rem; font-style:italic; color:#7a7060; }
+    #tablet-os-overlay .tos-nw-headline { margin:0 0 10px; font-size:1.3125rem; line-height:1.24; font-weight:bold; color:#1c1811;
       border-bottom:2px solid #7d1c12; padding-bottom:9px; }
-    #tablet-os-overlay .tos-nw-story { margin:0; font-size:14px; line-height:1.62; color:#2a251c; }
-    #tablet-os-overlay .tos-nw-story::first-letter { float:left; font-size:38px; line-height:0.74; font-weight:bold; padding:3px 7px 0 0; color:#7d1c12; }
+    #tablet-os-overlay .tos-nw-story { margin:0; font-size:0.875rem; line-height:1.62; color:#2a251c; }
+    #tablet-os-overlay .tos-nw-story::first-letter { float:left; font-size:2.375rem; line-height:0.74; font-weight:bold; padding:3px 7px 0 0; color:#7d1c12; }
     #tablet-os-overlay .tos-nw-foot { margin-top:14px; padding-top:9px; border-top:1px solid rgba(0,0,0,0.18);
-      font-size:9.5px; font-style:italic; letter-spacing:.4px; color:#7a7060; text-align:center; }
+      font-size:0.5938rem; font-style:italic; letter-spacing:.4px; color:#7a7060; text-align:center; }
     /* Boxed items — weather and sports read as ruled front-page boxes. */
     #tablet-os-overlay .tos-newspaper .tos-wx-now,
     #tablet-os-overlay .tos-newspaper .tos-standings { border:1px solid color-mix(in srgb, var(--tos-fg) 22%, transparent); }
@@ -3059,15 +3064,15 @@ function ensureStyles() {
 
     /* Login screen — a spare terminal splash on the game bg. */
     #tablet-os-overlay .tos-fk-login { display:flex; flex-direction:column; align-items:center; gap:11px; padding:34px 22px 42px; text-align:center; }
-    #tablet-os-overlay .tos-fk-logo { font-size:22px; letter-spacing:11px; font-weight:bold; color:var(--accent);
+    #tablet-os-overlay .tos-fk-logo { font-size:1.375rem; letter-spacing:11px; font-weight:bold; color:var(--accent);
       text-shadow:0 0 16px color-mix(in srgb, var(--accent) 60%, transparent); }
-    #tablet-os-overlay .tos-fk-tag { font-size:10px; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
-    #tablet-os-overlay .tos-fk-field { display:flex; align-items:center; gap:8px; width:min(280px,88%); font-size:13px; }
-    #tablet-os-overlay .tos-fk-field label { flex:0 0 74px; text-align:right; color:var(--text-dim); font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+    #tablet-os-overlay .tos-fk-tag { font-size:0.625rem; letter-spacing:2px; color:var(--text-dim); text-transform:uppercase; margin-bottom:10px; }
+    #tablet-os-overlay .tos-fk-field { display:flex; align-items:center; gap:8px; width:min(280px,88%); font-size:0.8125rem; }
+    #tablet-os-overlay .tos-fk-field label { flex:0 0 74px; text-align:right; color:var(--text-dim); font-size:0.6875rem; letter-spacing:1px; text-transform:uppercase; }
     #tablet-os-overlay .tos-fk-field input { flex:1; min-width:0; background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40);
-      color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:13px; padding:7px 9px; border-radius:4px; outline:none; }
+      color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:0.8125rem; padding:7px 9px; border-radius:4px; outline:none; }
     #tablet-os-overlay .tos-fk-field input:focus { border-color:var(--accent); box-shadow:0 0 7px color-mix(in srgb, var(--accent) 35%, transparent); }
-    #tablet-os-overlay .tos-fk-jack { margin-top:12px; cursor:pointer; padding:9px 24px; border-radius:4px; font-family:var(--font-mono,'Courier New',monospace); font-weight:bold; letter-spacing:2px; font-size:13px;
+    #tablet-os-overlay .tos-fk-jack { margin-top:12px; cursor:pointer; padding:9px 24px; border-radius:4px; font-family:var(--font-mono,'Courier New',monospace); font-weight:bold; letter-spacing:2px; font-size:0.8125rem;
       color:var(--accent); background:transparent; border:1px solid var(--accent);
       box-shadow:0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); transition:background .12s, color .12s, transform .05s; }
     #tablet-os-overlay .tos-fk-jack:hover { background:var(--accent); color:var(--accent-ink, #05050a); }
@@ -3076,27 +3081,27 @@ function ensureStyles() {
     @keyframes tos-fk-blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
 
     /* Boot lines (login → play transition) */
-    #tablet-os-overlay .tos-fk-boot { padding:20px 18px; font-size:12.5px; line-height:1.7; min-height:210px; color:var(--text-dim); }
+    #tablet-os-overlay .tos-fk-boot { padding:20px 18px; font-size:0.7813rem; line-height:1.7; min-height:max(210px, 16.799em); color:var(--text-dim); }
     #tablet-os-overlay .tos-fk-boot .ok { color:var(--green, #39ff8f); }
 
     /* Play: terminal — mirrors the game's look pane. */
     #tablet-os-overlay .tos-fk-term { position:relative; display:flex; flex-direction:column; height:410px; max-height:54vh; }
     /* Slim vitals strip (compresses the game's sidebar VITALS to one row). */
-    #tablet-os-overlay .tos-fk-hud { display:flex; gap:14px; flex-wrap:wrap; padding:7px 12px; font-size:11px; letter-spacing:.5px;
+    #tablet-os-overlay .tos-fk-hud { display:flex; gap:14px; flex-wrap:wrap; padding:7px 12px; font-size:0.6875rem; letter-spacing:.5px;
       border-bottom:1px solid var(--border, #2a2a40); color:var(--text-dim); }
     #tablet-os-overlay .tos-fk-hud b { font-weight:bold; }
     #tablet-os-overlay .tos-fk-hud .hp { color:var(--green, #39ff8f); }
     #tablet-os-overlay .tos-fk-hud .cr { color:var(--accent); }
     #tablet-os-overlay .tos-fk-hud .wt { color:var(--yellow, #f5e642); }
-    #tablet-os-overlay .tos-fk-log { flex:1; min-height:0; overflow-y:auto; padding:11px 13px; font-size:13px; line-height:1.55; }
+    #tablet-os-overlay .tos-fk-log { flex:1; min-height:0; overflow-y:auto; padding:11px 13px; font-size:0.8125rem; line-height:1.55; }
     #tablet-os-overlay .tos-fk-log::-webkit-scrollbar { width:6px; }
     #tablet-os-overlay .tos-fk-log::-webkit-scrollbar-thumb { background:var(--border, #2a2a40); border-radius:3px; }
     #tablet-os-overlay .tos-fk-line { padding:1px 0; white-space:pre-wrap; word-break:break-word; }
     /* Room header: bold accent name + [SAFE] danger badge (mirrors .zone-name / .zone-danger-safe). */
     #tablet-os-overlay .tos-fk-room { color:var(--accent); font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; }
-    #tablet-os-overlay .tos-fk-safe { margin-left:7px; font-size:10px; letter-spacing:0; padding:1px 5px; border-radius:2px; vertical-align:middle;
+    #tablet-os-overlay .tos-fk-safe { margin-left:7px; font-size:0.625rem; letter-spacing:0; padding:1px 5px; border-radius:2px; vertical-align:middle;
       color:var(--green, #39ff8f); border:1px solid var(--green, #39ff8f); }
-    #tablet-os-overlay .tos-fk-dist { color:var(--text-dim); font-style:italic; letter-spacing:1px; font-size:12px; }
+    #tablet-os-overlay .tos-fk-dist { color:var(--text-dim); font-style:italic; letter-spacing:1px; font-size:0.75rem; }
     #tablet-os-overlay .tos-fk-desc { color:var(--text, #e8e8f5); }
     #tablet-os-overlay .tos-fk-label { color:var(--text-dim); }
     /* Interactive nouns — exact game link palette, underlined like .action-link. */
@@ -3113,16 +3118,16 @@ function ensureStyles() {
     #tablet-os-overlay .tos-fk-sys { color:var(--yellow, #f5e642); }
     /* Quick-command chips row (mirrors #quick-cmds) — flavour, all local. */
     #tablet-os-overlay .tos-fk-chips { display:flex; gap:5px; flex-wrap:wrap; padding:7px 12px 0; }
-    #tablet-os-overlay .tos-fk-chip { cursor:pointer; font-size:11px; color:var(--text-dim); padding:3px 8px; border-radius:3px;
+    #tablet-os-overlay .tos-fk-chip { cursor:pointer; font-size:0.6875rem; color:var(--text-dim); padding:3px 8px; border-radius:3px;
       background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40); transition:color .12s, border-color .12s; }
     #tablet-os-overlay .tos-fk-chip:hover { color:var(--accent); border-color:var(--accent); }
     #tablet-os-overlay .tos-fk-inrow { display:flex; align-items:center; gap:7px; padding:9px 12px; border-top:1px solid var(--border, #2a2a40); }
     #tablet-os-overlay .tos-fk-prompt { color:var(--accent); font-weight:bold; }
-    #tablet-os-overlay .tos-fk-in { flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:13px; }
+    #tablet-os-overlay .tos-fk-in { flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--text); font-family:var(--font-mono,'Courier New',monospace); font-size:0.8125rem; }
     #tablet-os-overlay .tos-fk-in::placeholder { color:var(--text-dim); }
     /* Floating tablet-buzz button in the corner of the terminal */
     #tablet-os-overlay .tos-fk-tabbtn { position:absolute; right:12px; bottom:96px; z-index:4; cursor:pointer; user-select:none;
-      font-size:11px; letter-spacing:1px; padding:6px 11px; border-radius:4px; color:var(--accent); font-weight:bold;
+      font-size:0.6875rem; letter-spacing:1px; padding:6px 11px; border-radius:4px; color:var(--accent); font-weight:bold;
       background:var(--bg2, #0d0d16); border:1px solid var(--accent);
       box-shadow:0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); animation:tos-fk-pulse 1.8s ease-in-out infinite; }
     #tablet-os-overlay .tos-fk-tabbtn:hover { background:var(--accent); color:var(--accent-ink, #05050a); }
@@ -3135,7 +3140,7 @@ function ensureStyles() {
     /* Shaky "oh no" banner across the top of the REAL tablet, once you've gone one
        ARCHITECT-tap deep. Sits on the (unscaled) scrim so it stays put and legible. */
     #tablet-os-overlay .tos-fk-caption { position:absolute; top:9px; left:0; right:0; z-index:12; text-align:center; pointer-events:none;
-      padding:0 14px; line-height:1.25; font-family:var(--font-mono,'Courier New',monospace); font-size:15px; font-weight:bold; font-style:italic;
+      padding:0 14px; line-height:1.25; font-family:var(--font-mono,'Courier New',monospace); font-size:0.9375rem; font-weight:bold; font-style:italic;
       animation:tos-fk-shake .17s infinite, tos-fk-fade .25s ease-out; }
     /* Text sits on its own dark pill so it stays legible on every theme (a light/white
        theme has no dark backdrop of its own, and accent-on-accent used to bleed together). */
@@ -3170,23 +3175,23 @@ function ensureStyles() {
     #tablet-os-overlay .tos-fk-gamewrap .tos-fk-mini { position:relative; z-index:1; animation:none; }
     #tablet-os-overlay .tos-fk-gamescreen { position:absolute; inset:0; box-sizing:border-box; overflow:hidden;
       border-radius:8px; border:1px solid var(--border, #2a2a40); background:var(--bg, #05050a);
-      font-family:var(--font-mono,'Courier New',monospace); font-size:9px; line-height:1.5; padding:10px 12px;
+      font-family:var(--font-mono,'Courier New',monospace); font-size:0.5625rem; line-height:1.5; padding:10px 12px;
       box-shadow:inset 0 0 26px rgba(0,0,0,.6); }
     #tablet-os-overlay .tos-fk-gs-hud { display:flex; gap:9px; flex-wrap:wrap; color:var(--text-dim); border-bottom:1px solid var(--border, #2a2a40); padding-bottom:5px; margin-bottom:6px; }
     #tablet-os-overlay .tos-fk-gs-hud .hp { color:var(--green, #39ff8f); }
     #tablet-os-overlay .tos-fk-gs-hud .cr { color:var(--accent); }
     #tablet-os-overlay .tos-fk-gs-room { color:var(--accent); font-weight:bold; letter-spacing:1px; text-transform:uppercase; }
-    #tablet-os-overlay .tos-fk-gs-safe { margin-left:5px; font-size:8px; padding:0 4px; border-radius:2px; color:var(--green, #39ff8f); border:1px solid var(--green, #39ff8f); }
+    #tablet-os-overlay .tos-fk-gs-safe { margin-left:5px; font-size:0.5rem; padding:0 4px; border-radius:2px; color:var(--green, #39ff8f); border:1px solid var(--green, #39ff8f); }
     #tablet-os-overlay .tos-fk-gs-dist { color:var(--text-dim); font-style:italic; }
     #tablet-os-overlay .tos-fk-gs-desc { color:var(--text, #e8e8f5); margin-top:3px; }
     #tablet-os-overlay .tos-fk-gs-exits { margin-top:3px; }
     #tablet-os-overlay .tos-fk-gs-exits .l { color:var(--text-dim); }
     #tablet-os-overlay .tos-fk-gs-exits .ex { color:var(--cyan, #28e5ff); }
-    #tablet-os-overlay .tos-fk-mini-hd { display:flex; justify-content:space-between; align-items:center; font-size:8.5px; letter-spacing:2px; text-transform:uppercase; color:var(--accent); opacity:.85; margin-bottom:8px; padding:0 3px; }
-    #tablet-os-overlay .tos-fk-mini-x { cursor:pointer; font-size:12px; opacity:.8; line-height:1; }
+    #tablet-os-overlay .tos-fk-mini-hd { display:flex; justify-content:space-between; align-items:center; font-size:0.5313rem; letter-spacing:2px; text-transform:uppercase; color:var(--accent); opacity:.85; margin-bottom:8px; padding:0 3px; }
+    #tablet-os-overlay .tos-fk-mini-x { cursor:pointer; font-size:0.75rem; opacity:.8; line-height:1; }
     #tablet-os-overlay .tos-fk-mini-x:hover { opacity:1; color:var(--text-bright, #fff); }
     #tablet-os-overlay .tos-fk-mini-screen { position:relative; background:var(--bg, #05050a); border-radius:8px; padding:9px 8px; box-shadow:inset 0 0 12px rgba(0,0,0,.6); }
-    #tablet-os-overlay .tos-fk-mini-time { display:flex; justify-content:space-between; font-size:7px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); opacity:.6; margin-bottom:7px; }
+    #tablet-os-overlay .tos-fk-mini-time { display:flex; justify-content:space-between; font-size:0.4375rem; letter-spacing:1px; text-transform:uppercase; color:var(--accent); opacity:.6; margin-bottom:7px; }
     #tablet-os-overlay .tos-fk-mini-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
     #tablet-os-overlay .tos-fk-app { cursor:pointer; text-align:center; padding:7px 2px; border-radius:6px;
       background:color-mix(in srgb, var(--accent) 12%, var(--bg2, #0d0d16));
@@ -3196,9 +3201,9 @@ function ensureStyles() {
     #tablet-os-overlay .tos-fk-app:active { transform:scale(.9); }
     #tablet-os-overlay .tos-fk-app.tap { animation:tos-fk-tap .4s ease; }
     @keyframes tos-fk-tap { 0%{filter:brightness(2.2)} 100%{filter:brightness(1)} }
-    #tablet-os-overlay .tos-fk-app .ic { font-size:16px; display:block; line-height:1; }
-    #tablet-os-overlay .tos-fk-app .nm { font-size:7px; letter-spacing:.3px; color:color-mix(in srgb, var(--accent) 70%, #fff); margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #tablet-os-overlay .tos-fk-mini-toast { min-height:13px; text-align:center; font-size:8.5px; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-top:9px; opacity:0; transition:opacity .15s; }
+    #tablet-os-overlay .tos-fk-app .ic { font-size:1rem; display:block; line-height:1; }
+    #tablet-os-overlay .tos-fk-app .nm { font-size:0.4375rem; letter-spacing:.3px; color:color-mix(in srgb, var(--accent) 70%, #fff); margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #tablet-os-overlay .tos-fk-mini-toast { min-height:1.529em; text-align:center; font-size:0.5313rem; letter-spacing:1px; text-transform:uppercase; color:var(--accent); margin-top:9px; opacity:0; transition:opacity .15s; }
     #tablet-os-overlay .tos-fk-mini-toast.show { opacity:.9; }
     #tablet-os-overlay .tos-fk-mini-home { width:26px; height:26px; border-radius:50%; margin:9px auto 0; border:2px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor:pointer; }
     #tablet-os-overlay .tos-fk-mini-home:hover { border-color:var(--accent); box-shadow:0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
@@ -3228,13 +3233,13 @@ function ensureStyles() {
       box-shadow:inset 0 0 22px rgba(0,0,0,.55);
       transition:background .5s, border-color .5s; }
     #tablet-os-overlay .tos-tv-bar { display:flex; align-items:center; gap:8px; padding:6px 10px;
-      border-bottom:1px solid var(--tv-border); font-size:10px; letter-spacing:1px; text-transform:uppercase;
+      border-bottom:1px solid var(--tv-border); font-size:0.625rem; letter-spacing:1px; text-transform:uppercase;
       color:var(--tv-header-color); transition:color .5s, border-color .5s; }
     #tablet-os-overlay .tos-tv-station { font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #tablet-os-overlay .tos-tv-ch { opacity:.8; flex:none; }
     #tablet-os-overlay .tos-tv-prog { flex:1; min-width:0; text-align:right; opacity:.75; font-style:italic;
       text-transform:none; letter-spacing:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    #tablet-os-overlay .tos-tv-live { flex:none; color:var(--tv-live-color); font-size:8px; }
+    #tablet-os-overlay .tos-tv-live { flex:none; color:var(--tv-live-color); font-size:0.5rem; }
     /* The picture. position:relative is what every overlay host below anchors to. */
     /* The picture needs a DEFINITE height: every layer inside it (content, static,
        gameday, the bugs) is position:absolute and so contributes no content height —
@@ -3270,11 +3275,11 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-screen [data-tv="gameday"].on { display:flex; }
     #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { position:absolute; right:8px; bottom:8px; z-index:45; display:none;
       pointer-events:none; background:rgba(0,0,0,.82); border:1px solid var(--tv-border);
-      border-left:3px solid var(--tv-header-color); border-radius:2px; padding:4px 7px; font-size:10px; }
+      border-left:3px solid var(--tv-header-color); border-radius:2px; padding:4px 7px; font-size:0.625rem; }
     #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"].on { display:flex; gap:9px; align-items:center; }
     #tablet-os-overlay .tos-tv-screen [data-tv="standings"] { position:absolute; top:8px; right:8px; z-index:46; display:none;
-      flex-direction:column; min-width:190px; pointer-events:none; background:rgba(0,0,0,.85);
-      border:1px solid var(--tv-border); border-radius:2px; padding:4px 7px; font-size:9px; }
+      flex-direction:column; min-width:max(190px, 21.111em); pointer-events:none; background:rgba(0,0,0,.85);
+      border:1px solid var(--tv-border); border-radius:2px; padding:4px 7px; font-size:0.5625rem; }
     #tablet-os-overlay .tos-tv-screen [data-tv="standings"].on { display:flex; }
     #tablet-os-overlay .tos-tv-screen [data-tv="fx"] { position:absolute; inset:0; z-index:49; display:none; pointer-events:none; }
     #tablet-os-overlay .tos-tv-screen [data-tv="fx"].on { display:block; }
@@ -3292,7 +3297,7 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-screen { font-weight:600; }
     #tablet-os-overlay .tos-tv-screen [data-tv="content"] {
       text-shadow:0 1px 0 rgba(0,0,0,.95), 0 0 3px rgba(0,0,0,.85), -1px 0 0 rgba(0,0,0,.55), 1px 0 0 rgba(0,0,0,.55); }
-    #tablet-os-overlay .tos-tv-screen .tv-msg { font-size:15px; line-height:1.42; font-weight:700; letter-spacing:.2px; }
+    #tablet-os-overlay .tos-tv-screen .tv-msg { font-size:0.9375rem; line-height:1.42; font-weight:700; letter-spacing:.2px; }
     /* The dim italics carry TONE (an aside, a stage direction) — keep them dimmer than
        the dialogue, but nowhere near invisible: 0.6/0.55 was unreadable at this size. */
     #tablet-os-overlay .tos-tv-screen .tv-msg-ambient { opacity:.82; }
@@ -3302,29 +3307,29 @@ function ensureStyles() {
     #tablet-os-overlay .tos-tv-screen .tv-msg-ascii-art,
     #tablet-os-overlay .tos-tv-screen .tv-msg-ascii_art { font-weight:400; text-shadow:0 0 2px rgba(0,0,0,.9); }
     /* The bugs: small standing panels over the picture, so they need the size floor most. */
-    #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { font-size:12px; font-weight:700; }
-    #tablet-os-overlay .tos-tv-screen [data-tv="standings"] { font-size:11px; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="scorebug"] { font-size:0.75rem; font-weight:700; }
+    #tablet-os-overlay .tos-tv-screen [data-tv="standings"] { font-size:0.6875rem; }
     /* Guide/standings full-screen panels: their greys are 0.35–0.5 alpha for a big CRT. */
-    #tablet-os-overlay .tos-tv-screen .tv-sched-dur { color:rgba(220,240,235,.62); font-size:11.5px; }
-    #tablet-os-overlay .tos-tv-screen .tv-sched-foot { color:rgba(220,240,235,.55); font-size:11px; }
+    #tablet-os-overlay .tos-tv-screen .tv-sched-dur { color:rgba(220,240,235,.62); font-size:0.7188rem; }
+    #tablet-os-overlay .tos-tv-screen .tv-sched-foot { color:rgba(220,240,235,.55); font-size:0.6875rem; }
     #tablet-os-overlay .tos-tv-screen .tv-sched-empty { color:rgba(220,240,235,.75); }
-    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-name { font-size:15px; font-weight:800; letter-spacing:.4px; }
-    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-sub { font-size:11.5px; font-weight:600; opacity:.9; }
+    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-name { font-size:0.9375rem; font-weight:800; letter-spacing:.4px; }
+    #tablet-os-overlay .tos-tv-screen .tv-overlay-lt-sub { font-size:0.7188rem; font-weight:600; opacity:.9; }
     /* Chassis type around the picture — the station bar and the ticker read as labels,
        so they gain weight and a little size without losing their all-caps tracking. */
-    #tablet-os-overlay .tos-tv-bar { font-size:11px; font-weight:700; }
+    #tablet-os-overlay .tos-tv-bar { font-size:0.6875rem; font-weight:700; }
     #tablet-os-overlay .tos-tv-prog { opacity:.9; font-weight:600; }
-    #tablet-os-overlay .tos-tv-live { font-size:9px; font-weight:800; }
-    #tablet-os-overlay .tos-tv-ticker { font-size:11.5px; font-weight:700; }
+    #tablet-os-overlay .tos-tv-live { font-size:0.5625rem; font-weight:800; }
+    #tablet-os-overlay .tos-tv-ticker { font-size:0.7188rem; font-weight:700; }
     /* Ticker strip */
-    #tablet-os-overlay .tos-tv-ticker { overflow:hidden; white-space:nowrap; padding:4px 0; min-height:18px;
-      border-top:1px solid var(--tv-border); color:var(--tv-ticker-color); font-size:10px; }
+    #tablet-os-overlay .tos-tv-ticker { overflow:hidden; white-space:nowrap; padding:4px 0; min-height:1.8em;
+      border-top:1px solid var(--tv-border); color:var(--tv-ticker-color); font-size:0.625rem; }
     #tablet-os-overlay .tos-tv-ticker span { display:inline-block; will-change:transform; }
     /* Controls — tablet buttons, not the CRT cabinet's knob cluster (the knob is
        kept because tv.js drives its rotation as the dial's position readout). */
     #tablet-os-overlay .tos-tv-ctl { display:flex; align-items:center; gap:6px; flex-wrap:wrap;
       padding:7px 9px; border-top:1px solid var(--tv-border); }
-    #tablet-os-overlay .tos-tv-ctl button { cursor:pointer; font-family:inherit; font-size:11px; line-height:1;
+    #tablet-os-overlay .tos-tv-ctl button { cursor:pointer; font-family:inherit; font-size:0.6875rem; line-height:1;
       padding:5px 9px; border-radius:4px; background:var(--bg2, #0d0d16);
       border:1px solid var(--border, #2a2a40); color:var(--tos-fg); transition:color .12s, border-color .12s, box-shadow .12s; }
     #tablet-os-overlay .tos-tv-ctl button:hover { color:var(--accent); border-color:var(--accent); }
@@ -3340,13 +3345,13 @@ function ensureStyles() {
        frequency readout here (both are wall-set idioms); the tuned channel already
        reads out in the header bar. */
     #tablet-os-overlay .tos-tv-ctl button.tos-tv-ch-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; }
-    #tablet-os-overlay .tos-tv-ch-btn .l { font-size:9px; letter-spacing:1px; opacity:.7; }
-    #tablet-os-overlay .tos-tv-ch-btn .c { font-size:9px; line-height:1; }
+    #tablet-os-overlay .tos-tv-ch-btn .l { font-size:0.5625rem; letter-spacing:1px; opacity:.7; }
+    #tablet-os-overlay .tos-tv-ch-btn .c { font-size:0.5625rem; line-height:1; }
     #tablet-os-overlay .tos-tv-ch-btn:active { transform:scale(.94); }
     /* Tuned-channel readout — the digital stand-in for the wall set's frequency dial.
        Tabular figures so the number doesn't jitter width as it changes. */
-    #tablet-os-overlay .tos-tv-num { font-size:13px; font-weight:bold; letter-spacing:1px;
-      color:var(--accent); font-variant-numeric:tabular-nums; min-width:56px; text-align:center;
+    #tablet-os-overlay .tos-tv-num { font-size:0.8125rem; font-weight:bold; letter-spacing:1px;
+      color:var(--accent); font-variant-numeric:tabular-nums; min-width:max(56px, 4.308em); text-align:center;
       padding:4px 8px; border-radius:4px; background:var(--bg, #05050a);
       border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);
       box-shadow:inset 0 0 8px color-mix(in srgb, var(--accent) 18%, transparent); }
@@ -3355,7 +3360,7 @@ function ensureStyles() {
     /* The dial never eats the picture: it keeps its natural height, but a long channel
        list caps out and scrolls instead of squeezing the screen above it. */
     #tablet-os-overlay .tos-tv-dial { display:flex; flex-wrap:wrap; gap:6px; flex:0 1 auto; max-height:30%; overflow-y:auto; }
-    #tablet-os-overlay .tos-tv-chip { cursor:pointer; font-size:10px; padding:5px 9px; border-radius:4px;
+    #tablet-os-overlay .tos-tv-chip { cursor:pointer; font-size:0.625rem; padding:5px 9px; border-radius:4px;
       background:var(--bg2, #0d0d16); border:1px solid var(--border, #2a2a40); color:var(--tos-fg);
       transition:color .12s, border-color .12s; }
     #tablet-os-overlay .tos-tv-chip:hover { color:var(--accent); border-color:var(--accent); }
@@ -5917,11 +5922,19 @@ function renderDetailRows(rows) {
 // Pill groups that map 1:1 to a key in the shared settings object. dpadSize is
 // mobile-only, matching the game panel's `.mobile-only-setting` gate.
 const TOS_OPT_GROUPS = [
+  // The px value IS the root font-size (styles.css `html { font-size:
+  // var(--font-size-base) }`), so these scale the entire interface, not just the
+  // log. The top rung is 32 = 200% of the 16px reference, which is the bar
+  // WCAG 1.4.4 asks for; anything short of that is a setting that stops helping
+  // exactly where it starts mattering. The `s:` preview stays in px on purpose —
+  // it is a sample of the size, so it must not itself be scaled by the setting.
   { key: 'fontSize', label: 'Font Size', opts: [
-    { v: '14', t: 'Small', g: 'A', s: 'font-size:12px' },
-    { v: '16', t: 'Medium', g: 'A', s: 'font-size:15px' },
-    { v: '19', t: 'Large', g: 'A', s: 'font-size:17px' },
-    { v: '22', t: 'X-Large', g: 'A', s: 'font-size:19px' } ] },
+    { v: '14', t: 'Small', g: 'A', s: 'font-size:0.6875rem' },
+    { v: '16', t: 'Medium', g: 'A', s: 'font-size:0.8125rem' },
+    { v: '19', t: 'Large', g: 'A', s: 'font-size:0.9375rem' },
+    { v: '22', t: 'X-Large', g: 'A', s: 'font-size:1.0625rem' },
+    { v: '26', t: 'Huge', g: 'A', s: 'font-size:1.25rem' },
+    { v: '32', t: 'Maximum (200%)', g: 'A', s: 'font-size:1.4375rem' } ] },
   { key: 'sidebarPosition', label: 'Sidebar', opts: [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
   { key: 'motion', label: 'Motion', opts: [
@@ -5935,7 +5948,7 @@ const TOS_OPT_GROUPS = [
   // Sidebar minimap tile overlay — panels/minimap.js reads this via the
   // window._applyMapOverlay hook in applySettings and re-renders in place.
   { key: 'mapOverlay', label: 'Map Labels', opts: [
-    { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:11px;letter-spacing:1px' },
+    { v: 'labels', t: 'Lettering — the building’s 2-letter code', g: 'AB', s: 'font-size:0.6875rem;letter-spacing:1px' },
     { v: 'none', t: 'Plain tiles — no lettering', g: '▫' } ] },
   // Which renderer draws the sidebar minimap. Classic is a genuine fallback, not a
   // style choice — it's what you switch to if the canvas path misbehaves on your
@@ -6224,7 +6237,7 @@ function tosApplyMis(enabled, serverDisabled) {
 // Labeled section (title + arbitrary HTML) — shared by the Corp dashboard and
 // Settings' theme groups.
 function renderSection(title, html) {
-  return `<div style="margin-top:12px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--tos-fg-dim)">${esc(title)}</div>${html}`;
+  return `<div style="margin-top:12px;font-size:0.625rem;letter-spacing:1px;text-transform:uppercase;color:var(--tos-fg-dim)">${esc(title)}</div>${html}`;
 }
 
 // Corporation dashboard — reshapes plugins/corps' own buildConsolePayload()
@@ -6390,7 +6403,7 @@ function renderCorpMapDetail(d) {
     ? `<div class="tos-row"><span>Assets</span><span>${c.assets.map(a => `${a.type === 'extractor' ? '⛏' : '⌖'} ${esc(a.type)} L${a.level}`).join(' · ')}${c.defense ? ` · def ${c.defense}` : ''}</span></div>`
     : '';
   const artery = Array.isArray(t.artery) && t.artery.length ? `<div class="tos-row"><span>On</span><span>${t.artery.map(esc).join(' · ')}</span></div>` : '';
-  return `<div class="tos-detail-name" style="font-size:15px">${esc(t.name)}</div><div class="tos-detail-desc">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
+  return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div><div class="tos-detail-desc">${t.isCurrent ? '◉ you are here · ' : ''}${controller}${home}</div>${tug}${econ}${assets}${artery}${acts}`;
 }
 
 // ── Map app ──────────────────────────────────────────────────────────────────
@@ -7895,7 +7908,7 @@ function renderMapDetail(d) {
   else if (t.reachable === false) acts = `<div class="tos-map-note">No route to here from where you stand.</div>`;
   else if (isDest) acts = _mapActBtns([['auto', isAutoWalking() ? '■ Stop Auto-walk' : '🏃 Auto-walk here']]);
   else acts = _mapActBtns([['route', '🧭 Route here']]);
-  return `<div class="tos-detail-name" style="font-size:15px">${esc(t.name)}</div>${t.description ? `<div class="tos-detail-desc">${esc(t.description)}</div>` : ''}${rows.join('')}${acts}`;
+  return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div>${t.description ? `<div class="tos-detail-desc">${esc(t.description)}</div>` : ''}${rows.join('')}${acts}`;
 }
 
 // Colour picker — a free colour wheel (any colour allowed; corps may share
@@ -9346,7 +9359,7 @@ function renderDeadhead(d) {
       data-act-id="loiter" data-act-app="deadhead" data-act-params="${Math.round(r.cx)} ${Math.round(r.cy)}"
       style="position:absolute;left:${x0.toFixed(1)}%;top:${y0.toFixed(1)}%;width:${Math.max(1.5, x1 - x0).toFixed(1)}%;height:${Math.max(1.5, y1 - y0).toFixed(1)}%;
         background:${col}14;border:1px solid ${col}66;border-radius:4px;cursor:pointer;padding:0;font-family:inherit;text-align:left">
-      <span style="position:absolute;left:4px;top:2px;font-size:8.5px;letter-spacing:.4px;color:${col};text-shadow:0 1px 2px #000;white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
+      <span style="position:absolute;left:4px;top:2px;font-size:0.5313rem;letter-spacing:.4px;color:${col};text-shadow:0 1px 2px #000;white-space:nowrap;max-width:96%;overflow:hidden;text-overflow:ellipsis">${esc(r.name)}</span>
     </button>`;
   }).join('');
   // Airfield pips stay visible in BOTH modes — the request was to combine the two maps, not to swap
@@ -9355,11 +9368,11 @@ function renderDeadhead(d) {
     const charted = !dh.charted?.loiter && dh.charted?.id === f.id;
     return `<button type="button" style="position:absolute;left:${nx(f.gx).toFixed(1)}%;top:${ny(f.gy).toFixed(1)}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:1px;background:none;border:none;cursor:pointer;padding:2px;font-family:inherit"
       data-act-id="chart" data-act-app="deadhead" data-act-params="${esc(f.id)}" title="${esc(f.name)} — ${f.dist} tiles">
-      <span style="font-size:13px;line-height:1;color:${charted ? '#7dffb0' : acc};filter:drop-shadow(0 0 3px ${charted ? '#2f8' : 'transparent'})">✈</span>
-      <span style="font-size:8.5px;letter-spacing:.3px;color:${charted ? '#7dffb0' : 'var(--tos-dim,#9ab)'};white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</span>
+      <span style="font-size:0.8125rem;line-height:1;color:${charted ? '#7dffb0' : acc};filter:drop-shadow(0 0 3px ${charted ? '#2f8' : 'transparent'})">✈</span>
+      <span style="font-size:0.5313rem;letter-spacing:.3px;color:${charted ? '#7dffb0' : 'var(--tos-dim,#9ab)'};white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</span>
     </button>`;
   }).join('');
-  const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:15px;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
+  const loiterMk = loiter ? `<div style="position:absolute;left:${nx(loiter.gx).toFixed(1)}%;top:${ny(loiter.gy).toFixed(1)}%;transform:translate(-50%,-50%);color:#7dffb0;font-size:0.9375rem;line-height:1;text-shadow:0 0 7px #2f8;pointer-events:none" title="hold point">◎</div>` : '';
   // THE SHIP HERSELF — an aeroplane, nose pointed down her heading, sitting on the live fractional
   // position. The glyph ✈ is drawn pointing north-EAST, so the rotation carries a −45° correction;
   // without it every heading reads 45° off, which is just close enough to look right and be wrong.
@@ -9368,21 +9381,21 @@ function renderDeadhead(d) {
   const hdg = ((dh.hdg || 0) % 360 + 360) % 360;
   const here = `<div style="position:absolute;left:${nx(acX).toFixed(2)}%;top:${ny(acY).toFixed(2)}%;transform:translate(-50%,-50%);pointer-events:none;transition:left .9s linear,top .9s linear" title="${esc(dh.name || 'your aircraft')} — heading ${Math.round(hdg)}°">
     <div style="position:absolute;left:50%;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:1px solid rgba(255,90,106,.45);box-shadow:0 0 8px rgba(255,90,106,.35)${dh.moving ? ';animation:tos-dh-ping 2s ease-out infinite' : ''}"></div>
-    <div style="transform:rotate(${(hdg - 45).toFixed(1)}deg);transition:transform .9s linear;color:#ff5a6a;font-size:17px;line-height:1;text-shadow:0 0 7px #ff5a6a">✈</div>
+    <div style="transform:rotate(${(hdg - 45).toFixed(1)}deg);transition:transform .9s linear;color:#ff5a6a;font-size:1.0625rem;line-height:1;text-shadow:0 0 7px #ff5a6a">✈</div>
   </div>`;
   const st = dh.status || {};
   const stateColor = st.state === 'crew' ? '#5ad1ff' : st.state === 'parked' ? 'var(--tos-dim,#9ab)' : acc;
-  const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:11px;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
-  const notice = d.notice ? `<div style="margin:6px 0;padding:6px 9px;border-left:2px solid ${acc};background:rgba(255,255,255,.04);font-size:12px">${esc(d.notice)}</div>` : '';
-  const clearBtn = `<button type="button" class="tos-btn" style="padding:1px 8px;font-size:11px;margin-left:6px" data-act-id="clear" data-act-app="deadhead" data-act-params="">clear</button>`;
+  const fuel = typeof dh.fuel === 'number' ? `<span style="font-size:0.6875rem;color:${dh.fuel < 25 ? '#ff7a86' : 'var(--tos-dim,#9ab)'}">⛽ ${dh.fuel}%</span>` : '';
+  const notice = d.notice ? `<div style="margin:6px 0;padding:6px 9px;border-left:2px solid ${acc};background:rgba(255,255,255,.04);font-size:0.75rem">${esc(d.notice)}</div>` : '';
+  const clearBtn = `<button type="button" class="tos-btn" style="padding:1px 8px;font-size:0.6875rem;margin-left:6px" data-act-id="clear" data-act-app="deadhead" data-act-params="">clear</button>`;
   const hint = dh.remote
     ? `Tap a <b>field</b> to send her there, or <b>anywhere</b> to hold — the crew fly her. Board her to walk the decks.`
     : `Tap an <b>airfield</b> to land there, or <b>anywhere</b> to hold that spot.`;
   const charted = dh.charted
     ? (dh.charted.loiter
-      ? `<div style="margin-top:8px;font-size:12px">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
-      : `<div style="margin-top:8px;font-size:12px">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">— hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
-    : `<div style="margin-top:8px;font-size:12px;color:var(--tos-dim,#8aa)">${hint}</div>`;
+      ? `<div style="margin-top:8px;font-size:0.75rem">Holding over <b style="color:#7dffb0">${esc(dh.charted.name)}</b> until bingo fuel, then divert to land ${clearBtn}</div>`
+      : `<div style="margin-top:8px;font-size:0.75rem">${dh.remote ? 'Bound for' : 'Course set:'} <b style="color:#7dffb0">${esc(dh.charted.name)}</b>${(!dh.remote && !dh.airborne && !dh.crew && dh.seat !== 'pilot') ? ' <span style="color:var(--tos-dim,#8aa)">— hit <b>Depart</b> and the crew take her up.</span>' : ''} ${dh.remote ? '' : clearBtn}</div>`)
+    : `<div style="margin-top:8px;font-size:0.75rem;color:var(--tos-dim,#8aa)">${hint}</div>`;
   const btns = [];
   if (dh.remote) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="send the crew to hold a lazy orbit over her current spot">Circle here</button>`);
   else if (dh.crew || (dh.seat === 'pilot' && dh.airborne)) btns.push(`<button type="button" class="tos-btn" data-act-id="circlehere" data-act-app="deadhead" data-act-params="" title="hold a gentle orbit over her current position">Circle here</button>`);
@@ -9397,12 +9410,12 @@ function renderDeadhead(d) {
   return `<div style="padding:4px 2px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 10px;border:1px solid var(--border,#2a3a44);border-radius:8px;background:rgba(255,255,255,.03)">
       <span style="font-weight:bold;letter-spacing:.5px;color:${acc}">✈ ${esc(dh.name || 'Leviathan')}</span>
-      <span style="display:flex;gap:10px;align-items:baseline"><span style="font-size:12px;color:${stateColor}">${esc(st.text || '')}</span>${fuel}</span>
+      <span style="display:flex;gap:10px;align-items:baseline"><span style="font-size:0.75rem;color:${stateColor}">${esc(st.text || '')}</span>${fuel}</span>
     </div>
     ${notice}
     ${regions.length ? `<div style="display:flex;gap:6px;margin:10px 0 -4px;align-items:center">
-      <button type="button" class="tos-btn" data-dh-view="${regionMode ? 'fields' : 'regions'}" style="padding:1px 9px;font-size:11px;${regionMode ? `border-color:${acc};color:${acc}` : ''}" title="overlay the named regions on the map">▦ REGIONS</button>
-      <span style="font-size:10px;color:var(--tos-dim,#8aa)">${regionMode ? 'tap a region to hold over it' : 'tap a field to chart · anywhere to hold'}</span>
+      <button type="button" class="tos-btn" data-dh-view="${regionMode ? 'fields' : 'regions'}" style="padding:1px 9px;font-size:0.6875rem;${regionMode ? `border-color:${acc};color:${acc}` : ''}" title="overlay the named regions on the map">▦ REGIONS</button>
+      <span style="font-size:0.625rem;color:var(--tos-dim,#8aa)">${regionMode ? 'tap a region to hold over it' : 'tap a field to chart · anywhere to hold'}</span>
     </div>` : ''}
     <div id="tos-dh-map" style="position:relative;height:210px;margin:10px 0;border:1px solid var(--border,#2a3a44);border-radius:9px;cursor:crosshair;background:${world ? '#0a0f14' : 'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(255,255,255,.03) 24px),radial-gradient(circle at 50% 50%,rgba(90,120,150,.10),transparent 70%)'};overflow:hidden">
       ${world ? `<canvas id="tos-dh-canvas" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.92"></canvas>` : ''}
@@ -10761,7 +10774,14 @@ function wireTabletSettings() {
     el.addEventListener('click', () => {
       sfx(TOS_SELECT_DEF);
       const s = loadSettings();
-      s[el.getAttribute('data-set-key')] = el.getAttribute('data-set-val');
+      const key = el.getAttribute('data-set-key');
+      s[key] = el.getAttribute('data-set-val');
+      // A font size the player PRESSED outranks the phone's width auto-fit
+      // (applyMobileScale in main.js). Without this flag the auto-fit silently
+      // overwrites --font-size-base on every compact device, so the one player
+      // who most needs the larger rungs — someone on a phone — is the one player
+      // for whom the setting does nothing at all.
+      if (key === 'fontSize') s.fontSizeChosen = true;
       commit(s);
       render();
     });
@@ -11282,26 +11302,26 @@ function ensureSpecterInstallStyles() {
     #tablet-os-overlay .tos-si.on { opacity:1; }
     #tablet-os-overlay .tos-si.si-glitch { animation:tos-si-glitch .18s steps(2) 3; }
     @keyframes tos-si-glitch { 0%{transform:translate(0,0)} 25%{transform:translate(-2px,1px)} 50%{transform:translate(2px,-1px)} 75%{transform:translate(-1px,0)} 100%{transform:translate(0,0)} }
-    #tablet-os-overlay .tos-si-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:11px; letter-spacing:2px; text-transform:uppercase;
+    #tablet-os-overlay .tos-si-hdr { display:flex; justify-content:space-between; align-items:baseline; font-size:0.6875rem; letter-spacing:2px; text-transform:uppercase;
       border-bottom:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); padding-bottom:6px; margin-bottom:8px; }
-    #tablet-os-overlay .tos-si-hdr b { font-size:13px; }
-    #tablet-os-overlay .tos-si-log { flex:1; overflow:hidden; font-size:11px; line-height:1.42; white-space:pre-wrap; }
+    #tablet-os-overlay .tos-si-hdr b { font-size:0.8125rem; }
+    #tablet-os-overlay .tos-si-log { flex:1; overflow:hidden; font-size:0.6875rem; line-height:1.42; white-space:pre-wrap; }
     #tablet-os-overlay .tos-si-log .warn { color:#ffd85a; text-shadow:0 0 5px rgba(255,216,90,0.4); }
     #tablet-os-overlay .tos-si-log .ok { color:color-mix(in srgb,var(--mg-accent) 70%,#fff); }
-    #tablet-os-overlay .tos-si-stage { margin-top:8px; font-size:10px; letter-spacing:2px; text-transform:uppercase; opacity:.8; min-height:13px; }
+    #tablet-os-overlay .tos-si-stage { margin-top:8px; font-size:0.625rem; letter-spacing:2px; text-transform:uppercase; opacity:.8; min-height:1.3em; }
     #tablet-os-overlay .tos-si-barwrap { margin-top:6px; height:14px; border:1px solid color-mix(in srgb,var(--mg-accent) 40%,transparent); border-radius:3px; overflow:hidden; }
     #tablet-os-overlay .tos-si-bar { height:100%; width:0%; background:var(--mg-accent); box-shadow:0 0 12px color-mix(in srgb,var(--mg-accent) 70%,transparent); transition:width .18s linear; }
-    #tablet-os-overlay .tos-si-pct { text-align:right; font-size:10px; margin-top:3px; letter-spacing:1px; opacity:.85; }
+    #tablet-os-overlay .tos-si-pct { text-align:right; font-size:0.625rem; margin-top:3px; letter-spacing:1px; opacity:.85; }
     #tablet-os-overlay .tos-si-done { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
       background:radial-gradient(80% 80% at 50% 45%, color-mix(in srgb,var(--mg-accent) 16%,#02110b), rgba(2,8,6,0.97)); opacity:0; pointer-events:none; transition:opacity .4s; }
     #tablet-os-overlay .tos-si.done .tos-si-done { opacity:1; pointer-events:auto; }
-    #tablet-os-overlay .tos-si-check { font-size:40px; text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 80%,transparent); animation:tos-si-pop .5s cubic-bezier(.2,1.4,.4,1); }
+    #tablet-os-overlay .tos-si-check { font-size:2.5rem; text-shadow:0 0 18px color-mix(in srgb,var(--mg-accent) 80%,transparent); animation:tos-si-pop .5s cubic-bezier(.2,1.4,.4,1); }
     @keyframes tos-si-pop { 0%{transform:scale(0.3);opacity:0} 100%{transform:scale(1);opacity:1} }
-    #tablet-os-overlay .tos-si-title { font-size:16px; letter-spacing:3px; }
-    #tablet-os-overlay .tos-si-sub { font-size:11px; letter-spacing:1px; opacity:.75; }
-    #tablet-os-overlay .tos-si-close { margin-top:6px; cursor:pointer; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:#03110b;
+    #tablet-os-overlay .tos-si-title { font-size:1rem; letter-spacing:3px; }
+    #tablet-os-overlay .tos-si-sub { font-size:0.6875rem; letter-spacing:1px; opacity:.75; }
+    #tablet-os-overlay .tos-si-close { margin-top:6px; cursor:pointer; font-size:0.6875rem; letter-spacing:2px; text-transform:uppercase; color:#03110b;
       background:var(--mg-accent); border:none; border-radius:4px; padding:8px 18px; }
-    #tablet-os-overlay .tos-si-skip { position:absolute; bottom:9px; right:14px; font-size:9px; letter-spacing:1px; opacity:.4; }
+    #tablet-os-overlay .tos-si-skip { position:absolute; bottom:9px; right:14px; font-size:0.5625rem; letter-spacing:1px; opacity:.4; }
   `;
   document.head.appendChild(s);
 }

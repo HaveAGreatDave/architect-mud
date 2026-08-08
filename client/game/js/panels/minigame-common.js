@@ -41,13 +41,13 @@ export function ensureChassisStyles() {
     /* Branded chassis head: glowing mark, nameplate, subtitle, a bolt + close. */
     .mg-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:2px 2px 0; }
     .mg-brandplate { display:flex; align-items:center; gap:8px; }
-    .mg-brand-mark { font-size:16px; color:var(--mg-accent,#fff); text-shadow:0 0 9px color-mix(in srgb, var(--mg-accent,#fff) 70%, transparent); animation:mg-mark-breathe 3.2s ease-in-out infinite; }
+    .mg-brand-mark { font-size:1rem; color:var(--mg-accent,#fff); text-shadow:0 0 9px color-mix(in srgb, var(--mg-accent,#fff) 70%, transparent); animation:mg-mark-breathe 3.2s ease-in-out infinite; }
     @keyframes mg-mark-breathe { 0%,100%{text-shadow:0 0 9px color-mix(in srgb, var(--mg-accent,#fff) 65%, transparent)} 50%{text-shadow:0 0 17px color-mix(in srgb, var(--mg-accent,#fff) 95%, transparent)} }
     .mg-brand-text { display:flex; flex-direction:column; line-height:1.15; }
-    .mg-brand-name { font-size:13px; font-weight:bold; letter-spacing:2px; color:var(--mg-accent,#fff); text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent,#fff) 45%, transparent); }
-    .mg-subtitle { font-size:9px; letter-spacing:3px; opacity:0.5; color:var(--mg-accent,#fff); margin-top:2px; }
+    .mg-brand-name { font-size:0.8125rem; font-weight:bold; letter-spacing:2px; color:var(--mg-accent,#fff); text-shadow:0 0 6px color-mix(in srgb, var(--mg-accent,#fff) 45%, transparent); }
+    .mg-subtitle { font-size:0.5625rem; letter-spacing:3px; opacity:0.5; color:var(--mg-accent,#fff); margin-top:2px; }
     .mg-headbolts { display:flex; align-items:center; gap:11px; }
-    .mg-close { background:none; border:none; color:#8496a8; font-size:14px; cursor:pointer; padding:0 2px; line-height:1; font-family:inherit; }
+    .mg-close { background:none; border:none; color:#8496a8; font-size:0.875rem; cursor:pointer; padding:0 2px; line-height:1; font-family:inherit; }
     .mg-close:hover { color:#ff4a5b; }
     /* Phillips screw — inline in the head, absolute on a bezel's corners. */
     .mg-screw { position:relative; width:8px; height:8px; border-radius:50%; flex-shrink:0;
@@ -87,7 +87,7 @@ export function ensureChassisStyles() {
     .mg-reticle i:nth-child(3){bottom:6px;left:6px;border-right:0;border-top:0}
     .mg-reticle i:nth-child(4){bottom:6px;right:6px;border-left:0;border-top:0}
     /* Physical deck — pulsing LEDs, label, a moulded data port, signal readout. */
-    .mg-deck { display:flex; align-items:center; gap:8px; margin-top:12px; padding:7px 10px; font-size:8px; letter-spacing:1.5px; color:#8496a8;
+    .mg-deck { display:flex; align-items:center; gap:8px; margin-top:12px; padding:7px 10px; font-size:0.5rem; letter-spacing:1.5px; color:#8496a8;
       background:linear-gradient(180deg,#12161a,#0a0d10); border:1px solid #05070a; border-radius:6px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.6); }
     /* Threat-tier LEDs: dark until lit by setDeckLevel(); the higher the meter,
        the more light up and the faster red flickers. */

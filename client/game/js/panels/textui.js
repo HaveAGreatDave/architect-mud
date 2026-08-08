@@ -91,7 +91,7 @@ export function ensureTextUiStyles() {
   const st = document.createElement('style');
   st.id = 'textui-styles';
   st.textContent = `
-    .txui { font-family:'Courier New',monospace; font-size:12px; line-height:1.25;
+    .txui { font-family:'Courier New',monospace; font-size:0.75rem; line-height:1.25;
       color:#9fe0c4; background:linear-gradient(170deg,#0b1512,#060b09 70%);
       border:1px solid #10261e; border-radius:6px; padding:8px 10px;
       box-sizing:border-box; overflow:auto; white-space:pre; }
@@ -108,7 +108,7 @@ export function ensureTextUiStyles() {
        proof that this is what stops a text mode feeling like a fallback. */
     .txui .pick { cursor:pointer; text-decoration:underline dotted; }
     .txui .pick:hover { color:#d8fff0; text-shadow:0 0 6px rgba(216,255,240,.5); }
-    @media (max-width:700px){ .txui { font-size:11px; } .txui-cols { gap:10px; } }
+    @media (max-width:700px){ .txui { font-size:0.6875rem; } .txui-cols { gap:10px; } }
   `;
   document.head.appendChild(st);
 }
