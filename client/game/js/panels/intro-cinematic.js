@@ -42,6 +42,7 @@ import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale
 // LOGIN never has to import the ~8500-line renderer to find out what a tower looks like. Same
 // reason skyline-scale.js exists, one level up: this is form where that is mass.
 import { shapeFor, shapeVal } from '../../../shared/building-shapes.js';
+import { prefersReducedMotion } from '/shared/settings.js';
 
 const SEEN_KEY = 'introCinematicSeen';
 
@@ -1535,8 +1536,7 @@ export function playIntroCinematic(onDone, skyline, shore) {
   _finished = false;
   _done = typeof onDone === 'function' ? onDone : () => {};
 
-  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
-    || document.documentElement.getAttribute('data-motion') === 'off';
+  const reduced = prefersReducedMotion();
 
   _ov = document.createElement('div');
   _ov.id = 'intro-cinematic';

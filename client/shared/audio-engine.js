@@ -43,6 +43,7 @@
   let _noiseBuffer = null;
   let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.40, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
+  let _monoNode = null, _mono = false;
   let echoNodes = null; // global master-bus echo send (weed) — { wet, delay, fb }
 
   function ensureContext() {
@@ -51,7 +52,17 @@
     if (!AC) return null;
     ctx = new AC();
     masterGain = ctx.createGain();
-    masterGain.connect(ctx.destination);
+    // Mono downmix sits between the master bus and the speakers, so it catches
+    // every category (music, sfx, ambient, tv) and every panner upstream of it.
+    // A GainNode with an explicit single channel IS the downmix — WebAudio sums
+    // L+R on the way in, and the destination spreads the one channel back to
+    // both outputs, so the mix is centred rather than half-silent.
+    _monoNode = ctx.createGain();
+    _monoNode.channelCount = 1;
+    _monoNode.channelCountMode = 'explicit';
+    _monoNode.channelInterpretation = 'speakers';
+    _monoNode.connect(ctx.destination);
+    masterGain.connect(_mono ? _monoNode : ctx.destination);
     musicGain = ctx.createGain();
     sfxGain = ctx.createGain();
     ambientGain = ctx.createGain();
@@ -143,6 +154,18 @@
   function applyVolumeSettings(settings) {
     _settings = { ..._settings, ...(settings || {}) };
     if (ctx) _applyGains();
+  }
+
+  // Called from applySettings on every settings change, which is usually BEFORE
+  // the first user gesture has created the context — so remember the choice and
+  // let ensureContext() wire it when the graph is actually built.
+  function setMonoAudio(on) {
+    on = !!on;
+    if (on === _mono) return;
+    _mono = on;
+    if (!ctx || !masterGain || !_monoNode) return;
+    try { masterGain.disconnect(); } catch { /* nothing connected yet */ }
+    masterGain.connect(on ? _monoNode : ctx.destination);
   }
 
   function busFor(category) {
@@ -2718,7 +2741,7 @@
   })();
 
   global.AudioEngine = {
-    init, onUnlock, applyVolumeSettings,
+    init, onUnlock, applyVolumeSettings, setMonoAudio,
     playSfx, playSample, clearSampleCache,
     loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, stopMusicOwnedBy, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,

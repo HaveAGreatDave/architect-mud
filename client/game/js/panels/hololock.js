@@ -89,6 +89,31 @@ function generate(skill, difficulty) {
   const edge = skill - difficulty;
   const n = clampInt(3 + difficulty / 2.5, 3, 6);
   const sweet = clampNum(0.24 + edge * 0.03, 0.09, 0.42);       // sweet-zone width (fraction)
+  // ⚠ Do NOT add a player-facing "slow the sweep" accessibility option here.
+  // It was tried (2026-08-07) and reverted the same day.
+  //
+  // It wasn't needed in the first place: the `log` Display Mode rung never opens
+  // this board at all — server/engine/minigame.js `resolveForLogRung` settles the
+  // lock with one 2d8−2d8 skill check against the same difficulty, through the
+  // same resolve verb. An untimed route already exists, for every minigame.
+  //
+  // And it was actively harmful:
+  //
+  //   • The minigame's result IS the outcome — doors.js: "That outcome is
+  //     authoritative (winning the minigame is the gate)". It isn't theatre.
+  //   • Dividing this speed multiplies the scanner's dwell time inside the sweet
+  //     zone, which cuts MISSES. Misses cost `missPenalty` (0.08–0.40 each) and
+  //     they are the dominant term; the longer run accrues more `trickle`
+  //     (0.004–0.055/sec), but nowhere near enough to pay for the misses saved.
+  //     So it is a straightforward difficulty reduction, not a timing
+  //     accommodation, whatever a comment claims.
+  //   • A free, self-selected difficulty slider on a competitive skill in a
+  //     shared economy gets picked by everybody: winning here unlocks somebody
+  //     else's apartment AND pays hacking XP (awardSkillUse on the breach).
+  //
+  // The rule it left behind: an accessibility option may move the INTERFACE
+  // freely; it may not move the ODDS on a contested outcome. See
+  // docs/systems-display-mode.md § Why there is no "slow it down" option.
   const baseSpd = clampNum(0.55 + difficulty * 0.10 - skill * 0.05, 0.40, 1.9); // sweeps/sec
   const missPenalty = clampNum(0.15 - edge * 0.02, 0.08, 0.40);
   const trickle = clampNum(0.015 + difficulty * 0.005 - skill * 0.003, 0.004, 0.055); // feedback/sec

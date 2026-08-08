@@ -189,7 +189,7 @@ export const CHAPTERS = [
       { break: true },
       'Cross the two and you get four corners, and in each corner an order, and in each order a large number of people who are extremely certain.',
       'The certainty is the tell. Nobody was this sure before the Quiet. Sureness is what people reach for when the alternative is admitting the whole thing was an accident.',
-      { pull: 'An order is not a faction. It is a sentence a person has decided to finish.' },
+      { pull: "Anyone can hold an opinion. An order is one you've agreed to serve, to the end." },
     ],
   },
   {

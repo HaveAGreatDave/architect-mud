@@ -21,6 +21,7 @@
 import { sendCmd, sendCmdSilent } from '../net.js';
 import { refreshInventory } from './inventory-state.js';
 import { sfx, esc, mountOverlay } from './minigame-common.js';
+import { prefersReducedMotion } from '/shared/settings.js';
 
 // ── the rarity ladder, as presentation ────────────────────────────────────────
 // One table drives colour, ray count, screen flash, the pre-flip HOLD and the
@@ -604,7 +605,7 @@ let machine = null;   // { overlay, close, data, pick, busy, justVended }
 const SHELVES = [['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2', 'C3']];
 const slotOf = (d, code) => (d.slots || []).find(s => s.code === code) || { code, left: 0, cap: 8 };
 const stockedCodes = (d) => (d.slots || []).filter(s => s.left > 0).map(s => s.code);
-const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = () => prefersReducedMotion();
 
 export function openCardMachinePanel(msg) {
   ensurePackStyles();

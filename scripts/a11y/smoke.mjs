@@ -57,6 +57,7 @@ if (/log-rung/.test(render)) ok('…and collapses the pane visually');
 else bad('setPaneSilent no longer toggles the log-rung class — the pane stays on screen duplicating the log');
 
 const css = readFileSync('client/game/styles.css', 'utf8');
+const settingsSrc = readFileSync('client/shared/settings.js', 'utf8');
 if (/\.log-rung[^{]*#area-pane/.test(css)) ok('the log-rung collapse rule exists in styles.css');
 else bad('styles.css has no .log-rung rule for #area-pane — the class is toggled but does nothing');
 
@@ -278,7 +279,7 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
 
   // The setting is only as good as its top rung. 32px = 200% of the reference.
   const tos = readFileSync('client/game/js/panels/tablet-os.js', 'utf8');
-  const grp = tos.slice(tos.indexOf("key: 'fontSize'"), tos.indexOf("key: 'fontSize'") + 700);
+  const grp = settingsSrc.slice(settingsSrc.indexOf("key: 'fontSize'"), settingsSrc.indexOf("key: 'fontSize'") + 700);
   const rungs = [...grp.matchAll(/v: '(\d+)'/g)].map(m => +m[1]);
   if (Math.max(...rungs, 0) >= 32) ok(`Font Size reaches ${Math.max(...rungs)}px (${Math.round(Math.max(...rungs) / 16 * 100)}% of the reference root)`);
   else bad(`Font Size tops out at ${Math.max(...rungs, 0)}px — WCAG 1.4.4 wants 200% of the 16px root, i.e. a 32 rung`);
@@ -328,6 +329,121 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   if (/fontSizeChosen/.test(mainJs) && /fontSizeChosen/.test(tos)) {
     ok('an explicitly chosen font size outranks the mobile width auto-fit');
   } else bad('applyMobileScale no longer honours fontSizeChosen — the Font Size setting does nothing at all on a phone');
+}
+
+// ── The accessibility surface ────────────────────────────────────────────────
+// One table (A11Y_OPTIONS in client/shared/settings.js) feeds two surfaces: the
+// Tablet's Accessibility page and the `accessibility` verb. The checks below are
+// all about that arrangement not quietly coming apart, because when it does the
+// symptom is an option that exists in one place and not the other — which reads
+// as "the setting doesn't work" to the person who found the wrong half.
+{
+  const tosSrc2 = readFileSync('client/game/js/panels/tablet-os.js', 'utf8');
+  const inputSrc = readFileSync('client/game/js/input.js', 'utf8');
+
+  if (/export const A11Y_OPTIONS/.test(settingsSrc)) ok('A11Y_OPTIONS is declared once, in shared settings');
+  else bad('A11Y_OPTIONS is gone — the Accessibility page and the `accessibility` verb no longer share a list and will drift');
+
+  // THE ONE THAT MATTERS. The settings that make the interface usable must not
+  // be reachable only THROUGH that interface — the light switch cannot be inside
+  // the dark room. `displaymode` already had a bare verb for this reason.
+  if (/runAccessibilityCommand/.test(inputSrc)) ok('`accessibility` works as a plain verb, with no tablet needed');
+  else bad('the `accessibility` verb is gone — every one of these settings is now reachable only through the graphical tablet a player may not be able to use');
+
+  const cmdSrc = readFileSync('client/game/js/a11y-command.js', 'utf8');
+  if (/A11Y_OPTIONS/.test(cmdSrc)) ok('…and it renders from the shared table rather than its own copy');
+  else bad('a11y-command.js no longer reads A11Y_OPTIONS — it has its own list now, which will fall behind the tablet');
+  if (/'reset'/.test(cmdSrc)) ok('…and `accessibility reset` can undo a change that made things worse');
+  else bad('`accessibility reset` is gone — a player who turns on something unreadable has to undo it through the surface they just made unreadable');
+
+  if (/Accessibility:/.test(tosSrc2)) ok('the tablet has one Accessibility page rather than settings scattered across three');
+  else bad('the tablet Accessibility page is gone — these settings are back to being spread over General/Layout/Sound');
+
+  // Both surfaces must render the SAME list, or one of them is lying.
+  if (/A11Y_OPTIONS\.map/.test(tosSrc2)) ok('…generated from the shared table too');
+  else bad('the Accessibility page hardcodes its rows — add an option and it will appear in the verb only');
+  // And the Layout page must not re-render what Accessibility owns, or the same
+  // control appears twice with two states and the player cannot tell which won.
+  if (/A11Y_OPTIONS\.some/.test(tosSrc2)) ok('…and no other page renders the same control twice');
+  else bad('the Layout page no longer excludes the accessibility keys — a control now appears on two pages');
+
+  // Motion has to be a predicate. As a bare CSS attribute it reached ~21 rules
+  // and none of the canvas work, so the switch a player finds left every
+  // animation that could actually make somebody ill running.
+  if (/export function prefersReducedMotion/.test(settingsSrc)) ok('Motion is a predicate the JS animations can read');
+  else bad('prefersReducedMotion is gone — Motion Off is back to being ~21 CSS rules and no canvas');
+
+  const MOTION_CONSUMERS = [
+    'client/game/js/flame.js',
+    'client/game/js/panels/accolades-banner.js',
+    'client/game/js/panels/flight-drugfx.js',
+    'client/game/js/panels/cardpack.js',
+    'client/game/js/panels/intro-cinematic.js',
+  ];
+  const deaf = MOTION_CONSUMERS.filter(f => !/prefersReducedMotion/.test(readFileSync(f, 'utf8')));
+  if (deaf.length) bad(`${deaf.join(', ')} test the OS media query directly again — those ignore the in-game Motion switch entirely`);
+  else ok(`all ${MOTION_CONSUMERS.length} JS animations honour the in-game Motion switch, not just the OS preference`);
+
+  // …and it must be CALLED, never cached. Read into a module-scope const it only
+  // ever sees the state the page booted in.
+  for (const f of MOTION_CONSUMERS) {
+    const src = readFileSync(f, 'utf8');
+    if (/const\s+_?reduceMotion\s*=\s*prefersReducedMotion\(\)/.test(src)) {
+      bad(`${f} caches prefersReducedMotion() at module scope — changing Motion mid-session will do nothing until a reload`);
+    }
+  }
+  ok('…and none of them caches the answer');
+
+  // Keyboard focus. A dozen rules in the sheet kill the browser's focus ring on
+  // :focus; without a :focus-visible rule to put it back, a keyboard-only player
+  // has no idea where they are.
+  if (/^:focus-visible\s*\{/m.test(css)) ok('keyboard focus is visible — there is a :focus-visible ring');
+  else bad('the global :focus-visible rule is gone — the sheet kills the browser focus ring in ~12 places, so keyboard users now navigate blind');
+
+  // Focus must stay INSIDE an open panel. Without the trap, Tab walks out of the
+  // trade window into the page behind it, and the player operates controls they
+  // cannot see — in a game where several of those spend money or drop items.
+  const mainSrc = readFileSync('client/game/js/main.js', 'utf8');
+  if (/initA11yFocus\(\)/.test(mainSrc)) ok('the focus manager is started — panels trap Tab, honour Escape and hand focus back');
+  else bad('initA11yFocus() is not called — Tab walks out of every open panel again, and focus is stranded when one closes');
+  const focusSrc = readFileSync('client/game/js/a11y-focus.js', 'utf8');
+  // The two ways this feature turns into a bug rather than a fix.
+  if (/NEVER_TRAP/.test(focusSrc) && /piano-panel/.test(focusSrc) && /fsim/.test(focusSrc)) {
+    ok('…and the surfaces that own the keyboard as gameplay (flight sim, piano) are exempt');
+  } else bad('the NEVER_TRAP exemptions are gone — trapping focus in a cockpit or at the piano breaks the controls');
+  if (/isModalCandidate/.test(focusSrc)) ok('…and a decorative full-screen effect is not mistaken for a dialog');
+  else bad('the modal test is gone — the sanity wash and weather overlay could now lock the player out of their own game');
+
+  // Skip links must be the FIRST tab stops, and must never be display:none —
+  // that would take them out of the tab order, which is the one thing they can't be.
+  if (/class="skip-link"/.test(html)) {
+    const bodyStart = html.slice(html.indexOf('<body>'), html.indexOf('<body>') + 700);
+    if (/class="skip-link"/.test(bodyStart)) ok('skip links are the first tab stops in the document');
+    else bad('the skip links are no longer at the top of <body> — they skip nothing if you must tab to them');
+    if (/\.skip-link\s*\{[^}]*display:\s*none/.test(css)) bad('.skip-link is display:none — that removes it from the tab order entirely');
+    else ok('…and are positioned off-screen rather than hidden, so they stay focusable');
+  } else bad('the skip links are gone — every page load starts by tabbing through the header and sidebar to reach the input');
+
+  if (/id="main"[^>]*role="main"/.test(html)) ok('the game area is a named landmark');
+  else bad('#main lost role="main" — screen-reader landmark navigation has nothing to jump to');
+
+  // Colour is never the only channel (WCAG 1.4.1), for anyone who opts in.
+  if (/data-status-glyphs="on"/.test(css)) ok('status marks exist for state the game otherwise draws in colour alone');
+  else bad('the status-mark rules are gone — red/green states are colour-only again');
+  if (/data-status-glyphs="on"\]\s*\.enemy-link::before/.test(css)) ok('…including the enemy/NPC distinction, which was hue-only in every room description');
+  else bad('the enemy-link mark is gone — a person and a thing that will kill you are told apart by hue alone again');
+
+  // The typeface swap must never reach anything drawn out of characters.
+  if (/data-ui-font="sans"/.test(css)) {
+    ok('a non-monospace typeface is available');
+    if (/data-ui-font\][^{]*\.txui[\s\S]{0,400}?Courier/.test(css)) ok('…and the character-grid surfaces are pinned back to monospace');
+    else bad('the typeface swap no longer re-pins the minimap/text-minigame/ASCII surfaces — a proportional font shears every character grid in the game');
+  } else bad('the typeface option is gone');
+
+  // Mono audio has to sit on the master bus or it only catches some categories.
+  const audioSrc = readFileSync('client/shared/audio-engine.js', 'utf8');
+  if (/setMonoAudio/.test(audioSrc) && /setMonoAudio/.test(settingsSrc)) ok('mono audio is wired from settings into the master bus');
+  else bad('setMonoAudio is no longer wired — the mono option is decorative');
 }
 
 // ── Live regions elsewhere ───────────────────────────────────────────────────

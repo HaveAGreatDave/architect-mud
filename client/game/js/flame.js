@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '/shared/settings.js';
 // Shared particle flame — the renderer behind the wanted-HUD stars, extracted so
 // other surfaces can burn with the same fire instead of growing a second one.
 //
@@ -128,7 +129,7 @@ function textWidth(el) {
 
 export function burnBehind(el, { rise = 250, hold = 2400, fade = 1400 } = {}) {
   if (!el || typeof document === 'undefined') return;
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  if (prefersReducedMotion()) return;
   const w = Math.max(40, Math.round(textWidth(el))), h = Math.max(40, Math.round(el.offsetHeight * 2.2));
   if (!w) return;
   refreshRamp();

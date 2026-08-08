@@ -9,6 +9,7 @@ import { isHangarBayWalkActive } from './panels/hangar-bay.js';
 import { isPianoKeysLive } from './panels/piano.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
+import { runAccessibilityCommand } from './a11y-command.js';
 
 export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
@@ -21,6 +22,18 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
     answerAutoWalkPrompt(false);
   }
   if (lower === 'music') { openMusicPlayerPanel(); return true; }
+  // `accessibility` / `access` / `a11y` — the settings that make the game usable,
+  // reachable without the graphical surface you would otherwise need to reach
+  // them through. Same reasoning as `displaymode` having no tablet gate: putting
+  // the light switch inside the dark room is the oldest mistake in this field.
+  // Client-side, because these are localStorage preferences and never touch the
+  // server; it prints into #output, so it works at the log rung like anything else.
+  if (lower === 'accessibility' || lower.startsWith('accessibility ') ||
+      lower === 'access' || lower.startsWith('access ') ||
+      lower === 'a11y' || lower.startsWith('a11y ')) {
+    appendHtml(runAccessibilityCommand(cmd.replace(/^\S+\s*/, '').trim()));
+    return true;
+  }
   // `echo <text>` prints a local line — never sent to the server. Handy on its
   // own and the same verb macros use to surface information.
   if (lower === 'echo' || lower.startsWith('echo ')) { appendMsg(cmd.slice(4).trim(), 'system'); return true; }

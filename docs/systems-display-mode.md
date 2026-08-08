@@ -549,6 +549,226 @@ Whisper's private text-size control was `5pt/8pt/11pt`. Absolute units *override
 global scale instead of composing with it, so the one panel with its own size knob
 was the one panel that ignored the setting. Same rendered sizes, now in rem.
 
+## The Accessibility surface *(built 2026-08-07)*
+
+Display Mode and the type scale were two answers to two problems, kept in two
+different places, next to a third thing in a fourth place. Text size was under
+General, Motion under Layout, mono audio would have gone under Sound. A player who
+needs any of it had to already know where all of it was.
+
+There is now **one page and one verb**, and the important half is the verb.
+
+### `accessibility` is not a convenience
+
+The settings that make an interface usable must not be reachable *only through*
+that interface. That is the oldest mistake in this field — the light switch inside
+the dark room — and this codebase had it: to make the text bigger you had to
+operate a simulated tablet, at the size you were already struggling with, through
+tiles and pages and pill rows. `displaymode` had a bare verb for exactly this
+reason. This is the rest of it.
+
+`accessibility` (aliases `access`, `a11y`) is a **client-side** command in
+`handleClientCommand` — these are localStorage preferences and never touch the
+server. It prints into `#output`, so it lands in the log and is announced like any
+other line, with no panel and no focus to manage. `accessibility reset` is the
+escape hatch: somebody who has just turned on something that made things *worse*
+needs one word, not a tour.
+
+### One table, two surfaces
+
+`A11Y_OPTIONS` in [client/shared/settings.js](../client/shared/settings.js) is the
+list. The Tablet's Accessibility page renders from it; the verb lists and sets from
+it. **Neither owns it**, so adding an option is one entry and it appears in both,
+spelled and explained the same way. `a11y:smoke` fails if either surface starts
+keeping its own copy, and if the Layout page stops excluding the keys Accessibility
+owns — the same control on two pages with two states is worse than it being in
+neither.
+
+The `why` field is written for a player and is what the verb prints. Display Mode is
+deliberately *not* in the table (it is server-side state, not a preference) but is
+named first on both surfaces anyway, because it is the most consequential thing on
+the list.
+
+### What each one actually does
+
+**Typeface** — swaps `--font-mono` wholesale rather than threading a second
+variable through 159 call sites. What cannot move is anything whose meaning is in
+its **columns**: the minimap, the tablet map, the character minigames, the ASCII
+art. Those are re-pinned to monospace, because a proportional font shears every one
+of them into nonsense. `readable` is not a font — we cannot ship one, since this
+client never downloads a webfont. It is the part of the effect that is pure metric
+and needs no new glyphs: a humanist sans with wider letter spacing, word spacing and
+line height, which is most of what the research points at anyway.
+
+**Motion** — was 21 CSS rules and nothing else. Every JS animation tested the OS-level
+`prefers-reduced-motion` and stopped there, so the switch a player actually finds
+moved a dozen transitions and left the flame, the accolades banner, the card-pack
+reveal, the cold open and the flight-sim view warp running. `prefersReducedMotion()`
+ORs the two, and **is a function**: three of those five read the media query into a
+module-scope `const`, which meant even the OS preference only worked if you set it
+before the page loaded. `a11y:smoke` fails on both regressions — reading the media
+query directly, and caching the answer.
+
+**Status Marks** — WCAG 1.4.1. The selectors were not invented: they came from
+sweeping the stylesheet for rules whose *only* distinguishing property is
+`color: var(--green)` or `var(--red)`. The one that matters most is `.enemy-link` —
+a person and a thing that will kill you were told apart by hue alone in every room
+description in the game. Marks are pseudo-elements, so no screen reader ever meets
+one; this is for eyes that don't separate those two hues. **Off by default**,
+because an accessibility feature that clutters the screen for people who don't need
+it gets switched off by the people it was helping.
+
+**Mono Audio** — a `GainNode` with `channelCount: 1` and `channelCountMode:
+'explicit'` between the master bus and the destination. WebAudio sums L+R on the way
+in and the destination spreads the one channel back to both outputs, so the mix is
+*centred* rather than half-silent. On the master bus, so it catches every category
+and every panner upstream. Remembered when set before the first user gesture, since
+the context does not exist until then.
+
+### ⚠ Why there is no "slow it down" option
+
+**WCAG 2.2.1 is already satisfied, by the ladder itself.** `textRender` never opens
+a board at the `log` rung — `resolveForLogRung` runs one 2d8−2d8 `skillCheck`
+against the same difficulty and reports it through the same resolve verb. That
+covers *every* minigame, the hololock included. The reflex demand is a property of
+the top two rungs only, and `log` is a supported way out of it that costs no
+content: same difficulty target, same authoritative verb, no timing.
+
+(The `textgames` rung deliberately keeps the reflex — `texthololock.js` is the same
+loop with the drawing swapped, and that is the point of the middle rung. It is not
+where somebody goes to escape a clock.)
+
+A **Reaction Time** option (Normal / Relaxed / Slowest, dividing `baseSpd`) was
+built on 2026-08-07 and **reverted the same day**. Two reasons, and the second
+outlives the first. It was a balance change wearing an accessibility label:
+
+- The minigame's result *is* the outcome — `doors.js`: *"That outcome is
+  authoritative (winning the minigame is the gate)."* It isn't theatre.
+- Slowing the sweep multiplies the scanner's dwell time inside the sweet zone,
+  which cuts **misses**. Misses cost `missPenalty` (0.08–0.40 each) and dominate;
+  the longer run accrues more `trickle` (0.004–0.055/sec) but nowhere near enough
+  to pay for the misses saved. The shipped code claimed "slower, not easier". That
+  was simply wrong, and nobody had checked the arithmetic.
+- Winning opens somebody else's apartment **and** pays hacking XP
+  (`awardSkillUse` on the breach). In a shared economy a free, self-selected
+  difficulty slider on a competitive skill is picked by everyone, so it stops
+  reading as an accommodation and starts reading as the correct build.
+
+**The rule this leaves behind:** an accessibility option may move the *interface*
+freely. It may not move the *odds* on a contested outcome. Everything else on the
+Accessibility page passes that test — text size, typeface, motion, marks and mono
+audio change nothing about what happens in the world.
+
+So the shape of any future help here is: reduce how hard the sweet zone is to
+**perceive**, never how long you have to react — an audio tick as the scanner
+crosses the zone edge would give a non-visual timing anchor and be **on for
+everyone**, so there is nothing to min-max and the difficulty curve stays where it
+was tuned. That is a game change rather than a setting.
+
+What genuinely remains open is not a gap in coverage but a gap in *quality*:
+`resolveForLogRung` says of itself that it is **an interim shape**, and that the
+designed non-reflex equivalents — a turn-based breach, a paced cast — replace it
+per family when somebody writes them. Until then the untimed hololock is a dice
+roll rather than a game, and reaching it means dropping to the rung that also puts
+away every graphical panel. Both are real costs; neither is a dead end, which is
+the rule the ladder actually promises.
+
+`hololock.js` carries this reasoning at the `baseSpd` line so it isn't re-tried.
+
+### Keyboard focus
+
+One rule, added last in the stylesheet: `:focus-visible { outline: 2px solid
+var(--accent) }` plus a `--bg` halo so it stays visible against an accent-coloured
+panel. About a dozen rules across the sheet set `outline: none` to kill the browser
+ring, and did it on `:focus` — which also killed it for keyboard users, who then had
+no way to tell where they were. `:focus-visible` only matches when the browser judges
+a ring warranted, so this shows nothing to anyone using a mouse. `#cmd-input` opts
+out: it is focused almost permanently and already shows focus in its border.
+
+### What is verified
+
+`a11y:smoke` now runs three scripts. The static one
+([smoke.mjs](../scripts/a11y/smoke.mjs)) checks the arrangement: the shared table
+exists and both surfaces read it, the Layout page still excludes what Accessibility
+owns, the focus ring is present, the enemy/NPC mark is present, the character grids
+are still pinned to monospace, the five JS animations read the predicate and none of
+them caches it, hololock divides by the scalar, and mono audio is wired.
+
+The second ([verb-smoke.mjs](../scripts/a11y/verb-smoke.mjs)) **actually runs the
+verb** against a stub DOM — lists, sets by label / by raw value / by unique prefix,
+checks the attributes reached the document and the engine, refuses an unknown
+setting and an unknown value without half-applying either, and confirms `reset`
+leaves nothing behind. That one exists because the verb is the *only* route to these
+settings for a player who cannot use the tablet, and "the verb throws" is not
+something to find out in production.
+
+All three are static in the sense that matters: none of it tells you whether a screen
+reader is bearable, or whether Readable actually reads better. That is still the
+NVDA pass, plus a human who needs the setting.
+
+### Focus management — observed, not wired
+
+Open the trade window and press Tab. Focus used to walk straight out of the panel
+into the page behind it — the smartbar, the sidebar, links in the room description
+— while the panel still covered the screen. A mouse user never notices. Someone
+navigating by keyboard is operating controls they cannot see, in a game where
+several of those spend money or drop items. Escape did nothing in about half the
+panels, and closing one left focus wherever it fell, so the next thing you typed
+went nowhere.
+
+There are ~40 panels: some built into `index.html` and revealed by flipping
+`display`, 53 more appended to the body at runtime. Wiring a trap into each is
+forty chances to forget, and every panel added afterwards starts broken again. So
+[a11y-focus.js](../client/game/js/a11y-focus.js) **observes** instead — a
+MutationObserver, coalesced to one evaluation per frame, that notices when
+something modal is on screen whatever put it there. **A panel gets this by
+existing.**
+
+Three judgements are where it would go wrong quietly, so all three are tested with
+plain objects in [focus-smoke.mjs](../scripts/a11y/focus-smoke.mjs):
+
+- **Decorative overlays must not be trapped.** The sanity wash, the lightning
+  flash, the blackout and the weather layer are all fixed and cover the screen.
+  Trap one and the player is locked out of their own game by a visual effect, with
+  no dialog on screen to explain why. They're separated by two properties they all
+  happen to have — no focusable content, and/or `pointer-events: none` — rather
+  than by a list of names that would go stale.
+- **The top panel must win.** Highest z-index, DOM order breaking ties, and
+  `z-index: auto` read as 0 rather than infinity. Otherwise focus lands in the
+  panel underneath, which is invisible.
+- **Escape must never confirm anything.** It clicks the panel's *own* close
+  control so the panel runs its own teardown — timers, sockets, server
+  notifications — and it never removes a node behind a panel's back. Explicit
+  close attributes outrank a name, which outranks a text match, which only matches
+  on a leaf (a wrapper's `textContent` contains its children, so a container round
+  a Cancel button would otherwise swallow the click). `.shop-closed` is a *state*
+  and is excluded. **No close control is a legitimate outcome** — some panels are a
+  decision you have to actually make. The smoke test asserts Buy, Sell, Confirm and
+  Delete are all left alone.
+
+Two exemptions, in `NEVER_TRAP`: the **flight sim** and the **piano** own the raw
+keyboard as a matter of gameplay. Neither is a dialog you tab through, and trapping
+focus in a cockpit would break the controls.
+
+Escape resolves on the *next frame* and acts only if the panel is still there.
+Twenty panels already bind Escape and most never call `preventDefault`, so racing
+their handlers was unwinnable — waiting a frame means whoever handled it, handled it.
+
+### Skip links and landmarks
+
+Two skip links are now the first tab stops in the document, invisible until
+focused. Without them a keyboard or screen-reader player lands at the top of the
+page and walks the header, the room pane and the entire sidebar before reaching the
+box they type into — on every page load. They point at the only two things anyone
+is there to do: read what happened, and say what to do next.
+
+They are positioned off-screen, never `display: none`, because that would take them
+out of the tab order — which is the one thing a skip link cannot be. `a11y:smoke`
+fails on both that and on them drifting away from the top of `<body>`.
+
+`#main` is `role="main"`, `#sidebar` is `role="complementary"`, both labelled, so
+landmark navigation has somewhere to go.
+
 ## Escape hatches
 
 A rung is a default, never a lockout. A system may offer a per-moment override that

@@ -131,6 +131,16 @@
 		</script>
 	</head>
 	<body>
+		<!-- Skip links. THE FIRST TWO TAB STOPS IN THE DOCUMENT, and invisible until
+		     one of them is focused. Without them a keyboard or screen-reader player
+		     arrives at the top of the page and has to walk the header, the room pane
+		     and the whole sidebar before reaching the box they actually type into —
+		     on every single page load. `for` targets are the two things anyone is
+		     ever here to do: read what happened, and say what to do next. -->
+		<nav id="skip-links" aria-label="Skip links">
+			<a href="#cmd-input" class="skip-link">Skip to command input</a>
+			<a href="#output" class="skip-link">Skip to game log</a>
+		</nav>
 		<!-- AUTH SCREEN -->
 		<div id="auth-screen">
 			<div id="auth-box">
@@ -584,8 +594,7 @@
 				class="conn-status offline"
 				id="conn-status"
 				title="Disconnected"
-				>●</span
-			>
+			></span>
 			<span class="handle-display" id="handle-display"></span>
 			<span
 				class="credits-display"
@@ -754,7 +763,7 @@
 
 		<div id="esp-banner" class="esp-hidden"></div>
 
-		<div id="main">
+		<div id="main" role="main" aria-label="Game">
 			<div id="output-container">
 				<div id="area-pane">
 					<!-- The top pane is REPLACED wholesale on every look/panel push
@@ -830,7 +839,7 @@
 				</div>
 			</div>
 
-			<div id="sidebar">
+			<div id="sidebar" role="complementary" aria-label="Status panels">
 				<div id="sidebar-header" class="sidebar-header">
 					<button id="sidebar-lock-btn" class="sidebar-lock-btn" title="Unlock to reorder sidebar sections"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
 					<div id="sidebar-modes" class="sidebar-modes" style="display:none">

@@ -6,7 +6,78 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', audio: DEFAULT_AUDIO_SETTINGS };
+
+// ── The accessibility surface, declared once ─────────────────────────────────
+//
+// This table IS the feature. Both surfaces read it and neither owns it: the
+// Tablet's Accessibility page renders these rows, and the `accessibility` verb
+// lists and sets these keys — so a new option is one entry here and appears in
+// both, spelled the same way, with the same explanation.
+//
+// That matters more than it sounds. The verb is not a convenience: a player who
+// cannot use the graphical tablet cannot reach the settings that would make the
+// tablet usable, which is the oldest trap in accessibility design — the switch
+// for the light is inside the dark room. `accessibility` is therefore a plain
+// client-side verb with no tablet gate, exactly like `displaymode`.
+//
+// `why` is written for a player, not for us. It is what the verb prints.
+export const A11Y_OPTIONS = [
+  {
+    key: 'fontSize', label: 'Text Size', verb: 'text',
+    why: 'Scales the entire interface, not just the log. Maximum is 200%.',
+    opts: [
+      { v: '14', t: 'Small' }, { v: '16', t: 'Medium' }, { v: '19', t: 'Large' },
+      { v: '22', t: 'X-Large' }, { v: '26', t: 'Huge' }, { v: '32', t: 'Maximum' },
+    ],
+  },
+  {
+    key: 'uiFont', label: 'Typeface', verb: 'font',
+    why: 'The game is monospaced by default. Sans is easier for many readers; Readable widens letter spacing and word spacing, which helps if letters swim or crowd. Maps, minimaps and character art stay monospaced either way — they need the columns.',
+    opts: [{ v: 'mono', t: 'Monospace' }, { v: 'sans', t: 'Sans' }, { v: 'readable', t: 'Readable' }],
+  },
+  {
+    key: 'motion', label: 'Motion', verb: 'motion',
+    why: 'Off stops animation everywhere it can be stopped — including the weather overlay, the cold open, the card reveal and the flight-sim view warp, not just CSS transitions.',
+    opts: [{ v: 'on', t: 'On' }, { v: 'off', t: 'Off' }],
+  },
+  {
+    key: 'statusGlyphs', label: 'Status Marks', verb: 'marks',
+    why: 'Adds a symbol beside anything the game otherwise tells you with colour alone — powered/unpowered, safe/hostile, ok/hurt. Useful with any colour vision deficiency, and in bright sunlight.',
+    opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
+  },
+
+  {
+    key: 'monoAudio', label: 'Mono Audio', verb: 'mono',
+    why: 'Sums both channels to one, so nothing is only in the ear you are not using.',
+    opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
+  },
+];
+
+// ── Motion, as a predicate rather than an attribute ─────────────────────────
+//
+// `data-motion="off"` reaches ~21 CSS rules. It did NOT reach the canvas and
+// requestAnimationFrame work, which is most of the motion in this client: the
+// flame, the accolades banner, the card-pack reveal, the flight-sim view warp.
+// Those each tested the OS-level `prefers-reduced-motion` and stopped there — so
+// the in-game Motion switch, the one a player actually finds, moved a dozen CSS
+// transitions and left every animation that could make somebody ill running.
+//
+// Two things this fixes. It ORs the app setting with the OS preference, so
+// either one is enough; and it is a FUNCTION, evaluated when asked. Three of
+// those call sites read the media query into a module-scope `const` at import
+// time, which meant even the OS preference only took effect if you changed it
+// before the page loaded. Never cache the result of this.
+export function prefersReducedMotion() {
+  try {
+    if (document.documentElement.getAttribute('data-motion') === 'off') return true;
+  } catch { /* no DOM (tests) — fall through to the media query */ }
+  try {
+    return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  } catch { return false; }
+}
+
+
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -272,6 +343,14 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-sidebar', settings.sidebarPosition || 'left');
   document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.setAttribute('data-dpad-size', settings.dpadSize || 'small');
+  // Accessibility attributes. Everything they drive is pure CSS, so they cost a
+  // repaint and nothing else — and a surface that forgets to honour one degrades
+  // to today's appearance rather than breaking.
+  document.documentElement.setAttribute('data-ui-font', settings.uiFont || 'mono');
+  document.documentElement.setAttribute('data-status-glyphs', settings.statusGlyphs || 'off');
+  // Sums the stereo image to one channel for anyone with hearing in one ear, or
+  // wearing one earbud. Applied to the master bus, so it catches every category.
+  window.AudioEngine?.setMonoAudio?.((settings.monoAudio || 'off') === 'on');
   // The ROOT font size — client/game/styles.css hangs `html { font-size }` off it
   // and every font-size in that sheet is a rem, so this one line scales the whole
   // interface. Keep the fallback in step with DEFAULT_SETTINGS above and with the

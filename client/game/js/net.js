@@ -454,13 +454,14 @@ export async function doResetPassword(token) {
   btn.textContent = 'Set New Password';
 }
 
-const CONN_ICONS = { online: '●', reconnecting: '◌', offline: '●' };
 const CONN_TITLES = { online: 'Connected', reconnecting: 'Reconnecting…', offline: 'Disconnected' };
 
 export function setConnStatus(stateStr) {
   const el = document.getElementById('conn-status');
+  // The dot itself is drawn by CSS (::before), never written here — the
+  // colourblind status-glyph option needs to change its SHAPE, and a glyph in
+  // the text content plus a glyph in the pseudo-element renders two dots.
   el.className = `conn-status ${stateStr}`;
-  el.textContent = CONN_ICONS[stateStr] ?? '●';
   el.title = CONN_TITLES[stateStr] ?? '';
 }
 

@@ -19,7 +19,7 @@ import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
 import { maybeTabletTour } from './tour.js';
-import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS, A11Y_OPTIONS } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
@@ -5922,23 +5922,13 @@ function renderDetailRows(rows) {
 // Pill groups that map 1:1 to a key in the shared settings object. dpadSize is
 // mobile-only, matching the game panel's `.mobile-only-setting` gate.
 const TOS_OPT_GROUPS = [
-  // The px value IS the root font-size (styles.css `html { font-size:
-  // var(--font-size-base) }`), so these scale the entire interface, not just the
-  // log. The top rung is 32 = 200% of the 16px reference, which is the bar
-  // WCAG 1.4.4 asks for; anything short of that is a setting that stops helping
-  // exactly where it starts mattering. The `s:` preview stays in px on purpose —
-  // it is a sample of the size, so it must not itself be scaled by the setting.
-  { key: 'fontSize', label: 'Font Size', opts: [
-    { v: '14', t: 'Small', g: 'A', s: 'font-size:0.6875rem' },
-    { v: '16', t: 'Medium', g: 'A', s: 'font-size:0.8125rem' },
-    { v: '19', t: 'Large', g: 'A', s: 'font-size:0.9375rem' },
-    { v: '22', t: 'X-Large', g: 'A', s: 'font-size:1.0625rem' },
-    { v: '26', t: 'Huge', g: 'A', s: 'font-size:1.25rem' },
-    { v: '32', t: 'Maximum (200%)', g: 'A', s: 'font-size:1.4375rem' } ] },
+  // Font Size and Motion used to live here. They now live in A11Y_OPTIONS
+  // (client/shared/settings.js) and render on the Accessibility page, because
+  // that table is also what the `accessibility` verb reads — one list, two
+  // surfaces, no drift. Anything left in this array is a taste setting rather
+  // than an access one.
   { key: 'sidebarPosition', label: 'Sidebar', opts: [
     { v: 'left', t: 'Sidebar Left', g: '⬅️' }, { v: 'right', t: 'Sidebar Right', g: '➡️' } ] },
-  { key: 'motion', label: 'Motion', opts: [
-    { v: 'on', t: 'Animations On', g: '🎞️' }, { v: 'off', t: 'Motion Off', g: '⏸' } ] },
   { key: 'weatherFx', label: 'Weather FX', opts: [
     { v: 'on', t: 'Weather FX On', g: '🌧️' }, { v: 'off', t: 'Off', g: '🚫' } ] },
   { key: 'dpadSize', label: 'D-Pad Size', mobileOnly: true, opts: [
@@ -6130,9 +6120,8 @@ function renderTabletSettings(d) {
       <span class="tos-set-val" data-vol-label="${esc(v.key)}">${pct(audio[v.key])}</span></span></div>`
   ).join('');
 
-  const fontRow = tosPillRow('Font Size', 'fontSize', s.fontSize, TOS_OPT_GROUPS.find(g => g.key === 'fontSize').opts);
   const layoutRows = TOS_OPT_GROUPS
-    .filter(gp => gp.key !== 'fontSize' && (!gp.mobileOnly || tosIsMobile()))
+    .filter(gp => !A11Y_OPTIONS.some(a => a.key === gp.key) && (!gp.mobileOnly || tosIsMobile()))
     .map(gp => tosPillRow(gp.label, gp.key, s[gp.key], gp.opts)).join('');
 
   // Grouped pages so Settings isn't one long scroll — same buckets as the game
@@ -6145,18 +6134,39 @@ function renderTabletSettings(d) {
     ${TABLET_WALLPAPERS.map(wp => `<div class="tos-opt${wp.id === wpNow ? ' selected' : ''}" data-set-wallpaper="${esc(wp.id)}" title="${esc(wp.label)}">${esc(wp.label)}</div>`).join('')}
   </div></div>`;
 
+  // ── Accessibility ─────────────────────────────────────────────────────────
+  // One page, so a player who needs any of this doesn't have to know that text
+  // size is "General", motion is "Layout" and mono audio is "Sound" — which is
+  // exactly the scavenger hunt these settings used to be. Contrast and Display
+  // Mode moved here off General; Motion moved here out of the Layout pill list
+  // (TOS_OPT_GROUPS filters it out below), so each control has ONE home.
+  //
+  // The rows are generated from A11Y_OPTIONS in client/shared/settings.js — the
+  // same table the `accessibility` verb reads. Neither surface owns the list, so
+  // they cannot drift apart, and a new option appears in both for free.
+  const a11yRows = A11Y_OPTIONS.map(o =>
+    `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
+      <div class="tos-opts">${o.opts.map(v =>
+      `<div class="tos-opt${String(s[o.key]) === String(v.v) ? ' selected' : ''}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</div>`).join('')}</div></div>`
+  ).join('');
+
   const pages = {
     General:
       themeSection +
       wallpaperRow +
-      `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
-        <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
-        <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
-      fontRow +
-      displayRow +
       feltRow +
       loreRow +
       renderMisSection(),
+    Accessibility:
+      // Display Mode first, and by itself: it is server-side state rather than a
+      // localStorage preference, and it is the one on this page that changes what
+      // the game IS rather than how it looks.
+      displayRow +
+      `<div class="tos-set-row"><span class="tos-set-label">Contrast <span class="tos-set-val" data-contrast-label="1">${contrast === 0 ? 'Base' : '+' + contrast + '%'}</span></span>
+        <span><input type="range" class="tos-slider" data-set-contrast="1" min="0" max="100" step="1" value="${contrast}">
+        <span class="tos-btn-sub" data-contrast-reset="1" style="margin:0 0 0 8px;padding:4px 9px">Reset</span></span></div>` +
+      a11yRows +
+      `<div class="tos-set-row"><span class="tos-set-label">All of this works as a command<span class="tos-set-val">Type <b>accessibility</b> anywhere — no tablet needed. <b>accessibility reset</b> puts everything back.</span></span></div>`,
     Layout: (layoutRows || '') +
       // Home widgets are OFF until you ask for them. The home screen's job is to
       // launch apps; cards under the grid are a second thing it does, and a first

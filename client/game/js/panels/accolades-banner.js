@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '/shared/settings.js';
 /**
  * Accolades — unlock banner.
  *
@@ -53,7 +54,9 @@ let raf = null;
 let sparks = [];
 let accent = [255, 46, 196];
 const live = [];
-const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// A function, not a const: read at module load this only ever saw the state the
+// page happened to boot in, so toggling Motion did nothing until a refresh.
+const reduceMotion = () => prefersReducedMotion();
 
 function ensureDom() {
   if (stackEl) return;
@@ -157,7 +160,7 @@ function addSpark(x, y, big) {
 
 /** Card rect → canvas-local coords (the canvas is its own fixed corner box). */
 function strikeAcross(el, n) {
-  if (reduceMotion || !el || !canvas) return;
+  if (reduceMotion() || !el || !canvas) return;
   const c = canvas.getBoundingClientRect();
   const r = el.getBoundingClientRect();
   for (let i = 0; i < n; i++) {
@@ -246,7 +249,7 @@ export function showAccoladeUnlock(msg) {
   el.addEventListener('mouseleave', () => { rec.timer = setTimeout(() => dismiss(rec), GRACE_MS); });
   rec.timer = setTimeout(() => dismiss(rec), HOLD_MS);
 
-  if (!reduceMotion) {
+  if (!reduceMotion()) {
     // The cue's shimmer partials fire at 300/600/900ms to land with these.
     rec.trickle = setInterval(() => { if (!rec.gone) { strikeAcross(el, 2); ensureLoop(); } }, TRICKLE_MS);
     requestAnimationFrame(() => { strikeAcross(el, BURST); ensureLoop(); });

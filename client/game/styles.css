@@ -180,6 +180,15 @@ textarea {
 	flex-shrink: 0;
 	cursor: default;
 }
+/* The dot is drawn here, not in the markup or in net.js — the colourblind
+   status-glyph option distinguishes the states by SHAPE, and it can only do
+   that by overriding this one glyph. Two sources meant two dots. */
+#header .conn-status::before {
+	content: "●";
+}
+#header .conn-status.reconnecting::before {
+	content: "◌";
+}
 #header .conn-status.online {
 	color: var(--green);
 }
@@ -17748,4 +17757,170 @@ body.intro-cine-open { overflow: hidden; }
 @media (max-width: 720px) {
 	#piano-panel .pk-keys { height: 92px; }
 	#piano-panel .pk-head { font-size: 0.68em; gap: 6px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   Everything below is driven by an attribute on <html>, set by applySettings()
+   in client/shared/settings.js from the A11Y_OPTIONS table. It is all CSS, so a
+   surface that doesn't participate degrades to its ordinary appearance rather
+   than breaking — and none of it costs anything at runtime when it's off.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Keyboard focus ──────────────────────────────────────────────────────────
+   This ran LAST in the stylesheet on purpose. Roughly a dozen rules across the
+   sheet set `outline: none` on inputs to kill the browser's default ring, and
+   they did it for :focus — which also kills it for keyboard users, who then have
+   no way to tell where they are. :focus-visible only matches when the browser
+   judges a focus ring warranted (keyboard, not a mouse click), so this restores
+   the ring for the people who need it and shows nothing to anyone clicking.
+
+   It is deliberately not scoped to buttons: anything focusable, anywhere,
+   including things a panel made focusable with tabindex. */
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	/* A second ring in the background colour, so the accent ring stays visible
+	   against a panel that happens to be near the accent hue. */
+	box-shadow: 0 0 0 4px var(--bg);
+}
+/* The command input is focused almost permanently — a ring around it at all
+   times is noise, and it already shows focus with its border. */
+#cmd-input:focus-visible {
+	outline: none;
+	box-shadow: none;
+}
+
+/* ── Typeface ────────────────────────────────────────────────────────────────
+   The game is monospaced as a matter of voice, and for most of the interface
+   that is a style choice rather than a requirement. For a reader who finds
+   Courier's tight, uniform letterforms hard going, it is a wall.
+
+   `--font-mono` is swapped wholesale rather than adding a second variable to 159
+   call sites. What CANNOT move is anything whose meaning is in its COLUMNS: the
+   minimap grid, the tablet map, the character minigames, the ASCII art, the
+   status bars built from block glyphs. Those are re-pinned below — a
+   proportional font would shear every one of them into nonsense.
+
+   `readable` is not a font, because we cannot ship one: OpenDyslexic is a font
+   file, and a webfont download is a request this client never makes. What it is
+   instead is the part of the effect that is purely metric and needs no new
+   glyphs — a humanist sans, wider letter spacing, wider word spacing, looser
+   lines — which is most of what the research points at anyway. */
+html[data-ui-font="sans"] {
+	--font-mono: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+html[data-ui-font="readable"] {
+	--font-mono: "Verdana", "Tahoma", system-ui, -apple-system, "Segoe UI", sans-serif;
+	letter-spacing: 0.045em;
+	word-spacing: 0.14em;
+	line-height: 1.65;
+}
+/* The columns. Anything here is a grid drawn out of characters, and it is only
+   correct in a font where every glyph is the same width. */
+html[data-ui-font] #minimap,
+html[data-ui-font] #minimap *,
+html[data-ui-font] .mm-room,
+html[data-ui-font] .tos-map,
+html[data-ui-font] .tos-map *,
+html[data-ui-font] .txui,
+html[data-ui-font] .txui *,
+html[data-ui-font] .tck,
+html[data-ui-font] .tck *,
+html[data-ui-font] .map-grid,
+html[data-ui-font] .map-grid *,
+html[data-ui-font] pre,
+html[data-ui-font] code,
+html[data-ui-font] .ascii,
+html[data-ui-font] .card-face,
+html[data-ui-font] .card-face * {
+	font-family: "Courier New", Courier, monospace;
+	letter-spacing: normal;
+	word-spacing: normal;
+}
+
+/* ── Status marks ────────────────────────────────────────────────────────────
+   WCAG 1.4.1: colour must never be the ONLY way information is conveyed. Parts
+   of the game already obey that without trying — the ⚠ forecast band says "⚠",
+   the wanted level counts stars. The gap is every place a state is drawn as
+   red-or-green and nothing else, which is invisible to the ~8% of men with a
+   red-green deficiency and to anyone reading a laptop in daylight.
+
+   The selectors below are not invented: each one was found by looking for rules
+   in this stylesheet whose only distinguishing property is `color: var(--green)`
+   or `var(--red)`. If you add such a pair, add its mark here.
+
+   The mark is a pseudo-element, so no screen reader ever meets it — a
+   screen-reader player reads the label, which was never ambiguous. This is
+   for eyes, and specifically for eyes that don't separate those two hues.
+
+   Off by default. The marks are clutter for someone who doesn't need them, and
+   an accessibility feature that irritates the majority gets switched off by the
+   people it was helping. */
+
+/* The one that matters most: a person and a thing that will kill you are told
+   apart by hue alone in every room description in the game. */
+html[data-status-glyphs="on"] .enemy-link::before { content: "✕\00a0"; font-weight: bold; }
+
+/* Connection */
+/* Shape, not a second dot: the base rule already draws ●, so all this state
+   needs is the hollow ring that reads as "not connected" without colour. */
+html[data-status-glyphs="on"] #header .conn-status.offline::before { content: "○"; }
+
+/* How dangerous the room is */
+html[data-status-glyphs="on"] .zone-danger-safe::before   { content: "✓\00a0"; }
+html[data-status-glyphs="on"] .zone-danger-high::before   { content: "▲\00a0"; }
+html[data-status-glyphs="on"] .zone-danger-lethal::before { content: "✕\00a0"; font-weight: bold; }
+
+/* Whether you can see */
+html[data-status-glyphs="on"] .light-bright::before { content: "☀\00a0"; }
+html[data-status-glyphs="on"] .light-dark::before   { content: "☾\00a0"; }
+
+/* Things that are actively about to hurt you */
+html[data-status-glyphs="on"] .rad-warning::before,
+html[data-status-glyphs="on"] .pvp-warning::before,
+html[data-status-glyphs="on"] .turret-warning::before,
+html[data-status-glyphs="on"] .mm-x-hazard::before,
+html[data-status-glyphs="on"] .env-fatigue-label.env-wrecked::before { content: "▲\00a0"; font-weight: bold; }
+
+/* Have / haven't — the crafting checklist is unreadable in greyscale without it */
+html[data-status-glyphs="on"] .recipe-ing.ok::before      { content: "✓\00a0"; }
+html[data-status-glyphs="on"] .recipe-ing.missing::before { content: "✕\00a0"; }
+html[data-status-glyphs="on"] .equipped::before           { content: "✓\00a0"; }
+
+/* Which way your stance is pointed */
+html[data-status-glyphs="on"] .stance-berserk::before  { content: "✕\00a0"; }
+html[data-status-glyphs="on"] .stance-pacifist::before { content: "✓\00a0"; }
+
+/* The log's voices. Wording already distinguishes them; nothing visible in
+   greyscale does, and a scrolling log is skimmed rather than read. */
+html[data-status-glyphs="on"] .msg-combat-incoming::before { content: "✕\00a0"; }
+html[data-status-glyphs="on"] .msg-death::before           { content: "✕\00a0"; font-weight: bold; }
+html[data-status-glyphs="on"] .msg-error::before,
+html[data-status-glyphs="on"] #output .error::before,
+html[data-status-glyphs="on"] #output .system-error::before { content: "!\00a0"; font-weight: bold; }
+html[data-status-glyphs="on"] .msg-loot::before            { content: "+\00a0"; }
+html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"; }
+
+/* ── Skip links ──────────────────────────────────────────────────────────────
+   Off-screen until focused, then pinned to the top-left over everything. The
+   classic implementation, with the classic mistake avoided: `display: none` and
+   `visibility: hidden` would take them out of the tab order entirely, which is
+   the one thing they must never be. They are positioned away instead. */
+.skip-link {
+	position: fixed;
+	left: -9999px;
+	top: 0;
+	z-index: 100000;
+	padding: 0.75em 1.25em;
+	background: var(--bg2);
+	color: var(--text-bright);
+	border: 2px solid var(--accent);
+	border-radius: 0 0 4px 0;
+	font-family: var(--font-mono);
+	font-size: 0.875rem;
+	text-decoration: none;
+}
+.skip-link:focus {
+	left: 0;
 }

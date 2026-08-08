@@ -1,3 +1,4 @@
+import { prefersReducedMotion } from '/shared/settings.js';
 // FLIGHT DRUG FX — drug/booze impairment rendered on the out-the-window view.
 //
 // While you're aboard, being drunk or tripping should be VISIBLE through the
@@ -40,7 +41,7 @@ let _t = 0;             // local FX clock (seconds)
 let _lastProfile = 'psychedelic';
 // Accessibility: motion-sensitive pilots keep the colour/haze cues but not the
 // wobble, breathing, or streak-sweep. `m` gates every time-varying motion term.
-const _reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const _reduceMotion = () => prefersReducedMotion();
 
 // Warp `canvas` (the world render) + drive the colour overlay inside `view`
 // (.fsim-view). Call every flight frame; it self-clears when the effect fades.
@@ -55,7 +56,7 @@ export function applyFlightDrugFx(view, canvas, dt) {
   // Sober (and finished fading) → strip everything and bail.
   if (!fx && _eased < 0.01) { clearFlightDrugFx(view, canvas); return; }
 
-  const i = _eased, t = _t, prof = _lastProfile, m = _reduceMotion ? 0 : 1;
+  const i = _eased, t = _t, prof = _lastProfile, m = _reduceMotion() ? 0 : 1;
   const ov = ensureOverlay(view);
 
   if (prof === 'drunk') {
@@ -79,7 +80,7 @@ export function applyFlightDrugFx(view, canvas, dt) {
   } else {
     // Psychedelic: the world breathes and melts, colours cycle and oversaturate,
     // and rainbow streaks sweep off the edges (the overlay's conic `from` angle).
-    const hue = _reduceMotion ? 40 * i : (t * 42 * (0.4 + 0.6 * i)) % 360;
+    const hue = _reduceMotion() ? 40 * i : (t * 42 * (0.4 + 0.6 * i)) % 360;
     const scale = 1 + 0.045 * i + Math.sin(t * 1.3) * 0.045 * i * m;   // breathing
     const skew = Math.sin(t * 0.6) * 4.5 * i * m;
     const rot = Math.sin(t * 0.4) * 1.6 * i * m;

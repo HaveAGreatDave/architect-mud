@@ -31,6 +31,7 @@ import {
 import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
 import { initInput, handleClientCommand } from "./input.js";
+import { initA11yFocus } from "./a11y-focus.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
@@ -519,6 +520,9 @@ document.getElementById("verify-back-link").addEventListener("click", () => {
 
 // Command input
 initInput({ saveOrigin, notify: (msg) => appendMsg(msg, "system") });
+// Focus trapping / Escape / focus-return for every floating panel, wired once
+// rather than forty times. Observes the DOM, so a panel added later gets it free.
+initA11yFocus();
 
 // Panels
 initTradePanel();
