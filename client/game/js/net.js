@@ -465,14 +465,59 @@ export function setConnStatus(stateStr) {
   el.title = CONN_TITLES[stateStr] ?? '';
 }
 
+// Cold-start flavour — the terminal doing paperwork out loud while the world
+// comes up. Written in the institutional "we" of the welcome voice
+// (dispatch.js WELCOME_OMINOUS), NOT as the Architect addressing the player:
+// story.md is explicit that it is omnipresent and silent, and a chatty
+// machine-god on the loading screen would spend that for a gag. Same reason
+// the copy never names the hosting tier — the wait is in-fiction or it's
+// nothing.
+const COLD_START_LINES = [
+  'Locating your body. It was where you left it.',
+  'Thawing the city. This takes a moment — it always has.',
+  'Waking the night shift. They are not pleased.',
+  'Counting the dead. The number is stable. That is unusual.',
+  'Recovering your file. Somebody had it open.',
+  'Checking the weather. You will not enjoy the weather.',
+  'Restoring the streetlights, in the order they were extinguished.',
+  'Your seat is still warm. We have been keeping it warm. Ask no further.',
+  'Paperwork. There is always paperwork.',
+  'Confirming you are not already inside. You are not. Probably.',
+  'Rebuilding the rooms you were not in. They notice.',
+  'Consulting the record — the record is long, and mostly about you.',
+  'Reticulating the Basin. The Basin does not require reticulating.',
+  'The lights are coming up. Try to look like you belong here.',
+];
+
+let _coldTimer = null;
+let _coldBag = [];
+
+// Shuffled bag, not Math.random() per tick: a one-minute wait shows ~9 lines,
+// and independent picks would repeat inside that window often enough to read
+// as a bug rather than a joke.
+function nextColdLine() {
+  if (!_coldBag.length) {
+    _coldBag = COLD_START_LINES.slice();
+    for (let i = _coldBag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [_coldBag[i], _coldBag[j]] = [_coldBag[j], _coldBag[i]];
+    }
+  }
+  return _coldBag.pop();
+}
+
 function showColdStart(opts = {}) {
   // Two flavours: the connection-level cold start (~60s) and the lighter DB
   // compute wake ({ db: true }, ~a few seconds) signalled by the server's
   // "waking" message. Neither names the hosting tier — that's our plumbing,
-  // not something a player can act on.
+  // not something a player can act on. Only the LONG one gets the flavour
+  // rotation; three seconds of paperwork jokes is just noise.
   const body = opts.db
     ? '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Waking the world.<br><span style="color:var(--text);font-size:0.6875rem">Just a moment...</span></div>'
-    : '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Connecting to the world.<br>This can take up to a minute.<br><span style="color:var(--text);font-size:0.6875rem">Reconnecting automatically...</span></div>';
+    : '<div style="color:var(--text-dim);font-size:0.75rem;line-height:1.6">Connecting to the world.<br>This can take up to a minute.'
+      + '<div class="cold-start-bar" aria-hidden="true"><span></span></div>'
+      + '<div id="cold-start-flavour" style="color:var(--text);font-size:0.6875rem;min-height:2.6em;display:flex;align-items:center;justify-content:center"></div>'
+      + '<span style="color:var(--text-dim);font-size:0.625rem">Reconnecting automatically...</span></div>';
   let el = document.getElementById('cold-start-notice');
   if (!el) {
     el = document.createElement('div');
@@ -486,6 +531,36 @@ function showColdStart(opts = {}) {
   const btn = '<button id="cold-start-retry" style="margin-top:14px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:inherit;font-size:0.6875rem;letter-spacing:1px;padding:6px 16px;cursor:pointer;border-radius:2px">RECONNECT NOW</button>';
   el.innerHTML = '<div style="color:var(--accent);font-size:0.8125rem;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div>' + body + btn;
   el.style.display = 'block';
+
+  // ── The accessible equivalent ───────────────────────────────────────────────
+  // display-mode's contract: #output is the ONE live region. So when the game
+  // log is up (a reconnect mid-session) the flavour is MIRRORED there and the
+  // overlay is aria-hidden, or a screen reader reads every line twice. On the
+  // login screen there is no #output yet, so the overlay is the only surface
+  // and carries the live region itself — that isn't a second live region,
+  // it's the only one in play.
+  const hasLog = !!state.player && !!document.getElementById('output');
+  el.setAttribute('aria-hidden', hasLog ? 'true' : 'false');
+  if (hasLog) { el.removeAttribute('role'); el.removeAttribute('aria-live'); }
+  else { el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); }
+
+  clearInterval(_coldTimer);
+  _coldTimer = null;
+  if (!opts.db) {
+    const paint = () => {
+      const line = nextColdLine();
+      const slot = document.getElementById('cold-start-flavour');
+      if (slot) slot.textContent = line;
+      // Log rung / screen reader gets the identical show, not a stripped one:
+      // the humour IS the feature here, so shipping only "Reconnecting..." to
+      // the log would be that rung not being done.
+      if (hasLog) { try { appendMsg(line, 'system'); } catch { /* log not ready */ } }
+    };
+    paint();
+    // 7s: long enough to read a two-clause line without hurrying, short enough
+    // that a 60s wait is a show rather than one sentence going stale.
+    _coldTimer = setInterval(paint, 7000);
+  }
   el.querySelector('#cold-start-retry').onclick = (e) => {
     const b = e.currentTarget;
     b.disabled = true;
@@ -498,6 +573,10 @@ function showColdStart(opts = {}) {
 }
 
 function hideColdStart() {
+  // Always kill the timer, even if the node is already gone — an orphaned
+  // interval keeps writing paperwork lines into the log of a connected player.
+  clearInterval(_coldTimer);
+  _coldTimer = null;
   const el = document.getElementById('cold-start-notice');
   if (el) el.style.display = 'none';
 }

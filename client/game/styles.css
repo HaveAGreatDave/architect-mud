@@ -17924,3 +17924,32 @@ html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"
 .skip-link:focus {
 	left: 0;
 }
+
+/* Cold-start scan bar — the only motion on the loading overlay. Decorative and
+   aria-hidden; the flavour lines carry the actual "still working" signal, so
+   killing this under reduced-motion loses nothing. */
+.cold-start-bar {
+	height: 2px;
+	margin: 12px 0 10px;
+	background: var(--bg);
+	overflow: hidden;
+}
+.cold-start-bar span {
+	display: block;
+	width: 40%;
+	height: 100%;
+	background: var(--accent);
+	opacity: 0.7;
+	animation: cold-start-sweep 2.4s ease-in-out infinite;
+}
+@keyframes cold-start-sweep {
+	0%   { transform: translateX(-100%); }
+	100% { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.cold-start-bar span {
+		animation: none;
+		width: 100%;
+		opacity: 0.35;
+	}
+}
