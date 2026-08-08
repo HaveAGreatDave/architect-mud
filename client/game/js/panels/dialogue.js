@@ -236,6 +236,10 @@ function renderDialogue(msg) {
   textEl.innerHTML = msg.text;
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
+  // Back to the top for the new set. Clearing innerHTML does not reliably reset a
+  // scrolled container, and a leftover offset from the previous node's longer
+  // list is what left the first option sliced in half.
+  opts.scrollTop = 0;
   // Options are built now but stay veiled (CSS: faded, not clickable) until the
   // speaker has finished — the eye can't jump to the buttons mid-sentence.
   opts.classList.add('veiled');

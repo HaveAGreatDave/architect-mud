@@ -8,7 +8,13 @@
     "out": "zone_solenne_apt_f"
   },
   "flags": {
-    "is_interior": true
+    "is_interior": true,
+    "window": {
+      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.8
+    }
   },
   "grid_x": 0,
   "grid_y": 0,

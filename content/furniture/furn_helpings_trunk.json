@@ -1,0 +1,14 @@
+{
+  "description": "A trunk pipe the thickness of a thigh, coming through the party wall from the building next door and branching into seven feed lines. It is warm. It is lagged in the middle section, where it passes the wall, and the lagging is new.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_trunk",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "trunk feed pipe",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_helpings_back"
+}

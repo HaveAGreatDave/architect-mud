@@ -1,0 +1,22 @@
+{
+  "description": "A dispenser in municipal green, 4 of seven in the row, its display strip reading CITRUS DAWN. The tray beneath it is stained the colour of everything it has ever served.",
+  "flags": {
+    "interactions": [
+      "vend"
+    ],
+    "plugged_in": true,
+    "vend_cooldown_s": 900,
+    "vend_line": "The machine chimes four cheerful notes, badly out of tune with each other, and delivers a yellow pouch.",
+    "vends": "item_soylent_citrus"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_4",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "citrus dawn dispenser",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

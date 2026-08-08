@@ -47,6 +47,35 @@ export default async function regress({ run, check, getPlayer }) {
     await run('vend'); // arms cooldown
     r = await run('vend');
     check('vend respects the cooldown', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
+
+    // A SECOND MACHINE IN THE ROOM. `vend` used to take whichever it found first,
+    // so every dispenser after that one was unreachable with no error to say so —
+    // which only became visible when a room got seven of them (Second Helpings).
+    const FURN2 = 'furn_vend_regress_2';
+    try {
+      await insertFurniture({
+        id: FURN2, name: 'other dispenser', description: 'a second test dispenser', object_type: 'fixture',
+        zone_id: Z, flags: JSON.stringify({ vends: ITEM, vend_cooldown_s: 0 }),
+      }, 'ON CONFLICT (id) DO UPDATE SET flags=EXCLUDED.flags, zone_id=EXCLUDED.zone_id');
+
+      r = await run('vend');
+      check('a bare vend in a room of several asks which, rather than picking',
+        r?.type === 'output' && /other dispenser/.test(r.message || '') && /test dispenser/.test(r.message || ''),
+        JSON.stringify(r)?.slice(0, 160));
+
+      r = await run('vend other');
+      check('vend <name> reaches the second machine', r?.type === 'output' && !/Several machines/.test(r.message || ''),
+        JSON.stringify(r)?.slice(0, 160));
+
+      r = await run('vend dispenser');
+      check('an ambiguous name asks rather than guessing', r?.type === 'error' && /Which one/.test(r.message || ''),
+        JSON.stringify(r)?.slice(0, 160));
+
+      r = await run('vend nothinglikethis');
+      check('an unmatched name errors cleanly', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
+    } finally {
+      await deleteFurniture(FURN2).catch(() => {});
+    }
   } finally {
     // Always restore state + clean up, even if an assertion above threw, so a
     // failure here can't strand the fake player in a nonexistent zone.

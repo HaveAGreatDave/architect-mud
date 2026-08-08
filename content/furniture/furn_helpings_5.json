@@ -1,0 +1,22 @@
+{
+  "description": "A dispenser in municipal green, 5 of seven in the row, its display strip reading VERDANT — CONTAINS VEGETABLE. The tray beneath it is stained the colour of everything it has ever served.",
+  "flags": {
+    "interactions": [
+      "vend"
+    ],
+    "plugged_in": true,
+    "vend_cooldown_s": 900,
+    "vend_line": "The machine hums approvingly, as though it thinks better of you, and drops a green pouch into the tray.",
+    "vends": "item_soylent_verdant"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_5",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "verdant dispenser",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

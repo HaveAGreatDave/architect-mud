@@ -1,0 +1,17 @@
+{
+  "description": "An unbranded brown pouch, the printing slightly off-register, as though this batch was run on equipment set up for something else. FAMILY RECIPE. There is no cartoon on it. There is no slogan. There is a serving suggestion, and the serving suggestion is a photograph of a bowl.",
+  "flags": {},
+  "id": "item_soylent_family",
+  "name": "soylent pouch (family recipe)",
+  "tags": {
+    "consumable": true,
+    "description": "An unbranded brown pouch, the printing slightly off-register, as though this batch was run on equipment set up for something else. FAMILY RECIPE. There is no cartoon on it. There is no slogan. There is a serving suggestion, and the serving suggestion is a photograph of a bowl.",
+    "restore_hunger": 55,
+    "restore_sanity": -3,
+    "stackable": true,
+    "use_message": "It is the best thing in the shop and it is not close. Savoury, layered, salted properly, with a long finish that keeps arriving. It tastes the way food tastes when someone was paying attention. You get to the bottom of the pouch, and the straw pulls air, and you sit with the fact that this is the one they did not put a cartoon on."
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 250
+}

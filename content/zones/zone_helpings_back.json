@@ -1,0 +1,23 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c2119",
+  "description": "The back of the machines, which is where the shop stops pretending. Feed lines run down from a ceiling manifold into seven hoppers, and every one of those lines comes from the same trunk pipe, and that trunk pipe goes through the party wall into the building next door. The flavour cartridges are stacked separately, in a much smaller box.",
+  "exits": {
+    "east": "zone_helpings_shop"
+  },
+  "flags": {
+    "building_name": "Second Helpings",
+    "building_type": "store",
+    "is_building": true,
+    "is_interior": true,
+    "world_exit_zone": "zone_district_918_902"
+  },
+  "grid_x": -1,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_helpings_back",
+  "map_id": "map_int_helpings",
+  "name": "Second Helpings — Restock Bay",
+  "parent_zone": "zone_district_918_902"
+}

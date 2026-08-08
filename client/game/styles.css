@@ -5571,11 +5571,29 @@ body.fsim-external #look-resize-handle { display: none; }
 	   priority over the speech well (that shrinks first), but past the point where
 	   even a squeezed well can't pay for it, the column scrolls. */
 	flex: 0 1 auto;
-	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
 	/* Room for the scrollbar when it appears, so options never reflow sideways. */
 	scrollbar-gutter: stable;
+	/* A FLOOR, not min-height:0. Squeezed to nothing the column still "fit", so on
+	   a short window it collapsed to a sliver showing the bottom half of one
+	   option and the top of the next — which reads as two overlapping rows rather
+	   than as a list that scrolls. Two rows is the least that looks deliberate. */
+	min-height: 5.2em;
+	/* Scroll anchoring is what left it resting mid-row: options are rebuilt on
+	   every beat, and the browser helpfully preserved a scroll offset that no
+	   longer meant anything. */
+	overflow-anchor: none;
+	/* And if it does scroll, it comes to rest on a row boundary rather than
+	   halfway through a sentence. */
+	scroll-snap-type: y proximity;
+}
+#dialogue-options .dialogue-opt { scroll-snap-align: start; }
+/* On a short window the well gives up more of its floor so the option column can
+   keep its own. Reading two lines of speech in a scrollable well is fine; picking
+   from a half-visible list is not. */
+@media (max-height: 760px) {
+	#dialogue-text { min-height: 56px; }
 }
 /* Veiled = built but not yet offered: the options (and the stage line) hold their
    space while the speaker is still talking, so nothing reflows when they land. */

@@ -1,0 +1,14 @@
+{
+  "description": "Unshaded strip lighting the full length of the row, one tube flickering at the far end.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_helpings_shop",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "strip lighting",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

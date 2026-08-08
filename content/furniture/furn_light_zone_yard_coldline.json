@@ -1,0 +1,14 @@
+{
+  "description": "Weatherproof floods on a short mast, aimed down at the boards.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_yard_coldline",
+  "light_type": "overhead",
+  "lumen_output": 1500,
+  "name": "deck floods",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_yard_coldline"
+}

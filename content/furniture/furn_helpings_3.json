@@ -1,0 +1,22 @@
+{
+  "description": "A dispenser in municipal green, 3 of seven in the row, its display strip reading SMOKED EMBER. The tray beneath it is stained the colour of everything it has ever served.",
+  "flags": {
+    "interactions": [
+      "vend"
+    ],
+    "plugged_in": true,
+    "vend_cooldown_s": 900,
+    "vend_line": "The machine coughs a charcoal pouch into the tray and vents a puff of genuinely warm air, which is a nice touch nobody asked for.",
+    "vends": "item_soylent_ember"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "smoked ember dispenser",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

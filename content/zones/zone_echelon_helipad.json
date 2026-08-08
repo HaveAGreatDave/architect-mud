@@ -22,6 +22,12 @@
     "is_interior": true,
     "naval_ambience": true,
     "open_sky": true,
+    "window": {
+      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.8
+    },
     "world_exit_zone": "zone_echelon_exterior",
     "yacht": true
   },

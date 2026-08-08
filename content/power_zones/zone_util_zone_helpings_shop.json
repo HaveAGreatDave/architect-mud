@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_helpings_shop",
+  "id": "zone_util_zone_helpings_shop",
+  "max_capacity_kw": 1000,
+  "name": "Second Helpings — Utility Room",
+  "source_type": "city_grid"
+}

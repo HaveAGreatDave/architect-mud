@@ -19,6 +19,12 @@
     "is_interior": true,
     "scavenging_table_id": "scav_roadside_junk",
     "terrain": "grass",
+    "window": {
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
     "world_exit_zone": "zone_district_918_903"
   },
   "grid_x": 0,

@@ -16,7 +16,13 @@
   "flags": {
     "building_name": "Solenne Residences",
     "is_interior": true,
-    "sanctuary": true
+    "sanctuary": true,
+    "window": {
+      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.8
+    }
   },
   "grid_x": 0,
   "grid_y": -1,

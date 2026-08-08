@@ -20,6 +20,12 @@
     "shop_price": 9000,
     "shop_term": 10,
     "shop_upkeep": 60,
+    "window": {
+      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.8
+    },
     "world_exit_zone": "zone_district_913_908"
   },
   "grid_x": 0,

@@ -10,6 +10,12 @@
     "building_type": "power",
     "is_building": true,
     "is_interior": true,
+    "window": {
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "light": 0.7,
+      "name": "the high window",
+      "visibility": 0.75
+    },
     "work_venue": {
       "boss": "Watts",
       "clock_in_line": "$HANDLE pulls a stool up to the spare bench and starts working the ticket pile.",

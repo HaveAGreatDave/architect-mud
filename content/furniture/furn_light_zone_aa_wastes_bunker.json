@@ -1,0 +1,14 @@
+{
+  "description": "A wire-caged bulkhead lamp, the kind that survives being hit.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_aa_wastes_bunker",
+  "light_type": "lamp",
+  "lumen_output": 700,
+  "name": "bulkhead lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.005,
+  "price": 0,
+  "zone_id": "zone_aa_wastes_bunker"
+}

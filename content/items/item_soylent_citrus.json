@@ -1,0 +1,17 @@
+{
+  "description": "A screaming yellow pouch, the loudest object in the room. CITRUS DAWN — WAKE UP AND TASTE THE SUNRISE! It has been designed by somebody who was told what an orange is but has never met one.",
+  "flags": {},
+  "id": "item_soylent_citrus",
+  "name": "soylent pouch (citrus dawn)",
+  "tags": {
+    "consumable": true,
+    "description": "A screaming yellow pouch, the loudest object in the room. CITRUS DAWN — WAKE UP AND TASTE THE SUNRISE! It has been designed by somebody who was told what an orange is but has never met one.",
+    "restore_hunger": 30,
+    "restore_thirst": 20,
+    "stackable": true,
+    "use_message": "Sharp, cold, and violently yellow, and for a moment it is almost refreshing. Then the citrus lets go all at once and what is underneath is still the same grey slurry as everything else, now with a bright chemical aftertaste sitting on top of it like a lid."
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 250
+}

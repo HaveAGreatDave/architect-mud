@@ -1,0 +1,14 @@
+{
+  "description": "A municipal bin, overfull, entirely of empty foil pouches. Somebody has pressed them down. Somebody presses them down every day.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_bin",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "overfull bin",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

@@ -1,0 +1,22 @@
+{
+  "description": "A dispenser in municipal green, 6 of seven in the row, its display strip reading BIRTHDAY!. The tray beneath it is stained the colour of everything it has ever served.",
+  "flags": {
+    "interactions": [
+      "vend"
+    ],
+    "plugged_in": true,
+    "vend_cooldown_s": 900,
+    "vend_line": "The machine plays eleven notes of a tune you almost recognise, gives up halfway through, and drops a pink pouch.",
+    "vends": "item_soylent_birthday"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_helpings_6",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "birthday! dispenser",
+  "object_type": "fixture",
+  "power_draw_kw": 0.1,
+  "price": 0,
+  "zone_id": "zone_helpings_shop"
+}

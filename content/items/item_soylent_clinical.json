@@ -1,0 +1,17 @@
+{
+  "description": "A plain grey foil pouch with no cartoon sun on it at all, just a lot-number and the word UNFLAVOURED. The absence of marketing is the most honest thing in the shop, and somehow the worst.",
+  "flags": {},
+  "id": "item_soylent_clinical",
+  "name": "soylent pouch (unflavoured)",
+  "tags": {
+    "consumable": true,
+    "description": "A plain grey foil pouch with no cartoon sun on it at all, just a lot-number and the word UNFLAVOURED. The absence of marketing is the most honest thing in the shop, and somehow the worst.",
+    "restore_hunger": 40,
+    "restore_sanity": -1,
+    "stackable": true,
+    "use_message": "It is exactly what it says. No sweetness, no smoke, no citrus, nothing put in front of the taste to stand between you and it. It goes down thick and body-warm and tastes faintly of the inside of your own mouth. You finish it because you are hungry, and you think about the lot-number for a while afterwards."
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 250
+}

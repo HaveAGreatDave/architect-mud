@@ -299,11 +299,41 @@ const STAIN_DESCS = {
   },
 };
 
+// "Your basic pants IS stained." Half the garments in the game are grammatically
+// plural — pants, boxers, trousers, coveralls, briefs, shorts — and every line in
+// STAIN_DESCS was written with a singular verb glued to it.
+//
+// Fixed here rather than in ~70 templates, and by rewriting only the verb that
+// sits IMMEDIATELY after the item name, so a later clause ("Most of it isn't
+// yours") is never touched and a template written tomorrow gets it for free. The
+// plural test is the same one `withArticle` already uses, which is what keeps
+// "a dress" and "your boxers" agreeing with each other.
+const PLURAL_VERB = { is: 'are', has: 'have', bears: 'bear', looks: 'look', was: 'were', "isn't": "aren't" };
+
+function agreeWithItem(line, itemName) {
+  const lastWord = itemName.trim().split(/\s+/).pop();
+  if (!/s$/i.test(lastWord) || /ss$/i.test(lastWord)) return line;
+  const esc = itemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return line.replace(
+    new RegExp(`(${esc})\\s+(is|has|bears|looks|was|isn't)\\b`, 'gi'),
+    (_, name, verb) => {
+      const rep = PLURAL_VERB[verb.toLowerCase()] || verb;
+      // Preserve the original capitalisation of the verb (nothing starts a
+      // sentence with one today, but a template could).
+      return `${name} ${verb[0] === verb[0].toUpperCase() ? rep[0].toUpperCase() + rep.slice(1) : rep}`;
+    },
+  )
+    // "...have blood on it" needs the pronoun too. Lower-case "on it" only:
+    // several templates open a following sentence with "It wasn't a clean job",
+    // where the It is the job, not the garment.
+    .replace(/\bon it\b/g, 'on them');
+}
+
 function stainDescription(type, itemName, isSelf) {
   const bucket = STAIN_DESCS[type];
-  if (!bucket) return `${isSelf ? 'Your' : 'Their'} ${itemName} is stained with something unpleasant.`;
+  if (!bucket) return agreeWithItem(`${isSelf ? 'Your' : 'Their'} ${itemName} is stained with something unpleasant.`, itemName);
   const pool = isSelf ? bucket.self : bucket.other;
-  return pool[Math.floor(Math.random() * pool.length)](itemName);
+  return agreeWithItem(pool[Math.floor(Math.random() * pool.length)](itemName), itemName);
 }
 
 async function describePlayerAppearance(target, isSelf, viewer = null, broadcast = null) {

@@ -18,8 +18,26 @@ import { randomUUID } from 'crypto';
 const lastVend = new Map();
 
 async function cmdVend(args, raw, player, broadcast) {
-  const machine = getZoneFurniture(player.current_zone).find(f => f.flags?.vends != null);
-  if (!machine) return { type: 'error', message: "There's no dispenser here to vend from." };
+  // A ROOM MAY HOLD MORE THAN ONE. This used to take the first machine it found,
+  // which was fine while the only dispenser in the game was the lone one in the
+  // clone facility — but it makes every dispenser after the first in a room
+  // unreachable, with no error to say so. `vend <name>` picks; a bare `vend` in a
+  // room of several lists them rather than silently choosing for you.
+  const machines = getZoneFurniture(player.current_zone).filter(f => f.flags?.vends != null);
+  if (!machines.length) return { type: 'error', message: "There's no dispenser here to vend from." };
+
+  const want = (args || []).join(' ').trim().toLowerCase();
+  let machine;
+  if (want) {
+    const hits = machines.filter(f => String(f.name || '').toLowerCase().includes(want));
+    if (!hits.length) return { type: 'error', message: `There's no "${want}" here to vend from.` };
+    if (hits.length > 1) return { type: 'error', message: `Which one? ${hits.map(f => f.name).join(', ')}.` };
+    machine = hits[0];
+  } else if (machines.length > 1) {
+    return { type: 'output', message: `Several machines here. VEND what? ${machines.map(f => `<span class="item">${f.name}</span>`).join(', ')}.` };
+  } else {
+    machine = machines[0];
+  }
   if (!isPluggedIn(machine)) return { type: 'error', message: `You press the button, but nothing happens. The ${machine.name} must be broken.` };
   const itemId = machine.flags?.vends;
 

@@ -1,0 +1,9 @@
+{
+  "a": "zone_district_918_902",
+  "b": "zone_helpings_shop",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_district_918_902_west_92e3",
+  "lockable": true,
+  "one_way": false
+}

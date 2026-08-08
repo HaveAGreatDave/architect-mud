@@ -1,0 +1,14 @@
+{
+  "description": "A ceiling light under a shade somebody chose, a long time ago, with care.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_halcyon_apt_d",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "ceiling light",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_halcyon_apt_d"
+}

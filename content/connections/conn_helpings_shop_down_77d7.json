@@ -1,0 +1,9 @@
+{
+  "a": "zone_helpings_shop",
+  "b": "zone_util_zone_helpings_shop",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_helpings_shop_down_77d7",
+  "lockable": false,
+  "one_way": false
+}

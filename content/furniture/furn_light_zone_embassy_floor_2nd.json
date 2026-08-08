@@ -1,0 +1,14 @@
+{
+  "description": "A strip light on a timer that has never once been adjusted.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_embassy_floor_2nd",
+  "light_type": "overhead",
+  "lumen_output": 1000,
+  "name": "stairwell strip",
+  "object_type": "light",
+  "power_draw_kw": 0.02,
+  "price": 0,
+  "zone_id": "zone_embassy_floor_2nd"
+}

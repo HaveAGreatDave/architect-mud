@@ -1,0 +1,14 @@
+{
+  "description": "A caged bulb on a spur, throwing hard shadows off the conduit.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_util_zone_sf_voss7",
+  "light_type": "lamp",
+  "lumen_output": 600,
+  "name": "caged bulb",
+  "object_type": "light",
+  "power_draw_kw": 0.005,
+  "price": 0,
+  "zone_id": "zone_util_zone_sf_voss7"
+}

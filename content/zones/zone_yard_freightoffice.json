@@ -12,6 +12,12 @@
     "building_type": "freight_office",
     "is_building": true,
     "is_interior": true,
+    "window": {
+      "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
+      "light": 0.7,
+      "name": "the high window",
+      "visibility": 0.75
+    },
     "world_exit_zone": "zone_district_922_912"
   },
   "grid_x": 0,

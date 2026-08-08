@@ -18,6 +18,12 @@
   },
   "flags": {
     "is_interior": true,
+    "window": {
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
     "work_venue": {
       "employer": "npc_voltage_bartender",
       "name": "Voltage",

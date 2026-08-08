@@ -1,0 +1,17 @@
+{
+  "description": "A pink pouch under a print of confetti and a cartoon candle. BIRTHDAY! — A LITTLE CELEBRATION IN EVERY POUCH! The exclamation marks are doing a great deal of load-bearing work.",
+  "flags": {},
+  "id": "item_soylent_birthday",
+  "name": "soylent pouch (birthday)",
+  "tags": {
+    "consumable": true,
+    "description": "A pink pouch under a print of confetti and a cartoon candle. BIRTHDAY! — A LITTLE CELEBRATION IN EVERY POUCH! The exclamation marks are doing a great deal of load-bearing work.",
+    "restore_hunger": 30,
+    "restore_sanity": 2,
+    "stackable": true,
+    "use_message": "It is sweet, and there are actual sugar crystals in it that crunch, and it tastes like a cake somebody made badly with love. For a few seconds you feel unaccountably happy. Then you notice the dispenser is in a shop next to a building where they grow people, and that somebody sat in a meeting and decided a clone's first day should taste like a party."
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 250
+}

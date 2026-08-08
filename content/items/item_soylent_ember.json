@@ -1,0 +1,16 @@
+{
+  "description": "A charcoal-grey pouch with a cartoon flame wearing sunglasses. SMOKED EMBER — FLAME-KISSED FLAVOUR! Nothing about it has been near a flame; the smoke is a powder and it is listed fourth.",
+  "flags": {},
+  "id": "item_soylent_ember",
+  "name": "soylent pouch (smoked ember)",
+  "tags": {
+    "consumable": true,
+    "description": "A charcoal-grey pouch with a cartoon flame wearing sunglasses. SMOKED EMBER — FLAME-KISSED FLAVOUR! Nothing about it has been near a flame; the smoke is a powder and it is listed fourth.",
+    "restore_hunger": 35,
+    "stackable": true,
+    "use_message": "Smoke, but not woodsmoke. The specific ashy note of a building that has burned with its contents still inside. Whoever formulated this has smelled that and thought: people will pay for this. They were right, and it is not even bad."
+  },
+  "type": "consumable",
+  "value": 1,
+  "weight": 250
+}

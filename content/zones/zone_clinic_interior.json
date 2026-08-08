@@ -15,6 +15,12 @@
     "claimable_asset": "clinic",
     "is_building": true,
     "is_interior": true,
+    "window": {
+      "description": "A window behind a welded grille, which lets in the light in strips and the view in pieces. Better than nothing, which was the brief.",
+      "light": 0.55,
+      "name": "the barred window",
+      "visibility": 0.6
+    },
     "world_exit_zone": "zone_district_920_906"
   },
   "grid_x": 0,

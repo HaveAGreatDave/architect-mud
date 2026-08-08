@@ -1,0 +1,31 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "bg_color": "#1c2119",
+  "description": "One long room and one long wall of dispensers, seven of them, humming out of step. The floor is that municipal composite that shows every scuff and cleans up to look worse. There is a bench. There is a bin, and the bin is the fullest object in the Basin. A laminated notice by the door reads ONE PER PERSON PER MACHINE, PLEASE, and somebody has annotated it with the word PLEASE circled twice.",
+  "exits": {
+    "down": "zone_util_zone_helpings_shop",
+    "east": "zone_district_918_902",
+    "west": "zone_helpings_back"
+  },
+  "flags": {
+    "building_name": "Second Helpings",
+    "building_type": "store",
+    "is_building": true,
+    "is_interior": true,
+    "window": {
+      "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_district_918_902"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_helpings_shop",
+  "map_id": "map_int_helpings",
+  "name": "Second Helpings — The Row",
+  "parent_zone": "zone_district_918_902"
+}

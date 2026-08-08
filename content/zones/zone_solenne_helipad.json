@@ -23,6 +23,12 @@
     "residents_only": "Solenne Residences",
     "residents_only_deny": "The panel by the pad door reads your hand, finds no residence attached to it, and stays shut. Somewhere below, a concierge is already deciding not to mention it.",
     "sanctuary": true,
+    "window": {
+      "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",
+      "light": 0.75,
+      "name": "the window",
+      "visibility": 0.8
+    },
     "world_exit_zone": "zone_district_914_908"
   },
   "grid_x": 0,
