@@ -97,6 +97,47 @@ async function initEmailVerifyToggle() {
   });
 }
 
+// Registrations: the switch closes the door on NEW accounts only — everyone who
+// already has one still logs in. Clicking the LABEL edits the line new players
+// are shown, so the refusal stays polite and can name a reason.
+async function initRegistrationsToggle() {
+  const toggle = document.getElementById('registrations-toggle');
+  if (!toggle) return;
+  let message = '';
+  try {
+    const data = await API('/registrations/status');
+    toggle.checked = !!data.open;
+    message = data.message || '';
+  } catch(e) { /* non-fatal */ }
+
+  async function push(open, msg) {
+    const body = { open };
+    if (typeof msg === 'string') body.message = msg;
+    const res = await API('/registrations/toggle', 'POST', body);
+    message = res?.message || message;
+    toggle.checked = !!res?.open;
+  }
+
+  toggle.addEventListener('change', async () => {
+    try {
+      await push(toggle.checked);
+      toast(`Registrations ${toggle.checked ? 'OPEN' : 'LOCKED'}`);
+    } catch(e) {
+      toast('Registration toggle failed', true);
+      toggle.checked = !toggle.checked;
+    }
+  });
+
+  document.getElementById('registrations-msg-edit')?.addEventListener('click', async () => {
+    const next = await dpPrompt('Message shown to anyone trying to register while locked:', message, { title:'Registration Notice' });
+    if (next === null) return;
+    try {
+      await push(toggle.checked, next);
+      toast('Registration notice saved ✓');
+    } catch(e) { toast('Could not save notice', true); }
+  });
+}
+
 function updateEspDot(data) {
   const input = document.getElementById('ws-esp-toggle');
   const lbl = input?.closest('label');

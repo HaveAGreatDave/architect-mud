@@ -23,6 +23,7 @@ import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-
 import vm from 'vm';
 import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mailerConfigProblem } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
+import { areRegistrationsOpen, registrationsClosedMessage, setRegistrationsOpen } from '../engine/registrations.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { RUNGS as DISPLAY_RUNGS, DISPLAY_MODE_FLAG } from '../engine/presentation.js';
 import { setFlagById } from '../engine/flags.js';
@@ -167,7 +168,7 @@ const OPS_ROUTES = [
   /^\/admin\/presence$/,
   /^\/channels\//,                // dev-panel chat
   /^\/ghost\/token$/,
-  /^\/mis\//, /^\/email-verification\//,
+  /^\/mis\//, /^\/email-verification\//, /^\/registrations\//,
   /^\/world\/reload$/,
   /^\/motd(\/|$)/,
   /^\/dev\//,                     // dev notes / identities / activity
@@ -256,7 +257,21 @@ async function dispatchApiRequest(url, method, body, headers) {
     return { status:200, body:{ enabled: enable } };
   }
 
-  if (path==='/auth/register' && method==='POST') return apiRegister(body);
+  // Public: the auth screen asks BEFORE offering the register form, so a closed
+  // door is a sentence on the page rather than a rejection after typing it all in.
+  if (path==='/registrations/status' && method==='GET') {
+    return { status:200, body:{ open: areRegistrationsOpen(), message: registrationsClosedMessage() } };
+  }
+  if (path==='/registrations/toggle' && method==='POST') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    await setRegistrationsOpen(!!body?.open, body?.message);
+    return { status:200, body:{ open: areRegistrationsOpen(), message: registrationsClosedMessage() } };
+  }
+
+  if (path==='/auth/register' && method==='POST') {
+    if (!areRegistrationsOpen()) return { status:403, body:{ error: registrationsClosedMessage(), registrationsClosed:true } };
+    return apiRegister(body);
+  }
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
   if (path==='/auth/verify-email' && method==='POST') return apiVerifyEmail(body);
   if (path==='/auth/resend-verification' && method==='POST') return apiResendVerification(body);

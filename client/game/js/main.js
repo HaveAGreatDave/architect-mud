@@ -338,6 +338,22 @@ document.getElementById("auth-handle").addEventListener("keydown", (e) => {
 	if (e.key === "Enter") doAuth();
 });
 
+// A locked door is said on the page, not discovered after typing a whole form
+// in. Login is untouched — this only removes the way IN to registration.
+fetch("/api/registrations/status")
+	.then((r) => r.json())
+	.then((data) => {
+		if (!data || data.open !== false) return;
+		const notice = document.getElementById("auth-registrations-closed");
+		const wrap = document.getElementById("auth-toggle-wrap");
+		if (!notice || !wrap) return;
+		notice.textContent = data.message || "";
+		notice.style.display = "";
+		wrap.style.display = "none";
+		if (state.isRegister) document.getElementById("auth-toggle-link").click();
+	})
+	.catch(() => {});
+
 document.getElementById("auth-toggle-link").addEventListener("click", () => {
 	state.isRegister = !state.isRegister;
 	document

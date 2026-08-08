@@ -61,6 +61,7 @@ import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
+import { loadRegistrationSettings, areRegistrationsOpen } from "./engine/registrations.js";
 import { mailerConfigProblem, mailerSender } from "./mailer.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
@@ -1771,6 +1772,8 @@ async function boot() {
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await loadEmailVerificationSetting();
+	await loadRegistrationSettings();
+	if (!areRegistrationsOpen()) console.log("[boot] Registrations are LOCKED — existing accounts can still log in.");
 	// A verification gate with no working mailer locks every new account out, so
 	// say so at boot rather than letting registrations quietly strand.
 	if (isEmailVerificationEnabled() && mailerConfigProblem()) {

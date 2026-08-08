@@ -52,7 +52,7 @@ if (window.OPS_MODE) {
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
   currentPanel = 'dashboard';
   activatePanelNav('dashboard');
-  setTimeout(() => { loadPanel('dashboard'); startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel(); }, 0);
+  setTimeout(() => { loadPanel('dashboard'); startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel(); }, 0);
 })();
 applyDevSettings();
 

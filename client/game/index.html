@@ -295,10 +295,18 @@
 				     password" just sits there. Empty until something goes wrong, so
 				     it says nothing on arrival. -->
 				<div class="auth-error" id="auth-error" role="alert"></div>
-				<div class="auth-toggle">
+				<div class="auth-toggle" id="auth-toggle-wrap">
 					<span id="auth-toggle-text">No account?</span>
 					<a id="auth-toggle-link">Register</a>
 				</div>
+				<!-- Shown only when a dev has locked registrations. It replaces the
+				     Register link rather than sitting beside it, so nobody fills in
+				     a form that was never going to be accepted. -->
+				<div
+					class="auth-toggle"
+					id="auth-registrations-closed"
+					role="status"
+					style="display: none"></div>
 				<div
 					id="forgot-link-wrap"
 					style="margin-top: 6px; text-align: center">
