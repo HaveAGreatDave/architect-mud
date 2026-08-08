@@ -1,0 +1,7 @@
+{
+  "name": "birthday",
+  "version": "1.0.0",
+  "description": "A player's birthday is the calendar date their account was created. It is not shown anywhere else — `birthday` is the only surface that tells you yours, and on the day itself it also hands you a free MANY HAPPY RETURNS soylent pouch, once per year. The date is stored nowhere: it is derived from players.created_at every time it is asked for, so there is nothing to migrate and nothing to keep in step.",
+  "hooks": [],
+  "commands": ["birthday"]
+}

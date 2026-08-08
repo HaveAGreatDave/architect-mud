@@ -628,10 +628,21 @@ export function formatChitchat(name, line) {
   if (wrapped && !t.slice(1, -1).includes('"')) {
     return { type: 'output', message: `<span class="speech-line">${name} says, ${t}</span>` };
   }
-  // Emote: prepend the name. Strip a stray outer wrap so an over-quoted action
-  // line still reads `Name mutters: "..."` rather than keeping the outer quotes.
-  const body = wrapped ? t.slice(1, -1).trim() : t;
-  return { type: 'zone_event', message: `${name} ${body}` };
+  // Emote: prepend the name, VERBATIM.
+  //
+  // This used to strip an outer quote pair here, to tidy an "over-quoted action
+  // line" — but the branch above already returns for every line that is a plain
+  // quoted speech line, so the only way to reach this code WITH `wrapped` true is
+  // a line that also contains quotes inside. That is not an over-quoted action,
+  // it is a MIXED line: speech, a beat of action, speech again —
+  //
+  //   "Don't — " He stops himself, visibly, with effort. "Don't stack them face down."
+  //
+  // Stripping its outer pair deleted the opening quote and left the closing one,
+  // which inverts the client's quote colouring for the whole rest of the line and
+  // every line after it. The strip was unreachable in the case it was written for
+  // and wrong in the only case it could actually run.
+  return { type: 'zone_event', message: `${name} ${t}` };
 }
 
 // Whether an NPC is currently ON THE CLOCK at their workplace — the gate that
