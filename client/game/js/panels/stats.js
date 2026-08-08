@@ -54,7 +54,12 @@ export function renderStatsPanel(s) {
   // LEFT — core stats (each raisable from here), then resources.
   const cost = s.stat_cost;
   const statSec = document.createElement('div');
-  statSec.className = 'stats-section';
+  // `stats-core` is the hook the tile grid styles against. The six stats are the
+  // one part of this sheet that is a CHARACTER rather than a table of numbers,
+  // and rendering them as six more label/value rows made the whole panel read as
+  // a receipt. Drag-reorder still works — registerList keys off the blocks, and a
+  // grid reorders exactly as a stack does.
+  statSec.className = 'stats-section stats-core';
   const note = document.createElement('div');
   note.className = 'stats-note';
   note.innerHTML = `Spend XP to raise a stat — <b>${cost} XP</b> per point. You have <b>${s.net_xp}</b> XP.`;
@@ -100,7 +105,17 @@ export function renderStatsPanel(s) {
   if (s.status && s.status.length) {
     const flags = document.createElement('div');
     flags.className = 'status-flags';
-    flags.textContent = s.status.join(' · ');
+    // One chip per condition rather than a single ' · '-joined run. These lines
+    // are things like "REF −2 (soaked)" — a sentence each, and strung together
+    // they wrapped mid-clause into an unreadable ribbon. A chip can't wrap
+    // through its own parentheses. textContent per chip, never innerHTML: these
+    // strings are built from condition labels, not authored markup.
+    for (const f of s.status) {
+      const chip = document.createElement('span');
+      chip.className = 'status-chip';
+      chip.textContent = f;
+      flags.appendChild(chip);
+    }
     left.appendChild(flags);
   }
 
@@ -114,11 +129,15 @@ export function renderStatsPanel(s) {
     skillSec.appendChild(cat);
     for (const sk of group.skills) {
       const row = document.createElement('div');
-      row.className = 'stats-row stats-skill';
+      // An unlearned skill recedes rather than printing a bright 0. The list runs
+      // to dozens of rows and on a new character almost all of them are zero —
+      // every one of those competing for attention with the two you actually have
+      // is what made this a wall of text instead of a sheet.
+      row.className = `stats-row stats-skill${sk.level ? '' : ' stats-skill-none'}`;
       row.innerHTML =
         `<span class="stats-skill-name">${sk.name}</span>` +
         `<span class="stats-skill-gov">${sk.stats.join('/')}</span>` +
-        `<span class="stats-val">${sk.level}</span>`;
+        `<span class="stats-val">${sk.level || '—'}</span>`;
       skillSec.appendChild(row);
     }
   }

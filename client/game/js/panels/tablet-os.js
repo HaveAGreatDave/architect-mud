@@ -1101,6 +1101,14 @@ function ensureStyles() {
     #tablet-os-overlay .tos-badge.open, #tablet-os-overlay .tos-badge.legal { color:var(--mg-accent); border:1px solid color-mix(in srgb,var(--mg-accent) 30%,transparent); background:var(--tos-surface); }
     #tablet-os-overlay .tos-badge.illegal { color:#ff7a86; border:1px solid #4a1a1e; background:#1a0a0c; }
     #tablet-os-overlay .tos-empty { color:var(--tos-fg-dim2); font-size:0.7813rem; line-height:1.5; padding:20px 4px; text-align:center; }
+    /* The Board — a bounty sheet (view: 'bounties'). MONOSPACE IS LOAD-BEARING,
+       not a style choice: posterLines() pads every line to a fixed WIDTH to draw
+       its own frame, so any proportional face tears the box apart. Horizontal
+       scroll rather than wrap, for the same reason. */
+    #tablet-os-overlay .tos-poster { font-family:ui-monospace,"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+      font-size:0.6875rem; line-height:1.35; white-space:pre; overflow-x:auto; margin:0 0 10px;
+      color:var(--tos-fg); background:rgba(0,0,0,.22); border:1px solid var(--tos-line, var(--border));
+      border-radius:3px; padding:12px 14px; }
     /* Calendar app — month grid (view: 'calendar'). Monochrome like the rest of the tablet. */
     #tablet-os-overlay .tos-cal { margin-bottom:12px; }
     #tablet-os-overlay .tos-cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
@@ -9639,6 +9647,42 @@ function renderBody() {
   if (d.view === 'health') {
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}${renderTosTabs(d)}
       ${renderHealth(d)}
+    </div>`;
+  }
+  // THE BOARD. The server app (plugins/bounty/tablet-app.js) has always emitted
+  // `view: 'bounties'` and nothing here ever claimed it, so the app fell straight
+  // through to "Unknown screen." however many contracts were open.
+  //
+  // The sheet is rendered as the SAME characters the log gets — posterLines() is
+  // the record, and systems-bounties.md is explicit that the overlay is a skin
+  // over identical text, padded to WIDTH so the frame survives a proportional
+  // typeface. Hence <pre> and a monospace stack: this must not be re-worded, and
+  // it must not be re-laid-out.
+  if (d.view === 'bounties') {
+    const money = (n) => `₵${Number(n || 0).toLocaleString('en-US')}`;
+    const sheet = d.sheet
+      ? `<pre class="tos-poster">${esc((d.sheet.lines || []).join('\n'))}</pre>`
+      : '';
+    // Paper out on YOU leads, because it is the one thing on this screen you did
+    // not choose to look up and the one thing that can get you killed.
+    const alarm = (!d.sheet && d.onMe)
+      ? `<div class="tos-error" style="text-align:left;padding:0 0 10px">✱ ${d.onMe === 1 ? 'A contract is' : `${d.onMe} contracts are`} out on you, worth ${money(d.onMeTotal)}. No name on the sheet.</div>`
+      : '';
+    // Underscored token, because registry.js normScreen() lowercases and turns
+    // underscores back into spaces — a bare "Vex Mordant" would be tokenised as
+    // a screen plus a stray word and never match a target.
+    const items = (d.contracts || []).map(c => ({
+      id: String(c.target || '').replace(/\s+/g, '_'),
+      label: c.target,
+      badge: c.isTarget ? 'bad' : c.isBacker ? 'good' : (c.band || ''),
+      badgeLabel: c.isTarget ? 'ON YOU' : c.isBacker ? 'YOURS' : (c.band || ''),
+      sub: `${money(c.reward)}${c.deadline ? ` · ${c.deadline}` : ''}`,
+    }));
+    const body = d.sheet ? sheet
+      : (items.length ? renderList(items) : '<div class="tos-empty">No paper up. Quiet week.</div>');
+    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+      ${alarm}${body}
+      ${d.hint ? `<div class="tos-li-sub" style="padding-top:10px;opacity:.75">${esc(d.hint)}</div>` : ''}
     </div>`;
   }
   if (d.view === 'accolades') {

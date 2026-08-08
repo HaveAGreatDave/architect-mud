@@ -46,19 +46,26 @@ export default async function regress({ check }) {
     r = await spin('spin 999', player);
     check('above-max bet is rejected', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
 
-    // A valid pull always resolves to output and always moves the balance:
-    // a loss costs the bet, a win pays ≥2× the bet, so credits can never land
-    // back on `before` regardless of the RNG outcome.
+    // A valid pull always resolves to the cabinet payload and always moves the
+    // balance: a loss costs the bet, a win pays ≥2× the bet, so credits can never
+    // land back on `before` regardless of the RNG outcome.
+    //
+    // `message` is asserted alongside the type on purpose. It is the RECORD — the
+    // character box that always prints whether or not the graphical cabinet
+    // opens — so a payload that stopped carrying it would leave the bottom
+    // Display Mode rung with a spin it was never told the result of.
     before = await dbCredits();
     r = await spin('spin 5', player);
-    check('valid spin returns a rendered machine', r?.type === 'output' && /pre/.test(r.message || ''), JSON.stringify(r)?.slice(0, 120));
+    check('valid spin returns a rendered machine', r?.type === 'slots_spin' && /pre/.test(r.message || ''), JSON.stringify(r)?.slice(0, 120));
+    check('the cabinet payload carries the server-rolled reels', Array.isArray(r?.reels) && r.reels.length === 3, JSON.stringify(r?.reels));
+    check('the marquee is the cabinet name, not a hardcoded venue', r?.marquee === 'TEST BANDIT', String(r?.marquee));
     const after = await dbCredits();
     check('a pull always moves the balance (win pays, loss costs)', after !== before, `before=${before} after=${after}`);
     check('a loss costs exactly the bet', after >= before || before - after === 5, `before=${before} after=${after}`);
 
     // Bare `spin` uses the machine default bet.
     r = await spin('spin', player);
-    check('bare spin uses the default bet', r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
+    check('bare spin uses the default bet', r?.type === 'slots_spin', JSON.stringify(r)?.slice(0, 120));
 
     // Broke → the guarded debit rejects the pull.
     await query('UPDATE players SET credits=0 WHERE id=$1', [PID]);

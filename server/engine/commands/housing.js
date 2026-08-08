@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { getZone } from '../world.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
-import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdDoze } from '../apartments.js';
+import { cmdRent, cmdUnrent, cmdPrepay, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdDoze } from '../apartments.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
@@ -77,6 +77,7 @@ async function cmdLightView(player) {
 export const handlers = {
   rent:      (args, raw, player) => cmdRent(player),
   unrent:    (args, raw, player) => cmdUnrent(player),
+  prepay:    (args, raw, player) => cmdPrepay(player, args),
   lock:      (args, raw, player) => cmdLockDoor(player, true),
   unlock:    (args, raw, player) => cmdLockDoor(player, false),
   pick:      (args, raw, player) => cmdPickLock(player),

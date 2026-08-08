@@ -248,8 +248,47 @@ function ensurePackStyles() {
   /* Parallax. The card leans toward the pointer — one transform on a wrapper, so
      it composes with the flip rather than fighting it. Held to a small angle:
      this is a card in your hands, not a turntable. */
-  .cp-tiltbox { perspective:1300px; }
+  .cp-tiltbox { perspective:1300px; transition:transform .34s cubic-bezier(.2,.85,.3,1); }
   .cp-tilt { transform-style:preserve-3d; transition:transform .22s ease-out; will-change:transform; }
+
+  /* ── ZOOM ──────────────────────────────────────────────────────────────────
+     Scale lives on the TILTBOX, never on .cp-tilt: the parallax handler writes
+     .cp-tilt's transform outright on every pointermove, so a scale put there
+     would be wiped on the next mouse twitch. Two elements, two jobs — the box
+     is how close the card is, the inner wrap is which way it leans. */
+  .cp-tiltbox.zoomed { transform:scale(var(--cp-zoom,1.75)); z-index:12; }
+  .cp-stage.zoomed .cp-rank, .cp-stage.zoomed .cp-sub,
+  .cp-stage.zoomed .cp-player-banner { opacity:0; transition:opacity .2s ease; }
+
+  /* The glare. A specular hotspot that tracks the pointer across the face —
+     the difference between a picture of a card and a laminated thing catching
+     the light. Sits under .cp-shine's raking band so a flip still reads as a
+     flip, and over the holo wash so the two multiply on an Epic. */
+  .cp-front .cp-glare { position:absolute; inset:0; pointer-events:none; z-index:7; border-radius:12px;
+    opacity:0; transition:opacity .25s ease; mix-blend-mode:soft-light;
+    background:radial-gradient(circle 38% at var(--mx,50%) var(--my,50%),
+      rgba(255,255,255,0.85), rgba(255,255,255,0.22) 42%, transparent 70%); }
+  .cp-card.flipped .cp-front .cp-glare { opacity:.55; }
+  /* Zoomed in, the whole print run gets louder: the hotspot tightens and the
+     prismatic wash on a holo card speeds up. You leaned in, so it does too. */
+  .cp-tiltbox.zoomed .cp-front .cp-glare { opacity:.8;
+    background:radial-gradient(circle 26% at var(--mx,50%) var(--my,50%),
+      rgba(255,255,255,0.95), rgba(255,255,255,0.3) 38%, transparent 66%); }
+  .cp-tiltbox.zoomed .cp-front.holo::after { opacity:.46; animation-duration:2.4s; }
+
+  /* The affordance. Cheap, permanent, and it names the key as well as the click
+     so the zoom isn't a secret only mouse users are told about. */
+  .cp-zoomhint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+    font-size:0.5625rem; letter-spacing:1.5px; color:var(--text-dim); opacity:.75;
+    white-space:nowrap; pointer-events:none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Zoom is a READING aid, so it stays — only the travel is removed. The glare
+       is pure motion and goes entirely; the card is legible without it. */
+    .cp-tiltbox { transition:none; }
+    .cp-front .cp-glare { display:none; }
+    .cp-tiltbox.zoomed .cp-front.holo::after { animation:none; }
+  }
 
   /* Sparkle motes on a big pull. */
   .cp-mote { position:absolute; width:4px; height:4px; border-radius:50%; pointer-events:none; z-index:6;
@@ -923,7 +962,20 @@ export function openPackReveal(msg) {
     id: 'cardpack-overlay',
     closeOnBackdrop: false,     // a stray click mid-reveal must not eat the show
     // Space and Enter mirror the click; Escape closes, via mountOverlay itself.
-    onKey: (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); advance(); } },
+    // Z zooms, and Escape is CAUGHT while zoomed so the first press backs out of
+    // the zoom rather than closing the whole pack — the usual layered-Escape
+    // contract, and the alternative loses you a card you were reading.
+    onKey: (e) => {
+      if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); toggleZoom(); return; }
+      if (e.key === 'Escape' && isZoomed()) { e.preventDefault(); e.stopPropagation(); setZoom(false); return; }
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        // Space/Enter is the "move on" key. While zoomed it un-zooms first, so it
+        // never skips a card you had deliberately leaned into.
+        if (isZoomed()) { setZoom(false); return; }
+        advance();
+      }
+    },
     html: `<div class="cp-stage" id="cp-stage">
         <div class="cp-ambient" id="cp-ambient"></div>
         <div class="cp-flash" id="cp-flash"></div>
@@ -942,8 +994,19 @@ export function openPackReveal(msg) {
   };
 
   mounted.overlay.querySelector('#cp-skip').addEventListener('click', (e) => { e.stopPropagation(); sfx('cards-ui'); toSummary(); });
-  // Anywhere on the stage advances. One affordance, always the same one.
-  mounted.overlay.addEventListener('click', () => advance());
+  // Anywhere on the stage advances — EXCEPT the card itself, which zooms.
+  //
+  // This is the one place the old "one affordance, always the same one" rule
+  // bends, and it bends the right way round: the thing you click to move ON is
+  // everything that is not the card, and the card is the one object on screen
+  // you might want to keep. A misclick therefore costs you a zoom, never the
+  // card you were reading. While zoomed, a stage click zooms back out rather
+  // than advancing, so it takes two deliberate acts to leave a card behind.
+  mounted.overlay.addEventListener('click', (e) => {
+    if (e.target.closest('.cp-card')) { toggleZoom(); return; }
+    if (isZoomed()) { setZoom(false); return; }
+    advance();
+  });
 
   // Parallax. The card leans toward the pointer, which costs one transform and
   // buys the single strongest "this is an object in front of me" cue available
@@ -957,13 +1020,27 @@ export function openPackReveal(msg) {
     const dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
     const clamp = (v) => Math.max(-1, Math.min(1, v));
     wrap.style.transform = `rotateY(${clamp(dx) * 9}deg) rotateX(${clamp(-dy) * 7}deg)`;
+    // Same pointer, second job: park the specular hotspot under the cursor. In
+    // PERCENT of the card, not pixels, so it survives the zoom scale for free —
+    // 50%/50% is the middle of the card whether it is small or large.
+    const front = wrap.querySelector('.cp-front');
+    if (front) {
+      front.style.setProperty('--mx', `${Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100))}%`);
+      front.style.setProperty('--my', `${Math.max(0, Math.min(100, ((e.clientY - r.top) / r.height) * 100))}%`);
+    }
   });
   renderPips();
   renderSealed();
   refreshInventory();
 }
 
-function clearTimers() { if (show) { show.timers.forEach(clearTimeout); show.timers = []; } }
+function clearTimers() {
+  if (!show) return;
+  show.timers.forEach(clearTimeout);
+  show.timers = [];
+  clearTimeout(show.advTimer);
+  show.advTimer = null;
+}
 function later(fn, ms) { if (show) show.timers.push(setTimeout(fn, ms)); }
 
 function advance() {
@@ -971,6 +1048,58 @@ function advance() {
   if (show.phase === 'sealed') { tear(); return; }
   if (show.phase === 'revealing') { clearTimers(); nextCard(); return; }
   if (show.phase === 'dealt') { clearTimers(); nextCard(); return; }
+}
+
+// ── zoom ──────────────────────────────────────────────────────────────────────
+// Lean in on a card. The reveal is a cinematic, but the card is a DOCUMENT — it
+// carries a stat block, a quote and a condition line the reveal renders at the
+// size a whole pack has to fit into. Zoom is how you actually read the thing you
+// just pulled, which is why it also stops the clock: inspecting a card must never
+// be a race against the auto-advance that exists to stop the pack stalling.
+function isZoomed() { return !!show?.overlay.querySelector('.cp-tiltbox.zoomed'); }
+
+function toggleZoom() { setZoom(!isZoomed()); }
+
+function setZoom(on) {
+  if (!show) return;
+  const box = show.overlay.querySelector('.cp-tiltbox');
+  if (!box) return;
+  // A sealed pack has nothing to read yet, and an unflipped card is a back.
+  if (on && !show.overlay.querySelector('.cp-card.flipped')) return;
+  if (on === box.classList.contains('zoomed')) return;
+
+  box.classList.toggle('zoomed', on);
+  show.overlay.querySelector('.cp-stage')?.classList.toggle('zoomed', on);
+  sfx(on ? 'cards-slide' : 'cards-ui');
+
+  if (on) {
+    holdAdvance();
+    // Replay the line walk at reading size. The shimmer was built to WALK the eye
+    // through a card; up close is exactly when that is worth having, and it costs
+    // one call because the pass selects on the server-rendered classes.
+    const R = rarity(show.cards[show.idx]?.rarity);
+    shimmerFace(show.overlay.querySelector('#cp-slot'), R);
+  } else {
+    resumeAdvance();
+  }
+}
+
+// Freeze the countdown where it stands — bar included, or the visible timer and
+// the real one disagree and the bar stops being the honest thing it was built as.
+function holdAdvance() {
+  if (!show) return;
+  clearTimeout(show.advTimer);
+  show.advTimer = null;
+  show.advLeft = Math.max(0, (show.advAt || 0) - Date.now());
+  const bar = show.overlay.querySelector('#cp-next i');
+  if (bar) { const w = bar.getBoundingClientRect().width; bar.style.transition = 'none'; bar.style.width = `${w}px`; }
+}
+
+// Give back what was left, with a floor: coming out of a zoom onto 200ms of
+// remaining bar would yank the card away the instant you stopped looking at it.
+function resumeAdvance() {
+  if (!show || show.phase === 'done') return;
+  armAdvance(Math.max(3000, show.advLeft ?? AUTO_MS));
 }
 
 function renderPips() {
@@ -1098,11 +1227,12 @@ function nextCard() {
       <div class="cp-card" id="cp-card">
         <div class="cp-card-side cp-back"><span class="cp-back-mark">◈</span></div>
         <div class="cp-card-side cp-front${holo ? ' holo' : ''}">${card.face || `<span class="card-face">${esc(card.name)}</span>`}
-          <span class="cp-shine"><i></i></span></div>
+          <span class="cp-glare"></span><span class="cp-shine"><i></i></span></div>
       </div>
       ${card.subject_type === 'player' ? `<div class="cp-player-banner">PLAYER CARD</div>` : ''}
       <div class="cp-rank">${R.label}</div>
       <div class="cp-sub">${esc(card.name)} · ${esc(card.subject_type)}${card.dupe ? ` · <span class="cp-dupe-tag">DUPLICATE, ₵${show.scrapValue}</span>` : ''}</div>
+      <div class="cp-zoomhint">CLICK THE CARD TO ZOOM · Z</div>
     </div></div>`;
 
   const el = slot.querySelector('#cp-card');
@@ -1195,16 +1325,21 @@ function shimmerFace(slot, R) {
 // The wait, and the affordance for skipping it. The bar is honest — it runs for
 // exactly as long as the card has left — because a countdown you can see is the
 // difference between "it moved on" and "I let it move on".
-function armAdvance() {
+// Tracked on `show.advTimer` rather than pushed into `show.timers`, because zoom
+// has to stop THIS timer without touching the reveal's pending effect cleanups —
+// clearTimers() would strand `cp-lit` classes on half the card.
+function armAdvance(ms = AUTO_MS) {
   if (!show) return;
   const next = show.overlay.querySelector('#cp-next');
   if (next) {
     next.classList.add('on');
     const bar = next.querySelector('i');
     if (bar) { bar.style.transition = 'none'; bar.style.width = '100%';
-      requestAnimationFrame(() => { bar.style.transition = `width ${AUTO_MS}ms linear`; bar.style.width = '0%'; }); }
+      requestAnimationFrame(() => { bar.style.transition = `width ${ms}ms linear`; bar.style.width = '0%'; }); }
   }
-  later(() => nextCard(), AUTO_MS);
+  clearTimeout(show.advTimer);
+  show.advAt = Date.now() + ms;
+  show.advTimer = setTimeout(() => { if (show) nextCard(); }, ms);
 }
 
 // Gold rain, legendary and up only. Absolute in the stage so it falls past the
@@ -1303,11 +1438,12 @@ function showDetail(i) {
         <div class="cp-card flipped" id="cp-card">
           <div class="cp-card-side cp-back"><span class="cp-back-mark">◈</span></div>
           <div class="cp-card-side cp-front${(R.rays || 0) >= 16 ? ' holo' : ''}">${card.face || `<span class="card-face">${esc(card.name)}</span>`}
-            <span class="cp-shine"><i></i></span></div>
+            <span class="cp-glare"></span><span class="cp-shine"><i></i></span></div>
         </div>
         ${card.subject_type === 'player' ? `<div class="cp-player-banner">PLAYER CARD</div>` : ''}
         <div class="cp-rank">${R.label}</div>
         <div class="cp-sub">${esc(card.name)} · ${esc(card.subject_type)}${card.dupe ? ` · <span class="cp-dupe-tag">DUPLICATE, ₵${show.scrapValue}</span>` : ''}</div>
+      <div class="cp-zoomhint">CLICK THE CARD TO ZOOM · Z</div>
       </div></div>
       <div class="cp-btns"><button class="cp-btn" id="cp-back">◂ ALL ${show.cards.length} CARDS</button></div>
     </div>`;

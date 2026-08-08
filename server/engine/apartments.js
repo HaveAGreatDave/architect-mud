@@ -549,6 +549,77 @@ export async function cmdRent(player) {
 	};
 }
 
+// ── Paying ahead ─────────────────────────────────────────────────────────────
+// Rent is otherwise entirely passive: the tick takes it, and the only way to
+// interact with the arrangement is to lose it. PREPAY is the one lever a tenant
+// gets, and what it actually buys is not a discount — it is not having to think
+// about the unit for a while. Go into the Wildlands for a month without coming
+// back to an eviction notice.
+//
+// NON-REFUNDABLE, and deliberately not softened. A refund on unrent would make
+// prepaying strictly free (park credits, get them back) and would turn the lease
+// into a savings account. Paying ahead has to be able to LOSE, or it is not a
+// decision. The cost of that honesty is that the player must be TOLD — which is
+// why the receipt says it, and why cmdUnrent now counts the days being thrown
+// away rather than quietly pocketing them.
+const MAX_PREPAY_CYCLES = 52;
+
+export async function cmdPrepay(player, args) {
+	const zone = getZone(player.current_zone);
+	if (!isApartmentZone(zone))
+		return { type: "error", message: "There's no rent to pay here." };
+
+	const apt = getApartment(zone.id);
+	if (!apt?.owner_id)
+		return { type: "error", message: "Nobody rents this unit. Try RENT first." };
+	if (!playerControlsApt(player, apt))
+		return { type: "error", message: "This isn't your lease to pay." };
+
+	// The only numeric token is the cycle count, so stray words are ignored the
+	// same way `spin the slots` works.
+	const tok = (args || []).map(a => parseInt(a, 10)).find(n => Number.isFinite(n));
+	const cycles = tok == null ? 1 : tok;
+	if (!Number.isFinite(cycles) || cycles < 1)
+		return { type: "error", message: `Pay ahead how many ${RENT_PERIOD_DAYS}-day cycles? Try: PREPAY 4` };
+	if (cycles > MAX_PREPAY_CYCLES)
+		return { type: "error", message: `The landlord won't take more than ${MAX_PREPAY_CYCLES} cycles up front. That's a year; nobody plans that far here.` };
+
+	const cost = apt.rent_cost ?? 100;
+	const total = cost * cycles;
+
+	// Charged from what's ON HAND, deliberately, even though the collection tick
+	// can reach into the bank. The tick has no choice — it fires whether or not
+	// you are there. This is a thing you chose to do standing in the room, so it
+	// goes through the one ledgered credit seam like every other purchase rather
+	// than growing a second bank-draining path that would have to be kept in step
+	// with it. If the money's in the bank, it's a walk to an ATM.
+	if (!(await adjustCredits(player, -total, undefined, 'apartment:prepay')))
+		return {
+			type: "error",
+			message: `${cycles} ${cycles === 1 ? 'cycle' : 'cycles'} up front is <span style="color:var(--yellow)">${total}₵</span>. You're carrying ${player.credits}₵ — the rest would need withdrawing first.`,
+		};
+
+	// Push the due date out from where it ALREADY is, never from today: paying
+	// ahead on day one of a cycle must not silently bin the six days you have
+	// already paid for.
+	const today = gameToday();
+	const from = ymd(apt.rent_due_date) || (today ? addGameDays(today, RENT_PERIOD_DAYS) : null);
+	const next = from ? addGameDays(from, RENT_PERIOD_DAYS * cycles) : null;
+
+	const updated = await query(
+		`UPDATE apartments SET rent_due_date=$1 WHERE zone_id=$2 RETURNING *`,
+		[next, zone.id],
+	);
+	setApartmentCache(zone.id, updated.rows[0]);
+
+	const daysBought = RENT_PERIOD_DAYS * cycles;
+	const dueStr = next ? formatGameDate(next) : 'the next cycle';
+	return {
+		type: "output",
+		message: `Paid <span style="color:var(--yellow)">${total}₵</span> up front on <span style="color:var(--accent)">${zone.name}</span> — ${cycles} ${cycles === 1 ? 'cycle' : 'cycles'}, ${daysBought} days.\n\n<span class="text-dim">Rent now due:</span> ${dueStr}\n<span class="text-dim">On hand:</span> ${player.credits}₵\n\n<span class="text-dim">Paid rent is not refundable. Give the unit up before then and the remaining days go with it.</span>`,
+	};
+}
+
 export async function cmdUnrent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
@@ -564,11 +635,24 @@ export async function cmdUnrent(player) {
 	const rentedDate = apt.date_rented
 		? new Date(apt.date_rented * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 		: 'unknown';
+
+	// Count the paid-for days being walked away from BEFORE the row is cleared —
+	// releaseApartment nulls rent_due_date, so after this point the number is gone.
+	// A tenant who prepaid a season is entitled to see the size of what they are
+	// throwing away; the forfeit is the point of prepay, but a silent forfeit is
+	// just a bug the player can't distinguish from being robbed.
+	const today = gameToday();
+	const due = ymd(apt.rent_due_date);
+	const daysLeft = (today && due) ? Math.max(0, gameDaysBetween(today, due)) : 0;
+	const forfeited = daysLeft > RENT_PERIOD_DAYS
+		? `\n<span style="color:var(--red)">Forfeited:</span> ${daysLeft} days already paid for. That money does not come back.`
+		: '';
+
 	await releaseApartment(apt, zone.id);
 
 	return {
 		type: "unrent",
-		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}₵</span>\n\nNo further payments will be collected.`,
+		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}₵</span>${forfeited}\n\nNo further payments will be collected.`,
 	};
 }
 
@@ -1158,7 +1242,10 @@ export function describeRentStatus(zone, player) {
 		: daysUntilNext <= 3
 			? `<span style="color:var(--yellow)">${daysUntilNext} days</span>`
 			: `${daysUntilNext} days`;
-	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}).</span>`;
+	// PREPAY is advertised on the status line rather than in help alone: it is the
+	// only lever a tenant has, and nothing else in the room would ever mention it.
+	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}). `
+		+ `<span class="action-link" data-raw-cmd="prepay 4" title="Pay four cycles up front — not refundable">PREPAY</span> to pay ahead.</span>`;
 }
 
 export async function describeApartmentStatus(zone) {

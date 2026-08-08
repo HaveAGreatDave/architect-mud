@@ -21,6 +21,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
+import { openSlotsPanel } from './panels/slots.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openWantedPoster } from './panels/wantedposter.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
@@ -645,6 +646,10 @@ const handlers = {
   },
 
   stats: (msg) => {
+    // At the bottom Display Mode rung the sheet is WRITTEN rather than opened.
+    // `stats` used to have no log presence whatsoever, so the command silently
+    // did nothing there — see the note in cmdStats.
+    if (msg.render === 'log') { appendHtml(msg.message, 'help'); if (msg.player) updateVitals(msg.player); return; }
     renderStatsPanel(msg.stats);
     document.getElementById('stats-panel').classList.add('active');
     if (msg.player) updateVitals(msg.player);
@@ -1042,6 +1047,9 @@ const handlers = {
   // bottom Display Mode rung the cinematic is suppressed and the record is all
   // you get — which this file's own note says loses nothing.
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  // Same contract again: the cabinet is the show, the character box is the
+  // record and always prints, so the bottom rung losing the panel loses nothing.
+  slots_spin: (msg) => { if (msg.render !== 'log') openSlotsPanel(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same shape as cardpack_open, and for the same reason: `message` carries the
   // whole sheet as characters and always prints, so the paper overlay is pure
   // theatre. The server stamps render:'log' at the bottom Display Mode rung.

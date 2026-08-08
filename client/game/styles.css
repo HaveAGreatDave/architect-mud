@@ -3733,13 +3733,54 @@ body.fsim-external #look-resize-handle { display: none; }
 .stats-cat:first-child {
 	margin-top: 0;
 }
+/* The six stats, as TILES rather than rows. The number is the thing you came to
+   read, so it gets the size and the weight; the label sits above it small, and
+   the raise button lives in the corner instead of competing with the value for
+   the end of a line. tabular-nums so a column of tiles doesn't jitter. */
+.stats-core {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+.stats-core .stats-note {
+	grid-column: 1 / -1;
+	margin-bottom: 2px;
+}
 .stats-stat-block {
-	margin-bottom: 6px;
+	position: relative;
+	background: color-mix(in srgb, var(--accent) 6%, transparent);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 7px 9px 6px;
+}
+.stats-stat-block .stats-row {
+	display: block;
+	padding: 0;
+}
+.stats-stat-block .stats-label {
+	display: block;
+	font-size: 0.5625rem;
+	opacity: 0.85;
+}
+.stats-stat-block .stats-val {
+	display: block;
+	margin: 1px 0 0;
+	font-size: 1.375rem;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	color: var(--cyan);
+}
+.stats-stat-block .stats-raise-btn {
+	position: absolute;
+	top: 5px;
+	right: 5px;
 }
 .stats-desc {
 	color: var(--text-dim);
 	font-size: 0.625rem;
 	font-style: italic;
+	line-height: 1.3;
+	margin-top: 3px;
 }
 .stats-skill-name {
 	color: var(--text);
@@ -3755,11 +3796,33 @@ body.fsim-external #look-resize-handle { display: none; }
 	margin-left: 0;
 	min-width: 1.5em;
 	text-align: right;
+	font-variant-numeric: tabular-nums;
 }
+/* A skill you actually have is lit; one you don't recedes. The class is set in
+   JS off the level, not guessed from the text, so "0" vs "—" is one decision in
+   one place. */
+.stats-skill .stats-val { color: var(--cyan); }
+.stats-skill-none { opacity: 0.5; }
+.stats-skill-none .stats-val { color: var(--text-dim); }
+.stats-skill { padding: 1px 0; }
+.stats-skill:nth-child(even) { background: color-mix(in srgb, var(--text) 3%, transparent); }
 #stats-body .status-flags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
 	margin-top: 10px;
+	font-size: 0.6875rem;
+}
+/* One condition per chip. Cyan is the panel's "informational" colour and these
+   are read at a glance for COUNT as much as content — five chips says "you are
+   in trouble" before a word of it is read. */
+.status-chip {
 	color: var(--cyan);
-	font-size: 0.75rem;
+	border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+	background: color-mix(in srgb, var(--cyan) 8%, transparent);
+	border-radius: 2px;
+	padding: 2px 6px;
+	white-space: nowrap;
 }
 
 /* SKILLS PANEL */
@@ -17953,3 +18016,17 @@ html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"
 		opacity: 0.35;
 	}
 }
+
+/* Login footer guide links. These sat at the browser's default link colour over
+   a near-black panel, which is the one combination that fails contrast in both
+   themes — and they are the first thing a newcomer is asked to read. --cyan is
+   already the client's "this is a way out of here" colour, and the underline
+   carries the affordance for anyone who can't separate it by hue at all. */
+#guide-link-wrap { color: var(--text); }
+#guide-link-wrap a {
+	color: var(--cyan);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+#guide-link-wrap a:hover,
+#guide-link-wrap a:focus-visible { color: #fff; background: rgba(40, 229, 255, 0.14); }

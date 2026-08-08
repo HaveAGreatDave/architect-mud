@@ -24,7 +24,7 @@
 import { world } from './world.js';
 import { query } from '../models/db.js';
 import { isNpcScheduledNow, isZoneWatched } from './broadcast-bridge.js';
-import { formatChitchat } from './ai-behaviour.js';
+import { formatChitchat, isNpcAsleep } from './ai-behaviour.js';
 import { getEnvironmentState } from './environment.js';
 import { dispatchAction } from './actions.js';
 
@@ -75,6 +75,12 @@ function isEligible(npc, zoneId) {
     && !npc._combatTargetId
     && !npc._ai?.shopPaused
     && !npc._ai?.vendor_was_working
+    // A sleeper holds no conversations. This was the loudest tell that the
+    // banter pass and the sleep model didn't know about each other: two NPCs
+    // homed in the same apartment would lie there at 4am running a scripted
+    // two-hander at each other, and a player standing in the doorway watched a
+    // room of sleeping people chat.
+    && !isNpcAsleep(npc)
     && !isNpcScheduledNow(npc.id);
 }
 

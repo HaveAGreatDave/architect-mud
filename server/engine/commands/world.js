@@ -18,6 +18,7 @@ import { ensureTunables } from '../tunables.js';
 import { physicalDescription, soilDescription, randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
+import { logRender } from '../minigame.js';
 import { getHelpTopic, listHelpTopics } from '../help.js';
 import '../help-topics.js';
 import '../help-senses.js';
@@ -138,8 +139,46 @@ export async function cmdStats(player) {
   }
   statusFlags.push(...statusLabels(player));
 
-  return {
+  // ── The written sheet ──────────────────────────────────────────────────────
+  // `stats` had NO log presence at all: it opened a sidebar panel and put nothing
+  // in the log, so at the bottom Display Mode rung the command silently did
+  // nothing. That is the exact failure the ladder's own rule names — "if a
+  // system's record doesn't reach the log, that rung isn't done for it" — and a
+  // character sheet is not an optional flourish, it is the sheet.
+  //
+  // Deliberately NOT the panel redrawn in box characters. This rung's audience is
+  // a screen reader, and a two-column ASCII grid is read as a stream of numbers
+  // with their labels torn off. Short labelled lines instead, one fact each, in
+  // the order somebody would ask for them.
+  const skillLines = skillGroups
+    .map(g => {
+      const known = g.skills.filter(s => s.level > 0);
+      if (!known.length) return null;
+      return `<span class="text-dim">${g.category}:</span> ${known.map(s => `${s.name} ${s.level}`).join(', ')}`;
+    })
+    .filter(Boolean);
+
+  const sheet = [
+    `<span class="stats-handle">${p.handle}</span> — ${p.archetype || 'No Archetype'}`,
+    '',
+    `<span class="text-dim">Brawn</span> ${p.stat_brawn}  ·  <span class="text-dim">Reflexes</span> ${p.stat_reflexes}  ·  <span class="text-dim">Brains</span> ${p.stat_brains}`,
+    `<span class="text-dim">Cool</span> ${p.stat_cool}  ·  <span class="text-dim">Endurance</span> ${p.stat_endurance}  ·  <span class="text-dim">Senses</span> ${p.stat_senses}`,
+    '',
+    `<span class="text-dim">Carrying capacity:</span> ${formatWeight(carryCapacity(p))}`,
+    `<span class="text-dim">Credits:</span> <span style="color:var(--yellow)">${p.credits}₵</span>`,
+    `<span class="text-dim">XP:</span> ${Math.floor(net)} unspent of ${total} earned  ·  <span class="text-dim">next stat costs</span> ${statCost(0)}`,
+    '',
+    statusFlags.length
+      ? `<span class="text-dim">Condition:</span> ${statusFlags.join('; ')}`
+      : `<span class="text-dim">Condition:</span> nothing wrong with you.`,
+    ...(skillLines.length ? ['', '<span class="text-dim">Skills</span>', ...skillLines] : []),
+    '',
+    `<span class="text-dim">RAISE &lt;stat&gt; to spend XP. SKILLS for the full list.</span>`,
+  ].join('\n');
+
+  return logRender(player, {
     type: 'stats',
+    message: sheet,
     stats: {
       handle: p.handle,
       archetype: p.archetype || 'No Archetype',
@@ -153,7 +192,7 @@ export async function cmdStats(player) {
       status: statusFlags,
     },
     player: p,
-  };
+  });
 }
 
 export async function cmdSkills(player) {

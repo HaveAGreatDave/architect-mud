@@ -246,6 +246,18 @@ export function restoreDisplayRungPref() {
   const el = document.querySelector(`input[name="auth-display"][value="${v}"]`);
   if (!el) return;
   el.checked = true;
+  // Open it only for a rung the player went LOOKING for. `visual` is the ordinary
+  // graphical game, so restoring it used to throw the whole accessibility panel
+  // open on every visit for the majority of players — a wall of radio buttons
+  // between them and the ENTER button, answering a question they never asked.
+  // Someone who chose `log` or `textgames` does want to see it stuck; nobody
+  // needs confirmation that the normal thing is still normal.
+  //
+  // Collapsed is not a downgrade for assistive tech: a <summary> is a real
+  // button, announced with its own expanded/collapsed state, reachable in tab
+  // order and in a screen reader's element list. It is a disclosure, not a
+  // hidden setting.
+  if (v === 'visual') return;
   const details = document.getElementById('auth-display-details');
   if (details) details.open = true;
 }
