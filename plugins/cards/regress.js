@@ -183,14 +183,42 @@ export default async function regress({ run, check, getPlayer }) {
       /data-action="cmd"\s+data-cmd="mint"/.test(r?.message || ''), (r?.message || '').slice(0, 300));
 
     r = await run('mint');
-    check('mint previews before charging anything', r?.type === 'output' && /mint confirm/i.test(r.message || ''),
+    check('mint previews before charging anything', r?.type === 'card_mint_open' && /mint confirm/i.test(r.message || ''),
       JSON.stringify(r)?.slice(0, 160));
+    check('the preview carries the record as well as the press',
+      typeof r?.face === 'string' && r.face.length > 0 && typeof r?.message === 'string' && r.message.length > 0,
+      JSON.stringify(Object.keys(r || {})));
     // The preview path must not touch credits — the whole point of previewing
     // first is that nobody pays before seeing the card.
     const before = Number(player.credits) || 0;
     await run('mint');
     check('previewing costs nothing', (Number(player.credits) || 0) === before,
       `${before} -> ${player.credits}`);
+
+    // ── the written quote ────────────────────────────────────────────────────
+    // A composed line is held to the SAME gate as an overheard one. These four
+    // cases are the gate: nothing is silently trimmed, nothing token-bearing
+    // gets through, and a refusal happens BEFORE any money moves.
+    r = await run(`mintquote ${'x'.repeat(200)}`);
+    check('an over-budget quote is refused, not trimmed', r?.type === 'error' && /characters/.test(r.message || ''),
+      JSON.stringify(r)?.slice(0, 160));
+    r = await run('mintquote Hold still, $enemy.');
+    check('a quote carrying a substitution token is refused', r?.type === 'error',
+      JSON.stringify(r)?.slice(0, 160));
+    r = await run('mintquote I have made a terrible mistake and I would do it again.');
+    check('a good quote is accepted', r?.type === 'output' && /will read/.test(r.message || ''),
+      JSON.stringify(r)?.slice(0, 160));
+    r = await run('mint');
+    check('the written quote lands on the previewed card',
+      /I would do it again/.test(r?.face || ''), (r?.face || '').slice(0, 200));
+    check('and the panel reports it as written rather than overheard', r?.quoteIsWritten === true,
+      JSON.stringify({ q: r?.quote, w: r?.quoteIsWritten }));
+    r = await run('mintquote clear');
+    check('a quote can be cleared', r?.type === 'output' && /cleared/i.test(r.message || ''),
+      JSON.stringify(r)?.slice(0, 120));
+    r = await run('mint');
+    check('cleared, the card stops carrying it', !/I would do it again/.test(r?.face || ''),
+      (r?.face || '').slice(0, 200));
 
     // ── the price floor ──────────────────────────────────────────────────────
     // Scrap is the floor under the pack price: a near-complete shelf pulls mostly

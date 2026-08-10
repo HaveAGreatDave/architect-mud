@@ -22,6 +22,7 @@ import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './
 import { openPianoPanel, closePianoPanel, onRoomNote } from './panels/piano.js';
 import { openCardMachinePanel, cardMachineVend, openPackReveal } from './panels/cardpack.js';
 import { openSlotsPanel } from './panels/slots.js';
+import { openCardMintPanel, cardMintStruck } from './panels/cardmint.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openWantedPoster } from './panels/wantedposter.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
@@ -1050,6 +1051,11 @@ const handlers = {
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.
   slots_spin: (msg) => { if (msg.render !== 'log') openSlotsPanel(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  // The press is the show; `message` is the record and always prints, so the
+  // bottom Display Mode rung keeps the whole two-step (mint / mintquote / mint
+  // confirm) as text with nothing lost.
+  card_mint_open: (msg) => { if (msg.render !== 'log') openCardMintPanel(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  card_mint_struck: (msg) => { cardMintStruck(msg); if (msg.message) appendHtml(msg.message, 'loot'); if (msg.credits != null && state.player) { state.player.credits = msg.credits; updateVitals(state.player); } },
   // Same shape as cardpack_open, and for the same reason: `message` carries the
   // whole sheet as characters and always prints, so the paper overlay is pure
   // theatre. The server stamps render:'log' at the bottom Display Mode rung.

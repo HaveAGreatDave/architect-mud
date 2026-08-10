@@ -17,7 +17,7 @@ import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import {
   buildPlayerCard, buildNpcCard, buildEnemyCard, rollSleeve, RANKS, RANK_WEIGHT,
-  BUDGET, SILENCE, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE,
+  BUDGET, SILENCE, pickQuote, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE,
 } from './builder.js';
 import {
   slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
@@ -107,6 +107,63 @@ function quotesFor(player) {
     .map(s => s.text);
 }
 
+// ── the line you WANT on it ────────────────────────────────────────────────────
+// A quote you compose rather than one overheard. This is a staging buffer, not
+// state: in memory, cleared when the card is struck, and worth nothing if it is
+// lost to a restart — so it stays out of the DB entirely, like recentSay above.
+//
+// It is offered FIRST to pickQuote rather than bypassing it, which is the whole
+// point: a written quote is held to exactly the same gate as an overheard one.
+// Over budget, token-bearing or command-shaped lines are refused here, in front
+// of the player, instead of silently becoming the silence copy after they have
+// paid. The card never edits a quote to fit and this must not become the one
+// place that does.
+const pendingQuote = new Map();       // playerId -> string
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function quoteProblem(text) {
+  const q = String(text || '').trim().replace(/\s+/g, ' ');
+  if (!q) return 'Say something, or clear it with <span class="cmd">mintquote clear</span>.';
+  if (q.length > BUDGET.quote) return `That is ${q.length} characters. The line on a card is ${BUDGET.quote}, and the press does not shrink type to make room.`;
+  if (/[${]/.test(q)) return 'Substitution tokens ($enemy, {name}) print as themselves on a card that is never re-rendered. Write it out.';
+  if (/^[./@;]/.test(q)) return 'That reads as a command, not as something you said.';
+  if (pickQuote([q]) === SILENCE) return 'The press will not take that line.';
+  return null;
+}
+
+async function cmdMintQuote(args, raw, player, broadcast) {
+  // READ `raw`, NOT `args`. The dispatcher lowercases the whole input line before
+  // splitting it (commands/index.js: `raw.toLowerCase().split(...)`), which is
+  // right for verbs and targets and fatal for prose: a quote arrives as "i have
+  // made a terrible mistake", and pickQuote refuses anything starting lowercase
+  // because that is how it tells speech from stage direction. Any verb that takes
+  // a line the player WROTE has to come off raw.
+  const text = String(raw || '').replace(/^\s*\S+\s*/, '').trim();
+  if (/^(clear|none|off)$/i.test(text)) {
+    pendingQuote.delete(player.id);
+    return { type: 'output', message: 'Quote cleared. The card will use whatever you were last heard saying.' };
+  }
+  if (!text) {
+    const held = pendingQuote.get(player.id);
+    return {
+      type: 'output',
+      message: held
+        ? `Your card will read: <span class="card-quote">“${esc(held)}”</span>\n<span class="text-dim"><span class="cmd">mintquote clear</span> to drop it.</span>`
+        : `No quote set. <span class="cmd">mintquote &lt;line&gt;</span> writes one, up to ${BUDGET.quote} characters.`,
+    };
+  }
+  const bad = quoteProblem(text);
+  if (bad) return { type: 'error', message: bad };
+  const q = text.trim().replace(/\s+/g, ' ');
+  pendingQuote.set(player.id, q);
+  return {
+    type: 'output',
+    message: `Your card will read: <span class="card-quote">“${esc(q)}”</span>\n`
+      + `<span class="text-dim">${BUDGET.quote - q.length} character${BUDGET.quote - q.length === 1 ? '' : 's'} spare. <span class="cmd">mint</span> to see it set.</span>`,
+  };
+}
+
 // ── furniture lookup ───────────────────────────────────────────────────────────
 // The dispatcher hands plugin commands an ARRAY of words (commands/index.js:188).
 const argStr = a => (Array.isArray(a) ? a.join(' ') : String(a || '')).trim();
@@ -188,10 +245,15 @@ async function cmdMint(args, raw, player, broadcast) {
     [player.id]
   );
   const { physicalDescription } = await import('../../server/engine/appearance.js');
+  // A written quote goes to the FRONT of the candidate list, not around the
+  // picker: pickQuote still decides, so a composed line and an overheard one are
+  // held to the same rules and the card keeps its one gate.
+  const written = pendingQuote.get(player.id);
+  const overheard = quotesFor(player);
   const card = buildPlayerCard({
     player, equipped,
     physLine: physicalDescription(player, false) || '',
-    quotes: quotesFor(player),
+    quotes: written ? [written, ...overheard] : overheard,
   });
 
   // PREVIEW FIRST, always. Nobody should pay and THEN discover their quote
@@ -199,14 +261,36 @@ async function cmdMint(args, raw, player, broadcast) {
   if (!confirming) {
     const gaps = [];
     if (!card.text_blocks.origin) gaps.push('no <b>.describe</b> text will print — write one with <span class="cmd">describe</span> first');
-    if (card.text_blocks.quote === SILENCE) gaps.push('nothing you said here recently fits the quote line');
-    return {
-      type: 'output',
+    if (card.text_blocks.quote === SILENCE) gaps.push('nothing you said here recently fits the quote line — write one with <span class="cmd">mintquote</span>');
+
+    // THE PRESS IS THE SHOW; THIS TEXT IS THE RECORD. Same contract the pack
+    // reveal states about itself: `message` always prints, so the cabinet can be
+    // closed, suppressed at the bottom Display Mode rung, or never opened, and
+    // the player has still seen the card they are about to pay for.
+    //
+    // The face is rendered SERVER-side by the same renderCard the shelf and the
+    // pack reveal use. The panel is a chassis around it and composes nothing.
+    return logRender(player, {
+      type: 'card_mint_open',
       message: `<span class="card-preview">${renderCard({ ...card, series: 1, serial: 0 })}</span>\n`
         + (gaps.length ? `<span class="warning">Before you pay: ${gaps.join('; ')}.</span>\n` : '')
         + `Minting costs <b>₵${MINT_FEE}</b> and freezes this exactly as it stands. `
         + `Type <span class="cmd">mint confirm</span> to strike it.`,
-    };
+      face: renderCard({ ...card, series: 1, serial: 0 }),
+      machineName: machine.name,
+      fee: MINT_FEE,
+      credits: player.credits || 0,
+      handle: player.handle,
+      gaps,
+      // Everything the quote editor needs. The panel sends `mintquote <line>` and
+      // re-reads the card off the server's answer — it never renders a quote it
+      // composed itself, because the card it draws must be the card that strikes.
+      quote: card.text_blocks.quote === SILENCE ? '' : card.text_blocks.quote,
+      quoteIsWritten: !!written && card.text_blocks.quote === written,
+      quoteBudget: BUDGET.quote,
+      overheard: overheard.slice(0, 6),
+      silence: SILENCE,
+    });
   }
 
   if ((player.credits || 0) < MINT_FEE) return { type: 'error', message: `Minting costs ₵${MINT_FEE}. You have ₵${player.credits || 0}.` };
@@ -227,10 +311,19 @@ async function cmdMint(args, raw, player, broadcast) {
   const struck = await insertCard(card, { zoneId: player.current_zone });
   await grant(player.id, struck.id);
 
+  // The staged line has been spent. Leaving it set would silently print the same
+  // quote on the next card a week from now, which is the sort of thing nobody
+  // notices until it is on two cards.
+  pendingQuote.delete(player.id);
+
   const { date, time } = getGameDateTime();
   broadcast(player.current_zone, { type: 'zone_event', message: `The ${machine.name} chatters, and cuts a card with ${player.handle}'s face on it.` }, player.id);
   return {
-    type: 'output',
+    type: 'card_mint_struck',
+    face: renderCard({ ...card, series: struck.series, serial: struck.serial }),
+    serial: struck.serial,
+    series: struck.series,
+    credits: player.credits,
     message: `${renderCard({ ...card, series: struck.series, serial: struck.serial })}\n`
       + `<span class="success">Struck № ${String(struck.serial).padStart(4, '0')} — ${date}, ${time}, ${zone?.name || 'here'}. `
       + `It's in the pool now. Somebody will pull you out of a machine.</span>`,
@@ -719,6 +812,7 @@ export const specializedActions = [
 
 export const commands = {
   mint: cmdMint,
+  mintquote: cmdMintQuote,
   cards: cmdCards,
   buypack: cmdBuyPack,
   sleeve: cmdBuyPack,

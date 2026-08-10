@@ -113,7 +113,17 @@ export async function prefersLoggedPanelsOrDefault(player) {
 export async function setDisplayRung(player, rung) {
   const r = RUNGS.includes(rung) ? rung : (LEGACY_RUNG[rung] || 'visual');
   await setFlag('player', DISPLAY_MODE_FLAG, r, player).catch(() => {});
-  if (player) player.displayRung = r;
+  if (player) {
+    player.displayRung = r;
+    // Forget the last room we logged. `stampToLog` (server/index.js) drops a
+    // SILENT look whose zone matches this latch — and the re-look that lands the
+    // rung change is silent. So a player who had been on `log` earlier in the
+    // session, went back to `visual`, and switched to `log` again got a look with
+    // no `toLog` on it, and the client read that as "pane stays" — the top pane
+    // never collapsed until they walked somewhere. Clearing it on every rung
+    // write costs one extra room line at most, and only right after a switch.
+    player._logLastRoom = null;
+  }
   return r;
 }
 

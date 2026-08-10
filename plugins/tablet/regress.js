@@ -300,6 +300,20 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('tabletnav settings');
   check('displaymode visual selects the top rung', r?.displayRung === 'visual', JSON.stringify(r)?.slice(0, 160));
 
+  // SWITCHING BACK TO `log` MUST COLLAPSE THE PANE AGAIN. The rung change lands
+  // as a SILENT re-look, and stampToLog drops a silent look whose zone matches
+  // `_logLastRoom` — so a second visit to `log` in one session used to arrive
+  // with no `toLog`, and the client left the top pane up until the player walked.
+  // setDisplayRung clears the latch; assert it for every rung write.
+  {
+    const p = await getPlayer();
+    p._logLastRoom = p.current_zone;
+    await run('displaymode log');
+    check('switching rung forgets the last logged room, so the re-look still stamps toLog',
+      !p._logLastRoom, String(p._logLastRoom));
+    await run('displaymode visual');
+  }
+
   const badMode = await run('displaymode sideways');
   check('displaymode rejects a rung that is not one of the three', badMode?.type === 'error', JSON.stringify(badMode)?.slice(0, 160));
 
