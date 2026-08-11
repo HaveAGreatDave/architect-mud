@@ -122,6 +122,13 @@
   }
   #ops-ro-toggle:hover { color: var(--text); }
   #ops-ro-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  /* The 🔒 is appended to the label text, so at the fixed 160px it wrapped onto
+     its own line under the longer entries (Region Maps, SoundScript) and read as
+     a padlock locking nothing. In ops mode the nav sizes to its widest item
+     instead — the marker always sits on the line it belongs to. Capped so a long
+     label can't eat the panel; /dev keeps its 160px, having no markers. */
+  body.ops-mode #nav { width: max-content; min-width: 160px; max-width: 240px; }
+  body.ops-mode .nav-item { white-space: nowrap; }
 
   /* Table view */
   #list-panel { flex: 1; overflow-y: auto; padding: 0; }
@@ -602,6 +609,9 @@
       transform: translateX(-100%);
       transition: transform 0.2s ease;
     }
+    /* The ops fit-to-content width out-specifies the drawer's 220px, so restate
+       it here: a drawer narrower than its handle is worse than a wrapped 🔒. */
+    body.ops-mode #nav { width: max-content; min-width: 220px; max-width: 260px; }
     #layout.nav-open #nav { transform: translateX(0); }
 
     /* World-state → right slide-in drawer, hidden by default */
