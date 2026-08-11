@@ -1273,29 +1273,47 @@ function stampCondition(rows) {
 // Run on every container view (open + the refresh a pull/stow returns), so
 // taking an item makes a fresh copy reappear. player_id is a throwaway sentinel
 // — container contents are keyed by container_id and reassigned on pull.
-async function restockContainer(container) {
-  if (container.kind !== 'furniture') return;
+// `present` is what the caller has ALREADY read out of the box, so the common
+// case (nothing missing) costs no queries at all — this used to open with its own
+// `SELECT DISTINCT` before every view. Returns how many rows it minted, so the
+// caller knows whether its copy of the contents is now stale.
+async function restockContainer(container, present) {
+  if (container.kind !== 'furniture') return 0;
   const ids = container.tags?.restock_items;
-  if (!Array.isArray(ids) || !ids.length) return;
-  const { rows } = await query('SELECT DISTINCT item_id FROM player_inventory WHERE container_id=$1', [container.id]);
-  const present = new Set(rows.map(r => r.item_id));
-  for (const itemId of ids) {
-    if (present.has(itemId)) continue;
-    await query(
-      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id)
-       SELECT $1,'_restock',id,1,1.0,$2 FROM items WHERE id=$3`,
-      [randomUUID(), container.id, itemId]
-    );
-  }
+  if (!Array.isArray(ids) || !ids.length) return 0;
+  const missing = ids.filter(id => !present.has(id));
+  if (!missing.length) return 0;
+  // One statement for the whole shortfall. The JOIN preserves the old behaviour
+  // for an id with no `items` row: it mints nothing rather than a phantom.
+  const { rowCount } = await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id)
+     SELECT t.id, '_restock', i.id, 1, 1.0, $3
+       FROM UNNEST($1::text[], $2::text[]) AS t(id, item_id)
+       JOIN items i ON i.id = t.item_id`,
+    [missing.map(() => randomUUID()), missing, container.id]
+  );
+  return rowCount || 0;
 }
 
 // One box's { capacity, usedWeight, containerItems } — shared by the primary
 // container and its optional paired one (e.g. a fridge's freezer box).
+//
+// Container views are one of the hottest player-facing paths in the game (every
+// open, plus the refresh every pull and stow returns), so this reads the box ONCE
+// and derives from those rows. The weight was a second `SUM(weight*quantity)` over
+// the very join it had just run, and the restock law a third read before either —
+// three round trips where an untouched box now costs one.
+async function readBox(containerId) {
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [containerId]);
+  return rows;
+}
+
 async function loadBoxContents(container) {
-  await restockContainer(container);
+  let containerItems = await readBox(container.id);
+  const minted = await restockContainer(container, new Set(containerItems.map(r => r.item_id)));
+  if (minted) containerItems = await readBox(container.id);   // only when something actually arrived
   const cap = containerCapacity(container);
-  const used = await containerContentsWeight(container.id);
-  const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const used = containerItems.reduce((w, r) => w + (Number(r.weight) || 0) * (Number(r.quantity) || 0), 0);
   for (const r of containerItems) r.name = titleCaseName(r.name);
   stampCondition(containerItems);
   // Stamp `group` for the panel. The rows already carry tags, so this costs
@@ -1310,11 +1328,14 @@ async function loadBoxContents(container) {
 async function buildContainerView(containerId, player) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'error', message:'Container not found.' };
-  const { rows: allInv } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  // The player's carried items and the box's contents have nothing to say to each
+  // other, so they go down the wire together rather than one after the next.
+  const [{ rows: allInv }, box] = await Promise.all([
+    query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]),
+    loadBoxContents(container),
+  ]);
   for (const r of allInv) r.name = titleCaseName(r.name);   // list display — Title Case
   stampCondition(allInv);
-
-  const box = await loadBoxContents(container);
   // A box offers only what belongs in one — the reason to open a fridge is the
   // food that would otherwise spoil, and the reason to open a dish cabinet is
   // the pot. See containerFilter: derived from the flags the box already has,

@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, bodyZoneOf } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, bodyZoneOf } from './world.js';
 import { wakeFromDream } from './dreamscape.js';
 import { tickUnconscious, knockOut, isOut, KO_MS } from './unconscious.js';
 import { tickStealth } from './stealth.js';
@@ -1855,9 +1855,11 @@ async function npcWanderTick() {
 // ground items outside rented apartments, and zone stains.
 export async function dailyMaintenance() {
   // --- Corpses (player + monster) ---
-  // Remove all in-memory corpses and their DB records.
-  for (const [id] of world.corpses) await removeCorpse(id);
-  // removeCorpse may not purge player_corpses rows; do it explicitly.
+  // Dropped in memory here rather than through removeCorpse(): that helper spends
+  // two round trips PER CORPSE deleting exactly the rows the two wholesale DELETEs
+  // below are about to remove anyway. Everything else it does is this loop.
+  for (const [id, c] of world.corpses) world.zones.get(c.zoneId)?.corpses.delete(id);
+  world.corpses.clear();
   await query(`DELETE FROM player_corpses`).catch(() => {});
   // Also wipe inventory owned by any corpse pseudo-player that removeCorpse left behind.
   await query(`DELETE FROM player_inventory WHERE player_id LIKE 'corpse_%'`).catch(() => {});

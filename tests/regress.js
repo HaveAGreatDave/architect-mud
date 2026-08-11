@@ -36,7 +36,7 @@ import { getHelpTopic, listHelpTopics } from '../server/engine/help.js';
 import { TOPIC_VERBS } from '../server/engine/help-topics.js';
 import { getAlias } from '../server/engine/commands/aliases.js';
 import { loadItems, reloadItem, deleteItemCache } from '../server/engine/items-cache.js';
-import { getVendorStock, buyFromVendor, restockSourcedContainers } from '../server/engine/vendor.js';
+import { getVendorStock, buyFromVendor, restockSourcedContainers, _internal } from '../server/engine/vendor.js';
 import { randomUUID } from 'crypto';
 import { loadDrugs } from '../server/engine/drugs.js';
 import { loadMisSettings } from '../server/engine/mis.js';
@@ -5010,6 +5010,31 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     await restockSourcedContainers(npc);
     count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1', [FURN])).rows[0].n;
     check('restock never overfills the container past its weight capacity', count === 12, count);
+
+    // The daily sweep's SKIP. `needsDelivery` decides from a pre-read cache whether
+    // a vendor is short of anything, and a wrong `false` is invisible in play — the
+    // shelf just quietly stops being restocked, forever. So it is asserted in both
+    // directions against the same helper the sweep uses.
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [FURN]);
+    npc.vendor_inventory[0].restockToQty = 3;
+    let state = await _internal.loadDeliveryState([FURN]);
+    check('a vendor with an empty case is NOT skipped', _internal.needsDelivery(npc, state) === true);
+
+    await restockSourcedContainers(npc);
+    state = await _internal.loadDeliveryState([FURN]);
+    check('…and once delivered, it IS skipped', _internal.needsDelivery(npc, state) === false);
+
+    // One unit sold is the case the skip exists to catch: still nearly full, but
+    // short, so tomorrow's tick must not pass it over.
+    await query('DELETE FROM player_inventory WHERE container_id=$1 AND item_id=$2 AND id=(SELECT id FROM player_inventory WHERE container_id=$1 LIMIT 1)', [FURN, ITEM]);
+    state = await _internal.loadDeliveryState([FURN]);
+    check('a case one unit short is not skipped', _internal.needsDelivery(npc, state) === true);
+
+    // The seeded cache must deliver the same result as an unseeded call — it is
+    // the sweep's only path, and a stale seed would under-deliver silently.
+    await restockSourcedContainers(npc, state);
+    count = (await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [FURN, ITEM])).rows[0].n;
+    check('a delivery against a seeded cache still reaches the target', count === 3, count);
   } finally {
     await query('DELETE FROM player_inventory WHERE item_id=$1 OR player_id=$2', [ITEM, PID]).catch(() => {});
     await query('DELETE FROM items WHERE id=$1', [ITEM]).catch(() => {});

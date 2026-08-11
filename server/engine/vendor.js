@@ -198,6 +198,22 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
   // costs zero item round trips (was a batched SELECT, before that a serial one).
   const itemsById = new Map(shelf.map(e => [e.item_id, getItem(e.item_id)]).filter(([, i]) => i));
 
+  // Every sourced entry's real count, in ONE grouped read ahead of the loop. This
+  // was a `SELECT COUNT(*)` per shelf line INSIDE the loop below — opening a
+  // grocer that sources 79 items off its cases cost 79 sequential round trips,
+  // every time anybody looked at the shelf. Keyed container→item because one
+  // vendor can source the same item from two cases.
+  const counts = new Map();
+  if (sourced.length) {
+    const { rows } = await query(
+      `SELECT container_id, item_id, COUNT(*)::int AS n FROM player_inventory
+        WHERE container_id = ANY($1::text[]) AND item_id = ANY($2::text[])
+        GROUP BY container_id, item_id`,
+      [[...new Set(sourced.map(e => e.sourceContainer))], [...new Set(sourced.map(e => e.item_id))]]
+    );
+    for (const r of rows) counts.set(`${r.container_id}::${r.item_id}`, r.n);
+  }
+
   const stock = [];
   for (const entry of shelf) {
     const item = itemsById.get(entry.item_id);
@@ -208,9 +224,7 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
     const basePrice = priceMap[entry.item_id] ?? item.value;
     const finalPrice = Math.max(1, Math.round(basePrice * (1 - discount)));
     const containerId = sourceMap.get(entry.item_id);
-    const realStock = containerId
-      ? Number((await query('SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2', [containerId, entry.item_id])).rows[0]?.n) || 0
-      : 99;
+    const realStock = containerId ? (counts.get(`${containerId}::${entry.item_id}`) || 0) : 99;
     stock.push({
       item_id: entry.item_id,
       name: item.name,
@@ -622,6 +636,12 @@ export async function restockVendor(npc) {
     newStock = [...cleanedStock, ...additions];
   }
 
+  // A full shelf with nothing pruned and nothing to add is the NORMAL state for a
+  // vendor nobody bought from today — writing the identical array back is a round
+  // trip that changes nothing, once per vendor per day, forever.
+  if (newStock.length === activeStock.length
+      && newStock.every((e, i) => e.item_id === activeStock[i].item_id)) return;
+
   await updateNpc(npc.id, { vendor_stock: newStock });
 }
 
@@ -643,68 +663,149 @@ export async function restockVendor(npc) {
 // mints onto the floor. It also makes the stockroom worth walking into — there
 // is real, liftable stock behind the shop.
 
-// How many more units of `item` fit in a container, by weight. Shared by the
-// floor top-up and the back-room top-up so neither can overfill its box.
-async function containerRoomFor(containerId, item, capacityG) {
-  const { rows: used } = await query(
-    `SELECT COALESCE(SUM(i.weight*pi.quantity),0)::float AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`,
-    [containerId]
-  );
-  return Math.max(0, Math.floor((capacityG - (used[0]?.w || 0)) / (item.weight || 1)));
+// A container's whole delivery-relevant state, read in ONE round trip and then
+// kept in step locally for the rest of the pass. This is the difference between
+// a delivery costing a handful of queries and costing thousands: what used to be
+// a per-catalogue-entry `SELECT COUNT(*)` plus a per-entry `SUM(weight)` is now
+// one grouped read per CONTAINER, and every mint/walk-forward below updates the
+// numbers in memory rather than asking again. A grocer sourcing 30 items off one
+// case went from ~60 reads to 2 (its flags, and this).
+async function loadContainer(id) {
+  const [{ rows: f }, { rows: contents }] = await Promise.all([
+    query('SELECT flags FROM furniture WHERE id=$1', [id]),
+    query(
+      `SELECT pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w
+         FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+        WHERE pi.container_id=$1 GROUP BY pi.item_id`,
+      [id]
+    ),
+  ]);
+  const counts = new Map();
+  let used = 0;
+  for (const r of contents) { counts.set(r.item_id, r.n); used += r.w || 0; }
+  return { flags: f[0]?.flags || null, counts, used };
 }
 
-// Mint `need` fresh quantity-1 rows of `item` into `containerId`, capped by room.
-// A short delivery is LOGGED: the cap is applied per entry in catalogue order, so
-// an over-subscribed case silently starves whichever items are authored last —
-// they read `stock: 0` on the shelf forever and look like a content bug rather
-// than a case that needs a bigger `container` capacity.
-async function mintInto(containerId, item, need, capacityG) {
+/** Rows of `item_id` currently in this container, from the cached state. */
+const countIn = (state, itemId) => state.counts.get(itemId) || 0;
+
+/** Record `delta` rows of `item` arriving in (or leaving, if negative) a container. */
+function applyDelta(state, item, delta) {
+  state.counts.set(item.id, Math.max(0, countIn(state, item.id) + delta));
+  state.used = Math.max(0, state.used + delta * (item.weight || 0));
+}
+
+// Mint `need` fresh quantity-1 rows of `item` into `containerId`, capped by the
+// room left in the cached state. A short delivery is LOGGED: the cap is applied
+// per entry in catalogue order, so an over-subscribed case silently starves
+// whichever items are authored last — they read `stock: 0` on the shelf forever
+// and look like a content bug rather than a case that needs a bigger
+// `flags.container` capacity.
+//
+// One statement, however many units. The rows are still individual quantity-1
+// rows (never a stack) — that contract is about the SHAPE of the rows, not about
+// inserting them one connection round trip at a time, which is what a 700-unit
+// delivery used to do.
+async function mintInto(containerId, state, item, need, capacityG) {
   if (need <= 0) return 0;
-  const room = await containerRoomFor(containerId, item, capacityG);
+  const room = Math.max(0, Math.floor((capacityG - state.used) / (item.weight || 1)));
   const toAdd = Math.min(need, room);
   if (toAdd < need) {
     console.warn(`[vendor] ${containerId} is full — short ${need - toAdd}x ${item.id} this delivery; raise its flags.container capacity.`);
   }
-  for (let i = 0; i < toAdd; i++) {
-    await query(
-      `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id) VALUES ($1,'_restock',$2,1,1.0,$3)`,
-      [randomUUID(), item.id, containerId]
-    );
-  }
+  if (toAdd <= 0) return 0;
+  const ids = Array.from({ length: toAdd }, () => randomUUID());
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, container_id)
+     SELECT id, '_restock', $2, 1, 1.0, $3 FROM UNNEST($1::text[]) AS t(id)`,
+    [ids, item.id, containerId]
+  );
+  applyDelta(state, item, toAdd);
   return toAdd;
 }
 
-const countIn = async (containerId, itemId) => Number((await query(
-  'SELECT COUNT(*)::int AS n FROM player_inventory WHERE container_id=$1 AND item_id=$2',
-  [containerId, itemId]
-)).rows[0]?.n) || 0;
+/**
+ * Every sourced container in the world, in three round trips TOTAL — the flags of
+ * the cases, the flags of the back rooms they name, and one grouped read of what
+ * is in all of them. Handed to restockSourcedContainers as a pre-seeded cache so
+ * the sweep below can answer "is this vendor short of anything?" from memory.
+ *
+ * This is what makes the daily tick proportional to what players BOUGHT rather
+ * than to how many shops have been authored: on a day nobody emptied a shelf,
+ * every vendor is skipped and the whole delivery pass is these three reads.
+ */
+async function loadDeliveryState(containerIds) {
+  const cache = new Map();
+  if (!containerIds.length) return cache;
 
-export async function restockSourcedContainers(npc) {
+  const { rows: caseFlags } = await query('SELECT id, flags FROM furniture WHERE id = ANY($1::text[])', [containerIds]);
+  const backIds = [...new Set(caseFlags.map(r => r.flags?.backstock).filter(Boolean))]
+    .filter(id => !containerIds.includes(id));
+
+  const [{ rows: backFlags }, { rows: contents }] = await Promise.all([
+    backIds.length ? query('SELECT id, flags FROM furniture WHERE id = ANY($1::text[])', [backIds]) : Promise.resolve({ rows: [] }),
+    query(
+      `SELECT pi.container_id, pi.item_id, COUNT(*)::int AS n, COALESCE(SUM(i.weight*pi.quantity),0)::float AS w
+         FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+        WHERE pi.container_id = ANY($1::text[]) GROUP BY pi.container_id, pi.item_id`,
+      [[...containerIds, ...backIds]]
+    ),
+  ]);
+
+  for (const r of [...caseFlags, ...backFlags]) cache.set(r.id, { flags: r.flags || null, counts: new Map(), used: 0 });
+  for (const r of contents) {
+    const s = cache.get(r.container_id);
+    if (!s) continue;
+    s.counts.set(r.item_id, r.n);
+    s.used += r.w || 0;
+  }
+  return cache;
+}
+
+/**
+ * Is this vendor short of anything? Answered purely from a pre-seeded cache, so a
+ * fully-stocked shop costs zero queries on the daily tick.
+ */
+function needsDelivery(npc, cache) {
+  for (const e of (npc.vendor_inventory || [])) {
+    if (!e.sourceContainer || !(e.restockToQty > 0)) continue;
+    const floor = cache.get(e.sourceContainer);
+    if (!floor?.flags) continue;                       // case has been deleted
+    if ((floor.counts.get(e.item_id) || 0) < e.restockToQty) return true;
+    const back = floor.flags.backstock ? cache.get(floor.flags.backstock) : null;
+    if (!back?.flags) continue;
+    const depth = Math.max(0, Number(back.flags.backstock_depth ?? 2));
+    if ((back.counts.get(e.item_id) || 0) < Math.floor(e.restockToQty * depth)) return true;
+  }
+  return false;
+}
+
+export async function restockSourcedContainers(npc, seeded = null) {
   const sourced = (npc.vendor_inventory || []).filter(e => e.sourceContainer && e.restockToQty > 0);
-  // Container flags are read once per container, not once per catalogue entry —
-  // a grocer sources 30 items off one case and this ran 30 identical lookups.
-  const flagCache = new Map();
-  const flagsFor = async (id) => {
-    if (!flagCache.has(id)) {
-      const { rows } = await query('SELECT flags FROM furniture WHERE id=$1', [id]);
-      flagCache.set(id, rows[0]?.flags || null);
-    }
-    return flagCache.get(id);
+  if (!sourced.length) return;
+
+  // `seeded` is the sweep's shared cache. Called on its own (the devpanel force-tick,
+  // the regress suite) it loads what it needs a container at a time, as before.
+  const cache = seeded || new Map();
+  const stateFor = async (id) => {
+    if (!cache.has(id)) cache.set(id, await loadContainer(id));
+    return cache.get(id);
   };
 
   for (const entry of sourced) {
     const item = getItem(entry.item_id);
     if (!item) continue;
 
-    const flags = await flagsFor(entry.sourceContainer);
-    if (!flags) continue;                              // case has been deleted
-    const capacityG = flags.container ?? 60000;
-    const backstock = flags.backstock;
+    const floor = await stateFor(entry.sourceContainer);
+    if (!floor.flags) continue;                        // case has been deleted
+    const capacityG = floor.flags.container ?? 60000;
+    const backstock = floor.flags.backstock;
 
-    let need = entry.restockToQty - (await countIn(entry.sourceContainer, entry.item_id));
+    let need = entry.restockToQty - countIn(floor, entry.item_id);
 
     // Walk the back room forward onto the floor first.
     if (backstock && need > 0) {
+      const back = await stateFor(backstock);
       const { rows: moved } = await query(
         'SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 ORDER BY id LIMIT $3',
         [backstock, entry.item_id, need]
@@ -712,20 +813,22 @@ export async function restockSourcedContainers(npc) {
       if (moved.length) {
         await query('UPDATE player_inventory SET container_id=$1 WHERE id = ANY($2::text[])', [entry.sourceContainer, moved.map(r => r.id)]);
         need -= moved.length;
+        applyDelta(back, item, -moved.length);
+        applyDelta(floor, item, moved.length);
       }
     }
 
-    await mintInto(entry.sourceContainer, item, need, capacityG);
+    await mintInto(entry.sourceContainer, floor, item, need, capacityG);
 
     // Then the delivery to the back room. Runs whether or not the floor needed
     // anything — a full case with an empty stockroom is exactly the state that
     // used to persist forever.
     if (backstock) {
-      const bFlags = await flagsFor(backstock);
-      if (!bFlags) continue;
-      const depth = Math.max(0, Number(bFlags.backstock_depth ?? 2));
+      const back = await stateFor(backstock);
+      if (!back.flags) continue;
+      const depth = Math.max(0, Number(back.flags.backstock_depth ?? 2));
       const target = Math.floor(entry.restockToQty * depth);
-      await mintInto(backstock, item, target - (await countIn(backstock, entry.item_id)), bFlags.container ?? 60000);
+      await mintInto(backstock, back, item, target - countIn(back, entry.item_id), back.flags.container ?? 60000);
     }
   }
 }
@@ -739,13 +842,47 @@ export async function restockAllVendors() {
     `SELECT id, vendor_inventory, vendor_stock, vendor_stock_size, vendor_restock_rate
      FROM npcs WHERE jsonb_array_length(vendor_inventory) > 0`
   );
-  for (const npc of vendors) {
-    await restockVendor(npc).catch(err =>
-      console.error(`[vendor] Restock failed for ${npc.id}:`, err.message)
-    );
-    await restockSourcedContainers(npc).catch(err =>
+  // The whole world's physical stock, up front, in three reads — then every vendor
+  // that is already full is skipped entirely. The tick now costs what players
+  // actually bought yesterday, not what has been authored since launch.
+  const allContainers = [...new Set(vendors.flatMap(n =>
+    (n.vendor_inventory || []).filter(e => e.sourceContainer && e.restockToQty > 0).map(e => e.sourceContainer)
+  ))];
+  const state = await loadDeliveryState(allContainers).catch(err => {
+    console.error('[vendor] Delivery pre-read failed, falling back to per-vendor reads:', err.message);
+    return null;
+  });
+
+  // Vendors are independent of each other, so they run concurrently — but in
+  // bounded chunks, not one big Promise.all. The Neon pool is 15 connections and
+  // a hundred-vendor world firing every delivery at once would starve whatever
+  // else the tick is doing (and anyone logged in) rather than finish sooner.
+  const LANES = 4;
+  for (let i = 0; i < vendors.length; i += LANES) {
+    await Promise.all(vendors.slice(i, i + LANES).map(npc =>
+      restockVendor(npc).catch(err =>
+        console.error(`[vendor] Restock failed for ${npc.id}:`, err.message)
+      )
+    ));
+  }
+
+  // Deliveries run SEQUENTIALLY, unlike the shelf rotation above. They share one
+  // cache and two vendors are allowed to source from the same case — run them
+  // concurrently and both would read the same pre-delta counts and each mint a
+  // full delivery into it. The skip is what makes this affordable: on an ordinary
+  // day the list is empty or nearly so.
+  const short = state ? vendors.filter(npc => needsDelivery(npc, state)) : vendors;
+  for (const npc of short) {
+    await restockSourcedContainers(npc, state || undefined).catch(err =>
       console.error(`[vendor] Sourced-container restock failed for ${npc.id}:`, err.message)
     );
   }
-  if (vendors.length) console.log(`[vendor] Restocked ${vendors.length} vendor(s)`);
+  if (vendors.length) {
+    console.log(`[vendor] Restocked ${vendors.length} vendor(s); delivered to ${short.length}`);
+  }
 }
+
+// The delivery sweep's two halves, exposed for the regress suite only — a wrong
+// `needsDelivery` is silent in play (a shelf just stops being restocked), so it
+// is asserted directly rather than inferred from a shop listing.
+export const _internal = { loadDeliveryState, needsDelivery };
