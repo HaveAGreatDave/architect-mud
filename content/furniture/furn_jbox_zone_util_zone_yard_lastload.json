@@ -1,0 +1,15 @@
+{
+  "description": "A grey steel box with a lever on the side of it and a sticker nobody has read.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_yard_lastload"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_util_zone_yard_lastload",
+  "name": "junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_util_zone_yard_lastload"
+}

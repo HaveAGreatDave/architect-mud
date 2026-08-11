@@ -2628,6 +2628,17 @@ export const SCHEMA_SQL = `
   -- impounded; the truck is simply somewhere.
   ALTER TABLE trucks ADD COLUMN IF NOT EXISTS impound_fee INTEGER;
 
+  -- CONDITION. The rig's own HP bar, 1 = out of the factory and 0 = it does not start. It is the
+  -- one number the maintenance bench exists to move, and it is deliberately a truck column rather
+  -- than a durability row: player_inventory.condition is about a thing you CARRY, and a truck is
+  -- never in an inventory. Wear accrues on distance and on contact, flushed with the same
+  -- coalesced write that already carries fuel and the odometer home (fleet.js persistTruck).
+  ALTER TABLE trucks ADD COLUMN IF NOT EXISTS condition REAL NOT NULL DEFAULT 1;
+  -- Everything else the bench writes: paint, the four tuning curves, fitted kits. One JSONB rather
+  -- than five columns, exactly as aircraft.custom_data carries a livery and a tune — a truck is a
+  -- thing you make yours, and the shape of "yours" is going to keep growing.
+  ALTER TABLE trucks ADD COLUMN IF NOT EXISTS custom_data JSONB NOT NULL DEFAULT '{}'::jsonb;
+
   -- TRAILERS. A trailer is a thing in the world, not a boolean on a rig: you drop it and it stays
   -- dropped, somebody else can find it, and what is on it stays on it. parked_zone is where it
   -- physically is; towed_by is the truck currently under it (exactly one of the two is set, and

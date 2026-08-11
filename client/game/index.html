@@ -144,7 +144,15 @@
 		<!-- AUTH SCREEN -->
 		<div id="auth-screen">
 			<div id="auth-box">
-				<pre id="auth-ascii"><span class="sk-m">              ╱╲</span>
+				<!-- The name of the game, said once, in characters. Everything below
+				     it draws ARCHITECT out of block glyphs (▄▀█ █▀█ █▀▀), which a
+				     screen reader either spells out as box-drawing noise or skips
+				     entirely — either way the title is never spoken. So the banner
+				     and the sigil are both aria-hidden decoration, and this carries
+				     the name. It is also the only <h1> on the screen, which is what
+				     makes "list headings" land on the login instead of nothing. -->
+				<h1 class="sr-only">ARCHITECT</h1>
+				<pre id="auth-ascii" aria-hidden="true"><span class="sk-m">              ╱╲</span>
 <span class="sk-m">             ╱  ╲</span>
 <span class="sk-m">        ┌───╱    ╲───┐</span>
 <span class="sk-m">        │  ╱      ╲  │</span>
@@ -158,7 +166,8 @@
 <span class="sk-m">             ╲  ╱</span>
 <span class="sk-m">              ╲╱</span></pre>
 				<pre
-					id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
+					id="auth-title"
+					aria-hidden="true"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
 <span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</span> <span class="sk-c">░▒▓█▓▒░</span></pre>
 
 				<div class="tagline">The AI won. You survived. Probably.</div>
@@ -302,9 +311,29 @@
 				     password" just sits there. Empty until something goes wrong, so
 				     it says nothing on arrival. -->
 				<div class="auth-error" id="auth-error" role="alert"></div>
+				<!-- Switching to register REVEALS TWO FIELDS ABOVE THE CURRENT FOCUS
+				     POSITION (handle and email). A sighted player watches them
+				     appear. Without this, nobody else is told: the submit button
+				     silently becomes "Register", and the first news of a required
+				     Handle field is the error that rejects the form for being
+				     empty. role="status" rather than alert — it's a mode change the
+				     player just asked for, not an interruption. And role="status"
+				     alone, with NO explicit aria-live, which the a11y smoke
+				     check is right to police: role="status" already IS a polite live
+				     region, and spelling the attribute out as well adds a second
+				     continuous region for no gain. Matches #auth-registrations-closed
+				     directly below. -->
+				<div class="sr-only" id="auth-mode-status" role="status"></div>
 				<div class="auth-toggle" id="auth-toggle-wrap">
 					<span id="auth-toggle-text">No account?</span>
-					<a id="auth-toggle-link">Register</a>
+					<!-- A REAL BUTTON, and that is the whole point. This was an <a>
+					     with no href — which is not focusable and is not exposed as
+					     a control, so registration and password recovery were
+					     click-only. Tabbing the form went username → password →
+					     remember → display mode → Enter and never touched them. -->
+					<button type="button" class="auth-linkbtn" id="auth-toggle-link">
+						Register
+					</button>
 				</div>
 				<!-- Shown only when a dev has locked registrations. It replaces the
 				     Register link rather than sitting beside it, so nobody fills in
@@ -317,15 +346,13 @@
 				<div
 					id="forgot-link-wrap"
 					style="margin-top: 6px; text-align: center">
-					<a
+					<button
+						type="button"
+						class="auth-linkbtn"
 						id="auth-forgot-link"
-						style="
-							cursor: pointer;
-							font-size: 0.6875rem;
-							color: var(--text-dim);
-						"
-						>Forgot password?</a
-					>
+						style="font-size: 0.6875rem; color: var(--text-dim)">
+						Forgot password?
+					</button>
 				</div>
 				<!-- Guides. A text world is the one genre where a newcomer can bounce
 				     off the FIRST screen, so the way in is offered before the login,
@@ -361,6 +388,8 @@
 		<!-- FORGOT PASSWORD WINDOW (draggable) -->
 		<div
 			id="forgot-window"
+			data-a11y-modal
+			aria-label="Forgot password"
 			style="
 				display: none;
 				position: fixed;
@@ -455,6 +484,8 @@
 		<!-- RESET PASSWORD WINDOW (draggable) -->
 		<div
 			id="reset-screen"
+			data-a11y-modal
+			aria-label="Reset password"
 			style="
 				display: none;
 				position: fixed;
@@ -579,7 +610,13 @@
 					line-height: 1.6;
 					color: var(--text-dim);
 				">
-				<div id="verify-message"></div>
+				<!-- tabindex="-1" so showVerifyScreen can put focus HERE. Registration
+				     hides the whole auth screen out from under the submit button;
+				     focus falls to <body> and a screen reader says nothing at all,
+				     leaving a player who has just created an account with no idea
+				     whether it worked. This div holds the only instruction that
+				     matters ("check your email"), so it is where focus goes. -->
+				<div id="verify-message" tabindex="-1"></div>
 				<div class="auth-field" style="margin: 0">
 					<label for="verify-resend-email">Email address</label>
 					<input
@@ -593,11 +630,13 @@
 				</button>
 				<div class="auth-error" id="verify-error" style="margin: 0"></div>
 				<div style="text-align: center">
-					<a
+					<button
+						type="button"
+						class="auth-linkbtn"
 						id="verify-back-link"
-						style="cursor: pointer; font-size: 0.6875rem; color: var(--text-dim)"
-						>Back to login</a
-					>
+						style="font-size: 0.6875rem; color: var(--text-dim)">
+						Back to login
+					</button>
 				</div>
 			</div>
 		</div>

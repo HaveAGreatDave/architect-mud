@@ -15,15 +15,20 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "A long shed of corrugated sheet, painted the colour of the rock so it barely reads as a building at all. The doors stand open on crates stencilled with Coldwater foundry marks that somebody has made a serious effort to scrub off and then given up on. A hand-lettered board by the door lists what is wanted and what is paid, and a second board underneath it, in the same hand, lists what will not be bought at any price.",
-  "exits": {},
+  "description": "A long shed of corrugated sheet, painted the colour of the rock so it barely reads as a building at all. One roller door stands high enough and wide enough to take something with a box behind it, and the concrete apron in front of it is scored with the arcs of everything that has ever backed up to it. A hand-lettered board by the door lists what is wanted and what is paid, and a second board underneath it, in the same hand, lists what will not be bought at any price.",
+  "exits": {
+    "north": "zone_yard_roadhead",
+    "south": "zone_terminus_1202_916"
+  },
   "flags": {
     "building_name": "Last Requisition",
-    "building_type": "warehouse",
+    "building_type": "truck_depot",
     "entrance": "south",
+    "facade": true,
     "floors": 1,
     "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1202_916"
   },
   "grid_x": 1202,
   "grid_y": 915,

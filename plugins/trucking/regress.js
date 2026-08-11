@@ -23,6 +23,8 @@ import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
+import { effTruckParams, tuneRange, repairCost, wearFor, bandOf, FIELD_CAP } from './rig.js';
+import { resaleValue } from './fleet.js';
 
 const GATE = 'zone_regress_truckgate';
 const mkZone = (id, name, extra = {}) => ({
@@ -565,13 +567,28 @@ export default async function regress({ run, check, getPlayer }) {
   // verb never appears there by itself. A system nobody can find is a system nobody has, so the
   // routes in are asserted rather than assumed.
   {
+    // THE DEPOT IS INDOORS AND ITS YARD IS NOT. This pair replaces the old assertion that the depot
+    // flag sat on a drivable street tile, which was the previous design and is now precisely the
+    // bug: the whole shop used to blow open over the road because you crossed a kerb. What has to
+    // stay true is the OTHER half of it — the tile a rig is mounted on is still a road you cannot
+    // collide with, because a bay has no grid coordinates and a facade is solid.
+    const bay = world.zones.get('zone_yard_bonded');
     const yard = world.zones.get('zone_district_922_908');
-    check('Coldwater keeps a depot on a drivable street tile',
-      !!yard?.flags?.truck_depot && yard.flags.terrain === 'road', yard?.flags?.terrain);
-    check('…and it is NOT a solid building facade you would collide with',
+    check('the Coldwater depot is inside a building you walk into',
+      !!bay?.flags?.truck_depot && !!bay.flags.is_interior, bay?.flags?.is_interior);
+    check('…and it names a yard that is a drivable street tile',
+      world.zones.get(bay?.flags?.truck_depot?.yard)?.flags?.terrain === 'road', bay?.flags?.truck_depot?.yard);
+    check('…which is NOT a solid building facade you would collide with',
       !yard?.flags?.building_type, yard?.flags?.building_type);
+    check('…and the street outside says the depot is through the door',
+      /roller door/i.test(await truckTest.describeDepot(yard) || ''), (await truckTest.describeDepot(yard) || '').slice(0, 48));
+    // Every depot resolves to somewhere a truck can actually stand — the one invariant that stops a
+    // freight board offering a run to a room with no road in it.
+    check('every depot resolves to a drivable yard',
+      truckTest.allDepots().every(d => d.grid_x != null && !d.flags?.is_interior),
+      truckTest.allDepots().map(d => d.id).join(' '));
 
-    const line = await truckTest.describeDepot(yard);
+    const line = await truckTest.describeDepot(bay);
     check('a depot describes its own trucks and board', !!line && /fence/i.test(line), (line || '').slice(0, 40));
     for (const v of ['drive', 'haul', 'market', 'yard']) {
       check(`…and teaches "${v}" as a clickable verb`, new RegExp(`data-action="${v}"`).test(line || ''));
@@ -584,6 +601,7 @@ export default async function regress({ run, check, getPlayer }) {
       realDepots.length >= 3 && realDepots.every(d => d.flags?.truck_fuel || d.flags?.building_type === 'fuel_yard'),
       realDepots.map(d => `${d.flags?.truck_depot?.name}:${!!d.flags?.truck_fuel}`).join(' '));
 
+    // (Kessler Street, one tile east — not an apron, not a bay.)
     check('a non-depot street says nothing about trucks',
       (await truckTest.describeDepot(world.zones.get('zone_district_923_908'))) === undefined);
 
@@ -673,6 +691,54 @@ export default async function regress({ run, check, getPlayer }) {
         Math.abs(extent(id).mid) < 0.01 && Math.abs(extent(id + '+t').mid) < 0.01,
         `${extent(id).mid.toFixed(3)} / ${extent(id + '+t').mid.toFixed(3)}`);
     }
+  }
+
+  // ── 4e. The bench: condition, tuning, kits ─────────────────────────────────
+  // The half of a truck that is not the drive. What is actually being defended here is that a
+  // number typed into a dial ends up in the PHYSICS the client runs — the whole reason
+  // `effTruckParams` exists is that there must not be a second copy of this maths anywhere.
+  {
+    const base = TYPES.drayman;
+    const stock = effTruckParams('drayman', {}, 1);
+    check('an untouched truck derives exactly its own type', stock.topSpeed === base.topSpeed
+      && Math.abs(stock.thrustMax - base.thrustMax) < 1e-9, `${stock.topSpeed} / ${stock.thrustMax}`);
+
+    // THE TUNE IS A TRADE. A dial whose right answer is always "+1" is a chore, not a choice, so
+    // each one has to cost something measurable in the other direction.
+    const road = effTruckParams('drayman', { tune: { gearing: 1 } }, 1);
+    const haul = effTruckParams('drayman', { tune: { gearing: -1 } }, 1);
+    check('gearing trades top speed against pull', road.topSpeed > stock.topSpeed && road.thrustMax < stock.thrustMax
+      && haul.topSpeed < stock.topSpeed && haul.thrustMax > stock.thrustMax,
+      `road ${road.topSpeed}/${road.thrustMax.toFixed(2)} vs haul ${haul.topSpeed}/${haul.thrustMax.toFixed(2)}`);
+
+    // Condition bites POWER and BRAKES, and nothing else — a worn truck must not become a truck
+    // that steers badly, because that is illegible from the seat.
+    const worn = effTruckParams('drayman', {}, 0.1);
+    check('wear costs power and stopping', worn.thrustMax < stock.thrustMax && worn.brake < stock.brake);
+    check('…and never costs handling', Math.abs(worn.wheelbase - stock.wheelbase) < 1e-9);
+
+    // THE SURFACE INVARIANT (flight-model.js SURFACES). thrustMax × drive must clear
+    // rollFric × drag on the verge, or "the edge of the road is a law, not a wall" is quietly
+    // broken by a tuning number rather than by a decision. Worst case the bench can produce.
+    const worst = effTruckParams('scrapper', { tune: { gearing: 1, boost: -1 } }, 0);
+    const v = SURFACES.offroad;
+    check('even the worst tuned, most derelict rig can still crawl off the pavement',
+      worst.thrustMax * v.drive > worst.rollFric * v.drag * 1.05,
+      `${(worst.thrustMax * v.drive).toFixed(2)} vs ${(worst.rollFric * v.drag).toFixed(2)}`);
+
+    // A kit is meant to be an unambiguous improvement — that is what the money buys.
+    const kitted = effTruckParams('drayman', { kits: ['auxtank', 'aerokit'] }, 1);
+    check('kits are strictly better than no kits', kitted.tank > stock.tank && kitted.dragP < stock.dragP);
+    check('…and the workshop set is the one that widens the dials',
+      tuneRange(20, ['benchkit']) > tuneRange(20, []), `${tuneRange(20, [])} → ${tuneRange(20, ['benchkit'])}`);
+
+    // A field repair cannot take a rig past Worked, and a shop job is dearer than doing it yourself.
+    check('a shop repair costs more than your own hands',
+      repairCost(base, 0.3, true) > repairCost(base, 0.3, false));
+    check('wear accrues on distance, and a rough surface costs more of it',
+      wearFor(100, { surface: 'offroad' }) > wearFor(100, { surface: 'road' }) && wearFor(0, {}) === 0);
+    check('condition is part of what a truck is worth',
+      resaleValue(base, 0, 1) > resaleValue(base, 0, 0.2));
   }
 
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────

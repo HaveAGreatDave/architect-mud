@@ -24,7 +24,14 @@ import { createHelmWheel } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
 
 const SYNC_MS = 250;              // telemetry cadence — matches the server's MIN_SYNC_MS guard
-const P = TYPES.hauler;
+// THE PARAMETERS ARE THE SERVER'S, NOT A CONSTANT. This was `TYPES.hauler` — one hardcoded truck
+// for the whole fleet — so a player who spent 31,000₵ on a Continental drove a Courier with a
+// different name on the door: same gears, same top speed, same brakes, same turn-in. The server
+// now assembles the real set at mount (plugins/trucking/rig.js effTruckParams: the type, its tune,
+// its kits, and how worn it is) and ships it in the cab context, so a bought truck and a tuned
+// truck are both felt at the wheel. The fallback stays for a context that predates the field.
+let P = TYPES.hauler;
+const setParams = (ctx) => { P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler; };
 
 let st = null;
 
@@ -75,6 +82,7 @@ export function openCab(ctx = {}) {
       </div>
     </div>`;
 
+  setParams(ctx);                                  // which truck this is — before anything reads P
   const sim = createTruckState(P);
   sim.x = ctx.x; sim.y = ctx.y; sim.heading = ctx.heading ?? 180;
 
@@ -188,6 +196,10 @@ export function openCab(ctx = {}) {
 // make this feel worse than a text prompt.
 export function cabContext(ctx) {
   if (!st) return;
+  // A repair or a tune committed at the bench arrives on the next push, so a truck that got its
+  // brakes back gets them back while you are sitting in it rather than at the next mount.
+  if (ctx.params || ctx.typeId) setParams(ctx);
+  if (ctx.condition != null) st.condition = ctx.condition;
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;

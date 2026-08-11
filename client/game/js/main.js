@@ -364,7 +364,7 @@ fetch("/api/registrations/status")
 	})
 	.catch(() => {});
 
-document.getElementById("auth-toggle-link").addEventListener("click", () => {
+document.getElementById("auth-toggle-link").addEventListener("click", (e) => {
 	state.isRegister = !state.isRegister;
 	document
 		.getElementById("handle-field")
@@ -385,6 +385,33 @@ document.getElementById("auth-toggle-link").addEventListener("click", () => {
 	document.getElementById("auth-submit").textContent = state.isRegister
 		? "Register"
 		: "Enter";
+	// A password manager should OFFER TO GENERATE on the register form and offer
+	// to fill on the login form, and it decides which off this attribute alone.
+	// It was hardcoded to current-password, so registering prompted for an
+	// existing password that by definition does not exist yet — worst for exactly
+	// the players who lean hardest on a manager, since a generated password is
+	// the least dictatable string on the screen.
+	document.getElementById("auth-password").autocomplete = state.isRegister
+		? "new-password"
+		: "current-password";
+	// Say what just changed, then land focus on the first field that appeared.
+	// The reveal is silent otherwise: two required fields materialise ABOVE the
+	// toggle, and the first anyone hears of the handle is the form rejecting them
+	// for leaving it blank.
+	//
+	// GATED ON isTrusted. The registrations-closed check above flips this toggle
+	// with a synthetic .click() when a fetch resolves — seconds after load, with
+	// no gesture behind it. Announcing and grabbing focus there would yank the
+	// caret out of whatever the player had already started typing. A synthetic
+	// click reports isTrusted false, so only a real press moves anything.
+	if (!e.isTrusted) return;
+	const status = document.getElementById("auth-mode-status");
+	if (status)
+		status.textContent = state.isRegister
+			? "Register mode. Handle and email fields added above."
+			: "Login mode. Handle and email fields removed.";
+	if (state.isRegister) document.getElementById("auth-handle").focus();
+	else document.getElementById("auth-username").focus();
 });
 
 function _makeDraggable(window, handle) {

@@ -127,18 +127,26 @@ const focusablesIn = (el) => [...el.querySelectorAll(FOCUSABLE)].filter(n => {
   return !!(n.offsetParent || (r && r.width > 0 && r.height > 0));
 });
 
+// The one scan. Both the focus trap and the disconnect sweep ask the same
+// question — "what is modal on screen right now" — so they ask it in one place.
+function modalEntries() {
+  const entries = [];
+  const nodes = [...document.querySelectorAll(CANDIDATES)];
+  nodes.forEach((el, order) => {
+    if (NEVER_TRAP.some(sel => el.matches?.(sel) || el.closest?.(sel))) return;
+    const cs = getComputedStyle(el);
+    const f = focusablesIn(el);
+    if (!isModalCandidate(cs, f.length)) return;
+    entries.push({ el, z: parseInt(cs.zIndex, 10), order, focusables: f });
+  });
+  return entries;
+}
+
 function evaluate() {
   _scheduled = false;
   let entries = [];
   try {
-    const nodes = [...document.querySelectorAll(CANDIDATES)];
-    nodes.forEach((el, order) => {
-      if (NEVER_TRAP.some(sel => el.matches?.(sel) || el.closest?.(sel))) return;
-      const cs = getComputedStyle(el);
-      const f = focusablesIn(el);
-      if (!isModalCandidate(cs, f.length)) return;
-      entries.push({ el, z: parseInt(cs.zIndex, 10), order, focusables: f });
-    });
+    entries = modalEntries();
   } catch { return; }
 
   const top = topmostOf(entries);
@@ -250,3 +258,33 @@ export function initA11yFocus() {
 // Exported for the smoke test, and for anything that needs to know whether a
 // modal currently owns the keyboard.
 export function activeModal() { return _active; }
+
+// ── The disconnect sweep ────────────────────────────────────────────────────
+// A dropped connection or a sign-out leaves every open dialog driving nothing:
+// its buttons send commands down a socket that isn't there, and its contents
+// (a depot's fleet, an ATM balance, a loot pile) are a snapshot of a world you
+// are no longer in. A handful of panels wired their own `game-disconnect`
+// listener; the other forty didn't, and each new one starts broken again — the
+// same argument that made the focus trap global.
+//
+// It closes the way Escape does, and for the same reason: CLICK the panel's own
+// close control so the panel runs its own teardown (rAF loops, audio, a server
+// notification it owes). Nothing is ever ripped out of the DOM here. A panel
+// with no close control is left alone — that is the existing contract, and a
+// reload is coming behind an explicit sign-out anyway.
+export function closeAllModals() {
+  let entries;
+  try { entries = modalEntries(); } catch { return; }
+  // Topmost first: a dialog stacked over another is usually the child, and
+  // closing the parent out from under it is how teardown gets skipped.
+  entries.sort((a, b) => ((b.z || 0) - (a.z || 0)) || (b.order - a.order));
+  for (const { el } of entries) {
+    if (!el.isConnected) continue;
+    const btn = findCloseControl([...el.querySelectorAll('button,[role="button"],a,span,div,[data-a11y-close]')]);
+    try { btn?.click(); } catch { /* the panel's own handler threw; not ours to fix */ }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('game-disconnect', () => closeAllModals());
+}

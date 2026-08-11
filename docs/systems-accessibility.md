@@ -174,7 +174,95 @@ regression-tested in `scripts/voice/smoke.mjs`.
 
 ---
 
-## 5. Not in scope
+## 5. The status marks are for eyes only *(fixed 2026-08-11)*
+
+The `statusGlyphs` option in `A11Y_OPTIONS` prepends a shape to state the game otherwise draws in hue
+alone — `✕` before an enemy link, `▲` before a hazard, `✓` before an ingredient you have. It exists for
+players who don't separate two hues, and the whole block lives at the bottom of `styles.css` under
+`html[data-status-glyphs="on"]`.
+
+It carried this comment, which was wrong:
+
+> *The mark is a pseudo-element, so no screen reader ever meets it.*
+
+**Chrome puts CSS generated content in the accessibility tree.** TalkBack on Android read all 18 marks
+aloud by glyph name — "heavy multiplication x" before every enemy in every room description, before
+every incoming combat line, before every error. An option that helps one group was taxing another,
+which is the one thing an accessibility feature must never do.
+
+⚠ **Every mark is now declared twice, and collapsing that to one line is a regression:**
+
+```css
+content: "✕\00a0";        /* the glyph, for any engine */
+content: "✕\00a0" / "";   /* the same glyph, empty ALTERNATIVE TEXT */
+```
+
+The second wins where alt text is supported (Chrome 77+, Firefox 116+, Safari 17.4+) and takes the mark
+out of the a11y tree. Where it isn't, the declaration is invalid and dropped and the first still draws.
+A lone alt-text declaration would mean the colourblind player loses the mark entirely on an older engine
+— which is why `a11y:smoke` asserts **both** halves, and fails if either goes missing.
+
+The same reasoning silenced the always-on decoration that was never a status at all: the connection
+dot (`●`/`◌`/`○` — `#conn-status` already carries a `title`), the shop-mode brackets `[ ]`, the shop-row
+bullets `· ›`, and the locked-dialogue padlock (whose option already sets a `title` saying it's locked).
+
+**Kept deliberately:** `content: "(empty)"` on an empty container list. That one is not decoration — it
+is the only thing in the DOM that says the list is empty, so it must stay spoken.
+
+### The same bug, in markup
+
+`dialogue.js`'s `optionIconHtml` was announcing each conversation option three times: the emoji by name
+("shopping trolley"), then the `title` that explains it ("Opens their shop"), then the button's own
+label. The icon span is `aria-hidden="true"` now. The glyph is a sighted player's shortcut to where an
+option leads; the label is how everyone else already knew.
+
+---
+
+## 6. The cold open's gate *(fixed 2026-08-11)*
+
+For anyone who **didn't** set the log rung, the cinematic's start gate is the first screen of the game.
+(A player on `log` never sees it at all — [prologue/index.js](../plugins/prologue/index.js) returns to
+`beginArrival` *before* the `intro_cinematic` push, so this is not a client-side skip.)
+
+The gate was already built well: `role="dialog"` with an `aria-label`, real `<button>`s, Escape/Space
+skip, an auto-begin so nobody is stranded, and a server-side `INTRO_FALLBACK_MS` so a client that never
+echoes `introdone` cannot stall the prologue. Three things were wrong at the edges:
+
+- **It landed on the wrong control.** `a11y-focus.js` focuses the first focusable in a dialog, and in
+  DOM order that is the sound toggle — so the opening line of the game, spoken, was a settings control.
+  Fixed by claiming focus for `#intro-cine-begin` **synchronously on mount**: the manager only moves
+  focus when the dialog doesn't already contain it, so claiming it first makes the manager agree rather
+  than compete. Focus rather than a DOM reorder, so the toggle stays drawn above the button where it
+  reads as a note about what's coming.
+- **The sound toggle announced its own emoji.** `'🔊  Sound on'` was read as "speaker with three sound
+  waves, Sound on". The glyph is in an `aria-hidden` span now, and `aria-pressed` was always carrying
+  the state anyway.
+- **The countdown was sighted-only.** The wait bar is `aria-hidden`, correctly — it is a drawing of a
+  countdown. But that left nothing saying the sequence starts on its own, so it simply began. There is
+  an `.sr-only` sentence now, and ⚠ **it derives its number from `AUTO_BEGIN_MS`** rather than spelling
+  "twenty seconds" in the markup. The block right above it already warns that a duplicated duration
+  "would make the terminal lie about when it's going to move"; that applies to the sentence exactly as
+  much as to the bar.
+
+All four properties are asserted in `scripts/a11y/smoke.mjs`.
+
+### Still open
+
+Two things in this path are known and **not** fixed:
+
+- **The skip instruction races the dialog.** The prologue sends the "press Escape to skip it" line and
+  the `intro_cinematic` push in the same tick. `#output` is `role="log"` (implicitly polite), and the
+  overlay takes focus a frame later — and a polite announcement is interrupted by a focus change. So
+  the sentence explaining the escape hatch is likely truncated by the thing it describes.
+- **The sequence itself is silent.** Beat text is written with `lineEl.innerHTML` and is never
+  announced. That is deliberate: a second continuous live region running the length of a cinematic is
+  exactly what [the one-live-region rule](systems-display-mode.md#the-log-rung-and-the-two-panes)
+  forbids, and CODEX Volume I carries the full text. What's missing is that nobody is *told* the next
+  minute is visual only, so it cannot be told apart from a freeze.
+
+---
+
+## 7. Not in scope
 
 No server-side verb registry sync for dictation (the client has no verb list, and building a synced
 one is its own feature). No per-player persistence — localStorage, like everything else in the table.

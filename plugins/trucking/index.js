@@ -36,7 +36,11 @@ import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from '../
 import { startTextDrive, stopTextDrive, setTextTarget, isTextDriving, textDriveCommand } from './textdrive.js';
 import { COMMODITIES, quotesFor, askPrice, bidPrice, capacityFor, marketDay, DEFAULT_TRAILER_KG } from './market.js';
 import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
-import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES } from './fleet.js';
+import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
+  setCondition, saveTruckData, setFuel } from './fleet.js';
+import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
+  repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul } from './rig.js';
+import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing } from '../voidwalking/index.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
@@ -69,8 +73,18 @@ async function cmdDrive(args, raw, player) {
   // who walked out and thought better of it shouldn't have to walk back for a truck.
   if (player._crossing) return mountOnCrossing(player);
 
-  const here = getZone(player.current_zone);
-  const depot = depotAt(here);
+  // ROLL OUT THROUGH THE DOOR. You are standing in a garage bay, and a garage bay has no road in
+  // it — the tile is a building and buildings are solid. So the truck is mounted on the APRON: the
+  // hardstand the bay names as its yard, one door away, which is where the rig has been standing
+  // all along. `driveToZone` walks the player out with it, so the room you are in when the
+  // windscreen appears is the road, exactly as it would be if you had opened the door and climbed
+  // up. Mounting inside the shed instead was the alternative, and it would have put a forty-tonne
+  // truck in a room with no grid coordinates and no surface under it.
+  const stood = getZone(player.current_zone);
+  const bay = depotAt(stood);
+  const yardId = bay ? yardIdOf(stood, bay) : null;
+  const here = bay ? (getZone(yardId) || stood) : stood;
+  const depot = bay || depotAt(here) || bayForYard(stood?.id)?.depot;
   if (!depot) {
     return say("There's nothing to drive here. Rigs run out of the freight yards — find a depot with a truck in it.");
   }
@@ -79,10 +93,12 @@ async function cmdDrive(args, raw, player) {
   // OWNERSHIP IS THE GATE. Phase 1 handed anybody a free rig because the question then was whether
   // the DRIVE was worth doing. It is — so the question now is whether the run is worth OWNING, and
   // that only bites if the truck cost you something you could have spent elsewhere.
-  const owned = await truckAt(player.id, here.id);
+  // The bay AND its apron: a truck you left standing outside the door is a truck at this depot.
+  const zonesHere = bay ? depotZonesOf(stood, bay) : depotZonesOf(here, depot);
+  const owned = await truckAt(player.id, zonesHere);
   if (!owned) {
     const mine = await fleetOf(player.id);
-    const elsewhere = mine.find(t => t.depot_zone && t.depot_zone !== here.id);
+    const elsewhere = mine.find(t => t.depot_zone && !zonesHere.includes(t.depot_zone));
     if (elsewhere) {
       const z = getZone(elsewhere.depot_zone);
       return say(`Your ${elsewhere.type.name} is parked at ${z ? (depotAt(z)?.name || z.name) : 'another yard'}, not here.`);
@@ -99,14 +115,32 @@ async function cmdDrive(args, raw, player) {
     if (paid) sendToPlayer(player.id, paid);
   }
 
+  // A DERELICT ARGUES ABOUT IT FIRST. Never a refusal — a truck that simply will not start strands
+  // a player at a yard with their money tied up in it and nothing to do, which is a punishment with
+  // no play in it. It is a delay and a noise, and it is the last warning before the bench.
+  if (startTrouble(owned.condition)) {
+    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>' });
+  }
+
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: 180, depot: here.id });
   rig.zoneId = here.id;
   rig.truckId = owned.id;
   rig.typeId = owned.type_id;
+  // WHAT YOU BOUGHT IS WHAT YOU DRIVE. `rig.params` is the tuned, kitted, worn parameter set from
+  // rig.js, and it is what the cab is handed — the client used to hardcode TYPES.hauler, so every
+  // truck in the game drove exactly like the 4,200₵ Courier and the fleet ladder bought a price tag
+  // and a silhouette and nothing else.
   rig.type = owned.type;
+  rig.cd = owned.custom_data || {};
+  rig.condition = owned.condition ?? 1;
+  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition);
+  rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
   setPosture(player, 'driving');
+  // Out of the shed and onto the apron, and the room description that comes with it. Done AFTER
+  // the rig exists so the move gate sees a driver rather than a pedestrian walking out of a door.
+  if (bay && yardId && yardId !== player.current_zone) driveToZone(player, rig, yardId);
 
   // THE MINIGAME AXIS (docs/systems-display-mode.md). Delete the cab and the player is not reading
   // less, they are STUCK — they cannot make the run at all — so this is `prefersTextMinigames`,
@@ -139,6 +173,44 @@ function depotAt(zone) {
   if (!f) return null;
   return typeof f === 'object' ? f : { name: zone.name };
 }
+
+// ── A DEPOT IS A BUILDING YOU WALK INTO ──────────────────────────────────────
+// The depot used to be a flag on a piece of STREET, so the whole shop — a dealer's line, a freight
+// board, a commodities exchange — bloomed over the road because you crossed a particular kerb.
+// Nothing else in the game does that: a shop is a shop you go inside, and the hangar this system
+// was modelled on has been a walk-in interior since the day it was written.
+//
+// So `flags.truck_depot` now belongs on the INSIDE of a garage, and it carries one more key:
+//
+//   flags.truck_depot = { name, yard: '<zone id>' }
+//
+// `yard` is the hardstand outside the roller door — a real, drivable street tile with grid
+// coordinates. It is the ONE fact the bay cannot derive, because a building's own tile is solid
+// (buildings are solid, and that is a law of this system: docs/systems-trucking.md) and a truck
+// cannot be mounted on a zone that has no road under it.
+//
+// Everything downstream reads these two helpers rather than a zone id, which is what let the
+// change stay small: a truck parked in the bay and a truck parked on the apron are one truck at
+// one depot, and every lookup asks for the PAIR.
+const yardIdOf = (zone, depot) => depot?.yard || zone?.id || null;
+const depotZonesOf = (zone, depot) => [zone?.id, depot?.yard].filter(Boolean);
+// The bay a yard tile belongs to — the reverse lookup, for prose on the apron and for `park`.
+// MEMOISED, because the caller is `zone.describeRoom`: this answers a question asked every time
+// anybody looks at any room in the game, and a full `getAllZones()` sweep per look is exactly the
+// kind of quiet per-move cost the read-tier rules exist to keep out. The world's zones are static
+// between reloads, so the index is built once and dropped when the world is.
+let _yardIndex = null;
+function yardIndex() {
+  if (_yardIndex) return _yardIndex;
+  _yardIndex = new Map();
+  for (const z of getAllZones()) {
+    const d = depotAt(z);
+    if (d?.yard) _yardIndex.set(d.yard, { zone: z, depot: d });
+  }
+  return _yardIndex;
+}
+export const resetDepotIndex = () => { _yardIndex = null; };
+const bayForYard = (zoneId) => (zoneId ? yardIndex().get(zoneId) || null : null);
 
 // The legacy path: mount on a crossing you are already walking. Unchanged behaviour, moved aside so
 // `drive` reads as the depot verb it now is.
@@ -241,8 +313,20 @@ function boardFor(zoneId) {
   }
   return out;
 }
+// A DEPOT, TO EVERYTHING THAT ISN'T THE SHOP, IS ITS YARD. Freight boards, delivery checks, the
+// text driver's default target and the crossing all want somewhere a TRUCK can be, and since the
+// depot moved indoors that is never the room with the flag in it — a bay has no grid coordinates
+// and no road under it. So this resolves each bay to its apron and returns THAT, which is why
+// nothing downstream of it needed changing when the shop went inside.
 function allDepots() {
-  return getAllZones().filter(z => z.flags?.truck_depot && z.grid_x != null);
+  const out = [];
+  for (const z of getAllZones()) {
+    const d = depotAt(z);
+    if (!d) continue;
+    const yard = d.yard ? getZone(d.yard) : z;
+    if (yard?.grid_x != null && !yard.flags?.is_interior) out.push(yard);
+  }
+  return out;
 }
 // A dock is any zone carrying `flags.loading_dock`. Content decides which; this only reads it —
 // the same engine/content split as `truck_depot`.
@@ -301,14 +385,59 @@ async function deliver(player, rig) {
 // (plugins/flight/hangars.js buildCards) but RETURNED rather than pushed, like the cards machine —
 // there is no race against a player who walked off mid-await.
 async function cmdYard(args, raw, player) {
-  const here = getZone(player.current_zone);
-  const depot = depotAt(here);
+  const { bay, depot } = depotHere(player);
   if (!depot) return say('No yard here.');
   const sub = (args[0] || '').toLowerCase();
-  if (sub === 'buy') return await yardBuy(player, here, depot, args[1], args.slice(2).join(' '));
-  if (sub === 'sell') return await yardSell(player, here, args[1]);
+  if (sub === 'buy') return await yardBuy(player, bay, depot, args[1], args.slice(2).join(' '));
+  if (sub === 'sell') return await yardSell(player, bay, args[1]);
 
-  return await depotPanel(player, here, depot, 'fleet');
+  return await depotPanel(player, bay, depot, 'fleet');
+}
+
+// The depot the player is at, from EITHER side of the roller door. Every depot verb goes through
+// this rather than through `depotAt(current_zone)` — a driver who parked on the apron and a walker
+// standing in the bay are both at the depot, and making them find the exact tile that carries the
+// flag is the sort of invisible precondition that reads as a broken verb.
+function depotHere(player) {
+  const here = getZone(player.current_zone);
+  const direct = depotAt(here);
+  if (direct) return { bay: here, depot: direct, yard: getZone(yardIdOf(here, direct)) || here };
+  const via = bayForYard(here?.id);
+  if (via) return { bay: via.zone, depot: via.depot, yard: here };
+  return { bay: here, depot: null, yard: here };
+}
+
+// RE-PUSH AFTER EVERY MUTATION, and this is the fix for the oldest complaint about this screen:
+// buying a truck WORKED and looked as though it had not. `yardBuy` charged you, wrote the row and
+// returned a line of prose — while the panel sitting over the top of it still showed the same
+// dealer card with the same Buy button, an empty fleet tab and a stale credit balance. The hangar
+// has never had that problem because every one of its bench commands ends in `pushHangarBay`.
+// Nothing here may end in a bare `say()` if it changed the world.
+async function repush(player, tab = 'fleet') {
+  const { bay, depot } = depotHere(player);
+  if (!depot) return;
+  const panel = await depotPanel(player, bay, depot, tab);
+  if (panel && panel.type === 'truck_depot') sendToPlayer(player.id, panel);
+}
+
+// What a full tank costs. One number, because diesel is diesel — the interesting variable in this
+// system is the DISTANCE between pumps, not the price at them.
+const FUEL_FULL = 380;
+
+// THE FOUR BARS THE BENCH DRAWS, and they are derived from the drive's own parameter set rather
+// than from a second table of marketing numbers. That is the whole point of routing every knob
+// through `effTruckParams`: a bar that moves when a dial turns is promising the wheel, and the
+// wheel is handed the same object. Each is normalised 0..1 against the fleet's own spread.
+function axesFor(typeId, cd, condition) {
+  const p = effTruckParams(typeId, cd, condition);
+  const n = (v, lo, hi) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  return {
+    pull:  +n(p.thrustMax / p.mass, 1.5, 4.6).toFixed(2),      // grunt per tonne — what drags a full box uphill
+    speed: +n(p.topSpeed, 50, 80).toFixed(2),
+    stop:  +n(p.brake, 4.0, 9.5).toFixed(2),
+    turn:  +n(1 / p.wheelbase, 1.0, 2.4).toFixed(2),
+    range: +n(p.tank, 800, 2700).toFixed(2),
+  };
 }
 
 // ── The depot panel ──────────────────────────────────────────────────────────
@@ -323,7 +452,17 @@ async function cmdYard(args, raw, player) {
 //
 // The verbs survive as entry points, exactly as `hangar` does — walking in is the discovery path,
 // typing is the deliberate one, and both land on the same screen.
-async function depotPanel(player, here, depot, tab = 'fleet') {
+async function depotPanel(player, hereIn, depotIn, tab = 'fleet') {
+  // WHERE THE PANEL IS OPENED FROM IS NOT WHERE THE MARKET IS. A depot is two zones now — the bay
+  // you are standing in and the apron outside its door — and every economic question (which region
+  // is this, what is the freight board here) is a question about the PLACE, so it is answered from
+  // whichever of the two carries the coordinates. The bay is the one with the panel in it; the yard
+  // is the one with the road.
+  const bay = depotAt(hereIn) ? hereIn : (bayForYard(hereIn?.id)?.zone || hereIn);
+  const depot = depotIn || depotAt(bay);
+  const yard = getZone(yardIdOf(bay, depot)) || bay;
+  const here = yard.grid_x != null ? yard : bay;
+  const zonesHere = depotZonesOf(bay, depot);
   const region = here.flags?.region_id;
   const day = marketDay();
   const mine = await fleetOf(player.id);
@@ -332,6 +471,17 @@ async function depotPanel(player, here, depot, tab = 'fleet') {
   // because there was no trailer to ask — which meant buying a bigger tractor bought you capacity
   // it does not actually have. The truck pulls; the box carries.
   const deckKg = rig?.trailer?.ratedKg || rig?.type?.kg || DEFAULT_TRAILER_KG;
+  // Three reads the bench needs, and they go out TOGETHER rather than one after another — this
+  // panel already makes four round trips against a remote Postgres and the auto-open path fires
+  // from a footstep. (docs/architecture.md, read tiers: Promise.all independent reads.)
+  const [fab, myTrailers] = await Promise.all([
+    effectiveSkill(player, 'fabrication'),
+    trailersOf(player.id),
+  ]);
+  const towedIds = new Set(myTrailers.filter(t => t.towedBy).map(t => t.towedBy));
+  // A pump is a property of the PLACE, and the place is two zones — a depot that keeps diesel
+  // keeps it on the apron, which is the tile with the road on it.
+  const pumpHere = !!(yard.flags?.truck_fuel || bay.flags?.truck_fuel || yard.flags?.building_type === 'fuel_yard');
   const quotes = quotesFor(region, day);
   await rememberMarket(player, region, day, quotes);
   const seen = await recallMarkets(player);
@@ -352,19 +502,58 @@ async function depotPanel(player, here, depot, tab = 'fleet') {
       ? { kind: rig.cargo.kind, name: rig.cargo.name, qty: rig.cargo.qty || null,
           kg: rig.cargo.kg, to: rig.cargo.toName || null, paid: rig.cargo.unitPaid || null }
       : null,
-    fleet: mine.map(t => ({
-      id: t.id, name: t.name || t.type.name, type: t.type.name, typeId: t.type_id,
-      kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed,
-      fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
-      hereNow: t.depot_zone === here.id,
-      whereName: t.depot_zone === here.id ? null : depotNameOf(t.depot_zone),
-      resale: resaleValue(t.type, t.odometer),
-    })),
+    // The two zones, so the client can say which side of the door it is showing and the log rung
+    // can name the road you would roll out onto.
+    bay: bay.id, yard: yard.id, yardName: yard.name, inBay: player.current_zone === bay.id,
+    fab,                                    // the hand doing the work — it sets how far the dials go
+    fleet: mine.map(t => {
+      const cd = t.custom_data || {};
+      const kits = installedKits(cd);
+      const band = bandOf(t.condition ?? 1);
+      const towed = towedIds.has(t.id);
+      return {
+        id: t.id, name: t.name || t.type.name, type: t.type.name, typeId: t.type_id,
+        // What the 3D floor and the wireframes draw: the mesh key, trailer included when there is
+        // one on the pin. The panel never decides this — a rig with a box is a different silhouette
+        // and that is a fact about the truck, not a presentation choice.
+        variant: `${t.type_id}${towed ? '+t' : ''}`,
+        kg: t.type.kg, tank: t.type.tank, top: t.type.topSpeed, price: t.type.price,
+        fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
+        hereNow: zonesHere.includes(t.depot_zone),
+        whereName: zonesHere.includes(t.depot_zone) ? null : depotNameOf(t.depot_zone),
+        resale: resaleValue(t.type, t.odometer, t.condition),
+        impound: t.impound_fee || 0,
+        // ── the bench half ──
+        condition: +(t.condition ?? 1).toFixed(3), band: band.key, bandLabel: band.label, bandText: band.text,
+        tune: { gearing: 0, boost: 0, suspension: 0, brakes: 0, ...(cd.tune || {}) },
+        kits, paint: cd.paint || null,
+        repairField: repairCost(t.type, t.condition ?? 1, false),
+        repairShop: repairCost(t.type, t.condition ?? 1, true),
+        canField: (t.condition ?? 1) < FIELD_CAP,
+        paintPrice: paintCost(t.type),
+        refuel: Math.round((1 - (t.fuel ?? 1)) * FUEL_FULL),
+        // The performance the panel graphs. Derived through the SAME function the drive uses, so a
+        // bar that moves when you turn a dial is promising exactly what the wheel will deliver.
+        stats: axesFor(t.type_id, cd, t.condition ?? 1),
+      };
+    }),
     stock: TRUCK_TYPES.map(t => ({
       id: t.id, name: t.name, tier: t.tier, price: t.price, blurb: t.blurb,
-      kg: t.kg, tank: t.tank, top: t.topSpeed,
+      variant: t.id, kg: t.kg, tank: t.tank, top: t.topSpeed,
+      stats: axesFor(t.id, {}, 1),
       afford: (player.credits || 0) >= t.price,
     })),
+    trailerStock: TRAILER_TYPES.map(t => ({
+      id: t.id, name: t.name, price: t.price, rated: t.rated, kg: t.kg,
+      afford: (player.credits || 0) >= t.price,
+    })),
+    // The bench's catalogues, sent once with the panel exactly as the hangar sends its paint and
+    // tune catalogues: the client renders the dials it is told about and invents none.
+    tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
+    tuneRange: tuneRange(fab, []),
+    kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, ...k, afford: (player.credits || 0) >= k.price })),
+    flashes: FLASHES,
+    fuelHere: pumpHere,
     board: boardFor(here.id),
     quotes: quotes.map((q) => {
       const oq = other?.q?.[q.key];
@@ -414,13 +603,18 @@ async function yardBuy(player, here, depot, typeId, plate) {
   }
   // One truck per depot, so `drive` never has to ask which. Owning several is fine; parking two in
   // the same yard is not, and saying so is cheaper than a disambiguation prompt on every mount.
-  if (await truckAt(player.id, here.id)) {
+  const depotZones = depotZonesOf(here, depot);
+  if (await truckAt(player.id, depotZones)) {
     return say('You already have a truck parked in this yard. Move it or sell it before you buy another.');
   }
   player.credits -= type.price;
+  // It is bought INTO THE BAY, not onto the street: a truck you just paid for is inside, under a
+  // roof, and `drive` is what brings it out. (The row's zone is the bay's, which is also what makes
+  // the garage floor able to show it standing next to the rest of your fleet.)
   await buyTruck(player.id, key, here.id, plate);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
   return say(`<span class="item-grant">Bought: the ${type.name}${plate ? ` — "${plate}"` : ''}. ${type.price}₵.</span>\n`
     + `<span class="text-dim">${type.kg} kg of deck and ${type.tank} tiles to a tank. ${teachVerb('drive')} when you're ready.</span>`);
 }
@@ -434,6 +628,7 @@ async function yardBuyTrailer(player, here, t) {
   await buyTrailer(player.id, t.id, here.id);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'buy');
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. It is standing in the yard — ${teachVerb('hitch')} to back under it.</span>`);
 }
@@ -442,14 +637,162 @@ async function yardSell(player, here, id) {
   if (!id) return say('Sell which? <span class="text-dim">yard sell &lt;id&gt;</span>');
   const t = await getTruck(id, player.id);
   if (!t) return say("That isn't yours.");
-  if (t.depot_zone !== here.id) return say(`It's parked at ${depotNameOf(t.depot_zone)}. Bring it here first.`);
+  if (!depotZonesOf(here, depotAt(here)).includes(t.depot_zone)) return say(`It's parked at ${depotNameOf(t.depot_zone)}. Bring it here first.`);
   if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
-  const value = resaleValue(t.type, t.odometer);
+  const value = resaleValue(t.type, t.odometer, t.condition);
   await sellTruck(t.id, player.id);
   player.credits = (player.credits || 0) + value;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
   return say(`<span class="item-grant">Sold the ${t.type.name} for ${value}₵.</span> <span class="text-dim">Somebody drives it away without looking back at you.</span>`);
+}
+
+// ── rig: the bench ───────────────────────────────────────────────────────────
+// Repair, tune, kit, paint and pump, behind ONE verb with subcommands rather than five verbs.
+// That is not tidiness: `repair`, `tune`, `modify` and `paintset` are all already owned — by the
+// engine's gear repair, by broadcast, and by flight — and a sixth claimant on `repair` would be a
+// dispatch-order puzzle for anybody who ever stood in a hangar holding a broken coat. `rig` is a
+// word this system owns outright, and every button on the bench sends one of these strings.
+//
+// EVERY SUBCOMMAND ENDS AT THE PANEL. See `repush` — a bench command that changes a truck and
+// leaves the screen showing the old numbers is the bug this whole pass exists to kill.
+async function cmdRig(args, raw, player) {
+  const sub = (args[0] || '').toLowerCase();
+  const { bay, depot } = depotHere(player);
+  if (!depot) return say('You would need to be at a depot. The benches are in the yards.');
+  const rest = args.slice(1);
+
+  // Which truck. The panel always names it explicitly (its buttons carry the id as the first token
+  // after the subcommand), and a player typing never does — so an unnamed one means "the one
+  // standing here", which at a depot is unambiguous by the one-truck-per-yard rule.
+  const idArg = rest[0] && /^truck_[0-9a-f]+$/i.test(rest[0]) ? rest.shift() : null;
+  const truck = idArg ? await getTruck(idArg, player.id) : await truckAt(player.id, depotZonesOf(bay, depot));
+  if (!truck) return say(idArg ? "That isn't one of yours." : 'You have nothing parked here to work on.');
+  if (rigOf(player)?.truckId === truck.id) return say('Climb down first — nobody works on a truck they are sitting in.');
+  const cd = truck.custom_data || {};
+
+  if (sub === 'repair') return await rigRepair(player, truck, cd, rest[0]);
+  if (sub === 'tune') return await rigTune(player, truck, cd, rest);
+  if (sub === 'kit') return await rigKit(player, truck, cd, rest[0]);
+  if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
+  if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
+  if (sub === 'name') return await rigName(player, truck, rest.join(' '));
+  return say('<span class="text-dim">rig repair | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
+}
+
+// TWO WAYS TO FIX A TRUCK, and the difference between them is certainty, not just price. A shop
+// does it properly and charges for that. Your own hands are cheaper, botchable, and — the real
+// constraint — cannot take a rig past Worked, because there is a limit to what gets done on a
+// concrete floor with the toolbox that lives behind the seat.
+async function rigRepair(player, truck, cd, mode) {
+  const pro = /^(shop|pay|pro|full|bench)$/.test((mode || '').toLowerCase());
+  const cond = truck.condition ?? 1;
+  if (cond >= 0.995) return say(`The ${truck.type.name} is as good as it gets.`);
+  if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools — it is already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
+  const cost = repairCost(truck.type, cond, pro);
+  if ((player.credits || 0) < cost) {
+    return say(`That is ${cost}₵ of parts and labour and you have ${player.credits || 0}₵.`);
+  }
+  player.credits -= cost;
+  let to, note = '';
+  if (pro) {
+    to = 1;
+  } else {
+    const chk = await skillCheck(player, 'fabrication', 5);
+    // A botch does not waste the money — it gets you PART of the way, which is the honest outcome
+    // of a job half-understood and keeps a low-skill player's repair worth doing.
+    to = Math.min(FIELD_CAP, cond + (FIELD_CAP - cond) * (chk.success ? 1 : 0.55));
+    await awardSkillUse(player.id, 'fabrication', chk.margin);
+    if (!chk.success) note = ' <span class="text-amber">(Some of it beat you.)</span>';
+  }
+  await setCondition(truck.id, player.id, to);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  const band = bandOf(to);
+  return say(`<span class="item-grant">${pro ? "The depot's fitters take it in and give it back right" : 'You get under it yourself'} — ${cost}₵. `
+    + `${truck.type.name}: <b>${band.label}</b> (${Math.round(to * 100)}%).</span>${note}`);
+}
+
+// The dials. All four commit at once, exactly as flight's `tuneset` does, because they are read
+// against each other — a gearing change you make without seeing what it did to the pull is a
+// change you make twice.
+async function rigTune(player, truck, cd, vals) {
+  const fab = await effectiveSkill(player, 'fabrication');
+  const range = tuneRange(fab, installedKits(cd));
+  const keys = Object.keys(TUNE_PARAMS);
+  const next = {};
+  keys.forEach((k, i) => { next[k] = clampTune(vals[i], range) ?? 0; });
+  cd.tune = next;
+  if (!await saveTruckData(truck.id, player.id, cd)) return say('That truck will not take a setting.');
+  await awardSkillUse(player.id, 'fabrication', 0);
+  await repush(player, 'bench');
+  const capped = keys.some(k => Math.abs(next[k]) >= range);
+  return say(`<span class="item-grant">Dialled in: ${keys.map(k => `${TUNE_PARAMS[k].label} ${next[k] > 0 ? '+' : ''}${next[k]}`).join(', ')}.</span>`
+    + (capped ? ' <span class="text-dim">That is as far as your hands and your gear will take it — a workshop instrument set would go further.</span>' : ''));
+}
+
+async function rigKit(player, truck, cd, kitId) {
+  const kit = KITS[(kitId || '').toLowerCase()];
+  if (!kit) return say(`No such kit. <span class="text-dim">${Object.keys(KITS).join(', ')}</span>`);
+  const fitted = installedKits(cd);
+  if (fitted.includes(kitId)) return say(`The ${kit.name} is already on it.`);
+  if ((player.credits || 0) < kit.price) return say(`The ${kit.name} is ${kit.price}₵ and you have ${player.credits || 0}₵.`);
+  player.credits -= kit.price;
+  cd.kits = [...fitted, kitId.toLowerCase()];
+  await saveTruckData(truck.id, player.id, cd);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await awardSkillUse(player.id, 'fabrication', 0);
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">Fitted: ${kit.name}. ${kit.price}₵.</span> <span class="text-dim">${kit.desc}</span>`);
+}
+
+// A truck wears a colour, a flash down the flank and a name on the door — deliberately thinner
+// than an aircraft's livery, because the door name is the plate the fleet already stores and a
+// second copy of it here would be two answers to one question.
+async function rigPaint(player, truck, cd, args) {
+  const [base, trim, flash, chrome] = args;
+  const next = sanitizePaint({ base, trim, flash, chrome: chrome == null ? undefined : chrome !== '0' }, cd.paint || {});
+  const cost = paintCost(truck.type);
+  const changed = JSON.stringify(next) !== JSON.stringify(cd.paint || {});
+  if (!changed) { await repush(player, 'bench'); return { type: 'noop' }; }
+  if ((player.credits || 0) < cost) return say(`A respray on something that size is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  player.credits -= cost;
+  cd.paint = next;
+  await saveTruckData(truck.id, player.id, cd);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">Resprayed — ${cost}₵. It comes out of the booth still smelling of it.</span>`);
+}
+
+// Filling a PARKED truck. `fuel` (the older verb) fills the one you are sitting in, out on the
+// road; this is the same act at a depot with the keys in your pocket, and it is the button the
+// panel shows next to the gauge.
+async function rigFuel(player, truck, bay, depot) {
+  const yard = getZone(yardIdOf(bay, depot));
+  const pump = !!(yard?.flags?.truck_fuel || bay?.flags?.truck_fuel || yard?.flags?.building_type === 'fuel_yard');
+  if (!pump) return say('This yard keeps no diesel. You would have to run it to a pump.');
+  const need = 1 - (truck.fuel ?? 1);
+  if (need < 0.02) return say('It is already full.');
+  const cost = Math.round(need * FUEL_FULL);
+  if ((player.credits || 0) < cost) return say(`Filling it is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  player.credits -= cost;
+  await setFuel(truck.id, player.id, 1);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">Tanks filled. ${cost}₵.</span>`);
+}
+
+async function rigName(player, truck, plate) {
+  const clean = String(plate || '').replace(/[<>]/g, '').trim().slice(0, 28);
+  if (!clean) return say('Call it what?');
+  await query('UPDATE trucks SET name=$1 WHERE id=$2 AND owner_id=$3', [clean, truck.id, player.id]).catch(() => {});
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">Signwritten: <b>${clean}</b>.</span>`);
 }
 
 // ── market ───────────────────────────────────────────────────────────────────
@@ -591,7 +934,7 @@ async function cmdRefuelTruck(args, raw, player) {
   if (!pump) return say('No pump here.');
   const need = 1 - rig.fuel;
   if (need < 0.02) return say('She is already full.');
-  const cost = Math.round(need * 380);
+  const cost = Math.round(need * FUEL_FULL);
   if ((player.credits || 0) < cost) return say(`A full tank runs ${cost}₵ and you have ${player.credits || 0}₵.`);
   player.credits -= cost;
   rig.fuel = 1;
@@ -621,6 +964,11 @@ async function cmdPark(args, raw, player) {
   // Both flushes happen HERE and nowhere on the hot path: the town you drove through, and the fuel
   // and lifetime tiles the truck accumulated doing it.
   await flushZone(player, rig);
+  // PARKING AT A DEPOT PUTS IT INSIDE. You stop on the apron — that is where the road is — but the
+  // truck belongs to the bay, and storing the apron's zone id instead would leave a 31,000₵ rig
+  // standing on a public street in the fiction and missing from the garage floor in the panel.
+  const home = bayForYard(rig.zoneId);
+  if (home) rig.zoneId = home.zone.id;
   await persistTruck(rig);
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
@@ -740,6 +1088,10 @@ async function cmdTruckEvent(args, raw, player) {
   if (ev === 'bump' || ev === 'crash') {
     const mph = Math.max(0, Math.min(70, Number(args[1]) || 0));
     rig.speed = 0;
+    // The rig wears what it hit. In RAM like every other wear on this path, clamped off the same
+    // server-side speed the crime code trusts — so a client cannot claim a gentle nudge to save
+    // itself a repair bill any more than it can claim a gentle nudge to dodge the police.
+    rig.condition = Math.max(0, (rig.condition ?? 1) - wearForImpact(ev === 'bump' ? mph * 0.25 : mph));
     if (ev === 'bump') {
       pushCab(rig, { stopped: true });
       return say('You nose into it at walking pace. Something plastic gives, somewhere behind you.');
@@ -883,6 +1235,16 @@ async function describeDepot(zone) {
   if (dock) {
     return `<span class="ambient">A loading bay is cut into the frontage here — a lipped concrete apron at trailer height, `
       + `with ${dock.name} stencilled on the roller door and a bell push nobody has ever answered quickly.</span>`;
+  }
+
+  // THE APRON. The street outside a depot has to say the depot is there, or moving the shop indoors
+  // would have hidden the entire system behind a door nobody has a reason to open. This is the one
+  // sentence that replaces the whole panel that used to blow open here.
+  const bay = bayForYard(zone?.id);
+  if (bay && !depotAt(zone)) {
+    return `<span class="ambient">The hardstand outside ${bay.depot.name || bay.zone.name} — swept concrete, `
+      + `scored with the arcs of everything that has ever backed onto it, and wide enough to turn something with a `
+      + `box behind it. The office and the bays are through the roller door; the road is the road.</span>`;
   }
 
   const depot = depotAt(zone);
@@ -1217,6 +1579,7 @@ export const commands = {
   haul: cmdHaul,
   market: cmdMarket,
   yard: cmdYard,
+  rig: cmdRig,
   fuel: cmdRefuelTruck,
   trucksync: cmdTruckSync,
   truckevent: cmdTruckEvent,

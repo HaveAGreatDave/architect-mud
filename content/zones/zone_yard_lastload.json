@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The roof sheets tick and shift as the sun moves off them.",
+    "Grit blows in under the door and lies where it lands.",
+    "A dog you never see barks twice, somewhere past the last building, and thinks better of it.",
+    "Somebody outside runs an engine up, holds it, and lets it drop back to idle."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#24211c",
+  "color": "#c9a86a",
+  "description": "Inside, it is one room and most of it is floor. A pit with a plank over it, a bench down one wall under a rack of things that were taken off something and never went back on, and a paraffin heater nobody lights. The freight board is a sheet of ply with nails in it. Prices are chalked on the ply itself, rubbed out and rewritten so many times the board is grey.",
+  "exits": {
+    "west": "zone_the_reach_872_1958"
+  },
+  "flags": {
+    "building_name": "The Last Load",
+    "building_type": "truck_depot",
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "region_id": "region_the_reach",
+    "truck_depot": {
+      "name": "The Last Load",
+      "yard": "zone_the_reach_871_1958"
+    },
+    "world_exit_zone": "zone_the_reach_872_1958"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_lastload",
+  "map_id": "map_int_yard_lastload",
+  "name": "The Last Load — the shed",
+  "parent_zone": "zone_the_reach_872_1958"
+}

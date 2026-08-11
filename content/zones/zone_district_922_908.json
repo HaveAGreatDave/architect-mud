@@ -15,9 +15,7 @@
     "street_life": true,
     "terrain": "road",
     "truck_fuel": true,
-    "truck_depot": {
-      "name": "Kessler Street Yard"
-    }
+    "truck_yard": "Kessler Street Yard"
   },
   "grid_x": 922,
   "grid_y": 908,

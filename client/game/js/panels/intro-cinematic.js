@@ -1590,6 +1590,14 @@ export function playIntroCinematic(onDone, skyline, shore) {
              duration is set inline from the one constant, so the bar can never drift
              out of step with the timer it's drawing. -->
         <div class="intro-cine-gate-wait" aria-hidden="true"><i id="intro-cine-wait"></i></div>
+        <!-- The bar above is aria-hidden, correctly: it is a drawing of a
+             countdown. But that left the countdown itself sighted-only, so a
+             player who cannot see it gets no warning that the sequence starts
+             on its own. This says in words what the bar says in pixels. It sits
+             inside the gate rather than in the log so it is read as part of
+             this screen, and it is static text, not a live region, so it never
+             competes with anything. -->
+        <p class="sr-only" id="intro-cine-wait-said"></p>
       </div>
     </div>
     <button type="button" class="intro-cine-skip show" id="intro-cine-skip" aria-label="Skip the intro" title="It all still happened. You just won't know why.">Skip <span>›</span></button>`;
@@ -1599,6 +1607,17 @@ export function playIntroCinematic(onDone, skyline, shore) {
   const lineEl = _ov.querySelector('#intro-cine-line');
   const skipEl = _ov.querySelector('#intro-cine-skip');
   const gateEl = _ov.querySelector('#intro-cine-gate');
+
+  // LAND ON "BEGIN", NOT ON THE SOUND TOGGLE. a11y-focus.js focuses the first
+  // focusable in a dialog, and in DOM order that is the sound button — so the
+  // first thing a screen reader announced on the first screen of the game was a
+  // settings control rather than the way forward. Focusing here rather than
+  // reordering the DOM keeps the sound toggle where it is drawn (above the
+  // button, where it reads as a note about what is coming). This is also why it
+  // is done SYNCHRONOUSLY on mount: the focus manager only moves focus when the
+  // dialog doesn't already contain it, so claiming it first means the manager
+  // agrees rather than competes.
+  try { _ov.querySelector('#intro-cine-begin').focus({ preventScroll: true }); } catch {}
 
   const later = (ms, fn) => _timers.push(setTimeout(fn, ms));
   // A beat is a position in the RECORD, so it rides the tempo. `later` stays raw
@@ -1624,6 +1643,12 @@ export function playIntroCinematic(onDone, skyline, shore) {
   // Motion-off gets no bar at all (the element stays, unanimated and invisible).
   const waitEl = _ov.querySelector('#intro-cine-wait');
   if (waitEl && !reduced) waitEl.style.animationDuration = `${AUTO_BEGIN_MS}ms`;
+  // …and the spoken version off the SAME constant, for the same reason. A
+  // hardcoded "twenty seconds" in the markup is the drift this block already
+  // warns about, just in the ear instead of the eye.
+  const saidEl = _ov.querySelector('#intro-cine-wait-said');
+  if (saidEl) saidEl.textContent =
+    `This starts on its own in about ${Math.round(AUTO_BEGIN_MS / 1000)} seconds if you do nothing.`;
   let begun = false;
   const begin = () => {
     if (begun) return;
@@ -1642,7 +1667,13 @@ export function playIntroCinematic(onDone, skyline, shore) {
   const soundOn = () => { try { return loadSettings().audio?.enabled !== false; } catch { return true; } };
   const paintSound = () => {
     const on = soundOn();
-    soundEl.textContent = on ? '🔊  Sound on' : '🔇  Sound off — tap to turn on';
+    // The speaker glyph is aria-hidden and the words carry the state, so a
+    // screen reader says "Sound on" rather than "speaker with three sound
+    // waves, Sound on". The button already has aria-pressed; the glyph is the
+    // sighted player's version of that bit and nothing more.
+    soundEl.innerHTML = on
+      ? '<span aria-hidden="true">🔊</span>  Sound on'
+      : '<span aria-hidden="true">🔇</span>  Sound off — tap to turn on';
     soundEl.classList.toggle('on', on);
     soundEl.setAttribute('aria-pressed', on ? 'true' : 'false');
   };

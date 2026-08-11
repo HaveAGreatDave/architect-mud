@@ -371,6 +371,11 @@ export function showVerifyScreen(email, message) {
   document.getElementById('verify-message').textContent = message || 'Check your email for a verification link.';
   document.getElementById('verify-resend-email').value = email || '';
   document.getElementById('verify-error').textContent = '';
+  // The auth screen just went display:none out from under the submit button, so
+  // focus fell to <body> and nothing was announced. A player who has this second
+  // created an account hears silence and cannot tell whether it worked. Land on
+  // the message that tells them, which is the only reason this screen exists.
+  document.getElementById('verify-message').focus();
 }
 
 export async function doResendVerification() {

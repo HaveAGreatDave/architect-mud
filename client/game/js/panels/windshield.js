@@ -3140,6 +3140,8 @@ const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freig
 // fallback: an unknown type — or one whose entry hasn't loaded — still extrudes a
 // believable mid-rise instead of vanishing. Keep the archetype in the BLDG_H key set.
 const BLDG_TYPE_3D = {
+  // A haulage shed: freight-district mass, and low — a rig has to get in and out of it.
+  truck_depot:      { a: 'freight',    h: 0.15 },
   corporate_office: { a: 'uptown',    h: 0.40 }, // glass towers
   office:           { a: 'uptown',    h: 0.36 }, // alias — see TYPE_MODEL note
   civic:            { a: 'civic',     h: 0.22 },
@@ -5797,6 +5799,8 @@ const TYPE_MODEL = {
   bank:             { type: 'bank',      pal: 'ty_marble' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
+  // THE LONG HAUL — the depot you walk into. Registered as well as `case`d, per the note above.
+  truck_depot:       { type: 'truck_depot',       pal: 'ty_wh_metal' },
   container_yard:    { type: 'container_yard',    pal: 'ty_cont_b' },
   fuel_yard:         { type: 'fuel_yard',         pal: 'ty_pallet' },
   cold_storage:      { type: 'cold_storage',      pal: 'ty_cold' },
@@ -7648,6 +7652,27 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.92, wallTop, archH, 12, alpha, [118, 124, 130]);           // low curved corrugated roof + gables
       if (frontVis) for (const s of [-0.55, 0, 0.55]) { const [gx, gy] = F(s * fh * 1.05, fh * 1.02); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.32, 0, wallTop * 0.7, 'ty_door', seed + 3 + s * 4, night, alpha, false); }   // roller doors
       if (night) glowPool(ctx, cam, dx, dy, wallTop * 0.4, '255,196,120', 12, alpha * 0.16);
+      break;
+    }
+    case 'truck_depot': {   // THE LONG HAUL — a haulage shed: one clear-span bay tall enough to stand a
+      //                       rig in, a deep-shadowed roller door wide enough to drive one through, a
+      //                       lit name band over it, and a fuel island and a hardstand out front. The
+      //                       read from the air is DOOR SIZE: everything else on the block has a door
+      //                       for a person, and this one has a door for a truck.
+      const hw = fh * 1.10, wallTop = h * 0.62;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                       // ribbed-steel shell
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.94, wallTop, hw * 0.30, 12, alpha, [112, 118, 124]);       // shallow curved roof + gables
+      if (frontVis) {
+        const [gx, gy] = F(0, fh * 1.04);
+        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.62, 0, wallTop * 0.82, 'ty_door', seed + 3, night, alpha, false);          // THE door
+        const [nx, ny] = F(0, fh * 1.06);
+        draw3DBoxAt(ctx, cam, nx, ny, fh * 0.74, wallTop * 0.86, wallTop * 0.99, 'ty_garage_bay', seed + 5, night, alpha, false);  // name band over it
+        // The fuel island on the apron: a low kerb and a pump, because a depot without diesel is a shed.
+        const [px, py] = F(fh * 0.72, fh * 1.5);
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.30, 0, h * 0.04, 'ty_garage', seed + 7, night, alpha, false);
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.09, h * 0.04, h * 0.20, 'ty_garage_bay', seed + 8, night, alpha, false);
+      }
+      if (night) glowPool(ctx, cam, dx, dy, wallTop * 0.5, '255,186,110', 15, alpha * 0.20);
       break;
     }
     case 'container_yard': {   // a yard of intermodal boxes stacked in sun-bleached colours (ribbed steel)

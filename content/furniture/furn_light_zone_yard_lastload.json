@@ -1,0 +1,14 @@
+{
+  "description": "A run of strip lights on chains down the middle of the roof, one of them flickering.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_yard_lastload",
+  "light_type": "overhead",
+  "lumen_output": 1600,
+  "name": "strip lights",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_yard_lastload"
+}

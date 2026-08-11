@@ -21,6 +21,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, aircraftNearCoord } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM } from './corridor.js';
+import { wearFor } from './rig.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -132,8 +133,15 @@ export function reconcileTruck(rig, d, now = Date.now()) {
     // Range is the TRUCK's tank, not a constant — a Krell barely reaches the far side and an Orlov
     // round-trips, and that is most of what the price difference buys.
     const was = rig.fuel;
-    rig.fuel = Math.max(0, rig.fuel - moved / (rig.type?.tank || TANK_TILES));
+    // The TUNED tank and the TUNED thirst: a hard turbo drinks, an auxiliary tank holds more, and
+    // both arrive here as one number each from rig.js rather than as a second copy of the maths.
+    rig.fuel = Math.max(0, rig.fuel - (moved * (rig.burnMul || 1)) / (rig.params?.tank || rig.type?.tank || TANK_TILES));
     rig.travelled = (rig.travelled || 0) + moved;   // lifetime tiles, flushed with the fuel on park
+    // WEAR ACCRUES ON USE, NEVER ON THE CLOCK, and it accrues IN RAM — this is the hot path, four
+    // times a second per driver, and a condition write here would be a query per frame. It rides
+    // home on `park` in the same coalesced UPDATE that already carries fuel and the odometer.
+    rig.condition = Math.max(0, (rig.condition ?? 1)
+      - wearFor(moved, { surface: surfaceUnder(rig), tune: rig.cd?.tune || {}, condition: rig.condition ?? 1 }));
     // A GAUGE THAT NEVER BITES IS DECORATION. For a long time this counted down to zero and the
     // truck simply carried on, which made every tank number in the fleet a label rather than a
     // constraint. Running dry now stops it dead, and the low warning fires once on the way past so
@@ -321,6 +329,14 @@ export function cabContext(rig, extra = {}) {
     x: +rig.x.toFixed(3), y: +rig.y.toFixed(3),
     heading: Math.round(rig.heading), speed: Math.round(rig.speed),
     fuel: +rig.fuel.toFixed(3),
+    // WHICH TRUCK THIS IS, and what a bench did to it. The cab used to hardcode the Courier's
+    // parameters, so the gearbox, the top speed, the brakes and the turn-in of a 31,000₵
+    // Continental were the 4,200₵ truck's — you could buy your way up the fleet and feel nothing.
+    // `params` is the client model's own `p` object, assembled once at mount by rig.js.
+    typeId: rig.typeId || null,
+    params: rig.params || rig.type || null,
+    condition: +(rig.condition ?? 1).toFixed(3),
+    paint: rig.cd?.paint || null,
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at
     // 60fps and nothing here could improve on that. What the server owns is WHETHER there is a

@@ -18,16 +18,15 @@
   "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left.",
   "exits": {
     "east": "zone_terminus_1203_916",
+    "north": "zone_terminus_1202_915",
     "south": "zone_terminus_1202_917",
     "west": "zone_terminus_1201_916"
   },
   "flags": {
     "region_id": "region_terminus",
     "terrain": "dirt_road",
-    "truck_depot": {
-      "name": "The Roadhead"
-    },
-    "truck_fuel": true
+    "truck_fuel": true,
+    "truck_yard": "The Roadhead"
   },
   "grid_x": 1202,
   "grid_y": 916,

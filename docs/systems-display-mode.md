@@ -456,6 +456,52 @@ chrome, and this has to be readable before we know who is logging in. It is only
 a seed and a memory; `auth_success` mirrors whatever the server settled on back into
 it, so the direction of authority never inverts.
 
+### Getting to the disclosure at all *(fixed 2026-08-11)*
+
+The seam above was reachable and correct, and it was also the only part of the login
+screen that was. An audit of what a blind player actually hears on arrival found four
+defects in front of it, all in `client/game/index.html` and its auth JS:
+
+- **The banner was read aloud.** `#auth-ascii` (13 lines of box-drawing) and
+  `#auth-title` (ARCHITECT in `▄▀█ █▀█ █▀▀` block glyphs) carried no `aria-hidden`,
+  so the first ~200 characters of the game were spoken as "box drawings light down
+  and right…" — and because the wordmark is glyph art, **the game's name was never
+  actually said**. Both are `aria-hidden="true"` now, with an `.sr-only` `<h1>`
+  carrying the name. That `<h1>` is also the screen's only heading, so "list
+  headings" lands on the login instead of nothing.
+- **Register was unreachable by keyboard.** `#auth-toggle-link` was an `<a>` with no
+  `href` — not focusable, not exposed as a control. Tabbing went username → password
+  → remember → display mode → Enter and never touched it, so **registration was
+  mouse-only**. `#auth-forgot-link` and `#verify-back-link` had the identical bug, so
+  password recovery was too. All three are `<button type="button">` now, styled back
+  down by `.auth-linkbtn` (which keeps a `:focus-visible` ring — a control that is
+  reachable but shows no focus is only half fixed).
+- **Mode changes and screen swaps were silent.** Flipping to register reveals two
+  required fields *above* the current focus position; nothing announced them, and the
+  first news of a required Handle was the form rejecting you for leaving it blank.
+  There is a `#auth-mode-status` (`role="status"`) for that, and focus moves to the
+  revealed field. Registration then hid the whole auth screen out from under the
+  submit button — focus fell to `<body>` and nothing was said at all, leaving a
+  player who had just made an account unable to tell whether it worked; `showVerifyScreen`
+  focuses `#verify-message`, which holds the one instruction that matters.
+  `#forgot-window` and `#reset-screen` opt into the existing focus manager with
+  `data-a11y-modal` rather than growing their own handling.
+- **`autocomplete` never flipped.** The password field was hardcoded
+  `current-password`, so registering asked a password manager to fill an existing
+  password that by definition did not exist yet — worst for exactly the players who
+  lean hardest on a manager, since a generated password is the least dictatable
+  string on the screen. It swaps to `new-password` with the mode.
+
+⚠ **The toggle's focus move is gated on `e.isTrusted`.** The registrations-closed
+check flips that same toggle with a synthetic `.click()` when a `fetch` resolves,
+seconds after load with no gesture behind it; announcing and grabbing focus there
+would yank the caret out of whatever the player had already started typing.
+
+⚠ **`#auth-mode-status` uses `role="status"` and no explicit `aria-live`.** The a11y
+smoke check polices the literal attribute, and it is right to — `role="status"` is
+already a polite live region, so spelling it out as well declares a second continuous
+one for nothing. See [the log rung and the two panes](#the-log-rung-and-the-two-panes).
+
 ## The type scale — text that actually enlarges *(built 2026-08-07)*
 
 Display Mode serves the player who cannot see the screen. The Font Size setting
@@ -753,6 +799,19 @@ focus in a cockpit would break the controls.
 Escape resolves on the *next frame* and acts only if the panel is still there.
 Twenty panels already bind Escape and most never call `preventDefault`, so racing
 their handlers was unwinnable — waiting a frame means whoever handled it, handled it.
+
+**The same scan closes everything on disconnect.** A sign-out or a dropped
+connection leaves every open dialog driving nothing — its buttons send commands
+down a socket that isn't there, and its contents (a depot's fleet, an ATM balance,
+a loot pile) describe a world you are no longer in. A handful of panels had wired
+their own `game-disconnect` listener (the tablet, the CRT television, the map);
+the other forty hadn't, and each new one started broken again — the same argument
+that made the trap global in the first place. So `closeAllModals()` reuses
+`modalEntries()` + `findCloseControl()` on `game-disconnect`, **topmost first**
+(a dialog stacked over another is usually its child, and closing the parent out
+from under it is how teardown gets skipped), and closes each one **by clicking its
+own close control** — never by removing a node. A panel with no close control is
+left alone, exactly as with Escape.
 
 ### Skip links and landmarks
 

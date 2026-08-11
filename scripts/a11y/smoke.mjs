@@ -219,7 +219,44 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
     bad('a pre-login Display Mode radio is pre-checked — this collapses the never-chosen state for every account ever created');
   } else ok('…with nothing pre-checked, so an untouched account stays never-chosen');
 
+  // ── Getting TO that disclosure ───────────────────────────────────────────
+  // Every check above verifies the seam works for someone who reaches it. These
+  // verify they can. See docs/systems-display-mode.md § Getting to the
+  // disclosure at all.
+
+  // The wordmark is drawn in block glyphs, so a reader either spells the banner
+  // out as box-drawing noise or skips it — either way the game never says its
+  // own name. The <h1> is the name, and the screen's only heading.
+  const banners = ['auth-ascii', 'auth-title'].filter(
+    id => !new RegExp(`id="${id}"[^>]*aria-hidden="true"|id="${id}"\\s*\\n?\\s*aria-hidden="true"`).test(html));
+  if (banners.length) bad(`${banners.join(', ')}: ASCII banner art is not aria-hidden — a screen reader reads ~200 box-drawing characters before the form`);
+  else ok('the ASCII banners are decoration, not the first 200 characters a player hears');
+  if (/<h1 class="sr-only">ARCHITECT<\/h1>/.test(html)) ok('…and the game says its name in characters, once');
+  else bad('the auth screen has no text heading — the wordmark is glyph art, so the name is never spoken');
+
+  // THE ONE THAT LOCKED PEOPLE OUT. These were <a> with no href: not focusable,
+  // not exposed as controls, so registration and password recovery were
+  // mouse-only. An <a> here is the regression, not the fix.
+  for (const id of ['auth-toggle-link', 'auth-forgot-link', 'verify-back-link']) {
+    const tag = new RegExp(`<(\\w+)[^>]*\\sid="${id}"`).exec(html.replace(/\n\s*/g, ' '));
+    if (tag && tag[1] === 'button') ok(`#${id} is a real button — reachable by keyboard`);
+    else bad(`#${id} is <${tag ? tag[1] : 'missing'}> — an anchor with no href is not focusable, so this control cannot be reached without a mouse`);
+  }
+
+  // Register reveals two required fields ABOVE the current focus position.
+  const mainAuth = readFileSync('client/game/js/main.js', 'utf8');
+  if (/auth-mode-status/.test(html) && /auth-mode-status/.test(mainAuth)) ok('…and switching to register is announced rather than silently rearranging the form');
+  else bad('nothing announces the register/login mode flip — the first news of a required Handle field is the form rejecting you');
+  // The registrations-closed fetch flips this toggle with a synthetic click.
+  if (/isTrusted/.test(mainAuth)) ok('…and only a real press moves focus, so an async toggle cannot yank the caret');
+  else bad('the auth toggle moves focus unconditionally — the registrations-closed fetch flips it with a synthetic click seconds after load');
+  if (/new-password/.test(mainAuth)) ok('…and a password manager is asked to generate on register, not to fill');
+  else bad('the password field never flips to autocomplete="new-password" — registering prompts to fill a password that does not exist yet');
+
   const net = readFileSync('client/game/js/net.js', 'utf8');
+  // Registration hides the whole auth screen out from under the submit button.
+  if (/verify-message'\)\.focus\(\)/.test(net)) ok('the verify screen takes focus, so a new account is not created in silence');
+  else bad('showVerifyScreen does not move focus — the auth screen vanishes, focus falls to <body>, and nothing tells the player the account was made');
   if (/displayRung/.test(net)) ok('the choice is forwarded with the auth message');
   else bad('net.js no longer sends displayRung — the auth screen control is decorative');
   const server3 = readFileSync('server/index.js', 'utf8');
@@ -394,6 +431,31 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   }
   ok('…and none of them caches the answer');
 
+  // ── The cold open's gate ─────────────────────────────────────────────────
+  // The first screen of the game for anyone who didn't set the log rung. It is
+  // a role="dialog", so a11y-focus.js moves focus into it on mount — which
+  // makes "what does it land on, and what does that say" a real question.
+  // See docs/systems-accessibility.md § The cold open's gate.
+  const cine = readFileSync('client/game/js/panels/intro-cinematic.js', 'utf8');
+  // The manager focuses the FIRST focusable, and in DOM order that is the sound
+  // toggle — a settings control as the opening line of the game. Claiming focus
+  // on mount is what makes the manager agree instead of compete.
+  if (/#intro-cine-begin'\)\.focus\(/.test(cine)) ok('the cold open lands on Begin, not on the sound toggle');
+  else bad('nothing focuses #intro-cine-begin on mount — the focus manager takes the first focusable, which is the sound toggle');
+  // A bare emoji in a label is read by name before the words: TalkBack said
+  // "speaker with three sound waves, Sound on".
+  if (/<span aria-hidden="true">🔊<\/span>/.test(cine)) ok('…and its sound toggle says "Sound on", not "speaker with three sound waves, Sound on"');
+  else bad('the sound toggle glyph is not aria-hidden — a screen reader reads the emoji name before the label');
+  // The wait bar is aria-hidden (correctly — it is a drawing). Without a spoken
+  // counterpart the countdown is sighted-only and the sequence just starts.
+  if (/intro-cine-wait-said/.test(cine)) ok('…and the auto-begin countdown is said in words, not only drawn');
+  else bad('the auto-begin countdown has no spoken counterpart — the bar is aria-hidden, so it starts with no warning');
+  // Both must come off AUTO_BEGIN_MS. The file already warns that a duplicated
+  // duration makes the terminal lie about when it will move; that applies to
+  // the sentence as much as to the bar.
+  if (/AUTO_BEGIN_MS \/ 1000/.test(cine)) ok('…derived from AUTO_BEGIN_MS, so the words cannot drift from the timer');
+  else bad('the spoken countdown hardcodes a duration instead of deriving it from AUTO_BEGIN_MS');
+
   // Keyboard focus. A dozen rules in the sheet kill the browser's focus ring on
   // :focus; without a :focus-visible rule to put it back, a keyboard-only player
   // has no idea where they are.
@@ -428,6 +490,22 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   else bad('#main lost role="main" — screen-reader landmark navigation has nothing to jump to');
 
   // Colour is never the only channel (WCAG 1.4.1), for anyone who opts in.
+  // ⚠ A pseudo-element is NOT hidden from a screen reader — Chrome puts CSS
+  // generated content in the a11y tree, and TalkBack named every mark aloud
+  // ("heavy multiplication x" before each enemy, each combat line, each error).
+  // These marks duplicate colour for eyes that don't split two hues; they are
+  // pure noise in the ear. Every one must carry empty alternative text, AND
+  // must keep a plain declaration ahead of it as the fallback, or an engine
+  // without alt-text support drops the rule and the colourblind player loses
+  // the mark. See docs/systems-display-mode.md § The marks are for eyes only.
+  const glyphRules = css.split(/\r?\n/).filter(l => /data-status-glyphs="on"/.test(l) && /content: "/.test(l));
+  const unsilenced = glyphRules.filter(l => !/content: (".+?") \/ ""/.test(l));
+  if (glyphRules.length && !unsilenced.length) ok(`…and all ${glyphRules.length} of them are silent to a screen reader (empty alt text)`);
+  else if (unsilenced.length) bad(`${unsilenced.length} status mark(s) have no empty alt text — a screen reader reads the glyph name before the line it marks`);
+  const noFallback = glyphRules.filter(l => /content: (".+?") \/ ""/.test(l) && !/content: (".+?");\s*content:/.test(l));
+  if (!noFallback.length) ok('…and each keeps a plain fallback, so a browser without alt-text support still draws the mark');
+  else bad(`${noFallback.length} status mark(s) declare ONLY alt-text content — an engine that does not support it drops the rule and the mark vanishes`);
+
   if (/data-status-glyphs="on"/.test(css)) ok('status marks exist for state the game otherwise draws in colour alone');
   else bad('the status-mark rules are gone — red/green states are colour-only again');
   if (/data-status-glyphs="on"\]\s*\.enemy-link::before/.test(css)) ok('…including the enemy/NPC distinction, which was hue-only in every room description');

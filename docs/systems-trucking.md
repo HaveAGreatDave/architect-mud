@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped — see [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped — see [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -17,7 +17,7 @@ and a city that resolves out of the haze at the end of it.
 | --- | --- |
 | Corridor geometry + cell synthesis | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
-| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `haul`, `market`, `yard`, `fuel`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `haul`, `market`, `yard`, `rig`, `fuel`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
 | The cab (60fps loop, gauges, wheel) | [client/game/js/panels/cab-view.js](../client/game/js/panels/cab-view.js) |
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |
@@ -27,11 +27,12 @@ and a city that resolves out of the haze at the end of it.
 | People on the shoulder | [plugins/trucking/hitchers.js](../plugins/trucking/hitchers.js) |
 | Text-rung driving + its gearbox verbs | [plugins/trucking/textdrive.js](../plugins/trucking/textdrive.js) |
 | Ownership + the dealer | [plugins/trucking/fleet.js](../plugins/trucking/fleet.js) · `trucks` table in SCHEMA_SQL |
-| The depot panel | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
+| The bench — condition, tuning, kits, paint, and the ONE place a tune becomes physics | [plugins/trucking/rig.js](../plugins/trucking/rig.js) |
+| The depot app — garage floor, walkaround, dealer's line, bench | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
 | The truck meshes (four shapes, bobtail + hitched) | `buildTruck` / `TRUCK_SHAPES` in [aircraft3d.js](../client/game/js/panels/aircraft3d.js) |
 | The dispatcher | [content/npcs/npc_kessler_dispatcher.json](../content/npcs/npc_kessler_dispatcher.json) |
 | Commodities + prices | [plugins/trucking/market.js](../plugins/trucking/market.js) |
-| Zone flags | `truck_depot` / `truck_fuel` / `weigh_station` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
+| Zone flags | `truck_depot` / `truck_yard` / `truck_fuel` / `weigh_station` / `loading_dock` in [tagCatalog.js](../client/shared/tagCatalog.js) |
 
 ---
 
@@ -320,6 +321,32 @@ fires an ordinary verb string a player could have typed. Shape borrowed from the
 rather than the hangar bay: the verb *returns* the payload instead of pushing it, so there is no
 race against a player who drove off mid-await.
 
+**And it is now the whole application, not a table** *(2026-08-11)*. The depot was a 250-line modal
+with three numbers per truck while the hangar it was modelled on was a full-screen app with a 3-D
+floor, a walkaround camera, a dealer's lot and a mechanic's bench — and that gap *was* the
+difference between owning an aircraft and owning a truck. It is the same application now, and
+almost none of it is new code:
+
+| screen | drawn by |
+|---|---|
+| the garage floor — every rig you own in one room, one camera, click-selected | `drawHangarScene` (`aircraft3d.js`), `venue: 'garage'` |
+| the walkaround — turntable, or the eye on the concrete beside it | `drawHangarFloorBay` with a free camera |
+| the dealer's line | `drawWireframe3D`, big enough to read the thing you are buying |
+| the bench hero shot | the same floor bay, with the dials underneath |
+
+The only change the renderer needed was letting a scene entry carry a **`variant`**, because which
+of the four trucks a thing is does not fit in `cls` (which the whole renderer switches on) or
+`armed` (which means something else). Click-selection hit-tests the scene's own returned regions —
+there is no DOM element per truck to hang a listener on.
+
+> **Re-push after every mutation.** This is the fix for the oldest complaint about this screen:
+> **buying a truck worked and looked as though it had not.** `yardBuy` charged you, wrote the row and
+> returned a line of prose, while the panel over the top of it still showed the same dealer card with
+> the same Buy button, an empty fleet tab and a stale balance. The hangar has never had that problem
+> because every one of its bench commands ends in `pushHangarBay`. Nothing in this plugin may end in
+> a bare `say()` if it changed the world — `repush()` exists for exactly that, and the panel never
+> guesses locally what changed.
+
 ---
 
 ## Depots, cargo, fuel
@@ -328,13 +355,49 @@ A **depot** is any zone carrying `flags.truck_depot` — content decides, the pl
 `drive` issues a rig there, `haul` shows the load board, and a delivery pays only when the truck is
 standing in the depot the load names.
 
-> **Put it on the drivable STREET TILE, never the facade.** A freight building's facade carries
-> `building_type` and is therefore *solid* — a truck would collide with it rather than park in it.
-> Coldwater's depots are on Kessler Street and Dray Lane, outside the yards, not in them.
+### A depot is a building you walk into *(2026-08-11)*
 
-Live depots: **Kessler Street Yard** and **Dray Lane Haulage** (Coldwater), **The Last Load** (The
-Reach, on the dirt road beside Buzzard Field — which is `lawless: true`, and that gradient is what
-the weigh station will hang off later).
+The depot flag used to live on the **street**, and the whole shop — the dealer's line, the freight
+board, the commodities exchange — bloomed over the road because you crossed a particular kerb.
+Nothing else in the game does that: a shop is somewhere you go inside, and the hangar this entire
+system was modelled on has been a walk-in interior since the day it was written.
+
+So `flags.truck_depot` now belongs on an **interior zone behind a facade**, and it carries one more
+key:
+
+```json
+"truck_depot": { "name": "The Roadhead Depot", "yard": "zone_terminus_1202_916" }
+```
+
+`yard` is the **hardstand outside the roller door** — a real, drivable street tile with grid
+coordinates. It is the one fact the bay cannot derive, because a building tile is *solid* (buildings
+are solid; that rule did not change) and a truck cannot be mounted on a zone with no road under it.
+
+Everything else falls out of that pair, and it is why the change stayed small:
+
+| question | answered by |
+|---|---|
+| where does the panel open? | the **bay** — `zone.entered` on the tile carrying the flag |
+| where is my truck parked? | **either** — `truckAt` takes the pair, so the bay and its apron are one place |
+| where does `drive` put me? | the **yard** — the rig is mounted on the apron and `driveToZone` walks you out with it |
+| where does `park` store it? | the **bay** — you stop on the apron, but the truck belongs indoors |
+| where does a freight board send me? | the **yard** — `allDepots()` resolves every bay to its apron, which is why nothing downstream of it needed changing |
+
+The apron carries `flags.truck_yard` (the yard's spoken name) purely so the street can say there is
+a depot through that door. The **truth** about which tile a depot uses lives in the depot's own
+`yard` key, never there — so a mismatch between the two is a missing sentence, never a broken door.
+
+Live depots: **Kessler Street Yard** (Coldwater, inside Bonded & Bothered, apron on Kessler Street),
+**The Roadhead Depot** (Terminus, inside Last Requisition — a shed that had been standing there with
+a painted-on door and no way in, promoted rather than replaced), and **The Last Load** (The Reach,
+a new shed on the hardpan east of the freight yard; `lawless: true`, and that gradient is what the
+weigh station hangs off). Dray Lane keeps its pump and its apron and lost its shop — the Yards block
+is built out on every side, so there was no tile to put a second building on.
+
+`truck_depot` is a real `building_type`: it has a minimap glyph (`BUILDING_TYPE_ICON` in
+`scripts/content/derive.mjs`) and a 3-D model in `drawTypeModel` — a clear-span shed whose read from
+the air is **door size**, since everything else on the block has a door for a person and this one
+has a door for a truck.
 
 The board is seeded per `(depot, game-day)`, so it reads the same for everyone that day and does not
 reroll when you look twice. Loads bound across the waste pay **2.6×** — the risk is real, and an
@@ -344,6 +407,47 @@ durability system uses for wear). A full tank is ~1400 tiles: a bit under two cr
 one-way run never strands you but the return leg is a decision.
 
 ---
+
+## The bench — condition, tuning, kits, paint *(2026-08-11)*
+
+The half of a truck that is not the drive, and the reason it exists: a rig you only ever drive is a
+vehicle; a rig you repair, gear for the country you run, and paint is a possession. All of it lives
+behind one verb, `rig`, with subcommands — because `repair`, `tune`, `modify` and `paintset` are
+each already owned (by the engine's gear repair, by broadcast, and by flight), and a sixth claimant
+on `repair` would be a dispatch-order puzzle for anybody standing in a hangar holding a broken coat.
+
+**Condition** (`trucks.condition`, 1 → 0) is the rig's own HP bar and the single number the bench
+exists to move. Five bands, the top two mechanically free — a truck that is merely *used* must not
+be a chore, or every run ends at a bench instead of at a market. Wear accrues **on use, never on the
+clock**, in RAM on the hot path, flushed home by the same coalesced `park` write that already
+carried fuel and the odometer. Rough surfaces cost more of it, a hard turbo costs more of it, and
+below `Tired` it compounds — which is what turns *I'll fix it next time* into a decision.
+
+Two ways to fix one: your own hands (Fabrication-checked, cheap, botchable, and **capped at
+Worked** — there is a limit to what gets done on a concrete floor) or the shop (dearer, certain).
+A derelict argues before it starts, and that is deliberately a delay and a noise rather than a
+refusal: a truck that will not start strands a player at a yard with their money tied up in it and
+nothing to do, which is a punishment with no play in it.
+
+**`effTruckParams` (`rig.js`) is the ONE place a tune, a kit or a worn engine becomes physics**, and
+its output is the `p` object the client model already takes. So the bench cannot drift from the
+drive — there is no second copy of the tuning maths in `cab-view.js`, and nothing for one to drift
+from. It is also what fixed a much older bug: **the cab was hardcoded to `TYPES.hauler`**, so every
+truck in the game drove exactly like the 4,200₵ Courier — same gears, same top speed, same brakes,
+same turn-in — and buying your way up the fleet bought a price tag and a silhouette and nothing else.
+
+> **A tune is a trade, never an upgrade.** Every knob gives with one hand and takes with the other,
+> because a dial whose right answer is always `+1` is not a choice, it is a chore you do once per
+> truck. Kits are the things you *buy* that are strictly better — and the best of them buys nothing
+> but more room on the dials.
+
+> **The surface invariant is enforced, not asserted.** `thrustMax × drive` must clear
+> `rollFric × drag` on the verge, or the edge of the road stops being a law and becomes a wall. The
+> first cut of `effTruckParams` claimed that in a comment and was wrong — a derelict, road-geared,
+> soft-turbo Barrow came out at 2.07 against a rolling resistance of 3.52 and would have sat on the
+> shoulder with the throttle buried and nothing on screen to explain it. There is now a floor, and
+> regress checks the worst case the function can produce. Being slow is a consequence; being
+> immobile is a bug.
 
 ## The loop
 
@@ -680,7 +784,5 @@ remaining plan:
   freight is a Coldwater-only rung. It is content, not code — a `loading_dock` flag on a street tile.
 - **A trailer you can steal.** Ownership is the one place trucking currently says no on grounds
   other than physics; an unattended box at a lawless yard arguably should not be safe.
-- **Rig condition.** Durability exists as an engine substrate and a truck does not use it — a crash
-  costs the load and nothing else, so a rig never wears out.
 - **The Coldwater checkpoint recipe.** `flags.checkpoint_cfg` on the yard would search the DRIVER on
   foot, complementing the scale that weighs the trailer. It is a content recipe, not a build.

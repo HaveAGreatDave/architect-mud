@@ -12,23 +12,28 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "color": "#c9a86a",
+  "description": "A shed of mismatched sheet, half of it aircraft skin, standing on the hardpan with its back to the wind. The door is a roller wide enough for a truck and it is up. Somebody has painted THE LAST LOAD across the lintel, freehand, and then given up on the second D.",
   "exits": {
-    "east": "zone_the_reach_873_1958",
-    "north": "zone_the_reach_872_1957",
-    "south": "zone_the_reach_872_1959",
+    "east": "zone_yard_lastload",
     "west": "zone_the_reach_871_1958"
   },
   "flags": {
+    "building_name": "The Last Load",
+    "building_type": "truck_depot",
+    "entrance": "west",
+    "facade": true,
+    "is_building": true,
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "scrub"
+    "world_exit_zone": "zone_the_reach_871_1958"
   },
   "grid_x": 912,
   "grid_y": 986,
   "grid_z": 0,
   "id": "zone_the_reach_872_1958",
   "map_id": "map_world",
-  "name": "The Reach 872,1958",
+  "marker": "LL",
+  "name": "The Last Load",
   "parent_zone": null
 }

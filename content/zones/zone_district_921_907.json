@@ -12,9 +12,7 @@
     "scavenging_table_id": "scav_west_wastes",
     "terrain": "road",
     "truck_fuel": true,
-    "truck_depot": {
-      "name": "Dray Lane Haulage"
-    }
+    "truck_yard": "Dray Lane"
   },
   "grid_x": 921,
   "grid_y": 907,

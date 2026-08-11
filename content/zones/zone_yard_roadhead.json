@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Somewhere behind the racking, a compressor starts, runs for four seconds, and stops.",
+    "A radio is playing something with too much reverb on it, two rooms away and turned down.",
+    "Dust comes off the roof sheets in a slow drift wherever the light gets in.",
+    "Somebody walks the length of the shed, unhurried, and does not come back.",
+    "The board by the desk gets a new card pinned to it. Nobody watches it go up."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#22242a",
+  "color": "#c9a86a",
+  "description": "The shed floor, high enough to stand a trailer in and long enough to stand three. Diesel, cold iron and the ghost of somebody's lunch. Trucks nose-in along one wall under a strip light with a flicker in it; along the other, racking, pallets, and a desk with a board over it — freight going out, prices coming in, and a chalked column of what the exchange is paying today. The door stands open on the road south.",
+  "exits": {
+    "south": "zone_terminus_1202_915"
+  },
+  "flags": {
+    "building_name": "Last Requisition",
+    "building_type": "truck_depot",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "truck_depot": {
+      "name": "The Roadhead Depot",
+      "yard": "zone_terminus_1202_916"
+    },
+    "world_exit_zone": "zone_terminus_1202_915"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_roadhead",
+  "map_id": "map_int_yard_roadhead",
+  "name": "Last Requisition — the shed",
+  "parent_zone": "zone_terminus_1202_915"
+}

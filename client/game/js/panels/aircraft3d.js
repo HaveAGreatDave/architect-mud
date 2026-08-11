@@ -1287,7 +1287,10 @@ export const PROP_STATIONS = {
 // the An-124 is really ~4.4× — COMPRESSED to 2.0 so the fleet row stays readable — the Mini-500
 // heli ~.25, bumped to .42 so it isn't a speck. Air-to-air contacts get the equivalent through
 // windshield.js CONTACT_SIZE. Unlisted classes default to 1.
-export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40 };
+// `truck` sits between the light singles and a Twin Otter: a rig with a box on it is a big animal
+// on a garage floor, and the shared-camera fit in drawHangarScene reads this to stand back far
+// enough that four of them park in one shot without shoving each other.
+export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, truck: 1.15 };
 
 // ── Animated prop & rotor blades ────────────────────────────────────────────────
 // The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
@@ -1654,7 +1657,7 @@ const _cache = {};
 export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const key = cls + ':' + detail + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_cache[key]) return _cache[key];
-  const faces = cls === 'truck' ? buildTruck(variant || 'hauler')
+  const faces = cls === 'truck' ? buildTruck(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
   _cache[key] = faces;
@@ -1683,19 +1686,27 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 //  axles    — rear axle groups under the tractor
 //  stacks   — vertical exhaust behind the cab: nothing says heavy truck faster
 //  w        — half-width
+//  aero     — 0..1 how much roof fairing the cab wears (0 is a bare flat-top, 1 a full wind kit)
+//  skirt    — 1 if the tractor has side fairings between the steps and the drives
+//  lamps    — 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
 const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30 },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34 },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46 },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60 },
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25 },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55 },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8 },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1 },
 };
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
 // obviously unloaded, which is most of what makes running empty feel different from the outside.
-function buildTruck(variant = 'hauler') {
+// `detail` is the SAME LOD channel the airframes use, and the truck has to honour it for the same
+// reason they do: the yard draws one rig the size of the screen and wants every rib on it, while
+// the road draws a contact a few pixels wide that would pay for all of them anyway. `fine` is off
+// at detail 0 (distant contacts) and the silhouette — cab, box, wheels, glass — is untouched.
+function buildTruck(variant = 'hauler', detail = 1) {
   const [typeId, tail] = String(variant).split('+');
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const hitched = tail === 't';
+  const fine = detail >= 1;
   const faces = [];
   const V = (f, g, h) => [f, g, h];
   // A box between two fore stations, as six quads. `sh` is the baked flat shade: top brightest,
@@ -1714,7 +1725,23 @@ function buildTruck(variant = 'hauler') {
     quad([B[0], B[3], B[2], B[1]], 0.80);                    // front face
     quad([A[0], A[1], A[2], A[3]], 0.55);                    // back face
   };
-  const wheel = (f, g, r = 0.048) => box(f - r, f + r, 0.022, -0.005, r * 1.15, 'gear', null, g);
+  // A free polygon, for every surface a box cannot be: the raked screen, the roof fairing's wedge,
+  // the chin spoiler. `uv`/`art` ride through to drawCanopyGlass, which is how the windscreen gets
+  // a real painted sheet (wipers, dash glow, a driver behind it) instead of a flat blue rectangle.
+  const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
+    const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])) };
+    if (tint) q.tint = tint;
+    if (uv) { q.uv = uv; q.art = art || 'truckcab'; }
+    faces.push(q);
+  };
+  const UV_FULL = [[0, 1], [1, 1], [1, 0], [0, 0]];
+  const wheel = (f, g, r = 0.048) => {
+    box(f - r, f + r, 0.022, -0.005, r * 1.15, 'gear', null, g);
+    if (!fine) return;
+    // A hub with a face on it. Two thin plates inboard of the tyre wall, bright enough to catch the
+    // key light — at any distance this is what separates a wheel from a black brick.
+    box(f - r * 0.42, f + r * 0.42, 0.008, r * 0.22, r * 0.86, 'strut', null, g - Math.sign(g || 1) * 0.021);
+  };
 
   // The tractor is laid out BACKWARDS from the nose, so every proportion is relative and a bigger
   // truck grows forward and upward from one anchor rather than needing four hand-placed boxes.
@@ -1723,33 +1750,117 @@ function buildTruck(variant = 'hauler') {
   const frame0 = cab0 - 0.10;                              // frame rails behind the cab
   const deckTop = 0.115;
 
-  box(frame0, cab1, S.w * 0.86, 0.02, 0.07, 'body');       // chassis / frame rails
+  // ── Chassis ────────────────────────────────────────────────────────────────
+  // TWO RAILS, NOT ONE SLAB. A truck's frame is a pair of C-sections you can see daylight between,
+  // and the gap is most of what makes the underside read as a chassis carrying a body rather than
+  // as a solid billet with wheels stuck to it.
+  for (const g of [-1, 1]) box(frame0 - 0.01, cab1 - 0.02, 0.016, 0.028, 0.072, 'strut', null, g * S.w * 0.62);
+  box(frame0, cab0 + 0.02, S.w * 0.80, 0.050, 0.070, 'body');                 // deck plate over the rails
+  // The fifth wheel: the greased steel plate the kingpin drops into. Visible on a bobtail, and the
+  // single detail that says this tractor is MISSING something rather than simply being short.
+  box(frame0 + 0.03, frame0 + 0.10, S.w * 0.62, 0.070, 0.082, 'strut');
+
+  // ── Cab ────────────────────────────────────────────────────────────────────
   box(cab0, cab1, S.w, 0.02, S.hi, 'body');                // cab
-  if (S.sleeper) box(cab0 + 0.01, cab1 - 0.05, S.w * 0.92, S.hi, S.hi + S.sleeper, 'body');
-  // Glass. The windscreen is RAKED — the top edge sits further forward than the bottom — which is
-  // the difference between a truck and a shoebox at any distance you can see it from.
-  box(nose0 - 0.005, nose0 + 0.03, S.w * 0.92, S.hi * 0.56, S.hi * 0.94, 'glass', [58, 84, 104]);
-  // Side windows, one a side, so a cab reads as a cab from the flank and not just head-on.
+  if (S.sleeper) {
+    box(cab0 + 0.005, cab1 - 0.055, S.w * 0.95, S.hi, S.hi + S.sleeper, 'body');
+    // A porthole in the bunk, one a side. Nobody needs it and every sleeper cab has one.
+    for (const g of [-1, 1]) box(cab0 + 0.045, cab0 + 0.075, 0.003, S.hi + 0.012, S.hi + S.sleeper - 0.008, 'glass', [44, 66, 84], g * S.w * 0.95);
+  }
+  // THE SCREEN IS A RAKED PLANE, not a thin upright box. The top edge stands further FORWARD than
+  // the bottom, which is the whole difference between a truck and a shoebox at any distance you can
+  // see one from — and being a genuine quad it takes a UV, so the sheet painted in CANOPY_ART
+  // ('truckcab': wipers, a dash glow, a driver's shoulders) maps across it properly.
+  const scrLo = S.hi * 0.52, scrHi = S.hi * 0.985;
+  const scrF0 = nose0 - 0.004, scrF1 = nose0 + 0.038;       // bottom station, top station
+  const scrW = S.w * 0.94;
+  poly('glass', 0.92, [[scrF0, -scrW, scrLo], [scrF0, scrW, scrLo], [scrF1, scrW, scrHi], [scrF1, -scrW, scrHi]],
+    [58, 84, 104], UV_FULL, 'truckcab');
+  // A-pillars down each side of it, and the header rail across the top — dark structure against
+  // bright glass is what makes a windscreen look set into something.
+  for (const g of [-1, 1]) poly('strut', 0.78, [[scrF0, g * scrW, scrLo], [scrF0, g * S.w, scrLo], [scrF1, g * S.w, scrHi], [scrF1, g * scrW, scrHi]]);
+  // The sun visor, cantilevered forward off the header. Half of a truck's face is this shadow.
+  poly('body', 0.96, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [scrF1 + 0.030, S.w * 0.94, scrHi + 0.004], [scrF1 + 0.030, -S.w * 0.94, scrHi + 0.004]]);
+  // Marker lamps in a row along the visor's leading edge. Five of them, `window` role so they take
+  // the glass path and read as LIT after dark rather than as five more grey squares.
+  if (fine && S.lamps > 0.2) {
+    for (let i = -2; i <= 2; i++) {
+      box(scrF1 + 0.022, scrF1 + 0.030, 0.008, scrHi + 0.001, scrHi + 0.009, 'window', [236, 176, 96], i * S.w * 0.34);
+    }
+  }
+  // Side glass: door window plus a quarter light forward of it, split by the door frame. Two panes
+  // rather than one long slot is the flank read that says CAB.
   for (const g of [-1, 1]) {
-    box(cab1 - 0.10, cab1 - 0.02, 0.004, S.hi * 0.56, S.hi * 0.86, 'glass', [50, 74, 92], g * S.w);
+    box(cab1 - 0.105, cab1 - 0.048, 0.004, S.hi * 0.54, S.hi * 0.88, 'glass', [50, 74, 92], g * S.w);
+    box(cab1 - 0.040, cab1 - 0.014, 0.004, S.hi * 0.54, S.hi * 0.84, 'glass', [46, 68, 86], g * S.w);
+    if (!fine) continue;
+    box(cab1 - 0.048, cab1 - 0.040, 0.006, S.hi * 0.50, S.hi * 0.90, 'strut', null, g * S.w);   // the B-post between them
+    // Grab handle and the step boxes under the door — the way a driver actually gets up there.
+    box(cab1 - 0.048, cab1 - 0.042, 0.005, S.hi * 0.16, S.hi * 0.48, 'strut', null, g * (S.w + 0.006));
+    box(cab1 - 0.100, cab1 - 0.030, 0.014, 0.030, 0.044, 'strut', null, g * (S.w * 0.92));
   }
+  // THE BELTLINE STRIP. One thin lit line down each flank at the base of the glass — the only
+  // openly futuristic thing on the truck, and it does the whole job: everything else here is a
+  // 20th-century semi, and one strip of running light drags the date forward without arguing.
+  if (fine && S.lamps > 0.5) {
+    for (const g of [-1, 1]) box(cab0 + 0.02, cab1 - 0.02, 0.003, S.hi * 0.47, S.hi * 0.505, 'window', [96, 196, 214], g * S.w);
+  }
+  // ── Roof fairing ───────────────────────────────────────────────────────────
+  // The wind kit: a wedge off the back of the roof that closes the gap to the box. It is what makes
+  // a modern long-hauler look like one animal instead of a cab towing a wall.
+  if (S.aero > 0.05) {
+    const rTop = S.hi + S.sleeper, fh = rTop + 0.030 * S.aero;
+    poly('body', 1.00, [[cab0 - 0.055 * S.aero, -S.w * 0.92, fh], [cab0 - 0.055 * S.aero, S.w * 0.92, fh],
+                        [cab1 - 0.06, S.w * 0.9, rTop], [cab1 - 0.06, -S.w * 0.9, rTop]]);
+    for (const g of [-1, 1]) poly('body', 0.66, [[cab0 - 0.055 * S.aero, g * S.w * 0.92, fh], [cab1 - 0.06, g * S.w * 0.9, rTop],
+                        [cab1 - 0.06, g * S.w * 0.9, rTop - 0.02], [cab0 - 0.055 * S.aero, g * S.w * 0.92, 0.02 + rTop * 0.4]]);
+    // A sensor pod on the crown — the road-scanner. Small, and the second and last future tell.
+    box(cab1 - 0.10, cab1 - 0.07, 0.016, rTop, rTop + 0.012, 'strut');
+    box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', [120, 210, 220]);
+  }
+  // ── Nose ───────────────────────────────────────────────────────────────────
   if (S.nose > 0.001) {
-    box(nose0, nose1, S.w * 0.93, 0.045, 0.135, 'body');    // bonnet
-    box(nose1 - 0.012, nose1, S.w * 0.86, 0.05, 0.125, 'strut');   // the grille: dark metal, and it catches the light
+    box(nose0, nose1 - 0.012, S.w * 0.93, 0.045, 0.135, 'body');    // bonnet
+    // The bonnet's top is CHAMFERED down toward the grille — a flat lid reads as a crate.
+    poly('body', 1.00, [[nose0, -S.w * 0.93, 0.135], [nose0, S.w * 0.93, 0.135],
+                        [nose1 - 0.012, S.w * 0.88, 0.126], [nose1 - 0.012, -S.w * 0.88, 0.126]]);
+    box(nose1 - 0.014, nose1, S.w * 0.84, 0.050, 0.124, 'strut');   // the grille surround
+    for (let i = 0; fine && i < 4; i++) {                            // and its slats, which catch the light
+      const z = 0.058 + i * 0.017;
+      box(nose1 - 0.002, nose1 + 0.002, S.w * 0.80, z, z + 0.008, 'strut');
+    }
   }
-  // Headlamps — role 'window' so they take the glass path and read as lit at night rather than as
-  // two more grey squares.
-  for (const g of [-1, 1]) box(nose1 - 0.008, nose1, 0.020, 0.055, 0.085, 'window', [190, 175, 130], g * S.w * 0.66);
-  // Exhaust stacks and the saddle tank: the two pieces of a truck that are neither body nor wheel,
-  // and between them they do most of the work of "this is heavy machinery, not a van".
+  // Bumper, wider than the cab, with a chin spoiler raked under it.
+  box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
+  poly('body', 0.5, [[nose1 + 0.012, -S.w, 0.030], [nose1 + 0.012, S.w, 0.030],
+                     [nose1 - 0.010, S.w, 0.010], [nose1 - 0.010, -S.w, 0.010]]);
+  // Headlamps, and a bar of driving lights across the bumper on the rigs that wear one.
+  for (const g of [-1, 1]) box(nose1 - 0.004, nose1 + 0.006, 0.022, 0.062, 0.096, 'window', [214, 202, 156], g * S.w * 0.68);
+  if (fine && S.lamps > 0.7) {
+    for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.036, 0.052, 'window', [220, 226, 236], i * S.w * 0.42);
+  }
+  // ── Stacks, tanks, mirrors ─────────────────────────────────────────────────
+  // The pieces that are neither body nor wheel, and between them they do most of the work of
+  // "this is heavy machinery, not a van".
   for (let i = 0; i < S.stacks; i++) {
-    const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.92;
-    box(cab0 - 0.012, cab0 + 0.012, 0.011, 0.06, S.hi + S.sleeper + 0.055, 'strut', null, g);
+    const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
+    const top = S.hi + S.sleeper + 0.062;
+    box(cab0 - 0.013, cab0 + 0.013, 0.012, 0.055, top, 'strut', null, g);
+    box(cab0 - 0.016, cab0 + 0.016, 0.015, 0.085, 0.135, 'strut', null, g);      // the perforated heat shield
+    box(cab0 - 0.015, cab0 + 0.015, 0.014, top - 0.012, top, 'strut', null, g);  // the chrome rain cap
   }
-  for (const g of [-1, 1]) box(cab0 - 0.075, cab0 - 0.015, 0.020, 0.035, 0.085, 'strut', null, g * S.w * 0.88);
-  // Mirrors on arms, because they are on the cab in the cockpit view and a rig without them from
-  // outside is the one detail that looks wrong without anybody being able to say why.
-  for (const g of [-1, 1]) box(cab1 - 0.03, cab1 - 0.01, 0.006, S.hi * 0.55, S.hi * 0.88, 'strut', null, g * (S.w + 0.022));
+  for (const g of [-1, 1]) {
+    box(cab0 - 0.082, cab0 - 0.012, 0.021, 0.034, 0.088, 'strut', null, g * S.w * 0.88);      // saddle tank
+    box(cab0 - 0.082, cab0 - 0.012, 0.023, 0.056, 0.064, 'strut', null, g * S.w * 0.88);      // its chrome strap
+    if (S.skirt) box(frame0 + 0.02, cab0 - 0.085, 0.010, 0.032, 0.078, 'body', null, g * S.w * 0.9);   // side fairing
+  }
+  // Mirrors on arms — a rig without them is the one detail that looks wrong without anybody being
+  // able to say why — and this pair has GLASS in them, angled back at the driver.
+  for (const g of [-1, 1]) {
+    box(cab1 - 0.034, cab1 - 0.012, 0.005, S.hi * 0.54, S.hi * 0.90, 'strut', null, g * (S.w + 0.024));
+    box(cab1 - 0.032, cab1 - 0.016, 0.002, S.hi * 0.58, S.hi * 0.86, 'glass', [70, 92, 108], g * (S.w + 0.028));
+    box(cab1 - 0.030, cab1 - 0.024, 0.024, S.hi * 0.70, S.hi * 0.74, 'strut', null, g * (S.w + 0.012));   // the arm itself
+  }
 
   // Wheels. Steer axle under the nose, then one or two drive groups — and the drive groups are
   // DOUBLED (two rims a side), which is the give-away that something is rated to pull.
@@ -1769,13 +1880,29 @@ function buildTruck(variant = 'hauler') {
     // and it is also the seam where a future articulated draw hangs its angle, since the two
     // halves are already two groups of faces rather than one welded box.
     const t1 = frame0 - 0.02, t0 = t1 - S.deck;
-    box(t0, t1, S.w * 1.02, 0.075, deckTop + 0.135, 'body');       // the box
-    box(t0 + 0.01, t1 - 0.01, S.w * 0.99, deckTop + 0.135, deckTop + 0.145, 'body');  // roof cap
-    box(t0, t0 + 0.006, S.w * 1.0, 0.075, deckTop + 0.13, 'strut');   // the doors, at the back
+    const tTop = deckTop + 0.135;
+    box(t0, t1, S.w * 1.02, 0.075, tTop, 'body');                  // the box
+    box(t0 + 0.01, t1 - 0.01, S.w * 0.99, tTop, tTop + 0.010, 'body');  // roof cap
+    // RIBS. A trailer flank is a corrugated wall, and a bare quad is the flattest surface in the
+    // whole model — six shallow ribs a side cost nothing and give the biggest panel on the rig
+    // something for the light to break on.
+    for (let i = 0; fine && i < 6; i++) {
+      const f = t0 + 0.03 + i * (S.deck - 0.06) / 5;
+      for (const g of [-1, 1]) box(f - 0.004, f + 0.004, 0.004, 0.085, tTop - 0.008, 'strut', null, g * S.w * 1.03);
+    }
+    // Conspicuity tape low on the flank, and the rear doors with their lock bars.
+    for (const g of [-1, 1]) box(t0 + 0.02, t1 - 0.02, 0.003, 0.086, 0.098, 'window', [216, 168, 72], g * S.w * 1.04);
+    box(t0, t0 + 0.006, S.w * 1.0, 0.075, tTop - 0.005, 'strut');     // the doors, at the back
+    for (const g of [-1, 1]) box(t0 - 0.001, t0 + 0.002, 0.004, 0.080, tTop - 0.010, 'strut', null, g * S.w * 0.5);   // lock bars
+    for (const g of [-1, 1]) box(t0 - 0.002, t0 + 0.004, 0.014, 0.088, 0.104, 'window', [186, 62, 52], g * S.w * 0.78);   // tail lamps
+    // Landing legs: the two cranked struts a dropped trailer stands on. They are the reason a box
+    // parked in a yard doesn't fall on its nose, and the yard is exactly where this mesh is seen.
+    for (const g of [-1, 1]) box(t1 - 0.09, t1 - 0.075, 0.010, 0.005, 0.078, 'strut', null, g * S.w * 0.72);
     for (const g of [-gOut, gOut]) {                                   // bogie under the tail
       wheel(t0 + 0.075, g, 0.050); wheel(t0 + 0.075, g - Math.sign(g) * 0.040, 0.050);
       wheel(t0 + 0.165, g, 0.050); wheel(t0 + 0.165, g - Math.sign(g) * 0.040, 0.050);
     }
+    if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
   }
 
@@ -2148,6 +2275,30 @@ const CANOPY_ART = {
     frame: { col: 'rgba(34,30,18,0.96)', lit: 'rgba(255,210,74,0.55)',   // yellow-primed steel cage
       posts: [[0.00, 14], [0.16, 9], [0.46, 10], [0.78, 8], [1.00, 10]],   // the bow frame is the heaviest — it's a wire cutter's anchor
       sills: [[0.20, 9], [0.80, 9]], hairs: [0.32, 0.62], mid: 6, edge: 14 },
+  },
+  // THE CAB (THE LONG HAUL). A truck windscreen is not a canopy and should not read as one: it is
+  // one enormous flat pane, deeply raked, with sky across the top two-thirds and the dark of the
+  // cab underneath — plus the three things every one of them has and no aircraft does. WIPERS
+  // parked across the bottom (two great arms, the give-away at any distance). A GLARESHIELD, which
+  // here is the dash: a black shelf along the sill with instrument light coming off it. And a
+  // DRIVER sitting to one side of the centreline rather than crew abreast on it, because a cab has
+  // one seat that matters and the asymmetry is instantly legible as a road vehicle.
+  //
+  // V is ACROSS the screen and U is UP it (the mesh maps the quad corner-for-corner), so the sill
+  // furniture lives at low U and the sky wash runs the U axis — the opposite of the arc-unwrapped
+  // canopies above, and the reason the numbers here look nothing like theirs.
+  truckcab: {
+    wash: [[0.00, 'rgba(10,13,16,0.88)'], [0.22, 'rgba(18,28,36,0.70)'], [0.44, 'rgba(64,104,126,0.34)'],
+           [0.62, 'rgba(150,196,220,0.30)'], [0.82, 'rgba(178,214,232,0.26)'], [1.00, 'rgba(120,164,192,0.34)']],
+    crew: [{ u: 0.30, v: 0.28, sc: 1.05, hair: 'rgba(38,32,28,0.92)' }],
+    glow: { u: [0.10, 0.16], col: '255,176,74', a: 0.26, r: 74 },   // the dash, amber, coming up off the shelf
+    spec: { band: [0.0, 1.0], streaks: [[0.58, 40, 0.20], [0.74, 26, 0.13]] },
+    frame: { col: 'rgba(30,32,36,0.95)', lit: 'rgba(104,112,122,0.5)',
+      posts: [[0.00, 12], [1.00, 10]],      // sill rail and header — the A-pillars are real geometry, not painted
+      sills: [[0.50, 6]],                   // the centre divider a big two-piece screen carries
+      hairs: [], mid: 0, edge: 12,
+      shieldV: [[0.00, 0.20]], deckU: 1, browV: [[1.00, 0.86]],
+      extra: ['glareshield', 'wipers', 'brow'] },
   },
 };
 
@@ -2967,8 +3118,11 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, armed = false, livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
-  const faces = wreck ? buildWreck() : aircraftFaces(cls, 1, armed);
+function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
+  // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
+  // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
+  // depot's turntable, walkaround and bench hero shot all ride this one argument.
+  const faces = wreck ? buildWreck() : aircraftFaces(cls, 1, armed, variant);
   // Taildraggers (the Grasshopper, and the Viper) rest NOSE-HIGH on the ground — tilt the static
   // model to its 3-point sit here too (the floor/room proj below is left untilted). Nose-up: f' = f·c − h·s.
   const _gp = groundPitchFor(cls, armed) * Math.PI / 180;
@@ -3408,7 +3562,11 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
   if (venue === 'helipad') drawHelipadBackdrop(ctx, w, h, { sky });
-  else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.8, 0.34 + n * 0.05), sky });
+  // A truck depot is a hangar with an oil stain on it: the same shed, lit sodium rather than
+  // fluorescent, with the roller door open wider because the thing that lives in it drives out
+  // rather than being towed. One tint and one door fraction, not a second backdrop painter.
+  else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.86, (venue === 'garage' ? 0.44 : 0.34) + n * 0.05),
+    tint: venue === 'garage' ? 'rgba(58,40,20,0.30)' : undefined, sky });
   if (!n) return [];
 
   const E = 0.34, cosE = Math.cos(E), sinE = Math.sin(E);
@@ -3452,7 +3610,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   const groups = entries.map((e, i) => {
     const laneG = (i - (n - 1) / 2) * spacing;
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
-    const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed);
+    const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '');
     // Taildraggers (Grasshopper/Locust, and the Viper) park nose-high on the tailwheel — same
     // 3-point sit the turntable applies, so a craft looks identical on the floor and on the bench.
     const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;

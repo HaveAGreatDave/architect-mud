@@ -474,6 +474,8 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   // building whose icon arrives in a later build is a building that was briefly wrong on the map.
   greenhouse: 'bldg_warehouse',
   // The Yards — semi-industrial freight district (docs/proposals/yards.md).
+  // THE LONG HAUL — the depot is a forwarding shed with truck bays, which is what that glyph is.
+  truck_depot: 'bldg_forwarder',
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
   // The Ascendant Stronghold (docs/proposals/ascendant-stronghold.md) — reuse the nearest existing

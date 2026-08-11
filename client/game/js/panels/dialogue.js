@@ -194,7 +194,13 @@ function optionIconHtml(opt) {
   const icon = opt.icon || k?.icon;
   if (!icon) return '';
   const title = opt.icon ? (k?.title || '') : k.title;
-  return `<span class="dialogue-opt-icon"${title ? ` title="${escHtml(title)}"` : ''}>${escHtml(icon)}</span>`;
+  // aria-hidden, because this glyph is a SECOND telling of the option's own
+  // label and TalkBack read all of it: the emoji by name ("shopping trolley"),
+  // then the title ("Opens their shop"), then the button text — three
+  // announcements for one choice, on every option in every conversation. The
+  // glyph is a sighted player's shortcut to where an option goes; the label is
+  // how everyone else already knew.
+  return `<span class="dialogue-opt-icon" aria-hidden="true"${title ? ` title="${escHtml(title)}"` : ''}>${escHtml(icon)}</span>`;
 }
 
 // A reply is held until the NPC's thinking beat has elapsed (see THINK_MS). The

@@ -19,7 +19,11 @@
       "name": "the high window",
       "visibility": 0.75
     },
-    "world_exit_zone": "zone_district_922_907"
+    "world_exit_zone": "zone_district_922_907",
+    "truck_depot": {
+      "name": "Kessler Street Yard",
+      "yard": "zone_district_922_908"
+    }
   },
   "grid_x": 0,
   "grid_y": 0,
