@@ -434,8 +434,15 @@ export default async function regress({ run, check, getPlayer }) {
 
       // HONEST GREED FAILS THE SAME SCALE. Nothing hidden at all — just more than the plate allows —
       // and it is the same interaction with the same three answers. That is the whole texture.
+      //
+      // 6,500 kg, NOT 6,000, and the extra half-tonne is the whole point: at 6,000 the load came out
+      // 2,400 kg over its plate, which is UNDER `CERTAIN_KG` (2,500) — so the scale rolled Deception
+      // for it, and the case was a coin flip on the fixture player's skill rather than an assertion
+      // about the system. It passed locally and failed in CI, which is exactly how a flake announces
+      // itself. Past the certainty threshold there is no roll and the three claims below are about
+      // the design instead of about a die.
       box.stash = null;
-      box.cargo = { kind: 'goods', key: 'scrap', name: 'scrap', kg: 6000, qty: 60 };
+      box.cargo = { kind: 'goods', key: 'scrap', name: 'scrap', kg: 6500, qty: 65 };
       const heavy = await runScale(player, rig, zone);
       check('a LEGAL overweight load fails the same scale', !!heavy, heavy && `${heavy.overRated}kg over rating`);
       check('…and is charged as weight, not as crime', heavy && heavy.over === 0 && heavy.overRated > 0,
