@@ -548,6 +548,10 @@
       "price": 105
     },
     {
+      "item_id": "item_spray_paint",
+      "price": 120
+    },
+    {
       "item_id": "item_stabilizer",
       "price": 400,
       "stock": 3
@@ -598,7 +602,7 @@
       }
     ]
   },
-  "vendor_shop_name": "Pallets & Pals",
+  "vendor_shop_name": "Screw It",
   "vendor_stock_size": 27,
   "wander_zones": [],
   "wanders": 0,

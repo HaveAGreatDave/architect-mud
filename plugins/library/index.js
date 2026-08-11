@@ -21,7 +21,7 @@ import { sendToPlayer, teachVerb, pointAt } from '../../server/engine/messaging.
 import { hasTag } from '../../server/engine/tags.js';
 import { UNLOCK_FLAG } from '../tablet/library-app.js';
 import { installTabletApp } from '../tablet/index.js';
-import { cmdRead, cmdLibrary, cmdPage, cmdChapter, cmdContents } from './read.js';
+import { cmdRead, cmdLibrary, cmdPage, cmdChapter, cmdContents, cmdLongbox } from './read.js';
 
 // Any furniture tagged `lending_terminal` — the tag is the contract, so a second
 // library elsewhere needs no code.
@@ -161,6 +161,8 @@ export const specializedActions = [
 export const commands = {
   library: cmdLibrary,
   books: cmdLibrary,
+  longbox: cmdLongbox,
+  comics: cmdLongbox,
   page: cmdPage,
   chapter: cmdChapter,
   contents: cmdContents,

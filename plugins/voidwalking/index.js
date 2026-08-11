@@ -60,13 +60,72 @@ const VOID_MAP = 'map_void'; // non-map_world → flag/map-filtered world iterat
 // before the fork) and `dests` — the adjacent regions it forks toward. Each dest
 // carries the fork-exit `dir` (n/s/e/w) that leads to its limb, and an optional
 // `length` override (else the total gate→dest length is distance-derived).
+//
+// A dest also NAMES the region it lands in (`region`), rather than that being read off the
+// destination zone at runtime. It is the same fact either way in play, but this table is a graph
+// and a graph edge should know its own endpoint: the return-leg check ("is anything reachable also
+// leavable?") is about the shape of the table, and reading it out of live world state made it
+// depend on which zones happened to be loaded.
 export const VOIDS = {
   region_coldwater: {
     origin: 'Coldwater',
     trunk: 4,
     dests: [
-      { key: 'reach',  dest: 'zone_the_reach_870_1958', heading: 'The Reach', dir: 'south' },
-      { key: 'exodus', dest: 'zone_exodus_waypoint',    heading: 'Exodus',    dir: 'east'  },
+      // `length` overrides the distance derivation, and the Reach NEEDS it. The rim and Buzzard
+      // Field are only 40 tiles apart in a straight line, so `totalLength` clamped to MIN_ROOMS
+      // (5) — which with a trunk of 4 left a limb of ONE room. The braid's whole idea is a shared
+      // trunk that forks toward real alternatives, and a fork with a single room behind it is a
+      // formality. At 8 the fork sits exactly halfway and there is genuine road on the far side of
+      // the choice. (It also sets the haul at ~15 minutes; see the tank note in flight-model.js,
+      // which is tuned against the 765 tiles this produces.)
+      { key: 'reach',  dest: 'zone_the_reach_870_1958', region: 'region_the_reach', heading: 'The Reach', dir: 'south', length: 8 },
+      // TERMINUS. `zone_exodus_waypoint` never existed — this limb deposited walkers at a zone id
+      // with no zone behind it. The destination is now the roadhead outside the Exodus wall.
+      //
+      // `heading` stays 'Exodus' because that is what the fork means: the direction the Exodus
+      // went, not a town of that name. The codex is explicit that they will not say where they are
+      // going, and Terminus is where they went when they left the Basin, not where they are going.
+      //
+      // `length: 12` for the same reason the Reach needs 8 — the derivation is straight-line and
+      // would clamp to MIN_ROOMS even at 255 tiles out. Twelve rooms puts Terminus beyond the range
+      // of the two cheapest trucks and beyond ANY truck's round trip, so the fleet ladder doubles
+      // as a map gate and the far yard's fuel pump is the only way home. See
+      // docs/proposals/terminus.md.
+      { key: 'exodus', dest: 'zone_terminus_1200_916', region: 'region_terminus', heading: 'Exodus', dir: 'east', length: 12 },
+    ],
+  },
+
+  // ── The way home ───────────────────────────────────────────────────────────
+  // Until these existed the void was ONE-WAY. Only Coldwater had an entry, so a walker who
+  // reached the Reach — or a trucker who drove to Terminus — could not leave by the road they had
+  // just come down: the rim they were standing on was an ordinary wall in that direction. Terminus
+  // made it plain, because the Gantry is `vtol_only, charter: false`, so the only way out of the
+  // place was a Dragonfly you had to already own. Somebody who spent 31,000 credits on a rig
+  // could be stranded by it.
+  //
+  // These are NOT new roads. Each is the same crossing read backwards — the same `length`, so the
+  // corridor is the same distance and the tank maths holds in both directions, and the arrival
+  // tile is the rim tile that faces the way you went. A trunk of one keeps a single-destination
+  // void honest: there is nothing to fork toward, so the "shared trunk" is a formality and the
+  // limb is the crossing. (Detours need `trunkLen >= 3` and therefore do not appear on a return
+  // leg — correct: the gamble is a thing you take on the way OUT, with a full tank and a choice
+  // still ahead of you.)
+  region_the_reach: {
+    origin: 'The Reach',
+    trunk: 1,
+    // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
+    // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
+    dests: [
+      { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', dir: 'north', length: 8 },
+    ],
+  },
+  region_terminus: {
+    origin: 'Terminus',
+    trunk: 1,
+    // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
+    // come back in level with where you left.
+    dests: [
+      { key: 'coldwater', dest: 'zone_district_955_916', region: 'region_coldwater', heading: 'Coldwater', dir: 'west', length: 12 },
     ],
   },
 };
@@ -83,7 +142,7 @@ let _seq = 0;
 let WINDOW_FORCE = null;
 function currentWindow() { return WINDOW_FORCE ?? Math.floor(Date.now() / WEEK_MS); }
 
-function voidGateOf(zone) {
+export function voidGateOf(zone) {
   const key = zone?.flags?.region_id;
   if (!key || !VOIDS[key]) return null;
   return { key, void: VOIDS[key] };
@@ -442,7 +501,7 @@ const VOID_ENTRY_BANNER = [
   '────────────────────────────────────────────',
 ].join('\n');
 
-async function launchCrossing(leader, gate, broadcast, heading) {
+export async function launchCrossing(leader, gate, broadcast, heading) {
   if (leader._crossing) return { type: 'emote', message: 'You are already out in the waste. The only way through it is through it.' };
   const origin = leader.current_zone;
   const window = currentWindow();
@@ -583,6 +642,13 @@ async function cmdVoidwalk(args, raw, player, broadcast) {
 
 async function onMovementEdge({ player, zone, direction, broadcast }) {
   if (player._crossing || playerStaging.has(player.id)) return undefined;
+  // You strike out into the waste ON FOOT. Somebody sitting in a vehicle is not on foot, and a
+  // muster overlay opening over a cockpit or a truck cab is nonsense — the vehicle has its own way
+  // of leaving the map (THE LONG HAUL drives off the rim through `trucksync`). Expressed in
+  // POSTURE rather than by asking any particular plugin, so this stays a law about bodies rather
+  // than a list of systems: a move gate can't catch it, because the edge hook fires first,
+  // before a direction with no exits ever resolves a target for the gates to inspect.
+  if (player.posture === 'driving' || player.posture === 'flying') return undefined;
   if (!isMapRim(zone, direction)) return undefined; // an ordinary wall — let the engine report it
   const gate = voidGateOf(zone);
   if (!gate) return undefined; // rim of a region with no void behind it
@@ -912,6 +978,44 @@ on('player.login', async ({ id }) => {
     });
   } catch (e) { console.error('[voidwalking] player.login error:', e.message); }
 });
+
+// ── Public surface for other systems ─────────────────────────────────────────
+// A crossing is walked room-by-room, so nothing here ever needed to know the ORDER of the chain —
+// you just took the exit in front of you. Driving it does: THE LONG HAUL (plugins/trucking) turns
+// an odometer reading into "which room am I standing in", which means it needs the spine as an
+// ordered list. It is exported here rather than reconstructed there, because reconstructing it
+// means copying this file's room-id naming, and the day that naming changes the truck would
+// silently deliver people to rooms that no longer exist.
+//
+// Returns the trunk followed by one destination's limb: index 0 is the threshold room, the last
+// index is the room whose `south` exit is the destination region itself.
+export function crossingChain(instanceId, destKey) {
+  const c = crossings.get(instanceId);
+  if (!c) return [];
+  const trunk = [], limb = [];
+  for (const id of c.roomSet) {
+    if (c.detourSet.has(id)) continue;                      // detours hang off the spine, they aren't on it
+    const rest = id.slice(instanceId.length + 1);           // strip the `<instanceId>_` namespace
+    const m = /^t(\d+)$/.exec(rest);
+    if (m) { trunk[+m[1]] = id; continue; }
+    const lm = new RegExp(`^${destKey}(\\d+)$`).exec(rest);
+    if (lm) limb[+lm[1]] = id;
+  }
+  return [...trunk, ...limb].filter(Boolean);
+}
+// The destination zone a limb ends at — where the road comes out.
+export function crossingDest(instanceId, destKey) {
+  const c = crossings.get(instanceId);
+  return c?.dests?.find(d => d.key === destKey)?.dest || null;
+}
+// What a caller needs to lay something over a crossing without reaching into `crossings`.
+// `player._crossing` deliberately carries only { instanceId, seen } — everything else about the
+// crossing is shared state and belongs here, not copied onto each member.
+export function crossingInfo(instanceId) {
+  const c = crossings.get(instanceId);
+  if (!c) return null;
+  return { voidKey: c.voidKey, window: c.window, origin: c.origin, entry: c.entry, dests: c.dests };
+}
 
 export const commands = {
   voidwalk: cmdVoidwalk,

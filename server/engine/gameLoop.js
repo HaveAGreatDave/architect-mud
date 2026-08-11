@@ -110,7 +110,7 @@ async function forceNpcWorkRecheck() {
   try {
     for (const [, npc] of world.npcs) {
       if (npc._dead) continue;
-      if (npc._aboard || npc._escorting) continue;   // riding aboard a vehicle, or walking with a player — frozen
+      if (npc._aboard || npc._escorting || npc._charterHeld) continue;   // riding aboard a vehicle, walking with a player, or placed by a plugin — frozen
       const ai = npc._ai;
       if (!ai || !npc.behaviour_graph?._start) continue;
       ai.waitUntil = null; // drop any pending WAIT (work-wait, have-life, or sleep)
@@ -1817,7 +1817,13 @@ async function npcWanderTick() {
     // Same freeze while being escorted by a player (plugins/escort): the escortee
     // walks only when the player does, so its own graph must not stroll it back
     // to its shift between the player's steps.
-    if (npc._aboard || npc._escorting) continue;
+    //
+    // And the same again while a plugin owns the NPC's position outright
+    // (`_charterHeld`: a charter pilot on shift or mid-booking, placed by
+    // plugins/flight/charter.js). Two owners of one position means the graph walks
+    // them out while the plugin puts them back, once a second, and the room hears
+    // every departure and none of the returns.
+    if (npc._aboard || npc._escorting || npc._charterHeld) continue;
 
     // Self-heal: legacy autonomous NPCs (vendor/employed/unemployed/actor) seeded
     // without a graph get their type default so they tick on VINE instead of the

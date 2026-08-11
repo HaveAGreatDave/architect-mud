@@ -1338,7 +1338,12 @@ console.log('— layer 1g2: leash / chase / destination law —');
   // never gated WALKING, so a mob could stroll into the one square the rules
   // promised was safe.
   const { rows: tmpl } = await query('SELECT * FROM enemies LIMIT 1');
-  const guarded = [...world.zones.values()].find(z => z.id !== home.id && z.enemies);
+  // A NEIGHBOUR of home, not just any zone: moveEntity now refuses a step between
+  // two zones with no exit between them (the stale-route guard), so an arbitrary
+  // room across the map would be blocked by that law long before reaching this one.
+  const guarded = neighborZoneIds(world.zones.get(home.id))
+    .map(id => world.zones.get(id))
+    .find(z => z && z.id !== home.id && z.enemies && neighborZoneIds(z).includes(home.id));
   if (tmpl.length && guarded) {
     const inst = spawnEnemySync(tmpl[0], home.id);
     check('a spawned enemy records where it came from', inst.spawnZoneId === home.id);
@@ -1368,6 +1373,31 @@ console.log('— layer 1g2: leash / chase / destination law —');
     world.enemies.delete(cop.instanceId);
 
     guarded.flags = priorFlags;
+
+    // ── the adjacency law ──
+    // A step must follow a real exit. Nothing that walks ever means otherwise: a
+    // route only points somewhere unreachable once it has gone STALE (something
+    // else moved the entity out from under it), and moving there anyway announced
+    // itself to two unrelated rooms as a directionless "X leaves."/"X arrives.".
+    // Charter pilots did exactly that once a second for as long as anyone watched.
+    {
+      const homeNbrs = new Set(neighborZoneIds(world.zones.get(home.id)));
+      const far = [...world.zones.values()].find(z => z.id !== home.id && !homeNbrs.has(z.id) && z.enemies);
+      if (far) {
+        const walker = spawnEnemySync(tmpl[0], home.id);
+        walker._ai = { patrolPath: ['somewhere', 'stale'], patrolTarget: 'stale', flags: {} };
+        check('a step to a zone with no exit between them is refused',
+          moveEntity(walker, far.id, () => {}, null) === false);
+        check('…the entity stays where it was', walker.zoneId === home.id, walker.zoneId);
+        check('…and the dead route is dropped so it re-paths from where it stands',
+          walker._ai.patrolPath.length === 0 && walker._ai.patrolTarget === null);
+        check('…but a caller that means it can still teleport',
+          moveEntity(walker, far.id, () => {}, null, { teleport: true }) === true);
+        world.zones.get(walker.zoneId)?.enemies.delete(walker.instanceId);
+        world.enemies.delete(walker.instanceId);
+      }
+    }
+
     world.zones.get(inst.zoneId)?.enemies.delete(inst.instanceId);
     guarded.enemies.delete(inst.instanceId);
     world.enemies.delete(inst.instanceId);

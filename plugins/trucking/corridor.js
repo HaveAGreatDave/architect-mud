@@ -1,0 +1,242 @@
+// The Long Haul — the corridor: a highway generated across the void.
+//
+// The void has no placed tiles. It is a chain of transient ROOMS (plugins/voidwalking) with no
+// grid coordinates at all, because walking it never needed any. Driving it does: the windshield
+// renders a square window of surface cells, so a truck out there needs a world that isn't in the
+// database.
+//
+// THE RULE THIS FILE EXISTS TO OBEY: synthesise the ZONE, never the finished render cell.
+// `corridorAt` returns the same shape `surfaceAt` returns — { id, name, flags, danger } — and
+// hands it to `deriveSurfaceCell` in plugins/flight/state.js, which is the ONE place that decides
+// what a tile looks like. The alternative (emitting `{ kind, biome, road, rd… }` directly) forks
+// that logic, and we know exactly how that ends: plugins/flight/snapshot.js kept its own copy and
+// drifted twice, silently losing painted-only street tiles and then park features from the baked
+// world. So: road auto-tiling, lane markings, biome, extrusion, fog, all of it comes for free, and
+// stays correct when somebody improves the renderer without knowing this file exists.
+//
+// COORDINATE SPACE. The corridor has its own integer grid, origin at the gate. It is NOT world
+// space and never overlaps it — void rooms carry `grid_x: null`, so there is nothing to collide
+// with. A position is (s, t):
+//   s = distance travelled along the route, in tiles, 0 → L
+//   t = lateral offset from the centreline, −R → +R
+// The truck's odometer IS `s`, which is why `s` is the value the server defends hardest.
+//
+// SEEDING. Every cell is a pure function of (voidKey, destKey, window, x, y) using the same
+// hashSeed/mulberry32 pair voidwalking seeds its rooms with, and the same weekly window. So
+// everyone driving this route this week drives the identical road, a relog regenerates it
+// byte-for-byte, and the regress suite can pin a window and get a fixed layout.
+//
+// NODES. `node = floor(s / TILES_PER_ROOM)` maps a point on the road back to the void room the
+// driver is standing in. Crossing a node boundary is the driving equivalent of a `move`, which is
+// what lets encounters, detours, traces and the crossing's player_flags all work untouched.
+
+// Kept in step with plugins/voidwalking (TILES_PER_ROOM = 90). It is not exported from there as a
+// public name, and importing the plugin for one integer would drag its whole boot in; the regress
+// suite asserts the two agree, so a change there fails here loudly rather than silently halving
+// the length of every haul.
+export const TILES_PER_ROOM = 90;
+
+// Half-width of the drivable corridor, in tiles. Past this you are not off the road, you are lost
+// (see the bogged law in plugins/trucking/state.js) — it is deliberately generous, because a wall
+// you can't see is worse than a long walk back.
+export const CORRIDOR_R = 6;
+
+// ── Seeding (mirrors plugins/voidwalking) ────────────────────────────────────
+function hashSeed(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const pick = (rng, arr) => arr[Math.floor(rng() * arr.length) % arr.length];
+
+// ── Route geometry ───────────────────────────────────────────────────────────
+// The road is a polyline of axis-aligned LEGS. Axis-aligned because the renderer's road pass
+// paints lane markings toward connected tile edges (`rd`), so a diagonal would have to be drawn as
+// a staircase of turn pieces and would read as a series of hairpins rather than a curve. A long
+// leg with an occasional jog reads as a highway; that is the whole geometry budget.
+const LEG_MIN = 140;      // tiles — a leg shorter than this reads as a wiggle, not a bend
+const LEG_JOG = 26;       // tiles of lateral travel in a jog leg
+
+// Build the route for one crossing. Pure: same arguments always give the same road.
+//   voidKey   region key the crossing leaves from (e.g. 'region_coldwater')
+//   destKey   destination limb key from that void's `dests` (e.g. 'reach')
+//   window    the weekly window (voidwalking's currentWindow())
+//   nodes     how many void rooms the chain holds — the road is exactly that long
+export function corridorFor(voidKey, destKey, window, nodes) {
+  const n = Math.max(1, nodes | 0);
+  const L = n * TILES_PER_ROOM;
+  const rng = mulberry32(hashSeed(`${voidKey}|${destKey}|${window}|corridor`));
+  const legs = [];
+  let s = 0, x = 0, y = 0, jog = false;   // leave the gate heading down-corridor (+y)
+  while (s < L) {
+    // A run is long; a jog is short and lateral. They strictly alternate, because two jogs in a
+    // row is a chicane and nobody builds one of those across a waste. The last leg is always a
+    // run and is trimmed to land exactly on L, so the road ends where the room chain ends.
+    const len = jog
+      ? Math.min(L - s, LEG_JOG)
+      : Math.min(L - s, LEG_MIN + Math.floor(rng() * LEG_MIN));
+    const ux = jog ? (rng() < 0.5 ? -1 : 1) : 0;
+    const uy = jog ? 0 : 1;
+    legs.push({ s0: s, s1: s + len, x0: x, y0: y, ux, uy, len });
+    x += ux * len; y += uy * len; s += len;
+    // Only jog if there's room for a full run afterwards — otherwise the route would end on a
+    // sideways stub pointing away from the destination.
+    jog = !jog && (L - s) > LEG_MIN && rng() < 0.55;
+  }
+  return { voidKey, destKey, window, nodes: n, L, R: CORRIDOR_R, legs };
+}
+
+// Where is (s, t) in corridor XY? Used to place the truck and to seed the cab's start pose.
+export function corridorPos(route, s, t = 0) {
+  const cs = Math.max(0, Math.min(route.L, s));
+  const leg = route.legs.find(l => cs >= l.s0 && cs <= l.s1) || route.legs[route.legs.length - 1];
+  const d = cs - leg.s0;
+  // Lateral is perpendicular to travel: a north-south leg offsets in x, an east-west leg in y.
+  const px = leg.x0 + leg.ux * d + (leg.uy ? t : 0);
+  const py = leg.y0 + leg.uy * d + (leg.ux ? t : 0);
+  return { x: px, y: py, heading: leg.uy ? 180 : (leg.ux > 0 ? 90 : 270) };
+}
+
+// The inverse, and the hot one: for a corridor XY, which leg is it on, how far along, how far off?
+// Returns null when the point is on no leg — that is off-corridor, which renders as open air.
+// Legs are few (a handful per route) so a linear scan is cheaper than any index.
+function locate(route, x, y) {
+  let best = null;
+  for (const leg of route.legs) {
+    let d, t;
+    if (leg.uy) { d = y - leg.y0; t = x - leg.x0; }        // running in +y, lateral is x
+    else { d = (x - leg.x0) * leg.ux; t = y - leg.y0; }    // running in ±x, lateral is y
+    if (d < 0 || d > leg.len) continue;
+    if (Math.abs(t) > route.R) continue;
+    const cand = { s: leg.s0 + d, t, leg };
+    // Near a joint two legs both claim the tile; the paved one (smaller |t|) wins, so the corner
+    // gets a road tile rather than a hole where the two runs fail to meet.
+    if (!best || Math.abs(t) < Math.abs(best.t)) best = cand;
+  }
+  return best;
+}
+export { locate as corridorLocate };
+
+// ── Cell content ─────────────────────────────────────────────────────────────
+const VERGE_NAMES = ['The Long Nothing', 'Cracked Hardpan', 'The Rust Flats', 'Ashfall', 'Bone Country'];
+// Roadside structures, sparse. Every `bt` here is a type `drawTypeModel` ALREADY has a model for
+// (checked against the case list in client/game/js/panels/windshield.js) — so a fuel yard or a
+// junkyard comes up out of the haze as itself, with no new art and nothing falling back to a
+// generic box. `motel`/`silo`/`shack` were the obvious names and are exactly the ones with no
+// model, which is the trap: pick the type off the renderer's list, not off the fiction.
+// Spacing is deliberately wide. On a long haul these are EVENTS, not scenery.
+const ROADSIDE = [
+  { bt: 'fuel_yard', name: 'Last Chance Diesel' },
+  { bt: 'diner', name: 'The Greasy Axle' },
+  { bt: 'garage', name: 'Wrench In The Works' },
+  { bt: 'warehouse', name: 'A Dead Depot' },
+  { bt: 'junkyard', name: 'The Boneyard' },
+  { bt: 'ruins', name: 'Somebody Lived Here' },
+  { bt: 'layover', name: 'The Long Layover' },
+  { bt: 'reefer', name: 'A Stalled Reefer' },
+];
+const ROADSIDE_EVERY = 40;
+
+// Terrain for a node, seeded exactly as voidwalking seeds the room's own — so the ground under the
+// wheels changes room by room, and matches the terrain the walked prose describes.
+const TERRAINS = ['scrub', 'ash', 'redrock', 'marsh'];
+function nodeTerrain(route, node) {
+  return pick(mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}${node}`)), TERRAINS);
+}
+
+// The road piece for a tile: an EXPLICIT icon, always. It matters that this is authored rather
+// than left to mapWindow's auto-tiler — the tiler ORs together every adjacent road cell, so a
+// corridor whose shoulder is also `dirt_road` would come back 'nesw' on every single tile and the
+// renderer would paint a crossroads for the entire length of the highway. Authoring `road_ns`
+// takes the explicit-icon branch and a straight road stays straight. (Verified: an auto-tiled
+// 3-wide band renders as nesw|nesw|nesw; the same band with icons renders ns|ns|ns.)
+// Which way does a leg travel, as a compass letter? (+y is south, matching the world grid.)
+const legDir = leg => leg.uy ? 's' : (leg.ux > 0 ? 'e' : 'w');
+const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+
+function roadIcon(route, hit) {
+  const { leg, s } = hit;
+  // A bend carries the direction the road ARRIVED from and the direction it LEAVES in — 'nw' for
+  // a southbound run turning west, not the union of both axes. Unioning gives 'nesw', which the
+  // renderer draws as a four-way crossroads, so every bend in the highway would sprout two lane
+  // markings into empty desert.
+  for (const other of route.legs) {
+    if (other === leg) continue;
+    if (other.s0 === leg.s1 && Math.abs(s - leg.s1) <= 1) {
+      return `road_${OPP[legDir(leg)]}${legDir(other)}`;          // this leg ends here, that one starts
+    }
+    if (other.s1 === leg.s0 && Math.abs(s - leg.s0) <= 1) {
+      return `road_${OPP[legDir(other)]}${legDir(leg)}`;          // that leg ends here, this one starts
+    }
+  }
+  return 'road_' + (leg.uy ? 'ns' : 'ew');
+}
+
+// One surface cell of the corridor. THE contract: this returns the same shape `surfaceAt` does,
+// or null for open air. It is called once per window cell per push (≈5300 cells at radius 36), so
+// it allocates a little and queries nothing.
+export function corridorAt(route, x, y) {
+  const hit = locate(route, x, y);
+  if (!hit) return null;                                  // beyond the corridor: open air
+  const { s, t } = hit;
+  const node = Math.max(0, Math.min(route.nodes - 1, Math.floor(s / TILES_PER_ROOM)));
+  const terrain = nodeTerrain(route, node);
+  const at = Math.abs(t);
+  const id = `corridor_${route.voidKey}_${route.destKey}_${x}_${y}`;
+  const danger = 2;
+
+  // The paved centreline.
+  if (at < 0.5) {
+    return { id, name: 'The Highway', danger,
+      flags: { terrain: 'road', icon: roadIcon(route, hit), corridor_s: s, corridor_node: node } };
+  }
+  // The shoulder — graded dirt. `dirt_road` is what earns it the renderer's packed-dirt look
+  // (ft:'dust'), so drifting onto it is visible before any penalty text fires.
+  if (at < 1.5) {
+    return { id, name: 'The Shoulder', danger,
+      flags: { terrain: 'dirt_road', icon: roadIcon(route, hit), corridor_s: s, corridor_node: node } };
+  }
+  // The verge. Node terrain, and very occasionally something somebody built and left.
+  const rng = mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}|${x},${y}`));
+  const flags = { terrain, corridor_s: s, corridor_node: node };
+  let name = pick(rng, VERGE_NAMES);
+  // A structure sits just off the verge, on ONE side, at a milepost. The roll is seeded on the
+  // MILEPOST rather than on the cell, and the chosen side/offset is compared against this cell —
+  // otherwise every cell in the perpendicular row rolls independently and a single milepost
+  // sprouts five buildings in a line across the desert (it did: 61 structures over 720 tiles,
+  // five of them stacked at s=0). One marker, one building.
+  const mile = Math.round(s);
+  if (at >= 2.5 && mile % ROADSIDE_EVERY === 0) {
+    const mrng = mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}|mile${mile}`));
+    if (mrng() < 0.55) {
+      const side = mrng() < 0.5 ? -1 : 1;
+      const off = 3 + Math.floor(mrng() * (route.R - 2));   // 3 .. R
+      if (Math.round(t) === side * off) {
+        const b = pick(mrng, ROADSIDE);
+        flags.building_type = b.bt;
+        flags.building_name = b.name;
+        flags.floors = 1 + Math.floor(mrng() * 2);
+        // Face the door at the road, so it reads as something that once served it. The facing is
+        // perpendicular to the leg being driven, on the side the building actually sits.
+        const leg = hit.leg;
+        flags.entrance = leg.uy ? (t > 0 ? 'west' : 'east') : (t > 0 ? 'north' : 'south');
+        name = b.name;
+      }
+    }
+  }
+  return { id, name, danger, flags };
+}
+
+// Bind a route to a provider with the (x, y) signature mapWindow wants. Pass the result straight
+// in as `at` — see plugins/flight/state.js mapWindow.
+export function corridorProvider(route) {
+  return (x, y) => corridorAt(route, x, y);
+}

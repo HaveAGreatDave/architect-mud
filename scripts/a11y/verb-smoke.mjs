@@ -116,10 +116,13 @@ else bad('prefersReducedMotion() ignored motion=off — every JS animation will 
 {
   runAccessibilityCommand('reset');
   const s = loadSettings();
-  const stuck = A11Y_OPTIONS.filter(o => String(s[o.key]) !== String(o.opts[0].v) && o.key !== 'fontSize');
-  const sizeBack = String(s.fontSize) === '16';
-  if (!stuck.length && sizeBack && !s.fontSizeChosen) ok('`accessibility reset` returns every option to its default');
-  else bad(`reset left ${stuck.map(o => o.key).join(', ') || ''}${sizeBack ? '' : ' fontSize'}${s.fontSizeChosen ? ' fontSizeChosen' : ''} behind`);
+  // The default is `def` where an option declares one, and the first pill
+  // otherwise. This used to assume the first pill ALWAYS, which held until an
+  // option arrived whose default belongs in the middle of an ordered scale.
+  const defOf = (o) => String(o.def ?? o.opts[0].v);
+  const stuck = A11Y_OPTIONS.filter(o => String(s[o.key]) !== defOf(o));
+  if (!stuck.length && !s.fontSizeChosen) ok('`accessibility reset` returns every option to its default');
+  else bad(`reset left ${stuck.map(o => o.key).join(', ')}${s.fontSizeChosen ? ' fontSizeChosen' : ''} behind`);
 }
 
 if (failed) {

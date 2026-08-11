@@ -14,14 +14,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_sewer"
+    "scavenging_table_id": "scav_sewer",
+    "terrain": "sewer"
   },
   "grid_x": 902,
   "grid_y": 911,
   "grid_z": -1,
   "id": "zone_under_902_911",
   "map_id": "map_world",
-  "marker": "╨",
   "name": "Drain Sump",
   "parent_zone": null
 }

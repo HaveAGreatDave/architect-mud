@@ -4,9 +4,7 @@
   "class": "grasshopper",
   "cruise_speed": 1,
   "data": {
-    "feel": "Featherweight tandem scout; slow and docile, sees everything below; the wind nudges her around.",
-    "hopper": 200,
-    "spray": true
+    "feel": "Featherweight tandem scout; slow and docile, sees everything below; the wind nudges her around."
   },
   "engines": 1,
   "fuel_burn_base": 0.9,

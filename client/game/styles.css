@@ -1688,6 +1688,35 @@ body.fsim-external #look-resize-handle { display: none; }
 	color: var(--text-dim);
 }
 
+/* Voice input (Settings → Accessibility → Voice Input). The [hidden] attribute is
+   set by dictation.js — it also covers browsers with no speech recognition, which
+   the setting alone can't know about — and this rule is the belt-and-braces half
+   so the button never flashes into view during boot before that runs. */
+html[data-dictation="off"] #dictate-btn { display: none; }
+#dictate-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 1rem;
+	padding: 6px 8px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+	line-height: 1;
+	transition: all 0.15s;
+	-webkit-tap-highlight-color: transparent;
+}
+#dictate-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Listening is announced through aria-pressed; this is the same fact for eyes.
+   A pulse would be the obvious choice and is exactly what Motion Off exists to
+   stop, so the live state is a solid fill instead — legible without animation. */
+#dictate-btn.listening {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--accent-ink);
+}
+
 /* Quick command buttons */
 #quick-cmds {
 	border-top: 1px solid var(--border);

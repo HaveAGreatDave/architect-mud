@@ -245,7 +245,109 @@ export const TYPES = {
     brake: 5.5, groundSteer: 30, ceiling: 22000, ldMax: 4.9, gLimit: 4.4,   // big draggy ag wing — she does not glide far
     groundPitch: 10,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
+  // ── Ground vehicles (THE LONG HAUL) ────────────────────────────────────────
+  // `ground: true` dispatches stepTruck instead of the fixed-wing integrator, exactly as
+  // `heli: true` dispatches stepHeli. A ground type shares only the knobs that mean the same
+  // thing on a road (engineLag, rollFric, dragP, brake) and adds its own.
+  //
+  // THE SCALE KNOB IS `tileMph`, and it is the one number that decides how a haul FEELS: it is
+  // the road speed at which the truck covers one corridor tile per second. At 80, a 60 mph cruise
+  // is 0.75 tiles/s, a 90-tile void room is about two minutes, and an 8-room crossing to the Reach
+  // is a fraction over sixteen. That is the target — long enough to be a journey, short enough to
+  // do after work. Halve it and the same road becomes a commute; double it and it becomes a chore.
+  // THE FLEET. Four rungs, and the spread is deliberately in DIFFERENT directions rather than one
+  // "better" axis — a bigger truck is not simply an upgrade, it is a different bet. The Mule is
+  // quick and cheap and cannot carry a full commodity load; the Continental carries three times as
+  // much and drinks accordingly. What you own decides which trade routes are open to you, which is
+  // the whole reason to have more than one.
+  //
+  //   `kg`    trailer capacity — the ceiling on a commodity load, and half the economics
+  //   `tank`  range in tiles on a full fill — see the note below, it is load-bearing
+  //   `price` what a dealer wants for it
+  //
+  // TANK RANGE IS TUNED AGAINST THE REAL ROUTE, and the number to hold in your head is
+  // **495 tiles one way** — 44 of Coldwater road to the rim, 450 of corridor (the Reach crossing
+  // derives to MIN_ROOMS = 5 because the rim and Buzzard Field are only 40 tiles apart in a
+  // straight line), and one tile into the yard. A round trip is therefore ~990.
+  //
+  // The first cut sized these against 765, which was the REGRESS FIXTURE'S geography — a synthetic
+  // destination parked 630 tiles out — and the result was a fleet where even the 1,300₵ beater
+  // completed a round trip on one tank with room to spare. Every gauge in the game read full, the
+  // `fuel` verb had nothing to do, and Last Chance Diesel was scenery. Tune against the map, never
+  // against the harness.
+  //
+  // The ladder now runs on RANGE as well as deck: the Barrow must refuel at the far end, the
+  // Drayman only just round-trips, and the Orlov does it one and a half times over.
+  // NAMING: trucks are an invented MAKER plus a haulage MODEL (a drayman drove a brewery cart; a
+  // barrow is the humblest cart there is). Deliberately a different family from the aircraft, which
+  // are animals and insects — Mayfly, Locust, Dragonfly, Mule. An early cut called this one the
+  // "Kestrel Mule" and collided with `ac_mule` on both halves at once.
+  hauler: {
+    name: 'Ostrek Courier', ground: true, tier: 1,
+    mass: 2.4,
+    thrustMax: 11.0,      // mph/s of acceleration authority at full throttle — light and willing
+    topSpeed: 74,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
+    tileMph: 80,          // road speed (mph) that covers one corridor tile per second — see above
+    wheelbase: 0.48,      // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in
+    engineLag: 1.4,       // throttle→rpm time constant (s)
+    rollFric: 1.7,        // rolling resistance (mph/s) at idle
+    dragP: 0.0014,        // aero drag (∝ speed²)
+    brake: 8.2,           // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
+                          // a TEMPERATURE, which is what makes holding a gear down a grade matter.
+    kg: 1800, tank: 1100, price: 4200,
+    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
+    gears: [0, 3.86, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
+    engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    trailerLen: 0.34, hitchOffset: 0.11, trailerKg: 1400,   // kingpin geometry, and the empty box itself
+    blurb: 'A stubby rigid box on a short wheelbase. Turns in like something half its age and carries about as much.',
+  },
+  drayman: {
+    name: 'Vachon Drayman', ground: true, tier: 2,
+    mass: 3.2, thrustMax: 9.0, topSpeed: 68, tileMph: 80, wheelbase: 0.62,
+    engineLag: 1.9, rollFric: 2.1, dragP: 0.0016, brake: 7.5,
+    kg: 3500, tank: 1400, price: 11500,
+    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
+    gears: [0, 4.21, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],
+    engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    trailerLen: 0.58, hitchOffset: 0.16, trailerKg: 3200,   // kingpin geometry, and the empty box itself
+    blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
+  },
+  // A HEAVY TRUCK IS SLOW TO WIND UP, NOT INCAPABLE. `thrustMax` is the whole engine, and it has to
+  // clear `rollFric × drag` on the worst surface with headroom or the truck simply cannot move off
+  // the pavement — see the SURFACES note. The way to make something feel ponderous is `mass`,
+  // `engineLag` and `wheelbase`, never by starving it of power: the first cut gave this 7.4 against
+  // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
+  continental: {
+    name: 'Orlov Continental', ground: true, tier: 3,
+    mass: 4.6, thrustMax: 9.2, topSpeed: 63, tileMph: 80, wheelbase: 0.82,
+    engineLag: 2.6, rollFric: 2.3, dragP: 0.0016, brake: 6.4,
+    kg: 6200, tank: 2100, price: 31000,
+    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
+    gears: [0, 4.54, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],
+    engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    trailerLen: 0.74, hitchOffset: 0.2, trailerKg: 5200,   // kingpin geometry, and the empty box itself
+    blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
+  },
+  // The bottom rung exists so the first truck is a REAL decision at a price a new player can
+  // actually reach, rather than a wall between them and the entire system.
+  scrapper: {
+    name: 'Krell Barrow', ground: true, tier: 0,
+    mass: 2.8, thrustMax: 8.4, topSpeed: 58, tileMph: 80, wheelbase: 0.55,
+    engineLag: 2.4, rollFric: 2.2, dragP: 0.0019, brake: 6.0,
+    kg: 1200, tank: 850, price: 1300,
+    // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
+    gears: [0, 4.93, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],
+    engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
+    trailerLen: 0.3, hitchOffset: 0.1, trailerKg: 900,   // kingpin geometry, and the empty box itself
+    blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
+  },
 };
+
+// Every ground type, cheapest first — the dealer's stock list and the ladder the yard shows.
+export const TRUCK_TYPES = Object.entries(TYPES)
+  .filter(([, t]) => t.ground)
+  .sort((a, b) => a[1].price - b[1].price)
+  .map(([id, t]) => ({ id, ...t }));
 
 // The lift-curve constants: CL0 is the coefficient at zero AoA, CL_ALPHA the per-degree slope.
 // They anchor both the weight the wing carries (weightOf) and the AoA the wing needs to hold 1g
@@ -305,6 +407,11 @@ function tuning(p) {
   const weight = weightOf(p);
   const vbg2 = (p.mass * G_KT) / (2 * p.dragP * (p.ldMax || 7));
   const t = { weight, kInd: 0.25 * p.dragP * vbg2 * vbg2 / (weight * weight), bestGlide: Math.sqrt(vbg2) };
+  // The α the wing sits at when it is holding its own weight AT best glide — i.e. the angle the
+  // airframe is rigged to trim to with the power off. §3's low-energy nose-drop restores toward
+  // this rather than toward a guessed fraction of aoaCrit, so each type's hands-off power-off
+  // glide settles at its OWN best-glide speed instead of somewhere on the back of its polar.
+  t.aoaGlide = clamp((weight / (0.5 * vbg2 * p.liftScale) - CL0) / CL_ALPHA, 0, p.aoaCrit * 0.8);
   try { Object.defineProperty(p, '_tune', { value: t, enumerable: false, configurable: true }); } catch { /* frozen params: recompute each call */ }
   return t;
 }
@@ -500,7 +607,408 @@ function stepHeli(state, input, p, dt) {
   return s;
 }
 
+// ── Ground integrator (THE LONG HAUL — the truck) ────────────────────────────
+// A road vehicle, not an aircraft. No lift, no stall, no altitude — the whole model is a
+// bicycle: a front axle you point and a rear axle that follows, plus the surface under the tyres.
+//
+// It lives in this file rather than in the trucking plugin for one reason: `p.heli` above already
+// dispatches a completely different vehicle out of `step`, and this file is the only PURE,
+// dependency-free, headless-testable integrator in the client. A truck model anywhere else would
+// either duplicate that discipline or lose it. Same contract as the rest of the file: mutate and
+// return state, allocate nothing, read no globals.
+//
+// COORDINATES. Unlike the aircraft — which the plugin positions from heading and airspeed — the
+// truck integrates its own (x, y) in CORRIDOR space (see plugins/trucking/corridor.js). Steering
+// around a bend has to move the vehicle through the turn, so the position and the heading must be
+// integrated together, in the same place, at the same rate.
+//
+// Heading is world-standard: 0 = north = −y, 90 = east = +x, 180 = south = +y.
+//
+// PHASE 1 IS BOBTAIL. There is no trailer here — no kingpin, no articulation angle, no jackknife.
+// That is deliberate: the drive has to be worth doing before the trailer makes it matter. When the
+// trailer lands it adds ONE scalar (φ, the articulation angle) fed by the same yaw rate computed
+// in §3, and everything below is unchanged.
+const TRUCK_STEER_MAX = 32;      // deg of front-axle lock at full wheel — a semi tractor, not a go-kart
+const IDLE = 0.16;               // idle, as a fraction of redline
+const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
+const LAUNCH_MPH = 12;           // below this, ON THE THROTTLE, a driver is feathering the clutch
+const CRAWL_MPH  = 4;            // below this the clutch is always in — parking must not stall you
+const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
+const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
+export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
+const JACKKNIFE_DEG = 55;        // where the restoring term gives up and the trailer drives the fold
+const PHI_MAX = 88;              // trailer against the cab; there is no forward through this
+
+// THE TORQUE CURVE. A diesel is not a petrol engine: it makes almost everything it has across a
+// narrow band low down and then gives up, which is precisely why gears matter. Flat-topped between
+// `band[0]` and `band[1]`, falling off either side — lugging below, screaming above.
+//
+// Returned as a MULTIPLIER on thrustMax, so the peak is 1 and the tuning lives in the type.
+function torqueAt(rpm, p) {
+  const [lo, hi] = p.band;
+  if (rpm >= lo && rpm <= hi) return 1;
+  if (rpm < lo) {
+    // Lugging. Falls to nearly nothing at stall — a hill in too high a gear simply beats you.
+    const t = clamp((rpm - STALL_RPM) / Math.max(0.01, lo - STALL_RPM), 0, 1);
+    return 0.12 + 0.88 * t * t;
+  }
+  // Over-revving. Noise, diesel, and no more speed.
+  const t = clamp((rpm - hi) / Math.max(0.01, 1 - hi), 0, 1);
+  return 1 - 0.75 * t * t;
+}
+
+// ── The splitter box ─────────────────────────────────────────────────────────
+// An 18-speed has eighteen positions and NO player wants eighteen menu entries. What a driver
+// actually operates is a RANGE (low/high) and a SPLITTER (half a step), so the surface is three
+// verbs — `shift up`, `shift down`, `split` — over a flat ratio ladder. Gear 0 is neutral.
+//
+// SKIP-SHIFTING falls out for free and is correct: empty, you can jump two and stay in the band;
+// loaded, the same jump drops you under it and you have to come back down. Nothing enforces that
+// but the curve.
+export function truckShift(s, p, delta) {
+  const next = clamp((s.gear ?? 1) + delta, -1, p.gears.length - 1);
+  if (next === s.gear) return s.gear;
+  s.gear = next;
+  s.shifted = true;                       // one frame's flag: the cab clunks, the audio bumps
+  return s.gear;
+}
+// The splitter: half a step, which is what the extra lever on the knob is for. Written the long way
+// because the one-liner it replaced chained on truckShift's return value, and that value is a GEAR
+// NUMBER — so a split into neutral was falsy and silently left `s.split` lying about itself.
+export function truckSplit(s, p) {
+  truckShift(s, p, s.split ? -1 : 1);
+  s.split = !s.split;
+  return s.gear;
+}
+// Which gear WOULD hold the band at this speed — what the cab shows as a suggestion, never as an
+// automatic. Telling somebody the answer is not the same as choosing it for them.
+export function bestGear(speed, p) {
+  const mid = (p.band[0] + p.band[1]) / 2;
+  let best = 1, err = Infinity;
+  for (let g = 1; g < p.gears.length; g++) {
+    const e = Math.abs((speed / p.tileMph) * p.gears[g] - mid);
+    if (e < err) { err = e; best = g; }
+  }
+  return best;
+}
+// ── The fifth wheel ──────────────────────────────────────────────────────────
+// Hitching is a WALKING-PACE act and the model says so rather than the verb saying it: you have to
+// be stopped and lined up. `HITCH_PHI` is generous — this is a truck sim, not a docking puzzle, and
+// the difficulty is meant to live in backing the thing into the slot, not in the last two degrees.
+export const HITCH_MPH = 3, HITCH_PHI = 25;
+export function canHitch(s) { return Math.abs(s.speed) <= HITCH_MPH && Math.abs(s.phi || 0) <= HITCH_PHI; }
+export function truckHitch(s, p, trailer = {}) {
+  if (s.hitched || !canHitch(s)) return false;
+  s.hitched = true;
+  s.trailerKg = trailer.kg ?? p.trailerKg;
+  // The deck is rated, and the rating is the truck's own mass — the same number `market buy` sizes
+  // a purchase against, so the two halves cannot disagree. Clamping here rather than trusting the
+  // caller is what keeps the mass term inside the range the handling was tuned for; an unbounded
+  // load is not a hard truck to drive, it is a truck that does not move at all.
+  s.loadKg = clamp(trailer.loadKg || 0, 0, p.kg);
+  // The box starts straight behind you. Anything else would be a trailer you had to align by
+  // driving, and you cannot drive it until it is hitched.
+  s.trailerHeading = s.heading; s.phi = 0;
+  return true;
+}
+// Dropping it needs the same stillness, and — unlike hitching — it must be roughly STRAIGHT, or
+// you are winding the legs down onto a box that is sitting across the lane you came in on.
+export function truckUnhitch(s) {
+  if (!s.hitched || Math.abs(s.speed) > HITCH_MPH || Math.abs(s.phi) > 12) return null;
+  const dropped = { kg: s.trailerKg, loadKg: s.loadKg, heading: s.trailerHeading, x: s.x, y: s.y };
+  s.hitched = false; s.trailerKg = 0; s.loadKg = 0; s.phi = 0;
+  return dropped;
+}
+function stepTruck(state, input, p, dt) {
+  const s = state;
+  s.events = [];
+  // The wheel reports an ABSOLUTE axle position, not a rate — a truck's front wheels return to
+  // centre and you hold a line, where a boat's helm sets a course and keeps it. (This is the one
+  // real behavioural change made to the shared helm-wheel widget; see its `absolute` mode.)
+  const steer = clamp(input.steer || 0, -1, 1);
+  const throttle = clamp(input.throttle || 0, 0, 1);
+  const brake = clamp(input.brake || 0, 0, 1);
+
+  // 1. Surface. The corridor tells us what is under the tyres; the model only knows how each one
+  //    behaves. Grip scales cornering, drag scales how hard it is to hold speed, and `cap` is the
+  //    honest reason you stay on the road — the verge does not stop you, it just makes the haul
+  //    take all night. This is the "edge of the road is a law, not a wall" rule, in numbers.
+  const surf = SURFACES[input.surface] || SURFACES.road;
+
+  // AUTO. Rowing an eight-speed is the point, but it must not be the price of entry: `auto` shifts
+  // for you, keeping the band, and is what the cab's assist toggle and every headless harness use.
+  // It is deliberately a little late on the upshift and early on the down, so a driver who turns it
+  // off is faster — the manual box has to be worth learning or it is just ceremony.
+  if (input.auto && !s.stalled) {
+    const want = bestGear(s.speed, p);
+    if (want !== s.gear && !s.autoHold) { s.gear = want; s.shifted = true; s.autoHold = 0.35; }
+  }
+  if (s.autoHold > 0) s.autoHold = Math.max(0, s.autoHold - dt);
+
+  // 2. THE GEARBOX, and the inversion the whole thing rests on.
+  //
+  //    An aircraft's `rpm` is a first-order FOLLOWER of the throttle lever. A truck's is nothing of
+  //    the sort: the engine is bolted to the road through a gear, so ENGINE SPEED IS DERIVED FROM
+  //    ROAD SPEED, and the throttle produces TORQUE. Turning that round is the whole of phase 1.5,
+  //    and everything interesting falls out of it rather than being coded:
+  //
+  //      • lugging      — below the band there is no torque, so a hill just beats you
+  //      • over-revving — above it you make noise and burn diesel and go no faster
+  //      • stalling     — pull away in too high a gear and the engine cannot turn the wheels
+  //      • engine brake — off the throttle IN GEAR, the road drives the engine and it fights back
+  //
+  //    None of those are special cases. They are one curve and one ratio, read in the right order.
+  // Gear −1 is REVERSE. It borrows first gear's ratio, which is what a real box does — reverse is
+  // low and loud and there is only one of it — so nothing downstream needs a second table.
+  const gear = s.gear = clamp(s.gear ?? 1, -1, p.gears.length - 1);
+  // Reverse is geared DEEPER than first, as a real box is, and it has to be: capped at a fraction
+  // of top speed it never leaves the crawl window, so it is permanently on a slipping clutch at 45%
+  // of drive. Given first gear's ratio it could not back a loaded trailer out of a bay at all —
+  // rolling resistance ate it. `REVERSE_RATIO` is the extra reduction that makes reverse the
+  // slowest, strongest, loudest gear in the truck, which is exactly what it is.
+  const ratio = gear === 0 ? 0 : p.gears[Math.abs(gear)] * (gear < 0 ? REVERSE_RATIO : 1);
+  const clutch = clamp(input.clutch || 0, 0, 1);          // 1 = fully in, engine disconnected
+  const engaged = 1 - clutch;
+
+  // Engine speed, 0..1 of redline, straight off the road through the gear. Neutral (gear 0) and a
+  // depressed clutch leave the engine free, so it idles up to the throttle instead.
+  const geared = ratio > 0 ? (Math.abs(s.speed) / p.tileMph) * ratio : 0;
+  // A DISCONNECTED ENGINE IS HELD AT THE BAND, not run to the stop. Nobody slipping a clutch away
+  // from a junction sits on the limiter: they hold it where it pulls and feed the pedal. Running
+  // `freeRpm` to redline instead meant full throttle put the engine into the over-rev side of the
+  // curve, torque collapsed to a quarter, and a loaded truck could not pull away in FIRST.
+  const freeRpm = IDLE + throttle * (p.band[1] - IDLE);
+
+  // THE CLUTCH SLIPS ON ITS OWN BELOW IDLE, which is what a driver's left foot is for and what
+  // this model does not ask the player to simulate. Without it the geared rpm at a standstill is
+  // zero, so EVERY pull-away stalled instantly — including first gear, which is not a gearbox, it
+  // is a handbrake. While slipping, the engine runs at its own speed and the gear cannot drag it
+  // down; you get whatever torque idle-plus-throttle makes, which in a tall gear is not much.
+  // That is lugging away from a stop, and it is the correct punishment for the wrong gear.
+  // LAUNCHING is not the same as being in the wrong gear, and conflating them broke both halves.
+  // A driver feathers the clutch pulling AWAY FROM REST and nowhere else — nobody is slipping it
+  // at thirty in sixth. So the slip window is a SPEED, not an rpm: below `LAUNCH_MPH` the left
+  // foot is doing the work and the gear cannot drag the engine down; above it the clutch is out,
+  // rpm is whatever the road says, and the consequences are real.
+  //
+  // Keying it off rpm instead meant a tall gear slipped forever (sixth and eighth pulled away
+  // identically, and better than FIRST), and stalling became literally unreachable, because
+  // slowing down put you back into the slip window that the stall check excluded.
+  // Two windows, and they are not the same window. LAUNCH is throttle-driven — a foot feathering
+  // the clutch to get moving — so it cannot protect you on the way DOWN, which is where the
+  // classic stall lives: rolling in a high gear, slowing for something, forgetting to go down the
+  // box. CRAWL is an unconditional auto-clutch at walking pace, so parking in a sensible gear never
+  // kills the engine and the depot is not a place you stall six times an evening.
+  const launching = ratio === 0 || engaged < 0.05 || Math.abs(s.speed) < CRAWL_MPH
+    || (Math.abs(s.speed) < LAUNCH_MPH && throttle > 0.05);
+  const slipping = launching && geared < p.band[0];
+  s.rpm = slipping ? freeRpm : geared * engaged + freeRpm * (1 - engaged);
+
+  // THE TORQUE CURVE. Flat-topped across a band, falling away either side. `torqueAt` is the whole
+  // character of the engine and the only reason a gear choice can be wrong.
+  const torque = torqueAt(s.rpm, p);
+  // A SLIPPING CLUTCH DOES NOT TRANSMIT EVERYTHING, and that single number is what makes the wrong
+  // gear cost you. Without it you could feather away in sixth all the way to thirty and the whole
+  // box would be decoration: every gear pulls away identically while slipping, so the ONLY thing
+  // separating them is how long they have to slip before the engine can take the load. First bites
+  // at about six miles an hour; sixth is still slurring at thirty.
+  const SLIP_TRANSMIT = 0.45;
+  // A GEAR MULTIPLIES TORQUE, and until weight existed this model quietly did not say so: `drive`
+  // read the throttle and the band but never the ratio, so every gear pushed exactly as hard and
+  // the box was distinguished only by where it put the revs. Bobtail you never notice. Hitch eight
+  // tonnes to it and first gear cannot pull away — which is not a heavy truck, it is a broken one.
+  //
+  // Normalised against TOP gear, so top is 1.0 and the existing top-speed tuning is untouched, and
+  // square-rooted because the honest ratio spread (6.5:1) would make first gear a dragster. What
+  // survives is the shape that matters: low gears pull, high gears don't, and the difference is
+  // most of why you choose one.
+  const ratioBoost = ratio > 0 ? Math.sqrt(ratio / p.gears[p.gears.length - 1]) : 0;
+  const drive = p.thrustMax * throttle * torque * engaged * surf.drive * ratioBoost * (slipping ? SLIP_TRANSMIT : 1);
+
+  // STALLING, and it is a DIFFERENT mistake from lugging away from a stop. You stall when the
+  // clutch is properly out — the truck is rolling, the gear is doing the work — and you let the
+  // road drag the engine under. In sixth that is anything below about eight miles an hour, so the
+  // classic death is slowing for something and not going down the box. Feathering away from rest
+  // can never stall you, because the clutch is slipping and the gear has no grip on the engine.
+  if (!s.stalled && !slipping && geared < STALL_RPM) {
+    s.stalled = true;
+    s.events.push('stall');
+  }
+  if (s.stalled) {
+    // Dead. The clutch (or neutral) lets you restart; `starter` is the cab holding the key.
+    if (clutch > 0.5 || ratio === 0) { if (input.starter) { s.stalled = false; s.events.push('start'); } }
+    s.rpm = 0;
+  }
+  const power = s.stalled ? 0 : drive;
+
+  // ENGINE BRAKING. Off the throttle and in gear, the road turns the engine and the engine
+  // resists — hard in a low gear, barely at all in a high one. This is the payoff the gearbox
+  // exists for on a descent, and it is why "pick a gear at the top" is a real decision: hold the
+  // right one and the service brakes stay cold. (Brake TEMPERATURE lands in phase 2; the retarding
+  // force is here now so the habit is learnable before it is punished.)
+  const jake = (input.jake && !s.stalled && ratio > 0 && engaged > 0.5) ? p.jake : 0;
+  // A SLIPPING CLUTCH CANNOT TRANSMIT DRAG EITHER, and forgetting that half made reverse and any
+  // heavy launch nearly immovable: pulling away, the engine was fighting itself through a clutch
+  // that was only passing 45% of the drive but 100% of the retarding force. The gate is the same
+  // `slipping` flag, because it is the same clutch.
+  const engBrake = (s.stalled || slipping) ? 0
+    : (ratio > 0 ? engaged * (1 - throttle) * ratio * p.engBrake * (1 + jake) : 0);
+
+  // WEIGHT. One number, derived, doing four jobs: it blunts the engine, lengthens the stop, heats
+  // the brakes faster and slows the trailer's swing. A load is not a debuff on a stat sheet — it is
+  // the same rig with more of it, so everything is divided by mass rather than penalised by a
+  // lookup. Bobtail (`loadKg` 0 and no trailer) is genuinely quick, which is why running empty is a
+  // real choice and not just the state you are in before the game starts.
+  const mass = (p.kg + (s.trailerKg || 0) + (s.loadKg || 0)) / p.kg;   // 1 = bobtail, ~2.5 = loaded
+
+  // BRAKE TEMPERATURE, and the reason the gearbox pays off on a descent. Service brakes turn speed
+  // into heat; the engine brake and the Jake do not, because they dump it out of the exhaust. Ride
+  // the pedal down a grade with weight behind you and they FADE — the pedal stays where it is and
+  // stops doing as much, which is the correct horror. Holding a gear keeps them cold.
+  const braking = brake * (Math.abs(s.speed) / p.tileMph);
+  s.brakeTemp = clamp((s.brakeTemp || 0) + (braking * mass * 0.13 - (s.brakeTemp || 0) * 0.22) * dt, 0, 1.4);
+  // Fade is flat until it isn't. Below `FADE_AT` the brakes are brakes; past it they lose more than
+  // half their bite, and the smoke tells you before the speedometer does.
+  const fade = s.brakeTemp <= FADE_AT ? 1 : Math.max(0.35, 1 - (s.brakeTemp - FADE_AT) * 1.6);
+  if (s.brakeTemp > FADE_AT && !s.wasFading) { s.events.push('brakefade'); s.wasFading = true; }
+  else if (s.brakeTemp < FADE_AT * 0.8) s.wasFading = false;
+
+  // REVERSE. Gear 0 is neutral and gear −1 is reverse, so `ratio` is read off the absolute index
+  // and the DIRECTION is the sign. Everything downstream integrates a signed speed, which is what
+  // makes backing a trailer work at all: the articulation term below flips with it, on its own.
+  const dir = gear < 0 ? -1 : 1;
+  // Rolling + aero resistance, the brakes, and the engine holding it back. All of it opposes the
+  // direction of travel rather than being subtracted blindly, or reversing would accelerate you.
+  const moving = Math.sign(s.speed) || dir;
+  // Mass is applied WHERE IT PHYSICALLY BELONGS, which is not everywhere. Rolling resistance grows
+  // with weight in step with the weight it is slowing, so it stays a constant deceleration and is
+  // NOT divided — that is why a loaded truck rolls to a stop about as readily as an empty one. Aero,
+  // the brakes and the engine brake are fixed forces fighting a bigger number, so they are, and
+  // that is why a loaded truck takes so much longer to STOP. Getting this backwards is what makes a
+  // load feel like a debuff instead of like weight.
+  const roll = p.rollFric * surf.drag;
+  const forces = p.dragP * s.speed * s.speed + brake * p.brake * fade + engBrake;
+  const before = s.speed;
+  s.speed += (power * dir / mass - (roll + forces / mass) * moving) * dt;
+  // Resistance stops you; it never drags you backwards through zero. (Without this a stationary
+  // truck with the brake on oscillates about zero and the roll noise chatters.)
+  if (before !== 0 && Math.sign(s.speed) !== Math.sign(before) && power === 0) s.speed = 0;
+  const cap = p.topSpeed * surf.cap;
+  s.speed = clamp(s.speed, -cap * REVERSE_CAP, cap);
+  s.inBand = torque > 0.85 && !s.stalled;             // the cab lights this; you learn to drive on it
+
+  // 3. Bicycle model. Front axle at `steer`, rear axle follows: yaw = v·tan(δ)/L. Everything that
+  //    makes a long vehicle feel long is in that L — a semi tractor turns lazily at speed and
+  //    swings wide at a crawl, with no special-casing for either.
+  const delta = steer * TRUCK_STEER_MAX * D2R;
+  const tps = s.speed / p.tileMph;                    // tiles per second — the sim's real velocity
+  const yaw = Math.abs(tps) > 0.001 ? (tps * Math.tan(delta) / p.wheelbase) * R2D * surf.grip : 0;
+  s.heading = wrap360(s.heading + yaw * dt);
+  s.yawRate = yaw;
+
+  // 3b. THE TRAILER — two bodies, one constraint, one free variable.
+  //
+  //  The kingpin sits a fixed distance behind the tractor's rear axle, so the only thing that is
+  //  not already determined is the ARTICULATION ANGLE φ between the two. Everything people mean
+  //  when they say a semi handles like a semi is that one scalar and its derivative:
+  //
+  //      ψ̇ = (v·sin φ − a·θ̇·cos φ) / Lt        φ = θ − ψ
+  //
+  //  where θ is the tractor heading, ψ the trailer's, `a` the hitch offset and Lt the trailer
+  //  wheelbase. Nothing here is a rule about trucks; it is the geometry written down honestly.
+  //
+  //  JACKKNIFE IS NOT CODED. Past about 55° the sin term stops restoring and starts driving, and
+  //  the trailer folds on its own — harder with weight, harder on gravel, and hardest under
+  //  trailer brakes, all of which are already in the numbers above. There is no jackknife state
+  //  and no jackknife check; there is a constraint, and it does what constraints do.
+  //
+  //  REVERSING FLIPS IT, for free. Backing up makes `v` negative, which turns the restoring term
+  //  into a divergent one: the trailer no longer follows, it runs away, and you steer against it.
+  //  That inversion is the entire reason backing a trailer is a skill, and it costs one sign.
+  if (s.hitched) {
+    const phi = s.phi * D2R;
+    const psiDot = ((tps * Math.sin(phi) - p.hitchOffset * (yaw * D2R) * Math.cos(phi)) / p.trailerLen) * R2D;
+    // Heavier trailers are slower to swing AND slower to recover — the inertia cuts both ways,
+    // which is why a loaded jackknife is something you see coming and cannot stop.
+    s.trailerHeading = wrap360(s.trailerHeading + psiDot / Math.sqrt(mass) * dt);
+    let d = s.heading - s.trailerHeading;
+    s.phi = ((d + 540) % 360) - 180;
+    if (Math.abs(s.phi) > JACKKNIFE_DEG && !s.wasFolding) { s.events.push('jackknife'); s.wasFolding = true; }
+    else if (Math.abs(s.phi) < JACKKNIFE_DEG * 0.6) s.wasFolding = false;
+    // Folded past the physical limit the trailer is against the cab and you are not going forward
+    // through it. This is the one clamp, and it is a real thing that happens to real trucks.
+    if (Math.abs(s.phi) >= PHI_MAX) {
+      s.phi = Math.sign(s.phi) * PHI_MAX;
+      s.trailerHeading = wrap360(s.heading - s.phi);
+      if (s.speed > 6) s.speed *= 0.94;
+    }
+  }
+
+  // 4. Position. Integrate along the heading in corridor tiles.
+  const h = s.heading * D2R;
+  s.x += Math.sin(h) * tps * dt;
+  s.y += -Math.cos(h) * tps * dt;
+
+  // 5. Feedback the cab and the audio layer read. `slip` is the tyres losing the surface in a
+  //    corner — it drives the rumble and, later, the trailer's willingness to fold.
+  const lat = Math.abs(yaw) * tps / 60;
+  s.slip = clamp(lat / Math.max(0.05, surf.grip), 0, 1);
+  if (s.slip > 0.85 && !s.wasSliding) { s.events.push('slide'); s.wasSliding = true; }
+  else if (s.slip < 0.5) s.wasSliding = false;
+  s.onRoad = input.surface === 'road';
+  s.groundSpeed = s.speed;
+  return s;
+}
+// Per-surface handling. `cap` is a fraction of top speed, `grip` scales cornering, `drag` scales
+// rolling resistance, `drive` scales how much of the engine reaches the ground.
+// The verge must stay DRIVABLE. An early cut had offroad drag at 4.2, which put rolling resistance
+// (rollFric × drag = 8.8) above everything the engine could deliver off the pavement (thrustMax ×
+// drive = 5.6) — so the truck simply would not move, which is a wall wearing a penalty's clothes.
+// Every surface here must satisfy `thrustMax × drive > rollFric × drag` with headroom, or the
+// "edge of the road is a law, not a wall" rule is quietly broken by a tuning number.
+export const SURFACES = {
+  road:     { cap: 1.00, grip: 1.00, drag: 1.00, drive: 1.00 },
+  shoulder: { cap: 0.72, grip: 0.68, drag: 1.30, drive: 0.88 },   // gravel: it rumbles, and it pulls
+  offroad:  { cap: 0.34, grip: 0.42, drag: 1.60, drive: 0.62 },   // the verge: passable, and a mistake
+};
+
+export function createTruckState(p) {
+  return {
+    speed: 0, heading: 180, x: 0, y: 0,          // parked at the gate, pointed down-corridor (south)
+    rpm: IDLE, yawRate: 0, slip: 0, wasSliding: false,
+    gear: 1, split: false, stalled: false, inBand: false, shifted: false,
+    onRoad: true, groundSpeed: 0,
+    // The rig. `hitched` false is BOBTAIL and is a real way to drive, not an unfinished one:
+    // no φ to manage, no weight, and the truck is quick. φ and the trailer heading only mean
+    // anything while something is on the fifth wheel.
+    hitched: false, phi: 0, trailerHeading: 180, trailerKg: 0, loadKg: 0,
+    brakeTemp: 0, wasFading: false, wasFolding: false,
+    events: [],
+  };
+}
+
+// The truck's half of `readout` — same job, different instrument panel.
+export function truckReadout(s, p) {
+  return {
+    speed: Math.round(s.speed),
+    heading: Math.round(s.heading),
+    rpm: Math.round(s.rpm * 100),
+    gear: s.gear, gears: p.gears.length - 1,
+    inBand: !!s.inBand, stalled: !!s.stalled,
+    best: bestGear(s.speed, p),                 // a suggestion, never an automatic
+    slip: +s.slip.toFixed(2),
+    hitched: !!s.hitched, phi: +(s.phi || 0).toFixed(1),
+    folding: Math.abs(s.phi || 0) > JACKKNIFE_DEG,
+    brakeTemp: +(s.brakeTemp || 0).toFixed(2), fading: (s.brakeTemp || 0) > FADE_AT,
+    reversing: s.gear < 0,
+    onRoad: s.onRoad,
+    x: +s.x.toFixed(3), y: +s.y.toFixed(3),
+    topSpeed: p.topSpeed,
+  };
+}
+
 export function step(state, input, p, dt) {
+  if (p.ground) return stepTruck(state, input, p, dt);
   if (p.heli) return stepHeli(state, input, p, dt);
   const s = state;
   s.events = [];
@@ -556,6 +1064,26 @@ export function step(state, input, p, dt) {
     const pitchResist = 1 - 0.55 * Math.abs(s.pitch) / 48;   // scaled to the wider ±48° envelope
     const pitchCmd = s.elevEff * p.pitchRate * auth * pitchResist * (tailGone ? 0.35 : 1);   // sheared tailplane → mushy elevator
     s.pitch += (pitchCmd - p.pitchStable * s.pitch * (1 - Math.abs(s.elevEff))) * dt;
+    // LOW-ENERGY NOSE-DROP — longitudinal static stability, and the thing that was missing when
+    // you pulled the power off. The self-level above holds an ATTITUDE, with full authority at any
+    // airspeed: at cruise that's indistinguishable from real stability (γ≈0 and the trim α≈0, so
+    // "level" IS "trimmed"), but with the throttle closed it becomes a free autopilot pinning the
+    // nose on the horizon while the flight path droops away underneath it. The aircraft mushed
+    // along at a steady high α forever, and NOTHING told the pilot the energy had gone.
+    // Real static stability restores the WING toward its trim angle of attack, not the fuselage
+    // toward the horizon — so as α climbs, the nose is pulled down toward the relative wind. It
+    // fades in over the top half of the α range, which is why cruise, a dive (α low — the nose
+    // still comes back up to level, the phugoid is intact) and any commanded attitude are all
+    // untouched; only the slow, draggy, out-of-energy case moves. What you feel is the nose
+    // falling on its own as the speed decays, and a glide that settles nearer best glide instead
+    // of sitting on the back side of the power curve.
+    const aoaGlide = tuning(p).aoaGlide;
+    const droopIn = clamp((s.aoa - aoaGlide) / Math.max(1, p.aoaCrit - aoaGlide), 0, 1);
+    if (droopIn > 0 && !s.onGround) {
+      const gammaNow = Math.atan2(s.vs / 101.33, Math.max(1, s.airspeed)) * R2D;
+      const target = gammaNow + aoaGlide;    // restores toward the TRIM α, never to zero α (the wing still has to fly)
+      s.pitch += (target - s.pitch) * droopIn * (p.pitchStable ?? 1) * 1.6 * (1 - Math.abs(s.elevEff)) * dt;
+    }
     if (tailGone && !s.onGround) s.pitch -= 16 * dt;   // lost tail downforce → the nose tucks under
     // Rotation attitude is gear-limited while the mains are still down — without this a held
     // back-pressure keeps pitching (and AoA) up toward the full airborne limit before liftoff,
@@ -734,14 +1262,27 @@ export function step(state, input, p, dt) {
   // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
   // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway. A firm,
   // wide cushion makes the touchdown forgiving — a slightly-fast/high-sink arrival still settles.
-  if (!s.onGround && vsTarget < 0 && s.altitude < GROUND_EFFECT_FT) {
-    const ge = 1 - s.altitude / GROUND_EFFECT_FT;   // 0 at the top of the band → 1 on the deck
-    vsTarget *= 1 - 0.45 * ge * ge;                 // softens the sink near the deck without cancelling it — she still settles onto the runway instead of floating
+  // Ground effect: within ~a wingspan of the deck the wing rides a cushion of trapped air — the
+  // sink softens so she FLOATS and you FLARE her on instead of driving her into the runway.
+  // THE BAND IS A WINGSPAN, SO IT SCALES WITH THE AIRFRAME. A flat 26 ft gave the 0.85-mass
+  // Grasshopper and the 5.0-mass freighter the same cushion, which is the freighter arriving on
+  // her gear at 1300 fpm with no cushion worth the name — the big wing is exactly the one that
+  // should float. And the cushion is applied to the vs TARGET, so `vsTau` of vertical lag used to
+  // eat most of it: at 400 fpm you cross a 26 ft band in under four seconds and the sink had
+  // barely begun easing when the wheels arrived. Inside the band the cushion is an immediate
+  // aerodynamic force, so the vertical lag is shortened in proportion — the sink actually comes
+  // off before touchdown rather than being promised and delivered late.
+  const geBand = GROUND_EFFECT_FT * (0.7 + 0.3 * (p.mass || 1));
+  let geLift = 0;
+  if (!s.onGround && vsTarget < 0 && s.altitude < geBand) {
+    geLift = 1 - s.altitude / geBand;      // 0 at the top of the band → 1 on the deck
+    vsTarget *= 1 - 0.6 * geLift * geLift; // softens the sink near the deck without cancelling it — she still settles onto the runway instead of floating
   }
   if (s.onGround && vsTarget <= 0) {
     s.vs = 0;                                 // sitting on the wheels — no lift to climb on
   } else {
-    s.vs += (vsTarget - s.vs) * Math.min(1, dt / p.vsTau);
+    const tau = p.vsTau * (1 - 0.6 * geLift);   // the cushion pushes back NOW; don't let vertical inertia post-date it
+    s.vs += (vsTarget - s.vs) * Math.min(1, dt / tau);
     s.altitude += (s.vs / 60) * dt;
   }
 

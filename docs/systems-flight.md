@@ -694,7 +694,17 @@ charter, contracts — all four `fieldOf` copies now import `fieldFor`) and ever
 always parks/transacts against the ramp (aircraft never leave the `map_world` grid).
 **Charter pilots sit at the ops desk inside** their hangar while on shift
 (`syncPilots` seats them via `setPosture(...,'sitting')`, `forceStand` on any move
-out); `inHangar` counts a pilot present at the ramp **or** the interior. Chartering
+out); `inHangar` counts a pilot present at the ramp **or** the interior.
+**Only one thing owns where a pilot stands at a time** (`charterOwnsPilot`): charter.js
+places them, and freezes their behaviour graph (`_charterHeld`, honoured by the game
+loop beside `_aboard`), **only while they're on shift or mid-booking**. Off the clock
+and unbooked, ownership goes back to the graph, which walks them home on their own legs
+rather than being teleported there. Before this, both placed them every 2.5s — and
+because `moveNpcToZone` is silent while the graph's step broadcasts, the hangar heard
+one side of that argument forever: *"Old Kessler leaves."* on a loop, with no arrival
+between. That's also why `available()` checks the shift **explicitly** — an off-duty
+pilot may now legitimately be standing in their own hangar, so presence stopped being
+proof they're on the clock. Chartering
 happens **entirely from inside the hangar**: you book a ride and a destination at the
 desk, the pilot **taxis the machine up to the hangar door**, and `embark` (reachable
 from inside, resolved to the ramp aircraft) is what rolls it. The interiors are CODEX

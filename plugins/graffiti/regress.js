@@ -16,7 +16,7 @@
 // indices have to survive escaping — `esc` changes the LENGTH of the string, and a
 // renderer that indexed the escaped text would slice an entity in half and put a
 // live `<` back on the wall.
-import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, tagAt, removeTag } from './index.js';
+import { _test, TAG_MAX_LEN, TAG_LIFE_DAYS, CAN_CAPACITY, tagAt, removeTag } from './index.js';
 import { normalizeRuns, coalesceRuns, renderStyled, decodePayload, safeColor, escapedChars } from './paint.js';
 import { world } from '../../server/engine/world.js';
 import { gameDayIndex } from '../../server/engine/zone-filth.js';
@@ -143,6 +143,11 @@ export default async function regress({ run, check }) {
   check('a painted tag still names the building', /Bodega Vu/.test(painted));
   check('a painted tag drops the blanket bold — the paint decides the weight now',
     !/: <b>/.test(painted), painted);
+
+  // --- Paint budget ----------------------------------------------------------
+  // A can has to afford at least one full-length tag, or the tag limit is a lie
+  // the editor tells you before the can refuses.
+  check('a full can affords a full-length tag', CAN_CAPACITY >= TAG_MAX_LEN, `${CAN_CAPACITY} < ${TAG_MAX_LEN}`);
 
   // --- The verbs the dialog talks to ----------------------------------------
   for (const verb of ['spraycan', 'sprayapply', 'spraysave', 'spraydel']) {

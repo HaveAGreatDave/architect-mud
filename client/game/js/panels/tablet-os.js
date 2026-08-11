@@ -1229,6 +1229,67 @@ function ensureStyles() {
     #tablet-os-overlay .tos-lib-card-by { font-size:0.6875rem; color:var(--tos-fg-dim); margin-top:2px; font-style:italic; }
     #tablet-os-overlay .tos-lib-card-meta { font-size:0.6563rem; color:var(--tos-fg-dim); margin-top:3px; opacity:.8; }
 
+    /* ── The longbox, and the comic reader ──────────────────────────────────────
+       The other half of the Library. Everything is derived from --bk-hue exactly
+       as the bindings are, so a comic needs no more authored art than a book does:
+       a bag, a board behind it, a cover with a date in the corner. */
+    #tablet-os-overlay .tos-cm-box { display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:14px 12px; padding:2px 0 4px; }
+    #tablet-os-overlay .tos-cm-slot { cursor:pointer; transform:rotate(var(--tilt)); transition:transform .14s ease; }
+    /* Pulled half out of the bin, and straightened while you look at it. */
+    #tablet-os-overlay .tos-cm-slot:hover { transform:rotate(0deg) translateY(-4px); }
+    /* The bag: a flat sheen over the whole thing, and the board's white edge
+       showing at the bottom where the cover doesn't quite cover it. */
+    #tablet-os-overlay .tos-cm-bag { position:relative; border-radius:2px; padding:3px 3px 7px;
+      background:linear-gradient(115deg, rgba(255,255,255,.14), rgba(255,255,255,.02) 42%, rgba(255,255,255,.09));
+      border:1px solid color-mix(in srgb, var(--tos-border) 85%, transparent);
+      box-shadow:0 5px 14px -7px rgba(0,0,0,.8); }
+    #tablet-os-overlay .tos-cm-cover { position:relative; aspect-ratio:2/3; border-radius:1px; padding:9px 8px;
+      display:flex; flex-direction:column; justify-content:flex-end; gap:3px; overflow:hidden;
+      background:
+        radial-gradient(120% 80% at 20% 12%, hsl(var(--bk-hue) 72% 52% / .55), transparent 62%),
+        linear-gradient(165deg, hsl(var(--bk-hue) 60% 38% / .92), hsl(var(--bk-hue) 55% 14% / .96));
+      border:1px solid hsl(var(--bk-hue) 40% 10% / .85); }
+    /* Newsprint dot screen. One repeating gradient, no asset. */
+    #tablet-os-overlay .tos-cm-cover::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.16;
+      background-image:radial-gradient(currentColor .5px, transparent .6px); background-size:3px 3px; }
+    #tablet-os-overlay .tos-cm-cover-date { position:absolute; top:6px; right:7px; font-size:0.5938rem; letter-spacing:1.2px;
+      color:rgba(255,255,255,.72); background:rgba(0,0,0,.35); padding:1px 4px; border-radius:2px; }
+    #tablet-os-overlay .tos-cm-cover-title { font-family:Georgia,'Palatino Linotype',serif; font-weight:700;
+      font-size:0.8125rem; line-height:1.12; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.75); }
+    #tablet-os-overlay .tos-cm-cover-by { font-size:0.625rem; font-style:italic; color:rgba(255,255,255,.7); }
+    #tablet-os-overlay .tos-cm-cover-read { position:absolute; top:9px; left:-20px; transform:rotate(-38deg);
+      font-size:0.5313rem; letter-spacing:2px; padding:2px 22px; background:var(--mg-accent); color:#000; opacity:.85; }
+    #tablet-os-overlay .tos-cm-slot-meta { font-size:0.625rem; color:var(--tos-fg-dim); margin-top:5px; text-align:center; }
+
+    /* The reader. Prose does the story; this is the furniture around it. */
+    #tablet-os-overlay .tos-comic { max-width:58ch; }
+    #tablet-os-overlay .tos-comic .tos-cm-panel { margin:0 0 1.05em; }
+    /* A caption is the narrator's own voice, and in a comic it is in a box. */
+    #tablet-os-overlay .tos-comic .tos-cm-cap { margin:0 0 1.15em; padding:9px 12px;
+      border:1px solid color-mix(in srgb, var(--mg-accent) 40%, var(--tos-border));
+      border-left-width:3px; border-radius:2px; background:color-mix(in srgb, var(--mg-accent) 7%, transparent);
+      font-family:Georgia,'Palatino Linotype',serif; letter-spacing:.4px; line-height:1.6; }
+    /* Balloons. Alternating sides so an exchange reads as one, and a tail on each
+       so a single line still reads as speech rather than as an indented quote. */
+    #tablet-os-overlay .tos-comic .tos-cm-beat { display:flex; flex-direction:column; gap:7px; margin:0 0 1.15em; }
+    #tablet-os-overlay .tos-comic .tos-cm-bal { position:relative; align-self:flex-start; max-width:88%;
+      padding:7px 13px; border-radius:13px; line-height:1.5;
+      border:1px solid var(--tos-border); background:var(--tos-surface-hi); }
+    #tablet-os-overlay .tos-comic .tos-cm-bal-b { align-self:flex-end; }
+    #tablet-os-overlay .tos-comic .tos-cm-bal::after { content:''; position:absolute; bottom:-5px; width:9px; height:9px;
+      background:var(--tos-surface-hi); border:1px solid var(--tos-border); border-top:0;
+      transform:rotate(45deg) skew(8deg,8deg); border-left:0; }
+    #tablet-os-overlay .tos-comic .tos-cm-bal-a::after { left:17px; }
+    #tablet-os-overlay .tos-comic .tos-cm-bal-b::after { right:17px; }
+    /* Lettering. Sits in the gutter at size, and is the one thing on the page
+       allowed to be loud. */
+    #tablet-os-overlay .tos-comic .tos-cm-sfx { margin:0 0 1.1em; text-align:center; font-weight:800;
+      font-size:1.5rem; letter-spacing:5px; color:var(--mg-accent); text-shadow:2px 2px 0 rgba(0,0,0,.55);
+      transform:rotate(-2deg); }
+    /* A page turn. Air on both sides, which is the whole job. */
+    #tablet-os-overlay .tos-comic .tos-cm-turn { height:1px; margin:26px auto 26px; width:38%;
+      background:linear-gradient(90deg, transparent, var(--tos-border), transparent); }
+
     /* The plate. Cloth, a foil rule, a stamped monogram, and the spine's shadow. */
     #tablet-os-overlay .tos-lib-plate { position:relative; flex:none; border-radius:2px 4px 4px 2px;
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
@@ -3597,6 +3658,49 @@ function renderNarratableBody(body, glossary) {
   }).join('');
 }
 
+// ── The comic reader ─────────────────────────────────────────────────────────
+// A comic arrives as BLOCKS (plugins/library/books.js parses the markup; there is
+// exactly one parser and it is not this file), and gets furniture: captions in a
+// box, dialogue in balloons, lettering at size, a real gutter at a page turn.
+//
+// The old comics were panel scripts with a critic talking over them, which read
+// as a description of a comic rather than as one. The prose does the story now
+// and this does the presentation, which is the split that was missing.
+//
+// Rendering RETURNS its narration parts rather than exposing a second function
+// that walks the blocks again. CODEX pairs renderCodexBody with
+// codexNarrationParts and keeps them in sync by hand; here one walk emits both,
+// so span N is the text of utterance N by construction and cannot drift.
+let _comicParts = null;
+
+function renderComicBody(blocks, glossary) {
+  const parts = [];
+  let n = 0;
+  // Every speakable string goes through here, so the numbering and the parts
+  // array advance together or not at all.
+  const say = (s) => narrateSplit(s)
+    .map(t => { parts.push(t); return `<span class="tos-narr-s" data-s="${n++}">${glossWords(esc(t), glossary)}</span>`; })
+    .join(' ');
+
+  const html = (blocks || []).map(b => {
+    if (b.kind === 'turn') return `<div class="tos-cm-turn"></div>`;
+    if (b.kind === 'sfx') return `<div class="tos-cm-sfx">${say(b.text)}</div>`;
+    if (b.kind === 'caption') return `<div class="tos-cm-cap">${say(b.text)}</div>`;
+    if (b.kind === 'balloons') {
+      // One beat, several balloons, alternating sides so an exchange reads as an
+      // exchange. The speaker rides INSIDE the spoken span: with one narrator
+      // voice, dropping the name is how a listener loses track of who is talking.
+      const bal = (b.lines || []).map((l, i) =>
+        `<div class="tos-cm-bal tos-cm-bal-${i % 2 ? 'b' : 'a'}">${say(`${l.speaker}: ${l.text}`)}</div>`).join('');
+      return `<div class="tos-cm-beat">${bal}</div>`;
+    }
+    return `<p class="tos-cm-panel">${say(b.text || '')}</p>`;
+  }).join('');
+
+  _comicParts = parts;
+  return html;
+}
+
 // Underline the archaic words this chapter actually contains. Runs AFTER esc(),
 // on already-escaped text, and only ever matches [A-Za-z'-] runs — so it cannot
 // land inside an entity (`&amp;`) or invent a tag. The gloss itself goes in a
@@ -5808,6 +5912,33 @@ function renderLibraryShelf(d) {
   // The shelf board under the row of books. Pure decoration, and worth it — it is
   // the thing that says "these are objects" before you read a single title.
   return `<div class="tos-lib-shelf">${cards}</div><div class="tos-lib-board"></div>`;
+}
+
+// The longbox. Deliberately NOT the shelf with a different label on it: a comic
+// is filed face-out in a bin, in a bag, with a board behind it, and you flick
+// through it with your fingers rather than reading spines. Same derived hue, same
+// zero authored art, different object.
+function renderLongbox(d) {
+  const comics = d.books || [];
+  if (!comics.length) return '<div class="tos-empty">Nothing here.</div>';
+  const cards = comics.map((b, i) => {
+    const total = b.chapters || 0;
+    const pct = total > 1 ? Math.round((b.at / (total - 1)) * 100) : (b.at ? 100 : 0);
+    // A cover date rather than a publication year: this is the number printed in
+    // the corner of a comic, and it is what a longbox is sorted by.
+    return `<div class="tos-cm-slot" data-open-item="${esc(b.id)}" style="--bk-hue:${bookHue(b.id)};--tilt:${(i % 3) - 1}deg">
+      <div class="tos-cm-bag">
+        <div class="tos-cm-cover">
+          <div class="tos-cm-cover-date">${esc(String(b.year || ''))}</div>
+          <div class="tos-cm-cover-title">${esc(b.title)}</div>
+          <div class="tos-cm-cover-by">${esc(b.author)}</div>
+          ${b.at > 0 ? `<div class="tos-cm-cover-read">READ</div>` : ''}
+        </div>
+      </div>
+      <div class="tos-cm-slot-meta">${total} part${total === 1 ? '' : 's'}${b.at > 0 ? ` · ${pct}%` : ''}</div>
+    </div>`;
+  }).join('');
+  return `<div class="tos-cm-box">${cards}</div><div class="tos-lib-board"></div>`;
 }
 
 function renderLibraryCover(d) {
@@ -9633,6 +9764,7 @@ function renderBody() {
   if (d.view === 'library') {
     const body = d.libKind === 'cover' ? renderLibraryCover(d)
                : d.libKind === 'contents' ? renderLibraryContents(d)
+               : d.libKind === 'longbox' ? renderLongbox(d)
                : renderLibraryShelf(d);
     return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${body}
@@ -9774,7 +9906,13 @@ function renderBody() {
       ${det.desc ? `<div class="tos-detail-desc">${esc(det.desc)}</div>` : ''}
       ${renderObjectives(d.quest?.objectives)}
       ${d.narratable ? renderNarrateBar() : ''}
-      ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}">${d.narratable ? renderNarratableBody(det.body, d.glossary) : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`}</div>` : ''}
+      ${det.body ? `<div class="tos-detail-body${isBook ? ' tos-book' : ''}${d.comic ? ' tos-comic' : ''}">${
+        // A comic renders from its blocks; everything else is prose and takes the
+        // path it always has. `d.comic` is absent on every book on the shelf.
+        d.comic ? renderComicBody(d.comic, d.glossary)
+          : d.narratable ? renderNarratableBody(det.body, d.glossary)
+            : `<p>${esc(det.body).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`
+      }</div>` : ''}
       ${renderDetailRows(det.rows)}
       ${renderActions(d.appId, d.actions, params)}
       ${qlog}
@@ -9828,7 +9966,11 @@ function wireBody() {
         const nxt = chapterList[++atIdx];
         return nxt?.body ? { text: nxt.body, title: `${book} — ${nxt.name || nxt.title || ''}`.trim() } : null;
       };
-      narrateStart(det.body || '', book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
+      // A comic hands over the EXACT array its spans were numbered from. Handing
+      // over `det.body` instead would re-split the marker-free prose and shift
+      // every index, so the highlight would follow the wrong balloon.
+      narrateStart(_data?.comic && _comicParts ? _comicParts : (det.body || ''),
+        book, `${book} — ${det.name || ''}`.trim(), _data?.lex, advance);
     });
   });
 

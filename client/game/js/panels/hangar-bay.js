@@ -450,6 +450,41 @@ function hullTabHtml(c) {
   return gauge + acts;
 }
 
+// Hopper — the ag-plane's chemical tank, read the same way Hull is: a gauge, a verdict, then
+// the work on offer. The tab exists only where c.hopperCap > 0, so it's the Locust's alone.
+//
+// It offers CANS, not a free-text field: every button is `loadhopper <craftId> <that can's
+// name>`, which is a command the player could have typed, so the panel proposes and the verb
+// decides (the workspace HUD's rule — the bench must not re-derive the pour's preconditions).
+// One press pours ONE container, which is why a stack shows its count rather than its total.
+function hopperTabHtml(c) {
+  const cap = c.hopperCap || 1, amt = Math.max(0, Math.min(cap, c.hopperAmount || 0));
+  const pct = Math.round(amt / cap * 100);
+  const col = pct < 10 ? '#ff6b6b' : pct < 40 ? '#ffb26b' : '#63d0f0';
+  const verdict = pct === 0 ? 'Dry. Nothing to lay down.'
+    : pct >= 98 ? `Brimmed with ${esc(c.hopperFluid || 'fluid')}. Watch your weight on the roll.`
+    : `${amt} of ${cap} units of ${esc(c.hopperFluid || 'fluid')} aboard — about ${Math.floor(amt / 20)} pass${Math.floor(amt / 20) === 1 ? '' : 'es'} left.`;
+  const gauge = `<div class="hb-hull-gauge">
+      <div class="hb-hull-num" style="color:${col}">${pct}<small>%</small></div>
+      <div class="hb-hull-track"><i style="width:${pct}%;background:${col};color:${col}"></i>
+        <u style="left:20%"></u><u style="left:50%"></u><u style="left:80%"></u></div>
+      <div class="hb-hull-verdict">${verdict}</div>
+    </div>`;
+  if (pct >= 98) return gauge + `<div class="hb-note">Full. Fly a few passes before you top her up again.</div>`;
+  const cans = B.data.chemCans || [];
+  // A hopper holds ONE fluid at a time, so anything that isn't what's already in there is shown
+  // greyed with the reason — hiding it would read as "you're not carrying anything".
+  const rows = cans.map(k => {
+    const clash = amt > 0 && c.hopperFluid && k.fluid !== c.hopperFluid;
+    return `<button class="hb-btn hb-hop-can${clash ? ' hb-hop-clash' : ''}" data-act="loadhopper" data-can="${esc(k.name)}"${clash ? ' disabled' : ''}>
+      <b>${esc(k.name)}</b>${k.count > 1 ? ` <em>×${k.count}</em>` : ''}
+      <span>${clash ? `holds ${esc(k.fluid)} — she's loaded with ${esc(c.hopperFluid)}` : `${k.amount} units of ${esc(k.fluid)}`}</span></button>`;
+  }).join('');
+  return gauge + (cans.length
+    ? `<div class="hb-note">Pour from what you're carrying. The container comes back empty.</div><div class="hb-hop-cans">${rows}</div>`
+    : `<div class="hb-note">You've nothing holding liquid. Fill a container at a tap or a water source, then come back.</div>`);
+}
+
 // ── Tuning: continuous dials + a live performance graph ───────────────────────
 // The five perf axes, in radar-ring order. MIRROR of state.js PERF_AXES — the axis
 // math below (computeAxesClient) mirrors state.perfAxes/computeStats so the graph
@@ -659,6 +694,7 @@ function benchScreen() {
   const tabs = [
     { id: 'paint', label: 'Paint', ico: '🎨' },
     { id: 'hull', label: 'Hull', ico: '🔧' },
+    ...(c.hopperCap > 0 && !c.wreck ? [{ id: 'hopper', label: 'Hopper', ico: '💧' }] : []),
     ...(canTune ? [{ id: 'tuning', label: 'Tuning', ico: '🎛' }, { id: 'kits', label: 'Kits', ico: '⚙' }] : []),
     ...(c.configurable ? [{ id: 'weight', label: 'W&B', ico: '⚖' }] : []),
   ];
@@ -684,6 +720,7 @@ function benchScreen() {
   </div>`;
 
   const body = B.benchTab === 'hull' ? hullTabHtml(c)
+    : B.benchTab === 'hopper' ? hopperTabHtml(c)
     : B.benchTab === 'tuning' ? tuningTabHtml(c)
     : B.benchTab === 'kits' ? kitsTabHtml(c)
     : B.benchTab === 'weight' ? weightTabHtml(c)
@@ -898,6 +935,9 @@ function wire() {
     if (act === 'refuel') { sendCmdSilent(`refuel ${B.selId}`); refetch(); return; }
     if (act === 'repair') { sendCmdSilent(`repair ${B.selId}`); refetch(); return; }
     if (act === 'repair-pro') { sendCmdSilent(`repair ${B.selId} hangar`); refetch(); return; }
+    // Pours ONE container and refetches — the can list and the gauge both move, and the server's
+    // reply is the authority on whether the pour actually happened.
+    if (act === 'loadhopper') { sendCmdSilent(`loadhopper ${B.selId} ${e.currentTarget.getAttribute('data-can')}`); refetch(); return; }
     if (act === 'tune-apply') {
       const t = B.tune || {}; const f = (v) => (v || 0).toFixed(2);
       sendCmdSilent(`tuneset ${B.selId} ${f(t.mixture)} ${f(t.pitch)} ${f(t.boost)} ${f(t.cg)}`);
@@ -1478,6 +1518,13 @@ function ensureStyles() {
   #hb-root .hb-hull-track u { position:absolute; top:0; bottom:0; width:1px; background:color-mix(in srgb, var(--text) 40%, transparent); z-index:2; }
   #hb-root .hb-hull-verdict { font-size:10.5px; line-height:1.45; color:var(--text-dim); font-style:italic; }
   #hb-root .hb-repair-row { display:flex; gap:8px; flex-wrap:wrap; }
+  /* Hopper — the pour list. Each can is a wide two-line button (name + what's in it), so a
+     row reads as a container on the shelf rather than a menu entry. */
+  #hb-root .hb-hop-cans { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+  #hb-root .hb-hop-can { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; width:100%; text-align:left; justify-content:flex-start; }
+  #hb-root .hb-hop-can em { font-style:normal; opacity:.6; }
+  #hb-root .hb-hop-can span { margin-left:auto; font-size:11px; opacity:.66; }
+  #hb-root .hb-hop-clash { opacity:.45; cursor:not-allowed; }
   /* Tuning — rotary dials + a delta-bar readout, side by side (not stacked) so the
      whole tab fits one screen with no scrolling. The two clusters read as paired
      instrument bays: each a shallow well sunk into the bench face, its dials/bars in

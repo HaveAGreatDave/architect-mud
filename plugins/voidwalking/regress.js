@@ -382,6 +382,29 @@ export default async function regress({ run, check, getPlayer }) {
     check('surviving a crossing upgrades the route to survived',
       fv2['Coldwater']?.some(r => r.heading === 'The Reach' && r.state === 'survived'), JSON.stringify(fv2));
     await query("DELETE FROM player_flags WHERE player_id=$1 AND flag_key='frontier_log'", [player.id]).catch(() => {});
+
+    // ── The road home ────────────────────────────────────────────────────────
+    // The void used to be one-way: only Coldwater had a VOIDS entry, so every region you could
+    // reach was somewhere you could not leave by road. Terminus made it a real trap — its pad is
+    // `vtol_only, charter: false`, so a trucker who drove there was stranded unless they already
+    // owned an aircraft. Anything reachable has to be leavable, and the return has to be the SAME
+    // distance, or the tank that got you there cannot get you back.
+    for (const v of Object.values(VOIDS)) {
+      for (const d of v.dests) {
+        const to = d.region;
+        check(`the ${d.heading} limb lands on a zone that exists`, !!getZone(d.dest), d.dest);
+        check(`${d.heading} is not a one-way trip — it has a road out`, !!VOIDS[to], to);
+      }
+    }
+    for (const [from, v] of Object.entries(VOIDS)) {
+      for (const d of v.dests) {
+        const to = d.region;
+        const back = VOIDS[to]?.dests?.find(b => b.region === from);
+        check(`${from} → ${d.heading} has a matching leg back`, !!back, `${from} -> ${to}`);
+        if (back) check(`…and the way home is as long as the way out`, back.length === d.length,
+          `out ${d.length}, back ${back.length}`);
+      }
+    }
   } finally {
     _test.setEncounters(true);
     _test.setSalvage(null);

@@ -13,8 +13,8 @@
 // there; nothing about this app's behaviour changed.
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { query } from '../../server/models/db.js';
-import { shelf, bookMeta, chapter, chapterToc, bookmarkOf, bookmarks, BOOKMARK }
-  from '../library/books.js';
+import { shelf, longbox, bookMeta, chapter, chapterToc, bookmarkOf, bookmarks,
+  comicBlocks, comicPlain, BOOKMARK } from '../library/books.js';
 import { registerTabletApp, normScreen } from './registry.js';
 
 // ── Glossary ────────────────────────────────────────────────────────────────
@@ -57,13 +57,16 @@ async function glossFor(text) {
 // ── Screens ─────────────────────────────────────────────────────────────────
 
 async function buildHome(player) {
-  const books = await shelf();
-  return { count: books.length };
+  // Both shelves. The home tile is the app, not the literature half of it, and a
+  // count that quietly dropped four titles the day the longbox landed would read
+  // as books going missing.
+  const [books, comics] = await Promise.all([shelf(), longbox()]);
+  return { count: books.length + comics.length };
 }
 
 // The screens this app answers to. Anything else arriving as a screenId is not a
 // screen at all — see the belt-and-braces in buildScreen.
-const SCREENS = new Set(['read', 'contents', 'library']);
+const SCREENS = new Set(['read', 'contents', 'library', 'longbox']);
 
 async function buildScreen(player, screenId, params) {
   const screen = normScreen(screenId);
@@ -92,6 +95,13 @@ async function buildScreen(player, screenId, params) {
     const ch = await chapter(bookId, idx);
     if (!ch) return { view: 'error', message: 'That page is missing.' };
 
+    // A comic is read through the same screen, with furniture. The BLOCKS are
+    // parsed here rather than on the client because books.js owns the markup and
+    // there must be exactly one parser for it — the typed reader and Read Aloud
+    // both depend on the same split. `body` still carries the marker-free prose,
+    // so anything generic that gets handed this payload renders something sane.
+    const isComic = meta.kind === 'comic';
+
     // Remember where they got to. One write per page turn — a player action, not
     // a tick, so this is nowhere near a hot path.
     await setFlag('player', BOOKMARK(bookId), String(idx), player);
@@ -113,6 +123,9 @@ async function buildScreen(player, screenId, params) {
       // rewrite and lose the voice that makes them worth shelving — so the text
       // stands as written and the reader annotates it instead.
       glossary: await glossFor(ch.text),
+      // Present only for comics. Its absence is what keeps every prose book on
+      // the renderer it has always used.
+      comic: isComic ? comicBlocks(ch.text) : undefined,
       // ARPAbet overrides for this book's proper nouns and loanwords — CMUDICT is
       // General American and mangles them otherwise. Tiny (a dozen entries), and
       // per-book so Candide's French can't leak into Forster.
@@ -121,7 +134,7 @@ async function buildScreen(player, screenId, params) {
       detail: {
         name: ch.title || `Chapter ${idx + 1}`,
         desc: `${meta.title} · ${meta.author} · ${idx + 1} of ${total}`,
-        body: ch.text,
+        body: isComic ? comicPlain(ch.text) : ch.text,
         rows: [],
       },
       actions,
@@ -162,6 +175,30 @@ async function buildScreen(player, screenId, params) {
     };
   }
 
+  // The longbox — the comics, on a screen of their own rather than as a section
+  // of the shelf. They are a different object: bagged and boarded, bought for
+  // pennies out of a bin, and read in one sitting. Sitting them between Voltaire
+  // and Wells sorted by year made four of them invisible.
+  //
+  // Guarded on `!arg` because a tile tapped HERE arrives with 'Longbox' in the
+  // screen slot (the client resends the last breadcrumb entry, see wireBody) and
+  // the book id in params — so a comic with an id falls through to the cover
+  // branch below, exactly as one tapped from the shelf does.
+  if (screen === 'longbox' && !arg) {
+    const comics = await longbox();
+    if (!comics.length) {
+      return { view: 'error', message: 'The longbox is empty. Sloat will be furious.' };
+    }
+    const marks = await bookmarks(player);
+    return {
+      view: 'library',
+      libKind: 'longbox',
+      breadcrumb: ['Library', 'Longbox'],
+      books: comics.map(b => ({ ...b, at: marks.get(b.id) || 0 })),
+      actions: [{ id: 'shelf', label: '‹ The Shelf' }],
+    };
+  }
+
   // A single book's cover page.
   if (arg) {
     const meta = await bookMeta(arg);
@@ -173,12 +210,16 @@ async function buildScreen(player, screenId, params) {
       breadcrumb: [meta.title],
       book: {
         id: meta.id, title: meta.title, author: meta.author, year: meta.year,
-        blurb: meta.blurb, source: meta.source, chapters: meta.chapters, at,
+        blurb: meta.blurb, source: meta.source, chapters: meta.chapters,
+        kind: meta.kind, at,
       },
       actions: [
         { id: `read:${meta.id}`, label: at > 0 ? 'Continue' : 'Read' },
         { id: `contents:${meta.id}`, label: 'Contents' },
-      ],
+        // Back to the shelf you came from, and only that one — a comic's cover
+        // offering "The Shelf" would send you to the literature it is not on.
+        meta.kind === 'comic' ? { id: 'longbox', label: '‹ Longbox' } : null,
+      ].filter(Boolean),
     };
   }
 
@@ -197,6 +238,7 @@ async function buildScreen(player, screenId, params) {
     // renders again. Tapping a book did nothing, and looked like a dead app.
     breadcrumb: ['Library'],
     books: books.map(b => ({ ...b, at: marks.get(b.id) || 0 })),
+    actions: [{ id: 'longbox', label: 'Longbox ›' }],
   };
 }
 
@@ -208,6 +250,8 @@ async function handleAction(player, actionId, params) {
   if (verb === 'prev') return buildScreen(player, 'read', `${bookId} ${Math.max(0, idx - 1)}`);
   if (verb === 'contents') return buildScreen(player, 'contents', bookId);
   if (verb === 'read') return buildScreen(player, 'read', `${bookId}`);
+  if (verb === 'longbox') return buildScreen(player, 'longbox', '');
+  if (verb === 'shelf') return buildScreen(player, 'library', '');
 
   return buildScreen(player, null, params || '');
 }
@@ -225,6 +269,6 @@ async function visible(player) {
 
 registerTabletApp({
   id: 'library', name: 'Library', icon: '📖', category: 'Media',
-  verbs: ['library', 'books', 'page', 'contents'],
+  verbs: ['library', 'books', 'page', 'contents', 'longbox'],
   visible, buildHome, buildScreen, handleAction,
 });

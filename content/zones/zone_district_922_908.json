@@ -13,7 +13,11 @@
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "road",
+    "truck_fuel": true,
+    "truck_depot": {
+      "name": "Kessler Street Yard"
+    }
   },
   "grid_x": 922,
   "grid_y": 908,

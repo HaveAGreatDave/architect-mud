@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_terminus",
+  "id": "zone_terminus_1211_914",
+  "max_capacity_kw": 1000,
+  "name": "Scoured Rock",
+  "source_type": "city_grid"
+}

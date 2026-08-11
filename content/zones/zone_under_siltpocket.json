@@ -14,14 +14,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_sewer"
+    "scavenging_table_id": "scav_sewer",
+    "terrain": "sewer"
   },
   "grid_x": 922,
   "grid_y": 905,
   "grid_z": -1,
   "id": "zone_under_siltpocket",
   "map_id": "map_world",
-  "marker": "╨",
   "name": "Silt Pocket",
   "parent_zone": null
 }

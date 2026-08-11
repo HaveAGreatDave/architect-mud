@@ -391,6 +391,8 @@ export const REGISTRY = [
   { table: 'game_tables', class: 'runtime' },
   { table: 'hangars', class: 'runtime' },
   { table: 'aircraft', class: 'runtime' },
+  { table: 'trucks', class: 'runtime' },             // player-owned rigs (THE LONG HAUL) — same as aircraft
+  { table: 'trailers', class: 'runtime' },           // …and the boxes they pull, which are world objects
   { table: 'flight_contracts', class: 'runtime' },
   { table: 'cargo_drops', class: 'runtime' },
   { table: 'smuggle_orders', class: 'runtime' },

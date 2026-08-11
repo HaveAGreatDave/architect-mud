@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Somebody flattened a acre of hardpan with a blade and called it a freight yard. A shipping container on blocks serves as the office, its door wedged open with a fuel can; a hand-lettered board by the step lists what needs moving and what it pays, in a hand that presses hard enough to tear the paper. Two trailers sit on their legs with the grass grown up through the axles. Everything here has crossed the waste at least once and looks it.",
   "exits": {
     "east": "zone_the_reach_872_1958",
     "north": "zone_the_reach_871_1957",
@@ -24,13 +24,17 @@
   "flags": {
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "dirt_road"
+    "terrain": "dirt_road",
+    "truck_fuel": true,
+    "truck_depot": {
+      "name": "The Last Load"
+    }
   },
   "grid_x": 911,
   "grid_y": 986,
   "grid_z": 0,
   "id": "zone_the_reach_871_1958",
   "map_id": "map_world",
-  "name": "The Reach 871,1958",
+  "name": "The Last Load",
   "parent_zone": null
 }

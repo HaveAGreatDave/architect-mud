@@ -23,8 +23,11 @@ export default async function regress({ check, getPlayer }) {
   const player = getPlayer();
   const savedZone = player.current_zone;
 
-  world.zones.set(A, mkZone(A, [{ dir: 'north', target: B }]));
-  world.zones.set(B, mkZone(B, [{ dir: 'south', target: A }]));
+  // Canonical exits shape (dir -> target). The old array-of-{dir,target} form read
+  // as zero exits through allExits(), which nothing noticed until moveEntity began
+  // requiring a real link between the two rooms.
+  world.zones.set(A, mkZone(A, { north: B }));
+  world.zones.set(B, mkZone(B, { south: A }));
   const npc = { id: NPC, name: 'Test Escortee', zone_id: A, flags: { escortable: true } };
   world.npcs.set(NPC, npc);
   world.zones.get(A).npcs.add(NPC);

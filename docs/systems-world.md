@@ -104,6 +104,19 @@ the `sanctuary` tag registers zone protection through the protection substrate (
 provider) and additionally grants safe sleep, AI safe-flee targeting, and spawn suppression. NPC
 wanderers avoid zones whose inferred danger is high+.
 
+**Mobs walk on exits (the adjacency law).** `moveEntity` — the single writer for every
+NPC/enemy tile change — refuses a step between two zones with no exit between them, drops
+the entity's cached route, and logs one throttled warning per entity per hour. Nothing that
+walks ever means to jump: patrol, commute, flee and roam all consume a `findPath` route one
+link at a time, so an unreachable destination means the route went **stale** (something else
+moved the entity out from under it). Moving there anyway was silent-but-visible — the arrival
+and departure lines lose their direction ("X leaves." rather than "X heads north."), which is
+the tell. Two legitimate exceptions: a destination one step past an **enterable facade** is
+retargeted to the facade so the ordinary swap forwards it (front-door lock included — this is
+how an escortee follows a player indoors), and `opts.teleport` is the opt-in for callers that
+genuinely mean a jump and narrate it themselves (a summoned consort, the jail shift swap, a
+talk-show guest appearing from backstage).
+
 ### Movement pacing (stamina) — the `pacing` plugin
 
 Movement is paced so the large map feels large, via the **pacing** plugin (see

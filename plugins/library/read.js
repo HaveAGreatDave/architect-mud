@@ -19,8 +19,8 @@
 // a page, and teaching it one would mean the two readers disagreeing about where
 // you are inside a chapter.
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { shelf, bookMeta, chapter, chapterToc, bookmarkOf, bookmarks, matchBook, paginate, BOOKMARK }
-  from './books.js';
+import { shelf, longbox, allTitles, bookMeta, chapter, chapterToc, bookmarkOf,
+  bookmarks, matchBook, paginate, comicPlain, BOOKMARK } from './books.js';
 
 export const UNLOCK_FLAG = 'library_unlocked';
 const READING = 'book_reading';                       // which book the verbs act on
@@ -48,6 +48,13 @@ async function pageAt(player, bookId) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+// Pagination has to be asked the same question everywhere, or `page` walks off
+// the end of a chapter the renderer thinks is longer. Every caller goes through
+// here so the comic strip happens exactly once.
+function pagesOf(meta, ch) {
+  return paginate(meta?.kind === 'comic' ? comicPlain(ch?.text || '') : (ch?.text || ''));
+}
+
 // One place that opens a book AT a chapter and page, so `read`, `page` and
 // `chapter` can't drift on what "where you are" means. Clamps rather than errors:
 // a bookmark can outlive an edited book, and being bounced to the last real page
@@ -58,7 +65,10 @@ async function renderPage(player, meta, chIdx, pgIdx) {
   const ch = await chapter(meta.id, ci);
   if (!ch) return { type: 'error', message: 'That page is missing.' };
 
-  const pages = paginate(ch.text);
+  // The markers are furniture for a screen that can draw furniture; the log
+  // can't, and a caption arriving as "> I do not go away" is markup leaking into
+  // prose. pagesOf strips it, and every caller goes through pagesOf.
+  const pages = pagesOf(meta, ch);
   const pi = Math.max(0, Math.min(pgIdx, pages.length - 1));
 
   await setFlag('player', READING, meta.id, player);
@@ -119,7 +129,41 @@ export async function cmdLibrary(args, raw, player) {
     message: [
       `<span class="text-cyan">THE SHELF</span> <span class="text-dim">(${books.length} titles)</span>`,
       ...lines,
-      `<span class="text-dim">${link('read <title>', 'read &lt;title&gt;')} to open one · ${link('page', 'page')} turns the page</span>`,
+      `<span class="text-dim">${link('read <title>', 'read &lt;title&gt;')} to open one · ${link('page', 'page')} turns the page · ${link('longbox', 'longbox')} for the comics</span>`,
+    ].join('\n'),
+  };
+}
+
+// ── longbox — the other shelf ────────────────────────────────────────────────
+// The comics come off the main list entirely rather than sitting at the bottom
+// of it under a heading. Two listings is the honest shape: they are read
+// differently, they are bought differently, and a player looking for Sister
+// Steel is not browsing literature. `read <title>` still crosses the split, so
+// nothing is harder to reach for having been separated.
+export async function cmdLongbox(args, raw, player) {
+  if (!await unlocked(player)) return locked;
+  const comics = await longbox();
+  if (!comics.length) {
+    return { type: 'output', message: 'The longbox is empty. Sloat will be furious.' };
+  }
+  const marks = await bookmarks(player);
+  const reading = await getFlag('player', READING, player);
+
+  const lines = comics.map(b => {
+    const at = marks.get(b.id) || 0;
+    const where = at > 0 && b.chapters > 1
+      ? `<span class="text-dim"> — part ${at + 1} of ${b.chapters}</span>`
+      : (at > 0 ? '<span class="text-dim"> — started</span>' : '');
+    const mark = String(reading) === b.id ? '<span class="text-cyan">▸</span> ' : '  ';
+    return `${mark}${link(`read ${b.title}`, b.title)} <span class="text-dim">· ${b.author}, ${b.year}</span>${where}`;
+  });
+
+  return {
+    type: 'output',
+    message: [
+      `<span class="text-cyan">THE LONGBOX</span> <span class="text-dim">(${comics.length} issue${comics.length === 1 ? '' : 's'})</span>`,
+      ...lines,
+      `<span class="text-dim">${link('read <title>', 'read &lt;title&gt;')} to open one · ${link('library', 'library')} for the books</span>`,
     ].join('\n'),
   };
 }
@@ -137,7 +181,10 @@ export async function cmdRead(args, raw, player) {
   if (!arg) return undefined;                       // bare `read` belongs to somebody else
   if (!await unlocked(player)) return undefined;
 
-  const books = await shelf();
+  // BOTH shelves. The longbox is a presentation split, and typing is not a
+  // presentation: `read sister steel` must work without the player first knowing
+  // that Sister Steel is filed as a comic.
+  const books = await allTitles();
   const hit = matchBook(books, arg);
   if (!hit) return undefined;
 
@@ -161,7 +208,7 @@ export async function cmdPage(args, raw, player) {
   const ci = await bookmarkOf(player, meta.id);
   const pi = await pageAt(player, meta.id);
   const ch = await chapter(meta.id, ci);
-  const pages = paginate(ch?.text || '');
+  const pages = pagesOf(meta, ch);
 
   const explicit = parseInt(a, 10);
   if (Number.isFinite(explicit)) return renderPage(player, meta, ci, explicit - 1);
@@ -173,7 +220,7 @@ export async function cmdPage(args, raw, player) {
     if (pi > 0) return renderPage(player, meta, ci, pi - 1);
     if (ci <= 0) return { type: 'output', message: `<span class="text-dim">You are at the beginning of ${meta.title}.</span>` };
     const prev = await chapter(meta.id, ci - 1);
-    return renderPage(player, meta, ci - 1, paginate(prev?.text || '').length - 1);
+    return renderPage(player, meta, ci - 1, pagesOf(meta, prev).length - 1);
   }
 
   if (pi < pages.length - 1) return renderPage(player, meta, ci, pi + 1);
@@ -212,7 +259,7 @@ export async function cmdContents(args, raw, player) {
   const arg = (args || []).join(' ').trim();
   let meta = null;
   if (arg) {
-    const hit = matchBook(await shelf(), arg);
+    const hit = matchBook(await allTitles(), arg);
     if (!hit) return { type: 'error', message: `No book by that name. ${link('library', 'library')} shows the shelf.` };
     meta = await bookMeta(hit.id);
   } else {

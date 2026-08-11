@@ -3,7 +3,7 @@
 // exercise the gated no-mutation paths across every submodule (verbs route, gate
 // correctly, and delegate to the shadowed owner off-context) plus pure helpers.
 import { _test } from './index.js';
-import { withinShift, pilotTarget, stepToward, charterFare, pilotColor } from './charter.js';
+import { withinShift, pilotTarget, charterOwnsPilot, stepToward, charterFare, pilotColor } from './charter.js';
 import { signatureMult, signatureScore, colorName, describeExterior,
   normalizeLivery, sanitizeLivery, conspicuousnessMult, paintCost, isPaintable,
   readSchemes, schemeOf } from './livery.js';
@@ -27,7 +27,7 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 import { prefersTextTravel, textTravelTick, TEXT_TRAVEL_FLAG } from './textmode.js';
 import { startTextPilot, stopTextPilot, textPilotTick, landingGrade, statusLines, panelPayload, cmdTextLand, _test as tpTest } from './textpilot.js';
 import { query } from '../../server/models/db.js';
-import { TYPES as FM_TYPES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
+import { TYPES as FM_TYPES, SURFACES as FM_SURFACES, createState as fmCreate, step as fmStep } from '../../client/game/js/panels/flight-model.js';
 
 // ── Flight-model harness ──────────────────────────────────────────────────────
 // The continuous flight model is pure and DOM-free, so it can be stepped headless. It had
@@ -105,10 +105,27 @@ export default async function regress({ run, check, getPlayer }) {
     check('flight model: releasing the stick recovers the stall', rec != null && rec < 12, rec && rec.toFixed(1));
   }
   // Every airframe must carry a real drag polar now — no per-type glideDrag special cases.
+  // Rotorcraft and GROUND vehicles are excluded on the same grounds: neither has a wing, so a
+  // best-glide speed is not a thing they can have. A ground type is not skipped silently, though —
+  // it gets its own invariants below, because a TYPES entry with no assertions at all is how a
+  // vehicle ends up shipping with numbers nobody ever checked.
   for (const [id, t] of Object.entries(FM_TYPES)) {
-    if (t.heli) continue;
+    if (t.heli || t.ground) continue;
     check(`flight model: ${id} has a derived best-glide speed above its stall speed`,
       t.bestGlide > t.vs0 && t.bestGlide < t.cruise, t.bestGlide);
+  }
+  for (const [id, t] of Object.entries(FM_TYPES)) {
+    if (!t.ground) continue;
+    // THE LONG HAUL's load-bearing tuning invariant. Every surface must leave the engine more
+    // drive authority than the surface costs in rolling resistance — otherwise the truck cannot
+    // move on it at all, and "the verge is slow" has quietly become "the verge is a wall".
+    // An early offroad drag of 4.2 did exactly that (resistance 8.8 vs 5.6 of drive).
+    for (const [name, sf] of Object.entries(FM_SURFACES)) {
+      check(`flight model: ${id} can actually drive on ${name}`,
+        t.thrustMax * sf.drive > t.rollFric * sf.drag * 1.15,
+        `${(t.thrustMax * sf.drive).toFixed(2)} drive vs ${(t.rollFric * sf.drag).toFixed(2)} resist`);
+    }
+    check(`flight model: ${id} has a sane corridor time-scale`, t.tileMph > 0 && t.topSpeed > 0);
   }
   check('flight model: the buffet warns BEFORE the break', (() => {
     const s = fmAir(may, may.cruise); let sawBuffet = false;
@@ -214,6 +231,29 @@ export default async function regress({ run, check, getPlayer }) {
       } else if (roster.some(t => t.takeoff_mode !== 'vtol')) sawFull = true;
     }
     check('a VTOL-only field never offers a fixed-wing', offender === null, offender || '');
+
+    // A FIELD ONLY SELLS WHAT IT CAN FUEL. Without this, turning any field's
+    // dealer on hands it the entire catalogue — a lawless dust strip offering the
+    // same ₵120,000 jet gunship as the international-standard field, which makes
+    // the two interchangeable. Selling an airframe you then cannot refuel is a
+    // bug in its own right, so the constraint was always implied.
+    let unfuelable = null;
+    for (const f of fields) {
+      const zone = getZone(f.id);
+      const stocked = airfieldOf(zone)?.fuels;
+      if (!Array.isArray(stocked) || !stocked.length) continue;
+      const bad = (await acquirableTypes(zone)).filter(t => !stocked.includes(t.fuel_type));
+      if (bad.length) { unfuelable = `${f.name} stocks ${stocked.join('/')} but offers ${bad.map(t => `${t.id}(${t.fuel_type})`).join(',')}`; break; }
+    }
+    check('no field offers an airframe it cannot fuel', unfuelable === null, unfuelable || '');
+
+    // Positive control: the filter must not have emptied everything. Buzzard is
+    // the case it was written for — props and helis, no jets.
+    const buzzZone = getZone(fields.find(f => /buzzard/i.test(f.name))?.id);
+    const buzzRoster = buzzZone ? await acquirableTypes(buzzZone) : [];
+    check('Buzzard Field still sells something, and none of it burns jet',
+      buzzRoster.length > 0 && buzzRoster.every(t => t.fuel_type !== 'jet'),
+      buzzRoster.map(t => `${t.id}(${t.fuel_type})`).join(',') || 'EMPTY');
 
     // vtolOnlyField is also the ONLY key for the out-the-canopy render: a field it
     // calls VTOL-only draws a circle-H pad instead of a departure strip
@@ -334,6 +374,15 @@ export default async function regress({ run, check, getPlayer }) {
   check('staged at the hangar (boarding) → the field tile', T({ busyPhase: 'boarding', interior: 'I' }) === 'F');
   check('taxiing out (departing) → the field tile', T({ busyPhase: 'departing', interior: 'I' }) === 'F');
 
+  // Ownership of where a pilot stands. Off-duty and unbooked belongs to their own
+  // behaviour graph — if this ever returns true there, charter.js and the graph
+  // both place them every tick and the room hears one side of the argument
+  // ("Old Kessler leaves." on a loop) because only the graph's step broadcasts.
+  check('on shift → charter owns the pilot', charterOwnsPilot({ onShift: true }) === true);
+  check('mid-booking off shift → charter still owns them', charterOwnsPilot({ busy: true, onShift: false }) === true);
+  check('off shift and unbooked → the graph owns them, so they walk home',
+    charterOwnsPilot({ busy: false, onShift: false }) === false);
+
   const near = stepToward(0, 0, 1, 1, 2);
   check('autoflight snaps to target within a cruise step', near.arrived === true && near.fx === 1 && near.fy === 1);
   const far = stepToward(0, 0, 10, 0, 2);
@@ -390,6 +439,10 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('jettison'); check('jettison not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('spray'); check('spray not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
   r = await run('loadhopper'); check('loadhopper not aboard blocked', /not aboard/i.test(r?.message || ''), r?.message);
+  // The hangar bench's Hopper tab pours a PARKED craft by id, so a craft-id first argument must
+  // NOT fall into the aboard path — off a field it has to fail on the field, not on the seat.
+  r = await run('loadhopper aircraft_nope with can');
+  check('loadhopper <craftId> takes the parked route (not the aboard one)', !/not aboard/i.test(r?.message || '') && /airfield/i.test(r?.message || ''), r?.message);
 
   // ── Acquisition / contracts / hangars gate off an airfield ──────────────────
   r = await run('charter'); check('charter off-field reports no desk', /no .*(charter|dealer)/i.test(r?.message || ''), r?.message);
@@ -850,6 +903,16 @@ export default async function regress({ run, check, getPlayer }) {
         const own = sent.filter(s => s.message?.type !== 'accolade_unlocked');
         check('a refresh-only push says nothing at all in text mode', own.length === 0,
           own.map(s => s.message?.type).join(','));
+
+        // The MIDDLE rung takes the bay too — it is a full-screen app with its own
+        // WASD camera that auto-opens through a door, not a readout you skim.
+        sent.length = 0;
+        await setFlag('player', TEXT_TRAVEL_FLAG, 'textgames', p);
+        await pushHangarBay(p);
+        check('the middle rung gets the text hangar as well',
+          !sent.some(s => s.message?.type === 'hangar_bay_open')
+          && sent.some(s => s.message?.type === 'output' && /HANGAR —/.test(s.message.message || '')),
+          sent.map(s => s.message?.type).join(',') || 'nothing sent');
 
         // …and the graphical player is untouched by any of this.
         sent.length = 0;

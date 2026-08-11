@@ -19,10 +19,10 @@ export function themeColor(varName, fallback) {
 // x-ray depth cue) rather than being hidden, so the whole airframe reads through
 // itself like a real technical drawing. `yaw` (radians) spins it in place —
 // callers animate this every frame for the "alive" showroom feel.
-export function drawWireframe3D(ctx, { cls, armed = false, w, h, accent = '#39ff9e', yaw = 0, glow = true }) {
+export function drawWireframe3D(ctx, { cls, armed = false, variant = '', w, h, accent = '#39ff9e', yaw = 0, glow = true }) {
   ctx.save();
   ctx.clearRect(0, 0, w, h);
-  const faces = aircraftFaces(cls, 1, armed);
+  const faces = aircraftFaces(cls, 1, armed, variant);
   // Taildraggers render nose-high (their 3-point sit) on the schematic too.
   const gp = groundPitchFor(cls, armed) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);

@@ -49,6 +49,8 @@ import { playIntroCinematic } from './panels/intro-cinematic.js';
 import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
+import { openCab, closeCab, cabContext, isCabActive } from './panels/cab-view.js';
+import { openTruckDepot, closeTruckDepot } from './panels/truck-depot.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
@@ -1199,6 +1201,15 @@ const handlers = {
   helm_arrived: (msg) => { if (!isHelmActive()) return; if (msg.map) helmSetWorld(msg.map, msg.gx, msg.gy); helmEndTransit(msg.gx, msg.gy); },
   yacht_underway: (msg) => { yachtUnderway(msg.level, msg.durationMs); },   // roar to life for the passage, at this zone's loudness
   yacht_settled: () => { yachtSettled(); },   // she's arrived — let the engine roar fall away
+  // THE LONG HAUL. `truck_sim` opens the cab over the area pane (the same slot the cockpit and the
+  // helm take); `truck_ctx` is the authoritative per-tick push (world window, odometer, surface).
+  truck_sim: (msg) => { openCab(msg); },
+  truck_ctx: (msg) => { cabContext(msg); },
+  truck_sim_close: () => { closeCab(); },
+  // The depot: fleet, dealer, freight board and exchange on one screen. Opens when you walk into
+  // a yard and closes when you leave, exactly as the hangar bay does.
+  truck_depot: (msg) => { openTruckDepot(msg); },
+  truck_depot_close: () => { closeTruckDepot(); },
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models

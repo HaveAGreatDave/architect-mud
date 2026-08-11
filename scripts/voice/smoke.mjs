@@ -118,6 +118,57 @@ has('unstressed "is" keeps its /ɪ/',  'is it', 'IH Z');
 has('unstressed "in" keeps its /ɪ/',  'in the water', 'IH N');
 lacks('"his" does not centralise',    'his hand', 'HH AX Z');
 
+// ── compounds: this game's whole vocabulary ─────────────────────────────────
+// The coinages were invented here, so CMUdict has none of them and never will.
+// Before compoundLook they all reached the letter guesser, which reads a long
+// unknown word as one unstressed run: the first element usually survived and the
+// second was always mush — "void-WAH-lking", "chem-buhnch", "GRASH-uh-per".
+// Splitting fixes them wholesale because both halves are ordinary English.
+has('voidwalking splits (was "wuhlking")',   'voidwalking', 'W AO K IH NG');
+has('chembench splits (was "buhnch")',       'chembench', 'B EH N CH');
+has('grasshopper keeps its /s/ and /h/',     'grasshopper', 'S HH AA P');
+has('nanofilament splits',                   'nanofilament', 'F IH L AX M AX N T');
+has('a productive STEM beats an entry per word (holo-)', 'hololock', 'HH * AA L OW');
+// English compounds take ONE accent, on the first element. Two accents is two
+// words read off a list, which is what a naive concatenation gives you.
+lacks('a compound does not stress both halves', 'voidwalking', 'W * AO K');
+// And the split must never fire on a word the dictionary already knows, or it
+// would start finding compounds inside ordinary English.
+lacks('a known word is never split ("therapist")', 'therapist', 'R * EY P');
+
+// ── initialisms ─────────────────────────────────────────────────────────────
+// The hand-list (dmv, gdp, crt) only ever covered what somebody had already
+// noticed. "NPC" came back "M P K" — three consonants, no vowel, not speech.
+has('an unknown initialism is spelled out (NPC)', 'NPC', 'P IY');
+has('…with the accent on the last letter',       'NPC', 'S ! IY');
+has('four letters too (VTOL)',                   'VTOL', '! EH L');
+// The guards. ALL-CAPS is also how the corpus writes a shout and a station
+// ident, so spelling out anything capitalised would scream at 11% of the .bsm
+// corpus. A real word is known to the dictionary and must survive untouched.
+lacks('a real caps word is not spelled out (GONE)', 'it is GONE now', 'JH IY');
+lacks('nor a short one (GO)',                      'GO', 'JH IY');
+lacks('nor a long acronym that is a word (SPECTER)', 'SPECTER', 'EH S P IY');
+
+// ── the world's own units and symbols ───────────────────────────────────────
+// ₵ was in no symbol pass, so it was SILENTLY DROPPED: "₵900" read as "nine
+// hundred", no unit. Money is quoted in every shop, job, bounty and rent line in
+// the game, which made it the most-repeated omission in the voice.
+has('the credit symbol is spoken, and postfixed', '₵900', 'K R * EH DX IH T S');
+has('…after the number, never before',            '₵900', 'N * AY N _ HH * AH N D R AX D _ K R');
+has('& is a word, not silence',                   'nuts & bolts', 'AX N D');
+has('#4 is "number four"',                        '#4', 'N * AH M B ER');
+has('x2 is "times two"',                          'x2', 'T * AY M Z');
+// CMUdict has an entry for `dr` and it means DRIVE. "Dr. Vale" was read
+// "drive Vale" every single time.
+has('Dr. is a doctor, not a drive', 'Dr. Vale', 'D * AA K T ER');
+has('St. before a name is a saint', 'St. Mark', 'S * EY N T');
+has('St. otherwise is a street',    'Dray St.', 'S T R * IY T');
+// A colon is a phrase break everywhere else, which was putting a pause in the
+// middle of the time.
+has('4:30 is "four thirty"',   '4:30', 'F * AO R _ TH * ER');
+has('9:00 is "nine o\'clock"', '9:00', 'K L * AA K');
+lacks('…with no pause inside it', '4:30', '_S');
+
 // ── punctuation shapes the phrase ────────────────────────────────────────────
 has('comma is a continuation, not a full stop', 'bread, water', '_C');
 has('full stop is terminal',                    'bread. water', '__');

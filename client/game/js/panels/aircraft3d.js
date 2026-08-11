@@ -299,7 +299,45 @@ function buildFixedWing(p, detail = 1) {
       V(nf - 0.09, gi, hc - nr - 0.04), V(nf - 0.09, g, hc - nr * 0.6)] }); }
     if (p.prop === 'wing') addSpinner(faces, nf + half, g, hc);   // Twin Otter wing turboprops — on the nacelle's own nose, however long it is
   }
-  if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02, 0.5);   // Cessna single nose prop — a SMALL GA spinner
+  // Nose prop. `p.spinner` sizes it — the default 0.5 is a light single's little GA spinner
+  // (Cessna, Cub); an ag-plane hangs a 1000-shp turbine off the firewall and its spinner is a
+  // BIG blunt cone almost as wide as the cowl, which is most of why the type reads heavy.
+  if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02, p.spinner ?? 0.5);
+  // Cowl EXHAUST STACKS (p.exhaust) — the short dark pipes elbowing out of the cowl flanks just
+  // ahead of the windscreen and canting aft. Tiny, but they're the difference between a smooth
+  // moulded snout and an engine that's actually bolted in there.
+  if (detail && p.exhaust) {
+    const E = p.exhaust;
+    for (const s of [1, -1]) for (const df of (E.at || [0])) {
+      const f = E.f + df, g = s * (p.fr * (E.g ?? 0.86)), z = E.z ?? -0.01;
+      addTube(faces, V(f, g, z), V(f - 0.06, g + s * 0.022, z - 0.012), E.r ?? 0.013, 'gun', 0.34, 6);
+    }
+  }
+  // SPRAY RIG (p.sprayBoom) — the ag-plane's working end: a boom slung on drop struts under the
+  // wing trailing edge, studded with nozzles, capped by the wingtip vortex fairings. This is the
+  // honest counterpart to a gunship's stores line — same visual mass out along the span, and it's
+  // the hardware the SPRAY verb is actually operating.
+  if (detail && p.sprayBoom) {
+    const B = p.sprayBoom, bf = B.f, bz = wH - (B.drop ?? 0.055), span = p.span * (B.reach ?? 0.94);
+    addTube(faces, V(bf, -span, bz), V(bf, span, bz), B.r ?? 0.010, 'nacelle', 0.66, 6);   // the boom itself, tip to tip
+    const N = B.nozzles ?? 9;
+    for (let i = 0; i <= N; i++) {
+      const g = -span + (2 * span) * (i / N);
+      if (Math.abs(g) < p.fr * 1.2) continue;                                   // no nozzles through the fuselage
+      addTube(faces, V(bf, g, bz), V(bf - 0.012, g, bz - 0.026), 0.005, 'gear', 0.42, 4);   // nozzle body + slipstream fan
+      faces.push({ role: 'gear', sh: 0.5, p: [V(bf - 0.012, g - 0.012, bz - 0.030), V(bf - 0.012, g + 0.012, bz - 0.030), V(bf - 0.030, g, bz - 0.034)] });
+    }
+    for (const s of [1, -1]) {   // drop struts carrying the boom off the wing underside
+      for (const t of [0.34, 0.70]) {
+        const g = s * span * t;
+        addTube(faces, V(bf, g, bz), V(bf + 0.01, g, wH - 0.012), 0.007, 'strut', 0.6, 4);
+      }
+      // Wingtip vortex fairing — the flat blade hung off each tip that keeps the swath off the wake.
+      faces.push({ role: 'nacelle', sh: 0.7, p: [
+        V(p.wTipF, s * p.span, wH + p.dih), V(p.wTipF - 0.02, s * p.span, wH + p.dih - 0.075),
+        V(bf, s * p.span, wH + p.dih - 0.075), V(p.wTipB, s * p.span, wH + p.dih)] });
+    }
+  }
   // Under-wing cannon (gunship): a small forward-firing gun pod slung beneath each
   // wing on a short pylon, its barrel poking ahead of the leading edge. A thin
   // square-section tube — physically joined to the wing, not floating.
@@ -838,9 +876,11 @@ function pushWheel(faces, wf, g, wz, wr, hw, N = 12) {
 
 // A streamlined teardrop wheel fairing (Cessna 'spat'), body-coloured, open underneath so the
 // tyre pokes out below. `s` stretches its fore-aft length (smaller on the nose wheel).
+// `s` also scales its girth and how high it stands, so a fairing over a big ag tyre actually
+// covers the tyre instead of sitting on it like a cap.
 function addSpat(faces, f, g, wz, s = 1) {
-  const F = V(f + 0.08 * s, g, wz + 0.03), B = V(f - 0.06 * s, g, wz + 0.035), T = V(f + 0.005, g, wz + 0.075),
-    L = V(f + 0.005, g - 0.024, wz + 0.03), R = V(f + 0.005, g + 0.024, wz + 0.03);
+  const F = V(f + 0.08 * s, g, wz + 0.03 * s), B = V(f - 0.06 * s, g, wz + 0.035 * s), T = V(f + 0.005, g, wz + 0.075 * s),
+    L = V(f + 0.005, g - 0.024 * s, wz + 0.03 * s), R = V(f + 0.005, g + 0.024 * s, wz + 0.03 * s);
   faces.push({ role: 'nacelle', sh: 0.86, p: [F, R, T] });
   faces.push({ role: 'nacelle', sh: 0.8, p: [F, T, L] });
   faces.push({ role: 'nacelle', sh: 0.62, p: [B, T, R] });
@@ -871,17 +911,20 @@ function addCessnaGear(faces, p, wz) {
 // the tail lifts clean as pitch comes down on the takeoff roll. Shared by the Grasshopper (bush)
 // & Locust (sleek).
 function addTaildraggerGear(faces, p, wz) {
-  const tundra = !!p.tundra;
-  const gw = p.fr + (tundra ? 0.13 : 0.10);           // wider bush track
-  const mf = tundra ? 0.17 : 0.20, hc = tundra ? 0.036 : 0.030;
-  const rMain = tundra ? 0.085 : 0.048, hwMain = tundra ? 0.040 : 0.015;   // fat low-pressure tundra tyres
-  const rTail = tundra ? 0.034 : 0.026;
+  const tundra = !!p.tundra, ag = !!p.gearAg;
+  // Three sizes off one builder: bush (fat bare tundra tyres), AG (a heavy machine carrying a
+  // ton and a half of chemical — a wide track on long faired legs and big spatted wheels), and
+  // the plain light-plane leaf spring.
+  const gw = p.fr + (tundra ? 0.13 : ag ? 0.16 : 0.10);
+  const mf = tundra ? 0.17 : ag ? 0.22 : 0.20, hc = tundra ? 0.036 : ag ? 0.040 : 0.030;
+  const rMain = tundra ? 0.085 : ag ? 0.068 : 0.048, hwMain = tundra ? 0.040 : ag ? 0.026 : 0.015;
+  const rTail = tundra ? 0.034 : ag ? 0.032 : 0.026;
   for (const side of [1, -1]) {
     pushPanel(faces, 'gear', 0.6, [
       V(mf + hc, side * 0.05, -p.fv * 0.6), V(mf + hc * 0.7, side * gw, wz + 0.02),
-      V(mf - hc * 0.7, side * gw, wz + 0.02), V(mf - hc, side * 0.05, -p.fv * 0.6)], tundra ? 0.022 : 0.014, 1);   // beefier bush leg / slim leaf-spring
-    pushWheel(faces, mf, side * gw, wz, rMain, hwMain, tundra ? 14 : 8);
-    if (!tundra) addSpat(faces, mf, side * gw, wz);   // bush planes run bare tundra tyres — no wheel pants
+      V(mf - hc * 0.7, side * gw, wz + 0.02), V(mf - hc, side * 0.05, -p.fv * 0.6)], tundra ? 0.022 : ag ? 0.020 : 0.014, 1);   // beefier bush/ag leg / slim leaf-spring
+    pushWheel(faces, mf, side * gw, wz, rMain, hwMain, tundra ? 14 : ag ? 12 : 8);
+    if (!tundra) addSpat(faces, mf, side * gw, wz, ag ? 1.35 : 1);   // bush planes run bare tundra tyres — no wheel pants; an ag-plane's pants are long and deep
   }
   // Tailwheel coplanar with the mains at the 3-point (groundPitch) sit — see the header note.
   const tf = p.tailF * 0.82;
@@ -1235,7 +1278,7 @@ export const PROP_STATIONS = {
   ultralight: [[0.79, 0, 0.02]],                       // Cessna: one nose prop (small spinner apex = noseF 0.72 + 0.14·0.5)
   prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
   grasshopper: [[0.87, 0, 0.02]],                      // L-4: one nose prop (spinner apex = noseF 0.80 + 0.07)
-  locust: [[1.07, 0, 0.02]],                           // sport single: one nose prop (spinner apex = noseF 1.00 + 0.07)
+  locust: [[1.13, 0, 0.02]],                           // ag turbine: one big nose prop (spinner apex = noseF 1.00 + 0.14·0.9)
 };
 
 // Real-world RELATIVE size (Twin Otter = 1). The meshes are all normalised to a similar extent,
@@ -1557,9 +1600,25 @@ const FW_PARAMS = {
     wingH: -0.09, dih: 0.03, wRootF: 0.30, wRootB: -0.22, wTipF: 0.30, wTipB: -0.22, hSpan: 0.40,
     hF: -0.70, hB: -0.90, hTipF: -0.74, hTipB: -0.92,
     finF0: -0.64, finF1: -0.92, finF2: -0.98, finH: 0.52, fins: [0],
-    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', groundPitch: 10,
-    noseBlunt: 2.6, noseCowl: 0.24, boxy: 0.5, bodyTube: 0.12, tailUp: 0.04,   // chunky slab-sided ag fuselage, blunt radial cowl
-    canopy: { f0: 0.50, f1: 0.20, w: 0.078, h: 0.100, front: 0.30, tail: 0.16, segs: 5, arc: 3, sink: 0.015 } },   // raised ag-plane cockpit set high for over-nose visibility
+    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', gearAg: true, groundPitch: 10,
+    // A turbine ag-plane's nose is a FAT round cowl carrying a big blunt spinner, not a snout that
+    // tapers to a spike — noseCowl floors the cowl face wide (0.34) and `spinner` 0.9 fills most of
+    // it, which is the single biggest reason the type reads as heavy machinery rather than a toy.
+    noseBlunt: 2.6, noseCowl: 0.34, boxy: 0.5, bodyTube: 0.12, tailUp: 0.04, spinner: 0.9,
+    // THE HOPPER. Everything between the firewall and the windscreen on an Air Tractor is the
+    // chemical tank, and it is the type's actual silhouette: a fat swelling of the spine that
+    // steps DOWN to the cockpit, which is why the pilot sits so high and so far back. Peaks at
+    // f 0.70 and blends out at 0.46, clear of the canopy base so the two never crease into
+    // each other (the canopy rides the plain crown, not the hump).
+    hump: { f0: 0.46, f1: 0.94, h: 0.048 },
+    // Rings through the cowl / hopper / windscreen step — without them the whole forward half is
+    // one straight wedge and the hump has nothing to curve over.
+    extraF: [0.90, 0.78, 0.70, 0.58, 0.50, 0.20],
+    dorsal: -0.30,   // the long shallow fin fillet up the spine — the tail of a working aeroplane
+    exhaust: { f: 0.74, g: 0.86, z: -0.005, at: [0, -0.05] },   // stub stacks out of the cowl flanks
+    // The spray rig, hung off the trailing edge and reaching almost tip to tip.
+    sprayBoom: { f: -0.26, drop: 0.055, reach: 0.94, nozzles: 11 },
+    canopy: { f0: 0.52, f1: 0.16, w: 0.082, h: 0.112, front: 0.22, tail: 0.20, segs: 6, arc: 5, sink: 0.015, art: 'locust' } },   // raised ag cockpit, set high and stepped down off the hopper
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
@@ -1588,12 +1647,154 @@ export function groundPitchFor(cls, armed = false) {
 // coarse LOD for distant contacts, where the extra facets would be sub-pixel anyway. The
 // heli mesh doesn't subdivide (its cabin is already fat/rounded), so it ignores detail.
 const _cache = {};
-export function aircraftFaces(cls, detail = 1, armed = false) {
-  const key = cls + ':' + detail + (armed ? ':a' : '');
+// `variant` is a fourth, OPTIONAL channel — a ground vehicle needs to say which of four trucks it
+// is and whether a trailer is on the back, and neither fact fits `cls` (which the whole renderer
+// switches on) or `armed` (which means something else). Every existing caller passes nothing and
+// gets exactly what it got before; only the truck path reads it.
+export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
+  const key = cls + ':' + detail + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_cache[key]) return _cache[key];
-  const faces = cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
+  const faces = cls === 'truck' ? buildTruck(variant || 'hauler')
+    : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
   _cache[key] = faces;
+  return faces;
+}
+
+// ── A truck, seen from somewhere else (THE LONG HAUL) ────────────────────────
+// The first GROUND vehicle in this file, and the reason it has to exist: `drawAircraftModel` is
+// per-class and every class here has wings, so a truck relayed as a contact would have rendered as
+// an aeroplane sliding along the road. This is deliberately a simple box set — a cab, a sleeper
+// hump, a long flat deck, six wheels — because it is only ever seen from a passing aircraft or
+// across a yard, where a silhouette is the whole of the information.
+//
+// Local axes match the rest of the file: [fore, right, up], roughly ±0.5 fore and ±0.2 lateral, so
+// it sits in the same normalised box the airframes do and CONTACT_SIZE scales it like anything else.
+// FOUR TRUCKS, NOT ONE PAINTED FOUR WAYS. The first cut built a single box set and handed it to
+// every type, so the 1,300₵ Krell Barrow and the 31,000₵ Orlov Continental had the same silhouette
+// — which quietly undid the fleet ladder, since the whole reason to want the next truck up is that
+// it is visibly a bigger animal. Each row is a PROPORTION set, not a model: the same builder runs
+// four times with different numbers, so a fifth truck is a row and never a function.
+//
+//  cab      — how far forward the cab box runs (a cab-over has almost no nose; a conventional does)
+//  nose     — bonnet length; 0 makes it a cab-over, which is what the little ones are
+//  hi       — cab roof height, the single strongest read of size at distance
+//  sleeper  — 0 for a day cab; the long-haul rigs get a hump you can see from a mile off
+//  axles    — rear axle groups under the tractor
+//  stacks   — vertical exhaust behind the cab: nothing says heavy truck faster
+//  w        — half-width
+const TRUCK_SHAPES = {
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30 },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34 },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46 },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60 },
+};
+// `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
+// SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
+// obviously unloaded, which is most of what makes running empty feel different from the outside.
+function buildTruck(variant = 'hauler') {
+  const [typeId, tail] = String(variant).split('+');
+  const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
+  const hitched = tail === 't';
+  const faces = [];
+  const V = (f, g, h) => [f, g, h];
+  // A box between two fore stations, as six quads. `sh` is the baked flat shade: top brightest,
+  // sides mid, underside dark — the same top-lit convention the airframe skins use.
+  // `gc` is the LATERAL CENTRE — without it every box straddles the centreline and the six wheels
+  // all pile up inside the chassis instead of sitting under it, one row a side.
+  const box = (f0, f1, w, z0, z1, role = 'body', tint = null, gc = 0) => {
+    const gl = gc - w, gr = gc + w;
+    const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
+    const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
+    const quad = (p, sh) => { const q = { role, sh, p }; if (tint) q.tint = tint; faces.push(q); };
+    quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
+    quad([A[0], B[0], B[1], A[1]], 0.42);                    // underside
+    quad([A[0], A[3], B[3], B[0]], 0.72);                    // left flank
+    quad([A[1], B[1], B[2], A[2]], 0.62);                    // right flank
+    quad([B[0], B[3], B[2], B[1]], 0.80);                    // front face
+    quad([A[0], A[1], A[2], A[3]], 0.55);                    // back face
+  };
+  const wheel = (f, g, r = 0.048) => box(f - r, f + r, 0.022, -0.005, r * 1.15, 'gear', null, g);
+
+  // The tractor is laid out BACKWARDS from the nose, so every proportion is relative and a bigger
+  // truck grows forward and upward from one anchor rather than needing four hand-placed boxes.
+  const nose1 = 0.40, nose0 = nose1 - S.nose;              // bonnet
+  const cab1 = nose0, cab0 = cab1 - S.cab;                 // cab box
+  const frame0 = cab0 - 0.10;                              // frame rails behind the cab
+  const deckTop = 0.115;
+
+  box(frame0, cab1, S.w * 0.86, 0.02, 0.07, 'body');       // chassis / frame rails
+  box(cab0, cab1, S.w, 0.02, S.hi, 'body');                // cab
+  if (S.sleeper) box(cab0 + 0.01, cab1 - 0.05, S.w * 0.92, S.hi, S.hi + S.sleeper, 'body');
+  // Glass. The windscreen is RAKED — the top edge sits further forward than the bottom — which is
+  // the difference between a truck and a shoebox at any distance you can see it from.
+  box(nose0 - 0.005, nose0 + 0.03, S.w * 0.92, S.hi * 0.56, S.hi * 0.94, 'glass', [58, 84, 104]);
+  // Side windows, one a side, so a cab reads as a cab from the flank and not just head-on.
+  for (const g of [-1, 1]) {
+    box(cab1 - 0.10, cab1 - 0.02, 0.004, S.hi * 0.56, S.hi * 0.86, 'glass', [50, 74, 92], g * S.w);
+  }
+  if (S.nose > 0.001) {
+    box(nose0, nose1, S.w * 0.93, 0.045, 0.135, 'body');    // bonnet
+    box(nose1 - 0.012, nose1, S.w * 0.86, 0.05, 0.125, 'strut');   // the grille: dark metal, and it catches the light
+  }
+  // Headlamps — role 'window' so they take the glass path and read as lit at night rather than as
+  // two more grey squares.
+  for (const g of [-1, 1]) box(nose1 - 0.008, nose1, 0.020, 0.055, 0.085, 'window', [190, 175, 130], g * S.w * 0.66);
+  // Exhaust stacks and the saddle tank: the two pieces of a truck that are neither body nor wheel,
+  // and between them they do most of the work of "this is heavy machinery, not a van".
+  for (let i = 0; i < S.stacks; i++) {
+    const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.92;
+    box(cab0 - 0.012, cab0 + 0.012, 0.011, 0.06, S.hi + S.sleeper + 0.055, 'strut', null, g);
+  }
+  for (const g of [-1, 1]) box(cab0 - 0.075, cab0 - 0.015, 0.020, 0.035, 0.085, 'strut', null, g * S.w * 0.88);
+  // Mirrors on arms, because they are on the cab in the cockpit view and a rig without them from
+  // outside is the one detail that looks wrong without anybody being able to say why.
+  for (const g of [-1, 1]) box(cab1 - 0.03, cab1 - 0.01, 0.006, S.hi * 0.55, S.hi * 0.88, 'strut', null, g * (S.w + 0.022));
+
+  // Wheels. Steer axle under the nose, then one or two drive groups — and the drive groups are
+  // DOUBLED (two rims a side), which is the give-away that something is rated to pull.
+  const gOut = S.w * 1.02;
+  for (const g of [-gOut, gOut]) {
+    wheel(nose0 + 0.035, g, 0.046);
+    for (let a = 0; a < S.axles; a++) {
+      const f = frame0 + 0.055 + a * 0.105;
+      wheel(f, g, 0.052);
+      wheel(f, g - Math.sign(g) * 0.042, 0.052);            // the inner of the dual
+    }
+  }
+
+  if (hitched) {
+    // The trailer. It is a SEPARATE body drawn straight behind the tractor, which is honest for
+    // every view this mesh is used in (a passing aircraft, a contact in the window, the yard) —
+    // and it is also the seam where a future articulated draw hangs its angle, since the two
+    // halves are already two groups of faces rather than one welded box.
+    const t1 = frame0 - 0.02, t0 = t1 - S.deck;
+    box(t0, t1, S.w * 1.02, 0.075, deckTop + 0.135, 'body');       // the box
+    box(t0 + 0.01, t1 - 0.01, S.w * 0.99, deckTop + 0.135, deckTop + 0.145, 'body');  // roof cap
+    box(t0, t0 + 0.006, S.w * 1.0, 0.075, deckTop + 0.13, 'strut');   // the doors, at the back
+    for (const g of [-gOut, gOut]) {                                   // bogie under the tail
+      wheel(t0 + 0.075, g, 0.050); wheel(t0 + 0.075, g - Math.sign(g) * 0.040, 0.050);
+      wheel(t0 + 0.165, g, 0.050); wheel(t0 + 0.165, g - Math.sign(g) * 0.040, 0.050);
+    }
+    for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
+  }
+
+  // CENTRE IT. The tractor is laid out forward from a nose anchor, so a bobtail Barrow ended up
+  // sitting entirely in the front half of the normalised box — and every consumer of this mesh
+  // (contacts in the window, the schematic, the wireframe) places it by its ORIGIN, so it would
+  // have drawn visibly ahead of where the truck actually is, and spun about its own bumper in the
+  // dealer's turntable. Eight variants, eight different lengths; centring is derived, never typed.
+  let lo = Infinity, hi = -Infinity;
+  for (const f of faces) for (const p of f.p) { if (p[0] < lo) lo = p[0]; if (p[0] > hi) hi = p[0]; }
+  const shift = (lo + hi) / 2;
+  // Through a SET, because `box()` shares each corner vertex between the three quads that meet at
+  // it — walking `faces` and subtracting per reference moves the same corner up to three times and
+  // shears the model apart. (It did: the first cut put every truck further off-centre than it
+  // started, and the regress case caught it.)
+  if (shift) {
+    const seen = new Set();
+    for (const f of faces) for (const p of f.p) if (!seen.has(p)) { seen.add(p); p[0] -= shift; }
+  }
   return faces;
 }
 // A wreck: a generic hull minus its right wing, both fins, canopy, and windows — a
@@ -1930,6 +2131,23 @@ const CANOPY_ART = {
       posts: [[0.00, 8], [0.20, 6], [0.44, 9], [0.72, 6], [1.00, 8]],
       sills: [[1 / 3, 6], [2 / 3, 6]],   // the skylight's edge rails — the arc-3 seam either side of the crown
       mid: 3, edge: 12, extra: 'skylight' },
+  },
+  // Locust — an ag-plane's office: a small, deep, HEAVILY caged greenhouse sat up on top of the
+  // hopper. The read is armoured farm equipment, not a light plane — thick roll-cage frames in
+  // yellow-primed steel (the same #ffd24a the flightdeck skin is keyed to), amber-tinted glass
+  // against the glare of flying at fifteen feet all day, and the chunky bow frame carrying the
+  // wire cutter. Tandem seats, both crew in ear defenders. arc 5 ⇒ sills at V 0.2/0.8.
+  locust: {
+    wash: [[0.00, 'rgba(16,20,22,0.78)'], [0.15, 'rgba(28,34,32,0.62)'], [0.32, 'rgba(92,112,96,0.34)'],
+           [0.45, 'rgba(214,206,158,0.30)'], [0.55, 'rgba(214,206,158,0.30)'], [0.68, 'rgba(92,112,96,0.34)'],
+           [0.85, 'rgba(28,34,32,0.62)'], [1.00, 'rgba(16,20,22,0.78)']],
+    crew: [{ u: 0.30, v: 0.19, sc: 0.92, cap: true, hair: 'rgba(40,34,28,0.92)' }, { u: 0.30, v: 0.81, sc: 0.92, cap: true, hair: 'rgba(40,34,28,0.92)' },
+           { u: 0.62, v: 0.19, sc: 0.86, shades: true, hair: 'rgba(26,28,32,0.92)' }, { u: 0.62, v: 0.81, sc: 0.86, shades: true, hair: 'rgba(26,28,32,0.92)' }],
+    glow: { u: [0.07], col: '255,210,74', a: 0.20, r: 50 },   // the amber flightdeck lighting, seen from outside
+    spec: { band: [0.20, 0.80], streaks: [[0.24, 32, 0.20], [0.68, 18, 0.11]] },
+    frame: { col: 'rgba(34,30,18,0.96)', lit: 'rgba(255,210,74,0.55)',   // yellow-primed steel cage
+      posts: [[0.00, 14], [0.16, 9], [0.46, 10], [0.78, 8], [1.00, 10]],   // the bow frame is the heaviest — it's a wire cutter's anchor
+      sills: [[0.20, 9], [0.80, 9]], hairs: [0.32, 0.62], mid: 6, edge: 14 },
   },
 };
 

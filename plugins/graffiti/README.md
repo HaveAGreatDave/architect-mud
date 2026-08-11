@@ -60,7 +60,11 @@ The text is player-authored and lands in a stranger's room description, which th
 
 ## Paint
 
-A `spray_paint`-tagged item, one tag per can, sold at hardware shops (*Nuts to That*, ₵12 — the same counter that sells the mop and the acetone that undo it).
+A `spray_paint`-tagged item, sold at hardware shops (*Screw It*, *Nuts to That*, ₵120 — the same counter that sells the mop and the acetone that undo it).
+
+**A can holds 120 characters of paint, spent by the letter** (`CAN_CAPACITY`), not one tag per can. The remainder lives on the inventory row's `custom_data.paint`, which is what makes a half-used can a real object — droppable, tradeable, still half empty when it's picked up. A stack shares the row, so the remainder always describes the can in hand and the next one starts full. Spending is measured on what was TYPED, same as the length cap, and the `spraycan` dialog's counter is `min(TAG_MAX_LEN, paint)` so it stops you where the can does; `sprayapply` re-checks both anyway. A tag is refused before anything is written rather than going up half-painted.
+
+The budget is the point of the price: at ₵120 a can and 120 characters in it, a letter costs a credit, and brevity is worth something.
 
 ## Extension points
 - `items.tags.spray_paint`

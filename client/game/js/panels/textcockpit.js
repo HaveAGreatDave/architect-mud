@@ -25,7 +25,15 @@ function ensureStyles() {
   st.id = 'textcockpit-styles';
   st.textContent = `
     #area-content:has(.tck) { height:100%; }
-    .tck { font-family:'Courier New',monospace; font-size:0.75rem; line-height:1.25;
+    /* ⚠ NOT 'Courier New' — this panel is a CHARACTER GRID, and Courier New has no
+       box-drawing or geometric-shape glyphs on Windows. Every ─ ╱ ╲ ▲ ◄ █ fell back
+       to a different family with a different advance width, so any row containing one
+       came out a different pixel width than the rows around it: the horizon ball had a
+       ragged right edge and the chart's columns walked. Consolas/DejaVu/Cascadia all
+       carry the block at the same width as their own space. Courier New stays the
+       house font everywhere else; a grid is the one place it cannot be used. */
+    .tck { font-family:'Cascadia Mono',Consolas,'DejaVu Sans Mono','Liberation Mono',ui-monospace,monospace;
+      font-size:0.75rem; line-height:1.25;
       color:#9fe0c4; background:linear-gradient(170deg,#0b1512,#060b09 70%);
       border:1px solid #10261e; border-radius:6px; padding:8px 10px;
       height:100%; box-sizing:border-box; overflow:auto; white-space:pre; }
@@ -100,6 +108,31 @@ function compassTape(hdg, width = 45) {
 // bank, exactly as on the real gauge — no characters to decode.
 const AI_ROWS = 11, AI_COLS = 25, AI_DEG_PER_ROW = 5;   // ±25° of pitch across the ball
 
+// THE ANGLE IS THE INSTRUMENT, so the horizon must not read as a staircase of blocks.
+// A character cell is one sample of a continuous line, and a flat `─` in every cell
+// throws away both halves of the information the line carries:
+//
+//   · WITHIN a cell — where the line crosses vertically. `▔ ─ ▁` split the cell into
+//     three, so the ball resolves pitch to about 1.7° instead of 5°, and a slow trim
+//     change moves the horizon smoothly instead of jumping a whole row at a time.
+//   · ACROSS cells — which way the line is going. `╱ ╲` are drawn at ~45° in every
+//     one of the fonts above, so a banked horizon is a continuous diagonal rather than
+//     a flight of steps, and the tilt is legible at a glance without counting rows.
+//
+// Sign convention, derived from the `d` expression below rather than guessed: the
+// horizon sits where dy·cosB = dx·sinB − pitchRows, so for bank > 0 (right wing down)
+// dy grows with dx — the line falls to the RIGHT, which is `╲`. Past ~55° of bank the
+// line is closer to vertical than to diagonal and `│` is the honest glyph.
+//
+// `d` is the signed distance BELOW the horizon in rows, so a negative d means the line
+// crosses the upper part of the cell.
+function horizonChar(d, bank) {
+  const ab = Math.abs(bank);
+  if (ab >= 55) return '│';
+  if (ab >= 12) return bank > 0 ? '╲' : '╱';
+  return d < -0.17 ? '▔' : d > 0.17 ? '▁' : '─';
+}
+
 function attitudeRows(pitch, bank) {
   const midR = (AI_ROWS - 1) / 2, midC = (AI_COLS - 1) / 2;
   // Roll the ball, don't roll the aeroplane: the horizon tilts by −bank (bank right ⇒ the
@@ -117,12 +150,18 @@ function attitudeRows(pitch, bank) {
       // Signed distance below the horizon, in rows, in the ball's frame.
       const d = (dy * cosB - dx * sinB) + pitchRows;
       const acrossN = (dy * sinB + dx * cosB) / (midC * 0.5);   // −1..1 along the horizon, for ladder width
-      if (Math.abs(d) < 0.5) { cells.push({ ch: '─', cls: 'ai-hzn' }); continue; }
+      if (Math.abs(d) < 0.5) { cells.push({ ch: horizonChar(d, bank), cls: 'ai-hzn' }); continue; }
       const sky = d < 0;
       // Pitch ladder: a rung every 10° (2 rows), drawn as a short bar either side of centre.
-      const rung = Math.abs(Math.abs(d) - Math.round(Math.abs(d) / 2) * 2) < 0.5 && Math.round(Math.abs(d) / 2) > 0;
+      // A rung is a line of CONSTANT pitch, so it runs parallel to the horizon and gets the
+      // same slope glyph — a flat rung under a banked horizon would read as a false level.
+      const dRung = Math.abs(d) - Math.round(Math.abs(d) / 2) * 2;   // signed offset within the rung's own cell
+      const rung = Math.abs(dRung) < 0.5 && Math.round(Math.abs(d) / 2) > 0;
       const inBar = Math.abs(acrossN) > 0.18 && Math.abs(acrossN) < 0.62;
-      if (rung && inBar) { cells.push({ ch: sky ? '─' : '╌', cls: sky ? 'ai-lad-s' : 'ai-lad-g' }); continue; }
+      if (rung && inBar) {
+        cells.push({ ch: horizonChar(sky ? -dRung : dRung, bank), cls: sky ? 'ai-lad-s' : 'ai-lad-g' });
+        continue;
+      }
       cells.push({ ch: ' ', cls: sky ? 'ai-sky' : 'ai-gnd' });
     }
     rows.push(cells);

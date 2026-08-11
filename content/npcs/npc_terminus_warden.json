@@ -1,0 +1,97 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Not today.",
+    "You can stand there as long as you like. I do.",
+    "The road back is the way you came. It hasn't moved.",
+    "I'm not stopping you doing anything. I'm just not opening this.",
+    "People do get through. I've seen it twice.",
+    "No.",
+    "You were going to. It's all right. Most people do."
+  ],
+  "description": "She stands in the slot in the gate with her hands where you can see them, which is somehow more unsettling than if she had not bothered. Nothing about her is armed and nothing about her needs to be. She watches the road behind you rather than watching you, and she has clearly been doing this for years without once being bored by it.\n\nShe answers a shade early. Not enough to remark on. Enough that you find yourself leaving a gap before you speak, and then wondering why you started doing that.",
+  "dialogue_tree": {
+    "root": {
+      "first": "\"You came a long way to look at a door.\" She says it without any edge at all. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there is here for you.\"",
+      "text": "\"Still shut.\"",
+      "text_by_relation": {
+        "known": "\"You're back.\" A pause. \"Still shut.\"",
+        "familiar": "\"Morning.\" She shifts, very slightly, which from her is standing up. \"Still shut, before you ask.\"",
+        "close": "\"There you are.\" She almost smiles. \"You know I can't. You've known for a while. Ask me anyway, I like that you do.\""
+      },
+      "options": [
+        { "label": "Let me in.", "next": "no", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "What are you all waiting for?", "next": "waiting", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Where did the rest of you go?", "next": "gone", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Nothing.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+      ],
+      "actions": []
+    },
+    "no": {
+      "text": "\"No.\"\n\nShe says it before you have finished, and then waits, in case you have anything else, and there is no unkindness in the waiting.\n\n\"I'll say it plainer, because people go away and invent a reason and the reason is always worse than the truth. You are not being kept out because of what you are. You're being kept out because of what you have not yet done, and there is nothing you can do about that standing here.\"",
+      "options": [
+        { "label": "What haven't I done?", "next": "done", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "What are you all waiting for?", "next": "waiting", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Fine.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+      ],
+      "actions": []
+    },
+    "done": {
+      "text": "\"If I tell you, you'll do it for me, and then it's mine and not yours, and you'll have learned nothing and I'll have let in somebody who is very good at pleasing wardens.\n\nGo and live. Do the work you'd have done anyway. Someone will notice, and it will not be me, and you'll be told.\"",
+      "options": [
+        { "label": "Where did the rest of you go?", "next": "gone", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Right.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+      ],
+      "actions": []
+    },
+    "waiting": {
+      "text": "\"Not waiting. Working.\"\n\nShe tips her head at the wall, at everything behind it you cannot see.\n\n\"There's a difference and it matters. Waiting is what the city does. It sits in the Basin under something that watches it and calls that living. We are going, and going properly takes longer than anyone likes, and the part where you are still here is not the same as the part where you gave up.\"",
+      "options": [
+        { "label": "Going where?", "next": "gone", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Let me in.", "next": "no", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Right.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+      ],
+      "actions": []
+    },
+    "gone": {
+      "text": "She looks at you for a long moment, and what is in her face is not suspicion. It is something closer to sympathy.\n\n\"No.\"\n\n\"That's not me being clever with you. It's the one thing we hold. The machine kept the records: every face, every door, every heartbeat, filed and cross-checked forever. The one place it never got to was the inside of a head, and the moment we say a direction out loud it stops being that.\n\nSo. No. Not to you, not to Stannard, and mostly not to each other.\"",
+      "options": [
+        { "label": "What are you all waiting for?", "next": "waiting", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "Let me in.", "next": "no", "enabled": true, "conditions": [], "actions": [] },
+        { "label": "I'll leave you to it.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+      ],
+      "actions": []
+    },
+    "bye": {
+      "text": "\"Safe road.\"\n\nShe means it, which is the strangest part. Behind her, somewhere down the length of the wall, a number of people stop what they are doing at the same moment, and then start again.",
+      "options": [],
+      "actions": []
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a grey wool overcoat, unmarked",
+      "a high-necked undershirt",
+      "plain boots, very well kept"
+    ],
+    "personality": "stoic"
+  },
+  "home_activities": [],
+  "home_zone": "zone_terminus_1204_916",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_terminus_warden",
+  "name": "Verity Strand",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_terminus_1204_916"
+}

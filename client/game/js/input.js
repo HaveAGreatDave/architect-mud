@@ -10,6 +10,7 @@ import { isPianoKeysLive } from './panels/piano.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
 import { runAccessibilityCommand } from './a11y-command.js';
+import { shush } from './logreader.js';
 
 export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   const lower = cmd.toLowerCase();
@@ -89,18 +90,36 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   return false;
 }
 
+// Everything the Enter key does with a finished command line: history, clearing
+// the box, the client-verb branch, then the server.
+//
+// Extracted so voice input (dictation.js) submits through the SAME path rather
+// than a parallel one. A second submit path is how a spoken command quietly
+// stops answering the auto-walk prompt, or stops being remembered by ArrowUp —
+// divergences nobody notices until the person relying on them reports it.
+let _submitOpts = {};
+export function submitCommand(cmd) {
+  const line = String(cmd || '').trim();
+  if (!line) return;
+  // Acting says you are done listening to the last thing. Without this the only
+  // way to skip a long room description being read aloud is to sit through it,
+  // and a reader you have to wait out is one you end up fighting.
+  shush();
+  state.cmdHistory.unshift(line);
+  state.historyIdx = -1;
+  const input = document.getElementById('cmd-input');
+  if (input) input.value = '';
+  if (handleClientCommand(line, _submitOpts)) return;
+  sendCmd(line);
+}
+
 export function initInput({ saveOrigin, notify } = {}) {
   const input = document.getElementById('cmd-input');
+  _submitOpts = { saveOrigin, notify };
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      const cmd = input.value.trim();
-      if (!cmd) return;
-      state.cmdHistory.unshift(cmd);
-      state.historyIdx = -1;
-      input.value = '';
-      if (handleClientCommand(cmd, { saveOrigin, notify })) return;
-      sendCmd(cmd);
+      submitCommand(input.value);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (state.historyIdx < state.cmdHistory.length - 1) { state.historyIdx++; input.value = state.cmdHistory[state.historyIdx]; }

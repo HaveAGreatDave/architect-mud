@@ -489,21 +489,24 @@ const PANELS = {
 
 const VINE_GROUP_PANELS = new Set(['vine', 'scripts', 'script-triggers', 'quests', 'vine-dialogue', 'vine-ai']);
 
-// Panels whose routes are on the server's production allowlist. In ops mode
-// (/admin — see bootstrap.js) the content-editing nav is pruned, but a stale
-// bookmark or a console call could still ask for one; bounce those to Dashboard
-// so you never land in an editor whose every save would 403. Keep this in sync
-// with the data-ops attributes in index.html.
-const OPS_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
-                            'games', 'gossip', 'validator', 'power', 'emergency', 'bank', 'flight',
-                            'broadcasts', 'zones', 'npcs', 'items', 'enemies', 'cards']);
-
-// Content panels kept on /admin to LOOK at (data-ops-ro in index.html). They answer
-// the questions a live bug actually raises — why can't they leave this room, where
-// is that NPC, what does this item really do — without a DB shell. Every write they
-// can make is refused in api.js and by CONTENT_READONLY server-side; here we just
-// stop offering the buttons and say why once, at the top.
-const OPS_READONLY_PANELS = new Set(['broadcasts', 'zones', 'npcs', 'items', 'enemies']);
+// Ops mode (/admin — see bootstrap.js) carries the SAME sidebar /dev carries:
+// nothing is pruned, because the server lets every read through and refuses every
+// content write anyway, which makes a content panel on production exactly a viewer.
+// They answer the questions a live bug actually raises — why can't they leave this
+// room, where is that NPC, what does this item really do — without a DB shell.
+//
+// What varies is whether a panel can WRITE. These are the panels whose routes are
+// on the server's ops allowlist (OPS_ROUTES / ENV_OPS_ROUTES in server/api/routes.js).
+// Every other panel is read-only: same default-deny as the server, mirrored here so
+// the Save/Delete/New buttons are gone and the reason is stated once, at the top,
+// instead of a button firing into a 403.
+const OPS_WRITABLE_PANELS = new Set(['dashboard', 'devlog', 'worldstate', 'timeweather', 'players',
+                                     'games', 'gossip', 'validator', 'power', 'emergency', 'bank',
+                                     'flight', 'cards']);
+function opsPanelReadOnly(name) {
+  if (!window.OPS_MODE) return false;
+  return !OPS_WRITABLE_PANELS.has(NAV_ALIASES[name] || name);
+}
 const OPS_READONLY_BANNER =
   '<b>READ-ONLY — production.</b> This is world content: it\'s edited on your <b>local</b> dev panel and '
   + 'reaches prod through the CODEX deploy (a push to <code>main</code>). Nothing changed here would save — '
@@ -523,7 +526,6 @@ function activatePanelNav(name) {
 }
 
 async function showPanel(name) {
-  if (window.OPS_MODE && !OPS_PANELS.has(name)) name = 'dashboard';
   currentPanel = name;
   sortState = { key: null, dir: 1 };
   activatePanelNav(name);
@@ -539,7 +541,7 @@ async function loadPanel(name) {
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('panel-description').textContent = p.description || '';
   // Read-only ops panel: banner up, Save/Delete/New hidden (body class → styles.css).
-  const readOnly = !!window.OPS_MODE && OPS_READONLY_PANELS.has(name);
+  const readOnly = opsPanelReadOnly(name);
   document.body.classList.toggle('ops-ro-panel', readOnly);
   const banner = document.getElementById('ops-ro-banner');
   if (banner) {

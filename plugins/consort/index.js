@@ -2126,7 +2126,7 @@ async function cmdBeckon(args, raw, player) {
     npc.onFurniture = null;                                        // not parked on anything until she settles
     const line = pickEntrance(npc, 'arrive', viaWardrobe);
     narrateToRoom(dest, player.id, line, line);
-    moveEntity(npc, dest, NOOP, query);                            // silent hop; we narrate it
+    moveEntity(npc, dest, NOOP, query, { teleport: true });        // silent hop across the map; we narrate it
     lines.push(line);
   }
   if (!lines.length) return { type: 'output', message: 'They’re already here with you.' };
@@ -2145,7 +2145,7 @@ function retreatConsorts(list, filterName) {
     const line = pickEntrance(npc, 'depart', npc.zone_id === emergeZoneOf(npc));
     tieredZoneLine(npc.zone_id, line, line);
     npc._activity = null; npc._activityUntil = 0; npc.onFurniture = null;
-    moveEntity(npc, npc.home_zone, NOOP, query);
+    moveEntity(npc, npc.home_zone, NOOP, query, { teleport: true });   // back to the hidden room from anywhere
     sent.push(npc);
   }
   return sent;

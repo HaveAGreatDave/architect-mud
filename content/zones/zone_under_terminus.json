@@ -17,14 +17,14 @@
   },
   "flags": {
     "district": "sewer",
-    "is_interior": true
+    "is_interior": true,
+    "terrain": "sewer"
   },
   "grid_x": 924,
   "grid_y": 913,
   "grid_z": -1,
   "id": "zone_under_terminus",
   "map_id": "map_world",
-  "marker": "◍",
   "name": "Terminus Landing",
   "parent_zone": null
 }

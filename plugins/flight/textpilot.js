@@ -33,7 +33,7 @@
 import { schedule } from '../../server/engine/scheduler.js';
 import {
   liveAircraft, getLivePlayer, sendToPlayer, getZone, isContinuous, effStats,
-  bandFromAltitude, surfacesWire, toDeg, degToCardinal, setHeading, bounds,
+  bandFromAltitude, surfacesWire, toDeg, degToCardinal, bounds,
   registerTextPilotTeardown, contextPayload, nearestAirfield, surfaceAt,
 } from './state.js';
 import { getMinimapData } from '../../server/engine/world.js';
@@ -68,6 +68,8 @@ export function landingGrade(fpm) {
 }
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+// A finite number or 0 — for the `x || fallback` chains where NaN must not survive.
+const fin = (v) => (Number.isFinite(v) ? v : 0);
 const fmTypeOf = (live) => FM_TYPES[String(live.type?.id || '').replace(/^ac_/, '')] || null;
 
 export function isTextPilot(live) { return !!live?.textPilot; }
@@ -84,6 +86,10 @@ export function startTextPilot(player, live) {
   live.fmState = fmCreate(p);
   live.fmState.heading = toDeg(live.row.heading) || 0;
   live.textTargets = { throttle: live.row.throttle || 0, altitude: null, heading: null, flaps: 0, gear: 1 };
+  // The float position the sim integrates. Seeded from the parked tile HERE rather than
+  // lazily on the first moving substep, so it is a real number from the first tick — see
+  // the guard in stepOne for what the lazy seed cost.
+  live.fx = fin(live.row.grid_x); live.fy = fin(live.row.grid_y);
   live._textPrevVs = 0;
   player.textPilot = true;
   // Paint the instruments at once rather than making the pilot wait on the 1s sweep —
@@ -232,7 +238,15 @@ async function stepOne(live) {
 
   let contactVs = live._textPrevVs || 0;
   const eff = effStats(live);
-  const cruiseKt = Math.max(1, eff.cruise || p.cruise || 84);
+  // ⚠ `Math.max(1, NaN)` IS NaN — the guard that looks like it can't fail. `eff.cruise`
+  // comes off effStats, where one absent multiplier is enough to make it NaN, and this
+  // divisor is the first thing downstream of it. A NaN here poisons `tiles`, then
+  // `live.fx`, then `live.row.grid_x` — and because `clamp` passes NaN straight through
+  // (NaN < lo and NaN > hi are both false), the poison is STICKY: the aircraft has no
+  // position for the rest of the flight. Which is why the chart went blank mid-air and
+  // the panel printed "CHART null,null" — JSON.stringify turns NaN into null, so the
+  // symptom surfaced a long way from the arithmetic that caused it.
+  const cruiseKt = fin(eff.cruise) || fin(p.cruise) || 84;
   const b = bounds();
 
   for (let i = 0; i < SUBSTEPS; i++) {
@@ -243,8 +257,14 @@ async function stepOne(live) {
     if (s.airspeed > 0.5) {
       const tiles = (s.airspeed / cruiseKt) * TILES_PER_SEC_AT_CRUISE * SUB_DT;
       const hr = s.heading * Math.PI / 180;
-      live.fx = clamp((live.fx ?? live.row.grid_x) + Math.sin(hr) * tiles, b.minx, b.maxx);
-      live.fy = clamp((live.fy ?? live.row.grid_y) - Math.cos(hr) * tiles, b.miny, b.maxy);
+      const fx = (live.fx ?? live.row.grid_x) + Math.sin(hr) * tiles;
+      const fy = (live.fy ?? live.row.grid_y) - Math.cos(hr) * tiles;
+      // Non-finite ⇒ drop the step and hold the last good position. A frozen chart is a
+      // bug you can still fly home with; a NaN one is a pilot with no idea where they are.
+      if (Number.isFinite(fx) && Number.isFinite(fy)) {
+        live.fx = clamp(fx, b.minx, b.maxx);
+        live.fy = clamp(fy, b.miny, b.maxy);
+      }
     }
   }
   live._textPrevVs = s.vs;
@@ -253,7 +273,17 @@ async function stepOne(live) {
   // Write the shared contract every other system reads. Same seven `live.cont` fields
   // `reconcile` produces, so hazards, combat, air-to-air contacts and the checkride
   // evaluator can't tell a text-flown craft from a client-flown one.
-  live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
+  // ⚠ AND THE OTHER HALF OF THE SAME BUG, which is the one that actually bit first:
+  // `live.fx` is only ever assigned inside the `airspeed > 0.5` branch above, so an
+  // aircraft with the engine running but not yet moving — startup, taxi, holding short —
+  // ran this line with `live.fx` UNDEFINED, and `Math.round(undefined)` is NaN. The very
+  // first tick after startup therefore overwrote a perfectly good `grid_x` with NaN, and
+  // the chart was blank before she ever rolled. Initialised at startTextPilot now (so the
+  // pair is always real), and still guarded here so no future path can clobber a known
+  // position with a non-number.
+  if (Number.isFinite(live.fx) && Number.isFinite(live.fy)) {
+    live.row.grid_x = Math.round(live.fx); live.row.grid_y = Math.round(live.fy);
+  }
   live.row.heading = String(Math.round(s.heading));
   live.row.throttle = Math.round(clamp(live.textTargets.throttle || 0, 0, 100));
   live.row.altitude_band = bandFromAltitude(s.altitude, s.onGround);
@@ -384,7 +414,13 @@ export function cmdTextTurn(args, player) {
     deg = ((parseInt(txt, 10) % 360) + 360) % 360;
   } else return { type: 'emote', message: 'Turn where? <b>turn to heading 090</b>, or <b>turn left 30</b>.' };
   live.textTargets.heading = deg;
-  setHeading(live, deg);
+  // NO `setHeading(live, deg)` HERE. That was a leftover from the banded model, where
+  // heading was a stored value a verb simply wrote. Under the sim it is an OUTPUT:
+  // `stepOne` writes `live.row.heading` from `fmState.heading` every tick, so snapping
+  // the row here only teleported the shared contract to the target for the fraction of
+  // a second before the next tick pulled it back — the aircraft read as already pointing
+  // the new way to everything that watches the row (other players' contacts, the chart
+  // arrow, combat) while she had not started the turn. The turn is flown, not declared.
   return { type: 'emote', message: `Coming around to <b>${String(deg).padStart(3, '0')}°</b> (${degToCardinal(deg).toUpperCase()}).` };
 }
 

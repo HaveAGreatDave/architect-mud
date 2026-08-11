@@ -9,7 +9,7 @@
 //
 // The harness's fake player has no `books` rows to read, so this asserts routing,
 // gating and the pure functions rather than real prose.
-import { matchBook, paginate, PAGE_CHARS } from './books.js';
+import { matchBook, paginate, comicBlocks, comicPlain, PAGE_CHARS } from './books.js';
 import { _test } from './index.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -59,6 +59,44 @@ export default async function regress({ run, check, getPlayer }) {
   check('an empty chapter still renders something', paginate('').length === 1);
   check('...and never undefined', Array.isArray(paginate(null)[0]));
 
+  // ── The comic markup ───────────────────────────────────────────────────────
+  // One parser, three consumers (the tablet's comic reader, the typed reader,
+  // Read Aloud). What matters is that a marker NEVER survives into prose and that
+  // the block order is the reading order, because the narration highlight is
+  // numbered off exactly this walk.
+  const CX = [
+    '> I do not go away.',
+    'He stays where he is.',
+    'CLERK: The form has been superseded.\nMAN: Then I will wait.',
+    '~CLACK~',
+    '---',
+    'The corridor. Empty.',
+  ].join('\n\n');
+  const blocks = comicBlocks(CX);
+  check('comicBlocks keeps reading order',
+    blocks.map(b => b.kind).join(',') === 'caption,panel,balloons,sfx,turn,panel',
+    blocks.map(b => b.kind).join(','));
+  check('...a caption loses its marker', blocks[0].text === 'I do not go away.', blocks[0].text);
+  check('...an exchange is ONE block with two lines', blocks[2].lines?.length === 2);
+  check('...and keeps who is speaking',
+    blocks[2].lines[0].speaker === 'CLERK' && blocks[2].lines[1].speaker === 'MAN',
+    JSON.stringify(blocks[2].lines));
+  check('...sfx loses its tildes', blocks[3].text === 'CLACK', blocks[3].text);
+
+  // The load-bearing one: the log rung renders comicPlain, so a marker leaking
+  // through here is markup printed at a player who cannot see any furniture.
+  const plain = comicPlain(CX);
+  check('comicPlain leaves no marker behind',
+    !plain.split('\n').some(l => /^[>~]|^-{3,}/.test(l)), JSON.stringify(plain).slice(0, 160));
+  check('...but keeps the speaker, which is dialogue and not markup',
+    /CLERK: The form/.test(plain), plain.slice(0, 120));
+  check('...and keeps every word of the captions', /I do not go away\./.test(plain));
+  // A prose book must be untouched by any of this — comicBlocks is only ever
+  // reached through kind='comic', and a plain paragraph is a panel, not a caption.
+  const prose = comicBlocks('It was a bright cold day in April.');
+  check('ordinary prose parses as one panel and nothing else',
+    prose.length === 1 && prose[0].kind === 'panel', JSON.stringify(prose));
+
   // ── The gate ───────────────────────────────────────────────────────────────
   // The fake player has never scanned a terminal, so every front door is shut.
   // `library` says so in words (it's a verb you typed on purpose); `read` must
@@ -77,6 +115,8 @@ export default async function regress({ run, check, getPlayer }) {
   check('contents is refused while locked', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
   r = await run('chapter 2');
   check('chapter is refused while locked', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
+  r = await run('longbox');
+  check('longbox is refused while locked', r?.type === 'error', JSON.stringify(r)?.slice(0, 120));
 
   // `read <something that is not a book>` must not be answered by this plugin at
   // all — the dispatcher should carry on to the built-in reader and report an

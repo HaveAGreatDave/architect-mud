@@ -21,6 +21,7 @@ import {
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 import { getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
+import { gatherHook } from '../../server/engine/plugins.js';
 import { applyStrikeToPlayer, killNpcInstance, killEnemyInstance } from '../../server/engine/combat.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { dispatchAction } from '../../server/engine/actions.js';
@@ -55,9 +56,15 @@ export function contactsNear(live) {
 }
 
 // Push a fresh contact list to one continuous craft's pilot.
-function pushContacts(live) {
+async function pushContacts(live) {
   if (!isContinuous(live)) return;   // only the continuous cockpit renders contacts
   const contacts = contactsNear(live).map(n => airContact(n.live));
+  // OTHER VEHICLE SYSTEMS get to add themselves. Flight has never heard of trucking and does not
+  // need to: it asks "who else is out there near this tile" and whatever answers, answers — in the
+  // same contact shape, which is already viewer-agnostic (the yacht helm consumes it too). The
+  // ADR-0002 seam, same as `aircraft.companions`.
+  const extra = await gatherHook('vehicle.contacts', live.row.grid_x, live.row.grid_y, CONTACT_RANGE);
+  for (const list of extra || []) if (Array.isArray(list)) contacts.push(...list);
   for (const pid of live.occupants) {
     const p = getLivePlayer(pid);
     if (p && p.seat === 'pilot' && !p.textPilot) sendToPlayer(pid, { type: 'flight_contacts', contacts });
@@ -70,8 +77,10 @@ function pushContacts(live) {
 // bounded by CONTACT_RANGE (a local furball), so the N² poke is cheap.
 export function relayContacts(live) {
   const near = contactsNear(live);
-  pushContacts(live);
-  for (const n of near) pushContacts(n.live);
+  // pushContacts awaits the `vehicle.contacts` gather hook now, so these are fire-and-forget with a
+  // real catch — a plugin that throws while answering must not take the whole relay down with it.
+  pushContacts(live).catch(e => console.error('[flight] contact push:', e.message));
+  for (const n of near) pushContacts(n.live).catch(() => {});
   pushAASites(live).catch(() => {});   // refresh this pilot's ground-emplacement picture
 }
 

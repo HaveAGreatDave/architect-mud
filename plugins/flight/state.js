@@ -513,11 +513,27 @@ export function vtolOnlyField(field) {
 // (acquisition.js `buy`/`rent`) and the hangar-bay lot (hangars.js) — they used to
 // run separate copies of this query and drifted, so a helipad's lot offered
 // fixed-wings whose Buy/Rent buttons the text path then refused.
+// A FIELD ONLY SELLS WHAT IT CAN FUEL. The roster used to be the whole catalogue
+// everywhere, so the moment any lawless dust strip turned its dealer on it was
+// offering a ₵120,000 jet gunship next to the ₵1,200 ultralight — the same list
+// the international-standard field sells, which makes the fields interchangeable
+// and the geography meaningless.
+//
+// Deriving it from `fuels` rather than adding a per-field roster is what keeps
+// this honest: a dealer that sells you an airframe it cannot then put fuel in is
+// a bug in any case, so the constraint was already implied and simply wasn't
+// enforced. Coldwater Regional stocks all three fuels and is therefore unchanged;
+// Buzzard Field stocks avgas and biofuel, so it sells props and helicopters and
+// no jets — fly something thirsty out to The Reach and getting home is your
+// problem. A field with no `fuels` list at all keeps the old behaviour rather
+// than silently emptying its own showroom.
 export async function acquirableTypes(field) {
+  const fuels = airfieldOf(field)?.fuels;
   const { rows } = await query(
     `SELECT id, name, class, seats, cargo_capacity, fuel_type, price_buy, price_rent_hourly, takeoff_mode, hardpoints
        FROM aircraft_types WHERE class <> 'wreck'${vtolOnlyField(field) ? " AND takeoff_mode = 'vtol'" : ''} ORDER BY price_buy`);
-  return rows;
+  if (!Array.isArray(fuels) || !fuels.length) return rows;
+  return rows.filter(r => fuels.includes(r.fuel_type));
 }
 
 // ── Live aircraft registry (in-memory; the aircraft owns its occupant set) ────
@@ -710,16 +726,116 @@ function isRoadCell(c) {
 // its own — it's the gap): so the flanking Curtain reaches all the way to the shared edge with the
 // gate and butts into its blast-pylons, instead of stopping a tile short with a visible break.
 const isCurtain = c => !!(c && c.flags && (c.flags.curtain || c.flags.perimeter_gate));
-export function curtainRun(cx, cy) {
+export function curtainRun(cx, cy, at = surfaceAt) {
   let s = '';
-  if (isCurtain(surfaceAt(cx, cy - 1))) s += 'n';
-  if (isCurtain(surfaceAt(cx + 1, cy))) s += 'e';
-  if (isCurtain(surfaceAt(cx, cy + 1))) s += 's';
-  if (isCurtain(surfaceAt(cx - 1, cy))) s += 'w';
+  if (isCurtain(at(cx, cy - 1))) s += 'n';
+  if (isCurtain(at(cx + 1, cy))) s += 'e';
+  if (isCurtain(at(cx, cy + 1))) s += 's';
+  if (isCurtain(at(cx - 1, cy))) s += 'w';
   return s || 'ns';   // isolated tile: stand a lone N–S wall so it never vanishes
 }
 
-function mapWindow(a, radius = 36) {
+// `at` is the CELL PROVIDER: (x, y) → a surface-cell-shaped { id, name, flags, danger } or null.
+// It defaults to `surfaceAt` (the real world), and every lookup in here — the centre probe, the
+// road auto-tiler's four neighbours, curtainRun — goes through it, so a caller can hand in a
+// SYNTHETIC world and get the identical derivation back. That's the seam the trucking plugin's
+// void-corridor uses: it has no placed tiles of its own, so it supplies cells rather than a second
+// copy of the rules below. Synthesise the ZONE, never the finished render cell — the moment a
+// caller starts building `{ kind, biome, road, rd… }` itself, this function's logic has been
+// forked and the two will drift (see snapshot.js, which did exactly that and fell behind twice).
+// Derive ONE render cell from one surface cell. This is the single derivation — mapWindow (live
+// flight, the yacht helm, the truck corridor) and buildFlightSnapshot (the baked open rig) both
+// call it, so the baked world and a live flight can never disagree about what a tile looks like.
+// They did, twice, while snapshot.js kept its own copy: the bake lost painted-only street tiles
+// and then lost park features. `live` is false for the bake, which skips the wall-clock yacht
+// wake/transit pose (a snapshot must not freeze a moving hull into the file).
+export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
+  // Each surface cell carries its derived biome, whether a road runs through it, and its
+  // danger tier — the windshield renders the real world. A tile counts as road if it's a
+  // named artery OR carries a road/runway map icon (the authoritative per-tile road marker,
+  // the same one the minimap paints grey asphalt), so EVERY street on the map gets its
+  // asphalt + lane markings out the canopy — not just the major avenues.
+  const biome = biomeOf(cell);
+  const road = isRoadCell(cell) ? 1 : 0;
+  const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
+  // Surface look ('dust' = graded dirt — wheel ruts, no paint/PAPI/edge lights). On a field
+  // tile the airfield's own `surface` wins, else a lawless frontier strip defaults to dust
+  // (paved regional airports leave it undefined). A `dirt_road` terrain tile — including
+  // a frontier runway centreline painted as dirt_road — carries the same dust look so the
+  // road pass renders it as a packed-dirt track rather than asphalt.
+  const af = kind === 'field' ? airfieldOf(cell) : null;
+  const ft = (af ? (af.surface || (af.lawless ? 'dust' : undefined)) : undefined)
+    || (cell.flags?.terrain === 'dirt_road' ? 'dust' : undefined);
+  // Building tiles carry their building_type AND their name so the windshield can
+  // render either a dedicated per-building model (keyed off the name) or, failing
+  // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
+  const bt = cell.flags?.building_type || undefined;
+  const bn = cell.flags?.building_name || undefined;
+  // Door face + storey count so the windshield can angle the building's entrance
+  // toward the street and scale its height by real floors (a 3-floor shop is not
+  // a tower). `ent` is 'north'|'south'|'east'|'west' (cached in world.js); `flr`
+  // is an explicit authored floor override (flags.floors), else the windshield
+  // falls back to a sensible per-type default.
+  let ent, flr;
+  if (bt) {
+    // A synthetic cell (see the `at` provider note on mapWindow) has no row in the world Maps,
+    // so getZone misses and we fall back to the entrance the provider put on the cell itself.
+    const z = getZone(cell.id);
+    ent = (z && buildingEntranceDir(z)) || cell.flags?.entrance || undefined;
+    flr = cell.flags?.floors || undefined;
+  }
+  // Bespoke landmarks the windshield raises instead of bare ground, carried on the
+  // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
+  // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
+  const mark = cell.flags?.yacht ? 'yacht'
+    : cell.flags?.perimeter_gate ? 'gate'
+    : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
+  // A yacht that's recently sailed streams a decaying wake to every pilot in view.
+  let wake, sub, heading;
+  if (mark === 'yacht') {
+    const now = Date.now();
+    // Underway: glide the hull sub-tile from her departure cell toward the destination by the
+    // passage's time-progress (0→1), point her bow along the course, and hold a steady wake.
+    // The yacht's own tile only commits on arrival, so her cell sits at `from`; `sub` carries
+    // the fractional lead so the windshield draws the model partway across the water.
+    const pose = live ? yachtTransitPose(now) : null;
+    if (pose) {
+      sub = pose.sub;
+      heading = pose.heading;
+      wake = { spd: 0.42 };   // steady but calm making-way wash for the whole passage (a big hull moves slowly)
+    } else {
+      // Moored (or just arrived): hold the last course she steamed (persisted on flags.heading),
+      // so she never snaps back to bow-north for pilots overflying her.
+      heading = Number(cell.flags?.heading) || 0;
+      if (live && _yachtWakeUntil > now) wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
+    }
+  }
+  // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
+  // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
+  // lane markings toward each connected edge, so junctions, turns and Ts all read as what
+  // they are — not just straights. `rd` = the connected-direction letters (subset of nesw).
+  let rd;
+  const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
+  if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
+  else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road') {
+    // Painted road/dirt_road with no authored icon: auto-tile the connector from adjacent road cells.
+    let s = '';
+    if (isRoadCell(at(x, y - 1))) s += 'n';
+    if (isRoadCell(at(x + 1, y))) s += 'e';
+    if (isRoadCell(at(x, y + 1))) s += 's';
+    if (isRoadCell(at(x - 1, y))) s += 'w';
+    rd = s || 'nesw';
+  }
+  // The Curtain energy wall on a land-edge tile — carry its run axis so the windshield
+  // stands a shimmer barrier along it (see curtainRun).
+  // A Curtain tile carries its own run axis; the perimeter GATE tile carries no curtain flag
+  // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
+  // gate's flanking pylons line up with the wall it breaches.
+  const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(x, y, at) : undefined;
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, cur, ft, pf: cell.flags?.park_feature };
+}
+
+export function mapWindow(a, radius = 36, at = surfaceAt) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
@@ -729,90 +845,10 @@ function mapWindow(a, radius = 36) {
       // building/tree/rock pass and the radar own-blip skip on `self`). Nuking it to a bare
       // { kind:'craft' } used to leave a hole in the pavement right where we sit.
       const self = dx === 0 && dy === 0 ? 1 : undefined;
-      const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
+      const x = a.grid_x + dx, y = a.grid_y + dy;
+      const cell = at(x, y);
       if (!cell) { row.push({ kind: 'air', self }); continue; }
-      // Each surface cell carries its derived biome, whether a road runs through it, and its
-      // danger tier — the windshield renders the real world. A tile counts as road if it's a
-      // named artery OR carries a road/runway map icon (the authoritative per-tile road marker,
-      // the same one the minimap paints grey asphalt), so EVERY street on the map gets its
-      // asphalt + lane markings out the canopy — not just the major avenues.
-      const biome = biomeOf(cell);
-      const road = isRoadCell(cell) ? 1 : 0;
-      const kind = cell.flags?.airfield_id ? 'field' : cell.flags?.airspace_restricted ? 'nofly' : 'land';
-      // Surface look ('dust' = graded dirt — wheel ruts, no paint/PAPI/edge lights). On a field
-      // tile the airfield's own `surface` wins, else a lawless frontier strip defaults to dust
-      // (paved regional airports leave it undefined). A `dirt_road` terrain tile — including
-      // a frontier runway centreline painted as dirt_road — carries the same dust look so the
-      // road pass renders it as a packed-dirt track rather than asphalt.
-      const af = kind === 'field' ? airfieldOf(cell) : null;
-      const ft = (af ? (af.surface || (af.lawless ? 'dust' : undefined)) : undefined)
-        || (cell.flags?.terrain === 'dirt_road' ? 'dust' : undefined);
-      // Building tiles carry their building_type AND their name so the windshield can
-      // render either a dedicated per-building model (keyed off the name) or, failing
-      // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
-      const bt = cell.flags?.building_type || undefined;
-      const bn = cell.flags?.building_name || undefined;
-      // Door face + storey count so the windshield can angle the building's entrance
-      // toward the street and scale its height by real floors (a 3-floor shop is not
-      // a tower). `ent` is 'north'|'south'|'east'|'west' (cached in world.js); `flr`
-      // is an explicit authored floor override (flags.floors), else the windshield
-      // falls back to a sensible per-type default.
-      let ent, flr;
-      if (bt) {
-        const z = getZone(cell.id);
-        ent = (z && buildingEntranceDir(z)) || undefined;
-        flr = cell.flags?.floors || undefined;
-      }
-      // Bespoke landmarks the windshield raises instead of bare ground, carried on the
-      // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
-      // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
-      const mark = cell.flags?.yacht ? 'yacht'
-        : cell.flags?.perimeter_gate ? 'gate'
-        : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
-      // A yacht that's recently sailed streams a decaying wake to every pilot in view.
-      let wake, sub, heading;
-      if (mark === 'yacht') {
-        const now = Date.now();
-        // Underway: glide the hull sub-tile from her departure cell toward the destination by the
-        // passage's time-progress (0→1), point her bow along the course, and hold a steady wake.
-        // The yacht's own tile only commits on arrival, so her cell sits at `from`; `sub` carries
-        // the fractional lead so the windshield draws the model partway across the water.
-        const pose = yachtTransitPose(now);
-        if (pose) {
-          sub = pose.sub;
-          heading = pose.heading;
-          wake = { spd: 0.42 };   // steady but calm making-way wash for the whole passage (a big hull moves slowly)
-        } else {
-          // Moored (or just arrived): hold the last course she steamed (persisted on flags.heading),
-          // so she never snaps back to bow-north for pilots overflying her.
-          heading = Number(cell.flags?.heading) || 0;
-          if (_yachtWakeUntil > now) wake = { spd: (_yachtWakeUntil - now) / YACHT_WAKE_MS };   // 1 → 0 over YACHT_WAKE_MS
-        }
-      }
-      // Road piece connections, straight off the map icon suffix (road_ns, road_ne turn,
-      // road_nes T, road_nesw / road_x crossroads, road_n stub, …). The windshield paints
-      // lane markings toward each connected edge, so junctions, turns and Ts all read as what
-      // they are — not just straights. `rd` = the connected-direction letters (subset of nesw).
-      let rd;
-      const im = /^road_([nesw]+|x)$/.exec(cell.flags?.icon || '');
-      if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-      else if (cell.flags?.terrain === 'road' || cell.flags?.terrain === 'dirt_road') {
-        // Painted road/dirt_road with no authored icon: auto-tile the connector from adjacent road cells.
-        const cx = a.grid_x + dx, cy = a.grid_y + dy;
-        let s = '';
-        if (isRoadCell(surfaceAt(cx, cy - 1))) s += 'n';
-        if (isRoadCell(surfaceAt(cx + 1, cy))) s += 'e';
-        if (isRoadCell(surfaceAt(cx, cy + 1))) s += 's';
-        if (isRoadCell(surfaceAt(cx - 1, cy))) s += 'w';
-        rd = s || 'nesw';
-      }
-      // The Curtain energy wall on a land-edge tile — carry its run axis so the windshield
-      // stands a shimmer barrier along it (see curtainRun).
-      // A Curtain tile carries its own run axis; the perimeter GATE tile carries no curtain flag
-      // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
-      // gate's flanking pylons line up with the wall it breaches.
-      const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(a.grid_x + dx, a.grid_y + dy) : undefined;
-      row.push({ kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, self, cur, ft, pf: cell.flags?.park_feature });
+      row.push({ ...deriveSurfaceCell(cell, x, y, at), self });
     }
     rows.push(row);
   }

@@ -391,34 +391,34 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
-- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, then prunes the nav to entries carrying `data-ops="1"` (and drops sections left empty), marks `data-ops-ro` survivors as read-only, adds `body.ops-mode`, and relabels the header.
+- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, marks every nav entry whose panel can't write on prod with a `🔒` and `data-ops-ro`, injects the **show read-only** toggle at the top of the nav, adds `body.ops-mode`, and relabels the header.
+- `setOpsShowReadonly()` / `applyOpsReadonlyVisibility()` — the toggle. Hides/shows the `data-ops-ro` entries (and any section header left standing over nothing), remembered in `localStorage` under `devpanel-ops-show-ro`.
 
 ### Ops mode (`/admin`) — one file, two views
 
 `server/index.js` serves the *same* `client/devpanel/index.html` at `/dev` and `/admin`, and — when `CONTENT_READONLY` is set (production) — 302s the **bare** `/dev` path to `/admin`. Assets stay under `/dev/js/*` and are never redirected, which is what lets both views share one file and never drift.
 
-Ops mode is a **UI affordance, not a security boundary**: the boundary is `contentReadonlyBlocks()` in `server/api/routes.js`, which already default-denies every content write on prod. Ops mode just stops the panel offering buttons that would 403. Three places must agree when a panel changes side:
+**The `/admin` sidebar is 1:1 with `/dev`.** Nothing is pruned, because the server lets every read through and refuses every content write regardless — which makes a content panel on production exactly a viewer, and viewing is the whole point of being in there during a live bug. What varies is whether a panel can **write**.
 
-- `data-ops="1"` on the nav entry in `index.html`
-- the `OPS_PANELS` set in `js/core/panels.js` (`showPanel()` bounces anything else to Dashboard, so a bookmark can't get in)
-- the server's `OPS_ROUTES` / `ENV_OPS_ROUTES` allowlists — the actual authority
+Ops mode is a **UI affordance, not a security boundary**: the boundary is `contentReadonlyBlocks()` in `server/api/routes.js`, which already default-denies every content write on prod. Ops mode just stops the panel offering buttons that would 403 — and it mirrors the server's *shape*, default-deny, rather than listing content prefixes. Two places must agree:
+
+- `OPS_WRITABLE_PANELS` in `js/core/panels.js` — the panels that can still write. `opsPanelReadOnly()` derives everything else, so nothing is authored on the nav entry in `index.html` any more.
+- `OPS_WRITE_ROUTES` in `js/core/api.js` — a mirror of the server's `OPS_ROUTES` / `ENV_OPS_ROUTES` allowlists, which remain the actual authority.
 
 Panels that mix ops and content read `window.OPS_MODE` directly: `panels/bank.js` hides ATM *networks*, terminal creation, and unit delete (all content writes) while keeping fill/repair/rename/settings (`/atm/units`, allowlisted).
 
-#### Read-only panels (`data-ops-ro`)
+#### Read-only panels
 
-A content panel can be kept on `/admin` purely to **look at** — worth seeing on prod even though nothing in it can be saved, because it answers the questions a live bug actually raises. Four so far: **Zones** (why can't they get out of this room), **NPCs** (where is she, what's her schedule), **Items** (what does this really do), **Broadcasts** (which channel owns which studio, what's on air).
+Every panel outside `OPS_WRITABLE_PANELS` is read-only on `/admin` — **Zones** (why can't they get out of this room), **NPCs** (where is she, what's her schedule), **Items** (what does this really do), **Broadcasts** (which channel owns which studio), and now the rest of the content tree with them.
 
-Adding one is four lines in four places:
+A new panel needs **no** ops wiring at all: it is read-only by default, and only becomes writable by being named in `OPS_WRITABLE_PANELS` *and* having its routes allowlisted server-side.
 
-- `data-ops="1" data-ops-ro="1"` on the nav entry in `index.html` — `data-ops` keeps it through the prune, `data-ops-ro` makes bootstrap suffix the label with `·ro` and a tooltip.
-- add it to **both** `OPS_PANELS` and `OPS_READONLY_PANELS` in `js/core/panels.js`.
-- add its route prefix to `OPS_READONLY_PREFIXES` in `js/core/api.js`.
+Because the read-only half is most of the sidebar, it is **hidden by default** — the ops nav opens as the same short live-world list it always was, and the toggle at the top of the nav brings the rest back. That preference persists per browser.
 
 What that buys:
 
-- Writes are refused **client-side** by `opsReadonlyBlocks()` (checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403. Watch for a panel that writes to a *different* prefix than its own; that path needs listing too.
-- `OPS_READONLY_EXCEPTIONS` carves the live-ops actions back out — spawning a live enemy (`/zones/:id/live-enemies`), restocking a vendor (`/npcs/:id/restock`). These are runtime state, allowlisted server-side in `OPS_ROUTES`, and are part of why these panels are worth having on prod. Keep the two lists in step.
+- Writes are refused **client-side** by `opsReadonlyBlocks()` (checked by both `API` and `directAPI`), so a save returns a sentence explaining that content is edited locally and ships via CODEX — not a bare 403.
+- `OPS_WRITE_ROUTES` keeps the live-ops actions that live *inside* content panels working — spawning a live enemy (`/zones/:id/live-enemies`), restocking a vendor (`/npcs/:id/restock`). These are runtime state, allowlisted server-side in `OPS_ROUTES`, and are part of why these panels are worth having on prod. Keep the two lists in step.
 - `loadPanel()` raises the shared `#ops-ro-banner` (one wording for every read-only panel, so they can't drift), hides **+ New**, and sets `body.ops-ro-panel`, which hides every `.js-save-btn` / `.js-delete-btn` in `styles.css`.
 
 Still not a security boundary — `contentReadonlyBlocks()` on the server remains the authority. This only changes what the panel *offers* and what it *says* when you try.

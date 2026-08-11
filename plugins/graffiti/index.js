@@ -64,9 +64,15 @@ export const TAG_LIFE_DAYS = 3;
 // essay. Deliberately measured BEFORE escaping, so the player counts what they typed.
 export const TAG_MAX_LEN = 48;
 
-// Paint is the gate, and the only one — no skill check, no stat. You have a can,
-// you spray.
+// Paint is the gate, and the only one — no skill check, no stat. You have a can
+// with paint left in it, you spray.
 const CAN_TAG = 'spray_paint';
+
+// A can holds this many CHARACTERS of paint, spent letter by letter across as
+// many walls as they last for. Two and a half full-length tags, or a dozen short
+// ones — which is the point: the can is a budget, so brevity is worth something
+// and a mural costs you the rest of the street.
+export const CAN_CAPACITY = 120;
 
 // How many designs a player may keep. Small on purpose: a saved spray is a piece
 // you're proud of, not a clipboard. The oldest is never auto-dropped — you're told
@@ -207,6 +213,7 @@ async function doTag(args, raw, player) {
   if (!can) {
     return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
   }
+  if (text.length > can.paint) return { type: 'output', message: thinCan(can, text.length) };
 
   return applyTag(player, picked.wall, text, [], can);
 }
@@ -244,7 +251,7 @@ async function applyTag(player, wall, text, runs, can) {
      entry.text, entry.style ? JSON.stringify(entry.style) : null, entry.dayIndex]
   ).catch(() => {});
 
-  await spendCan(can);
+  const left = await spendCan(can, text.length);
 
   // The crime. Charged through the ordinary witness gate in surveillance, which
   // means a lens rolls for it and a cop on the corner is a different matter —
@@ -257,7 +264,11 @@ async function applyTag(player, wall, text, runs, can) {
       ? `\n<span class="text-dim">Straight over your own last one. Nobody will ever know.</span>`
       : `\n<span class="text-dim">Straight over ${esc(over.authorHandle || 'somebody')}'s. That's how it works.</span>`;
   }
-  msg += `\n<span class="text-dim">The can rattles. ${can.quantity > 1 ? `${can.quantity - 1} left.` : `That was the last of it.`}</span>`;
+  msg += left > 0
+    ? `\n<span class="text-dim">The can rattles. Paint for about ${left} more characters.</span>`
+    : (can.quantity > 1
+        ? `\n<span class="text-dim">The can hisses empty on the last letter. You drop it and crack the next one — ${can.quantity - 1} left.</span>`
+        : `\n<span class="text-dim">The can hisses empty on the last letter. That was the last of it.</span>`);
   return { type: 'output', message: msg, refresh: true };
 }
 
@@ -291,9 +302,12 @@ async function doSpray(args, raw, player) {
     walls: walls.map(w => ({ dir: w.dir, name: w.name })),
     wall: picked.wall ? picked.wall.dir : (walls.length === 1 ? walls[0].dir : null),
     saved: await savedSprays(player.id),
-    maxLen: TAG_MAX_LEN,
+    // What the can can actually do, which is the tag limit until the paint runs
+    // lower than it. The client only draws the counter — doSprayApply checks both
+    // again on the way back in.
+    maxLen: Math.min(TAG_MAX_LEN, can.paint),
     saveCap: SAVE_CAP,
-    can: { name: can.name, quantity: can.quantity ?? 1 },
+    can: { name: can.name, quantity: can.quantity ?? 1, paint: can.paint },
     over: tagAt(player.current_zone) ? { handle: tagAt(player.current_zone).authorHandle || 'somebody' } : null,
     message: `<span class="msg-system">You pop the lid. Caps rattle around inside it.</span>`,
   };
@@ -322,6 +336,7 @@ async function doSprayApply(args, raw, player) {
 
   const can = await carriedCan(player);
   if (!can) return { type: 'output', message: `You've got nothing to spray with. Hardware shops sell paint.` };
+  if (payload.text.length > can.paint) return { type: 'output', message: thinCan(can, payload.text.length) };
 
   return applyTag(player, wall, payload.text, payload.runs, can);
 }
@@ -373,21 +388,49 @@ async function doSprayDelete(args, raw, player) {
 
 async function carriedCan(player) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+    `SELECT pi.id, pi.quantity, pi.custom_data, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
       WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags, $2) LIMIT 1`,
     [player.id, CAN_TAG]
   );
-  return rows[0] || null;
+  const row = rows[0];
+  if (!row) return null;
+  const paint = Number(row.custom_data?.paint);
+  return { ...row, paint: Number.isFinite(paint) ? Math.max(0, paint) : CAN_CAPACITY };
 }
 
-// One tag empties one can. Spending the last of a stack drops the row, same shape
-// as the cleaning plugin's consumable.
-async function spendCan(can) {
+// Paint is spent by the LETTER, not by the tag — a can holds CAN_CAPACITY
+// characters and a three-word throw-up costs what it costs. The remainder lives
+// on the inventory row's custom_data, which is what makes a half-used can a real
+// object: it can be dropped, traded and picked up again still half empty.
+//
+// A stack shares one row, so the remainder always describes the can currently in
+// hand: when it runs dry the row loses a unit and the NEXT can starts full.
+// Refused before anything is written, so a tag never goes up half-painted.
+function thinCan(can, cost) {
+  return can.paint <= 0
+    ? `You shake the can and get nothing but the ball bearing. It's dead.`
+    : `Not enough left in it. Paint for ${can.paint} character${can.paint === 1 ? '' : 's'}, and you're asking for ${cost}.`;
+}
+
+async function spendCan(can, cost) {
+  const left = can.paint - cost;
+  if (left > 0) {
+    await query(
+      `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('paint', $2::int) WHERE id=$1`,
+      [can.id, left]
+    );
+    return left;
+  }
   if ((can.quantity ?? 1) > 1) {
-    await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [can.id]);
+    await query(
+      `UPDATE player_inventory SET quantity = quantity - 1,
+         custom_data = COALESCE(custom_data,'{}'::jsonb) || jsonb_build_object('paint', $2::int) WHERE id=$1`,
+      [can.id, CAN_CAPACITY]
+    );
   } else {
     await query('DELETE FROM player_inventory WHERE id=$1', [can.id]);
   }
+  return 0;
 }
 
 // --- Rendering --------------------------------------------------------------

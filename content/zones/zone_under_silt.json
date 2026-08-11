@@ -17,14 +17,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_sewer"
+    "scavenging_table_id": "scav_sewer",
+    "terrain": "sewer"
   },
   "grid_x": 920,
   "grid_y": 904,
   "grid_z": -1,
   "id": "zone_under_silt",
   "map_id": "map_world",
-  "marker": "╬",
   "name": "Silt Gallery",
   "parent_zone": null
 }

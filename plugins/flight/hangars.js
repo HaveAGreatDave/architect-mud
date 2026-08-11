@@ -17,7 +17,7 @@ import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
 import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
-import { prefersTextTravel } from './textmode.js';
+import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -109,7 +109,7 @@ const clean = (s) => String(s || '').replace(/[<>]/g, '').trim();
 async function buildCards(player, field) {
   const { rows } = await query(
     `SELECT a.id, a.name, a.rental, a.is_wreck, a.hangar_id, a.damage, a.fuel, a.custom_data,
-            a.owner_id, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.fuel_type, t.seats, t.hardpoints,
+            a.owner_id, t.data tdata, t.id type_id, t.name tname, t.class, t.fuel_capacity, t.fuel_type, t.seats, t.hardpoints,
             t.hull_hp, t.cargo_capacity, t.cruise_speed, t.fuel_burn_base, t.max_takeoff_weight,
             t.handling, t.altitude_ceiling
      FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id
@@ -154,8 +154,28 @@ async function buildCards(player, field) {
       // Cabin loadout (weight & balance) — only meaningful on configurable haulers.
       configurable, loadoutBudget: budget, maxSeats: configurable ? Math.max(1, Math.floor(budget / SEAT_KG)) : r.seats,
       seatsNow: cur?.seats ?? r.seats, cargoCapNow: cur?.cargoCap ?? 0, cargoLoaded: cd.cargoWeight || 0,
+      // Ag-plane chemical hopper (the Locust). cap 0 on everything else, which is the whole
+      // gate — the bench grows a HOPPER tab only for an aircraft that actually has one.
+      hopperCap: (r.tdata && r.tdata.spray && r.tdata.hopper) || 0,
+      hopperAmount: Math.round(cd.hopper?.amount || 0), hopperFluid: cd.hopper?.fluid_type || null,
     };
   });
+}
+
+// Everything in the player's hands holding liquid — the pour list for the Hopper tab. The
+// SAME predicate cmdLoadHopper matches on (a fillable container with fluid_amount > 0), because
+// a button offering a can the verb would then refuse is worse than no button.
+async function carriedFluids(player) {
+  const { rows } = await query(
+    `SELECT i.name, COALESCE(pi.custom_data->>'fluid_type','water') fluid,
+            SUM(COALESCE((pi.custom_data->>'fluid_amount')::numeric,0)) amount, COUNT(*) n
+       FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fillable')
+        AND COALESCE((pi.custom_data->>'fluid_amount')::numeric,0) > 0
+      GROUP BY i.name, fluid ORDER BY amount DESC LIMIT 12`, [player.id]);
+  // Grouped by name+fluid, because the verb takes a NAME and pours one container per call —
+  // three identical jerry cans are one button you press three times, not three buttons.
+  return rows.map(r => ({ name: r.name, fluid: r.fluid, amount: Math.round(Number(r.amount)), count: Number(r.n) }));
 }
 
 // ── The text hangar (the same floor, written down) ────────────────────────────
@@ -184,6 +204,8 @@ function textCraftLine(c, detailed) {
   if (c.wreck) return `${s}\n   ${link('salvage', 'salvage')} · ${link('rebuild', 'rebuild')}`;
   const acts = [link(`embark ${c.tail}`, 'embark')];
   if (c.fuelPct < 100) acts.push(link(`refuel ${c.id}`, 'refuel'));
+  // A hopper is a second tank and reads as one: the same rung, the same shape of link.
+  if (c.hopperCap > 0) acts.push(`${link(`loadhopper ${c.id}`, 'load hopper')} <span class="text-dim">(${Math.round(c.hopperAmount / c.hopperCap * 100)}%${c.hopperFluid ? `, ${c.hopperFluid}` : ''})</span>`);
   if (c.hullPct < 100 && !c.rental) acts.push(`${link(`repair ${c.id}`, 'repair')} <span class="text-dim">(${c.diyCost}₵ DIY · ${c.shopCost}₵ shop)</span>`);
   if (!c.rental) {
     // The full sheet — tuning curves, name/livery. `modify <id>` is the one that
@@ -261,7 +283,16 @@ async function textHangarBay(player, field, selectId, opts) {
 export async function pushHangarBay(player, selectId, opts = {}) {
   const field = fieldOf(player);
   if (!field) return { type: 'emote', message: 'Hangars are at the airfields.' };
-  if (await prefersTextTravel(player)) return textHangarBay(player, field, selectId, opts);
+  // THE MIDDLE RUNG TAKES THE BAY TOO. This used to read `prefersTextTravel` (the
+  // bottom rung only), on the reasoning that a hangar is a readout you could always
+  // type your way around. In the hand that was wrong: the bay is a full-screen 3D app
+  // with its own WASD walk-around camera that AUTO-OPENS when you walk through a door,
+  // and a player who asked for flight in text got it thrown over their room anyway.
+  // The classification question ("delete it — are they stuck?") is the right one; the
+  // honest answer for THIS surface is that it takes the screen and the keyboard, which
+  // is what `textgames` exists to decline. The passenger cabin window is untouched and
+  // still bottom-rung — see textmode.js.
+  if (await prefersTextMinigamesOrDefault(player)) return textHangarBay(player, field, selectId, opts);
   // WHERE THEY WERE WHEN THEY ASKED. Everything below is awaited DB work — five
   // round trips against a remote Postgres — and the auto-open path fires from
   // `zone.entered`, so a player who walks straight back out is long gone by the
@@ -299,6 +330,10 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     lots = types.map(t => ({ id: t.id, name: t.name, class: t.class, seats: t.seats, fuel: t.fuel_type,
       hardpoints: t.hardpoints || 0, priceBuy: t.price_buy, priceRent: t.price_rent_hourly }));
   }
+  // What's in your hands to pour, for the bench's Hopper tab. GATED on somebody on the floor
+  // actually having a hopper — this is a sixth round trip on a panel that already makes five,
+  // and for the whole fleet bar the Locust the answer can never be used.
+  const chemCans = craft.some(c => c.hopperCap > 0) ? await carriedFluids(player) : [];
   // Licence gate for the acquisition buttons (admins/devs are auto-rated + bypass the price).
   const licensed = await isPilotLicensed(player);
   const isAdmin = ['admin', 'dev'].includes(player.role);
@@ -314,7 +349,7 @@ export async function pushHangarBay(player, selectId, opts = {}) {
     inHangar: inHangarInterior(player),
     exitDir: hangarExitDir(player),
     refreshOnly: !!opts.refreshOnly,
-    hasBay: mine.length > 0, credits: player.credits || 0, craft,
+    hasBay: mine.length > 0, credits: player.credits || 0, craft, chemCans,
     // Fuel types this field pumps (from the ramp or its hangar bowser) — the panel
     // shows a Refuel action on a craft whose fuel type is stocked and tank isn't full.
     fuelStocks: fieldStocks(field),

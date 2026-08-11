@@ -1419,6 +1419,7 @@ export const HELP_GROUPS = [
   { cat: 'CRAFTING',   text: 'recipes  |  craft <recipe_id>' },
   { cat: 'COOKING',    text: 'cook <food|vessel>  |  flip / stir  |  stove <low|mid|high>  |  doneness <food> <target>  |  plate' },
   { cat: 'TRADING',    text: 'shop <npc>  |  buy <item>  |  sell <item>' },
+  { cat: 'HAULING',    text: 'drive (at a freight yard)  |  haul (contract loads)  |  market (buy low, sell far)  |  fuel  |  park' },
   { cat: 'ECONOMY',    text: 'balance  |  deposit <amt/all>  |  withdraw <amt/all>  (ATM required)  |  steal <player>' },
   { cat: 'PROPERTY',   text: 'rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep' },
   { cat: 'CHARACTER',  text: 'stats  skills  raise [stat]  mutations  ideologies' },

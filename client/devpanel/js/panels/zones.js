@@ -237,7 +237,7 @@ function renderZonesTable(records) {
   const TERRAIN_LABELS = {
     road: '🛣 Roads', water: '🌊 Water', dock: '🪵 Docks', grass: '🌿 Grass', park: '🌳 Park',
     concrete: '▪ Concrete', asphalt: '▪ Asphalt', dirt: '▪ Dirt', sand: '🏜 Sand', gravel: '▪ Gravel',
-    scrub: '🌵 Scrubland', redrock: '🪨 Red Rock', ash: '🌫 Ash', marsh: '🐊 Marsh', land: '▪ Land',
+    scrub: '🌵 Scrubland', redrock: '🪨 Red Rock', ash: '🌫 Ash', marsh: '🐊 Marsh', sewer: '🕳 Sewer', land: '▪ Land',
   };
   const TERRAIN_ORDER = Object.keys(TERRAIN_LABELS);
   const districtBlock = (key, meta) => {

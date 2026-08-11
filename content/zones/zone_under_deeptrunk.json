@@ -17,14 +17,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_deep"
+    "scavenging_table_id": "scav_deep",
+    "terrain": "sewer"
   },
   "grid_x": 924,
   "grid_y": 911,
   "grid_z": -1,
   "id": "zone_under_deeptrunk",
   "map_id": "map_world",
-  "marker": "╬",
   "name": "Deep Trunk",
   "parent_zone": null
 }

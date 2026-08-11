@@ -1,0 +1,14 @@
+{
+  "capacity_kw": 10000,
+  "city_generator_id": null,
+  "connection_range": 0,
+  "flags": {},
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 0,
+  "fuel_type": null,
+  "generator_type": "city_plant",
+  "id": "gen_region_region_terminus",
+  "name": "The Standing Charge",
+  "owner_id": null,
+  "zone_id": "zone_terminus_1201_920"
+}

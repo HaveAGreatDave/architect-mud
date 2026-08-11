@@ -1257,6 +1257,13 @@
       // letter-guesser and listening to what came back — these are the ones it got
       // wrong, and being names they are said constantly, so each error repeats
       // forever. CMUdict has none of them and never will.
+      // Coinage STEMS rather than coinages. Now that an unknown word is tried as
+      // a compound, teaching the dictionary one prefix fixes every word built on
+      // it — `holo` alone buys hololock, holobooth and anything else the world
+      // grows later, with no entry per word. Worth preferring a stem to a
+      // compound whenever the stem is productive.
+      holo:'HH * AA L OW', chem:'K * EH M', cryo:'K R * AY OW',
+      nano:'N * AE N OW', mag:'M * AE G', synth:'S * IH N TH',
       cyd:'S * IH D',                   // "Sid", not "Seed"
       echelon:'* EH SH AH L AA N',      // French-derived /ʃ/ — the guesser said "etch-a-lon"
       kiyo:'K * IY OW',                 // guesser produced "K IH AX AX", pure noise
@@ -1365,8 +1372,68 @@
       'IY','IH','EH','AE','AA','AO','UH','UW','ER','AH','EY','AY','OY','OW','AW']);
     const SIBILANT = new Set(['S','Z','SH','ZH','CH','JH']);
 
-    // Pronounce a word: hand-dict → CMU → inflectional suffix → letter rules.
+    // The spoken NAME of each letter, as phonemes rather than as a word to look
+    // up. The first version of this asked the dictionary for "vee", "aitch",
+    // "ess" and "zee" — and the 25k CMU subset does not carry all of them, so
+    // spellOut returned null and the initialism fell silently back to the letter
+    // guesser. VTOL still came out "vee-TAHL". A table the size of the alphabet
+    // costs nothing and cannot half-work.
+    const LETTER_PH = {
+      a:'EY', b:'B IY', c:'S IY', d:'D IY', e:'IY', f:'EH F', g:'JH IY',
+      h:'EY CH', i:'AY', j:'JH EY', k:'K EY', l:'EH L', m:'EH M', n:'EH N',
+      o:'OW', p:'P IY', q:'K Y UW', r:'AA R', s:'EH S', t:'T IY', u:'Y UW',
+      v:'V IY', w:'D AH B AX L Y UW', x:'EH K S', y:'W AY', z:'Z IY',
+    };
+
+    // Spell a token out, letter by letter, with the accent on the LAST letter —
+    // en-pee-SEE. Only the last one is accented, or a five-letter initialism
+    // reads as five separate stressed words rather than one.
+    function spellOut(letters){
+      const out = [];
+      for (let i = 0; i < letters.length; i++) {
+        const ph = LETTER_PH[letters[i]];
+        if (!ph) return null;
+        const parts = ph.split(' ');
+        if (i === letters.length - 1) {
+          const v = parts.findIndex(p => VOWELS.has(p));
+          if (v >= 0) parts.splice(v, 0, '*');
+        }
+        out.push(...parts);
+      }
+      return out;
+    }
+
+    // Pronounce a word: initialism → hand-dict → CMU → inflectional suffix →
+    // compound → letter rules.
     function pronounceWord(w){
+      // ── Initialisms ────────────────────────────────────────────────────────
+      // Checked FIRST, and off the raw token, because the case is the evidence
+      // and the next line destroys it.
+      //
+      // Before this, an initialism nobody had hand-listed reached the letter
+      // guesser, which reads it as a word: "NPC" came back "M P K" — three
+      // consonants and no vowel, which is not speech at all. The hand-list
+      // (dmv, gdp, crt) was the previous answer and it only ever covers what
+      // somebody already noticed was wrong.
+      //
+      // The guards are what keep this from eating emphasis. An ALL-CAPS word is
+      // also how the corpus writes a shout ("it is GONE now") and a station
+      // ident, so spelling out anything capitalised would scream "gee-oh-en-EE"
+      // at 11% of the broadcast corpus. Hence: it must be UNKNOWN to every
+      // dictionary — which "gone", "fuck" and every other real word are not —
+      // and short, and vowel-poor. A real word that is unknown, four letters or
+      // fewer, and has at most one vowel is close to nonexistent; an initialism
+      // that shape is the common case.
+      const rawLetters = String(w).replace(/[^A-Za-z]/g, '');
+      if (rawLetters.length >= 2 && rawLetters.length <= 5 && rawLetters === rawLetters.toUpperCase()) {
+        const low = rawLetters.toLowerCase();
+        const vowels = (low.match(/[aeiouy]/g) || []).length;
+        const known = lexLook(low) || dictLook(low) || cmuLook(low);
+        if (!known && (vowels <= 1 || rawLetters.length <= 3)) {
+          const spelled = spellOut(low);
+          if (spelled) return spelled;
+        }
+      }
       w = w.toLowerCase().replace(/[^a-z']/g,'');
       if (!w) return [];
       const x = lexLook(w); if (x) return x;
@@ -1410,7 +1477,56 @@
       }
       if ((m=/^(.+?)ly$/.exec(w)) && w.length>3) { ph = stemPh(m[1]); if (ph) return [...ph,'L','IY']; }
       if ((m=/^(.+?)er$/.exec(w)) && w.length>3) { ph = stemPh(m[1]); if (ph) return [...ph,'ER']; }
+      if ((ph = compoundLook(w, stemPh))) return ph;
       return g2p(w);
+    }
+
+    // ── Compounds ────────────────────────────────────────────────────────────
+    //
+    // The single biggest source of mispronunciation in THIS game, because this
+    // game's vocabulary is compounds: voidwalking, hololock, chembench,
+    // grasshopper, deadball, nanofilament, cyberware. CMUdict has none of them
+    // and never will — they were coined here — so every one reached the letter
+    // guesser, which reads a long unknown word as one long unstressed run and
+    // mushes the second element into schwa. Sweeping the world's coinages
+    // through it produced "void-WAH-lking", "hollow-luhk", "chem-buhnch" and
+    // "GRASH-uh-per": the first half usually survived and the second half was
+    // always gone, which is the signature of exactly this failure.
+    //
+    // Splitting fixes all of them at once, because both halves are ordinary
+    // English words the dictionary already knows perfectly. That is the whole
+    // idea: don't teach the synth the coinage, notice that it is two words.
+    //
+    // Two rules keep it honest.
+    //
+    //   • BOTH HALVES MUST BE KNOWN — dictionary or CMU, never the guesser. A
+    //     split where one half is itself a guess is two guesses wearing a
+    //     trenchcoat, and strictly worse than guessing the whole word, whose
+    //     syllable structure at least survives intact.
+    //
+    //   • THE MOST BALANCED SPLIT WINS. Scanning left to right and taking the
+    //     first hit is how you get "the + rapist". Maximising the shorter half
+    //     prefers the split a reader would make, and the >= 3 floor keeps single
+    //     letters and stray prefixes out of it entirely.
+    //
+    // Stress is the other half of the fix and is easy to overlook: an English
+    // compound takes its primary accent on the FIRST element. Keeping both
+    // halves' accents gives "VOID-WALK-ing", two stressed feet, which sounds
+    // like two words read off a list — so the second element's '*' is dropped.
+    // Its vowels keep their full quality (it is de-accented, not reduced), which
+    // is the difference between "VOID-walking" and "VOID-wuhlking".
+    function compoundLook(w, stemPh){
+      if (w.length < 6 || w.includes("'")) return null;
+      let best = null, bestBalance = 0;
+      for (let i = 3; i <= w.length - 3; i++) {
+        const balance = Math.min(i, w.length - i);
+        if (balance <= bestBalance) continue;        // can't beat what we have
+        const a = stemPh(w.slice(0, i)); if (!a) continue;
+        const b = stemPh(w.slice(i));    if (!b) continue;
+        best = [...a, ...b.filter(p => p !== '*')];
+        bestBalance = balance;
+      }
+      return best;
     }
 
     // Grapheme-to-phoneme fallback: compact rule set, left-to-right longest match.
@@ -1546,11 +1662,63 @@
       w[w.length-1] = _ORD[last] || (last.endsWith('y') ? last.slice(0,-1)+'ieth' : last+'th');
       return w.join(' ');
     }
-    function expandNumbers(text){
+    // ── Abbreviations that are a different WORD, not a shorter one ───────────
+    //
+    // ABBREV (below) already stops "Dr." ending a sentence. It does not say what
+    // "Dr" IS, so the token went to the dictionary — where CMUdict has an entry
+    // for `dr`, meaning DRIVE. "Dr. Vale" was being read "drive Vale", every
+    // time, and the same trap is set for jr, sr, sgt and lt.
+    //
+    // "St" is the one that genuinely depends on context and so gets a rule
+    // rather than an entry: a capitalised word after it means Saint (St. Mark),
+    // anything else means Street (Dray St.).
+    const ABBREV_WORD = {
+      dr:'doctor', mr:'mister', mrs:'missus', ms:'miz', jr:'junior', sr:'senior',
+      prof:'professor', sgt:'sergeant', lt:'lieutenant', capt:'captain',
+      col:'colonel', gen:'general', vs:'versus', approx:'approximately',
+      dept:'department', inc:'incorporated', ltd:'limited', etc:'et cetera',
+    };
+    function expandAbbrev(text){
       return String(text)
+        .replace(/\bSt\.\s+(?=[A-Z])/g, ' Saint ')
+        .replace(/\bSt\./g, ' Street ')
+        .replace(/\b([A-Za-z]+)\./g, (m, w) => {
+          const full = ABBREV_WORD[w.toLowerCase()];
+          return full ? ' ' + full + ' ' : m;
+        });
+    }
+
+    function expandNumbers(text){
+      return expandAbbrev(text)
         .replace(/°\s*([CF])\b/g, (m,u)=>' degrees '+(u==='C'?'celsius':'fahrenheit')+' ')   // 72°F → "degrees fahrenheit"
         .replace(/°/g, ' degrees ')
         .replace(/%/g, ' percent ')
+        // ── The game's own currency ──────────────────────────────────────────
+        // ₵ is not in any of the symbol passes, so it was SILENTLY DROPPED:
+        // "₵900" read as "nine hundred", with no unit at all. Money is quoted in
+        // shops, jobs, bounties, rent and every vendor line in the game, so this
+        // was the most-repeated omission in the voice. Postfixed, because that is
+        // how it is said — "nine hundred credits", never "credits nine hundred".
+        .replace(/₵\s*([\d,]+(?:\.\d+)?)/g, ' $1 credits ')
+        .replace(/₵/g, ' credits ')
+        // Symbols that carry a word. Each of these was either dropped entirely
+        // (& produced literally nothing) or read as its letters ("x2" came back
+        // "ex two"). `#` and `x` are anchored to a digit so ordinary prose and
+        // the letter x are untouched.
+        .replace(/&/g, ' and ')
+        .replace(/#\s*(?=\d)/g, ' number ')
+        .replace(/(?<=\d)\s*[x×]\s*(?=\d)/gi, ' times ')
+        .replace(/(?<=^|\s)[x×](?=\d)/gi, ' times ')      // quantity chips are written "x2"
+        .replace(/(?<=\s|^)\+\s*(?=\d)/g, ' plus ')
+        // Clock times, before the bare-number pass gets to them — and before the
+        // ':' becomes a phrase break, which is what was putting a pause in the
+        // middle of "four thirty". :00 is the hour said as an hour; a single-digit
+        // minute takes its "oh" the way a person says it.
+        .replace(/\b(\d{1,2}):([0-5]\d)\b/g, (m, h, mm) => {
+          const hr = intToWords(+h);
+          if (mm === '00') return ' ' + hr + " o'clock ";
+          return ' ' + hr + ' ' + (+mm < 10 ? 'oh ' + intToWords(+mm) : intToWords(+mm)) + ' ';
+        })
         .replace(/(\d+)(?:st|nd|rd|th)\b/gi, (m,d)=>' '+ordinalToWords(parseInt(d,10))+' ')   // ordinals: 1st → "first"
         // Bare 4-digit numbers in a plausible year range read as pairs (2026 → "twenty twenty six").
         // \b avoids comma-grouped quantities (1,500 has no 4-digit run) and longer runs; the '.' guards
@@ -2127,7 +2295,14 @@
     function cancel(){ live.forEach(n => { try { n.stop(); } catch { /* already stopped */ } }); live = []; }
 
     function speak(text, opt = {}){
-      if (!_settings.enabled || !_settings.tv) return;
+      // `channel: 'ui'` is the log reader (client/game/js/logreader.js) — the
+      // voice as an ACCESSIBILITY surface rather than as a broadcast. It bypasses
+      // the TV toggle, because a player who muted the television has not asked to
+      // be unable to read the game, and it rides the sfx bus so the TV volume
+      // slider doesn't set how loud the game is read to them. The master Sound
+      // switch still silences it: that one means silence.
+      const ui = opt.channel === 'ui';
+      if (!_settings.enabled || (!ui && !_settings.tv)) return;
       const c = ensureContext(); if (!c) return;
       if (c.state === 'suspended') c.resume();
       cancel();
@@ -2162,7 +2337,7 @@
       // drags. Broadcast's nodeHoldMs is fitted to this number — re-measure both
       // together if the phoneme durations are ever retuned.
       const speed = V.speed * TUNING.rate;
-      const out = busFor('tv');
+      const out = busFor(ui ? 'sfx' : 'tv');
 
       const master = c.createGain(); master.gain.value = 0.9;
       const ringGain = c.createGain(); ringGain.gain.value = 1 - ringAmt;

@@ -859,6 +859,26 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
   // can't see it (there's no direct exit between origin and final zone).
   // Pathfinding self-heals: the path's next node after the facade is the entry
   // zone, which the entity now already occupies — a no-op step.
+  // Set when the facade swap below rewrites the destination — the one legitimate
+  // way an entity lands somewhere with no direct exit from where it started, and
+  // therefore the one case the adjacency law after it must not refuse.
+  let forwarded = false;
+
+  // A destination one step PAST a facade. A player who walks into a building steps
+  // onto the facade and is forwarded to the interior entry, so the room they ended
+  // in isn't adjacent to the one they left — and anything following them (an
+  // escortee) names that end room. Retarget to the facade itself so the swap below
+  // does the forwarding, front-door lock and all; jumping straight to the interior
+  // would skip the lock, and the adjacency law would refuse it anyway.
+  if (!exitDirection(oldZoneId, newZoneId)) {
+    for (const t of neighborZoneIds(getZone(oldZoneId))) {
+      const z = getZone(t);
+      if (!z || !isEnterableFacade(z)) continue;
+      const interiorEntry = getMapByParentZone(z.id)?.entry_zone_id;
+      if (interiorEntry === newZoneId || z.flags?.world_exit_zone === newZoneId) { newZoneId = t; break; }
+    }
+  }
+
   const facadeZone = getZone(newZoneId);
   if (facadeZone && isEnterableFacade(facadeZone)) {
     const interior = getMapByParentZone(facadeZone.id);
@@ -880,8 +900,33 @@ export function moveEntity(entity, newZoneId, broadcast, query, opts = {}) {
         if (!ownsFrontDoor && !leavingBuilding) return false; // blocked — a locked front door stops NPCs and chasing enemies alike
       }
       newZoneId = finalId;
+      forwarded = true;
       if (oldZoneId === newZoneId) return true;
     }
+  }
+
+  // ── Adjacency law ───────────────────────────────────────────────────────────
+  // Every mob step follows a real exit. Nothing that walks intends otherwise —
+  // patrol, commute, flee and roam all consume a findPath route one link at a
+  // time. But a cached route goes STALE the moment something else moves the
+  // entity, and the next shifted node is then somewhere across town. This used to
+  // move them there anyway: a silent jump announcing itself to two unrelated rooms
+  // as a directionless "X leaves." / "X arrives." — the wording is the tell,
+  // because a step along an exit always names the direction. Charter pilots
+  // produced exactly that at ~1 Hz while charter.js and their own graph fought
+  // over where they stood, and it read to a player as pure spam.
+  //
+  // Refusing the step and dropping the dead route puts the fight in the log
+  // instead of in the room, and the route recomputes from where the entity
+  // actually is on the next tick.
+  //
+  // `opts.teleport` is for the callers that genuinely mean a jump (a consort
+  // summoned to her keeper, the jail shift swap) — they narrate their own arrival.
+  if (!forwarded && !opts.teleport && !exitDirection(oldZoneId, newZoneId)) {
+    const ai = entity._ai;
+    if (ai) { ai.patrolPath = []; ai.patrolTarget = null; }
+    warnStaleStep(entity, oldZoneId, newZoneId);
+    return false;
   }
 
   const departDir = exitDirection(oldZoneId, newZoneId);
@@ -2234,7 +2279,7 @@ async function execAction(node, entity, ctx) {
         || exitTargets(getZone(studioZone), 'out')[0]
         || null;
       if (origin && origin !== home) {
-        moveEntity(entity, origin, broadcast, query);   // non-adjacent → teleports it into the world
+        moveEntity(entity, origin, broadcast, query, { teleport: true });   // non-adjacent by design: backstage has no exits
         ai.patrolPath = []; ai.patrolTarget = null;
       }
       break;   // next tick: GO_TO_WORK commutes it to the stage
@@ -2249,7 +2294,7 @@ async function execAction(node, entity, ctx) {
       const here = entityZone(entity);
       if (!home || here === home) break;   // no backstage set, or already hidden
       if (!getZonePlayers(here).length && !isZoneWatched(here)) {
-        moveEntity(entity, home, broadcast, query);     // unobserved → vanish to backstage
+        moveEntity(entity, home, broadcast, query, { teleport: true });     // unobserved → vanish to backstage
         ai.patrolPath = []; ai.patrolTarget = null;
         break;
       }
@@ -2450,6 +2495,18 @@ function warnCommuteBlocked(entity, fromZone, workZone, why) {
   if (now - (_commuteWarned.get(entity.id) || 0) < COMMUTE_WARN_MS) return;
   _commuteWarned.set(entity.id, now);
   console.warn(`[ai] ${entity.name} (${entity.id}) cannot reach work: ${fromZone} -> ${workZone} (${why}); home_zone=${entity.home_zone}`);
+}
+
+// A step the adjacency law refused. Same throttle and same reasoning as the
+// commute warning: one line per entity per hour is enough to find whoever is
+// fighting the AI over an entity's position, without a tick loop filling the log.
+const _staleStepWarned = new Map(); // entity id -> last warn ms
+function warnStaleStep(entity, fromZone, toZone) {
+  const key = entity.instanceId || entity.id;
+  const now = Date.now();
+  if (now - (_staleStepWarned.get(key) || 0) < COMMUTE_WARN_MS) return;
+  _staleStepWarned.set(key, now);
+  console.warn(`[ai] ${entity.name} (${key}) stale step refused: ${fromZone} -> ${toZone} (no exit between them; route dropped)`);
 }
 
 let _espShelterActive = false;

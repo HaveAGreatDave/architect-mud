@@ -32,6 +32,8 @@ import { handleServerMsg } from "./dispatch.js";
 import { state } from "./state.js";
 import { initInput, handleClientCommand } from "./input.js";
 import { initA11yFocus } from "./a11y-focus.js";
+import { initDictation, setDictationMode } from "./dictation.js";
+import { initLogReader, setLogReaderMode, setLogReaderRate } from "./logreader.js";
 import { initTradePanel } from "./panels/trade.js";
 import { initRecipesPanel } from "./panels/recipes.js";
 import { initStatsPanel } from "./panels/stats.js";
@@ -120,6 +122,14 @@ window._applyWeatherFx = setWeatherFxEnabled;
 window._applyMapOverlay = setMapOverlay;
 // Which renderer draws the minimap (Settings → Layout → Minimap). Same deal again.
 window._applyMinimapRender = setMinimapRender;
+// Voice input (Settings → Accessibility → Voice Input). Same deal once more —
+// registered before the first applySettings() so a player who turned it on last
+// session has the mic button on this one.
+window._applyDictation = setDictationMode;
+// Read Aloud (Settings → Accessibility → Read Aloud). Off by default; see the
+// screen-reader note at the top of logreader.js.
+window._applyLogVoice = setLogReaderMode;
+window._applyLogVoiceRate = setLogReaderRate;
 
 applySettings(settings);
 // Mobile vs. desktop layout is auto-detected per device at launch — there is no
@@ -536,6 +546,12 @@ document.getElementById("verify-back-link").addEventListener("click", () => {
 
 // Command input
 initInput({ saveOrigin, notify: (msg) => appendMsg(msg, "system") });
+// The mic button beside it. Mounts hidden; the Voice Input setting is what
+// reveals it, and it is off by default.
+initDictation();
+// …and the reader that speaks the log back. Observes #output, so it reads
+// whatever reaches the log rather than hooking the three append helpers.
+initLogReader();
 // Focus trapping / Escape / focus-return for every floating panel, wired once
 // rather than forty times. Observes the DOM, so a panel added later gets it free.
 initA11yFocus();

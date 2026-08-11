@@ -50,6 +50,29 @@ const FE_VOICE = {
   heavy:      { coreB: 20, coreS: 50, wave: 'sawtooth', pulseB: 30, pulseS: 30, pDep: [0.09, 0.14], biteB: 1050, biteS: 1700, biteM: 2.2, subB: 12, subM: 2.8, lpB: 260, lpS: 1700, crk: 0.4,  det: 1.005, mas: 1.3 },   // An-124: 4 D-18T turbofans — deep roar, huge lows, big turbine whine
   gunship:    { coreB: 30, coreS: 70, wave: 'sawtooth', pulseB: 36, pulseS: 40, pDep: [0.10, 0.15], biteB: 900,  biteS: 1400, biteM: 1.4, subB: 14, subM: 2.0, lpB: 300, lpS: 1500, crk: 0.45, det: 1.006, mas: 1.15 },   // A-10: twin TF34 turbofans — deep hum-growl + big lows, not a fighter scream
   wreck:      { coreB: 35, coreS: 40, wave: 'sawtooth', pulseB: 18, pulseS: 16, pDep: [0.34, 0.42], biteB: 540,  biteS: 260,  biteM: 0.9, subB: 23, subM: 1.0, lpB: 175, lpS: 680,  crk: 1.4,  det: 1.016, mas: 0.95 },
+  // THE LONG HAUL's diesel. The row is the whole port: one line, no new graph, because the twelve
+  // layers below were never aircraft-specific — only their numbers were.
+  //
+  // What makes a diesel sound like a diesel is the PULSE. A slow cylinder firing rate with a deep
+  // modulation index is the chug; `pulseB: 9` is roughly a big six loafing and `pDep` near 0.5 is
+  // as lumpy as this synth gets. Everything else follows from that: a low core, heavy exhaust
+  // crackle, a wide detune for the grit of an engine that has done a lot of miles, and almost NO
+  // bite, because a truck has no prop tip and nothing up there whines.
+  truck:      { coreB: 17, coreS: 34, wave: 'sawtooth', pulseB: 9,  pulseS: 16, pDep: [0.44, 0.52], biteB: 320,  biteS: 180,  biteM: 0.25, subB: 11, subM: 2.2, lpB: 150, lpS: 620,  crk: 1.8,  det: 1.019, mas: 1.1 },
+};
+
+// ── What the road sounds like (THE LONG HAUL) ────────────────────────────────
+// The `roll` layer was written for a taxiing aircraft and gated on `onGround`, so for a truck it is
+// on for the entire drive and is the second-loudest thing in the cab after the engine.
+//
+// The point of a per-surface table is that DRIFTING OFF THE ROAD IS AUDIBLE BEFORE IT IS ANYTHING
+// ELSE. You hear the shoulder the instant a tyre touches it, half a second before the speed bleeds
+// and well before any text says so — which is what makes the corridor's edge a thing you feel
+// rather than a rule you are told.
+const ROLL_SURFACE = {
+  road:     { lvl: 0.30, lp: 210, rattle: 0.10, rr: 46 },   // asphalt: a low even hiss
+  shoulder: { lvl: 0.62, lp: 520, rattle: 0.55, rr: 74 },   // gravel: coarse, loud, and it rattles
+  offroad:  { lvl: 0.80, lp: 380, rattle: 0.85, rr: 33 },   // the verge: slower, heavier, wrong
 };
 const voiceOf = (cls) => FE_VOICE[cls] || FE_VOICE.prop;
 
@@ -98,7 +121,8 @@ function createFlightEngine(cls) {
 
     // 7. ground roll: rumble + rattle, gated by one rollGate (0 when airborne)
     const rollGate = gain(0); rollGate.connect(master);
-    noiseSrc().connect(filt('lowpass', 210, 0.8)).connect(gain(0.3)).connect(rollGate);
+    const rollLP = filt('lowpass', 210, 0.8), rollLvl = gain(0.3);
+    noiseSrc().connect(rollLP).connect(rollLvl).connect(rollGate);
     const rattleOsc = osc('square', 92), rattleLevel = gain(0.06);
     rattleOsc.connect(filt('bandpass', 300, 1.3)).connect(rattleLevel).connect(rollGate);
     const rattleLFO = osc('sine', 19), rattleTrem = gain(0.05);
@@ -127,7 +151,8 @@ function createFlightEngine(cls) {
       core: { osc: coreOsc, lp: coreLP, gain: coreGain, pulseLFO, pulseDepth }, core2,
       sub: { osc: subOsc, gain: subGain },
       bite: { carrier: biteCarrier, modGain: biteModGain, bp: biteBP, gain: biteGain },
-      air: { hp: airHP, gain: airGain }, wind: { bp: windBP, gain: windGain }, roll: { gate: rollGate },
+      air: { hp: airHP, gain: airGain }, wind: { bp: windBP, gain: windGain },
+      roll: { gate: rollGate, lp: rollLP, lvl: rollLvl, rattle: rattleLevel, rattleOsc },
       crackle: { level: crLevel }, buffet: { level: bfLevel }, gref: { gain: grefGain }, pop: { gain: popGain },
       _thrPrev: 0, _src: src };
   } catch { return null; }
@@ -172,7 +197,21 @@ function updateFlightEngine(s) {
   const flaps = _c01(s.flaps || 0);
   set(N.wind.gain.gain, spdN * 0.12 * windMul * (1 + flaps * 0.5), 0.30);         // wind ∝ airspeed (+ flaps); interior reduces
   set(N.wind.bp.frequency, 500 + spdN * 700, 0.30);
-  set(N.roll.gate.gain, s.onGround ? _cl(0.1 + (s.groundSpeed || 0) / 60, 0, 0.4) : 0, 0.20);
+  // GROUND ROLL. An aircraft only has it while taxiing, so this was gated on `onGround`; a truck
+  // has it for the whole drive, and WHICH surface it is on is most of the information it carries.
+  // Passing `s.surface` opts into the road table; an aircraft passes none and behaves exactly as
+  // before. The tau is deliberately short — the shoulder has to arrive AS the tyre touches it,
+  // half a second before the speed bleeds and well before any text says so.
+  const rs = ROLL_SURFACE[s.surface];
+  if (rs) {
+    const v = _c01((s.groundSpeed || 0) / 70);
+    set(N.roll.gate.gain, _cl(0.06 + v * rs.lvl, 0, 0.9), 0.12);   // fast tau: the shoulder must arrive AS you touch it
+    set(N.roll.lp.frequency, rs.lp + v * 240, 0.15);
+    set(N.roll.rattle.gain, rs.rattle * (0.25 + v * 0.75) * 0.14, 0.12);
+    try { N.roll.rattleOsc.frequency.setTargetAtTime(rs.rr + v * 30, now, 0.15); } catch {}
+  } else {
+    set(N.roll.gate.gain, s.onGround ? _cl(0.1 + (s.groundSpeed || 0) / 60, 0, 0.4) : 0, 0.20);
+  }
   // Tone: exterior is wide open, the cockpit is already damped, the CABIN is muffled hard — 340 Hz
   // keeps the core rumble and the blade pulse (the parts you feel) and throws away the whine.
   set(N.toneFilter.frequency, Math.max(cabin ? 300 : 400, (ext ? 9000 : cabin ? 340 : 2600) * (1 - dist * 0.6)), 0.25);

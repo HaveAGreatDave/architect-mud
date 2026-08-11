@@ -239,10 +239,6 @@
       "price": 10
     },
     {
-      "item_id": "item_spray_paint",
-      "price": 12
-    },
-    {
       "item_id": "item_work_gloves",
       "price": 12
     },
@@ -293,6 +289,10 @@
     {
       "item_id": "item_lockpick_roll",
       "price": 55
+    },
+    {
+      "item_id": "item_spray_paint",
+      "price": 120
     },
     {
       "item_id": "item_tire_iron",

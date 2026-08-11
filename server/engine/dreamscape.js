@@ -347,6 +347,16 @@ export const isDreamZone = (zoneId) => typeof zoneId === 'string' && zoneId.star
  * `current_zone` gives them away. Anything future that sends a mind elsewhere is
  * covered for free.
  */
+// A body inside a VEHICLE is the other thing this list has to be able to say. It is not a
+// mind-elsewhere tell like the three above — the driver is right there — but it is the same
+// question ("what is visibly true about this person") and the same one-word answer beside their
+// name, so it belongs in the one function that already owns that slot rather than in a fourth.
+//
+// Expressed in POSTURE, which is engine state, so this names no system: a pilot sat on a ramp and
+// a trucker sat in a yard both stopped reading as pedestrians the moment this landed, and whatever
+// gets a posture next is covered without touching this file.
+const VEHICLE_TELL = { driving: 'behind the wheel', flying: 'in the cockpit' };
+
 export function bodyTell(player, roomId) {
   if (!player) return null;
   // Out cold wins over everything: it is the most urgent thing about them, and
@@ -354,7 +364,7 @@ export function bodyTell(player, roomId) {
   if (player._koUntil > Date.now()) return 'out cold';
   if (player.sleeping) return 'sleeping';
   if (isDreamZone(player.current_zone) && player.current_zone !== roomId) return 'glassy-eyed';
-  return null;
+  return VEHICLE_TELL[player.posture] || null;
 }
 
 /** Everything a player can poke at in the room they're standing in. */

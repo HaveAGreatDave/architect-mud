@@ -847,6 +847,10 @@
 						placeholder="Type a command..."
 						autocomplete="off"
 						spellcheck="false" />
+					<!-- Voice input. Hidden until Settings → Accessibility → Voice Input is
+					     turned on (CSS hangs off data-dictation on <html>), and hidden for
+					     good in a browser with no SpeechRecognition — see js/dictation.js. -->
+					<button id="dictate-btn" hidden aria-pressed="false" aria-label="Voice input" title="Voice input (tap, or hold to talk)">🎤</button>
 					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
 				</div>
 				<div id="smart-bar" class="smart-bar-empty"></div>

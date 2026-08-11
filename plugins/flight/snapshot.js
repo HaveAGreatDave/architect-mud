@@ -6,47 +6,18 @@
 //   - server route POST /maps/flight-snapshot  (dev panel button: re-bakes from the running world)
 // Both call buildFlightSnapshot() over the same getAllZones(), so the two paths can never drift.
 
-import { getAllZones, getZone, buildingEntranceDir } from '../../server/engine/world.js';
-import { runwayFor, surfaceRank, curtainRun } from './state.js';
-import { biomeOf } from './biomes.js';
+import { getAllZones } from '../../server/engine/world.js';
+import { runwayFor, surfaceRank, deriveSurfaceCell } from './state.js';
 
-// Derive one surface cell exactly like plugins/flight/state.js mapWindow does, so the
-// windshield renders these snapshot tiles identically to a live flight.
-function deriveCell(z) {
-  const flags = z.flags || {};
-  const biome = biomeOf({ id: z.id, flags, danger: z.danger });
-  // Every signal isRoadCell reads, PAINTED terrain included — the terrain paint was missing here,
-  // so the baked rig lost the 144 painted-only street tiles a live flight draws.
-  const road = (Array.isArray(flags.artery) && flags.artery.length) || /^(road_|runway_)/.test(flags.icon || '')
-    || flags.terrain === 'road' || flags.terrain === 'dirt_road' ? 1 : 0;
-  const kind = flags.airfield_id ? 'field' : flags.airspace_restricted ? 'nofly' : 'land';
-  const bt = flags.building_type || undefined;
-  const bn = flags.building_name || undefined;
-  let ent, flr;
-  if (bt) {
-    const zz = getZone(z.id);
-    ent = (zz && buildingEntranceDir(zz)) || undefined;
-    flr = flags.floors || undefined;
-  }
-  // Bespoke landmarks the windshield raises off the `mark` channel — mirror plugins/flight
-  // state.js: the Echelon's exterior tile (flags.yacht) → the black superyacht + helipad, a
-  // statue-* map icon → the town-square monument. A field/water tile is otherwise culled, so
-  // without this the baked rig would never draw the Echelon (unlike a live flight).
-  const mark = flags.yacht ? 'yacht' : flags.perimeter_gate ? 'gate' : /^statue/.test(flags.icon || '') ? 'statue' : undefined;
-  let rd;
-  const im = /^road_([nesw]+|x)$/.exec(flags.icon || '');
-  if (im) rd = im[1] === 'x' ? 'nesw' : im[1];
-  // The Curtain energy wall — carry its run directions (see plugins/flight state.js curtainRun) so
-  // the baked rig stands the same shimmer barrier a live flight does over the city's land edges.
-  // The gate tile (perimeter_gate) has no curtain flag but needs the wall's run so its pylons align.
-  const cur = (flags.curtain || flags.perimeter_gate) ? curtainRun(z.grid_x, z.grid_y) : undefined;
-  // Authored park feature (grove/pond/benches/…), same channel the live flight streams
-  // (plugins/flight state.js: pf). Without this the baked rig ignores the painted feature
-  // and falls back to seed%5, so park tiles look different from a live flight.
-  const pf = flags.park_feature || undefined;
-  // JSON.stringify drops the undefined keys, keeping the file compact.
-  return { kind, biome, road, danger: z.danger, bt, bn, ent, flr, mark, rd, cur, pf };
-}
+// Derive one surface cell for the bake. This used to be a hand-maintained COPY of the per-cell
+// logic in plugins/flight/state.js mapWindow, and it drifted twice — the bake silently lost the
+// 144 painted-only street tiles a live flight draws, and then lost authored park features. It now
+// calls the one shared derivation, so the baked rig and a live flight cannot disagree again.
+// `live: false` skips the wall-clock yacht wake/transit pose — a snapshot must not freeze a
+// hull that happened to be underway at bake time into the checked-in file.
+// JSON.stringify drops the undefined keys, keeping the file compact.
+const deriveCell = z => deriveSurfaceCell({ id: z.id, flags: z.flags || {}, danger: z.danger },
+  z.grid_x, z.grid_y, undefined, false);
 
 // Reproduce the exact per-cell shape the flight plugin streams to the cockpit for every
 // map_world tile, plus every airfield's runway pose. Returns { bounds, fields, cells }.

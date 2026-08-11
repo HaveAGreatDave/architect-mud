@@ -111,6 +111,31 @@ async function resolveBoard(zoneId, nameArg) {
   return { none: true };
 }
 
+// ── Taking the controls: the ONE place that decides which cockpit you get ──────
+// Riding is a panel — delete the cabin window and you are not stuck — so a rider only
+// loses it at the `log` rung (textmode.js). FLYING is a minigame: delete the cockpit and
+// the aircraft is unusable, so the text cockpit (textpilot.js) arrives one rung earlier,
+// at `textgames`. That is the whole point of the middle rung — fly her by command, keep
+// the map. Falls back to the 3D sim if the airframe has no physics profile.
+//
+// ⚠ EVERY PATH THAT PUTS SOMEBODY IN THE PILOT'S SEAT MUST COME THROUGH HERE. This used
+// to live inline in `cmdBoard` alone, and there are SIX such paths: board, the yacht/
+// flight-deck seat, taxi-out-of-the-hangar, testfly, the checkride loaner, and reconnect.
+// The other five called `sendFlightSim` unconditionally, so a text pilot who taxied out
+// of a hangar — or who simply reloaded the page — had the 3D sim thrown over their text
+// panel, which is exactly the preference they had set. One function, one decision.
+//
+// Returns true if she's being flown in TEXT (so callers can adjust their own prose).
+async function enterCockpit(player, live) {
+  // Already flying her in text (taxi out of the hangar happens with the pilot ALREADY
+  // seated) — re-running startTextPilot would throw away the live fmState and restart
+  // the sim from a cold parked aeroplane mid-manoeuvre. Nothing to do but stay put.
+  if (live.textPilot) return true;
+  if (isContinuous(live) && await prefersTextMinigamesOrDefault(player) && startTextPilot(player, live)) return true;
+  if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
+  return false;
+}
+
 async function cmdBoard(args, raw, player, broadcast) {
   if (player.aircraftId) return { type: 'emote', message: "You're already aboard." };
 
@@ -245,11 +270,9 @@ async function boardFound(found, player, broadcast) {
   // the text cockpit (textpilot.js) arrives one rung earlier, at `textgames`. That
   // is the whole point of the middle rung — fly her by command, keep the map.
   // Falls back to the 3D sim if the airframe has no physics profile.
-  const textFly = seat === 'pilot' && isContinuous(live)
-    && await prefersTextMinigamesOrDefault(player) && startTextPilot(player, live);
-  if (textFly) { /* no panel — the text pilot flies on commands + status lines */ }
-  else if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live);
-  else pushHud(live);
+  const flyingHer = seat === 'pilot' && isContinuous(live);
+  const textFly = flyingHer && await enterCockpit(player, live);
+  if (!flyingHer) pushHud(live);   // a passenger's cabin window, or a legacy banded craft
   // Refresh the cabin-occupancy readout on a seated pilot when a rider joins.
   if (seat !== 'pilot' && isContinuous(live)) pushContext(live);
   const hint = seat !== 'pilot'
@@ -388,7 +411,7 @@ async function cmdTakeControls(args, raw, player) {
   // it) and into the cockpit sim. She stays parked until you fly her off the deck.
   removePlayerFromZone(player.id, zone.id);
   player.seat = 'pilot'; live.pilotId = player.id; player.cabinWindowOpen = false;
-  sendFlightSim(player, live);
+  await enterCockpit(player, live);
   if (isContinuous(live)) pushContext(live);   // refresh the cabin-occupancy readout for anyone still walking aft
   sendToZoneExcept(zone.id, player.id, { type: 'zone_event', message: `${player.handle} drops into the pilot's seat and takes the controls.`, refresh: true });
   return { type: 'noop' };
@@ -1617,7 +1640,7 @@ on('weather.lightningStrike', ({ gx, gy, intensity }) => {
   }
 });
 
-on('player.login', ({ id }) => {
+on('player.login', async ({ id }) => {
   const player = getLivePlayer(id);
   if (!player) return;
   // Any aircraft (owner/rental-flown, or an NPC-piloted charter) that still lists
@@ -1630,7 +1653,9 @@ on('player.login', ({ id }) => {
     player.seat = seat;
     getZone(player.current_zone)?.players.delete(id);
     setPosture(player, 'flying');
-    if (seat === 'pilot' && isContinuous(live)) sendFlightSim(player, live);
+    // Reconnect. A text pilot's panel has to come back as a TEXT panel — this used to
+    // send the 3D sim on every reload, which is the one moment a preference must hold.
+    if (seat === 'pilot' && isContinuous(live)) await enterCockpit(player, live);
     else pushHud(live);
     return;
   }
@@ -1669,10 +1694,12 @@ async function cmdTestFly(args, raw, player) {
     // In the garage: no cockpit yet — she has to be taxied out onto the runway first.
     return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, waits in the hangar with you at the controls. <b>taxi</b> her out of the garage onto the runway before you fly. It's yours — scrap it when done.</span>` };
   }
-  if (isContinuous(live)) sendFlightSim(player, live); else pushHud(live);
-  const how = isContinuous(live)
-    ? 'flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive'
-    : 'startup · throttle · takeoff';
+  // The prose has to match the cockpit they actually got — telling a text pilot to
+  // "pull back on the yoke" names a control that isn't on their panel.
+  const textFly = await enterCockpit(player, live);
+  const how = textFly || !isContinuous(live)
+    ? 'startup · throttle · takeoff'
+    : 'flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive';
   return { type: 'emote', message: `<span class="text-green">[TEST] A free <b>${t.name}</b>, full tank, and you're in the pilot's seat. ${how}. It's yours — scrap it when done.</span>` };
 }
 
@@ -1698,7 +1725,7 @@ async function startCheckrideRide(player) {
   const live = await loadAircraft(id);
   live.occupants.add(player.id); player.aircraftId = id; player.seat = 'pilot'; live.pilotId = player.id;
   live.checkridePilotId = player.id;
-  sendFlightSim(player, live);
+  await enterCockpit(player, live);
   beginCheckride(player, live);
   return { type: 'emote', message: '<span class="text-green">The examiner walks you out to a trainer Mayfly on the ramp and drops into the seat beside you. "Right — let\'s see if you can fly. Follow my calls."</span>' };
 }
@@ -1745,10 +1772,10 @@ async function cmdTaxi(args, raw, player, broadcast) {
 
   // On the runway now — bring the cockpit alive.
   const pilot = pilotOf(live) || player;
-  if (isContinuous(live)) sendFlightSim(pilot, live); else pushHud(live);
-  const how = isContinuous(live)
-    ? 'Flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive.'
-    : '<span class="text-dim">startup · throttle · takeoff</span>.';
+  const textFly = await enterCockpit(pilot, live);
+  const how = textFly || !isContinuous(live)
+    ? '<span class="text-dim">startup · throttle · takeoff</span>.'
+    : 'Flip the <b>ENGINE</b> switch, throttle up, and pull back as she comes alive.';
   return { type: 'emote', message: `<span class="text-green">You ease her out of the garage and onto the runway. ${how}</span>` };
 }
 

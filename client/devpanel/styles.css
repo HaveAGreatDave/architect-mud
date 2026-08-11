@@ -100,7 +100,7 @@
   #panel-area { flex: 1; overflow: hidden; display: flex; }
 
   /* Ops-mode read-only notice — one banner shared by every read-only panel
-     (OPS_READONLY_PANELS in js/core/panels.js), so the wording can't drift. */
+     (opsPanelReadOnly in js/core/panels.js), so the wording can't drift. */
   #ops-ro-banner {
     flex-shrink: 0; margin: 0 12px 8px; padding: 8px 12px;
     background: color-mix(in srgb, var(--warning) 12%, var(--bg2));
@@ -113,6 +113,15 @@
   body.ops-ro-panel .js-save-btn,
   body.ops-ro-panel .js-delete-btn,
   body.ops-ro-panel .edit-actions-top { display: none !important; }
+  /* Ops nav: the read-only half of the sidebar is there but folded away by
+     default (injected in bootstrap.js, remembered in localStorage). */
+  #ops-ro-toggle {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 6px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+    font-size: 10px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase;
+  }
+  #ops-ro-toggle:hover { color: var(--text); }
+  #ops-ro-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
 
   /* Table view */
   #list-panel { flex: 1; overflow-y: auto; padding: 0; }

@@ -1172,8 +1172,14 @@ export function paintWindshield(id, view) {
   pBegin('glass');
   if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed);
   pEnd();
-  if (!v.windowClass && !ext) drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
-  if (!v.windowClass && !ext) drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
+  // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
+  // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
+  // slots in the layer order, different vehicle. (THE LONG HAUL — plugins/trucking.)
+  if (!v.windowClass && !ext && v.cls === 'truck') drawCabInterior(ctx, W, H, v);
+  else if (!v.windowClass && !ext) {
+    drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
+    drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
+  }
   if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
@@ -1315,6 +1321,232 @@ function drawCanopy(ctx, W, H) {
 // lift. Depth + a shallow centre bump vary by class so each nose reads a little
 // different: a bubble ultralight barely shows any cowl; a heavy freighter carries a
 // broad glareshield; a gunship a flat armoured deck.
+// ── The truck cab (THE LONG HAUL) ────────────────────────────────────────────
+// Everything an aircraft canopy is not: flat glass, a hard centre post, two thick A-pillars, and
+// a dash across the bottom third. It is drawn in the same slot `drawCanopy` + `drawCowl` occupy,
+// so the layer order (world → in-scene weather → on-glass rain/bugs → interior → HUD) is unchanged.
+//
+// MIRRORS ARE THE POINT. They are the strongest single tell that you are in a truck rather than a
+// plane, and once a trailer exists (phase 2) they stop being decoration entirely: the articulation
+// angle is not visible from the driver's seat by any other means, so the mirror becomes the
+// instrument you reverse on. They are stubbed here as real housings with glass — the reflected
+// view lands when there is a trailer to see in them.
+const CAB_POST = 0.014;        // centre screen post, as a fraction of width
+const CAB_DASH = 0.30;         // dash height, as a fraction of height
+function drawCabInterior(ctx, W, H, v) {
+  ctx.save();
+  const dash = H * (1 - CAB_DASH);
+  const pillar = W * 0.075;
+
+  // 1. Header — the roof line, deeper than an aircraft's because you sit UNDER a sleeper.
+  const hdr = H * 0.085;
+  const hg = ctx.createLinearGradient(0, 0, 0, hdr);
+  hg.addColorStop(0, '#16181c'); hg.addColorStop(1, '#23262b');
+  ctx.fillStyle = hg; ctx.fillRect(0, 0, W, hdr);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, hdr - 2, W, 2);
+
+  // 2. A-pillars. Wide, raked, and they genuinely block the view — which is honest, and which is
+  //    why the mirrors sit on them rather than floating in the glass.
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    if (side < 0) { ctx.moveTo(0, hdr); ctx.lineTo(pillar, hdr); ctx.lineTo(pillar * 0.55, dash); ctx.lineTo(0, dash); }
+    else { ctx.moveTo(W, hdr); ctx.lineTo(W - pillar, hdr); ctx.lineTo(W - pillar * 0.55, dash); ctx.lineTo(W, dash); }
+    ctx.closePath();
+    const pg = ctx.createLinearGradient(side < 0 ? 0 : W, 0, side < 0 ? pillar : W - pillar, 0);
+    pg.addColorStop(0, '#1a1d21'); pg.addColorStop(1, '#2c3037');
+    ctx.fillStyle = pg; ctx.fill();
+  }
+
+  // 3. Centre post — the split between the two screen panes. Thin, and dead centre, so it reads
+  //    as a windscreen divider rather than as a crack in the canvas.
+  const post = Math.max(2, W * CAB_POST);
+  ctx.fillStyle = '#212429';
+  ctx.fillRect(W / 2 - post / 2, hdr, post, dash - hdr);
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fillRect(W / 2 - post / 2, hdr, 1, dash - hdr);
+
+  // 4. Dash. Fills the lower third with a lip that catches the sky, and carries the instrument
+  //    glow back up onto the glass (drawInstrumentReflection already does exactly this for the
+  //    cockpit and slides it with bank — here it slides with lean, unchanged).
+  const dg = ctx.createLinearGradient(0, dash - H * 0.03, 0, H);
+  dg.addColorStop(0, '#31353c'); dg.addColorStop(0.18, '#191c20'); dg.addColorStop(1, '#0d0f12');
+  ctx.fillStyle = dg;
+  ctx.beginPath();
+  ctx.moveTo(0, dash + H * 0.02);
+  ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+  // The lip highlight — a single bright line is what makes moulded plastic read as moulded.
+  ctx.strokeStyle = 'rgba(190,205,225,0.16)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, dash + H * 0.02);
+  ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
+  ctx.stroke();
+
+  // 4b. THE DASH IS TEXTURED, not a gradient. This file already generates procedural canvas
+  //     textures for every wall and roof in the city (`wallTex`/`getTex` — memoised, tiled, zero
+  //     art assets), and the one surface the player looks at for twenty minutes at a stretch was
+  //     the one flat fill in the scene. Same trick, one more key: moulded vinyl with a grain and a
+  //     seam, laid over the gradient in `overlay` so it adds surface without shifting the colour.
+  const tex = cabDashTex();
+  if (tex) {
+    const pat = ctx.createPattern(tex, 'repeat');
+    if (pat) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'overlay';
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(0, dash + H * 0.02);
+      ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+      ctx.fillStyle = pat; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // 4c. THE BINNACLE — two real dials in the scene, behind the wheel, where a driver's eyes
+  //     actually go. The DOM readouts under the glass stay (they are the accessible record and
+  //     they are what a screen reader gets), but a truck whose only instruments are HTML below the
+  //     picture is a website with a picture on it. These are the same numbers, in the world.
+  const bx = W * 0.34, by = dash + H * 0.10, br = Math.min(W, H) * 0.052;
+  drawCabDial(ctx, bx, by, br, v?.rpmFrac ?? 0, v?.band, 'RPM', v?.inBand);
+  drawCabDial(ctx, bx + br * 2.5, by, br, Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH');
+
+  // 4d. The wheel rim, cut off by the bottom of the frame. The real wheel is a widget below the
+  //     glass; this is the top arc of it in the scene, and it is most of what makes the view read
+  //     as "sat in a seat" rather than as a camera on a bumper.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W * 0.42, H * 1.16, H * 0.30, Math.PI * 1.18, Math.PI * 1.82);
+  ctx.strokeStyle = 'rgba(28,31,36,0.95)'; ctx.lineWidth = Math.max(6, H * 0.030); ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,165,185,0.13)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.restore();
+
+  // 5. Mirrors, one per pillar. Housing, glass, and a hint of what is behind — a dark road with
+  //    the verge streaking past, which sells motion even before there is a trailer in them.
+  drawCabMirror(ctx, W * 0.028, hdr + H * 0.06, W * 0.062, H * 0.20, v);
+  drawCabMirror(ctx, W - W * 0.028 - W * 0.062, hdr + H * 0.06, W * 0.062, H * 0.20, v);
+  ctx.restore();
+}
+// Moulded dash vinyl: a grain, a mould seam and a faint sun-bleach mottle. Memoised through the
+// same registry every wall in the city uses, so it costs one 32×32 canvas for the whole session and
+// `setObjectTexture('cabdash', png)` swaps it for real art later without touching this file.
+function cabDashTex() {
+  return getTex('cabdash', () => {
+    const S = 32, c = texCanvas(S, S), g = c.getContext('2d');
+    if (!g) return c;
+    g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, S, S);      // neutral: overlay no-op
+    // Pebble grain. Deterministic — a dash that shimmers between frames is a dash nobody believes.
+    let seed = 0x2f6b;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let i = 0; i < 340; i++) {
+      const x = rnd() * S, y = rnd() * S, d = rnd();
+      g.fillStyle = d > 0.5 ? `rgba(255,255,255,${0.05 + d * 0.06})` : `rgba(0,0,0,${0.05 + d * 0.08})`;
+      g.fillRect(x | 0, y | 0, 1, 1);
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1;            // the mould seam
+    g.beginPath(); g.moveTo(0, S * 0.5); g.lineTo(S, S * 0.5); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.07)';
+    g.beginPath(); g.moveTo(0, S * 0.5 - 1); g.lineTo(S, S * 0.5 - 1); g.stroke();
+    return c;
+  });
+}
+// One dial. `frac` is 0..1 of the sweep; `band` (optional, in the same units) paints the green arc
+// the gearbox wants you to keep the needle inside — which is the entire point of having a tachometer
+// in a truck rather than a number.
+function drawCabDial(ctx, cx, cy, r, frac, band, label, lit) {
+  const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  const fg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r);
+  fg.addColorStop(0, '#171a1f'); fg.addColorStop(1, '#0a0c0f');
+  ctx.fillStyle = fg; ctx.fill();
+  ctx.strokeStyle = 'rgba(150,165,185,0.28)'; ctx.lineWidth = 1.4; ctx.stroke();
+  if (band) {                                                       // the torque band, drawn once
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.80, A0 + (A1 - A0) * band[0], A0 + (A1 - A0) * band[1]);
+    ctx.strokeStyle = 'rgba(90,190,110,0.55)'; ctx.lineWidth = Math.max(2, r * 0.14); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(190,205,225,0.30)'; ctx.lineWidth = 1;    // ticks
+  for (let i = 0; i <= 8; i++) {
+    const a = A0 + (A1 - A0) * (i / 8);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r * 0.68, cy + Math.sin(a) * r * 0.68);
+    ctx.lineTo(cx + Math.cos(a) * r * 0.88, cy + Math.sin(a) * r * 0.88);
+    ctx.stroke();
+  }
+  const a = A0 + (A1 - A0) * Math.max(0, Math.min(1, frac));        // the needle
+  ctx.strokeStyle = lit ? '#8fe0a0' : '#e8c07a';
+  ctx.lineWidth = Math.max(1.6, r * 0.09); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * 0.78, cy + Math.sin(a) * r * 0.78); ctx.stroke();
+  ctx.fillStyle = '#2a2f36'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(150,165,185,0.55)';
+  ctx.font = `${Math.max(6, r * 0.34) | 0}px monospace`; ctx.textAlign = 'center';
+  ctx.fillText(label, cx, cy + r * 0.52);
+  ctx.restore();
+}
+function drawCabMirror(ctx, x, y, w, h, v) {
+  ctx.save();
+  // Housing.
+  roundRectPath(ctx, x - 3, y - 3, w + 6, h + 6, 5);
+  ctx.fillStyle = '#0f1114'; ctx.fill();
+  ctx.strokeStyle = 'rgba(160,175,195,0.22)'; ctx.lineWidth = 1; ctx.stroke();
+  // Glass. Dark, cool, and vertically graded — sky at the top, road at the bottom.
+  roundRectPath(ctx, x, y, w, h, 3);
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  const night = (v?.hour != null) && (v.hour < 6 || v.hour >= 20);
+  g.addColorStop(0, night ? '#0a0d14' : '#2a3644');
+  g.addColorStop(0.42, night ? '#0c1018' : '#39404a');
+  g.addColorStop(1, night ? '#07090c' : '#22262b');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();
+  // Road streaks — speed-scaled, so a stopped truck's mirror is still and a rolling one is not.
+  const spd = Math.max(0, Math.min(1, (v?.speed || 0) / 68));
+  if (spd > 0.02) {
+    ctx.strokeStyle = `rgba(200,215,235,${0.06 + spd * 0.14})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const yy = y + h * (0.5 + i * 0.1);
+      ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + w * (0.3 + spd * 0.7), yy); ctx.stroke();
+    }
+  }
+  // THE TRAILER, and this is the whole reason a mirror is an instrument rather than decoration.
+  // The articulation angle is invisible from the driver's seat by every other means — you cannot
+  // see behind your own cab — so if it is not drawn here, backing a trailer is guesswork and
+  // jackknifing is something that simply happens to you. φ is signed the same way the model signs
+  // it, so the box swings into the mirror on the side it is actually swinging toward.
+  if (v?.hitched) {
+    const phi = (v.phi || 0) * (x < 100 ? -1 : 1);       // left mirror sees the mirror image
+    const t = Math.max(-1, Math.min(1, phi / 60));
+    const cx = x + w * (0.5 + t * 0.42), top = y + h * 0.30, bw = w * (0.44 - Math.abs(t) * 0.18);
+    ctx.save();
+    // The box is drawn as a receding slab: near edge wide, far edge narrowed by the angle, which
+    // is what "it is coming round on you" looks like out of a west-coast mirror.
+    ctx.beginPath();
+    ctx.moveTo(cx - bw, y + h);
+    ctx.lineTo(cx + bw, y + h);
+    ctx.lineTo(cx + bw * (1 - Math.abs(t) * 0.4) + t * w * 0.12, top);
+    ctx.lineTo(cx - bw * (1 + Math.abs(t) * 0.1) + t * w * 0.12, top);
+    ctx.closePath();
+    ctx.fillStyle = night ? '#12161c' : '#2c3138';
+    ctx.fill();
+    ctx.strokeStyle = Math.abs(v.phi || 0) > 55 ? 'rgba(215,110,70,0.85)' : 'rgba(170,185,205,0.30)';
+    ctx.lineWidth = Math.abs(v.phi || 0) > 55 ? 1.6 : 1;
+    ctx.stroke();
+    // Marker lamps, which is mostly what you actually see of your own trailer at night.
+    ctx.fillStyle = night ? 'rgba(240,140,90,0.85)' : 'rgba(190,120,90,0.5)';
+    for (const mx of [cx - bw * 0.7, cx, cx + bw * 0.7]) {
+      ctx.fillRect(mx - 0.8, top - 1.2, 1.6, 1.6);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+  // A single specular sweep so it reads as glass rather than as a hole.
+  ctx.globalAlpha = 0.10; ctx.fillStyle = '#dfe9f5';
+  ctx.beginPath(); ctx.moveTo(x, y + h * 0.18); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h * 0.1); ctx.lineTo(x, y + h * 0.3);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
 const COWL_DEPTH = { ultralight: 0.12, heli: 0.14, prop: 0.17, heavy: 0.22, gunship: 0.19, wreck: 0.16, default: 0.17 };
 function drawCowl(ctx, W, H, cls) {
   const d = (COWL_DEPTH[cls] || COWL_DEPTH.default) * H;
@@ -2991,13 +3223,13 @@ export { BUILDING_FOOT };
 // Deterministic building height (render world-z units) for a tile — the SAME value
 // drawWorldObjects paints (line ~1419), exposed so the flight sim can collision-check the
 // exact geometry that's on the glass. Returns 0 for tiles that carry no solid building to
-// fly into: open air, the runway/fields, water, the soft parkland/badlands billboards, the
-// no-fly markers (the airspace system owns those, so we don't double-punish there), and any
-// plain terrain tile — only a real building tile (has `bt`) extrudes solid mass.
+// fly into: open air, bare apron/terrain of every kind, and the no-fly markers (the airspace
+// system owns those, so we don't double-punish there) — only a real building tile (has `bt`)
+// extrudes solid mass.
 // `cell` is a map-window cell { kind, biome, bt, ... }; wx,wy are its WORLD tile coords.
 export function buildingHeightZ(wx, wy, cell) {
   if (!cell) return 0;
-  const k = cell.kind, bi = cell.biome;
+  const k = cell.kind;
   // A rooftop pad (a `bt` building tile that also carries an airfield_id) keeps its
   // mass — the tower is still there to fly into; only bare field surfaces are clear.
   // `cell.self` used to zero this, and it is the third place the own-tile
@@ -3008,8 +3240,18 @@ export function buildingHeightZ(wx, wy, cell) {
   // never took an aircraft the way the Echelon's does. Bare fields are still
   // cleared by the `field && !bt` arm below, which is the case self was standing
   // in for.
-  if (k === 'air' || (k === 'field' && !cell.bt) || k === 'nofly'
-      || !bi || bi === 'water' || bi === 'parkland' || bi === 'badlands' || !cell.bt) return 0;
+  //
+  // THE BIOME NEVER VETOES A BUILDING. The ground tint used to be able to zero a tower's
+  // mass — a `bt` tile whose biome read water/parkland/badlands returned 0 — and that was
+  // the fourth and last place a building stopped being solid without stopping being drawn.
+  // It bit the whole 914/908 expansion: `districtBiome` has no arm for a `zone_district_*`
+  // id and `zones` no longer carries a danger column, so every one of those 84 building
+  // tiles falls to the 'badlands' default and was a ghost — no CFIT, and no roof for
+  // `buildingRoofFtAt` to answer with, which is why the Solenne's pad drew no guidance
+  // column and took no helicopter. `bt` is the whole question: a tile carries a building or
+  // it doesn't, and the tint it sits on has nothing to say about it. The `field && !bt` arm
+  // it replaces is subsumed — a bare apron has no `bt` either.
+  if (!cell.bt || k === 'air' || k === 'nofly') return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   return floorHeight(cell, seed);
 }
@@ -3073,25 +3315,76 @@ function modelTopAt(wx, wy, cell, px, py, inFeet) {
   const ftPerZ = inFeet ? (floors * FT_PER_FLOOR) / h : 1;   // world-z → feet, via the storey stack both agree on (1 = answer in world-z)
   let best = 0;
   for (const s of segs) {
-    const cx = V(s.cx), cy = V(s.cy);
     const top = V(s.z1) * ftPerZ;
     if (top <= best) continue;                   // can't raise the answer — skip the containment maths
-    let dx = lx - cx, dy = ly - cy, inside = false;
-    if (s.kind === 'box') {
-      if (s.yaw) { const c = Math.cos(-s.yaw), n = Math.sin(-s.yaw); const rx = dx * c - dy * n; dy = dx * n + dy * c; dx = rx; }
-      const w = Math.min(V(s.hwRaw), 0.44);      // the same clamp draw3DBoxAt applies internally
-      inside = Math.abs(dx) <= w && Math.abs(dy) <= w;
-    } else if (s.kind === 'drum') {
-      const r = Math.max(V(s.rb), V(s.rt));
-      inside = dx * dx + dy * dy <= r * r;
-    } else if (s.kind === 'barrel') {
-      inside = Math.abs(dx - V(s.cxL)) <= V(s.hl) && Math.abs(dy) <= V(s.hw);
-    } else {
-      inside = Math.abs(dx) <= V(s.hx) && Math.abs(dy) <= V(s.hy);
-    }
-    if (inside) best = top;
+    if (segContains(s, lx, ly, V)) best = top;
   }
   return best;
+}
+
+// Is a MODEL-LOCAL point inside this segment's footprint? Extracted so the aircraft's CFIT probe
+// (modelTopAt) and the ground vehicle's obstruction probe (groundObstructionAt) share one answer.
+// They ask different questions — "how high is the mass here" vs "is the mass here in my way" — but
+// "is this point in this segment" must be the same test in both, or a truck and a plane will
+// disagree about where a building's wall is.
+function segContains(s, lx, ly, V) {
+  let dx = lx - V(s.cx), dy = ly - V(s.cy);
+  if (s.kind === 'box') {
+    if (s.yaw) { const c = Math.cos(-s.yaw), n = Math.sin(-s.yaw); const rx = dx * c - dy * n; dy = dx * n + dy * c; dx = rx; }
+    const w = Math.min(V(s.hwRaw), 0.44);        // the same clamp draw3DBoxAt applies internally
+    return Math.abs(dx) <= w && Math.abs(dy) <= w;
+  }
+  if (s.kind === 'drum') {
+    const r = Math.max(V(s.rb), V(s.rt));
+    return dx * dx + dy * dy <= r * r;
+  }
+  if (s.kind === 'barrel') return Math.abs(dx - V(s.cxL)) <= V(s.hl) && Math.abs(dy) <= V(s.hw);
+  return Math.abs(dx) <= V(s.hx) && Math.abs(dy) <= V(s.hy);
+}
+
+// GROUND OBSTRUCTION — the ground vehicle's half of CFIT (THE LONG HAUL).
+//
+// `modelTopAt` answers "how tall is the mass over this point", which is the right question for an
+// aircraft: you are above it or you are not. A truck asks a different one — "is there something in
+// my way at MY height" — and the difference is `z0`. modelTopAt ignores it entirely, so an
+// overhanging attic, a barrel roof, a canopy or a mast reads as solid all the way to the ground.
+// Drive under an archway and you would hit a building that is physically over your head.
+//
+// So: same containment, plus `z0 <= clearZ`. A segment only blocks you if its underside comes down
+// to at least your roofline. Returns the blocking segment's TOP in world-z (a useful magnitude for
+// "how big a thing did I just hit"), or 0 for clear road.
+//
+// `clearZ` is the vehicle's height in render world-z. FLOOR_Z is one storey, so a semi tractor at
+// roughly a third of a storey is about 0.009.
+export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
+  if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  const m = modelFor(cell);
+  const hz = floorHeight(cell, seed);
+  if (!m) {
+    // No dedicated model (a biome archetype): the same plain square modelTopAt falls back to.
+    const foot = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
+    return (Math.abs(px - wx) <= foot && Math.abs(py - wy) <= foot) ? hz : 0;
+  }
+  const segs = shapeForModel(m, seed);
+  if (!segs || !segs.length) return hz;          // a model we can't decompose is solid, not a hole
+  const h = hz;
+  if (!(h > 0)) return 0;
+  const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const ox = px - wx, oy = py - wy;
+  const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
+  const V = (p) => p[0] * fh + p[1] * h + p[2];
+  let worst = 0;
+  for (const s of segs) {
+    // The z0 gate, and the whole reason this is not just modelTopAt: a segment whose underside is
+    // above the vehicle's roof is something you drive UNDER, not into.
+    if (V(s.z0) > clearZ) continue;
+    if (!segContains(s, lx, ly, V)) continue;
+    const top = V(s.z1);
+    if (top > worst) worst = top;
+  }
+  return worst;
 }
 // The widest any model can reach from its tile centre, for a cheap reject before the per-segment
 // test. draw3DBoxAt clamps a footprint half-width to 0.44, and offset sub-parts (a forecourt vat, a
@@ -4058,7 +4351,10 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real
 // airframe's span/rotor ratio vs that: Cessna 172 11m (0.56×), A-10/Reaper 17.5m (0.88×),
 // C-130-class Leviathan ~40m (2.0×), Mini 500 rotor 5.8m (0.29×).
-const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10, grasshopper: 0.055, locust: 0.055 };
+const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10, grasshopper: 0.055, locust: 0.055,
+  // A road vehicle among aircraft: physically small next to anything with wings, which is why a
+  // rig read from the air is a detail on the road rather than a second aeroplane. (THE LONG HAUL.)
+  truck: 0.030 };
 // Own-ship EXTERNAL-chase scale: how much bigger the hero model draws than a same-class contact.
 // The chase camera sits a FIXED number of tiles back (chaseBack, normalised to CONTACT_SIZE.prop),
 // so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
@@ -4321,7 +4617,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // are airborne, so their gear is stowed (skipped). `nacelle` pods are structure — never tucked.
   const showGear = c.gearAnim > 0.02;                               // own-ship with gear not fully up; contacts (undefined) → false
   const gearDown = c.gearAnim == null ? 1 : clamp(c.gearAnim, 0, 1);
-  for (const face of aircraftFaces(c.cls, detail, !!c.armed)) {
+  for (const face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
     if (visorHidden(face, c.noseVisor)) continue;                   // hold + stowed ramp exist only while the cargo nose is open
     const isGear = face.role === 'gear';
@@ -5464,6 +5760,11 @@ function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 // null and keeps its biome archetype.
 const TYPE_MODEL = {
   corporate_office: { type: 'office',    pal: 'ty_office' },
+  // Terminus' glasshouses (docs/proposals/terminus.md). REGISTERED, not merely `case`d: a new arm
+  // in drawTypeModel that never lands in this table bakes NO shape, gets NO distance LOD, casts no
+  // ground shadow, and is invisible to shapes:smoke — which is to say it has exactly the coverage
+  // the roaster bug had. Adding the case and adding the row are one job.
+  greenhouse:       { type: 'greenhouse', pal: 'ty_shop_a', neon: '#7dffb0' },
   // Bare aliases for authored types that never got their own model. Without an
   // entry here a building bakes NO shape at all and draws as lights with no mass
   // — which is what made the Sentinel a floating grid of windows in the intro.
@@ -5552,6 +5853,65 @@ export { shapeLinearityError, shapeIsSeedVariant };
 // So: render every model for real against the stub ctx — including flushFaces(), since most of the
 // actual ctx work lives in deferred closures — across night/day and both entrance facings, and
 // report anything that throws. Runs in node under a DOM stub; see scripts/shapes/.
+// The INTERIORS — the canopy/cowl an aircraft looks through, and the cab a truck looks through.
+// Exactly the same argument that justifies shapeRenderSmoke below: the only thing that ever runs
+// one of these is a player sitting in that vehicle, so a throw here freezes the sim for whoever
+// happens to be driving and nobody else ever sees it. They are cheap to run and there are only a
+// handful, so run all of them, night and day.
+export function interiorRenderSmoke() {
+  const out = [];
+  out.ran = 0;
+  const W = 640, H = 360;
+  const cases = [
+    ['canopy', (v) => drawCanopy(SHAPE_STUB_CTX, W, H)],
+    ...Object.keys(COWL_DEPTH).map(cls => [`cowl:${cls}`, () => drawCowl(SHAPE_STUB_CTX, W, H, cls)]),
+    ...['ultralight', 'heli', 'heavy', 'gunship', 'prop', 'default'].map(cls =>
+      [`window:${cls}`, () => drawWindowFrame(SHAPE_STUB_CTX, W, H, cls, null)]),
+    ['cab', (v) => drawCabInterior(SHAPE_STUB_CTX, W, H, v)],
+  ];
+  for (const [key, fn] of cases) {
+    for (const hour of [3, 13]) for (const speed of [0, 55]) {
+      out.ran++;
+      try { fn({ hour, speed, cls: 'truck' }); }
+      catch (e) { out.push({ key, hour, speed, err: e.message }); }
+    }
+  }
+  return out;
+}
+
+// GROUND COLLISION smoke — every model probed at ground level (THE LONG HAUL).
+// Two things are checked, and the second is the real one:
+//   1. `groundObstructionAt` runs without throwing on every model.
+//   2. THE CONTAINMENT INVARIANT: a point solid for a TRUCK must also be solid for an AIRCRAFT.
+//      Both probes share `segContains`, and the ground probe only ever REMOVES segments (those
+//      whose z0 is above the vehicle's roof). So ground-solid ⊆ air-solid, always. A violation
+//      means the two have drifted apart and a truck is colliding with something no plane can see.
+export function groundCollisionSmoke(clearZ = 0.010) {
+  const out = [];
+  out.ran = 0; out.driveUnder = 0;
+  const wx = 910, wy = 940;
+  for (const { key, m } of shapeModelRegistry()) {
+    const bt = key.startsWith('type:') ? key.slice(5) : 'office';
+    const bn = key.startsWith('named:') ? key.slice(6) : undefined;
+    for (const ent of ['south', 'east']) {
+      const cell = { kind: 'land', biome: 'citycore', bt, bn, ent, flr: 3 };
+      try {
+        for (let dx = -0.5; dx <= 0.5; dx += 0.1) for (let dy = -0.5; dy <= 0.5; dy += 0.1) {
+          out.ran++;
+          const g = groundObstructionAt(wx, wy, cell, wx + dx, wy + dy, clearZ);
+          const a = modelTopZAt(wx, wy, cell, wx + dx, wy + dy);
+          if (g > 0 && !(a > 0)) {
+            out.push({ key, ent, err: `solid for a truck at (${dx.toFixed(1)},${dy.toFixed(1)}) but hollow for an aircraft — the two probes have drifted` });
+            dx = 9; break;
+          }
+          if (a > 0 && g === 0) out.driveUnder++;
+        }
+      } catch (e) { out.push({ key, ent, err: e.message }); }
+    }
+  }
+  return out;
+}
+
 export function shapeRenderSmoke() {
   const out = [];
   for (const { key, m } of shapeModelRegistry()) {
@@ -6673,6 +7033,26 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) { const [wx, wy] = F(0, fh * 0.72); glowPool(ctx, cam, wx, wy, h * 0.5, '176,112,255', 9, alpha * 0.22); }   // one restrained violet vitrine glow
       break;
     }
+    // TERMINUS' glasshouses. The one thing the Exodus let you see over their wall, and the whole
+    // reason the wall reads as a community rather than a bunker: a creed that renounces the machine
+    // and refuses the city's food has to grow its own, and glass is the only part of that which is
+    // taller than the wall. Low knee-walls, a long glazed barrel vault, and vent lights cracked
+    // along the ridge. It GLOWS at night — grow-lamps are the one machine they forgive, which is a
+    // joke you only get if you have talked to the quartermaster.
+    case 'greenhouse': {
+      const glass = [176, 198, 190];
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.92, 0, h * 0.16, pal, seed, night, alpha, true);          // stone knee-wall
+      drawBarrelRoof(ctx, cam, F, 0, fh * 0.92, fh * 0.72, h * 0.16, h * 0.52, 10, alpha, glass);    // the glazed vault
+      // Ridge vents, cracked open. Three little boxes along the top is the whole tell.
+      for (const s of [-0.5, 0, 0.5]) {
+        const [vx, vy] = F(s * fh * 0.7, 0);
+        draw3DBoxAt(ctx, cam, vx, vy, fh * 0.1, h * 0.66, h * 0.74, 'ty_door', seed + 3 + s * 4, night, alpha, false);
+      }
+      // A water butt at the gable end. Self-reliance is mostly plumbing.
+      { const [bx, by] = F(fh * 0.8, fh * 0.6); draw3DBoxAt(ctx, cam, bx, by, fh * 0.18, 0, h * 0.3, 'ty_door', seed + 9, night, alpha, true); }
+      if (night) glowPool(ctx, cam, dx, dy, h * 0.5, '150,255,180', 14, alpha * 0.3);   // the grow-lamps
+      break;
+    }
     case 'junkshop': {   // Velk's Pre-Owned Furnishings: cluttered main shed + lean-to + junk stacked on the roof
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.15, 0, h * 0.6, pal, seed, night, alpha, true);              // main shed
       { const [lx, ly] = F(fh * 0.95, 0); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.5, 0, h * 0.4, pal, seed + 1, night, alpha, true); }   // lean-to annex
@@ -7253,7 +7633,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '210,180,110', 8, alpha * 0.14);               // dim barred-window glow
       break;
     }
-    case 'chemsupply': {   // Bulk & Bond: a chem depot — roof storage tank, stacked drums out front, a hazard-green wash
+    case 'chemsupply': {   // Screw It: a chem depot — roof storage tank, stacked drums out front, a hazard-green wash
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.25, 0, h * 0.62, pal, seed, night, alpha, true);          // depot shed
       { const [tx, ty] = F(-fh * 0.5, 0); draw3DBoxAt(ctx, cam, tx, ty, fh * 0.34, h * 0.62, h * 0.95, pal, seed + 2, night, alpha, true); }   // roof storage tank
       for (const s of [-0.6, 0, 0.6]) { const [ox, oy] = F(s * fh * 0.7, fh * 0.9); draw3DBoxAt(ctx, cam, ox, oy, fh * 0.2, 0, h * 0.22, 'ty_door', seed + 5 + s * 3, night, alpha, true); }   // drums out front

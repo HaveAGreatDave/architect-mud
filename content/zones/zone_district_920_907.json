@@ -3,13 +3,13 @@
   "ambient_theme": "forest",
   "bg_color": "#2f3a26",
   "color": "#8ba36a",
-  "description": "The face of Pallets & Pals: a chem-supply depot stacked to the roofline with drums and double-bagged sacks, a yellow hazard chevron ringing the door. Ironside Street runs off to the west.",
+  "description": "The face of Screw It: hardware and industrial supply stacked to the roofline with drums, sacks and racked lengths of threaded rod, a yellow hazard chevron ringing the door. The sign under the wordmark reads FASTENERS, SOLVENTS AND WHATEVER ELSE, which is either a stock list or advice. Ironside Street runs off to the west.",
   "exits": {
     "east": "zone_chemsupply_interior",
     "west": "zone_district_919_907"
   },
   "flags": {
-    "building_name": "Pallets & Pals",
+    "building_name": "Screw It",
     "building_type": "chem_supply",
     "district": "wasteland",
     "entrance": "west",
@@ -25,6 +25,6 @@
   "id": "zone_district_920_907",
   "map_id": "map_world",
   "marker": "BB",
-  "name": "Pallets & Pals",
+  "name": "Screw It",
   "parent_zone": null
 }

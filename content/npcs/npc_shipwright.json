@@ -203,10 +203,6 @@
       "price": 13
     },
     {
-      "item_id": "item_spray_paint",
-      "price": 14
-    },
-    {
       "item_id": "canteen",
       "price": 15
     },
@@ -241,6 +237,10 @@
     {
       "item_id": "item_pipe_wrench",
       "price": 125
+    },
+    {
+      "item_id": "item_spray_paint",
+      "price": 140
     }
   ],
   "vendor_restock_rate": 1,

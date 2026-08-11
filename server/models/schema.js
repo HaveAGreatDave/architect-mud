@@ -1928,6 +1928,13 @@ export const SCHEMA_SQL = `
   -- NB: no backticks in this string — SCHEMA_SQL is a JS template literal.
   ALTER TABLE books ADD COLUMN IF NOT EXISTS pronunciation JSONB NOT NULL DEFAULT '{}';
 
+  -- Which shelf a title sits on: 'book' (real literature) or 'comic' (the
+  -- in-universe originals). A COLUMN rather than an id-prefix convention because
+  -- the two are read by different screens and the fifth comic must not have to be
+  -- named book_comic_* to be found. Defaulting to 'book' is what keeps this
+  -- additive: every existing row is already correct.
+  ALTER TABLE books ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'book';
+
   -- Archaic vocabulary glossed inline in the Library reader. Small enough to sit
   -- in memory (a few hundred short rows), unlike the book text it annotates.
   CREATE TABLE IF NOT EXISTS glossary (
@@ -2597,6 +2604,52 @@ export const SCHEMA_SQL = `
 
   -- Hangars (flight hangars.js) — ownable/rentable secure storage at a field.
   -- Reuses the rent cadence idea from apartments; a stored aircraft is safe.
+  -- THE LONG HAUL (plugins/trucking). A truck you own, parked at a depot.
+  -- Modelled on the aircraft table deliberately: an owned vehicle is a row with an owner and a
+  -- place, and everything ABOUT the model (speed, trailer capacity, tank, price) lives in the TYPES
+  -- table in client/game/js/panels/flight-model.js, not here — the same split airfields keep, where
+  -- the tile holds a membership pointer and the row holds the facts.
+  -- Deliberately NOT on the players table: per-player scalar state never gets another sparse column.
+  -- (No backticks anywhere in this file: SCHEMA_SQL is a template literal and one would end it.)
+  CREATE TABLE IF NOT EXISTS trucks (
+    id            TEXT PRIMARY KEY,
+    type_id       TEXT NOT NULL,                  -- key into flight-model.js TYPES (ground: true)
+    name          TEXT,                           -- the plate/nickname on the door
+    owner_id      TEXT,                           -- player id; null = dealer stock
+    depot_zone    TEXT,                           -- where it is parked; null = out on a run
+    fuel          REAL    NOT NULL DEFAULT 1,     -- 0..1 of the type's tank
+    odometer      REAL    NOT NULL DEFAULT 0,     -- lifetime tiles, for resale and for bragging
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_trucks_owner ON trucks(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_trucks_depot ON trucks(depot_zone);
+  -- IMPOUND. A police lot is a depot the truck is parked at that you have to BUY it out of, which
+  -- is a two-column variation on ordinary storage rather than a new concept. Null fee = not
+  -- impounded; the truck is simply somewhere.
+  ALTER TABLE trucks ADD COLUMN IF NOT EXISTS impound_fee INTEGER;
+
+  -- TRAILERS. A trailer is a thing in the world, not a boolean on a rig: you drop it and it stays
+  -- dropped, somebody else can find it, and what is on it stays on it. parked_zone is where it
+  -- physically is; towed_by is the truck currently under it (exactly one of the two is set, and
+  -- the partial index below is what enforces one-trailer-per-truck rather than a code path
+  -- remembering to check). NO BACKTICKS IN HERE — SCHEMA_SQL is a template literal, and a stray
+  -- one inside a SQL comment breaks the whole module. It has happened twice.
+  CREATE TABLE IF NOT EXISTS trailers (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    owner_id      TEXT,                           -- who bought it; null = yard stock
+    kg            INTEGER NOT NULL DEFAULT 1400,  -- the empty box
+    rated_kg      INTEGER NOT NULL DEFAULT 3500,  -- what the deck is allowed to carry
+    parked_zone   TEXT,                           -- where it is standing; null = hitched
+    towed_by      TEXT,                           -- trucks.id; null = standing somewhere
+    cargo         JSONB,                          -- the declared load, or null
+    stash         JSONB,                          -- what is NOT on the manifest (see the weigh station)
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_trailers_owner ON trailers(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;
+
   CREATE TABLE IF NOT EXISTS hangars (
     id            TEXT PRIMARY KEY,
     field_zone    TEXT NOT NULL,                 -- airfield zone id

@@ -62,22 +62,23 @@
 <div id="layout">
   <!-- NAV -->
   <div id="nav">
-    <!-- data-ops marks a nav entry as safe on production (its routes are in the
-         server's OPS_ROUTES/ENV_OPS_ROUTES allowlist). Everything without it is
-         world content and gets pruned in ops mode — see bootstrap.js. -->
-    <div class="nav-item active" data-ops="1" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
-    <div class="nav-item" data-ops="1" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
+    <!-- One nav, both URLs: /admin shows every entry /dev does. Which ones can
+         actually WRITE on production is derived from OPS_WRITABLE_PANELS in
+         js/core/panels.js, not authored here — the rest are marked 🔒 and hidden
+         behind the "show read-only" toggle (see bootstrap.js). -->
+    <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
+    <div class="nav-item" data-panel="devlog" onclick="showPanel('devlog')">📓 Dev Log</div>
     <div class="nav-section">World</div>
-    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+    <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
     <div class="nav-item" data-panel="world" onclick="showPanel('world')">🌐 World Map</div>
     <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Region Maps</div>
-    <div class="nav-item" data-ops="1" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
-    <div class="nav-item" data-ops="1" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
-    <div class="nav-item" data-ops="1" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
-    <div class="nav-item" data-ops="1" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
-    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
-    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
-    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
+    <div class="nav-item" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
+    <div class="nav-item" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
+    <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
+    <div class="nav-item" data-panel="bank" onclick="showPanel('bank')">₵ Bank</div>
+    <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
+    <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
+    <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
     <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
@@ -97,23 +98,23 @@
     <div class="nav-item" data-panel="dreams" onclick="showPanel('dream_templates')">🌒 Unreality</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
     <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
-    <!-- data-ops-ro: kept on /admin but READ-ONLY — worth looking at on prod (what's
-         on air, which channel owns which studio); every write is refused client-side
-         in api.js and by CONTENT_READONLY server-side. -->
-    <div class="nav-item" data-ops="1" data-ops-ro="1" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
+    <!-- Read-only on /admin, and worth looking at there (what's on air, which
+         channel owns which studio); every write is refused client-side in api.js
+         and by CONTENT_READONLY server-side. -->
+    <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
     <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
     <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
     <div class="nav-section">Server</div>
-    <div class="nav-item" data-ops="1" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
-    <div class="nav-item" data-ops="1" data-panel="gossip" onclick="showPanel('gossip')">💬 Gossip</div>
-    <div class="nav-item" data-ops="1" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
-    <div class="nav-item" data-ops="1" data-panel="players" onclick="showPanel('players')">👥 Players</div>
-    <div class="nav-item" data-ops="1" data-panel="games" onclick="showPanel('games')">🃏 Games</div>
-    <div class="nav-item" data-ops="1" data-panel="cards" onclick="showPanel('cards')">🎴 Cards</div>
-    <div class="nav-item" data-ops="1" data-panel="validator" onclick="showPanel('validator')">🔍 Validator</div>
+    <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
+    <div class="nav-item" data-panel="gossip" onclick="showPanel('gossip')">💬 Gossip</div>
+    <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
+    <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
+    <div class="nav-item" data-panel="games" onclick="showPanel('games')">🃏 Games</div>
+    <div class="nav-item" data-panel="cards" onclick="showPanel('cards')">🎴 Cards</div>
+    <div class="nav-item" data-panel="validator" onclick="showPanel('validator')">🔍 Validator</div>
     <div class="nav-item" data-panel="changes" onclick="showPanel('changes')" id="changes-nav-item">📋 Changes</div>
     <div style="margin-top:auto;padding:8px 0;border-top:1px solid var(--border)">
-      <div class="nav-item" data-ops="1" id="whisper-nav-btn" onclick="toggleWhisperPanel()" title="Whisper chat">💬 Chat</div>
+      <div class="nav-item" id="whisper-nav-btn" onclick="toggleWhisperPanel()" title="Whisper chat">💬 Chat</div>
     </div>
   </div>
 
@@ -130,7 +131,7 @@
       </div>
     </div>
 
-    <!-- Ops-mode read-only notice (see OPS_READONLY_PANELS in js/core/panels.js).
+    <!-- Ops-mode read-only notice (see opsPanelReadOnly in js/core/panels.js).
          Empty and hidden on /dev and on every editable panel. -->
     <div id="ops-ro-banner" style="display:none"></div>
 

@@ -1,0 +1,8 @@
+{
+  "base_terrain": "redrock",
+  "climate_bias": null,
+  "defaults": {},
+  "grid_z": 0,
+  "id": "region_terminus",
+  "name": "Terminus"
+}

@@ -10,7 +10,11 @@
     "district": "yards",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
-    "terrain": "road"
+    "terrain": "road",
+    "truck_fuel": true,
+    "truck_depot": {
+      "name": "Dray Lane Haulage"
+    }
   },
   "grid_x": 921,
   "grid_y": 907,

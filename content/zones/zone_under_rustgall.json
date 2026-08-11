@@ -15,14 +15,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_deep"
+    "scavenging_table_id": "scav_deep",
+    "terrain": "sewer"
   },
   "grid_x": 924,
   "grid_y": 909,
   "grid_z": -1,
   "id": "zone_under_rustgall",
   "map_id": "map_world",
-  "marker": "║",
   "name": "Rust Gallery",
   "parent_zone": null
 }

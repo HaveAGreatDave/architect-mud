@@ -244,7 +244,7 @@ function syncShift() {
     const npc = world.npcs.get(id);
     if (!npc || npc._dead) continue;
     const dest = id === dutyId ? RELEASE_ZONE : BUNK_ZONE;
-    if (npc.zone_id !== dest) moveEntity(npc, dest, bc, query);
+    if (npc.zone_id !== dest) moveEntity(npc, dest, bc, query, { teleport: true });   // shift swap, not a walk
   }
 }
 

@@ -44,7 +44,15 @@
     "the map's rim — the palette was the only thing in the stack that thought open",
     "water was #3f7fb0. The shading variants — a second",
     "blue on 258 water tiles, a pale strand on 66 grass — stayed authored, because",
-    "a colour that differs from its terrain on purpose is what the override is FOR."
+    "a colour that differs from its terrain on purpose is what the override is FOR.",
+    "",
+    "SEWER is the last of the marker-decoration cleanups. The Under's 117 tiles were",
+    "the only painted-ground-shaped expanse in the world with no terrain at all, so",
+    "the map's terrain branch never fired for any of them: they kept their tile",
+    "borders and drew a hand-authored box-drawing connector (═ ║ ╬ …) per tile. That",
+    "is the same thing the 860 grass/water decorations were — a texture carried",
+    "per-tile because the palette had nowhere to put it — and it is deleted the same",
+    "way. The tunnel run is now the painted expanse itself, exactly as a road is."
   ],
   "_no_default": [
     "There is deliberately no palette-wide default terrain. The spec floated one",
@@ -187,6 +195,17 @@
       "glyph": null,
       "minimap_class": "marsh",
       "auto_tile": false
+    },
+    "sewer": {
+      "label": "Sewer",
+      "fill": "#141b19",
+      "text": "#6f8a7c",
+      "glyph": null,
+      "minimap_class": "sewer",
+      "auto_tile": false,
+      "props": {
+        "buildable": false
+      }
     },
     "underwater": {
       "label": "Underwater",

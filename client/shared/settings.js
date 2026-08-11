@@ -6,7 +6,7 @@ export const DEFAULT_AUDIO_SETTINGS = { enabled: true, music: true, sfx: true, t
 // default look of the product; keep it in step with the inline boot script in
 // client/game/index.html, which sets the same value before any module loads so the
 // first paint isn't a different colour from the second.
-const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', extraLore: 'off', mapOverlay: 'labels', minimapRender: 'smooth', uiFont: 'mono', statusGlyphs: 'off', monoAudio: 'off', dictation: 'off', logVoice: 'off', logVoiceRate: '1', audio: DEFAULT_AUDIO_SETTINGS };
 
 // ── The accessibility surface, declared once ─────────────────────────────────
 //
@@ -22,9 +22,16 @@ const DEFAULT_SETTINGS = { theme: 'iron', fontSize: '16', density: 'comfortable'
 // client-side verb with no tablet gate, exactly like `displaymode`.
 //
 // `why` is written for a player, not for us. It is what the verb prints.
+//
+// `def` is the value `accessibility reset` returns the option to. It is optional
+// and defaults to the FIRST pill, which is true of every option here but one:
+// Reading Speed is a ladder from slow to fast and its default sits in the middle,
+// because reordering it to put the default first would mean printing a speed
+// scale out of order. Before `def` existed that was an unwritten positional
+// convention, which is the kind of thing that holds until the day it doesn't.
 export const A11Y_OPTIONS = [
   {
-    key: 'fontSize', label: 'Text Size', verb: 'text',
+    key: 'fontSize', label: 'Text Size', verb: 'text', def: '16',
     why: 'Scales the entire interface, not just the log. Maximum is 200%.',
     opts: [
       { v: '14', t: 'Small' }, { v: '16', t: 'Medium' }, { v: '19', t: 'Large' },
@@ -45,6 +52,25 @@ export const A11Y_OPTIONS = [
     key: 'statusGlyphs', label: 'Status Marks', verb: 'marks',
     why: 'Adds a symbol beside anything the game otherwise tells you with colour alone — powered/unpowered, safe/hostile, ok/hurt. Useful with any colour vision deficiency, and in bright sunlight.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
+  },
+
+  {
+    key: 'logVoice', label: 'Read Aloud', verb: 'read',
+    why: 'Speaks each new line of the log. OFF BY DEFAULT, and leave it off if you already use a screen reader — the log is a live region, so your screen reader is reading it too, and both at once is unusable. Natural uses your device\'s own voice and is the one to pick if you just want the game read to you. In-world uses the game\'s own synthetic voice, the one the broadcasts use: it fits the fiction and is harder work to listen to for a long session. Escape stops it, and entering a command interrupts it.',
+    opts: [{ v: 'off', t: 'Off' }, { v: 'natural', t: 'Natural' }, { v: 'world', t: 'In-world' }],
+  },
+  {
+    key: 'logVoiceRate', label: 'Reading Speed', verb: 'speed', def: '1',
+    why: 'How fast Read Aloud speaks. Practised listeners run much faster than sounds reasonable at first; start at Normal and raise it once the voice stops being new.',
+    opts: [
+      { v: '0.8', t: 'Slow' }, { v: '1', t: 'Normal' }, { v: '1.3', t: 'Brisk' },
+      { v: '1.7', t: 'Fast' }, { v: '2.2', t: 'Very Fast' },
+    ],
+  },
+  {
+    key: 'dictation', label: 'Voice Input', verb: 'voice',
+    why: 'Adds a microphone button beside the command box, so you can speak a command instead of typing it. Off by default. Review puts what you said in the box and waits for you to press Enter; Auto-send runs it straight away — except for commands that cost you something (drop, give, attack, buy), which always wait. Needs Chrome, Edge, or Safari; Firefox has no speech recognition and the button will not appear.',
+    opts: [{ v: 'off', t: 'Off' }, { v: 'review', t: 'Review' }, { v: 'send', t: 'Auto-send' }],
   },
 
   {
@@ -348,6 +374,16 @@ export function applySettings(settings) {
   // to today's appearance rather than breaking.
   document.documentElement.setAttribute('data-ui-font', settings.uiFont || 'mono');
   document.documentElement.setAttribute('data-status-glyphs', settings.statusGlyphs || 'off');
+  // Voice input. The attribute is what shows/hides the mic button in CSS, and it
+  // carries the MODE rather than a boolean because 'review' and 'send' differ
+  // only in what happens after the words land — the button is identical.
+  // dictation.js reads the same key for that half.
+  document.documentElement.setAttribute('data-dictation', settings.dictation || 'off');
+  window._applyDictation?.(settings.dictation || 'off');
+  // Read Aloud. Rate first, so a mode change never speaks its first line at the
+  // old speed.
+  window._applyLogVoiceRate?.(settings.logVoiceRate || '1');
+  window._applyLogVoice?.(settings.logVoice || 'off');
   // Sums the stereo image to one channel for anyone with hearing in one ear, or
   // wearing one earbud. Applied to the master bus, so it catches every category.
   window.AudioEngine?.setMonoAudio?.((settings.monoAudio || 'off') === 'on');

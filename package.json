@@ -8,7 +8,7 @@
     "dev": "node scripts/dev.mjs",
     "start": "node server/index.js",
     "kill:orphans": "node scripts/kill-orphans.js",
-    "pretest:regress": "node scripts/kill-orphans.js && node scripts/content/lint.mjs && node scripts/docs/lint.mjs && node scripts/shapes/smoke.mjs && node scripts/shapes/chess3d-smoke.mjs && node scripts/shapes/rink-smoke.mjs && node scripts/net/ws-smoke.mjs && node scripts/shapes/textui-smoke.mjs && node scripts/a11y/smoke.mjs && node scripts/a11y/verb-smoke.mjs && node scripts/a11y/focus-smoke.mjs && node scripts/voice/smoke.mjs && node scripts/content/check-stale.mjs --import",
+    "pretest:regress": "node scripts/kill-orphans.js && node scripts/content/lint.mjs && node scripts/docs/lint.mjs && node scripts/shapes/smoke.mjs && node scripts/shapes/chess3d-smoke.mjs && node scripts/shapes/rink-smoke.mjs && node scripts/net/ws-smoke.mjs && node scripts/shapes/textui-smoke.mjs && node scripts/a11y/smoke.mjs && node scripts/a11y/verb-smoke.mjs && node scripts/a11y/focus-smoke.mjs && node scripts/a11y/speech-smoke.mjs && node scripts/voice/smoke.mjs && node scripts/content/check-stale.mjs --import",
     "test:regress": "node tests/regress.js",
     "sync:commits": "node scripts/sync-commits.js",
     "hooks:install": "node scripts/install-hooks.mjs",
@@ -41,7 +41,7 @@
     "db:rename-admin": "node server/models/temp/rename-admin.js",
     "db:reset-chars": "node server/models/temp/reset-chars.js",
     "textui:smoke": "node scripts/shapes/textui-smoke.mjs",
-    "a11y:smoke": "node scripts/a11y/smoke.mjs && node scripts/a11y/verb-smoke.mjs && node scripts/a11y/focus-smoke.mjs"
+    "a11y:smoke": "node scripts/a11y/smoke.mjs && node scripts/a11y/verb-smoke.mjs && node scripts/a11y/focus-smoke.mjs && node scripts/a11y/speech-smoke.mjs"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

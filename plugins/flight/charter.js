@@ -110,6 +110,13 @@ function onShift(pilot, hour = nowHour()) {
 export function withinShift(shiftStart, hour, shiftHours = SHIFT_HOURS) {
   return ((hour - (shiftStart ?? 0) + 24) % 24) < shiftHours;
 }
+// Does charter.js own where this pilot stands right now? Only while it has
+// something to say about it — on shift, or mid-booking. Otherwise their own
+// behaviour graph owns it and walks them home on their own legs. Two owners at
+// once is what produced the "X leaves." spam; see syncPilots.
+export function charterOwnsPilot({ busy = false, onShift = false }) {
+  return !!busy || !!onShift;
+}
 // Where a pilot belongs right now: away on a run → home; readying on the ramp
 // (boarding/choosing) → the field tile with the aircraft; free & on-shift → the
 // desk inside the walk-in hangar (or the field tile if none is built); else home.
@@ -147,7 +154,11 @@ function inHangar(pilot) {
   return pilot.zone_id === cp.field || (!!interior && pilot.zone_id === interior);
 }
 function atWork(pilot) { return !!pilotBusy(pilot.id) || inHangar(pilot); }
-function available(pilot) { return inHangar(pilot) && !pilotBusy(pilot.id); }
+// Bookable right now. The shift check is explicit rather than implied by where they
+// happen to be standing: syncPilots no longer keeps an off-duty pilot out of their
+// own hangar (their graph is free to walk them in early), so presence alone stopped
+// being proof they're on the clock.
+function available(pilot) { return onShift(pilot) && inHangar(pilot) && !pilotBusy(pilot.id); }
 
 const pilotById = (id) => getNpcsByFlag('charter_pilot').find(n => n.id === id) || null;
 
@@ -186,6 +197,17 @@ function disembarkPilot(pilot, toZone) {
 // the readied aircraft. Out on a flight → away/home. Off shift + not flying → home.
 // A flight that overruns the shift keeps them "at work" (flying) until they land;
 // the next sync then sends them home (off the clock).
+// ONE OWNER AT A TIME. This used to place every pilot on every tick, including the
+// off-shift ones it sent home — while their own behaviour graph was walking them
+// somewhere else. Two owners of one position at ~1 Hz, and because moveNpcToZone is
+// silent while the graph's step is not, the room only ever heard half of it: "Old
+// Kessler leaves." over and over, with nothing in between.
+//
+// So charter.js owns a pilot only while it has something to say about where they
+// stand — on shift, or mid-charter. Their AI is frozen for exactly that window
+// (`_charterHeld`, honoured by the engine game loop alongside `_aboard`). Off the
+// clock and unbooked, ownership goes back to the graph, which walks them home on
+// its own legs instead of being teleported there — the commute is the point.
 function syncPilots() {
   for (const pilot of getNpcsByFlag('charter_pilot')) {
     if (pilot._aboard) continue;   // riding along on a run — leave them in the cockpit
@@ -193,7 +215,17 @@ function syncPilots() {
     const home = pilot.home_zone || 'zone_residential_lobby';
     const interior = hangarInteriorOf(cp);
     const busy = pilotBusy(pilot.id);
+
+    // Off the clock and nobody's booked them: hand them back to their own graph.
+    if (!charterOwnsPilot({ busy: !!busy, onShift: onShift(pilot) })) {
+      if (pilot._charterHeld) delete pilot._charterHeld;
+      continue;
+    }
     const target = pilotTarget({ busyPhase: busy?.phase || null, onShift: onShift(pilot), interior, field: cp.field, home });
+    // Taking ownership: drop whatever route the graph was part-way through, or its
+    // next tick would step from a zone it no longer stands in.
+    if (!pilot._charterHeld && pilot._ai) { pilot._ai.patrolPath = []; pilot._ai.patrolTarget = null; }
+    pilot._charterHeld = true;
     if (target === interior) {
       // At the desk: relocate if needed, then make sure they're seated. (moveNpcToZone
       // never touches posture, so a pilot seeded straight into the interior still needs

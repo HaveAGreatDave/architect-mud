@@ -835,7 +835,17 @@ export async function checkCargoDropDelivery(player, live, fieldZoneId) {
 // The bribe/bolt reply to a flagged customs scan.
 async function cmdCustoms(args, raw, player) {
   const p = pendingCustoms.get(player.id);
-  if (!p) return { type: 'emote', message: "Customs isn't holding anything of yours right now." };
+  if (!p) {
+    // NOT OURS, BUT MAYBE SOMEBODY'S. `customs` is one player-facing concept and flight happens to
+    // own the word; a driver stopped at a weighbridge types the same thing for the same reason. So
+    // before answering "nothing of yours", ask whether another system is holding an inspection —
+    // the same seam the checkpoint plugin uses to run a drug scan through smuggle without importing
+    // it. If nothing answers, the original message stands and flight has learned nothing about
+    // trucks.
+    const r = await dispatchAction({ type: 'TRUCK_CUSTOMS', actor: player, params: { choice: args[0] } }).catch(() => null);
+    if (r?.handled) { const { handled, ...out } = r; return out; }
+    return { type: 'emote', message: "Customs isn't holding anything of yours right now." };
+  }
   const choice = (args[0] || 'bolt').toLowerCase();
   const live = liveAircraft.get(p.aircraftId);
   const { rows: drops } = await query("SELECT * FROM cargo_drops WHERE id = ANY($1) AND status='loaded'", [p.dropIds]);

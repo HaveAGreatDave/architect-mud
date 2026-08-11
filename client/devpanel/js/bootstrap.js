@@ -13,26 +13,48 @@ if (window.OPS_MODE) {
   const logoTag = document.querySelector('#header .logo span');
   if (logoTag) logoTag.textContent = '// ADMIN';
   const nav = document.getElementById('nav');
-  nav.querySelectorAll('.nav-item:not([data-ops]), .nav-children').forEach(n => n.remove());
-  // Section headers whose whole group just went away would otherwise be orphans.
-  nav.querySelectorAll('.nav-section').forEach(s => {
-    let sib = s.nextElementSibling;
-    while (sib && !sib.classList.contains('nav-section')) {
-      if (sib.classList.contains('nav-item')) return;
-      sib = sib.nextElementSibling;
-    }
-    s.remove();
-  });
-  // Panels kept for viewing only (data-ops-ro) say so in the nav, so you know
-  // before you click that nothing in there will save.
-  nav.querySelectorAll('.nav-item[data-ops-ro]').forEach(n => {
+  // The nav is 1:1 with /dev — nothing is removed. Panels the server won't accept
+  // a write for (OPS_WRITABLE_PANELS in core/panels.js) are marked 🔒 so you know
+  // before you click that nothing in there will save, and the toggle below hides
+  // them. Default is hidden, so the ops nav opens as the short live-world list it
+  // has always been; showing the rest is one click, not a different URL.
+  nav.querySelectorAll('.nav-item[data-panel]').forEach(n => {
+    if (!opsPanelReadOnly(n.dataset.panel)) return;
+    n.dataset.opsRo = '1';
     n.textContent = `${n.textContent.trim()} 🔒`;
-    n.title = 'Read-only on production — edit locally and deploy';
+    n.title = 'Read-only on production — look all you like; edit locally and deploy';
   });
-  // "World" survives (Crime/Flight/Power/Bank are live-world ops), but nothing
-  // under it edits world content any more, so the label would mislead.
+  // "World" keeps its live-world ops (Crime/Flight/Power/Bank); with the content
+  // panels only viewable under it, the plain label would oversell what it does.
   nav.querySelectorAll('.nav-section').forEach(s => {
     if (s.textContent.trim() === 'World') s.textContent = 'Live World';
+  });
+  nav.insertAdjacentHTML('afterbegin',
+    '<label id="ops-ro-toggle" title="Show the panels that are read-only on production">'
+    + '<input type="checkbox" id="ops-ro-checkbox" onchange="setOpsShowReadonly(this.checked)"> show read-only 🔒</label>');
+  const show = localStorage.getItem('devpanel-ops-show-ro') === '1';
+  document.getElementById('ops-ro-checkbox').checked = show;
+  applyOpsReadonlyVisibility(show);
+}
+
+function setOpsShowReadonly(show) {
+  localStorage.setItem('devpanel-ops-show-ro', show ? '1' : '0');
+  applyOpsReadonlyVisibility(show);
+}
+
+// Hiding the read-only entries would leave section headers standing over nothing,
+// so a section goes with the last visible item under it.
+function applyOpsReadonlyVisibility(show) {
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  nav.querySelectorAll('.nav-item[data-ops-ro]').forEach(n => { n.style.display = show ? '' : 'none'; });
+  nav.querySelectorAll('.nav-section').forEach(s => {
+    let sib = s.nextElementSibling, any = false;
+    while (sib && !sib.classList.contains('nav-section')) {
+      if (sib.classList.contains('nav-item') && sib.style.display !== 'none') { any = true; break; }
+      sib = sib.nextElementSibling;
+    }
+    s.style.display = any ? '' : 'none';
   });
 }
 

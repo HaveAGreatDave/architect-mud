@@ -18,14 +18,14 @@
     "district": "sewer",
     "intro_lore": "This is where the city's runoff goes to be forgotten, and lately where its newest citizens go to bleed off their first real fear. The Under doesn't hate you; it simply doesn't account for you at all. Down here the only thing between you and the dark is two cells and a bulb. Keep it lit.",
     "is_interior": true,
-    "scavenging_table_id": "scav_sewer"
+    "scavenging_table_id": "scav_sewer",
+    "terrain": "sewer"
   },
   "grid_x": 919,
   "grid_y": 903,
   "grid_z": -1,
   "id": "zone_under_sump",
   "map_id": "map_world",
-  "marker": "◍",
   "name": "Storm Drain Sump",
   "parent_zone": null
 }

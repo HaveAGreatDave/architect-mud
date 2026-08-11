@@ -28,9 +28,32 @@ export const BOOKMARK = (bookId) => `book_pos_${bookId}`;
 // Metadata only. jsonb_array_length reads the chapter COUNT without ever
 // materialising the chapters themselves — the difference between a 2KB response
 // and a 1MB one.
-export async function shelf() {
+// `kind` is the shelf a title sits on. The two shelves are read by two different
+// screens (the cloth-and-foil shelf and the longbox), so every list read takes it
+// as an argument rather than returning everything and letting the caller filter —
+// a comic that leaks onto the literature shelf is the exact bug this column
+// exists to prevent, and filtering in Node is how it would happen.
+export async function shelf(kind = 'book') {
   const { rows } = await query(
-    `SELECT id, title, author, year, blurb, jsonb_array_length(chapters) AS chapters
+    `SELECT id, title, author, year, blurb, kind, jsonb_array_length(chapters) AS chapters
+       FROM books WHERE kind=$1 ORDER BY year, title`, [kind]
+  );
+  return rows;
+}
+
+// The comics, in reading order. Same query, named separately because the callers
+// read better for it and because the longbox may yet grow its own ordering (issue
+// number within a series) that the shelf must not inherit.
+export async function longbox() {
+  return shelf('comic');
+}
+
+// Every title on both shelves. Used ONLY by the typed reader's matcher, which has
+// to resolve `read sister steel` without the player having said which shelf it is
+// on — the split is a presentation decision and typing is not a presentation.
+export async function allTitles() {
+  const { rows } = await query(
+    `SELECT id, title, author, year, blurb, kind, jsonb_array_length(chapters) AS chapters
        FROM books ORDER BY year, title`
   );
   return rows;
@@ -38,7 +61,7 @@ export async function shelf() {
 
 export async function bookMeta(bookId) {
   const { rows } = await query(
-    `SELECT id, title, author, year, blurb, source, pronunciation,
+    `SELECT id, title, author, year, blurb, source, pronunciation, kind,
             jsonb_array_length(chapters) AS chapters
        FROM books WHERE id=$1`, [bookId]
   );
@@ -126,6 +149,67 @@ export function matchBook(books, raw) {
   if (q2.length < 4) return undefined;
   return books.find(b => bare(norm(b.title)).startsWith(q2))
     || books.find(b => bare(norm(b.title)).includes(q2));
+}
+
+// ── The comic markup ─────────────────────────────────────────────────────────
+// A comic chapter is prose with four kinds of paragraph in it, marked at the head
+// of the paragraph. The markers are deliberately the smallest thing that could
+// work, and there is exactly ONE parser for them, here, because there are three
+// consumers: the tablet's comic reader (which draws furniture), the typed reader
+// (which must show none of it), and Read Aloud (which must speak the words and
+// none of the marks).
+//
+//   > line      caption box — the narrator's own voice, boxed
+//   NAME: line  a balloon, one speaker, consecutive lines are one exchange
+//   ~SOUND~     lettering, sitting in the gutter at size
+//   ---         a page turn: air above and below
+//   anything    the panel itself, as prose
+//
+// The old files were panel SCRIPTS ("PANEL ONE. A door.") plus a critic talking
+// over the top of them. This format carries the same three registers minus the
+// stage directions and minus the critic — see docs/systems-library.md.
+const SFX_RE = /^~(.+)~$/;
+
+export function comicBlocks(text) {
+  const out = [];
+  for (const para of String(text || '').split(/\n\s*\n/)) {
+    const p = para.trim();
+    if (!p) continue;
+    if (/^-{3,}$/.test(p)) { out.push({ kind: 'turn' }); continue; }
+    const sfx = p.match(SFX_RE);
+    if (sfx) { out.push({ kind: 'sfx', text: sfx[1].trim() }); continue; }
+    if (p.startsWith('>')) {
+      // A caption may run to several lines; they are one box, not three.
+      out.push({ kind: 'caption', text: p.split('\n').map(l => l.replace(/^>\s?/, '').trim()).join(' ') });
+      continue;
+    }
+    // Balloons. Each LINE is its own balloon so an exchange alternates, but they
+    // arrive as one paragraph so the renderer can group them into one beat.
+    const lines = p.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.every(l => /^[A-Z][A-Z .'’-]{1,28}:\s/.test(l))) {
+      out.push({
+        kind: 'balloons',
+        lines: lines.map(l => {
+          const i = l.indexOf(':');
+          return { speaker: l.slice(0, i).trim(), text: l.slice(i + 1).trim() };
+        }),
+      });
+      continue;
+    }
+    out.push({ kind: 'panel', text: p.replace(/\n/g, ' ') });
+  }
+  return out;
+}
+
+// The same chapter with every mark removed, for the log and for anything generic
+// that gets handed a body. A speaker keeps their name (that is dialogue, not
+// markup); a caption and a sound effect simply become their own words.
+export function comicPlain(text) {
+  return comicBlocks(text).map(b => {
+    if (b.kind === 'turn') return '· · ·';
+    if (b.kind === 'balloons') return b.lines.map(l => `${l.speaker}: ${l.text}`).join('\n');
+    return b.text;
+  }).join('\n\n');
 }
 
 // ── Pagination, for the typed reader only ────────────────────────────────────

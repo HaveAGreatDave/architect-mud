@@ -26,7 +26,7 @@ on('weather.event', ({ type, phase }) => {
 function empActive() { return Date.now() < empUntil; }
 import {
   liveAircraft, surfaceAt, pilotOf, persist, crash, toOccupants, out, sendToZone,
-  BANDS, effStats, getLivePlayer, detach, getZone,
+  BANDS, effStats, getLivePlayer, detach, getZone, fieldFor as fieldOf,
 } from './state.js';
 // `eject` also belongs to broadcast (eject a cassette); flight wins it by load
 // order and hands back when you're not bailing out of an aircraft.
@@ -258,7 +258,8 @@ async function cmdSpot(args, raw, player) {
   return { type: 'output', message: `<span class="text-cyan">From altitude you make out:</span>\n· ${finds.join('\n· ')}` };
 }
 
-// Crop-dusting — an ag-plane capability (the Grasshopper). On a LOW pass the pilot opens the
+// Crop-dusting — an ag-plane capability (the Locust; she's the one with the boom and nozzles
+// modelled under the wing, and the hopper is the fat swelling of her spine). On a LOW pass the pilot opens the
 // spray booms and lays a fine mist over the tile below. Flavour for now: the ground zone sees
 // the pass; no entity effect yet (the hook is here to add one). Rate-limited to feel like the
 // booms need to re-pressurise between runs. A duster with a hopper (type.data.hopper) must have
@@ -302,7 +303,15 @@ async function cmdSpray(args, raw, player) {
 // holding fluid works (water, fuel, a future ag-chem) — pouring empties that liquid into the
 // hopper the same way generator refuel pours a jerry can into a tank, so the container comes
 // back empty. One fluid type at a time; a ground job. `loadhopper [with] <container>`.
+//
+// TWO WAYS IN, one implementation. Aboard in the pilot's seat is the typed route. But loading
+// chemical is a THING YOU DO ON THE RAMP, not something you climb into the cockpit for, and the
+// hangar bench's Hopper tab operates a craft you're standing next to — so a leading craft id
+// works too, exactly the way `refuel <id>` off the same panel already does. Anything that isn't
+// a craft id is the container name, which is what keeps the bare typed form unchanged.
+const CRAFT_ID = /^(?:aircraft_[a-z0-9_]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 async function cmdLoadHopper(args, raw, player) {
+  if (CRAFT_ID.test(args[0] || '')) return loadHopperParked(player, args[0], args.slice(1));
   const { live, err } = requirePilot(player); if (err) return err;
   if (!(live.type.data && live.type.data.spray))
     return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
@@ -311,9 +320,41 @@ async function cmdLoadHopper(args, raw, player) {
   if (live.row.airborne) return { type: 'emote', message: 'Pouring chemical into the hopper is a ground job — land first.' };
 
   const cd = live.row.custom_data || (live.row.custom_data = {});
+  return pourIntoHopper(player, args, live.type.name, cap, cd, () => persist(live));
+}
+
+// The parked half of `loadhopper`: an owned craft sitting at THIS field, addressed by id.
+// Mirrors refuelParked's checks (yours, here, on the ground) and then runs the identical pour.
+async function loadHopperParked(player, craftId, args) {
+  const field = fieldOf(player);
+  if (!field) return { type: 'emote', message: 'Loading the hopper is a job for the airfield.' };
+  const { rows } = await query(
+    `SELECT a.id, a.owner_id, a.parked_zone_id, a.airborne, a.custom_data, t.name tname, t.data
+       FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1`, [craftId]);
+  const a = rows[0];
+  if (!a) return { type: 'emote', message: 'No such aircraft here.' };
+  if (a.owner_id !== player.id) return { type: 'emote', message: "That's not your aircraft to load." };
+  if (a.parked_zone_id !== field.id) return { type: 'emote', message: 'That aircraft is parked at a different field.' };
+  if (a.airborne) return { type: 'emote', message: `The ${a.tname} is in the air.` };
+  if (!a.data?.spray) return { type: 'emote', message: `The ${a.tname} has no spray gear.` };
+  const cap = a.data.hopper || 0;
+  if (cap <= 0) return { type: 'emote', message: `The ${a.tname} has no chemical hopper.` };
+  // Prefer the LIVE row when one exists (someone is sitting in her): writing the DB behind a
+  // live aircraft's back is how the two copies drift, and persist() is the funnel that can't.
+  const live = liveAircraft.get(craftId);
+  const cd = live ? (live.row.custom_data || (live.row.custom_data = {})) : (a.custom_data || {});
+  return pourIntoHopper(player, args, a.tname, cap, cd, () => live
+    ? persist(live)
+    : query(`UPDATE aircraft SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
+      [JSON.stringify({ hopper: cd.hopper }), craftId]));
+}
+
+// The pour itself, shared by both routes. `save` is how this craft's custom_data reaches
+// storage — the live persist funnel or a direct row update.
+async function pourIntoHopper(player, args, craftName, cap, cd, save) {
   const hop = cd.hopper || (cd.hopper = { amount: 0, fluid_type: null });
   const space = cap - (hop.amount || 0);
-  if (space <= 0) return { type: 'output', message: `The ${live.type.name}'s hopper is already full.` };
+  if (space <= 0) return { type: 'output', message: `The ${craftName}'s hopper is already full.` };
 
   // Any carried fillable container holding liquid — a filter of fluid_amount>0 is exactly the
   // "must be a liquid" gate, since a fluid only exists inside a container that's been filled.
@@ -344,8 +385,8 @@ async function cmdLoadHopper(args, raw, player) {
   else
     await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`,
       [can.id]);
-  await persist(live);
-  return { type: 'use', message: `You pour ${fluidType} from the ${can.name} into the ${live.type.name}'s hopper. <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>` };
+  await save();
+  return { type: 'use', message: `You pour ${fluidType} from the ${can.name} into the ${craftName}'s hopper. <span class="text-dim">(hopper ${Math.round(hop.amount / cap * 100)}%)</span>` };
 }
 
 function bearing(from, to) {

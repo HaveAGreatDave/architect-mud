@@ -80,6 +80,81 @@ two of them have (bad) film adaptations you can rent off his back-room wall; the
 the tablet are free to everybody, which is a thing he will tell you about himself before
 you can ask.
 
+## The longbox — comics are a second shelf, not a section of the first
+
+`books.kind` is `'book'` or `'comic'`, and it decides which of **two screens** a title
+appears on: the cloth-and-foil shelf, or the longbox (bagged, boarded, face-out, sorted by
+cover date). A column rather than a `book_comic_*` id convention, because the fifth comic
+must not have to be *named* a certain way to be findable.
+
+The split is **presentation only, and one thing must never inherit it**: `read <title>`
+matches across **both** shelves (`allTitles()`), because typing is not a presentation and a
+player should not have to know that Sister Steel is filed as a comic before they can open
+it. `library`/`longbox` are two listings; `read` is one door. Every list read takes the kind
+as an argument rather than fetching everything and filtering in Node — a comic leaking onto
+the literature shelf is exactly the bug the column exists to prevent, and Node-side
+filtering is how it would come back.
+
+Why separate at all: sorted by year among Voltaire and Wells, the four comics were
+invisible, and they are a different object anyway — bought for pennies out of a bin, read in
+one sitting, and physically nothing like a bound novel.
+
+### They were panel scripts, and that was the real problem
+
+Until 2026-08-11 a comic's text was a **panel script with a critic talking over it**:
+
+```
+PANEL THREE. Close on the man. Nine lines.
+CAPTION: I DO NOT GO AWAY.
+```
+
+plus a third voice appraising the object — *"which is the whole joke and the whole point"*,
+*"the one people argue about"*, *"it is used exactly four times in forty pages"*. Three
+registers braided together, of which one settled every question before the reader got
+there. It read as a **description of a comic** rather than as one.
+
+They are now prose, with the stage directions gone and the critic gone, and the
+presentation moved to where presentation belongs — the reader. Scene-setting survived
+untouched (*"wallpaper in a pattern that was chosen by somebody who is dead"*); it was
+always prose, it was just sitting under a panel number. Captain Quorum keeps a stiffer
+voice on purpose: it is a Civic Morale Directorate propaganda comic, so the house style
+**is** the joke.
+
+### The markup — one parser, three consumers
+
+A comic chapter is prose with four kinds of paragraph in it, marked at the head:
+
+| Marker | Is |
+|---|---|
+| `> line` | a caption — the narrator's own voice, boxed |
+| `NAME: line` | a balloon; consecutive lines are one exchange, one block |
+| `~SOUND~` | lettering, at size, in the gutter |
+| `---` | a page turn: air on both sides |
+| anything else | the panel itself |
+
+`comicBlocks()` / `comicPlain()` in [books.js](../plugins/library/books.js) are the **only**
+parser. Three things consume it and each needs a different thing from it, which is why it
+can only be written once:
+
+- the tablet's comic reader draws furniture from the blocks (`renderComicBody`),
+- the **typed reader renders `comicPlain`** — the log cannot draw a caption box, and a
+  caption arriving as `> I do not go away` is markup printed at a player. Every paginating
+  caller goes through `pagesOf()` so the strip happens exactly once and `page` cannot walk
+  off the end of a chapter the renderer thinks is longer,
+- **Read Aloud speaks the words and none of the marks.**
+
+### Narration: the renderer returns its own parts
+
+`renderComicBody` returns the HTML **and** the narration array from a single walk, and
+`narrateStart` is handed that exact array (it accepts a pre-split parts array — the same
+seam CODEX uses). CODEX keeps `renderCodexBody` and `codexNarrationParts` in sync by hand
+and documents why re-splitting a rejoined string is not lossless; here one walk emits both,
+so **span N is the text of utterance N by construction**. Re-splitting `detail.body` instead
+would shift every index and light the wrong balloon for the rest of the chapter.
+
+A balloon's speaker rides **inside** the spoken span. With one narrator voice, dropping the
+name is how a listener loses track of who is talking.
+
 ## Read tier — the load-bearing constraint
 
 **`books` is `readTier: 'cold'` and is never boot-loaded.** This is not

@@ -14,14 +14,14 @@
   "flags": {
     "district": "sewer",
     "is_interior": true,
-    "scavenging_table_id": "scav_deep"
+    "scavenging_table_id": "scav_deep",
+    "terrain": "sewer"
   },
   "grid_x": 926,
   "grid_y": 911,
   "grid_z": -1,
   "id": "zone_under_sealedsub",
   "map_id": "map_world",
-  "marker": "╡",
   "name": "Sealed Sublevel",
   "parent_zone": null
 }

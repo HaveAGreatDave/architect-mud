@@ -1,8 +1,11 @@
 {
   "charter": true,
   "charter_vtol_only": false,
-  "dealer": false,
-  "fuels": null,
+  "dealer": true,
+  "fuels": [
+    "avgas",
+    "biofuel"
+  ],
   "id": "buzzard_field",
   "lawless": true,
   "name": "Buzzard Field",

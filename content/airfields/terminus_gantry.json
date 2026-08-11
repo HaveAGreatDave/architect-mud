@@ -1,0 +1,16 @@
+{
+  "charter": false,
+  "charter_vtol_only": true,
+  "dealer": false,
+  "fuels": [
+    "biofuel"
+  ],
+  "id": "terminus_gantry",
+  "lawless": true,
+  "name": "The Gantry",
+  "rental": false,
+  "residents_only": null,
+  "surface": "dust",
+  "theme": "wastes",
+  "vtol_only": true
+}

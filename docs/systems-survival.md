@@ -607,19 +607,33 @@ Seasonal but *lagging* — a body of water has enormous thermal mass, so it trac
 
 ## Clothing wetness & drying
 
-The [clothing-wetness plugin](../plugins/clothing-wetness/index.js). This is a **plugin**, not engine code: its `tick.minute` hook walks every live player, updates per-item wetness, and writes the aggregate to `player.wetness` — the field the engine's temperature tick reads as `wetMult`. Wetness is stored **per item** in `player_inventory.custom_data.wetness` (0–100 integer, merged via a `jsonb ||` update only when the rounded value changes); `player.wetness` is the mean over equipped wettable items. Only items tagged **`gets_wet`** accumulate wetness.
+The [clothing-wetness plugin](../plugins/clothing-wetness/index.js). This is a **plugin**, not engine code: its `tick.minute` hook walks every live player, updates per-item wetness, and writes the aggregate to `player.wetness` — the field the engine's temperature tick reads as `wetMult`. Wetness is stored **per item** in `player_inventory.custom_data.wetness` (0–100 integer, merged via a `jsonb ||` update only when the rounded value changes); `player.wetness` is the **area-weighted** aggregate described below. Only items tagged **`gets_wet`** accumulate wetness.
+
+**Water runs outside-in.** The tick builds one stack per body slot (`head/torso/hands/legs/feet`, from each garment's `slot` plus its `covers`), sorts it **outermost first** by the `layer` tag (`armor < outerwear < underwear`, defaulting to outerwear), and walks the water down it — `stackFlux`. Each garment absorbs the flux that reaches it and passes on `layerPassthrough`:
+
+| garment | passes to the layer below |
+|---|---|
+| `waterproof` | **0.05** — an oilskin sheds all but a trickle |
+| no `gets_wet` (plate, plastic) | **0.9** — holds no water, so it runs straight off onto what's below |
+| cloth | **0.15 → 1.0**, linear in its own wetness |
+
+That last row is the load-bearing one: **a dry coat protects the shirt under it and a soaked one doesn't.** Until 2026-08-10 every equipped garment wet at the same rate simultaneously and `waterproof` shielded against acid only — so a rain slicker over a shirt left the shirt exactly as soaked as no slicker at all, and the one garment a player would buy for rain did nothing about rain. A garment covering several slots absorbs the **area-weighted mean** of the flux arriving across them; a wettable with no body slot (an accessory, a slung bag) takes the full rate and shields nothing.
+
+**`player.wetness` is how wet you FEEL.** Per slot that's `max(skin, the innermost garment's wetness)`, summed against `SLOT_AREA` — torso .36, legs .40, feet .10, head .09, hands .05 (sums to 1). It was previously an unweighted mean over *garments*, so a wet hat counted for as much as a wet coat and putting on more clothes changed the number without changing anything physical. A soaked shell over a dry shirt now correctly reads as dry.
 
 **Sleepers are included** (rain doesn't check whether you're awake, and since the temperature drift now follows you into bed, exempting them would have re-created the immunity that change removed) — but they get no wetness *messages*; cold is what wakes them. Like the temperature tick, the hook reads `bodyZoneOf(player)`, so a dreamer's body gets rained on.
 
-**Bare skin.** A player wearing nothing wettable is **not** simply dry. Skin wets at the same rate cloth does and dries `SKIN_DRY_FACTOR` (8×) faster — soaked to bone-dry in ~7 minutes at the outdoor base rate, against ~50 for a soaked coat — and it is held in RAM, not an inventory row, because nobody logs back in still damp. This used to be a flat `player.wetness = 0`, which read as "bare skin dries at once" (true, and what the submersion branch hands over to) but silently also meant *bare skin never gets wet*: a naked player in freezing rain took the full −15 exposure penalty and **none** of the ×2 wet multiplier, making stripping off a way to shrug off a storm.
+**Bare skin.** A player wearing nothing wettable is **not** simply dry. Skin takes whatever flux the stack lets through — **per slot**, so a hood keeps your head dry while your boots fill — and dries `SKIN_DRY_FACTOR` (8×) faster than cloth, soaked to bone-dry in ~7 minutes at the outdoor base rate. Skin *under* cloth only gets `COVERED_SKIN_DRY_FACTOR` (1.5×), which is the honest reason to take a wet coat off. Skin drying stays **linear** where cloth's is proportional: there's nothing absorbed to wick back out, just a film evaporating at a roughly constant rate. It's held in RAM (`player._skinWetness`), not an inventory row, because nobody logs back in still damp. This used to be a flat `player.wetness = 0`, which read as "bare skin dries at once" (true, and what the submersion branch hands over to) but silently also meant *bare skin never gets wet*: a naked player in freezing rain took the full −15 exposure penalty and **none** of the ×2 wet multiplier, making stripping off a way to shrug off a storm.
 
 **Wetting** (outdoors, when `getZonePrecip` reports `precipRate > 0` and the zone is not `flags.is_interior`). Per minute:
-- **Rain:** `rainWettingRate = precipRate² × 30` (quadratic — torrential soaks far faster than drizzle). Light rain (0.3) ≈ 37 min to soaked; moderate (0.5) ≈ 13 min; heavy (0.65) ≈ 8 min; torrential (0.95) ≈ 4 min.
-- **Snow** (`precipType === 'snow'`), piecewise: `≤0.2 → precipRate × 2`; `0.2–0.7 → precipRate × 6`; `>0.7 → min(precipRate × 3, 3)` (blizzard's dry wind caps the soak rate).
+- **Rain:** `rainWettingRate = precipRate^1.4 × 34`, × `drivenRainMultiplier = 1 + min(0.6, windKph/60)`. On the **outermost** layer: light rain (0.3) ≈ 20 min to soaked; moderate (0.5) ≈ 10 min; heavy (0.65) ≈ 7 min; torrential (0.95) ≈ 4 min. The old `precipRate² × 30` suppressed the bottom of the range so hard that light rain took 37 minutes — you're visibly wet in real light rain inside ten — so the exponent was softened to lift the light-to-heavy band while leaving torrential where it was.
+- **Wind drives rain in** as well as drying it off, but deliberately weaker than `windMultiplier` dries (1.6× vs 2.5× at the cap), so a gale is worse than a still day while the rain falls and net-drying once it stops.
+- **Snow** (`precipType === 'snow'`), piecewise: `≤0.2 → precipRate × 2`; `0.2–0.7 → precipRate × 6`; `>0.7 → min(precipRate × 3, 3)` (blizzard's dry wind caps the soak rate). **Not** wind-driven — blown dry snow is the one case where a gale wets you *less*, which the cap already encodes.
+- **Absorption tapers** toward saturation (`absorbStep`, `SATURATION_TAPER = 0.35`) rather than running at full speed into the clamp.
 
 Indoors, or when precipitation stops, items **dry** instead.
 
-**Drying.** `dryRate = baseDryRate × dryMultiplier(temp) × windMult × humidMult` per minute:
+**Drying.** Evaporation is **proportional to the water still there** — `dryStep(prev) = prev − dryRate × (0.3 + 0.7 × prev/100)` — so a garment sheds the first half fast and keeps a long damp tail. It used to subtract `dryRate` flat, which dried the last 10 points as fast as the first 10, exactly backwards; the `0.3` floor is what keeps the tail terminating in finite time instead of crawling toward zero forever. `dryRate = baseDryRate × dryMultiplier(temp) × windMult × humidMult` per minute:
 - `baseDryRate` = **3 indoors, 2 outdoors**.
 - `dryMultiplier(tempC) = 1 + max(0, tempC − 15)/20` — every 10°C above 15°C adds ~50% (15°C→1×, 25°C→1.5×, 35°C→2×), using `getZoneTemperature`.
 - `windMult = 1 + min(1.5, windKph/30)` and `humidMult = max(0.5, min(1.3, 1.5 − humidityPct/100))` (null humidity → 1×) apply **outdoors only**; interiors treat both as 1× (sheltered, HVAC-neutral).

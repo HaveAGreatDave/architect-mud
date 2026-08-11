@@ -4,7 +4,9 @@
   "class": "locust",
   "cruise_speed": 2,
   "data": {
-    "feel": "Low-wing sport rocket; fast and nimble, but twitchy. Rewards a light, quick hand."
+    "feel": "The working crop-duster; a slab-sided ag-plane built around its chemical hopper. Heavy, stable and honest down low, which is where the job is. Load the hopper on the ground, then spray on a low pass.",
+    "hopper": 300,
+    "spray": true
   },
   "engines": 1,
   "fuel_burn_base": 1.4,

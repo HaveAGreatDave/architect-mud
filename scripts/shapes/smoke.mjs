@@ -53,6 +53,22 @@ async function main() {
     problems.push(`paint  ${f.key} (night=${f.night}, ${f.front ? 'entrance toward camera' : 'entrance away'}) → ${f.err}`);
   }
 
+  // ── INTERIOR ──
+  // The canopy, the cowl, the passenger window frame and the truck cab. Same rationale as the
+  // models above: the only thing that ever runs one of these is somebody sitting in that vehicle,
+  // so a throw freezes the sim for exactly one player and is invisible to everyone else.
+  const interiors = ws.interiorRenderSmoke();
+  for (const f of interiors) {
+    problems.push(`interior ${f.key} (hour=${f.hour}, speed=${f.speed}) → ${f.err}`);
+  }
+
+  // ── GROUND COLLISION ──
+  // Every model probed at truck height, asserting ground-solid ⊆ air-solid. The two probes share
+  // `segContains`; the ground one only ever drops segments that are over the vehicle's head, so a
+  // point solid for a truck and hollow for an aircraft means they have drifted apart.
+  const ground = ws.groundCollisionSmoke();
+  for (const f of ground) problems.push(`ground ${f.key} (ent=${f.ent}) → ${f.err}`);
+
   // ── SHAPE ──
   let segs = 0, seedVariant = 0;
   const constWarnings = [];
@@ -73,6 +89,30 @@ async function main() {
     console.warn(`! shapes:smoke — ${constWarnings.length} absolute term(s) in mass arguments (legal, but check they're intentional):`);
     for (const w of constWarnings) console.warn(`    ${w}`);
   }
+
+  // ── SOLIDITY ──
+  // A building you can SEE must be a building you can HIT. The two answers come from different
+  // places — the draw pass keys off `bt`, collision off buildingHeightZ — so they can disagree
+  // silently, and did: buildingHeightZ used to let the ground TINT veto a tower's mass, which
+  // made every building on a badlands/parkland/water tile a ghost. That is the whole 914/908
+  // expansion (no `zone_district_*` arm in districtBiome ⇒ the badlands default), so those
+  // towers had no CFIT and the Solenne's rooftop pad had no roof to offer the guidance column.
+  // Cheap to state, so it is stated: `bt` decides, and nothing else does.
+  const solid = [];
+  for (const bi of ['badlands', 'parkland', 'water', 'citycore', 'uptown', undefined]) {
+    const tower = { kind: 'land', biome: bi, bt: 'apartment', ent: 'south' };
+    if (!(ws.buildingHeightZ(900, 900, tower) > 0)) solid.push(`a building on a '${bi}' tile is not solid`);
+    const bare = { kind: 'land', biome: bi, ent: 'south' };
+    if (ws.buildingHeightZ(900, 900, bare) !== 0) solid.push(`bare '${bi}' ground extrudes mass`);
+  }
+  if (ws.buildingHeightZ(900, 900, { kind: 'field', biome: 'airport' }) !== 0) solid.push('a bare apron extrudes mass');
+  // The rooftop pad, end to end: the tile the Solenne streams as (a field that carries a building)
+  // must answer with a real deck height at its centre — that is the number roofPadProximity
+  // requires above zero before it will offer a pad at all.
+  const pad = { kind: 'field', biome: 'badlands', bt: 'apartment', bn: 'Solenne Residences', ent: 'south' };
+  const padFt = ws.buildingRoofFtAt(914, 908, pad, 914, 908);
+  if (!(padFt > 50)) solid.push(`the Solenne's rooftop pad reads ${padFt.toFixed(1)} ft at the tile centre — the pad can never arm`);
+  for (const s of solid) problems.push(`solid  ${s}`);
 
   // ── STALE BAKE ──
   // client/shared/building-shapes.js is generated from these same arms, and the cold open reads it
@@ -107,6 +147,8 @@ async function main() {
   const at = (d) => models.reduce((s, { m }) => s + ws.shapeLodFaces(m, d), 0) / models.length;
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
+  console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
+  console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

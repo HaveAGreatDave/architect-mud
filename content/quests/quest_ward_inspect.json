@@ -1,6 +1,6 @@
 {
   "category": null,
-  "description": "Ward Nine requires an occupancy inspection of the plaza's east edge and the far end of Meltwater. Look official. Touch nothing. 10₵.",
+  "description": "Ward Nine requires an occupancy inspection of the east side of Fisherman's Green and the far end of Meltwater. Look official. Touch nothing. 10₵.",
   "id": "quest_ward_inspect",
   "meta": {
     "taskSeconds": 5
@@ -8,10 +8,10 @@
   "name": "Occupancy Check",
   "objectives": [
     {
-      "desc": "Statue Plaza (east)",
+      "desc": "Fisherman's Green (east side)",
       "emotes": [
-        "{who} squints up at the plaza frontages and mimes noting a violation.",
-        "{who} paces off a distance on the plaza's east edge and nods gravely at the result."
+        "{who} squints at the flowerbeds and mimes noting a violation.",
+        "{who} paces off a distance along the east edge of Fisherman's Green and nods gravely at the result."
       ],
       "id": "o0",
       "type": "visit",

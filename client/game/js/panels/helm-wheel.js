@@ -63,11 +63,45 @@ export function createHelmWheel(canvas, opts = {}) {
   addEventListener('pointerup', up);
   canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none';
 
+  // ABSOLUTE mode — for a ROAD VEHICLE (THE LONG HAUL's cab). The default below is a boat's helm:
+  // it reports the CHANGE in wheel rotation, so spinning it sets a course and letting go holds it.
+  // That is exactly wrong for a truck. A road is a line you hold, not a bearing you set, and a
+  // front axle self-centres the moment you stop pulling on it — so in this mode the wheel reports
+  // its POSITION as a normalised −1..+1 axle deflection, is clamped to a real lock, and returns to
+  // centre on release. Same widget, same art, same feel in the hand; the only difference is which
+  // of the two questions it is answering. The yacht never passes `mode`, so it is untouched.
+  const ABSOLUTE = opts.mode === 'absolute';
+  const LOCK = (opts.lock || 1.6) * Math.PI;   // wheel rotation (rad) from centre to full lock
+  const RETURN = opts.selfCentre ?? 5.0;       // how briskly the axle walks back to centre (per s)
+  const KEY_RATE = opts.keyRate ?? 3.2;        // radians/s a held arrow key winds the wheel on
+  let held = 0;                                // −1 / 0 / +1 from the keyboard
+
   function step(dt) {
     if (!enabled) { vel = 0; reported = angle; return; }   // pinned while underway — accrue no course change
+    if (ABSOLUTE) return stepAbsolute(dt);
     if (!grabbing) { angle += vel * dt; vel *= Math.exp(-2.75 * dt); if (Math.abs(vel) < 0.03) vel = 0; }   // a big flywheel: a throw coasts ~twice as far and spins down slow (total follow-through ∝ vel/decay)
     const d = angle - reported;                 // how far the wheel turned since we last reported
     if (d) { onSteer((d / GEAR) * 180 / Math.PI); reported = angle; }   // spin direction → heading change (CW=right, CCW=left)
+  }
+
+  function stepAbsolute(dt) {
+    // KEYBOARD STEERING. `held` is −1/0/+1 from an arrow key and it drives the SAME angle a hand
+    // drags, which is the whole reason it lives in the widget rather than in the cab: a keyboard
+    // driver has to turn the wheel you can see, not a parallel invisible one. Holding a key winds
+    // the lock on at a rate a wrist would manage; letting go hands it straight back to the
+    // self-centring below, so nothing has to remember that a key was ever down.
+    if (held && !grabbing) angle = Math.max(-LOCK, Math.min(LOCK, angle + held * KEY_RATE * dt));
+    if (!grabbing && !held) {
+      // Self-centring. Exponential toward zero, with a small deadband so it settles rather than
+      // creeping — a wheel that never quite reaches centre steers the truck into the ditch over a
+      // long enough straight.
+      angle -= angle * Math.min(1, RETURN * dt);
+      if (Math.abs(angle) < 0.004) angle = 0;
+      vel = 0;
+    }
+    if (angle > LOCK) angle = LOCK; else if (angle < -LOCK) angle = -LOCK;
+    onSteer(Math.max(-1, Math.min(1, angle / LOCK)));
+    reported = angle;
   }
 
   function draw() {
@@ -160,6 +194,9 @@ export function createHelmWheel(canvas, opts = {}) {
 
   return {
     setAccent(a) { accent = a || accent; },
+    // Keyboard input, routed through the widget so the wheel a keyboard driver turns is the one on
+    // the screen. Absolute mode only — a boat sets a course and has no use for a held key.
+    setHeld(dir) { held = ABSOLUTE ? Math.max(-1, Math.min(1, dir | 0)) : 0; },
     setEnabled(on) { enabled = on !== false; if (!enabled) { grabbing = false; vel = 0; } canvas.style.cursor = enabled ? 'grab' : 'not-allowed'; },
     getAngle: () => angle,
     destroy() { alive = false; cancelAnimationFrame(raf); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); removeEventListener('pointerup', up); },

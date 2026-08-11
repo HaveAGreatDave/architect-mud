@@ -467,6 +467,12 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
   butcher: 'bldg_butcher',
   comic_shop: 'bldg_comics',
+  // Terminus (docs/proposals/terminus.md). The Exodus grow their own food behind the wall; the
+  // glasshouses are the only thing tall enough to be seen from the apron. Registered NOW rather
+  // than backfilled later: in pass 1 they are `is_building` mass and never reach this table (it is
+  // gated on the facade tag), but the moment pass 2 makes one enterable it needs a code, and a
+  // building whose icon arrives in a later build is a building that was briefly wrong on the map.
+  greenhouse: 'bldg_warehouse',
   // The Yards — semi-industrial freight district (docs/proposals/yards.md).
   warehouse: 'bldg_warehouse', container_yard: 'bldg_container', fuel_yard: 'bldg_fuel', cold_storage: 'bldg_cold',
   fabrication: 'bldg_fab', wharf: 'bldg_wharf', freight_office: 'bldg_freightoffice', freight_forwarder: 'bldg_forwarder',
