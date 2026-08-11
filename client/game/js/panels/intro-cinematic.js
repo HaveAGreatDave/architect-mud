@@ -35,6 +35,9 @@
 //   • the whole thing is idempotent and self-cleaning: one overlay, one RAF, one
 //     AudioContext, all torn down on skip or end.
 import { loadSettings, saveSettings } from '../../../shared/settings.js';
+// The log rung plays the SAME record with no picture (playIntroLog below), so it
+// needs the one live region the game writes everything else to.
+import { appendHtml } from '../render.js';
 // The SAME height/footprint numbers the flight sim extrudes Coldwater with, so
 // the skyline you fly through here is the skyline you fly over later.
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -1525,16 +1528,65 @@ const LOGO_HTML = `
     </div>
   </div>`;
 
+// ── The log rung ─────────────────────────────────────────────────────────────
+//
+// Display Mode's bottom rung used to be handed nothing at all: the prologue
+// skipped straight to arrival, on the grounds that a wordless animation is dead
+// air. But the cold open is not wordless — the ANIMATION is the optional half,
+// and the twelve lines are the piece. So this plays the identical record with the
+// picture removed: same BEATS, same T() tempo, same startAudio(), so the music
+// still swells under "Civilization disappeared in weeks", still goes actually
+// silent at "Silence.", and still strikes the picardy third when the mark lands.
+//
+// Three things are deliberately different from the overlay:
+//   • NO START GATE. The gate exists so the AudioContext is born after a user
+//     gesture; here the player has just clicked through auth, so there is one in
+//     the bag, and a modal card would be exactly the visual furniture this rung
+//     is asking us to remove. If a browser refuses anyway the sequence simply
+//     runs silent — the words are the part that must not fail.
+//   • The lines go to #output, the ONE live region, so a screen reader reads them
+//     as they arrive rather than being read a dialog it has to be rescued from.
+//   • The wordmark is a LINE, not a drawing, and it lands on LOGO_AT — which is
+//     what lets the whole audio tail (the final bell, the fade to RUN_MS) stay
+//     exactly as scored instead of being re-timed for a shorter cut.
+let _logRunning = false;
+let _logKey = null;
+
+function playIntroLog() {
+  _logRunning = true;
+  _audio = startAudio();
+
+  const later = (ms, fn) => _timers.push(setTimeout(fn, ms));
+  const beat  = (ms, fn) => later(T(ms), fn);
+
+  // No "press Escape" line here — the prologue already says exactly that one
+  // message earlier, and saying it twice is the log rung's version of clutter.
+
+  for (const b of BEATS) {
+    beat(b.t, () => appendHtml(`<span class="intro-log ${b.cls || ''}">${b.text}</span>`, 'ambient'));
+  }
+  beat(LOGO_AT, () => appendHtml('<span class="intro-log title">ARCHITECT</span>'
+    + '<br><span class="intro-log fine">A MANAGED ENVIRONMENT · YOUR ARRIVAL WAS ANTICIPATED</span>', 'ambient'));
+  beat(RUN_MS, () => finish('end'));
+
+  _logKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); finish('skip'); } };
+  window.addEventListener('keydown', _logKey);
+}
+
 // ── Shell ────────────────────────────────────────────────────────────────────
 
 /**
  * Play the cold open. Resolves (via onDone) exactly once — on the last beat or
  * on a skip — so the caller can tell the server to get on with the prologue.
  */
-export function playIntroCinematic(onDone, skyline, shore) {
-  if (_ov) return;                       // already running — never stack two
+export function playIntroCinematic(onDone, skyline, shore, opts) {
+  if (_ov || _logRunning) return;        // already running — never stack two
   _finished = false;
   _done = typeof onDone === 'function' ? onDone : () => {};
+
+  // The bottom rung of Display Mode gets the record without the picture: the same
+  // beats, at the same times, over the same music. See playIntroLog.
+  if (opts && opts.mode === 'log') { playIntroLog(); return; }
 
   const reduced = prefersReducedMotion();
 
@@ -1755,6 +1807,9 @@ function finish(reason) {
   _timers = [];
   if (_raf) cancelAnimationFrame(_raf);
   _raf = 0;
+  // The log rung has no overlay to hang its key handler off, so it drops its own.
+  if (_logKey) { window.removeEventListener('keydown', _logKey); _logKey = null; }
+  _logRunning = false;
   try { _cleanupCanvas?.(); } catch {}   // drops the resize listener
   _cleanupCanvas = null;
   stopAudio();

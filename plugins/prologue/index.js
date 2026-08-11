@@ -636,12 +636,15 @@ on('player.login', async ({ id }) => {
   // player who watches the whole thing comes back to a log full of prose that
   // scrolled past while they were reading a different screen.
   //
-  // A player already on the bottom rung never sees it: a wordless animation is
-  // pure dead air for them, and its text is in the CODEX either way (Volume I is
-  // granted when the welcome broadcast ends), so nothing is lost. Skipping
-  // straight to `beginArrival` is exactly what the client's own skip does.
+  // A player on the bottom rung gets the SAME sequence with `mode: 'log'` — the
+  // lines land in the log on their beats over the same score, and no overlay is
+  // ever built (see playIntroLog in client/game/js/panels/intro-cinematic.js).
+  // It used to skip straight to `beginArrival` on the grounds that an animation
+  // is dead air, which was half true: the picture is optional, the twelve lines
+  // are the piece. Either way the echo is `introdone` and the timing below is
+  // unchanged, because the log rung runs to the same RUN_MS.
   //
-  // THIS BRANCH IS LIVE, and it took a second seam to make it so. It is gated on
+  // THE RUNG IS KNOWN HERE, and it took a second seam to make it so. It is gated on
   // F_ARRIVED, so it runs once, for a character who has never had a prompt — who
   // for a long time could not possibly have set a rung yet, which made it read
   // `undefined` almost every time and left the LINE above (naming Escape) doing
@@ -650,8 +653,8 @@ on('player.login', async ({ id }) => {
   // applied in finishAuth ahead of this hook, so a player who picked `log`
   // before they ever logged in genuinely never sees the cinematic. The line
   // above still matters for everyone who didn't find the disclosure.
-  if (loggedPanelsSync(player)) { beginArrival(player); return; }
-  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore(),
+    ...(loggedPanelsSync(player) ? { mode: 'log' } : {}) });
   // Safety net for a client that never answers (an old cached bundle, a tab
   // closed and reopened mid-play): the prologue must never be able to stall.
   // beginArrival is idempotent, so the real echo winning this race is fine.
@@ -1120,7 +1123,8 @@ async function cmdIntroDone(args, _raw, player) {
 }
 
 async function cmdIntro(args, _raw, player) {
-  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore() });
+  sendToPlayer(player.id, { type: 'intro_cinematic', skyline: coldwaterSkyline(), shore: coldwaterShore(),
+    ...(loggedPanelsSync(player) ? { mode: 'log' } : {}) });
   return null;
 }
 

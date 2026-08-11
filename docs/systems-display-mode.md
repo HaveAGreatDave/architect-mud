@@ -419,6 +419,11 @@ Worse, the prologue's own skip branch (`if (loggedPanelsSync(player))`) was dead
 construction: it is gated on a first-login flag, so it only ever ran for a character
 who could not yet have chosen a rung. It read `undefined` every time.
 
+That branch no longer skips anything: `loggedPanelsSync` now sets `mode: 'log'` on
+the push, and the log rung gets the cold open as **text on its beats over the same
+music** (`playIntroLog`, see [systems-codex.md](systems-codex.md#1-the-cold-open)).
+The animation was the optional half; the twelve lines are the piece.
+
 So the choice is now expressible **on the auth screen**, behind a collapsed
 `<details>` reading *"Playing with a screen reader?"* — a native disclosure, announced
 as one, keyboard-operable with no script, and invisible to everyone who doesn't need

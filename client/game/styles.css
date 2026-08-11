@@ -16092,6 +16092,20 @@ body.intro-cine-open { overflow: hidden; }
    finish leaving before the next one arrives. Previously the gap was ~100ms
    against a 900ms fade, so lines crossed over each other and it read as a cut
    rather than a dissolve. */
+/* The log rung's version of the same beats. No motion, no glow, no positioning —
+   these are ordinary log lines that happen to be the cold open, so all they get
+   is the weight the beat asked for. `.big`/`.title`/`.silence` are the SAME class
+   names the overlay uses (see BEATS `cls`), which is why they are worth styling
+   at all rather than printing flat. */
+.intro-log { color: #dfe9e7; letter-spacing: 0.04em; }
+.intro-log.big { font-size: 1.12em; }
+.intro-log.silence { letter-spacing: 0.22em; color: #8a9a98; }
+.intro-log.title {
+	font-family: var(--font-mono, 'Courier New', monospace);
+	letter-spacing: 0.3em;
+	color: var(--accent, #35e0c8);
+}
+.intro-log.fine { font-size: 0.82em; letter-spacing: 0.14em; color: #7f8d8b; }
 .intro-cine-line {
 	font-family: var(--font-mono, 'Courier New', monospace);
 	font-size: clamp(17px, 2.6vw, 27px);

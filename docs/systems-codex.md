@@ -25,6 +25,20 @@ a stale client bundle degrades to the old behaviour instead of stalling the
 prologue. `beginArrival` is claimed synchronously via
 `player._prologueArrivalStarted`, so the echo and the fallback racing is harmless.
 
+**The log rung plays it too (`mode: 'log'`).** A player on Display Mode's bottom
+rung is not skipped any more. The prologue sets `mode: 'log'` on the same push
+(`loggedPanelsSync`), and the client runs `playIntroLog()` instead of building the
+overlay: the identical `BEATS` on the identical `T()` tempo over the identical
+`startAudio()`, appended to `#output` — the one live region — so the score still
+swells under *"Civilization disappeared in weeks"*, still goes actually silent at
+*"Silence."*, and still strikes the picardy third at `LOGO_AT`, where the wordmark
+arrives as a line rather than a drawing. That last choice is what lets the audio
+tail stay exactly as scored: the log rung runs to the same `RUN_MS`, so
+`INTRO_FALLBACK_MS` and the arrival gating are unchanged. There is **no start
+gate** on this rung (a modal card is the visual furniture the rung exists to
+remove; the auth click is the gesture the AudioContext needs), and no duplicate
+"press Escape" line — the prologue already prints one. Escape skips.
+
 **The start gate — the sequence does not auto-play.** The overlay mounts showing
 a single black card with a **Begin** button, and the canvas, the audio context
 and every beat timer are held behind it (`runSequence()` inside

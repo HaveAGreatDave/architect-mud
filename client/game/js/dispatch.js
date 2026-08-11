@@ -495,7 +495,9 @@ const handlers = {
   // `msg.skyline` is Coldwater's real building tiles (see coldwaterSkyline in
   // plugins/prologue/index.js) — the closing flythrough is the actual city. An
   // old server that doesn't send it falls back to a procedural block grid.
-  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore); },
+  // `msg.mode === 'log'` is the bottom rung of Display Mode: same beats, same
+  // music, no picture — the server decides, because it owns the rung.
+  intro_cinematic: (msg) => { playIntroCinematic(() => sendCmdSilent('introdone'), msg?.skyline, msg?.shore, { mode: msg?.mode }); },
   // Whether the player owns a tablet at all. Only the prologue ever says no — its
   // corridor has no device in it, and the clone vat on the far side issues one.
   tablet_access: (msg) => { setTabletAccess(msg?.has !== false); },
