@@ -609,6 +609,24 @@ for (const f of ['textbreach', 'texthololock', 'textvault', 'textsignal', 'textc
 }
 ok('no character minigame declares a live region');
 
+// ── A link that does nothing is worse than no link ───────────────────────────
+// `teachVerb(verb)` — the no-target form, used at 27 call sites — renders a
+// shimmering link carrying `data-action` and no `data-target`. The click handler
+// used to require BOTH and returned silently otherwise, so every bare-verb teach
+// link in the game was dead: drive, yard, haul, market, park, bounty, redeem,
+// accessibility. This matters here rather than merely visually: the shimmer is
+// the game telling a player "clicking is how you do this", and for anybody
+// driving the UI by pointer that promise was the whole route in.
+const main = readFileSync('client/game/js/main.js', 'utf8');
+const linkFn = main.slice(main.indexOf('function handleActionLinkClick'), main.indexOf('function handleActionLinkClick') + 3000);
+if (/if\s*\(!action\s*\|\|\s*!target\)\s*return/.test(linkFn)) {
+  bad('handleActionLinkClick drops a link with no data-target — every bare teachVerb() link is dead');
+} else if (/!target[\s\S]{0,200}sendCmd\(action/.test(linkFn)) {
+  ok('a bare-verb teach link (data-action, no target) sends its verb');
+} else {
+  bad('handleActionLinkClick has no branch sending a targetless action — check bare teachVerb() links still work');
+}
+
 if (failed) {
   console.error(`\n✗ a11y:smoke — ${failed} problem(s). See docs/systems-display-mode.md.`);
   process.exit(1);

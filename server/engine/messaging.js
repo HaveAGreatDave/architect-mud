@@ -33,6 +33,11 @@ export function sendToZone(zoneId, message, excludeId = null) {
 // THE STANDARD: the first time any prose teaches a player a verb, the verb itself
 // is highlighted and shimmers once (client `.verb-teach`) and is clickable like a
 // room link. Use this for every first mention of a new verb, everywhere.
+// BOTH FORMS ARE CLICKABLE. `teachVerb('yard')` renders a link with an action and no target, and
+// the client sends the bare verb; `teachVerb('take', 'take', 'rusty pipe')` sends verb + target.
+// The no-target form was silently DEAD in the client for a long time (main.js required both and
+// returned otherwise), which made every one of these a shimmering link that did nothing — the
+// worst possible state for a teaching affordance. scripts/a11y/smoke.mjs now pins it.
 export function teachVerb(verb, action = verb, target = '') {
   const targetAttr = target ? ` data-target="${escAttr(target)}"` : '';
   const label = target ? `${verb} ${target}` : verb;

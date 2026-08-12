@@ -931,7 +931,15 @@ function handleActionLinkClick(e) {
 		sendCmd(el.dataset.cmd, el.dataset.label);
 		return;
 	}
-	if (!action || !target) return;
+	if (!action) return;
+	// A VERB WITH NO OBJECT IS STILL A VERB. `teachVerb('yard')` — the no-target form, which 27
+	// call sites across the game use — renders a link carrying `data-action` and nothing else, and
+	// this used to return here and swallow the click. Every bare-verb teach link in the game was
+	// dead: `drive`, `yard`, `haul`, `market`, `park`, `bounty`, `redeem`, `accessibility`, all of
+	// them. They LOOKED like links, shimmered like links, and did nothing, which is worse than not
+	// being links at all — the shimmer is the game promising a player that clicking is how this
+	// works. Send the bare verb, which is exactly what the label says it is.
+	if (!target) { sendCmd(action, el.dataset.label || action); return; }
 	// Exit/building/room links carry data-dest (the destination name) — click by
 	// name so SIFT reaches the specific location even when several exits share a
 	// direction. data-target stays the raw direction for the dpad highlight.
