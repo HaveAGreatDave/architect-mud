@@ -74,7 +74,7 @@ export function openCab(ctx = {}) {
                have to remember is a control you stop using. -->
           <button class="cab-btn cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high">⑊</button>
           <!-- THE HORN. Two trumpets on the roof of every rig in the fleet, and until now they were
-               ornament. It is a VERB (`horn`, plugins/trucking) rather than a local sound, because
+               ornament. It is a VERB ('horn', plugins/trucking) rather than a local sound, because
                the whole point of a horn is that the room hears it and you are not the room. -->
           <button class="cab-btn cab-horn" aria-label="Air horn" title="Air horn (H)">📯</button>
         </div>
