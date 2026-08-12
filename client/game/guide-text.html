@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARCHITECT — Part one: your first hour (text edition)</title>
-<meta name="description" content="A plain-text, screen-reader-first edition of the ARCHITECT beginner's guide.">
+<meta name="description" content="The ARCHITECT beginner's guide, written for playing the game as a single scrolling transcript.">
 <style>
   :root{ color-scheme:light dark; --bg:#fff; --ink:#14181d; --dim:#4a545f; --rule:#c8d0d8; --link:#0b5fa5; --code:#f0f3f6; }
   @media (prefers-color-scheme: dark){
@@ -36,12 +36,11 @@
 <a class="skip" href="#main">Skip to the guide</a>
 
 <header>
-  <p><a href="/guide.html">Illustrated version of this page</a> · <a href="/tour-text.html">Part two (text)</a> · <a href="/lore-text.html">Part three (text)</a></p>
+  <p><a href="/tour-text.html">Part two (text)</a> · <a href="/lore-text.html">Part three (text)</a></p>
   <h1>ARCHITECT — Part one: your first hour</h1>
-  <p>This is the text edition of the beginner's guide: the same words as the illustrated
-  page, with every picture and diagram written out, and nothing on the page that is
-  only decoration. A guide to your first hour in Coldwater Basin — what you're looking
-  at, what to type, and what will kill you.</p>
+  <p>This is the guide to playing ARCHITECT as text: one scrolling transcript, everything
+  narrated in order, everything asked for by typing. It covers your first hour in
+  Coldwater Basin — what the game will tell you, what to type, and what will kill you.</p>
   <p><a href="https://www.architectgame.net">Play ARCHITECT</a>. No install, no download.</p>
 </header>
 
@@ -69,11 +68,11 @@
 <p>Reading, typing, and a city on a clock.</p>
 
 <p>ARCHITECT runs in a browser tab and it is built on writing: you read where you are,
-and you type what you do. But the writing is the spine, not the whole animal. Hanging
-off it are a live minimap, a drag-and-drop inventory, a pocket tablet with thirty-odd
-apps, a television you can sit and watch, lock-picking and hacking minigames, a neon
-chess set, a poker table, and a long way out from all of that, a flight simulator you
-fly looking out of a cockpit window.</p>
+and you type what you do. Everything in it is reachable that way. The map is a command.
+The pocket tablet the city issues you is an index of verbs. A television is furniture
+you sit at and listen to. Lock-picking, hacking, poker, chess and a flight simulator all
+have written versions that are live and timed rather than stripped down — you play them,
+you don't watch them happen.</p>
 
 <p>What it doesn't have is a pause button. The city keeps its own time whether you're
 logged in or not: a day passes every eight real hours, weather rolls across the map,
@@ -84,79 +83,68 @@ inventory, a bank balance, and skills that get better only by being used. Nothin
 rails. There's no quest arrow. The game's answer to <em>what should I do</em> is
 generally <em>whatever you can afford</em>.</p>
 
-<h3>Playing without the panels</h3>
+<h3>Setting it to run as a transcript</h3>
 <div class="aside">
-  <p><strong>Read this first if you use a screen reader.</strong> The game has a display
-  mode built for you. Type <code>displaymode log</code>, or go to Tablet → Settings →
-  General → Display Mode. That folds the whole game down into one plain scrolling
-  transcript: no panes, no panels, everything narrated in order into a single live
-  region. It is a real way to play rather than a stripped-down one — the minigames
-  still run, called out in words, and the room description reaches the transcript like
-  everything else. <code>displaymode visual</code> puts it back.</p>
-  <p>There is also an <code>accessibility</code> command, which opens the settings
-  directly and deliberately has no tablet requirement — the light switch cannot be
-  inside the dark room. It covers voice input and Read Aloud as well.</p>
+  <p><strong>Do this first.</strong> Type <code>displaymode log</code>, or choose it on
+  the login screen, or go to Tablet → Settings → General → Display Mode. From then on the
+  whole game arrives as one plain transcript that only ever grows downward: where you
+  are, what happened, what people said, what a machine is doing. Nothing is off to the
+  side and nothing repaints under you.</p>
+  <p>There is also an <code>accessibility</code> command, which opens those settings
+  directly and deliberately has no tablet requirement — the light switch cannot be inside
+  the dark room. It covers voice input and Read Aloud as well.</p>
 </div>
 
-<h3>What you're looking at</h3>
-<p>In the visual layout the whole game is one screen: a thin strip of readouts down the
-left, buttons along the bottom, and the middle split into two panes.</p>
+<p>Once you're in, type <code>tutorial</code>. It's a short spoken walkthrough of the
+seven things worth knowing, it waits for you rather than running on a timer, and
+<code>tutorial done</code> ends it. <code>tutorial tablet</code> walks the tablet the same
+way. Both replay any time.</p>
 
-<p>The <strong>top pane is the room</strong>, and it keeps itself current. Walk somewhere
-and it repaints with the new room. Someone else walks out and it repaints without them.
-You don't refresh it and you don't ask for it; it is simply always showing where you are
-right now.</p>
+<h3>The two sizes of a room</h3>
+<p>This is the one habit to build, because nothing announces it.</p>
 
-<p>The <strong>bottom pane is the log</strong>, and it scrolls. That's the running account
-of what <em>happened</em> — things said, blows landed, a door unlocking, a stranger's
-television bleeding through the wall. It only ever grows downward.</p>
+<p>Walking into a room gives you the <strong>short version</strong>: the name of the
+place, how dark it is, anything about to hurt you, who's here, and the way out. That's
+deliberate — a hallway shouldn't be twelve lines every step.</p>
+
+<p>Typing <code>look</code> gives you the <strong>long version</strong>, always: the prose,
+the furniture, what you can sit on, everything the short version folded away. Nothing is
+ever hidden from you — it is deferred by one word, and <code>look</code> is that word. Use
+it in any room you actually care about.</p>
 
 <div class="aside">
-  <p><strong>Why this matters.</strong> Older games of this kind make you type
-  <code>look</code> constantly to find out where you are. Here you don't — the room is
-  already on screen, and it stays right. What you'll actually use is <code>examine</code>
-  (or just <code>x</code>) to inspect a <em>thing</em>: <code>x sully</code>,
-  <code>x corkboard</code>. The smartbar counts them for you — "Examine (4)" means four
-  things here are worth a closer look.</p>
+  <p><strong>"Also here:"</strong> is the folded line. Items, corpses, vendors, furniture
+  and doorways collapse into one closing list of nouns. Every one of them can be examined,
+  taken or used, and <code>look</code> unfolds the lot.</p>
 </div>
 
-<h3>Every part of the screen, in words</h3>
-<p>The illustrated guide shows an annotated mock-up of the interface. This is the same
-annotation as a list. In log display mode most of these become lines of the transcript
-rather than regions on screen, but the ideas are the same.</p>
+<h3>Asking for the rest</h3>
+<p>Everything the game knows about you or the city is a verb away, and these are the ones
+you'll wear out.</p>
 
-<ul>
-  <li><strong>Your name and purse.</strong> The credits shown are the ones <em>on your
-  body</em> — the losable half. Banked money isn't here.</li>
-  <li><strong>The minimap.</strong> You in the middle, rooms around you, coloured by how
-  dangerous they are. Green edges are safe, red is not.</li>
-  <li><strong>Vitals.</strong> A live readout of the meters in section 3. Health and
-  stamina sit here permanently; the rest surface when they start to matter.</li>
-  <li><strong>The d-pad.</strong> Lit buttons are exits that actually exist — so you can
-  cross the entire city by clicking, without knowing a compass direction. <code>in</code>
-  and <code>out</code> are doors.</li>
-  <li><strong>Environment.</strong> City time and date, temperature, weather, and how well
-  lit it is. The last line is your body reporting in — "Hungry" there is the game warning
-  you before it becomes a problem.</li>
-  <li><strong>Who's online.</strong> Everyone currently in the world, not just this room.
-  It's a small city; you'll recognise names fast.</li>
-  <li><strong>The room pane.</strong> Where you are, right now. Name, safety tag,
-  description, exits — repainted automatically whenever anything changes, so it's never
-  out of date. Highlighted words are clickable: people, scenery, exits.</li>
-  <li><strong>The divider.</strong> Drag it. If you're exploring, give the room more
-  space; if you're in a fight or deep in conversation, give the log more.</li>
-  <li><strong>The log.</strong> What <em>happened</em>, in order. Speech, combat, people
-  coming and going, your own commands echoed back and their results. The room pane tells
-  you where you are; the log tells you the story.</li>
-  <li><strong>The command line.</strong> Where you type. Every button and link on the
-  screen is a shortcut to something you could type here yourself.</li>
-  <li><strong>The smartbar.</strong> Context buttons for what's possible in <em>this</em>
-  room — it changes as you walk. The fastest way to find out what a place lets you do.</li>
-</ul>
+<table>
+  <caption>The things you'll ask for constantly</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it tells you</th></tr></thead>
+  <tbody>
+    <tr><td>look</td><td>The room in full, always</td></tr>
+    <tr><td>x &lt;thing&gt;</td><td>What a person, item, door or machine is — and, at the end, what you can do with it</td></tr>
+    <tr><td>map</td><td>Where you are and what's around you, written out</td></tr>
+    <tr><td>stats</td><td>You: health, hunger, thirst, radiation, sanity, the state you're in</td></tr>
+    <tr><td>i / gear</td><td>What you're carrying; what you're carrying <em>and</em> wearing</td></tr>
+    <tr><td>who</td><td>Everyone in the world right now, not just this room</td></tr>
+    <tr><td>tablet</td><td>The index of apps, each one a verb of its own — <code>map</code>, <code>balance</code>, <code>codex</code>, <code>skills</code></td></tr>
+  </tbody>
+</table>
+
+<div class="aside">
+  <p><strong>Examine is the real one.</strong> If a line ever leaves you thinking "and now
+  what", examine the thing it named. <code>x sully</code>, <code>x corkboard</code>. It's
+  how the city tells you which verbs a thing answers to.</p>
+</div>
 
 <h3>How a turn works</h3>
-<p>You read the room, then type one short instruction. The answer comes back in the log;
-if the instruction changed the room, the pane above updates itself. A sample exchange:</p>
+<p>You read what just arrived, then type one short instruction. The answer comes back in
+the same stream, under your own command echoed back. A sample exchange:</p>
 
 <pre><code>&gt; x sully
 A heavy man in his sixties with a burn scar up one forearm. He has the
@@ -284,8 +272,7 @@ costing HP after the fight ends. Bodies stay lootable by anyone for an hour of r
 including yours.</p>
 
 <h3>Two kinds of ground</h3>
-<p>The illustrated guide draws this as a diagram. In words, it is three bands stacked
-from north to south:</p>
+<p>The city is three bands stacked from north to south:</p>
 <ol>
   <li><strong>Coldwater Basin, the city.</strong> Bars, shops, clinics, apartments, the job
   board, banks. Other players <em>can</em> attack you here — nothing stops them but
@@ -363,7 +350,8 @@ faster than dossing anywhere else.</p>
 
 <p>Rent falls due every seven days on the city calendar, and the city clock is fast — a day
 is eight real hours, so a week's rent comes round in a couple of real days. Miss it and
-you're out. The tablet's Calendar app tracks the due date.</p>
+you're out. The tablet's calendar tracks the due date — <code>tabletnav calendar</code>, and
+<code>remind</code> sets an alarm against it.</p>
 
 <div class="aside">
   <p><strong>Your mess is now your problem.</strong> Unowned rooms get swept clean nightly by
@@ -446,7 +434,8 @@ Thursdays and Sundays. Games are simulated fresh and called by commentary.</p>
 it: sit down, order something, and let the place watch it with you.</p>
 
 <h3>Weather, which is trying to kill you</h3>
-<p>The forecast runs seven days ahead and you can read it on the tablet. Most of it is
+<p>The forecast runs seven days ahead and you read it on the tablet
+(<code>tabletnav news</code>). Most of it is
 texture. Some of it is not.</p>
 <ul>
   <li><strong>Severe weather is lethal — but only to the unprepared.</strong> The right coat
@@ -485,8 +474,10 @@ killing his business by killing his customers — people exactly like you, about
 younger. He'd like two of them gone, and his stolen flashlight cells back.</p>
 
 <ol>
-  <li>Head south past the Embassy's warm lights. Quests draw a <strong>green GPS line</strong>
-  on your map — follow it, or hit AUTO and let your legs do it.</li>
+  <li>Head south past the Embassy's warm lights. A quest plots the route for you and tells
+  you how many stops away it is; say yes to auto-walk and your legs do the rest.
+  <code>gps &lt;place&gt;</code> plots one to anything you can name, and <code>walk</code> or
+  <code>run</code> sets you going.</li>
   <li><code>attack clonejacker</code>. Twice, on two different clonejackers. This is your first
   real fight and it is meant to be winnable.</li>
   <li><code>loot</code> the bodies until you find Grady's cells.</li>
@@ -623,7 +614,6 @@ something.</p>
     <li><a href="/lore-text.html">Part three, text edition: the two questions</a> — all nine
     orders, what each wants, and what siding with one does to your prices, your doors and your
     body.</li>
-    <li><a href="/guide.html">The illustrated version of this page</a>.</li>
     <li><a href="https://www.architectgame.net">Play ARCHITECT</a> — free, in a browser tab.</li>
   </ul>
   <p>Coldwater Basin runs whether you're watching or not. Take a coat.</p>
