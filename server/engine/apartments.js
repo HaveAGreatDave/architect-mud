@@ -1242,9 +1242,18 @@ export function describeRentStatus(zone, player) {
 		: daysUntilNext <= 3
 			? `<span style="color:var(--yellow)">${daysUntilNext} days</span>`
 			: `${daysUntilNext} days`;
+	// Prepayment is DERIVED, never stored: cmdPrepay only ever pushes rent_due_date
+	// further out, so a due date more than one cycle away IS the receipt. A second
+	// counter column would be a copy of that fact and would drift the first time a
+	// tick, an eviction or an admin edit moved the date without knowing about it.
+	// Anything within the current cycle is just an ordinary tenant, not "0 ahead".
+	const cyclesAhead = Math.max(0, Math.ceil(daysUntilNext / RENT_PERIOD_DAYS) - 1);
+	const prepaid = cyclesAhead > 0
+		? ` <span style="color:var(--green)">Prepaid ${cyclesAhead} ${cyclesAhead === 1 ? 'cycle' : 'cycles'} ahead.</span>`
+		: '';
 	// PREPAY is advertised on the status line rather than in help alone: it is the
 	// only lever a tenant has, and nothing else in the room would ever mention it.
-	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}). `
+	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}₵</span> due ${formatGameDate(due)} (${urgency}).${prepaid} `
 		+ `<span class="action-link" data-raw-cmd="prepay 4" title="Pay four cycles up front — not refundable">PREPAY</span> to pay ahead.</span>`;
 }
 
