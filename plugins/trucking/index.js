@@ -142,7 +142,12 @@ async function cmdDrive(args, raw, player) {
   setPosture(player, 'driving');
   // Out of the shed and onto the apron, and the room description that comes with it. Done AFTER
   // the rig exists so the move gate sees a driver rather than a pedestrian walking out of a door.
-  if (bay && yardId && yardId !== player.current_zone) driveToZone(player, rig, yardId);
+  // ⚠ `bay` IS NOT "YOU WERE INDOORS". It only means the tile you are standing on carries the
+  // depot flag, and the legacy shape puts that flag straight on a piece of hardstand — so a yard
+  // with no shed at all satisfies it. What the roller door needs to know is whether the truck had
+  // to be walked OUT of somewhere, which is exactly this move happening.
+  const fromShed = !!(bay && yardId && yardId !== player.current_zone);
+  if (fromShed) driveToZone(player, rig, yardId);
 
   // THE MINIGAME AXIS (docs/systems-display-mode.md). Delete the cab and the player is not reading
   // less, they are STUCK — they cannot make the run at all — so this is `prefersTextMinigames`,
@@ -158,11 +163,30 @@ async function cmdDrive(args, raw, player) {
     const dest = rig.cargo?.to || defaultRunTarget(here);
     startTextDrive(player, rig, { arrive, leaveTheMap });
     setTextTarget(player.id, dest);
-    return say(`<span class="text-green">You haul yourself up into the cab. The diesel catches on the second turn and the whole frame starts to shake.</span>\n<span class="text-dim">She holds the road; the box is yours. <b>revs up</b> / <b>revs down</b> to shift, <b>boot</b>, <b>cruise</b>, <b>coast</b>, <b>brake</b>, <b>jake</b> on a descent. <b>park</b> to pull over, <b>haul</b> and <b>market</b> at a yard.</span>`);
+    // The roller door, at this rung, is a SENTENCE — the same beat the cab plays as a cinematic.
+    // Whichever rung you are on, the run starts with the shed opening in front of you.
+    const doorLine = fromShed
+      ? ' The roller door grinds up in front of you, a bar of daylight at a time, and the yard is out there waiting.'
+      : '';
+    return say(`<span class="text-green">You haul yourself up into the cab. The diesel catches on the second turn and the whole frame starts to shake.${doorLine}</span>\n<span class="text-dim">She holds the road; the box is yours. <b>revs up</b> / <b>revs down</b> to shift, <b>boot</b>, <b>cruise</b>, <b>coast</b>, <b>brake</b>, <b>jake</b> on a descent. <b>park</b> to pull over, <b>haul</b> and <b>market</b> at a yard.</span>`);
   }
 
-  sendToPlayer(player.id, { type: 'truck_sim', ...cabContext(rig, { mounted: true }) });
-  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. The diesel catches on the second turn, and the whole frame starts to shake. ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`);
+  // ⚠ THE TYPE GOES AFTER THE SPREAD. `cabContext` carries its own `type: 'truck_ctx'` (it is the
+  // per-tick push), so writing the type FIRST let the spread overwrite it — the mount message went
+  // out as an ordinary context update, the client's `truck_ctx` handler saw no cab open, returned
+  // on its first line, and the windscreen never appeared. No error, no console line, nothing: you
+  // were mounted, you were on the apron, and `drive` answered "you are already behind the wheel".
+  // OUT THROUGH THE ROLLER DOOR. `fromBay` is the one fact the cab cannot work out for itself:
+  // whether you turned the key INSIDE a shed or standing on the hardstand. The rig is on the apron
+  // either way — a bay is a building and buildings have no grid coordinates to put a truck on — so
+  // the shed is drawn in the CAB rather than in the world: an interior, a door, and a bar of
+  // daylight widening across the hood until the glass is the yard. It costs the world model
+  // nothing and it is the difference between a run that begins and a run that is simply on.
+  sendToPlayer(player.id, { ...cabContext(rig, { mounted: true, fromBay: fromShed ? (depot.name || 'the shed') : null }), type: 'truck_sim' });
+  const rollUp = fromShed
+    ? ` The roller door grinds up in front of you, a bar of daylight at a time.`
+    : '';
+  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. The diesel catches on the second turn, and the whole frame starts to shake.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`);
 }
 
 // Where a text run heads when the deck is empty: the nearest depot in ANOTHER region, which means
@@ -243,7 +267,7 @@ function mountOnCrossing(player) {
     rig.x = p.x; rig.y = p.y; rig.heading = p.heading;
   }
   setPosture(player, 'driving');
-  sendToPlayer(player.id, { type: 'truck_sim', ...cabContext(rig, { mounted: true }) });
+  sendToPlayer(player.id, { ...cabContext(rig, { mounted: true }), type: 'truck_sim' });   // type AFTER the spread — see cmdDrive
   return say('<span class="text-green">There is a rig at the roadhead with the keys still in it. You climb up, and the diesel catches on the second turn.</span>');
 }
 

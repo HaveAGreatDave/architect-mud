@@ -21,6 +21,7 @@ import { isTextDriving } from './textdrive.js';
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
+import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
@@ -976,7 +977,29 @@ export default async function regress({ run, check, getPlayer }) {
         player.credits = 40000 - 31000;
       }
 
+      // WHAT THE CLIENT IS ACTUALLY HANDED AT THE TURN OF THE KEY. This is captured rather than
+      // asserted off the return value, because the windscreen is a PUSH and the return value is
+      // only the prose beside it — which is exactly how the mount shipped broken: the payload was
+      // built as `{ type: 'truck_sim', ...cabContext() }` and `cabContext` carries its own
+      // `type: 'truck_ctx'`, so the spread overwrote it. The message went out as an ordinary
+      // context update, the client's handler saw no cab open and returned on its first line, and
+      // the driver was left mounted on a road tile with no cab and `drive` telling them they were
+      // already behind the wheel. Nothing threw. Only the type on the wire could have caught it.
+      const pushes = [];
+      const savedBc = getBroadcast();
+      setBroadcast((_z, message, _ex, targetId) => { if (targetId === player.id) pushes.push(message); });
       const got = await run('drive');
+      setBroadcast(savedBc);
+      const cab = pushes.find(m => m?.type === 'truck_sim');
+      check('the cab itself is pushed to the client, as truck_sim', !!cab,
+        pushes.map(m => m?.type).join(', ') || 'nothing pushed');
+      check('…carrying the world window and the truck it is', !!cab?.map && !!cab?.params,
+        `map=${!!cab?.map} params=${!!cab?.params}`);
+      // THE DOOR ONLY EXISTS IF YOU CAME OUT OF ONE. This suite's yard is a bare road tile
+      // carrying the flag — the legacy apron shape, no shed — so the cab must be told there is no
+      // roller door to lift. Getting this wrong is two and a half seconds of a player staring at
+      // a steel shutter that was never in front of them.
+      check('…and no roller door when you were never inside one', cab?.fromBay == null, cab?.fromBay);
       const rig = rigOf(player);
       check('a rig mounts at a depot once you own one', !!rig, got?.message?.slice(0, 50));
       check('…and it is the truck you actually bought',

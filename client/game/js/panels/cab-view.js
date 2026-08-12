@@ -216,8 +216,77 @@ export function openCab(ctx = {}) {
     }
   }
 
+  // THE ROLLER DOOR. Only when you turned the key inside a shed — see below.
+  if (ctx.fromBay) rollUp(container);
+
   st.raf = requestAnimationFrame(frame);
   return st;
+}
+
+// ── OUT THROUGH THE ROLLER DOOR ──────────────────────────────────────────────
+//
+// A haul starts inside a building. The truck cannot: a bay is a building, buildings are solid and
+// carry no grid coordinates, and a rig has to stand on a tile with a surface under it — so the
+// server puts you on the apron a door away and always has (see cmdDrive). What was missing was the
+// door itself, and without it the run did not begin, it was simply already happening: one moment a
+// shop window, the next moment a road.
+//
+// So THE SHED IS DRAWN IN THE CAB, NOT IN THE WORLD. It is four gradients and a slatted panel over
+// the glass — the real windscreen is live underneath it the entire time, already painting the yard
+// — and the panel goes up. That is the whole trick, and it is why this costs the world model
+// nothing: no interior tile, no second camera, no geometry to collide with, nothing to keep in
+// sync. What you see through the widening gap is the actual road you are about to drive on.
+//
+// The throttle is dead until the door is clear. Not because anything would stop you — there is no
+// door in the physics, there is no door anywhere but here — but because a driver who pulls away
+// through a closed door has been told the picture is a lie, and every frame after that is cheaper
+// for it. Two seconds of idle, which is roughly how long the real thing takes.
+const DOOR_LIFT_MS = 2400;      // the panel's own travel, matching the CSS
+const DOOR_HOLD_MS = 2150;      // throttle released a shade before it is fully home — you creep out under it
+const DOOR_GONE_MS = 3300;      // overlay removed; the walls have faded off the glass by now
+
+function rollUp(container) {
+  const wrap = container.querySelector('.ws-wrap');
+  if (!wrap) return;
+  // A player who has turned motion off has turned THIS off — it is two and a half seconds of a
+  // large object moving across the whole of their view, which is the exact thing that setting is
+  // for. They get the road, immediately, and the log still tells them the door went up.
+  if (document.documentElement.getAttribute('data-motion') === 'off'
+      || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+  wrap.insertAdjacentHTML('beforeend', `
+    <div class="cab-shed" aria-hidden="true">
+      <div class="cab-shed-spill"></div>
+      <div class="cab-shed-wall l"></div>
+      <div class="cab-shed-wall r"></div>
+      <div class="cab-shed-ceil"><i></i></div>
+      <div class="cab-shed-dust"></div>
+      <div class="cab-shed-door"><span class="cab-shed-seal"></span></div>
+    </div>`);
+  st.doorUntil = performance.now() + DOOR_HOLD_MS;
+  // The rig shakes on its springs while it sits there with the handbrake on and nothing to do.
+  container.querySelector('.cab-wrap')?.classList.add('cab-idling');
+
+  // The voice of it: a long metal scrape for the travel, and a clatter when it hits the top stop.
+  // Built locally rather than pushed from the server — nobody else in the yard needs to hear your
+  // door, and a cue that only one person can hear has no business on the wire.
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  const cue = (o, gain) => { try { const d = S?.buildActionCue(o); if (d) A?.playSfx(d, gain); } catch { /* audio is never load-bearing */ } };
+  cue({ action: 'scrape', surface: 'metal', intensity: 0.85, seed: 4471 }, 0.5);
+  st.doorT1 = setTimeout(() => cue({ action: 'scrape', surface: 'metal', intensity: 0.7, seed: 991 }, 0.4), 780);
+  st.doorT2 = setTimeout(() => cue({ action: 'impact', surface: 'metal', intensity: 0.6, seed: 233 }, 0.55), DOOR_LIFT_MS - 120);
+  st.doorT3 = setTimeout(() => {
+    if (!st) return;
+    st.container?.querySelector('.cab-shed')?.remove();
+    st.container?.querySelector('.cab-wrap')?.classList.remove('cab-idling');
+  }, DOOR_GONE_MS);
+}
+
+// Nothing here may outlive the cab: a timer holding a removed node is harmless, but one that fires
+// a sound into a player who has already parked is not.
+function clearRollUp() {
+  if (!st) return;
+  clearTimeout(st.doorT1); clearTimeout(st.doorT2); clearTimeout(st.doorT3);
+  st.doorUntil = 0;
 }
 
 // The server's authoritative push. It owns the world window, the odometer and the surface; the
@@ -310,6 +379,14 @@ function frame(now) {
     // driver's seat those two situations ARE the same situation, and giving the breakdown its own
     // client-side behaviour would have been a second copy of the same three lines.
     if (st.dry || st.broken) { st.input.throttle = 0; st.sim.rpm = 0; }
+    // Still under the door. The pedal does nothing and the brake is on — see rollUp. The engine is
+    // deliberately NOT silenced the way a dry tank silences it: it is running, you are just not
+    // going anywhere yet, and the idle is half of what makes the wait feel like a truck.
+    // The throttle and the wheel only. The BRAKE is deliberately not forced on: it is the
+    // player's own held control, and stomping it here would release a pedal they are holding the
+    // moment the door cleared. Nothing is pushing the truck at zero mph anyway.
+    if (st.doorUntil && now < st.doorUntil) { st.input.throttle = 0; st.input.steer = 0; }
+    else if (st.doorUntil) st.doorUntil = 0;
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
 
@@ -465,12 +542,76 @@ function ensureCabStyles() {
     .cab-pedals{flex-direction:row;flex-wrap:wrap}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{padding:12px 16px} }
+
+  /* ── THE SHED, AND THE DOOR GOING UP ──────────────────────────────────────
+     Everything here sits INSIDE .ws-wrap, over a windscreen that is already
+     painting the yard. Nothing is a screenshot and nothing is faked: the gap
+     under the lifting door is the live render, which is why the light spilling
+     in matches the weather and the time of day without being told either. */
+  .cab-shed{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;
+    animation:shed-clear .8s ease 2.5s forwards}
+  /* Walls and ceiling converge toward the mouth — a cheap one-point perspective, and enough of
+     one at this size. The player is looking down the length of a bay, not at a room. */
+  .cab-shed-wall{position:absolute;top:0;bottom:0;width:34%;
+    background:linear-gradient(90deg,#0a0c0f,#191d22 62%,#23282f)}
+  .cab-shed-wall.l{left:0;clip-path:polygon(0 0,100% 20%,100% 84%,0 100%)}
+  .cab-shed-wall.r{right:0;transform:scaleX(-1);clip-path:polygon(0 0,100% 20%,100% 84%,0 100%)}
+  .cab-shed-ceil{position:absolute;left:0;right:0;top:0;height:24%;background:linear-gradient(#0c0e12,#15181d);
+    clip-path:polygon(0 0,100% 0,68% 100%,32% 100%)}
+  /* The strip light. One tube, buzzing, slightly the wrong colour — the light every
+     workshop in the Basin is lit by. */
+  .cab-shed-ceil i{position:absolute;left:38%;right:38%;top:26%;height:5px;border-radius:3px;
+    background:#cfe6ff;box-shadow:0 0 26px 9px rgba(150,200,255,.30);animation:shed-buzz 2.6s steps(1) infinite}
+  /* Daylight coming under the door and then flooding the bay. Anchored at the bottom because
+     that is where the gap is; it grows with the door rather than on its own clock. */
+  .cab-shed-spill{position:absolute;left:-10%;right:-10%;bottom:0;height:70%;
+    background:radial-gradient(120% 100% at 50% 100%,rgba(255,240,205,.55),rgba(255,235,195,.16) 45%,transparent 72%);
+    opacity:.25;animation:shed-spill 2.4s ease-out .3s forwards;mix-blend-mode:screen}
+  .cab-shed-dust{position:absolute;inset:0;opacity:.5;animation:shed-drift 9s linear infinite;
+    background:
+      radial-gradient(1.5px 1.5px at 22% 62%,rgba(255,240,210,.55),transparent),
+      radial-gradient(1.5px 1.5px at 63% 38%,rgba(255,240,210,.42),transparent),
+      radial-gradient(2px 2px at 44% 76%,rgba(255,240,210,.35),transparent),
+      radial-gradient(1.5px 1.5px at 78% 66%,rgba(255,240,210,.45),transparent),
+      radial-gradient(1.5px 1.5px at 34% 30%,rgba(255,240,210,.30),transparent)}
+  /* The door itself: corrugated steel, lit from below by the gap it is opening. The slats are a
+     repeating gradient rather than elements, so a hundred of them cost one paint. */
+  .cab-shed-door{position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0) 26%,rgba(255,238,205,.10) 96%),
+      repeating-linear-gradient(180deg,#2b3038 0,#343a44 5px,#22262d 10px,#1b1f25 11px),
+      #22262d;
+    box-shadow:inset 0 -22px 40px -18px rgba(255,236,200,.55);
+    animation:shed-lift 2.4s cubic-bezier(.42,.02,.24,1) .35s forwards}
+  /* The rubber seal at the bottom, and the bar of daylight it is holding down. */
+  .cab-shed-seal{position:absolute;left:0;right:0;bottom:0;height:9px;background:#0e1013;
+    box-shadow:0 5px 16px 4px rgba(255,236,200,.55),0 2px 0 0 rgba(255,244,215,.85)}
+  @keyframes shed-lift{
+    0%{transform:translateY(0)}
+    6%{transform:translate(-1px,1%)}      /* it takes up the slack before it takes up anything else */
+    12%{transform:translate(1px,0)}
+    40%{transform:translate(-1px,-34%)}
+    70%{transform:translate(1px,-72%)}
+    100%{transform:translateY(-104%)}
+  }
+  @keyframes shed-spill{0%{opacity:.25}100%{opacity:1}}
+  @keyframes shed-clear{to{opacity:0}}
+  @keyframes shed-buzz{0%,88%,100%{opacity:1}90%{opacity:.45}92%{opacity:1}94%{opacity:.6}}
+  @keyframes shed-drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-6%,-9%,0)}}
+  /* Sitting there with the box in neutral and forty tonnes idling under you. Tiny on purpose:
+     it should read at the edge of the glass, not be something anybody has to look at. */
+  .cab-idling .ws-wrap{animation:cab-idle-shake 260ms ease-in-out infinite}
+  @keyframes cab-idle-shake{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6px,-.6px,0)}}
+  @media (prefers-reduced-motion:reduce){
+    .cab-idling .ws-wrap,.cab-shed-dust,.cab-shed-ceil i{animation:none}
+  }
   `;
   document.head.appendChild(s);
 }
 
 export function closeCab() {
   if (!st) return;
+  clearRollUp();
   suppressWeatherFx(false);
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room

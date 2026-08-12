@@ -408,6 +408,39 @@ now what suppresses the room, so the room would never have painted again). `truc
 re-looks on the way out exactly as `hangar_close` does, skipped when the cab has taken over, because
 then you did not walk out, you drove.
 
+**The cab nobody had seen either, for a second reason** *(2026-08-12)*. With the pane fixed, `drive`
+*still* left you mounted on a road tile with no windscreen and no error anywhere. The mount payload
+was built as `{ type: 'truck_sim', ...cabContext(rig, { mounted: true }) }` — and **`cabContext`
+carries its own `type: 'truck_ctx'`**, because it is also the per-tick push. The spread came after
+the type and overwrote it. So the message arrived as an ordinary context update, the client's
+`truck_ctx` handler returned on its first line (`if (!st) return` — no cab was open), and nothing
+threw. **The type goes after the spread**, at both mount sites. The regress case that pins it
+captures the real pushes at the turn of the key rather than reading the return value, because the
+windscreen is a push and the prose beside it is not: nothing about the returned message was ever
+wrong.
+
+**Out through the roller door** *(2026-08-12)*. A haul starts inside a building and **the truck
+cannot** — a bay is a building, buildings are solid and carry no grid coordinates, and a rig needs a
+tile with a surface under it. So the server has always walked you out to the apron first, and the
+run therefore never *began*; it was simply already happening, one frame a shop window and the next
+frame a road. **The shed is now drawn in the CAB, not in the world**: an interior, a slatted steel
+door and a bar of daylight, laid over the windscreen inside `.ws-wrap` while the real render paints
+the yard underneath the whole time. The door goes up and what widens under it is the actual road you
+are about to drive on — which is why the light spilling in matches the hour and the weather without
+being told either. Nothing was added to the world model: no interior tile, no second camera, no
+geometry, nothing to keep in sync.
+
+Three things worth knowing before touching it. **`fromBay` is the only fact the client cannot
+derive** (whether you turned the key indoors), and the server must not compute it from `bay` alone —
+that flag only means *this tile carries the depot flag*, which the legacy shape puts straight on a
+piece of hardstand, so a yard with no shed satisfies it. The discriminator is `fromShed`: that the
+truck had to be walked out of somewhere. **The throttle is dead for the first ~2.1s**, not because
+anything would stop you (there is no door in the physics, there is no door anywhere but on the
+glass) but because a driver who pulls away through a closed shutter has been told the picture is a
+lie, and every frame after that is cheaper for it. And **motion-off turns the whole thing off** — it
+is two and a half seconds of a large object crossing the entire view, which is precisely what that
+setting exists for; the log still says the door went up, at every rung.
+
 **A hover is a condition, not an animation** *(2026-08-12)*. The start-up sequence cleared its own
 state when the clock ran out, so the mesh fell back to `~p` and **the rig sat back down on a running
 engine**. The sequence now hands over to a RUNNING state (`B.lit`) that holds the ride height, keeps
