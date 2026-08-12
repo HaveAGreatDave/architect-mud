@@ -1609,6 +1609,83 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   getPlayer().displayRung = savedMode;
 }
 
+// ── Three panels that had no written form at the log rung ────────────────────
+// A body you can't read, a box you can't read, and a recipe list you can't
+// read. Each was reachable by verb and blind: `lootall` took things you never
+// saw, `open` said only that you'd opened it, `recipes` sent a panel and no
+// text at all. The rule being pinned is the doc's: at this rung the RECORD
+// reaches the log.
+{
+  const savedMode = getPlayer().displayRung;
+
+  // Loot. Driven through the builder + the reply fork rather than a live corpse,
+  // because what's under test is the presentation, not corpse spawning.
+  {
+    const { lootReply } = await import('../server/engine/commands/combat.js');
+    const view = {
+      type: 'loot_view', corpseId: 'corpse_x', corpseName: 'Dead Scrapper', butcherable: true,
+      items: [{ name: 'Rusty Pipe', quantity: 1 }, { name: 'Cred Chip', quantity: 3 }], invItems: [],
+    };
+    check('loot: the visual rung still gets the panel',
+      lootReply(view, { displayRung: 'visual' }).type === 'loot_view');
+    const logged = lootReply(view, { displayRung: 'log' });
+    check('loot: the log rung reads the body instead', logged.type === 'output', JSON.stringify(logged).slice(0, 120));
+    check('loot: …every item on it is named',
+      /Rusty Pipe/.test(logged.message) && /Cred Chip/.test(logged.message), logged.message);
+    check('loot: …with the count', /x3/.test(logged.message), logged.message);
+    check('loot: …and a way to take them', /loot &lt;item&gt; from Dead Scrapper/.test(logged.message)
+      && /lootall corpse_x/.test(logged.message), logged.message.slice(-260));
+    check('loot: …and the carve, when there is meat left', /butcher/.test(logged.message), logged.message.slice(-260));
+    const empty = lootReply({ ...view, items: [] }, { displayRung: 'log' });
+    check('loot: an empty body says so rather than printing a bare header',
+      /Nothing left to take/.test(empty.message), empty.message);
+  }
+
+  // Containers. The pacing split is the part worth pinning: OPENING prints the
+  // shelf, a stow/pull does NOT reprint forty rows.
+  {
+    const { containerReply } = await import('../server/engine/commands/inventory.js');
+    const view = {
+      type: 'container_view', containerId: 'box_x', containerName: 'Chest Freezer',
+      capacity: 20000, usedWeight: 1200, containerItems: [{ name: 'Fish Fillet', quantity: 2, group: 'Frozen' }],
+      invItems: [], compartments: [{ label: 'Top Shelf', active: true }, { label: 'Bottom Drawer', active: false }],
+    };
+    check('container: the visual rung still gets the panel',
+      containerReply(view, { displayRung: 'visual' }).type === 'container_view');
+    const opened = containerReply(view, { displayRung: 'log' });
+    check('container: opening one reads it out', opened.type === 'examine' && /Fish Fillet/.test(opened.message), JSON.stringify(opened).slice(0, 160));
+    check('container: …sectioned as the panel sections it', /Frozen/.test(opened.message), opened.message);
+    check('container: …naming the shelves you are not looking at',
+      /Bottom Drawer/.test(opened.message) && !/Top Shelf/.test(opened.message), opened.message);
+    const stowed = containerReply(view, { displayRung: 'log' }, 'You stow Fish Fillet in Chest Freezer.');
+    check('container: a stow says what it did and does NOT reprint the shelf',
+      stowed.type === 'output' && /You stow/.test(stowed.message) && !/Fish Fillet<\/span> x2/.test(stowed.message),
+      stowed.message);
+  }
+
+  // Crafting. Note the verb: `recipes` is DECLARED by the crafting plugin and
+  // owned by the drinks one, so bare `craft` is the only live door to this list —
+  // which is why it lists instead of erroring, and why this case guards the verb
+  // as much as the rendering.
+  {
+    const saved = getPlayer().displayRung;
+    getPlayer().displayRung = 'log';
+    const out = await run('craft');
+    check('craft: bare `craft` lists rather than pointing at a shadowed verb',
+      out?.type === 'output' && !/Craft what\?/.test(out.message || ''), JSON.stringify(out)?.slice(0, 140));
+    if (out?.type === 'output' && !/don't know how to make/.test(out.message)) {
+      check('craft: …and the log rung shows what you are SHORT of, not just that you are short',
+        /\d+\/\d+/.test(out.message) || /craft /.test(out.message), out.message.slice(0, 400));
+    }
+    getPlayer().displayRung = 'visual';
+    check('craft: the visual rung still gets the panel', (await run('craft'))?.type === 'recipes',
+      JSON.stringify(await run('craft'))?.slice(0, 140));
+    getPlayer().displayRung = saved;
+  }
+
+  getPlayer().displayRung = savedMode;
+}
+
 // ── Room pane: attached satellites and light clicks ──────────────────────────
 // Two rules about how the `Furniture:` line CLICKS, both easy to break silently
 // because nothing throws when a link points at the wrong verb.

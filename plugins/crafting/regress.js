@@ -102,8 +102,12 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('craft definitely not a real recipe');
   check('craft: unknown recipe is refused', r?.type === 'error', r?.message);
 
+  // Bare `craft` LISTS. It used to answer "use RECIPES", which is a verb this
+  // plugin declares and the drinks plugin owns — so the advice went somewhere
+  // else and the catalogue had no live door at all.
   r = await run('craft');
-  check('craft: bare craft explains itself', r?.type === 'error' && /RECIPES/i.test(r.message || ''), r?.message);
+  check('craft: bare craft lists the catalogue', r?.type === 'recipes' || r?.type === 'output', JSON.stringify(r)?.slice(0, 120));
+  check('craft: …and no longer points at a verb it does not own', !/RECIPES/i.test(r?.message || ''), r?.message);
 
   // Drive the activity contract directly with a synthetic craft state, so the
   // test doesn't depend on the fake player being able to afford any recipe.

@@ -1133,6 +1133,40 @@ shop-open paths (`shop <npc>` in commerce, and the dialogue OPEN_SHOP/`__shop__`
 door in `server/index.js`) take it. The shop **session** opens either way, so
 `buy`/`sell` behave identically from there. Selling was already a verb.
 
+## Three more panels written out *(built 2026-08-11)*
+
+Found by sweeping every panel-shaped message the server sends against whether
+its sender consults the rung. Each of these was reachable by verb and **blind** —
+which is the failure mode to watch for, because it doesn't look like a blocked
+player, it looks like a player doing things without being told what happened.
+
+**The body.** `loot <corpse>` sent `loot_view` with no message at all. `lootall`
+worked, so you could take everything off a corpse and never learn what was on
+it — on the one surface that pays for a fight. Now `lootReply`
+([commands/combat.js](../server/engine/commands/combat.js)) renders the same view
+object the panel gets, folding in the `mainMsg`/`notify` the callers stamp on it.
+
+**The box.** `look in <box>` had always answered in text, but `open <box>` — the
+verb the room pane links — put the contents in a panel and *"You open the
+fridge."* in the log, and nothing pointed at the other verb. `containerReply`
+([commands/inventory.js](../server/engine/commands/inventory.js)) prints the shelf
+on OPEN and, deliberately, **not** on a stow or a pull: those are refreshes, and
+reprinting forty rows after each one is the torrent the pacing rule forbids. They
+say what they did; `look in` re-reads on demand.
+
+**The recipe list** — which turned out to be a worse bug than a missing text
+form. `recipes` is declared in [crafting's manifest](../plugins/crafting/plugin.json)
+and **owned by the drinks plugin**, which registers it too and wins. So crafting's
+`cmdRecipes` was unreachable, and bare `craft` answered *"use RECIPES to see
+available recipes"* — advice that ran somebody else's verb. Bare `craft` now
+lists, which gives the catalogue a live door at every rung, and at `log` it lists
+in text with the **shortfall spelled out** (`scrap plate 2/3`), because a list
+that only says you can't sends the player nowhere.
+
+The general lesson, worth keeping: **a panel with a companion verb still needs
+checking.** All three had one, and all three were holes anyway — the verb existed
+and nothing on the rung ever mentioned it.
+
 ## The tablet at the log rung — an index of verbs
 
 The tablet is the one panel that could not simply be "written out": it is a

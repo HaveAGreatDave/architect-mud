@@ -11,13 +11,14 @@ import { emit, on } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction, availableActions } from '../specializedActions.js';
 import { computeSellUnitPrice } from '../vendor.js';
-import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
+import { resolveCorpseOrPlayer, buildLootView, lootReply } from './combat.js';
 import { titleCaseName } from '../text.js';
 import { getItem } from '../items-cache.js';
 import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
 import { sectionize, facetOf, AXIS_ORDER } from '../classify.js';
+import { loggedPanelsSync } from '../presentation.js';
 import { conditionBand, wears } from '../durability.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
@@ -1375,6 +1376,55 @@ async function buildContainerView(containerId, player) {
   return view;
 }
 
+// ── The box, written out ─────────────────────────────────────────────────────
+//
+// `look in <box>` has always answered in text (describeContainer, above), but
+// `open <box>` — the verb the room pane links, and the one anybody would reach
+// for — put the contents in a panel and only *"You open the fridge."* in the
+// log. So at the bottom Display Mode rung the shelf was a verb away and nothing
+// said so.
+//
+// Rendered from the SAME view the panel gets rather than by re-reading the box:
+// the sections, the durability bands, the capacity and the compartment tabs are
+// all already on it, and re-deriving them here is how the two drift.
+function renderContainerText(view) {
+  const lines = [];
+  if (view.mainMsg) lines.push(`<span class="msg-system">${view.mainMsg}</span>`);
+  const boxes = [{ name: view.containerName, items: view.containerItems, capacity: view.capacity, used: view.usedWeight },
+    ...(view.secondary ? [{ name: view.secondary.containerName, items: view.secondary.containerItems, capacity: view.secondary.capacity, used: view.secondary.usedWeight }] : [])];
+  for (const box of boxes) {
+    lines.push(`<b>${box.name}</b> <span class="text-dim">(${formatWeight(box.used || 0)}/${formatWeight(box.capacity || 0)})</span>`);
+    if (!box.items?.length) { lines.push('  Empty.'); continue; }
+    let group = null;
+    for (const r of box.items) {
+      if (r.group && r.group !== group) { group = r.group; lines.push(`  <span class="text-dim">${r.group}</span>`); }
+      const band = r.cond ? ` <span class="text-dim">(${r.cond.label})</span>` : '';
+      lines.push(`  ${group ? '  ' : ''}<span class="action-link" data-action="cmd" data-cmd="pull ${r.name} from ${box.name}">${r.name}</span>${r.quantity > 1 ? ` x${r.quantity}` : ''}${band}`);
+    }
+  }
+  // The other shelves of a cabinet. Only one is loaded at a time, so without
+  // this a text player has no way to learn the rest are there — the same reason
+  // `look in` prints them.
+  const others = (view.compartments || []).filter(c => !c.active);
+  if (others.length) lines.push(`<span class="text-dim">Also in here: ${others.map(c => c.label).join(', ')}.</span>`);
+  if (view.invNote) lines.push(`<span class="text-dim">${view.invNote}</span>`);
+  lines.push(`<span class="text-dim">stow &lt;item&gt; in ${view.containerName} · pull &lt;item&gt; from ${view.containerName}</span>`);
+  return lines.join('\n');
+}
+
+// Every path that would open or refresh the container panel goes through here.
+//
+// `doneLine` is the pacing rule from docs/systems-display-mode.md applied to a
+// box: OPENING one is a request to read it, so it prints in full — but a stow or
+// a pull is a REFRESH, and reprinting forty rows after each of them buries
+// everything else the player needs to hear. Those sites say what they did and
+// leave the shelf where it was; `look in` re-reads it on demand.
+export function containerReply(view, player, doneLine = null) {
+  if (!view || view.type !== 'container_view' || !loggedPanelsSync(player)) return view;
+  if (doneLine) return { type: 'output', message: `<span class="msg-system">${doneLine}</span>` };
+  return { type: 'examine', message: renderContainerText(view) };
+}
+
 async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!nameStr) return null;
   let container = await resolveContainer(nameStr, player);
@@ -1393,12 +1443,12 @@ async function cmdOpenContainer(nameStr, player, broadcast) {
     view.mainMsg = `You open ${withArticle(view.containerName)}.`;
     broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} opens ${withArticle(view.containerName)}.` }, player.id);
   }
-  return view;
+  return containerReply(view, player);
 }
 
 async function cmdOpenContainerById(idStr, player) {
   if (!idStr) return { type:'error', message:'Invalid container id.' };
-  return buildContainerView(idStr, player);
+  return containerReply(await buildContainerView(idStr, player), player);
 }
 
 async function cmdCloseContainer(idStr, player, broadcast) {
@@ -1460,7 +1510,7 @@ async function cmdStowById(argStr, player, broadcast) {
     }
     const view = await buildLootView(corpse, player);
     view.mainMsg = `You drop ${item.name} on ${corpse.name}.`;
-    return view;
+    return lootReply(view, player);
   }
   if (item.tags?.perishable) await fireHook('item.checkFreshness', item, player);
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
@@ -1494,7 +1544,7 @@ async function cmdStowById(argStr, player, broadcast) {
     const echoed0 = throttledContainerBroadcast(player, broadcast, container.name);
     const view0 = await buildContainerView(container.id, player);
     if (echoed0) view0.mainMsg = `You rummage through ${withArticle(container.name)}.`;
-    return view0;
+    return containerReply(view0, player, `You stow ${canFit}x ${item.name} in ${container.name}.`);
   }
 
   const cap = containerCapacity(container);
@@ -1519,7 +1569,7 @@ async function cmdStowById(argStr, player, broadcast) {
         const view = await buildContainerView(container.id, player);
         view.notify = `Stowed ${canFit}x ${item.name} — bag is now full.`;
         if (echoed) view.mainMsg = `You rummage through ${withArticle(container.name)}.`;
-        return view;
+        return containerReply(view, player, view.notify);
       }
     }
     return { type:'container_error', message:`${container.name} is full (${formatWeight(used)}/${formatWeight(cap)}).` };
@@ -1533,7 +1583,7 @@ async function cmdStowById(argStr, player, broadcast) {
       const echoed1 = throttledContainerBroadcast(player, broadcast, container.name);
       const view1 = await buildContainerView(container.id, player);
       if (echoed1) view1.mainMsg = `You rummage through ${withArticle(container.name)}.`;
-      return view1;
+      return containerReply(view1, player, `You stow ${item.name} in ${container.name}.`);
     }
   }
   // Putting shop stock back clears the unpaid mark (see vendorStockOwner).
@@ -1541,7 +1591,7 @@ async function cmdStowById(argStr, player, broadcast) {
   const echoed2 = throttledContainerBroadcast(player, broadcast, container.name);
   const view2 = await buildContainerView(container.id, player);
   if (echoed2) view2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
-  return view2;
+  return containerReply(view2, player, `You stow ${item.name} in ${container.name}.`);
 }
 
 async function cmdPullById(idStr, qtyStr, player, broadcast) {
@@ -1574,7 +1624,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
     const pvPart = await buildContainerView(containerId, player);
     if (pePart) pvPart.mainMsg = `You rummage through ${withArticle(container.name)}.`;
     if (vendorId) pvPart.mainMsg = unpaidNote(item.name);
-    return pvPart;
+    return containerReply(pvPart, player, pvPart.mainMsg || `You take ${takeQty}x ${item.name} from ${container.name}.`);
   }
 
   if (!vendorId && isStackable(item) && rowIsMergeable(item)) {
@@ -1585,7 +1635,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
       const pe1 = throttledContainerBroadcast(player, broadcast, container.name);
       const pv1 = await buildContainerView(containerId, player);
       if (pe1) pv1.mainMsg = `You rummage through ${withArticle(container.name)}.`;
-      return pv1;
+      return containerReply(pv1, player, `You take ${item.name} from ${container.name}.`);
     }
   }
   await query(`UPDATE player_inventory SET container_id=NULL, player_id=$1${vendorId ? UNPAID_SET_SQL : ''} WHERE id=$2`,
@@ -1594,7 +1644,7 @@ async function cmdPullById(idStr, qtyStr, player, broadcast) {
   const pv2 = await buildContainerView(containerId, player);
   if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
   if (vendorId) pv2.mainMsg = unpaidNote(item.name);
-  return pv2;
+  return containerReply(pv2, player, pv2.mainMsg || `You take ${item.name} from ${container.name}.`);
 }
 
 // "all" / "all <filter>" — the bulk form shared by drop and stow. Returns null

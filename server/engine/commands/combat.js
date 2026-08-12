@@ -7,6 +7,7 @@ import { isStackable } from "../tags.js";
 import { rowIsMergeable, MERGEABLE_SQL } from "../inventory.js";
 import { titleCaseName } from "../text.js";
 import { emit } from "../events.js";
+import { loggedPanelsSync } from "../presentation.js";
 import { randomUUID } from "crypto";
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -54,6 +55,45 @@ export async function buildLootView(corpse, player) {
 		capacity: corpse.capacity != null ? corpse.capacity : null,
 		usedWeight: used,
 	};
+}
+
+// ── The body, written out ────────────────────────────────────────────────────
+//
+// `loot_view` is a panel and nothing else: until this existed, a player on the
+// bottom Display Mode rung could kill something and had no way to find out what
+// was on it. `lootall` still worked, so they were not stuck — they were looting
+// blind, which on the one surface that pays for a fight is close enough.
+//
+// It renders the SAME view object the panel gets, so the two can't disagree
+// about what's on the body, and it folds in whatever the caller stamped on it
+// (`mainMsg` — what you just did; `notify` — what just happened to the pile).
+function renderLootText(view) {
+	const lines = [];
+	if (view.mainMsg) lines.push(`<span class="msg-system">${view.mainMsg}</span>`);
+	if (view.notify) lines.push(`<span class="msg-system">${view.notify}</span>`);
+	lines.push(`<b>${view.corpseName}</b> — what's on the body:`);
+	if (!view.items.length) {
+		lines.push(view.butcherable
+			? '  Nothing left to take, but there is still meat on it. <span class="action-link" data-action="cmd" data-cmd="butcher">butcher</span>'
+			: '  Nothing.');
+		return lines.join('\n');
+	}
+	for (const it of view.items) {
+		lines.push(`  <span class="action-link" data-action="cmd" data-cmd="loot ${it.name} from ${view.corpseName}">${it.name}</span>${it.quantity > 1 ? ` x${it.quantity}` : ''}`);
+	}
+	// `lootall` takes the corpse ID, which nobody can type — so it rides as a
+	// link. The per-item form is the one a player can actually spell.
+	lines.push(`<span class="text-dim">loot &lt;item&gt; from ${view.corpseName} · `
+		+ `<span class="action-link" data-action="cmd" data-cmd="lootall ${view.corpseId} ${view.corpseName}">take everything</span>`
+		+ `${view.butcherable ? ' · <span class="action-link" data-action="cmd" data-cmd="butcher">butcher</span>' : ''}</span>`);
+	return lines.join('\n');
+}
+
+// Every path that would open the loot panel goes through here. At the bottom
+// rung the body is read instead — same view, no panel.
+export function lootReply(view, player) {
+	if (!view || view.type !== 'loot_view' || !loggedPanelsSync(player)) return view;
+	return { type: 'output', message: renderLootText(view) };
 }
 
 // Move one inventory row to a player, stacking onto an existing stack when the
@@ -115,7 +155,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 			const { dispatchAction } = await import("../actions.js");
 			return dispatchAction({ type: "BUTCHER", actor: player, params: { targetStr: corpse.id }, context: { broadcast } });
 		}
-		return buildLootView(corpse, player);
+		return lootReply(await buildLootView(corpse, player), player);
 	}
 
 	// No corpse — check for a player in the zone (live first, then offline)
@@ -144,11 +184,11 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	// straight face. Fail in front of witnesses and you bottle it, sheepishly.
 	const isSleeping = !!targetPlayer.sleeping || !!targetPlayer.offline_sleeping;
 	if (isSleeping) {
-		const lootView = () => buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
+		const lootView = async () => lootReply(await buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player), player);
 		const result = await attemptSneakyLoot(player, targetPlayer, broadcast);
 		return result === "proceed" ? lootView() : result;
 	}
-	return buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
+	return lootReply(await buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player), player);
 }
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -221,7 +261,7 @@ async function cmdLootAll(args, player) {
 	if (!items.length) {
 		const view = await buildLootView(corpse, player);
 		view.notify = "Nothing left to take.";
-		return view;
+		return lootReply(view, player);
 	}
 	let taken = 0;
 	for (const item of items) {
@@ -230,7 +270,7 @@ async function cmdLootAll(args, player) {
 	}
 	const view = await buildLootView(corpse, player);
 	view.notify = `${taken} item${taken !== 1 ? 's' : ''} transferred to inventory.`;
-	return view;
+	return lootReply(view, player);
 }
 
 // Pull a single item from a corpse into inventory (GUI take button).
@@ -279,7 +319,7 @@ async function cmdLootId(args, player) {
 
 	const view = await buildLootView(corpse, player);
 	view.mainMsg = `You take ${takeQty ? takeQty + 'x ' : ''}${name}.`;
-	return view;
+	return lootReply(view, player);
 }
 
 export const handlers = {

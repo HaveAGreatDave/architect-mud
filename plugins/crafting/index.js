@@ -23,13 +23,14 @@ import { getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getPosture, setPosture } from '../../server/engine/posture.js';
 import { on } from '../../server/engine/events.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 
 async function cmdRecipes(args, raw, player) {
   const { rows: skillRows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id = $1', [player.id]);
   const skills = {};
   for (const r of skillRows) skills[r.skill_id] = Math.floor((r.ip || 0) / 100);
   const available = getAvailableRecipes(player, skills);
-  if (!available.length) return { type:'recipes', recipes:[] };
+  if (!available.length) return renderRecipes([], player);
 
   // Resolve item names for outputs + ingredients in a single query.
   const itemIds = new Set();
@@ -83,7 +84,39 @@ async function cmdRecipes(args, raw, player) {
       reason,
     };
   });
-  return { type:'recipes', recipes };
+  return renderRecipes(recipes, player);
+}
+
+// ── The recipe list, written out ─────────────────────────────────────────────
+//
+// `recipes` sent a panel and nothing else, so at the bottom Display Mode rung
+// the tablet index advertised `craft` to a player who then had no way to read
+// what they could make. Rendered from the same rows the panel gets.
+//
+// It shows the SHORTFALL, not just a red X: "2/3 scrap plate" is what tells you
+// what to go and find, and a text list has no tooltip to hide it in.
+function renderRecipes(recipes, player) {
+  if (!loggedPanelsSync(player)) return { type: 'recipes', recipes };
+  if (!recipes.length) {
+    return { type: 'output', message: "You don't know how to make anything yet." };
+  }
+  const lines = ['<span class="help-header">WHAT YOU CAN MAKE</span>'];
+  let category = null;
+  for (const r of recipes) {
+    const cat = r.category || 'Other';
+    if (cat !== category) { category = cat; lines.push(`\n<span class="help-category">${String(cat).toUpperCase()}</span>`); }
+    const head = r.craftable
+      ? `<span class="action-link" data-action="cmd" data-cmd="craft ${r.name}">${r.name}</span>`
+      : `${r.name} <span class="text-dim">(${r.reason})</span>`;
+    lines.push(`  ${head}${r.output?.quantity > 1 ? ` <span class="text-dim">— makes ${r.output.quantity}</span>` : ''}`);
+    const parts = (r.ingredients || []).map(ing =>
+      ing.have >= ing.need ? `${ing.name} ${ing.need}` : `<span class="text-red">${ing.name} ${ing.have}/${ing.need}</span>`);
+    if (parts.length) lines.push(`      <span class="text-dim">${parts.join(' · ')}</span>`);
+    if (r.station) lines.push(`      <span class="text-dim">at a ${String(r.station).replace(/_/g, ' ')}</span>`);
+  }
+  lines.push('\n<span class="text-dim">craft &lt;name&gt; · '
+    + '<span class="action-link" data-action="cmd" data-cmd="findbench">findbench</span> for the nearest station</span>');
+  return { type: 'output', message: lines.join('\n') };
 }
 
 // Clear the craft and hide the client countdown bar.
@@ -97,7 +130,12 @@ function clearCraft(player, tellMsg) {
 
 async function cmdCraft(args, raw, player) {
   const wanted = args.join(' ').trim();
-  if (!wanted) return { type:'error', message:'Craft what? Use RECIPES to see available recipes.' };
+  // `craft` with nothing after it LISTS. It used to answer "use RECIPES" — a verb
+  // this plugin declares and does not own: the drinks plugin registers `recipes`
+  // too and wins it, so cmdRecipes below is only ever reached from here. That
+  // left the whole crafting catalogue behind a dead pointer, and at the log rung
+  // (where the tablet index advertises `craft`) behind nothing at all.
+  if (!wanted) return cmdRecipes(args, raw, player);
   const recipe = findRecipeByName(wanted);
   if (!recipe) return { type:'error', message:'Unknown recipe.' };
 
