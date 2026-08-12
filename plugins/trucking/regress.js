@@ -43,6 +43,19 @@ export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
   const savedZone = player.current_zone;
 
+  // ── 0. The air horn ────────────────────────────────────────────────────────
+  // A horn is only a horn if the ROOM hears it, so the thing worth pinning is not that the verb
+  // answers — it is that it refuses honestly when there is no truck within reach, and that both
+  // spellings land on the same handler. Half the people who want this will type the other one.
+  {
+    const noTruck = await run('horn');
+    check('the horn refuses when there is nothing here to sound one on',
+      /nothing here|nothing parked/i.test(noTruck?.message || ''), noTruck?.message?.slice(0, 60));
+    const alias = await run('honk');
+    check('…and `honk` is the same verb, not an unknown command',
+      (alias?.message || '') === (noTruck?.message || ''), alias?.message?.slice(0, 60));
+  }
+
   // ── 1. The corridor, on its own ────────────────────────────────────────────
   // Pure geometry, no world needed. These are the invariants the whole system rests on: the road
   // is the same road for everyone this week, and every void room is reachable by driving.

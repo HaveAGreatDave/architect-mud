@@ -64,6 +64,29 @@ function faceWearsTrim(face, pat) {
   if (!PATTERN_ROLE.has(face.role)) return false;
   const [f, g, h] = faceCentroid(face.p);
   const top = h / (Math.hypot(g, h) || 1);            // +1 = dorsal spine, 0 = flank, -1 = belly
+  // ── THE FLASH DOWN THE FLANK (THE LONG HAUL) ───────────────────────────────
+  // A truck's paint job did nothing. The depot offered four flashes, wrote the chosen one to the
+  // database, read it back and rendered it identically every time — because `flash` was never
+  // passed to the renderer at all, and even if it had been, none of the patterns above would have
+  // worked on it. THEY ARE WRITTEN FOR AN AIRFRAME: an aeroplane's hull is centred on h = 0, so
+  // `top` runs −1 (belly) to +1 (spine) and a beltline is a sign test. A truck is built standing
+  // ON the ground, h ∈ [0, 0.28] — every face reads as "spine", so every aircraft pattern paints
+  // a truck one flat colour.
+  //
+  // So the truck's flashes are their own branch in the truck's own frame, and they arrive under a
+  // `truck:` prefix so the two vocabularies can never be confused for one another (the fleet has a
+  // `stripe` and the airframes have `stripes`, which is exactly the collision waiting to happen).
+  if (pat.startsWith('truck:')) {
+    if (!PATTERN_ROLE.has(face.role)) return false;
+    const BELT = 0.135;                    // mid-height on a cab, where a signwriter would run it
+    switch (pat.slice(6)) {
+      case 'stripe': return Math.abs(h - BELT) < 0.026;                                  // one band, straight down the side
+      case 'wave':   return Math.abs(h - (BELT + 0.045 * Math.sin(f * 15))) < 0.024;     // the same band, and it swims
+      case 'fade':   return h < 0.10 + camoHash(Math.round(f * 22), 0, Math.round(h * 40)) * 0.075;   // trim low, dithering out as it climbs
+      case 'candy':  return ((Math.floor(f * 11 - h * 3) % 2) + 2) % 2 === 0;            // raked bands, the whole length of it
+      default:       return false;                                                        // 'none' — one colour, and that is a choice too
+    }
+  }
   switch (pat) {
     case 'twotone':  return top < -0.15;               // clean top(base)/bottom(trim) beltline split
     case 'stripes':  return STAB_ROLE.has(face.role) || top > 0.6;   // painted tailplane + a spine racing stripe nose->tail
@@ -1971,6 +1994,36 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(cab1 - 0.030, cab1 - 0.024, 0.024, S.hi * 0.70, S.hi * 0.74, 'strut', null, g * (S.w + 0.012));   // the arm itself
   }
 
+  // AIR HORNS. A pair of chrome trumpets lying along the roof, and the loudest thing about a truck
+  // that isn't a sound. `bullet` is the wrong shape for these — it tapers to a POINT going forward,
+  // which is a nose cone; a horn does the opposite and opens into a bell, so it is three boxes of
+  // GROWING radius. They lie fore-aft rather than standing up, because a horn that stands up is a
+  // stack and the rig already has two of those.
+  if (fine && S.stacks > 0) {
+    const hz = S.hi + S.sleeper + 0.010, hF = cab1 - 0.150;
+    for (const g of [-1, 1]) {
+      const gg = g * S.w * 0.34;
+      for (let i = 0; i < 3; i++) {
+        const r = 0.008 + i * 0.005, f0 = hF + i * 0.026;
+        box(f0, f0 + 0.026, r, hz - r, hz + r, 'window', CHROME, gg);
+      }
+      box(hF - 0.006, hF + 0.014, 0.005, hz - 0.014, hz - 0.004, 'strut', null, gg);   // the mount it sits in
+    }
+  }
+  // CAB STEPS. Two chromed rungs under the door, hung off the frame between the steering pod and
+  // the drive group. Every walkaround ends with CLIMB IN and there was nothing under the door to
+  // climb — which is a small thing until you are stood next to the machine at eye level, which is
+  // exactly where this panel now puts you.
+  if (fine) {
+    for (const g of [-1, 1]) {
+      const gg = g * (S.w * 0.92);
+      for (let i = 0; i < 2; i++) {
+        const z = 0.030 + i * 0.026;
+        box(cab1 - 0.070, cab1 - 0.022, 0.014, z, z + 0.005, 'window', CHROME, gg);
+        box(cab1 - 0.068, cab1 - 0.064, 0.003, z + 0.005, z + 0.028, 'strut', null, gg);   // the hanger up to the sill
+      }
+    }
+  }
   // Lifters. A steering pod under the nose, then one or two drive groups. A single-drive rig gets
   // one LONG pod (which is what a light truck looks like when it has nothing to double up), a
   // twin-drive gets two shorter ones spaced along the frame — the same "rated to pull" read the
@@ -3283,7 +3336,7 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0 }) {
+function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0, idleRoll = 0 }) {
   // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
   // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
   // depot's turntable, walkaround and bench hero shot all ride this one argument.
@@ -3325,7 +3378,17 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   mDrop += lift;
   // The one model→world transform, tilt included. Both projection call sites below go through it,
   // so a fitted model cannot be drawn at one size and have its props/decals drawn at another.
-  const modelV = (v0) => { const v = tiltV ? tiltV(v0) : v0; return [v[0] * mScale, v[1] * mScale, v[2] * mScale + mDrop]; };
+  // `idleRoll` is the small rock about the long axis a machine held up at four corners never stops
+  // doing. It is applied here rather than as a livery/pose because it changes every frame, and it
+  // is a ROTATION about the model's own centre, not a shear — the wheels-off-the-ground look comes
+  // apart immediately if one end of the rig lifts without the other end dropping.
+  const cIR = Math.cos(idleRoll), sIR = Math.sin(idleRoll);
+  const modelV = (v0) => {
+    const v = tiltV ? tiltV(v0) : v0;
+    let g = v[1] * mScale, z = v[2] * mScale;
+    if (idleRoll) { const g1 = g * cIR - z * sIR; z = g * sIR + z * cIR; g = g1; }
+    return [v[0] * mScale, g, z + mDrop];
+  };
   const pal = liveryPalette(livery || {});
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);

@@ -26,7 +26,7 @@
 
 import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
-import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
@@ -1118,6 +1118,42 @@ async function cmdCb(args, raw, player) {
     : '<span class="text-dim">You bring the CB back up. Somewhere out in the dark, several people are already mid-argument.</span>');
 }
 
+// ── The air horn ─────────────────────────────────────────────────────────────
+// Two chrome trumpets sit on the roof of every rig in the fleet. They were scenery until this verb
+// existed, and scenery on the one machine the whole system is built around is worse than nothing:
+// it is a promise the game does not keep.
+//
+// THE HORN IS HEARD BY THE ROOM, NOT BY YOU. That is the entire point of a horn and it is the only
+// thing this function really does — the player gets the line about pulling the cord, and everyone
+// standing in the zone gets the noise and a line of their own. A horn only you can hear is a
+// keypress, and there is no reason for it to be a verb at all.
+//
+// IT WORKS IN BOTH PLACES A TRUCK EXISTS. Behind the wheel it is the rig you are driving; standing
+// in a yard it is the one parked there, because reaching up into an open cab and pulling the cord
+// is a thing people do, and because the walkaround now puts you at arm's length from the door.
+async function cmdHorn(args, raw, player) {
+  const rig = rigOf(player);
+  let typeId = rig?.typeId || null;
+  let name = null;
+  if (!typeId) {
+    const zone = getZone(player.current_zone);
+    const depot = depotAt(zone);
+    if (!depot) return say('There is nothing here with a horn on it.');
+    const truck = await truckAt(player.id, depotZonesOf(zone, depot));
+    if (!truck) return say('You have nothing parked here to lean into.');
+    typeId = truck.type_id; name = truck.name || truck.type?.name;
+  }
+  // Everyone else in the room, including the sound. Excluding the player is deliberate: their own
+  // copy rides back on the emote below, so nobody hears it twice.
+  sendToZone(player.current_zone, { type: 'truck_horn', typeId }, player.id);
+  sendToZone(player.current_zone, { type: 'emote', message:
+    `<span class="text-amber">An air horn goes off somewhere very close to you.</span>` }, player.id);
+  sendToPlayer(player.id, { type: 'truck_horn', typeId });
+  return say(rig
+    ? '<span class="text-amber">You pull the cord. Two notes, a long way apart, and the sound of them goes out across everything.</span>'
+    : `<span class="text-amber">You reach up into the cab of ${name ? `<b>${name}</b>` : 'it'} and pull the cord. The yard rings with it.</span>`);
+}
+
 // ── Breakdowns ───────────────────────────────────────────────────────────────
 // `fix` — the roadside attempt. See the four rules in rig.js: this buys DISTANCE, never health,
 // and it cannot fail forever (each attempt raises the odds of the next). It is deliberately not
@@ -1751,6 +1787,8 @@ export const commands = {
   park: cmdPark,
   fix: cmdFix,
   cb: cmdCb,
+  horn: cmdHorn,
+  honk: cmdHorn,   // both, because half the people who want this will type the other one
   route: cmdRoute,
   haul: cmdHaul,
   market: cmdMarket,

@@ -73,6 +73,10 @@ export function openCab(ctx = {}) {
                no room for a fourth row. The label IS the state: a control whose current setting you
                have to remember is a control you stop using. -->
           <button class="cab-btn cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high">⑊</button>
+          <!-- THE HORN. Two trumpets on the roof of every rig in the fleet, and until now they were
+               ornament. It is a VERB (`horn`, plugins/trucking) rather than a local sound, because
+               the whole point of a horn is that the room hears it and you are not the room. -->
+          <button class="cab-btn cab-horn" aria-label="Air horn" title="Air horn (H)">📯</button>
         </div>
         <div class="cab-pedals">
           <button class="cab-pedal cab-throttle" aria-label="Throttle">THROTTLE</button>
@@ -153,6 +157,7 @@ export function openCab(ctx = {}) {
   tap('.cab-splitbtn', () => truckSplit(st.sim, P));
   tap('.cab-rev', () => toggleReverse());
   tap('.cab-wipe', () => cycleWipers());
+  tap('.cab-horn', () => sendCmdSilent('horn'));
 
   st.onKey = (e) => {
     if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
@@ -171,6 +176,8 @@ export function openCab(ctx = {}) {
     // report. It only takes at a stop, which is where a real box lets you have it too.
     else if (down && !e.repeat && k === 'r') toggleReverse();
     else if (down && !e.repeat && k === 'v') cycleWipers();
+    // Held would be a stuck horn and a round trip per frame; one pull per press, `e.repeat` filtered.
+    else if (down && !e.repeat && k === 'h') sendCmdSilent('horn');
     // STEERING BY KEYBOARD. Until this existed a keyboard driver could accelerate, brake and shift
     // — and could not turn, which is not a harder way to drive, it is not driving. It goes through
     // the wheel widget so the wheel on screen turns with it.
@@ -421,6 +428,8 @@ function ensureCabStyles() {
   .cab-btn:active,.cab-btn.on{background:#2b3138;border-color:#5c6672;color:#fff}
   .cab-clutch.on{border-color:#8a7ac0}
   .cab-wipe{font-size:11px;letter-spacing:.06em}
+  .cab-horn{font-size:13px}
+  .cab-horn:active{border-color:#e0b45a;box-shadow:0 0 10px rgba(224,180,90,.45)}
   .cab-wipe.on{border-color:#4e7a9a}
   /* Rain on the glass and the stalk still off: the button asks once, rather than a line of prose
      in the log telling a driver about a key. It stops the moment they touch it. */

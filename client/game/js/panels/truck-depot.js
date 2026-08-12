@@ -90,6 +90,10 @@ export function openTruckDepot(msg) {
     // A start-up in flight survives a re-push (a repush lands mid-sequence often — `drive` itself
     // is what ends it), but never survives the panel closing; closeTruckDepot drops the whole B.
     start: B?.start || null,
+    // …and so does the RUNNING rig. `lit` is the id of the truck whose engine is on, and it has to
+    // survive a repush for the same reason: the repush that follows `drive` would otherwise sit the
+    // rig back down on the floor a frame after it finished standing up.
+    lit: B?.lit || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
@@ -271,9 +275,34 @@ function statBars(s, prev = null) {
 //  • THE RIDE HEIGHT IS REAL. It rises by the ride height the mesh itself gives up when parked
 //    (aircraft3d HOVER, in fitted units), overshooting once and settling — a machine finding its
 //    height on a field, not a prop being winched. Faking a bigger lift would look like a jump.
+//  • AND IT STAYS UP. The sequence used to be the whole of the hover: when the clock ran out the
+//    state was cleared, the mesh went back to `~p` and the rig SAT BACK DOWN on a running engine.
+//    That is exactly backwards — the hover is not an animation that plays, it is the condition the
+//    machine is in — so the start-up hands over to a RUNNING state (`B.lit`) that holds the ride
+//    height, keeps the emitter bands lit and breathes the field until something switches it off.
+//    The idle is deliberately small and never still: a lifter holding a chassis against gravity is
+//    making thousands of tiny corrections a second, and a rig frozen at a fixed height reads as a
+//    model on a shelf, which is the exact impression the parked pose exists to avoid.
 const RIDE = 0.07;              // the fitted ride height a lifter holds — see FIT above
 const ease = (t) => 1 - Math.pow(1 - t, 3);
 const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+
+// THE IDLE. Two detuned sines rather than one, so the bob never repeats on a count you can hear,
+// plus a slow roll about the long axis — a rig on a field is held at four corners and the corners
+// do not agree. Amplitudes are a fraction of the ride height: this is a machine trembling on its
+// lifters, not a boat. Returns the same shape `enginePhase` does, so the draw path cannot tell them
+// apart and there is exactly one set of code reading it.
+function idlePhase(now) {
+  const t = now / 1000;
+  const bob = Math.sin(t * 1.9) * 0.34 + Math.sin(t * 3.17 + 1.1) * 0.16;
+  return {
+    p: 1, lit: true, running: true,
+    lift: bob * RIDE * 0.09,
+    roll: Math.sin(t * 1.37 + 0.4) * 0.006,
+    blow: 0.16 + 0.05 * Math.sin(t * 2.3),   // the field never stops moving air, it just stops shoving it
+    glow: 0.72 + 0.12 * Math.sin(t * 4.1),
+  };
+}
 
 function beginStart(t) {
   if (!t || B.start || !t.hereNow) return false;
@@ -288,51 +317,88 @@ function beginStart(t) {
 // Where the sequence is, as the numbers every part of it reads. Split out so the model's rise,
 // the dust and the emitter glow are three views of ONE clock rather than three timelines to keep
 // agreeing with each other.
-function startPhase(now) {
+// ONE FUNCTION ANSWERS "what is this rig doing", and it answers for both states — starting, or
+// running. The draw path asks once and never branches on which, which is what makes it impossible
+// for the hand-over to drop a frame back onto the parked pose the way the first cut did.
+function enginePhase(now) {
   const s = B.start;
-  if (!s) return null;
+  if (!s) return B.lit && B.lit === B.selId ? idlePhase(now) : null;
   const p = clamp01((now - s.at) / s.dur);
   const lit = p > 0.18;                                   // the coils are across: bands on
   const r = clamp01((p - 0.32) / 0.5);                    // the weight transferring
   // Up, past height, and back down onto it. The overshoot is small and it only happens once.
   const rise = ease(r) * (1 + 0.42 * Math.sin(Math.PI * r) * (1 - r));
-  return { p, lit, lift: RIDE * (rise - 1), blow: clamp01((p - 0.3) / 0.28) * (1 - clamp01((p - 0.72) / 0.28)) };
+  // The idle is CROSS-FADED IN over the back third rather than switched to at p === 1. A hard
+  // hand-over lands the bob at whatever value its own sine happened to be at, which is a visible
+  // twitch at exactly the moment the machine is supposed to have settled.
+  const idle = idlePhase(now), mix = clamp01((p - 0.7) / 0.3);
+  return {
+    p, lit, running: p >= 1,
+    lift: RIDE * (rise - 1) + idle.lift * mix,
+    roll: idle.roll * mix,
+    blow: Math.max(clamp01((p - 0.3) / 0.28) * (1 - clamp01((p - 0.72) / 0.5)), idle.blow * mix),
+    glow: Math.max(lit ? clamp01((p - 0.18) / 0.3) : 0, idle.glow * mix),
+  };
 }
 
 // The effects layer, drawn over the finished frame and anchored on the contact patch the renderer
 // hands back — never on a fraction of the canvas, because the camera in here moves.
-function drawStartFx(ctx, anchor, ph, w, h) {
+function drawStartFx(ctx, anchor, ph, w, h, now) {
   if (!anchor || !ph) return;
   const { sx, sy } = anchor.ground, ppu = anchor.ppu;
   ctx.save();
   // The pool of light under it, cyan off the emitter band's own colour (aircraft3d GLOW). It comes
   // up with the coils, not with the lift — light first, movement after, which is the order that
-  // makes the light look like the CAUSE.
-  const g = ph.lit ? clamp01((ph.p - 0.18) / 0.3) : 0;
-  if (g > 0) {
+  // makes the light look like the CAUSE. Once running it breathes rather than holding still.
+  const g = ph.glow || 0;
+  if (g > 0.01) {
     const rad = ppu * (0.75 + 0.35 * g);
     const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, rad);
-    rg.addColorStop(0, `rgba(140,232,255,${0.34 * g})`);
-    rg.addColorStop(0.45, `rgba(64,168,200,${0.16 * g})`);
+    rg.addColorStop(0, `rgba(140,232,255,${(0.34 * g).toFixed(3)})`);
+    rg.addColorStop(0.45, `rgba(64,168,200,${(0.16 * g).toFixed(3)})`);
     rg.addColorStop(1, 'rgba(30,92,104,0)');
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = rg;
     ctx.beginPath(); ctx.ellipse(sx, sy, rad, rad * 0.42, 0, 0, 7); ctx.fill();
   }
-  // Dust, thrown out from under the skirt as the field takes the weight. Deterministic per index
-  // (no Math.random per frame, or every puff teleports) — each grain is an angle and a phase, and
-  // the ring reads as a ground plane because it is squashed to the same 0.42 the light pool is.
+  // Dust, thrown out from under the skirt. Deterministic per index (no Math.random per frame, or
+  // every puff teleports) — each grain is an angle and a phase, and the ring reads as a ground
+  // plane because it is squashed to the same 0.42 the light pool is.
+  //
+  // ITS CLOCK IS THE ONE THING THAT DIFFERS between starting and running, and it has to: the
+  // start-up shoves the air out ONCE, so its grains ride the sequence's own `p` and are gone. A
+  // running field is a continuous thing, so each grain loops on its own offset phase — which is
+  // why the dust does not simply stop dead the moment the rig is up.
   if (ph.blow > 0.01) {
     ctx.globalCompositeOperation = 'source-over';
+    const loop = ph.running ? (now / 2600) : 0;
     for (let i = 0; i < 34; i++) {
       const a = (i * 2.399) % 6.283, seedR = 0.55 + ((i * 37) % 100) / 220;
-      const t = clamp01((ph.p - 0.3 - ((i * 13) % 100) / 900) / 0.5);
+      const off = ((i * 13) % 100) / 100;
+      const t = ph.running ? (loop + off) % 1 : clamp01((ph.p - 0.3 - off * 0.9) / 0.5);
       if (t <= 0) continue;
       const d = ppu * seedR * (0.35 + 1.5 * ease(t));
       const px = sx + Math.cos(a) * d, py = sy + Math.sin(a) * d * 0.42 - ppu * 0.06 * t;
       const al = ph.blow * (1 - t) * 0.4;
+      if (al < 0.004) continue;
       ctx.fillStyle = `rgba(196,206,214,${al.toFixed(3)})`;
       ctx.beginPath(); ctx.ellipse(px, py, ppu * (0.05 + 0.1 * t), ppu * (0.02 + 0.05 * t), 0, 0, 7); ctx.fill();
+    }
+  }
+  // A HOT SHIMMER over the contact patch while it is holding — the one cue that says the field is
+  // still doing work rather than the truck having simply been placed higher up. Thin, wide, and
+  // sitting right on the concrete, which is where the air a lifter is torturing actually is.
+  if (ph.running) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const t = now / 1000 * (0.8 + i * 0.23) + i * 2.1;
+      const yy = sy - ppu * (0.02 + 0.05 * ((t % 1)));
+      const al = 0.05 * (1 - (t % 1)) * (ph.glow || 1);
+      ctx.strokeStyle = `rgba(150,226,246,${al.toFixed(3)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(sx, yy, ppu * (0.6 + 0.25 * (t % 1)), ppu * (0.16 + 0.06 * (t % 1)), 0, 0, 7);
+      ctx.stroke();
     }
   }
   // The contactor going across: one hard frame of white at the very start. It is short on purpose —
@@ -387,10 +453,11 @@ function inspectScreen() {
   // up would invite a player to drag the camera through a truck that is in the middle of moving.
   const strip = B.start
     ? `<span class="td-run" role="status">◉ LIFTERS ONLINE — ${esc(t.name)} is coming up</span>
-       <button class="td-act ghost" data-screen="floor">Shut it down</button>`
+       <button class="td-act ghost" data-killengine>Shut it down</button>`
     : `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
        ${tbtn('◉', 'Walk around', 'data-mode="walk"', m === 'walk' ? 'primary' : '')}
        ${t.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : ''}
+       ${t.hereNow ? tbtn('📯', 'Horn', 'data-cmd="horn"') : ''}
        ${tbtn('⌖', 'Reset view', 'data-view-reset', 'ghost')}
        ${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}
        <span class="td-dim td-note">${m === 'walk'
@@ -645,7 +712,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-killengine],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -657,6 +724,10 @@ function onClick(e) {
   if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
   if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
   if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; return void render(); }
+  // Shutting it down is the one thing that puts a lit rig back on the deck — and it has to clear
+  // BOTH, because aborting a start and killing a running engine are the same button and the same
+  // intent. It plays the settle rather than snapping down; `~p` is a whole ride height away.
+  if (t.dataset.killengine != null) { B.start = null; B.lit = null; B.screen = 'floor'; return void render(); }
   if (t.dataset.screen) { B.start = null; B.screen = t.dataset.screen; return void render(); }   // walking away from it aborts the start
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
@@ -701,8 +772,24 @@ function onInput(e) {
     const key = el.dataset.paint;
     B.bench.paint = { ...(B.bench.paint || t.paint || { base: '#7d3f2a', trim: '#d8cfc0', flash: 'stripe', chrome: 1 }),
       [key]: key === 'chrome' ? (el.checked ? 1 : 0) : el.value };
-    render();
+    // NO RE-RENDER, for the same reason the tune slider does not: a colour input fires `input`
+    // continuously while you drag around the swatch, and rebuilding the DOM under a live native
+    // colour picker closes it on the first pixel of movement. The hero shot needs no re-render
+    // anyway — it reads B.bench.paint straight off the state every frame — so only the commit
+    // button, which is the one thing that cannot repaint itself, is updated in place.
+    refreshPaintCommit(t);
+    return;
   }
+}
+
+// The Into-the-booth button, kept in step with a paint edit without touching the rest of the DOM.
+function refreshPaintCommit(t) {
+  const cur = B.bench.paint;
+  if (!cur) return;
+  const btn = document.querySelector('.td-side .td-act.primary');
+  if (!btn) return;
+  btn.disabled = JSON.stringify(cur) === JSON.stringify(t.paint || {});
+  btn.dataset.cmd = `rig paint ${t.id} ${cur.base} ${cur.trim} ${cur.flash} ${cur.chrome ? 1 : 0}`;
 }
 
 function onKey(e) {
@@ -777,7 +864,10 @@ function startSpin() {
         // names every one of them, and the pane beside it names the selected one twice over. A
         // caption floating in the middle of the bay was a third answer to a question nobody asked,
         // sitting across the bumper of the thing it was labelling.
-        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t) })),
+        // A rig with its engine on is drawn RUNNING out here too, bands lit and up on its field —
+        // the floor is the one view where you can see it standing among the ones that are not.
+        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
+          variant: t.id === B.lit ? t.variant : `${t.variant}~p` })),
       });
     }
     const hero = root.querySelector('#td-hero');
@@ -791,19 +881,21 @@ function startSpin() {
       // A rig mid-start is drawn in its RUNNING mesh (emitter bands lit, the light patch on the
       // road under it) and pushed back down by `lift`, so the pose you see is the pose the mesh
       // means rather than a parked truck with a glow painted on it.
-      const ph = startPhase(now);
+      const ph = enginePhase(now);
       // The shake is on the CAMERA, not the model: the rig is a rigid body finding its height, and
-      // what actually moves when a lifter takes six tonnes off a concrete floor is you.
+      // what actually moves when a lifter takes six tonnes off a concrete floor is you. Once it is
+      // simply holding, the shake drops to the tremble a running field puts through your boots.
       let camNow = walk ? { ...B.inspect.cam } : null;
       if (camNow && ph) {
-        const k = ph.blow * 0.012;
+        const k = (ph.running ? 0.0018 : ph.blow * 0.012);
         camNow.z += Math.sin(now * 0.047) * k;
         camNow.pitch += Math.sin(now * 0.031) * k * 0.5;
       }
       const anchor = ctx && drawHangarFloorBay(ctx, {
         w: hero._cw, h: hero._ch, cls: 'truck',
-        variant: ph?.lit ? sel.variant : `${sel.variant}~p`, lift: ph ? ph.lift : 0,
-        livery: liveryOf(sel),
+        variant: ph?.lit ? sel.variant : `${sel.variant}~p`,
+        lift: ph ? ph.lift : 0, idleRoll: ph ? (ph.roll || 0) : 0,
+        livery: liveryOf(sel, true),
         // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
         // to walk around it, which is the whole difference between a display and an inspection.
         yaw: inspecting && !walk ? B.inspect.yaw : yaw,
@@ -812,10 +904,12 @@ function startSpin() {
         venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk, fit: FIT,
         cam: camNow,
       });
-      if (ctx && ph) drawStartFx(ctx, anchor, ph, hero._cw, hero._ch);
+      if (ctx && ph) drawStartFx(ctx, anchor, ph, hero._cw, hero._ch, now);
       // ONE PLACE ENDS IT, and it is the frame that reaches p === 1 — not a setTimeout racing the
-      // animation, which would send `drive` while the rig was still halfway up on a slow tab.
-      if (ph && ph.p >= 1) { const cmd = B.start.cmd; B.start = null; sendCmdSilent(cmd); }
+      // animation, which would send `drive` while the rig was still halfway up on a slow tab. The
+      // sequence hands over to `B.lit` rather than simply clearing: the engine is on now, so the
+      // rig keeps its ride height until something says otherwise.
+      if (ph && B.start && ph.p >= 1) { const cmd = B.start.cmd; B.lit = B.start.id; B.start = null; sendCmdSilent(cmd); }
       // The door is at the cab, not at the middle of the rig: walk up to the near-side step and the
       // prompt lights. Same distance test the hangar's BOARD uses, over the truck's own geometry.
       if (walk) {
@@ -835,7 +929,20 @@ function startSpin() {
 // A truck's paint, in the shape the shared renderer's palette already speaks. `base`/`trim` are the
 // two colours every model here is skinned from, so a repainted cab is repainted everywhere it is
 // drawn — the floor, the walkaround and the bench hero — for no per-surface code at all.
-const liveryOf = (t) => (t.paint ? { base: t.paint.base, trim: t.paint.trim, finish: t.paint.chrome ? 'gloss' : 'matte' } : {});
+// …and it now carries the FLASH, which is the half of a paint job that was doing nothing at all.
+// `pattern` is what `faceWearsTrim` reads to decide base-or-trim per facet, and the truck flashes
+// go through it under the `truck:` prefix (see aircraft3d) so they can never be mistaken for the
+// airframe patterns that share their vocabulary.
+//
+// AND IT PREVIEWS. The bench drew `t.paint` — the SERVER's paint — so every colour you picked
+// showed you the truck you already had, and the only way to find out what teal looked like was to
+// pay for teal. A half-turned dial is not a lie about the world here: nothing is committed, the
+// button still says what it will cost, and the model in front of you is the one you are describing.
+function liveryOf(t, live = false) {
+  const p = (live && B?.bench?.paint && t.id === B.selId) ? B.bench.paint : t.paint;
+  if (!p) return {};
+  return { base: p.base, trim: p.trim, pattern: `truck:${p.flash || 'none'}`, finish: p.chrome ? 'gloss' : 'matte' };
+}
 
 function sizeCanvas(cv) {
   const r = cv.getBoundingClientRect();
@@ -885,7 +992,7 @@ function ensureStyles() {
     --td-fg-dim:var(--text-dim,#9db5c6);
     --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
     position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
-    color:var(--td-fg);font-family:'Courier New',monospace;font-size:13px;line-height:1.45;
+    color:var(--td-fg);font-family:'Courier New',monospace;font-size:14.5px;line-height:1.5;
     background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
       radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
     border:1px solid color-mix(in srgb, var(--td-accent) 22%, var(--border));border-radius:10px;overflow:hidden;
@@ -921,11 +1028,11 @@ function ensureStyles() {
   .td-seg{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:9px;
     background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
   .td-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;overflow:hidden;
-    font-family:inherit;font:700 11px/1 'Courier New',monospace;letter-spacing:1px;cursor:pointer;
+    font-family:inherit;font:700 12.5px/1 'Courier New',monospace;letter-spacing:1px;cursor:pointer;
     color:var(--td-fg-dim);background:transparent;border:1px solid transparent;border-radius:6px;padding:7px 12px;
     transition:filter .12s,box-shadow .12s,color .12s,background .12s}
   .td-tab.sm{padding:6px 10px}
-  .td-tab-ico{font-size:12px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
+  .td-tab-ico{font-size:13.5px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
   .td-tab:hover{color:var(--td-fg);background:color-mix(in srgb, var(--td-accent) 10%, transparent)}
   .td-tab:hover .td-tab-ico{opacity:1}
   .td-tab.on{color:var(--td-fg);background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
@@ -945,7 +1052,7 @@ function ensureStyles() {
     box-shadow:inset 0 2px 10px rgba(0,0,0,.45)}
   .td-scene:focus{outline:none;border-color:var(--td-accent)}
   .td-board{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.9);z-index:5;
-    font:700 13px/1 'Courier New',monospace;letter-spacing:2px;color:var(--td-fg);cursor:pointer;
+    font:700 15px/1 'Courier New',monospace;letter-spacing:2px;color:var(--td-fg);cursor:pointer;
     padding:9px 16px;border-radius:8px;opacity:0;pointer-events:none;
     background:color-mix(in srgb, var(--td-accent) 30%, rgba(6,12,18,.7));border:1px solid var(--td-accent);
     box-shadow:0 0 16px color-mix(in srgb, var(--td-accent) 45%, transparent);
@@ -955,12 +1062,12 @@ function ensureStyles() {
     50%{box-shadow:0 0 22px color-mix(in srgb, var(--td-accent) 70%, transparent)}}
   /* Start-up status line — lit, so a stood-down toolbar still reads as the machine doing something. */
   .td-run{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;
-    font:700 11px/1 'Courier New',monospace;letter-spacing:1.5px;color:var(--td-fg);
+    font:700 12.5px/1 'Courier New',monospace;letter-spacing:1.5px;color:var(--td-fg);
     background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
     border:1px solid var(--td-accent);box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 14px color-mix(in srgb, var(--td-accent) 35%, transparent);
     animation:tdRunPulse 1.1s ease-in-out infinite}
   @keyframes tdRunPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
-  .td-hint{position:absolute;top:16px;left:18px;right:18px;color:var(--td-fg-dim);font-size:12px;max-width:46ch;
+  .td-hint{position:absolute;top:16px;left:18px;right:18px;color:var(--td-fg-dim);font-size:13.5px;max-width:46ch;
     text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
   .td-strip{display:flex;gap:9px;flex-wrap:wrap;align-items:center;flex:0 0 auto;padding:11px 12px;border-radius:9px;
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
@@ -976,8 +1083,8 @@ function ensureStyles() {
   .td-chip:hover{filter:brightness(1.08);border-color:var(--td-accent)}
   .td-chip.on{border-color:var(--td-accent);box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 12px color-mix(in srgb, var(--td-accent) 30%, transparent)}
   .td-chip.away{opacity:.55}
-  .td-chip-name{font-weight:bold;font-size:12px;letter-spacing:.5px}
-  .td-chip-sub{color:var(--td-fg-dim);font-size:10.5px}
+  .td-chip-name{font-weight:bold;font-size:13.5px;letter-spacing:.5px}
+  .td-chip-sub{color:var(--td-fg-dim);font-size:12px}
   .td-side{width:352px;flex:none;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-right:2px}
   /* The read-out is a raised surface card too — the hangar's .hb-info. */
   .td-pane{display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:9px;
@@ -985,20 +1092,20 @@ function ensureStyles() {
     border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 2px 5px rgba(0,0,0,.2)}
   .td-pane-head{display:flex;align-items:flex-start;gap:8px}
-  .td-pane-head b{color:var(--td-fg);font-size:14px;letter-spacing:.5px}
-  .td-band{margin-left:auto;font:700 9px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
-    padding:3px 8px;border-radius:11px;background:var(--td-surf-lo);border:1px solid var(--border)}
+  .td-pane-head b{color:var(--td-fg);font-size:16px;letter-spacing:.5px}
+  .td-band{margin-left:auto;font:700 10.5px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
+    padding:4px 9px;border-radius:11px;background:var(--td-surf-lo);border:1px solid var(--border)}
   .td-band.sound{color:#6fcf83}.td-band.worked{color:#a8c98a}.td-band.tired{color:#e8c07a}
   .td-band.ailing{color:#d8934e}.td-band.derelict{color:#d2685c}
   .td-spec{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0}
   /* Each spec is a recessed vital pill, the hangar's .hb-bench-vital. */
   .td-spec div{display:flex;flex-direction:column;line-height:1.2;padding:3px 10px;border-radius:6px;
     background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 2px var(--td-bevel-lo)}
-  .td-spec dt{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2)}
-  .td-spec dd{margin:0;font-size:13px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums}
+  .td-spec dt{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2)}
+  .td-spec dd{margin:0;font-size:15px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums}
   .td-axes{display:flex;flex-direction:column;gap:4px;margin:4px 0}
   .td-axis{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;
-    font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim)}
+    font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim)}
   .td-axis-bar,.td-bar,.td-gauge{background:var(--td-surf-lo);border-radius:4px;overflow:hidden;
     box-shadow:inset 0 1px 2px var(--td-bevel-lo),inset 0 0 0 1px var(--border)}
   .td-axis-bar{height:7px}
@@ -1007,10 +1114,10 @@ function ensureStyles() {
   .td-bar{display:block;height:5px}
   .td-bar i{display:block;height:100%;background:#5c8f6a}
   .td-bar i.ctired{background:#e8c07a}.td-bar i.cailing{background:#d8934e}.td-bar i.cderelict{background:#d2685c}
-  .td-gauge{position:relative;height:18px}
+  .td-gauge{position:relative;height:22px}
   .td-gauge i{display:block;height:100%;background:#5c8f6a;box-shadow:0 0 8px currentColor}
   .td-gauge i.ctired{background:#e8c07a}.td-gauge i.cailing{background:#d8934e}.td-gauge i.cderelict{background:#d2685c}
-  .td-gauge span{position:absolute;inset:0;text-align:center;font:700 10px/18px 'Courier New',monospace;color:var(--td-fg);
+  .td-gauge span{position:absolute;inset:0;text-align:center;font:700 12px/22px 'Courier New',monospace;color:var(--td-fg);
     text-shadow:0 1px 2px rgba(0,0,0,.7)}
   .td-acts{display:flex;gap:9px;flex-wrap:wrap}
   .td-acts.col{flex-direction:column;align-items:stretch}
@@ -1018,13 +1125,13 @@ function ensureStyles() {
      and a dark bottom bevel that PRESSES IN to a deep inset recess on :active, so every press feels
      like a physical key rather than a link with a border. */
   .td-act{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    font-family:inherit;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;
-    cursor:pointer;padding:9px 15px;border-radius:9px;color:var(--td-fg);
+    font-family:inherit;font-size:12.5px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;
+    cursor:pointer;padding:10px 16px;border-radius:9px;color:var(--td-fg);
     border:1px solid color-mix(in srgb, var(--td-accent) 38%, transparent);
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 2px 4px rgba(0,0,0,.25);
     transition:filter .12s,box-shadow .12s,transform .05s,border-color .12s}
-  .td-ico{font-size:14px;line-height:1;opacity:.95}
+  .td-ico{font-size:15.5px;line-height:1;opacity:.95}
   .td-act:hover:not(:disabled){filter:brightness(1.1);border-color:var(--td-accent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 3px 9px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 32%, transparent)}
   .td-act:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 6px var(--td-bevel-lo)}
@@ -1051,21 +1158,21 @@ function ensureStyles() {
   .td-lot.on{border-color:var(--td-accent)}
   .td-lot.poor{opacity:.62}
   .td-lot-head{display:flex;align-items:flex-start}
-  .td-lot-head b{color:var(--td-fg);font-size:14px;letter-spacing:1px}
+  .td-lot-head b{color:var(--td-fg);font-size:16.5px;letter-spacing:1px}
   .td-price{margin-left:auto;color:var(--td-fg);font-variant-numeric:tabular-nums;font-weight:bold;letter-spacing:1px}
   /* The schematic sits in its own recessed dark viewport, same as the hangar's .hb-lot-view. */
   .td-wf{display:block;width:100%;height:auto;padding:6px;border-radius:9px;
     background:radial-gradient(120% 120% at 50% 40%,color-mix(in srgb, var(--td-accent) 15%, var(--bg)),color-mix(in srgb, var(--td-accent) 8%, var(--bg)));
     border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent);box-shadow:inset 0 2px 9px rgba(0,0,0,.4)}
-  .td-blurb{color:var(--td-fg-dim);font-size:11.5px;min-height:3.2em}
-  .td-sub-head{grid-column:1/-1;font:700 9px/1 'Courier New',monospace;letter-spacing:3px;text-transform:uppercase;
+  .td-blurb{color:var(--td-fg-dim);font-size:13px;min-height:3.2em}
+  .td-sub-head{grid-column:1/-1;font:700 11px/1 'Courier New',monospace;letter-spacing:3px;text-transform:uppercase;
     color:var(--td-fg-dim);margin:12px 0 2px;padding-bottom:4px;
     border-bottom:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent)}
   .td-rows{grid-column:1/-1;display:flex;flex-direction:column}
   .td-rows.wide{flex:1;overflow:auto}
   .td-row{display:grid;grid-template-columns:1fr 78px 78px 132px 116px;gap:10px;align-items:center;padding:8px 4px;
     border-top:1px solid color-mix(in srgb, var(--td-accent) 14%, transparent)}
-  .td-row.head{color:var(--td-fg-dim);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;border-top:0}
+  .td-row.head{color:var(--td-fg-dim);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;border-top:0}
   .td-rows .td-row:first-child{border-top:0}
   .td-main{min-width:0}
   .td-num{text-align:right;font-variant-numeric:tabular-nums}
@@ -1074,21 +1181,21 @@ function ensureStyles() {
   .td-knob-head{display:flex;align-items:baseline;gap:8px}
   .td-knob-head b{letter-spacing:.5px}
   .td-knob-head .td-num{margin-left:auto;color:var(--td-fg);font-weight:bold}
-  .td-knob-poles{display:flex;justify-content:space-between;font-size:9px;letter-spacing:1px;color:var(--td-fg-dim2)}
+  .td-knob-poles{display:flex;justify-content:space-between;font-size:11px;letter-spacing:1px;color:var(--td-fg-dim2)}
   .td-slider{width:100%;accent-color:var(--td-accent)}
   .td-kit-row{display:flex;gap:10px;align-items:center;padding:9px 0;
     border-top:1px solid color-mix(in srgb, var(--td-accent) 16%, transparent)}
   .td-kit-row.on{opacity:.72}
-  .td-fitted{font:700 9px/1 'Courier New',monospace;letter-spacing:1px;color:#6fcf83}
+  .td-fitted{font:700 11px/1 'Courier New',monospace;letter-spacing:1px;color:#6fcf83}
   .td-kits{display:flex;gap:5px;flex-wrap:wrap}
-  .td-kit{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
+  .td-kit{font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
     color:var(--td-fg-dim);background:var(--td-surf-lo);border:1px solid var(--border)}
   .td-paint{display:flex;gap:14px;align-items:center}
-  .td-paint label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--td-fg-dim)}
+  .td-paint label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--td-fg-dim)}
   .td-col{width:44px;height:28px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
     border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
   .td-swatches{display:flex;gap:5px;flex-wrap:wrap}
-  .td-swatch{padding:6px 10px;font:700 10px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
+  .td-swatch{padding:6px 10px;font:700 11.5px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
     color:var(--td-fg-dim);border-radius:7px;cursor:pointer;
     background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
     border:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
@@ -1097,17 +1204,17 @@ function ensureStyles() {
   .td-swatch.on{border-color:var(--td-accent);color:var(--td-fg);
     background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
     box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 32%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
-  .td-check{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--td-fg-dim)}
+  .td-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--td-fg-dim)}
   .td-check input{accent-color:var(--td-accent)}
   .td-deck{padding:10px 12px;border-radius:9px;background:var(--td-surf-lo);
     border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
-  .td-lab{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}
+  .td-lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}
   .td-none{color:var(--td-fg-dim);padding:14px;text-align:center}
   .td-dim{color:var(--td-fg-dim)}
-  .td-note{font-size:11px}
+  .td-note{font-size:12.5px}
   .td-good{color:#6fcf83}
   .td-warn{color:#ffb26b}
-  .td-foot{flex:0 0 auto;padding:9px 16px;font-size:11px;color:var(--td-fg-dim);
+    .td-foot{flex:0 0 auto;padding:10px 16px;font-size:12.5px;color:var(--td-fg-dim);
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi)}

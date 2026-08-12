@@ -538,6 +538,47 @@ const HOVER_SPOOL = {
 // How long each rig takes to get its weight off the floor — the visual sequence reads this so the
 // dust and the rise land ON the sound rather than near it, and one table stays the source of both.
 export const hoverSpoolSeconds = (typeId) => (HOVER_SPOOL[typeId] || HOVER_SPOOL.drayman).duration;
+
+// ── THE AIR HORN ──────────────────────────────────────────────────────────────
+// Two chrome trumpets got bolted to the roof of every rig, and a horn you cannot sound is an
+// ornament. This is the sound half of making it real (`horn` in plugins/trucking is the verb).
+//
+// AN AIR HORN IS A CHORD, NOT A NOTE. That is the whole thing, and it is why one oscillator would
+// have sounded like a doorbell however carefully it was tuned: two trumpets of different lengths
+// are sounded off one tank, and what you hear is the BEAT between them. The intervals here are the
+// real ones — a minor third for the big rigs (the mournful two-tone you hear across a valley) and
+// a wider, brighter fourth for the little Courier, which has less pipe to work with.
+//
+// Each voice is a sawtooth (a trumpet is all odd harmonics and then some) through a bandpass that
+// opens as the diaphragm gets going, with a fast attack and a tail that falls away rather than
+// stopping — a horn runs on stored air, so the end of the note is the tank giving up, not a switch.
+const HORN = {
+  scrapper:    { base: 196, ratio: 1.19, dur: 1.05, gain: 0.085, air: 1.5 },   // one working trumpet and a lot of rust
+  hauler:      { base: 262, ratio: 1.34, dur: 0.95, gain: 0.080, air: 0.9 },   // short pipes: brighter, wider, over quickly
+  drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.095, air: 1.0 },
+  continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.105, air: 1.2 },   // the one you hear before you see it
+};
+export function airHorn(typeId) {
+  const ae = AE(); const h = HORN[typeId] || HORN.drayman;
+  const voice = (freq, gain) => ([
+    { waveform: 'sawtooth', freq, pitchBend: { to: freq * 1.006, time: 0.08 },
+      filter: { type: 'bandpass', freq: freq * 3.2, q: 1.1 },
+      adsr: { a: 0.035, d: h.dur * 0.35, s: 0.72, r: h.dur * 0.45 }, gain },
+    // The second harmonic, a touch late — the trumpet's bell taking a moment to load up.
+    { waveform: 'square', freq: freq * 2, delay: 0.02,
+      filter: { type: 'lowpass', freq: freq * 5, q: 0.8 },
+      adsr: { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.34 },
+  ]);
+  const d = { duration: h.dur + 0.35, layers: [
+    ...voice(h.base, h.gain),
+    ...voice(h.base * h.ratio, h.gain * 0.86),
+    // Air leaking past the diaphragms for as long as the valve is open. Cheap, and it is the
+    // difference between a chord and a horn.
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.7 },
+      adsr: { a: 0.02, d: 0.3, s: 0.22, r: 0.3 }, gain: 0.02 * h.air },
+  ] };
+  try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {}
+}
 export function hoverSpool(typeId) {
   const ae = AE(); const d = HOVER_SPOOL[typeId] || HOVER_SPOOL.drayman;
   try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {}

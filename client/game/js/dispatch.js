@@ -50,7 +50,8 @@ import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, 
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, isCabActive } from './panels/cab-view.js';
-import { openTruckDepot, closeTruckDepot } from './panels/truck-depot.js';
+import { airHorn } from './panels/engine-audio.js';
+import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
 import { setDrugFx, clearDrugFx } from './panels/flight-drugfx.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
@@ -252,17 +253,31 @@ function setSleepBar(sleeping, dreaming) {
 // Returns true when it handled the message, so each handler reads as one guard.
 // Is the top pane free to hold the room description right now?
 //
-// Ten things can be mounted in it — the flight sim, the passenger HUD, the hangar
-// bay, the helm, and the six character panels — and each replaces the room with
-// its own app. This was written out twice, once per room-painting handler, which
-// is how the fishing board nearly got clobbered by a look before it was added to
-// both copies.
+// Twelve things can be mounted in it — the flight sim, the passenger HUD, the
+// hangar bay, the helm, THE TRUCK CAB, THE DEPOT, and the six character panels —
+// and each replaces the room with its own app. This was written out twice, once
+// per room-painting handler, which is how the fishing board nearly got clobbered
+// by a look before it was added to both copies.
 //
 // It answers TWO questions, and that is why it's worth a name: whether to paint
 // the room here, and whether the `log` rung may hide the pane. Hiding it while a
 // text cockpit is mounted would black out a pilot's instruments.
+//
+// THE CAB WAS NEVER ON THIS LIST, and that is the whole reason nobody has ever
+// driven a truck from the cockpit. `openCab` writes straight into #area-content —
+// the same element setAreaPane overwrites — so the cab was destroyed by the very
+// next room description. And `drive` CAUSES one: it pulls you out of the shed onto
+// the apron, which is a move, which paints the room. So the windshield existed for
+// a fraction of a second, every single time, and what you were left looking at was
+// the yard you had just left. It was never a rendering bug; it was an omission
+// from this line.
+//
+// The depot belongs here for the same reason now that it mounts in the pane rather
+// than floating over it — a `look` while you are standing at the dealer's line
+// would otherwise wipe the whole application mid-purchase.
 function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
+    && !isCabActive() && !isTruckDepotActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
     && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive();
 }
@@ -1209,13 +1224,24 @@ const handlers = {
   yacht_settled: () => { yachtSettled(); },   // she's arrived — let the engine roar fall away
   // THE LONG HAUL. `truck_sim` opens the cab over the area pane (the same slot the cockpit and the
   // helm take); `truck_ctx` is the authoritative per-tick push (world window, odometer, surface).
-  truck_sim: (msg) => { openCab(msg); },
+  // The cab and the depot are both PANE OWNERS, so climbing into one has to hand the pane over
+  // explicitly. `openCab` writes #area-content directly, which would tear the depot's DOM out from
+  // under it while `isTruckDepotActive()` still answered true — and that flag is now what tells a
+  // room description to keep its hands off the pane, so the room would never have painted again.
+  truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
   truck_ctx: (msg) => { cabContext(msg); },
+  // The air horn. Pushed to everyone in the zone (plugins/trucking cmdHorn), so you hear somebody
+  // else's rig go off in the yard as well as your own — which is the only reason a horn is a verb.
+  truck_horn: (msg) => { airHorn(msg.typeId); },
   truck_sim_close: () => { closeCab(); },
   // The depot: fleet, dealer, freight board and exchange on one screen. Opens when you walk into
   // a yard and closes when you leave, exactly as the hangar bay does.
   truck_depot: (msg) => { openTruckDepot(msg); },
-  truck_depot_close: () => { closeTruckDepot(); },
+  // …and it re-looks on the way out, the same as `hangar_close` does. Walking out of a yard fires
+  // the move FIRST (which this panel, being a pane owner, correctly told to keep off the pane) and
+  // the close SECOND — so without a fresh look the player is left staring at an empty pane. Skipped
+  // when the cab has taken the pane over, because then you did not walk out, you drove.
+  truck_depot_close: () => { closeTruckDepot(); if (!isCabActive()) sendCmdSilent('look'); },
   flight_ctx: (msg) => { flightSimContext(msg); },
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models

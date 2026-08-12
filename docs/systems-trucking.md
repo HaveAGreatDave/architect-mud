@@ -395,6 +395,51 @@ else did. Four things, and each one is a rule rather than a tweak:
   `HOVER`, overshooting once), light comes up *before* movement so it reads as the cause, and the
   shake is on the **camera**, because what actually moves is you. It still sends the identical verb.
 
+**The cockpit nobody has ever seen** *(2026-08-12)*. `openCab` writes straight into `#area-content`
+— the same element `setAreaPane` overwrites — and **the cab was never on `paneFreeForRoom()`'s
+list** (`dispatch.js`), the one line that tells a room description to keep its hands off the pane.
+So the windshield mounted and the very next room render destroyed it, every single time. And `drive`
+*causes* one: it pulls you out of the shed onto the apron, which is a move, which paints the room.
+It was never a rendering bug — the whole driving view existed and was being deleted milliseconds
+after it appeared. The depot joins the list for the same reason now that it lives in the pane, and
+because both are pane owners, `truck_sim` hands the pane over explicitly (`closeTruckDepot()` first,
+or the depot's DOM is torn out while `isTruckDepotActive()` still answers true — and that flag is
+now what suppresses the room, so the room would never have painted again). `truck_depot_close`
+re-looks on the way out exactly as `hangar_close` does, skipped when the cab has taken over, because
+then you did not walk out, you drove.
+
+**A hover is a condition, not an animation** *(2026-08-12)*. The start-up sequence cleared its own
+state when the clock ran out, so the mesh fell back to `~p` and **the rig sat back down on a running
+engine**. The sequence now hands over to a RUNNING state (`B.lit`) that holds the ride height, keeps
+the emitter bands lit and never stops moving: two detuned sines for the bob so it does not repeat on
+a count you can hear, a slow roll about the long axis (`idleRoll`, a real rotation about the model's
+centre — lift one end without dropping the other and the illusion dies), looping dust, and a
+shimmer on the contact patch. The idle is **cross-faded in over the back third** rather than switched
+to at `p === 1`, because a hard hand-over lands the bob wherever its sine happened to be, which is a
+visible twitch at the exact moment the machine is supposed to have settled. `enginePhase` answers
+for both states in one shape, so the draw path cannot tell them apart and cannot drop a frame back
+onto the parked pose. On the floor a lit rig is drawn running among the ones that are not.
+
+**Paint that paints something** *(2026-08-12)*. The depot offered four flashes, wrote the chosen one
+to the database, read it back, and rendered it identically every time — `flash` **was never passed
+to the renderer at all**, and would not have worked if it had been: `faceWearsTrim`'s patterns are
+written for an airframe, whose hull is centred on `h = 0` so a beltline is a sign test. A truck is
+built standing ON the ground (`h ∈ [0, 0.28]`), every face reads as "spine", and every aircraft
+pattern paints a truck one flat colour. The flashes are now their own branch in the truck's own
+frame under a **`truck:` prefix**, so the fleet's `stripe` and the airframes' `stripes` can never be
+confused. **And it previews**: the bench drew the SERVER's paint, so the only way to find out what
+teal looked like was to buy teal. It reads the pending edit now — and, like the tune slider, does
+**not** re-render on `input`, because rebuilding the DOM under a live native colour picker closes it
+on the first pixel of movement.
+
+**The horn works** *(2026-08-12)*. Two chrome trumpets were added to every roof, plus cab steps
+under the door (the walkaround ends in CLIMB IN and there was nothing there to climb). A horn you
+cannot sound is an ornament, so `horn` / `honk` is a real verb: **the room hears it, not you** —
+that is the entire point, and the only reason it is a verb rather than a keypress. It works behind
+the wheel (H, or the button beside the wipers) and standing in a yard beside a parked rig. The sound
+is a **chord, not a note** — a minor third for the big rigs, a wider fourth for the Courier, which
+has less pipe — because what you actually hear across a valley is the beat between two trumpets.
+
 **Half a grille, and the rule that keeps eating this one square foot** *(2026-08-12)*. The comb of
 chrome teeth started 0.002 *behind* the grille surround's own front face. A face gets **one depth**
 in the painter's sort, so a panel whose plane falls inside a detail's fore-aft span is nearer than
