@@ -279,6 +279,45 @@ if (/id="cmd-input"[\s\S]{0,200}?aria-label=/.test(html) || /aria-label=[\s\S]{0
   else ok('`displaymode` is reachable without a tablet');
 }
 
+// ── The onboarding walkthrough ───────────────────────────────────────────────
+// The tour is the first thing a new player is asked and the first thing they are
+// told, and both halves were bare <div>s. Focus landed on a button, so the only
+// thing spoken was "No — show me around, button" — an answer with no question,
+// on a prompt that gates the whole prologue (beginArrival holds the arrival
+// prose until it's answered). Each of the fifteen cards then read "Next, button"
+// and not one word of the walkthrough.
+{
+  const tour = readFileSync('client/game/js/panels/tour.js', 'utf8');
+  for (const [what, label] of [['tour-offer-title', 'the tour offer'], ['tour-card-title', 'each tour card']]) {
+    if (new RegExp(`aria-labelledby'?,?\\s*'?${what}`).test(tour)) ok(`${label} is a NAMED dialog`);
+    else bad(`${label} has no aria-labelledby — its text is never announced, and focus lands on a button with no question in front of it`);
+  }
+  // The card element survives the innerHTML swap between steps, so re-focusing it
+  // fires no focus event and every step after the first is silent.
+  if (/_card\.blur\(\);\s*\n\s*_card\.focus\(/.test(tour)) ok('…and each step re-enters the dialog, so it announces itself');
+  else bad('the tour card is not blurred before being re-focused — only step 1 is ever announced');
+  if (/_card\.setAttribute\('role', 'dialog'\)/.test(tour)) ok('…and the card is a dialog, not an unlabelled div');
+  else bad('the tour card has lost role="dialog" — a screen reader has no reason to read it');
+}
+
+// ── Chargen ──────────────────────────────────────────────────────────────────
+// A BLOCKING surface by the classification test in docs/systems-display-mode.md:
+// the prologue's first move gate wants `appearance.changed`, and the MORPHEX is
+// the only thing that emits it. Every sub-command was already typed — the hole
+// was that nothing but a modal ever NAMED them, and the toast saying what
+// changed rode the panel payload and never reached the log.
+{
+  const morphex = readFileSync('plugins/cosmetic-machine/index.js', 'utf8');
+  if (/loggedPanelsSync/.test(morphex)) ok('the BioSculpt sheet has a written form');
+  else bad('cosmetic-machine consults no rung — chargen is a panel with no text equivalent, and it gates the prologue');
+  // One funnel. Every sub-command returns through buildPanelData, so the branch
+  // belongs there and nowhere else — a second return path would be a toast that
+  // silently never lands.
+  if (/function buildPanelData[\s\S]{0,200}loggedPanelsSync\(player\)\) return renderMorphexText/.test(morphex)) {
+    ok('…branched in the one builder every sub-command returns through');
+  } else bad('the text form is not branched inside buildPanelData — some sub-command will return a panel and lose its toast');
+}
+
 // ── The type scale ───────────────────────────────────────────────────────────
 // WCAG 1.4.4 asks that text scale to 200% without loss of content or function.
 // The Font Size setting used to sit on `body` while 629 font-sizes in styles.css

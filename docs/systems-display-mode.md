@@ -1167,6 +1167,55 @@ The general lesson, worth keeping: **a panel with a companion verb still needs
 checking.** All three had one, and all three were holes anyway — the verb existed
 and nothing on the rung ever mentioned it.
 
+## Onboarding — the first ten minutes *(built 2026-08-11)*
+
+The chain a brand-new screen-reader player walks is auth → cold open → tour →
+arrival prose → chargen → holosign → broadcast → vat → tablet → poster. Every
+in-fiction beat in it was already plain `out()` prose with taught verbs. The two
+things that were not are the two out-of-fiction ones, and both sat in front of
+everything else.
+
+**The tour was a walkthrough nobody could hear.** `#tour-offer` and each
+`#tour-card` were bare `<div>`s — no `role`, no name, and neither matched
+`a11y-focus.js`'s `CANDIDATES`, so the focus manager never adopted them either.
+Focus went to a button, which is all a screen reader then had to announce: *"No —
+show me around, button"*, an answer with no question in front of it, on a prompt
+that **holds the entire prologue** (`beginArrival` refuses to speak until it is
+answered, behind a full-screen veil, for up to eight minutes). Saying yes then
+bought fifteen cards of *"Next, button"*.
+
+Both are named dialogs now (`role="dialog"` + `aria-labelledby`/`describedby`),
+and **focus lands on the card rather than on Next** — entering a dialog reads its
+label and description, which is exactly the step's title and body. Tab still
+reaches Skip/Back/Next inside it and the window-level `Enter`/`→` handler is
+untouched, so nothing changes for a sighted keyboard player.
+
+⚠ **The card is blurred before it is re-focused.** The element survives the
+`innerHTML` swap between steps, so re-focusing something that already has focus
+fires no event — step 1 would be announced and every step after it silently
+swapped underneath. Leaving and re-entering the dialog is what makes each step
+speak. Pinned by `a11y:smoke`.
+
+*(The spotlight itself is unchanged, and steps whose target is missing or
+zero-sized are still skipped — which is what already excludes the room-pane step
+at this rung, since `log-rung` collapses `#area-pane`.)*
+
+**Chargen had no written form, and it is BLOCKING.** By this doc's own
+classification test: the prologue's first move gate wants `appearance.changed`,
+and the MORPHEX 9000 is the only thing in the game that emits it. Every
+sub-command was already a typed verb (`morphex hair color black`) — the hole was
+that nothing but the modal ever *named* them, and the toast saying what changed
+rode the panel payload and never reached the log. So a player who could not
+operate the panel had to guess a verb the attendant, the gate refusal and the
+room link all describe as "use the terminal".
+
+`renderMorphexText` ([plugins/cosmetic-machine/index.js](../plugins/cosmetic-machine/index.js))
+writes the same data the panel is built from, with the commands under it. This is
+the **re-render** shape, not suppress — `look` shows you a room, not your own
+hair — and the branch lives inside `buildPanelData`, the one funnel every
+sub-command returns through, so a toast can never take a second path and vanish.
+A chargen terminal quotes no price, because it charges nothing.
+
 ## The tablet at the log rung — an index of verbs
 
 The tablet is the one panel that could not simply be "written out": it is a
@@ -1203,7 +1252,8 @@ than an index, and swallowing the nav would be worse than a screen that reads ba
 See the roadmap in the plan file for ordering. Done: circuit hack, hololock, vault crack, signal
 hijack — and on the panel side, **trade**, the **card-pack reveal** and the
 **workspace HUD**. Minigames: all families now RESOLVE at the log rung, so none is a dead end.
-Still wanting a character board at : **splice/cook** (deeply
+Onboarding: **done** — the tour and chargen were the last two blocking surfaces in
+the prologue (see above). Still wanting a character board at : **splice/cook** (deeply
 canvas-coupled — its update functions draw, so a skin seam there is a real
 refactor rather than the five-line change it was elsewhere) and **fishing**
 (two-stage: the cast chooses the catch server-side, so its log-rung path needs

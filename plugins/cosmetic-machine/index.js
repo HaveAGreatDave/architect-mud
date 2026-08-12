@@ -28,6 +28,7 @@ import { isMisActive, SEXUALITIES } from '../../server/engine/mis.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { emit } from '../../server/engine/events.js';
+import { loggedPanelsSync } from '../../server/engine/presentation.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -63,7 +64,67 @@ async function markChargenMode(player) {
   return machine;
 }
 
+// ── The BioSculpt sheet, written out ─────────────────────────────────────────
+// The panel is a BLOCKING surface by docs/systems-display-mode.md's own test:
+// delete it and a brand-new player cannot leave The Inbetween, because the
+// prologue's first move gate wants `appearance.changed` and only this machine
+// emits it. Every sub-command was already a typed verb — the hole was that the
+// only thing that ever NAMED them was a modal, and a player on the bottom rung
+// got the modal and no log line at all, not even the toast saying what changed.
+//
+// So at the `log` rung the same data the panel is built from is written out,
+// with the exact commands underneath it. One builder, two presentations (the
+// "re-render" shape, not "suppress" — a look shows you a room, not your own
+// hair). `loggedPanelsSync` reads the login-hydrated latch, so this stays sync
+// and costs no round trip on a `use` path.
+const CHOICES = (list) => list.join(', ');
+
+function renderMorphexText(player, toast) {
+  const app = player.appearance_data || {};
+  const mis = isMisActive(player);
+  const chargen = !!player._morphexChargen;
+  const L = [];
+  L.push(`<b>MORPHEX 9000 — BioSculpt</b>`);
+  if (toast) L.push(`<span class="msg-system">${toast}</span>`);
+  L.push(`Sex: <b>${player.biological_sex || 'male'}</b> · Height: <b>${player.height_cm || 170}cm</b> · Weight: <b>${player.weight_kg || 70}kg</b>`);
+  L.push(`Hair: <b>${player.hair_color || 'brown'}</b>, <b>${player.hair_length || 'short'}</b>, <b>${player.hair_style || 'short'}</b> · Eyes: <b>${player.eye_color || 'brown'}</b>`);
+  if (mis) {
+    if ((player.biological_sex || 'male') === 'female') L.push(`Breasts: <b>${app.breast_size || 'medium'}</b> · Ass: <b>${app.ass_size || 'average'}</b>`);
+    else L.push(`Penis: <b>${app.penis_length_cm || 12}cm</b> · Testicles: <b>${app.testicle_size || 'average'}</b> · Ass: <b>${app.ass_size || 'average'}</b>`);
+    L.push(`Sexuality: <b>${player.sexuality || 'Male'}</b>`);
+  }
+  // Chargen is free and has no balance to report; a real terminal has both.
+  L.push(chargen
+    ? `<span class="hint">This one is calibrating you for the first time. Everything here is free.</span>`
+    : `<span class="hint">First change free, then 10₵ each. You have ₵${player.credits || 0}.</span>`);
+  L.push(`Change anything by typing it:`);
+  L.push(`  <b>morphex sex</b> male|female`);
+  L.push(`  <b>morphex hair color</b> ${CHOICES(HAIR_COLORS)}`);
+  L.push(`  <b>morphex hair length</b> ${CHOICES(HAIR_LENGTHS)}`);
+  L.push(`  <b>morphex hair style</b> ${CHOICES(HAIR_STYLES)}`);
+  L.push(`  <b>morphex eye color</b> ${CHOICES(EYE_COLORS)}`);
+  L.push(`  <b>morphex height</b> 150-210 · <b>morphex weight</b> 40-150`);
+  if (mis) {
+    if ((player.biological_sex || 'male') === 'female') {
+      L.push(`  <b>morphex breast</b> ${CHOICES(BREAST_SIZES)}`);
+      L.push(`  <b>morphex ass</b> ${CHOICES(FEMALE_ASS_SIZES)}`);
+    } else {
+      L.push(`  <b>morphex penis</b> ${MIN_PENIS_CM}-${MAX_PENIS_CM} (cm)`);
+      L.push(`  <b>morphex testicle</b> ${CHOICES(TESTICLE_SIZES)}`);
+      L.push(`  <b>morphex ass</b> ${CHOICES(MALE_ASS_SIZES)}`);
+    }
+    L.push(`  <b>morphex sexuality</b> ${CHOICES(SEXUALITIES)}`);
+  }
+  L.push(`<span class="hint">Type <b>morphex</b> any time to read this back.</span>`);
+  return {
+    type: 'system',
+    message: L.join('<br>'),
+    player_update: { credits: player.credits },
+  };
+}
+
 function buildPanelData(player, toast = null) {
+  if (loggedPanelsSync(player)) return renderMorphexText(player, toast);
   return {
     type: 'morphex_panel',
     data: {
@@ -344,5 +405,11 @@ export const commands = {
   makeover: (args, raw, player) => cmdMorphex(args, raw, player),
   biosculpt:(args, raw, player) => cmdMorphex(args, raw, player),
 };
+
+// Test surface for plugins/cosmetic-machine/regress.js (never used in
+// production). The written sheet is otherwise only reachable through a zone that
+// actually holds a machine, which the harness's does not — so the one surface a
+// player who cannot operate the panel depends on would go untested.
+export const _test = { renderMorphexText };
 
 console.log('[cosmetic-machine] Plugin loaded.');

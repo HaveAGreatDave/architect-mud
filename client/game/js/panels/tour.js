@@ -251,9 +251,18 @@ export function offerInterfaceTour() {
   const box = document.createElement('div');
   box.id = 'tour-offer';
   box.className = 'tour-card tour-offer';
+  // Announced as a dialog, and NAMED by its own question. Without this it was a
+  // bare <div> that no screen reader had any reason to read: focus landed on the
+  // button below and the only thing spoken was "No — show me around, button" —
+  // an answer with no question in front of it, on the one prompt that gates the
+  // whole prologue (beginArrival holds the arrival prose until it's answered).
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-labelledby', 'tour-offer-title');
+  box.setAttribute('aria-describedby', 'tour-offer-body');
   box.innerHTML = `
-    <div class="tour-card-title">Before you begin</div>
-    <div class="tour-card-body">Have you played a multiplayer text game before — a MUD, a MUSH, anything you played by typing?</div>
+    <div class="tour-card-title" id="tour-offer-title">Before you begin</div>
+    <div class="tour-card-body" id="tour-offer-body">Have you played a multiplayer text game before — a MUD, a MUSH, anything you played by typing?</div>
     <div class="tour-card-actions">
       <button class="tour-btn tour-btn-ghost" data-tour-answer="yes">Yes — skip it</button>
       <button class="tour-btn" data-tour-answer="no">No — show me around</button>
@@ -328,6 +337,16 @@ function mountTour() {
   _card = document.createElement('div');
   _card.className = 'tour-card';
   _card.id = 'tour-card';
+  // The card IS the walkthrough — the spotlight is only pointing at what it's
+  // talking about. So it's a named dialog, and focus lands on the card rather
+  // than on Next: entering a dialog reads its label and description, which is
+  // the step's title and body. Focusing the button instead announced "Next,
+  // button" fifteen times in a row and not one word of the tour.
+  _card.setAttribute('role', 'dialog');
+  _card.setAttribute('aria-modal', 'true');
+  _card.setAttribute('tabindex', '-1');
+  _card.setAttribute('aria-labelledby', 'tour-card-title');
+  _card.setAttribute('aria-describedby', 'tour-card-body');
   document.body.appendChild(_card);
 
   _onResize = () => showStep(_idx);
@@ -376,8 +395,8 @@ function showStep(i) {
   const last = i === _steps.length - 1;
   _card.innerHTML = `
     <div class="tour-card-step">${i + 1} / ${_steps.length}</div>
-    <div class="tour-card-title">${s.title}</div>
-    <div class="tour-card-body">${s.body}</div>
+    <div class="tour-card-title" id="tour-card-title">${s.title}</div>
+    <div class="tour-card-body" id="tour-card-body">${s.body}</div>
     <div class="tour-card-actions">
       <button class="tour-btn tour-btn-ghost" data-tour="skip">Skip</button>
       <button class="tour-btn tour-btn-ghost" data-tour="back"${i ? '' : ' disabled'}>Back</button>
@@ -393,7 +412,14 @@ function showStep(i) {
     step(1);
   });
   placeCard(r);
-  _card.querySelector('[data-tour="next"]').focus();
+  // Blur before focusing: the card element survives the innerHTML swap, so
+  // re-focusing an element that already has focus fires no event and a screen
+  // reader would read step 1's card and then silently swap to step 2's. Leaving
+  // and re-entering the dialog is what makes each step announce itself. Enter /
+  // → still advance (onKey is on the window), and Tab still reaches Skip, Back
+  // and Next inside the card.
+  _card.blur();
+  _card.focus({ preventScroll: true });
 }
 
 // Put the card in the largest gap around the spotlight, clamped on screen.
