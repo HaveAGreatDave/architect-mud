@@ -175,6 +175,19 @@ primitive**; it needs no browser, DB or network and takes about a second. If it 
 rather than a real bug, add that API to [scripts/shapes/dom-stub.mjs](scripts/shapes/dom-stub.mjs).
 It proves models RUN, not that they look right — there is no pixel comparison.
 
+`pretest:regress` also runs **`client:smoke`** ([scripts/client/parse-smoke.mjs](scripts/client/parse-smoke.mjs)),
+which parses all ~194 files under `client/` and fails if any one of them is not valid JavaScript.
+There is no build step, so before this nothing between an editor and a player's browser ever parsed
+them, and the existing smokes only import the specific modules they exercise. **The failure it exists
+for is the backtick.** Client panels are big HTML template literals, the house style writes long prose
+comments inside them, and the house style quotes verbs in `backticks` — so a comment ends the string
+mid-sentence. A `` `horn` `` in a `<!-- -->` note in `cab-view.js` killed the entire client boot on
+prod (`main.js` reaches every panel transitively: chrome rendered, then no room, no vitals, no socket).
+**Inside a template literal, quote identifiers with 'single quotes', never backticks.** One note on the
+check itself: it feeds each file to `node --check` on **stdin with `--input-type=module`**, because
+plain `node --check <path>` parses a `.js` in the CommonJS goal and *passes* that exact broken file.
+Don't "simplify" it to a path argument. Takes ~2 s, no browser, DB or network.
+
 ## VINE Graph Workflow
 
 Creating or updating an NPC behaviour graph, dialogue tree, or enemy behaviour graph is covered by
