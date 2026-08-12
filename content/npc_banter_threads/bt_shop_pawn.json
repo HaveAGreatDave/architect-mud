@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_shop_pawn",
+  "lines": [
+    "\"Took my mother's ring into Sentimental Value Pawn.\"",
+    "\"There's a name that tells you everything up front.\"",
+    "\"They gave me a fair price.\"",
+    "\"They gave you a number. Fair would be you keeping the ring and eating anyway.\"",
+    "\"Wasn't on the menu this month.\"",
+    "\"I know. That's why they picked the name.\""
+  ],
+  "personality": null,
+  "sort_order": 46
+}

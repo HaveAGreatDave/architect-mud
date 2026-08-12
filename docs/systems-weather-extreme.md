@@ -157,6 +157,30 @@ field owner) — the engine just *drives* them, mirroring how the field advance 
   (`AUTO_EVENT_CHANCE_PER_30S ≈ 1 per 2–3 game-days`). The engine calls it on the **30s tick** via the
   `registerWeatherEventStep` provider seam and delivers returned lines **by vantage** (`.weather-event`).
 
+### A region can rain acid on its own, without a hero event *(built 2026-08-12)*
+
+A hero event is **global and rare** by design: one world-wide day in ~25 (`HERO_EVENT_DAY_CHANCE`).
+That is the wrong shape for a region where acid rain is simply the weather, and raising the global
+chance to get one would make the whole world acidic to flavour one corner of it.
+
+So the per-region climate bias gained a third key beside `temp`/`dryness`: **`acid` (0..1)**, the
+share of this region's precipitation that falls as acid. `effectiveBias` carries it, `sampleWeatherAt`
+applies it, and it is stored on `regions.climate_bias` so it retunes from the dev panel's Weather tab
+like the other two. **The Scarletwastes** ships `{ acid: 0.75, dryness: 0.8, temp: 7 }`.
+
+It needed no new machinery downstream, and that is the whole reason it lives here rather than in a
+new weather type: the acid **hazard** was already local, not global. `gameLoop`'s `resourceTick` fires
+on `getZonePrecip(zone).precipType === 'acid'` per tile, so a region whose sampled precip reads
+`acid` gets the `corroding` effect, `player.acidCover` shielding, gear durability wear, the rain
+audio route and the forecast copy for free.
+
+**The roll belongs to the weather cell, not the tile.** Each field system carries a stable `seed`
+fixed at spawn, so a squall is acid or it is not and stays that way as it drifts. A per-tile roll
+would put the boundary between burning and not burning one step apart, which is not weather.
+
+**A global hero acid day still overrides everything, everywhere, including a biased region** — the
+`eventPrecipOverride()` line is applied after the bias and was deliberately left alone.
+
 ### Vantage — an announce is a thing you are looking at
 
 Every phase line was written from outdoors and broadcast to everybody, so a player in a windowless

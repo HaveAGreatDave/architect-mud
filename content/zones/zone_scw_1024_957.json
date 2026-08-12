@@ -1,0 +1,41 @@
+{
+  "ambient_events": [
+    "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
+    "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
+    "A long way off, weather is walking. It is the wrong colour for weather.",
+    "Something small goes over your boot and is gone into a crack before you can name it.",
+    "The rock ticks as it cools. It goes on doing it after you stop walking.",
+    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
+    "A drum of standing water, lid long gone, the surface skinned over and still.",
+    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
+    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
+    "The light goes flat and red and every stone throws a shadow twice its length.",
+    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Where the track from the northwest gives up being a track: a graded turning circle in the hardpan, a drum of diesel under a lean-to, and a plate shack with a hatch in it. Ruts run off southeast. A board by the hatch lists distances to places, and somebody has scratched out the last entry and written under it, in a different hand, DONT.",
+  "exits": {
+    "east": "zone_scw_1025_957",
+    "north": "zone_scw_1024_956",
+    "south": "zone_scw_1024_958",
+    "west": "zone_scw_1023_957"
+  },
+  "flags": {
+    "lawless": true,
+    "radiation": 9,
+    "region_id": "region_scarletwastes",
+    "scavenging_table_id": "scav_irradiated_salvage",
+    "terrain": "redrock",
+    "truck_depot": {
+      "name": "The Roadhead"
+    },
+    "truck_fuel": true
+  },
+  "grid_x": 1024,
+  "grid_y": 957,
+  "grid_z": 0,
+  "id": "zone_scw_1024_957",
+  "map_id": "map_world",
+  "name": "The Roadhead",
+  "parent_zone": null
+}

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_ideo_pick_a_side",
+  "lines": [
+    "\"You ever pick one? An order?\"",
+    "\"I picked eating. Fewer meetings.\"",
+    "\"They're all selling the same thing though. Somebody to be certain on your behalf.\"",
+    "\"That's the product, yes. Ascendants sell the machine, Long Watch sells the vigil, Wildblood sells your own skin back to you at cost.\"",
+    "\"And Exodus?\"",
+    "\"Exodus sells the door. Cheapest of the lot, because nobody's ever come back to complain about the trip.\""
+  ],
+  "personality": null,
+  "sort_order": 51
+}

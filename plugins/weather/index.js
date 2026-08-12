@@ -283,6 +283,24 @@ const field = {
 // covers both. Regions absent here are the baseline (no bias).
 //   temp    — °C added to every cell's tempOffset in the region (felt warmer/cooler)
 //   dryness — 0..1 multiplier on local precip + cloud (0.6 = ~40% drier/clearer)
+//   acid    — 0..1 chance that precipitation falling HERE falls as acid
+//
+// `acid` exists because acid rain was, until this, a purely GLOBAL hero event: one
+// world-wide day in ~25 (HERO_EVENT_DAY_CHANCE). A region that is meant to be acid
+// most of the time cannot be expressed that way, and raising the global chance to
+// get it would make the entire world acidic to flavour one corner of it.
+//
+// It needs no new machinery downstream, which is the whole reason it lands here.
+// The acid HAZARD is already local, not global: gameLoop's resourceTick fires on
+// getZonePrecip(zone).precipType === 'acid' per tile. So a region whose sampled
+// precipType reads 'acid' gets the corroding effect, acidCover shielding, gear
+// durability wear, the rain audio route and the forecast copy for free.
+//
+// The roll is per WEATHER CELL (s.seed), never per tile: rain is acid or it is not,
+// and it stays that way as the cell drifts. A per-tile roll would put the boundary
+// between burning and not burning one step apart, which is not weather.
+// A global hero acid day still overrides everything, everywhere, including here.
+//
 // Boxes are resolved from each region's zone extent; a cell picks the SMALLEST box
 // it falls in, so a small region nested inside a big one wins. The effective bias
 // per region is regions.climate_bias (dev-panel editable) if set, else the
@@ -297,8 +315,9 @@ function effectiveBias(id, dbBias) {
   if (!b) return null;
   const temp = Number(b.temp) || 0;
   const dryness = (b.dryness == null) ? null : Number(b.dryness);
-  if (!temp && dryness == null) return null;   // baseline — no box
-  return { temp, dryness };
+  const acid = (b.acid == null) ? null : Math.max(0, Math.min(1, Number(b.acid) || 0));
+  if (!temp && dryness == null && !acid) return null;   // baseline — no box
+  return { temp, dryness, acid };
 }
 
 async function computeRegionBoxes() {
@@ -317,7 +336,7 @@ async function computeRegionBoxes() {
     .map(r => ({ r, eff: effectiveBias(r.id, r.bias) }))
     .filter(({ r, eff }) => eff && r.minx != null)
     .map(({ r, eff }) => ({
-      id: r.id, temp: eff.temp, dryness: eff.dryness,
+      id: r.id, temp: eff.temp, dryness: eff.dryness, acid: eff.acid,
       minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy,
       area: (r.maxx - r.minx + 1) * (r.maxy - r.miny + 1),
     }))
@@ -626,6 +645,11 @@ function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, r
       vx: baseVx * (0.7 + rand() * 0.6),
       vy: baseVy * (0.7 + rand() * 0.6),
       radius, type, intensity, precipType: pType,
+      // A stable 0..1 draw that belongs to this CELL for its whole life. Used by the
+      // per-region acid bias in sampleWeatherAt: the question "is this rain acid?" has
+      // to be asked of the weather, not of the tile, or a player walking two steps west
+      // would leave the acid behind. Seeded from the day's rand, so it is reproducible.
+      seed: rand(),
     });
   };
 
@@ -683,6 +707,7 @@ function advectField() {
 function sampleWeatherAt(gx, gy) {
   let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
   let precipType = 'none';
+  let wetCell = null;                 // the cell actually raining on this tile (owns the acid roll)
   if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity: currentBaseSeverity() };
   for (const s of field.systems) {
     const dist = Math.hypot(gx - s.x, gy - s.y);
@@ -692,7 +717,7 @@ function sampleWeatherAt(gx, gy) {
     cloudCover = Math.max(cloudCover, f);
     tempOffset -= f * K_TEMP;
     if (s.type === 'precip' || s.type === 'storm') {
-      if (f > precipRate) { precipRate = f; precipType = s.precipType; }
+      if (f > precipRate) { precipRate = f; precipType = s.precipType; wetCell = s; }
       if (s.type === 'storm') stormIntensity = Math.max(stormIntensity, f);
     }
   }
@@ -703,6 +728,11 @@ function sampleWeatherAt(gx, gy) {
   if (bias) {
     tempOffset += bias.temp;
     if (bias.dryness != null) { precipRate *= bias.dryness; cloudCover *= bias.dryness; }
+    // Does the rain here burn? Asked of the CELL, not the tile: s.seed is fixed for
+    // that cell's whole life, so a squall is acid or it is not and stays that way as
+    // it drifts. Applied after dryness so a region that is both drier and acidic
+    // rains less often, and burns when it does.
+    if (bias.acid && precipRate > 0 && wetCell && wetCell.seed < bias.acid) precipType = 'acid';
   }
   // Local severity: the day-level floor (lifted by any named event), intensified
   // where a storm cell sits overhead or precip runs torrential on this tile.
@@ -727,7 +757,7 @@ function getWeatherFieldSnapshot() {
     bounds: field.bounds,
     baseSeverity: currentBaseSeverity(),
     wind: field.wind,
-    regionBias: field.regionBoxes.map(b => ({ id: b.id, temp: b.temp, dryness: b.dryness })),
+    regionBias: field.regionBoxes.map(b => ({ id: b.id, temp: b.temp, dryness: b.dryness, acid: b.acid })),
     systems: field.systems.map(s => ({
       x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precipType: s.precipType,

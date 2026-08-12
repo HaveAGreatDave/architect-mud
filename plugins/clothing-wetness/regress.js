@@ -3,6 +3,7 @@
 // LAYER WALK (water runs outside-in, which is the rule the whole plugin is arranged around),
 // and the BARE SKIN rule, which is where the original interesting bug was.
 import { _test } from './index.js';
+import { applyTopical } from '../../server/engine/topical.js';
 
 export default async function regress({ check }) {
   const { rainWettingRate, snowWettingRate, dryMultiplier, windMultiplier, humidityMultiplier,
@@ -133,4 +134,31 @@ export default async function regress({ check }) {
   // Bounds hold at both ends, so a long storm or a long dry spell can't run away.
   check('skin wetness never exceeds soaked', skinWetnessStep(99, { ...rain, wettingRate: 500 }) === 100, 'clamped high');
   check('skin wetness never goes negative', skinWetnessStep(1, dry) === 0, 'clamped low');
+
+  // ── Dousing ────────────────────────────────────────────────────────────────
+  // The other shape of water: a volume arriving at once (a crop-duster's booms,
+  // a bucket) rather than a rate arriving every minute. Driven through the
+  // topical substrate, because that is the only way anything reaches it — this
+  // plugin exports no douse function, it REGISTERS one against `water`.
+  const doused = { id: 'douse-regress', wetness: 0, body_temp_c: 38.4 };
+  const res = await applyTopical(doused, { fluid: 'water', potency: 1 });
+  check('a dousing lands with no actor (nobody consents to a bucket)', res.applied === true, res.reason);
+  check('…and it actually soaks you', (doused.wetness ?? 0) > 50, String(doused.wetness));
+  check('…and takes the heat out of an overheated body', doused.body_temp_c < 38.4, String(doused.body_temp_c));
+  check('…without chilling you past normal', doused.body_temp_c >= 36.6, String(doused.body_temp_c));
+
+  // Cold water on a cold body is just wet. The ongoing cooling is the body-temp
+  // tick's wet multiplier, which is exactly why there is no second cooling model.
+  const cold = { id: 'douse-regress-2', wetness: 0, body_temp_c: 36.2 };
+  await applyTopical(cold, { fluid: 'water', potency: 1 });
+  check('a dousing does not chill an already-cold body on contact',
+    cold.body_temp_c === 36.2, String(cold.body_temp_c));
+
+  // The wetting pass answers absorption's question too: how much of it got past
+  // the clothes. A bare body (the fake player wears nothing) is the worst case.
+  const exposed = await applyTopical({ id: 'douse-regress-3', wetness: 0 },
+    { fluid: 'water', potency: 1 });
+  check('the layer walk reports what reached skin',
+    exposed.skinExposure === 1, String(exposed.skinExposure));
+  check('…but it still soaks them', (cold.wetness ?? 0) > 50, String(cold.wetness));
 }

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_thorn_stew",
+  "lines": [
+    "\"What is in it?\"",
+    "\"Do not ask what is in it, ask if it is ready.\"",
+    "\"Is it ready?\"",
+    "\"No.\""
+  ],
+  "personality": null,
+  "sort_order": 104
+}

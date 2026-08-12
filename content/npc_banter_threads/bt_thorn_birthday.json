@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_thorn_birthday",
+  "lines": [
+    "\"She is nine on Thursday.\"",
+    "\"Nine. And what does nine want?\"",
+    "\"A dog.\"",
+    "\"Nine is not having a dog. Hale would eat us.\"",
+    "\"Nine is getting a jar with a beetle in it and nine is going to love it.\""
+  ],
+  "personality": null,
+  "sort_order": 102
+}

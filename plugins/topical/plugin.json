@@ -1,0 +1,7 @@
+{
+  "name": "topical",
+  "version": "1.0.0",
+  "description": "The player-facing half of topical contact — any liquid landing on a body. `splash <target> [with <container>]` tips a canteen or a glass over somebody; `sprayconsent` is the opt-in switch that decides whether another PLAYER may do it to you. The substrate (server/engine/topical.js) owns the law that every liquid wets you (registered once by clothing-wetness), the fluid/effect and container registries, and the consent gate. This plugin registers only the consequences that need nothing but engine substrates — stains, acid wear, a scald.",
+  "commands": ["sprayconsent", "splash"],
+  "events": { "emits": [], "consumes": [] }
+}

@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Somebody two roofs over is having an argument about a bucket, and losing it.",
+    "Woodsmoke, and under it, onions.",
+    "Washing on a line, pegged out in order of size.",
+    "A child runs past on an errand, entirely uninterested in you.",
+    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
+    "Someone is singing badly and not stopping.",
+    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
+    "A dog asleep in the shade of a water drum, legs going, dreaming.",
+    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
+    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
+    "A very old man is asleep in a chair in the sun with a cat on him.",
+    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "A bank of catchment tanks on stone footings, lidded and numbered, with the run of guttering coming off six roofs into the top of them.",
+  "exits": {
+    "north": "zone_scw_1053_982",
+    "west": "zone_scw_1052_983"
+  },
+  "flags": {
+    "no_spawn": true,
+    "radiation": 12,
+    "region_id": "region_scarletwastes",
+    "terrain": "redrock"
+  },
+  "grid_x": 1053,
+  "grid_y": 983,
+  "grid_z": 0,
+  "id": "zone_scw_1053_983",
+  "map_id": "map_world",
+  "name": "The Drains",
+  "parent_zone": null
+}

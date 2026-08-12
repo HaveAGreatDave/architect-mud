@@ -13,6 +13,8 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { getZoneSeverity, getZonePrecip } from '../../server/engine/environment.js';
 import { on } from '../../server/engine/events.js';
 import { fireSpecializedAction } from '../../server/engine/specializedActions.js';
+import { applyTopical } from '../../server/engine/topical.js';
+import { getZonePlayers } from '../../server/engine/world.js';
 
 // The ion storm's peak, mirrored locally off the weather-event signal so the
 // hazard roll never has to reach into the weather plugin. `weather.event` fires
@@ -266,7 +268,7 @@ async function cmdSpot(args, raw, player) {
 // liquid loaded to dust — each pass drains SPRAY_LOAD; loadhopper fills it on the ground.
 const SPRAY_LOAD = 20;   // hopper units burned per dusting pass
 const hopperCap = (live) => (live.type.data && live.type.data.hopper) || 0;
-async function cmdSpray(args, raw, player) {
+async function cmdSpray(args, raw, player, broadcast) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (!(live.type.data && live.type.data.spray))
     return { type: 'emote', message: `The ${live.type.name} has no spray gear.` };
@@ -282,6 +284,9 @@ async function cmdSpray(args, raw, player) {
   if (live.lastSpray && now - live.lastSpray < 2500) return { type: 'noop' };   // booms still re-pressurising
   live.lastSpray = now;
   let tail = '';
+  // Read the fluid BEFORE the drain: a pass that empties the hopper still sprays
+  // what was in it, and the drain below nulls `fluid_type` on the way to zero.
+  const fluid = (cap > 0 && hop?.fluid_type) || null;
   if (cap > 0 && hop) {
     hop.amount = Math.max(0, hop.amount - SPRAY_LOAD);
     if (hop.amount <= 0) hop.fluid_type = null;
@@ -293,9 +298,37 @@ async function cmdSpray(args, raw, player) {
   const below = surfaceAt(live.row.grid_x, live.row.grid_y);
   if (below?.id) sendToZone(below.id, {
     type: 'zone_event',
-    message: `<span class="text-dim">A crop-duster howls past low overhead, spray booms open, trailing a fine chemical mist that drifts down over ${below.name}.</span>`,
+    message: `<span class="text-dim">A crop-duster howls past low overhead, spray booms open, trailing a fine ${fluid === 'water' ? 'cool' : 'chemical'} mist that drifts down over ${below.name}.</span>`,
     refresh: false,
   }, player.id);
+
+  // ── What actually lands on the people down there ──────────────────────────
+  // The pass used to be flavour: the tile got a line and nobody got wet. It now
+  // goes through the topical substrate, which owns two things this file must not
+  // own — WHAT the fluid does (clothing-wetness registered `water`; a hopper of
+  // fuel is somebody else's to claim later) and WHETHER it may land on that
+  // particular person (`sprayconsent`, off by default). Both answers are the
+  // substrate's, so nothing here needs to know either one.
+  //
+  // Flavour-only dusters (hopper cap 0) stay flavour-only: no hopper, no fluid,
+  // nothing to apply. The pilot is told the shape of the result, never the names
+  // — who opted out is not the sprayer's business.
+  let landed = 0, passed = 0;
+  if (below?.id && fluid) {
+    const targets = getZonePlayers(below.id).filter(p => p.id !== player.id && !p.aircraftId);
+    for (const t of targets) {
+      const res = await applyTopical(t, {
+        fluid, potency: 1, actor: player,
+        source: 'The duster\'s booms open overhead',
+        broadcast,
+      });
+      if (res.applied) landed++; else if (res.reason === 'no_consent') passed++;
+      if (res.message) out(t.id, res.message);
+    }
+  }
+  if (landed) tail += ` <span class="text-cyan">The mist settles over ${landed === 1 ? 'someone' : `${landed} people`} below.</span>`;
+  else if (passed) tail += ' <span class="text-dim">Whoever is down there, the mist comes to nothing on them.</span>';
+
   return { type: 'emote', message: `<span class="text-green">You open the spray booms — a fine mist streams off the trailing edges and settles over the ground below.</span>${tail}` };
 }
 

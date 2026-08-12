@@ -157,6 +157,13 @@ const ROUTES = {
   inject: { onset: 0.15, intensity: 1.30, requires: ['injectable'] },
   smoke:  { onset: 0.35, intensity: 1.15, requires: ['smokeable', 'cannabis'] },
   drink:  { onset: 1.50, intensity: 0.90 },
+  // Through the skin (the topical substrate). The slowest and weakest route
+  // there is, deliberately: what crosses skin is a fraction of what was on it,
+  // and it crosses over minutes. No `requires` — permeability is a property of
+  // the LIQUID, decided in TOPICAL_FLUIDS by `absorb`, not a flag on the drug;
+  // a substance that can't get through skin arrives with a dose of zero and
+  // never reaches this table at all.
+  skin:   { onset: 4.00, intensity: 0.70 },
   eat:    { onset: 3.00, intensity: 0.80 },
   use:    { onset: 1,    intensity: 1 },
 };

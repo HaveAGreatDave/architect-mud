@@ -1574,6 +1574,9 @@ const STAIN_SMELLS = {
   ejaculate: { text: 'the flat bleach note of somebody\'s good time', strength: 5, source: 'sex', misOnly: true },
   chem:   { text: 'spilled solvent, still evaporating', strength: 6, source: 'chem' },
   fish:   { text: 'fish guts, warming', strength: 6, source: 'fish' },
+  // The floor counterpart to hygiene's `booze` contaminant: a drink somebody
+  // threw lands on a person AND on the boards under them.
+  booze:  { text: 'spilled liquor, gone sticky underfoot', strength: 5, source: 'chem' },
 };
 
 const AIR_SMELLS = {

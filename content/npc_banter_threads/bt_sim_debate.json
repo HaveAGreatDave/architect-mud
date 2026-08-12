@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "id": "bt_sim_debate",
+  "lines": [
+    "\"Serious question. How do you know any of this is real? How do you know we're not running inside something?\"",
+    "\"Because I'd have to be worth the electricity, and I'm not.\"",
+    "\"That's the argument though. If you can run one world you can run a thousand, so the odds you're in the real one are terrible.\"",
+    "\"That only works if somebody ever builds one. Nobody has. You're doing arithmetic on a number nobody's found yet.\"",
+    "\"Everything underneath is numbers anyway. Ask a physicist.\"",
+    "\"Describing a thing with math doesn't make the thing math. My rent's a number too. The room's still a room.\"",
+    "\"...Fine.\"",
+    "\"It's real. You just want it to be somebody's fault.\""
+  ],
+  "personality": null,
+  "sort_order": 35
+}

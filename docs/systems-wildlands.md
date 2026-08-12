@@ -1,4 +1,12 @@
-# The Curtain & the Wildlands (Design, Not Built)
+# The Curtain & the Wildlands (map + wall built; perimeter plugin still design)
+
+> **The Wildblood camp described below was never built here, and is not going to be.** The four
+> Thornwarren shells at `zone_district_919_924/925`, `920_926`, `919_927` sat empty for a month
+> promising an elder, a trader and a surgeon that existed nowhere in the world. On 2026-08-12 they
+> were demoted to a **forward picket** and the Thornwarren was built for real as a walled town in a
+> new region, **The Scarletwastes** — see [proposals/scarletwastes.md](proposals/scarletwastes.md).
+> The gate, glacis and Curtain sections below are unaffected and still current; treat the "Wildblood
+> badlands" and "The Wildblood camp" sections as superseded.
 
 > **Status: map + wall BUILT (content), 2026-07-17.** The South Gate, the gate road, the glacis, the
 > hot-marsh badlands, the Thornwarren camp shells (~12 new zones + retagged gate road), the full

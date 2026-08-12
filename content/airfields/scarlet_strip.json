@@ -1,0 +1,16 @@
+{
+  "charter": false,
+  "charter_vtol_only": false,
+  "dealer": false,
+  "fuels": [
+    "avgas"
+  ],
+  "id": "scarlet_strip",
+  "lawless": true,
+  "name": "The Strip",
+  "rental": false,
+  "residents_only": null,
+  "surface": "dust",
+  "theme": "wastes",
+  "vtol_only": false
+}

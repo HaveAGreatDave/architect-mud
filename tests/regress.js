@@ -3821,8 +3821,19 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // real damage. Reading the files instead makes the checks say what they meant,
   // and makes them deterministic: same tree, same answer, on any database.
   const zoneDir = join(__dirname, '..', 'content', 'zones');
-  const authoredZones = await Promise.all((await readdir(zoneDir)).filter(f => f.endsWith('.json'))
-    .map(async f => JSON.parse(await readFile(join(zoneDir, f), 'utf8'))));
+  // READ IN BATCHES, not one Promise.all over the whole tree. A single Promise.all
+  // opens every zone file at once, and on Windows that throws EMFILE somewhere north
+  // of ~10k descriptors: the Scarletwastes took content/zones/ from 6,098 files to
+  // 10,934 and this line died on file 8,189, taking the whole suite with it after the
+  // checks had already passed. The batch size is well under any platform's limit and
+  // the wall-clock cost of serialising 55 batches is a rounding error next to boot.
+  const zoneFiles = (await readdir(zoneDir)).filter(f => f.endsWith('.json'));
+  const authoredZones = [];
+  const READ_BATCH = 200;
+  for (let i = 0; i < zoneFiles.length; i += READ_BATCH) {
+    authoredZones.push(...await Promise.all(zoneFiles.slice(i, i + READ_BATCH)
+      .map(async f => JSON.parse(await readFile(join(zoneDir, f), 'utf8')))));
+  }
   check(`content/zones/ is populated (${authoredZones.length} files)`, authoredZones.length > 0);
   // The world still has to BE the content — a DB missing half the tree would
   // otherwise sail through a files-only comparison. Extra live zones are fine and

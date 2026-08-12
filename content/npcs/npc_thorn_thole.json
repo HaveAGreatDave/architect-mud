@@ -1,0 +1,156 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Wash your hands. I do not care where you have been, wash them.",
+    "Sit up. No, properly up.",
+    "It will hurt on Thursday. Everything hurts on Thursday.",
+    "Water first. It is nearly always water."
+  ],
+  "description": "A big stooped man with hands that shake unless he is using them, at which point they stop. He works with the tent sides rolled up and his instruments laid out in a row on a folded cloth, and he changes the water in the bucket by the door while you watch, without appearing to think about it. Somebody long ago gave him a name meant to be unkind and he has plainly worn it flat.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Water. Cistern, not a drum.\""
+    },
+    "come": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What was I expecting to hear?",
+          "next": "expecting"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No. Not really.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Burns, mostly. Roof crews, forge, and the rain when somebody is caught out in it without their coat, which is always the same four people and they know who they are.\n\nAfter that: backs. Teeth. Babies, in their own time and their own way. Chest, in the winter. A great deal of nothing much that people want somebody to look at, which is half of it and the useful half.\"\n\nHe shrugs. \"It is not interesting work. It is the same work everywhere. I assume that is not what you were expecting to hear.\""
+    },
+    "doctor": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do people come to you with?",
+          "next": "come"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I am a man with a cabinet and forty years.\" He wipes the instrument, sets it down in its place in the row. \"There is a difference and I am careful about it. I set, I stitch, I drain, I sit with people. I do not open anybody up. I did, once, when there was nobody else, and I have opinions about how that went that I will keep to myself.\""
+    },
+    "expecting": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks up, and he is not angry, and that is somehow the whole of it.\n\n\"I have no idea. People arrive here expecting a great many things.\" He turns back to the cloth, squares an instrument a quarter inch, and the subject is quietly and completely closed. \"Drink at the cistern before you go back out. Not from a drum, from the cistern. The drums are for washing.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are a doctor.",
+          "next": "doctor"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is a joke that outlived the joker.\" He almost smiles. \"I answer to it. It is shorter than the other one and my hands are not what they were, so I have stopped fighting things that do not matter.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He is halfway through a splinter and does not look up. \"One moment. Sit, do not touch the cloth.\" The splinter comes out. The patient is congratulated at length on their courage. Then, to you, mildly: \"Right. What have you done to yourself.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are a doctor.",
+          "next": "doctor"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do people come to you with?",
+          "next": "come"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Your name.",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit. Do not touch the cloth.\"",
+      "text_by_relation": {
+        "close": "\"Ah, good.\" He hands you the bucket. \"Change that for me, my hands are going today.\"",
+        "familiar": "He points at the cot without looking up. \"On you get. I will be a minute.\"",
+        "known": "\"You. Have you been drinking the standing water again.\""
+      }
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a smock boiled grey",
+      "sleeves rolled and pinned above the elbow",
+      "a cloth apron changed twice a day"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_scw_1047_976",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_thorn_thole",
+  "name": "Gristle Thole",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_scw_1047_976"
+}

@@ -1,0 +1,203 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Do not put anything in the tanks. Anything at all.",
+    "Second bed is running slow. It is always the second bed.",
+    "Four and a half, this morning. That is good. That is very good.",
+    "If you want a drink, cistern gate, dipper on the chain, do not put the dipper down anywhere but the hook."
+  ],
+  "description": "A broad woman up to the forearms in a settling tank, working a rake through a bed of crushed stone with the unhurried violence of somebody who has done it ten thousand times. There is a slate hung at her hip with today's numbers on it and a stub of chalk on a string. When she straightens up to look at you she does it in stages, the way a back does after twenty years of this.",
+  "dialogue_tree": {
+    "built": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is all this?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everybody. Over about thirty years.\" She nods at the stonework. \"That course is older than me. That ironwork is Vane's, from before his hands went. The covers are mine, and the covers are the good bit, whatever anybody tells you.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Dipper goes back on the hook. On the hook.\""
+    },
+    "mother": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Chorus.\" A flat, fond look. \"She will not have mentioned it. She never does. She thinks it would look like leaning on it.\""
+    },
+    "rain": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a serious piece of engineering.",
+          "next": "serious"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It does. Two, three days in four out here, and worse in the season.\" She shrugs. \"So you build a roof that sheds it and a bed that eats it, and you stop it being a problem and start it being the water supply.\n\nIt is the only rain we get. It would be very stupid to waste it because it is rude.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Mind yourself, that rail is wet.\" She keeps raking. \"If you are here to look at it, look from there. If you are here to help, there is a second rake.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is all this?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The rain out there burns.",
+          "next": "rain"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who built it?",
+          "next": "built"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Rail is still wet. It is always wet.\"",
+      "text_by_relation": {
+        "close": "\"Good, you. Hold this.\" You are holding it before you have agreed to.",
+        "familiar": "She hands you the slate without being asked. \"Read me the second bed, my hands are filthy.\"",
+        "known": "\"You again. Do not lean on the tank.\""
+      }
+    },
+    "serious": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who taught you?",
+          "next": "taught"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Thank you.",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you for slightly too long, and then something in her decides you meant it, and her whole face changes.\n\n\"It is. Thank you. Come here, look at the outflow.\"\n\nShe is off before you can answer, talking, and you get eleven minutes on bed depth, flow rate, why the bone has to be burnt and not merely dry, the winter the second bed failed and what they drank instead, and a diagram scratched into the dust with a rake handle. She is very, very good at this.\n\n\"Anyway.\" She stops, abruptly, slightly embarrassed. \"It runs. That is the headline. It runs.\""
+    },
+    "taught": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Your mother?",
+          "next": "mother"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nobody. That is not a boast, it is a complaint.\" She scrapes the rake off. \"There was a book, most of a book, and there was the first tank falling over twice, and there was my mother saying try it again with the stone smaller. That is the entire faculty.\""
+    },
+    "what": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is a serious piece of engineering.",
+          "next": "serious"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who built it?",
+          "next": "built"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Catchment.\" She says it the way other people say their own name. \"Every roof in the town drains to here. Rain comes off the tin, down the channels, into the first tank and sits until the heavy sits out of it. Then the beds, which are crushed limestone and burnt bone, and that is the part that does the work: acid goes in one end and it comes out the other end being nothing much at all.\n\nThen the cistern, under the cover, in the dark and the cold. Then you drink it.\"\n\nShe taps the slate at her hip. \"Twice a day, both ends, every day. Because the day nobody tests it is the day it stops being water.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "oilskins, patched at both elbows",
+      "a rubber apron gone chalky",
+      "gauntlets shoved through a belt loop"
+    ],
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_scw_1046_975",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_thorn_moraine",
+  "name": "Sill Moraine",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_scw_1046_975"
+}

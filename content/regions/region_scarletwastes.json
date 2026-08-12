@@ -1,0 +1,12 @@
+{
+  "base_terrain": "redrock",
+  "climate_bias": {
+    "acid": 0.75,
+    "dryness": 0.8,
+    "temp": 7
+  },
+  "defaults": {},
+  "grid_z": 0,
+  "id": "region_scarletwastes",
+  "name": "The Scarletwastes"
+}

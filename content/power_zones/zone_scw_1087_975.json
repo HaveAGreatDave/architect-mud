@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_scarletwastes",
+  "id": "zone_scw_1087_975",
+  "max_capacity_kw": 1000,
+  "name": "The Bare Mile",
+  "source_type": "city_grid"
+}

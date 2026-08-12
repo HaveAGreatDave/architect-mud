@@ -2,7 +2,7 @@
   "ambient_events": [],
   "ambient_theme": "forest",
   "color": "#d0a860",
-  "description": "THE COMMONS. The heart of the Thornwarren: a trodden clearing around a central fire pit, ringed by lean-tos of salvaged panel and stretched hide. Wildblood of every shape drift through: scaled, spurred, extra-eyed, unbothered. The elder they call the Chorus holds court to the south; a trader's lean-to sits west, and a surgeon's tent east. You are very obviously new meat.",
+  "description": "A forward camp, and an old one: three lean-tos of salvage panel around a fire pit gone cold, a rack for drying, and a water drum lidded and chained. It is swept. Whoever uses this place uses it in passing and expects to come back, and has not been back for a few days. A board on the arch post carries a chalked list of names against dates, most of them crossed through. The track runs on southeast, and the ruts leaving that way are much deeper than the ruts arriving.",
   "exits": {
     "east": "zone_district_920_925",
     "north": "zone_district_919_924",
@@ -21,6 +21,6 @@
   "grid_z": 0,
   "id": "zone_district_919_925",
   "map_id": "map_world",
-  "name": "The Commons",
+  "name": "The Picket",
   "parent_zone": null
 }

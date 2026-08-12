@@ -1,0 +1,197 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Boots at the back, smallest to largest, do not rearrange them.",
+    "I will take scrap, wire, glass, and anything that is not leaking.",
+    "No credit. There is a list. You are not on the list.",
+    "If you want the good jerky you have to ask for the good jerky."
+  ],
+  "description": "A small sharp woman behind a counter made from the bed of a truck, doing three things at once and losing at none of them. She has the particular expression of a shopkeeper working out what you can afford before you have finished saying hello, and no apparent intention of holding it against you.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Jar goes back on the counter when you are done with it.\""
+    },
+    "list": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Let me see what you have.",
+          "next": "shop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eleven names.\" She does not look at it. \"It is not a debt list, it is the opposite of a debt list. It is who does not have to ask.\n\nKesh is on it because she is up to her arms in the tanks at four in the morning and does not think to eat. Vane is on it because his hands are gone. Ossa is on it because he is fifteen and eats like a fire.\"\n\nA shrug. \"It comes back. It always comes back. Usually as something I did not want, in a quantity I cannot store.\""
+    },
+    "outsiders": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Which do you think?",
+          "next": "which"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Let me see what you have.",
+          "next": "shop"
+        }
+      ],
+      "text": "\"When they come. They mostly do not.\" A dry look. \"They get as far as the poles and they have a good long think and they go home, which is the poles working exactly as intended, so I can hardly complain about it and I do, constantly.\n\nYou got past them. So either you are stupid or you are broke. Both is common.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"You will be wanting water, and you are not having the tank water, you are having a jar of it like everybody else.\" She is already reaching for one. \"Rindle. This is mine. What else.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Let me see what you have.",
+          "next": "shop"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The list on your till.",
+          "next": "list"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You trade with outsiders?",
+          "next": "outsiders"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back again. What.\"",
+      "text_by_relation": {
+        "close": "\"Sit on the crate, you look wrecked.\" The jar arrives without being ordered or charged for.",
+        "familiar": "\"There is a pair of boots come in your size. I put them by. Do not make me regret it.\"",
+        "known": "\"Jar?\" She is already reaching for one."
+      }
+    },
+    "shop": {
+      "actions": [
+        {
+          "action": "OPEN_SHOP",
+          "params": {}
+        }
+      ],
+      "options": [],
+      "text": "\"Go on then. Do not handle the glass.\""
+    },
+    "which": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I think you are still standing there talking to me instead of looking at the boots, so you are not shopping, you are gawping.\" She is not unkind about it. \"Gawp cheaper. There is a bench.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a canvas apron with eleven pockets",
+      "a faded shirt buttoned to the throat",
+      "a scarf against the grit"
+    ],
+    "personality": "travelling_vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_scw_1045_976",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_thorn_rindle",
+  "name": "Rindle Ashcroft",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_rad_pills",
+      "min_trust": 0,
+      "price": 55
+    },
+    {
+      "item_id": "item_antirad_tablets",
+      "min_trust": 0,
+      "price": 90
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "min_trust": 0,
+      "price": 12
+    },
+    {
+      "item_id": "item_bandage",
+      "min_trust": 0,
+      "price": 30
+    },
+    {
+      "item_id": "item_medkit",
+      "min_trust": 0,
+      "price": 180
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "min_trust": 0,
+      "price": 18
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "min_trust": 0,
+      "price": 14
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "min_trust": 0,
+      "price": 8
+    },
+    {
+      "item_id": "item_rad_band",
+      "min_trust": 0,
+      "price": 120
+    },
+    {
+      "item_id": "item_rusty_knife",
+      "min_trust": 0,
+      "price": 25
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "Rindle's",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_scw_1045_976"
+}

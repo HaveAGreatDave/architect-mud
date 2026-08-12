@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_shop_bodega",
+  "lines": [
+    "\"I've been going to Bodega Vu. They've got the good cans. Labels still on.\"",
+    "\"They've got the same cans as everywhere. They dust them.\"",
+    "\"Dusting is service.\"",
+    "\"Dusting is a markup with a rag. Nuts to That sells the identical tin for less and doesn't pretend it came from a farm.\"",
+    "\"Nuts to That smells like a foot.\"",
+    "\"So does the food. At least there's no lying in it.\""
+  ],
+  "personality": null,
+  "sort_order": 44
+}

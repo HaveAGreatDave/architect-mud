@@ -1,6 +1,18 @@
-# The Wildblood Stronghold — The Thornwarren (Design, Not Built)
+# The Wildblood Stronghold — The Thornwarren (town BUILT; the arc below still design)
 
-> **Status: design, 2026-07-17.** The renounce·flesh faction home in the wilds south of the Curtain.
+> **Status: the town SHIPPED 2026-08-12, somewhere else and much bigger.** The Thornwarren is a
+> walled town of ~257 tiles with six NPCs in **The Scarletwastes**, a new region southeast of
+> Coldwater — not the seven-tile camp south of the South Gate specced below, whose shells are now a
+> forward picket. **The as-built record is [scarletwastes.md](scarletwastes.md); read that first.**
+>
+> What this doc still owns and what is still genuinely unbuilt: the **recruitment arc**
+> (`quest_wild_proving` / `quest_wild_quickening` / `quest_wild_hunt`), the **`GRANT_MUTATION`
+> action**, **`mut_thornhide`**, and the **item set** (mutagens, feral gear, rad-meds, rad-flora).
+> The faction canon and the five-NPC sketch below were the source for the six who shipped; where the
+> two disagree, the built town wins. Two of the sketched names collided with existing NPCs and were
+> changed on the way in (Gristle Vane → **Gristle Thole**, Kesh → **Sill Moraine**).
+
+> **Original status: design, 2026-07-17.** The renounce·flesh faction home in the wilds south of the Curtain.
 > This is **Phase 1's faction content** — it sits behind the wall/gate/turret work in
 > [systems-wildlands.md](../systems-wildlands.md) (read that first for the map, the Curtain, the Main
 > Gate at `zone_district_918_919`, and the turret kill-zone). Depends on

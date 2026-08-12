@@ -26,6 +26,7 @@ import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { useDrug } from '../../server/engine/drugs.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { applyWarmth } from '../../server/engine/warmth.js';
+import { registerFluidResolver } from '../../server/engine/topical.js';
 
 // A hot drink is the cheapest cold-weather gear in the game and the only kind you can carry
 // in your hands. Worth about a wool hat while it lasts, and it does not last long.
@@ -47,6 +48,42 @@ import {
   BREW_TIERS, SHAKEN_BONUS, DIRTY_PENALTY, RESIDUE_MISMATCH_PENALTY,
   KNOWN_RECIPE_BONUS, SKILL_BAND_SCALE, POUR_ML,
 } from './config.js';
+
+// ── What's in the glass, for anything that wants to throw it ────────────────
+//
+// The bar-fight case. The topical substrate must not learn that a finished drink
+// lives on `custom_data.drink` any more than it should have to know about
+// `fluid_amount` — so this plugin, which owns the vessel schema, answers for its
+// own containers. Registered here rather than in vessel.js because it is a
+// SEAM, not part of the shape.
+//
+// Three liquids come out of one glass, and the split is the drink's own state
+// rather than anything authored: still hot ⇒ scalding, alcoholic ⇒ liquor,
+// otherwise a sticky cold drink. Potency is what's left in the glass, so the
+// last mouthful of a pint is a flick and a full one is a faceful.
+registerFluidResolver((item) => {
+  const drink = drinkOf(item);
+  if (!drink) return null;
+  const servings = Number(drink.servings) || 0;
+  if (servings <= 0) return null;
+  const stillHot = drink.hot_at && hotMultiplier(drink.hot_at, isInsulated(item)) > 0.75;
+  const fluid = stillHot ? 'hot_drink' : ((Number(drink.potency) || 0) > 0 ? 'booze' : 'soft_drink');
+  return {
+    fluid,
+    potency: Math.min(1, servings / Math.max(1, Number(drink.capacity) || servings)),
+    label: drink.name || 'the drink',
+    // The alcohol IS dissolved in it, so it is named honestly — and then the
+    // absorption model correctly does nothing with it. `booze` has an `absorb`
+    // of 0.02, so even a full pint over a bare chest lands well under the
+    // minimum systemic dose: you wear it, you do not drink it. That is the
+    // model working, not a gap in it.
+    drug: (Number(drink.potency) || 0) > 0 ? 'drug_alcohol' : null,
+    potencyMult: Math.max(0.1, Number(drink.potency) || 1),
+    // The glass comes back EMPTY AND DIRTY, exactly as it would after the last
+    // swallow — a thrown drink is a drink you no longer have.
+    empty: async (invId) => { await takeServing(invId, { ...drink, servings: 1 }); },
+  };
+});
 
 const sys = s => `<span class="msg-system">${s}</span>`;
 const dim = s => `<span class="text-dim">${s}</span>`;

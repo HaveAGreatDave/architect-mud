@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1054_973",
+  "b": "zone_scw_1054_974",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_scw_1054_973_south",
+  "lockable": false,
+  "one_way": false
+}

@@ -41,6 +41,8 @@ import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '.
 import { getAllLivePlayers, getZone, bodyZoneOf } from '../../server/engine/world.js';
 import { resolveInventoryForPlayers, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { wear, announceWear } from '../../server/engine/durability.js';
+import { registerTopicalWetting } from '../../server/engine/topical.js';
+import { coolSweat } from '../../server/engine/hygiene.js';
 
 // Wear points per minute at full-rate acid, before the precipRate scale. Sits
 // between `hard_use` (2) and `mishap` (8): a hero event should visibly cost you
@@ -189,6 +191,128 @@ function humidityMultiplier(humidityPct) {
   if (humidityPct == null) return 1;
   return Math.max(0.5, Math.min(1.3, 1.5 - humidityPct / 100));
 }
+
+// ── Water arriving all at once ──────────────────────────────────────────────
+//
+// The tick above is weather: a rate, applied every minute. A DOUSING is the other
+// shape — a fixed volume that lands in one instant, from a crop-duster's booms, a
+// bucket, a hose. It runs through the same model (outermost garment first, skin
+// under it) rather than a second one, so a slicker still shields the shirt and the
+// existing drying tick takes it away again with no new bookkeeping.
+//
+// This is registered as the topical substrate's WETTING PASS — the law that
+// every liquid makes you wet, claimed once by the plugin that owns wetness. It
+// runs for beer and fuel and dirty water exactly as it runs for a hopper of
+// clean water; what those OTHER liquids do besides making you wet is theirs, and
+// none of it is here. The duster calls `applyTopical` and never learns that
+// `player.wetness`, `_skinWetness` or `player_inventory.custom_data.wetness`
+// exist — which is the whole reason the substrate is a registry and not a switch
+// statement over fluids.
+const DOUSE_POINTS = 70;   // wetness delivered by a full-strength dousing
+
+// Cooling is DERIVED, not decreed: being wet already multiplies the body's drift
+// toward ambient (gameLoop's driftBodyTemperature), so a soaking cools you over
+// the following minutes for free. This is only the instant of contact — and it
+// only bites if you were hot, because cold water on a cold body is just wet.
+const DOUSE_CHILL_C = 0.5;
+const DOUSE_CHILL_FLOOR_C = 36.6;
+
+async function douseWithFluid(player, { potency = 1, broadcast, source, info = {}, fluid = 'water' } = {}) {
+  const points = Math.max(0, Math.min(100, DOUSE_POINTS * potency));
+  if (points <= 0) return null;
+
+  const rows = (await resolveInventoryForPlayers([player.id], { equipped: true, topLevel: false })
+    .then(m => m.get(player.id))) || [];
+
+  // Walk each slot outermost-in with a fixed VOLUME rather than a rate. `absorbStep`
+  // is the same curve the tick uses, so a garment that's already soaked passes the
+  // water straight through to what's under it exactly as it does in rain.
+  const patches = [];
+  const skin = skinState(player);
+  const stacks = new Map(BODY_SLOTS.map(s => [s, []]));
+  for (const item of rows) {
+    if (!hasTag(item, 'gets_wet')) continue;
+    for (const s of slotsOf(item)) if (stacks.has(s)) stacks.get(s).push(item);
+  }
+  for (const [, stack] of stacks) stack.sort((a, b) => layerRank(a) - layerRank(b));
+
+  const seen = new Map();
+  // How much of what was thrown reached SKIN, area-weighted. The layer walk has
+  // always computed this per slot and thrown it away; the topical substrate's
+  // absorption model is the thing that finally needed it, and it means a coat is
+  // chemical protection with no second model of what a coat is. 1 = it all
+  // landed on bare skin, 0 = nothing got through.
+  let skinReached = 0;
+  for (const s of BODY_SLOTS) {
+    const { arrivals, skinFlux } = stackFlux(
+      stacks.get(s), points, it => seen.get(it) ?? (it.custom_data?.wetness ?? 0));
+    for (const [item, arriving] of arrivals) {
+      const cur = seen.get(item) ?? (item.custom_data?.wetness ?? 0);
+      seen.set(item, Math.max(cur, absorbStep(cur, arriving)));
+    }
+    skinReached += SLOT_AREA[s] * skinFlux;
+    skin[s] = Math.max(0, Math.min(100, skin[s] + skinFlux));
+  }
+  const skinExposure = Math.max(0, Math.min(1, skinReached / points));
+  for (const [item, wetness] of seen) {
+    if (Math.round(wetness) !== Math.round(item.custom_data?.wetness ?? 0)) {
+      patches.push([item.inv_id, { wetness: Math.round(wetness) }]);
+    }
+  }
+  if (patches.length) await patchInventoryCustomData(patches);
+
+  // The one number, computed exactly as the tick computes it: the water against
+  // skin and in the layer touching it, area-weighted. A soaked shell over a dry
+  // shirt still reads dry, so a slicker is worth as much against a boom as rain.
+  const prev = player.wetness ?? 0;
+  let felt = 0;
+  for (const s of BODY_SLOTS) {
+    const stack = stacks.get(s);
+    const innermost = stack.length ? stack[stack.length - 1] : null;
+    const cloth = innermost ? (seen.get(innermost) ?? innermost.custom_data?.wetness ?? 0) : 0;
+    felt += SLOT_AREA[s] * Math.max(skin[s], cloth);
+  }
+  player.wetness = Math.round(felt);
+
+  // A dousing rinses the working body down — the same thing a wash does to the
+  // sweat meter, minus the soap that makes it a proper wash. CLEAN WATER ONLY:
+  // being hosed down with beer is not a wash, and this is the line that keeps
+  // "every liquid wets you" from quietly meaning "every liquid cleans you".
+  if (fluid === 'water') coolSweat(player);
+
+  // Only a COLD liquid takes heat out of you. A scalding one is the reason the
+  // descriptor carries `hot` at all.
+  const wasHot = !info.hot && (player.body_temp_c ?? 37) > DOUSE_CHILL_FLOOR_C;
+  if (wasHot) {
+    player.body_temp_c = Math.round(
+      Math.max(DOUSE_CHILL_FLOOR_C, (player.body_temp_c ?? 37) - DOUSE_CHILL_C * potency) * 10) / 10;
+  }
+
+  const messages = [];
+  for (const t of WETNESS_THRESHOLDS) {
+    if (prev < t.value && player.wetness >= t.value) messages.push(t.risingMsg);
+  }
+  if (broadcast) {
+    broadcast(null, {
+      type: 'resource_tick', messages,
+      player_update: { wetness: player.wetness, body_temp_c: player.body_temp_c },
+    }, null, player.id);
+  }
+
+  // The arrival prose belongs to the FLUID (the substrate's table), not to this
+  // plugin — all the wetting pass adds is what the soaking did to you. A fluid
+  // with its own registered effect can still overrule this.
+  const lead = source ? `${source} — ` : '';
+  const tail = wasHot
+    ? ' The heat goes out of you all at once.'
+    : (player.wetness >= 75 ? ' You are soaked through.' : '');
+  return {
+    message: `<span class="text-cyan">${lead}${info.arrival || 'it lands wet and cold'}.${tail}</span>`,
+    skinExposure,
+  };
+}
+// The LAW, not a fluid: registered once, runs for every liquid that is wet.
+registerTopicalWetting((player, ctx) => douseWithFluid(player, ctx));
 
 // Thresholds: { value, risingMsg, fallingMsg }
 // risingMsg shown when wetness crosses value going up; fallingMsg going down.

@@ -1,0 +1,122 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Do not put your hand on the wire.",
+    "They are working dogs. They are not for stroking.",
+    "Stand still. She is deciding.",
+    "If they go quiet, that is the bit to worry about."
+  ],
+  "description": "A heavy, quiet man going down a line of hounds with a bucket and a rag, doing ears. The hounds are enormous and scarred and they sit for him one after another without being asked twice. He watches you the entire time he is doing it, and he does not stop doing it.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Off the wire on your way past.\""
+    },
+    "feral": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks at the line of them. One is asleep on its back with its legs in the air.\n\n\"Do they.\"\n\nHe goes back to the ears."
+    },
+    "for": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Walking people in. Turning stock. Finding whoever has gone over the wall after dark, which is always Ossa and it is always the same gap and I have stopped pretending to be surprised.\"\n\nHe scratches the nearest one under the jaw and it leans its whole weight into him.\n\n\"And this. Mostly this, if I am honest, and I would thank you not to spread that about.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He does not stop what he is doing. \"Hand off the wire.\" A hound has come to the front and is looking at you with total, silent attention. \"She is fine. She is deciding. Let her.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They shadowed me the whole way in.",
+          "next": "shadow"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are they for?",
+          "next": "for"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hand off the wire.\"",
+      "text_by_relation": {
+        "close": "\"Take the bucket.\" He is already handing it over. \"Left side. She likes you better than me.\"",
+        "familiar": "He nods you to the gate of the run, which is as close to a welcome as he does. \"Come in if you are coming.\"",
+        "known": "\"You are back. She remembers you. That is not nothing.\""
+      }
+    },
+    "shadow": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "They looked feral.",
+          "next": "feral"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are they for?",
+          "next": "for"
+        }
+      ],
+      "text": "\"They did. From the cairn.\" He wrings the rag out. \"That is the job. They walk you in, off the road, in sight, and they do not close.\n\nIf you had gone off the track toward the beds they would have turned you back. If you had come at the gate at a run they would have had you down and held you there until somebody came. They have not bitten anybody in four years and I would rather like to keep the number.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a hide coat scarred across both forearms",
+      "a whistle on a bootlace",
+      "gloves stiff with use"
+    ],
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_scw_1048_974",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_thorn_bracken",
+  "name": "Bracken Hale",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_scw_1048_974"
+}

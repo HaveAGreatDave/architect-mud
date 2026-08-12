@@ -1,0 +1,236 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Roof crew is short. It is always short.",
+    "Sit down, you are in the light.",
+    "If you are here about the water rota you may join the queue.",
+    "Somebody has taken the good knife again."
+  ],
+  "description": "An old woman in a good chair, holding court over a room full of cushions with the total authority of somebody who has already won every argument in it once. When she speaks the words come doubled and a half-beat apart, as though there is more than one of her getting to them, and the room has plainly stopped noticing this a very long time ago. There is a ledger open on her knee. It is a rota.",
+  "dialogue_tree": {
+    "animals": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does it not bother you?",
+          "next": "bother"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No. I suppose not.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Yes.\"\n\nThe pen does not stop.\n\n\"Was there a second half to that?\""
+    },
+    "better": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A road nobody needs to be frightened of.\" She turns a page. \"Bring me that and I will burn the poles myself, and Ossa will help, and we will have a party about it.\n\nUntil then it is the rota. Tuesdays and Fridays. The mask is on the rack by the gate and the lining wants restitching, if you have a needle and a free afternoon.\""
+    },
+    "bother": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What would a better one look like?",
+          "next": "better"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fair enough.",
+          "next": "bye"
+        }
+      ],
+      "text": "She thinks about it properly, which is worse than if she had snapped.\n\n\"It bothers Ossa. He is fifteen and he has to wear the thing, so it is his to be bothered by, and he is doing it very loudly, and I have not told him to stop.\"\n\nA shrug.\n\n\"It costs me four hours a week and it has cost me no children at all. I have done the sum more than once. It comes out the same way every time, and I would be delighted to be shown a better one, and nobody has ever brought me a better one. They bring me opinions.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the step. It is a bad step. It has always been a bad step.\""
+    },
+    "eleven": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "place"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is. My daughter did the last one.\" She says this in exactly the tone she used for the rota. \"Sill will tell you about it if you get her onto the subject of the tanks, and you will get her onto the subject of the tanks, everybody does.\""
+    },
+    "howling": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Thursdays.\" She turns a page. \"Bring a dish.\""
+    },
+    "place": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A little.",
+          "next": "howling"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Three hundred and forty people, one wall, and a very good cistern.\" A dry look. \"You were hoping for something with more howling in it.\""
+    },
+    "road": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It works because people think you are animals.",
+          "next": "animals"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Eleven years is a long time.",
+          "next": "eleven"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"What about it.\"\n\nShe says it flatly, and waits, and does not help you.\n\n\"It is four hours on the poles in the wet and eight in the dry, and it is a rotten job, and it is done because it works. Nobody has come up that road with a truck and a rope in eleven years. Before it, they came twice a season.\"\n\nShe goes back to the ledger.\n\n\"You may think what you like about it. Most do. That is rather the arrangement.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "She does not stop writing. \"Sit, or do not, but do not hover, it makes the dogs anxious.\" A pause, and then she looks up, and her eyes take rather longer to arrive than her attention did. \"You came up the north road. Everyone comes up the north road, and everyone arrives looking exactly like you look.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The road in. The skulls.",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "place"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are you?",
+          "next": "who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You are back. The chair is there.\"",
+      "text_by_relation": {
+        "close": "\"There you are.\" She closes the ledger, which from her is a public holiday. \"Tell me something that is not about water.\"",
+        "familiar": "She waves a hand at the cushions without looking up from the rota. \"Go on, sit. I am nearly done being important.\"",
+        "known": "\"Ah. Shut the flap, would you, the grit gets in.\""
+      }
+    },
+    "who": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The road in. The skulls.",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They call me the Chorus. They have called me it since before it was funny, and it was never funny.\" The doubling in her voice settles for a moment into something almost single. \"I keep the rota. That is the whole of the office. Everything else people have decided to hang off it is theirs, not mine.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a coat of layered hide, mended in nine colours",
+      "a shirt gone soft with washing",
+      "a great many rings, none of them matching"
+    ],
+    "personality": "cult_member"
+  },
+  "home_activities": [],
+  "home_zone": "zone_scw_1046_977",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_thorn_chorus",
+  "name": "The Chorus",
+  "npc_type": "npc",
+  "sex": "other",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_scw_1046_977"
+}

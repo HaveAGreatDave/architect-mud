@@ -20,9 +20,49 @@ import { tagValue } from '../../server/engine/tags.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { applyThirst } from '../../server/engine/bodily.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { registerFluidResolver } from '../../server/engine/topical.js';
 
 // Thirst restored per fluid unit, keyed by fluid type. Only water exists today.
 const FLUID_RATES = { water: 1 };
+
+// ── What's in the can, for anything that wants to throw it ──────────────────
+//
+// The topical substrate ("a liquid landing on a body") must not learn that a
+// canteen keeps its contents under `fluid_amount`/`fluid_type` while a cocktail
+// glass keeps them somewhere else entirely. So the plugin that OWNS the schema
+// answers the question — this is the same rule as the effect registry, pointed
+// at the container instead of the consequence.
+//
+// A dousing is a POUR: the potency is how much is actually in there, so a
+// mouthful in the bottom of a canteen is a splash and a full jug is a soaking.
+// `contaminated` is the one branch worth making here, because the fluid the
+// world calls "water" and the fluid a fill from a bad tap gives you are not the
+// same thing to land on somebody.
+const DOUSE_UNITS = 12;   // fluid units that make a full-strength dousing
+registerFluidResolver((item) => {
+  const cd = item?.custom_data;
+  const amount = Number(cd?.fluid_amount) || 0;
+  if (amount <= 0) return null;
+  if (cd?.drink) return null;                 // the vessel invariant: not ours
+  const type = cd.fluid_type || 'water';
+  const fluid = (type === 'water' && cd.contaminated) ? 'dirty_water' : type;
+  return {
+    fluid,
+    potency: Math.min(1, amount / DOUSE_UNITS),
+    label: fluid === 'dirty_water' ? 'filthy water' : type,
+    // What's DISSOLVED in it, if anything — the carrier and the cargo are two
+    // different questions. A canteen stamped with a `drug_id` (a product cut
+    // into solvent) doses whoever it lands on at whatever fraction actually
+    // crosses their skin; a canteen of water carries nothing and this is null.
+    drug: cd.drug_id || null,
+    potencyMult: Number(cd.potency) || 1,
+    empty: async (invId) => {
+      await query(
+        `UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb)
+           - 'fluid_amount' - 'fluid_type' - 'contaminated' WHERE id=$1`, [invId]);
+    },
+  };
+});
 
 // Resolve a named fillable container in the player's top-level inventory.
 async function resolveContainer(player, name) {

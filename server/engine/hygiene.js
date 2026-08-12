@@ -38,6 +38,10 @@ export const CONTAMINANT_SMELLS = {
   chem:      { text: 'solvent, sharp enough to sit behind the eyes',        strength: 6, source: 'chem' },
   smoke:     { text: 'somebody who has been standing in smoke',             strength: 4, source: 'burning' },
   fish:      { text: 'fish, well past its argument with freshness',         strength: 6, source: 'fish' },
+  // Wearing a drink somebody threw at you. Weaker than solvent and stronger
+  // than grease, because everyone in the room knows exactly what it means.
+  booze:     { text: 'spilled liquor, gone warm and sweet in the cloth',     strength: 5, source: 'chem' },
+  fuel:      { text: 'raw fuel, and it is on somebody\'s clothes',           strength: 8, source: 'chem' },
 };
 
 // ── Sweat ────────────────────────────────────────────────────────────────────

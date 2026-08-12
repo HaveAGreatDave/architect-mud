@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_shop_food",
+  "lines": [
+    "\"Grease Expectations or Meat Your Maker. Settle it.\"",
+    "\"Depends whether you want the food to fight back.\"",
+    "\"Meat Your Maker did me wrong once.\"",
+    "\"Meat Your Maker does everybody wrong once. It's a rite. After that you're immune and it's the best value in the district.\"",
+    "\"That is not how immunity works.\"",
+    "\"It is here.\""
+  ],
+  "personality": null,
+  "sort_order": 47
+}

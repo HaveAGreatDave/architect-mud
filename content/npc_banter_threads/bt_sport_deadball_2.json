@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_sport_deadball_2",
+  "lines": [
+    "\"You catch the Slaggers game?\"",
+    "\"I watched a foundry crew swing at air for nine innings.\"",
+    "\"They were down three men. Two got pulled onto a shift they couldn't skip.\"",
+    "\"That's the whole league. It isn't a sport, it's an attendance record with a bat.\"",
+    "\"Counted all the same.\"",
+    "\"Everything counts. That's the tragedy of it.\""
+  ],
+  "personality": null,
+  "sort_order": 41
+}
