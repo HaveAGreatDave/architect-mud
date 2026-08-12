@@ -13,7 +13,7 @@
 //   • failing to recognise a close control, so Escape silently does nothing.
 //
 // Run: node scripts/a11y/focus-smoke.mjs   (also wired into pretest:regress)
-import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls } from '../../client/game/js/a11y-focus.js';
+import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls, nameDialog, nameField } from '../../client/game/js/a11y-focus.js';
 
 let failed = 0;
 const bad = (m) => { console.error(`  ✗ ${m}`); failed++; };
@@ -151,6 +151,155 @@ for (const [name, node] of NOT_CLOSERS) {
   bare._attrs['aria-label'] = 'Close inventory';
   sweep([bare]);
   is(bare._attrs['aria-label'], 'Close inventory', 'a later hand-written label survives the next sweep');
+}
+
+// ── The dialog itself is NAMED ──────────────────────────────────────────────
+// The trap stamps role="dialog" on whatever it promotes, and an unnamed dialog
+// is announced as the bare word "dialog". The tablet was one — forty screens
+// behind a nameplate that nothing pointed at. These are the judgements the
+// derivation makes; the last two are the ones that would do harm if wrong.
+{
+  const node = (o = {}) => ({ id: '', childElementCount: 0, textContent: '', ...o });
+  // A panel is stubbed as its selector→node map, matching querySelector's
+  // "first match in document order" for the one selector we ask about.
+  const panel = (map, attrs = {}) => ({
+    _attrs: attrs,
+    getAttribute: (a) => (a in attrs ? attrs[a] : null),
+    setAttribute: (a, v) => { attrs[a] = v; },
+    querySelector: (sel) => map[sel] || null,
+  });
+
+  const nameplate = node({ textContent: 'ARCHITECT OS' });
+  const tablet = panel({ '.mg-brand-name': nameplate });
+  nameDialog(tablet);
+  is(tablet._attrs['aria-labelledby'], nameplate.id, 'the tablet is named from its chassis nameplate, not announced as "dialog"');
+  is(nameplate.id.startsWith('a11y-dlg-title-'), true, '…via a generated id, so an unnumbered heading can still be pointed at');
+
+  // aria-labelledby rather than a copied string, so a nameplate that CHANGES
+  // (the corp console shows the corp's own name) does not go stale.
+  nameplate.textContent = 'ARCHITECT OS — VOID';
+  is(tablet._attrs['aria-label'], undefined, 'the name is a reference to the heading, never a copy of its text');
+
+  const heading = node({ textContent: 'Evidence Locker' });
+  const plain = panel({ h2: heading });
+  nameDialog(plain);
+  is(plain._attrs['aria-labelledby'], heading.id, 'a panel with no chassis is named from its heading');
+
+  // The author's own name always wins — same rule as the glyph sweep.
+  const labelled = panel({ '.mg-brand-name': node({ textContent: 'ATM' }) }, { 'aria-label': 'Cash machine' });
+  nameDialog(labelled);
+  is(labelled._attrs['aria-labelledby'], undefined, 'a panel that already says what it is is never renamed');
+
+  // A wrapper's textContent is its descendants' — naming from it would announce
+  // the tablet as "ARCHITECT OS Tablet Interface ✕".
+  const wrapper = panel({ '.mg-brand-name': node({ textContent: 'ARCHITECT OS Tablet Interface ✕', childElementCount: 3 }) });
+  nameDialog(wrapper);
+  is(wrapper._attrs['aria-labelledby'], undefined, 'a wrapper is not read out as the dialog\'s name');
+
+  // The two that must stay UNNAMED rather than guess. A dialog announced with a
+  // paragraph of body text, or with the close button, is worse than the gap.
+  const prose = panel({ '[class*="-title"]': node({ textContent: 'x'.repeat(200) }) });
+  nameDialog(prose);
+  is(prose._attrs['aria-labelledby'], undefined, 'a paragraph is not mistaken for a title');
+
+  const glyphOnly = panel({ h1: node({ textContent: '✕' }) });
+  nameDialog(glyphOnly);
+  is(glyphOnly._attrs['aria-labelledby'], undefined, 'a close glyph in the header is not read out as the dialog\'s name');
+
+  const untitled = panel({});
+  nameDialog(untitled);
+  is(untitled._attrs['aria-labelledby'], undefined, 'a panel with no title node is left unnamed rather than named from its contents');
+}
+
+// ── The FIELDS are named ────────────────────────────────────────────────────
+// 58 inputs, one aria-label. An unnamed field is announced as "edit text" and
+// nothing else — and in this client that set includes the bank amount, the trade
+// quantity and the ATM withdrawal. Every row below is a real markup shape from
+// the panels, and the last three are the ones that would name a field WRONGLY,
+// which is worse than leaving it bare.
+{
+  const mk = (o = {}) => {
+    const attrs = { ...(o.attrs || {}) };
+    const self = {
+      id: '', childElementCount: 0, textContent: '', children: [], parentElement: null, _order: 0,
+      ...o,
+      getAttribute: (a) => (a in attrs ? attrs[a] : null),
+      setAttribute: (a, v) => { attrs[a] = v; },
+      contains: (n) => n === self,
+      // Document order is the creation order in these fixtures.
+      compareDocumentPosition: (n) => (n._order > self._order ? 4 : 2),
+      _attrs: attrs,
+    };
+    return self;
+  };
+  // A row that hands back its descendants to querySelectorAll, like the real
+  // thing. Document order is the order the children are listed in — NOT the order
+  // the fixtures happen to be constructed in, which is what a first draft of this
+  // test used, and which quietly made the readout-after-the-slider case pass for
+  // the wrong reason.
+  const row = (kids) => {
+    const r = mk({ querySelectorAll: () => kids });
+    kids.forEach((k, i) => { k.parentElement = r; k._order = i + 1; });
+    return r;
+  };
+
+  // `<div class="trow"><label>Handle</label><input></div>` — the dominant idiom.
+  const lbl = mk({ textContent: 'Handle' });
+  const field = mk({});
+  row([lbl, field]);
+  nameField(field);
+  is(field._attrs['aria-labelledby'], lbl.id, 'a bare <label> sitting next to its input finally names it');
+  is(lbl.id.startsWith('a11y-fld-label-'), true, '…via a generated id, since only 14 of 38 labels carry a for=');
+
+  // The settings sliders: label, then the input one <span> deeper.
+  const volLbl = mk({ textContent: 'Master volume', attrs: { class: 'tos-set-label' } });
+  const slider = mk({});
+  const inner = mk({ querySelectorAll: () => [] });
+  const outer = row([volLbl, inner]);
+  slider.parentElement = inner; inner.parentElement = outer;
+  slider._order = 3; // nested inside `inner`, so it follows the label in document order
+  outer.querySelectorAll = () => [volLbl];
+  nameField(slider);
+  is(slider._attrs['aria-labelledby'], volLbl.id, 'a slider one level deeper than its label is still reached');
+
+  // THE ONE THAT MATTERS. Every volume row ends in a percentage readout. Named
+  // from that, the slider is announced as "34%" — which sounds like it worked.
+  const after = mk({ textContent: '34%', attrs: { class: 'tos-set-label' } });
+  const slider2 = mk({});
+  row([slider2, after]);
+  nameField(slider2);
+  is(slider2._attrs['aria-labelledby'], undefined, 'a value readout AFTER the field is never mistaken for its label');
+
+  // A real association is never second-guessed.
+  const native = mk({ labels: [{ textContent: 'Amount' }] });
+  row([mk({ textContent: 'Something else' }), native]);
+  nameField(native);
+  is(native._attrs['aria-labelledby'], undefined, 'a field with a real <label for> or a wrapping label is left alone');
+
+  const already = mk({ attrs: { 'aria-label': 'Bet in credits' } });
+  row([mk({ textContent: 'Stake' }), already]);
+  nameField(already);
+  is(already._attrs['aria-labelledby'], undefined, 'a field the author already named is never renamed');
+
+  // title is the last resort — the colour pickers have nothing else.
+  const swatch = mk({ attrs: { title: 'Pick a custom felt colour' } });
+  row([swatch]);
+  nameField(swatch);
+  is(swatch._attrs['aria-label'], 'Pick a custom felt colour', 'a field with only a title falls back to it');
+
+  // placeholder is deliberately NOT copied: the accessible-name algorithm already
+  // falls back to it, and several panels rewrite theirs as state changes.
+  const ph = mk({ attrs: { placeholder: 'Message Vale…' } });
+  row([ph]);
+  nameField(ph);
+  is(ph._attrs['aria-label'], undefined, 'a placeholder is left to the browser rather than frozen into a label');
+
+  // A paragraph of help text is not a label.
+  const prose = mk({ textContent: 'x'.repeat(200), attrs: { class: 'tos-set-label' } });
+  const field2 = mk({});
+  row([prose, field2]);
+  nameField(field2);
+  is(field2._attrs['aria-labelledby'], undefined, 'a paragraph of help text is not read out as a field name');
 }
 
 if (failed) {

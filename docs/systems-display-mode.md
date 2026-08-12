@@ -818,6 +818,81 @@ from under it is how teardown gets skipped), and closes each one **by clicking i
 own close control** — never by removing a node. A panel with no close control is
 left alone, exactly as with Escape.
 
+### Naming what the observer promotes
+
+Two more sweeps ride the same per-frame observer, for the same reason it exists:
+doing either by hand fixes today's panels and leaves the next one broken.
+
+**The buttons.** A close button written `<button title="Close">✕</button>` has an
+accessible name of `✕`, and a screen reader reads that character out — VoiceOver
+says "multiplication X", NVDA "times". `title` does not save it; the accessible-name
+algorithm takes a button's *contents* ahead of its title, and `aria-label` is the
+only one that outranks contents. `nameGlyphControls()` labels every glyph-only
+control once (marked `data-a11y-named`). **The author's word wins wherever there is
+one** — a `title="Remove panel"` ✕ keeps "Remove panel", because several ✕ buttons
+in this client are not closes at all. Only a bare glyph with nothing to go on is
+guessed as "Close".
+
+**The dialog.** The trap stamps `role="dialog"` on whatever it promotes, and a
+dialog with no accessible name is announced as, exactly, "dialog". The **tablet**
+was one of these — the largest surface in the game, forty screens deep, behind a
+nameplate reading ARCHITECT OS that nothing pointed at. `nameDialog()` derives one
+from the panel's own title node, trying the shared chassis nameplate
+(`.mg-brand-name` — the tablet plus nine device panels), then `h1`–`h3`, then the
+`-title`/`titlebar`/`-hdr` classes.
+
+It sets **`aria-labelledby`, never a copied string**, because several of these
+nameplates change: the corp console's is the corp's own name and the ATM's is the
+machine's, and a string copied once at promotion would be the previous one for the
+rest of the session. The reference is re-derived on any frame where the node it
+points at has gone — **a dangling `aria-labelledby` is worse than none**, since it
+resolves to nothing and the dialog silently goes back to being "dialog".
+
+**A panel with no title node is left UNNAMED rather than named from its contents.**
+Same judgement as `findCloseControl` returning null: a dialog announced with the
+first stray words inside it reads as authoritative and is not. The smoke test pins
+the three refusals — a paragraph is not a title, a leaf-only rule keeps a header bar
+from being read out as "ARCHITECT OS Tablet Interface ✕", and a ✕ sitting in the
+header is not the dialog's name.
+
+**The fields.** 58 `<input>`/`<select>`/`<textarea>` elements across the panels and
+`index.html` carried, between them, **one** `aria-label`. An unnamed field is
+announced as "edit text" and nothing else, and that set includes the bank amount,
+the trade quantity and the ATM withdrawal — three boxes where typing into the wrong
+one costs money.
+
+The markup was not broken so much as unlinked: the dominant idiom is
+`<div class="trow"><label>Handle</label><input></div>`, a real label sitting right
+there with no `for` tying it to anything (38 labels exist; 14 use `for`).
+`nameField()` derives the association the markup already implies, climbing **at
+most three ancestors** — enough for `label + input` and for the settings rows where
+the slider sits one `<span>` deeper than its label, and not so far that a field
+starts being named after an unrelated section heading. `aria-labelledby` again
+rather than rewriting `for`/`id`, because `for` requires the *input* to have an id,
+half of these don't, and minting ids on form controls risks colliding with the
+`#`-lookups panels do on their own fields.
+
+Three refusals, all pinned by the smoke test:
+
+- **A label must PRECEDE its field.** Every volume row ends in a percentage
+  readout. Named from that, the slider is announced as "34%" — which sounds like it
+  worked, and is how this kind of sweep does real damage.
+- **A real association is never second-guessed** — a `<label for>` or a wrapping
+  label shows up in `input.labels`, and those are left exactly alone.
+- **`placeholder` is deliberately not copied.** The accessible-name algorithm
+  already falls back to a placeholder on its own, so copying one into `aria-label`
+  buys nothing and freezes a string several panels rewrite as state changes
+  ("Message Vale…"). `title` *is* used as a last resort — the colour pickers have
+  nothing else.
+
+**Native `<dialog>` was considered and rejected for these panels.** `showModal()`
+would give the trap, the inerting and the Escape close for free, but it makes
+*everything else* inert — including `#cmd-input`, which this client deliberately
+exempts from the trap on the grounds that a player typing a command with a panel
+open is doing something intentional. The top layer also ignores `z-index`, which is
+what `topmostOf` orders ~40 panels by, and the tablet opens nested dialogs of its
+own. The observer reaches the same place without giving up the command line.
+
 ### Skip links and landmarks
 
 Two skip links are now the first tab stops in the document, invisible until

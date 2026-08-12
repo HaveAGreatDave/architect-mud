@@ -143,6 +143,140 @@ export function nameGlyphControls(root) {
   }
 }
 
+// ── Naming the dialog itself ────────────────────────────────────────────────
+//
+// The trap promotes a panel to `role="dialog"`, and a dialog with no accessible
+// name is announced as, exactly, "dialog". The tablet — the largest surface in
+// the game, forty screens deep — was one of these: the shell has a nameplate
+// reading ARCHITECT OS and nothing tying it to the element the role sits on.
+//
+// Done here for the same reason the glyph sweep is: naming the tablet by hand
+// fixes the tablet, and the next panel written starts unnamed again.
+//
+// `aria-labelledby`, not `aria-label`, wherever there is a node to point at —
+// the name then tracks the heading. The corp console's nameplate is the corp's
+// own name and the ATM's is the machine's; a string copied once would be the
+// previous corp's name for the rest of the session.
+//
+// THE AUTHOR'S NAME WINS, and a panel with no title node is left UNNAMED rather
+// than named from its contents. Same judgement as findCloseControl: a wrong
+// guess here is worse than the gap, because a dialog announced with the first
+// stray words inside it reads as authoritative and is not.
+const TITLE_SOURCES = [
+  '.mg-brand-name',     // the shared chassis nameplate — the tablet + 9 device panels
+  'h1', 'h2', 'h3',
+  '[class*="-title"]', '[class*="titlebar"]', '[class*="-hdr"]',
+];
+
+let _autoId = 0;
+
+export function nameDialog(panel) {
+  if (!panel) return null;
+  if (panel.getAttribute?.('aria-label') || panel.getAttribute?.('aria-labelledby')) return null;
+  for (const sel of TITLE_SOURCES) {
+    let node;
+    try { node = panel.querySelector?.(sel); } catch { continue; }
+    if (!node) continue;
+    // Leaf only, for the reason the glyph sweep is leaf-only: a wrapper's
+    // textContent is every descendant's, so a header bar would name the dialog
+    // "ARCHITECT OS Tablet Interface ✕".
+    if (node.childElementCount > 0) continue;
+    const t = (node.textContent || '').trim();
+    // A whole paragraph is not a title, and a ✕ that happens to live in a
+    // header cell is the close button.
+    if (!t || t.length > 80 || CLOSE_GLYPH.test(t)) continue;
+    if (!node.id) node.id = `a11y-dlg-title-${++_autoId}`;
+    panel.setAttribute('aria-labelledby', node.id);
+    return node.id;
+  }
+  return null;
+}
+
+// Panels re-render their innards constantly, and a re-render can take the node
+// the name points at with it. A dangling aria-labelledby is WORSE than none —
+// the reference resolves to nothing and the dialog goes back to being announced
+// as "dialog", silently. So re-derive when the target has gone.
+function ensureDialogName(panel) {
+  const ref = panel.getAttribute?.('aria-labelledby');
+  if (ref && !document.getElementById(ref)) panel.removeAttribute('aria-labelledby');
+  nameDialog(panel);
+}
+
+// ── Naming the FIELDS ───────────────────────────────────────────────────────
+//
+// 58 inputs across the panels and index.html; exactly one carried an aria-label.
+// An unnamed field is announced as "edit text" and nothing else, which in this
+// client includes the bank amount, the trade quantity and the ATM withdrawal —
+// three boxes where typing into the wrong one costs money.
+//
+// The markup is not broken so much as unlinked. The dominant idiom is
+// `<div class="trow"><label>Handle</label><input></div>` — a real label, sitting
+// right there, with no `for` tying it to anything. 38 labels exist and 14 use
+// `for`. So this derives the association that the markup already implies.
+//
+// `aria-labelledby` again rather than rewriting `for`/`id`: `for` needs the INPUT
+// to have an id, half of these don't, and minting ids on form controls risks
+// colliding with the `#`-lookups panels do on their own fields.
+const FIELDS = 'input:not([type="hidden"]):not([type="button"]):not([type="submit"]),select,textarea';
+const LABEL_SOURCES = 'label,[class*="label"],[class*="-lbl"]';
+
+// Document order, with a fallback for the test stubs that have no DOM behind them.
+const precedes = (a, b) => {
+  if (typeof a.compareDocumentPosition !== 'function') return true;
+  return !!(a.compareDocumentPosition(b) & 4 /* DOCUMENT_POSITION_FOLLOWING */);
+};
+
+export function nameField(input) {
+  if (!input) return null;
+  if (input.getAttribute?.('aria-label') || input.getAttribute?.('aria-labelledby')) return null;
+  // A real `<label for>` or a label WRAPPING the input already names it. The
+  // browser hands us those in `.labels`; never second-guess one.
+  if (input.labels?.length) return null;
+  // Climb, but not far. Three hops covers `.trow > label + input` and the
+  // settings rows where the slider is one `<span>` deeper than its label.
+  // Further up and we start naming fields from unrelated section headings.
+  let el = input.parentElement, hops = 0;
+  while (el && hops++ < 3) {
+    let nodes = [];
+    try { nodes = [...el.querySelectorAll(LABEL_SOURCES)]; } catch { nodes = []; }
+    for (const n of nodes) {
+      if (n.childElementCount > 0) continue;      // leaf only, as everywhere else here
+      if (n.contains?.(input)) continue;
+      const t = (n.textContent || '').trim();
+      if (!t || t.length > 60 || CLOSE_GLYPH.test(t)) continue;
+      // It must come BEFORE the field. The percentage readout to the right of
+      // every volume slider is `.tos-set-val` today, but the next one written
+      // will be `-label`-ish, and a slider announced as "34%" instead of
+      // "Master volume" is worse than one announced as nothing.
+      if (!precedes(n, input)) continue;
+      if (!n.id) n.id = `a11y-fld-label-${++_autoId}`;
+      input.setAttribute('aria-labelledby', n.id);
+      return n.id;
+    }
+    el = el.parentElement;
+  }
+  // Last resort is `title`, and deliberately NOT `placeholder`: the
+  // accessible-name algorithm already falls back to a placeholder on its own, so
+  // copying one into aria-label buys nothing and freezes a string that several
+  // panels rewrite as state changes ("Message Vale…").
+  const title = (input.getAttribute?.('title') || '').trim();
+  if (title) { input.setAttribute('aria-label', title); return title; }
+  return null;
+}
+
+// The per-frame sweep. Marked so each field is visited once, exactly like the
+// glyph pass, and document-wide for the same reason — the smartbar and the room
+// pane hold fields that live outside any panel.
+export function nameFields(root) {
+  let nodes;
+  try { nodes = (root || document).querySelectorAll(FIELDS); } catch { return; }
+  for (const el of nodes) {
+    if (el.hasAttribute('data-a11y-field-named')) continue;
+    el.setAttribute('data-a11y-field-named', '1');
+    nameField(el);
+  }
+}
+
 // Pick the control Escape should click. Order matters and is the whole safety
 // argument: an explicit close beats a guess, and a guess never reaches anything
 // that spends money. `nodes` is in DOM order.
@@ -192,6 +326,10 @@ function evaluate() {
   // with it. Deliberately document-wide rather than modal-only: the smartbar,
   // the room pane and the tablet all draw them outside any panel.
   nameGlyphControls(document);
+  nameFields(document);
+  // The open dialog's name is re-checked on any frame that changed the DOM, so a
+  // panel that re-renders its header keeps a name that resolves.
+  if (_active?.isConnected) ensureDialogName(_active);
   let entries = [];
   try {
     entries = modalEntries();
@@ -226,6 +364,9 @@ function evaluate() {
     // which is exactly what the trap makes true.
     if (!_active.getAttribute?.('role')) _active.setAttribute('role', 'dialog');
     if (!_active.hasAttribute?.('aria-modal')) _active.setAttribute('aria-modal', 'true');
+    // …and say WHICH dialog. Without this every panel in the client is announced
+    // as the bare word "dialog".
+    ensureDialogName(_active);
     // Move focus in — but never steal it from something inside the panel that
     // already took it (a search box that autofocused, say).
     try {

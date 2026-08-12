@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — Part one: your first hour (text edition)</title>
+<meta name="description" content="A plain-text, screen-reader-first edition of the ARCHITECT beginner's guide.">
+<style>
+  :root{ color-scheme:light dark; --bg:#fff; --ink:#14181d; --dim:#4a545f; --rule:#c8d0d8; --link:#0b5fa5; --code:#f0f3f6; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0e12; --ink:#e6edf3; --dim:#a4b1bd; --rule:#2b343d; --link:#7cc4ff; --code:#161c23; }
+  }
+  body{ background:var(--bg); color:var(--ink); margin:0 auto; max-width:44rem; padding:1.5rem 1.25rem 5rem;
+        font:1.05rem/1.65 Georgia,"Times New Roman",serif; }
+  h1,h2,h3{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.25; }
+  h1{ font-size:1.7rem; margin:0 0 .3em; }
+  h2{ font-size:1.3rem; margin:2.4em 0 .4em; padding-top:.5em; border-top:1px solid var(--rule); }
+  h3{ font-size:1.08rem; margin:1.8em 0 .3em; }
+  p,li{ max-width:38rem; }
+  a{ color:var(--link); }
+  code{ background:var(--code); padding:.1em .35em; border-radius:3px; font-size:.94em; }
+  table{ border-collapse:collapse; margin:1.2em 0; width:100%; }
+  caption{ text-align:left; font-style:italic; color:var(--dim); padding-bottom:.4em; }
+  th,td{ border:1px solid var(--rule); padding:.4em .6em; text-align:left; vertical-align:top; font-size:.97rem; }
+  th{ font-family:system-ui,sans-serif; }
+  .aside{ border-left:4px solid var(--rule); padding:.2em 0 .2em 1em; margin:1.4em 0; color:var(--dim); }
+  .aside strong{ color:var(--ink); }
+  .skip{ position:absolute; left:-9999px; }
+  .skip:focus{ position:static; display:inline-block; margin-bottom:1rem; }
+  nav ul{ padding-left:1.2em; }
+  footer{ margin-top:3rem; border-top:1px solid var(--rule); padding-top:1rem; color:var(--dim); font-size:.95rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to the guide</a>
+
+<header>
+  <p><a href="/guide.html">Illustrated version of this page</a> · <a href="/tour-text.html">Part two (text)</a> · <a href="/lore-text.html">Part three (text)</a></p>
+  <h1>ARCHITECT — Part one: your first hour</h1>
+  <p>This is the text edition of the beginner's guide: the same words as the illustrated
+  page, with every picture and diagram written out, and nothing on the page that is
+  only decoration. A guide to your first hour in Coldwater Basin — what you're looking
+  at, what to type, and what will kill you.</p>
+  <p><a href="https://www.architectgame.net">Play ARCHITECT</a>. No install, no download.</p>
+</header>
+
+<nav aria-label="Contents">
+  <h2 id="contents">Contents</h2>
+  <ul>
+    <li><a href="#s1">1. How it works</a></li>
+    <li><a href="#s2">2. Where you wake up</a></li>
+    <li><a href="#s3">3. The five things keeping you alive</a></li>
+    <li><a href="#s4">4. Money, and getting some</a></li>
+    <li><a href="#s5">5. Carrying things</a></li>
+    <li><a href="#s6">6. Violence</a></li>
+    <li><a href="#s7">7. Getting better at things</a></li>
+    <li><a href="#s8">8. Other people</a></li>
+    <li><a href="#s9">9. Living here</a></li>
+    <li><a href="#s10">10. Your first hour</a></li>
+    <li><a href="#s11">11. A day in the life</a></li>
+    <li><a href="#s12">12. When you're stuck</a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+<h2 id="s1">1. How it works</h2>
+<p>Reading, typing, and a city on a clock.</p>
+
+<p>ARCHITECT runs in a browser tab and it is built on writing: you read where you are,
+and you type what you do. But the writing is the spine, not the whole animal. Hanging
+off it are a live minimap, a drag-and-drop inventory, a pocket tablet with thirty-odd
+apps, a television you can sit and watch, lock-picking and hacking minigames, a neon
+chess set, a poker table, and a long way out from all of that, a flight simulator you
+fly looking out of a cockpit window.</p>
+
+<p>What it doesn't have is a pause button. The city keeps its own time whether you're
+logged in or not: a day passes every eight real hours, weather rolls across the map,
+streetlights come on at dusk.</p>
+
+<p>You are one person in that city. You have a body with meters attached to it, an
+inventory, a bank balance, and skills that get better only by being used. Nothing is on
+rails. There's no quest arrow. The game's answer to <em>what should I do</em> is
+generally <em>whatever you can afford</em>.</p>
+
+<h3>Playing without the panels</h3>
+<div class="aside">
+  <p><strong>Read this first if you use a screen reader.</strong> The game has a display
+  mode built for you. Type <code>displaymode log</code>, or go to Tablet → Settings →
+  General → Display Mode. That folds the whole game down into one plain scrolling
+  transcript: no panes, no panels, everything narrated in order into a single live
+  region. It is a real way to play rather than a stripped-down one — the minigames
+  still run, called out in words, and the room description reaches the transcript like
+  everything else. <code>displaymode visual</code> puts it back.</p>
+  <p>There is also an <code>accessibility</code> command, which opens the settings
+  directly and deliberately has no tablet requirement — the light switch cannot be
+  inside the dark room. It covers voice input and Read Aloud as well.</p>
+</div>
+
+<h3>What you're looking at</h3>
+<p>In the visual layout the whole game is one screen: a thin strip of readouts down the
+left, buttons along the bottom, and the middle split into two panes.</p>
+
+<p>The <strong>top pane is the room</strong>, and it keeps itself current. Walk somewhere
+and it repaints with the new room. Someone else walks out and it repaints without them.
+You don't refresh it and you don't ask for it; it is simply always showing where you are
+right now.</p>
+
+<p>The <strong>bottom pane is the log</strong>, and it scrolls. That's the running account
+of what <em>happened</em> — things said, blows landed, a door unlocking, a stranger's
+television bleeding through the wall. It only ever grows downward.</p>
+
+<div class="aside">
+  <p><strong>Why this matters.</strong> Older games of this kind make you type
+  <code>look</code> constantly to find out where you are. Here you don't — the room is
+  already on screen, and it stays right. What you'll actually use is <code>examine</code>
+  (or just <code>x</code>) to inspect a <em>thing</em>: <code>x sully</code>,
+  <code>x corkboard</code>. The smartbar counts them for you — "Examine (4)" means four
+  things here are worth a closer look.</p>
+</div>
+
+<h3>Every part of the screen, in words</h3>
+<p>The illustrated guide shows an annotated mock-up of the interface. This is the same
+annotation as a list. In log display mode most of these become lines of the transcript
+rather than regions on screen, but the ideas are the same.</p>
+
+<ul>
+  <li><strong>Your name and purse.</strong> The credits shown are the ones <em>on your
+  body</em> — the losable half. Banked money isn't here.</li>
+  <li><strong>The minimap.</strong> You in the middle, rooms around you, coloured by how
+  dangerous they are. Green edges are safe, red is not.</li>
+  <li><strong>Vitals.</strong> A live readout of the meters in section 3. Health and
+  stamina sit here permanently; the rest surface when they start to matter.</li>
+  <li><strong>The d-pad.</strong> Lit buttons are exits that actually exist — so you can
+  cross the entire city by clicking, without knowing a compass direction. <code>in</code>
+  and <code>out</code> are doors.</li>
+  <li><strong>Environment.</strong> City time and date, temperature, weather, and how well
+  lit it is. The last line is your body reporting in — "Hungry" there is the game warning
+  you before it becomes a problem.</li>
+  <li><strong>Who's online.</strong> Everyone currently in the world, not just this room.
+  It's a small city; you'll recognise names fast.</li>
+  <li><strong>The room pane.</strong> Where you are, right now. Name, safety tag,
+  description, exits — repainted automatically whenever anything changes, so it's never
+  out of date. Highlighted words are clickable: people, scenery, exits.</li>
+  <li><strong>The divider.</strong> Drag it. If you're exploring, give the room more
+  space; if you're in a fight or deep in conversation, give the log more.</li>
+  <li><strong>The log.</strong> What <em>happened</em>, in order. Speech, combat, people
+  coming and going, your own commands echoed back and their results. The room pane tells
+  you where you are; the log tells you the story.</li>
+  <li><strong>The command line.</strong> Where you type. Every button and link on the
+  screen is a shortcut to something you could type here yourself.</li>
+  <li><strong>The smartbar.</strong> Context buttons for what's possible in <em>this</em>
+  room — it changes as you walk. The fastest way to find out what a place lets you do.</li>
+</ul>
+
+<h3>How a turn works</h3>
+<p>You read the room, then type one short instruction. The answer comes back in the log;
+if the instruction changed the room, the pane above updates itself. A sample exchange:</p>
+
+<pre><code>&gt; x sully
+A heavy man in his sixties with a burn scar up one forearm. He has the
+expression of someone who has heard your story before.
+
+&gt; talk sully
+Sully: "You look like six credits and a bad decision. Drink?"
+
+&gt; north
+You step out onto the quay. Rain, and the smell of the water.</code></pre>
+
+<p>Commands are <em>verb, then thing</em>: <code>x sully</code>, <code>take bottle</code>,
+<code>attack rat</code>. Short and flat. If you type something the game doesn't recognise
+it just says so and nothing happens — typing the wrong thing is free, so experiment.</p>
+
+<h2 id="s2">2. Where you wake up</h2>
+<p>The vat, the tablet, the street.</p>
+
+<p>You start in a cloning facility, because in this city dying is a service you subscribe
+to rather than an ending. Before you're even out of the room a hatch spits a
+<strong>tablet</strong> at you — map, bank, messages, reference library. Open it early.</p>
+
+<p>Then the door opens onto Coldwater Basin and you're on your own.</p>
+
+<h3>Moving</h3>
+<p>The world is a grid of rooms joined by compass directions. Every room lists its exits.
+You travel one room at a time.</p>
+
+<table>
+  <caption>Movement commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>n s e w</td><td>North, south, east, west</td></tr>
+    <tr><td>u, d</td><td>Up and down — stairs, ladders, lifts</td></tr>
+    <tr><td>in, out</td><td>Through a door — into a shop, back onto the street</td></tr>
+    <tr><td>map</td><td>An overhead sketch of what's around you</td></tr>
+  </tbody>
+</table>
+
+<p>Buildings are entered by walking at the door from the street outside, and left the same
+way.</p>
+
+<h2 id="s3">3. The five things keeping you alive</h2>
+<p>Your body, tracked in real time. These drain continuously — while you play, and while
+you're away.</p>
+
+<table>
+  <caption>The five survival meters</caption>
+  <thead><tr><th scope="col">Meter</th><th scope="col">What it means</th></tr></thead>
+  <tbody>
+    <tr><td>HP</td><td>Damage taken. Zero is death — survivable, but expensive.</td></tr>
+    <tr><td>Hunger</td><td>Eat. Food is cheap and everywhere.</td></tr>
+    <tr><td>Thirst</td><td>Drink. Drains faster than hunger.</td></tr>
+    <tr><td>Radiation</td><td>Climbs outdoors and in bad places. Rots you slowly.</td></tr>
+    <tr><td>Sanity</td><td>Frays from violence, isolation and worse. Low sanity lies to you.</td></tr>
+  </tbody>
+</table>
+
+<p>None of these will kill you in the first hour. All of them will kill you in the fifth
+if you ignore them. Check with <code>stats</code>; buy a meal before you need one.</p>
+
+<div class="aside">
+  <p><strong>Radiation is the sneaky one.</strong> It doesn't hurt. It just climbs — and
+  high enough, it hands you a permanent mutation you didn't ask for. Some mutations are
+  good. That is not a plan.</p>
+</div>
+
+<h2 id="s4">4. Money, and getting some</h2>
+<p>Currency is credits (₵), held in two places: <strong>cash on your body</strong>, which
+anyone can take off your corpse, and a <strong>bank balance</strong>, which they can't.
+ATMs are scattered around the city.</p>
+
+<table>
+  <caption>Money commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>balance</td><td>What you've got, carried and banked</td></tr>
+    <tr><td>deposit 200</td><td>At an ATM — the safe half</td></tr>
+    <tr><td>withdraw 50</td><td>The spendable half</td></tr>
+    <tr><td>shop sully</td><td>See what a vendor sells</td></tr>
+    <tr><td>buy beer</td><td>Hand over credits</td></tr>
+    <tr><td>sell scrap</td><td>The reverse — vendors buy what they deal in</td></tr>
+  </tbody>
+</table>
+
+<p>Early income is honest work: a job board with small rotating gigs, things worth
+scavenging off the ground, and vendors who'll take junk off your hands. Later income is
+less honest. That's between you and the police.</p>
+
+<h2 id="s5">5. Carrying things</h2>
+
+<table>
+  <caption>Inventory commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>i</td><td>Your inventory and what you're wearing</td></tr>
+    <tr><td>take lighter</td><td>Pick something up</td></tr>
+    <tr><td>drop lighter</td><td>Put it down — it stays there</td></tr>
+    <tr><td>equip jacket</td><td>Wear or wield something</td></tr>
+    <tr><td>use stimpack</td><td>The generic "do the obvious thing with this"</td></tr>
+    <tr><td>stow knife in bag</td><td>Containers hold items and travel with you</td></tr>
+  </tbody>
+</table>
+
+<p>Gear wears out with use. A coat that's taken a beating says so when you <code>x</code>
+it, and there are people who repair things for a fee. Gear at zero condition is
+<strong>destroyed outright</strong> — don't ride a good weapon into the ground.</p>
+
+<h2 id="s6">6. Violence</h2>
+<p>Slow, decisive, and worth avoiding. Fighting resolves on a cooldown of a few seconds.
+There's no advantage in mashing keys, and a large advantage in choosing the fight.</p>
+
+<pre><code>&gt; attack scav
+You swing the pipe wrench at the scav's head — it connects with a wet crack.
+The scav lunges, opening a gash across your left arm. You are bleeding.
+
+&gt; attack scav
+Your wrench takes him down. He does not get up.
+
+&gt; loot corpse
+You take: 41 credits, a chipped blade, half a ration bar.</code></pre>
+
+<p>Hits land on specific body parts, armour soaks specific damage types, and bleeding keeps
+costing HP after the fight ends. Bodies stay lootable by anyone for an hour of real time,
+including yours.</p>
+
+<h3>Two kinds of ground</h3>
+<p>The illustrated guide draws this as a diagram. In words, it is three bands stacked
+from north to south:</p>
+<ol>
+  <li><strong>Coldwater Basin, the city.</strong> Bars, shops, clinics, apartments, the job
+  board, banks. Other players <em>cannot</em> attack you here. Spend your first hour
+  entirely inside this band.</li>
+  <li><strong>The Curtain</strong>, running along the southern edge, with one way through
+  it: <strong>the South Gate</strong>.</li>
+  <li><strong>Beyond.</strong> Full loot, live player-versus-player, and things that hunt
+  you.</li>
+</ol>
+<p>The city core is safe ground. Past the edges, in the badlands west of town and the
+wastes south through the Curtain, other players can attack you, and whatever you were carrying is
+theirs if they win.</p>
+
+<div class="aside">
+  <p><strong>The rule the city runs on.</strong> Bank your money, and don't carry anything
+  out there you'd be sad to lose.</p>
+</div>
+
+<h3>Dying</h3>
+<p>You wake up back in the vat. You keep <strong>every skill you ever earned</strong>; you
+lose what was on your body, which is now lying wherever you fell for anyone to pick up.
+Death is a setback and an errand, not a restart.</p>
+
+<h2 id="s7">7. Getting better at things</h2>
+<p>Twenty-six skills, no experience bar. You improve a skill by doing the thing. Picking
+locks makes you better at locks; missing punches makes you better at punching. Check
+progress with <code>skills</code>.</p>
+
+<p>This is why the game rewards being curious. None of the cooking, the fishing, the
+chemistry or the flying is locked behind a level. It's locked behind you having tried it a few
+times and been bad at it first.</p>
+
+<h2 id="s8">8. Other people</h2>
+
+<table>
+  <caption>Talking to people</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>say hello</td><td>Speak aloud to the room</td></tr>
+    <tr><td>me shrugs</td><td>A freeform action line — <code>me leans on the bar</code></td></tr>
+    <tr><td>talk grady</td><td>Start a conversation with an NPC</td></tr>
+    <tr><td>who</td><td>Who else is online</td></tr>
+  </tbody>
+</table>
+
+<p>The NPCs remember you. Talk to the same barkeep enough times and he stops greeting you
+like a stranger; some will do things for someone they know that they'd never do for a
+walk-in. Rudeness persists too.</p>
+
+<h2 id="s9">9. Living here</h2>
+<p>The survival meters are the floor, not the point. Once you're not about to die, Coldwater
+Basin turns out to be mostly about ordinary life done properly — a room of your own, a
+decent meal, a drink with the game on. Everything below is a system in its own right, and
+none of it is required.</p>
+
+<h3>A place of your own</h3>
+<p>Vacant units advertise themselves. Stand in one and type <code>rent</code>. From then on
+it's yours: it locks, it holds your things, and sleeping in a safe room you own recovers you
+faster than dossing anywhere else.</p>
+
+<table>
+  <caption>Housing commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>rent</td><td>Take the unit you're standing in</td></tr>
+    <tr><td>lock / unlock</td><td>The door. Use it.</td></tr>
+    <tr><td>upgrade lock</td><td>Better lock, harder to pick — worth it once you own anything</td></tr>
+    <tr><td>sleep</td><td>Timed recovery, scaled by how safe the place is</td></tr>
+    <tr><td>deed</td><td>Buy a shopfront, if you'd rather be a landlord than a tenant</td></tr>
+  </tbody>
+</table>
+
+<p>Rent falls due every seven days on the city calendar, and the city clock is fast — a day
+is eight real hours, so a week's rent comes round in a couple of real days. Miss it and
+you're out. The tablet's Calendar app tracks the due date.</p>
+
+<div class="aside">
+  <p><strong>Your mess is now your problem.</strong> Unowned rooms get swept clean nightly by
+  somebody else. A room <em>you own</em> keeps its stains for a full rent cycle. That's why
+  anybody owns a mop.</p>
+</div>
+
+<h3>The kitchen</h3>
+<p>Cooking is a full craft, not a crafting menu. You chop, season, heat and time things, and
+the pan can be wrong in ways it will tell you about.</p>
+
+<table>
+  <caption>Cooking commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>chop / mince / cut</td><td>Prep an ingredient before it goes in</td></tr>
+    <tr><td>marinate / cure / butter</td><td>Slower preparations, better results</td></tr>
+    <tr><td>cook</td><td>Start the pan. Needs a stove, and needs to make sense</td></tr>
+    <tr><td>stir / flip / taste</td><td>Work it while it cooks — this is where the skill lives</td></tr>
+    <tr><td>plate</td><td>Serve it up</td></tr>
+    <tr><td>cookbook / recipe</td><td>What you know; save a combination you invented</td></tr>
+    <tr><td>shoplist</td><td>What you still need to buy, derived from your inventory</td></tr>
+    <tr><td>prepare &lt;recipe&gt;</td><td>Walks the steps for you — and stops at the stove, because heat is the part you're supposed to do</td></tr>
+  </tbody>
+</table>
+
+<p>One thing catches everyone out: <strong>dry starch needs liquid.</strong> A pan of pasta
+with nothing in it refuses to cook, so <code>fill</code> a vessel at a water source first.</p>
+
+<h3>A drink, and the fact that it takes time</h3>
+<p>Finished drinks live on the <em>vessel</em>, not as some new object. That is the whole
+point of owning a good mug. <code>mix</code> at a bar, <code>brew</code> if there's a machine
+for it.</p>
+
+<p>The detail worth knowing: drinking a beer is a <strong>timed act</strong>. Twelve to
+eighteen seconds, narrated as you go, with the effect landing at the end — and walking out of
+the room interrupts it. Finishing one means sitting still for it, which is the point.</p>
+
+<h3>The television</h3>
+<p>Every set in the game is a real piece of furniture on the real power grid.</p>
+
+<table>
+  <caption>Television commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>watch tv</td><td>Start watching whatever's on</td></tr>
+    <tr><td>tune &lt;n&gt;</td><td>Change the channel</td></tr>
+    <tr><td>tune 0</td><td>Switch the set off — for the whole room</td></tr>
+    <tr><td>tv off</td><td>Stop watching, and leave it on for everyone else</td></tr>
+  </tbody>
+</table>
+
+<p>Channels run a genuine schedule, and the programmes are assembled live rather than
+replayed — news, sport, talk shows, films. It's worth an evening on its own once you have
+somewhere to sit.</p>
+
+<div class="aside">
+  <p><strong>You can be on television.</strong> Game shows are the one broadcast you can be
+  <em>inside</em>. Stand in the studio when a round opens and you're a contestant — answer
+  with <code>guess</code>, on air, citywide, for money. One asks what things are worth; the
+  other asks what you know about the city.</p>
+</div>
+
+<h3>The game's on</h3>
+<p>Two sports run real seasons with real standings: <strong>Deadball</strong> (baseball) on
+Mondays, Wednesdays and Fridays, and <strong>Cluster Puck</strong> (hockey) on Tuesdays,
+Thursdays and Sundays. Games are simulated fresh and called by commentary.</p>
+
+<table>
+  <caption>Sport commands</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+  <tbody>
+    <tr><td>standings</td><td>The league tables</td></tr>
+    <tr><td>wager</td><td>Put money on a game</td></tr>
+    <tr><td>worldseries / cup</td><td>The postseason, when it comes round</td></tr>
+  </tbody>
+</table>
+
+<p>A bar with the set on is the room's game, not yours, and that's the better version of
+it: sit down, order something, and let the place watch it with you.</p>
+
+<h3>Weather, which is trying to kill you</h3>
+<p>The forecast runs seven days ahead and you can read it on the tablet. Most of it is
+texture. Some of it is not.</p>
+<ul>
+  <li><strong>Severe weather is lethal — but only to the unprepared.</strong> The right coat
+  turns a killer into an inconvenience, and that is deliberate.</li>
+  <li><strong>There is no free safe haven indoors.</strong> A blacked-out building has no
+  heating, and cold kills inside just as well as out.</li>
+  <li><strong>Wind costs stamina</strong> on every outdoor step. It never blocks you; it just
+  bleeds you.</li>
+  <li><strong>Named events happen.</strong> Acid rain. An ion storm that drops the entire city
+  grid — lights, ATMs, televisions.</li>
+  <li><strong>The warning is vague on purpose.</strong> A severe band on the forecast tells you
+  something is coming that week. It doesn't tell you what, or exactly when.</li>
+</ul>
+
+<div class="aside">
+  <p><strong>Take the coat.</strong> Cheap, boring, and the difference between weather being
+  scenery and weather being the thing that killed you.</p>
+</div>
+
+<h2 id="s10">10. Your first hour</h2>
+<p>Grady, two clonejackers, and a hole in the road. You don't have to invent something to do.
+There's a proper opening chain, and it's built to teach you the game by making you use it.</p>
+
+<h3>Find Grady</h3>
+<p>Off Ironside there's a cramped front room made of corrugated sheet and honest intentions,
+with flashlights and coils of spare cells hanging off every nail: <strong>Two-Cell
+Supply</strong>. Behind the crates that serve as a counter is <strong>Grady "Two-Cell"
+Okonkwo</strong>, who watches the door the way a fisherman watches a net.</p>
+
+<p>He sells the boring things that keep you alive — water, jerky, bandages, batteries, lights
+— at prices a newborn can afford. <code>talk grady</code>.</p>
+
+<h3>The First Hour</h3>
+<p>Grady has a complaint. Clonejackers are working the strip south of the Embassy, and they're
+killing his business by killing his customers — people exactly like you, about an hour
+younger. He'd like two of them gone, and his stolen flashlight cells back.</p>
+
+<ol>
+  <li>Head south past the Embassy's warm lights. Quests draw a <strong>green GPS line</strong>
+  on your map — follow it, or hit AUTO and let your legs do it.</li>
+  <li><code>attack clonejacker</code>. Twice, on two different clonejackers. This is your first
+  real fight and it is meant to be winnable.</li>
+  <li><code>loot</code> the bodies until you find Grady's cells.</li>
+  <li>Walk back and hand them over.</li>
+</ol>
+
+<p>He pays ₵120, some jerky and bandages, and a <strong>lucky flashlight</strong>. Take note
+of that flashlight. It is not a souvenir.</p>
+
+<h3>Down the Drain</h3>
+<p>Because his next problem is underground. The storm drain on Ironside is backing up with
+vermin, and vermin work their way up — toward the vats where people like you are grown.</p>
+
+<p>So you go down the rusted ladder into <strong>the Under</strong>, the sewer level beneath
+the city, and cull six of the things living in it. Rats, roaches, slimes; they all count. It
+pays ₵180.</p>
+
+<div class="aside">
+  <p><strong>Notice what just happened.</strong> Grady armed you, then sent you somewhere dark.
+  The flashlight from the first job is the equipment for the second. Go down without a
+  light and you'll find out exactly why the game gave you one. That is the shape of the
+  whole game: the city hands you a tool, then a reason.</p>
+</div>
+
+<h3>After that</h3>
+<ol>
+  <li><code>stats</code> — see what's draining. Spend some of Grady's money on food and water
+  before it matters.</li>
+  <li>Buy something to wear and something to hit with. <code>equip</code> both.</li>
+  <li>Head for the <strong>franchise strip job board</strong> — rotating legal gigs, small
+  money, no way to die.</li>
+  <li>Bank what you don't need to carry. <code>deposit</code> at any ATM.</li>
+  <li>Walk down to the South Gate and <em>look</em> at it — the guards, the turrets, the killing
+  ground past the Curtain. Don't walk through. That's for a later night, with a full pack and
+  someone else along.</li>
+</ol>
+
+<h2 id="s11">11. A day in the life</h2>
+<p>Much later, when the city is yours. None of this is hour one. It's what an ordinary day
+looks like a long way in, and it's here so you know what's out there rather than as anything
+to aim at. A city day runs eight real hours, so what follows is an evening or two of play, not
+a career.</p>
+
+<h3>06:40 — your flat: wake up somewhere that's yours</h3>
+<p>You come round in a rented unit with the door locked behind you, which is already a
+different game from sleeping rough. Sleep ran its recovery; if you dreamt, that was its own
+thing — three or four rooms generated just for you and dissolved when you woke, while your body
+lay here in the dark being lootable. Verbs: <code>x mirror</code>, <code>shower</code>,
+<code>stand</code>.</p>
+
+<h3>07:10 — the kitchen: coffee, and the news</h3>
+<p><code>brew</code> something hot — it stays hot on a derived timer, so don't leave it. On the
+tablet: overnight headlines and the seven-day forecast. There's a severe band on Thursday. You
+make a note to have the coat by then.</p>
+
+<h3>08:30 — the strip: work, of whatever kind you've chosen</h3>
+<p>Maybe it's honest: a shift, a job off the board, a shopfront you hold the <code>deed</code>
+to, with staff you hired and stock you ordered. Maybe you fly — freight, medevac, VIP charter,
+or the ones that don't file a flight plan. Maybe it's a corp, and your day is territory and
+influence and somebody else's treasury.</p>
+
+<h3>11:00 — out past the rim: get something out of the ground</h3>
+<p>Fishing off the quay with the right rod, mining a deposit with the right tool, scavenging a
+ruin on a perpetual search that runs until it empties out or something interrupts it. All three
+are postures: you start them, and they keep going while you watch the water.</p>
+
+<h3>13:20 — your kitchen again: cook properly, for once</h3>
+<p>Not a ration bar. Something chopped and marinated and watched, off a recipe you worked out
+yourself and saved under a name only you use. The good stuff is worth real money to people who
+can't cook, and the very best of it can't be improvised — it has to be learned.</p>
+
+<h3>15:00 — somewhere private: the business you don't advertise</h3>
+<p>A bench behind a cabinet that doesn't look like a lab. Synthesis, splicing, something curing.
+Or the other trades: a lock that isn't yours, a pocket that isn't yours, a network of eyes
+you've paid for reporting who walked where. All of it is witnessed by somebody eventually, and
+the city keeps a wanted level.</p>
+
+<h3>18:00 — the bar: a beer, and the game's on</h3>
+<p>Sit down. Order. Drink it slowly, because that's the only way it works. The set in the corner
+has the Deadball game on and half the room is watching it — there's money on it, some of it
+yours. Somebody's at the piano and is actually playing it, key by key, on their own keyboard.</p>
+
+<h3>20:30 — upstairs: cards, chess, or a worse idea</h3>
+<p>A poker table with real seats and a host who deals. A neon chess set. The casino, if you hate
+money. Or trading cards — packs from a machine, and the odd feeling of opening one to find a
+stranger who minted themselves at a terminal last week.</p>
+
+<h3>23:00 — the gate: out, if you're going out</h3>
+<p>The Under for something specific. The badlands with people you trust. South through the
+Curtain into the Wildlands, which is the version of this where you write a will first. Full
+loot, live player-versus-player, and things that hunt.</p>
+
+<h3>02:00 — or a cell: however it ends</h3>
+<p>Home to your own bed and a mess you'll have to mop yourself, because a room you own keeps its
+filth. Or Holding, with your gear in an evidence locker and a cell door somebody could hack. Or
+the vat, with everything you were carrying lying somewhere out in the dark for whoever finds it
+first.</p>
+
+<div class="aside">
+  <p><strong>The point of all that.</strong> There's no track you're supposed to be on. The
+  pilot, the cook, the card sharp, the chemist and the person who just likes owning a nice flat
+  are all playing the game correctly. Skills only go up by use, so you become whatever you keep
+  doing.</p>
+</div>
+
+<h2 id="s12">12. When you're stuck</h2>
+<p>Five commands that always answer.</p>
+
+<table>
+  <caption>The five that always work</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it answers</th></tr></thead>
+  <tbody>
+    <tr><td>help</td><td>The full command list, always</td></tr>
+    <tr><td>map</td><td>Where am I, and what's near</td></tr>
+    <tr><td>stats</td><td>What's wrong with me</td></tr>
+    <tr><td>i</td><td>What have I got</td></tr>
+    <tr><td>x &lt;thing&gt;</td><td>What <em>is</em> that</td></tr>
+  </tbody>
+</table>
+
+<p>And the honest answer for everything else: <strong>try the verb.</strong> If it doesn't exist
+the game says so and you've lost nothing. Half of learning this city is discovering that
+<code>fish</code>, <code>cook</code>, <code>mop</code> and <code>gossip</code> all do
+something.</p>
+
+</main>
+
+<footer>
+  <h2 id="next">Keep reading</h2>
+  <ul>
+    <li><a href="/tour-text.html">Part two, text edition: everything you can do</a> — the nine
+    orders, mutation versus chrome, the flight simulator, chess and poker, shops and corps,
+    weather that kills, television with a cast that has to turn up.</li>
+    <li><a href="/lore-text.html">Part three, text edition: the two questions</a> — all nine
+    orders, what each wants, and what siding with one does to your prices, your doors and your
+    body.</li>
+    <li><a href="/guide.html">The illustrated version of this page</a>.</li>
+    <li><a href="https://www.architectgame.net">Play ARCHITECT</a> — free, in a browser tab.</li>
+  </ul>
+  <p>Coldwater Basin runs whether you're watching or not. Take a coat.</p>
+</footer>
+
+</body>
+</html>

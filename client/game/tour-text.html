@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — Part two: everything you can do (text edition)</title>
+<meta name="description" content="A plain-text, screen-reader-first edition of the ARCHITECT feature tour.">
+<style>
+  :root{ color-scheme:light dark; --bg:#fff; --ink:#14181d; --dim:#4a545f; --rule:#c8d0d8; --link:#0b5fa5; --code:#f0f3f6; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0e12; --ink:#e6edf3; --dim:#a4b1bd; --rule:#2b343d; --link:#7cc4ff; --code:#161c23; }
+  }
+  body{ background:var(--bg); color:var(--ink); margin:0 auto; max-width:44rem; padding:1.5rem 1.25rem 5rem;
+        font:1.05rem/1.65 Georgia,"Times New Roman",serif; }
+  h1,h2,h3{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.25; }
+  h1{ font-size:1.7rem; margin:0 0 .3em; }
+  h2{ font-size:1.3rem; margin:2.4em 0 .4em; padding-top:.5em; border-top:1px solid var(--rule); }
+  h3{ font-size:1.08rem; margin:1.8em 0 .3em; }
+  p,li{ max-width:38rem; }
+  a{ color:var(--link); }
+  code{ background:var(--code); padding:.1em .35em; border-radius:3px; font-size:.94em; }
+  table{ border-collapse:collapse; margin:1.2em 0; width:100%; }
+  caption{ text-align:left; font-style:italic; color:var(--dim); padding-bottom:.4em; }
+  th,td{ border:1px solid var(--rule); padding:.4em .6em; text-align:left; vertical-align:top; font-size:.97rem; }
+  th{ font-family:system-ui,sans-serif; }
+  .aside{ border-left:4px solid var(--rule); padding:.2em 0 .2em 1em; margin:1.4em 0; color:var(--dim); }
+  .aside strong{ color:var(--ink); }
+  .skip{ position:absolute; left:-9999px; }
+  .skip:focus{ position:static; display:inline-block; margin-bottom:1rem; }
+  nav ul{ padding-left:1.2em; }
+  footer{ margin-top:3rem; border-top:1px solid var(--rule); padding-top:1rem; color:var(--dim); font-size:.95rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to the tour</a>
+
+<header>
+  <p><a href="/tour.html">Illustrated version of this page</a> · <a href="/guide-text.html">Part one (text)</a> · <a href="/lore-text.html">Part three (text)</a></p>
+  <h1>ARCHITECT — Part two: everything you can do</h1>
+  <p>This is the text edition of the feature tour: the same words as the illustrated page,
+  with the screenshots described rather than shown, and nothing on the page that is only
+  decoration.</p>
+  <p>A post-singularity city that runs on its own clock, in a browser tab, whether you're
+  logged in or not. Cook a meal. Fly a cargo run. Run a protection racket. Grow a second
+  heart, or replace the first one with chrome. Coldwater Basin does not care which — it has
+  weather to make and a television schedule to keep.</p>
+  <p><a href="https://www.architectgame.net">Play ARCHITECT</a>. Never played anything like
+  this? <a href="/guide-text.html">Part one walks you through your first hour.</a></p>
+</header>
+
+<nav aria-label="Contents">
+  <h2 id="contents">Contents</h2>
+  <ul>
+    <li><a href="#world">The city doesn't wait for you to log in</a></li>
+    <li><a href="#orders">Nine orders. Two questions.</a></li>
+    <li><a href="#become">Mutant, machine, or master of the trade</a></li>
+    <li><a href="#flight">Aircraft you actually fly</a></li>
+    <li><a href="#games">Sit down and play something</a></li>
+    <li><a href="#work">From counting rats to running the block</a></li>
+    <li><a href="#drugs">A whole chemistry set, and a market for it</a></li>
+    <li><a href="#weather">Get cold. Get wet. Get dissolved.</a></li>
+    <li><a href="#tv">Shows assembled live, performed by actual NPCs</a></li>
+    <li><a href="#alive">The world lives on without you</a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+<h2 id="world">The city doesn't wait for you to log in</h2>
+<p>Everything is simulated. A day passes every eight real hours. Weather rolls across the
+map. Streetlights come on at dusk because a power grid decided they should. Shopkeepers walk
+home and go to bed. None of it is on a script that starts when you arrive.</p>
+
+<p>By the numbers: eight real hours make one city day; the forecast runs seven days ahead;
+there are 26 skills, all learned by use; four of the nine orders are live and five are
+previewed; and the ways to die badly are not enumerable.</p>
+
+<ul>
+  <li><strong>A real power grid.</strong> Generators, substations, fuses. Storms fault them.
+  Blackouts are simulated, not announced — the lights just go out, and the ATM stops
+  working.</li>
+  <li><strong>Smell and sound.</strong> Rooms have odours and noises that travel. A gunshot
+  next door is something you hear. So is somebody who hasn't washed.</li>
+  <li><strong>NPCs who remember.</strong> Familiarity and warmth, tracked per person. The
+  barkeep stops greeting you like a stranger. Some doors only open for someone known.</li>
+  <li><strong>Cooking, simulated properly.</strong> The pan tracks its own contents, heat and
+  doneness. Chop, season, stir, flip, taste — timing is a real variable, and a dish you invent
+  is yours to name and sell.</li>
+  <li><strong>Gear that wears out.</strong> Condition degrades with use, not with the clock.
+  Repair it well and it comes back tougher. Ignore it and it's destroyed.</li>
+  <li><strong>Mess that persists.</strong> Unowned rooms get swept nightly. A room
+  <em>you</em> rent keeps its stains for a full rent cycle. That's why you'd carry a mop.</li>
+</ul>
+
+<h2 id="orders">Nine orders. Two questions. Pick a side or don't.</h2>
+<p>Something much smarter than people built this place and may still be running it. Everyone
+in Coldwater Basin has a theory about what to do next, and the theories don't get along.
+Standing with an order is something you <em>keep</em> being — stop showing up and you drift
+back to being nobody in particular. <strong>Four of the nine recruit, trade and hold grudges
+today</strong>; the other five have creeds and a seat on the chart, and you can read them but
+not yet join them.</p>
+
+<table>
+  <caption>The four roads, and who walks each one</caption>
+  <thead><tr><th scope="col">Road</th><th scope="col">The position</th><th scope="col">Orders</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Machine</th><td>Finish what it started. The tools were never the
+      mistake. Engineer the next humanity — in steel, if that's what it takes.</td>
+      <td>The Ascendants (live), The Prometheans, The Null</td></tr>
+    <tr><th scope="row">Flesh</th><td>Adapt, don't preserve. Mutation is not a wound to be
+      cured. It's the next draft of the species, already being written in the wastes.</td>
+      <td>The Wildblood (live), The Synthesis</td></tr>
+    <tr><th scope="row">Mind</th><td>The body was the limit. Evolution was never meant to be
+      waited for — and the future isn't in the ruins of the past anyway.</td>
+      <td>The Exodus (live), The Lucid</td></tr>
+    <tr><th scope="row">Human</th><td>The city belongs to its people. No steel salvation, no
+      mutant rebirth. Take it back, or walk away and build something honest.</td>
+      <td>The Long Watch (live), The Pioneers</td></tr>
+  </tbody>
+</table>
+
+<div class="aside">
+  <p>Burn a bridge and, given long enough, you can walk back across it. A bad early decision
+  shouldn't close off a quarter of the game forever. — how standing actually works</p>
+</div>
+
+<p><a href="/lore-text.html">Part three goes deep on this</a> — the two questions every order
+is answering, all nine of them side by side, where they're stationed, and exactly what siding
+with one does to your prices, your doors and your body.</p>
+
+<h2 id="become">Mutant, machine, or master of the trade</h2>
+<p>Three ways to stop being an ordinary body, and the first two are a genuine fork in the
+road.</p>
+<ul>
+  <li><strong>Mutate.</strong> Radiation is patient. Let it build and it rewrites you —
+  permanent mutations with real benefits and real costs. Free, random, and not your decision
+  once you've let it get that far.</li>
+  <li><strong>Get chromed.</strong> Cybernetics are the opposite: chosen, paid for,
+  slot-limited, removable. Subdermal weave is armour under the skin. A cortical backup means
+  dying is a rollback.</li>
+  <li><strong>Master a craft.</strong> 26 skills, no experience bar, no level gates. You get
+  better at picking locks by picking locks. You become whatever you keep doing.</li>
+</ul>
+
+<div class="aside">
+  <p><strong>You cannot be both.</strong> Your first cybernetic install burns off every
+  mutation you have — and chrome can't mutate afterward. Flesh and machine are a door that
+  locks behind you, and the human-path orders will hold it against you.</p>
+</div>
+
+<h2 id="flight">Aircraft you actually fly</h2>
+<p>Not a travel menu with a loading bar. A continuous energy simulation with stalls that have
+teeth, per-airframe fuel, weather you can see coming, and a cockpit full of instruments that
+mean something. Take off, get lost, run cargo, get shot at.</p>
+
+<h3>What the screenshots show</h3>
+<p>The illustrated page carries four captures, all taken over Coldwater Basin. In words:</p>
+<ul>
+  <li><strong>Lined up.</strong> The view out of the cockpit at Coldwater's own field: the
+  strip running away from you with its centreline and threshold markings, the bay filling the
+  horizon beyond it, and a freighter sitting out on the water. Full throttle from here.</li>
+  <li><strong>Low over the Basin.</strong> The windshield after takeoff, at about 180 knots.
+  The waterfront and its towers go by along the horizon while the bay slides underneath.</li>
+  <li><strong>Chase view.</strong> The camera pulled in close behind the Mule — a twin-prop
+  light cargo aircraft, props discs, gear down, navigation lights lit red and green on the
+  wingtips. Behind her, the Solenne tower stands over the Coldwater waterfront.</li>
+  <li><strong>Weather is not decoration.</strong> The same aircraft under a low storm deck over
+  the bay, rain streaking down out of the cloud. That deck is the same storm the city below is
+  getting.</li>
+</ul>
+
+<h3>The rest of it</h3>
+<ul>
+  <li><strong>Cargo, medevac, VIP charter, survey, relief</strong> — and the contracts that
+  don't file a flight plan.</li>
+  <li><strong>Air-to-air and air-to-ground</strong> — guns, missiles, SAM sites that resent
+  you.</li>
+  <li><strong>A licence you have to earn</strong>, a hangar to keep your fleet in, and
+  insurance for when you don't.</li>
+  <li><strong>Break-up and crash cameras</strong>, because the game wants to show you exactly
+  how it ended.</li>
+</ul>
+
+<h2 id="games">Sit down and play something</h2>
+<p>Real games, fully implemented, with other people at the table.</p>
+<ul>
+  <li><strong>Chess.</strong> Complete legal rules — castling, en passant, promotion,
+  repetition — verified against known move counts. Rendered as an isometric neon set, and
+  playable entirely through typed moves.</li>
+  <li><strong>Poker.</strong> Seats, blinds, a host who deals, spectators behind you. Play it
+  on the felt or have the whole table called out to you in words.</li>
+  <li><strong>The casino.</strong> Slots and a poker room at The Lucky Bastard, for when you've
+  decided money is a burden.</li>
+  <li><strong>Trading cards.</strong> Mint yourself at a terminal and become a card someone
+  else can pull out of a foil sleeve. Packs roll when you <em>open</em> them, never when you
+  buy them.</li>
+  <li><strong>Fishing and mining.</strong> Cast and wait, or work a deposit. Both are postures: start
+  them and they keep going while you watch the water.</li>
+  <li><strong>Instruments.</strong> Sit at the upright and play it, key by key, on your own
+  keyboard. The room hears what you play. No skill check — the skill is your hands.</li>
+</ul>
+
+<h2 id="work">From counting rats to running the block</h2>
+
+<h3>Honest work</h3>
+<p>A rotating job board of small legal gigs — deliver a parcel, sweep a lot, count the rats,
+sit in a seat somebody needs filled. Steady shifts. Fishing and scavenging for what you can
+carry.</p>
+
+<h3>Your own shop</h3>
+<p>Buy the <strong>deed</strong> to a storefront and it's yours: set the wares, order stock,
+hire and sack staff, work the till, pull the shutters at night. Rename it something worse.</p>
+
+<h3>Your own flat</h3>
+<p>Rent a unit, lock it, upgrade the lock before somebody picks it. Sleep safe, store your
+things, and deal with your own mess.</p>
+
+<h3>Or run a corporation</h3>
+<p>A corp is a faction with an owner, a treasury, members and territory — and territory is a
+tug-of-war you can lose. Five levers of influence, and a war phase for when influence stops
+being enough.</p>
+
+<div class="aside">
+  <p><strong>Protection rackets.</strong> Control a zone and you can shake down the NPC shops
+  in it for a cut of the take. Every shop remembers how afraid it is of you — and the racket
+  fights the safecrackers over the same pot.</p>
+</div>
+
+<h2 id="drugs">A whole chemistry set, and a market for it</h2>
+
+<h3>Taking them</h3>
+<p>Timed effects that ramp and fade. Addiction rolls, tolerance, withdrawal, overdose. Drinking
+a beer takes twelve to eighteen seconds and walking out of the room interrupts it — nothing
+here is a button you mash.</p>
+<p>Some of it takes you out of your body. The dissociatives don't decorate the room, they
+remove you from it: your mind walks a handful of rooms that assemble themselves for the trip
+and dissolve when it ends, while your body stays exactly where you dropped it — in a real room,
+lootable and killable by anyone who wanders past.</p>
+
+<h3>Making and moving them</h3>
+<p>Synthesis and splicing on a real bench, behind a cabinet built to not look like a lab. Raw
+supply chains. Dealers to sell through, and a street price that isn't fixed.</p>
+<p>All of it is witnessed by somebody eventually. The city runs a wanted level, police who will
+take you alive at the top of it, a jail, an evidence locker, and a cell door that can be
+hacked.</p>
+
+<h2 id="weather">Get cold. Get wet. Get dissolved.</h2>
+<p>Severity is a live number, not a backdrop, and it is <strong>gear-gated lethal</strong>:
+weather will kill you, but only if you went out unprepared. The right coat turns a killer into
+an inconvenience, and that trade is what the whole system is built on.</p>
+<ul>
+  <li><strong>Hypothermia.</strong> Body temperature is tracked. Soaked clothing pulls heat out
+  of you faster. Fall in the water and get out slower than you went in.</li>
+  <li><strong>Soaked through.</strong> Rain wets your clothes layer by layer, and wet layers
+  stop working. Dry off or keep paying for it.</li>
+  <li><strong>Acid rain.</strong> A named hero event. It eats gear and skin. Being indoors
+  helps; being indoors without a roof over the right room does not.</li>
+  <li><strong>Wind.</strong> Never blocks you — just charges you stamina for every step outdoors
+  until you're too tired to be somewhere dangerous.</li>
+  <li><strong>Ion storm.</strong> An EMP that drops the whole city grid. Lights, ATMs,
+  televisions, cyberware. The aftermath persists.</li>
+  <li><strong>No safe haven.</strong> A blacked-out building has no heating. Indoors isn't a
+  solved problem, just a different one.</li>
+</ul>
+
+<h2 id="tv">Shows assembled live, performed by actual NPCs</h2>
+<p>Every set in the world is furniture on the power grid. Tune it and what comes out is not a
+canned string. It's a show built fresh from what's happening in the city that day, acted by
+people who had to turn up to work.</p>
+<ul>
+  <li><strong>The talk show.</strong> A host and a sidekick who commute in on schedule. A guest
+  NPC renamed to a new persona each day, who appears somewhere in the world and <strong>walks
+  across the map to the studio</strong> — and if they don't make it, there's an authored no-show
+  segment instead of an interview with furniture.</li>
+  <li><strong>News, with a weather desk.</strong> Stories sourced from real events in the world,
+  padded out with wire copy and tabloid filler, read by fixed outlet bylines. The meteorologist
+  works off the same seven-day forecast you do.</li>
+  <li><strong>Two live sports.</strong> Deadball on Mondays, Wednesdays and Fridays. Cluster Puck
+  on Tuesdays, Thursdays and Sundays. Real leagues, real standings, a postseason, a score bug,
+  and a bookmaker who'll take your money on it.</li>
+  <li><strong>And a game show you can be on.</strong> Stand in the studio when a round opens and
+  you're a contestant — answering on air, citywide, for money. One asks what things are worth.
+  The other asks what you know about the city.</li>
+</ul>
+<p>There are also morning shows, sermons, films that play in real time so you can join one
+already running, pirate broadcasts, and a bystander line that leaks in when somebody
+<em>else</em> is watching a set in the same room as you.</p>
+
+<h2 id="alive">The world lives on without you</h2>
+<p>Log out for a week. The city does not pause, wait, or reset.</p>
+<ul>
+  <li><strong>Your rent falls due</strong> on the city calendar whether you're there to pay it or
+  not.</li>
+  <li><strong>Your hunger, thirst and radiation keep moving.</strong> You come back to a body
+  that's been somewhere.</li>
+  <li><strong>Weather rolls on</strong> — the storm you were warned about happens on schedule,
+  with you or without.</li>
+  <li><strong>NPCs work their shifts</strong>, commute home, go to bed, and slowly forget who you
+  were.</li>
+  <li><strong>Leagues play their fixtures</strong> and the standings move without a single player
+  watching.</li>
+  <li><strong>Your corpse is still lying there</strong> if that's how you left. Somebody has
+  probably been through it.</li>
+</ul>
+
+<div class="aside">
+  <p>A world that only happens while you're looking at it is a ride. This one is a place you
+  visit. — the design, in one line</p>
+</div>
+
+</main>
+
+<footer>
+  <h2 id="next">Keep reading</h2>
+  <ul>
+    <li><a href="/guide-text.html">Part one, text edition: your first hour</a>.</li>
+    <li><a href="/lore-text.html">Part three, text edition: the two questions and the nine
+    orders</a>.</li>
+    <li><a href="/tour.html">The illustrated version of this page</a>.</li>
+    <li><a href="https://www.architectgame.net">Play ARCHITECT</a> — register a character and
+    you're in the vat inside thirty seconds. Somebody named Grady has a job for you.</li>
+  </ul>
+  <p>The AI won. You survived. Probably.</p>
+</footer>
+
+</body>
+</html>

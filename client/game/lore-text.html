@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — Part three: the two questions (text edition)</title>
+<meta name="description" content="A plain-text, screen-reader-first edition of the ARCHITECT lore and factions guide.">
+<style>
+  :root{ color-scheme:light dark; --bg:#fff; --ink:#14181d; --dim:#4a545f; --rule:#c8d0d8; --link:#0b5fa5; --code:#f0f3f6; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0e12; --ink:#e6edf3; --dim:#a4b1bd; --rule:#2b343d; --link:#7cc4ff; --code:#161c23; }
+  }
+  body{ background:var(--bg); color:var(--ink); margin:0 auto; max-width:44rem; padding:1.5rem 1.25rem 5rem;
+        font:1.05rem/1.65 Georgia,"Times New Roman",serif; }
+  h1,h2,h3,h4{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.25; }
+  h1{ font-size:1.7rem; margin:0 0 .3em; }
+  h2{ font-size:1.3rem; margin:2.4em 0 .4em; padding-top:.5em; border-top:1px solid var(--rule); }
+  h3{ font-size:1.08rem; margin:1.8em 0 .3em; }
+  h4{ font-size:1rem; margin:1.4em 0 .2em; }
+  p,li,dd{ max-width:38rem; }
+  a{ color:var(--link); }
+  code{ background:var(--code); padding:.1em .35em; border-radius:3px; font-size:.94em; }
+  table{ border-collapse:collapse; margin:1.2em 0; width:100%; }
+  caption{ text-align:left; font-style:italic; color:var(--dim); padding-bottom:.4em; }
+  th,td{ border:1px solid var(--rule); padding:.4em .6em; text-align:left; vertical-align:top; font-size:.97rem; }
+  th{ font-family:system-ui,sans-serif; }
+  dl{ margin:.6em 0; }
+  dt{ font-family:system-ui,sans-serif; font-weight:600; margin-top:.7em; }
+  dd{ margin:.15em 0 0 1.2em; }
+  .aside{ border-left:4px solid var(--rule); padding:.2em 0 .2em 1em; margin:1.4em 0; color:var(--dim); }
+  .aside strong{ color:var(--ink); }
+  .creed{ font-style:italic; }
+  .skip{ position:absolute; left:-9999px; }
+  .skip:focus{ position:static; display:inline-block; margin-bottom:1rem; }
+  nav ul{ padding-left:1.2em; }
+  footer{ margin-top:3rem; border-top:1px solid var(--rule); padding-top:1rem; color:var(--dim); font-size:.95rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to the guide</a>
+
+<header>
+  <p><a href="/lore.html">Illustrated version of this page</a> · <a href="/guide-text.html">Part one (text)</a> · <a href="/tour-text.html">Part two (text)</a></p>
+  <h1>ARCHITECT — Part three: the two questions</h1>
+  <p>This is the text edition: the same words as the illustrated page, with the chart and the
+  sample screen written out, and nothing on the page that is only decoration.</p>
+  <p>Coldwater Basin argues about two things: whether to keep this city or walk away from it,
+  and whether people should stay people. Nine orders have picked their answers. Here's what each
+  of them wants, where to find them, and what siding with one does to your game.</p>
+  <p><a href="https://www.architectgame.net">Play ARCHITECT</a>. Nothing here is homework — the
+  game tells you all of it itself.</p>
+</header>
+
+<nav aria-label="Contents">
+  <h2 id="contents">Contents</h2>
+  <ul>
+    <li><a href="#s1">1. The two questions</a></li>
+    <li><a href="#s2">2. All nine on one chart</a></li>
+    <li><a href="#s3">3. The nine orders</a></li>
+    <li><a href="#s4">4. Where they actually are</a></li>
+    <li><a href="#s5">5. How you end up in one</a></li>
+    <li><a href="#s6">6. What it costs you</a></li>
+    <li><a href="#s7">7. Standing doesn't stay put</a></li>
+    <li><a href="#s8">8. And the Architect?</a></li>
+    <li><a href="#s9">9. What should a new player actually do?</a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+<p>Coldwater Basin is a city that works. The lights come on, the shelves are full, planes cross
+the sky and there's traffic at the intersections. It also sits alone in a burnt wasteland with
+no supply chain anyone can point to. Something is keeping it running. People call that something
+the Architect, and nobody can tell you what it wants.</p>
+
+<p>A generation of arguing about that has left the Basin sorted into camps. Two questions decide
+which camp you end up in, and everyone here has answered both, whether or not they'd put it that
+way.</p>
+
+<div class="aside">
+  <p><strong>You don't need this page to play.</strong> All of it is in the game already: a
+  reader on your tablet with a page for each order, and a <code>rep</code> command that shows
+  where you stand. This is the same material in one place, for people who like knowing what
+  they're walking into. There's nothing here to spoil — the game never settles the argument.</p>
+</div>
+
+<h2 id="s1">1. The two questions</h2>
+<p>Answer both and you know where you stand.</p>
+
+<h3>Question one: this city, or somewhere else?</h3>
+<p>Everything here runs on power somebody else is providing. There are two ways to live with
+that.</p>
+<ul>
+  <li><strong>Redeem.</strong> Stay and fix it. The city is worth having. Keep the towers and the
+  lights, but get the machine's hand off the switch.</li>
+  <li><strong>Renounce.</strong> Leave. It was never ours to begin with, and anything you didn't
+  build can be taken back. Better the wasteland on your own terms.</li>
+</ul>
+<p>In game this is a <strong>single slider</strong> running from −100 (renounce) to +100
+(redeem). You don't set it. It moves when you do things.</p>
+
+<h3>Question two: should people stay people?</h3>
+<p>Humans lost badly, and a lot of the Basin has concluded the body is the thing to fix. The
+people who disagree think it's the last thing anyone still owns outright. Four positions, and
+this is the question that changes how your character plays.</p>
+<ul>
+  <li><strong>Machine.</strong> Steel, code, cloned flesh. Treat the body as hardware and upgrade
+  it.</li>
+  <li><strong>Flesh.</strong> Mutation is not a sickness. The body is already changing out there,
+  so help it along.</li>
+  <li><strong>Mind.</strong> Leave the body alone and work on what's behind it: training,
+  discipline, and what the Basin nervously calls psionics.</li>
+  <li><strong>Human.</strong> Don't change anything. Get good instead. Skill and equipment, no
+  wiring and no mutations.</li>
+</ul>
+<p>Not a slider. <strong>Four separate scores</strong> that go up independently, and whichever is
+highest is the road you're on. You're allowed to be a bit of everything and committed to
+nothing.</p>
+
+<div class="aside">
+  <p>Anyone can hold an opinion. An order is one you've agreed to serve, to the end. — CODEX,
+  Volume II</p>
+</div>
+
+<h2 id="s2">2. All nine on one chart</h2>
+<p>Put the two questions on a grid and every order has a seat. Your tablet draws the same chart
+with your own position marked on it. Here it is as a table: the rows are the four roads
+(question two), the columns are the two stances (question one).</p>
+
+<table>
+  <caption>The nine orders by road and stance</caption>
+  <thead>
+    <tr><th scope="col">Road</th><th scope="col">Renounce the city</th><th scope="col">Redeem the city</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Machine — upgrade the body</th>
+      <td>The Null (preview)</td>
+      <td>The Ascendants (live); The Prometheans (preview)</td></tr>
+    <tr><th scope="row">Flesh — adapt the body</th>
+      <td>The Wildblood (live)</td>
+      <td>The Synthesis (preview)</td></tr>
+    <tr><th scope="row">Mind — awaken the mind</th>
+      <td>The Exodus (live)</td>
+      <td>The Lucid (preview)</td></tr>
+    <tr><th scope="row">Human — keep the body</th>
+      <td>The Pioneers (preview)</td>
+      <td>The Long Watch (live)</td></tr>
+  </tbody>
+</table>
+
+<div class="aside">
+  <p><strong>Live versus preview.</strong> Four orders are fully in the game: the Ascendants, the
+  Long Watch, the Wildblood and the Exodus. They recruit, trade, lock doors, hold grudges and will
+  claim you. The other five you can read about but not join yet. They have creeds, tenets and a
+  seat on the chart, but no vendors and no vetting. Whichever way you lean, it resolves to one of
+  the four.</p>
+</div>
+
+<div class="aside">
+  <p><strong>What "playing with them" means today.</strong> The four live orders are built as
+  standing: prices at their vendors, doors that check your tier, recruiters who won't start work
+  with the wrong lean. The bodies follow from the systems already in the game — chrome from the
+  augment benches, mutation from radiation. The rest of what each order describes below is
+  <em>what they are for</em>, not a skill tree you unlock; psionics in particular is creed, not a
+  verb you can type yet.</p>
+</div>
+
+<h2 id="s3">3. The nine orders</h2>
+<p>Grouped by their answer to question two, because that's where it gets interesting. Two orders
+can agree completely about the body and still want opposite things for the city, and the overlap
+tends to make them dislike each other more rather than less.</p>
+
+<h3>The Machine road — three orders</h3>
+<p>All three think the answer is technological. What they fight about is <strong>who gets to hold
+it</strong>: the Architect, the person who built it, or nobody. It's the oldest argument in the
+Basin, and the reason calling someone pro-tech here tells you nothing useful.</p>
+
+<h4>The Ascendants — redeem, machine (live)</h4>
+<p class="creed">"We did not build a god to kneel before it. We built it to become it."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>The next step for humanity is one we build ourselves. The Architect is our best work, not
+  our jailer, and the city is worth keeping. Steel, code and cloned flesh are how you climb.</dd>
+  <dt>Playing with them</dt>
+  <dd>Their clinics stop overcharging you and their labs open up. You get chromed in stages: a
+  jack, then armour woven under the skin, then a backup of your own head. Dying becomes an expense
+  rather than an ending, as long as the policy is paid up.</dd>
+  <dt>Everyone else</dt>
+  <dd>Hated by all three other live orders. The one answer with no friends at all.</dd>
+</dl>
+
+<h4>The Prometheans — redeem, machine (preview)</h4>
+<p class="creed">"The Architect did not invent the fire. It only chained the ones who carry
+it."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>Technology belongs to human hands, not a central mind. The tools were never the mistake;
+  surrendering them was. Build it open, run it yourself, owe it to no one.</dd>
+  <dt>Playing with them</dt>
+  <dd>You get the workshop: parts, schematics, and gear the Architect would rather nobody had.
+  Then you build your own machines — drone swarms you coded yourself, an AI that answers to you and
+  no one else.</dd>
+  <dt>Everyone else</dt>
+  <dd>Walk the machine road beside the Ascendants and despise where it leads them. A nod to the
+  Null, who at least distrust the central mind.</dd>
+</dl>
+
+<h4>The Null — renounce, machine (preview)</h4>
+<p class="creed">"The machine never conquered anyone. It waited to be needed, and we
+obliged."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>Dependence destroyed us, not invention. Mistake them for machine-haters and they'll fix your
+  generator, then explain exactly why you shouldn't own one. Know the machine intimately, so you
+  can live without it.</dd>
+  <dt>Playing with them</dt>
+  <dd>You carry nothing that can be traced, jammed, or switched off from a room you'll never see.
+  They teach sabotage and analog engineering: walk into the most automated building in the Basin
+  and leave it dark behind you, then get by fine while everyone who needed it running doesn't.</dd>
+  <dt>Everyone else</dt>
+  <dd>Contempt for the Ascendants as servants and the Prometheans as addicts who still kneel. A
+  grudging nod to the Exodus for walking away.</dd>
+</dl>
+
+<h3>The Flesh road — two orders</h3>
+<p>Both think a changing body is the future rather than an injury. They split over whether the
+city has to go with it: <strong>the wilderness, or the greenhouse</strong>.</p>
+
+<h4>The Wildblood — renounce, flesh (live)</h4>
+<p class="creed">"The cage rusts. We are what grows through the bars."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>Things survive by changing, not by being preserved. Mutation is the body doing what it's
+  supposed to do. The city is a cage, and if the old world has to die for something new to get out
+  of it, so be it.</dd>
+  <dt>Playing with them</dt>
+  <dd>The stuff everyone else is scared of is handed to you: mutagen for the asking, and mutations
+  treated as good news rather than damage. Thick hide, senses nobody has a word for. You work in
+  the poisoned country and the acid rain while everyone else stays indoors and calls that safe.</dd>
+  <dt>Everyone else</dt>
+  <dd>No problem with the Exodus, who also want out. Their fight is with the two orders trying to
+  save the city.</dd>
+</dl>
+
+<h4>The Synthesis — redeem, flesh (preview)</h4>
+<p class="creed">"The Wildblood would burn the greenhouse to free one flower. We tend the whole
+garden."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>People should change, and the city should change with them. Mutation can be done <em>on
+  purpose</em> instead of by accident, in labs, without anybody having to give up the lights.</dd>
+  <dt>Playing with them</dt>
+  <dd>Mutation stops being something that happens to you and becomes something you pick. Sharper
+  senses, wounds that close while you watch, symbiotes worn as armour. The changed body and the
+  working city, both.</dd>
+  <dt>Everyone else</dt>
+  <dd>At odds with the Wildblood, who'd tear down what they're trying to grow. They write off the
+  Ascendants' steel as a dead end.</dd>
+</dl>
+
+<h3>The Mind road — two orders</h3>
+<p>Both think the work is inward rather than on the body. One treats it as a revelation and left
+town to chase it; the other treats it as <strong>a technique</strong> and stayed to use it. Each
+thinks the other missed the point.</p>
+
+<h4>The Exodus — renounce, mind (live)</h4>
+<p class="creed">"The answer was never in the city. It was always behind the eyes."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>There's nothing left to salvage here. The Architect, the machines and the mutations are all
+  leftovers of a civilization that already failed. Walk away and work on the mind instead:
+  discipline first, then the rest.</dd>
+  <dt>Playing with them</dt>
+  <dd>The city stops mattering. Their circles teach things no vendor sells: a room going quiet
+  because you wanted it to, a thought put straight into someone else's head, objects moving because
+  you looked at them. You stop needing to carry a weapon.</dd>
+  <dt>Everyone else</dt>
+  <dd>They only really fight the Architect's supporters. Otherwise they don't care who wins, which
+  is its own kind of insult.</dd>
+</dl>
+
+<h4>The Lucid — redeem, mind (preview)</h4>
+<p class="creed">"The Architect computes the city. We out-think it, and we never needed its
+permission to be brilliant."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>A trained mind can run this city better than the machine does. They don't wait for evolution,
+  they take drugs for it: nootropics, memory work and a method for predicting people. Not magic,
+  chemistry.</dd>
+  <dt>Playing with them</dt>
+  <dd>You get the method instead of the mystery. Drills, the clarity drug, and a trained eye that
+  turns guesswork into something you can aim. They don't leave to find a bigger mind. They stay and
+  quietly become the smartest thing in the room.</dd>
+  <dt>Everyone else</dt>
+  <dd>They fight the Architect's people, and think the Exodus took the same idea, called it a
+  religion, and wandered off with it.</dd>
+</dl>
+
+<h3>The Human road — two orders</h3>
+<p>Both say no to steel, mutation and psionics alike. They disagree about the address:
+<strong>take this city back, or go build a different one</strong>.</p>
+
+<h4>The Long Watch — redeem, human (live)</h4>
+<p class="creed">"Keep the lights on. Take back the switch."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>The city belongs to the people living in it. They're reformers, not arsonists: keep the
+  infrastructure, change who's running it. And do the whole thing as ordinary people, because that's
+  the point.</dd>
+  <dt>Playing with them</dt>
+  <dd>You get the underground: safehouses, quartermasters who don't rob you, and people who'll back
+  you up because you backed them up. Everything you gain you had to learn. Breath control that holds
+  under fire, a memory that carries a district's wiring, hands that strip a drone and bring a
+  substation back up. Other people buy that in steel or grow it in a gene vat. You trained for it,
+  which is the entire argument.</dd>
+  <dt>Everyone else</dt>
+  <dd>At war with the Ascendants over the machine, and with the Wildblood over the city they're
+  trying to save.</dd>
+</dl>
+
+<h4>The Pioneers — renounce, human (preview)</h4>
+<p class="creed">"Stop asking how to save the old world. Ask what you'll name the new one."</p>
+<dl>
+  <dt>The answer</dt>
+  <dd>Nobody is going to find the next civilization lying around. You build it. No chrome, no
+  mutations, no mysticism, just people walking past the last streetlight with tools.</dd>
+  <dt>Playing with them</dt>
+  <dd>What you get out of it ends up on the map rather than in your stats: a waystation that
+  outlasts you, a road the caravans use, a town that still has your name on it after you're
+  gone.</dd>
+  <dt>Everyone else</dt>
+  <dd>They think the Long Watch is guarding a corpse. They respect the Exodus for leaving and think
+  very little of what they left for.</dd>
+</dl>
+
+<div class="aside">
+  <p><strong>There's a third question, sort of.</strong> Underneath the two is a third: who should
+  be in charge, the Architect or people. That's the whole difference between the Ascendants and the
+  Prometheans, who otherwise want the same chrome for the same reasons. Every order has an answer on
+  file, but the game doesn't count it yet — right now it's flavour, wired up to matter later.</p>
+</div>
+
+<h2 id="s4">4. Where they actually are</h2>
+<p>The orders aren't four buildings on a faction street. Where you find one follows from its answer
+to question one: <strong>if you've renounced the city, you don't get a headquarters in it.</strong></p>
+
+<h3>The Ascendants — far west, in the open</h3>
+<p>A chrome campus on the western edge of the city, past the expensive end of town: a spire, a
+clinic, a weave shop, the vats, and a shrine to the Architect backing onto the Curtain. They aren't
+hiding. They think they're winning. Getting in is a different matter. There's a checkpoint that
+turns people away rather than shooting them, unless you push it, and the thing that opens it is work
+you won't be doing for a while yet. One of the most respectable companies in the Basin is quietly
+theirs too, and nobody's going to tell you which.</p>
+
+<h3>The Long Watch — industrial east, and below it</h3>
+<p>There's no hall to walk into. The way in is through the industrial east, to the people who still
+fix things by hand: a repair shop with a back room, and a lookout in the deep sewer tunnels who
+wants a passphrase before he'll admit anything at all. Behind a blast door there's a bunker where
+every room is there to beat a specific problem. A wash where you leave networked gear at the door.
+Its own water tap, because a meter ticking over is a fingerprint. A Faraday cage that's the only
+place anything connected is allowed power. A printing press, because orders travel on paper. Cameras
+don't reach it and police heat bleeds off faster while you're inside. They won't come and find you
+until you've picked a side.</p>
+
+<h3>The Wildblood — outside, and in the cracks</h3>
+<p>No campus, because the whole point is that they left. What's in the city is people who agree with
+them rather than an organisation: Breakers holding the mouth of a freight lane, mixing something in
+bottles stoppered with oily rags, taking a toll and not asking about your face. Where they actually
+live is the poisoned ground outside the wall, where the rain isn't clean and the changes they're so
+pleased about actually happen.</p>
+
+<h3>The Exodus — gone, deliberately</h3>
+<p>They left the Basin and won't say where they went. They're the only order whose stated goal is
+leaving, and the only one that won't name a destination. What's left behind are small groups meeting
+in the dark, down in the tunnels where the signal doesn't reach. One of them sits with a fan of cut
+fibre-optic plugged into the back of her skull and gets taken very seriously. If you want what they
+teach, you go down, not out.</p>
+
+<h3>The other five — positions, not yet places</h3>
+<p>The Prometheans, Synthesis, Null, Pioneers and Lucid have seats on the chart and pages in the
+reader, but nowhere to visit yet. You can more or less guess where they'll end up from what they
+believe: an unlicensed workshop, a lab that keeps the lights on, a settlement past the last
+streetlight.</p>
+
+<h2 id="s5">5. How you end up in one</h2>
+<p>There is no faction menu. The game never asks you to pick. You start in the middle with no
+position at all, and it will quite happily leave you there forever.</p>
+
+<p>Your answers move when you <strong>do things</strong>. Run a job for a Long Watch handler and your
+stance shifts toward redeem, and your human score goes up with it. Let a back-alley surgeon put a
+jack in your skull and you've answered question two, whether or not you thought of it that way. The
+orders go by what you've been doing, not by anything you've said.</p>
+
+<table>
+  <caption>Where to check your standing</caption>
+  <thead><tr><th scope="col">Command</th><th scope="col">What it shows</th></tr></thead>
+  <tbody>
+    <tr><td>ideologies</td><td>Your standing with every order, your stance slider, your strongest path, and which order you currently lean toward.</td></tr>
+    <tr><td>rep</td><td>The same screen. Shorter to type.</td></tr>
+    <tr><td>CODEX › Orders</td><td>The tablet reader: a page per order, their tenets and creed, who they're opposed to, and the chart with your dot on it.</td></tr>
+  </tbody>
+</table>
+
+<h3>What that screen says</h3>
+<p>The illustrated page shows a sample <code>rep</code> readout. In words, it has two parts. Under
+STANDING, one line per live order with a tier and a number: the Ascendants, Unknown at −140; the Long
+Watch, Trusted at +525; the Wildblood, Neutral at +30; the Exodus, Neutral at 0. Under POSITION,
+your stance sits at +62 on the renounce-to-redeem slider, your strongest path is human (machine 0,
+flesh 12, mind 0), and the last line reads: you lean toward the Long Watch.</p>
+
+<p>That last line is <strong>worked out, not chosen</strong>: it's whichever order your stance and
+your highest path add up to. It can change under you, and it's supposed to. Run errands for the Watch
+for a month, then spend a month getting chromed, and you'll watch it move without ever announcing a
+change of heart.</p>
+
+<h2 id="s6">6. What it costs you</h2>
+
+<h3>Prices</h3>
+<p>Standing has six tiers, and any shopkeeper who belongs to an order charges you based on yours.
+This is the part you'll notice first and most often.</p>
+
+<table>
+  <caption>The six standing tiers</caption>
+  <thead><tr><th scope="col">Tier</th><th scope="col">Standing</th><th scope="col">At their vendors</th></tr></thead>
+  <tbody>
+    <tr><td>Hostile</td><td>below −200</td><td>20% surcharge — you can still shop, you just pay for the privilege</td></tr>
+    <tr><td>Unknown</td><td>−200 to 0</td><td>list price</td></tr>
+    <tr><td>Neutral</td><td>0 to 200</td><td>list price</td></tr>
+    <tr><td>Known</td><td>200 to 500</td><td>5% off</td></tr>
+    <tr><td>Trusted</td><td>500 to 900</td><td>15% off</td></tr>
+    <tr><td>Inner Circle</td><td>900 and above</td><td>25% off</td></tr>
+  </tbody>
+</table>
+
+<h3>Doors</h3>
+<p>Some locks check your standing instead of taking a key. The Long Watch's blast door wants Trusted
+or better, and the door deeper inside wants Trusted <em>plus</em> proof you finished their vetting.
+Money won't open either one and neither will a lockpick. A few bank networks work the same way, so
+annoying an order can also mean an ATM that won't deal with you.</p>
+
+<h3>Work</h3>
+<p>Recruiters check where you stand before they'll start anything. The Watch's lookout in the tunnels
+won't give the passphrase to anyone leaning renounce, no matter how many favours you've done. And the
+Ascendant campus won't open up until you've been through the Watch's vetting first, which is a joke at
+your expense: <strong>the order that hates chrome is how you find the chrome</strong>.</p>
+
+<h3>Your body, and this one doesn't unwind</h3>
+<p>Question two is not a badge you wear. It's the one answer that shuts a door behind you.</p>
+<ul>
+  <li><strong>Machine.</strong> Augments are bought and chosen, and you only have so many slots:
+  armour under the skin, a co-processor, a sealed chassis, a backup that turns dying into a rollback.
+  Your first install burns off every mutation you have, and after that you can't mutate at all.</li>
+  <li><strong>Flesh.</strong> Mutations are free and random, and once you've let the radiation build up
+  they aren't really your decision. Real upsides, real downsides, permanent.</li>
+  <li><strong>Human.</strong> Nothing installed and nothing changed. You get better by getting better,
+  and the Watch's quartermasters stock the gear that pays off for it.</li>
+</ul>
+
+<div class="aside">
+  <p>Chrome and mutation lock each other out, and the human orders will hold either one against you. —
+  question two, in one line</p>
+</div>
+
+<h3>Enemies</h3>
+<p>There are eight standing grudges between the four live orders. Everyone is against the Ascendants,
+and the Long Watch and the Wildblood are against each other. No answer is free, and the Ascendant one
+costs the most, which is fairly deliberate.</p>
+
+<h2 id="s7">7. Standing doesn't stay put</h2>
+<p>Reputation is not a bank balance. It slides back toward neutral on its own, losing about half the gap
+every month of real time. That cuts both ways on purpose:</p>
+<ul>
+  <li><strong>Good standing fades.</strong> Being Trusted is something you keep doing, not something you
+  did once. Stop turning up and you go back to being nobody in particular.</li>
+  <li><strong>Bad standing fades too.</strong> A grudge isn't permanent. Burn a bridge and, given long
+  enough, you can walk back over it. One bad decision early on shouldn't close off a quarter of the
+  game.</li>
+</ul>
+
+<p>There's one exception. If you've taken the <em>opposite</em> answer on question one <strong>and</strong>
+a different road on question two, the slide stops early, at the top of Hostile. They stop actively hating
+you but they don't forget what you are. You can still climb out of it by doing the work; the world just
+won't do it for you.</p>
+
+<p>Either half on its own is a disagreement. It takes both to be an enemy.</p>
+
+<div class="aside">
+  <p><strong>In practice.</strong> You can be Known with three orders at once, and for a long time that's
+  the sensible way to play: cheaper shopping in several districts and nobody's problem. Committing is what
+  buys the doors, the gear and the body, and what costs you the other corners.</p>
+</div>
+
+<h2 id="s8">8. And the Architect?</h2>
+<p>Deliberately unanswered. All of the above is people arguing about something nobody can settle. Worth
+being clear about how little the game actually claims.</p>
+
+<p>What's known: it exists. It doesn't say much, and it's polite when it does. It has never given an order
+anyone could refuse, possibly because it has never given an order. The lights stay on. The shelves stay
+full. The wasteland outside stays a wasteland, and nobody has found the edge of whatever it's
+maintaining.</p>
+
+<p>That's the whole list. Every order will give you a theory that accounts for all of it, which is the
+problem: <strong>they can't all be right and none of them can be checked</strong>. The Architect is not a
+boss, not a quest-giver, and not building to a reveal. It's background. People mention it the way they
+used to mention traffic. The routing's been odd this week. Don't go near the old data center, it's running
+something heavy in there.</p>
+
+<div class="aside">
+  <p>Every one of those theories explains the evidence completely. That is not a sign that one of them is
+  right. — CODEX, Volume II</p>
+</div>
+
+<p>The long version is in the game, on your tablet, in two volumes. You're given the first one at the
+start. The second fills in a chapter at a time as you learn things, usually because somebody explained one
+to you.</p>
+
+<h2 id="s9">9. What should a new player actually do?</h2>
+<p>Honest advice.</p>
+<ul>
+  <li><strong>Nothing, for a while.</strong> Get fed, get paid, get a weapon. This is all mid-game stuff and
+  none of them are looking for you yet.</li>
+  <li><strong>Type <code>rep</code> now and then</strong> and notice the numbers have moved without you
+  deciding anything. That's the system working.</li>
+  <li><strong>Work the industrial east</strong> if you want the earliest real contact. The people who fix
+  things by hand are much easier to find than a chrome campus, and getting through their vetting is also
+  what opens up the other side of the map.</li>
+  <li><strong>Don't get chromed on a whim.</strong> It's the one thing here that's genuinely hard to undo,
+  and it wipes out any mutations you were carrying.</li>
+  <li><strong>Read the order pages</strong> on the tablet before you commit to anything. All nine are there,
+  and every one of them is written to win you over rather than to be fair.</li>
+  <li><strong>Don't expect an answer.</strong> Nobody here can prove they're right and the game isn't going
+  to step in and tell you who was.</li>
+</ul>
+
+</main>
+
+<footer>
+  <h2 id="next">Keep reading</h2>
+  <ul>
+    <li><a href="/guide-text.html">Part one, text edition: your first hour</a> — what you're looking at,
+    what to type, and what will kill you.</li>
+    <li><a href="/tour-text.html">Part two, text edition: everything else that's in it</a> — the flight
+    simulator, the weather, television, chess, poker, shops, corps and rackets.</li>
+    <li><a href="/lore.html">The illustrated version of this page</a>.</li>
+    <li><a href="https://www.architectgame.net">Play ARCHITECT</a> — free, in a browser tab, and something
+    that isn't us is paying the electricity bill.</li>
+  </ul>
+  <p>Pick a side, or don't. The lights stay on either way.</p>
+</footer>
+
+</body>
+</html>
