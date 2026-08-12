@@ -286,6 +286,40 @@ stamping), so the fix is to pass it into `stampToLog`. A silent look:
 
 The contract is untouched: a typed `look` is still always full.
 
+### The tutorial has to SAY so *(built 2026-08-12)*
+
+The rule above is only useful to a player who knows it exists, and for a long time
+nobody said it. A `log`-rung player walked into a room, heard four lines, and had no
+way to learn that the description, the furniture and the ambience were one keystroke
+away — the abbreviation is invisible by construction.
+
+Worse, the onboarding they *did* get was aimed at somebody else. `tour_offer`,
+`tour_start` and `tablet_offer` were pushed with no rung check, so the client's
+spotlight tour (`client/game/js/panels/tour.js`, which contains no display-mode
+references at all) walked this player round `#area-pane` — `aria-hidden` and collapsed
+at this rung — and then promised a walkthrough of a tablet shell that is never built
+for them (`tablet` returns `buildTextIndex` instead).
+
+So the bottom rung gets **its own walkthrough, spoken** (`LOG_TOUR` /
+`speakLogTour` in `plugins/prologue/index.js`), and it teaches different things
+because it is describing a different interface: the two sizes of a room and the
+`look` that gets the long one, `examine`, what the `Also here:` line is, movement and
+the Exits line, `inventory`/`gear`/`score`, the typed tablet index, and the way back
+to `displaymode visual`. `tutorial tablet` has a spoken half too (`LOG_TABLET_TOUR`),
+offered as a log line at the vat rather than as the 25-second smartbar chip.
+
+Two things about its shape:
+
+- **Self-paced, not timed.** The visual tour waits for a click per card, so this waits
+  for `tutorial done` — the same verb, releasing the same held-back arrival prose.
+  `TOUR_FALLBACK_MS` still covers a player who answers nothing.
+- **Every verb it offers is a verb that exists.** The regress suite pulls every
+  `data-cmd` out of both tables and checks it against the live registries, the same
+  rule the workspace HUD is held to. It has already caught two: the tour shipped
+  `exits` and `equipment`, and neither is a command (`gear` is, and the exits are a
+  line on the room). A dead verb on a card is worse here than anywhere else, because
+  this player has no panel to fall back on.
+
 ## Ambience: `flavour`
 
 The other half of the same problem. Idle NPC business, weather colour, district
