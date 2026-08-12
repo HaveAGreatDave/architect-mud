@@ -15,7 +15,7 @@ export default async function regress({ check }) {
     F_ALIGNED, F_INTERFACED, F_BROADCAST,
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
     coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
-    cmdTabletDone, pointAtAdvert, F_ADVERT,
+    cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ,
     LOG_TOUR, LOG_TABLET_TOUR,
   } = _test;
 
@@ -102,6 +102,19 @@ export default async function regress({ check }) {
   await pointAtAdvert({ ...p, current_zone: Z_CLONEVAT });
   check('the poster beat is once-only', await isSet(p, F_ADVERT));   // flag-guarded; no throw, no re-send
   await clearFlag('player', F_ADVERT, p);
+
+  // ── …and reads it FOR you if you never do ─────────────────────────────────
+  // The nudge is the only signpost in the prologue, so it can't depend on the
+  // player typing anything. Same guarantees as the nudge: vat-only, once-only,
+  // and a deliberate read stands the backstop down rather than doubling it.
+  await clearFlag('player', F_ADVERT_READ, p);
+  await autoReadAdvert({ ...p, current_zone: Z_LATTICE });
+  check('the auto-read never fires outside the vat', !(await isSet(p, F_ADVERT_READ)));
+  await readTwocellAdvert(['advert'], 'read advert', { ...p, current_zone: Z_CLONEVAT }, () => {});
+  check('reading the advert stands the auto-read down', await isSet(p, F_ADVERT_READ));
+  await autoReadAdvert({ ...p, current_zone: Z_CLONEVAT });
+  check('the auto-read is once-only', await isSet(p, F_ADVERT_READ));
+  await clearFlag('player', F_ADVERT_READ, p);
 
   // ── No tablet in the corridor ─────────────────────────────────────────────
   // The device is issued at the vat, so every door into the shell has to refuse

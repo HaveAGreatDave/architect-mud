@@ -905,15 +905,57 @@ on('player.login', async ({ id }) => {
 // It waits for the tablet walkthrough to be over (or declined — see `tabletdone`),
 // because these are the same two lines of the log: a poster nudge delivered under a
 // spotlight overlay is a poster nudge nobody reads.
+//
+// The nudge names the STAKES rather than the errand. "There is a poster" is a
+// piece of scenery; "you have ₵100, you will need to eat, and nobody is coming"
+// is a reason to walk across a room. Everything a new player does for the next
+// hour is paid for out of that number.
 const F_ADVERT = 'prologue_advert_nudged';
+const F_ADVERT_READ = 'prologue_advert_read';
 const ADVERT_FALLBACK_MS = 210000;   // ~3.5 min: a first-timer can read every tour card
+const ADVERT_AUTOREAD_MS = 40000;    // if the nudge goes unanswered, read it FOR them
 async function pointAtAdvert(actor) {
   if (!actor || actor.current_zone !== Z_CLONEVAT) return;
   if (await isSet(actor, F_ADVERT)) return;
   await raise(actor, F_ADVERT);
-  out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size.</span>`);
+  out(actor, `<span class="ambient">The credits in your pocket are the only credits there are. Nobody is sending more. In a day or two you will be hungry, and in a week somebody will want rent, and neither of those things cares that you were decanted this morning.</span>`);
+  out(actor, `<span class="ambient">Something on the wall by the door is trying very hard to get your attention. It is doing this the way a man with no budget does it: a paper advert, hand-pasted, hung crooked, with a photograph of somebody's face on it roughly four times life size. The word under the face is WORK.</span>`);
   out(actor, `<span class="ambient">Maybe I should ${teachVerb('read', 'read', 'advert')} it.</span>`);
   pointAt(actor.id, 'read', 'advert');
+  // Backstop for the whole prologue: this is the ONLY beat that tells a new
+  // player where to go, so it cannot be allowed to depend on them typing
+  // anything. If the nudge goes unanswered, read the thing for them — a player
+  // stalled in an empty room with no destination is the failure this exists to
+  // prevent, and being handed a poster you were already staring at costs nothing.
+  setTimeout(() => autoReadAdvert(getLivePlayer(actor.id) || actor), ADVERT_AUTOREAD_MS);
+}
+
+// The read-it-for-them path. Same two halves as the verb (the poster's own text,
+// then the offer), phrased as the character's eye drifting back to it rather than
+// as a command they didn't type.
+async function autoReadAdvert(actor) {
+  if (!actor || actor.current_zone !== Z_CLONEVAT) return;
+  if (await isSet(actor, F_ADVERT_READ)) return;
+  await raise(actor, F_ADVERT_READ);
+  const seen = await cmdExamine('advert', actor, () => {});
+  if (!seen || seen.type === 'error') return;
+  out(actor, `<span class="ambient">There is nothing else in here to look at, so I look at it properly.</span>`);
+  out(actor, seen.message);
+  offerTwocellDirections(actor);
+}
+
+// The offer: a ten-minute walk, and why it's worth taking. Deliberately a
+// QUESTION with two buttons rather than a route silently appearing on the map. A
+// new player who has been steered down a one-way corridor for ten minutes should
+// be asked, once, whether they want to be steered again — and be able to say no.
+function offerTwocellDirections(player, delay = 400) {
+  const dest = getZone(Z_TWOCELL_TILE);
+  if (!dest) return;
+  setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk. Grady pays for work, and paid work is food, and enough of it is a door you can lock behind you — which is the entire plan, for now.</span> ` +
+    // Yes routes AND sets off (the `!go` flag) — the question has already been
+    // asked here, so the gps prompt asking it a second time would be a nag.
+    `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
+    `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="echo Suit yourself." data-label="no thanks">Not now</span>`), delay);
 }
 
 // ── Reading the advert offers you the way there ──────────────────────────────
@@ -922,11 +964,6 @@ async function pointAtAdvert(actor) {
 // `examine` is the one door and this is a quiet alias behind it. Self-gates on
 // zone + target and returns undefined for everything else, so the global `read`
 // still belongs to bulletins and job boards.
-//
-// The offer is deliberately a QUESTION with two buttons rather than a route
-// silently appearing on the map. A new player who has been steered down a
-// one-way corridor for ten minutes should be asked, once, whether they want to
-// be steered again — and be able to say no.
 const Z_TWOCELL_TILE = 'zone_district_920_903';   // the Two-Cell Supply facade
 const namesAdvert = (t) => /\b(advert|advertisement|poster|two.?cell|supply|grady)\b/.test(t);
 
@@ -941,14 +978,9 @@ async function readTwocellAdvert(args, raw, player, broadcast) {
   // AND an offer to walk somewhere, which is nonsense.
   if (!seen || seen.type === 'error') return seen;
 
-  const dest = getZone(Z_TWOCELL_TILE);
-  if (dest) {
-    setTimeout(() => out(player, `<span class="ambient">The address is at the bottom, under the crates. It's a ten-minute walk, and it is the only invitation you have.</span> ` +
-      // Yes routes AND sets off (the `!go` flag) — the question has already been
-      // asked here, so the gps prompt asking it a second time would be a nag.
-      `<span class="action-link prompt-link" data-raw-cmd="gps ${dest.name} !go" data-label="walk to Two-Cell Supply">Show me the way</span> ` +
-      `<span class="action-link prompt-link prompt-link-ghost" data-client-cmd="echo Suit yourself." data-label="no thanks">Not now</span>`), 400);
-  }
+  // Read on purpose — the auto-read backstop stands down.
+  await raise(player, F_ADVERT_READ);
+  offerTwocellDirections(player);
   return seen;
 }
 
@@ -1232,7 +1264,7 @@ export const _test = {
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
   cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, LOG_TOUR, LOG_TABLET_TOUR,
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
-  cmdTabletDone, pointAtAdvert, F_ADVERT, F_TABLET,
+  cmdTabletDone, pointAtAdvert, autoReadAdvert, F_ADVERT, F_ADVERT_READ, F_TABLET,
 };
 
 console.log('[prologue] Plugin loaded.');
