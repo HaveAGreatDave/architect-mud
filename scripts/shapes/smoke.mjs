@@ -30,6 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
+import { truckLampSmoke, parkedStanceSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -68,6 +69,25 @@ async function main() {
   // point solid for a truck and hollow for an aircraft means they have drifted apart.
   const ground = ws.groundCollisionSmoke();
   for (const f of ground) problems.push(`ground ${f.key} (ent=${f.ent}) → ${f.err}`);
+
+  // ── TRUCK LAMPS ──
+  // Not a building, but the same failure mode the whole file exists for: the only thing that ever
+  // looked at a truck's headlamps was a player looking at a truck, and they were invisible twice.
+  // See scripts/shapes/truck-lamps.mjs for why this has to render rather than assert on geometry.
+  const a3d = await import('../../client/game/js/panels/aircraft3d.js');
+  const lamps = truckLampSmoke(a3d.drawHangarScene);
+  for (const L of lamps) {
+    if (L.left < LAMP_MIN_AREA || L.right < LAMP_MIN_AREA) {
+      problems.push(`lamps  ${L.variant} → one-eyed: ${L.left.toFixed(0)}px² visible on the left, `
+        + `${L.right.toFixed(0)}px² on the right (min ${LAMP_MIN_AREA}). Something is drawn over a headlamp.`);
+    }
+  }
+  const stances = parkedStanceSmoke();
+  for (const s of stances) {
+    if (!(s.drop > 0.008)) problems.push(`parked ${s.variant} → a shut-down rig did not settle (${s.drop.toFixed(4)} of drop)`);
+    if (s.sat > 0.006) problems.push(`parked ${s.variant} → it settled but is still off the ground (${s.sat.toFixed(4)})`);
+    if (s.through < -0.001) problems.push(`parked ${s.variant} → something sank through the floor (${s.through.toFixed(4)})`);
+  }
 
   // ── SHAPE ──
   let segs = 0, seedVariant = 0;
@@ -148,6 +168,7 @@ async function main() {
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
+  console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a

@@ -217,8 +217,14 @@ function statBars(s, prev = null) {
 //   • ORBIT — the turntable, dragged rather than only auto-spun.
 // And the BOARD prompt: walk up to the cab door and it lights, and it sends `drive` — the same verb
 // the floor's button sends, because everything here is still a command a player could have typed.
+// YOU START AT THE DOOR, not across the shed. The first cut opened the walkaround four units out
+// on the diagonal — outside the BOARD radius, facing the truck's quarter — so the first thing
+// anybody did in here was hold W for three seconds. The walk exists to look at the machine up
+// close; the far view is what the turntable and the floor already give you. So the eye opens just
+// off the near-side step, at a driver's height, looking along the flank at the cab: close enough
+// that CLIMB IN is already lit, and a step back is a key rather than a chore.
 const inspectDefault = () => ({ mode: 'walk', yaw: 0, elev: 0.3, zoom: 1.1,
-  cam: { x: 4.2, y: 1.8, z: -0.02, yaw: Math.PI - 0.35, pitch: 0.02, fov: 1 } });
+  cam: { x: 2.05, y: 1.25, z: 0.06, yaw: Math.PI - 0.62, pitch: -0.04, fov: 1 } });
 const walkKeys = new Set();
 const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
 
@@ -587,7 +593,10 @@ function startSpin() {
       const ctx = sizeCanvas(scene);
       if (ctx) sceneHits = drawHangarScene(ctx, {
         w: scene._cw, h: scene._ch, venue: 'garage', sky: B.data.sky,
-        selId: B.selId, entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', variant: t.variant, livery: liveryOf(t), label: t.name })),
+        selId: B.selId, // PARKED, because they are. `~p` is the variant grammar's shut-down pose (aircraft3d): the rig
+        // settles onto its lifters and the emitter bands go out — a truck hovering with a cold engine
+        // in the middle of a garage was the tell that the hover was decoration rather than a machine.
+        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t), label: t.name })),
       });
     }
     const hero = root.querySelector('#td-hero');
@@ -599,7 +608,7 @@ function startSpin() {
       const walk = inspecting && B.inspect.mode === 'walk';
       if (walk) stepWalk(dt);
       if (ctx) drawHangarFloorBay(ctx, {
-        w: hero._cw, h: hero._ch, cls: 'truck', variant: sel.variant, livery: liveryOf(sel),
+        w: hero._cw, h: hero._ch, cls: 'truck', variant: `${sel.variant}~p`, livery: liveryOf(sel),
         // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
         // to walk around it, which is the whole difference between a display and an inspection.
         yaw: inspecting && !walk ? B.inspect.yaw : yaw,

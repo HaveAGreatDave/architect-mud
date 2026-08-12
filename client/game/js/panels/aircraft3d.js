@@ -1654,6 +1654,11 @@ const _cache = {};
 // is and whether a trailer is on the back, and neither fact fits `cls` (which the whole renderer
 // switches on) or `armed` (which means something else). Every existing caller passes nothing and
 // gets exactly what it got before; only the truck path reads it.
+// The truck grammar is `<typeId>[+t][~p]`: which of the four, whether a trailer is on the back,
+// and whether it is PARKED (shut down, settled on its lifters). Parked rides in the variant string
+// rather than as a fifth parameter because the string is already the channel every consumer
+// threads — the depot floor, the wireframe, a contact in somebody's windscreen — and a fifth
+// argument would have had to be added to each of them to say a thing only the truck cares about.
 export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const key = cls + ':' + detail + (armed ? ':a' : '') + (variant ? ':' + variant : '');
   if (_cache[key]) return _cache[key];
@@ -1705,7 +1710,13 @@ const TRUCK_SHAPES = {
 // the road draws a contact a few pixels wide that would pay for all of them anyway. `fine` is off
 // at detail 0 (distant contacts) and the silhouette — cab, box, wheels, glass — is untouched.
 function buildTruck(variant = 'hauler', detail = 1) {
-  const [typeId, tail] = String(variant).split('+');
+  const str = String(variant);
+  // PARKED IS A REAL POSE, not a dimmer switch. A truck that holds itself up on light is holding
+  // itself up on something you can switch off — so a shut-down rig settles onto its lifters and
+  // sits on the ground, and the emitter bands and the road-glow under them go out. Standing next
+  // to one that was still hovering with the engine cold was the tell that the hover was decoration.
+  const parked = str.includes('~p');
+  const [typeId, tail] = str.replace(/~.*$/, '').split('+');
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const hitched = tail === 't';
   const fine = detail >= 1;
@@ -1747,6 +1758,8 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // something. `len` stretches a pod fore-aft, which is why the drive groups no longer draw a
   // doubled pair: dual rims are an artefact of a tyre's contact patch and this has none.
   const GLOW = [104, 214, 232];
+  const CHROME = [226, 232, 240];        // bright plate — `window` role so it takes the specular pass
+  const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
   const pod = (f, g, r = 0.048, len = 1) => {
     const s = Math.sign(g || 1), L = r * len;
     const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
@@ -1754,11 +1767,32 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(f - L, f + L, 0.024, z0 + r * 0.34, z1, 'gear', null, g);                               // housing
     box(f - L * 0.88, f + L * 0.88, 0.018, z0, z0 + r * 0.36, 'gear', null, g);                 // shroud, drawn in under it
     if (!fine) return;
-    box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);    // the emitter band
-    box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.62, z0 + r * 0.80, 'strut', null, g);     // intake louvre on the flank
+    // A chrome hubcap band round the housing — the atomic-age wheel-trim read, and the thing that
+    // stops a lifter looking like a black brick with a light on it when the light is OFF.
+    box(f - L * 0.86, f + L * 0.86, 0.0255, z0 + r * 0.72, z0 + r * 0.92, 'window', CHROME, g);
+    if (!parked) box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);   // the emitter band
+    box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.50, z0 + r * 0.64, 'strut', null, g);     // intake louvre on the flank
     // The patch of road it stands on. Wider than the pod on purpose, so the light spills out from
     // under it — from any angle above the beltline this is the only part of the lift you can see.
-    box(f - L * 1.5, f + L * 1.5, 0.034, 0.001, 0.004, 'window', [30, 92, 104], g);
+    // A parked rig is resting ON that patch, so there is nothing to spill.
+    if (!parked) box(f - L * 1.5, f + L * 1.5, 0.034, 0.001, 0.004, 'window', [30, 92, 104], g);
+  };
+  // ── Retro-future ornament ──────────────────────────────────────────────────
+  // A chrome bullet: three shrinking boxes on an axis, which at this scale reads as a turned cone.
+  // The single most atomic-age shape there is, and it does the grille centre, the bumper dagmars
+  // and the aerial tips between them.
+  const bullet = (f0, len, g, r, z) => {
+    for (let i = 0; i < 3; i++) {
+      const t0 = f0 + (len * i) / 3, k = 1 - i * 0.3;
+      box(t0, t0 + len / 3, r * k, z - r * k, z + r * k, 'window', CHROME, g);
+    }
+  };
+  // A fin: a raked triangular blade off a body corner, tipped with a lens. The 1950s answer to
+  // every question about the back of a vehicle, and the reason a rig reads as *futuristic-retro*
+  // rather than merely futuristic.
+  const fin = (f0, f1, g, z0, z1, lens) => {
+    poly('body', 0.94, [[f0, g, z0], [f1, g, z0], [f1, g, z0 + (z1 - z0) * 0.25], [f0, g, z1]]);
+    if (lens) box(f0 + 0.004, f0 + 0.016, 0.006, z1 - 0.020, z1 - 0.006, 'window', lens, g);
   };
 
   // The tractor is laid out BACKWARDS from the nose, so every proportion is relative and a bigger
@@ -1843,10 +1877,13 @@ function buildTruck(variant = 'hauler', detail = 1) {
     poly('body', 1.00, [[nose0, -S.w * 0.93, 0.135], [nose0, S.w * 0.93, 0.135],
                         [nose1 - 0.012, S.w * 0.88, 0.126], [nose1 - 0.012, -S.w * 0.88, 0.126]]);
     box(nose1 - 0.014, nose1, S.w * 0.84, 0.050, 0.124, 'strut');   // the grille surround
-    for (let i = 0; fine && i < 4; i++) {                            // and its slats, which catch the light
-      const z = 0.058 + i * 0.017;
-      box(nose1 - 0.002, nose1 + 0.002, S.w * 0.80, z, z + 0.008, 'strut');
+    // VERTICAL FINS, not horizontal slats. A stack of horizontal bars is a 1990s truck; a comb of
+    // upright chrome teeth with a bullet in the middle of it is a 1957 idea of what a truck in
+    // 2100 would look like, which is the brief.
+    for (let i = -3; fine && i <= 3; i++) {
+      box(nose1 - 0.002, nose1 + 0.003, 0.006, 0.056, 0.118, 'window', CHROME, i * S.w * 0.20);
     }
+    if (fine) bullet(nose1 - 0.002, 0.030, 0, 0.020, 0.088);        // the nose cone in the grille's mouth
   }
   // A cab-over has no bonnet, so its face was the screen and a blank wall under it — the two
   // cheapest trucks were the only ones with nothing to look at. Give it a radiator panel and vents.
@@ -1859,23 +1896,37 @@ function buildTruck(variant = 'hauler', detail = 1) {
   }
   // Bumper, wider than the cab, with a chin spoiler raked under it.
   box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
+  // The chin spoiler's lower lip sits ABOVE the ride height it will give up when parked — a
+  // settled truck must rest on its lifters, and a chin that reaches lower than they do puts the
+  // nose through the floor of the shed.
   poly('body', 0.5, [[nose1 + 0.012, -S.w, 0.030], [nose1 + 0.012, S.w, 0.030],
-                     [nose1 - 0.010, S.w, 0.010], [nose1 - 0.010, -S.w, 0.010]]);
-  // HEADLAMPS, CLEAR OF THE GRILLE. They used to sit at ±0.68w in the same fore-aft slice as the
-  // grille surround (±0.84w) — buried inside it, so the painter's sort showed one lamp and ate the
-  // other, and a one-eyed truck is the first thing anybody notices. They now stand OUTBOARD of the
-  // surround and proud of its front face, which no sort order can undo. Each is a dark housing
-  // with a bright lens set into it rather than a single pale square, and the rigs that carry any
-  // lamp kit at all wear a running-light brow over the top.
-  const lampG = S.w * 0.88, lampF = nose1 + 0.004, lampZ = S.nose > 0.001 ? 0.062 : 0.046;
+                     [nose1 - 0.010, S.w, 0.019], [nose1 - 0.010, -S.w, 0.019]]);
+  // HEADLAMPS. Twice now these have been eaten by something in front of them, so the rule they
+  // are placed by is written down rather than eyeballed: a lamp must clear the BUMPER in z and
+  // stand ahead of it in f, on every variant. The first cut put them inside the grille surround
+  // (the painter's sort showed one and ate the other). The second moved them outboard but kept a
+  // fixed height — which is clear of a bonneted truck's bumper and straight BEHIND a cab-over's,
+  // so the two cheapest rigs had no visible headlamps at all. `scripts/shapes/smoke.mjs` now
+  // renders all four and fails if either lens is painted over, because "I looked at it and it
+  // seemed fine" is exactly the check that let this through twice.
+  //
+  // The look is a stacked pair in a chromed pod — quad lamps under a hooded brow, which is the
+  // atomic-age face — rather than one pale square.
+  const BUMP_TOP = 0.058, BUMP_F = nose1 + 0.012;
+  const lampG = S.w * 0.86, lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
   for (const g of [-1, 1]) {
-    box(lampF - 0.012, lampF, 0.027, lampZ - 0.004, lampZ + 0.040, 'strut', null, g * lampG);
-    box(lampF, lampF + 0.006, 0.022, lampZ, lampZ + 0.034, 'window', [238, 228, 182], g * lampG);
-    if (fine && S.lamps > 0.4) box(lampF + 0.001, lampF + 0.007, 0.024, lampZ + 0.036, lampZ + 0.043, 'window', GLOW, g * lampG);
+    box(lampF - 0.016, lampF, 0.030, lampZ - 0.006, lampZ + 0.042, 'strut', null, g * lampG);           // the pod
+    box(lampF - 0.016, lampF + 0.002, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
+    box(lampF, lampF + 0.007, 0.026, lampZ + 0.020, lampZ + 0.038, 'window', [242, 234, 196], g * lampG); // upper lens
+    box(lampF, lampF + 0.007, 0.026, lampZ, lampZ + 0.017, 'window', [238, 228, 182], g * lampG);        // lower lens
+    if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', GLOW, g * lampG);
   }
+  // DAGMARS. Two chrome bullets standing off the bumper — the most 1955 object it is possible to
+  // bolt to a vehicle, and the reason the front of this thing now reads as a face.
+  if (fine) for (const g of [-1, 1]) bullet(BUMP_F - 0.004, 0.026, g * S.w * 0.44, 0.013, 0.044);
   // A bar of driving lights across the bumper on the rigs that wear one.
   if (fine && S.lamps > 0.7) {
-    for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.036, 0.052, 'window', [220, 226, 236], i * S.w * 0.42);
+    for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.030, 0.042, 'window', [220, 226, 236], i * S.w * 0.20);
   }
   // ── Stacks, tanks, mirrors ─────────────────────────────────────────────────
   // The pieces that are neither body nor wheel, and between them they do most of the work of
@@ -1885,7 +1936,14 @@ function buildTruck(variant = 'hauler', detail = 1) {
     const top = S.hi + S.sleeper + 0.062;
     box(cab0 - 0.013, cab0 + 0.013, 0.012, 0.055, top, 'strut', null, g);
     box(cab0 - 0.016, cab0 + 0.016, 0.015, 0.085, 0.135, 'strut', null, g);      // the perforated heat shield
-    box(cab0 - 0.015, cab0 + 0.015, 0.014, top - 0.012, top, 'strut', null, g);  // the chrome rain cap
+    // A FLARED CHROME MOUTH, not a rain cap — the stack finishes like a rocket nozzle, with three
+    // little fins round its base. It is the same silhouette from a mile off and an entirely
+    // different decade close up.
+    box(cab0 - 0.018, cab0 + 0.018, 0.017, top - 0.014, top, 'window', CHROME, g);
+    if (fine) for (const s of [-1, 1]) {
+      poly('strut', 0.7, [[cab0 + s * 0.013, g - 0.012, top - 0.052], [cab0 + s * 0.013, g + 0.012, top - 0.052],
+                          [cab0 + s * 0.024, g + 0.012, top - 0.030], [cab0 + s * 0.024, g - 0.012, top - 0.030]]);
+    }
   }
   for (const g of [-1, 1]) {
     box(cab0 - 0.082, cab0 - 0.012, 0.021, 0.034, 0.088, 'strut', null, g * S.w * 0.88);      // saddle tank
@@ -1909,6 +1967,27 @@ function buildTruck(variant = 'hauler', detail = 1) {
     pod(nose0 + 0.035, g, 0.046, 1.05);
     for (let a = 0; a < S.axles; a++) pod(frame0 + 0.055 + a * 0.105, g, 0.052, driveLen);
   }
+  // ── The chrome ─────────────────────────────────────────────────────────────
+  // A SPEAR DOWN THE FLANK, tail fins off the back of the cab, and a whip aerial. These three are
+  // the whole retro-future pass on the body: streamline-moderne brightwork, an atomic-age fin, and
+  // the aerial every car in that decade wore whether or not anything was receiving.
+  if (fine) {
+    for (const g of [-1, 1]) {
+      // The spear tapers as it runs aft — two segments, because a constant-width strip reads as
+      // masking tape and a tapered one reads as pressed metal.
+      box(cab1 - 0.020, cab0 + 0.010, 0.004, S.hi * 0.36, S.hi * 0.40, 'window', CHROME, g * (S.w + 0.002));
+      box(cab0 + 0.010, frame0 + 0.02, 0.004, S.hi * 0.33, S.hi * 0.355, 'window', CHROME, g * (S.w * 0.92));
+      // Fins off the back corners of the cab (or the sleeper, when there is one), with a tail lens
+      // in each — the taller the truck, the more fin it can carry.
+      const fTop = S.hi + S.sleeper;
+      fin(cab0 - 0.014, cab0 + 0.030, g * S.w * 0.99, fTop * 0.62, fTop * 0.62 + 0.052 + S.sleeper, [214, 74, 58]);
+    }
+    // The whip, with a ball on the end of it. Off the near-side mirror arm, raked back.
+    const aTop = S.hi + S.sleeper + 0.085;
+    box(cab1 - 0.030, cab1 - 0.026, 0.003, S.hi * 0.9, aTop, 'strut', null, -(S.w + 0.020));
+    bullet(cab1 - 0.032, 0.012, -(S.w + 0.020), 0.006, aTop);
+  }
+
   // THE BACK OF THE TRACTOR. Bobtail is a real way to drive, and running empty is the one time
   // this face is what another driver sees for an hour — it was a blank grey wall.
   for (const g of [-1, 1]) box(frame0 - 0.012, frame0 - 0.004, 0.016, 0.052, 0.070, 'window', [196, 66, 54], g * S.w * 0.66);
@@ -1982,9 +2061,18 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // it — walking `faces` and subtracting per reference moves the same corner up to three times and
   // shears the model apart. (It did: the first cut put every truck further off-centre than it
   // started, and the regress case caught it.)
-  if (shift) {
+  if (shift || parked) {
     const seen = new Set();
-    for (const f of faces) for (const p of f.p) if (!seen.has(p)) { seen.add(p); p[0] -= shift; }
+    for (const f of faces) for (const p of f.p) {
+      if (seen.has(p)) continue;
+      seen.add(p);
+      p[0] -= shift;
+      // AND IT SETTLES. A parked rig comes down the full ride height as one rigid body, so the
+      // lifters end up on the ground and everything above them keeps its own proportions — which
+      // is what a vehicle sitting down looks like, and what raising only the pods would not have
+      // been (that leaves the chassis floating over a gap).
+      if (parked) p[2] -= HOVER;
+    }
   }
   return faces;
 }

@@ -850,6 +850,43 @@ boundary. Before that, the two roads diverged from the gate — and changing you
 teleported the rig sideways onto tarmac that had been somewhere else the whole way. The boundary
 also forces a jog, so **the junction is a bend you can see** rather than a room name changing.
 
+### A parked rig sits down, and both headlamps are on the screen *(2026-08-12)*
+
+The variant grammar is now `<typeId>[+t][~p]` — the last flag is **parked**, and it is a real pose
+rather than a dimmer switch. A truck that holds itself up on light is holding itself up on
+something you can switch off, so a shut-down rig **settles the full ride height onto its lifters**
+as one rigid body and the emitter bands and road-glow go out. Standing next to one that was still
+hovering with a cold engine was the tell that the hover was decoration. The depot passes `~p` on
+every rig it draws, because everything in a shed is parked. (The chin spoiler's lip had to come up
+above the ride height for this — a chin that reaches lower than the lifters puts the nose through
+the floor when it settles.)
+
+The **walkaround now opens at the door**: the eye starts just off the near-side step at a driver's
+height, close enough that CLIMB IN is already lit. It used to open four units out on the diagonal,
+outside the board radius, so the first thing anybody did in the walkaround was hold W.
+
+**And the headlamps are now tested, not eyeballed.** The same bug shipped twice — first buried in
+the grille surround (the sort showed one lamp and ate the other), then at a fixed height that
+cleared a bonneted truck's bumper and sat exactly *behind* a cab-over's, so the two cheapest rigs
+had no visible headlamps at all. Neither is catchable by asserting on geometry: the lamp was always
+where the code said it was. So [truck-lamps.mjs](../scripts/shapes/truck-lamps.mjs) renders the
+depot scene through a **recording context**, replays the polygons in draw order, and asks the only
+question that matters — after everything in front of it is painted, is any of this lens still
+visible? It runs in `shapes:smoke`, needs no browser, and was verified to catch a deliberate break.
+The rule the placement now follows is written down: **a lamp clears the bumper in z and stands
+ahead of it in f, on every variant.**
+
+### Retro-future, on purpose *(2026-08-12)*
+
+The mesh had drifted into "20th-century semi with a light strip". The brief is a 1957 idea of what
+a truck in 2100 looks like, so: **vertical chrome grille teeth** with a turned **bullet** in the
+mouth of them, **dagmars** on the bumper, quad headlamps under a chromed brow, a **chrome spear**
+tapering down each flank, **tail fins** off the back corners of the cab with a red lens in each,
+stacks that finish in a **flared nozzle** with fins round the base, a **whip aerial** with a ball on
+the end, and a chrome trim band round every lifter — which is also what stops a pod looking like a
+black brick when its emitter is off, i.e. whenever the truck is parked. All of it is `fine`-gated,
+so a distant contact still costs what it did.
+
 ### Wipers
 
 The proposal called this the one gap and the most evocative thing left, and it is the smallest: the
