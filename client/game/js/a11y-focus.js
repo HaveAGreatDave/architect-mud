@@ -99,6 +99,50 @@ export function looksLikeClose(el) {
     /^(close|cancel|done|back)$/i.test(t);
 }
 
+// ── Naming the glyph buttons ────────────────────────────────────────────────
+//
+// A close button whose only content is `✕` has an ACCESSIBLE NAME of `✕`, and a
+// screen reader reads that character out: VoiceOver says "multiplication X",
+// NVDA "times". Reported by a player in log mode, who could hear where the
+// panels were and not what the button in the corner did.
+//
+// `title` does not save it. The accessible-name algorithm takes a button's own
+// CONTENTS ahead of its title attribute, so the ~30 buttons in this client
+// written `<button title="Close">✕</button>` are all named `✕` — the title is a
+// mouse tooltip and nothing more. `aria-label` is the one that wins, because it
+// outranks contents.
+//
+// Done here, as a sweep, for exactly the reason the focus trap is: there are
+// ~30 of these across index.html and 50-odd panel modules, hand-fixing each is
+// thirty chances to forget, and the next panel written starts broken again.
+// Every element is visited once (marked with `data-a11y-named`), and the sweep
+// rides the observer that was already coalescing to one pass per frame.
+//
+// THE NAME IS THE AUTHOR'S, NOT OURS, WHEREVER THERE IS ONE. A title becomes the
+// label verbatim — which is what keeps "Remove panel" and "clear all waypoints"
+// (both drawn as ✕, neither of them a close) honest. Only a glyph with nothing
+// else to go on is called "Close", and that is the safe guess: in this client a
+// bare ✕ with no title has always been a panel's own corner button.
+const CLOSE_GLYPH = /^[×✕✖⨯✗✘xX]$/;
+const NAMEABLE = 'button,[role="button"],a';
+
+export function nameGlyphControls(root) {
+  let nodes;
+  try { nodes = (root || document).querySelectorAll(NAMEABLE); } catch { return; }
+  for (const el of nodes) {
+    if (el.hasAttribute('data-a11y-named')) continue;
+    el.setAttribute('data-a11y-named', '1');
+    // Never touch something that already says what it is.
+    if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) continue;
+    // Leaf only. A wrapper's textContent is its descendants', so a header div
+    // holding a ✕ button would match and get named instead of the button.
+    if (el.childElementCount > 0) continue;
+    if (!CLOSE_GLYPH.test((el.textContent || '').trim())) continue;
+    const title = (el.getAttribute('title') || '').trim();
+    el.setAttribute('aria-label', title || 'Close');
+  }
+}
+
 // Pick the control Escape should click. Order matters and is the whole safety
 // argument: an explicit close beats a guess, and a guess never reaches anything
 // that spends money. `nodes` is in DOM order.
@@ -144,6 +188,10 @@ function modalEntries() {
 
 function evaluate() {
   _scheduled = false;
+  // Every frame that changed the DOM, name whatever new glyph buttons arrived
+  // with it. Deliberately document-wide rather than modal-only: the smartbar,
+  // the room pane and the tablet all draw them outside any panel.
+  nameGlyphControls(document);
   let entries = [];
   try {
     entries = modalEntries();

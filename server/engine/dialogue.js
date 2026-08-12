@@ -8,7 +8,7 @@
 // re-resolve which option a player clicked from the previous node) — both now
 // call the same filterDialogueOptions().
 import { dispatchAction } from './actions.js';
-import { emit } from './events.js';
+import { emit, on } from './events.js';
 import { evalConditions, getFlag, registerConditionShape } from './flags.js';
 import { isNpcScheduledNow } from './broadcast-bridge.js';
 import { query } from '../models/db.js';
@@ -214,6 +214,153 @@ const ARRIVAL_STAGE = {
 function repStage(delta, tieredUp) {
   if (delta > 0) return tieredUp ? 'Something settles. You have been re-filed, upward.' : 'Their guard drops a notch.';
   return tieredUp ? 'Whatever credit you had here is spent.' : 'Something in their manner cools.';
+}
+
+// ── The bottom Display Mode rung: a conversation you read and type ───────────
+//
+// The dialogue panel is a modal with clickable options, and at the `log` rung
+// there is no panel — so before this, a screen-reader player could open a
+// conversation and had no written record of what was said and no way to answer
+// it. The panel isn't hidden from them, it simply isn't the surface they chose.
+//
+// So the same frame is written out to #output instead, options NUMBERED, and
+// `reply <n>` (or the bare number) picks one. Everything the panel shows has to
+// reach the log or this rung isn't done for dialogue: the line, the stage
+// direction, what each option LEADS TO, and which ones are locked.
+//
+// The state is in memory and per player — a conversation is a thing you are in
+// the middle of, not a thing that survives a restart. It is keyed to the NPC and
+// the zone it opened in, so walking away ends it (see `resumeLogTalk`).
+const logTalks = new Map();
+on('player.logout', ({ id }) => { if (id) logTalks.delete(id); });
+
+export function getLogTalk(playerId) { return logTalks.get(playerId) || null; }
+export function setLogTalk(playerId, talk) { logTalks.set(playerId, talk); }
+export function endLogTalk(playerId) { logTalks.delete(playerId); }
+
+// Escape authored content before it goes into the log as HTML. Node TEXT is
+// deliberately NOT escaped (it carries the engine's own spans — item grants,
+// speech tinting — exactly as the panel receives it), but option labels are
+// plain strings the panel escapes client-side, so they get escaped here.
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// What an option leads to, in words rather than the panel's glyph. Same rule
+// list (dialogueOptionKind), said out loud — a screen reader can't read an icon,
+// and `hostile` in particular is the one tag a player must never have to infer.
+const OPT_KIND_WORD = {
+  hostile: 'turns ugly',
+  shop:    'shop',
+  quest:   'takes the job',
+  turnin:  'hands it in',
+  leave:   'ends it',
+};
+
+// One conversation frame as log lines. Deliberately the same text on the first
+// render and on every re-read (`reply` with no number reprints it), so what you
+// go back to is exactly what you were told.
+export function renderTalkLog({ npcName, text, options, stage }) {
+  const lines = [`<span class="speech-line">${esc(npcName)}: ${text}</span>`];
+  if (stage) lines.push(`<span class="text-dim">${esc(stage)}</span>`);
+  const opts = options || [];
+  if (!opts.length) {
+    lines.push(`<span class="text-dim">Nothing more to say. (<span class="action-link" data-action="cmd" data-cmd="endtalk">endtalk</span>)</span>`);
+    return lines.join('\n');
+  }
+  opts.forEach((o, i) => {
+    const n = i + 1;
+    const tag = OPT_KIND_WORD[o._kind] ? ` <span class="text-dim">[${OPT_KIND_WORD[o._kind]}]</span>` : '';
+    // A turn-in you haven't finished is SHOWN and refused, never hidden — the
+    // panel disables it in place for the same reason: an option that vanishes
+    // reads as a bug, and the player needs to know the hand-in is waiting.
+    const lock = o._turninDisabled ? ' <span class="text-dim">[not finished yet]</span>' : '';
+    lines.push(`  <span class="action-link" data-action="cmd" data-cmd="reply ${n}">${n})</span> ${esc(o.label)}${tag}${lock}`);
+  });
+  lines.push('<span class="text-dim">reply &lt;number&gt; · '
+    + '<span class="action-link" data-action="cmd" data-cmd="reply">reply</span> to hear it again · '
+    + '<span class="action-link" data-action="cmd" data-cmd="endtalk">endtalk</span></span>');
+  return lines.join('\n');
+}
+
+// ── Advancing the conversation ───────────────────────────────────────────────
+//
+// ONE step of a dialogue, from whatever the player just picked to the next thing
+// they see. Extracted out of server/index.js handleDialogue when the bottom
+// Display Mode rung got a typed route into the same conversation (`reply <n>`):
+// the panel and the log now take the identical path, so option-level actions,
+// the GOTO_NODE override, the vendor-hours re-check and the two shop doors can't
+// drift between a click and a typed number.
+//
+// The caller owns everything that needs a socket: opening the shop, tracking the
+// current node, and how the result is presented. This returns a decision, not a
+// frame on the wire:
+//   { type: 'shop', shelf }   — the option IS the shop; caller opens it
+//   { type: 'end', message }  — the conversation is over, say this
+//   { type: 'frame', node, text, options, stage, mood }
+export async function advanceDialogue({ npc, player, choice, optionIndex, prevNode, context }) {
+  const tree = npc.dialogue_tree || {};
+
+  // The implicit "Browse your wares." option (injected by renderDialogueNode).
+  if (choice === '__shop__') return { type: 'shop', shelf: null };
+
+  // Same gate `talk` applies at the root, re-checked on every node: a panel that
+  // was open when the vendor's shift ended can't be clicked on past closing —
+  // and a conversation left sitting in somebody's scrollback can't be replied to.
+  const { isVendorRole, isVendorOffHours, vendorOffHoursLine } = await import('./ai-behaviour.js');
+  if (isVendorRole(npc) && isVendorOffHours(npc)) {
+    return { type: 'end', message: vendorOffHoursLine(npc) };
+  }
+
+  // Execute option-level actions if the player picked a specific option from the
+  // previous node (identified by optionIndex against the SAME filtered list they
+  // were shown — hence re-filtering rather than indexing the authored options).
+  let appendMessage = '';
+  let target = choice;
+  if (player && optionIndex != null && prevNode) {
+    const prev = tree[prevNode];
+    if (prev) {
+      const filteredOpts = await filterDialogueOptions(prev.options, tree, player, context);
+      const clickedOpt = filteredOpts[optionIndex];
+      for (const a of clickedOpt?.actions || []) {
+        if (!a?.action) continue;
+        const result = await dispatchAction({
+          type: a.action,
+          actor: player,
+          // Dialogue actions are authored FLAT by the VINE dialogue editor; see
+          // the same fallback in renderDialogueNode.
+          params: a.params || a,
+          context,
+        });
+        if (result?.type === 'grant' && result.granted) {
+          appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ''}.</span>`;
+        } else if (result?.type === 'goto_node' && result.node) {
+          target = result.node;   // GOTO_NODE overrides the authored destination
+        } else if (result?.type === 'error') {
+          console.warn(`[dialogue] option action ${a.action} failed: ${result.message}`);
+        }
+      }
+    }
+  }
+
+  // A node authored to open the vendor shop IS the shop — route it to the same
+  // clean shop-open as "__shop__" rather than rendering a node on top of it.
+  // A node may name a SHELF: the only way a back-room catalogue is reachable.
+  const openShopAction = (tree[target]?.actions || []).find((a) => a?.action === 'OPEN_SHOP');
+  if (openShopAction) {
+    return { type: 'shop', shelf: openShopAction.params?.shelf || openShopAction.shelf || null };
+  }
+
+  const rendered = await renderDialogueNode(npc, target, player, context);
+  if (!rendered) return { type: 'end', message: `${npc.name} has nothing more to say.` };
+  return {
+    type: 'frame',
+    node: target,
+    text: appendMessage ? rendered.text + appendMessage : rendered.text,
+    options: rendered.options,
+    stage: rendered.stage,
+    mood: rendered.mood,
+  };
 }
 
 // Land on `nodeKey` in an NPC's dialogue_tree for `player`: runs the node's own

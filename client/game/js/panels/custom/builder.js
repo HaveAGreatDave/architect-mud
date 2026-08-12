@@ -221,6 +221,7 @@ function openModal(title, contentEl, onSave) {
   const x = document.createElement('button');
   x.className = 'cpanel-modal-x';
   x.textContent = '✕';
+  x.setAttribute('aria-label', 'Close');   // the glyph on its own is read as "multiplication X"
   x.addEventListener('click', () => closeModal(ov));
   head.appendChild(x);
   box.appendChild(head);

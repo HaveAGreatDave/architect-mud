@@ -10,7 +10,8 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { getIdeologyDiscount } from '../../server/engine/ideologies.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor } from '../../server/engine/vendor.js';
+import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor, renderShopText } from '../../server/engine/vendor.js';
+import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -48,6 +49,11 @@ async function openShopFor(npc, player) {
   const stock = await getVendorStock(npc, player.id);
   if (!stock.length) return { type:'error', message:`${npc.name} is out of stock.` };
   openShopSession(player.id, npc.id); // remember this vendor for bare buy/sell; pause its wandering
+  // Bottom Display Mode rung: no panel at all, the log IS the shelf. The session
+  // is open either way, so `buy`/`sell` behave identically from here.
+  if (await prefersLoggedPanelsOrDefault(player)) {
+    return { type: 'output', message: renderShopText(npc, stock, player.credits) };
+  }
   // Open the GUI shop pane — same payload shape as the click-a-vendor dialogue path
   // (server/index.js sendShopPanel), so the `shop <npc>` command and clicking share one UI.
   const inventory = await getSellableInventory(player, npc);

@@ -262,7 +262,42 @@ Two things in this path are known and **not** fixed:
 
 ---
 
-## 7. Not in scope
+## 7. The close buttons said "multiplication X" *(fixed 2026-08-11)*
+
+Reported by a player on the log rung: every close button in the client was announced as
+"multiplication X" (VoiceOver) or "times" (NVDA). They could hear that a panel had opened and not what
+the button in its corner did.
+
+Not the same bug as §5 — nothing here is a pseudo-element. **A button's own contents outrank its
+`title` in the accessible-name algorithm**, so the ~30 buttons in this client written
+
+```html
+<button title="Close">✕</button>
+```
+
+are all named `✕`, and the `title` is a mouse tooltip that a screen reader never reaches. `aria-label`
+is the only one of the three that wins, because it outranks contents.
+
+Fixed as a **sweep**, `nameGlyphControls()` in [a11y-focus.js](../client/game/js/a11y-focus.js), for
+the same reason the focus trap is a sweep: ~30 sites across `index.html` and fifty-odd panel modules,
+hand-fixing each is thirty chances to forget, and the next panel written starts broken again. It rides
+the MutationObserver that was already coalescing to one pass per frame, and marks each element
+(`data-a11y-named`) so it is visited once.
+
+⚠ **The name is the author's wherever there is one.** A `title` becomes the label verbatim; only a
+glyph with nothing else to go on is called "Close". This is load-bearing, not politeness — several ✕
+buttons in this client are not closes at all (*Remove panel*, *clear all waypoints*), and a sweep that
+called them "Close" would be a worse lie than the glyph was. Two that had no title got a real
+`aria-label` at source instead (the livery-scheme delete, the custom-panel builder's ✕).
+
+Related, same pass: `hangar-bay.js`'s `tbtn()` now marks its icon `aria-hidden`, because a glyph
+*beside* a word is decoration — "Cancel Rental" was being read as "multiplication X Cancel Rental" and
+"Sell" as "credit Sell".
+
+`a11y:focus` covers all four judgements, including the two that would do harm: an authored title is
+never overwritten, and a wrapper holding the glyph is never named in the button's place.
+
+## 8. Not in scope
 
 No server-side verb registry sync for dictation (the client has no verb list, and building a synced
 one is its own feature). No per-player persistence — localStorage, like everything else in the table.

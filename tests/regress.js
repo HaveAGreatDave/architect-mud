@@ -1552,6 +1552,63 @@ check('look returns a result', r && r.type !== 'error', JSON.stringify(r)?.slice
   check('arrival: …and drops the prose', !/room-desc/.test(arr), arr.slice(0, 400));
 }
 
+// ── Dialogue at the bottom Display Mode rung ─────────────────────────────────
+// The dialogue panel is a modal you CLICK, and a `log` player has no panel — so
+// until this existed they could open a conversation, not read it back, and not
+// answer it. What's pinned here is the surface, not any particular tree: the
+// frame reaches the log with its options numbered, a bare number advances it,
+// and the conversation is face-to-face (walk away and it's over).
+{
+  const savedZone = getPlayer().current_zone;
+  const savedMode = getPlayer().displayRung;
+  // Any NPC whose root offers ungated options. Vendors are excluded only because
+  // their implicit "Browse your wares." door leads to the shop rather than to a
+  // second frame, which is a different check.
+  const npc = [...world.npcs.values()].find(n =>
+    n.zone_id && !(n.vendor_inventory || []).length
+    && (n.dialogue_tree?.root?.options || []).length >= 2
+    && !n.dialogue_tree.root.options.some(o => o.conditions || o.condition || o.actions?.length)
+    && n.dialogue_tree.root.options.every(o => n.dialogue_tree[o.next]));
+  check('log rung: the world has a plain conversation to test against', !!npc,
+    npc ? npc.name : 'no NPC with an ungated 2-option root');
+  if (npc) {
+    getPlayer().current_zone = npc.zone_id;
+    getPlayer().displayRung = 'log';
+    const opened = await run(`talk ${npc.name}`);
+    const first = opened?.message || '';
+    check('log rung: talking writes the conversation instead of pushing a panel',
+      opened?.type === 'output' && !/^dialogue/.test(String(opened?.type)), JSON.stringify(opened)?.slice(0, 200));
+    check('…with the options numbered', />1\)</.test(first) && /">2\)</.test(first), first.slice(0, 500));
+    check('…and how to answer', /reply/.test(first) && /endtalk/.test(first), first.slice(-300));
+
+    // A bare number is the whole interaction on this rung — `reply 1` and `1`
+    // must be the same act.
+    const second = await run('1');
+    check('a bare number advances the conversation',
+      second?.type === 'output' && second.message !== first, String(second?.message).slice(0, 300));
+    check('…and `reply` on its own repeats rather than advancing',
+      (await run('reply'))?.message === second?.message, 'reply with no argument moved the conversation');
+    check('…and a number nobody offered is refused, not guessed at',
+      (await run('reply 99'))?.type === 'error', 'reply 99 was accepted');
+
+    // Face-to-face: the state is keyed to the zone it opened in.
+    getPlayer().current_zone = savedZone;
+    const away = await run('reply 1');
+    check('walking away ends the conversation', away?.type === 'error' && /over|isn't here/.test(away.message), JSON.stringify(away)?.slice(0, 200));
+    check('…and the bare-number intercept lets go with it',
+      !/reply/.test(String((await run('1'))?.message || '')), 'a bare number still routed to a dead conversation');
+
+    // …and the rung above is untouched: a visual player still gets the panel.
+    getPlayer().current_zone = npc.zone_id;
+    getPlayer().displayRung = 'visual';
+    check('the visual rung still opens the dialogue panel',
+      (await run(`talk ${npc.name}`))?.type === 'dialogue', 'visual talk did not return a dialogue frame');
+    await run('endtalk');
+  }
+  getPlayer().current_zone = savedZone;
+  getPlayer().displayRung = savedMode;
+}
+
 // ── Room pane: attached satellites and light clicks ──────────────────────────
 // Two rules about how the `Furniture:` line CLICKS, both easy to break silently
 // because nothing throws when a link points at the wrong verb.

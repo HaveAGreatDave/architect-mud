@@ -13,7 +13,7 @@
 //   • failing to recognise a close control, so Escape silently does nothing.
 //
 // Run: node scripts/a11y/focus-smoke.mjs   (also wired into pretest:regress)
-import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl } from '../../client/game/js/a11y-focus.js';
+import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls } from '../../client/game/js/a11y-focus.js';
 
 let failed = 0;
 const bad = (m) => { console.error(`  ✗ ${m}`); failed++; };
@@ -109,6 +109,48 @@ for (const [name, node] of NOT_CLOSERS) {
   // Nothing to click is a legitimate outcome, not a failure to try harder.
   is(findCloseControl([el({ textContent: 'Buy' }), el({ textContent: 'Sell' })]), null,
     'a panel with no close control is left open rather than half-actioned');
+}
+
+// ── The glyph buttons are NAMED ─────────────────────────────────────────────
+// Reported by a player on the log rung: the close buttons were announced as
+// "multiplication X", because a button's contents outrank its title in the
+// accessible-name algorithm and `<button title="Close">✕</button>` is therefore
+// named `✕`. The sweep in nameGlyphControls fixes it; these are the four
+// judgements it makes, and the third is the one that would do harm if wrong.
+{
+  const btn = (o = {}) => {
+    const attrs = { ...(o.attrs || {}) };
+    return {
+      childElementCount: 0, textContent: '', ...o,
+      hasAttribute: (a) => a in attrs,
+      getAttribute: (a) => (a in attrs ? attrs[a] : null),
+      setAttribute: (a, v) => { attrs[a] = v; },
+      _attrs: attrs,
+    };
+  };
+  const sweep = (nodes) => { nameGlyphControls({ querySelectorAll: () => nodes }); return nodes; };
+
+  const bare = btn({ textContent: '✕' });
+  const titled = btn({ textContent: '✕', attrs: { title: 'Close' } });
+  const remove = btn({ textContent: '✕', attrs: { title: 'Remove panel' } });
+  const labelled = btn({ textContent: '✕', attrs: { 'aria-label': 'Close map' } });
+  const wrapper = btn({ textContent: '✕', childElementCount: 1 });
+  const word = btn({ textContent: 'Buy' });
+  sweep([bare, titled, remove, labelled, wrapper, word]);
+
+  is(bare._attrs['aria-label'], 'Close', 'a bare ✕ is named Close instead of being read as multiplication X');
+  is(titled._attrs['aria-label'], 'Close', '…and so is the far more common title="Close" version');
+  // The one that matters: several ✕ buttons in this client are not closes at all.
+  is(remove._attrs['aria-label'], 'Remove panel', 'a ✕ that REMOVES something keeps the author\'s own word for it');
+  is(labelled._attrs['aria-label'], 'Close map', 'a button that already says what it is is never rewritten');
+  is(wrapper._attrs['aria-label'], undefined, 'a wrapper holding the glyph is not named in the button\'s place');
+  is(word._attrs['aria-label'], undefined, 'a button with real words is left alone');
+  is(bare._attrs['data-a11y-named'], '1', 'each element is marked, so the per-frame sweep visits it once');
+
+  // A second pass must be a no-op, not a re-label — panels re-render constantly.
+  bare._attrs['aria-label'] = 'Close inventory';
+  sweep([bare]);
+  is(bare._attrs['aria-label'], 'Close inventory', 'a later hand-written label survives the next sweep');
 }
 
 if (failed) {

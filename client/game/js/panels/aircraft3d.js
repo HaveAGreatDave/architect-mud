@@ -3577,18 +3577,41 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   // craft and OUT when there are many, or a Leviathan's on the floor.
   const scales = entries.map(e => MODEL_SCALE[e.cls] || 1);
   const maxSc = Math.max(...scales);
-  const spacing = 2.6;
+  // Build each model ONCE (aircraftFaces is memoised, but the bounds pass needs the vertices) and
+  // fit the camera to what is ACTUALLY there rather than to a guessed ±1.2-unit box. That guess was
+  // near enough for an airframe (they measure ±1.05 across the wing) and five times too big for a
+  // truck, which is built at ±0.2 — so the machine with the most room to spare on the floor, one
+  // rig alone in the garage, was drawn as the smallest thing the renderer has ever put on screen.
+  const models = entries.map(e => (e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '')));
+  const bounds = models.map((faces, i) => {
+    const s = scales[i];
+    let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (const f of faces) for (const v of f.p) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], v[k] * s); hi[k] = Math.max(hi[k], v[k] * s); }
+    if (lo[0] > hi[0]) { lo = [-1.2 * s, -1.1 * s, -0.35 * s]; hi = [1.2 * s, 1.1 * s, 0.62 * s]; }
+    return { lo, hi };
+  });
+  // Lane pitch is size-independent WITHIN a floor (a big craft must not shove its neighbours) but it
+  // is measured off the widest thing standing there, so a row of trucks parks like trucks rather
+  // than with three empty bays of concrete between each pair. Aircraft still land on the old 2.6.
+  const maxW = Math.max(...bounds.map(b => b.hi[1] - b.lo[1]));
+  const spacing = Math.min(2.6, Math.max(0.6, maxW * 1.9));
   const laneOf = (i) => (i - (n - 1) / 2) * spacing;
   const spread = (n - 1) / 2 * spacing;
-  const camDist = 3.1 + spread * 0.32 + maxSc * 0.85;
+  // Standing-back distance follows the size of the thing too. Focal alone would fill the frame from
+  // anywhere, but a camera parked four units off a half-unit truck is a long lens: correctly sized
+  // and perspective-flat, a photograph of a model. The reference span is an airframe's, so every
+  // aeroplane keeps exactly the distance it had.
+  const maxSpan = Math.max(...bounds.map(b => Math.max(b.hi[0] - b.lo[0], b.hi[1] - b.lo[1])));
+  const fitK = clampN(maxSpan / 2.2, 0.4, 1);
+  const camDist = (3.1 + maxSc * 0.85) * fitK + spread * 0.32;
   const ox = w / 2, oy = h * 0.6;
   // Focal-independent screen offset (per unit focal) — project each craft's rough bounding box
   // and take the focal that fits the widest/tallest extent within the frame, with a little air.
   const rel = (F, G, H) => { const fx = F * cy - G * sy, gy = F * sy + G * cy; const camY = H * cosE - fx * sinE, camZ = fx * cosE + H * sinE; const z = Math.max(0.3, camDist - camZ); return { x: gy / z, y: camY / z }; };
   let exX = 1e-3, exTop = 1e-3, exBot = 1e-3;
   entries.forEach((e, i) => {
-    const g0 = laneOf(i), s = scales[i];
-    for (const F of [-1.2 * s, 1.2 * s]) for (const G of [g0 - 1.1 * s, g0 + 1.1 * s]) for (const H of [-0.35 * s, 0.62 * s]) {
+    const g0 = laneOf(i), { lo, hi } = bounds[i];
+    for (const F of [lo[0], hi[0]]) for (const G of [g0 + lo[1], g0 + hi[1]]) for (const H of [lo[2], hi[2]]) {
       const r = rel(F, G, H);
       exX = Math.max(exX, Math.abs(r.x));
       if (r.y > 0) exTop = Math.max(exTop, r.y); else exBot = Math.max(exBot, -r.y);
@@ -3610,7 +3633,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   const groups = entries.map((e, i) => {
     const laneG = (i - (n - 1) / 2) * spacing;
     const sc = scales[i];   // real relative size — a Cessna parks much smaller than a Twin Otter
-    const faces = e.wreck ? buildWreck() : aircraftFaces(e.cls, 1, !!e.armed, e.variant || '');
+    const faces = models[i];
     // Taildraggers (Grasshopper/Locust, and the Viper) park nose-high on the tailwheel — same
     // 3-point sit the turntable applies, so a craft looks identical on the floor and on the bench.
     const gpr = e.wreck ? 0 : groundPitchFor(e.cls, !!e.armed) * Math.PI / 180;
@@ -3660,7 +3683,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       drawn.push(rec);
     }
     const origin = proj(0.2, laneG, 0);
-    hits.push({ id: e.id, sx: origin.sx, sy: origin.sy, r: Math.max(26, focal / origin.z * 0.55) });
+    // The click target is the machine's own on-screen size — a fixed fraction of the focal made
+    // every truck's circle overlap its neighbours', since a rig is a quarter of an airframe wide.
+    const bb = bounds[i], half = Math.max(bb.hi[0] - bb.lo[0], bb.hi[1] - bb.lo[1]) * 0.25;
+    hits.push({ id: e.id, sx: origin.sx, sy: origin.sy, r: Math.max(26, focal / origin.z * half) });
     return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg, tilt };
   });
 
@@ -3695,8 +3721,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       (v0) => { const v = grp.tilt ? grp.tilt(v0) : v0; const q = proj(v[0] * grp.sc, grp.laneG + v[1] * grp.sc, v[2] * grp.sc); return q.z <= 0.15 ? null : q; },
       { parked: true, spin: 1.9 + grp.laneG * 0.6, armed: !!grp.entry.armed });
     // A thin bright outline on the SELECTED craft — reads at a glance in a room
-    // full of other planes, where a colour cue alone would be too subtle.
-    if (grp.selected) {
+    // full of other planes, where a colour cue alone would be too subtle. ONLY where there is
+    // something to tell it apart FROM: on every body/wing quad of a lone machine it stops reading
+    // as a highlight and starts reading as a blue wireframe box drawn over the paint.
+    if (grp.selected && n > 1) {
       for (const fc of faces) {
         if (fc.role === 'body' || fc.role === 'wing') {
           ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);

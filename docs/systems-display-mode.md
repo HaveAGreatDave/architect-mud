@@ -1074,6 +1074,65 @@ Still on panels only: the score bug, gameday and standings overlays. The comment
 carries the score in words, so this is a degradation rather than a hole — but it is
 the next thing to write.
 
+## Dialogue at the log rung — the conversation you type *(built 2026-08-11)*
+
+The dialogue panel was the last **blocking** surface with no written form, and by
+this doc's own classification test it was the worst one to leave: *if I delete
+this surface, is the player stuck?* — yes. Talking to an NPC opened a modal, and
+at the bottom rung a player could neither read back what was said nor answer it.
+The panel was never *silenced* (`#dialogue-panel` is its own element, not inside
+the pane that goes `aria-hidden`), which is why this looked fine for so long: a
+screen reader could still find the buttons by exploring. Nothing announced them,
+nothing put focus there, and the record never reached `#output`.
+
+So at the `log` rung the frame is written out with its options **numbered**, and
+`reply <n>` walks it:
+
+```
+Marta Quill: "You look like you're after work rather than a drink."
+  1) What kind of work?  [takes the job]
+  2) Just the drink, thanks.  [ends it]
+reply <number> · reply to hear it again · endtalk
+```
+
+Four decisions hold it up.
+
+**One step, one function.** `advanceDialogue` ([engine/dialogue.js](../server/engine/dialogue.js))
+was extracted out of `handleDialogue` when this was built, and both the click and
+the typed number now go through it. It owns the option-level actions, the
+GOTO_NODE override, the vendor-hours re-check and both shop doors; the caller owns
+only what needs a socket. A click and a `1` cannot mean different things, because
+by the time either reaches the tree they are the same call.
+
+**A bare number works too, and only inside a conversation.** Typing `2` is the
+whole interaction on this rung, and requiring a verb on every line is exactly the
+tax the rung exists to remove. The intercept sits in `handleCommand` *after* the
+SIFT one — a picker still owns numbers while it is open — and fires only when a
+conversation is actually live, so `3` means nothing new to anybody else.
+
+**What the panel shows in a glyph, the log says in a word.** An option's `_kind`
+becomes `[turns ugly]`, `[shop]`, `[takes the job]`, `[ends it]` — a screen reader
+cannot read an icon, and `hostile` is the one tag a player must never have to
+infer from the wording. An unfinished turn-in is shown and refused in place, the
+same way the panel disables it rather than hiding it.
+
+**A conversation is face-to-face.** The state is in memory, per player, keyed to
+the NPC *and* the zone it opened in, so walking out of the room ends it instead of
+leaving a number that still works from the next street over. `reply` with no
+argument re-reads the frame without advancing it, which on a rung where the
+conversation lives in scrollback is most of the point.
+
+### …which dragged the shop in with it
+
+A vendor's dialogue tree *is* a door into the shop panel, so a conversation that
+worked and then dropped the player into a modal they'd turned off would only have
+moved the hole. `renderShopText` ([engine/vendor.js](../server/engine/vendor.js))
+writes the shelf out — same stock, same order, same sections, because it renders
+what `getVendorStock` already returned rather than asking a second question. Both
+shop-open paths (`shop <npc>` in commerce, and the dialogue OPEN_SHOP/`__shop__`
+door in `server/index.js`) take it. The shop **session** opens either way, so
+`buy`/`sell` behave identically from there. Selling was already a verb.
+
 ## The tablet at the log rung — an index of verbs
 
 The tablet is the one panel that could not simply be "written out": it is a

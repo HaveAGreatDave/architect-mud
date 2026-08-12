@@ -31,10 +31,9 @@ import { modulePreloadTags } from "./modulegraph.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
-import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
-import { filterDialogueOptions, renderDialogueNode } from "./engine/dialogue.js";
+import { advanceDialogue, renderTalkLog, setLogTalk, endLogTalk } from "./engine/dialogue.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
@@ -1478,100 +1477,59 @@ async function handleDialogue(ws, session, msg) {
 		return;
 	}
 
-	// The implicit "Browse your wares." option (engine/dialogue.js injects it for
-	// vendors that don't author their own shop door).
-	if (msg.choice === "__shop__") {
-		await openNpcShop(ws, session, npc);
-		return;
-	}
-
-	// Same gate `talk` applies at the root, re-checked on every node: a panel that
-	// was open when the vendor's shift ended can't be clicked on past closing.
-	const { isVendorRole, isVendorOffHours, vendorOffHoursLine } = await import("./engine/ai-behaviour.js");
-	if (isVendorRole(npc) && isVendorOffHours(npc)) {
-		ws.send(JSON.stringify({ type: "dialogue_end", message: vendorOffHoursLine(npc) }));
-		return;
-	}
-
 	const player = getLivePlayer(session.playerId);
 
-	// Execute option-level actions if the player clicked a specific option
-	// from the previous node (identified by optionIndex in the incoming message).
-	let appendMessage = "";
-	if (player && msg.optionIndex != null && session.dialogueNode) {
-		const prevNode = (npc.dialogue_tree || {})[session.dialogueNode];
-		if (prevNode) {
-			// Re-filter previous node's options to match what the client saw.
-			const filteredOpts = await filterDialogueOptions(prevNode.options, npc.dialogue_tree, player);
-			const clickedOpt = filteredOpts[msg.optionIndex];
-			if (clickedOpt?.actions?.length) {
-				for (const a of clickedOpt.actions) {
-					if (!a?.action) continue;
-					const result = await dispatchAction({
-						type: a.action,
-						actor: player,
-						// Dialogue actions are authored FLAT ({action, quest_id, …}) by the VINE
-				// dialogue editor, so fall back to the action object itself as the params
-				// bag (AI/script graphs nest under .params — hence the `|| a`).
-				params: a.params || a,
-						context: { broadcast, npc },
-					});
-					if (result?.type === "grant" && result.granted) {
-						appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
-					} else if (result?.type === "goto_node" && result.node) {
-						// GOTO_NODE from an option action overrides the destination.
-						msg.choice = result.node;
-					} else if (result?.type === "error") {
-						console.warn(`[dialogue] option action ${a.action} failed: ${result.message}`);
-					}
-				}
-			}
-		}
-	}
+	// ONE step of the conversation. The shop doors, the vendor-hours re-check, the
+	// option-level actions and the GOTO_NODE override all live in
+	// engine/dialogue.js now, because the bottom Display Mode rung drives the same
+	// conversation by typing `reply <n>` (engine/commands/social.js) — and a click
+	// and a typed number must not be able to mean different things.
+	const step = await advanceDialogue({
+		npc, player,
+		choice: msg.choice,
+		optionIndex: msg.optionIndex,
+		prevNode: session.dialogueNode,
+		context: { broadcast, npc },
+	});
 
-	// A node authored to open the vendor shop (OPEN_SHOP action) IS the shop — the
-	// GUI shop panel is its terminal UI. Route it through the same clean shop-open
-	// as "__shop__" and stop, rather than letting renderDialogueNode fire OPEN_SHOP
-	// and THEN send a `dialogue` message that the client renders into the same panel,
-	// clobbering the shop that just opened. (This is why a vendor's authored shop
-	// option looked like it "didn't open the shop".)
-	const targetNode = (npc.dialogue_tree || {})[msg.choice];
-	const openShopAction = (targetNode?.actions || []).find((a) => a?.action === "OPEN_SHOP");
-	if (openShopAction) {
-		// A node may name a SHELF (params.shelf) — that is the only way a back-room
-		// catalogue is ever reachable, so the covert half of a vendor stays covert.
-		await openNpcShop(ws, session, npc, openShopAction.params?.shelf || openShopAction.shelf || null);
+	if (step.type === "shop") {
+		// A node may name a SHELF — that is the only way a back-room catalogue is
+		// ever reachable, so the covert half of a vendor stays covert.
+		await openNpcShop(ws, session, npc, step.shelf);
 		return;
 	}
-
-	// Runs the node's Actions (Phase 4; `grants_item` legacy GRANT_ITEM shorthand
-	// included) and Condition/quest-completion-gates its options — see
-	// engine/dialogue.js (shared with Tablet OS's "Turn In" NPC hand-off).
-	const rendered = await renderDialogueNode(npc, msg.choice, player, { broadcast, npc });
-	if (!rendered) {
-		ws.send(
-			JSON.stringify({
-				type: "dialogue_end",
-				message: `${npc.name} has nothing more to say.`,
-			}),
-		);
+	if (step.type === "end") {
+		endLogTalk(session.playerId);
+		ws.send(JSON.stringify({ type: "dialogue_end", message: step.message }));
 		return;
 	}
 
 	// Track the current node in session so option-level actions can be resolved
 	// on the player's next dialogue message.
-	session.dialogueNode = msg.choice;
+	session.dialogueNode = step.node;
+
+	// Bottom rung: this player has no dialogue panel, so the frame is written into
+	// the log and answered with `reply <n>`. Reached when a plugin pushes a
+	// conversation at them rather than by their own clicking.
+	if (loggedPanelsSync(player)) {
+		setLogTalk(session.playerId, {
+			npcId: npc.id, npcName: npc.name, node: step.node,
+			options: step.options, zone: player?.current_zone,
+		});
+		ws.send(JSON.stringify({ type: "output", message: renderTalkLog({ npcName: npc.name, ...step }) }));
+		return;
+	}
 
 	ws.send(
 		JSON.stringify({
 			type: "dialogue",
 			npcId: msg.npcId,
 			npcName: npc.name,
-			node: msg.choice,
-			text: appendMessage ? rendered.text + appendMessage : rendered.text,
-			options: rendered.options,
-			stage: rendered.stage,
-			mood: rendered.mood,
+			node: step.node,
+			text: step.text,
+			options: step.options,
+			stage: step.stage,
+			mood: step.mood,
 		}),
 	);
 }
@@ -1593,6 +1551,16 @@ async function openNpcShop(ws, session, npc, shelf = null) {
 		return;
 	}
 	openShopSession(session.playerId, npc.id, shelf);
+	// Bottom Display Mode rung: the log IS the shelf (engine/vendor.js
+	// renderShopText), same stock in the same order as the panel would show. The
+	// shop session is open either way, so `buy`/`sell` work identically from here.
+	if (loggedPanelsSync(player)) {
+		endLogTalk(session.playerId);
+		const { getVendorStock, renderShopText } = await import("./engine/vendor.js");
+		const stock = await getVendorStock(npc, session.playerId, shelf);
+		ws.send(JSON.stringify({ type: "output", message: renderShopText(npc, stock, player.credits) }));
+		return;
+	}
 	await sendShopPanel(ws, npc, session.playerId);
 }
 

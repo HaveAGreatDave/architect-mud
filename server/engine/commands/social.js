@@ -2,7 +2,9 @@ import { getAllLivePlayers, getZonePlayers, getZoneNpcs, getZoneEnemies } from '
 import { formatBattleCry } from '../combat.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, sendToChatChannel } from '../channels.js';
-import { renderDialogueNode } from '../dialogue.js';
+import { renderDialogueNode, advanceDialogue, renderTalkLog, getLogTalk, setLogTalk, endLogTalk } from '../dialogue.js';
+import { loggedPanelsSync } from '../presentation.js';
+import { dispatchAction, getRegisteredActions } from '../actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { DEFAULT_CHITCHAT_LINES, formatChitchat, disturbSleeper, isVendorRole, isVendorOffHours, vendorOffHoursLine } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
@@ -80,7 +82,102 @@ async function cmdTalk(targetStr, player, broadcast) {
     if (broadcast) broadcast(player.current_zone, msg, player.id);
     return msg;
   }
+  // Bottom Display Mode rung: no panel, so the conversation is written into the
+  // log and answered with `reply <n>` — see openLogTalk below.
+  if (loggedPanelsSync(player)) return openLogTalk(player, npc, rendered);
   return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:rendered.text, options:rendered.options, stage:rendered.stage, mood:rendered.mood };
+}
+
+// ── Talking, at the bottom Display Mode rung ─────────────────────────────────
+//
+// The dialogue panel is a modal you click; a `log` player chose not to have
+// panels, and used to get a conversation they could neither read back nor
+// answer. These three functions are that same conversation as text: the frame
+// goes to #output with its options numbered, and `reply <n>` walks it through
+// the SHARED advanceDialogue — the identical path a click takes, so a typed
+// number can't drift from the panel on gating, actions or the shop doors.
+//
+// The state is remembered per player, keyed to the NPC AND the zone it opened
+// in: a conversation is face-to-face, so walking out of the room ends it rather
+// than leaving a number you can still type from the next street over.
+function openLogTalk(player, npc, frame, node = 'root') {
+  setLogTalk(player.id, {
+    npcId: npc.id, npcName: npc.name, node,
+    text: frame.text, stage: frame.stage, options: frame.options,
+    zone: player.current_zone,
+  });
+  return { type:'output', message: renderTalkLog({ npcName: npc.name, ...frame }) };
+}
+
+// The conversation you're in, or null with the reason it isn't there any more.
+function liveLogTalk(player) {
+  const talk = getLogTalk(player.id);
+  if (!talk) return { error: "You're not talking to anybody right now." };
+  const npc = getZoneNpcs(player.current_zone).find(n => n.id === talk.npcId);
+  if (!npc || talk.zone !== player.current_zone) {
+    endLogTalk(player.id);
+    return { error: `That conversation is over — ${talk.npcName} isn't here.` };
+  }
+  return { talk, npc };
+}
+
+async function cmdReply(args, player, broadcast) {
+  const { talk, npc, error } = liveLogTalk(player);
+  if (error) return { type:'error', message: error };
+
+  // `reply` with no number re-reads the frame rather than doing anything. On a
+  // rung where the conversation lives in scrollback, being able to hear it again
+  // without advancing it is the whole point.
+  const raw = String(args?.[0] ?? '').trim();
+  if (!raw) return { type:'output', message: renderTalkLog({ npcName: talk.npcName, text: talk.text, stage: talk.stage, options: talk.options }) };
+
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > talk.options.length) {
+    return { type:'error', message: talk.options.length
+      ? `Reply with a number from 1 to ${talk.options.length}. (\`reply\` on its own repeats what they said.)`
+      : 'There is nothing to reply to. (endtalk)' };
+  }
+  const opt = talk.options[n - 1];
+
+  // A turn-in that isn't finished is refused in place, exactly as the panel
+  // disables it — the player is told what's outstanding rather than the option
+  // quietly disappearing.
+  if (opt._turninDisabled) {
+    return { type:'output', message: `Not finished yet. Check the job in your Tablet before handing it in.` };
+  }
+
+  const step = await advanceDialogue({
+    npc, player,
+    choice: opt.next,
+    optionIndex: n - 1,
+    prevNode: talk.node,
+    context: { broadcast, npc },
+  });
+
+  if (step.type === 'end') { endLogTalk(player.id); return { type:'output', message: step.message }; }
+
+  if (step.type === 'shop') {
+    // The option IS the shop. Hand off to whoever owns shopping (the commerce
+    // plugin), which writes the shelf out at this rung instead of pushing the
+    // panel — registered by name so the engine never imports the plugin.
+    endLogTalk(player.id);
+    if (getRegisteredActions().includes('commerce.shop_vendor')) {
+      return await dispatchAction({ type:'commerce.shop_vendor', actor: player, params:{ target: npc }, context:{ broadcast } });
+    }
+    return { type:'output', message: `${npc.name} lays out their wares. (shop ${npc.name})` };
+  }
+
+  const out = openLogTalk(player, npc, step, step.node);
+  // An option authored to walk away ends it here too, rather than leaving a
+  // dead frame with a number nobody can type.
+  if (opt._kind === 'leave') endLogTalk(player.id);
+  return out;
+}
+
+function cmdEndtalk(player) {
+  const talk = getLogTalk(player.id);
+  endLogTalk(player.id);
+  return { type:'output', message: talk ? `You stop talking to ${talk.npcName}.` : "You weren't talking to anybody." };
 }
 
 // If the player names an NPC in the room (any part of its name — first or last),
@@ -244,6 +341,8 @@ function cmdObama(targetStr, player, broadcast) {
 
 export const handlers = {
   talk:    (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
+  reply:   (args, raw, player, broadcast) => cmdReply(args, player, broadcast),
+  endtalk: (args, raw, player) => cmdEndtalk(player),
   say:     (args, raw, player, broadcast) => cmdSay(raw.replace(/^say\s*/i,''), player, broadcast),
   yell:    (args, raw, player, broadcast) => cmdYell(raw.replace(/^yell\s*/i,''), player, broadcast),
   me:      (args, raw, player, broadcast) => cmdMe(raw.replace(/^me\s*/i,''), player, broadcast),

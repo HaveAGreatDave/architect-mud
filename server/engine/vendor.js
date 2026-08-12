@@ -270,6 +270,36 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
   return ordered;
 }
 
+// ─── The shelf, written out ──────────────────────────────────────────────────
+//
+// The bottom Display Mode rung has no shop panel, and a vendor's whole dialogue
+// tree is a door into one — so without this, `log` players could hold the
+// conversation (see engine/dialogue.js) and then hit a modal they'd chosen not
+// to have. Same stock, same order, same sections: this renders what
+// getVendorStock already returned rather than asking a second question, so the
+// written shelf can't disagree with the panel about what's for sale.
+//
+// It lists BUYING only. Selling has always been a verb (`sell <item>`) against
+// your own inventory, which the log rung can already read.
+export function renderShopText(npc, stock, credits) {
+  const lines = [`<b>${npc.name}</b> — <span class="text-dim">${(credits || 0)}₵ on you</span>`];
+  if (!stock.length) return `${lines[0]}\nNothing on the shelf right now.`;
+  let group = null;
+  for (const e of stock) {
+    // The client starts a new section wherever `group` changes; so does this.
+    if (e.group && e.group !== group) { group = e.group; lines.push(`<span class="text-dim">— ${e.group} —</span>`); }
+    const short = e.stock < 99 ? ` <span class="text-dim">(${e.stock} left)</span>` : '';
+    const price = e.discounted
+      ? `${e.price}₵ <span class="text-dim">(was ${e.base_price}₵)</span>`
+      : `${e.price}₵`;
+    const wanted = e.wanted ? ' <span class="text-dim">[on your list]</span>' : '';
+    lines.push(`  <span class="action-link" data-action="cmd" data-cmd="buy ${e.name}">${e.name}</span> — ${price}${short}${wanted}`);
+  }
+  lines.push('<span class="text-dim">buy &lt;item&gt; · sell &lt;item&gt; · '
+    + `<span class="action-link" data-action="cmd" data-cmd="shop ${npc.name}">shop ${npc.name}</span> to re-read</span>`);
+  return lines.join('\n');
+}
+
 // ─── Buy ─────────────────────────────────────────────────────────────────────
 
 export async function buyFromVendor(player, npc, itemId, quantity = 1, shelfKey = null) {

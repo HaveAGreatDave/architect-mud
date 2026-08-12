@@ -94,7 +94,10 @@ function refetch() { setTimeout(() => sendCmdSilent('hangar'), 450); }
 // Every toolbar button is an icon + label chip (tablet-style 3D control). One
 // helper so the floor, bench, charter and dealer action bars all match.
 function tbtn(icon, label, attrs = '', cls = '') {
-  return `<button class="hb-btn${cls ? ' ' + cls : ''}" ${attrs}><span class="hb-ico">${icon}</span>${label}</button>`;
+  // The glyph is decoration and the word beside it is the button's real name, so
+  // the icon is hidden from the accessible tree — otherwise "Cancel Rental" is
+  // announced as "multiplication X Cancel Rental" and "Sell" as "credit Sell".
+  return `<button class="hb-btn${cls ? ' ' + cls : ''}" ${attrs}><span class="hb-ico" aria-hidden="true">${icon}</span>${label}</button>`;
 }
 
 // ── Floor ───────────────────────────────────────────────────────────────────
@@ -416,7 +419,7 @@ function paintTabHtml(c, cat, dirty) {
   } else {
     panel = `
       <div class="hb-schemes">${(c.schemes || []).length
-        ? c.schemes.map(s => `<span class="hb-scheme"><button class="hb-scheme-load" data-scheme-load="${esc(s.name)}"><span class="hb-chip" style="background:${s.base};box-shadow:inset 0 0 0 3px ${s.trim}"></span>${esc(s.name)}</button><button class="hb-scheme-del" data-scheme-del="${esc(s.name)}">✕</button></span>`).join('')
+        ? c.schemes.map(s => `<span class="hb-scheme"><button class="hb-scheme-load" data-scheme-load="${esc(s.name)}"><span class="hb-chip" style="background:${s.base};box-shadow:inset 0 0 0 3px ${s.trim}"></span>${esc(s.name)}</button><button class="hb-scheme-del" data-scheme-del="${esc(s.name)}" aria-label="Delete scheme ${esc(s.name)}">✕</button></span>`).join('')
         : '<span class="hb-dim">none saved yet</span>'}</div>
       <div class="hb-scheme-save"><input id="hb-scheme-name" placeholder="scheme name" maxlength="16"><button class="hb-btn" data-act="scheme-save"${dirty ? ' disabled title="Apply your paint first"' : ''}>Save current look</button></div>`;
   }

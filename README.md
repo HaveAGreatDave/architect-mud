@@ -150,6 +150,7 @@ Neon `DATABASE_URL`.
 | `sleep` / `rest` | Timed recovery |
 | `stats` / `skills` / `mutations` / `factions` | Character info |
 | `talk <npc>` / `say <message>` / `me <action>` / `who` | Social (`me`/`/me`/`emote` = freeform action line) |
+| `reply <n>` / `endtalk` | Answer a conversation held in the log (Display Mode `log`, which has no dialogue panel); a bare number works too |
 | `help` | Full command list |
 
 Exits, NPCs, enemies, corpses, and ground items are clickable directly in room text — no typing required.

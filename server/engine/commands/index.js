@@ -13,6 +13,7 @@ import { getLivePlayer } from '../world.js';
 import { emit } from '../events.js';
 import { setPosture } from '../posture.js';
 import { getAlias } from './aliases.js';
+import { getLogTalk } from '../dialogue.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, recomputeEquipped, EQUIP_SLOTS } from './inventory.js';
@@ -181,6 +182,17 @@ export async function handleCommand(input, player, broadcast) {
       return { type: 'error', message: 'Selection handler lost.' };
     }
     // adv.type === 'refine': fall through — treat as fresh command
+  }
+
+  // A conversation being held in the LOG (bottom Display Mode rung, no dialogue
+  // panel — engine/commands/social.js) answers to a bare number as well as to
+  // `reply <n>`. Typing `2` is the whole interaction on that rung, and making a
+  // screen-reader player type a verb every line is the kind of tax the rung
+  // exists to remove. Deliberately AFTER the SIFT intercept, which owns numbers
+  // whenever a picker is open, and only ever when a conversation is actually
+  // live — so `3` means nothing different to anybody else.
+  if (/^\d{1,2}$/.test(raw) && getLogTalk(player.id)) {
+    return builtins.get('reply')([raw], `reply ${raw}`, player, broadcast);
   }
 
   const parts = raw.toLowerCase().split(/\s+/);

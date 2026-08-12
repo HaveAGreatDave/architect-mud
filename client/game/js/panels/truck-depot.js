@@ -61,7 +61,7 @@ export function openTruckDepot(msg) {
     data: msg,
     screen: SCREEN_FOR_TAB[msg.tab] || (first ? 'floor' : B?.screen) || 'floor',
     selId: (msg.fleet || []).some(t => t.id === keepSel) ? keepSel : (msg.fleet || [])[0]?.id || null,
-    inspect: B?.inspect || { mode: 'orbit', x: -3.0, y: 0, z: 0.45, yaw: 0, pitch: 0, fov: 1 },
+    inspect: B?.inspect || inspectDefault(),
     bench: B?.bench || { tab: 'condition', tune: null, paint: null },
     lotSel: B?.lotSel || null,
   };
@@ -73,8 +73,9 @@ export function openTruckDepot(msg) {
 
 export function closeTruckDepot() {
   if (raf) cancelAnimationFrame(raf);
-  raf = null; sceneHits = [];
+  raf = null; sceneHits = []; walkKeys.clear();
   document.removeEventListener('keydown', onKey);
+  document.removeEventListener('keyup', onKeyUp);
   for (const n of document.querySelectorAll('.td-root')) n.remove();
   B = null;
 }
@@ -90,6 +91,7 @@ function mount() {
     root.addEventListener('click', onClick);
     root.addEventListener('input', onInput);
     document.addEventListener('keydown', onKey);
+    document.addEventListener('keyup', onKeyUp);
   }
   render();
   startSpin();
@@ -205,24 +207,101 @@ function statBars(s, prev = null) {
 }
 
 // ── Walkaround ───────────────────────────────────────────────────────────────
-// The same two cameras the hangar's inspect has. ORBIT is a turntable you drag; WALK puts the eye
-// on the concrete beside it, which for a truck is the view that actually sells the thing — you
-// look UP at a cab, and nothing else in the panel tells you that.
+// THE SAME WALKAROUND THE HANGAR HAS, because a truck is a thing you walk up to for exactly the
+// reasons an aeroplane is. It was a poor relation of it: one step per KEYPRESS (so crossing the bay
+// was thirty taps), no mouse-look at all despite the hint saying "drag to spin it", and no way to
+// get in from inside the view — you had to back out to the floor to board the machine you were
+// standing next to. All three are the hangar's model, adopted verbatim:
+//   • WALK — a first-person free camera. Held keys move the eye per FRAME (dt-scaled), drag turns
+//     the head, wheel changes FOV, and you cannot walk through the truck.
+//   • ORBIT — the turntable, dragged rather than only auto-spun.
+// And the BOARD prompt: walk up to the cab door and it lights, and it sends `drive` — the same verb
+// the floor's button sends, because everything here is still a command a player could have typed.
+const inspectDefault = () => ({ mode: 'walk', yaw: 0, elev: 0.3, zoom: 1.1,
+  cam: { x: 4.2, y: 1.8, z: -0.02, yaw: Math.PI - 0.35, pitch: 0.02, fov: 1 } });
+const walkKeys = new Set();
+const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
+
 function inspectScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing selected.</div>';
   const m = B.inspect.mode;
+  const board = (m === 'walk' && t.hereNow)
+    ? '<div class="td-board" id="td-board" data-cmd="drive">CLIMB IN</div>' : '';
   return `
     <div class="td-floor">
-      <canvas id="td-hero" class="td-scene" aria-label="Walkaround"></canvas>
+      <canvas id="td-hero" class="td-scene" tabindex="0" aria-label="Walkaround"></canvas>
+      ${board}
       <div class="td-strip">
         <button class="td-act${m === 'orbit' ? ' primary' : ''}" data-mode="orbit">Turntable</button>
         <button class="td-act${m === 'walk' ? ' primary' : ''}" data-mode="walk">Walk around</button>
+        ${t.hereNow ? '<button class="td-act primary" data-cmd="drive">Take it out</button>' : ''}
+        <button class="td-act ghost" data-view-reset>Reset view</button>
         <button class="td-act ghost" data-screen="floor">Back to the floor</button>
-        <span class="td-dim td-note">${m === 'walk' ? 'W/S/A/D to move, Q/E to turn, R/F for height.' : 'Drag to spin it.'}</span>
+        <span class="td-dim td-note">${m === 'walk'
+          ? 'WASD to move · drag to look · Q/E turn · R/F height · walk up to the door and press Enter.'
+          : 'Drag to turn it · wheel to zoom.'}</span>
       </div>
     </div>
     <aside class="td-side">${truckPane(t)}</aside>`;
+}
+
+// Held-key capture for the walk camera. Bound while the panel is mounted (onKey), and never while
+// a text field has focus, so it can't eat what was meant for the command box.
+function walkKeyDown(k) { if (!WALK_KEYS.has(k)) return false; walkKeys.add(k); return true; }
+
+// Mouse-look / orbit-drag / zoom on the hero canvas. Re-bound after every render (the canvas is
+// rebuilt by innerHTML), which is why the handlers live on the element and hold no state of their own
+// beyond the pointer map.
+function bindHeroPointer() {
+  const cv = document.getElementById('td-hero');
+  if (!cv || cv._tdBound) return;
+  cv._tdBound = 1;
+  cv.focus?.();
+  const ptrs = new Map();
+  let pinch = 0;
+  const twoDist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  const zoomBy = (ratio) => {
+    if (B.inspect.mode === 'walk') B.inspect.cam.fov = Math.max(0.5, Math.min(2, B.inspect.cam.fov / ratio));
+    else B.inspect.zoom = Math.max(0.6, Math.min(2.8, B.inspect.zoom * ratio));
+  };
+  cv.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; cv.focus?.(); if (ptrs.size === 2) pinch = twoDist(); });
+  cv.addEventListener('pointermove', (e) => {
+    const prev = ptrs.get(e.pointerId); if (!prev || !B) return;
+    const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size >= 2) { const d = twoDist(); if (pinch) zoomBy(d / pinch); pinch = d; return; }
+    if (B.inspect.mode === 'walk') {
+      B.inspect.cam.yaw += dx * 0.006;
+      B.inspect.cam.pitch = Math.max(-1.2, Math.min(1.2, B.inspect.cam.pitch - dy * 0.005));
+    } else {
+      B.inspect.yaw -= dx * 0.01;
+      B.inspect.elev = Math.max(0.05, Math.min(1.3, B.inspect.elev + dy * 0.006));
+    }
+  });
+  const end = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; if (!ptrs.size) cv.style.cursor = 'grab'; };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(1 - e.deltaY * 0.0012); }, { passive: false });
+}
+
+// One frame of walking. THE TRUCK IS SOLID: an exclusion ellipse in the ground plane sized off the
+// rig's own footprint, so you slide along the flank instead of walking out through the far door.
+function stepWalk(dt) {
+  const cam = B.inspect.cam;
+  let mf = 0, mr = 0, mu = 0;
+  if (walkKeys.has('w')) mf += 1; if (walkKeys.has('s')) mf -= 1;
+  if (walkKeys.has('d')) mr += 1; if (walkKeys.has('a')) mr -= 1;
+  if (walkKeys.has('r')) mu += 1; if (walkKeys.has('f')) mu -= 1;
+  if (walkKeys.has('e')) cam.yaw += 1.6 * dt;
+  if (walkKeys.has('q')) cam.yaw -= 1.6 * dt;
+  if (!mf && !mr && !mu) return;
+  const spd = 1.7 * dt, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  cam.x = Math.max(-9, Math.min(9, cam.x + (mf * cy + mr * -sy) * spd));
+  cam.y = Math.max(-9, Math.min(9, cam.y + (mf * sy + mr * cy) * spd));
+  cam.z = Math.max(-0.12, Math.min(2.6, cam.z + mu * spd));
+  const AF = 2.6, AG = 0.95;   // a rig is long and narrow — an aeroplane's ellipse is the wrong shape
+  if (cam.z < 1.1) { const d = Math.hypot(cam.x / AF, cam.y / AG); if (d > 1e-3 && d < 1) { cam.x /= d; cam.y /= d; } }
 }
 
 // ── The dealer's line ────────────────────────────────────────────────────────
@@ -404,7 +483,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-confirm],[data-tune-reset],[data-paint-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -413,7 +492,8 @@ function onClick(e) {
   if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; return void render(); }
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
-  if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; return void render(); }
+  if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
+  if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
   if (t.dataset.flash) { B.bench.paint = { ...(B.bench.paint || selected()?.paint || {}), flash: t.dataset.flash }; return void render(); }
   if (t.dataset.tuneReset != null) { B.bench.tune = null; return void render(); }
@@ -457,20 +537,20 @@ function onInput(e) {
 function onKey(e) {
   if (!B) return;
   if (e.key === 'Escape') return void closeTruckDepot();
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
   if (B.screen !== 'inspect' || B.inspect.mode !== 'walk') return;
   const k = e.key.toLowerCase();
-  const step = 0.35, c = Math.cos(B.inspect.yaw), s = Math.sin(B.inspect.yaw);
-  if (k === 'w') { B.inspect.x += c * step; B.inspect.y += s * step; }
-  else if (k === 's') { B.inspect.x -= c * step; B.inspect.y -= s * step; }
-  else if (k === 'a') { B.inspect.x += s * step; B.inspect.y -= c * step; }
-  else if (k === 'd') { B.inspect.x -= s * step; B.inspect.y += c * step; }
-  else if (k === 'q') B.inspect.yaw -= 0.12;
-  else if (k === 'e') B.inspect.yaw += 0.12;
-  else if (k === 'r') B.inspect.z += 0.1;
-  else if (k === 'f') B.inspect.z = Math.max(0.05, B.inspect.z - 0.1);
-  else return;
-  e.preventDefault();
+  // Enter boards, but ONLY once you've walked up to the door — otherwise it is a click on a button
+  // you cannot see, and a truck that pulls out of the yard because you tapped Enter across the shed.
+  if (k === 'enter') {
+    const b = document.getElementById('td-board');
+    if (b?.classList.contains('near')) { b.click(); e.preventDefault(); }
+    return;
+  }
+  if (walkKeyDown(k)) e.preventDefault();
 }
+function onKeyUp(e) { walkKeys.delete(e.key.toLowerCase()); }
 
 // Clicking a truck on the floor selects it — hit-tested against the regions the scene returns,
 // because there is no DOM element per truck to hang a listener on.
@@ -493,9 +573,12 @@ function pickOnFloor(e) {
 // a dozen timers racing each other for the same frame.
 function startSpin() {
   if (raf) return;
-  const loop = () => {
+  let last = 0;
+  const loop = (now) => {
     const root = document.getElementById('td-root');
     if (!root || !B) { raf = null; return; }
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+    last = now;
     yaw += 0.006;
     const accent = themeColor('--accent', '#d8892e');
 
@@ -510,13 +593,27 @@ function startSpin() {
     const hero = root.querySelector('#td-hero');
     const sel = selected();
     if (hero && sel) {
+      if (B.screen === 'inspect') bindHeroPointer();
       const ctx = sizeCanvas(hero);
-      const walk = B.screen === 'inspect' && B.inspect.mode === 'walk';
+      const inspecting = B.screen === 'inspect';
+      const walk = inspecting && B.inspect.mode === 'walk';
+      if (walk) stepWalk(dt);
       if (ctx) drawHangarFloorBay(ctx, {
         w: hero._cw, h: hero._ch, cls: 'truck', variant: sel.variant, livery: liveryOf(sel),
-        yaw, venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk,
-        cam: walk ? { x: B.inspect.x, y: B.inspect.y, z: B.inspect.z, yaw: B.inspect.yaw, pitch: B.inspect.pitch, fov: B.inspect.fov } : null,
+        // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
+        // to walk around it, which is the whole difference between a display and an inspection.
+        yaw: inspecting && !walk ? B.inspect.yaw : yaw,
+        elev: inspecting && !walk ? B.inspect.elev : undefined,
+        zoom: inspecting && !walk ? B.inspect.zoom : undefined,
+        venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk,
+        cam: walk ? { ...B.inspect.cam } : null,
       });
+      // The door is at the cab, not at the middle of the rig: walk up to the near-side step and the
+      // prompt lights. Same distance test the hangar's BOARD uses, over the truck's own geometry.
+      if (walk) {
+        const c = B.inspect.cam, near = Math.hypot(c.x - 0.9, c.y, c.z - 0.1) < 2.6;
+        root.querySelector('#td-board')?.classList.toggle('near', near);
+      }
     }
     for (const c of root.querySelectorAll('.td-wf')) {
       const ctx = c.getContext('2d');
@@ -568,6 +665,13 @@ function ensureStyles() {
   .td-body{flex:1;min-height:0;display:flex;gap:12px;padding:12px;overflow:hidden}
   .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;position:relative}
   .td-scene{flex:1;min-height:0;width:100%;border:1px solid #22282e;border-radius:6px;background:#0a0c0f;cursor:pointer}
+  .td-scene:focus{outline:none;border-color:#3b4652}
+  .td-board{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) scale(.9);z-index:5;
+    padding:8px 16px;border:1px solid #6d5a34;border-radius:4px;background:rgba(14,17,20,.82);color:#e8c07a;
+    font:700 12px/1 inherit;letter-spacing:.16em;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+  .td-board.near{opacity:1;pointer-events:auto;cursor:pointer;transform:translate(-50%,-50%) scale(1);
+    animation:tdBoardPulse 1.4s ease-in-out infinite}
+  @keyframes tdBoardPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,192,122,.28)}50%{box-shadow:0 0 0 10px rgba(232,192,122,0)}}
   .td-hint{position:absolute;top:14px;left:16px;right:16px;color:#8b949f;font-size:12px;max-width:46ch}
   .td-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
   .td-chip{display:flex;flex-direction:column;gap:2px;min-width:132px;text-align:left;padding:6px 8px;cursor:pointer;

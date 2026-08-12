@@ -768,7 +768,11 @@ const handlers = {
 
   dialogue_end: (msg) => {
     closeDialogue();
-    appendMsg(msg.message, 'system');
+    // END_CONVERSATION carries no message of its own (engine/graph.js), and an
+    // empty one is a blank line in the log — which on the bottom Display Mode
+    // rung, where the log is the whole game, a screen reader reads as nothing at
+    // all happening.
+    if (msg.message) appendMsg(msg.message, 'system');
   },
 
   status_tick: (msg) => {
