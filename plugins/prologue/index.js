@@ -696,7 +696,14 @@ async function beginArrival(player) {
   if (!(await isSet(player, F_TOUR_ASKED))) {
     // 1200ms, not 500: the cinematic's own closing dissolve is still running.
     // The question should arrive as the logo finishes leaving, not over it.
-    setTimeout(() => sendToPlayer(player.id, { type: 'tour_offer' }), 1200);
+    // At the `log` rung the offer is asked IN THE LOG and answered by verb — the
+    // client's version dims an interface this player isn't looking at, and walks
+    // them round panels that aren't drawn (see speakLogTour).
+    setTimeout(() => {
+      const p = getLivePlayer(player.id) || player;
+      if (loggedPanelsSync(p)) logTourOffer(p);
+      else sendToPlayer(p.id, { type: 'tour_offer' });
+    }, 1200);
     setTimeout(() => { const p = getLivePlayer(player.id) || player; speakArrival(p); }, TOUR_FALLBACK_MS);
     return;
   }
@@ -824,7 +831,15 @@ function firstClothing(actor) {
     out(actor, `<span class="clone-vat-message">A hatch coughs open at hip height and something slides out of the wall at you, hard enough that catching it is not really optional: a slab of scuffed grey glass, warm on one side, a hairline crack across the corner that somebody has decided is within tolerance. Your name is already on it. Your <b>tablet</b> — issued, apparently, to whoever ends up wearing this body.</span>`);
     out(actor, `<span class="ambient">It wakes when I touch it, and it seems to think I'll know what to do with it.</span> <span class="hint">(it's in your bar, bottom left — or type <b>tablet</b> any time)</span>`);
     tabletAccess(actor, true);
-    sendToPlayer(actor.id, { type: 'tablet_offer' });
+    // The chip in the bar opens a walkthrough of the tablet SHELL, which a player
+    // at the `log` rung never gets — `tablet` hands them a typed index instead
+    // (plugins/tablet/index.js). Same offer, written out, and it doesn't expire
+    // after 25 seconds the way the chip does.
+    if (loggedPanelsSync(actor)) {
+      out(actor, `<span class="hint">${cmdLink('tutorial tablet', 'tutorial tablet')} walks you through what's on it.</span>`);
+    } else {
+      sendToPlayer(actor.id, { type: 'tablet_offer' });
+    }
     // Backstop: the chip and its walkthrough are both optional and both live on the
     // client, so the poster beat can never be allowed to depend on them. If nothing
     // has answered by now, point at the wall anyway — this is the only beat in the
@@ -1077,6 +1092,63 @@ on('zone.entered', async ({ actor, zone }) => {
 const F_TOUR_ASKED = 'tour_asked';   // the question has been put to them
 const F_TOUR_TAKEN = 'tour_taken';   // they finished (or started) the walkthrough
 
+// ── The same tour, spoken ────────────────────────────────────────────────────
+// At the `log` rung the client's tour is worse than nothing: it spotlights the
+// room pane (aria-hidden and collapsed at that rung — presentation.js) and the
+// tablet shell (never built; `tablet` returns a typed index instead), so a
+// player who cannot see it is walked round furniture that isn't in the room.
+// So the bottom rung gets its own walkthrough, written out, and it teaches the
+// DIFFERENT things — because the interface it is describing is different.
+//
+// The load-bearing one is `look`. On a move, only the vital lines reach the log
+// (arrivalRoom in server/engine/room-brief.js: zone name, light, hazards,
+// enemies) and the description, the furniture and the ambience are dropped. An
+// explicit `look` is exempt and prints the room in full — see the type:'look'
+// branch of stampToLog in server/index.js. Nothing anywhere said so, which left
+// the one player who most needed the full description believing the four lines
+// they heard were all there was.
+//
+// Self-paced, not timed: the visual tour waits for a click per card, so this
+// waits for `tutorial done` — the same verb, releasing the same held-back
+// arrival prose. TOUR_FALLBACK_MS still covers a player who answers nothing.
+const cmdLink = (cmd, label) =>
+  `<span class="action-link" data-action="cmd" data-cmd="${escAttr(cmd)}">${label || cmd}</span>`;
+
+function logTourOffer(player) {
+  out(player, `<span class="msg-system">You're in text mode, so here's the offer in text: a short walkthrough of how this game reads and how you type at it. `
+    + `${cmdLink('tutorial yes', 'tutorial yes')} to take it, ${cmdLink('tutorial no', 'tutorial no')} if you've played a MUD before.</span>`);
+}
+
+const LOG_TOUR = [
+  `<b>The room, and the two sizes of it.</b> When you walk into somewhere new you get the short version — the name of the place, how dark it is, anything about to hurt you, and anyone waiting. That's deliberate: it keeps a hallway from being twelve lines every step. The long version is always one word away. Type ${cmdLink('look')} and you get the room in full: what it looks like, what's in it, what you can sit on. Do it in any room you actually care about.`,
+  `<b>Getting closer.</b> ${cmdLink('examine', 'examine &lt;thing&gt;')} — a person, an item, a door, a machine — tells you what it is and, at the end, what you can do with it. If a line ever leaves you thinking "and now what", examine the thing it named.`,
+  `<b>Also here.</b> Items, corpses, vendors, furniture and doorways get folded into one line that starts "Also here:". It is a list of nouns you can examine, take or use. Nothing is ever hidden from you by being folded up — ${cmdLink('look')} unfolds all of it.`,
+  `<b>Moving.</b> Directions are the verbs: <b>north</b>, <b>south</b>, <b>east</b>, <b>west</b>, and <b>n s e w</b> for short. ${cmdLink('exits')} lists the ways out of where you're standing. Buildings are entered by walking at them from the street.`,
+  `<b>Your things and your body.</b> ${cmdLink('inventory', 'inventory')} (or <b>i</b>) is what you're carrying, ${cmdLink('equipment')} is what you're wearing, and ${cmdLink('score')} is you — health, hunger, thirst, money, the state you're in.`,
+  `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
+  `<b>When you're stuck.</b> ${cmdLink('help')} lists every command. Any verb the game teaches you it will name in the line where you first need it. And you can leave text mode as easily as you entered it — ${cmdLink('displaymode visual', 'displaymode visual')} turns the panels back on.`,
+];
+
+function speakLogTour(player) {
+  out(player, `<span class="msg-system">— The walkthrough. Seven things, then you're on your own. —</span>`);
+  for (const line of LOG_TOUR) out(player, `<span class="hint">${line}</span>`);
+  out(player, `<span class="msg-system">That's it. Type ${cmdLink('tutorial done', 'tutorial done')} when you've finished reading and the room will carry on. `
+    + `${cmdLink('tutorial')} replays this whenever you want it.</span>`);
+}
+
+// The tablet half, offered at the vat where the device is issued. Same reason:
+// the smartbar chip opens a walkthrough of a shell this player never sees.
+const LOG_TABLET_TOUR = [
+  `${cmdLink('tablet')} prints the index: every app you've unlocked, one per line, with the verb that opens it.`,
+  `You don't navigate it, you name it. <b>map</b> draws where you are, <b>bank</b> is your money, <b>gear</b> is what you're carrying and wearing, <b>codex</b> is what this city is and how it got that way, <b>calendar</b> is the date and your alarms.`,
+  `${cmdLink('tablet verbs')} prints that list again at any moment, from anywhere, and works even if you go back to visual mode later.`,
+];
+
+function speakLogTabletTour(player) {
+  out(player, `<span class="msg-system">— The tablet, in text. —</span>`);
+  for (const line of LOG_TABLET_TOUR) out(player, `<span class="hint">${line}</span>`);
+}
+
 async function cmdTutorial(args, _raw, player) {
   const arg = (args[0] || '').toLowerCase();
 
@@ -1090,6 +1162,10 @@ async function cmdTutorial(args, _raw, player) {
   }
   if (arg === 'yes') { // they asked to be shown around
     await raise(player, F_TOUR_ASKED);
+    // At the bottom rung nothing is running the tour but us — the client's
+    // spotlight tour was never offered (see beginArrival). The prose still waits
+    // for `done`, which the last line asks for.
+    if (loggedPanelsSync(player)) { speakLogTour(player); return null; }
     return null; // the client is already running the tour; nothing to say — and the prose waits for `done`
   }
   if (arg === 'done') {
@@ -1103,12 +1179,14 @@ async function cmdTutorial(args, _raw, player) {
   // itself the first time the tablet is ever opened; this is the replay. No flag
   // raised: it isn't the interface tour and doesn't gate the arrival prose.
   if (arg === 'tablet') {
+    if (loggedPanelsSync(player)) { speakLogTabletTour(player); return null; }
     sendToPlayer(player.id, { type: 'tour_tablet' });
     return null;
   }
 
   // Bare `tutorial` — replay it.
   await raise(player, F_TOUR_ASKED);
+  if (loggedPanelsSync(player)) { speakLogTour(player); return null; }
   sendToPlayer(player.id, { type: 'tour_start' });
   return null;
 }
@@ -1152,7 +1230,7 @@ export const _test = {
   Z_INBETWEEN, Z_LATTICE, Z_BROADCAST, Z_COLLAPSE,
   ITEM_HOLOCASTER,
   F_ALIGNED, F_INTERFACED, F_BROADCAST, F_COLLAPSE, F_PLAYED,
-  cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN,
+  cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, LOG_TOUR, LOG_TABLET_TOUR,
   coldwaterSkyline, coldwaterShore, speakArrival, readTwocellAdvert, Z_CLONEVAT,
   cmdTabletDone, pointAtAdvert, F_ADVERT, F_TABLET,
 };

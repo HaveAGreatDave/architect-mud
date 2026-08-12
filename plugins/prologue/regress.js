@@ -16,6 +16,7 @@ export default async function regress({ check }) {
     cmdTutorial, F_TOUR_ASKED, F_TOUR_TAKEN, isSet,
     coldwaterSkyline, coldwaterShore, readTwocellAdvert, Z_CLONEVAT,
     cmdTabletDone, pointAtAdvert, F_ADVERT,
+    LOG_TOUR, LOG_TABLET_TOUR,
   } = _test;
 
   // ── The cold open's skyline manifest ───────────────────────────────────────
@@ -242,6 +243,31 @@ export default async function regress({ check }) {
   const done = await cmdTutorial(['done'], 'tutorial done', p);
   check('tutorial done closes it out', done?.type === 'system' && (await isSet(p, F_TOUR_TAKEN)));
   flags.push(F_TOUR_ASKED, F_TOUR_TAKEN);
+
+  // ── The spoken tour (the `log` rung) ───────────────────────────────────────
+  // The whole point of this walkthrough is that it tells a player who cannot see
+  // the room pane that `look` gets them the full description a move does not —
+  // so that line existing is the assertion, not a nicety.
+  const tourText = [...LOG_TOUR, ...LOG_TABLET_TOUR].join(' ');
+  check('the spoken tour teaches `look`', /data-cmd="look"/.test(tourText));
+  check('the spoken tour teaches the way back out', /data-cmd="displaymode visual"/.test(tourText));
+  check('the spoken tour teaches the typed tablet index', /data-cmd="tablet verbs"/.test(tourText));
+  // Every command it hands the player is a command they could have typed — the
+  // same rule the workspace HUD is held to. A card offering a dead verb is worse
+  // than no card, because this player has no panel to fall back on.
+  const { getRegisteredCommands } = await import('../../server/engine/plugins.js');
+  const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
+  const verbs = new Set([...getRegisteredCommands(), ...builtinCommandNames()]);
+  const offered = [...tourText.matchAll(/data-cmd="([^"]+)"/g)].map(m => m[1].split(' ')[0]);
+  const dead = offered.filter(v => !verbs.has(v));
+  check('every verb the spoken tour offers is registered', dead.length === 0, dead.join(', '));
+
+  // At the bottom rung the tour is OURS to speak: `tutorial` must not hand off to
+  // a client walkthrough that spotlights panels this player never receives.
+  p.displayRung = 'log';
+  check('tutorial at the log rung stays silent (spoken, not pushed)', (await cmdTutorial([], 'tutorial', p)) === null);
+  check('tutorial tablet at the log rung stays silent', (await cmdTutorial(['tablet'], 'tutorial tablet', p)) === null);
+  p.displayRung = undefined;
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   for (const f of flags) await clearFlag('player', f, p).catch(() => {});
