@@ -2,11 +2,13 @@
 //
 // This was a 250-line modal with four tabs and three numbers per truck, sitting over the road
 // because you had walked across a particular kerb. The hangar it was supposedly modelled on is a
-// full-screen application with a 3D floor you can click a machine on, a walkaround camera, a
-// dealer's lot and a mechanic's bench — and the gap between the two was the whole difference
-// between owning an aircraft and owning a truck.
+// PANE APP with a 3D floor you can click a machine on, a walkaround camera, a dealer's lot and a
+// mechanic's bench — and the gap between the two was the whole difference between owning an
+// aircraft and owning a truck.
 //
-// So this is the same application, for trucks, and almost none of it is new code:
+// So this is the same application, for trucks, in the same place (see `render` for why the pane
+// rather than an overlay, and `ensureStyles` for why it wears the same paint), and almost none of
+// it is new code:
 //
 //   the floor      drawHangarScene (aircraft3d.js) with venue 'garage' — ONE room, one camera,
 //                  every rig you own parked in it side by side, click-selected by hit-testing the
@@ -34,9 +36,11 @@
 //     from the server (plugins/trucking/index.js repush), and this file simply redraws. Optimistic
 //     local edits are how the old panel came to show a Buy button on a truck you already owned.
 
+import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { drawHangarScene, drawHangarFloorBay } from './aircraft3d.js';
+import { hoverSpool, hoverSpoolSeconds } from './engine-audio.js';
 
 let B = null;             // { data, screen, selId, inspect, bench }
 let raf = null;
@@ -44,6 +48,11 @@ let sceneHits = [];
 let yaw = 0;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Icon + label chip, the hangar's `tbtn` verbatim (hangar-bay.js): the glyph is decoration and the
+// word beside it is the button's real name, so the icon is hidden from the accessible tree —
+// otherwise "Sell" is announced as "credit Sell".
+const tbtn = (icon, label, attrs = '', cls = '') =>
+  `<button class="td-act${cls ? ' ' + cls : ''}" ${attrs}><span class="td-ico" aria-hidden="true">${icon}</span>${label}</button>`;
 const money = (n) => `${Number(n || 0).toLocaleString()}₵`;
 const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 
@@ -52,10 +61,24 @@ const pct = (n) => `${Math.round((n || 0) * 100)}%`;
 const SCREEN_FOR_TAB = { fleet: 'floor', buy: 'buy', freight: 'freight', market: 'market', bench: 'bench' };
 
 export function isTruckDepotActive() { return !!B; }
+// The walkaround drives a first-person WASD camera, so — exactly like the flight sim and the
+// hangar — it has to OWN those keys while it is up: the MUD's wasd-move (main.js) and the
+// type-anywhere auto-focus (input.js) both stand down on this.
+//
+// This was never wired, and as a fixed overlay it very nearly got away with it: `preventDefault`
+// does not stop propagation, so holding W to walk down the flank of your own truck was also
+// sending you north. In the pane, where the room description is right there behind the panel,
+// that is not a bug you could fail to notice — so it is wired the way the hangar wires it.
+export function isTruckDepotWalkActive() {
+  return !!(B && B.screen === 'inspect' && B.inspect?.mode === 'walk');
+}
 
 export function openTruckDepot(msg) {
   ensureStyles();
   const first = !B;
+  // Snap the top pane back to its default auto size so the whole depot fits, whatever manual drag
+  // height was left on the previous room look. The hangar does exactly this on a fresh open.
+  if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
   const keepSel = B?.selId || null;
   B = {
     data: msg,
@@ -64,11 +87,16 @@ export function openTruckDepot(msg) {
     inspect: B?.inspect || inspectDefault(),
     bench: B?.bench || { tab: 'condition', tune: null, paint: null },
     lotSel: B?.lotSel || null,
+    // A start-up in flight survives a re-push (a repush lands mid-sequence often — `drive` itself
+    // is what ends it), but never survives the panel closing; closeTruckDepot drops the whole B.
+    start: B?.start || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
   B.bench.tune = null; B.bench.paint = null;
-  mount();
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup', onKeyUp);
+  render();
 }
 
 export function closeTruckDepot() {
@@ -76,44 +104,52 @@ export function closeTruckDepot() {
   raf = null; sceneHits = []; walkKeys.clear();
   document.removeEventListener('keydown', onKey);
   document.removeEventListener('keyup', onKeyUp);
-  for (const n of document.querySelectorAll('.td-root')) n.remove();
+  // Drop the immersive layout, or the room look that follows is left with no log and no command
+  // box — the hangar learned this one the hard way and clears both classes on the way out too.
+  document.body.classList.remove('td-fullscreen', 'td-hidepanel');
+  document.getElementById('td-root')?.remove();
   B = null;
-}
-
-function mount() {
-  let root = document.getElementById('td-root');
-  if (!root) {
-    const host = document.getElementById('overlay-host') || document.body;
-    root = document.createElement('div');
-    root.id = 'td-root';
-    root.className = 'td-root';
-    host.appendChild(root);
-    root.addEventListener('click', onClick);
-    root.addEventListener('input', onInput);
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('keyup', onKeyUp);
-  }
-  render();
-  startSpin();
 }
 
 const selected = () => (B?.data.fleet || []).find(t => t.id === B.selId) || null;
 
 // ── Render ───────────────────────────────────────────────────────────────────
+// THE DEPOT IS A PANE APP, not a modal over one.
+//
+// It used to be a fixed overlay filling the viewport, dimming the game behind it and closing on
+// a ✕ — while the hangar it is modelled on mounts in #area-pane like the flight cockpit does, with
+// the log and the command box still live underneath. That is not decoration: it is the difference
+// between a screen you are USING and a screen you are TRAPPED IN. In the pane you can still read
+// what the room is saying, still type, still watch the log answer the buttons you are pressing —
+// which matters most in exactly this panel, because every button here is a command and the log is
+// where its reply lands. A modal hid the other half of its own interaction.
+//
+// So it mounts through setAreaPane, carries the same ⊟/⛶ immersive toggles the sim and the hangar
+// carry, and backs out one screen at a time on Escape rather than slamming shut. The one cost is
+// that setAreaPane rebuilds the subtree on every render, so the delegated listeners are re-bound
+// each time (`wire`) — on a node that is always brand new, which is why that cannot stack up.
 function render() {
-  const root = document.getElementById('td-root');
-  if (!root || !B) return;
+  if (!B) return;
   const d = B.data;
-  const nav = [['floor', 'The Yard'], ['buy', 'For Sale'], ['bench', 'Bench'], ['freight', 'Freight'], ['market', 'Exchange']]
-    .map(([k, label]) => `<button class="td-tab${B.screen === k ? ' on' : ''}" data-screen="${k}">${label}</button>`).join('');
+  const nav = [['floor', 'The Yard', '⌂'], ['buy', 'For Sale', '⊕'], ['bench', 'Bench', '⚙'], ['freight', 'Freight', '▤'], ['market', 'Exchange', '₵']]
+    .map(([k, label, ico]) => `<button class="td-tab${B.screen === k ? ' on' : ''}" data-screen="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${label}</button>`).join('');
 
-  root.innerHTML = `
-  <div class="td-app" role="dialog" aria-label="${esc(d.depot)}">
+  // The same immersive pair the sim and the hangar carry: ⊟ folds away the scrollback (the command
+  // box stays), ⛶ fills the whole column. Their lit state is read off the body class, so it
+  // survives every re-render without being held anywhere.
+  const fs = document.body.classList.contains('td-fullscreen');
+  const hp = document.body.classList.contains('td-hidepanel');
+
+  setAreaPane(`<div id="td-root" role="region" aria-label="${esc(d.depot)}">
     <header class="td-head">
       <div class="td-title"><b>${esc(d.depot)}</b><span class="td-dim"> · ${esc(d.regionName || '')}</span></div>
-      <nav class="td-nav">${nav}</nav>
+      <nav class="td-nav td-seg">${nav}</nav>
       <div class="td-bal">${money(d.credits)}</div>
-      <button class="td-x" data-close aria-label="Close">✕</button>
+      <span class="td-viewbtns">
+        <button class="td-x${hp ? ' on' : ''}" data-act="hidepanel" title="hide the text panel — more yard">⊟</button>
+        <button class="td-x${fs ? ' on' : ''}" data-act="fullscreen" title="fullscreen">⛶</button>
+        <button class="td-x" data-close title="close" aria-label="Close the depot">⏻</button>
+      </span>
     </header>
     <div class="td-body">${
       B.screen === 'buy' ? buyScreen()
@@ -124,7 +160,18 @@ function render() {
       : floorScreen()}</div>
     <footer class="td-foot"><span class="td-dim">Everything here is a command:</span>
       <code>yard buy krell</code> <code>rig repair shop</code> <code>haul 1</code> <code>market buy scrap full</code> <code>drive</code></footer>
-  </div>`;
+  </div>`);
+  wire();
+  startSpin();
+}
+
+// setAreaPane replaces the subtree, so the delegated handlers are attached to the FRESH #td-root
+// after every render. They cannot accumulate: the node they are bound to is thrown away with them.
+function wire() {
+  const root = document.getElementById('td-root');
+  if (!root) return;
+  root.addEventListener('click', onClick);
+  root.addEventListener('input', onInput);
 }
 
 // ── The floor: one garage, every rig you own standing in it ──────────────────
@@ -140,13 +187,13 @@ function floorScreen() {
   // The toolbar is the selected truck's, and every entry on it is gated on a fact the SERVER sent.
   // A button that is present and refuses is worse than one that is absent and explains itself.
   const acts = sel ? [
-    sel.hereNow ? `<button class="td-act primary" data-cmd="drive">Take it out</button>` : '',
-    `<button class="td-act" data-screen="bench">Bench</button>`,
-    d.fuelHere && sel.fuel < 0.99 ? `<button class="td-act" data-cmd="rig fuel ${esc(sel.id)}">Refuel · ${money(sel.refuel)}</button>` : '',
-    `<button class="td-act" data-screen="inspect">Walk around</button>`,
-    sel.hereNow ? `<button class="td-act ghost" data-confirm="yard sell ${esc(sel.id)}">Sell · ${money(sel.resale)}</button>` : '',
-    `<button class="td-act ghost" data-screen="buy">Dealer's line</button>`,
-  ].filter(Boolean).join('') : `<button class="td-act primary" data-screen="buy">See what's for sale</button>`;
+    sel.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : '',
+    tbtn('⚙', 'Bench', 'data-screen="bench"'),
+    d.fuelHere && sel.fuel < 0.99 ? tbtn('⛽', `Refuel · ${money(sel.refuel)}`, `data-cmd="rig fuel ${esc(sel.id)}"`) : '',
+    tbtn('◉', 'Walk around', 'data-screen="inspect"'),
+    sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`, 'ghost') : '',
+    tbtn('⊕', "Dealer's line", 'data-screen="buy"', 'ghost'),
+  ].filter(Boolean).join('') : tbtn('⊕', "See what's for sale", 'data-screen="buy"', 'primary');
 
   return `
     <div class="td-floor">
@@ -206,6 +253,98 @@ function statBars(s, prev = null) {
   }).join('')}</div>`;
 }
 
+// ── Lighting the lifters ─────────────────────────────────────────────────────
+// `drive` used to be one line: send the verb, the panel closes, and the truck you had been
+// walking around was suddenly a room description. The single most physical thing this machine
+// ever does — a parked chassis putting its weight onto a hover field — happened off screen.
+//
+// So the verb is now the END of a short sequence rather than the whole of it. Pressing it drops
+// you into the walkaround (the only view close enough for any of this to read), lights the rig,
+// and sends `drive` when the thing is actually up. Three rules:
+//
+//  • IT IS STILL THE VERB. Nothing here decides anything; when the sequence ends it sends the
+//    exact string the button always sent, and a player who typed `drive` gets the same result
+//    without the cinematic. Rule 2 of this file survives intact.
+//  • THE SOUND IS THE CLOCK. `hoverSpoolSeconds` comes from the same per-truck table that scores
+//    it (engine-audio.js), so the rise cannot drift out of sync with the noise it is making —
+//    the Continental takes 3.4s to get its weight up because its start-up cue is 3.4s long.
+//  • THE RIDE HEIGHT IS REAL. It rises by the ride height the mesh itself gives up when parked
+//    (aircraft3d HOVER, in fitted units), overshooting once and settling — a machine finding its
+//    height on a field, not a prop being winched. Faking a bigger lift would look like a jump.
+const RIDE = 0.07;              // the fitted ride height a lifter holds — see FIT above
+const ease = (t) => 1 - Math.pow(1 - t, 3);
+const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+
+function beginStart(t) {
+  if (!t || B.start || !t.hereNow) return false;
+  B.start = { id: t.id, cmd: 'drive', at: performance.now(), dur: hoverSpoolSeconds(t.typeId) * 1000 };
+  B.screen = 'inspect';         // you cannot see a truck sit up from across the yard
+  B.inspect = inspectDefault();
+  hoverSpool(t.typeId);
+  render();
+  return true;
+}
+
+// Where the sequence is, as the numbers every part of it reads. Split out so the model's rise,
+// the dust and the emitter glow are three views of ONE clock rather than three timelines to keep
+// agreeing with each other.
+function startPhase(now) {
+  const s = B.start;
+  if (!s) return null;
+  const p = clamp01((now - s.at) / s.dur);
+  const lit = p > 0.18;                                   // the coils are across: bands on
+  const r = clamp01((p - 0.32) / 0.5);                    // the weight transferring
+  // Up, past height, and back down onto it. The overshoot is small and it only happens once.
+  const rise = ease(r) * (1 + 0.42 * Math.sin(Math.PI * r) * (1 - r));
+  return { p, lit, lift: RIDE * (rise - 1), blow: clamp01((p - 0.3) / 0.28) * (1 - clamp01((p - 0.72) / 0.28)) };
+}
+
+// The effects layer, drawn over the finished frame and anchored on the contact patch the renderer
+// hands back — never on a fraction of the canvas, because the camera in here moves.
+function drawStartFx(ctx, anchor, ph, w, h) {
+  if (!anchor || !ph) return;
+  const { sx, sy } = anchor.ground, ppu = anchor.ppu;
+  ctx.save();
+  // The pool of light under it, cyan off the emitter band's own colour (aircraft3d GLOW). It comes
+  // up with the coils, not with the lift — light first, movement after, which is the order that
+  // makes the light look like the CAUSE.
+  const g = ph.lit ? clamp01((ph.p - 0.18) / 0.3) : 0;
+  if (g > 0) {
+    const rad = ppu * (0.75 + 0.35 * g);
+    const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, rad);
+    rg.addColorStop(0, `rgba(140,232,255,${0.34 * g})`);
+    rg.addColorStop(0.45, `rgba(64,168,200,${0.16 * g})`);
+    rg.addColorStop(1, 'rgba(30,92,104,0)');
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.ellipse(sx, sy, rad, rad * 0.42, 0, 0, 7); ctx.fill();
+  }
+  // Dust, thrown out from under the skirt as the field takes the weight. Deterministic per index
+  // (no Math.random per frame, or every puff teleports) — each grain is an angle and a phase, and
+  // the ring reads as a ground plane because it is squashed to the same 0.42 the light pool is.
+  if (ph.blow > 0.01) {
+    ctx.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 34; i++) {
+      const a = (i * 2.399) % 6.283, seedR = 0.55 + ((i * 37) % 100) / 220;
+      const t = clamp01((ph.p - 0.3 - ((i * 13) % 100) / 900) / 0.5);
+      if (t <= 0) continue;
+      const d = ppu * seedR * (0.35 + 1.5 * ease(t));
+      const px = sx + Math.cos(a) * d, py = sy + Math.sin(a) * d * 0.42 - ppu * 0.06 * t;
+      const al = ph.blow * (1 - t) * 0.4;
+      ctx.fillStyle = `rgba(196,206,214,${al.toFixed(3)})`;
+      ctx.beginPath(); ctx.ellipse(px, py, ppu * (0.05 + 0.1 * t), ppu * (0.02 + 0.05 * t), 0, 0, 7); ctx.fill();
+    }
+  }
+  // The contactor going across: one hard frame of white at the very start. It is short on purpose —
+  // it is a switch closing, and you should half-wonder whether you saw it.
+  if (ph.p < 0.05) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(190,225,255,${(0.16 * (1 - ph.p / 0.05)).toFixed(3)})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.restore();
+}
+
 // ── Walkaround ───────────────────────────────────────────────────────────────
 // THE SAME WALKAROUND THE HANGAR HAS, because a truck is a thing you walk up to for exactly the
 // reasons an aeroplane is. It was a poor relation of it: one step per KEYPRESS (so crossing the bay
@@ -223,8 +362,18 @@ function statBars(s, prev = null) {
 // close; the far view is what the turntable and the floor already give you. So the eye opens just
 // off the near-side step, at a driver's height, looking along the flank at the cab: close enough
 // that CLIMB IN is already lit, and a step back is a key rather than a chore.
+//
+// AND IT IS SHOWROOM-SIZED. Every camera constant on this screen used to be a number tuned against
+// a truck that was drawn at a fifth of an aeroplane's size in an aeroplane's room, resting a whole
+// truck-height above an aeroplane's ground plane (see `fit` in aircraft3d.js). Both are one fix
+// there, so the numbers below are now honest world units against a rig that measures FIT long: the
+// eye opens two rig-widths off the near-side front quarter at chest height, which is the shot that
+// makes the machine big — a truck fills the frame and you are looking slightly UP the flank at the
+// cab, rather than down at a model of one from across a shed.
+const FIT = 2.0;          // the span a depot truck is drawn at — an airframe's, so the room fits it
+const DOOR = [0.35, 0.83, 0.1];   // the near-side cab step, in the same units, for the BOARD prompt
 const inspectDefault = () => ({ mode: 'walk', yaw: 0, elev: 0.3, zoom: 1.1,
-  cam: { x: 2.05, y: 1.25, z: 0.06, yaw: Math.PI - 0.62, pitch: -0.04, fov: 1 } });
+  cam: { x: 0.55, y: 1.9, z: 0.3, yaw: -1.85, pitch: 0.02, fov: 1 } });
 const walkKeys = new Set();
 const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
 
@@ -232,22 +381,26 @@ function inspectScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing selected.</div>';
   const m = B.inspect.mode;
-  const board = (m === 'walk' && t.hereNow)
+  const board = (m === 'walk' && t.hereNow && !B.start)
     ? '<div class="td-board" id="td-board" data-cmd="drive">CLIMB IN</div>' : '';
+  // Mid-start the controls stand down to one line of status and one way out. Leaving the buttons
+  // up would invite a player to drag the camera through a truck that is in the middle of moving.
+  const strip = B.start
+    ? `<span class="td-run" role="status">◉ LIFTERS ONLINE — ${esc(t.name)} is coming up</span>
+       <button class="td-act ghost" data-screen="floor">Shut it down</button>`
+    : `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
+       ${tbtn('◉', 'Walk around', 'data-mode="walk"', m === 'walk' ? 'primary' : '')}
+       ${t.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : ''}
+       ${tbtn('⌖', 'Reset view', 'data-view-reset', 'ghost')}
+       ${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}
+       <span class="td-dim td-note">${m === 'walk'
+         ? 'WASD to move · drag to look · Q/E turn · R/F height · walk up to the door and press Enter.'
+         : 'Drag to turn it · wheel to zoom.'}</span>`;
   return `
     <div class="td-floor">
       <canvas id="td-hero" class="td-scene" tabindex="0" aria-label="Walkaround"></canvas>
       ${board}
-      <div class="td-strip">
-        <button class="td-act${m === 'orbit' ? ' primary' : ''}" data-mode="orbit">Turntable</button>
-        <button class="td-act${m === 'walk' ? ' primary' : ''}" data-mode="walk">Walk around</button>
-        ${t.hereNow ? '<button class="td-act primary" data-cmd="drive">Take it out</button>' : ''}
-        <button class="td-act ghost" data-view-reset>Reset view</button>
-        <button class="td-act ghost" data-screen="floor">Back to the floor</button>
-        <span class="td-dim td-note">${m === 'walk'
-          ? 'WASD to move · drag to look · Q/E turn · R/F height · walk up to the door and press Enter.'
-          : 'Drag to turn it · wheel to zoom.'}</span>
-      </div>
+      <div class="td-strip">${strip}</div>
     </div>
     <aside class="td-side">${truckPane(t)}</aside>`;
 }
@@ -306,8 +459,11 @@ function stepWalk(dt) {
   cam.x = Math.max(-9, Math.min(9, cam.x + (mf * cy + mr * -sy) * spd));
   cam.y = Math.max(-9, Math.min(9, cam.y + (mf * sy + mr * cy) * spd));
   cam.z = Math.max(-0.12, Math.min(2.6, cam.z + mu * spd));
-  const AF = 2.6, AG = 0.95;   // a rig is long and narrow — an aeroplane's ellipse is the wrong shape
-  if (cam.z < 1.1) { const d = Math.hypot(cam.x / AF, cam.y / AG); if (d > 1e-3 && d < 1) { cam.x /= d; cam.y /= d; } }
+  // A rig is long and narrow — an aeroplane's ellipse is the wrong shape. Sized off the FITTED
+  // footprint (half a rig long, a little over half wide) plus a pace of personal space, and the
+  // height gate is the fitted roofline: above the stacks there is nothing to walk into.
+  const AF = 1.35, AG = 1.15;
+  if (cam.z < 0.75) { const d = Math.hypot(cam.x / AF, cam.y / AG); if (d > 1e-3 && d < 1) { cam.x /= d; cam.y /= d; } }
 }
 
 // ── The dealer's line ────────────────────────────────────────────────────────
@@ -331,7 +487,7 @@ function buyScreen() {
         <div><dt>top</dt><dd>${t.top} mph</dd></div>
       </dl>
       <div class="td-acts">
-        <button class="td-act primary" data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You cannot afford it"'}>Buy · ${money(t.price)}</button>
+        ${tbtn('⊕', `Buy · ${money(t.price)}`, `data-cmd="yard buy ${esc(t.id)}" ${t.afford ? '' : 'disabled title="You cannot afford it"'}`, 'primary')}
       </div>
     </div>`).join('');
 
@@ -354,12 +510,12 @@ function buyScreen() {
 function benchScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing of yours is here to work on. <button class="td-act" data-screen="buy">The dealer\'s line</button></div>';
-  const tabs = [['condition', 'Condition'], ['tune', 'Tuning'], ['kits', 'Kits'], ['paint', 'Paint']]
-    .map(([k, l]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}">${l}</button>`).join('');
+  const tabs = [['condition', 'Condition', '◧'], ['tune', 'Tuning', '⌥'], ['kits', 'Kits', '⊞'], ['paint', 'Paint', '◐']]
+    .map(([k, l, ico]) => `<button class="td-tab sm${B.bench.tab === k ? ' on' : ''}" data-bench="${k}"><span class="td-tab-ico" aria-hidden="true">${ico}</span>${l}</button>`).join('');
   return `
     <div class="td-floor">
       <canvas id="td-hero" class="td-scene" aria-label="${esc(t.name)}"></canvas>
-      <div class="td-strip">${tabs}<button class="td-act ghost" data-screen="floor">Back to the floor</button></div>
+      <div class="td-strip"><div class="td-seg">${tabs}</div>${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}</div>
     </div>
     <aside class="td-side">
       <div class="td-pane-head"><div><b>${esc(t.name)}</b><div class="td-dim">${esc(t.type)}</div></div>
@@ -489,14 +645,19 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
   }
-  if (t.dataset.close != null) return void closeTruckDepot();
+  // Closing the depot leaves you standing in the yard, so it has to put the room back — the pane
+  // is the room's pane, and a panel that simply removed itself would leave it blank until the next
+  // thing you happened to type redrew it.
+  if (t.dataset.close != null) { closeTruckDepot(); return void sendCmdSilent('look'); }
+  if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
+  if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
   if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; return void render(); }
-  if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
+  if (t.dataset.screen) { B.start = null; B.screen = t.dataset.screen; return void render(); }   // walking away from it aborts the start
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
   if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
@@ -511,6 +672,10 @@ function onClick(e) {
     setTimeout(() => { delete t.dataset.armed; render(); }, 4000);
     return;
   }
+  // `drive` is the one verb with a machine at the other end of it, so it gets the start-up (which
+  // sends this same string when the rig is up). If the truck isn't standing here, beginStart says
+  // so by refusing and the command goes straight out to be refused by the server, as before.
+  if (t.dataset.cmd === 'drive' && (B.start || beginStart(selected()))) return;
   if (t.dataset.cmd) sendCmdSilent(t.dataset.cmd);
 }
 
@@ -542,7 +707,17 @@ function onInput(e) {
 
 function onKey(e) {
   if (!B) return;
-  if (e.key === 'Escape') return void closeTruckDepot();
+  // Escape BACKS OUT ONE SCREEN, the hangar's behaviour. As a modal it slammed the whole panel
+  // shut from four screens deep, which is the wrong answer to "I'm done with the dealer's line" —
+  // and in the pane it is worse, because Escape is a key you press to leave a text box.
+  if (e.key === 'Escape') {
+    const el0 = document.activeElement;
+    if (el0 && (el0.tagName === 'INPUT' || el0.tagName === 'TEXTAREA' || el0.isContentEditable)) return;
+    if (B.start) { B.start = null; return void render(); }
+    if (B.screen !== 'floor') { B.screen = 'floor'; return void render(); }
+    closeTruckDepot();
+    return void sendCmdSilent('look');
+  }
   const el = document.activeElement;
   if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
   if (B.screen !== 'inspect' || B.inspect.mode !== 'walk') return;
@@ -596,7 +771,13 @@ function startSpin() {
         selId: B.selId, // PARKED, because they are. `~p` is the variant grammar's shut-down pose (aircraft3d): the rig
         // settles onto its lifters and the emitter bands go out — a truck hovering with a cold engine
         // in the middle of a garage was the tell that the hover was decoration rather than a machine.
-        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t), label: t.name })),
+        // NO FLOATING NAME. The hangar labels its aircraft because a row of white airframes is
+        // genuinely hard to tell apart by sight and a tail number is how a pilot refers to one. A
+        // yard is not that: the rig is painted the colour YOU chose, the strip under the canvas
+        // names every one of them, and the pane beside it names the selected one twice over. A
+        // caption floating in the middle of the bay was a third answer to a question nobody asked,
+        // sitting across the bumper of the thing it was labelling.
+        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', variant: `${t.variant}~p`, livery: liveryOf(t) })),
       });
     }
     const hero = root.querySelector('#td-hero');
@@ -606,21 +787,39 @@ function startSpin() {
       const ctx = sizeCanvas(hero);
       const inspecting = B.screen === 'inspect';
       const walk = inspecting && B.inspect.mode === 'walk';
-      if (walk) stepWalk(dt);
-      if (ctx) drawHangarFloorBay(ctx, {
-        w: hero._cw, h: hero._ch, cls: 'truck', variant: `${sel.variant}~p`, livery: liveryOf(sel),
+      if (walk && !B.start) stepWalk(dt);   // hands off the wheel while it lights — you are watching, not driving
+      // A rig mid-start is drawn in its RUNNING mesh (emitter bands lit, the light patch on the
+      // road under it) and pushed back down by `lift`, so the pose you see is the pose the mesh
+      // means rather than a parked truck with a glow painted on it.
+      const ph = startPhase(now);
+      // The shake is on the CAMERA, not the model: the rig is a rigid body finding its height, and
+      // what actually moves when a lifter takes six tonnes off a concrete floor is you.
+      let camNow = walk ? { ...B.inspect.cam } : null;
+      if (camNow && ph) {
+        const k = ph.blow * 0.012;
+        camNow.z += Math.sin(now * 0.047) * k;
+        camNow.pitch += Math.sin(now * 0.031) * k * 0.5;
+      }
+      const anchor = ctx && drawHangarFloorBay(ctx, {
+        w: hero._cw, h: hero._ch, cls: 'truck',
+        variant: ph?.lit ? sel.variant : `${sel.variant}~p`, lift: ph ? ph.lift : 0,
+        livery: liveryOf(sel),
         // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
         // to walk around it, which is the whole difference between a display and an inspection.
         yaw: inspecting && !walk ? B.inspect.yaw : yaw,
         elev: inspecting && !walk ? B.inspect.elev : undefined,
         zoom: inspecting && !walk ? B.inspect.zoom : undefined,
-        venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk,
-        cam: walk ? { ...B.inspect.cam } : null,
+        venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk, fit: FIT,
+        cam: camNow,
       });
+      if (ctx && ph) drawStartFx(ctx, anchor, ph, hero._cw, hero._ch);
+      // ONE PLACE ENDS IT, and it is the frame that reaches p === 1 — not a setTimeout racing the
+      // animation, which would send `drive` while the rig was still halfway up on a slow tab.
+      if (ph && ph.p >= 1) { const cmd = B.start.cmd; B.start = null; sendCmdSilent(cmd); }
       // The door is at the cab, not at the middle of the rig: walk up to the near-side step and the
       // prompt lights. Same distance test the hangar's BOARD uses, over the truck's own geometry.
       if (walk) {
-        const c = B.inspect.cam, near = Math.hypot(c.x - 0.9, c.y, c.z - 0.1) < 2.6;
+        const c = B.inspect.cam, near = !B.start && Math.hypot(c.x - DOOR[0], c.y - DOOR[1], c.z - DOOR[2]) < 1.6;
         root.querySelector('#td-board')?.classList.toggle('near', near);
       }
     }
@@ -656,116 +855,274 @@ function ensureStyles() {
   if (document.getElementById('td-styles')) return;
   const s = document.createElement('style');
   s.id = 'td-styles';
+  // THE DEPOT IS THE SAME DEVICE THE HANGAR IS.
+  //
+  // It was not. The hangar (hangar-bay.js) is a moulded chassis that FOLLOWS THE PLAYER'S THEME —
+  // every surface is the theme's own accent at a different intensity over the theme's own bg tiers,
+  // sharing the Architect OS tablet's `--tos-*` bevel recipe, so the bench and the tablet are
+  // literally the same surface. This file was a flat #0e1114 slab with #e8c07a painted on it and
+  // the body font inherited: a different manufacturer's product, one kerb away, doing the same job.
+  // On a light theme the hangar reads light and the depot stayed a black box.
+  //
+  // So the palette below is the hangar's, verbatim, aliased onto this file's own class names — one
+  // accent (`--td-accent: var(--accent)`), three surface tiers mixed from it, two translucent
+  // bevels that read on a light theme and a dark one alike. Nothing here is a hex code except the
+  // condition bands (which mean green→red and cannot follow a theme) and the recessed viewports:
+  // THE SCREENS STAY DARK GLASS ON ANY THEME, because a real screen doesn't relight for your
+  // wallpaper — the same exception the hangar carves out for its 3D scene and its schematics.
   s.textContent = `
-  .td-root{position:fixed;inset:0;background:rgba(4,5,7,.86);display:flex;align-items:center;justify-content:center;z-index:900}
-  .td-app{width:min(1240px,97vw);height:min(860px,94vh);display:flex;flex-direction:column;background:#0e1114;
-    border:1px solid #2b3138;border-radius:8px;color:#cdd6e0;font:13px/1.45 inherit;box-shadow:0 24px 80px rgba(0,0,0,.7)}
-  .td-head{display:flex;align-items:center;gap:14px;padding:10px 14px;border-bottom:1px solid #262c33}
-  .td-title b{color:#e8e8e8}
-  .td-nav{display:flex;gap:2px;margin-left:8px}
-  .td-bal{margin-left:auto;color:#e8c07a;font-variant-numeric:tabular-nums}
-  .td-x{background:none;border:0;color:#7c848f;font-size:16px;cursor:pointer}
-  .td-x:hover{color:#fff}
-  .td-tab{background:none;border:0;border-bottom:2px solid transparent;padding:6px 12px;color:#7c848f;
-    font:600 11px/1 inherit;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
-  .td-tab.sm{padding:5px 9px}
-  .td-tab:hover{color:#cdd6e0}
-  .td-tab.on{color:#e8c07a;border-bottom-color:#e8c07a}
-  .td-body{flex:1;min-height:0;display:flex;gap:12px;padding:12px;overflow:hidden}
-  .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;position:relative}
-  .td-scene{flex:1;min-height:0;width:100%;border:1px solid #22282e;border-radius:6px;background:#0a0c0f;cursor:pointer}
-  .td-scene:focus{outline:none;border-color:#3b4652}
-  .td-board{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%) scale(.9);z-index:5;
-    padding:8px 16px;border:1px solid #6d5a34;border-radius:4px;background:rgba(14,17,20,.82);color:#e8c07a;
-    font:700 12px/1 inherit;letter-spacing:.16em;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
-  .td-board.near{opacity:1;pointer-events:auto;cursor:pointer;transform:translate(-50%,-50%) scale(1);
-    animation:tdBoardPulse 1.4s ease-in-out infinite}
-  @keyframes tdBoardPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,192,122,.28)}50%{box-shadow:0 0 0 10px rgba(232,192,122,0)}}
-  .td-hint{position:absolute;top:14px;left:16px;right:16px;color:#8b949f;font-size:12px;max-width:46ch}
-  .td-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-  .td-chip{display:flex;flex-direction:column;gap:2px;min-width:132px;text-align:left;padding:6px 8px;cursor:pointer;
-    background:#14181d;border:1px solid #262c33;border-radius:5px;color:#cdd6e0}
-  .td-chip.on{border-color:#e8c07a}
-  .td-chip.away{opacity:.6}
-  .td-chip-name{font-weight:600;font-size:12px}
-  .td-chip-sub{color:#7c848f;font-size:10.5px}
-  .td-side{width:352px;flex:none;overflow:auto;display:flex;flex-direction:column;gap:10px}
-  .td-pane{display:flex;flex-direction:column;gap:8px}
+  /* The depot fills its pane exactly (flex column), so the pane itself never scrolls the whole
+     interface — only .td-body does, between the pinned head and foot. Same contract #hb-root has. */
+  #area-pane:has(#td-root){overflow:hidden}
+  #area-content:has(#td-root){height:100%;min-height:0;display:flex;flex-direction:column}
+  /* The shell: a moulded chassis, not a flat panel — top sheen, deep outer shadow, edge highlight. */
+  #td-root{--td-accent:var(--accent,#d8892e);
+    --td-surf:color-mix(in srgb, var(--td-accent) 18%, var(--bg2));
+    --td-surf-lo:color-mix(in srgb, var(--td-accent) 6%, var(--bg2));
+    --td-surf-mid:color-mix(in srgb, var(--td-accent) 12%, var(--bg2));
+    --td-bevel-hi:rgba(255,255,255,.5); --td-bevel-lo:rgba(0,0,0,.45);
+    --td-fg:var(--text-bright,var(--text,#eafffb));
+    --td-fg-dim:var(--text-dim,#9db5c6);
+    --td-fg-dim2:color-mix(in srgb, var(--text-dim,#9db5c6) 60%, transparent);
+    position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
+    color:var(--td-fg);font-family:'Courier New',monospace;font-size:13px;line-height:1.45;
+    background:linear-gradient(175deg,color-mix(in srgb, var(--border) 55%, var(--bg3)) 0%,var(--bg3) 8%,var(--bg2) 50%),
+      radial-gradient(140% 100% at 50% 0%,color-mix(in srgb, var(--border) 40%, var(--bg3)),var(--bg) 75%);
+    border:1px solid color-mix(in srgb, var(--td-accent) 22%, var(--border));border-radius:10px;overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 0 0 1px rgba(0,0,0,.3),0 14px 34px rgba(0,0,0,.5)}
+  /* Brushed-plastic grain over the shell — decorative only, under every real surface. */
+  #td-root::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;
+    background-image:repeating-linear-gradient(35deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),
+      repeating-linear-gradient(-55deg,rgba(0,0,0,.03) 0 1px,transparent 1px 4px)}
+  #td-root > *{position:relative;z-index:1}
+  /* Head + foot are frosted tablet chrome: a slim accent-tinted glass slab over whatever's behind. */
+  .td-head,.td-foot{-webkit-backdrop-filter:blur(11px) saturate(1.15);backdrop-filter:blur(11px) saturate(1.15)}
+  .td-head{display:flex;align-items:center;gap:14px;padding:0 16px;height:52px;flex:0 0 auto;
+    background:color-mix(in srgb, var(--td-surf) 82%, transparent);
+    border-bottom:1px solid color-mix(in srgb, var(--td-accent) 26%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 2px 8px rgba(0,0,0,.14)}
+  .td-title b{color:var(--td-fg);letter-spacing:2px;text-shadow:0 0 6px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-nav{margin-left:8px}
+  .td-bal{margin-left:auto;color:var(--td-fg);letter-spacing:1px;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 5px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-viewbtns{display:flex;gap:6px;margin-left:10px}
+  .td-x{font-family:inherit;font-size:14px;line-height:1;cursor:pointer;padding:6px 9px;color:var(--td-fg-dim);
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border:1px solid color-mix(in srgb, var(--td-accent) 28%, transparent);border-radius:6px;
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi);transition:filter .12s,box-shadow .12s,color .12s,border-color .12s}
+  .td-x:hover{filter:brightness(1.1);color:var(--td-fg);border-color:var(--td-accent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 10px color-mix(in srgb, var(--td-accent) 28%, transparent)}
+  .td-x.on{color:var(--td-fg);border-color:var(--td-accent);
+    background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 32%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
+  /* Segmented pill nav — the active tab lifts out of a recessed track and lights a hairline bar
+     along its bottom edge. Replaces the underlined-text tabs, which were the single loudest tell
+     that this was a web page and the hangar was a device. */
+  .td-seg{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:9px;
+    background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
+  .td-tab{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;overflow:hidden;
+    font-family:inherit;font:700 11px/1 'Courier New',monospace;letter-spacing:1px;cursor:pointer;
+    color:var(--td-fg-dim);background:transparent;border:1px solid transparent;border-radius:6px;padding:7px 12px;
+    transition:filter .12s,box-shadow .12s,color .12s,background .12s}
+  .td-tab.sm{padding:6px 10px}
+  .td-tab-ico{font-size:12px;line-height:1;opacity:.7;transition:opacity .12s,filter .12s}
+  .td-tab:hover{color:var(--td-fg);background:color-mix(in srgb, var(--td-accent) 10%, transparent)}
+  .td-tab:hover .td-tab-ico{opacity:1}
+  .td-tab.on{color:var(--td-fg);background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border-color:color-mix(in srgb, var(--td-accent) 40%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 1px 3px rgba(0,0,0,.2)}
+  .td-tab.on .td-tab-ico{opacity:1;filter:drop-shadow(0 0 5px color-mix(in srgb, var(--td-accent) 70%, transparent))}
+  .td-tab.on::after{content:'';position:absolute;left:14%;right:14%;bottom:0;height:2px;border-radius:2px;
+    background:var(--td-accent);box-shadow:0 0 8px var(--td-accent);animation:tdTabSlide .22s ease-out}
+  @keyframes tdTabSlide{from{left:48%;right:48%;opacity:0}to{left:14%;right:14%;opacity:1}}
+  .td-body{flex:1;min-height:0;display:flex;gap:12px;padding:12px 14px;overflow:hidden}
+  .td-floor{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;position:relative}
+  /* The 3D floor is a recessed viewport — a screen sunk into the chassis, and one of the two things
+     that deliberately does NOT follow a light theme. */
+  .td-scene{flex:1;min-height:0;width:100%;display:block;border-radius:9px;cursor:pointer;touch-action:none;
+    background:radial-gradient(120% 120% at 50% 40%,color-mix(in srgb, var(--td-accent) 13%, var(--bg)),color-mix(in srgb, var(--td-accent) 7%, var(--bg)));
+    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent);
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.45)}
+  .td-scene:focus{outline:none;border-color:var(--td-accent)}
+  .td-board{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.9);z-index:5;
+    font:700 13px/1 'Courier New',monospace;letter-spacing:2px;color:var(--td-fg);cursor:pointer;
+    padding:9px 16px;border-radius:8px;opacity:0;pointer-events:none;
+    background:color-mix(in srgb, var(--td-accent) 30%, rgba(6,12,18,.7));border:1px solid var(--td-accent);
+    box-shadow:0 0 16px color-mix(in srgb, var(--td-accent) 45%, transparent);
+    text-shadow:0 0 6px color-mix(in srgb, var(--td-accent) 55%, transparent);transition:opacity .18s,transform .18s}
+  .td-board.near{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);animation:tdBoardPulse 1.4s ease-in-out infinite}
+  @keyframes tdBoardPulse{0%,100%{box-shadow:0 0 14px color-mix(in srgb, var(--td-accent) 40%, transparent)}
+    50%{box-shadow:0 0 22px color-mix(in srgb, var(--td-accent) 70%, transparent)}}
+  /* Start-up status line — lit, so a stood-down toolbar still reads as the machine doing something. */
+  .td-run{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;
+    font:700 11px/1 'Courier New',monospace;letter-spacing:1.5px;color:var(--td-fg);
+    background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
+    border:1px solid var(--td-accent);box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 14px color-mix(in srgb, var(--td-accent) 35%, transparent);
+    animation:tdRunPulse 1.1s ease-in-out infinite}
+  @keyframes tdRunPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.16)}}
+  .td-hint{position:absolute;top:16px;left:18px;right:18px;color:var(--td-fg-dim);font-size:12px;max-width:46ch;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
+  .td-strip{display:flex;gap:9px;flex-wrap:wrap;align-items:center;flex:0 0 auto;padding:11px 12px;border-radius:9px;
+    background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
+    border:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
+    box-shadow:inset 0 2px 8px var(--td-bevel-lo),inset 0 1px 0 var(--td-bevel-hi)}
+  /* A rig on the strip is a raised surface card, same recipe as the dealer's lot cards. */
+  .td-chip{display:flex;flex-direction:column;gap:3px;min-width:138px;text-align:left;padding:7px 10px;cursor:pointer;
+    font-family:inherit;color:var(--td-fg);border-radius:8px;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 2px 5px rgba(0,0,0,.2);
+    transition:filter .12s,box-shadow .12s,border-color .12s}
+  .td-chip:hover{filter:brightness(1.08);border-color:var(--td-accent)}
+  .td-chip.on{border-color:var(--td-accent);box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 12px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-chip.away{opacity:.55}
+  .td-chip-name{font-weight:bold;font-size:12px;letter-spacing:.5px}
+  .td-chip-sub{color:var(--td-fg-dim);font-size:10.5px}
+  .td-side{width:352px;flex:none;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-right:2px}
+  /* The read-out is a raised surface card too — the hangar's .hb-info. */
+  .td-pane{display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-radius:9px;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 2px 5px rgba(0,0,0,.2)}
   .td-pane-head{display:flex;align-items:flex-start;gap:8px}
-  .td-pane-head b{color:#e8e8e8}
-  .td-band{margin-left:auto;font:600 10px/1 inherit;letter-spacing:.1em;text-transform:uppercase;padding:4px 7px;border-radius:3px;background:#1a1f25}
+  .td-pane-head b{color:var(--td-fg);font-size:14px;letter-spacing:.5px}
+  .td-band{margin-left:auto;font:700 9px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
+    padding:3px 8px;border-radius:11px;background:var(--td-surf-lo);border:1px solid var(--border)}
   .td-band.sound{color:#6fcf83}.td-band.worked{color:#a8c98a}.td-band.tired{color:#e8c07a}
   .td-band.ailing{color:#d8934e}.td-band.derelict{color:#d2685c}
-  .td-spec{display:flex;flex-wrap:wrap;gap:10px 16px;margin:2px 0}
-  .td-spec div{display:flex;flex-direction:column}
-  .td-spec dt{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#69727d}
-  .td-spec dd{margin:0;font-variant-numeric:tabular-nums}
-  .td-axes{display:flex;flex-direction:column;gap:3px;margin:4px 0}
-  .td-axis{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;font-size:10.5px;color:#8b949f}
-  .td-axis-bar{height:5px;background:#1c2126;border-radius:3px;overflow:hidden}
-  .td-axis-bar i{display:block;height:100%;background:#5f87b0}
+  .td-spec{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0}
+  /* Each spec is a recessed vital pill, the hangar's .hb-bench-vital. */
+  .td-spec div{display:flex;flex-direction:column;line-height:1.2;padding:3px 10px;border-radius:6px;
+    background:var(--td-surf-lo);border:1px solid var(--border);box-shadow:inset 0 1px 2px var(--td-bevel-lo)}
+  .td-spec dt{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2)}
+  .td-spec dd{margin:0;font-size:13px;font-weight:bold;color:var(--td-fg);font-variant-numeric:tabular-nums}
+  .td-axes{display:flex;flex-direction:column;gap:4px;margin:4px 0}
+  .td-axis{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;
+    font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim)}
+  .td-axis-bar,.td-bar,.td-gauge{background:var(--td-surf-lo);border-radius:4px;overflow:hidden;
+    box-shadow:inset 0 1px 2px var(--td-bevel-lo),inset 0 0 0 1px var(--border)}
+  .td-axis-bar{height:7px}
+  .td-axis-bar i{display:block;height:100%;background:var(--td-accent);box-shadow:0 0 7px currentColor}
   .td-axis-bar i.up{background:#6fcf83}.td-axis-bar i.down{background:#d2685c}
-  .td-bar{display:block;height:4px;background:#1c2126;border-radius:2px;overflow:hidden}
+  .td-bar{display:block;height:5px}
   .td-bar i{display:block;height:100%;background:#5c8f6a}
   .td-bar i.ctired{background:#e8c07a}.td-bar i.cailing{background:#d8934e}.td-bar i.cderelict{background:#d2685c}
-  .td-gauge{position:relative;height:16px;background:#1c2126;border-radius:3px;overflow:hidden}
-  .td-gauge i{display:block;height:100%;background:#5c8f6a}
+  .td-gauge{position:relative;height:18px}
+  .td-gauge i{display:block;height:100%;background:#5c8f6a;box-shadow:0 0 8px currentColor}
   .td-gauge i.ctired{background:#e8c07a}.td-gauge i.cailing{background:#d8934e}.td-gauge i.cderelict{background:#d2685c}
-  .td-gauge span{position:absolute;inset:0;text-align:center;font:600 10px/16px inherit;color:#0b0d10}
-  .td-acts{display:flex;gap:6px;flex-wrap:wrap}
+  .td-gauge span{position:absolute;inset:0;text-align:center;font:700 10px/18px 'Courier New',monospace;color:var(--td-fg);
+    text-shadow:0 1px 2px rgba(0,0,0,.7)}
+  .td-acts{display:flex;gap:9px;flex-wrap:wrap}
   .td-acts.col{flex-direction:column;align-items:stretch}
-  .td-act{padding:7px 11px;font:600 11px/1.3 inherit;letter-spacing:.05em;color:#cdd6e0;text-align:left;
-    background:#1a1f25;border:1px solid #333a43;border-radius:4px;cursor:pointer}
-  .td-act.primary{border-color:#6d5a34;color:#e8c07a}
-  .td-act.ghost{background:none}
-  .td-act:hover:not(:disabled){background:#232a31;border-color:#4d5763;color:#fff}
-  .td-act:disabled{opacity:.35;cursor:not-allowed}
-  .td-lots{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;align-content:start}
-  .td-lot{border:1px solid #262c33;border-radius:6px;padding:12px;background:linear-gradient(#14181d,#0f1216);display:flex;flex-direction:column;gap:6px}
-  .td-lot.on{border-color:#e8c07a}
+  /* THE 3D KEY. The tablet's bevel language: a raised accent-tinted cap with a bright top highlight
+     and a dark bottom bevel that PRESSES IN to a deep inset recess on :active, so every press feels
+     like a physical key rather than a link with a border. */
+  .td-act{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    font-family:inherit;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;
+    cursor:pointer;padding:9px 15px;border-radius:9px;color:var(--td-fg);
+    border:1px solid color-mix(in srgb, var(--td-accent) 38%, transparent);
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 2px 4px rgba(0,0,0,.25);
+    transition:filter .12s,box-shadow .12s,transform .05s,border-color .12s}
+  .td-ico{font-size:14px;line-height:1;opacity:.95}
+  .td-act:hover:not(:disabled){filter:brightness(1.1);border-color:var(--td-accent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 3px 9px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 32%, transparent)}
+  .td-act:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 6px var(--td-bevel-lo)}
+  .td-act:disabled{opacity:.4;cursor:default;filter:grayscale(.5)}
+  /* The primary key — a stronger accent tint of the theme bg, never a solid accent fill, so the
+     high-contrast label stays legible on a light theme and a dark one alike. */
+  .td-act.primary{border-color:var(--td-accent);
+    background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 32%, var(--bg2)),color-mix(in srgb, var(--td-accent) 15%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 4px var(--td-bevel-lo),0 2px 5px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 35%, transparent)}
+  .td-act.ghost{background:linear-gradient(165deg,var(--td-surf-lo),transparent);
+    border-color:color-mix(in srgb, var(--td-accent) 22%, transparent);color:var(--td-fg-dim)}
+  .td-act.ghost:hover:not(:disabled){color:var(--td-fg)}
+  /* A stacked column of choices is a list of sentences, not a row of keys: left-align it and let a
+     line wrap, or "Do it yourself · 340₵ — up to 80%, and you can botch it" centres into porridge. */
+  .td-acts.col .td-act{justify-content:flex-start;text-align:left;text-transform:none;letter-spacing:.4px;line-height:1.35}
+  .td-lots{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-content:start;padding:2px}
+  .td-lot{padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:6px;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border:1px solid color-mix(in srgb, var(--td-accent) 30%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 3px 10px rgba(0,0,0,.22);
+    transition:filter .12s,box-shadow .12s,border-color .12s}
+  .td-lot:hover{filter:brightness(1.05);border-color:var(--td-accent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),inset 0 -2px 3px var(--td-bevel-lo),0 5px 16px rgba(0,0,0,.28),0 0 14px color-mix(in srgb, var(--td-accent) 22%, transparent)}
+  .td-lot.on{border-color:var(--td-accent)}
   .td-lot.poor{opacity:.62}
   .td-lot-head{display:flex;align-items:flex-start}
-  .td-lot-head b{color:#e8e8e8;font-size:14px}
-  .td-price{margin-left:auto;color:#e8c07a;font-variant-numeric:tabular-nums;font-weight:600}
-  .td-wf{display:block;width:100%;height:auto;background:#090b0d;border:1px solid #1c2126;border-radius:4px}
-  .td-blurb{color:#828c98;font-size:11.5px;min-height:3.2em}
-  .td-sub-head{grid-column:1/-1;font:600 10px/1 inherit;letter-spacing:.12em;text-transform:uppercase;color:#69727d;margin-top:6px}
+  .td-lot-head b{color:var(--td-fg);font-size:14px;letter-spacing:1px}
+  .td-price{margin-left:auto;color:var(--td-fg);font-variant-numeric:tabular-nums;font-weight:bold;letter-spacing:1px}
+  /* The schematic sits in its own recessed dark viewport, same as the hangar's .hb-lot-view. */
+  .td-wf{display:block;width:100%;height:auto;padding:6px;border-radius:9px;
+    background:radial-gradient(120% 120% at 50% 40%,color-mix(in srgb, var(--td-accent) 15%, var(--bg)),color-mix(in srgb, var(--td-accent) 8%, var(--bg)));
+    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent);box-shadow:inset 0 2px 9px rgba(0,0,0,.4)}
+  .td-blurb{color:var(--td-fg-dim);font-size:11.5px;min-height:3.2em}
+  .td-sub-head{grid-column:1/-1;font:700 9px/1 'Courier New',monospace;letter-spacing:3px;text-transform:uppercase;
+    color:var(--td-fg-dim);margin:12px 0 2px;padding-bottom:4px;
+    border-bottom:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent)}
   .td-rows{grid-column:1/-1;display:flex;flex-direction:column}
   .td-rows.wide{flex:1;overflow:auto}
-  .td-row{display:grid;grid-template-columns:1fr 78px 78px 132px 104px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid #191e23}
-  .td-row.head{color:#69727d;font-size:10px;letter-spacing:.1em;text-transform:uppercase;border-top:0}
+  .td-row{display:grid;grid-template-columns:1fr 78px 78px 132px 116px;gap:10px;align-items:center;padding:8px 4px;
+    border-top:1px solid color-mix(in srgb, var(--td-accent) 14%, transparent)}
+  .td-row.head{color:var(--td-fg-dim);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;border-top:0}
   .td-rows .td-row:first-child{border-top:0}
   .td-main{min-width:0}
   .td-num{text-align:right;font-variant-numeric:tabular-nums}
-  .td-pay{grid-column:2/5;text-align:right;color:#e8c07a;font-variant-numeric:tabular-nums}
-  .td-knob{border-top:1px solid #1c2126;padding-top:8px}
+  .td-pay{grid-column:2/5;text-align:right;color:var(--td-fg);font-weight:bold;font-variant-numeric:tabular-nums}
+  .td-knob{border-top:1px solid color-mix(in srgb, var(--td-accent) 16%, transparent);padding-top:9px}
   .td-knob-head{display:flex;align-items:baseline;gap:8px}
-  .td-knob-head .td-num{margin-left:auto;color:#e8c07a}
-  .td-knob-poles{display:flex;justify-content:space-between;font-size:9px;letter-spacing:.1em;color:#69727d}
-  .td-slider{width:100%;accent-color:#e8c07a}
-  .td-kit-row{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #1c2126}
+  .td-knob-head b{letter-spacing:.5px}
+  .td-knob-head .td-num{margin-left:auto;color:var(--td-fg);font-weight:bold}
+  .td-knob-poles{display:flex;justify-content:space-between;font-size:9px;letter-spacing:1px;color:var(--td-fg-dim2)}
+  .td-slider{width:100%;accent-color:var(--td-accent)}
+  .td-kit-row{display:flex;gap:10px;align-items:center;padding:9px 0;
+    border-top:1px solid color-mix(in srgb, var(--td-accent) 16%, transparent)}
   .td-kit-row.on{opacity:.72}
-  .td-fitted{font:600 10px/1 inherit;letter-spacing:.1em;color:#6fcf83}
-  .td-kits{display:flex;gap:4px;flex-wrap:wrap}
-  .td-kit{font-size:10px;padding:2px 6px;border-radius:3px;background:#1a1f25;color:#8fae8f}
+  .td-fitted{font:700 9px/1 'Courier New',monospace;letter-spacing:1px;color:#6fcf83}
+  .td-kits{display:flex;gap:5px;flex-wrap:wrap}
+  .td-kit{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
+    color:var(--td-fg-dim);background:var(--td-surf-lo);border:1px solid var(--border)}
   .td-paint{display:flex;gap:14px;align-items:center}
-  .td-paint label{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b949f}
-  .td-col{width:44px;height:26px;border:1px solid #333a43;border-radius:4px;background:none;cursor:pointer}
-  .td-swatches{display:flex;gap:4px;flex-wrap:wrap}
-  .td-swatch{padding:5px 9px;font:600 10px/1 inherit;letter-spacing:.08em;text-transform:uppercase;color:#8b949f;
-    background:#14181d;border:1px solid #262c33;border-radius:4px;cursor:pointer}
-  .td-swatch.on{border-color:#e8c07a;color:#e8c07a}
-  .td-check{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#8b949f}
-  .td-deck{border-top:1px solid #20262c;padding-top:8px}
-  .td-lab{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#69727d;display:block}
-  .td-none{color:#727b86;padding:12px}
-  .td-dim{color:#727b86}
+  .td-paint label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--td-fg-dim)}
+  .td-col{width:44px;height:28px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
+    border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
+  .td-swatches{display:flex;gap:5px;flex-wrap:wrap}
+  .td-swatch{padding:6px 10px;font:700 10px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
+    color:var(--td-fg-dim);border-radius:7px;cursor:pointer;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));
+    border:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 1px 3px rgba(0,0,0,.2);transition:filter .12s,border-color .12s,color .12s}
+  .td-swatch:hover{filter:brightness(1.1);color:var(--td-fg)}
+  .td-swatch.on{border-color:var(--td-accent);color:var(--td-fg);
+    background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 32%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
+  .td-check{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--td-fg-dim)}
+  .td-check input{accent-color:var(--td-accent)}
+  .td-deck{padding:10px 12px;border-radius:9px;background:var(--td-surf-lo);
+    border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
+  .td-lab{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}
+  .td-none{color:var(--td-fg-dim);padding:14px;text-align:center}
+  .td-dim{color:var(--td-fg-dim)}
   .td-note{font-size:11px}
   .td-good{color:#6fcf83}
-  .td-warn{color:#d8a24e}
-  .td-foot{padding:8px 14px;border-top:1px solid #20262c;font-size:11px;color:#727b86}
-  .td-foot code{background:#171b20;padding:1px 5px;border-radius:3px;margin-right:4px}
+  .td-warn{color:#ffb26b}
+  .td-foot{flex:0 0 auto;padding:9px 16px;font-size:11px;color:var(--td-fg-dim);
+    background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
+    border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
+  .td-foot code{color:var(--td-fg);background:var(--td-surf);padding:2px 6px;border-radius:4px;margin-right:5px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent)}
+  /* The one in-theme scrollbar recipe: an accent-lit thumb in a recessed track, never the OS slab. */
+  .td-side,.td-lots,.td-rows.wide{scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--td-accent) 55%, var(--border)) transparent}
+  .td-side::-webkit-scrollbar,.td-lots::-webkit-scrollbar,.td-rows.wide::-webkit-scrollbar{width:7px;height:7px}
+  .td-side::-webkit-scrollbar-track,.td-lots::-webkit-scrollbar-track,.td-rows.wide::-webkit-scrollbar-track{
+    background:var(--td-surf-lo);border-radius:4px;box-shadow:inset 0 0 3px var(--td-bevel-lo)}
+  .td-side::-webkit-scrollbar-thumb,.td-lots::-webkit-scrollbar-thumb,.td-rows.wide::-webkit-scrollbar-thumb{border-radius:4px;
+    background:linear-gradient(180deg,color-mix(in srgb, var(--td-accent) 70%, var(--bg2)),color-mix(in srgb, var(--td-accent) 35%, var(--bg2)));
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
   @media (max-width:900px){.td-body{flex-direction:column}.td-side{width:auto}}
+  @media (prefers-reduced-motion:reduce){.td-board.near,.td-run{animation:none}.td-tab.on::after{animation:none}}
   `;
   document.head.appendChild(s);
 }

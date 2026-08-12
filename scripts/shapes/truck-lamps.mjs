@@ -111,6 +111,58 @@ export function truckLampSmoke(drawHangarScene, variants = ['scrapper', 'hauler'
 // currently produce (the weakest is ~250 px² at this camera) with room to spare underneath.
 export const LAMP_MIN_AREA = 60;
 
+// ── The rule the front of a truck keeps breaking ──────────────────────────────
+// NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE WITH THE PANEL BEHIND IT.
+//
+// This has now cost three bugs on one square foot of geometry: two headlamp versions, and then the
+// grille comb, which started 0.002 behind the surround's own front face. A face gets ONE depth in
+// the painter's sort, so a panel whose plane falls INSIDE a detail's f-span is nearer than half of
+// those details and farther than the other half — under any yaw it is drawn over one side and not
+// the other. That is why the reports are always "one lamp" or "half the grille" and never "the
+// grille is gone": a symmetric mesh, drawn asymmetrically, which is exactly the shape of bug that
+// looking at a screenshot is worst at attributing.
+//
+// So this asserts the rule directly on the mesh instead of trying to recognise a comb of chrome
+// teeth in a recorded canvas. For every chrome detail standing on the nose, no flat panel may have
+// its plane strictly inside that detail's fore-aft span while covering the same patch of g and z.
+// Cheap, exact, and it cannot be fooled by a camera angle that happens to flatter the model.
+const CHROME_TINT = [226, 232, 240];
+const spanOf = (f, k) => { const v = f.p.map((p) => p[k]); return [Math.min(...v), Math.max(...v)]; };
+const overlaps = (a, b) => a[0] < b[1] - 1e-6 && b[0] < a[1] - 1e-6;
+
+export function truckNoseSliceSmoke(variants = ['scrapper', 'hauler', 'drayman', 'continental']) {
+  const bad = [];
+  for (const variant of variants) {
+    const faces = aircraftFaces('truck', 1, false, `${variant}~p`);
+    const noseF = Math.max(...faces.flatMap((f) => f.p.map((p) => p[0])));
+    // The chrome standing proud of the nose: the grille comb and the bullet in its mouth.
+    const details = faces.filter((f) => {
+      if (!f.tint || f.tint[0] !== CHROME_TINT[0] || f.tint[1] !== CHROME_TINT[1]) return false;
+      const [f0, f1] = spanOf(f, 0), [z0, z1] = spanOf(f, 2);
+      return f1 > noseF - 0.05 && z0 > 0.05 && z1 < 0.13;
+    });
+    for (const d of details) {
+      const df = spanOf(d, 0);
+      if (df[1] - df[0] < 1e-6) continue;            // a detail's own flat faces are not the problem
+      const dg = spanOf(d, 1), dz = spanOf(d, 2);
+      for (const p of faces) {
+        if (p === d || p.tint) continue;              // panels are untinted body/strut work
+        const pf = spanOf(p, 0);
+        if (pf[1] - pf[0] > 1e-6) continue;           // only a FLAT panel has a single plane to cut with
+        if (pf[0] <= df[0] + 1e-6 || pf[0] >= df[1] - 1e-6) continue;   // its plane is clear of the span
+        if (overlaps(spanOf(p, 1), dg) && overlaps(spanOf(p, 2), dz)) {
+          bad.push({ variant, role: p.role, plane: pf[0], detail: df });
+          break;
+        }
+      }
+    }
+    // No assertion that chrome EXISTS here: a cab-over (the Barrow) has no bonnet, so it has no
+    // grille comb and no bullet to put in one — it wears a radiator panel instead, and that is the
+    // shape it is meant to be rather than a missing detail.
+  }
+  return bad;
+}
+
 // The parked pose has to actually be a different pose, or `~p` is a no-op nobody would notice.
 export function parkedStanceSmoke() {
   const out = [];

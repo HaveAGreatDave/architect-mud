@@ -507,16 +507,28 @@ body.helm-hidepanel #look-resize-handle { display: none; }
    like the flight sim, so it gets the same two immersive layouts — ⛶ fullscreen (pane
    fills the column, log + command box folded away) and ⊟ hide-panel (log gone, command
    box stays). #hb-root already flexes to fill the pane, so only the pane/log rules are
-   needed here. Both classes are cleared when the hangar closes. */
+   needed here. Both classes are cleared when the hangar closes.
+   THE TRUCK DEPOT RIDES THE SAME RULES (td-*): it mounts in #area-pane the same way and carries
+   the same two toggles, and #td-root flexes to fill the pane exactly as #hb-root does — so it is
+   added to these selector lists rather than given a third copy of them to drift out of sync with. */
 body.hb-fullscreen #area-pane,
-body.hb-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.hb-hidepanel #area-pane,
+body.td-fullscreen #area-pane,
+body.td-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
 body.hb-fullscreen #area-content,
-body.hb-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
+body.hb-hidepanel #area-content,
+body.td-fullscreen #area-content,
+body.td-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
 body.hb-fullscreen #output,
 body.hb-fullscreen #look-resize-handle,
 body.hb-fullscreen #bottom-input-wrap,
 body.hb-hidepanel #output,
-body.hb-hidepanel #look-resize-handle { display: none; }
+body.hb-hidepanel #look-resize-handle,
+body.td-fullscreen #output,
+body.td-fullscreen #look-resize-handle,
+body.td-fullscreen #bottom-input-wrap,
+body.td-hidepanel #output,
+body.td-hidepanel #look-resize-handle { display: none; }
 
 /* Charter cabin (passenger glass HUD, #ck-hud-root) fullscreen / hide-panel — the same two
    immersive layouts as the flight sim + hangar. The HUD already flexes to fill #area-content
@@ -6910,7 +6922,7 @@ body.asleep.dreaming-line #output {
 [data-density="compact"] #quick-cmds.open { display: flex; }
 
 /* ─── MOBILE DPAD ─── */
-/* The four immersive fullscreen modes fold the d-pad away. This used to be free:
+/* The five immersive fullscreen modes fold the d-pad away. This used to be free:
    the d-pad lived inside #bottom-input-wrap, which each of those modes already
    hides. Now that it sits in the top chrome it has to be named explicitly, or a
    walking compass hangs over the cockpit while you are flying — where the
@@ -6919,10 +6931,12 @@ body.asleep.dreaming-line #output {
 body.fsim-fullscreen #mob-dpad,
 body.helm-fullscreen #mob-dpad,
 body.hb-fullscreen #mob-dpad,
+body.td-fullscreen #mob-dpad,
 body.ck-fullscreen #mob-dpad,
 body.fsim-fullscreen #mob-hud-env,
 body.helm-fullscreen #mob-hud-env,
 body.hb-fullscreen #mob-hud-env,
+body.td-fullscreen #mob-hud-env,
 body.ck-fullscreen #mob-hud-env {
 	display: none !important;
 }

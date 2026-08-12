@@ -1880,10 +1880,20 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // VERTICAL FINS, not horizontal slats. A stack of horizontal bars is a 1990s truck; a comb of
     // upright chrome teeth with a bullet in the middle of it is a 1957 idea of what a truck in
     // 2100 would look like, which is the brief.
+    //
+    // AND THEY STAND AHEAD OF THE SURROUND, which is the third time this exact mistake has been
+    // made on this exact face. The fins used to start at nose1 − 0.002 and the surround's front
+    // face is AT nose1 — so the panel behind them cut through the middle of their fore-aft slice.
+    // Every face gets ONE depth in the painter's sort, so under any yaw the surround lands between
+    // the near fins and the far ones and is drawn over the far half: a full comb of teeth from one
+    // side of the truck and a blank recess from the other. It is the same failure as the headlamps
+    // below, which is why it gets the same written rule rather than a nudged number —
+    //   NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE WITH THE PANEL BEHIND IT.
+    // The fin bottom also clears BUMP_TOP for the same reason it does on a lamp.
     for (let i = -3; fine && i <= 3; i++) {
-      box(nose1 - 0.002, nose1 + 0.003, 0.006, 0.056, 0.118, 'window', CHROME, i * S.w * 0.20);
+      box(nose1 + 0.001, nose1 + 0.006, 0.006, 0.060, 0.118, 'window', CHROME, i * S.w * 0.20);
     }
-    if (fine) bullet(nose1 - 0.002, 0.030, 0, 0.020, 0.088);        // the nose cone in the grille's mouth
+    if (fine) bullet(nose1 + 0.001, 0.030, 0, 0.030, 0.090);        // the nose cone in the grille's mouth, ahead of it for the same reason
   }
   // A cab-over has no bonnet, so its face was the screen and a blank wall under it — the two
   // cheapest trucks were the only ones with nothing to look at. Give it a radiator panel and vents.
@@ -1916,7 +1926,10 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const lampG = S.w * 0.86, lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
   for (const g of [-1, 1]) {
     box(lampF - 0.016, lampF, 0.030, lampZ - 0.006, lampZ + 0.042, 'strut', null, g * lampG);           // the pod
-    box(lampF - 0.016, lampF + 0.002, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
+    // The brow overhangs the LENSES and starts at the pod's own front plane — it used to begin
+    // 0.016 behind it, so the pod face cut through the middle of the brow's slice and the same
+    // sort that ate half a grille was taking a bite out of one side's hood. Same rule as the fins.
+    box(lampF, lampF + 0.009, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
     box(lampF, lampF + 0.007, 0.026, lampZ + 0.020, lampZ + 0.038, 'window', [242, 234, 196], g * lampG); // upper lens
     box(lampF, lampF + 0.007, 0.026, lampZ, lampZ + 0.017, 'window', [238, 228, 182], g * lampG);        // lower lens
     if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', GLOW, g * lampG);
@@ -3270,7 +3283,7 @@ export function drawTurntable(ctx, opts) {
 // The turntable's paint step alone, with NO clear — so a caller that's already
 // painted a backdrop into the canvas (drawHangarFloorBay below) can draw the plane
 // on top of it in the same pass instead of the model wiping the scene behind it.
-function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null }) {
+function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0, w, h, wreck = false, zoom = 1, elev = 0.42, cam = null, floor = false, sky = null, venue = null, fit = 0, lift = 0 }) {
   // `variant` is the ground-vehicle channel (THE LONG HAUL) — which of the four trucks, and
   // whether a box is on the back. Every aircraft caller passes nothing and is unaffected; the
   // depot's turntable, walkaround and bench hero shot all ride this one argument.
@@ -3280,6 +3293,39 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   const _gp = groundPitchFor(cls, armed) * Math.PI / 180;
   const _cg = Math.cos(_gp), _sg = Math.sin(_gp);
   const tiltV = _gp ? (v) => [v[0] * _cg - v[2] * _sg, v[1], v[0] * _sg + v[2] * _cg] : null;
+  // SHOWROOM SIZING, and it is why a truck no longer floats. Everything in this view — the room's
+  // 6.6-unit walls, the floor grid, the walk camera's speed and its exclusion ellipse, and
+  // FLOOR_Z itself — is measured in AEROPLANES, because for a long time an aeroplane was the only
+  // thing that ever stood here. A truck is built at ±0.22, so it arrived as a die-cast model in an
+  // aircraft hangar: a fifth of the frame at any camera you could reach, and — the tell that gave
+  // the whole thing away — hovering, because its parked lifters rest at z≈0 and the ground plane
+  // is at −0.27, an aircraft's undercarriage. That is nearly a whole truck-height of daylight
+  // under a machine whose comment two hundred lines up says it has SETTLED onto its lifters.
+  //
+  // `fit` is the span (in those aeroplane units) the model should occupy, and both corrections
+  // fall out of one derivation rather than two tuned constants: scale the mesh so its longest
+  // ground-plane span reads `fit`, then DROP IT until its own lowest vertex is exactly on the
+  // floor plane. Callers that pass no `fit` get the identity transform, so every aircraft view is
+  // untouched to the pixel. The room is then correctly proportioned around the subject for free:
+  // a 2-unit rig in a 13-unit shed is a garage, where a 0.45-unit one was a cathedral.
+  let mScale = 1, mDrop = 0;
+  if (fit) {
+    let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (const f of faces) for (const v0 of f.p) {
+      const v = tiltV ? tiltV(v0) : v0;
+      for (let k = 0; k < 3; k++) { if (v[k] < lo[k]) lo[k] = v[k]; if (v[k] > hi[k]) hi[k] = v[k]; }
+    }
+    const span = Math.max(hi[0] - lo[0], hi[1] - lo[1]);
+    if (span > 1e-4) { mScale = fit / span; mDrop = FLOOR_Z - lo[2] * mScale; }
+  }
+  // `lift` raises the whole body off that floor as ONE RIGID THING — the depot's start-up
+  // sequence drives it while the lifters take the weight. It is deliberately not part of the mesh:
+  // the parked and running meshes differ by the ride height already, and animating BETWEEN two
+  // memoised face lists would mean interpolating vertices that don't correspond.
+  mDrop += lift;
+  // The one model→world transform, tilt included. Both projection call sites below go through it,
+  // so a fitted model cannot be drawn at one size and have its props/decals drawn at another.
+  const modelV = (v0) => { const v = tiltV ? tiltV(v0) : v0; return [v[0] * mScale, v[1] * mScale, v[2] * mScale + mDrop]; };
   const pal = liveryPalette(livery || {});
   const jazzImg = (!wreck && pal.pat === 'jazz') ? jazzTex(livery?.base, livery?.trim, livery?.accent, livery?.ground) : null;
   const texStr = wreck ? 0.62 : (TEX_STRENGTH[livery?.finish] ?? 0.46);
@@ -3324,7 +3370,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   for (const face of faces) {
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
     if (visorHidden(face)) continue;       // parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly
-    const P = face.p.map(v => { const t = tiltV ? tiltV(v) : v; return proj(t[0], t[1], t[2]); });
+    const P = face.p.map(v => { const t = modelV(v); return proj(t[0], t[1], t[2]); });
     if (P.some(q => q.z <= 0.15)) continue;
     // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
     // edge of the polygon collapses to zero length, which happens at the nose/tail cone tips
@@ -3386,7 +3432,15 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   if (!wreck) drawNoseArt(ctx, proj, cls, livery, drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ })));
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
-  if (!wreck) drawRotorFX(ctx, cls, (v) => { const t = tiltV ? tiltV(v) : v; const q = proj(t[0], t[1], t[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
+  if (!wreck) drawRotorFX(ctx, cls, (v) => { const t = modelV(v); const q = proj(t[0], t[1], t[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });
+  // THE CONTACT PATCH, handed back to the caller. An effects layer that wants to put light and
+  // dust on the ground under this machine needs to know where the ground under it IS on screen,
+  // and this function is the only thing in the process that knows the camera. Guessing it from
+  // canvas fractions works right up until somebody drags the turntable or walks two paces left.
+  // `ppu` is pixels per world unit at that depth, so an effect can be sized in world units too.
+  const gp = proj(0, 0, FLOOR_Z);
+  const gpx = proj(0, 1, FLOOR_Z);
+  return { ground: gp, ppu: Math.abs(gpx.sx - gp.sx) || Math.min(w, h) * 0.4, front: proj(mScale ? 0.5 * fit : 0.5, 0, FLOOR_Z) };
 }
 
 // ── Outside world glimpse (through the open bay door) ─────────────────────────
@@ -3839,7 +3893,9 @@ export function drawHangarFloorBay(ctx, opts) {
   // from its own depot.
   else if (opts.venue === 'garage' && !opts.flat) drawDepotBackdrop(ctx, opts.w, opts.h, { sky: opts.sky });
   else if (!opts.flat) drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
-  if (opts.cls) paintTurntable(ctx, opts);
+  // Returns the turntable's ground anchor (see paintTurntable) so a caller can draw its own
+  // effects layer on the concrete under the machine. Aircraft callers ignore it, as they always did.
+  return opts.cls ? paintTurntable(ctx, opts) : null;
 }
 
 // ── The hangar FLOOR: one continuous 3D room, every craft parked in it ────────

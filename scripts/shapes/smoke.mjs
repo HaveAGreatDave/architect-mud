@@ -30,7 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
-import { truckLampSmoke, parkedStanceSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
+import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -81,6 +81,12 @@ async function main() {
       problems.push(`lamps  ${L.variant} → one-eyed: ${L.left.toFixed(0)}px² visible on the left, `
         + `${L.right.toFixed(0)}px² on the right (min ${LAMP_MIN_AREA}). Something is drawn over a headlamp.`);
     }
+  }
+  // The same square foot of geometry, one rung more general — see truckNoseSliceSmoke.
+  const slices = truckNoseSliceSmoke();
+  for (const b of slices) {
+    problems.push(`nose   ${b.variant} → a ${b.role} panel at f=${b.plane.toFixed(3)} cuts through a chrome detail `
+      + `spanning ${b.detail[0].toFixed(3)}..${b.detail[1].toFixed(3)}. The painter's sort will eat one side of it.`);
   }
   const stances = parkedStanceSmoke();
   for (const s of stances) {
@@ -169,6 +175,7 @@ async function main() {
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
+  console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a

@@ -6,6 +6,7 @@ import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
 import { openMusicPlayerPanel } from './panels/musicplayer.js';
 import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { isHangarBayWalkActive } from './panels/hangar-bay.js';
+import { isTruckDepotWalkActive } from './panels/truck-depot.js';
 import { isPianoKeysLive } from './panels/piano.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
@@ -145,6 +146,8 @@ export function initInput({ saveOrigin, notify } = {}) {
     // The hangar walk-around inspect owns W/A/S/D (its own free camera) — don't steal
     // focus into the command box, or its keydown handler bails on the focused input.
     if (isHangarBayWalkActive()) return;
+    // The truck depot's walkaround is the same camera around a rig, and owns the same keys.
+    if (isTruckDepotWalkActive()) return;
     // WASD keyboard movement owns the keys while armed — don't pull focus into
     // the command box (the window-capture handler in main.js drives movement).
     if (state.wasdMove) return;

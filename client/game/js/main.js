@@ -65,6 +65,7 @@ import { initMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 import { stopEngineAudio } from "./panels/engine-audio.js";
 import { isFlightSimActive } from "./panels/cockpit.js";
 import { isHangarBayWalkActive } from "./panels/hangar-bay.js";
+import { isTruckDepotWalkActive } from "./panels/truck-depot.js";
 
 // Settings
 const settings = loadSettings();
@@ -804,7 +805,7 @@ if (wasdBtn) {
 	window.addEventListener(
 		"keydown",
 		(e) => {
-			if (!state.wasdMove || isFlightSimActive() || isHangarBayWalkActive()) return;
+			if (!state.wasdMove || isFlightSimActive() || isHangarBayWalkActive() || isTruckDepotWalkActive()) return;
 			if (e.ctrlKey || e.metaKey || e.altKey) return;
 			// Let real text fields (command box, chat, tablet, dialogs) type normally.
 			const tag = e.target.tagName;

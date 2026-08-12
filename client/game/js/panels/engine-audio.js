@@ -485,6 +485,63 @@ const SPOOL_UP = {
     { waveform: 'noise', noiseMix: 1, delay: 1.0, filter: { type: 'bandpass', freq: 240, q: 1 }, adsr: { a: 0.05, d: 0.9, s: 0.2, r: 0.2 }, gain: 0.05 } ] },
 };
 export function spoolUp(cls) { const ae = AE(); const d = SPOOL_UP[cls] || SPOOL_UP.prop; try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {} }
+
+// ── LIGHTING THE LIFTERS ──────────────────────────────────────────────────────
+// A truck asking for `spoolUp` got the piston single's row, because there was no truck row and
+// `prop` is the fallback — so the one moment in THE LONG HAUL where a hover rig stops being
+// furniture and becomes a machine was scored with a car's starter motor cranking.
+//
+// A lifter does not crank. FOUR THINGS HAPPEN, IN THIS ORDER, and the sequence is the sound:
+//   1. the CONTACTOR drops in — a hard, dry clunk, the switch closing before anything moves;
+//   2. the COILS CHARGE — a resonant whine climbing under mounting FM complexity, which is the
+//      part the ear reads as "spinning up" even though nothing here spins;
+//   3. the WEIGHT COMES OFF — a swell of filtered noise as the pods bite and shove the air out
+//      from under a parked chassis, delayed to land where the model actually leaves the ground;
+//   4. it SETTLES — a low sustaining hum under everything, so the cue ends holding rather than
+//      stopping, the same trick the `ultralight` start uses to arrive at an idle.
+//
+// PER TRUCK, because four rigs that light identically are one rig with four price tags. The
+// character is the same character the drivetrain already has: the Barrow is a bad-tempered old
+// thing that fumbles the catch and lights ROUGH, the Courier is light and quick and over with,
+// the Drayman is the honest middle, and the Continental is enormous — it takes the longest, sits
+// the lowest, and moves the most air, which is the whole of what tier 3 buys you at this moment.
+const HOVER_SPOOL = {
+  // Krell Barrow — a dead contactor click, a coil that sags before it takes, and grit all through
+  // it. The only rig here whose start-up has a stumble in it, and it is the cheapest for a reason.
+  scrapper: { duration: 2.4, layers: [
+    { waveform: 'square', freq: 92, pitchBend: { to: 38, time: 0.09 }, filter: { type: 'lowpass', freq: 900, q: 1.2 }, adsr: { a: 0.004, d: 0.11, s: 0, r: 0.05 }, gain: 0.10 },   // contactor, and it does not sound healthy
+    { waveform: 'square', freq: 86, delay: 0.34, pitchBend: { to: 44, time: 0.08 }, filter: { type: 'lowpass', freq: 800, q: 1.2 }, adsr: { a: 0.004, d: 0.1, s: 0, r: 0.05 }, gain: 0.07 },   // it did not take: a second try
+    { waveform: 'triangle', freq: 120, delay: 0.42, pitchBend: { to: 430, time: 1.5 }, fm: { rate: 190, depth: 130 }, vibrato: { rate: 6.5, depth: 14 }, filter: { type: 'bandpass', freq: 1150, q: 1.6 }, adsr: { a: 0.1, d: 1.5, s: 0.34, r: 0.35 }, gain: 0.055 },   // coils, sagging as they climb
+    { waveform: 'noise', noiseMix: 1, delay: 1.05, filter: { type: 'bandpass', freq: 430, q: 0.8 }, tremolo: { rate: 13, depth: 0.5 }, adsr: { a: 0.28, d: 1.0, s: 0.22, r: 0.3 }, gain: 0.075 },   // the weight coming off, gritty
+    { waveform: 'sawtooth', freq: 30, delay: 1.35, pitchBend: { to: 27, time: 0.7 }, filter: { type: 'lowpass', freq: 230, q: 1 }, tremolo: { rate: 7, depth: 0.42 }, adsr: { a: 0.3, d: 0, s: 0.8, r: 0.4 }, gain: 0.085 } ] },   // a lumpy hold
+  // Ostrek Courier — light, bright and quick. It is up before you have finished pressing the thing.
+  hauler: { duration: 2.0, layers: [
+    { waveform: 'square', freq: 128, pitchBend: { to: 52, time: 0.07 }, filter: { type: 'lowpass', freq: 1400, q: 1.1 }, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.04 }, gain: 0.10 },
+    { waveform: 'sine', freq: 210, delay: 0.06, pitchBend: { to: 780, time: 1.1 }, fm: { rate: 340, depth: 150 }, filter: { type: 'bandpass', freq: 1900, q: 1.5 }, adsr: { a: 0.05, d: 1.2, s: 0.36, r: 0.3 }, gain: 0.06 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.62, filter: { type: 'bandpass', freq: 620, q: 0.9 }, adsr: { a: 0.18, d: 0.8, s: 0.2, r: 0.28 }, gain: 0.065 },
+    { waveform: 'sawtooth', freq: 40, delay: 0.95, pitchBend: { to: 36, time: 0.6 }, filter: { type: 'lowpass', freq: 300, q: 1 }, tremolo: { rate: 11, depth: 0.28 }, adsr: { a: 0.24, d: 0, s: 0.8, r: 0.35 }, gain: 0.08 } ] },
+  // Vachon Drayman — the one everybody learns on, and it lights like it: clean, unhurried, no drama.
+  drayman: { duration: 2.5, layers: [
+    { waveform: 'square', freq: 108, pitchBend: { to: 44, time: 0.08 }, filter: { type: 'lowpass', freq: 1100, q: 1.2 }, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.05 }, gain: 0.11 },
+    { waveform: 'sine', freq: 165, delay: 0.07, pitchBend: { to: 600, time: 1.5 }, fm: { rate: 265, depth: 140 }, vibrato: { rate: 5, depth: 7 }, filter: { type: 'bandpass', freq: 1550, q: 1.4 }, adsr: { a: 0.07, d: 1.6, s: 0.4, r: 0.35 }, gain: 0.062 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.85, filter: { type: 'bandpass', freq: 500, q: 0.85 }, adsr: { a: 0.26, d: 1.0, s: 0.24, r: 0.32 }, gain: 0.08 },
+    { waveform: 'sawtooth', freq: 33, delay: 1.25, pitchBend: { to: 30, time: 0.7 }, filter: { type: 'lowpass', freq: 250, q: 1 }, tremolo: { rate: 8.5, depth: 0.3 }, adsr: { a: 0.3, d: 0, s: 0.85, r: 0.4 }, gain: 0.09 } ] },
+  // Orlov Continental — a building standing up. The slowest to light, the deepest hold, and by far
+  // the most air moved: the noise layer is nearly as loud as the hum, because six metres of chassis
+  // coming off the concrete is mostly a sound you feel through the floor.
+  continental: { duration: 3.4, layers: [
+    { waveform: 'square', freq: 84, pitchBend: { to: 32, time: 0.12 }, filter: { type: 'lowpass', freq: 700, q: 1.3 }, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.07 }, gain: 0.12 },
+    { waveform: 'triangle', freq: 96, delay: 0.1, pitchBend: { to: 470, time: 2.4 }, fm: { rate: 205, depth: 180 }, vibrato: { rate: 3.6, depth: 6 }, filter: { type: 'bandpass', freq: 1250, q: 1.5 }, adsr: { a: 0.14, d: 2.5, s: 0.45, r: 0.45 }, gain: 0.07 },
+    { waveform: 'noise', noiseMix: 1, delay: 1.3, filter: { type: 'bandpass', freq: 340, q: 0.7 }, tremolo: { rate: 6, depth: 0.35 }, adsr: { a: 0.45, d: 1.5, s: 0.3, r: 0.45 }, gain: 0.105 },
+    { waveform: 'sawtooth', freq: 24, delay: 1.7, pitchBend: { to: 21, time: 1.0 }, filter: { type: 'lowpass', freq: 190, q: 1 }, tremolo: { rate: 6, depth: 0.34 }, adsr: { a: 0.4, d: 0, s: 0.9, r: 0.5 }, gain: 0.105 } ] },
+};
+// How long each rig takes to get its weight off the floor — the visual sequence reads this so the
+// dust and the rise land ON the sound rather than near it, and one table stays the source of both.
+export const hoverSpoolSeconds = (typeId) => (HOVER_SPOOL[typeId] || HOVER_SPOOL.drayman).duration;
+export function hoverSpool(typeId) {
+  const ae = AE(); const d = HOVER_SPOOL[typeId] || HOVER_SPOOL.drayman;
+  try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {}
+}
 export function spoolDown(cls) {
   const p = prof(cls); const ae = AE();
   const d = { duration: 1.2, layers: [

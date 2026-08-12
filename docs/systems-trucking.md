@@ -362,6 +362,59 @@ almost none of it is new code:
 | the dealer's line | `drawWireframe3D`, big enough to read the thing you are buying |
 | the bench hero shot | the same floor bay, with the dials underneath |
 
+**…and it is now the same DEVICE, in the same place** *(2026-08-12)*. The screens matched; nothing
+else did. Four things, and each one is a rule rather than a tweak:
+
+- **It mounts in `#area-pane`, like the hangar and the cockpit** — not as a fixed overlay dimming
+  the game behind it. Every button here is a command and the **log is where its reply lands**, so a
+  modal hid the other half of its own interaction. It carries the same ⊟/⛶ immersive toggles, which
+  are added to the *existing* `body.hb-*` selector lists in `styles.css` rather than given a third
+  copy to drift out of sync with, and Escape now backs out one screen at a time. `setAreaPane`
+  rebuilds the subtree, so the delegated handlers are re-bound per render on a node that is always
+  brand new — which is why they cannot stack up. This also finally wired **`isTruckDepotWalkActive`**
+  into `main.js`/`input.js`: `preventDefault` does not stop propagation, so holding W to walk down
+  your own truck's flank was also sending you north, and the overlay had been hiding it.
+- **It follows the player's theme.** The hangar's every surface is the theme's accent at a different
+  intensity over the theme's own bg tiers (the tablet's `--tos-*` bevel recipe); the depot was a
+  hardcoded `#0e1114` slab. On a light theme one read light and the other stayed a black box. Same
+  palette now, aliased to `--td-*`. The exceptions are deliberate and the hangar's: **condition
+  bands stay fixed hex** (green→red cannot follow a theme) and **the viewports stay dark glass**,
+  because a real screen does not relight for your wallpaper.
+- **A truck in the walkaround is showroom-sized and ON THE GROUND** — one derivation, not two
+  fixes. `FLOOR_Z = −0.27` is an *aeroplane's* ground plane and a parked rig's lifters rest at
+  z≈0, so it floated a full truck-height; built at ±0.22, it was also a die-cast model in an
+  aircraft shed. `paintTurntable`'s new **`fit`** scales the mesh so its longest span reads an
+  airframe's and then drops it until its own lowest vertex sits exactly on the floor. Callers that
+  pass no `fit` are untouched to the pixel, and the room comes out correctly proportioned for free.
+  Every camera constant on that screen (the start eye, the exclusion ellipse, the BOARD radius —
+  which was **2.6**, and was the real reason you could never get close) is now in honest units.
+- **Lighting the lifters.** `drive` is the *end* of a sequence rather than the whole of it:
+  contactor, coils, the weight coming off, the settle. **The sound is the clock** —
+  `hoverSpoolSeconds` feeds the visuals from the same per-truck table that scores them, so the rise
+  cannot drift out of sync with the noise it is making. **The ride height is real** (the mesh's own
+  `HOVER`, overshooting once), light comes up *before* movement so it reads as the cause, and the
+  shake is on the **camera**, because what actually moves is you. It still sends the identical verb.
+
+**Half a grille, and the rule that keeps eating this one square foot** *(2026-08-12)*. The comb of
+chrome teeth started 0.002 *behind* the grille surround's own front face. A face gets **one depth**
+in the painter's sort, so a panel whose plane falls inside a detail's fore-aft span is nearer than
+half those details and farther than the other half — under any yaw it is drawn over one side and
+not the other. That is why the report is always *"one lamp"* or *"where's the other half of the
+grille"* and never *"it's gone"*: a symmetric mesh, drawn asymmetrically, which is the shape of bug
+a screenshot is worst at attributing. This is now the **third** instance on the same square foot
+(two headlamp versions, then the comb), so it is written down as a rule —
+
+> **Nothing on the face may share a fore-aft slice with the panel behind it.**
+
+— and gated: `truckNoseSliceSmoke` (`scripts/shapes/truck-lamps.mjs`) asserts it on the mesh rather
+than trying to recognise a comb of chrome in a recorded canvas, which is cheap, exact, and cannot be
+flattered by a camera angle. It immediately found a **fourth** instance nobody was looking for: each
+headlamp's chrome brow straddled its own pod's front plane. Note it does **not** assert that chrome
+exists — a cab-over (the Barrow) has no bonnet, so no comb and no bullet, and that is the shape it
+is meant to be. The floating name under each rig went at the same time: the hangar labels aircraft
+because a row of white airframes is genuinely hard to tell apart, but a yard is not that — the rig
+wears the paint *you* chose, the strip names every one of them and the pane names the selected one.
+
 **The depot is not the hangar with an oil stain on it** *(2026-08-11)*. It was, briefly — one brown
 tint and a wider door over `drawHangarBackdrop`, which is a reasonable saving right until you look
 at it: an aircraft hangar's fluorescent truss hung exactly where a rig's stacks go, aviation crates
