@@ -10,8 +10,10 @@ import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFr
 import { mapWindow } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R } from './corridor.js';
-import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear } from './state.js';
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R,
+  addWreck, wrecksOn, wreckAhead, _clearWrecks } from './corridor.js';
+import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
+  atOrBeforeFork } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -23,7 +25,8 @@ import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
-import { effTruckParams, tuneRange, repairCost, wearFor, bandOf, FIELD_CAP } from './rig.js';
+import { effTruckParams, tuneRange, repairCost, wearFor, bandOf, FIELD_CAP,
+  breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue } from './fleet.js';
 
 const GATE = 'zone_regress_truckgate';
@@ -746,6 +749,83 @@ export default async function regress({ run, check, getPlayer }) {
       wearFor(100, { surface: 'offroad' }) > wearFor(100, { surface: 'road' }) && wearFor(0, {}) === 0);
     check('condition is part of what a truck is worth',
       resaleValue(base, 0, 1) > resaleValue(base, 0, 0.2));
+  }
+
+  // ── 4f. Breakdowns ─────────────────────────────────────────────────────────
+  // The rule the whole feature rests on is that a breakdown is never a bolt from a clear sky: it
+  // is the bill for a bar you watched go down and drove past a bench anyway. If the top bands can
+  // break, condition stops being a decision and every haul becomes a dice roll.
+  {
+    check('a sound truck never breaks down, however far it goes',
+      breakChance(100000, { condition: 1 }) === 0 && breakChance(100000, { condition: 0.55 }) === 0);
+    const ailing = breakChance(500, { condition: 0.25 });
+    const derelict = breakChance(500, { condition: 0.05 });
+    check('a neglected one does, and a derelict one does much more',
+      ailing > 0.05 && ailing < 0.45 && derelict > ailing * 2,
+      `${ailing.toFixed(3)} vs ${derelict.toFixed(3)}`);
+    check('and bad ground shakes it apart faster',
+      breakChance(500, { condition: 0.2, surface: 'offroad' }) > breakChance(500, { condition: 0.2 }));
+    // NOBODY IS EVER STRANDED. Every failed attempt raises the next one's odds, so the tail is
+    // bounded — a driver on a shoulder in the dark must not be rolling dice forever.
+    check('a roadside fix gets more likely every time you fail it',
+      fixOdds(0, 1) > fixOdds(0, 0) && fixOdds(0, 4) >= 1, `${fixOdds(0, 0).toFixed(2)} → ${fixOdds(0, 4).toFixed(2)}`);
+    check('…and skill helps, but is not what saves you', fixOdds(60, 0) > fixOdds(0, 0));
+    check('every breakdown has prose and a name for what let go',
+      Object.values(BREAKDOWNS).every(b => b.label && b.broke && b.fixed), Object.keys(BREAKDOWNS).join(','));
+    // A fix buys DISTANCE, not health — otherwise a spanner in a waste replaces the bench.
+    check('a fix buys road, not condition', FIX_GRACE_TILES > 0 && FIX_GRACE_TILES < TILES_PER_ROOM * 4, FIX_GRACE_TILES);
+  }
+
+  // ── 4g. The fork ───────────────────────────────────────────────────────────
+  // Two roads out of Coldwater, and until this existed a truck could only ever take the first row
+  // of the table — which quietly made Terminus (a destination DESIGNED around truck range)
+  // unreachable by road. The invariant that makes changing your mind safe is that the trunk is one
+  // road: if the shared rooms had different tarmac per destination, switching would teleport the
+  // rig sideways onto a road that had been somewhere else all along.
+  {
+    const trunk = vdef.trunk;
+    const other = vdef.dests[1];
+    const a = corridorFor(VOIDKEY, vdef.dests[0].key, 4242, 8, trunk);
+    const b = corridorFor(VOIDKEY, other?.key || 'x', 4242, 12, trunk);
+    const trunkLegs = (r) => r.legs.filter(l => l.trunk).map(l => [l.s0, l.s1, l.x0, l.y0, l.ux, l.uy].join(','));
+    check('both roads out of a void share the same trunk, tile for tile',
+      trunkLegs(a).join('|') === trunkLegs(b).join('|'), trunkLegs(a).length + ' legs');
+    check('…and the trunk ends exactly where the fork is',
+      a.trunkL === trunk * TILES_PER_ROOM && trunkLegs(a).length > 0, `${a.trunkL}`);
+    check('past the fork the two roads are genuinely different',
+      JSON.stringify(a.legs.filter(l => !l.trunk)) !== JSON.stringify(b.legs.filter(l => !l.trunk)));
+    // A rig standing on the trunk is at the same PLACE on either road — that is the whole licence
+    // for switchLimb, and it is derived here rather than asserted in a comment.
+    const sMid = Math.floor(a.trunkL * 0.5);
+    const pa = corridorPos(a, sMid, 0), pb = corridorPos(b, sMid, 0);
+    check('so a rig on the trunk is in the same place whichever limb it is aimed at',
+      Math.abs(pa.x - pb.x) < 1e-9 && Math.abs(pa.y - pb.y) < 1e-9, `${pa.x},${pa.y} / ${pb.x},${pb.y}`);
+    check('the fork is still ahead in the middle of the trunk, and behind past it',
+      atOrBeforeFork({ leg: 'corridor', route: a, s: sMid }) && !atOrBeforeFork({ leg: 'corridor', route: a, s: a.trunkL + 50 }));
+    // The crossing has to SAY where the fork is, or nothing above can find it.
+    check('a crossing reports its own trunk length', typeof trunk === 'number' && trunk >= 1, trunk);
+  }
+
+  // ── 4h. Wrecks and the CB ──────────────────────────────────────────────────
+  // The road remembers hauls that did not finish. What is defended here is that a wreck is a
+  // PLACE rather than a decoration: the same tile for everybody, reported before you reach it,
+  // and capped so a corridor never turns into a scrapyard.
+  {
+    _clearWrecks();
+    const route = corridorFor(VOIDKEY, DESTKEY, 4242, 8, vdef.trunk);
+    const w = addWreck(route, { s: 300, what: 'A dead Krell Barrow', who: 'Somebody' });
+    check('a wreck lands on the verge, not on the road', w && Math.abs(w.off) >= 3 && Math.abs(w.off) <= route.R, w?.off);
+    const cell = corridorAt(route, ...Object.values(corridorPos(route, 300, w.side * w.off)).slice(0, 2));
+    check('…and it is really there in the world the renderer reads',
+      cell?.flags?.wreck === true && cell.flags.building_type, JSON.stringify(cell?.flags?.building_name));
+    check('two rigs do not pile up on the same spot', addWreck(route, { s: 302, what: 'x' }) === null);
+    check('the CB warns about it BEFORE you reach it, never after',
+      wreckAhead(route, 200)?.s === 300 && wreckAhead(route, 400) === null);
+    for (let i = 0; i < 40; i++) addWreck(route, { s: 600 + i * 20, what: 'A dead thing' });
+    check('a road lined with wrecks stops being a road — so the list is capped',
+      wrecksOn(route).length <= 12, wrecksOn(route).length);
+    _clearWrecks();
+    check('and a clean road has none on it', wrecksOn(route).length === 0);
   }
 
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────

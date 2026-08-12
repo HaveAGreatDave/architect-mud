@@ -345,6 +345,11 @@ const WX_HAZE = {
   acid_rain: 0.5, ion_storm: 0.38,
 };
 const hazeCeil = (wx) => WX_HAZE[wx] ?? 0.15;
+// The same scalar read as "how much like night does this weather drive". Clear daylight is not
+// gloom at any haze value, so the floor is subtracted off and what's left is rescaled — fog ends
+// up near full dark, drizzle barely registers, and the lamps come on when the seeing says so
+// rather than when the clock does. Used by the headlight/landing-lamp gate.
+const wxGloom = (wx) => clamp(((WX_HAZE[wx] ?? 0.12) - 0.2) / 0.55, 0, 1);
 
 // Full-canopy colour cast for a hero event. Alpha scales with phase, so the
 // approach is a tint and the peak is a wall.
@@ -1061,11 +1066,17 @@ export function paintWindshield(id, view) {
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
   }
 
-  // Landing/taxi lamps out the windscreen: with the LIGHTS switch on at night the nose lamps
-  // throw a warm-white flood onto the ground ahead — a bright pool plus twin feathered beams.
-  // Inside the banked block so the throw rolls with the aircraft; brightens the darker it gets.
-  if (v.landingLight && !framed && !ext && worldBlend > 0.05 && sky.night > 0.2)
-    drawLandingBeam(ctx, W, H, horizonY, vx, sky.night, speed, now);
+  // Landing/taxi lamps out the windscreen: with the LIGHTS switch on the nose lamps throw a
+  // warm-white flood onto the ground ahead — a bright pool plus twin feathered beams. Inside the
+  // banked block so the throw rolls with the aircraft; brightens the worse the seeing gets.
+  //
+  // GLOOM, NOT NIGHT. This used to gate on `sky.night` alone, which is exactly wrong for a truck:
+  // the one time a driver reaches for the headlights is midday fog, and the lamps stayed off in
+  // the only conditions that made them matter. Weather now counts as darkness for this purpose —
+  // the same WX_HAZE scalar that decides how far you can see decides whether you're driving lit.
+  const gloom = Math.max(sky.night, wxGloom(wx));
+  if (v.landingLight && !framed && !ext && worldBlend > 0.05 && gloom > 0.2)
+    drawLandingBeam(ctx, W, H, horizonY, vx, gloom, speed, now);
 
   // Speed streaks (motion rush from the vanishing point) — forward view only.
   if (speed > 0.12 && !framed && worldBlend > 0.02) {
@@ -1170,7 +1181,7 @@ export function paintWindshield(id, view) {
   // acid rain is rain (beads, streaks, a glass that stays clean of bugs), an ion
   // storm is a storm (the lightning branch). The badge below keeps the real name.
   pBegin('glass');
-  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed);
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.wipers | 0);
   pEnd();
   // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
   // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
@@ -1784,7 +1795,7 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
 // banked world, so it reads as being *on* the canopy in front of you. Plus the slow
 // accretion that dirties a canopy over a flight: bug splats that build up, and frost
 // creeping in from the corners in snow.
-function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
+function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
   // Bug splats: while flying, the odd bug hits the glass and stays — the canopy gets
   // progressively grubbier until you land (state resets with the scene). Rain washes it.
   if (!framed && speed > 0.35 && wx !== 'rain' && wx !== 'storm') {
@@ -1812,6 +1823,52 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
     fr.addColorStop(0, 'rgba(226,240,255,0)'); fr.addColorStop(1, 'rgba(226,240,255,0.4)');
     ctx.fillStyle = fr; ctx.fillRect(0, 0, W, H);
   }
+  // ── Wipers ─────────────────────────────────────────────────────────────────
+  // The proposal called this the one gap and the single most evocative thing left on the list, and
+  // it is the smallest: the drop state was ALREADY a list of `{x,y,r,life,streak}` beads that
+  // already blend between gravity and slipstream, so a wiper is not a new effect — it is the
+  // missing half of one that was fully built. Two things make it read:
+  //
+  //  · THE BLADE CLEARS THE GLASS IT PASSES, and does it as it goes rather than all at once. A
+  //    drop the arm has just swept is re-anchored at the top with its streak reset, so the pane
+  //    empties behind the blade and fills in again in front of it. Without the cull it is a stick
+  //    waving over unchanged rain, which is worse than no wiper at all.
+  //  · IT PARKS. Off is not "stopped wherever it was" — the arm returns to the bottom of the
+  //    screen and sits there, because a wiper frozen mid-pane reads as a broken one.
+  //
+  // The three speeds are a stalk, not a slider: intermittent holds at the park between strokes,
+  // which is the cadence you actually notice, and it is the mode that makes light rain feel light.
+  const wipeRate = wipers === 3 ? 2.0 : wipers === 2 ? 1.15 : wipers === 1 ? 1.15 : 0;
+  if (st.wipeU == null) { st.wipeU = 0; st.wipeHold = 0; }
+  if (wipers > 0) {
+    if (st.wipeHold > 0) st.wipeHold = Math.max(0, st.wipeHold - dt);
+    else {
+      st.wipeU += dt * wipeRate;
+      if (st.wipeU >= 2) { st.wipeU = 0; if (wipers === 1) st.wipeHold = 2.4; }   // intermittent pauses AT the park
+    }
+  } else if (st.wipeU > 0) {
+    // Switched off mid-stroke: finish to the park rather than stopping dead in the middle.
+    st.wipeU = st.wipeU >= 2 ? 0 : Math.min(2, st.wipeU + dt * 1.4);
+    if (st.wipeU >= 2) st.wipeU = 0;
+  }
+  // 0..1 across the pane and back — one number both blades and the cull read, so the arm you see
+  // and the glass it clears can never disagree.
+  const wipeP = st.wipeU <= 1 ? st.wipeU : 2 - st.wipeU;
+  const wipeAng = (-0.30 + wipeP * 1.55);            // radians off vertical, park at the near side
+  const wipePivots = [W * 0.30, W * 0.72], wipeLen = H * 0.86;
+  if (wipers > 0 || st.wipeU > 0) {
+    for (const d of st.drops) {
+      for (const px of wipePivots) {
+        const dx = d.x * W - px, dy = d.y * H - H * 1.02;
+        if (Math.hypot(dx, dy) > wipeLen) continue;
+        // Angle of this bead off the pivot, in the same frame the blade is drawn in. A narrow
+        // window (not "everything behind the blade") is what makes the pane clear progressively.
+        const a = Math.atan2(dx, -dy);
+        if (Math.abs(a - wipeAng) < 0.16) { d.streak = 0; d.life = 0.7 + (d.x * 7 % 1) * 1.4; d.y = (d.x * 11 % 1) * 0.18; }
+      }
+    }
+  }
+
   if (wx === 'rain' || wx === 'storm') {
     // At rest a released drop runs straight DOWN the canopy under gravity. With airspeed
     // the slipstream drags it back and sideways (away from centre), so the streak flattens
@@ -1862,6 +1919,28 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false) {
         ctx.beginPath(); ctx.moveTo(st.bolt[0][0] * W, 0); for (const [px, py] of st.bolt) ctx.lineTo(px * W, py * H); ctx.stroke(); ctx.shadowBlur = 0;
       }
     }
+  }
+  // The arms themselves, over the top of everything on the glass — they are OUTSIDE it, and the
+  // one bit of the vehicle that crosses your view of the road. Drawn only when there is something
+  // to draw: a parked wiper at rest is a dark line at the very bottom edge and nothing more.
+  if (wipers > 0 || st.wipeU > 0) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const px of wipePivots) {
+      const ex = px + Math.sin(wipeAng) * wipeLen, ey = H * 1.02 - Math.cos(wipeAng) * wipeLen;
+      // A faint clean-swathe behind the blade, so the pane looks WIPED and not merely uncovered.
+      ctx.strokeStyle = 'rgba(206,226,248,0.06)'; ctx.lineWidth = 14;
+      ctx.beginPath(); ctx.moveTo(px, H * 1.02); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(14,16,18,0.72)'; ctx.lineWidth = 3.2;                  // the arm
+      ctx.beginPath(); ctx.moveTo(px, H * 1.02); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(30,34,38,0.9)'; ctx.lineWidth = 5;                     // the rubber, on the outer two-thirds
+      ctx.beginPath();
+      ctx.moveTo(px + Math.sin(wipeAng) * wipeLen * 0.3, H * 1.02 - Math.cos(wipeAng) * wipeLen * 0.3);
+      ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = 'rgba(180,200,220,0.20)'; ctx.lineWidth = 1;                 // a highlight down the arm
+      ctx.beginPath(); ctx.moveTo(px, H * 1.02); ctx.lineTo(ex, ey); ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 

@@ -17,11 +17,12 @@
 
 import { getZone, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { emit } from '../../server/engine/events.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
 import { mapWindow, surfaceAt, aircraftNearCoord } from '../flight/state.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM } from './corridor.js';
-import { wearFor } from './rig.js';
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
+  addWreck, wreckAhead } from './corridor.js';
+import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -90,17 +91,42 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
 }
 
 // City → corridor. Called when the rig drives off the rim into a live crossing.
-export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain, dest }) {
+export function joinCorridor(rig, { instanceId, destKey, voidKey, window, chain, dest, trunk = 1 }) {
   rig.leg = 'corridor';
   rig.instanceId = instanceId; rig.destKey = destKey; rig.voidKey = voidKey;
-  rig.window = window; rig.chain = chain; rig.dest = dest;
-  rig.route = corridorFor(voidKey, destKey, window, chain.length);
+  rig.window = window; rig.chain = chain; rig.dest = dest; rig.trunk = Math.max(1, trunk | 0);
+  rig.route = corridorFor(voidKey, destKey, window, chain.length, rig.trunk);
   rig.s = 0; rig.t = 0; rig.node = 0;
   const start = corridorPos(rig.route, 0, 0);
   rig.x = start.x; rig.y = start.y; rig.heading = start.heading;
   rig.speed = Math.min(rig.speed, 25);   // you don't leave the world at cruise
   return rig;
 }
+
+// ── Changing your mind at the fork ───────────────────────────────────────────
+// The junction, as a thing you can actually take. Both limbs already exist in the same crossing
+// instance (voidwalking builds every dest's rooms up front and hangs them off the last trunk
+// room), and the trunk tarmac is now seeded independently of the destination — so switching is
+// genuinely just a different road AHEAD, with the odometer, the fuel and the rooms behind you
+// untouched. Which is why this is four lines rather than a system: the two hard parts were
+// decided in `crossingInfo` and `corridorFor`.
+//
+// The caller owns the RULE (you must still be on the trunk); this owns the move. Nothing here
+// touches `current_zone`, and that is not an oversight: while you are on the trunk you are
+// standing in a room BOTH chains contain, so there is nothing to move you to.
+export function switchLimb(rig, { destKey, chain, dest }) {
+  rig.destKey = destKey; rig.chain = chain; rig.dest = dest;
+  rig.route = corridorFor(rig.voidKey, destKey, rig.window, chain.length, rig.trunk);
+  rig.s = Math.min(rig.s, rig.route.L);
+  const p = corridorPos(rig.route, rig.s, rig.t);
+  rig.x = p.x; rig.y = p.y;
+  rig.node = Math.max(0, Math.min(chain.length - 1, Math.floor(rig.s / TILES_PER_ROOM)));
+  return rig;
+}
+// Is the fork still ahead of us? The last trunk room IS the junction, so the answer is "you have
+// not left it yet" rather than "you have not reached it".
+export const atOrBeforeFork = (rig) => rig.leg === 'corridor' && rig.route
+  && rig.s <= (rig.route.trunkL || 0) + 2;
 
 // Corridor → city. The far side of the crossing: drop the rig onto the destination region's tiles.
 export function leaveCorridor(rig, x, y, heading = 180) {
@@ -149,10 +175,20 @@ export function reconcileTruck(rig, d, now = Date.now()) {
     if (was > 0 && rig.fuel <= 0) rig.dry = true;
     if (!rig.warnedLow && rig.fuel > 0 && rig.fuel < 0.15) { rig.warnedLow = true; rig.warnLow = true; }
     if (rig.fuel > 0.3) rig.warnedLow = false;
+
+    // BREAKDOWNS ride the same distance the wear does, on the same frame, off the same number —
+    // which is the point: the bar you have been ignoring is the die you are rolling. The grace
+    // window a roadside fix bought is spent in tiles here too, so it is distance you were given
+    // and distance you use up, never a timer that runs down while you sit still.
+    if (rig.fixGrace > 0) rig.fixGrace = Math.max(0, rig.fixGrace - moved);
+    if (!rig.broken && !rig.fixGrace) {
+      const kind = breakdownRoll(moved, { condition: rig.condition ?? 1, surface: surfaceUnder(rig) });
+      if (kind) rig.broken = { kind, attempts: 0, told: false };
+    }
   }
-  // Out of diesel: no drive, whatever the client reports. The client is told and clamps its own
-  // throttle, but the server does not take its word for the speed either.
-  if (rig.dry) rig.speed = 0;
+  // Out of diesel, or broken down: no drive, whatever the client reports. The client is told and
+  // clamps its own throttle, but the server does not take its word for the speed either.
+  if (rig.dry || rig.broken) rig.speed = 0;
 
   // ── City leg ──
   // No corridor to be off, and no bogged law: buildings are SOLID here (the client's CFIT-derived
@@ -191,6 +227,72 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   if (hit) rig.t = Math.max(-rig.route.R, Math.min(rig.route.R, hit.t));
   const node = Math.max(0, Math.min(rig.chain.length - 1, Math.floor(rig.s / TILES_PER_ROOM)));
   return { moved: node !== rig.node, node, bogged, city: false };
+}
+
+// The breakdown announcement, shared by BOTH rungs — it lives here rather than in either of them
+// so the driven cab and the text run cannot drift into telling different stories about the same
+// failure. It says what let go and then what to do about it, in that order: a driver whose truck
+// has just stopped in the middle of a waste needs the verb more than the prose, and `fix` is a
+// verb nobody would ever guess at.
+export function announceBreak(player, rig) {
+  if (!rig?.broken || rig.broken.told) return false;
+  rig.broken.told = true;
+  const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
+  sendToPlayer(player.id, {
+    type: 'emote',
+    message: `<span class="text-red">${b.broke}</span>\n`
+      + `<span class="text-amber">The ${b.label} is finished, and so is the run until you deal with it.</span> `
+      + `<span class="text-dim">${teachVerb('fix', 'fix')} to get under it with what you have, or ${teachVerb('park', 'park')} and walk — the road out here goes on without you either way.</span>`,
+  });
+  return true;
+}
+
+// ── What the road remembers ──────────────────────────────────────────────────
+// A wreck out here is not scenery: it is the tile a real driver stopped on, with the model of
+// truck they were in and the name of whoever it was. The corridor's seeded roadside props are the
+// same eight buildings for everybody forever; these are the ones that mean something, and the
+// only way one appears is that somebody's haul ended there.
+export function markWreck(rig, player) {
+  if (!rig?.route) return null;
+  return addWreck(rig.route, { s: rig.s, what: `A dead ${rig.type?.name || 'truck'}`, who: player?.handle || null });
+}
+
+// ── The CB ───────────────────────────────────────────────────────────────────
+// Voices on the corridor. It is deliberately NOT a chat channel and deliberately not a tick: lines
+// fire on node crossings, which is where everything else about the drive already happens, so the
+// radio costs no scheduler and can never talk over a truck that is standing still.
+//
+// HALF OF IT IS TRUE. A radio that only said atmospheric nothings would be a screensaver, so a
+// wreck ahead is reported before you reach it — by name, which is the whole reason a wreck
+// remembers who left it. The flavour exists so the useful lines don't read as a UI element in a
+// hat. It lives here rather than in either rung's file because both rungs call it, and a radio
+// that said different things in the cab and in the text run would be two radios.
+const CB_CHATTER = [
+  'Somebody two hundred miles back is describing his divorce to nobody in particular.',
+  '“…and I told him, that is not a load, that is an insult with a tarp over it.”',
+  'A woman counts something out, slowly, in a language the radio is not helping with.',
+  'Static, and under the static something that has been repeating for a long time.',
+  '“Anybody running east tonight? Anybody at all.” Nobody answers her.',
+  '“Watch the third node, the graders have been through and left it worse.”',
+  'Two drivers argue about a diner that closed before either of them was driving.',
+  'Somebody sings four bars, thinks better of it, and clicks off.',
+];
+export function cbLine(player, rig) {
+  if (!rig || rig.cbOff || rig.leg !== 'corridor' || !rig.route) return false;
+  // A wreck ahead outranks flavour every time — it is the one thing on this channel that is about
+  // where you are going rather than about who else is out here.
+  const w = wreckAhead(rig.route, rig.s);
+  if (w && !rig.cbSeen?.has(w.s)) {
+    (rig.cbSeen = rig.cbSeen || new Set()).add(w.s);
+    sendToPlayer(player.id, { type: 'emote', message:
+      `<span class="text-dim">CB: “${w.who ? `${w.who}'s rig` : 'A rig'} is on the shoulder a few miles up. `
+      + `${w.who ? 'Left there a while back.' : 'Nobody in it.'} Give it room.”</span>` });
+    return true;
+  }
+  if (Math.random() < 0.55) return false;            // the radio is mostly quiet, which is the point
+  const line = CB_CHATTER[Math.floor(Math.random() * CB_CHATTER.length)];
+  sendToPlayer(player.id, { type: 'emote', message: `<span class="text-dim">CB: ${line}</span>` });
+  return true;
 }
 
 // Put a bogged rig back on the pavement, facing down-corridor, stopped. The penalty is the time
@@ -336,6 +438,9 @@ export function cabContext(rig, extra = {}) {
     typeId: rig.typeId || null,
     params: rig.params || rig.type || null,
     condition: +(rig.condition ?? 1).toFixed(3),
+    // The cab clamps its own throttle on both of these for the feel; the server clamps the speed
+    // for the truth. Same split as `dry`, which is the shape this followed deliberately.
+    broken: rig.broken ? rig.broken.kind : null,
     paint: rig.cd?.paint || null,
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at

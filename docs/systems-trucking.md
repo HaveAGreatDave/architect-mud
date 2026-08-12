@@ -1,6 +1,6 @@
 # THE LONG HAUL — driving the void
 
-**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped — see [proposals](proposals/the-long-haul.md).**
+**STATUS: Built — buy a truck, keep it running, take work, haul it. Four models, contracts, a commodity market, fuel, solid buildings, an eight-speed box with a diesel voice, and the rig — trailer articulation, reverse and brake fade. The depot is now a building you walk into, with a garage floor you can click a rig on, a walkaround, a dealer's line and a maintenance bench (condition, repair, four tuning dials, kits, paint). The scale house, trailers as world objects, hitchhikers and city driving are all built too — every phase of the design has shipped, and so are the four things the build itself turned up: breakdowns with a roadside `fix`, the fork as a junction you can take (`route`), wipers, and a CB that reports real wrecks — see [proposals](proposals/the-long-haul.md).**
 
 Freight hauling by road. You take a load at a depot in Coldwater, drive it through the city to the
 edge of the map, cross the waste on a highway that does not exist until you drive it, and back onto
@@ -17,7 +17,7 @@ and a city that resolves out of the haze at the end of it.
 | --- | --- |
 | Corridor geometry + cell synthesis | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
-| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `haul`, `market`, `yard`, `rig`, `fuel`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
 | The cab (60fps loop, gauges, wheel) | [client/game/js/panels/cab-view.js](../client/game/js/panels/cab-view.js) |
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |
@@ -26,6 +26,7 @@ and a city that resolves out of the haze at the end of it.
 | Trailers as world objects | [plugins/trucking/trailers.js](../plugins/trucking/trailers.js) · `trailers` table in SCHEMA_SQL |
 | People on the shoulder | [plugins/trucking/hitchers.js](../plugins/trucking/hitchers.js) |
 | Text-rung driving + its gearbox verbs | [plugins/trucking/textdrive.js](../plugins/trucking/textdrive.js) |
+| Breakdowns, the roadside `fix`, the fork (`route`), the CB | [rig.js](../plugins/trucking/rig.js) · `announceBreak`/`cbLine`/`switchLimb` in [state.js](../plugins/trucking/state.js) |
 | Ownership + the dealer | [plugins/trucking/fleet.js](../plugins/trucking/fleet.js) · `trucks` table in SCHEMA_SQL |
 | The bench — condition, tuning, kits, paint, and the ONE place a tune becomes physics | [plugins/trucking/rig.js](../plugins/trucking/rig.js) |
 | The depot app — garage floor, walkaround, dealer's line, bench | [client/game/js/panels/truck-depot.js](../client/game/js/panels/truck-depot.js) |
@@ -208,8 +209,34 @@ rule for taxiing aircraft.
 > **The renderer needed a truck.** `drawAircraftModel` is per-class and every class in
 > `aircraft3d.js` has wings, so a truck relayed as a contact would have rendered as an aeroplane
 > sliding along the road. `buildTruck()` is the first ground-vehicle mesh in the file: cab, sleeper
-> hump, flat deck, six wheels, in the same normalised box the airframes use so `CONTACT_SIZE` scales
-> it like anything else.
+> hump, flat deck, a row of hover lifters, in the same normalised box the airframes use so
+> `CONTACT_SIZE` scales it like anything else.
+
+**The trucks ride on lifters, not wheels** *(2026-08-11)*. The first cut drew a wheel as a dark box
+with a hub plate on it, which is a wheel with the roundness sanded off — the whole fleet read as a
+20th-century semi somebody had forgotten to finish. A hover pod needs three things and all three:
+it is **chamfered** (a wide housing over a drawn-in shroud, never a brick), **lit low** (an emitter
+band round the skirt plus a bloom on the road under it — from any angle above the beltline that
+bloom is the only part of the lift you can see), and it **hangs off an arm** with daylight above it.
+The drive groups no longer draw a doubled pair: dual rims are an artefact of a tyre's contact patch
+and a lifter has none, so a light rig gets one *long* pod and a heavy one gets two spaced along the
+frame — the same "rated to pull" read without pretending there are tyres involved.
+
+Same pass, the rest of the fleet's visual ladder: **headlamps moved outboard of the grille**
+(they used to sit inside the grille surround's fore-aft slice, so the painter's sort showed one lamp
+and ate the other — a one-eyed truck is the first thing anybody notices), cab-overs got a face
+(radiator panel + vents, where the two cheapest trucks had a blank wall under the screen), the
+tractor got a rear lamp cluster because **bobtail is a real way to drive** and that face is what
+another driver looks at for an hour, and a bobtail now **carries something on its bare deck** —
+a scrap cage on the Barrow, a strapped load on the hauler, nothing on the long-haul tractors, which
+run clean because they are built to pull.
+
+**Headlights are gated on gloom, not on night** *(2026-08-11)*. `paintWindshield`'s lamp throw used
+to test `sky.night` alone, which is exactly backwards for a truck: the one time a driver reaches for
+the headlights is midday fog, and the lamps stayed off in the only condition that made them matter.
+The gate is now `max(night, wxGloom(wx))` off the same `WX_HAZE` scalar that decides how far you can
+see. The cab passes `landingLight: true` unconditionally and there is deliberately **no switch on
+the dash** — a rig runs lit, and the renderer decides when that is visible.
 
 ---
 
@@ -330,9 +357,24 @@ almost none of it is new code:
 | screen | drawn by |
 |---|---|
 | the garage floor — every rig you own in one room, one camera, click-selected | `drawHangarScene` (`aircraft3d.js`), `venue: 'garage'` |
+| the room it all stands in | `drawDepotBackdrop` — the depot's own building, not the hangar |
 | the walkaround — turntable, or the eye on the concrete beside it | `drawHangarFloorBay` with a free camera |
 | the dealer's line | `drawWireframe3D`, big enough to read the thing you are buying |
 | the bench hero shot | the same floor bay, with the dials underneath |
+
+**The depot is not the hangar with an oil stain on it** *(2026-08-11)*. It was, briefly — one brown
+tint and a wider door over `drawHangarBackdrop`, which is a reasonable saving right until you look
+at it: an aircraft hangar's fluorescent truss hung exactly where a rig's stacks go, aviation crates
+sat on the floor, and the concrete had a polish no yard has ever had. What separates the two
+buildings is the work done in them, so `drawDepotBackdrop` is its own painter: **sodium wall floods,
+nothing hanging** (the tallest thing in the room is thirteen feet of exhaust), an **inspection pit**
+in the floor (the one feature every depot has and no hangar does), **numbered bays** instead of a
+single lane, a roller shutter rolled up onto its drum rather than a hangar door, and a stack of
+spare **lifter pods** where the hangar keeps crates. It still shares `drawOutsideWorld` and the
+hazard stripe, because the weather beyond the door and the paint on the floor really are the same
+thing in both buildings. The bench hero draws through the same painter — it used to show the hangar
+whatever venue it was handed, so a rig on the bench was parked in an aircraft shed one tab away from
+its own depot.
 
 The only change the renderer needed was letting a scene entry carry a **`variant`**, because which
 of the four trucks a thing is does not fit in `cls` (which the whole renderer switches on) or
@@ -752,6 +794,84 @@ the street — and the witnessed-crime system does the rest with nothing bespoke
 charged with nothing at all, because the waste has no owners and no witnesses. The load takes it
 either way: freight that has just been through a wall is worth less, and the contract pays on what
 arrives.
+
+---
+
+## Breakdowns, the fork, wipers and the radio *(2026-08-11)*
+
+The four things the proposal named and the build never reached. Each is small; each was the reason
+some already-built system did not quite land.
+
+### A truck that can actually fail on you
+
+Condition wore, cost power and brakes, and made a derelict occasionally refuse to start — all of
+which are **numbers you read in a yard**. Nothing the bar did could happen to you at sixty miles an
+hour with a hundred tiles of nothing in each direction. Now a breakdown rides the same distance the
+wear does, off the same number, on the same frame (`breakdownRoll` in [rig.js](../plugins/trucking/rig.js),
+applied in `reconcileTruck` and in textdrive's `burn`, so **both rungs obey it**).
+
+Four rules, each a decision not to build the obvious version:
+
+1. **It is always the condition bar's fault, and you were told.** The chance is *zero* above Tired
+   and climbs as the square of how far below it you are — roughly 1% per crossing at the bottom of
+   Tired, 20% at Ailing, 60% at Derelict. A random failure on a Sound truck would make every haul
+   arbitrary and every repair pointless, which is the opposite of what condition is for.
+2. **No damage model.** The table picks the *prose*, not a broken component — a coolant hose, a
+   dead lifter pod, a bled fuel line, a turbo, a brake line. Condition stays one scalar.
+3. **A fix buys distance, not health.** `fix` is a roadside attempt gated on Fabrication whose
+   odds *escalate with every failure* (certain by the fourth go, so nobody sits in the dark rolling
+   dice). Success clears the failure and grants `FIX_GRACE_TILES` of immunity — it does **not**
+   move the bar. So a broken rig limps to a town, and the bench keeps its job.
+4. **It never strands anybody.** You can always climb down and walk: the drive *is* the crossing.
+
+**Abandoning it now has a price and leaves a mark.** Parking mid-crossing used to write the *void
+room* as the truck's depot — and those rooms are transient, so the instance was torn down behind
+you and a rig you owned was parked at an id with nothing on the other side of it: unfindable,
+undrivable, unsellable. It now goes back to the yard it left and wants a recovery fee, through the
+**`impound_fee` path the scale house already owns and `drive` already knows how to settle**.
+Abandonment and confiscation ending in the same lot is exactly right.
+
+### The fork is a junction you can take
+
+Coldwater's void forks toward the Reach and toward Exodus, and `leaveTheMap` took `dests[0]` —
+the first row of the table, forever. That quietly made **half the map unreachable by road**:
+Terminus is *designed* as a truck destination (deliberately beyond the range of the two cheapest
+rigs, so the fleet ladder doubles as a map gate) and no truck could ever be pointed at it.
+
+The aim comes from the **load first** (a contracted run knows where it is going; asking twice would
+be ceremony), then from `route`, then the first limb. `route` with no argument lists the
+destinations with their distance and whether your tank reaches — in a yard it sets the aim, and out
+on the road it **takes the other limb**, which is legal only while the fork is still ahead of you.
+
+The invariant that makes that safe is new and load-bearing: **the trunk is one road**. Every
+destination shares the crossing's first `trunk` rooms, so `corridorFor` now seeds the trunk
+polyline *without* the destination and only the limb with it, and never lets a leg straddle the
+boundary. Before that, the two roads diverged from the gate — and changing your mind would have
+teleported the rig sideways onto tarmac that had been somewhere else the whole way. The boundary
+also forces a jog, so **the junction is a bend you can see** rather than a room name changing.
+
+### Wipers
+
+The proposal called this the one gap and the most evocative thing left, and it is the smallest: the
+drop state was already `{x,y,r,life,streak}` beads that already blend between gravity and
+slipstream by speed². The blade **clears the glass it passes**, progressively, re-anchoring swept
+drops at the top — without the cull it is a stick waving over unchanged rain, which is worse than
+no wiper. And it **parks**: off returns the arm to the bottom rather than freezing it mid-pane.
+One stalk (`V`, or the button), off → intermittent → low → high, and the control **asks once** when
+rain starts and the stalk is off. Client-side entirely; nothing about a wiper is a fact about the
+world.
+
+### The CB, and wrecks from real hauls
+
+Lines fire on **node crossings**, not a tick — the radio costs no scheduler and can never talk over
+a truck standing still. Half of it is true: a **wreck ahead is reported by name** before you reach
+it. Wrecks are not scenery — one is left on the verge every time a driver gives up on a rig out
+there and walks, at the exact tile they stopped, with the model they were in and who they were.
+They are **RAM-only on purpose**: the corridor is transient and the window rolls weekly, so a
+wreck's address stops existing on the same clock the road does. What that costs is a clean road
+after a restart; what it buys is that every hulk out there is from a haul that happened this week,
+to somebody you can still ask about it. Capped at twelve, or a corridor stops reading as "somebody
+died here" and starts reading as a scrapyard.
 
 ---
 

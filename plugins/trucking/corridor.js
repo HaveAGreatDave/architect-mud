@@ -70,28 +70,47 @@ const LEG_JOG = 26;       // tiles of lateral travel in a jog leg
 //   destKey   destination limb key from that void's `dests` (e.g. 'reach')
 //   window    the weekly window (voidwalking's currentWindow())
 //   nodes     how many void rooms the chain holds — the road is exactly that long
-export function corridorFor(voidKey, destKey, window, nodes) {
+//   trunkNodes  how many of those rooms are the SHARED trunk, before the fork
+//
+// THE TRUNK IS ONE ROAD, NOT TWO THAT HAPPEN TO START TOGETHER. Every destination out of a void
+// shares its first `trunk` rooms (plugins/voidwalking builds them once and hangs a limb per dest
+// off the last one), so the tarmac over those rooms must be IDENTICAL whichever way you are
+// eventually going. The first cut seeded the whole polyline on `destKey`, which meant the two
+// roads out of Coldwater diverged from the gate — and that is not a cosmetic difference: changing
+// your mind at the fork would have teleported the rig sideways onto a road that had been somewhere
+// else the whole way. So the trunk is seeded WITHOUT the destination and the limb with it, and a
+// leg is never allowed to straddle the boundary — which also puts a real bend at the junction,
+// because the limb opens on a jog.
+export function corridorFor(voidKey, destKey, window, nodes, trunkNodes = 0) {
   const n = Math.max(1, nodes | 0);
   const L = n * TILES_PER_ROOM;
-  const rng = mulberry32(hashSeed(`${voidKey}|${destKey}|${window}|corridor`));
+  const trunkL = Math.max(0, Math.min(L, (trunkNodes | 0) * TILES_PER_ROOM));
+  const trunkRng = mulberry32(hashSeed(`${voidKey}|${window}|trunk`));
+  const limbRng = mulberry32(hashSeed(`${voidKey}|${destKey}|${window}|corridor`));
   const legs = [];
   let s = 0, x = 0, y = 0, jog = false;   // leave the gate heading down-corridor (+y)
   while (s < L) {
+    const onTrunk = s < trunkL;
+    const rng = onTrunk ? trunkRng : limbRng;
     // A run is long; a jog is short and lateral. They strictly alternate, because two jogs in a
     // row is a chicane and nobody builds one of those across a waste. The last leg is always a
     // run and is trimmed to land exactly on L, so the road ends where the room chain ends.
-    const len = jog
+    let len = jog
       ? Math.min(L - s, LEG_JOG)
       : Math.min(L - s, LEG_MIN + Math.floor(rng() * LEG_MIN));
+    if (onTrunk) len = Math.min(len, trunkL - s);          // never straddle the junction
     const ux = jog ? (rng() < 0.5 ? -1 : 1) : 0;
     const uy = jog ? 0 : 1;
-    legs.push({ s0: s, s1: s + len, x0: x, y0: y, ux, uy, len });
+    legs.push({ s0: s, s1: s + len, x0: x, y0: y, ux, uy, len, trunk: onTrunk });
     x += ux * len; y += uy * len; s += len;
     // Only jog if there's room for a full run afterwards — otherwise the route would end on a
-    // sideways stub pointing away from the destination.
-    jog = !jog && (L - s) > LEG_MIN && rng() < 0.55;
+    // sideways stub pointing away from the destination. The one forced jog is the FORK itself:
+    // the limb leaves the trunk sideways, so a junction is something you can see from the cab
+    // rather than a room name changing.
+    if (onTrunk && s >= trunkL && trunkL > 0 && (L - s) > LEG_MIN) jog = true;
+    else jog = !jog && (L - s) > LEG_MIN && rng() < 0.55;
   }
-  return { voidKey, destKey, window, nodes: n, L, R: CORRIDOR_R, legs };
+  return { voidKey, destKey, window, nodes: n, L, R: CORRIDOR_R, legs, trunkL };
 }
 
 // Where is (s, t) in corridor XY? Used to place the truck and to seed the cab's start pose.
@@ -144,6 +163,52 @@ const ROADSIDE = [
   { bt: 'reefer', name: 'A Stalled Reefer' },
 ];
 const ROADSIDE_EVERY = 40;
+
+// ── Wrecks, from real hauls ──────────────────────────────────────────────────
+// The roadside props above are seeded scenery: the same eight buildings, in the same places, for
+// everybody, forever. These are the opposite — one is left behind every time a driver gives up on
+// a rig out here and walks, and it stands on the verge at the exact tile they stopped on.
+//
+// RAM ONLY, and that is a decision rather than a shortcut. The corridor itself is transient (the
+// crossing's rooms are registered and torn down per instance) and the WINDOW rolls weekly, so a
+// wreck's own address stops existing on the same clock the road does; persisting it would mean
+// writing rows that describe a piece of geometry that no longer exists. What it costs is that a
+// restart sweeps the road clean, and what it buys is a road whose wrecks are all from hauls that
+// happened this week, to people who are still around to be asked about them.
+//
+// Keyed by void+dest+window so one week's ghosts never haunt the next week's road, and capped —
+// a corridor lined end to end with dead trucks stops reading as "somebody died here" and starts
+// reading as a scrapyard.
+const WRECKS = new Map();
+const WRECK_CAP = 12;
+const wreckKey = (route) => `${route.voidKey}|${route.destKey}|${route.window}`;
+export function addWreck(route, { s, what, who }) {
+  if (!route) return null;
+  const key = wreckKey(route);
+  const list = WRECKS.get(key) || [];
+  // Side and offset are derived from the tile, not rolled, so the same wreck is in the same place
+  // for every driver who comes past it — including the one who left it.
+  const at = Math.round(Math.max(0, Math.min(route.L, s)));
+  if (list.some(w => Math.abs(w.s - at) < 6)) return null;      // one hulk per spot; they do not stack
+  const rng = mulberry32(hashSeed(`${key}|wreck|${at}`));
+  list.push({ s: at, side: rng() < 0.5 ? -1 : 1, off: 3 + Math.floor(rng() * 3), what: what || 'a truck', who: who || null });
+  while (list.length > WRECK_CAP) list.shift();                 // the oldest ghost fades first
+  WRECKS.set(key, list);
+  return list[list.length - 1];
+}
+export const wrecksOn = (route) => (route ? WRECKS.get(wreckKey(route)) || [] : []);
+// The nearest wreck ahead of `s`, for the CB to talk about. Deliberately a LOOK-AHEAD: a warning
+// about something you have already driven past is not a warning.
+export function wreckAhead(route, s, within = TILES_PER_ROOM * 2) {
+  let best = null;
+  for (const w of wrecksOn(route)) {
+    const d = w.s - s;
+    if (d < 0 || d > within) continue;
+    if (!best || d < best.d) best = { ...w, d };
+  }
+  return best;
+}
+export const _clearWrecks = () => WRECKS.clear();   // regress only — the road is per-process state
 
 // Terrain for a node, seeded exactly as voidwalking seeds the room's own — so the ground under the
 // wheels changes room by room, and matches the terrain the walked prose describes.
@@ -208,6 +273,17 @@ export function corridorAt(route, x, y) {
   const rng = mulberry32(hashSeed(`${route.voidKey}|${route.window}|${route.destKey}|${x},${y}`));
   const flags = { terrain, corridor_s: s, corridor_node: node };
   let name = pick(rng, VERGE_NAMES);
+  // A wreck from a real haul, standing where its driver gave up on it. It borrows `reefer` — the
+  // roadside table's own dead-truck model — rather than introducing a building type the renderer
+  // has never heard of, which is the difference between a hulk on the verge and an untextured box.
+  const wreck = wrecksOn(route).find(w => Math.abs(w.s - s) < 1.2 && Math.round(t) === w.side * w.off);
+  if (wreck) {
+    flags.building_type = 'reefer';
+    flags.building_name = wreck.what;
+    flags.floors = 1;
+    flags.wreck = true;
+    return { id, name: wreck.what, danger, flags };
+  }
   // A structure sits just off the verge, on ONE side, at a milepost. The roll is seeded on the
   // MILEPOST rather than on the cell, and the chosen side/offset is compared against this cell —
   // otherwise every cell in the perpendicular row rolls independently and a single milepost

@@ -68,6 +68,11 @@ export function openCab(ctx = {}) {
           <button class="cab-btn cab-down" aria-label="Shift down" title="Shift down (,)">▼</button>
           <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter (/)">½</button>
           <button class="cab-btn cab-rev" aria-label="Reverse" title="Reverse (R) — only at a stop">R</button>
+          <!-- THE STALK. One button cycling off → intermittent → low → high, rather than four
+               controls, because that is how the stalk on the column works and because the cab has
+               no room for a fourth row. The label IS the state: a control whose current setting you
+               have to remember is a control you stop using. -->
+          <button class="cab-btn cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high">⑊</button>
         </div>
         <div class="cab-pedals">
           <button class="cab-pedal cab-throttle" aria-label="Throttle">THROTTLE</button>
@@ -92,7 +97,7 @@ export function openCab(ctx = {}) {
     steerKey: 0,
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
-    hour: ctx.hour ?? 12, weather: ctx.weather || 'clear',
+    hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', wipers: 0,
     last: performance.now(), lastSync: 0, lastAudio: 0, raf: 0, hitCd: 0, prev: null, contacts: ctx.contacts || [],
   };
 
@@ -147,6 +152,7 @@ export function openCab(ctx = {}) {
   tap('.cab-down', () => truckShift(st.sim, P, -1));
   tap('.cab-splitbtn', () => truckSplit(st.sim, P));
   tap('.cab-rev', () => toggleReverse());
+  tap('.cab-wipe', () => cycleWipers());
 
   st.onKey = (e) => {
     if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
@@ -164,6 +170,7 @@ export function openCab(ctx = {}) {
     // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
     // report. It only takes at a stop, which is where a real box lets you have it too.
     else if (down && !e.repeat && k === 'r') toggleReverse();
+    else if (down && !e.repeat && k === 'v') cycleWipers();
     // STEERING BY KEYBOARD. Until this existed a keyboard driver could accelerate, brake and shift
     // — and could not turn, which is not a harder way to drive, it is not driving. It goes through
     // the wheel widget so the wheel on screen turns with it.
@@ -184,6 +191,18 @@ export function openCab(ctx = {}) {
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
     truckShift(st.sim, P, st.sim.gear < 0 ? 2 : -(st.sim.gear + 1));
+  }
+
+  // Wipers, off → intermittent → low → high → off. Purely a client-side control: the blade is
+  // drawn on the glass and clears the drops that are drawn on the glass, and neither of those
+  // things is a fact about the world, so nothing is told to the server about it.
+  function cycleWipers() {
+    st.wipers = ((st.wipers | 0) + 1) % 4;
+    const el = container.querySelector('.cab-wipe');
+    if (el) {
+      el.textContent = ['⑊', 'INT', 'LO', 'HI'][st.wipers];
+      el.classList.toggle('on', st.wipers > 0);
+    }
   }
 
   st.raf = requestAnimationFrame(frame);
@@ -208,8 +227,15 @@ export function cabContext(ctx) {
   // Out of diesel: the server says so and the pedal stops meaning anything. It clamps the speed
   // its own side too — this is the feel, not the enforcement.
   if (ctx.dry != null) st.dry = !!ctx.dry;
+  if (ctx.broken !== undefined) st.broken = ctx.broken || null;
   if (ctx.hour != null) st.hour = ctx.hour;
-  if (ctx.weather) st.weather = ctx.weather;
+  if (ctx.weather) {
+    st.weather = ctx.weather;
+    // Ask once, on the control itself. A driver who has never needed the stalk has no reason to
+    // know it is there, and the moment they do need it is the moment rain starts hitting the glass.
+    const wet = st.weather === 'rain' || st.weather === 'storm' || st.weather === 'acid_rain' || st.weather === 'snow';
+    st.container?.querySelector('.cab-wipe')?.classList.toggle('hint', wet && !(st.wipers | 0));
+  }
   // The trailer is the SERVER's fact; φ is the CLIENT's simulation of it — the same split as
   // everything else in the cab. Hitching mid-drive straightens the box behind us rather than
   // snapping it to an angle nobody drove it to.
@@ -268,7 +294,11 @@ function frame(now) {
   st.last = now;
   try {
     st.prev = { x: st.sim.x, y: st.sim.y };
-    if (st.dry) { st.input.throttle = 0; st.sim.rpm = 0; }
+    // Dead in the water, for either reason. A broken rig behaves exactly as a dry one does at the
+    // wheel — the pedal stops meaning anything and the motor is not turning — because from the
+    // driver's seat those two situations ARE the same situation, and giving the breakdown its own
+    // client-side behaviour would have been a second copy of the same three lines.
+    if (st.dry || st.broken) { st.input.throttle = 0; st.sim.rpm = 0; }
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
 
@@ -286,8 +316,10 @@ function frame(now) {
     const q = (s) => st.container.querySelector(s);
     q('.cab-mph').textContent = r.speed;
     q('.cab-odo').textContent = Math.max(0, Math.round(st.L - st.s));
-    q('.cab-surface').textContent = st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase();
-    q('.cab-surface').className = 'cab-surface s-' + st.input.surface;
+    // The one readout that is allowed to stop saying what it is named after: a driver who is not
+    // going anywhere needs to be told WHY before they need to be told what they are parked on.
+    q('.cab-surface').textContent = st.broken ? 'BROKEN' : st.dry ? 'NO FUEL' : (st.input.surface || 'road').toUpperCase();
+    q('.cab-surface').className = 'cab-surface s-' + (st.broken ? 'offroad' : st.input.surface);
     // The box. `best` is shown as a HINT beside the gear and never acted on — an automatic in a
     // truck sim is the whole game deleted. The tach is the same numbers as a dial because you are
     // meant to be able to drive on the sound alone and glance at this to confirm.
@@ -328,6 +360,13 @@ function frame(now) {
       cls: 'truck', phase: 'ground', worldBlend: 1,
       height: 0, speed: r.speed / 68,
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
+      // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
+      // and the renderer only throws the beam when the seeing is bad enough to want it (night OR
+      // weather — see the gloom gate in paintWindshield). A driver in midday fog was the case that
+      // made this necessary; before it, the one condition that needed lamps was the one that
+      // couldn't have them.
+      landingLight: true,
+      wipers: st.wipers | 0,
       // The mirrors need the articulation angle — it is the only place it is visible. The
       // binnacle needs the same numbers the DOM readouts show, because they are the same
       // instruments seen from the seat rather than a second set of facts.
@@ -381,6 +420,12 @@ function ensureCabStyles() {
     background:#191d22;border:1px solid #333a43;border-radius:4px;cursor:pointer;touch-action:none;user-select:none}
   .cab-btn:active,.cab-btn.on{background:#2b3138;border-color:#5c6672;color:#fff}
   .cab-clutch.on{border-color:#8a7ac0}
+  .cab-wipe{font-size:11px;letter-spacing:.06em}
+  .cab-wipe.on{border-color:#4e7a9a}
+  /* Rain on the glass and the stalk still off: the button asks once, rather than a line of prose
+     in the log telling a driver about a key. It stops the moment they touch it. */
+  .cab-wipe.hint{border-color:#6fa8d0;animation:cab-wipe-hint 1.1s ease-in-out infinite}
+  @keyframes cab-wipe-hint{0%,100%{box-shadow:0 0 0 0 rgba(111,168,208,0)}50%{box-shadow:0 0 0 3px rgba(111,168,208,0.28)}}
   .cab-jake.on{border-color:#4e8a9a}
   .cab-pedal{padding:8px 16px;font:600 11px/1 inherit;letter-spacing:.12em;color:#c8d2de;
     background:#191d22;border:1px solid #333a43;border-radius:4px;cursor:pointer;touch-action:none;user-select:none}

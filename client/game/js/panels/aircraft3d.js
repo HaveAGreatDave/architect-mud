@@ -1668,7 +1668,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 // The first GROUND vehicle in this file, and the reason it has to exist: `drawAircraftModel` is
 // per-class and every class here has wings, so a truck relayed as a contact would have rendered as
 // an aeroplane sliding along the road. This is deliberately a simple box set — a cab, a sleeper
-// hump, a long flat deck, six wheels — because it is only ever seen from a passing aircraft or
+// hump, a long flat deck, a row of hover lifters — because it is only ever seen from an aircraft or
 // across a yard, where a silhouette is the whole of the information.
 //
 // Local axes match the rest of the file: [fore, right, up], roughly ±0.5 fore and ±0.2 lateral, so
@@ -1689,11 +1689,13 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 //  aero     — 0..1 how much roof fairing the cab wears (0 is a bare flat-top, 1 a full wind kit)
 //  skirt    — 1 if the tractor has side fairings between the steps and the drives
 //  lamps    — 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
+//  rig      — what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
+//             null for the long-haul tractors, which run clean because they are built to pull)
 const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25 },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55 },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8 },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1 },
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, rig: 'cage' },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, rig: 'rack' },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  rig: null },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    rig: null },
 };
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
@@ -1735,12 +1737,28 @@ function buildTruck(variant = 'hauler', detail = 1) {
     faces.push(q);
   };
   const UV_FULL = [[0, 1], [1, 1], [1, 0], [0, 0]];
-  const wheel = (f, g, r = 0.048) => {
-    box(f - r, f + r, 0.022, -0.005, r * 1.15, 'gear', null, g);
+  // ── The lifters ────────────────────────────────────────────────────────────
+  // NOT WHEELS. A rig in this century rides on hover pods, and the first cut drew them as a dark
+  // box with a hub plate on it — which is a wheel with the roundness sanded off, so the whole
+  // fleet read as 20th-century semis somebody had forgotten to finish. Three things sell a lifter
+  // and it needs all three: it is CHAMFERED (a wide housing over a drawn-in shroud, never a
+  // brick), it is LIT LOW (an emitter band around its skirt, and a bloom on the road beneath it),
+  // and it HANGS OFF AN ARM with daylight above it — a machine holding itself up, not resting on
+  // something. `len` stretches a pod fore-aft, which is why the drive groups no longer draw a
+  // doubled pair: dual rims are an artefact of a tyre's contact patch and this has none.
+  const GLOW = [104, 214, 232];
+  const pod = (f, g, r = 0.048, len = 1) => {
+    const s = Math.sign(g || 1), L = r * len;
+    const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
+    box(f - L * 0.20, f + L * 0.20, 0.009, z1 - 0.006, 0.066, 'strut', null, g - s * 0.013);    // swing arm up into the frame
+    box(f - L, f + L, 0.024, z0 + r * 0.34, z1, 'gear', null, g);                               // housing
+    box(f - L * 0.88, f + L * 0.88, 0.018, z0, z0 + r * 0.36, 'gear', null, g);                 // shroud, drawn in under it
     if (!fine) return;
-    // A hub with a face on it. Two thin plates inboard of the tyre wall, bright enough to catch the
-    // key light — at any distance this is what separates a wheel from a black brick.
-    box(f - r * 0.42, f + r * 0.42, 0.008, r * 0.22, r * 0.86, 'strut', null, g - Math.sign(g || 1) * 0.021);
+    box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);    // the emitter band
+    box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.62, z0 + r * 0.80, 'strut', null, g);     // intake louvre on the flank
+    // The patch of road it stands on. Wider than the pod on purpose, so the light spills out from
+    // under it — from any angle above the beltline this is the only part of the lift you can see.
+    box(f - L * 1.5, f + L * 1.5, 0.034, 0.001, 0.004, 'window', [30, 92, 104], g);
   };
 
   // The tractor is laid out BACKWARDS from the nose, so every proportion is relative and a bigger
@@ -1830,12 +1848,32 @@ function buildTruck(variant = 'hauler', detail = 1) {
       box(nose1 - 0.002, nose1 + 0.002, S.w * 0.80, z, z + 0.008, 'strut');
     }
   }
+  // A cab-over has no bonnet, so its face was the screen and a blank wall under it — the two
+  // cheapest trucks were the only ones with nothing to look at. Give it a radiator panel and vents.
+  if (S.nose <= 0.001) {
+    box(nose1 - 0.002, nose1 + 0.004, S.w * 0.80, 0.070, scrLo - 0.012, 'strut');
+    for (let i = 0; fine && i < 3; i++) {
+      const z = 0.078 + i * 0.015;
+      box(nose1 + 0.004, nose1 + 0.008, S.w * 0.74, z, z + 0.007, 'strut');
+    }
+  }
   // Bumper, wider than the cab, with a chin spoiler raked under it.
   box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
   poly('body', 0.5, [[nose1 + 0.012, -S.w, 0.030], [nose1 + 0.012, S.w, 0.030],
                      [nose1 - 0.010, S.w, 0.010], [nose1 - 0.010, -S.w, 0.010]]);
-  // Headlamps, and a bar of driving lights across the bumper on the rigs that wear one.
-  for (const g of [-1, 1]) box(nose1 - 0.004, nose1 + 0.006, 0.022, 0.062, 0.096, 'window', [214, 202, 156], g * S.w * 0.68);
+  // HEADLAMPS, CLEAR OF THE GRILLE. They used to sit at ±0.68w in the same fore-aft slice as the
+  // grille surround (±0.84w) — buried inside it, so the painter's sort showed one lamp and ate the
+  // other, and a one-eyed truck is the first thing anybody notices. They now stand OUTBOARD of the
+  // surround and proud of its front face, which no sort order can undo. Each is a dark housing
+  // with a bright lens set into it rather than a single pale square, and the rigs that carry any
+  // lamp kit at all wear a running-light brow over the top.
+  const lampG = S.w * 0.88, lampF = nose1 + 0.004, lampZ = S.nose > 0.001 ? 0.062 : 0.046;
+  for (const g of [-1, 1]) {
+    box(lampF - 0.012, lampF, 0.027, lampZ - 0.004, lampZ + 0.040, 'strut', null, g * lampG);
+    box(lampF, lampF + 0.006, 0.022, lampZ, lampZ + 0.034, 'window', [238, 228, 182], g * lampG);
+    if (fine && S.lamps > 0.4) box(lampF + 0.001, lampF + 0.007, 0.024, lampZ + 0.036, lampZ + 0.043, 'window', GLOW, g * lampG);
+  }
+  // A bar of driving lights across the bumper on the rigs that wear one.
   if (fine && S.lamps > 0.7) {
     for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.036, 0.052, 'window', [220, 226, 236], i * S.w * 0.42);
   }
@@ -1862,16 +1900,43 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(cab1 - 0.030, cab1 - 0.024, 0.024, S.hi * 0.70, S.hi * 0.74, 'strut', null, g * (S.w + 0.012));   // the arm itself
   }
 
-  // Wheels. Steer axle under the nose, then one or two drive groups — and the drive groups are
-  // DOUBLED (two rims a side), which is the give-away that something is rated to pull.
-  const gOut = S.w * 1.02;
+  // Lifters. A steering pod under the nose, then one or two drive groups. A single-drive rig gets
+  // one LONG pod (which is what a light truck looks like when it has nothing to double up), a
+  // twin-drive gets two shorter ones spaced along the frame — the same "rated to pull" read the
+  // doubled rims used to carry, without pretending there are tyres involved.
+  const gOut = S.w * 1.02, driveLen = S.axles > 1 ? 0.95 : 1.5;
   for (const g of [-gOut, gOut]) {
-    wheel(nose0 + 0.035, g, 0.046);
-    for (let a = 0; a < S.axles; a++) {
-      const f = frame0 + 0.055 + a * 0.105;
-      wheel(f, g, 0.052);
-      wheel(f, g - Math.sign(g) * 0.042, 0.052);            // the inner of the dual
+    pod(nose0 + 0.035, g, 0.046, 1.05);
+    for (let a = 0; a < S.axles; a++) pod(frame0 + 0.055 + a * 0.105, g, 0.052, driveLen);
+  }
+  // THE BACK OF THE TRACTOR. Bobtail is a real way to drive, and running empty is the one time
+  // this face is what another driver sees for an hour — it was a blank grey wall.
+  for (const g of [-1, 1]) box(frame0 - 0.012, frame0 - 0.004, 0.016, 0.052, 0.070, 'window', [196, 66, 54], g * S.w * 0.66);
+  if (fine) box(frame0 - 0.011, frame0 - 0.004, S.w * 0.30, 0.074, 0.080, 'window', [230, 210, 140]);
+  // Underglow along the frame rails on the rigs that wear the full lamp kit. It is the beltline
+  // strip's answer underneath, and on a machine held up by light it is the least arbitrary lamp
+  // on the truck.
+  if (fine && S.lamps > 0.7) {
+    for (const g of [-1, 1]) box(frame0 + 0.01, cab1 - 0.05, 0.004, 0.024, 0.030, 'window', [46, 130, 146], g * S.w * 0.66);
+  }
+  // A beacon on the roof of the rigs with no wind kit — the working trucks' equivalent of the
+  // long-hauler's sensor pod, so each end of the ladder has its own thing on top.
+  if (fine && S.aero < 0.5) {
+    const bTop = S.hi + S.sleeper;
+    box(cab1 - 0.078, cab1 - 0.056, 0.014, bTop, bTop + 0.006, 'strut');
+    box(cab1 - 0.075, cab1 - 0.059, 0.011, bTop + 0.006, bTop + 0.017, 'window', [244, 168, 64]);
+  }
+  // What a BOBTAIL carries on its bare deck. The deck plate was the largest blank surface on the
+  // cheap trucks, and a scrap rig running with an empty cage is a silhouette in its own right.
+  if (!hitched && S.rig === 'cage') {
+    for (const g of [-1, 1]) {
+      for (const f of [frame0 + 0.014, cab0 - 0.014]) box(f - 0.004, f + 0.004, 0.005, 0.070, 0.150, 'strut', null, g * S.w * 0.74);
+      for (const z of [0.106, 0.146]) box(frame0 + 0.010, cab0 - 0.010, 0.004, z, z + 0.005, 'strut', null, g * S.w * 0.74);
     }
+    if (fine) box(frame0 + 0.024, cab0 - 0.024, S.w * 0.56, 0.084, 0.118, 'body');            // the load in it
+  } else if (!hitched && S.rig === 'rack') {
+    box(frame0 + 0.030, cab0 - 0.020, S.w * 0.66, 0.084, 0.112, 'body');
+    if (fine) for (const f of [frame0 + 0.052, frame0 + 0.088]) box(f - 0.003, f + 0.003, S.w * 0.68, 0.112, 0.116, 'strut');   // ratchet straps
   }
 
   if (hitched) {
@@ -1898,9 +1963,8 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // Landing legs: the two cranked struts a dropped trailer stands on. They are the reason a box
     // parked in a yard doesn't fall on its nose, and the yard is exactly where this mesh is seen.
     for (const g of [-1, 1]) box(t1 - 0.09, t1 - 0.075, 0.010, 0.005, 0.078, 'strut', null, g * S.w * 0.72);
-    for (const g of [-gOut, gOut]) {                                   // bogie under the tail
-      wheel(t0 + 0.075, g, 0.050); wheel(t0 + 0.075, g - Math.sign(g) * 0.040, 0.050);
-      wheel(t0 + 0.165, g, 0.050); wheel(t0 + 0.165, g - Math.sign(g) * 0.040, 0.050);
+    for (const g of [-gOut, gOut]) {                                   // lifter bogie under the tail
+      pod(t0 + 0.075, g, 0.050, 1.0); pod(t0 + 0.185, g, 0.050, 1.0);
     }
     if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
@@ -3400,6 +3464,141 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 
+// ── The truck depot ──────────────────────────────────────────────────────────
+// NOT THE HANGAR WITH AN OIL STAIN ON IT. The first cut drew the yard by handing
+// `drawHangarBackdrop` a brown tint and a wider door, which is a reasonable saving right up until
+// you look at it: the room still had an aircraft hangar's fluorescent truss hanging where a rig's
+// stacks would be, aviation crates on the floor, and a polished-concrete sheen no yard has ever
+// had. What actually distinguishes the two buildings is not decoration, it's the WORK:
+//   · sodium, not fluorescent — a yard is lit amber from wall floods, never white from above,
+//     and nothing HANGS from the roof because the tallest thing in here is 13 feet of exhaust
+//   · an inspection PIT in the floor, the one feature no hangar has and every depot does
+//   · bays, not a lane — a yard is painted into numbered parking bays that converge on the door
+//   · what's stacked against the wall is LIFTER PODS and drums, not aviation crates
+// It shares `drawOutsideWorld` and the hazard-stripe helper with the hangar, because the weather
+// beyond the door and the paint on the floor genuinely are the same thing in both buildings.
+function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
+  const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
+  const night = sky?.night ?? 0;
+  // Back wall: a block lower course under a corrugated upper, warmer and dirtier than the hangar's.
+  let g = ctx.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, '#2b2a2a'); g.addColorStop(1, '#40403c');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
+  ctx.strokeStyle = 'rgba(206,196,180,0.10)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= w; x += 18) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, horizon * 0.62); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(24,24,26,0.35)'; ctx.fillRect(0, horizon * 0.62, w, horizon * 0.38);      // block course
+  ctx.strokeStyle = 'rgba(180,176,168,0.10)';
+  for (let y = horizon * 0.62; y < horizon; y += 9) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  // Bay numbers stencilled on the wall — the yard tells you where to park, which is most of what
+  // makes a depot read as a depot rather than a shed with vehicles in it.
+  ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(232,206,140,0.16)';
+  ctx.fillText('02', w * 0.16, horizon * 0.52); ctx.fillText('03', w * 0.84, horizon * 0.52);
+  ctx.textAlign = 'left';
+  drawNoticeBoard(ctx, w * 0.06, horizon * 0.62, 34, 24);
+  drawExtinguisher(ctx, w * 0.95, horizon * 0.74);
+
+  // The roller shutter, rolled most of the way up: a drum of coiled slat above the opening. A
+  // depot's door is wide and SHORT — it is sized to a trailer, and the lintel is right on its roof.
+  const doorW = w * doorFrac, doorH = horizon * 0.66, doorY = horizon - doorH;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx - doorW * 0.44, horizon); ctx.lineTo(cx - doorW * 0.5, doorY);
+  ctx.lineTo(cx + doorW * 0.5, doorY); ctx.lineTo(cx + doorW * 0.44, horizon);
+  ctx.closePath(); ctx.clip();
+  drawOutsideWorld(ctx, cx - doorW * 0.5, doorY, cx + doorW * 0.5, horizon, sky);
+  ctx.restore();
+  ctx.fillStyle = '#31363a'; ctx.fillRect(cx - doorW * 0.54, doorY - 13, doorW * 1.08, 13);        // shutter box
+  ctx.strokeStyle = 'rgba(150,150,142,0.35)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { const y = doorY - 13 + i * 3.2; ctx.beginPath(); ctx.moveTo(cx - doorW * 0.54, y); ctx.lineTo(cx + doorW * 0.54, y); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(28,30,32,0.8)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(cx - doorW * 0.5, doorY); ctx.lineTo(cx - doorW * 0.5, horizon);
+  ctx.moveTo(cx + doorW * 0.5, doorY); ctx.lineTo(cx + doorW * 0.5, horizon); ctx.stroke();
+
+  // Sodium floods on wall brackets, throwing DOWN the wall — no ceiling truss, nothing hanging in
+  // the space a rig's stacks occupy. Two of them, amber, and they carry the whole room's colour.
+  for (const fx of [w * 0.22, w * 0.78]) {
+    ctx.strokeStyle = 'rgba(120,120,112,0.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(fx, horizon * 0.10); ctx.lineTo(fx, horizon * 0.20); ctx.stroke();
+    ctx.fillStyle = '#4a4a44'; ctx.fillRect(fx - 9, horizon * 0.20, 18, 6);
+    const lg = ctx.createRadialGradient(fx, horizon * 0.26, 2, fx, horizon * 0.26, 46 + night * 22);
+    lg.addColorStop(0, `rgba(255,206,124,${0.42 + night * 0.2})`); lg.addColorStop(1, 'rgba(255,206,124,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(fx, horizon * 0.26, 46 + night * 22, 0, 7); ctx.fill();
+  }
+  // A gantry beam across the back of the bay with a chain hoist hanging off it — the depot's own
+  // overhead, low and structural, where the hangar has a lighting truss.
+  ctx.strokeStyle = 'rgba(96,94,88,0.9)'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(0, horizon * 0.34); ctx.lineTo(w, horizon * 0.34); ctx.stroke();
+  ctx.strokeStyle = 'rgba(70,70,66,0.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(w * 0.34, horizon * 0.34); ctx.lineTo(w * 0.34, horizon * 0.52); ctx.stroke();
+  ctx.fillStyle = '#5a4a2a'; ctx.fillRect(w * 0.34 - 5, horizon * 0.52, 10, 8);
+
+  // Floor: oil-dark concrete, warmer than the hangar's polished grey, with painted BAYS rather
+  // than a single lane, and a couple of old spills soaked into it.
+  g = ctx.createLinearGradient(0, floorTop, 0, h);
+  g.addColorStop(0, '#3d3a36'); g.addColorStop(1, '#211f1e');
+  ctx.fillStyle = g; ctx.fillRect(0, floorTop, w, h - floorTop);
+  ctx.strokeStyle = 'rgba(226,204,132,0.30)'; ctx.lineWidth = 2;
+  for (const i of [-3, -1, 1, 3]) { ctx.beginPath(); ctx.moveTo(cx + i * w * 0.052, floorTop); ctx.lineTo(cx + i * w * 0.30, h); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(226,204,132,0.14)'; ctx.lineWidth = 1;
+  for (const f of [0.3, 0.66]) { const y = floorTop + (h - floorTop) * f; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  for (const [sx, sy, sr] of [[0.30, 0.80, 0.075], [0.62, 0.70, 0.05], [0.46, 0.92, 0.09]]) {
+    const st = ctx.createRadialGradient(w * sx, h * sy, 1, w * sx, h * sy, w * sr);
+    st.addColorStop(0, 'rgba(12,10,10,0.5)'); st.addColorStop(1, 'rgba(12,10,10,0)');
+    ctx.fillStyle = st; ctx.beginPath(); ctx.ellipse(w * sx, h * sy, w * sr, w * sr * 0.42, 0, 0, 7); ctx.fill();
+  }
+  // THE PIT. The one thing a hangar never has: a lined trench in the floor with a rail round it,
+  // set off the parking bay so nothing is ever parked over it.
+  const pitY = floorTop + (h - floorTop) * 0.34, pitH = (h - floorTop) * 0.26;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.055, pitY + pitH); ctx.lineTo(w * 0.145, pitY); ctx.lineTo(w * 0.27, pitY); ctx.lineTo(w * 0.235, pitY + pitH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(10,10,11,0.92)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(226,204,132,0.5)'; ctx.lineWidth = 2; ctx.stroke();
+  for (const px of [0.075, 0.255]) {   // the handrail stanchions down the near lip
+    ctx.strokeStyle = 'rgba(150,150,142,0.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w * px, pitY + pitH); ctx.lineTo(w * px, pitY + pitH - 16); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(w * 0.075, pitY + pitH - 16); ctx.lineTo(w * 0.255, pitY + pitH - 16); ctx.stroke();
+
+  drawHazardStripe(ctx, 0, h - (h - floorTop) * 0.08, w, (h - floorTop) * 0.05);
+  // Yard clutter: a rack of spare LIFTER PODS (this fleet's tyre stack), drums, and a charge post
+  // with its hose looped over the handle.
+  drawPodStack(ctx, w * 0.055, h * 0.70);
+  drawDrum(ctx, w * 0.16, h * 0.735, 9, '#6a5a24');
+  drawDrum(ctx, w * 0.20, h * 0.75, 8, '#5a2a22');
+  drawChargePost(ctx, w * 0.90, h * 0.72, night);
+  // The floor wash is sodium here, not the hangar's cold white.
+  const pool = ctx.createRadialGradient(cx, h * 0.88, 4, cx, h * 0.88, w * 0.55);
+  pool.addColorStop(0, `rgba(255,214,150,${0.16 + night * 0.12})`); pool.addColorStop(1, 'rgba(255,214,150,0)');
+  ctx.fillStyle = pool; ctx.fillRect(0, floorTop, w, h - floorTop);
+  const vg = ctx.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.42, cx, h * 0.5, Math.max(w, h) * 0.85);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.36)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+}
+// A stack of spare lifter pods on a pallet — the depot's answer to a tyre stack, and the prop that
+// most directly says "the things this place works on do not have wheels".
+function drawPodStack(ctx, x, y) {
+  ctx.fillStyle = '#4a4038'; ctx.fillRect(x - 4, y + 12, 46, 5);                       // pallet
+  for (let i = 0; i < 3; i++) {
+    const py = y + 8 - i * 9, pw = 38 - i * 3;
+    ctx.fillStyle = i % 2 ? '#2e3338' : '#343a40';
+    ctx.beginPath(); ctx.ellipse(x + 19, py, pw / 2, 5.5, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(104,214,232,0.35)';                                        // the emitter band, still faintly live
+    ctx.beginPath(); ctx.ellipse(x + 19, py + 2, pw / 2 - 3, 3.4, 0, 0.2, 2.94); ctx.stroke();
+  }
+}
+// A charge post: the yard's fuel island for a machine that runs on cells, with its cable looped
+// over the handle and a live indicator that brightens after dark.
+function drawChargePost(ctx, x, y, night = 0) {
+  ctx.fillStyle = '#3c4248'; ctx.fillRect(x, y - 34, 14, 34);
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(x, y - 34, 14, 34);
+  ctx.fillStyle = `rgba(120,226,240,${0.55 + night * 0.35})`; ctx.fillRect(x + 3, y - 30, 8, 5);
+  ctx.strokeStyle = 'rgba(30,34,38,0.8)'; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(x + 2, y - 20); ctx.quadraticCurveTo(x - 14, y - 12, x - 6, y - 2); ctx.stroke();
+}
+
 function drawHangarBackdrop(ctx, w, h, { tint, doorFrac = 0.34, sky } = {}) {
   const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
   // Back wall + ceiling above the horizon — a lit industrial grey, not a black void.
@@ -3547,6 +3746,10 @@ export function drawHangarFloorBay(ctx, opts) {
   // used by the mechanics-bench hero shot, which sits over the panel's own themed
   // background instead of a hangar interior.
   if (opts.floor3d) drawInspectBackdrop(ctx, opts.w, opts.h, opts.venue, opts.sky);   // walkaround inspect — a 3D floor, not the 2D room
+  // The bench hero stands in the SAME building the floor scene showed. It used to draw the hangar
+  // whatever venue it was handed, so a rig on the bench was parked in an aircraft shed one tab away
+  // from its own depot.
+  else if (opts.venue === 'garage' && !opts.flat) drawDepotBackdrop(ctx, opts.w, opts.h, { sky: opts.sky });
   else if (!opts.flat) drawHangarBackdrop(ctx, opts.w, opts.h, { tint: opts.tint, sky: opts.sky });
   if (opts.cls) paintTurntable(ctx, opts);
 }
@@ -3562,11 +3765,9 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
   if (venue === 'helipad') drawHelipadBackdrop(ctx, w, h, { sky });
-  // A truck depot is a hangar with an oil stain on it: the same shed, lit sodium rather than
-  // fluorescent, with the roller door open wider because the thing that lives in it drives out
-  // rather than being towed. One tint and one door fraction, not a second backdrop painter.
-  else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.86, (venue === 'garage' ? 0.44 : 0.34) + n * 0.05),
-    tint: venue === 'garage' ? 'rgba(58,40,20,0.30)' : undefined, sky });
+  // A truck depot is its OWN room — see drawDepotBackdrop for why a tint over the hangar wasn't it.
+  else if (venue === 'garage') drawDepotBackdrop(ctx, w, h, { doorFrac: Math.min(0.9, 0.5 + n * 0.05), sky });
+  else drawHangarBackdrop(ctx, w, h, { doorFrac: Math.min(0.86, 0.34 + n * 0.05), sky });
   if (!n) return [];
 
   const E = 0.34, cosE = Math.cos(E), sinE = Math.sin(E);

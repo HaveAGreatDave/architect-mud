@@ -149,6 +149,66 @@ export const burnMul = (cd = {}) => 1 + Math.max(0, cd.tune?.boost || 0) * 0.18 
 // with money tied up in it and nothing to do, which is a punishment with no play in it.
 export const startTrouble = (condition) => (condition ?? 1) < 0.18 && Math.random() < 0.35;
 
+// ── Breakdowns ───────────────────────────────────────────────────────────────
+// The thing that makes condition matter ON THE ROAD rather than only at a bench. Until this
+// existed, a derelict truck was slow and thirsty and would occasionally decline to start, and
+// every one of those is a number you read in a yard — nothing the bar did could ever happen to
+// you at sixty miles an hour with a hundred tiles of nothing in each direction.
+//
+// FOUR RULES, and each is a decision not to build the obvious version:
+//
+//  1. IT IS ALWAYS THE CONDITION BAR'S FAULT, AND YOU WERE TOLD. The chance is zero above Tired
+//     and climbs as the square of how far below it you are, so a breakdown is never a bolt from a
+//     clear sky — it is the bill for a decision you made at the last bench you drove past. A
+//     random failure on a Sound truck would make every haul feel arbitrary and every repair feel
+//     pointless, which is the opposite of what condition is for.
+//  2. NO DAMAGE MODEL. `key` picks the PROSE, not a broken component — condition stays one scalar
+//     (rule 1 of this file) and a fix is a fix. What the table buys is that the road tells you a
+//     different story each time, not that a hose and a turbo behave differently.
+//  3. A FIX BUYS DISTANCE, NOT HEALTH. Roadside work gets you rolling again and grants a stretch
+//     of immunity; it does not move the bar. So a broken rig limps to a town and gets fixed
+//     properly, instead of being repaired to full strength by a driver with a spanner in the
+//     middle of a waste — and the bench keeps its job.
+//  4. IT NEVER STRANDS ANYBODY FOREVER. Attempts always come good eventually (see `fixOdds`), and
+//     a driver who has had enough can climb down and walk: the drive IS the crossing, so leaving
+//     the truck finishes the journey on foot exactly as it always has.
+export const BREAKDOWNS = {
+  hose:   { label: 'a coolant hose', broke: 'Something lets go under the cab with a bang, and the mirrors fill with white. The temperature needle is already off the top of its arc.', fixed: 'You get a clamp round the split and enough water back in her to matter. It will do. It will not do forever.' },
+  lifter: { label: 'a lifter pod', broke: 'The nearside drops half a foot and stays there, and the whole rig slews as the pod under it stops holding anything up. The emitter band is dark.', fixed: 'You get the pod cycling again — it comes up ragged, and it is holding, and you have stopped asking for more than that.' },
+  fuel:   { label: 'the fuel line', broke: 'She surges, catches, surges again, and quits. Somewhere between the tank and the motor there is air where there should be diesel.', fixed: 'You bleed the line by hand until the air stops coming through, and she catches on the fourth turn.' },
+  turbo:  { label: 'the turbo', broke: 'A shriek from behind the cab climbs somewhere it should never reach and then stops dead. Everything after that is very quiet and very slow.', fixed: 'You cannot fix a turbo on a shoulder. You can strap it, blank it off, and drive the rest of it on what is left of the motor.' },
+  brakes: { label: 'a brake line', broke: 'The pedal goes soft, then goes to the floor. Air is getting out somewhere and the whole system knows it.', fixed: 'You cap off the line that was leaking. You have fewer brakes than you started with, and you have brakes.' },
+};
+const BREAK_KEYS = Object.keys(BREAKDOWNS);
+
+// Chance per tile, and the whole tuning of the feature. Zero above Tired (0.5) so the top three
+// bands are mechanically clean; quadratic below it so Ailing is a gamble and Derelict is a matter
+// of when. Roughly: 500 tiles (about a crossing) at Derelict ≈ 60%, at Ailing ≈ 20%, at the very
+// bottom of Tired ≈ 1%. Bad ground doubles it — a rig shaken to pieces on the verge is the driver's
+// own doing and should read that way.
+const BREAK_PER_TILE = 0.011;
+export function breakChance(tiles, { condition = 1, surface = 'road' } = {}) {
+  const deficit = Math.max(0, 0.5 - (condition ?? 1));
+  if (deficit <= 0) return 0;
+  const rough = surface === 'offroad' ? 2 : surface === 'shoulder' ? 1.4 : 1;
+  return Math.max(0, tiles) * BREAK_PER_TILE * deficit * deficit * rough;
+}
+export function breakdownRoll(tiles, opts = {}) {
+  const p = breakChance(tiles, opts);
+  if (p <= 0 || Math.random() >= p) return null;
+  return BREAK_KEYS[Math.floor(Math.random() * BREAK_KEYS.length)];
+}
+// How likely a roadside attempt is to take. Fabrication is the skill that already widens the
+// bench's dials, so it is the one a driver has been building for exactly this. The ESCALATION is
+// the important half: every failed attempt makes the next one likelier, so the tail is bounded and
+// nobody sits on a shoulder rolling dice into the dark. By the fourth go it is certain.
+export function fixOdds(fabrication = 0, attempts = 0) {
+  return Math.min(1, 0.34 + (fabrication || 0) / 160 + attempts * 0.22);
+}
+// What a successful roadside fix buys: tiles of immunity, not condition. Enough to reach the far
+// side of a crossing from about half way, and never enough to make a bench optional.
+export const FIX_GRACE_TILES = 260;
+
 // ── Paint ────────────────────────────────────────────────────────────────────
 // Deliberately thinner than an aircraft's livery: a truck wears a colour, a flash down the flank
 // and a name on the door. The door name is the plate the fleet already stores, so it is not

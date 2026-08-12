@@ -26,10 +26,11 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getZone, getLivePlayer } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { findPath } from '../../server/engine/pathfinding.js';
-import { rigs, driveToZone, crossToNode, surfaceUnder } from './state.js';
+import { rigs, driveToZone, crossToNode, surfaceUnder, announceBreak, cbLine } from './state.js';
 import { TILES_PER_ROOM } from './corridor.js';
 import { afterDrive } from './scale.js';
 import { hitcherAt } from './hitchers.js';
+import { wearFor, breakdownRoll } from './rig.js';
 import { createTruckState, step, truckReadout, truckShift, truckSplit } from '../../client/game/js/panels/flight-model.js';
 
 // One tile of city road, or one slice of corridor, per tick. 2s is deliberately unhurried: the
@@ -146,13 +147,24 @@ const CITY_LINES = [
 ];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-// Fuel burns on distance here too, off the TRUCK's own tank — a text driver must not get free
-// range. Sets the same `dry` flag reconcileTruck does, so both rungs stop the same way.
+// Everything distance costs, in one place, because a rung that skips one of them is a way to opt
+// out of a constraint the other rung obeys — which is exactly what the display-mode contract says
+// a rung must never be. Fuel off the TRUCK's own tank, wear off the same `wearFor` the driven leg
+// uses, and the same breakdown roll. It sets the same `dry`/`broken` flags reconcileTruck does, so
+// both rungs stop for the same reasons and `fix` is one verb rather than two.
 function burn(rig, tiles) {
   const was = rig.fuel;
   rig.fuel = Math.max(0, rig.fuel - tiles / (rig.type?.tank || 1400));
   rig.travelled = (rig.travelled || 0) + tiles;
   if (was > 0 && rig.fuel <= 0) rig.dry = true;
+  const surface = surfaceUnder(rig);
+  rig.condition = Math.max(0, (rig.condition ?? 1)
+    - wearFor(tiles, { surface, tune: rig.cd?.tune || {}, condition: rig.condition ?? 1 }));
+  if (rig.fixGrace > 0) rig.fixGrace = Math.max(0, rig.fixGrace - tiles);
+  if (!rig.broken && !rig.fixGrace) {
+    const kind = breakdownRoll(tiles, { condition: rig.condition ?? 1, surface });
+    if (kind) rig.broken = { kind, attempts: 0, told: false };
+  }
 }
 
 // Live text runs, keyed by player id. RAM only, like the rig itself.
@@ -212,6 +224,10 @@ async function stepRun(player, rig, run) {
     }
     return;
   }
+  // Broken down stops a text run the same way, and through the SAME announcement — the prose and
+  // the `fix` prompt live in index.js so the two rungs cannot drift into telling different stories
+  // about the same failure.
+  if (rig.broken) { announceBreak(player, rig); return; }
 
   if (rig.leg === 'corridor') {
     const covered = drivePhysics(rig, run);
@@ -223,6 +239,10 @@ async function stepRun(player, rig, run) {
     if (node !== rig.node) {
       const zone = await crossToNode(player, rig, node);
       if (zone) narrate(player, `<span class="text-dim">— ${zone.name} —</span> <span class="text-dim">${rig.chain.length - node - 1} to go.</span>`);
+      // The radio is a rung-neutral thing: it says the same lines, on the same node crossings, in
+      // whichever cab you are sitting in. A text driver who could not hear a wreck reported ahead
+      // would be missing information the other rung gets, which is the one thing a rung may not do.
+      cbLine(player, rig);
       // The same figure on the same shoulder. One law, both rungs — `hitcherAt` is a pure function
       // of the route and the node, so there is nothing here to keep in step.
       const who = hitcherAt(rig.route, node, rig.chain.length);

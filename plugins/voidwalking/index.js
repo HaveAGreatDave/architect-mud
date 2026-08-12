@@ -1014,7 +1014,11 @@ export function crossingDest(instanceId, destKey) {
 export function crossingInfo(instanceId) {
   const c = crossings.get(instanceId);
   if (!c) return null;
-  return { voidKey: c.voidKey, window: c.window, origin: c.origin, entry: c.entry, dests: c.dests };
+  // `trunk` is the number of SHARED rooms before the fork. A walker never needed it — they take
+  // an exit and the world decides — but anything laying its own geometry over the crossing does:
+  // it is the boundary between the road everybody drives and the limb you chose. (THE LONG HAUL.)
+  return { voidKey: c.voidKey, window: c.window, origin: c.origin, entry: c.entry, dests: c.dests,
+    trunk: Math.max(1, VOIDS[c.voidKey]?.trunk || 1) };
 }
 
 export const commands = {

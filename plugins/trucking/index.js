@@ -39,12 +39,14 @@ import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
   setCondition, saveTruckData, setFuel } from './fleet.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
-  repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul } from './rig.js';
+  repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul,
+  BREAKDOWNS, fixOdds, FIX_GRACE_TILES } from './rig.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
-import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing } from '../voidwalking/index.js';
+import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
-  joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear } from './state.js';
+  joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM } from './corridor.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
@@ -969,6 +971,28 @@ async function cmdPark(args, raw, player) {
   // standing on a public street in the fiction and missing from the garage floor in the panel.
   const home = bayForYard(rig.zoneId);
   if (home) rig.zoneId = home.zone.id;
+  // WALKING AWAY FROM IT OUT THERE. Climbing down mid-crossing wrote the void ROOM as the truck's
+  // depot — and those rooms are transient, so the instance was torn down behind you and a rig
+  // you owned was parked at an id with nothing on the other side of it. It could not be found,
+  // driven, sold or repaired.
+  //
+  // So the road hands it to a recovery yard instead: the truck goes back to the depot it left and
+  // wants a fee to come out, which is the `impound_fee` path the scale house already owns and
+  // `drive` already knows how to settle. Nothing new is invented to charge you — abandonment and
+  // confiscation end in the same lot, which is exactly right, and priced off the truck because
+  // what you are paying for is somebody going and getting it.
+  const abandoned = rig.leg !== 'city' && (rig.broken || rig.dry || rig.s > 2);
+  if (abandoned) {
+    rig.zoneId = rig.fromDepot || null;
+    const fee = Math.max(250, Math.round((rig.type?.price || 4000) * 0.05));
+    if (rig.truckId) await query('UPDATE trucks SET impound_fee = $1 WHERE id = $2', [fee, rig.truckId]).catch(() => {});
+    // And the road remembers. See markWreck: this is where the roadside wrecks come from — every
+    // one of them is a haul somebody did not finish, and yours is now one of them.
+    markWreck(rig, player);
+    sendToPlayer(player.id, { type: 'emote', message:
+      `<span class="text-amber">You leave it on the shoulder with the flashers going and start walking. Somebody will come out for it eventually.</span>\n`
+      + `<span class="text-dim">Recovery to ${depotNameOf(rig.fromDepot) || 'the yard'}: <b>${fee}₵</b>, payable when you next go to drive it.</span>` });
+  }
   await persistTruck(rig);
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
@@ -1004,6 +1028,7 @@ async function cmdTruckSync(args, raw, player) {
     rig.warnLow = false;
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">A light comes on that you have been waiting for. Low fuel.</span>' });
   }
+  announceBreak(player, rig);
 
   // ── City leg ──
   if (r.city) {
@@ -1043,6 +1068,22 @@ async function cmdTruckSync(args, raw, player) {
     // SOMEBODY ON THE SHOULDER. Announced on the node crossing, because a hitchhiker you were never
     // told about is a verb nobody types. Same reason the scale announces itself: this whole phase is
     // decisions taken in advance, and you cannot decide about a thing you did not see.
+    // THE JUNCTION, ANNOUNCED. The last trunk room is where the two roads part, and a fork you
+    // only find out about by having already taken one side of it is not a decision. Same principle
+    // as the scale house and the hitchhiker: this whole phase is about choices made in advance.
+    if (rig.trunk && r.node === rig.trunk - 1) {
+      const info = crossingInfo(rig.instanceId);
+      const others = (info?.dests || []).filter(d => d.key !== rig.destKey);
+      if (others.length) {
+        sendToPlayer(player.id, {
+          type: 'emote',
+          message: '<span class="text-amber">A junction, of sorts: the graded road splits around a stand of dead pylons and both halves go on being road.</span>'
+            + ` <span class="text-dim">You are on the ${(info.dests.find(d => d.key === rig.destKey)?.heading) || 'far'} side of it. `
+            + `${others.map(d => `<b>${d.heading}</b>`).join(', ')} the other way — ${teachVerb('route', 'route')} while you are still on it.</span>`,
+        });
+      }
+    }
+    cbLine(player, rig);
     const who = hitcherAt(rig.route, r.node, rig.chain?.length || 1);
     if (who && !rig.rider) {
       sendToPlayer(player.id, {
@@ -1064,6 +1105,49 @@ async function cmdTruckSync(args, raw, player) {
   }
   pushCab(rig);
   return { type: 'noop' };
+}
+
+// `cb` — the one control the radio has. On by default, because a channel you have to discover is
+// a channel nobody hears, and off in one word for a driver who would rather have the road.
+async function cmdCb(args, raw, player) {
+  const rig = rigOf(player);
+  if (!rig) return say('You are not driving anything.');
+  rig.cbOff = !rig.cbOff;
+  return say(rig.cbOff
+    ? '<span class="text-dim">You turn the squelch all the way up and the cab goes quiet.</span>'
+    : '<span class="text-dim">You bring the CB back up. Somewhere out in the dark, several people are already mid-argument.</span>');
+}
+
+// ── Breakdowns ───────────────────────────────────────────────────────────────
+// `fix` — the roadside attempt. See the four rules in rig.js: this buys DISTANCE, never health,
+// and it cannot fail forever (each attempt raises the odds of the next). It is deliberately not
+// the bench's `rig repair`: no money changes hands, nothing is ordered, and the truck is exactly
+// as worn out at the end of it as it was at the start.
+async function cmdFix(args, raw, player) {
+  const rig = rigOf(player);
+  if (!rig) return say('You are not driving anything.');
+  if (!rig.broken) {
+    return say(rig.dry
+      ? 'There is nothing wrong with it that a tank of diesel would not solve.'
+      : 'Nothing on it is broken. Wear is a bench job — see <span class="text-dim">rig repair</span>.');
+  }
+  const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
+  const fab = await effectiveSkill(player, 'fabrication');
+  const odds = fixOdds(fab, rig.broken.attempts);
+  rig.broken.attempts++;
+  if (Math.random() >= odds) {
+    await awardSkillUse(player.id, 'fabrication', 0);
+    return say(`<span class="text-amber">You get at ${b.label} with what is in the box, and it beats you. `
+      + `You are dirtier, the light is worse, and it is still broken.</span> <span class="text-dim">Again, then.</span>`);
+  }
+  // FIXED, FOR A WHILE. The grace window is the whole design: it is why you limp to a town instead
+  // of living out here with a spanner, and it is why the bench still exists.
+  rig.broken = null;
+  rig.fixGrace = FIX_GRACE_TILES;
+  await awardSkillUse(player.id, 'fabrication', 2);
+  pushCab(rig, { fixed: true });
+  return say(`<span class="item-grant">${b.fixed}</span>\n`
+    + `<span class="text-dim">It will hold for a while. It is not repaired — that is a bench and a bill, and the bar on it has not moved.</span>`);
 }
 
 // ── truckevent ───────────────────────────────────────────────────────────────
@@ -1155,19 +1239,108 @@ async function leaveTheMap(player, rig, broadcast) {
   const info = player._crossing && crossingInfo(player._crossing.instanceId);
   if (!info) { await cmdPark([], '', player); return res || { type: 'noop' }; }
 
-  const destKey = info.dests?.[0]?.key;
+  // WHICH WAY. This used to be `dests[0]` — the first row of the table, forever — which quietly
+  // made half the map unreachable by road: Terminus is designed as a truck destination (it is
+  // deliberately beyond the range of the two cheapest rigs, so the fleet ladder doubles as a map
+  // gate) and no truck could ever be pointed at it. The aim comes from the LOAD first, because a
+  // contracted run already knows where it is going and asking twice would be ceremony; then from
+  // whatever the driver set with `route`; then, only if neither exists, the first limb.
+  const destKey = aimedDest(info, rig)?.key || info.dests?.[0]?.key;
   const chain = destKey ? crossingChain(player._crossing.instanceId, destKey) : [];
   if (!chain.length) { await cmdPark([], '', player); return res || { type: 'noop' }; }
 
   joinCorridor(rig, { instanceId: player._crossing.instanceId, destKey, voidKey: info.voidKey,
-    window: info.window, chain, dest: crossingDest(player._crossing.instanceId, destKey) });
+    window: info.window, chain, dest: crossingDest(player._crossing.instanceId, destKey),
+    trunk: info.trunk });
   rig.zoneId = player.current_zone;
   pushCab(rig, { joined: true });
+  const aimed = info.dests?.find(d => d.key === destKey);
   sendToPlayer(player.id, {
     type: 'emote',
-    message: '<span class="text-amber">The last streetlight goes by and the hardtop gives way to something graded rather than built. The map ends. The road, for whatever it is worth out here, does not.</span>',
+    message: '<span class="text-amber">The last streetlight goes by and the hardtop gives way to something graded rather than built. The map ends. The road, for whatever it is worth out here, does not.</span>'
+      + (aimed ? `\n<span class="text-dim">Running for ${aimed.heading}.${(info.dests?.length || 0) > 1 ? ` The fork is ${info.trunk} rooms out — ${teachVerb('route', 'route')} until you take it.` : ''}</span>` : ''),
   });
   return { type: 'noop' };
+}
+
+// ── The fork ─────────────────────────────────────────────────────────────────
+// Which limb this rig is pointed down. The LOAD outranks the driver's own aim deliberately: a
+// contracted haul is a promise with a destination on it, and quietly driving it somewhere else
+// because a `route` from an hour ago is still set would be the system lying about what it is
+// doing. A free rig obeys the aim; a rig with neither takes the first limb, as it always did.
+function aimedDest(info, rig) {
+  const dests = info?.dests || [];
+  if (!dests.length) return null;
+  if (rig?.cargo?.to) {
+    const zone = getZone(rig.cargo.to);
+    const region = zone?.flags?.region_id;
+    const byLoad = region && dests.find(d => d.region === region);
+    if (byLoad) return byLoad;
+  }
+  return dests.find(d => d.key === rig?.aim) || null;
+}
+// Match what somebody typed against a void's destination table — by key, by the heading it is
+// named for, or by a prefix of either. The same shape voidwalking's own `destByHeading` uses,
+// because a driver and a walker should not have to learn two ways to name the same fork.
+function destByWord(dests, word) {
+  const w = String(word || '').trim().toLowerCase();
+  if (!w) return null;
+  return dests.find(d => d.key.toLowerCase() === w || d.heading.toLowerCase() === w)
+    || dests.find(d => d.key.toLowerCase().startsWith(w) || d.heading.toLowerCase().startsWith(w))
+    || dests.find(d => d.heading.toLowerCase().includes(w)) || null;
+}
+
+// `route` — where this rig is going, and the one verb that changes it.
+//
+// It answers in two different worlds and deliberately reads as one thing in both: standing in a
+// yard it sets the aim for a crossing you have not started, and out on the trunk it TAKES THE
+// OTHER LIMB, because both limbs are already built and the trunk tarmac is the same road either
+// way (see switchLimb). Past the junction it refuses, and says why — a fork you can take from
+// forty tiles down the wrong limb is not a junction, it is a menu.
+async function cmdRoute(args, raw, player) {
+  const rig = rigOf(player);
+  if (!rig) return say('You are not driving anything.');
+  const onRoad = rig.leg === 'corridor';
+  const info = onRoad && rig.instanceId ? crossingInfo(rig.instanceId) : null;
+  // In the city there is no crossing yet, so the table comes from the region you are standing in.
+  const here = getZone(player.current_zone);
+  const vdef = onRoad ? null : VOIDS[here?.flags?.region_id];
+  const dests = info?.dests || vdef?.dests || [];
+  if (!dests.length) return say('There is one road out of here and you are on it.');
+
+  const want = args.join(' ');
+  const current = onRoad ? dests.find(d => d.key === rig.destKey) : aimedDest({ dests }, rig);
+  if (!want) {
+    const lines = dests.map((d) => {
+      const mark = d.key === current?.key ? '<span class="text-green">▸</span>' : ' ';
+      const tiles = (d.length || 0) * TILES_PER_ROOM;
+      const tank = rig.params?.tank || rig.type?.tank || 0;
+      const reach = tank ? (tiles <= tank ? '' : tiles <= tank * 2 ? ' <span class="text-amber">— further than your tank, one way</span>' : ' <span class="text-red">— well past your range</span>') : '';
+      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${tiles} tiles${reach}</span>`;
+    });
+    const how = onRoad
+      ? (atOrBeforeFork(rig) ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
+        : `<span class="text-dim">The fork is behind you. This is the road you are on now.</span>`)
+      : `<span class="text-dim"><b>route &lt;name&gt;</b> to set it before you leave the map. A contracted load overrides it — the run goes where the paperwork says.</span>`;
+    return say(`<span class="text-green">Out of ${info?.origin || vdef?.origin || 'here'}, the road forks toward:</span>\n${lines.join('\n')}\n${how}`);
+  }
+
+  const pick = destByWord(dests, want);
+  if (!pick) return say(`Nothing out here goes to "${want}".`);
+  if (!onRoad) {
+    rig.aim = pick.key;
+    return say(`<span class="text-green">You settle on ${pick.heading}.</span> <span class="text-dim">Take the rim and the road will do the rest.</span>`);
+  }
+  if (pick.key === rig.destKey) return say(`You are already on the ${pick.heading} road.`);
+  if (!atOrBeforeFork(rig)) {
+    return say(`<span class="text-amber">The fork is a long way behind you. There is no cutting across out here — the only way onto the ${pick.heading} road is back the way you came.</span>`);
+  }
+  const chain = crossingChain(rig.instanceId, pick.key);
+  if (!chain.length) return say('That limb is not there. Something has gone wrong with the crossing.');
+  switchLimb(rig, { destKey: pick.key, chain, dest: crossingDest(rig.instanceId, pick.key) });
+  rig.aim = pick.key;
+  pushCab(rig, { rerouted: true });
+  return say(`<span class="text-green">You take the other one.</span> <span class="text-dim">The road bends away east of where you were going and the country ahead stops looking familiar. Running for ${pick.heading}.</span>`);
 }
 
 // Roll off the end of the corridor and into the destination region. The crossing's own
@@ -1576,6 +1749,9 @@ export const commands = {
   pickup: cmdPickup,
   dropoff: cmdDropoff,
   park: cmdPark,
+  fix: cmdFix,
+  cb: cmdCb,
+  route: cmdRoute,
   haul: cmdHaul,
   market: cmdMarket,
   yard: cmdYard,
