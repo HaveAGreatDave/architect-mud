@@ -939,6 +939,43 @@ export default async function regress({ run, check, getPlayer }) {
       check('one truck to a yard, so `drive` never has to ask which',
         /already have a truck/i.test(dupe?.message || ''), dupe?.message?.slice(0, 40));
 
+      // ── Recovery: a truck you did not drive home ──────────────────────────
+      // The whole point of the verb is a rig that is somewhere else, so the case has to put one
+      // there. Parking it in another zone by hand is exactly the state a driver who caught a lift
+      // back is in.
+      {
+        const { rows: mine } = await query('SELECT id, depot_zone FROM trucks WHERE owner_id=$1', [player.id]);
+        const truckId = mine[0]?.id;
+        const homeZone = mine[0]?.depot_zone;
+        const away = [...world.zones.values()].find(z => z.id !== homeZone && z.grid_x != null
+          && Math.hypot(z.grid_x - (world.zones.get(homeZone)?.grid_x ?? 0), z.grid_y - (world.zones.get(homeZone)?.grid_y ?? 0)) > 12);
+        await query('UPDATE trucks SET depot_zone=$1 WHERE id=$2', [away?.id || null, truckId]);
+
+        const denied = await run('drive');
+        check('a truck parked elsewhere cannot be driven from here',
+          !rigOf(player) && /not here|another yard|parked at/i.test(denied?.message || ''), denied?.message?.slice(0, 50));
+
+        player.credits = 60;
+        const broke = await run(`yard recall ${truckId}`);
+        check('…and recovery quotes a price rather than happening on credit',
+          /Recovery from/i.test(broke?.message || ''), broke?.message?.slice(0, 50));
+        const stillAway = await query('SELECT depot_zone FROM trucks WHERE id=$1', [truckId]);
+        check('…and nothing moved', stillAway.rows[0]?.depot_zone === (away?.id || null));
+
+        player.credits = 40000;
+        const before = player.credits;
+        const towed = await run(`yard recall ${truckId}`);
+        check('a low-loader fetches it home for a fee', /low-loader/i.test(towed?.message || ''), towed?.message?.slice(0, 45));
+        check('…and the fee actually left the wallet', player.credits < before, `${before} → ${player.credits}`);
+        const home = await query('SELECT depot_zone FROM trucks WHERE id=$1', [truckId]);
+        check('…and the rig is standing in this yard now', home.rows[0]?.depot_zone === player.current_zone,
+          `${home.rows[0]?.depot_zone} vs ${player.current_zone}`);
+        const again = await run(`yard recall ${truckId}`);
+        check('…and fetching one that is already here is refused, not billed twice',
+          /already standing here/i.test(again?.message || ''), again?.message?.slice(0, 40));
+        player.credits = 40000 - 31000;
+      }
+
       const got = await run('drive');
       const rig = rigOf(player);
       check('a rig mounts at a depot once you own one', !!rig, got?.message?.slice(0, 50));

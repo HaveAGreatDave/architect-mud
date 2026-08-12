@@ -1236,7 +1236,12 @@ const handlers = {
   truck_sim_close: () => { closeCab(); },
   // The depot: fleet, dealer, freight board and exchange on one screen. Opens when you walk into
   // a yard and closes when you leave, exactly as the hangar bay does.
-  truck_depot: (msg) => { openTruckDepot(msg); },
+  // ⚠ NEVER OVER THE CAB. `drive` mounts the cab and, a beat later, the yard's own auto-open (or a
+  // repush that was already in flight when you turned the key) lands and mounts the depot straight
+  // back over the top of it. The player is behind the wheel — rig mounted, `drive` answering "you
+  // are already behind the wheel" — and looking at a shop window. The cab is the pane owner from
+  // the moment it opens, so a late depot push is dropped rather than raced against.
+  truck_depot: (msg) => { if (isCabActive()) return; openTruckDepot(msg); },
   // …and it re-looks on the way out, the same as `hangar_close` does. Walking out of a yard fires
   // the move FIRST (which this panel, being a pane owner, correctly told to keep off the pane) and
   // the close SECOND — so without a fresh look the player is left staring at an empty pane. Skipped

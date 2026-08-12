@@ -111,6 +111,18 @@ export async function saveTruckData(id, playerId, cd) {
     [JSON.stringify(cd || {}), id, playerId]).catch(() => ({ rowCount: 0 }));
   return rowCount > 0;
 }
+// THE RECOVERY WRITE. One statement moves the rig and clears whatever the lot was holding it for,
+// because a truck that has been dragged home on a hook is out of the impound by definition — you
+// paid somebody to take it out. Guarded on ownership AND on the zone it was last seen in, so two
+// clicks on a slow connection cannot bill a second tow for a truck that is already home.
+export async function recoverTruckTo(id, playerId, fromZone, toZone) {
+  const { rowCount } = await query(
+    'UPDATE trucks SET depot_zone = $1, impound_fee = 0 WHERE id = $2 AND owner_id = $3 AND depot_zone IS NOT DISTINCT FROM $4',
+    [toZone, id, playerId, fromZone]
+  ).catch(() => ({ rowCount: 0 }));
+  return rowCount > 0;
+}
+
 export async function setFuel(id, playerId, fuel) {
   const { rowCount } = await query('UPDATE trucks SET fuel = $1 WHERE id = $2 AND owner_id = $3',
     [Math.max(0, Math.min(1, fuel)), id, playerId]).catch(() => ({ rowCount: 0 }));

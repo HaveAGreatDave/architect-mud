@@ -40,7 +40,7 @@ import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { drawHangarScene, drawHangarFloorBay } from './aircraft3d.js';
-import { hoverSpool, hoverSpoolSeconds } from './engine-audio.js';
+import { suppressWeatherFx } from './weather-fx.js';
 
 let B = null;             // { data, screen, selId, inspect, bench }
 let raf = null;
@@ -76,6 +76,11 @@ export function isTruckDepotWalkActive() {
 export function openTruckDepot(msg) {
   ensureStyles();
   const first = !B;
+  // THE OVERLAY IS AN OUTDOOR EFFECT AND THIS IS A SHED. The weather FX layer is pinned over
+  // #area-pane, not over the room — so with the depot mounted it rained *inside the garage*, over
+  // a 3D scene that already draws its own lighting. Same hard override the cockpit takes when it
+  // owns the pane (weather-fx.js `suppressed`), released in closeTruckDepot.
+  suppressWeatherFx(true);
   // Snap the top pane back to its default auto size so the whole depot fits, whatever manual drag
   // height was left on the previous room look. The hangar does exactly this on a fresh open.
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
@@ -87,13 +92,6 @@ export function openTruckDepot(msg) {
     inspect: B?.inspect || inspectDefault(),
     bench: B?.bench || { tab: 'condition', tune: null, paint: null },
     lotSel: B?.lotSel || null,
-    // A start-up in flight survives a re-push (a repush lands mid-sequence often — `drive` itself
-    // is what ends it), but never survives the panel closing; closeTruckDepot drops the whole B.
-    start: B?.start || null,
-    // …and so does the RUNNING rig. `lit` is the id of the truck whose engine is on, and it has to
-    // survive a repush for the same reason: the repush that follows `drive` would otherwise sit the
-    // rig back down on the floor a frame after it finished standing up.
-    lit: B?.lit || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
@@ -104,6 +102,7 @@ export function openTruckDepot(msg) {
 }
 
 export function closeTruckDepot() {
+  suppressWeatherFx(false);
   if (raf) cancelAnimationFrame(raf);
   raf = null; sceneHits = []; walkKeys.clear();
   document.removeEventListener('keydown', onKey);
@@ -162,11 +161,35 @@ function render() {
       : B.screen === 'freight' ? freightScreen()
       : B.screen === 'market' ? marketScreen()
       : floorScreen()}</div>
-    <footer class="td-foot"><span class="td-dim">Everything here is a command:</span>
-      <code>yard buy krell</code> <code>rig repair shop</code> <code>haul 1</code> <code>market buy scrap full</code> <code>drive</code></footer>
+    <footer class="td-foot">${footChips()}</footer>
   </div>`);
   wire();
   startSpin();
+}
+
+// ── The footer ───────────────────────────────────────────────────────────────
+// EVERY BUTTON ON THIS SCREEN IS A COMMAND (rule 2), so the footer used to SAY so — a dim line of
+// text reading "Everything here is a command:" followed by five greyed examples with somebody
+// else's arguments in them (`yard buy krell` when you own a Krell already; `haul 1` when the board
+// is empty). A caption explaining the interface is the interface admitting it isn't obvious, and an
+// example you cannot press is a button that has been switched off for no reason.
+//
+// So the examples are gone and the row is real: the verbs are built from what is actually true
+// right now — this truck, this job, this quote — and every one of them runs. Anything that SPENDS
+// goes through the same two-step arm the Sell button uses, because a footer is somewhere a cursor
+// passes through on its way somewhere else.
+function footChips() {
+  const d = B.data, sel = selected();
+  const chip = (cmd, label, spend = false) =>
+    `<button class="td-verb" ${spend ? 'data-confirm' : 'data-cmd'}="${esc(cmd)}">${esc(label || cmd)}</button>`;
+  const out = [];
+  if (sel?.hereNow) out.push(chip('drive'));
+  if (sel && sel.condition < 1) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
+  if (sel && d.fuelHere && sel.fuel < 0.99) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
+  if (d.board?.length) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
+  if (d.cargo?.kind === 'goods') out.push(chip('market sell'));
+  out.push(chip('yard'));
+  return out.join('');
 }
 
 // setAreaPane replaces the subtree, so the delegated handlers are attached to the FRESH #td-root
@@ -196,6 +219,10 @@ function floorScreen() {
     d.fuelHere && sel.fuel < 0.99 ? tbtn('⛽', `Refuel · ${money(sel.refuel)}`, `data-cmd="rig fuel ${esc(sel.id)}"`) : '',
     tbtn('◉', 'Walk around', 'data-screen="inspect"'),
     sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`, 'ghost') : '',
+    // NOT HERE? THEN THE ONLY USEFUL BUTTON IS THE ONE THAT FETCHES IT. A rig parked two regions
+    // away used to offer nothing at all — the toolbar simply thinned out and left you looking at a
+    // truck you could not reach, with no way back to it except the drive you were trying to avoid.
+    sel.hereNow ? '' : tbtn('⛓', `Tow it home · ${money(sel.recall)}`, `data-confirm="yard recall ${esc(sel.id)}"`, 'primary'),
     tbtn('⊕', "Dealer's line", 'data-screen="buy"', 'ghost'),
   ].filter(Boolean).join('') : tbtn('⊕', "See what's for sale", 'data-screen="buy"', 'primary');
 
@@ -257,159 +284,18 @@ function statBars(s, prev = null) {
   }).join('')}</div>`;
 }
 
-// ── Lighting the lifters ─────────────────────────────────────────────────────
-// `drive` used to be one line: send the verb, the panel closes, and the truck you had been
-// walking around was suddenly a room description. The single most physical thing this machine
-// ever does — a parked chassis putting its weight onto a hover field — happened off screen.
+// ── Boarding ─────────────────────────────────────────────────────────────────
+// THE IGNITION BELONGS IN THE CAB, NOT IN THE YARD.
 //
-// So the verb is now the END of a short sequence rather than the whole of it. Pressing it drops
-// you into the walkaround (the only view close enough for any of this to read), lights the rig,
-// and sends `drive` when the thing is actually up. Three rules:
+// This used to be a cinematic: pressing Take it out dropped you into the walkaround, lit the rig,
+// held you there while it came up on its lifters, and only then sent 'drive'. It was the wrong
+// place for all of it. You watched your own truck start from the concrete beside it, and the
+// server had already answered 'drive' — mounted you, moved you onto the apron — while the panel
+// was still showing a shed. The one thing the sequence never did was put you behind the wheel.
 //
-//  • IT IS STILL THE VERB. Nothing here decides anything; when the sequence ends it sends the
-//    exact string the button always sent, and a player who typed `drive` gets the same result
-//    without the cinematic. Rule 2 of this file survives intact.
-//  • THE SOUND IS THE CLOCK. `hoverSpoolSeconds` comes from the same per-truck table that scores
-//    it (engine-audio.js), so the rise cannot drift out of sync with the noise it is making —
-//    the Continental takes 3.4s to get its weight up because its start-up cue is 3.4s long.
-//  • THE RIDE HEIGHT IS REAL. It rises by the ride height the mesh itself gives up when parked
-//    (aircraft3d HOVER, in fitted units), overshooting once and settling — a machine finding its
-//    height on a field, not a prop being winched. Faking a bigger lift would look like a jump.
-//  • AND IT STAYS UP. The sequence used to be the whole of the hover: when the clock ran out the
-//    state was cleared, the mesh went back to `~p` and the rig SAT BACK DOWN on a running engine.
-//    That is exactly backwards — the hover is not an animation that plays, it is the condition the
-//    machine is in — so the start-up hands over to a RUNNING state (`B.lit`) that holds the ride
-//    height, keeps the emitter bands lit and breathes the field until something switches it off.
-//    The idle is deliberately small and never still: a lifter holding a chassis against gravity is
-//    making thousands of tiny corrections a second, and a rig frozen at a fixed height reads as a
-//    model on a shelf, which is the exact impression the parked pose exists to avoid.
-const RIDE = 0.07;              // the fitted ride height a lifter holds — see FIT above
-const ease = (t) => 1 - Math.pow(1 - t, 3);
-const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
-
-// THE IDLE. Two detuned sines rather than one, so the bob never repeats on a count you can hear,
-// plus a slow roll about the long axis — a rig on a field is held at four corners and the corners
-// do not agree. Amplitudes are a fraction of the ride height: this is a machine trembling on its
-// lifters, not a boat. Returns the same shape `enginePhase` does, so the draw path cannot tell them
-// apart and there is exactly one set of code reading it.
-function idlePhase(now) {
-  const t = now / 1000;
-  const bob = Math.sin(t * 1.9) * 0.34 + Math.sin(t * 3.17 + 1.1) * 0.16;
-  return {
-    p: 1, lit: true, running: true,
-    lift: bob * RIDE * 0.09,
-    roll: Math.sin(t * 1.37 + 0.4) * 0.006,
-    blow: 0.16 + 0.05 * Math.sin(t * 2.3),   // the field never stops moving air, it just stops shoving it
-    glow: 0.72 + 0.12 * Math.sin(t * 4.1),
-  };
-}
-
-function beginStart(t) {
-  if (!t || B.start || !t.hereNow) return false;
-  B.start = { id: t.id, cmd: 'drive', at: performance.now(), dur: hoverSpoolSeconds(t.typeId) * 1000 };
-  B.screen = 'inspect';         // you cannot see a truck sit up from across the yard
-  B.inspect = inspectDefault();
-  hoverSpool(t.typeId);
-  render();
-  return true;
-}
-
-// Where the sequence is, as the numbers every part of it reads. Split out so the model's rise,
-// the dust and the emitter glow are three views of ONE clock rather than three timelines to keep
-// agreeing with each other.
-// ONE FUNCTION ANSWERS "what is this rig doing", and it answers for both states — starting, or
-// running. The draw path asks once and never branches on which, which is what makes it impossible
-// for the hand-over to drop a frame back onto the parked pose the way the first cut did.
-function enginePhase(now) {
-  const s = B.start;
-  if (!s) return B.lit && B.lit === B.selId ? idlePhase(now) : null;
-  const p = clamp01((now - s.at) / s.dur);
-  const lit = p > 0.18;                                   // the coils are across: bands on
-  const r = clamp01((p - 0.32) / 0.5);                    // the weight transferring
-  // Up, past height, and back down onto it. The overshoot is small and it only happens once.
-  const rise = ease(r) * (1 + 0.42 * Math.sin(Math.PI * r) * (1 - r));
-  // The idle is CROSS-FADED IN over the back third rather than switched to at p === 1. A hard
-  // hand-over lands the bob at whatever value its own sine happened to be at, which is a visible
-  // twitch at exactly the moment the machine is supposed to have settled.
-  const idle = idlePhase(now), mix = clamp01((p - 0.7) / 0.3);
-  return {
-    p, lit, running: p >= 1,
-    lift: RIDE * (rise - 1) + idle.lift * mix,
-    roll: idle.roll * mix,
-    blow: Math.max(clamp01((p - 0.3) / 0.28) * (1 - clamp01((p - 0.72) / 0.5)), idle.blow * mix),
-    glow: Math.max(lit ? clamp01((p - 0.18) / 0.3) : 0, idle.glow * mix),
-  };
-}
-
-// The effects layer, drawn over the finished frame and anchored on the contact patch the renderer
-// hands back — never on a fraction of the canvas, because the camera in here moves.
-function drawStartFx(ctx, anchor, ph, w, h, now) {
-  if (!anchor || !ph) return;
-  const { sx, sy } = anchor.ground, ppu = anchor.ppu;
-  ctx.save();
-  // The pool of light under it, cyan off the emitter band's own colour (aircraft3d GLOW). It comes
-  // up with the coils, not with the lift — light first, movement after, which is the order that
-  // makes the light look like the CAUSE. Once running it breathes rather than holding still.
-  const g = ph.glow || 0;
-  if (g > 0.01) {
-    const rad = ppu * (0.75 + 0.35 * g);
-    const rg = ctx.createRadialGradient(sx, sy, 1, sx, sy, rad);
-    rg.addColorStop(0, `rgba(140,232,255,${(0.34 * g).toFixed(3)})`);
-    rg.addColorStop(0.45, `rgba(64,168,200,${(0.16 * g).toFixed(3)})`);
-    rg.addColorStop(1, 'rgba(30,92,104,0)');
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = rg;
-    ctx.beginPath(); ctx.ellipse(sx, sy, rad, rad * 0.42, 0, 0, 7); ctx.fill();
-  }
-  // Dust, thrown out from under the skirt. Deterministic per index (no Math.random per frame, or
-  // every puff teleports) — each grain is an angle and a phase, and the ring reads as a ground
-  // plane because it is squashed to the same 0.42 the light pool is.
-  //
-  // ITS CLOCK IS THE ONE THING THAT DIFFERS between starting and running, and it has to: the
-  // start-up shoves the air out ONCE, so its grains ride the sequence's own `p` and are gone. A
-  // running field is a continuous thing, so each grain loops on its own offset phase — which is
-  // why the dust does not simply stop dead the moment the rig is up.
-  if (ph.blow > 0.01) {
-    ctx.globalCompositeOperation = 'source-over';
-    const loop = ph.running ? (now / 2600) : 0;
-    for (let i = 0; i < 34; i++) {
-      const a = (i * 2.399) % 6.283, seedR = 0.55 + ((i * 37) % 100) / 220;
-      const off = ((i * 13) % 100) / 100;
-      const t = ph.running ? (loop + off) % 1 : clamp01((ph.p - 0.3 - off * 0.9) / 0.5);
-      if (t <= 0) continue;
-      const d = ppu * seedR * (0.35 + 1.5 * ease(t));
-      const px = sx + Math.cos(a) * d, py = sy + Math.sin(a) * d * 0.42 - ppu * 0.06 * t;
-      const al = ph.blow * (1 - t) * 0.4;
-      if (al < 0.004) continue;
-      ctx.fillStyle = `rgba(196,206,214,${al.toFixed(3)})`;
-      ctx.beginPath(); ctx.ellipse(px, py, ppu * (0.05 + 0.1 * t), ppu * (0.02 + 0.05 * t), 0, 0, 7); ctx.fill();
-    }
-  }
-  // A HOT SHIMMER over the contact patch while it is holding — the one cue that says the field is
-  // still doing work rather than the truck having simply been placed higher up. Thin, wide, and
-  // sitting right on the concrete, which is where the air a lifter is torturing actually is.
-  if (ph.running) {
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 3; i++) {
-      const t = now / 1000 * (0.8 + i * 0.23) + i * 2.1;
-      const yy = sy - ppu * (0.02 + 0.05 * ((t % 1)));
-      const al = 0.05 * (1 - (t % 1)) * (ph.glow || 1);
-      ctx.strokeStyle = `rgba(150,226,246,${al.toFixed(3)})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.ellipse(sx, yy, ppu * (0.6 + 0.25 * (t % 1)), ppu * (0.16 + 0.06 * (t % 1)), 0, 0, 7);
-      ctx.stroke();
-    }
-  }
-  // The contactor going across: one hard frame of white at the very start. It is short on purpose —
-  // it is a switch closing, and you should half-wonder whether you saw it.
-  if (ph.p < 0.05) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(190,225,255,${(0.16 * (1 - ph.p / 0.05)).toFixed(3)})`;
-    ctx.fillRect(0, 0, w, h);
-  }
-  ctx.restore();
-}
+// So the button is the verb again, with nothing in front of it: 'drive' goes out, the cab takes
+// the pane (dispatch 'truck_sim' → openCab), and the engine comes to life in the only view where
+// a driver could actually hear it — through the windscreen, with the wheel in front of you.
 
 // ── Walkaround ───────────────────────────────────────────────────────────────
 // THE SAME WALKAROUND THE HANGAR HAS, because a truck is a thing you walk up to for exactly the
@@ -447,14 +333,9 @@ function inspectScreen() {
   const t = selected();
   if (!t) return '<div class="td-none">Nothing selected.</div>';
   const m = B.inspect.mode;
-  const board = (m === 'walk' && t.hereNow && !B.start)
+  const board = (m === 'walk' && t.hereNow)
     ? '<div class="td-board" id="td-board" data-cmd="drive">CLIMB IN</div>' : '';
-  // Mid-start the controls stand down to one line of status and one way out. Leaving the buttons
-  // up would invite a player to drag the camera through a truck that is in the middle of moving.
-  const strip = B.start
-    ? `<span class="td-run" role="status">◉ LIFTERS ONLINE — ${esc(t.name)} is coming up</span>
-       <button class="td-act ghost" data-killengine>Shut it down</button>`
-    : `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
+  const strip = `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
        ${tbtn('◉', 'Walk around', 'data-mode="walk"', m === 'walk' ? 'primary' : '')}
        ${t.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : ''}
        ${t.hereNow ? tbtn('📯', 'Horn', 'data-cmd="horn"') : ''}
@@ -712,7 +593,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-killengine],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -724,11 +605,7 @@ function onClick(e) {
   if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
   if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
   if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; return void render(); }
-  // Shutting it down is the one thing that puts a lit rig back on the deck — and it has to clear
-  // BOTH, because aborting a start and killing a running engine are the same button and the same
-  // intent. It plays the settle rather than snapping down; `~p` is a whole ride height away.
-  if (t.dataset.killengine != null) { B.start = null; B.lit = null; B.screen = 'floor'; return void render(); }
-  if (t.dataset.screen) { B.start = null; B.screen = t.dataset.screen; return void render(); }   // walking away from it aborts the start
+  if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
   if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
@@ -743,10 +620,6 @@ function onClick(e) {
     setTimeout(() => { delete t.dataset.armed; render(); }, 4000);
     return;
   }
-  // `drive` is the one verb with a machine at the other end of it, so it gets the start-up (which
-  // sends this same string when the rig is up). If the truck isn't standing here, beginStart says
-  // so by refusing and the command goes straight out to be refused by the server, as before.
-  if (t.dataset.cmd === 'drive' && (B.start || beginStart(selected()))) return;
   if (t.dataset.cmd) sendCmdSilent(t.dataset.cmd);
 }
 
@@ -800,7 +673,6 @@ function onKey(e) {
   if (e.key === 'Escape') {
     const el0 = document.activeElement;
     if (el0 && (el0.tagName === 'INPUT' || el0.tagName === 'TEXTAREA' || el0.isContentEditable)) return;
-    if (B.start) { B.start = null; return void render(); }
     if (B.screen !== 'floor') { B.screen = 'floor'; return void render(); }
     closeTruckDepot();
     return void sendCmdSilent('look');
@@ -864,10 +736,10 @@ function startSpin() {
         // names every one of them, and the pane beside it names the selected one twice over. A
         // caption floating in the middle of the bay was a third answer to a question nobody asked,
         // sitting across the bumper of the thing it was labelling.
-        // A rig with its engine on is drawn RUNNING out here too, bands lit and up on its field —
-        // the floor is the one view where you can see it standing among the ones that are not.
+        // Every rig on the floor is PARKED, because a running one is a rig you are sitting in and
+        // that view is the cab, not the yard.
         entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
-          variant: t.id === B.lit ? t.variant : `${t.variant}~p` })),
+          variant: `${t.variant}~p` })),
       });
     }
     const hero = root.querySelector('#td-hero');
@@ -877,24 +749,11 @@ function startSpin() {
       const ctx = sizeCanvas(hero);
       const inspecting = B.screen === 'inspect';
       const walk = inspecting && B.inspect.mode === 'walk';
-      if (walk && !B.start) stepWalk(dt);   // hands off the wheel while it lights — you are watching, not driving
-      // A rig mid-start is drawn in its RUNNING mesh (emitter bands lit, the light patch on the
-      // road under it) and pushed back down by `lift`, so the pose you see is the pose the mesh
-      // means rather than a parked truck with a glow painted on it.
-      const ph = enginePhase(now);
-      // The shake is on the CAMERA, not the model: the rig is a rigid body finding its height, and
-      // what actually moves when a lifter takes six tonnes off a concrete floor is you. Once it is
-      // simply holding, the shake drops to the tremble a running field puts through your boots.
-      let camNow = walk ? { ...B.inspect.cam } : null;
-      if (camNow && ph) {
-        const k = (ph.running ? 0.0018 : ph.blow * 0.012);
-        camNow.z += Math.sin(now * 0.047) * k;
-        camNow.pitch += Math.sin(now * 0.031) * k * 0.5;
-      }
-      const anchor = ctx && drawHangarFloorBay(ctx, {
+      if (walk) stepWalk(dt);
+      const camNow = walk ? { ...B.inspect.cam } : null;
+      if (ctx) drawHangarFloorBay(ctx, {
         w: hero._cw, h: hero._ch, cls: 'truck',
-        variant: ph?.lit ? sel.variant : `${sel.variant}~p`,
-        lift: ph ? ph.lift : 0, idleRoll: ph ? (ph.roll || 0) : 0,
+        variant: `${sel.variant}~p`,
         livery: liveryOf(sel, true),
         // The bench hero keeps its slow auto-turn; the turntable is YOURS to drag once you've asked
         // to walk around it, which is the whole difference between a display and an inspection.
@@ -904,16 +763,10 @@ function startSpin() {
         venue: 'garage', sky: B.data.sky, floor: true, floor3d: walk, fit: FIT,
         cam: camNow,
       });
-      if (ctx && ph) drawStartFx(ctx, anchor, ph, hero._cw, hero._ch, now);
-      // ONE PLACE ENDS IT, and it is the frame that reaches p === 1 — not a setTimeout racing the
-      // animation, which would send `drive` while the rig was still halfway up on a slow tab. The
-      // sequence hands over to `B.lit` rather than simply clearing: the engine is on now, so the
-      // rig keeps its ride height until something says otherwise.
-      if (ph && B.start && ph.p >= 1) { const cmd = B.start.cmd; B.lit = B.start.id; B.start = null; sendCmdSilent(cmd); }
       // The door is at the cab, not at the middle of the rig: walk up to the near-side step and the
       // prompt lights. Same distance test the hangar's BOARD uses, over the truck's own geometry.
       if (walk) {
-        const c = B.inspect.cam, near = !B.start && Math.hypot(c.x - DOOR[0], c.y - DOOR[1], c.z - DOOR[2]) < 1.6;
+        const c = B.inspect.cam, near = Math.hypot(c.x - DOOR[0], c.y - DOOR[1], c.z - DOOR[2]) < 1.6;
         root.querySelector('#td-board')?.classList.toggle('near', near);
       }
     }
@@ -1218,8 +1071,21 @@ function ensureStyles() {
     background:color-mix(in srgb, var(--td-surf-lo) 84%, transparent);
     border-top:1px solid color-mix(in srgb, var(--td-accent) 25%, transparent);
     box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
-  .td-foot code{color:var(--td-fg);background:var(--td-surf);padding:2px 6px;border-radius:4px;margin-right:5px;
-    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent)}
+  /* The footer verbs. They are buttons, so they look pressable: a raised chip that lifts under the
+     cursor and sits down when armed — never the flat dim <code> they used to be, which read as
+     documentation and was ignored accordingly. */
+  .td-foot{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .td-verb{font:inherit;font-size:12.5px;color:var(--td-fg);cursor:pointer;
+    background:linear-gradient(180deg,color-mix(in srgb, var(--td-surf) 92%, transparent),var(--td-surf-lo));
+    padding:4px 11px;border-radius:6px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 30%, var(--border));
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 1px 2px rgba(0,0,0,.25);
+    transition:transform .08s ease,border-color .12s ease,background .12s ease}
+  .td-verb:hover{border-color:color-mix(in srgb, var(--td-accent) 62%, var(--border));transform:translateY(-1px);
+    background:linear-gradient(180deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf))}
+  .td-verb:active{transform:translateY(0);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
+  .td-verb:focus-visible{outline:2px solid color-mix(in srgb, var(--td-accent) 70%, transparent);outline-offset:2px}
+  .td-verb[data-armed]{border-color:#ffb26b;color:#ffb26b}
   /* The one in-theme scrollbar recipe: an accent-lit thumb in a recessed track, never the OS slab. */
   .td-side,.td-lots,.td-rows.wide{scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--td-accent) 55%, var(--border)) transparent}
   .td-side::-webkit-scrollbar,.td-lots::-webkit-scrollbar,.td-rows.wide::-webkit-scrollbar{width:7px;height:7px}

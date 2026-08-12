@@ -20,6 +20,9 @@ import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshi
   groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
+// The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
+// stand down while it owns the pane — the same hard override the cockpit takes on embark.
+import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
 
@@ -42,6 +45,7 @@ export function openCab(ctx = {}) {
   const container = ctx.mount || document.getElementById('area-content');
   if (!container) return null;
   closeCab();
+  suppressWeatherFx(true);
   ensureWindshieldStyles();
   ensureCabStyles();
   const id = 'cab';
@@ -467,6 +471,7 @@ function ensureCabStyles() {
 
 export function closeCab() {
   if (!st) return;
+  suppressWeatherFx(false);
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room
   removeEventListener('keydown', st.onKey);

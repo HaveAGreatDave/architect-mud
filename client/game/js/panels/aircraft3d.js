@@ -3559,12 +3559,37 @@ function drawOutsideWorld(ctx, x0, yTop, x1, yBot, sky) {
     ctx.fillStyle = rgbStr(disc, 0.9); ctx.beginPath(); ctx.arc(sx, sy, (x1 - x0) * 0.03, 0, 7); ctx.fill();
   }
   // Weather flourishes.
+  //
+  // THE RAIN FALLS. It used to be 14 static scratches — the only picture of the weather a driver
+  // standing in a shed gets, and it was frozen, so the world through the door read as a painting of
+  // a wet day rather than a wet day. The pane's own overlay can't help here: that layer is an
+  // OUTDOOR effect and it is suppressed while a panel owns the pane (weather-fx.js), which is
+  // exactly right — it was raining *inside the garage* before. So the doorway draws its own.
+  //
+  // Deterministic per streak (index → x, speed, phase) plus wall-clock, so it animates without
+  // holding any state and without a per-frame Math.random that would teleport every drop.
   if (pal.weather === 'rain' || pal.weather === 'storm') {
-    ctx.strokeStyle = rgbStr([190, 210, 230], 0.4); ctx.lineWidth = 1;
-    for (let i = 0; i < 14; i++) {
-      const rx = x0 + ((i * 53) % 100) / 100 * (x1 - x0), ry = yTop + ((i * 71) % 100) / 100 * (groundY - yTop);
-      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 10); ctx.stroke();
+    const heavy = pal.weather === 'storm';
+    const t = performance.now() / 1000, spanY = groundY - yTop, spanX = x1 - x0;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < (heavy ? 46 : 30); i++) {
+      const rx = x0 + ((i * 53) % 100) / 100 * spanX;
+      const speed = 0.9 + ((i * 29) % 100) / 140;                    // fall rates differ, or it reads as a curtain
+      const ry = yTop + ((t * speed + ((i * 71) % 100) / 100) % 1) * spanY;
+      const len = (heavy ? 13 : 10) * speed;
+      ctx.strokeStyle = rgbStr([190, 210, 230], 0.16 + 0.26 * ((i * 17) % 10) / 10);
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.3, ry + len); ctx.stroke();
     }
+    // …and it lands. A few splash rings on the tarmac outside, on the same clock.
+    ctx.strokeStyle = rgbStr([200, 218, 236], 0.22);
+    for (let i = 0; i < (heavy ? 9 : 6); i++) {
+      const px = x0 + ((i * 37) % 100) / 100 * spanX;
+      const py = groundY + ((i * 61) % 100) / 100 * (yBot - groundY) * 0.8;
+      const k = (t * 1.7 + i * 0.37) % 1;
+      ctx.globalAlpha = 1 - k;
+      ctx.beginPath(); ctx.ellipse(px, py, 1 + k * 5, (1 + k * 5) * 0.34, 0, 0, 7); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   } else if (pal.weather === 'snow') {
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     for (let i = 0; i < 16; i++) {

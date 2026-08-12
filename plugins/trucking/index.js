@@ -37,7 +37,7 @@ import { startTextDrive, stopTextDrive, setTextTarget, isTextDriving, textDriveC
 import { COMMODITIES, quotesFor, askPrice, bidPrice, capacityFor, marketDay, DEFAULT_TRAILER_KG } from './market.js';
 import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
-  setCondition, saveTruckData, setFuel } from './fleet.js';
+  setCondition, saveTruckData, setFuel, recoverTruckTo } from './fleet.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul,
   BREAKDOWNS, fixOdds, FIX_GRACE_TILES } from './rig.js';
@@ -392,6 +392,8 @@ async function cmdYard(args, raw, player) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'buy') return await yardBuy(player, bay, depot, args[1], args.slice(2).join(' '));
   if (sub === 'sell') return await yardSell(player, bay, args[1]);
+  // Fetching one home is the third thing a yard does with a truck, so it sits with buying and selling.
+  if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
 
   return await depotPanel(player, bay, depot, 'fleet');
 }
@@ -523,6 +525,9 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet') {
         fuel: +(t.fuel ?? 1).toFixed(2), odometer: Math.round(t.odometer || 0),
         hereNow: zonesHere.includes(t.depot_zone),
         whereName: zonesHere.includes(t.depot_zone) ? null : depotNameOf(t.depot_zone),
+        // What the low-loader wants for bringing it home, impound included. Sent as a FACT for the
+        // same reason every other price on this screen is: the button prints what the verb charges.
+        recall: zonesHere.includes(t.depot_zone) ? 0 : towFee(t.type, t.depot_zone, bay.id) + (t.impound_fee || 0),
         resale: resaleValue(t.type, t.odometer, t.condition),
         impound: t.impound_fee || 0,
         // ── the bench half ──
@@ -581,6 +586,7 @@ function textYard(p) {
   const fleet = p.fleet.length
     ? p.fleet.map(t => `  <b>${t.name}</b> (${t.type}) · ${t.kg} kg deck · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles`
         + `${t.hereNow ? ' · <span class="text-green">here</span>' : ` · <span class="text-dim">at ${t.whereName}</span>`}`
+        + `${t.hereNow ? '' : ` · <span class="text-dim">tow it home for ${t.recall}₵ (yard recall ${t.id})</span>`}`
         + ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
   const stock = p.stock.map(t =>
@@ -633,6 +639,52 @@ async function yardBuyTrailer(player, here, t) {
   await repush(player, 'buy');
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. It is standing in the yard — ${teachVerb('hitch')} to back under it.</span>`);
+}
+
+// ── Recovery: getting a truck home you did not drive home ────────────────────
+// A rig lives at the last yard it was parked at, and a driver who crossed the waste, sold a load
+// and caught a lift back has their truck two regions away with no way to reach it except the
+// journey it was supposed to save them. That is not a hard choice, it is an errand with a known
+// answer, so the yard will fetch it — for a price that is deliberately worse than driving.
+//
+// THE FEE IS THE DISTANCE, and it is derived rather than authored: a flat call-out plus a rate per
+// tile of the straight line between where it sits and where you are standing, scaled by what the
+// machine is worth (a low-loader for a Continental is not a low-loader for a Barrow). A tow across
+// the basin costs real money; a tow from the yard down the road costs the call-out and no more.
+//
+// An impounded rig comes home too, and its lot fee rides on the same bill — you are paying somebody
+// to go and get it out, which is exactly what the impound wanted. `recoverTruckTo` clears the fee
+// in the same guarded statement that moves it, so a double click cannot pay for two tows.
+const TOW_CALLOUT = 260;
+function towFee(type, fromZoneId, toZoneId) {
+  const a = getZone(fromZoneId), b = getZone(toZoneId);
+  const tiles = (a && b && a.grid_x != null && b.grid_x != null)
+    ? Math.hypot((a.grid_x - b.grid_x), (a.grid_y - b.grid_y))
+    : 40;                                             // unknown ground (a transient waste node) — bill the long haul
+  const heft = 0.6 + 0.4 * Math.min(2, (type?.price || 6000) / 9000);
+  return Math.round((TOW_CALLOUT + tiles * 7) * heft);
+}
+
+async function yardRecall(player, here, id) {
+  if (!id) return say('Fetch which? <span class="text-dim">yard recall &lt;id&gt;</span>');
+  const t = await getTruck(id, player.id);
+  if (!t) return say("That isn't yours.");
+  const zonesHere = depotZonesOf(here, depotAt(here));
+  if (zonesHere.includes(t.depot_zone)) return say(`The ${t.type.name} is already standing here.`);
+  if (rigOf(player)?.truckId === t.id) return say("You're sitting in it.");
+  const fee = towFee(t.type, t.depot_zone, here.id) + (t.impound_fee || 0);
+  if ((player.credits || 0) < fee) {
+    return say(`Recovery from ${depotNameOf(t.depot_zone)} is <b>${fee}₵</b>${t.impound_fee ? ` (${t.impound_fee}₵ of that is the lot's)` : ''}. `
+      + `<span class="text-dim">You have ${player.credits || 0}₵.</span>`);
+  }
+  const moved = await recoverTruckTo(t.id, player.id, t.depot_zone, here.id);
+  if (!moved) return say('Somebody has already moved it.');
+  player.credits = (player.credits || 0) - fee;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
+  return say(`<span class="text-green">A low-loader goes out for it.</span> <span class="text-dim">Some hours later the ${t.type.name} comes off the ramps `
+    + `into the yard, filthy, with a chain mark on the bumper nobody wants to talk about.</span> <span class="item-loss">-${fee}₵</span>`);
 }
 
 async function yardSell(player, here, id) {

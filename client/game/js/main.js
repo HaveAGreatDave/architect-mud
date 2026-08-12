@@ -1003,9 +1003,18 @@ for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {
 		handle.classList.add("manual");
 	}
 
-	// In auto mode, reset to auto on each content update so the pane re-fits
+	// In auto mode, reset to auto on each content update so the pane re-fits.
+	//
+	// ⚠ NEVER WHILE THE HANDLE IS BEING HELD. A pane only becomes "manual" on mouseup, so a drag
+	// that started from auto was still auto all the way through — and any content update landing
+	// mid-drag (a panel re-push, a room repaint, a combat refresh) wiped the height out from under
+	// the cursor. The pane snapped back to its auto size halfway through the drag and the rest of
+	// the gesture did nothing. Dragging IS the manual intent; the mouse merely hasn't come up yet.
 	pane.addEventListener("contentupdate", () => {
-		if (!handle.classList.contains("manual")) {
+		if (
+			!handle.classList.contains("manual") &&
+			!handle.classList.contains("dragging")
+		) {
 			pane.style.height = "";
 		}
 	});
