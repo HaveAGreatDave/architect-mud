@@ -149,6 +149,12 @@ async function cmdDrive(args, raw, player) {
   // not `prefersLoggedPanels`. A text driver gets a real drive that the server runs, using the
   // same `stepTruck` and the same transitions; see textdrive.js.
   if (await prefersTextMinigamesOrDefault(player)) {
+    // HAND THE PANE BACK. The visual rung closes the depot implicitly — `truck_sim` is a pane owner
+    // and the client's handler closes the depot before opening the cab. This rung sends no payload
+    // at all, so without this the depot panel sits over the whole run: the rig is mounted, `drive`
+    // answers "already behind the wheel", and the player is looking at a shop window they cannot
+    // leave. A text driver's road is the LOG, so the pane must be given back to the room.
+    sendToPlayer(player.id, { type: 'truck_depot_close' });
     const dest = rig.cargo?.to || defaultRunTarget(here);
     startTextDrive(player, rig, { arrive, leaveTheMap });
     setTextTarget(player.id, dest);

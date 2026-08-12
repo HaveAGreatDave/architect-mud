@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A dug-out room under the shed floor, low enough that tall men stoop in it. Bare block walls, a sump in the corner with an inch of something in it, and the junction box on the far wall with a lever on the side of it. The ladder up is the only way out.",
+  "exits": {
+    "up": "zone_yard_lastload"
+  },
+  "flags": {
+    "is_interior": true,
+    "lawless": true,
+    "region_id": "region_the_reach",
+    "world_exit_zone": "zone_the_reach_872_1958"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_yard_lastload",
+  "map_id": "map_int_yard_lastload",
+  "name": "The Last Load — Utility Room",
+  "parent_zone": "zone_the_reach_872_1958"
+}

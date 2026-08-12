@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_roadhead",
+  "b": "zone_yard_roadhead",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_roadhead_up",
+  "lockable": false,
+  "one_way": true
+}

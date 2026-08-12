@@ -45,7 +45,60 @@ const { rows: dark } = await query(`
      AND bool_and(COALESCE(f.light_on_intended, 0) = 0)
    ORDER BY z.name`);
 
-if (!dark.length) { console.log('Nothing latched off. Every authored interior has a lit fixture.'); process.exit(0); }
+// THE SECOND CASE: STRANDED INTENT.
+//
+// The sweep above requires intended = 0 on every fixture, because that is what
+// tells "never lit" apart from "somebody threw the switch". But a room can be
+// dark with intended = 1, and that one is not a player decision either — it is
+// the brownout path. When supply dies, `applyPowerLightEffects` parks the room's
+// wanted state in light_on_intended and forces light_on to 0; the restore that
+// reads it back is EDGE-triggered (`nowOk && !wasOk`). Fix the supply offline,
+// and boot loads the zone already 'powered', so the edge never arrives and the
+// intent sits there forever with the lights off under it.
+//
+// The two truck depots were exactly this: junction boxes with no city plant
+// behind them, so both sheds went dark and stayed dark across every restart.
+//
+// Safe for the same reason as above — scoped to rooms where NOTHING is lit, and
+// narrowed further to rooms whose power is currently fine. A player's own switch
+// throw writes light_on, not intended, so it cannot be caught here.
+const { rows: stranded } = await query(`
+  SELECT f.zone_id, z.name, count(*) AS fixtures
+    FROM furniture f
+    LEFT JOIN zones z ON z.id = f.zone_id
+    JOIN power_zones pz ON pz.id = f.zone_id
+   WHERE f.object_type = 'light'
+     AND COALESCE(f.light_type, '') <> 'streetlight'
+     AND COALESCE(f.lumen_output, 0) > 0
+     AND pz.status IN ('powered', 'brownout')
+   GROUP BY f.zone_id, z.name
+  HAVING count(*) FILTER (WHERE f.light_on = 1) = 0
+     AND bool_and(f.light_on_intended = 1)
+   ORDER BY z.name`);
+
+if (stranded.length) {
+  console.log(`${stranded.length} powered room(s) dark with their intent stranded:`);
+  for (const r of stranded) console.log(`  ${String(r.fixtures).padStart(2)}x  ${r.name || r.zone_id}`);
+  if (!DRY) {
+    const { rowCount } = await query(
+      `UPDATE furniture SET light_on = 1, light_on_intended = NULL
+        WHERE object_type = 'light'
+          AND COALESCE(light_type, '') <> 'streetlight'
+          AND COALESCE(lumen_output, 0) > 0
+          AND zone_id = ANY($1)`,
+      [stranded.map(r => r.zone_id)],
+    );
+    console.log(`Lit ${rowCount} fixture(s) across ${stranded.length} room(s).\n`);
+  }
+}
+
+if (!dark.length) {
+  console.log(stranded.length
+    ? 'No never-lit rooms remain.'
+    : 'Nothing latched off. Every authored interior has a lit fixture.');
+  if (DRY) console.log('--dry: nothing written.');
+  process.exit(0);
+}
 
 console.log(`${dark.length} room(s) with no lit fixture:`);
 for (const r of dark) console.log(`  ${String(r.fixtures).padStart(2)}x  ${r.name || r.zone_id}`);

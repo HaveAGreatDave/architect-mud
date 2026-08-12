@@ -329,7 +329,9 @@ export function driveToZone(player, rig, zoneId) {
   rig.zoneId = zoneId;
   rig.zoneDirty = true;
   announcePassing(player, rig, from, zoneId);
-  emit('zone.entered', { actor: player, zone: zoneId });
+  // `from` matters: listeners that care about what you LEFT (the depot panel closing itself when a
+  // rig rolls off its apron) are dead without it, and it cost nothing to carry.
+  emit('zone.entered', { actor: player, zone: zoneId, from });
   return zone;
 }
 

@@ -1,0 +1,9 @@
+{
+  "a": "zone_yard_lastload",
+  "b": "zone_util_zone_yard_lastload",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_yard_lastload_down",
+  "lockable": false,
+  "one_way": true
+}

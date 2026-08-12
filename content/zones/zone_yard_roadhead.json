@@ -11,6 +11,7 @@
   "color": "#c9a86a",
   "description": "The shed floor, high enough to stand a trailer in and long enough to stand three. Diesel, cold iron and the ghost of somebody's lunch. Trucks nose-in along one wall under a strip light with a flicker in it; along the other, racking, pallets, and a desk with a board over it — freight going out, prices coming in, and a chalked column of what the exchange is paying today. The door stands open on the road south.",
   "exits": {
+    "down": "zone_util_zone_yard_roadhead",
     "south": "zone_terminus_1202_915"
   },
   "flags": {
