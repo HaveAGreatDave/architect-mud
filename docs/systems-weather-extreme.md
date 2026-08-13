@@ -157,6 +157,43 @@ field owner) — the engine just *drives* them, mirroring how the field advance 
   (`AUTO_EVENT_CHANCE_PER_30S ≈ 1 per 2–3 game-days`). The engine calls it on the **30s tick** via the
   `registerWeatherEventStep` provider seam and delivers returned lines **by vantage** (`.weather-event`).
 
+### Rainbows — a hero event with no teeth *(built 2026-08-13)*
+
+`rainbow` and `triple_rainbow` are hero events by **machinery only**: same lifecycle, same vantage-keyed
+announce, same `weather_event` client signal. Three decisions carry them.
+
+- **`severity: 0`, and regress asserts it.** `currentBaseSeverity()` takes the max of the day floor and
+  the active event, so a non-zero value here would put every gear-gated lethal channel on alert because
+  the sky looked nice. They are marked `benign: true`, which is also what keeps them out of
+  `SCHEDULABLE_EVENTS` — the pool the scheduled-day and ambush rolls pick from.
+- **A condition, not a schedule.** Everything else in this file is a property of a DAY, knowable a week
+  out, which is what gives the forecast its teeth. A rainbow is a property of a MOMENT at the back edge of
+  a shower, so `rollRainbow()` asks the live **field** instead of the date: it rained across the map
+  (`RAINBOW_WET_ENOUGH`), it has since moved off, the sky has opened, the day's precip is `rain` and not
+  snow, and `ambientLight` says the sun is genuinely up. The field is sampled on a coarse 5×5 grid rather
+  than at one point, because "it stopped raining" asked of a single tile is answered by a cell drifting two
+  steps sideways. One rainbow per shower — the wet-memory clock resets on firing, and is stepped **every**
+  tick (including during another event) so a shower that fell under an ion storm still counts afterwards.
+- **Delivered by vantage, not globally.** A severe event's client signal is broadcast to everybody,
+  because what an ion storm is doing to the city reaches everybody. A benign one goes per zone, skipping
+  `buried` — there is no light nine metres under the street. The engine works that out from the `benign`
+  flag on the plugin's event snapshot and never learns the type names (`broadcastEventByVantage`). The
+  occupied zones are **re-swept every 30s** while one runs, because the signal is otherwise
+  change-detected: walking down into The Under mid-rainbow has to take the colour off, and coming back
+  up has to put it back.
+- **The payload is the room prose, not an overlay.** `body.rainbow-sky` (+ `.rainbow-peak`,
+  `.rainbow-triple`) puts a drifting banded gradient through `.room-desc` and `.weather-event` for the
+  couple of minutes the arc stands; `prefers-reduced-motion` stands the bands still rather than removing
+  them. The canvas overlay draws 1 or 3 arcs struck from a centre below the pane, the second reversed
+  (red inside) because that is what makes a double read as real. Like every other weather FX signal it is
+  **global rather than vantage-keyed** — only the prose knows whether you can see the sky, exactly as the
+  ion storm's overlay already worked. **In the flight sim** it is drawn where a rainbow actually is:
+  centred on the antisolar point at 42° (51° and 58° for the outer arcs), through the same `projSky` the
+  sun and stars use, so it sits at a true compass bearing and slides off the canopy when you turn toward
+  the sun. It is the one hero event that does **not** outrank the weather type — no canopy cast, no haze
+  slot, no on-glass behaviour — and its WX badge is deliberately not an alarm colour. **Silent by design**: the audio route exists, the fallback bed does
+  not, because the sky going quiet after a shower is the sound of a rainbow.
+
 ### A region can rain acid on its own, without a hero event *(built 2026-08-12)*
 
 A hero event is **global and rare** by design: one world-wide day in ~25 (`HERO_EVENT_DAY_CHANCE`).

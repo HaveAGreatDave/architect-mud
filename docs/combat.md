@@ -546,6 +546,59 @@ runs out. Attacking while on cooldown returns a "still recovering" message. Cool
 memory only; they reset on server restart. (The old dead `COOLDOWNS.flee = 4000` entry was removed —
 it had no readers, and fleeing now costs an attack cycle rather than its own timer.)
 
+## The swing seam — `registerSwingContributor`
+
+The one place a plugin can see a swing **while it is still resolving** and bend it.
+Added 2026-08-13 for the Long Watch's mastery system ([systems-mastery.md](systems-mastery.md)).
+
+Everything else in `combat.js` that a plugin touches is a **field poke** — the injury
+plugin maintains `enemy._injuryHitMod` / `_injuryDodgeMod`, the weapon plugin sets
+`player._powQueued`, and the engine reads those without importing anything. That pattern
+is good at exactly one thing: *intent armed somewhere else, earlier.* It cannot express
+**observation**, which a system that learns an opponent over a fight needs.
+
+A **registry**, deliberately, and not a `gatherHook`: `gatherHook` awaits every handler,
+so one plugin doing a query inside it would put a DB round trip on every swing in the
+game. `senses.js` made this exact call for the movement path — it is why `acuitySync`
+exists beside `acuityFor` — and combat is hotter than movement.
+
+```js
+registerSwingContributor((phase, ctx) => { … }, 'mastery');
+```
+
+**Sync by contract, and stricter than any other contributor registry: may not await,
+may not query, may not send.** It runs twice per swing, in both directions.
+
+| Phase | When | Fields read back by the engine |
+|-------|------|-------------------------------|
+| `'pre'` | before the to-hit roll | `hitMod`, `damageScale`, `critBonus` (outgoing); `hitMod`, `soakBonus`, `negate`, `negateLine` (incoming) |
+| `'post'` | after the outcome, **including on a miss** | nothing — this phase is for observing |
+
+`ctx` always carries `kind` (`'outgoing'` / `'incoming'`), `player`, `enemy` and
+`lines[]`; `'post'` adds `hit`, `margin`, and on a landed swing `damage`, `impacts`,
+`critical`.
+
+Three things worth knowing before you use it:
+
+- **`'post'` fires on a miss.** That is the whole reason this is not built on
+  `registerDamageObserver` — those answer "a wound happened" and never see a swing that
+  missed. A system reading an opponent learns as much from the swings that miss.
+- **`negate` is separate from `hitMod` on purpose.** A technique that steps inside the
+  arc is a *stated outcome*; expressed as a large negative `hitMod` it would silently
+  fail against a high-`hit` enemy, the exact opposite of what such a technique is for.
+  The attempt already rolled, in the plugin, before it set the flag. A negated swing
+  must also set `negateLine`, or it prints the ordinary miss text and reads as luck.
+- **`soakBonus` is read at the moment the blow lands**, not baked into `player.soak`.
+  `player.soak` is a cache rebuilt on equip/login; a timed brace written into it would
+  need invalidating on every path that can end one, and one missed path leaves a player
+  armoured forever.
+
+Prose goes in `ctx.lines[]` and the engine appends it to the message it was already
+sending — a `sendToPlayer` from a contributor is N websocket writes inside the tick's
+enemy loop. With nothing registered the seam allocates nothing and costs one `Map.size`
+read; `tests/regress.js` layer 1h2 asserts that, plus that a throwing or `async`
+contributor degrades to "your technique does nothing" rather than breaking combat.
+
 ## Enemy AI & the combat tick
 
 The 1-second tick (`gameLoop.js`, raw `setInterval`, deliberately not on the scheduler) drives all

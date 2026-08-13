@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "There is a swelling at the base of their neck that is the wrong shape.",
+    "obvious": "A second head sits on their left shoulder, small and malformed, and its eyes are open.",
+    "extreme": "They have two fully developed heads. Both are alert. Both are watching you, and they are not watching the same thing."
+  },
+  "blocks_slots": [
+    "head"
+  ],
+  "body_parts": [
+    "head_2"
+  ],
+  "conceal_slots": [],
+  "description": "A second head has grown from your shoulder. It sleeps when you sleep. It does not always look where you look.",
+  "drawbacks": [
+    "There is no hiding this",
+    "No helmet made for one head fits two"
+  ],
+  "effects": {
+    "acuity_sight": 3,
+    "acuity_hearing": 2,
+    "social_penalty": 0.6,
+    "part_hit_weight": 6
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_second_head",
+  "name": "Second Head",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "extreme",
+  "visible": 1
+}

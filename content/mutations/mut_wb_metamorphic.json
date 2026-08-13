@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "Their features are hard to fix in your memory.",
+    "obvious": "Their face is not the face they had when you came in, and they do not appear to have done it on purpose.",
+    "extreme": "They are rebuilding themselves as you watch. Bone slides, skin re-textures, and they settle into a shape with too many joints and regard you with eyes that were a different colour a moment ago."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [],
+  "description": "The rarest thing the Wildblood have. Your morphology has come under conscious control, more or less. You can decide, for a while, what you are.",
+  "drawbacks": [
+    "Nothing about you is settled",
+    "Changing costs you"
+  ],
+  "effects": {
+    "morph": true,
+    "heal_rate": 0.3,
+    "social_penalty": 0.5
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_metamorphic",
+  "name": "Metamorphic Body",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "obvious",
+  "visible": 1
+}

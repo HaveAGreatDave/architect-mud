@@ -1,0 +1,221 @@
+{
+  "banter": [
+    [
+      "Kettle puts a palm flat on the tunnel wall, holds it there, and takes it away satisfied."
+    ],
+    [
+      "Somewhere far off the water changes note. Kettle stops mid-sentence, listens, and carries on."
+    ],
+    [
+      "\"Half past,\" Kettle says, without a clock, without looking up. He is not wrong."
+    ],
+    [
+      "Kettle tops up a hurricane lamp from a jar, trims the wick with his thumbnail, and blows the match out slowly."
+    ],
+    [
+      "\"That's the school,\" says Kettle, at a sound. \"Lunch. You can set your life by it.\""
+    ],
+    [
+      "Kettle sweeps a square yard of sump floor with a stub of broom until it is, by any honest measure, clean."
+    ],
+    [
+      "\"People say down here like it's a direction,\" Kettle says. \"It's an address.\""
+    ],
+    [
+      "\"You get lonely?\" ",
+      "\"There's forty thousand people up there,\" Kettle says, \"and I can hear every one of them wash.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A big, slow, immaculately shaved man sitting on an upturned crate under the weeping concrete, in the only dry yard of the sump, which he has swept. He wears a municipal coverall with the pump-authority flash still on the shoulder, laundered pale and patched at both knees. A hurricane lamp burns beside him at an economical setting. He does not look like a man who has ended up here. He looks like a man at work, and mildly surprised that you are not.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 880,
+        "y": 640
+      },
+      "options": [],
+      "text": "\"Mind the third step from the top,\" Kettle says. \"It's gone soft. Been meaning to see to it.\""
+    },
+    "job": {
+      "_vine": {
+        "x": 460,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "Who pays you?",
+          "next": "job_pay"
+        },
+        {
+          "label": "That was nineteen years ago.",
+          "next": "job_press"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Sump warden. Number four station, this trunk and the two feeders.\" He nods along the tunnel, and you get the impression he could name every yard of it. \"Came down to bleed a seized pump on a Tuesday. Bled it. Then the storm line backed up and I stayed on for that. Then the winter.\" <span class=\"text-dim\">He shrugs, enormously.</span> \"A job doesn't stop being a job because the office burned down.\""
+    },
+    "job_pay": {
+      "_vine": {
+        "x": 880,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "Then why keep doing it?",
+          "next": "job_press"
+        },
+        {
+          "label": "Huh.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Nobody,\" says Kettle, entirely unbothered. \"Hasn't for a long while. The pumps don't know that and neither does the water.\""
+    },
+    "job_press": {
+      "_vine": {
+        "x": 880,
+        "y": 280
+      },
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        },
+        {
+          "label": "Leave him to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "Kettle looks at you with great patience, the way you look at somebody who has asked why you bother locking the door. \"Every one of them up there thinks the floor holds because floors hold,\" he says. \"It holds because it's checked. That's the whole trick. Somebody has to be the somebody.\" <span class=\"text-dim\">He puts his palm on the wall again.</span> \"I'm not stuck down here, friend. I'm posted.\""
+    },
+    "listen": {
+      "_vine": {
+        "x": 460,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "You can tell all that from the water?",
+          "next": "listen_press"
+        },
+        {
+          "label": "Heard anything worth hearing?",
+          "next": "word"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everything drains,\" Kettle says. \"That's not a saying, it's plumbing. Somebody up there has a bad week, I get it in the flow a day later, and it never once lies about it.\" <span class=\"text-dim\">He tilts his head at the ceiling.</span> \"Bleach at four in the morning off the Halcyon feeders. Somebody cleaning something they shouldn't have to.\""
+    },
+    "listen_press": {
+      "_vine": {
+        "x": 880,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "That's a grim way to know a city.",
+          "next": "root"
+        },
+        {
+          "label": "Leave him to it.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Not the water. The pipe.\" He raps a knuckle on it, and the note goes off down the dark for a surprisingly long time. \"Nineteen years is a lot of Tuesdays. You'd learn it too.\" <span class=\"text-dim\">He settles back on the crate.</span> \"I know which buildings are lying about how many people live in them. I know it the way you know your own stairs.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 320
+      },
+      "options": [
+        {
+          "label": "What is it you do down here?",
+          "next": "job"
+        },
+        {
+          "label": "What do you hear from up top?",
+          "next": "listen"
+        },
+        {
+          "label": "Heard anything worth hearing?",
+          "next": "word"
+        }
+      ],
+      "text": [
+        "Kettle looks up, unhurried. \"Watch your footing. It's wetter than it reads.\"",
+        "\"Evening,\" says Kettle, whatever the hour is, and moves the lamp a little your way.",
+        "He takes his hand off the wall. \"Go on. I'm not busy for another twenty minutes.\""
+      ],
+      "text_by_relation": {
+        "close": [
+          "Kettle has the second crate out and wiped before you're all the way down the steps. \"Sit,\" he says. \"You'll want to hear what the north feeders did last night.\""
+        ],
+        "first": [
+          "The big man on the crate stands up, which nobody has done for you in a while, and puts out a dry hand. \"Kettle,\" he says. \"Fenner Kettle, sump warden, number four station. This is my post.\" <span class=\"text-dim\">He looks around at the weeping concrete with something close to fondness.</span> \"I'll say it before you have to work out how to ask it: I'm not lost and I'm not hiding. I came down here on a Tuesday to bleed a pump and I never found a good enough reason to go back up. Mind the standing water on your left.\""
+        ],
+        "known": [
+          "\"There you are,\" says Kettle, and shifts the lamp so it's between you rather than behind him.",
+          "Kettle nods at the crate opposite. It has been wiped. \"Sit down before you fall down.\""
+        ]
+      }
+    },
+    "word": {
+      "_vine": {
+        "x": 460,
+        "y": 660
+      },
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Huh.",
+          "next": "root"
+        },
+        {
+          "label": "That's enough dark for one day.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Might have.\" Kettle turns the lamp up one notch, which is as close as he comes to leaning in."
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a municipal coverall, laundered pale, the pump-authority flash still on the shoulder",
+      "a thick knit jumper with the elbows gone",
+      "long johns and clean, much-mended boxers"
+    ],
+    "haunt_zone": "zone_under_894_904",
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_894_904",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_vag_kettle",
+  "name": "Fenner Kettle",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

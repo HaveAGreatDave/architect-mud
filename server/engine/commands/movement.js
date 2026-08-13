@@ -24,6 +24,7 @@ import { districtFor } from '../districts.js';
 import { getFlag, setFlag } from '../flags.js';
 import { zoneDanger } from '../danger.js';
 import { addSewerGrime } from '../hygiene.js';
+import { mutationFlag } from '../mutations.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -129,12 +130,20 @@ registerMoveGate(async ({ player, opts }) => {
 // Deleting the edges instead would mean a terrain stroke silently rewrites world
 // geometry, and repainting it back would not restore what it removed.
 //
-// No climb, deliberately, and no gear exemption. A wall you can sometimes get over
+// No climb, deliberately, and no GEAR exemption. A wall you can sometimes get over
 // is not a funnel, it is a difficulty check, and the whole value of the feature is
 // that a player can look at the map and KNOW where the ways through are. If a climb
 // is ever wanted it goes here, as one named exemption, the way bypassEncumbrance is.
-registerMoveGate(async ({ to }) => {
+//
+// FLIGHT is that one named exemption, added 2026-08-13. It is deliberately not a
+// gear exemption and cannot become one: nothing you can buy, steal or carry opens
+// a cliff. It takes a body that grew wings, which is a Wildblood mutagen outcome
+// at high expression and costs you your torso armour slot permanently. The map
+// still reads true for everybody who did not do that, which was the property the
+// no-climb rule was protecting.
+registerMoveGate(async ({ player, to }) => {
   if (!to || propsOf(to.id).passable) return;
+  if (mutationFlag(player, 'flight')) return;
   return { block: true, message: 'The rock goes up sheer in front of you. There is no way up it here.' };
 }, 'engine:impassable-terrain');
 

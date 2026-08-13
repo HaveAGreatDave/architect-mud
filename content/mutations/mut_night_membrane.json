@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "Something pale flickers across their eyes when they blink.",
+    "obvious": "A milky membrane slides sideways across their eyes when the light shifts, and they do not seem to notice doing it.",
+    "extreme": "Their eyes are permanently filmed over in the dark, flat and reflective as an animal caught in headlights. Looking at them is difficult."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "A translucent second lid that slides across when the light drops. The dark opens up completely. So does everyone staring at you.",
+  "drawbacks": [
+    "Bright light is agony",
+    "Extremely visible when it is up"
+  ],
+  "effects": {
+    "acuity_sight": 2,
+    "lowlight_vision": true,
+    "brightlight_penalty": 3,
+    "social_penalty": 0.15
+  },
+  "expression_band": "radiation",
+  "id": "mut_night_membrane",
+  "name": "Night Membrane",
+  "polarity": "mixed",
+  "radiation_threshold": 60,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1400,
+  "treatable": true,
+  "visibility_class": "obvious",
+  "visible": 1
+}

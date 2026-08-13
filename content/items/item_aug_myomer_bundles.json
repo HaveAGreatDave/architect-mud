@@ -1,0 +1,12 @@
+{
+  "description": "Dense synthetic muscle wound on a spool, dull red and faintly warm. It twitches once when you pick it up, which the paperwork says is normal.",
+  "flags": {},
+  "id": "item_aug_myomer_bundles",
+  "name": "a coil of myomer bundles",
+  "tags": {
+    "augment_hardware": "aug_myomer_bundles"
+  },
+  "type": "misc",
+  "value": 1200,
+  "weight": 1800
+}

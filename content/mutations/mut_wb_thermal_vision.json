@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "There are two shallow depressions above their eyebrows.",
+    "obvious": "Two dark pits sit above their eyes, wet and open, and they turn their face toward warm things rather than lit ones.",
+    "extreme": "Their brow is a row of gaping heat pits and their eyes have clouded to nothing. They found you in the dark immediately, and they knew where you had been sitting."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "Pits have opened above your eyes that read heat instead of light. You can see who is alive through a wall, and which chair somebody just left.",
+  "drawbacks": [
+    "Your actual eyes have got worse"
+  ],
+  "effects": {
+    "thermal_vision": true,
+    "acuity_sight": 2,
+    "social_penalty": 0.2
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_thermal_vision",
+  "name": "Thermal Vision",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "obvious",
+  "visible": 1
+}

@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { query } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus, devTriggerWeatherEvent } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -213,7 +214,7 @@ async function cmdHeal(args, raw, player) {
 
   player.hp = player.hp_max;
   player.stamina = player.stamina_max ?? 100;
-  player.sanity = player.sanity_max ?? 100;
+  adjustSanity(player, player.sanity_max ?? 100, 'dev_heal');
   player.hunger = 100;
   player.thirst = 100;
 

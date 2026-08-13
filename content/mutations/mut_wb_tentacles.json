@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "Their arms move a little too smoothly, and their sleeves hang oddly.",
+    "obvious": "One arm is a grey muscular tentacle to the elbow, coiling and uncoiling while they talk.",
+    "extreme": "Both arms are boneless tentacles, thick as thighs at the shoulder and tapering, and they are always moving. One of them is holding something behind them."
+  },
+  "blocks_slots": [
+    "hands"
+  ],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [],
+  "description": "Your arms have lost their bones and gained a great deal else. They reach further than arms should and they do not let go.",
+  "drawbacks": [
+    "No sleeve is the right shape"
+  ],
+  "effects": {
+    "carry_bonus": 20,
+    "unarmed_damage_bonus": 3,
+    "social_penalty": 0.45
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_tentacles",
+  "name": "Tentacular Arms",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "extreme",
+  "visible": 1
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A blank authentication fob with no markings and no manufacturer. It answers one handshake convincingly enough, and the second time you try it the thing on the other end has already learned the trick.",
+  "flags": {},
+  "id": "item_null_ghost_key",
+  "name": "ghost key",
+  "tags": {
+    "description": "A blank authentication fob with no markings and no manufacturer. It answers one handshake convincingly enough, and the second time you try it the thing on the other end has already learned the trick.",
+    "electronic": true,
+    "misc": true,
+    "null_device": true,
+    "null_intrusion": 4,
+    "null_stealth": 30
+  },
+  "type": "misc",
+  "value": 320,
+  "weight": 40
+}

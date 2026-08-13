@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "There is a swelling under their jaw on both sides.",
+    "obvious": "Glands bulge under their jaw, and their knuckles weep a clear fluid that beads and does not dry.",
+    "extreme": "Their jaw is distended around the glands and their hands are permanently wet with venom. Where they rested a palm, the table has gone soft."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head",
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "Glands under your jaw and along your knuckles, full of something that is not supposed to be in a person. Anything you break the skin of gets a dose.",
+  "drawbacks": [
+    "You have to be careful about kissing anyone"
+  ],
+  "effects": {
+    "venom_potency": 0.7,
+    "unarmed_damage_bonus": 2,
+    "bite_attack": true
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_venom",
+  "name": "Venom Glands",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

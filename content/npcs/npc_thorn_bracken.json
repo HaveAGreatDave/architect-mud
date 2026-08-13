@@ -45,6 +45,39 @@
       "first": "He does not stop what he is doing. \"Hand off the wire.\" A hound has come to the front and is looking at you with total, silent attention. \"She is fine. She is deciding. Let her.\"",
       "options": [
         {
+          "label": "The Chorus said you were short a pair of hands.",
+          "next": "wild_offer2",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_seen",
+              "scope": "player",
+              "op": "eq",
+              "value": "turned_in"
+            },
+            {
+              "flag": "quest_wild_proving",
+              "scope": "player",
+              "op": "unset"
+            }
+          ],
+          "actions": []
+        },
+        {
+          "label": "The road is walked and the dogs are back.",
+          "next": "wild_done2",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_proving",
+              "scope": "player",
+              "op": "eq",
+              "value": "completed"
+            }
+          ],
+          "actions": []
+        },
+        {
           "actions": [],
           "conditions": [],
           "enabled": true,
@@ -92,6 +125,111 @@
         }
       ],
       "text": "\"They did. From the cairn.\" He wrings the rag out. \"That is the job. They walk you in, off the road, in sight, and they do not close.\n\nIf you had gone off the track toward the beds they would have turned you back. If you had come at the gate at a run they would have had you down and held you there until somebody came. They have not bitten anybody in four years and I would rather like to keep the number.\""
+    },
+    "wild_offer2": {
+      "actions": [],
+      "text": "\"You are the one who did the mask.\"\n\nShe does not look up from the leads she is untangling.\n\n\"Thursday. The road, out to the far poles and back, checking fixings. It is eleven miles of bad ground and the dogs will not wait for you. Bring water.\"",
+      "options": [
+        {
+          "label": "Thursday.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "START_QUEST",
+              "quest_id": "quest_wild_proving"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 2,
+              "warmth": 2,
+              "reason": "bracken:road"
+            }
+          ]
+        },
+        {
+          "label": "What am I checking for?",
+          "next": "wild_road_what",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_road_what": {
+      "actions": [],
+      "text": "\"Fixings. Wind gets under them and they go crooked, and a crooked one looks like nobody is keeping it.\"\n\nShe hands you a leather roll of tools without being asked whether you are coming.\n\n\"Straighten what is crooked. Replace what is gone. It is not complicated work and it wants doing every week for the rest of your life.\"",
+      "options": [
+        {
+          "label": "I will come Thursday.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "START_QUEST",
+              "quest_id": "quest_wild_proving"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 2,
+              "warmth": 2,
+              "reason": "bracken:road"
+            }
+          ]
+        },
+        {
+          "label": "Not this week.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_done2": {
+      "actions": [],
+      "text": "She counts the dogs before she looks at you, which is correct.\n\n\"All four. And the far poles are straight, I can see them from here.\"\n\nShe takes the tool roll back and puts it on the hook, and then does not go inside.\n\n\"You did not ask me about the road. Everyone asks me about the road.\"",
+      "options": [
+        {
+          "label": "The fixings needed doing.",
+          "next": "wild_after2",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "TURN_IN",
+              "quest_id": "quest_wild_proving"
+            },
+            {
+              "type": "ADJUST_REPUTATION",
+              "ideology_id": "ideology_wildblood",
+              "delta": 300,
+              "reason": "wildblood:road"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 5,
+              "warmth": 6,
+              "reason": "bracken:road_done"
+            }
+          ]
+        }
+      ]
+    },
+    "wild_after2": {
+      "actions": [],
+      "text": "\"They did.\"\n\nShe whistles the dogs in past her.\n\n\"Go and see the Chorus. She has been waiting to say something to you and she will not say it until I tell her you can walk eleven miles.\"",
+      "options": [
+        {
+          "label": "I will.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
     }
   },
   "faction": "ideology_wildblood",

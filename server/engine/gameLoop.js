@@ -26,7 +26,8 @@ import { carryCapacity } from './commands/inventory.js';
 import { flushDirtyPositions } from './commands/movement.js';
 import { flushAllRelations } from './relations.js';
 import { flushAllWear } from './durability.js';
-import { effectiveStat, fatigueOf, fatigueLabel, FATIGUE_RUINED } from './condition.js';
+import { flushAllMutations } from './mutations.js';
+import { effectiveStat, fatigueOf, fatigueLabel, FATIGUE_RUINED, adjustSanity } from './condition.js';
 import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
@@ -79,6 +80,7 @@ export function startGameLoop(broadcast) {
   schedule('1m', flushDirtyPositions); // checkpoint moved players' current_zone/stamina in one batched write
   schedule('1m', flushAllRelations);   // coalesced upsert of who's met whom (engine/relations.js); logout flushes again
   schedule('1m', flushAllWear);        // coalesced gear-condition write (engine/durability.js) — wear accrues in memory on the swing path
+  schedule('1m', flushAllMutations);   // coalesced expression write (engine/mutations.js); logout flushes again
 
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
   // Zone broadcasts are delivered by walking zone.players, so a player missing
@@ -696,7 +698,7 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // Skills/rank/xp live in a separate table untouched by any of this, so
   // everything learned carries over; only the body resets.
   player.hp = player.hp_max;
-  player.sanity = player.sanity_max;
+  adjustSanity(player, player.sanity_max, 'respawn');   // a gain, so it lands whole; clamping makes it exact
   player.hunger = 100;
   player.thirst = 100;
   player.radiation = 0;
@@ -761,7 +763,16 @@ export async function handlePlayerDeath(player, killer, cause = null) {
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});
-  emit('player.death', { player, killer, cause: resolvedCause, deathZone });
+  // `corpseId` and `claimed` ride along because a subscriber that wants to put
+  // something ON the body needs to know there IS one, and a subscriber that
+  // destroys state on death must not fire when somebody else took custody of the
+  // death — jail confiscating gear, or a cortical restore that is about to write
+  // the very rows back. Both are null/false on an ordinary death.
+  emit('player.death', {
+    player, killer, cause: resolvedCause, deathZone,
+    corpseId: corpseId || null,
+    claimed: !!respawnOverride,
+  });
 
   player._dying = false; // respawn complete — a future death may process again
 }
@@ -1620,12 +1631,16 @@ async function resourceTick() {
       // keep making.
       const perPoint = tired >= 99 ? 1 : tired >= 93 ? 3 : 6;
       player._sleepDeprivedAccum = (player._sleepDeprivedAccum || 0) + gm;
-      let lost = 0;
-      while (player._sleepDeprivedAccum >= perPoint && player.sanity > 0) {
+      // Count the points the clock owes first, then take them in ONE call.
+      // Not a tidy-up: adjustSanity resists losses and rounds, so draining a
+      // point at a time would hand the whole drain to the rounding and let a
+      // cool head stay up indefinitely for free.
+      let owed = 0;
+      while (player._sleepDeprivedAccum >= perPoint && owed < (player.sanity || 0)) {
         player._sleepDeprivedAccum -= perPoint;
-        player.sanity = Math.max(0, player.sanity - 1);
-        lost++;
+        owed++;
       }
+      const lost = owed ? -adjustSanity(player, -owed, 'sleep_deprivation') : 0;
       if (lost && Math.random() < 0.25) messages.push(SLEEP_DEPRIVED_MESSAGES[Math.floor(Math.random() * SLEEP_DEPRIVED_MESSAGES.length)]);
     } else {
       player._sleepDeprivedAccum = 0;

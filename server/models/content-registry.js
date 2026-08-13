@@ -335,6 +335,9 @@ export const REGISTRY = [
   { table: 'player_backups', class: 'player' },      // cortical-backup snapshots + prepaid restores (plugins/augments)
   { table: 'player_flags', class: 'player' },
   { table: 'player_npc_relations', class: 'player' }, // relations substrate — who a player has met and how it went; accumulated by play, never authored
+  { table: 'player_reads', class: 'player' },        // mastery: what a fighter has learned about a KIND of opponent; earned in fights, never authored
+  { table: 'player_disciplines', class: 'player' },  // mastery: the eight discipline ranks; taught and fought for, never authored
+  { table: 'player_purity', class: 'player' },       // mastery: the decaying stain left by chrome or mutation that has been removed
   { table: 'mis_consents', class: 'player' },         // MIS per-player consent grants — one player's decision about another; never authored, never exported
   { table: 'player_quests', class: 'player' },
   { table: 'player_achievements', class: 'player' }, // record plugin — which entries a player has been observed doing

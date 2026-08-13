@@ -98,6 +98,50 @@ export async function breachMargin(player, baseDifficulty, fallback = 5) {
   return marginOf(await effectiveSkill(player, 'hacking'), difficulty);
 }
 
+// ── Null gear ────────────────────────────────────────────────────────────────
+//
+// Nullcraft hardware lives in THIS file rather than its own because the argument
+// above applies unchanged: one funnel, so the "which of my several devices
+// answers" rule is written once. A `null_device` is deliberately NOT a
+// `hack_device` — a deck gets you into a thing, Null gear attacks what a thing
+// depends on, and a player may sensibly carry both — but they resolve the same
+// way, and a second copy of `resolveInventoryItem`-with-an-ordering would drift.
+//
+// The best rig answers: most intrusion strength first, then the pricier housing.
+
+export async function getNullDevice(playerId) {
+  return resolveInventoryItem(playerId, {
+    tag: 'null_device',
+    orderBy: `COALESCE((i.tags->>'null_intrusion')::numeric, 0) DESC, i.value DESC`,
+  });
+}
+
+export async function hasNullDevice(playerId) {
+  return !!(await getNullDevice(playerId));
+}
+
+const tagNum = (item, key) => {
+  const n = Number(item?.tags?.[key]);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+/** Points of target security this rig cancels. Clamped non-negative. */
+export function nullIntrusion(device) { return tagNum(device, 'null_intrusion'); }
+
+/** 0..1 — the share of accrued trace this rig suppresses. Capped well below 1:
+ *  gear may buy you time inside a system, never unlimited time. */
+export function nullStealth(device) {
+  return Math.min(0.75, tagNum(device, 'null_stealth') / 100);
+}
+
+export function nullJam(device) {
+  return {
+    strength: tagNum(device, 'null_jam_strength'),
+    radius: tagNum(device, 'null_jam_radius'),
+    selective: !!device?.tags?.null_selective,
+  };
+}
+
 /**
  * Burn the deck on a failed breach. Returns a sentence to append to the failure
  * message ('' when the player has no deck to damage), or the slag line if this

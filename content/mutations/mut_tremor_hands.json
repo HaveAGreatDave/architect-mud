@@ -1,15 +1,33 @@
 {
+  "appearance": {
+    "subtle": "Their hands are not quite steady.",
+    "obvious": "Their hands shake constantly, and they hold things with both.",
+    "extreme": "Their hands shake so badly they keep them in their pockets, and they have stopped trying to carry a full cup."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
   "description": "Your hands shake constantly now. Fine motor tasks are a struggle.",
   "drawbacks": [
     "Crafting and lockpicking rolls take a penalty"
   ],
   "effects": {},
+  "expression_band": "radiation",
   "id": "mut_tremor_hands",
   "name": "Tremor Hands",
   "polarity": "negative",
   "radiation_threshold": 40,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_reflexes": -1
   },
-  "visible": 0
+  "treat_cost": 800,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
 }

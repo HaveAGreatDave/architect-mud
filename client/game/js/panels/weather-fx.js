@@ -303,6 +303,10 @@ function drawEventOverlay(dt, w, h) {
     }
     return;
   }
+  if (eventFx.type === 'rainbow' || eventFx.type === 'triple_rainbow') {
+    drawRainbow(w, h, m, eventFx.type === 'triple_rainbow' ? 3 : 1);
+    return;
+  }
   if (eventFx.type === 'ion_storm') {
     ctx.fillStyle = `rgba(80,255,140,${0.04 + 0.06 * m})`;   // sickly green tint
     ctx.fillRect(0, 0, w, h);
@@ -314,6 +318,55 @@ function drawEventOverlay(dt, w, h) {
     if (flashA > 0.01) { ctx.fillStyle = `rgba(215,255,230,${flashA})`; ctx.fillRect(0, 0, w, h); }
     drawArcs(dt);
   }
+}
+
+// ── Rainbows ────────────────────────────────────────────────────────────────
+// Arcs struck through the pane from a centre well below it, so what shows is the
+// top of something much larger than the window — which is what a rainbow looks
+// like from a street. Bands are drawn outer-first at low alpha and composited
+// with `lighter`, so they read as light rather than as paint.
+//
+// `count` is 1 or 3. The second arc is the reflection and so its bands run in
+// REVERSE (red inside, violet outside) — the detail that makes a double read as
+// a real one rather than as the same picture drawn twice; the third is fainter
+// again. Everything else about it is the same code.
+const BOW_BANDS = [
+  [255, 70, 84], [255, 150, 60], [255, 226, 96],
+  [110, 230, 130], [90, 200, 255], [120, 130, 255], [205, 110, 255],
+];
+
+function drawRainbow(w, h, m, count) {
+  const cx = w * 0.5;
+  const cy = h * 1.35;                 // centre below the pane: we see the crown only
+  const base = h * 1.05;               // primary arc radius
+  const bandW = Math.max(2, h * 0.022);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'butt';
+  for (let arc = 0; arc < count; arc++) {
+    // Each successive arc sits further out, is dimmer, and (from the second on)
+    // has its colours reversed.
+    const r0 = base * (1 + arc * 0.17);
+    const alpha = (0.16 * m) / (1 + arc * 1.3);
+    if (alpha < 0.004) continue;
+    for (let i = 0; i < BOW_BANDS.length; i++) {
+      const idx = arc % 2 === 1 ? BOW_BANDS.length - 1 - i : i;
+      const [r, g, b] = BOW_BANDS[idx];
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.lineWidth = bandW;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r0 + i * bandW, Math.PI * 1.12, Math.PI * 1.88);
+      ctx.stroke();
+    }
+  }
+  // A triple is meant to be the splendid one, so it also warms the whole pane a
+  // little. A single arc does not — it should feel like weather, not a filter.
+  if (count >= 3) {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgba(255,246,230,${0.035 * m})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.restore();
 }
 
 // Ion arcs: a jagged discharge crawling down the pane, drawn on top of the flash.

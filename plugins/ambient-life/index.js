@@ -27,6 +27,7 @@
 import { schedule } from '../../server/engine/scheduler.js';
 import { world, getZonePlayers } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { propagateSound } from '../../server/engine/sounds.js';
 import { sendToZone, getBroadcast } from '../../server/engine/messaging.js';
@@ -232,7 +233,7 @@ async function cmdBuskerTip(player, broadcast) {
   if (opp.actedBy.has(player.id)) return { type: 'error', message: `You've already tipped the busker.` };
   if (!(await adjustCredits(player, -TIP_PRICE, undefined, 'ambient:tip'))) return { type: 'error', message: `You dig for change and come up empty.` };
   opp.actedBy.add(player.id);
-  player.sanity = Math.min(player.sanity_max ?? 100, (player.sanity ?? 0) + TIP_SANITY);
+  adjustSanity(player, TIP_SANITY, 'busker_tip');
   await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]).catch(() => {});
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} flips a few credits into the busker's open case.` }, player.id);
   return {

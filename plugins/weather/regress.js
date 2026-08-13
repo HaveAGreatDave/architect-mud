@@ -34,8 +34,19 @@ export default async function regress({ check, getPlayer }) {
   // sampling noise on 400 days without letting the dial quietly double.
   check('hero days stay rare', hero / DAYS < 0.10, `${(hero / DAYS * 100).toFixed(1)}% of days`);
 
+  // A rainbow is a hero event by machinery only. It is a property of a MOMENT
+  // (a shower walking off under a sun that is still up), not of a day, so it
+  // must never be schedulable — a forecast that promised one a week out would be
+  // promising something the field alone decides.
+  for (let i = 0; i < 800; i++) {
+    const day = new Date(Date.UTC(2031, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+    const t = heroEventForDate(day);
+    if (t === 'rainbow' || t === 'triple_rainbow') { check('rainbows are never scheduled', false, day); break; }
+    if (i === 799) check('rainbows are never scheduled', true);
+  }
+
   // ── Every event is fully presented ──
-  for (const type of ['ion_storm', 'acid_rain']) {
+  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'triple_rainbow']) {
     const p = heroEventPresentation(type);
     check(`${type} has a presentation block`, !!p);
     for (const k of PRESENT_KEYS) {
@@ -45,13 +56,23 @@ export default async function regress({ check, getPlayer }) {
   }
   check('an unknown event has no presentation', heroEventPresentation('nope_storm') === null);
 
+  // A rainbow must never lift the severity floor. currentBaseSeverity() takes the
+  // max of the day and the active event, so a non-zero severity here would put
+  // every gear-gated lethal channel on alert because the sky looked nice.
+  for (const type of ['rainbow', 'triple_rainbow']) {
+    const p = heroEventPresentation(type);
+    check(`${type} is benign`, p.benign === true);
+    check(`${type} carries no severity`, p.severity === 0, `${p.severity}`);
+  }
+  check('a storm is not benign', heroEventPresentation('ion_storm').benign === false);
+
   // ── Every phase is written from BOTH vantages ──────────────────────────────
   // The announce is a thing you are LOOKING AT, and it used to go to everybody —
   // a player in a windowless bathroom was told a green glow was crawling up the
   // horizon. `inside` falls back to `line` so an unauthored event still works,
   // which is exactly why the fallback must not be allowed to hide an unwritten
   // line: an indoor variant identical to the outdoor one is the bug coming back.
-  for (const type of ['ion_storm', 'acid_rain']) {
+  for (const type of ['ion_storm', 'acid_rain', 'rainbow', 'triple_rainbow']) {
     for (const phase of ['approach', 'peak', 'passing']) {
       const a = heroEventAnnounce(type, phase);
       for (const vantage of ['open', 'window', 'sealed']) {

@@ -131,18 +131,27 @@ Sustained radiation feeds the mutation system.
 
 ## Mutations
 
-[mutations.js](../server/engine/mutations.js) + the [mutations plugin](../plugins/mutations/index.js).
-HellMOO-style, permanent, dev-panel editable, cached in memory at boot.
+Sustained radiation feeds the mutation system, which has **its own doc** as of the 2026-08 rework:
+**[systems-mutations.md](systems-mutations.md)** is authoritative. The summary here is the survival
+system's view of it only.
 
 - **Trigger:** the mutations plugin's `tick.minute` hook walks every online player; for anyone with
   `radiation ≥ 40`, `checkMutationTrigger` rolls a **5% chance per minute** to grant one eligible
   mutation (radiation ≥ the mutation's `radiation_threshold`, not already owned).
-- **Effect:** `stat_modifiers` are applied additively to the player's stats in the DB and (for the
-  current session) in memory; the grant is recorded in `player_mutations`.
-- **Visible mutations & the outcast mechanic:** a mutation flagged `visible` sets
-  `players.visibly_mutated`. In zones flagged `custodian_controlled`, visibly-mutated players get
-  hostility text on look; if the zone also has `has_turrets`, `describeZone` fires a turret for
-  6–14 damage on an 8-second per-player cooldown (floored so it can't kill).
+- **Expression:** every carried mutation has an expression of 1-100 rolled once at grant, and every
+  contribution it makes is scaled by it. Radiation mutations cannot roll above 84 — the top of the
+  ladder belongs to Wildblood mutagen.
+- **Effects are derived, never baked.** Nothing is written to `players.stat_*`; contributions are
+  netted at read time by `effectiveStat`, `acuitySync` and the armour contributor chain.
+- **Visibility is derived too**, from expression against the mutation's `visibility_class`.
+  `players.visibly_mutated` survives as a write-through cache of "would a stranger notice", and is
+  **no longer a one-way latch** — clinic treatment can bring it back down.
+- **The outcast mechanic:** in zones flagged `custodian_controlled`, an `obvious` body gets hostility
+  text on look; `extreme` gets the turret line even in an unarmed zone. Where the zone has
+  `has_turrets`, `describeZone` fires for 6–14 damage on an 8-second per-player cooldown (floored so
+  it can't kill).
+- **Radiation resets to 0 on death. Mutations do not.** That asymmetry is the point: rads are a
+  condition and a mutation is a consequence.
 
 ## Drugs & addiction
 

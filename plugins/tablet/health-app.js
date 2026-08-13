@@ -25,12 +25,34 @@ import { hygieneOf } from '../../server/engine/hygiene.js';
 import { bandFor as sanityBandFor } from '../sanity/index.js';
 import { intoxBand } from '../intoxication/index.js';
 import { bodyReport } from '../injury/index.js';
+import { getMutations, visibilityOf } from '../../server/engine/mutations.js';
 
 const TABS = [
   { id: 'vitals', label: 'Vitals' },
   { id: 'apothecary', label: 'Apothecary' },
   { id: 'substances', label: 'Substances' },
+  { id: 'mutations', label: 'Changes' },
 ];
+
+// Expression as a word. The percentage goes out too, because a player weighing
+// up a clinic bill wants the number, but the WORD is what the screen is built
+// from: "marked" is a thing you can think in and "43%" is not.
+const MUT_BAND_WORD = {
+  latent: 'barely there', common: 'mild', marked: 'marked',
+  strong: 'strong', severe: 'severe', profound: 'profound', legendary: 'total',
+};
+
+// What an onlooker gets. Deliberately phrased as consequences rather than as the
+// engine's four rungs, because the rung is not what a player needs to know: they
+// need to know whether they can walk into a bar.
+const MUT_VIS_WORD = {
+  hidden: 'Nothing shows',
+  concealable: 'Hideable under clothes',
+  obvious: 'People can see it',
+  extreme: 'Impossible to miss',
+};
+
+const MUT_VIS_BAND = { hidden: 'good', concealable: 'warn', obvious: 'bad', extreme: 'crit' };
 
 // Tags that make a carried item worth showing on a medical screen. Anything with
 // none of these is luggage as far as this app is concerned.
@@ -367,6 +389,35 @@ async function buildScreen(player, screenId, params, notice = null) {
         loadPct: Math.round(Math.min(1, d.dosesInSystem / Math.max(1, d.odCeiling)) * 100),
         lastUse: d.timesUsed ? fmtDuration(d.sinceLastUse) : null,
       })),
+    };
+  }
+
+  if (tab === 'mutations') {
+    // Sync and query-free: the carried set is hydrated at login and read from
+    // memory, so this tab costs nothing to open. No clinic quote is computed
+    // here — the price is a negotiation with a person, and the medic's own tree
+    // is where it belongs (see plugins/clinic). This screen reports the body.
+    const carried = getMutations(player).map(e => ({
+      id: e.id,
+      name: e.mutation.name,
+      description: e.mutation.description,
+      expression: e.expression,
+      band: MUT_BAND_WORD[e.band] || e.band,
+      visibility: MUT_VIS_WORD[e.visibility] || e.visibility,
+      visBand: MUT_VIS_BAND[e.visibility] || 'warn',
+      parts: (Array.isArray(e.mutation.body_parts) ? e.mutation.body_parts : [])
+        .map(p => String(p).replace(/_/g, ' ')),
+      blocks: e.expression >= 40 && Array.isArray(e.mutation.blocks_slots) ? e.mutation.blocks_slots : [],
+      treatable: e.mutation.treatable !== false,
+      chosen: e.source === 'mutagen',
+    }));
+    return {
+      ...base,
+      mutations: carried,
+      // The one summary line worth putting at the top: whether the city is going
+      // to be a problem today.
+      overall: MUT_VIS_WORD[visibilityOf(player)] || 'Nothing shows',
+      overallBand: MUT_VIS_BAND[visibilityOf(player)] || 'good',
     };
   }
 

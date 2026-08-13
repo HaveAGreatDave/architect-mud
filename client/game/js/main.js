@@ -3,6 +3,8 @@ import { command as textHololockCommand } from './panels/texthololock.js';
 import { command as textVaultCommand } from './panels/textvault.js';
 import { command as textSignalCommand } from './panels/textsignal.js';
 import { command as textFishingCommand } from './panels/textfishing.js';
+import { command as textNullCommand } from './panels/textnullboard.js';
+import { command as textCalibrationCommand } from './panels/textcalibration.js';
 import {
 	loadSettings,
 	saveSettings,
@@ -316,7 +318,7 @@ setWhoModalHandler(openWhoModal);
 // text minigame runs entirely client-side, so there is nothing server-side to
 // receive those words. Returns false when the board is shut, so the verbs stay
 // available to whatever else owns them.
-setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd));
+setMinigameCommandHandler((cmd) => textBreachCommand(cmd) || textHololockCommand(cmd) || textVaultCommand(cmd) || textSignalCommand(cmd) || textFishingCommand(cmd) || textCalibrationCommand(cmd) || textNullCommand(cmd));
 
 // Auth form — restore remembered credentials
 const _savedUser = localStorage.getItem("mud_remember_user");

@@ -50,6 +50,7 @@ import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { effectiveSkill, skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { mutationFlag } from '../../server/engine/mutations.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getItem } from '../../server/engine/items-cache.js';
@@ -113,8 +114,24 @@ async function carriedTag(playerId, tag) {
     `SELECT item_id FROM player_inventory WHERE player_id=$1 AND container_id IS NULL`, [playerId]);
   return rows.some(r => getItem(r.item_id)?.tags?.[tag]);
 }
-const hasBoatItem   = (playerId) => carriedTag(playerId, 'boat');
-const hasRebreather = (playerId) => carriedTag(playerId, 'rebreather');
+// Across the surface, dry and free. A hull under you or wings over you: the
+// swimming rules do not care which, and folding flight in here rather than
+// giving it a parallel path means every downstream check (`submerged`, the
+// breath timer, wetness, the cold soak, the stamina drain) gets it for free and
+// none of them can be forgotten.
+//
+// Deliberately NOT true underwater, at either site below. A boat is no help once
+// you are under and neither are wings, which is why both call sites already zero
+// this when `isUnderwater`.
+const hasBoatItem = async (playerId, player = null) =>
+  mutationFlag(player, 'flight') || await carriedTag(playerId, 'boat');
+// Air underwater, from a bought machine or a grown organ. ONE predicate on
+// purpose: gills and a rebreather answer the same question, and forking the
+// drowning rules by which of the two you have would leave two ways to not drown
+// that could drift apart. `player` is optional so the existing unit test, which
+// only ever asks about the item, keeps calling it with an id alone.
+const hasRebreather = async (playerId, player = null) =>
+  mutationFlag(player, 'gills') || await carriedTag(playerId, 'rebreather');
 
 async function breathMax(player) {
   const eff = await effectiveSkill(player, 'swimming');
@@ -240,8 +257,8 @@ on('player.login', async ({ player }) => {
   if (!player) return;
   const zone = getZone(player?.current_zone);
   if (!isSwimZone(zone)) return;
-  player._hasBoat = isUnderwater(zone) ? false : await hasBoatItem(player.id);
-  player._hasRebreather = await hasRebreather(player.id);
+  player._hasBoat = isUnderwater(zone) ? false : await hasBoatItem(player.id, player);
+  player._hasRebreather = await hasRebreather(player.id, player);
   syncSwimmer(player);
 });
 on('player.respawn', ({ player }) => syncSwimmer(player));
@@ -280,8 +297,8 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
   // Capability lookup — the two queries this plugin makes, on the one path that
   // can afford them (a move, not a tick). Everything downstream reads the flags.
   const underwater = isUnderwater(toZone);
-  player._hasBoat = underwater ? false : await hasBoatItem(player.id);
-  player._hasRebreather = await hasRebreather(player.id);
+  player._hasBoat = underwater ? false : await hasBoatItem(player.id, player);
+  player._hasRebreather = await hasRebreather(player.id, player);
 
   if (!syncSwimmer(player)) return;                  // riding a boat across the surface — dry & free
 
@@ -300,7 +317,14 @@ on('zone.entered', async ({ actor: player, from, opts }) => {
 
   // A stroke between two water tiles (incl. diving up/down) — costs stamina,
   // scaled by Swimming skill, and trains it.
-  const eff = await effectiveSkill(player, 'swimming');
+  // A body built for water swims cheaper. Folded into the EFFECTIVE SKILL rather
+  // than discounted off the cost afterwards, because strokeCost already floors at
+  // MIN_STROKE and a separate discount could walk straight through that floor and
+  // make swimming free. Webbed hands make you better at swimming; they do not
+  // exempt you from it.
+  const eff = await effectiveSkill(player, 'swimming')
+    + (mutationFlag(player, 'swim') ? 4 : 0)
+    + (mutationFlag(player, 'gills') ? 2 : 0);
   const divingDown = underwater && !!from && !isUnderwater(getZone(from));
   drainStamina(player, strokeCost(eff, divingDown));
   const chk = await skillCheck(player, 'swimming', SWIM_DIFF);

@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "The hair on your arms lifts when they walk past.",
+    "obvious": "Ridged organs run down both their flanks, and the air around them smells of ozone.",
+    "extreme": "They crackle. Visible arcs jump between the stacked organs on their sides, and everything metal in the room is humming."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "Stacked cells of modified muscle down your flanks, holding a charge. You can feel it building. Discharging it is a relief.",
+  "drawbacks": [
+    "Electronics near you do not last"
+  ],
+  "effects": {
+    "shock_attack": 14,
+    "soak_energy": 3
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_electric",
+  "name": "Electric Organ",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

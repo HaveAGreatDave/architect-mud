@@ -1,0 +1,37 @@
+{
+  "appearance": {
+    "subtle": "Hard ridges show through their shirt across the shoulders.",
+    "obvious": "Overlapping plates of dark chitin cover their chest and run down over the shoulders, clicking faintly when they move.",
+    "extreme": "They are armoured. Segmented black plate from throat to hip and out along the limbs, matte and slightly iridescent, with the seams flexing as they breathe."
+  },
+  "blocks_slots": [
+    "torso"
+  ],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "Plates of dark chitin have grown up through your skin, overlapping like roof tiles. Nothing gets through them easily. Nothing fits over them either.",
+  "drawbacks": [
+    "Conventional torso armour will not close over it"
+  ],
+  "effects": {
+    "soak_kinetic": 8,
+    "soak_edged": 6,
+    "soak_acid": 4,
+    "social_penalty": 0.3
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_carapace",
+  "name": "Chitinous Carapace",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "obvious",
+  "visible": 1
+}

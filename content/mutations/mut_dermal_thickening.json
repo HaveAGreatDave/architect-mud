@@ -1,0 +1,37 @@
+{
+  "appearance": {
+    "subtle": "Their forearms have a dull, hide-like sheen where the skin has thickened.",
+    "obvious": "Their skin is thick and leathery, creased into plates at the elbows and across the back of the neck.",
+    "extreme": "They are wearing hide instead of skin. It creases rather than folds, and the rain beads and runs off them like off a tarpaulin."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso",
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "torso",
+    "hands"
+  ],
+  "description": "Your skin has gone thick and leathery, hide more than skin. Rain stops mattering. So does most of what you touch.",
+  "drawbacks": [
+    "Everything feels like it is through a glove"
+  ],
+  "effects": {
+    "soak_edged": 3,
+    "soak_acid": 2,
+    "acuity_smell": -1
+  },
+  "expression_band": "radiation",
+  "id": "mut_dermal_thickening",
+  "name": "Dermal Thickening",
+  "polarity": "positive",
+  "radiation_threshold": 40,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 900,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

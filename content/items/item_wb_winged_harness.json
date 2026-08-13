@@ -1,0 +1,22 @@
+{
+  "description": "A torso harness of strapping and boiled hide that carries its load on the chest and the hips, because the back is not available.",
+  "flags": {},
+  "id": "item_wb_winged_harness",
+  "name": "winged drover harness",
+  "tags": {
+    "slot": "torso",
+    "layer": "armor",
+    "accommodates": [
+      "WINGS",
+      "EXTRA_LIMBS"
+    ],
+    "armor_soak": {
+      "kinetic": 4,
+      "edged": 3
+    },
+    "description": "Strapping and boiled hide, everything routed forward and low. Where a coat would have a back, this has two long open channels and a lot of buckles."
+  },
+  "type": "clothing",
+  "value": 2600,
+  "weight": 1400
+}

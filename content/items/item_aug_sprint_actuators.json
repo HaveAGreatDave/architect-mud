@@ -1,0 +1,12 @@
+{
+  "description": "Calf and thigh servos in a padded case, each one a hand-span of geared alloy. The packaging insists they be fitted as a matched pair.",
+  "flags": {},
+  "id": "item_aug_sprint_actuators",
+  "name": "a pair of sprint actuators",
+  "tags": {
+    "augment_hardware": "aug_sprint_actuators"
+  },
+  "type": "misc",
+  "value": 1200,
+  "weight": 2200
+}

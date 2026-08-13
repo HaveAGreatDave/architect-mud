@@ -10,6 +10,15 @@ const RAISABLE = [
   { key: 'senses', label: 'SEN', desc: 'Raises dodge; spots hidden things' },
 ];
 
+// Mutation visibility, short enough for a stats row. The full sentences live on
+// the tablet's Changes tab; this is the glance version.
+const VIS_SHORT = {
+  hidden: 'unseen',
+  concealable: 'coverable',
+  obvious: 'visible',
+  extreme: 'unmissable',
+};
+
 export function initStatsPanel() {
   document.getElementById('stats-close').addEventListener('click', closeStatsPanel);
   mountScopeToggle('stats', document.getElementById('stats-header'));
@@ -117,6 +126,39 @@ export function renderStatsPanel(s) {
       flags.appendChild(chip);
     }
     left.appendChild(flags);
+  }
+
+  // Mutations. Absent on an unmutated player, and absent entirely from an older
+  // server — the field is additive, so `s.mutations` being undefined renders
+  // nothing rather than an empty heading.
+  //
+  // textContent per row, never innerHTML: these strings carry authored mutation
+  // NAMES out of content, which is exactly the kind of string that must not be
+  // allowed to be markup.
+  if (s.mutations && s.mutations.length) {
+    const mutSec = document.createElement('div');
+    mutSec.className = 'stats-section';
+    const cat = document.createElement('div');
+    cat.className = 'stats-cat';
+    cat.textContent = 'CHANGES';
+    mutSec.appendChild(cat);
+
+    for (const m of s.mutations) {
+      const row = document.createElement('div');
+      row.className = 'stats-row';
+      const label = document.createElement('span');
+      label.className = 'stats-label';
+      label.textContent = m.name;
+      const val = document.createElement('span');
+      val.className = 'stats-val';
+      // Expression as a percentage plus what it costs you socially, which is the
+      // pair a player actually reasons about.
+      val.textContent = `${m.expression}% · ${VIS_SHORT[m.visibility] || m.visibility}`;
+      row.appendChild(label);
+      row.appendChild(val);
+      mutSec.appendChild(row);
+    }
+    left.appendChild(mutSec);
   }
 
   // RIGHT — skills (base levels only) with governing stats.

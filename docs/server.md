@@ -294,6 +294,35 @@ export const hooks = {
 
 `gatherHook(name, ...args)` calls the same subscribers but keeps **every** non-undefined return, flattened one level. Use it wherever the question is "what does everyone have to contribute" rather than "what is this value" — senses, and the room description. `zone.describeRoom` was moved to `gatherHook` on 2026-08-01: seven plugins register it and they can co-occur (a tagged wall on an airfield tile is both things at once), so under `fireHook` the last-loaded plugin silently ate the others' line. The hook table below marks which shape each hook uses.
 
+**1b. Sync contributor registries** — the shape to reach for when the question is
+"what does everyone contribute" but the caller is on a **hot path**. A hook is an
+`await` into arbitrary plugin code; a registry of plain functions cannot become a
+DB round trip no matter what a plugin does inside it. Four exist:
+
+| Registry | Owner | Contributor signature | Called from |
+| --- | --- | --- | --- |
+| `registerStatContributor(fn, owner)` | `condition.js` | `(player, stat) → delta` | `effectiveStat` — every skill check |
+| `registerAcuityContributor(fn, owner)` | `senses.js` | `(player, sense) → delta` | `acuitySync` — every move and look |
+| `registerArmorContributor(fn)` | `commands/inventory.js` | `(player, bySlot)` mutating in place | `recomputeArmor` — equip/login only, **may** await |
+| `registerSwingContributor(fn, owner)` | `combat.js` | `(phase, ctx)` mutating in place | **twice per swing**, both directions |
+| `registerSanityResistor(fn, owner)` | `condition.js` | `(player, reason) → 0..1 fraction` | `adjustSanity` — every sanity loss |
+
+All except `registerArmorContributor` are **sync by contract**: a contributor
+that awaits returns a promise the loop ignores, so its work silently vanishes.
+Keyed by `owner`, so re-registering replaces rather than stacks, and a thrower is
+skipped rather than taking the caller down.
+
+**`registerSwingContributor` is the strictest of them** — it may not await, may
+not query, and may not send. It is the only place a plugin can observe a swing
+while it is still resolving. Two phases: `'pre'` before the to-hit roll (the ctx's
+`hitMod` / `damageScale` / `critBonus` / `soakBonus` / `negate` are read back),
+and `'post'` after the outcome is known **including on a miss** — which is why it
+is not built on `damage-events.js`, whose observers only ever see a wound. Prose
+goes in `ctx.lines[]` and the engine appends it to the message it was already
+sending; a `sendToPlayer` from a contributor is N websocket writes inside the
+tick's enemy loop. With nothing registered the seam allocates nothing and costs
+one `Map.size` read. See [combat.md](combat.md).
+
 **2. Commands** — a plugin can own player-typed commands:
 
 ```js

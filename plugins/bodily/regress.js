@@ -429,6 +429,30 @@ export default async function regress({ run, check, getPlayer }) {
   check('but the spiral has a floor and cannot reach zero',
     effectiveStat(cool(1, 0), 'stat_cool') === 1);
 
+  // ── adjustSanity: the funnel every writer goes through ─────────────────────
+  // Before this existed `resistSanityLoss` was dead code and Cool bought you
+  // nothing at all. These cases pin the two halves that are easy to get wrong.
+  const { adjustSanity, registerSanityResistor } = await import('../../server/engine/condition.js');
+  const chill = cool(10, 50), rattledGuy = cool(1, 50);
+  check('a loss is resisted by composure',
+    Math.abs(adjustSanity({ ...chill }, -10)) < Math.abs(adjustSanity({ ...rattledGuy }, -10)));
+  check('...and a GAIN is never damped — Cool is not a tax on drinks',
+    adjustSanity({ ...chill }, 10) === 10 && adjustSanity({ ...rattledGuy }, 10) === 10);
+  check('resistance can never swallow a hit whole',
+    adjustSanity({ ...cool(20, 50) }, -1) === -1);
+  const atFloor = cool(10, 0), atCap = cool(10, 100);
+  adjustSanity(atFloor, -50); adjustSanity(atCap, 50);
+  check('clamps at 0 and sanity_max', atFloor.sanity === 0 && atCap.sanity === 100);
+  check('a no-op change reports zero and dirties nothing',
+    adjustSanity({ ...cool(10, 100) }, 5) === 0);
+
+  let sawLoss = null;
+  registerSanityResistor((p, reason) => { sawLoss = reason; return 0.5; }, '_regress');
+  const resisted = adjustSanity({ ...cool(1, 50) }, -20, 'test_reason');
+  registerSanityResistor(() => 0, '_regress');   // stand down (keyed by owner, so this replaces)
+  check('a registered resistor sees the reason and shrinks the loss',
+    sawLoss === 'test_reason' && Math.abs(resisted) < 20);
+
   // ── Dreams: sleep is no longer dead time ────────────────────────────────────
   const { rollDream } = await import('../../server/engine/dreams.js');
   const sound = { ...WARM, sanity: 100, sanity_max: 100 };

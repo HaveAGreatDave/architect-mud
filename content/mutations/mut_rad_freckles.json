@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "A scatter of pale freckles across their cheekbones that catch the light oddly.",
+    "obvious": "Their skin is mottled with spots that hold a faint green cast, brightest at the throat.",
+    "extreme": "They are freckled with cold green light from the jaw down. In an unlit room you could read by them, and they know it."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso",
+    "head"
+  ],
+  "conceal_slots": [
+    "torso",
+    "head"
+  ],
+  "description": "Mottled spots across your skin that hold a faint light of their own. They get brighter near the hot stuff, which is either a warning system or a beacon.",
+  "drawbacks": [
+    "You glow. Faintly, but you glow"
+  ],
+  "effects": {
+    "rad_resistance": 0.1
+  },
+  "expression_band": "radiation",
+  "id": "mut_rad_freckles",
+  "name": "Radiation Freckles",
+  "polarity": "mixed",
+  "radiation_threshold": 40,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 500,
+  "treatable": true,
+  "visibility_class": "obvious",
+  "visible": 1
+}

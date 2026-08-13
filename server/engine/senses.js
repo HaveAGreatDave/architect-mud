@@ -98,8 +98,35 @@ export function gearDamp(player, sense) {
   return Number(player?._senseDamp?.[sense]) || 0;
 }
 
+// ── Sync contributors ────────────────────────────────────────────────────────
+//
+// A body can be sharper than its stats for reasons that are neither a status
+// effect nor a piece of gear — a mutation grows the organ. Those register here
+// rather than being imported directly, because the contributor (mutations.js)
+// reads acuity ITSELF for its detection pass, and a direct import each way is a
+// cycle. Same shape as registerArmorContributor and registerBodyPartProvider.
+//
+// SYNC BY CONTRACT. This is on the describeZone path — see the note below on
+// why that path refuses to await. A contributor that throws contributes zero.
+const acuityContributors = new Map();
+
+export function registerAcuityContributor(fn, owner = 'unknown') {
+  if (typeof fn === 'function') acuityContributors.set(owner, fn);
+}
+
+export function getAcuityContributors() { return [...acuityContributors.keys()]; }
+
+function contributedAcuity(player, sense) {
+  let total = 0;
+  for (const fn of acuityContributors.values()) {
+    try { total += Number(fn(player, sense)) || 0; } catch { /* a broken sense is not a broken look */ }
+  }
+  return total;
+}
+
 /**
- * Acuity WITHOUT the plugin hook — stat, statuses and worn gear only.
+ * Acuity WITHOUT the plugin hook — stat, statuses, worn gear and any registered
+ * sync contributor.
  *
  * `describeZone` runs on every move and every look, which makes it the hottest
  * path in the game, and sight acuity has to be read there. `gatherHook` is cheap
@@ -113,12 +140,14 @@ export function gearDamp(player, sense) {
  */
 export function acuitySync(player, sense) {
   if (!player) return 0;
-  return clamp(statAcuity(player, sense) + effectAcuity(player, sense) + gearDamp(player, sense), -3, 5);
+  return clamp(statAcuity(player, sense) + effectAcuity(player, sense) + gearDamp(player, sense)
+    + contributedAcuity(player, sense), -3, 5);
 }
 
 export async function acuityFor(player, sense) {
   if (!player) return 0;
-  let total = statAcuity(player, sense) + effectAcuity(player, sense) + gearDamp(player, sense);
+  let total = statAcuity(player, sense) + effectAcuity(player, sense) + gearDamp(player, sense)
+    + contributedAcuity(player, sense);
   for (const c of await gatherHook('sense.acuity', player, sense)) {
     total += Number(c?.bonus ?? c) || 0;
   }

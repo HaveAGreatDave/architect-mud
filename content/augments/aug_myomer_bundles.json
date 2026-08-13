@@ -1,9 +1,22 @@
 {
   "cost": 1200,
   "description": "Synthetic muscle woven along the arms, torqued past anything meat can manage. It shows: the unwired step back when you flex.",
+  "failure_messages": {
+    "burnout": "Something tears deep in the bundle and your grip goes to nothing.",
+    "dead": "The myomer stops answering. Your arm is just an arm again, and a tired one.",
+    "fault": "The actuator locks halfway through the movement. Your arm stops where it is and will not be argued with.",
+    "strain": "The bundles along your arms are running hot enough to feel through the skin, and the tremor in your hands is not yours."
+  },
+  "heat_rate": 1,
   "id": "aug_myomer_bundles",
+  "install_difficulty": 6,
+  "item_id": "item_aug_myomer_bundles",
+  "licensed": 1,
   "name": "Myomer Bundles",
+  "overclock_max": 1,
+  "power_draw": 1.6,
   "rep_gate": "known",
+  "salvage_item_id": "item_ruined_myomer_bundles",
   "slot": "arms",
   "soak": {},
   "special": null,

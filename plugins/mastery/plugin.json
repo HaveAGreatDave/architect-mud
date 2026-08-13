@@ -1,0 +1,61 @@
+{
+  "name": "mastery",
+  "version": "0.3.0",
+  "description": "Mastery — the Long Watch's counterpart to Wildblood mutation and Ascendant chrome. Eight trainable disciplines (body, movement, senses, mind, combat, pain, breath, will) on a body that is never modified, because the rule the whole system is built on is that a Long Watch veteran must not look supernatural on inspection: no paper-doll entry, no appearance note, nothing an examine can see. Two limiters, on two different axes. A REPUTATION gate decides what an instructor will teach you — an NPC flagged `mastery_instructor` refuses in prose that never names reputation, a tier or a flag, the same convention the mutagen gate follows. A PURITY CAP decides how far any discipline can reach: every installed augment and every point of mutation expression lowers the ceiling, floored at 10 rather than 0, because chrome does not make discipline impossible, it makes mastery impossible, and the difference between those two sentences is the fiction. Rank is stored RAW and the cap applies on READ, so pulling chrome back out returns exactly what you earned — baking the reduction in would be unrecoverable, which is the lesson docs/systems-mutations.md already paid for once. An instructor raises the CEILING; being hit raises the number, so there is deliberately no training dummy. Storage is two per-player runtime tables hydrated in one query inside the existing login batch and read from memory thereafter (sync by contract — the swing seam may not query), with a coalesced 1m flush and lazy decay computed at hydrate rather than by any tick.",
+  "commands": [
+    "mastery",
+    "train",
+    "read",
+    "stance",
+    "technique",
+    "focus",
+    "readresolve"
+  ],
+  "hooks": [],
+  "objectGatedCommands": {
+    "train": {
+      "discoverVia": "mastery_instructor",
+      "note": "Surfaced by the declaration-only specialized action registered under requiredFlag mastery_instructor, so examining an instructor advertises TRAIN."
+    }
+  },
+  "events": {
+    "consumes": [
+      "player.login",
+      "player.logout",
+      "player.death",
+      "mutation.gained"
+    ]
+  },
+  "actions": {
+    "registers": [
+      "MASTERY_TEACH",
+      "mastery.train",
+      "mastery.read"
+    ]
+  },
+  "ticks": [
+    {
+      "cadence": "1m",
+      "what": "coalesced dirty-gated flush of player_reads / player_disciplines / player_purity, and banking of fights that went quiet"
+    },
+    {
+      "cadence": "10s",
+      "what": "stance stamina drain + lazy expiry, and composure decay out of combat"
+    }
+  ],
+  "dependencies": [
+    "ideologies",
+    "augments",
+    "mutations"
+  ],
+  "dataSchema": [
+    "player_reads",
+    "player_disciplines",
+    "player_purity"
+  ],
+  "extensionPoints": [
+    "npcs.flags.mastery_instructor — { disciplines: [...], max_rank: n, rep_required: n }",
+    "MASTERY_TEACH action — the authored (VINE) route to opening a discipline",
+    "registerSwingContributor (server/engine/combat.js) — the seam Read and every technique ride"
+  ]
+}

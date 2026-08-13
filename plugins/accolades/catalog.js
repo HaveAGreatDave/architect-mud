@@ -143,6 +143,46 @@ export const ENTRIES = [
     on: 'hygiene.filthy',
     test: (p) => p?.actor?.id || null,
   },
+  // ── The stray in Dray Lane (plugins/strays) ──────────────────────────────
+  // Four entries, and the tonal split across them is deliberate. The petting
+  // ones are dry. The killing one is dry too — the Architect does not moralise,
+  // it files. The sadness is carried entirely by the room prose at the moment it
+  // happens, and putting a joke here would be the system letting the player off.
+  {
+    key: 'bionic_purr',
+    title: 'Bionic Purr',
+    line: 'Something in this city let you touch it. Enjoy the feeling; it is not a trend.',
+    on: 'npc.petted',
+    test: (p) => (p?.npc?.flags?.stray_cat ? p.actor?.id || null : null),
+  },
+  {
+    key: 'regular',
+    title: 'Regular',
+    line: 'Petted the same stray six times. It knows your gait now. Nobody else does.',
+    on: 'npc.petted',
+    // The counter is process-local write-behind, which is fine here: the durable
+    // pet count is the plugin's own player flag, and the composite PK on
+    // player_achievements stops a restart re-awarding this.
+    test: (p, ctx) => {
+      const id = p?.actor?.id;
+      if (!id || !p?.npc?.flags?.stray_cat) return null;
+      return ctx.bump(id, 'stray_pets') >= 6 ? id : null;
+    },
+  },
+  {
+    key: 'nine_lives_one_paw',
+    title: 'Nine Lives, One Paw',
+    line: 'Killed a cat with a prosthetic. The Architect has logged this and will not be discussing it further.',
+    on: 'npc.killed',
+    test: (p) => (p?.npc?.flags?.stray_cat ? p.actor?.id || null : null),
+  },
+  {
+    key: 'found_you',
+    title: 'Found You',
+    line: "Searched the lane and turned up the one thing in Coldwater that didn't want finding.",
+    on: 'stray.found',
+    test: (p) => p?.actor?.id || null,
+  },
   {
     key: 'meta',
     title: 'Meta',

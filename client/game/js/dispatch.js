@@ -34,14 +34,21 @@ import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/d
 import { openCircuitHack } from './panels/circuithack.js';
 import { mountChess3D } from './panels/chess3d.js';
 import { openTextBreach, isTextBreachActive, command as textBreachCommand } from './panels/textbreach.js';
+import { openNullBoard } from './panels/nullboard.js';
+import { openTextNullBoard, isTextNullActive } from './panels/textnullboard.js';
+import { openCalibration } from './panels/calibration.js';
+import { openTextCalibration, isTextCalibrationActive, command as textCalibrationCommand } from './panels/textcalibration.js';
 import { openTextHololock, isTextHololockActive, command as textHololockCommand } from './panels/texthololock.js';
 import { openTextVault, isTextVaultActive, command as textVaultCommand } from './panels/textvault.js';
 import { openTextSignal, isTextSignalActive, command as textSignalCommand } from './panels/textsignal.js';
 import { openTextFishing, isTextFishingActive, command as textFishingCommand } from './panels/textfishing.js';
+import { openTextRead, isTextReadActive } from './panels/textread.js';
+import { openReadWindow } from './panels/readwindow.js';
 import { openHololock } from './panels/hololock.js';
 import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
+import { openPsychometry } from './panels/psychometry.js';
 import { abortMacros } from './panels/smartbar-macros.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
@@ -279,7 +286,8 @@ function paneFreeForRoom() {
   return !isFlightSimActive() && !isCockpitHudActive() && !isHangarBayActive() && !isHelmActive()
     && !isCabActive() && !isTruckDepotActive()
     && !isTextCockpitActive() && !isTextBreachActive() && !isTextHololockActive()
-    && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive();
+    && !isTextVaultActive() && !isTextSignalActive() && !isTextFishingActive()
+    && !isTextCalibrationActive() && !isTextNullActive() && !isTextReadActive();
 }
 
 function autoResolved(msg, onResult) {
@@ -921,7 +929,7 @@ const handlers = {
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
-  'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); },
+  'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); setRainbowSky(msg.eventType, msg.phase); },
   'lightning': () => { triggerLightningFlash(); },
   'lightning_strike': (msg) => { flightSimLightning(msg); },
 
@@ -1137,6 +1145,25 @@ const handlers = {
     openCircuitHack({ ...args, atmName: msg.deviceName || 'DEVICE' });
   },
 
+  // Tuning an implant. Reports a 0-100 SCORE rather than a win, like the synth
+  // family — calibration is a graded quantity and a boolean would collapse it
+  // into a coin flip. The score is worth at most ±15 against the server's own
+  // electronics check, so this is advisory and the server decides.
+  aug_calibration: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'calibrateresolve';
+    const onResult = ({ score }) =>
+      sendCmdSilent(`${resolveCmd} ${msg.augmentId} ${Math.round(score ?? 0)} ${msg.nonce}`);
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'IMPLANT',
+      onResult,
+    };
+    if (autoResolved(msg, onResult)) return;
+    if (msg.render === 'text' && openTextCalibration(args)) return;
+    openCalibration(args);
+  },
+
   signal_hijack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'pirateresolve';
     const args = {
@@ -1149,6 +1176,50 @@ const handlers = {
     if (autoResolved(msg, args.onResult)) return;
     if (msg.render === 'text' && openTextSignal(args)) return;
     openSignalHijack(args);
+  },
+
+  // Nullcraft's intrusion board. Unlike every other family here it is TURN-BASED
+  // — nothing moves unless the player moves it — so the middle rung is a true
+  // equivalent rather than a reflex game rendered in characters.
+  null_intrusion: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'nullresolve';
+    const onResult = ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.opId} ${won ? 1 : 0}`);
+    const args = {
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      targetName: msg.deviceName || 'DEVICE',
+      subsystem: msg.subsystem || '',
+      operation: msg.operation || '',
+      onResult,
+    };
+    if (autoResolved(msg, onResult)) return;
+    if (msg.render === 'text' && openTextNullBoard(args)) return;
+    openNullBoard(args);
+  },
+
+  // The Long Watch's reaction beat (plugins/mastery). Unlike every other family
+  // here it is armed by the game rather than requested by the player, and
+  // LETTING IT LAPSE COSTS NOTHING — so there is no failure path to report when
+  // the window simply closes.
+  //
+  // Note the client sends the CHOSEN WORD, not a verdict: the server holds which
+  // answer was right. The `0|1` shape only appears at the log rung, where the
+  // server produced the bit itself and `autoResolved` echoes it straight back.
+  read_window: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'readresolve';
+    const onResult = ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.token} ${won ? 1 : 0}`);
+    const args = {
+      targetName: msg.deviceName || 'IT',
+      tells: msg.tells || [],
+      options: msg.options || [],
+      ttlMs: msg.ttlMs ?? 2500,
+      token: msg.token,
+      resolveCmd,
+      onChoice: (cmd) => sendCmdSilent(cmd),
+    };
+    if (autoResolved(msg, onResult)) return;
+    if (msg.render === 'text' && openTextRead(args)) return;
+    openReadWindow(args);
   },
 
   pirate_console: (msg) => openPirateConsole(msg),
@@ -1167,6 +1238,23 @@ const handlers = {
     if (autoResolved(msg, args.onResult)) return;
     if (msg.render === 'text' && openTextHololock(args)) return;
     openHololock(args);
+  },
+
+  // ── Psionics ─────────────────────────────────────────────────────────────
+  // Four fragment meters, pick one, done in about four seconds. The strengths
+  // were computed server-side before this arrived, so the board only chooses
+  // WHICH authorised fragment to reveal. `autoResolved` covers the log rung, and
+  // the text and graphical rungs are deliberately the same board — this surface
+  // is four bars and a keypress, and a second skin would differ only in font.
+  psychometry: (msg) => {
+    const args = {
+      itemId: msg.itemId,
+      itemName: msg.itemName,
+      fragments: msg.fragments || {},
+      resolveCmd: msg.resolveCmd || 'psiresolve',
+    };
+    if (autoResolved(msg, () => {})) return;
+    openPsychometry(args);
   },
 
   // A bite arms the CAST overlay (charge a power meter for depth, aim an angle).
@@ -1445,6 +1533,25 @@ function startTripFx(msg) {
     document.body.appendChild(el);
   }
   document.body.classList.add('tripping');
+}
+
+// ── Rainbow light, in the room ───────────────────────────────────────────────
+//
+// The rainbow events are the only hero weather whose payload is the ROOM PROSE
+// rather than an overlay: for the couple of minutes the arc stands, the text
+// itself carries the colour. Three body classes and nothing else, because the
+// shimmer belongs in CSS — that is where prefers-reduced-motion is honoured, in
+// one place, for everybody, without this file knowing about it.
+//
+// Cleared on any other event type and on null, so a storm can never roll in over
+// a still-shimmering room. Like every other weather-FX signal this is global
+// rather than vantage-keyed: only the PROSE knows whether you can see the sky
+// (server side, skyVantage), exactly as the ion storm's overlay already works.
+function setRainbowSky(type, phase) {
+  const bow = type === 'rainbow' || type === 'triple_rainbow';
+  document.body.classList.toggle('rainbow-sky', bow);
+  document.body.classList.toggle('rainbow-triple', type === 'triple_rainbow');
+  document.body.classList.toggle('rainbow-peak', bow && phase === 'peak');
 }
 
 function endTripFx() {

@@ -1,0 +1,17 @@
+{
+  "description": "A hood with two crowns and one collar. There is no polite way to describe who this is for.",
+  "flags": {},
+  "id": "item_wb_wide_hood",
+  "name": "twin-crown hood",
+  "tags": {
+    "slot": "head",
+    "layer": "outerwear",
+    "accommodates": [
+      "LARGE_HEAD"
+    ],
+    "description": "Two crowns, one collar, and a great deal of slack across the shoulders. Somebody quilted the lining so it does not chafe."
+  },
+  "type": "clothing",
+  "value": 1400,
+  "weight": 400
+}

@@ -25,8 +25,10 @@
  *      the warning text is the tutorial for the mechanic.
  */
 import { effectStatBonus } from './effects.js';
+import { mutationStatBonus } from './mutations.js';
 import { impairmentStatPenalty, impairmentOf } from './impairment.js';
 import { getTimeScale } from './gametime.js';
+import { emit } from './events.js';
 
 // Cold hands don't do what you tell them. The bands mirror `tempRegenMultiplier`
 // in gameLoop.js exactly, so the message that says you're cold is the same
@@ -105,6 +107,73 @@ export function resistSanityLoss(player, amount) {
   const cool = effectiveStat(player, 'stat_cool');
   const resist = Math.min(COOL_SANITY_RESIST_CAP, cool * COOL_SANITY_RESIST_PER_POINT);
   return loss * (1 - resist);
+}
+
+// Registered sanity resistors — the seam a PLUGIN uses to reach the funnel
+// without importing half the engine (the Long Watch's Fear Discipline is the
+// first customer). Sync by contract, same shape as every other contributor
+// registry in the tree: keyed by owner, so re-registering replaces rather than
+// stacks, and a thrower is skipped rather than taking the caller down.
+//
+// Each returns the FRACTION of the loss to shrug off (0..1). They combine
+// multiplicatively and each is individually capped, so no stack of resistors
+// can ever reach immunity — the same bounded-loop rule as Cool above.
+const sanityResistors = new Map();
+const RESISTOR_CAP = 0.5;
+
+export function registerSanityResistor(fn, owner = 'unknown') {
+  if (typeof fn === 'function') sanityResistors.set(owner, fn);
+}
+export function getSanityResistors() { return [...sanityResistors.keys()]; }
+
+/**
+ * The ONE way sanity moves. Every writer in the game funnels through here.
+ *
+ * Before this existed, `resistSanityLoss` was dead code and twenty-odd call
+ * sites each did their own `Math.min(max, Math.max(0, …))`, which meant Cool
+ * bought you nothing at all: a character built entirely for composure ate the
+ * same horror as one who wasn't. It also meant nothing could ever OBSERVE a
+ * sanity change, so a plugin that wanted to react to one had to poll.
+ *
+ * GAINS ARE NEVER DAMPED. Only losses are resisted. A cool head shrugs off the
+ * thing in the alley; it does not fail to enjoy a drink. Running gains through
+ * the resistance would make Cool a penalty to every restorative in the game,
+ * which is the exact opposite of what the stat means.
+ *
+ * Sync, and safe to call from a tick — it touches only the live player object
+ * and sets `_resDirty` for the batched writer.
+ *
+ * @returns {number} the delta that ACTUALLY landed, after resistance and clamping
+ */
+export function adjustSanity(player, delta, reason = null) {
+  if (!player) return 0;
+  const max = Number(player.sanity_max) || 100;
+  const before = Math.max(0, Math.min(max, Number(player.sanity) || 0));
+  let applied = Number(delta) || 0;
+
+  if (applied < 0) {
+    let loss = resistSanityLoss(player, applied);
+    for (const fn of sanityResistors.values()) {
+      try {
+        const frac = Math.min(RESISTOR_CAP, Math.max(0, Number(fn(player, reason)) || 0));
+        loss *= (1 - frac);
+      } catch { /* a broken resistor must not stop the hit landing */ }
+    }
+    // Round, and never let resistance swallow a hit whole. Flooring here would
+    // make a high-Cool character outright IMMUNE to every 1-point loss in the
+    // game (0.5 floors to 0), which is precisely the immunity the resistance cap
+    // above exists to prevent. Resistance buys you a longer fall, not a floor.
+    const raw = Math.abs(Number(delta) || 0);
+    applied = -(raw >= 1 ? Math.max(1, Math.round(loss)) : Math.round(loss));
+  }
+
+  player.sanity = Math.max(0, Math.min(max, before + applied));
+  const real = player.sanity - before;
+  if (real) {
+    player._resDirty = true;
+    emit('sanity.changed', { actor: player, delta: real, reason });
+  }
+  return real;
 }
 
 // ── Fatigue ──────────────────────────────────────────────────────────────────
@@ -269,6 +338,30 @@ export function statPenalty(player, stat) {
 }
 
 /**
+ * Registered stat contributors — the seam a PLUGIN uses to reach this netting.
+ *
+ * Mutations are imported directly because they are an engine substrate. Augments
+ * are not: the engine must never import a plugin, and chrome that contributes a
+ * derived (never baked) stat bonus is exactly the case that needs a seam rather
+ * than an import. Sync by contract for the same reason `mutationStatBonus` is —
+ * `effectiveStat` sits under `skillStatBonus` and is called from every check in
+ * the game, including the combat hot path. A contributor that awaits is a bug.
+ */
+const statContributors = new Map();
+export function registerStatContributor(fn, owner = 'unknown') {
+  if (typeof fn === 'function') statContributors.set(owner, fn);
+}
+export function getStatContributors() { return [...statContributors.keys()]; }
+
+function contributedStat(player, stat) {
+  let total = 0;
+  for (const fn of statContributors.values()) {
+    try { total += Number(fn(player, stat)) || 0; } catch { /* a broken implant is not a broken stat */ }
+  }
+  return total;
+}
+
+/**
  * The stat a player is actually acting with, right now. Floored at 1 — being in
  * a terrible way makes you worse, never helpless.
  */
@@ -277,7 +370,11 @@ export function effectiveStat(player, stat) {
   // Condition takes away; status effects can give back. Well Rested is the first
   // of these — the reward for sleeping properly outweighs the penalty for not,
   // which is the correct shape for an optional chore.
-  const net = base - statPenalty(player, stat) + effectStatBonus(player, stat);
+  // Mutations join the same netting rather than being baked into the column, so
+  // treating one at the clinic moves this number and the stored stat is never
+  // touched. See the derived-contribution note in engine/mutations.js.
+  const net = base - statPenalty(player, stat) + effectStatBonus(player, stat)
+            + mutationStatBonus(player, stat) + contributedStat(player, stat);
   return Math.max(1, net);
 }
 

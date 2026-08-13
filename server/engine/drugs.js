@@ -28,7 +28,7 @@ import { applyMods, reverseMods } from './statmods.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { getTimeScale } from './gametime.js';
-import { STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST } from './condition.js';
+import { STIM_FATIGUE_RELIEF, STIM_FATIGUE_INTEREST, adjustSanity } from './condition.js';
 import { sendToPlayer } from './messaging.js';
 
 let DRUG_CACHE = {};
@@ -727,7 +727,9 @@ const DIURETIC_DEHYDRATION = 5;  // thirst removed per +1.0 of diuretic factor
 function applyEffects(player, effects, message, diuretic = 1) {
   const statUpdates = {};
   if (effects.hp) statUpdates.hp = Math.max(0, Math.min(player.hp_max, player.hp + effects.hp));
-  if (effects.sanity) statUpdates.sanity = Math.max(0, Math.min(player.sanity_max, player.sanity + effects.sanity));
+  // Through the funnel first (so a loss is resisted and the change is observable),
+  // then read back what landed — the persistence path below is untouched.
+  if (effects.sanity) { adjustSanity(player, effects.sanity, 'drug'); statUpdates.sanity = player.sanity; }
   if (effects.hunger) {
     statUpdates.hunger = Math.max(0, Math.min(100, player.hunger + effects.hunger));
     if (effects.hunger > 0) statUpdates.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(effects.hunger));

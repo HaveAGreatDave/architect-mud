@@ -1,15 +1,17 @@
 {
   "name": "augments",
-  "version": "1.0.0",
-  "description": "Installable cybernetics — the machine-path mirror of mutations (chosen, paid, slot-limited, removable), plus the Ascendant cortical-backup death loop.",
-  "commands": ["augment", "augments", "backup", "assurance"],
-  "hooks": ["player.respawnZone"],
+  "version": "2.0.0",
+  "description": "Chrome as a machine you own — installed from an item by a surgeon who can botch it, tuned on a calibration board, pushed past spec until it comes apart, repaired, and corrupted by death so nobody farms it off corpses. Plus the Ascendant cortical-backup loop.",
+  "commands": ["augment", "augments", "calibrate", "calibrateresolve", "backup", "assurance"],
+  "hooks": ["player.respawnZone", "tech.targets"],
   "events": {
-    "consumes": ["player.login"]
+    "consumes": ["player.login", "player.death"]
   },
   "actions": {
     "registers": []
   },
+  "ticks": ["1m"],
   "dependencies": ["ideologies"],
-  "dataSchema": ["augments", "player_augments", "player_backups"]
+  "dataSchema": ["augments", "player_augments", "player_backups"],
+  "extensionPoints": []
 }

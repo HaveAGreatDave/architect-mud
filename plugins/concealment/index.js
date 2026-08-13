@@ -233,8 +233,27 @@ export const specializedActions = [
   { verb: 'keypad', requiredFlag: 'conceal_hidden_by', visibleFor: (f, v) => !f?.flags?.concealed && keypadVisibleTo(f, v), handler: null },
 ];
 
+// A hard `search` of a room can notice that a wall is lying, WITHOUT giving up
+// anything that matters. You learn a disguise piece is a disguise piece; you do
+// not learn the code, and you do not learn what's behind it — those are the
+// secret, and they stay behind the keypad exactly as before. (Examine already
+// surfaces the keypad to anyone allowed to use it; this is for everybody else,
+// and it is deliberately just a bad feeling.) Low priority so a genuinely
+// findable THING in the room beats a hunch about the panelling.
+function searchForSeams({ zoneId, margin }) {
+  if (margin < 6) return null;
+  const disguise = disguisesIn(zoneId).find((d) => !isOpen(d));
+  if (!disguise) return null;
+  return {
+    found: true,
+    priority: 200,
+    message: `There's a seam in the panelling that isn't a seam. ${disguise.name} is not as deep as the wall behind it.`,
+  };
+}
+
 export const hooks = {
   'furniture.describe': describeFurniture,
+  'search.provider': searchForSeams,
 };
 
 export const commands = {

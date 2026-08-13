@@ -1,0 +1,22 @@
+{
+  "description": "Gloves with the fingers left open at the last joint and the palms doubled. Claws go through. Everything else stays warm.",
+  "flags": {},
+  "id": "item_wb_split_gloves",
+  "name": "split-finger gloves",
+  "tags": {
+    "slot": "hands",
+    "layer": "outerwear",
+    "accommodates": [
+      "EXPOSED_JOINTS",
+      "EXTRA_LIMBS",
+      "CARAPACE"
+    ],
+    "armor_soak": {
+      "kinetic": 1
+    },
+    "description": "Open at the last joint, doubled across the palm, and cut wide enough at the wrist for a hand that is the wrong shape."
+  },
+  "type": "clothing",
+  "value": 600,
+  "weight": 200
+}

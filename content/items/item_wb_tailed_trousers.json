@@ -1,0 +1,20 @@
+{
+  "description": "Heavy canvas trousers, cut and rebuilt at the seat with a reinforced slit and a laced gusset. Somebody who has done this many times did this.",
+  "flags": {},
+  "id": "item_wb_tailed_trousers",
+  "name": "thornwarren-cut trousers",
+  "tags": {
+    "slot": "legs",
+    "layer": "outerwear",
+    "accommodates": [
+      "TAIL"
+    ],
+    "armor_soak": {
+      "kinetic": 2
+    },
+    "description": "Heavy canvas, cut and rebuilt at the seat with a reinforced slit and a laced gusset. The stitching is very good and completely unashamed."
+  },
+  "type": "clothing",
+  "value": 850,
+  "weight": 700
+}

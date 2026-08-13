@@ -1,9 +1,22 @@
 {
   "cost": 2200,
   "description": "A hermetic ceramic-and-lead shell fitted over the core. Nothing gets in: not fallout, not fire, not the slow rot of the waste. Chrome doesn't mutate, and neither, now, do you.",
+  "failure_messages": {
+    "burnout": "A seal lets go with a sound like a dropped plate, somewhere under your sternum.",
+    "dead": "The chassis is a dead weight around your core. Nothing is sealed. Nothing is cooled.",
+    "fault": "Thermal alarms scream somewhere inside your chest as the cooling loop gives out.",
+    "strain": "The chassis is holding heat it was built to shed. Your whole core feels like a closed room in summer."
+  },
+  "heat_rate": 0.7,
   "id": "aug_radsealed_chassis",
+  "install_difficulty": 8,
+  "item_id": "item_aug_radsealed_chassis",
+  "licensed": 1,
   "name": "Rad-sealed Chassis",
+  "overclock_max": 1,
+  "power_draw": 1.8,
   "rep_gate": "trusted",
+  "salvage_item_id": "item_ruined_radsealed_chassis",
   "slot": "torso",
   "soak": {
     "torso": {

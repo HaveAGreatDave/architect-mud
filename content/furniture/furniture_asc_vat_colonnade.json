@@ -1,0 +1,14 @@
+{
+  "description": "Close up, the gold is a lattice of fine pipework laid over the glass like a jeweller would lay it, and every tank is warm to the palm. Inside, a body hangs in amber at the exact temperature of blood, unfinished in ways you do not look at twice. A small enamel plate at the foot of each carries a name, a policy number, and a date that has not happened yet.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_asc_vat_colonnade",
+  "light_type": "lamp",
+  "lumen_output": 220,
+  "name": "the vat colonnade",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_asc_vats_hall"
+}

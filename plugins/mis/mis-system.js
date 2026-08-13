@@ -6,6 +6,7 @@
  * server setting); everything a leaf system owns lives here.
  */
 import { query } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { isMisActive } from '../../server/engine/mis.js';
 import { stainZone } from '../../server/engine/bodily.js';
 // Body mechanics live next door (mis-body.js): this module owns the meter and the
@@ -109,7 +110,7 @@ export async function addHorniness(player, amount, broadcast) {
 export async function triggerClimax(player, broadcast, location = null) {
   player.horniness = 0;
   player.erect = 0;
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+  adjustSanity(player, 10, 'mis');
   player.horniness_last_increased = null;
 
   // Volume BEFORE the stamp — it measures time since the last one.
@@ -158,7 +159,7 @@ export async function triggerGroundClimax(player) {
   const volume = volumeOf(player);
   player.horniness = 0;
   player.erect = 0;
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+  adjustSanity(player, 10, 'mis');
   player.horniness_last_increased = null;
   markClimax(player);
   markClimaxVolume(player);
@@ -929,7 +930,7 @@ const SERVICE_TARGET_CLIMAX = [
 // caller stains the zone; females mark legs. Mirrors triggerClimax's bookkeeping.
 export async function triggerServiceClimax(target) {
   target.horniness = 0;
-  target.sanity = Math.min(target.sanity_max || 100, (target.sanity || 50) + 10);
+  adjustSanity(target, 10, 'mis');
   target.horniness_last_increased = null;
   if (!target.appearance_data) target.appearance_data = {};
   if (target.biological_sex === 'male') {

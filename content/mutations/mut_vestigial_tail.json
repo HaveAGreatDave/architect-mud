@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "They are sitting oddly, forward on the chair.",
+    "obvious": "There is a short tail at the base of their spine, pushing their coat out of shape.",
+    "extreme": "A thick tail hangs to the back of their knees, cut through the seat of trousers that have been altered for it."
+  },
+  "blocks_slots": [
+    "legs"
+  ],
+  "body_parts": [
+    "tail"
+  ],
+  "conceal_slots": [
+    "legs"
+  ],
+  "description": "A short tail at the base of your spine. It does almost nothing, and it does not fit in trousers.",
+  "drawbacks": [
+    "Ordinary trousers do not work any more"
+  ],
+  "effects": {},
+  "expression_band": "radiation",
+  "grants_part": "tail",
+  "id": "mut_vestigial_tail",
+  "name": "Vestigial Tail",
+  "polarity": "mixed",
+  "radiation_threshold": 55,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1300,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

@@ -24,6 +24,13 @@ const KNOWN_EMITTERS = new Set([
   'hygiene.filthy',    // server/engine/hygiene.js (checkFilthy, on bodily's 1m tick)
   'accolade.unlocked', // this plugin
   'accolade.opened',   // this plugin
+  'npc.killed',        // plugins/weapon (cmdAttack, and the admin insta-gib path)
+  // Two emitters on purpose. The engine's cmdPet emits it on the wholesome
+  // default; plugins/strays CLAIMS the pet via the npc.petAttempt hook (so the
+  // default never runs) and emits it itself on the same success condition.
+  // Exactly one fires per pet.
+  'npc.petted',        // server/engine/commands/social.js + plugins/strays
+  'stray.found',       // plugins/strays (its search.provider)
 ]);
 
 export default async function regress({ run, check }) {

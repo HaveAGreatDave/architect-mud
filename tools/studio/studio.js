@@ -2089,6 +2089,9 @@ async function lintNow() {
 // its own port, so it cannot READ the dev panel's stored choice — localStorage
 // does not cross an origin — but it stores under the same key, so a Studio ever
 // served from the game server would find the panel's answer already there.
+// Until then the panel HANDS the theme over in `?theme=`, which is why the URL
+// beats the stored value: the launching panel is the more recent answer, and a
+// Studio opened by hand has no param and keeps its own.
 const THEME_KEY = 'architect_settings';
 const STUDIO_THEMES = [
   ['Dark', [
@@ -2114,11 +2117,23 @@ function applyTheme(id) {
   draw();
 }
 
+// Merge, never replace: the key is the dev panel's whole settings blob, and a
+// Studio served from the game server one day would be writing over its siblings.
+function saveTheme(id) {
+  try {
+    const s = JSON.parse(localStorage.getItem(THEME_KEY) || '{}');
+    s.theme = id;
+    localStorage.setItem(THEME_KEY, JSON.stringify(s));
+  } catch {}
+}
+
 function initTheme() {
   const sel = $('#theme');
   if (!sel) return;
   let saved = 'dark';
   try { saved = JSON.parse(localStorage.getItem(THEME_KEY) || '{}').theme || 'dark'; } catch {}
+  const handed = new URLSearchParams(location.search).get('theme');
+  if (handed) saved = handed;
   sel.innerHTML = STUDIO_THEMES.map(([label, items]) =>
     `<optgroup label="${label}">${items.map(([v, l]) =>
       `<option value="${v}"${v === saved ? ' selected' : ''}>${l}</option>`).join('')}</optgroup>`).join('');
@@ -2126,13 +2141,16 @@ function initTheme() {
   // than leaving an unstyled data-theme on the element.
   if (!sel.value) sel.value = 'dark';
   applyTheme(sel.value);
+  // Remember what was handed over, so a RELOAD (which drops the query string)
+  // doesn't snap back to Void — and drop the param from the address bar, since a
+  // stale `?theme=` in a bookmark would keep overriding the picker forever.
+  if (handed) {
+    saveTheme(sel.value);
+    try { history.replaceState(null, '', location.pathname); } catch {}
+  }
   sel.addEventListener('change', () => {
     applyTheme(sel.value);
-    try {
-      const s = JSON.parse(localStorage.getItem(THEME_KEY) || '{}');
-      s.theme = sel.value;
-      localStorage.setItem(THEME_KEY, JSON.stringify(s));
-    } catch {}
+    saveTheme(sel.value);
   });
 }
 

@@ -1,17 +1,35 @@
 {
+  "appearance": {
+    "subtle": "There is a mark on the back of their skull under the hair.",
+    "obvious": "A third eye sits open at the back of their skull, tracking independently.",
+    "extreme": "The eye at the back of their head is fully formed and larger than the other two. It finds you before they turn around."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
   "description": "A third eye has opened on the back of your skull. You see things people don't.",
   "drawbacks": [
     "NPCs find you unsettling"
   ],
   "effects": {
-    "perception_bonus": 2
+    "acuity_sight": 2,
+    "social_penalty": 0.25
   },
+  "expression_band": "radiation",
   "id": "mut_extra_eye",
   "name": "Extra Eye",
   "polarity": "mixed",
   "radiation_threshold": 60,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_reflexes": 1
   },
+  "treat_cost": 1600,
+  "treatable": true,
+  "visibility_class": "obvious",
   "visible": 1
 }

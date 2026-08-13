@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "Their voice has an odd second note under it.",
+    "obvious": "Their chest is barrelled out around something, and their voice carries a resonance that sits wrong in your ears.",
+    "extreme": "Their ribcage is a drum. When they speak, glass hums, and the sound arrives in your chest before it reaches your ears."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "A resonating chamber has grown behind your sternum. What comes out of it is not a shout, and people who hear it stop being able to stand up straight.",
+  "drawbacks": [
+    "It hurts you to use it too"
+  ],
+  "effects": {
+    "sonic_attack": 10,
+    "acuity_hearing": 1
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_sonic_organ",
+  "name": "Sonic Organ",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

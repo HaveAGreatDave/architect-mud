@@ -1,0 +1,54 @@
+{
+  "category": null,
+  "description": "Bracken Hale walks the road out past the wall twice a week and checks what is on it, and the hounds go with her. She is short a pair of hands this week. It is a long walk in bad ground and the dogs do most of the work.",
+  "fail_on": [],
+  "id": "quest_wild_proving",
+  "meta": {},
+  "name": "The Road and the Dogs",
+  "objectives": [
+    {
+      "desc": "Collect the hounds from Bracken Hale",
+      "emotes": [
+        "{who} gets the leads over their shoulder and lets four large animals decide how fast this is going to go."
+      ],
+      "id": "o0",
+      "requires": [],
+      "taskSeconds": 5,
+      "type": "visit",
+      "zone": "zone_scw_1048_974"
+    },
+    {
+      "desc": "Walk the road out past the wall and check what is on it",
+      "emotes": [
+        "{who} walks the line of poles, checking the fixings, straightening what has gone crooked in the wind."
+      ],
+      "id": "o1",
+      "requires": [
+        "o0"
+      ],
+      "taskSeconds": 10,
+      "type": "visit",
+      "zone": "zone_scw_1052_990"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 120,
+    "xp": 45,
+    "flags": [
+      {
+        "scope": "player",
+        "flag": "wild_proving_done",
+        "value": "done"
+      },
+      {
+        "scope": "player",
+        "flag": "wildblood_trust",
+        "value": "2"
+      }
+    ]
+  },
+  "updated_at": "1786000000"
+}

@@ -14,7 +14,7 @@ import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
 import { fireHook } from "./plugins.js";
 import { getEnvironmentState } from "./environment.js";
-import { fatigueOf, sleepRecoveryPerMinute } from "./condition.js";
+import { fatigueOf, sleepRecoveryPerMinute, adjustSanity } from "./condition.js";
 import { gameMinutes, minutesUntil, hhmm } from "./clock.js";
 import { applyEffect } from "./effects.js";
 import { getFlag } from "./flags.js";
@@ -1040,7 +1040,7 @@ export async function tickSleep(player, broadcastFn) {
 	const sanGain = Math.ceil((player.sanity_max - player.sanity) * restore.sanity * rate);
 	const stamGain = Math.ceil((staminaMax - player.stamina) * (restore.stamina ?? 0) * rate);
 	player.hp = Math.min(player.hp_max, player.hp + hpGain);
-	player.sanity = Math.min(player.sanity_max, player.sanity + sanGain);
+	adjustSanity(player, sanGain, 'sleep');
 	player.stamina = Math.min(staminaMax, player.stamina + stamGain);
 	player.hunger = Math.max(0, player.hunger - SLEEP_HUNGER_DRAIN);
 	player.thirst = Math.max(0, player.thirst - SLEEP_THIRST_DRAIN);

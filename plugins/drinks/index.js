@@ -18,6 +18,7 @@
  * being drunk.
  */
 import { query } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { registerAction, dispatchAction, getRegisteredActions } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { getZoneFurniture } from '../../server/engine/world.js';
@@ -347,7 +348,7 @@ registerAction({
     // Sanity in memory + one write. Thirst was credited sip by sip already.
     const gain = Math.max(0, Math.round((drink.sanity || 0)));
     if (gain) {
-      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + gain);
+      adjustSanity(player, gain, 'drink');
       await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]).catch(() => {});
     }
 

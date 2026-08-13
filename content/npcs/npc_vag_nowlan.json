@@ -1,0 +1,224 @@
+{
+  "banter": [
+    [
+      "Ivy checks a wristwatch that has no hands, nods, and picks the pace up slightly."
+    ],
+    [
+      "\"Making good time,\" Ivy says to the road, and the road takes it well."
+    ],
+    [
+      "The trolley's bad wheel starts up its noise again. Ivy leans on the handle until it stops, the way you'd quiet a dog."
+    ],
+    [
+      "Ivy stops dead, looks back the way she came for a long moment, and then goes on the way she was going."
+    ],
+    [
+      "\"Two more junctions,\" says Ivy. There are not two more junctions."
+    ],
+    [
+      "Ivy re-ties the tarpaulin over the trolley in a knot of frankly professional quality."
+    ],
+    [
+      "\"Can't stop,\" Ivy says, stopping. \"Well. A minute.\""
+    ],
+    [
+      "\"Where is it you're headed?\"",
+      "\"Onwards,\" says Ivy, with total confidence, and is already twenty feet past you."
+    ]
+  ],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "linger": {
+        "next": "patrol",
+        "seconds": 45,
+        "type": "wait"
+      },
+      "patrol": {
+        "action_type": "PATROL",
+        "next": "roadline",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_district_919_911",
+            "zone_district_915_909",
+            "zone_district_923_913",
+            "zone_district_919_902"
+          ]
+        },
+        "type": "action"
+      },
+      "roadline": {
+        "action_type": "SAY",
+        "next": "linger",
+        "params": {
+          "cooldown_s": 180,
+          "message": "says, to nobody in particular: \"Making good time. Making very good time.\""
+        },
+        "type": "action"
+      },
+      "start": {
+        "next": "patrol",
+        "type": "start"
+      }
+    }
+  },
+  "chitchat": [],
+  "description": "A weatherbeaten woman in three coats, pushing a wire trolley roped over with blue tarpaulin and packed with the tight, considered economy of somebody who has had to carry it all a long way. One wheel screams. She walks with real purpose, at a real pace, scanning the verge ahead the way a driver reads a road, and when she stops to talk she stands at an angle, already half turned toward where she was going.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 880,
+        "y": 620
+      },
+      "options": [],
+      "text": "\"Right, right.\" Ivy is already leaning into the handle. The bad wheel starts up. \"Watch yourself on the verge.\""
+    },
+    "cart": {
+      "_vine": {
+        "x": 460,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "Can I see?",
+          "next": "cart_no"
+        },
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everything,\" says Ivy, with a certain satisfaction. \"Packed proper. There's a way to do it so the weight sits over the wheels and you can go all day, and there's the way everybody else does it, which is why you see them sat down at noon.\" <span class=\"text-dim\">She pats the tarpaulin.</span> \"Rope's better than straps. Straps go.\""
+    },
+    "cart_no": {
+      "_vine": {
+        "x": 880,
+        "y": 440
+      },
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No,\" Ivy says, pleasantly and instantly, and that is the whole of it. She is smiling. Her hand has not left the rope."
+    },
+    "road": {
+      "_vine": {
+        "x": 460,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "You came through here yesterday.",
+          "next": "road_press"
+        },
+        {
+          "label": "What's it like out there?",
+          "next": "road_out"
+        },
+        {
+          "label": "Safe travels.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Onwards,\" says Ivy, and the way she says it, it is clearly a place. \"Marrow, then the cut across, then Kessler while the light's on it, and I'll be through the far end before it turns.\" <span class=\"text-dim\">She glances at the sky and does a sum.</span> \"I'm ahead, actually. I could give you a minute.\""
+    },
+    "road_out": {
+      "_vine": {
+        "x": 880,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "Noted.",
+          "next": "root"
+        },
+        {
+          "label": "Heard anything worth hearing?",
+          "next": "root"
+        }
+      ],
+      "text": "\"Roads are honest,\" Ivy says. \"That's the thing about them nobody tells you. A road wants you to leave and it says so the whole way.\" <span class=\"text-dim\">She nods at the dead streetlight, the braided tyre tracks, the haze.</span> \"Don't sleep in the ruts. Water comes down them and it comes down them fast.\""
+    },
+    "road_press": {
+      "_vine": {
+        "x": 880,
+        "y": 280
+      },
+      "options": [
+        {
+          "label": "Right. Sorry.",
+          "next": "root"
+        },
+        {
+          "label": "Let her go.",
+          "next": "bye"
+        }
+      ],
+      "text": "Ivy looks at you with an expression of complete good humour and no give whatsoever. \"I did,\" she agrees. \"And I'll come through tomorrow.\" <span class=\"text-dim\">She takes the handle.</span> \"You've noticed a circle and you think you've noticed something sad. Love, a circle is what a road is when you've nowhere to be taken off it. It still counts as going.\""
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 300
+      },
+      "options": [
+        {
+          "label": "Where are you headed?",
+          "next": "road"
+        },
+        {
+          "label": "What have you got in the trolley?",
+          "next": "cart"
+        }
+      ],
+      "text": [
+        "Ivy slows without quite stopping. \"Go on, then. I'm walking, mind.\"",
+        "The trolley squeals to a halt. Ivy stands at an angle to you, already pointed onwards. \"Quick, is it?\"",
+        "\"Bit of company,\" Ivy says, not unkindly, and eases the trolley onto its stand."
+      ],
+      "text_by_relation": {
+        "close": [
+          "Ivy sets the trolley down properly, both hands off the rope, and turns to face you square on. She does not do this for many people. \"Well then,\" she says. \"Sit on the kerb with me a minute. It'll keep.\""
+        ],
+        "first": [
+          "The trolley stops with a shriek. The woman behind it looks you over once, top to boots, and evidently decides you are not a problem. \"Nowlan,\" she says. \"Ivy Nowlan. I walk this stretch, so you'll see me again, and I'd rather you knew the name than made one up.\" <span class=\"text-dim\">She keeps one hand on the rope throughout.</span> \"I'm not stopping long. I'm never stopping long. But I'll tell you what the road's doing between here and Kessler if it's any use to you, and it usually is.\""
+        ],
+        "known": [
+          "\"You again,\" says Ivy, easing off the pace. \"Go on.\"",
+          "Ivy raises a hand off the trolley handle without breaking stride, then relents and stops. \"Minute,\" she says."
+        ]
+      }
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "three coats worn one over the other, the outermost roped at the waist",
+      "a man's suit jacket with the pockets sewn shut and re-cut inside the lining",
+      "two jumpers, thermal leggings, and thick, mended underthings"
+    ],
+    "haunt_zone": "zone_district_919_904",
+    "personality": "vagrant"
+  },
+  "home_activities": [],
+  "home_zone": "zone_district_919_904",
+  "hp": 22,
+  "hp_max": 22,
+  "id": "npc_vag_nowlan",
+  "name": "Ivy Nowlan",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

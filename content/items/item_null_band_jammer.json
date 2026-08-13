@@ -1,0 +1,18 @@
+{
+  "description": "A scuffed transmitter with a stub aerial taped on at an angle, built from a broadcast repeater that used to belong to somebody legitimate. Floods the whole band. Everyone in the room knows the moment you switch it on, which the Null consider a feature about half the time.",
+  "flags": {},
+  "id": "item_null_band_jammer",
+  "name": "band jammer",
+  "tags": {
+    "description": "A scuffed transmitter with a stub aerial taped on at an angle, built from a broadcast repeater that used to belong to somebody legitimate. Floods the whole band. Everyone in the room knows the moment you switch it on, which the Null consider a feature about half the time.",
+    "electronic": true,
+    "misc": true,
+    "null_device": true,
+    "null_intrusion": 1,
+    "null_jam_strength": 60,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 760,
+  "weight": 1100
+}

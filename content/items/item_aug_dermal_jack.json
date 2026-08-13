@@ -1,0 +1,12 @@
+{
+  "description": "A short titanium port in a static-proof sleeve, threads still capped. Small, unglamorous, and the first chrome almost everybody gets.",
+  "flags": {},
+  "id": "item_aug_dermal_jack",
+  "name": "a sealed dermal jack",
+  "tags": {
+    "augment_hardware": "aug_dermal_jack"
+  },
+  "type": "misc",
+  "value": 400,
+  "weight": 90
+}

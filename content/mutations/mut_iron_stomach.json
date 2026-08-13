@@ -1,15 +1,27 @@
 {
+  "appearance": {},
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [],
   "description": "You can eat almost anything. Food poisoning is no longer a concern. What is a concern is what you now find appetizing.",
   "drawbacks": [],
   "effects": {
-    "food_poison_immunity": true
+    "poison_resistance": 0.4,
+    "disease_resistance": 0.25
   },
+  "expression_band": "radiation",
   "id": "mut_iron_stomach",
   "name": "Iron Stomach",
   "polarity": "positive",
   "radiation_threshold": 40,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_endurance": 1
   },
+  "treat_cost": 700,
+  "treatable": true,
+  "visibility_class": "hidden",
   "visible": 0
 }

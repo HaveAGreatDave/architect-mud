@@ -32,6 +32,7 @@ import { zoneAir } from '../bodily.js';
 import { conditionReport } from '../condition.js';
 import { acuityFor, perceptionBand, perceive, acuityNote, wouldOverload, EXTREME, OVERLOAD_STATUS, overloadText, SENSES, DOMINANT_FLAG, SECOND_FLAG } from '../senses.js';
 import { creatureFilthSmells, bodyOdourSelf } from '../hygiene.js';
+import { getMutations } from '../mutations.js';
 
 // Naked body descriptions shown when every clothing layer is peeled. Split by sex
 // and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
@@ -190,6 +191,15 @@ export async function cmdStats(player) {
       created_at: p.created_at,
       skills: skillGroups,
       status: statusFlags,
+      // Sync and query-free (hydrated at login), so this costs the sheet nothing.
+      // Additive field: a client that predates it simply renders no section.
+      mutations: getMutations(p).map(e => ({
+        name: e.mutation.name,
+        expression: e.expression,
+        band: e.band,
+        visibility: e.visibility,
+        chosen: e.source === 'mutagen',
+      })),
     },
     player: p,
   });

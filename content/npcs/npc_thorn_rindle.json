@@ -125,7 +125,8 @@
       "a faded shirt buttoned to the throat",
       "a scarf against the grit"
     ],
-    "personality": "travelling_vendor"
+    "personality": "travelling_vendor",
+    "trust_flag": "wildblood_trust"
   },
   "home_activities": [],
   "home_zone": "zone_scw_1045_976",
@@ -186,12 +187,42 @@
       "item_id": "item_rusty_knife",
       "min_trust": 0,
       "price": 25
+    },
+    {
+      "item_id": "item_wb_split_gloves",
+      "price": 700,
+      "min_trust": 1
+    },
+    {
+      "item_id": "item_wb_tailed_trousers",
+      "price": 950,
+      "min_trust": 2
+    },
+    {
+      "item_id": "item_wb_plated_wrap",
+      "price": 2100,
+      "min_trust": 2
+    },
+    {
+      "item_id": "item_wb_wide_hood",
+      "price": 1550,
+      "min_trust": 2
+    },
+    {
+      "item_id": "item_wb_winged_harness",
+      "price": 2900,
+      "min_trust": 2
+    },
+    {
+      "item_id": "item_wb_mutagen",
+      "price": 4000,
+      "min_trust": 3
     }
   ],
   "vendor_restock_rate": 1,
   "vendor_schedule": {},
   "vendor_shop_name": "Rindle's",
-  "vendor_stock_size": 10,
+  "vendor_stock_size": 16,
   "wander_zones": [],
   "wanders": 0,
   "work_zone_id": "zone_scw_1045_976"

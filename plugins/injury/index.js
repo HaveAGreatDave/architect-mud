@@ -31,6 +31,7 @@
 import { registerDamageObserver } from '../../server/engine/damage-events.js';
 import { registerImpairmentProvider } from '../../server/engine/impairment.js';
 import { AIM_PENALTY, aimHitPenalty } from '../../server/engine/combat.js';
+import { mutationNumber } from '../../server/engine/mutations.js';
 import { getEquippedWeapon } from '../../server/engine/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { effectiveSkill, SKILLS } from '../../server/engine/skills.js';
@@ -49,7 +50,7 @@ import './grab.js';
 import { enemyWoundNote, partLabel } from './enemy.js';
 import { enemyCapabilityNote } from './grab.js';
 import {
-  PARTS, PART_LABELS, SEVERITY_LABELS, SEVERITY_BANDS,
+  PARTS, ALL_PARTS, partsForPlayer, PART_LABELS, SEVERITY_LABELS, SEVERITY_BANDS,
   BRUISED, MAIMED, typeRules, injuryName,
   CRIT_THRESHOLD_SCALE, CUMULATIVE_THRESHOLD_SCALE, HEAD_THRESHOLD_SCALE,
   SLEEP_HEAL_MULTIPLIER,
@@ -75,7 +76,10 @@ function injuriesOf(player) {
   if (raw) {
     try {
       for (const [part, rec] of Object.entries(JSON.parse(raw))) {
-        if (PARTS.includes(part) && rec?.sev > 0) {
+        // ALL_PARTS, not PARTS: a wound on a grown part must survive a logout
+        // even if the mutation that grew it is later treated away — dropping it
+        // here would silently heal it, and the row would never come back.
+        if (ALL_PARTS.includes(part) && rec?.sev > 0) {
           map.set(part, { sev: Number(rec.sev), type: String(rec.type || 'kinetic'), at: Number(rec.at) || Date.now() });
         }
       }
@@ -97,9 +101,19 @@ function decay(player, now = Date.now()) {
   if (!map.size) return false;
   let changed = false;
 
+  // Flesh that rebuilds limbs. Shortens the step a LIMB needs to shed a rung,
+  // so it accelerates the existing lazy decay rather than adding a heal path of
+  // its own — the wound still heals the way every wound heals, just sooner.
+  // Torso and head are deliberately excluded: this is limb regrowth, and a
+  // mutation that also fixed a cracked skull would be regeneration, which is a
+  // different mutation with its own key (`heal_rate`).
+  const regrowth = Math.max(0, Math.min(0.9, mutationNumber(player, 'limb_regrowth')));
+
   for (const [part, rec] of map) {
-    const stepMs = typeRules(rec.type).healMins * 60_000;
-    const steps = Math.floor((now - rec.at) / stepMs);
+    const isLimb = part !== 'head' && part !== 'torso';
+    const scale = isLimb ? (1 - regrowth) : 1;
+    const stepMs = typeRules(rec.type).healMins * 60_000 * scale;
+    const steps = stepMs > 0 ? Math.floor((now - rec.at) / stepMs) : 0;
     if (steps <= 0) continue;
 
     const sev = rec.sev - steps;
@@ -144,13 +158,17 @@ export function severityOf(player, part) {
 }
 
 /**
- * All seven parts, injured or not — the shape the Vitals paper doll wants. An
- * uninjured part is present and `good`, so the client renders a whole body
- * rather than a scatter of marks.
+ * Every part THIS body has, injured or not — the shape the Vitals paper doll
+ * wants. An uninjured part is present and `good`, so the client renders a whole
+ * body rather than a scatter of marks.
+ *
+ * `partsForPlayer`, never the full ALL_PARTS list: a player who has grown
+ * nothing must see exactly seven entries. Mapping the whole table here is how
+ * everyone in the game sprouts a phantom second head in the Vitals app.
  */
 export function bodyReport(player) {
   const byPart = new Map(injuryReport(player).map(i => [i.part, i]));
-  return PARTS.map(part => {
+  return partsForPlayer(player).map(part => {
     const inj = byPart.get(part);
     if (!inj) {
       return { part, partLabel: PART_LABELS[part], severity: 0, band: 'good', name: null, detail: null };
@@ -206,7 +224,10 @@ export function severityFor(damage, hpMax, type, { critical = false, existing = 
 // The observer. SYNC BY CONTRACT — no awaits, no queries, no exceptions that
 // escape (damage-events catches, but don't rely on it).
 function onDamage(player, { part, damage, baseDamage, type, critical, forceSeverity }) {
-  if (!part || !PARTS.includes(part) || !(damage > 0)) return;
+  // ALL_PARTS: combat can only roll a grown part on a body that grew one, but
+  // when it does, the wound has to be recordable. Filtering to the base seven
+  // here would make a struck wing take damage and never show an injury.
+  if (!part || !ALL_PARTS.includes(part) || !(damage > 0)) return;
 
   const map = injuriesOf(player);
   decay(player);

@@ -1,0 +1,46 @@
+{
+  "category": null,
+  "description": "There is a pool east of the wall that the Wildblood do not drink from and do not fence off. The Chorus says you should go and stand in it. She has said what it will cost and she has not softened any of it.",
+  "fail_on": [],
+  "id": "quest_wild_quickening",
+  "meta": {},
+  "name": "The Quickening",
+  "objectives": [
+    {
+      "desc": "Go into the Quickening Pool and stay in it",
+      "emotes": [
+        "{who} walks out into the pool until it takes their weight, and then stops fighting it."
+      ],
+      "id": "o0",
+      "requires": [],
+      "taskSeconds": 25,
+      "type": "visit",
+      "zone": "zone_scw_1057_988"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 0,
+    "xp": 120,
+    "flags": [
+      {
+        "scope": "player",
+        "flag": "wild_quickening_done",
+        "value": "done"
+      },
+      {
+        "scope": "player",
+        "flag": "wildblood_quickened",
+        "value": "1"
+      },
+      {
+        "scope": "player",
+        "flag": "wildblood_trust",
+        "value": "3"
+      }
+    ]
+  },
+  "updated_at": "1786000000"
+}

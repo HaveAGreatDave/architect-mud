@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "The veins at their temples are unusually visible.",
+    "obvious": "Their skin is thin enough to show the blue map of everything underneath it.",
+    "extreme": "They are nearly transparent. You can watch their pulse move through them, and the slow work of things that should not be visible."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso",
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "torso",
+    "hands"
+  ],
+  "description": "Your skin has gone thin and clear enough to see the works. You always know exactly how you are doing. So does everyone else.",
+  "drawbacks": [
+    "People cannot look at you for long"
+  ],
+  "effects": {
+    "social_penalty": 0.3
+  },
+  "expression_band": "radiation",
+  "id": "mut_translucent_veins",
+  "name": "Translucent Veins",
+  "polarity": "mixed",
+  "radiation_threshold": 50,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 800,
+  "treatable": true,
+  "visibility_class": "obvious",
+  "visible": 1
+}

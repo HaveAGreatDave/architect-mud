@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "They feel solid in a way that does not match their build.",
+    "obvious": "A grey membrane shows at their collar and cuffs, sitting under the skin like a second garment.",
+    "extreme": "Their whole body is sheathed in a dense grey membrane, hardened into visible plates over the heart and the belly and the throat."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "A dense flexible membrane has grown between your skin and everything under it. It moves like you do and it stops most of what reaches you.",
+  "drawbacks": [
+    "You are heavier than you look"
+  ],
+  "effects": {
+    "soak_kinetic": 5,
+    "soak_edged": 4,
+    "soak_energy": 3,
+    "soak_fire": 3
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_bio_armor",
+  "name": "Biological Armor",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

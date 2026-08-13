@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "Their skin looks slightly different from the last time you saw them.",
+    "obvious": "Their skin has visibly changed texture across the exposed parts, thickened where the weather has been at it.",
+    "extreme": "They are a different shape from one week to the next. Right now they are pale and thick-hided and shedding, and next week they will not be."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "Your body has started solving problems on its own. Whatever is trying to kill you today, you are a little more resistant to it by evening.",
+  "drawbacks": [
+    "It is always eating"
+  ],
+  "effects": {
+    "cold_resistance": 0.35,
+    "heat_resistance": 0.35,
+    "rad_resistance": 0.35,
+    "poison_resistance": 0.35,
+    "disease_resistance": 0.3
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_adaptive",
+  "name": "Adaptive Flesh",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

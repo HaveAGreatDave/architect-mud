@@ -1,7 +1,18 @@
 {
   "name": "mutations",
-  "version": "1.0.0",
-  "description": "Radiation-triggered mutation system: display command and tick check.",
-  "hooks": ["tick.minute"],
-  "commands": ["mutations"]
+  "version": "3.0.0",
+  "description": "Mutations: the verb, the radiation trigger, the appearance prose, the active organs, the clothing gate and the city's refusal. The substrate is engine (server/engine/mutations.js).",
+  "hooks": ["tick.minute", "player.appearanceNotes"],
+  "events": { "consumes": ["zone.entered", "player.respawn"], "emits": ["mutation.reported"] },
+  "commands": ["mutations", "shock", "screech", "morph", "swoop"],
+  "actions": { "registers": ["MUTAGEN_CONSUME", "GRANT_MUTATION"] },
+  "ticks": [
+    { "cadence": "1m", "what": "radiation mutation roll for players above rad 40 (5% gated, memory-only until it lands)" }
+  ],
+  "dependencies": [],
+  "extensionPoints": [
+    "mutationRefusal(npc, player) — the vendor refusal voice, consulted at the trade funnels",
+    "conflictNote(player, item) — the gear-screen warning for a garment this body can't take",
+    "the `accommodates` item tag — TAIL / WINGS / EXTRA_LIMBS / CARAPACE / LARGE_HEAD"
+  ]
 }

@@ -1,0 +1,32 @@
+{
+  "appearance": {
+    "subtle": "They talk with their mouth a little too closed.",
+    "obvious": "Their tongue is far too long for their mouth, and it shows when they speak.",
+    "extreme": "A grey prehensile tongue, long as a forearm, which they use to pick things up without appearing to think about it."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "Your tongue is much longer than it was, and it has muscle all the way down. Useful. Deeply unpleasant to watch.",
+  "drawbacks": [
+    "Nobody wants to see it"
+  ],
+  "effects": {
+    "social_penalty": 0.25
+  },
+  "expression_band": "radiation",
+  "id": "mut_prehensile_tongue",
+  "name": "Prehensile Tongue",
+  "polarity": "mixed",
+  "radiation_threshold": 55,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1100,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

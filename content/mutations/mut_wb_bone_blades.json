@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "There are old parallel scars along both their forearms.",
+    "obvious": "Ridges of bone run the length of their forearms, and the skin over them is split and rehealed a hundred times.",
+    "extreme": "Blades of bone stand a foot clear of each forearm, ivory and edged, wet where they came through. The wounds are already closing around them."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "Bone has grown long and flat along your forearms and comes out through the skin when you want it to. It goes back in afterwards. That part is worse.",
+  "drawbacks": [
+    "Deploying them opens your arms every time"
+  ],
+  "effects": {
+    "unarmed_damage_bonus": 7,
+    "unarmed_edged": true,
+    "unarmed_bleed_chance": 0.4
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_bone_blades",
+  "name": "Bone Blades",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

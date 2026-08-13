@@ -152,6 +152,66 @@
       "first": "She does not stop writing. \"Sit, or do not, but do not hover, it makes the dogs anxious.\" A pause, and then she looks up, and her eyes take rather longer to arrive than her attention did. \"You came up the north road. Everyone comes up the north road, and everyone arrives looking exactly like you look.\"",
       "options": [
         {
+          "label": "You mentioned a lining that wants restitching.",
+          "next": "wild_offer1",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_seen",
+              "scope": "player",
+              "op": "unset"
+            }
+          ],
+          "actions": []
+        },
+        {
+          "label": "The mask is done.",
+          "next": "wild_done1",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_seen",
+              "scope": "player",
+              "op": "eq",
+              "value": "completed"
+            }
+          ],
+          "actions": []
+        },
+        {
+          "label": "What else is there?",
+          "next": "wild_offer3",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_proving",
+              "scope": "player",
+              "op": "eq",
+              "value": "turned_in"
+            },
+            {
+              "flag": "quest_wild_quickening",
+              "scope": "player",
+              "op": "unset"
+            }
+          ],
+          "actions": []
+        },
+        {
+          "label": "I went into the pool.",
+          "next": "wild_done3",
+          "enabled": true,
+          "conditions": [
+            {
+              "flag": "quest_wild_quickening",
+              "scope": "player",
+              "op": "eq",
+              "value": "completed"
+            }
+          ],
+          "actions": []
+        },
+        {
           "actions": [],
           "conditions": [],
           "enabled": true,
@@ -206,6 +266,183 @@
         }
       ],
       "text": "\"They call me the Chorus. They have called me it since before it was funny, and it was never funny.\" The doubling in her voice settles for a moment into something almost single. \"I keep the rota. That is the whole of the office. Everything else people have decided to hang off it is theirs, not mine.\""
+    },
+    "wild_offer1": {
+      "actions": [],
+      "text": "\"The lining.\" She puts the pen down, which she does not often do.\n\n\"You are the first person to ask about the lining. Everyone asks about the road and the poles and whether we mean it. Nobody asks about the lining, and Ossa has been wearing that thing on a raw ear since the spring.\"\n\nShe looks at you for slightly too long.\n\n\"There is a needle in the tin on the rack. It wants doing properly, not quickly.\"",
+      "options": [
+        {
+          "label": "I will do it properly.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "START_QUEST",
+              "quest_id": "quest_wild_seen"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 2,
+              "warmth": 1,
+              "reason": "chorus:lining"
+            }
+          ]
+        },
+        {
+          "label": "Another time.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_done1": {
+      "actions": [],
+      "text": "She turns the mask over twice, finds the seam, and runs her thumb along it.\n\n\"That will hold.\"\n\nShe puts it back on the rack, rim out, the way it goes.\n\n\"You did the inside of it as well. Nobody sees the inside of it.\"",
+      "options": [
+        {
+          "label": "It was chafing him on the inside.",
+          "next": "wild_after1",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "TURN_IN",
+              "quest_id": "quest_wild_seen"
+            },
+            {
+              "type": "ADJUST_REPUTATION",
+              "ideology_id": "ideology_wildblood",
+              "delta": 250,
+              "reason": "wildblood:lining"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 4,
+              "warmth": 5,
+              "reason": "chorus:lining_done"
+            }
+          ]
+        }
+      ]
+    },
+    "wild_after1": {
+      "actions": [],
+      "text": "\"Yes.\"\n\nThe pen is back in her hand and the page has turned, and that is apparently the whole of it.\n\n\"Bracken walks the road on Thursday and she is short a pair of hands. You will want boots that fasten.\"",
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_offer3": {
+      "actions": [],
+      "text": "\"There is a pool east of the wall.\"\n\nShe says it the way she says the rota.\n\n\"We do not drink from it and we do not fence it off, and both of those are on purpose. It sits at seventy. You will be sick for a week and you may be sick for longer, and some of what it does to you does not come off afterwards, and there is no version of this where I tell you it is safe.\"\n\nA pause, and she does the thing she does, which is the arithmetic out loud.\n\n\"Four hours a week for the masks. A week in bed for the pool. I have done this sum too. You are not obliged to reach the same answer I did.\"",
+      "options": [
+        {
+          "label": "I will go and stand in it.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "START_QUEST",
+              "quest_id": "quest_wild_quickening"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 3,
+              "warmth": 3,
+              "reason": "chorus:pool"
+            }
+          ]
+        },
+        {
+          "label": "What happens afterwards?",
+          "next": "wild_pool_after",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        },
+        {
+          "label": "No.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_pool_after": {
+      "actions": [],
+      "text": "\"Afterwards you are one of us, and the flasks are yours to ask for, and what is in them will do what it likes with you.\"\n\nShe turns a page.\n\n\"Gristle will sit with you for the week. He is not gentle and he is very good. Eat what he gives you even when you cannot.\"",
+      "options": [
+        {
+          "label": "Then I will go.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "START_QUEST",
+              "quest_id": "quest_wild_quickening"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 3,
+              "warmth": 3,
+              "reason": "chorus:pool"
+            }
+          ]
+        },
+        {
+          "label": "Let me think.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": []
+        }
+      ]
+    },
+    "wild_done3": {
+      "actions": [],
+      "text": "You do not remember coming back. Gristle Thole says it was six days and that you talked for most of them.\n\nThe Chorus comes in on the seventh, looks at whatever you have become in the meantime, and does not comment on it.\n\n\"You are on the rota,\" she says. \"Tuesdays. The mask will not fit you now, so we will cut you a different one.\"",
+      "options": [
+        {
+          "label": "Tuesdays.",
+          "next": "bye",
+          "enabled": true,
+          "conditions": [],
+          "actions": [
+            {
+              "type": "TURN_IN",
+              "quest_id": "quest_wild_quickening"
+            },
+            {
+              "type": "ADJUST_REPUTATION",
+              "ideology_id": "ideology_wildblood",
+              "delta": 400,
+              "reason": "wildblood:quickened"
+            },
+            {
+              "type": "RELATION_ADJUST",
+              "familiarity": 8,
+              "warmth": 10,
+              "reason": "chorus:quickened"
+            },
+            {
+              "type": "GRANT_MUTATION",
+              "mutation_id": "mut_thornhide"
+            }
+          ]
+        }
+      ]
     }
   },
   "faction": "ideology_wildblood",

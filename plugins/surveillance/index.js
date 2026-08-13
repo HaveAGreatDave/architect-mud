@@ -28,6 +28,9 @@ import { schedule } from '../../server/engine/scheduler.js';
 import { getTunable } from '../../server/engine/tunables.js';
 import { reloadItem, deleteItemCache } from '../../server/engine/items-cache.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+// Nullcraft's view of this plugin's hardware. `nullSuppressed` is read by
+// deviceStatus (see there); `cameraTargets` is the tech.targets contribution.
+import { cameraTargets, nullSuppressed, carriedJamAt, veilFactor } from './nulltarget.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel, isCrimeEnabled } from '../../server/engine/crimes.js';
 import { gameMsToReal, realMsToGame } from '../../server/engine/gametime.js';
 
@@ -324,6 +327,21 @@ async function getInterferenceZones() {
   }
   // A powered relay punches signal through a jammer in the same zone.
   for (const z of relayed) jammed.delete(z);
+
+  // ── The carried half ───────────────────────────────────────────────────────
+  // A Null walking around with a running jammer floods the same band a planted
+  // one does, so it lands in the same Set and every reader downstream cannot
+  // tell them apart — which is the point. The merge happens HERE, in the owner
+  // of the planted half, so the dependency runs one way: nullcraft.js publishes
+  // `carriedJamAt` and knows nothing about devices, relays or precedence.
+  //
+  // Deliberately merged AFTER the relay pass. A planted relay is wired into the
+  // building and hardened; a bag jammer somebody just switched on is not the
+  // thing it was installed to defeat.
+  for (const p of getAllLivePlayers()) {
+    if (p.current_zone && carriedJamAt(p.current_zone) > 0) jammed.add(p.current_zone);
+  }
+
   _fxCache = { ts: now, jammed, spoofed };
   return _fxCache;
 }
@@ -375,6 +393,17 @@ function deviceStatus(d, fx) {
     if (fx.jammed.has(d.zone_id)) return 'jammed';   // jam beats spoof
     if (fx.spoofed.has(d.zone_id)) return 'spoofed';
   }
+  // ── The ONE place Nullcraft touches surveillance ───────────────────────────
+  // A Null operation against this specific device is resolved here rather than
+  // anywhere downstream, so `cameraLiveInZone`, `isWitnessed`, `feedSnapshot`
+  // and the hub all inherit it without knowing Nullcraft exists. That is the
+  // whole point: a Null-jammed camera and a jammer-furniture-jammed camera must
+  // be indistinguishable to every reader, and they are, because they arrive at
+  // the same two strings from the same function.
+  //
+  // Sync by contract — nullSuppressed reads RAM timestamps, never the database.
+  const nulled = nullSuppressed(d.id);
+  if (nulled) return nulled;
   return 'ok';
 }
 
@@ -1928,7 +1957,7 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   // 'cop' / 'always'), which picks the callout below.
   // Flat base for a one-shot act, scaled by how hard this particular crime is
   // watched for (sevFactor) — a lens shrugs at a tag on a wall and snaps to a mugging.
-  const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE * sevFactor(key));
+  const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE * sevFactor(key), player?.id);
   if (!seen) return;
 
   const dkey = `${player.id}:${key}`;
@@ -2054,6 +2083,29 @@ on('player.drugUsed', ({ player, illegal, zoneId }) => {
 // something worth casing a place for.
 on('knockout.attempted', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'assault_knockout', zoneId || player.current_zone, player.handle);
+});
+// SOMEBODY CALLED IT IN. The last rung of the mutation social ladder
+// (plugins/mutations/reactions.js): a room full of people has watched something
+// they were taught to be frightened of walk in, and one of them has gone to find
+// a telephone.
+//
+// `forced`, because the report IS the witness. Every other charge here rolls
+// against cameras and line of sight; this one has already happened offscreen,
+// and re-rolling it would mean a person who demonstrably phoned the police
+// sometimes counts for nothing.
+//
+// One star, deliberately. It brings a patrol and a permanent entry on your
+// record, not a response — and it stays under the 4-star line where police start
+// taking people alive, so being seen can accumulate into serious trouble over
+// time without ever being the thing that gets you arrested on its own. The
+// escalation is the point; the offence is not.
+//
+// Three gates already stand between a mutation and this line, and none of them
+// live here: `raiseCrime` refuses in `flags.lawless` zones, `reactions.js` never
+// fires the event in the Scarletwastes, and the report rung itself only rolls at
+// EXTREME visibility with witnesses present.
+on('mutation.reported', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'mutant_sighting', zoneId || player.current_zone, player.handle, true);
 });
 // EXECUTION. Killing somebody who was already out cold is not a fight — there was
 // nothing they could do about it. Charged far heavier than a killing in combat,
@@ -2231,11 +2283,25 @@ const cameraVisibilityFactor = (zoneId) => visFactorForCategory(getZoneVisibilit
 // Returns the WITNESS SOURCE, not a plain bool: `'camera'` | `'cop'` | `'always'` |
 // false. Every caller still reads it as truthy/falsy; raiseCrime uses the source to
 // pick the callout — an officer clocking you reads nothing like a lens flaring red.
-export async function witnessRoll(zoneId, witness, onCamera, camChance) {
+// `suspectId` is optional and only ever REDUCES the camera branch — see below.
+export async function witnessRoll(zoneId, witness, onCamera, camChance, suspectId = null) {
   if (!zoneId) return false;
   if (getZone(zoneId)?.flags?.unsurveilled) return false;   // un-surveilled sanctuary: nothing witnessed, not even a forced 'always'
   if (witness === 'always') return 'always';
-  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId)) return 'camera';
+
+  // ── The Nullcraft veil ─────────────────────────────────────────────────────
+  // A scrambler blurs what a LENS records. It is applied to the camera branch
+  // and DELIBERATELY NOT to the officer standing in the room: the thing is an
+  // emitter, not a glamour, and a human being looking straight at you is not a
+  // sensor you can talk to.
+  //
+  // veilFactor is capped well below 1 (VEIL_CAP), so even at its best this is a
+  // heavy discount and never immunity — a player no camera can ever see has left
+  // the consequence loop rather than outplayed it, and the jail system's whole
+  // downed-while-wanted path assumes the law can eventually win.
+  const veiled = suspectId ? 1 - veilFactor(suspectId) : 1;
+
+  if (onCamera && Math.random() < camChance * cameraVisibilityFactor(zoneId) * veiled) return 'camera';
   if (witness === 'camera') return false;
   if (copInZone(zoneId) && Math.random() < COP_CATCH) return 'cop';
   return false;
@@ -2386,7 +2452,7 @@ async function scanActiveCrimes() {
       if (info.cap && now - info.startTs > info.cap) { m.delete(key); continue; }
       if (player.current_zone !== info.zoneId) { m.delete(key); continue; }   // left the scene
       const onCam = await cameraLiveInZone(info.zoneId);
-      if (await witnessRoll(info.zoneId, getCrimeWitness(key), onCam, camCatchChance(now - info.startTs, key))) {
+      if (await witnessRoll(info.zoneId, getCrimeWitness(key), onCam, camCatchChance(now - info.startTs, key), pid)) {
         await raiseCrime(player, key, info.zoneId, player.handle, true);
         m.delete(key);   // caught; the 12s debounce covers a resumed streak
       }
@@ -3069,6 +3135,10 @@ export const commands = {
 // leave orphaned clips/broadcasts/chips behind — exactly the "Cold Channel" pile.
 // Held microreels (owned property) are spared; only unheld clips are dropped.
 export const hooks = {
+  // Nullcraft's target seam. Planted hardware is a thing the Null can attack;
+  // this plugin owns those rows, so this plugin describes them. The nullcraft
+  // engine imports nothing from here.
+  'tech.targets': cameraTargets,
   'zone.delete': async (id, allDeletedIds) => {
     const zoneIds = Array.isArray(allDeletedIds) && allDeletedIds.length ? allDeletedIds : [id];
     const { rows: gone } = await query(

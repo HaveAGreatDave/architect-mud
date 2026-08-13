@@ -463,7 +463,24 @@ export function cabContext(rig, extra = {}) {
     ...extra,
   };
 }
-export function pushCab(rig, extra) { sendToPlayer(rig.playerId, cabContext(rig, extra)); }
+// A CAB PUSH IS NOT A FRAME. Everything between frames belongs to the client sim; what the server
+// owns here — the surface under the wheels, the map window, the distance to go, the traffic — can
+// only change when the truck changes TILE. This was called unconditionally at the end of every
+// sync, so a 33×33 window was derived cell by cell (mapWindow → deriveSurfaceCell → corridorAt)
+// and an aircraft scan was run, several times a second, for a rig that had not left the square it
+// was already on; and the client threw away a whole map and took a new one at the same rate.
+//
+// So: a full push when the centre tile moves, when a caller has something to SAY (`extra` is
+// always a state change — bogged, fixed, stopped), or once a second as a floor so a slow
+// authoritative correction still lands. Nothing downstream is throttled by this that isn't
+// derived from the tile anyway.
+const PUSH_MS = 1000;
+export function pushCab(rig, extra) {
+  const cx = Math.round(rig.x), cy = Math.round(rig.y), now = Date.now();
+  if (!extra && rig.pushX === cx && rig.pushY === cy && now - (rig.pushAt || 0) < PUSH_MS) return;
+  rig.pushX = cx; rig.pushY = cy; rig.pushAt = now;
+  sendToPlayer(rig.playerId, cabContext(rig, extra));
+}
 
 // What is under the wheels, in the vocabulary the client model's SURFACES table speaks. The world
 // answers in TERRAIN (its own vocabulary, and the renderer's); this is the one place the two are

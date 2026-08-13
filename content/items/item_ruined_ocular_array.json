@@ -1,0 +1,14 @@
+{
+  "description": "Both lenses have gone milky and one housing is split. Whatever they were seeing at the end, they are not going to see anything again.",
+  "flags": {},
+  "id": "item_ruined_ocular_array",
+  "name": "a pair of burst optics",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 26,
+  "weight": 120
+}

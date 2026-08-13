@@ -1,0 +1,14 @@
+{
+  "description": "The synthetic muscle has set hard and gone the colour of old liver. It will never contract again.",
+  "flags": {},
+  "id": "item_ruined_myomer_bundles",
+  "name": "a seized myomer coil",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 48,
+  "weight": 1800
+}

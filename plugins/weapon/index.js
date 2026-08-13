@@ -19,6 +19,7 @@ import { query, logActivity } from '../../server/models/db.js';
 import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, getZone, createCorpse } from '../../server/engine/world.js';
 import { setFlag } from '../../server/engine/flags.js';
 import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, setCooldown, pvpSwingSleeping, registerPlayerCombat, killEnemyInstance, killNpcInstance, queuePowerAttack, powWindupMs, toughestAttacker, playerFleeRoll } from '../../server/engine/combat.js';
+import { naturalWeaponStats } from '../../server/engine/mutations.js';
 import { STANCES, getStance, setStance, isStance, swingInterval, armDodge, isDodging, stanceSummary, stanceTell, DODGE_WINDOW_MS } from '../../server/engine/stance.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
@@ -88,7 +89,10 @@ export async function resolveAttack(player, target, broadcast) {
 				waterproof: tagValue(equipped, "waterproof"),
 				water_shock: tagValue(equipped, "water_shock"),
 			}
-		: {
+		: // Bare hands, which for a mutated body are not necessarily bare. Returns
+			// null for anyone who has grown nothing, so the literal below is what an
+			// ordinary player still gets, unchanged.
+			naturalWeaponStats(player) || {
 				damage_min: 2,
 				damage_max: 4,
 				weapon_skill: "fists",
@@ -156,7 +160,7 @@ export async function resolveAttackNpc(player, npc, broadcast) {
 	const wskill = equipped ? tagValue(equipped, "weapon_skill") || "fists" : "fists";
 	const weaponStats = equipped
 		? { damage_min: dmg.min, damage_max: dmg.max, weapon_skill: wskill, damage_type: tagValue(equipped, "damage_type") || "kinetic" }
-		: { damage_min: 2, damage_max: 4, weapon_skill: "fists", damage_type: "kinetic" };
+		: naturalWeaponStats(player) || { damage_min: 2, damage_max: 4, weapon_skill: "fists", damage_type: "kinetic" };
 
 	const result = await playerAttackNpc(player, npc.id, weaponStats);
 	if (!result.success) return { type: "error", message: result.message };

@@ -988,7 +988,11 @@ on('weather.thunder', ({ zoneId }) => {
 // Separate from the per-zone precip/wind beds so an ion storm — which has no
 // precip — still has a voice. Route-overridable via the event-route table; a
 // synthesized bed plays out of the box otherwise. See systems-weather-extreme.md.
-const WEATHER_EVENT_ROUTES = { ion_storm: 'weather.event.ion', acid_rain: 'weather.event.acid' };
+// A rainbow is routable but has NO fallback below, and that is the authored
+// answer rather than an omission: the sky going quiet after a shower is the
+// sound of a rainbow. The route exists so a bed can be given one later without
+// touching this file.
+const WEATHER_EVENT_ROUTES = { ion_storm: 'weather.event.ion', acid_rain: 'weather.event.acid', rainbow: 'weather.event.rainbow', triple_rainbow: 'weather.event.rainbow' };
 const WEATHER_EVENT_FALLBACK = {
   // Electrical hum + high crackle, with random arcing zaps (sparkle one-shots).
   ion_storm: { id: 'wx_ev_ion', name: 'wx_ev_ion', category: 'ambient', priority: 3, config: { gain: 0.6,

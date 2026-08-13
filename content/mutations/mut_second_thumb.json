@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "There is an extra knuckle on the outside of their palm.",
+    "obvious": "A second thumb sits opposite the first on each hand, shorter but working.",
+    "extreme": "Both hands are double-thumbed and long-fingered, and they handle small objects the way most people handle a fork."
+  },
+  "blocks_slots": [
+    "hands"
+  ],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "A second thumb on each hand, opposite the first. Fiddly work got easier. Gloves got harder.",
+  "drawbacks": [
+    "No glove made for a human fits"
+  ],
+  "effects": {
+    "carry_bonus": 5
+  },
+  "expression_band": "radiation",
+  "id": "mut_second_thumb",
+  "name": "Second Thumb",
+  "polarity": "positive",
+  "radiation_threshold": 50,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 800,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

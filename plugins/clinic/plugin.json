@@ -1,10 +1,10 @@
 {
   "name": "clinic",
-  "version": "1.0.0",
-  "description": "Paid treatment at a medic: patch-up priced off missing HP, charged from carried credits.",
+  "version": "1.1.0",
+  "description": "Paid treatment at a medic: patch-up priced off missing HP, and mutation reversal priced off expression. Charged from carried credits.",
   "commands": [],
   "hooks": [],
-  "actions": { "registers": ["CLINIC_TREAT"] },
+  "actions": { "registers": ["CLINIC_TREAT", "CLINIC_MUTATION_TREAT", "CLINIC_DIAGNOSE", "CLINIC_SUPPRESS"] },
   "events": { "consumes": [], "emits": [] },
   "ticks": []
 }

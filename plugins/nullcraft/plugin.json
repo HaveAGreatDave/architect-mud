@@ -1,0 +1,10 @@
+{
+  "name": "nullcraft",
+  "version": "1.0.0",
+  "description": "Nullcraft — the Null's answer to chrome. Where the Ascendants buy a better machine, the Null make somebody else's machine stop working: detect what's powered in the room, read its attack surfaces, then jam a sensor, lock an actuator or crash a controller. Every operation writes state its OWNER already keeps (a camera's status_flags, an augment's condition) rather than a second copy — a Null-jammed camera and a jammer-furniture-jammed camera are the same thing to the wanted system. Targets arrive through the `tech.targets` gather hook, so this plugin imports nothing about augments, cameras or drones. Trace is the clock: it climbs while you work, decays on its own, and at the top the interface locks you out and tells the owner.",
+  "commands": ["nullscan", "analyze", "null", "nullresolve", "jammer", "veil", "emp"],
+  "events": { "consumes": ["player.logout"], "emits": ["weather.empPulse"] },
+  "actions": { "registers": [] },
+  "dependencies": ["ideologies"],
+  "extensionPoints": ["tech.targets"]
+}

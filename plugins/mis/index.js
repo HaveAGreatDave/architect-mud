@@ -8,6 +8,7 @@
  * Players opt in via the hidden Maturity Slider in client settings.
  */
 import { query } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { isMisActive, isAttractedTo, isMisServerEnabled } from '../../server/engine/mis.js';
 import {
   addHorniness, hornySustainLine, hornyCoolingLine, washEjaculate, MIS_TUTORIAL,
@@ -421,7 +422,7 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
   if (!targetStr || targetStr === 'me' || targetStr === 'myself') {
     const msgs = await addHorniness(player, Math.floor(horninessGain * 0.6), broadcast);
     if (sanityGain) {
-      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + sanityGain);
+      adjustSanity(player, sanityGain, 'mis');
       await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
     }
     if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
@@ -450,7 +451,7 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
     }
   }
   if (sanityGain) {
-    player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + sanityGain);
+    adjustSanity(player, sanityGain, 'mis');
     await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
   }
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
@@ -1182,7 +1183,7 @@ async function startFuckEventNpc(player, npc, broadcast, location) {
   const opener = openers[location] || openers.default;
 
   const msgs = await addHorniness(player, 20, broadcast);
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 8);
+  adjustSanity(player, 8, 'mis');
   await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
   if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness, erect: player.erect } }, null, player.id);
 
@@ -1346,13 +1347,13 @@ async function cmdFuck(args, raw, player, broadcast) {
   const [actorMsg, targetMsg] = pool[Math.floor(Math.random() * pool.length)];
 
   const msgs = await addHorniness(player, 20, broadcast);
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 8);
+  adjustSanity(player, 8, 'mis');
   await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
 
   if (res.type === 'player' && isMisActive(res.target)) {
     const targetMsgs = await addHorniness(res.target, 15, broadcast);
     if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs, player_update: { horniness: res.target.horniness } }, null, res.target.id);
-    res.target.sanity = Math.min(res.target.sanity_max || 100, (res.target.sanity || 50) + 8);
+    adjustSanity(res.target, 8, 'mis');
     await query('UPDATE players SET sanity=$1 WHERE id=$2', [res.target.sanity, res.target.id]);
     broadcast(null, { type:'output', message: targetMsg }, null, res.target.id);
   }
@@ -1557,7 +1558,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
     const resetActor = async () => {
       player.horniness = 0; player.erect = 0;
-      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+      adjustSanity(player, 10, 'mis');
       player.horniness_last_increased = null;
       if (!player.appearance_data) player.appearance_data = {};
       player.appearance_data.ejaculate_state = { locations: ['penis'] };
@@ -1657,7 +1658,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
       player.horniness = 0;
       player.erect = 0;
-      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+      adjustSanity(player, 10, 'mis');
       player.horniness_last_increased = null;
       if (!player.appearance_data) player.appearance_data = {};
       player.appearance_data.ejaculate_state = { locations: ['penis'] };
@@ -1696,7 +1697,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
     player.horniness = 0;
     player.erect = 0;
-    player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+    adjustSanity(player, 10, 'mis');
     player.horniness_last_increased = null;
     // Mark residue on actor's penis
     if (!player.appearance_data) player.appearance_data = {};
@@ -1753,7 +1754,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     const fname = rows[0].name;
     player.horniness = 0;
     player.erect = 0;
-    player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+    adjustSanity(player, 10, 'mis');
     player.horniness_last_increased = null;
     await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3 WHERE id=$4',
       [player.horniness, player.erect, player.sanity, player.id]);

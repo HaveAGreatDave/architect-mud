@@ -836,12 +836,62 @@ export const SCHEMA_SQL = `
     radiation_threshold INTEGER DEFAULT 40
   );
 
+  -- The 2026-08 rework. 'visible' (the boolean) is superseded by
+  -- 'visibility_class', which is a CEILING rather than a state: what a mutation
+  -- looks like at full expression. What an onlooker actually sees is derived
+  -- down from that by expression, so one mutation covers "barely marked" and
+  -- "unmistakable" without being authored twice.
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'radiation';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS visibility_class TEXT NOT NULL DEFAULT 'concealable';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS expression_band TEXT NOT NULL DEFAULT 'radiation';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS body_parts JSONB DEFAULT '[]';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS grants_part TEXT;
+  -- conceal_slots: filling these slots hides it. blocks_slots: it makes these
+  -- unwearable. This pair is the whole reason concealment needs no per-garment
+  -- authoring: a coat conceals a torso mutation because it covers the torso,
+  -- not because anyone wrote the coat into the mutation.
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS conceal_slots JSONB DEFAULT '[]';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS blocks_slots JSONB DEFAULT '[]';
+  -- { subtle, obvious, extreme } — the prose an onlooker gets at each band. The
+  -- engine ships no fiction; if this is empty the mutation is simply not
+  -- described, which is a valid authoring state.
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS appearance JSONB DEFAULT '{}';
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS treatable BOOLEAN NOT NULL DEFAULT TRUE;
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS treat_cost INTEGER NOT NULL DEFAULT 0;
+
   CREATE TABLE IF NOT EXISTS player_mutations (
     player_id TEXT NOT NULL,
     mutation_id TEXT NOT NULL,
     acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (player_id, mutation_id)
   );
+  -- Expression 1-100: how strongly THIS body carries it. Rolled once at grant
+  -- and thereafter only ever reduced, by treatment — a mutation does not creep.
+  -- 'acquired_expression' keeps the original roll so the tablet can show how far
+  -- a course of treatment has walked it back.
+  --
+  -- The DEFAULT of 30 is for hand-inserted rows only. Legacy rows are set to 100
+  -- by scripts/unbake-mutation-stats.mjs, which is what makes the move off baked
+  -- stat columns net-zero on every existing character — see that file.
+  ALTER TABLE player_mutations ADD COLUMN IF NOT EXISTS expression SMALLINT NOT NULL DEFAULT 30;
+  ALTER TABLE player_mutations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'radiation';
+  ALTER TABLE player_mutations ADD COLUMN IF NOT EXISTS acquired_expression SMALLINT;
+  -- Do you know what this IS? A mutation you can SEE is self-evident and lands
+  -- diagnosed; one that changed something inside you does not, and until a
+  -- physician names it you carry a wrongness rather than a condition.
+  ALTER TABLE player_mutations ADD COLUMN IF NOT EXISTS diagnosed BOOLEAN NOT NULL DEFAULT TRUE;
+  -- Suppression: the cheap tier between doing nothing and paying to erase it.
+  -- An epoch-ms stamp rather than a status effect, because statuses are memory
+  -- only and a course of drugs you paid for must not evaporate at logout.
+  ALTER TABLE player_mutations ADD COLUMN IF NOT EXISTS suppressed_until BIGINT;
+  CREATE INDEX IF NOT EXISTS idx_player_mutations_player ON player_mutations(player_id);
+
+  -- Whether a mutation survives the vats. Defaults to 'all', which is EXACTLY the
+  -- behaviour that already shipped: mutations persist through death, radiation
+  -- does not. The column exists so a specific mutation can opt out of that
+  -- without anybody inventing a second biology to contradict the first.
+  -- Values: all | none | radiation_only | mutagen_only.
+  ALTER TABLE mutations ADD COLUMN IF NOT EXISTS clone_inheritance TEXT NOT NULL DEFAULT 'all';
 
   -- Augments: installable cybernetics, the machine-path mirror of mutations
   -- (chosen/paid/removable, slot-limited, rep-gated). Owned by plugins/augments.
@@ -861,6 +911,28 @@ export const SCHEMA_SQL = `
     special TEXT
   );
 
+  -- The authored half of the maintenance model. All content, all exported.
+  --   item_id / salvage_item_id — chrome is an ITEM while it is in your hands and
+  --     a body part once it is in you. item_id is the row install consumes and
+  --     remove hands back; salvage_item_id is the ruined lump death leaves in the
+  --     corpse (scrap and repair stock, never installable).
+  --   overclock_max — 0 means not overclockable. Licensed Ascendant chrome
+  --     authors 0-1; unlicensed back-alley chrome authors 3. That single field is
+  --     the entire mechanical statement of the faction split.
+  --   failure_messages — keys strain/fault/burnout/dead. An overclockable augment
+  --     with none of these FAILS the regress suite: a machine that can break must
+  --     be able to say how, and "Bionic malfunction." is not an answer.
+  --   power_draw is authored now and INERT until the power phase. It costs one key
+  --     per content file today and saves rewriting all of them later.
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS item_id TEXT;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS salvage_item_id TEXT;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS install_difficulty SMALLINT DEFAULT 5;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS licensed SMALLINT DEFAULT 1;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS overclock_max SMALLINT DEFAULT 0;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS heat_rate REAL DEFAULT 0;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS power_draw REAL DEFAULT 0;
+  ALTER TABLE augments ADD COLUMN IF NOT EXISTS failure_messages JSONB DEFAULT '{}';
+
   CREATE TABLE IF NOT EXISTS player_augments (
     player_id TEXT NOT NULL,
     augment_id TEXT NOT NULL,
@@ -868,6 +940,28 @@ export const SCHEMA_SQL = `
     installed_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (player_id, augment_id)
   );
+
+  -- The maintenance half of an augment. THE SPLIT HERE IS THE WHOLE DESIGN:
+  -- every column runtime mutates lives on player_augments, every column an
+  -- author writes lives on 'augments'. That is why the content pipeline needs
+  -- no excludeColumns for either table and content:lint has nothing to trip on.
+  --
+  -- calibration DEFAULT 100 is the MIGRATION INVARIANT. Contribution scales by
+  -- 0.5 + 0.5*(calibration/100), so 100 reproduces the authored value exactly
+  -- and every augment already installed on a live character is arithmetically
+  -- net-zero across the move from baked players.stat_* to derived stats. Fresh
+  -- installs seed BELOW 100 (see plugins/augments/install.js) — new chrome
+  -- under-performs on purpose, and tuning is how you get the number on the tin.
+  --
+  -- Temperature and stress are deliberately absent: they are memory-only, decayed
+  -- lazily from a timestamp, and their durable residue is 'condition'. See
+  -- plugins/augments/overclock.js.
+  ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS condition REAL DEFAULT 1.0;
+  ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS calibration SMALLINT NOT NULL DEFAULT 100;
+  ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS install_quality TEXT DEFAULT 'sound';
+  ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS overclock_level SMALLINT NOT NULL DEFAULT 0;
+  ALTER TABLE player_augments ADD COLUMN IF NOT EXISTS custom_data JSONB DEFAULT '{}';
+  CREATE INDEX IF NOT EXISTS idx_player_augments_player ON player_augments(player_id);
 
   -- Cortical backups: the Ascendant "death is a billing problem" loop. A player
   -- who owns the Cortical Backup augment buys prepaid restores at Halcyon and
@@ -1148,6 +1242,65 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, npc_id)
   );
   CREATE INDEX IF NOT EXISTS idx_pnr_player ON player_npc_relations(player_id);
+
+  -- ── Mastery: the Long Watch's third path (plugins/mastery) ────────────────
+  -- Per-player RUNTIME state. Deliberately NOT in the content registry, and it
+  -- must never export — the same rule player_npc_relations and player_augments
+  -- follow.
+  --
+  -- "player_reads" is what a fighter has learned about a KIND of opponent. Keyed
+  -- by ARCHETYPE (an enemy template id, an npc id, or the single literal 'pvp'),
+  -- never by spawn instance, because the entire point of Read is that it
+  -- survives the kill: fight four hundred dogs and you have one row, not four
+  -- hundred. That bound is what makes the set safe to hydrate at login and
+  -- answer every later read from memory with zero queries.
+  --
+  -- familiarity is REAL because decay is fractional — rounding it to int would
+  -- let a slow decay never actually land. Decay is computed LAZILY from
+  -- "last_seen_at" at hydrate time; there is no sweep tick, so an offline player
+  -- costs nothing and comes back correctly rusty.
+  CREATE TABLE IF NOT EXISTS player_reads (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    archetype TEXT NOT NULL,
+    familiarity REAL NOT NULL DEFAULT 0,
+    exploits JSONB NOT NULL DEFAULT '[]'::jsonb,
+    last_seen_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, archetype)
+  );
+  CREATE INDEX IF NOT EXISTS idx_preads_player ON player_reads(player_id);
+
+  -- "player_disciplines" is the eight trainable disciplines, 0..100 each.
+  --
+  -- "rank" is stored RAW and the purity cap is applied on READ (plugins/mastery
+  -- purity.js). That split is a correctness invariant, not a convenience:
+  -- installing chrome lowers what your discipline can REACH, and baking the
+  -- reduction into the stored number would make it unrecoverable the moment the
+  -- chrome came out. Same reasoning as mutation expression never being folded
+  -- into players.stat_* — see docs/systems-mutations.md.
+  -- "player_purity" is the STAIN. Pulling chrome out or having a mutation
+  -- treated does not hand your ceiling straight back — the body remembers what
+  -- was done to it, and it takes time to stop remembering. Without this, chrome
+  -- is rentable: install it for the fight, have it cut out before training, and
+  -- the whole flesh-vs-machine-vs-discipline choice costs nothing.
+  --
+  -- One decaying scalar and the moment it was last set. Decay is LAZY — computed
+  -- on read against "updated_at", renormalised in memory, and only written back
+  -- when it has moved materially. There is no tick, so an offline player costs
+  -- nothing and comes back correspondingly cleaner.
+  CREATE TABLE IF NOT EXISTS player_purity (
+    player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+    load REAL NOT NULL DEFAULT 0,   -- effective modification load, stain included
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  CREATE TABLE IF NOT EXISTS player_disciplines (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    discipline TEXT NOT NULL,   -- body|movement|senses|mind|combat|pain|breath|will
+    rank REAL NOT NULL DEFAULT 0,
+    taught_by TEXT,             -- npc id of the instructor who opened it; not an FK (content comes and goes)
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, discipline)
+  );
 
   -- ── Tape rentals (plugins/videostore) ─────────────────────────────────────
   -- One row per tape taken off a rental wall. Per-player runtime state, so it is

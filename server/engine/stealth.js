@@ -32,6 +32,7 @@
 import { acuitySync } from './senses.js';
 import { getZoneVisibility } from './environment.js';
 import { impairmentOf } from './impairment.js';
+import { mutationNumber } from './mutations.js';
 import { getPosture } from './posture.js';
 import { emit } from './events.js';
 
@@ -98,6 +99,16 @@ export function concealment(player, zoneId) {
   // Your own senses help you sneak, not just notice: knowing how much noise you
   // are making is most of not making it.
   score += Math.floor(acuitySync(player, 'hearing') / 2);
+  // Skin that changes to match what it is against. Stacks with the darkness and
+  // the crouch already scored above rather than replacing the roll, so a
+  // camouflaged body in a lit room is still findable and one in the dark is very
+  // nearly not.
+  score += mutationNumber(player, 'camouflage');
+  // …and the other end of the same dial. A body that glows, clicks, reeks or
+  // simply cannot be mistaken for anything else is worse at not being seen.
+  // Both ends live on this one line so the reward and the cost can never drift
+  // apart, the same reason hygiene keeps its pair together.
+  score -= mutationNumber(player, 'stealth_penalty');
 
   return score;
 }

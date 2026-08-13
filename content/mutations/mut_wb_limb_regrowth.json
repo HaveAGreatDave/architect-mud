@@ -1,0 +1,37 @@
+{
+  "appearance": {
+    "subtle": "One of their fingers is noticeably newer than the others.",
+    "obvious": "Two fingers on their off hand are pale, soft and undersized, clearly regrown.",
+    "extreme": "Their left arm is visibly younger than the rest of them, hairless and pink from the elbow down, and it does not match."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm",
+    "right_arm",
+    "left_leg",
+    "right_leg"
+  ],
+  "conceal_slots": [
+    "hands",
+    "legs"
+  ],
+  "description": "Specialised regeneration, tuned to limbs. Fingers come back. Given long enough and enough food, so does more than that.",
+  "drawbacks": [
+    "The new part is never quite the old part"
+  ],
+  "effects": {
+    "limb_regrowth": 0.7,
+    "heal_rate": 0.2
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_limb_regrowth",
+  "name": "Limb Regrowth",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

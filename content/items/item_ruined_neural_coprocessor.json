@@ -1,0 +1,14 @@
+{
+  "description": "The ceramic has split clean across the contact grid. Whatever was thinking in there has stopped.",
+  "flags": {},
+  "id": "item_ruined_neural_coprocessor",
+  "name": "a cracked co-processor wafer",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 80,
+  "weight": 200
+}

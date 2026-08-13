@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -26,7 +26,15 @@ import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
 
-const SYNC_MS = 250;              // telemetry cadence — matches the server's MIN_SYNC_MS guard
+// TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
+// pipeline, forever, including for a rig sitting in a bay with the handbrake on while its driver
+// read a job board. The flight sim, which this borrowed its shape from, actually syncs at 1.2s and
+// only tightens to 0.33s inside the dogfight bubble; the truck had taken the tight number as the
+// normal one. So: MOVING is the fast rung, STOPPED is a keepalive. The server reconciles against
+// its own wall clock (reconcileTruck) and derives the odometer from position, so a slower frame
+// costs nothing but a slightly later node crossing.
+const SYNC_MS = 500;              // rolling
+const IDLE_SYNC_MS = 2500;        // stationary — a heartbeat, not a stream
 // THE PARAMETERS ARE THE SERVER'S, NOT A CONSTANT. This was `TYPES.hauler` — one hardcoded truck
 // for the whole fleet — so a player who spent 31,000₵ on a Continental drove a Courier with a
 // different name on the door: same gears, same top speed, same brakes, same turn-in. The server
@@ -35,6 +43,23 @@ const SYNC_MS = 250;              // telemetry cadence — matches the server's 
 // truck are both felt at the wheel. The fallback stays for a context that predates the field.
 let P = TYPES.hauler;
 const setParams = (ctx) => { P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler; };
+
+// WHICH ROOM YOU ARE SITTING IN. One number — the type's `tier`, which rides along in `params`
+// because rig.js spreads the whole type — decides the whole interior: the painted panels out on
+// the glass (CAB_TRIM in windshield.js) and the instruments on the shelf below it, here.
+//
+// THE LADDER IS INSTRUMENTS, NOT ASSISTANCE, and it has to stay that way. Every rung of it either
+// TELLS you something or is decoration; not one of them makes the truck easier to drive, because
+// the moment the expensive truck steers better than the cheap one for a reason that isn't in
+// `effTruckParams`, the physics have two homes. A Barrow with no rev counter is a Barrow you drive
+// on the engine note, which is harder and is meant to be — that is the thing 30,000₵ buys back.
+const CAB_KIT = {
+  0: { tach: false, best: false, brakeTemp: false, trailerAngle: false, label: 'KRELL BARROW' },
+  1: { tach: true,  best: false, brakeTemp: false, trailerAngle: false, label: 'OSTREK COURIER' },
+  2: { tach: true,  best: true,  brakeTemp: true,  trailerAngle: false, label: 'VACHON DRAYMAN' },
+  3: { tach: true,  best: true,  brakeTemp: true,  trailerAngle: true,  label: 'ORLOV CONTINENTAL' },
+};
+const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 
 let st = null;
 
@@ -49,9 +74,11 @@ export function openCab(ctx = {}) {
   ensureWindshieldStyles();
   ensureCabStyles();
   const id = 'cab';
+  setParams(ctx);                                  // which truck this is — BEFORE the dash is built
+  const kit = kitFor(P);
   container.innerHTML = `
-    <div class="cab-wrap">
-      ${windshieldHTML(id, 'THE LONG HAUL')}
+    <div class="cab-wrap cab-t${P.tier ?? 1}" style="--cab-glow:${cabTrim(P.tier).glow}">
+      ${windshieldHTML(id, kit.label)}
       <div class="cab-controls">
         <canvas class="cab-wheel" width="220" height="220" aria-label="Steering wheel"></canvas>
         <div class="cab-gauges">
@@ -60,7 +87,7 @@ export function openCab(ctx = {}) {
           <div class="cab-readout"><b class="cab-surface">ROAD</b><span>SURFACE</span></div>
           <div class="cab-readout cab-gearbox"><b class="cab-gear">N</b><span class="cab-gearhint">GEAR &middot; , .</span></div>
         </div>
-        <div class="cab-tach" aria-hidden="true"><i class="cab-tach-band"></i><i class="cab-tach-needle"></i></div>
+        ${kit.tach ? '<div class="cab-tach" aria-hidden="true"><i class="cab-tach-band"></i><i class="cab-tach-needle"></i></div>' : ''}
         <div class="cab-readout cab-rig"><b class="cab-brakes">COLD</b><span class="cab-riginfo">BRAKES</span></div>
         <!-- EVERY CONTROL IS REACHABLE BY HAND, not just by key. The gearbox, the clutch and the
              Jake were keyboard-only, which on a tablet meant the whole of phase 1.5 was
@@ -95,7 +122,6 @@ export function openCab(ctx = {}) {
       </div>
     </div>`;
 
-  setParams(ctx);                                  // which truck this is — before anything reads P
   const sim = createTruckState(P);
   sim.x = ctx.x; sim.y = ctx.y; sim.heading = ctx.heading ?? 180;
 
@@ -111,7 +137,7 @@ export function openCab(ctx = {}) {
 
   // The wheel, in ABSOLUTE mode — see helm-wheel.js. A boat sets a course; a truck holds a line.
   st.wheel = createHelmWheel(container.querySelector('.cab-wheel'), {
-    accent: '#d8892e', mode: 'absolute', lock: 1.6, selfCentre: 5.0,
+    accent: cabTrim(P.tier).glow, mode: 'absolute', lock: 1.6, selfCentre: 5.0,
     onSteer: (axle) => { st.input.steer = axle; },
     getHeading: () => st.sim.heading,
   });
@@ -119,14 +145,28 @@ export function openCab(ctx = {}) {
   // Pedals: hold-to-apply on pointer, and A/Z on the keyboard so a keyboard driver isn't
   // second-class. (The instrument panel's token-bucket lesson does not apply here — a pedal is a
   // held state, not a stream of events.)
+  // THREE WAYS INTO EVERY CONTROL, and the third one is the one that keeps getting left out. A
+  // pedal is a HELD state, so a `click` — which is what Enter and Space on a focused button
+  // produce — means nothing to it: a keyboard driver who tabbed to THROTTLE and pressed Space got
+  // silence. Space/Enter are therefore held here exactly as a thumb is, keydown to keyup.
+  // `pointercancel` is the touch case: a browser taking the gesture over (a scroll, a system
+  // swipe) fires cancel and NOT pointerup, so without it the throttle sticks on and the rig drives
+  // itself off the road while the player is holding nothing at all.
+  const winOff = [];                                  // window-level releases, unwound in closeCab
+  const isPress = (e) => e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter';
   const hold = (sel, key) => {
     const el = container.querySelector(sel);
     const on = (e) => { st.input[key] = 1; el.classList.add('on'); e.preventDefault(); };
-    const off = () => { st.input[key] = 0; el.classList.remove('on'); };
+    const off = () => { if (!st) return; st.input[key] = 0; el.classList.remove('on'); };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
     el.addEventListener('pointerleave', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
+    el.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
+    el.addEventListener('blur', off);                 // tabbed away mid-press — nothing else releases it
     addEventListener('pointerup', off);
+    winOff.push(off);
   };
   hold('.cab-throttle', 'throttle');
   hold('.cab-brake', 'brake');
@@ -139,15 +179,20 @@ export function openCab(ctx = {}) {
   const steerHold = (sel, dir) => {
     const el = container.querySelector(sel);
     const on = (e) => { st.steerKey = dir; st.wheel?.setHeld(dir); el.classList.add('on'); e.preventDefault(); };
-    const off = () => { if (st.steerKey === dir) { st.steerKey = 0; st.wheel?.setHeld(0); } el.classList.remove('on'); };
+    const off = () => { if (!st) return; if (st.steerKey === dir) { st.steerKey = 0; st.wheel?.setHeld(0); } el.classList.remove('on'); };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
     el.addEventListener('pointerleave', off);
     el.addEventListener('pointercancel', off);
+    el.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
+    el.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
+    el.addEventListener('blur', off);
     addEventListener('pointerup', off);
+    winOff.push(off);
   };
   steerHold('.cab-left', -1);
   steerHold('.cab-right', 1);
+  st.winOff = winOff;                                 // see closeCab — these outlive the pane otherwise
 
   // The gearbox, by hand. `tap` is a click/touch that fires ONCE per press — a shift is an edge,
   // unlike a pedal, and a button that auto-repeated would walk the box to neutral if you rested a
@@ -414,19 +459,37 @@ function frame(now) {
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
-    q('.cab-gearhint').textContent = r.stalled ? 'STALLED · CLUTCH X' : `GEAR · BEST ${r.best}`;
-    q('.cab-tach-needle').style.left = Math.min(100, r.rpm) + '%';
-    q('.cab-tach').classList.toggle('over', r.rpm > P.band[1] * 100 + 4);
+    // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
+    // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
+    const kit = kitFor(P);
+    q('.cab-gearhint').textContent = r.stalled ? 'STALLED · CLUTCH X'
+      : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .';
+    // The strip is absent entirely on tier 0 — there is no tachometer in that truck to strip.
+    const tachN = q('.cab-tach-needle');
+    if (tachN) {
+      tachN.style.left = Math.min(100, r.rpm) + '%';
+      q('.cab-tach').classList.toggle('over', r.rpm > P.band[1] * 100 + 4);
+    }
 
     // The rig. Brake temperature is a WORD, not a number, because nobody reads a gauge in
     // Fahrenheit while a hill is happening to them — and it goes amber before it fades, so a
     // driver who is paying attention gets to do something about it.
+    // A GRADED GAUGE IS A TIER-2 LUXURY; below it the drums have a WARNING LAMP and nothing else,
+    // so a cheap truck tells you the brakes are gone at the moment they are gone rather than
+    // watching them go. The fade itself is identical — this is what you can see of it, never what
+    // is happening. (Which is also why FADING is never suppressed: a lamp that doesn't light is
+    // not a fleet ladder, it is a bug.)
     const bEl = q('.cab-brakes');
     const bt = r.brakeTemp;
-    bEl.textContent = r.fading ? 'FADING' : bt > 0.42 ? 'HOT' : bt > 0.2 ? 'WARM' : 'COLD';
-    bEl.className = 'cab-brakes' + (r.fading ? ' b-fade' : bt > 0.42 ? ' b-hot' : '');
+    bEl.textContent = r.fading ? 'FADING'
+      : !kit.brakeTemp ? 'OK'
+      : bt > 0.42 ? 'HOT' : bt > 0.2 ? 'WARM' : 'COLD';
+    bEl.className = 'cab-brakes' + (r.fading ? ' b-fade' : kit.brakeTemp && bt > 0.42 ? ' b-hot' : '');
+    // The articulation angle in DEGREES is the Orlov's alone — everyone else reverses on the
+    // mirrors, which is where the angle has always actually been readable.
     q('.cab-riginfo').textContent = r.hitched
-      ? (r.folding ? 'JACKKNIFING' : `TRAILER ${r.phi > 0 ? '+' : ''}${r.phi.toFixed(0)}°`)
+      ? (r.folding ? 'JACKKNIFING'
+        : kit.trailerAngle ? `TRAILER ${r.phi > 0 ? '+' : ''}${r.phi.toFixed(0)}°` : 'TRAILER')
       : 'BOBTAIL';
     q('.cab-riginfo').className = 'cab-riginfo' + (r.folding ? ' b-fade' : '');
 
@@ -458,6 +521,9 @@ function frame(now) {
       // The mirrors need the articulation angle — it is the only place it is visible. The
       // binnacle needs the same numbers the DOM readouts show, because they are the same
       // instruments seen from the seat rather than a second set of facts.
+      // Which cab is drawn around the view — the panels, the bezels, the marker lights and how
+      // many dials are in the binnacle. One number; the table is CAB_TRIM in windshield.js.
+      tier: P.tier,
       hitched: r.hitched, phi: r.phi,
       rpmFrac: r.rpm / 100, band: P.band, inBand: r.inBand, topSpeed: P.topSpeed,
       // Aircraft passing over. The cab used to be deliberately blind to traffic; it is not any
@@ -469,7 +535,11 @@ function frame(now) {
       acX: st.sim.x, acY: st.sim.y,
     });
 
-    if (now - st.lastSync >= SYNC_MS) {
+    // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
+    // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
+    // moving cannot cross a node, burn fuel, break down or bog.
+    const rolling = Math.abs(st.sim.speed) >= 0.5;
+    if (now - st.lastSync >= (rolling ? SYNC_MS : IDLE_SYNC_MS)) {
       st.lastSync = now;
       // Packed numerics, matching cmdTruckSync's unpack order exactly: s t hdg spd x y.
       // The client reports WHERE IT IS, not how far it has come — the server derives the odometer
@@ -493,12 +563,36 @@ function ensureCabStyles() {
   const s = document.createElement('style');
   s.id = 'cab-styles';
   s.textContent = `
-  .cab-wrap{position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:#07080a}
-  .cab-controls{display:flex;align-items:center;gap:14px;padding:8px 12px;background:linear-gradient(#15181c,#0b0d10);border-top:1px solid #2a2f36}
-  .cab-wheel{width:112px;height:112px;flex:0 0 auto}
-  .cab-gauges{display:flex;gap:16px;flex:1 1 auto}
+  /* THE PANE IS THE BUDGET, AND THE GLASS GETS WHAT IS LEFT.
+     This is the fix for a cab you had to SCROLL to drive. \`.ws-wrap\` is \`height:100%\` by its own
+     rule (windshield.js) — correct inside the cockpit, which caps it with \`.ck-canopy\`, and wrong
+     here, where it was a bare flex item in an auto-height column. It took a full pane's height,
+     the dash was laid out underneath the fold, and the canvas the renderer had to fill each frame
+     was the size of the whole area pane rather than the part of it you can see — which is why it
+     was scrolling AND slow, from one cause. The dash is now a fixed shelf and the glass flexes
+     into the remainder, so the canvas can never be taller than the pane. */
+  #area-content:has(.cab-wrap){height:100%;overflow:hidden}
+  .cab-wrap{position:relative;width:100%;height:100%;display:flex;flex-direction:column;
+    background:#07080a;overflow:hidden;box-sizing:border-box}
+  .cab-wrap > .ws-wrap{flex:1 1 auto;height:auto;min-height:0}
+  /* One shelf, wrapping. It never scrolls and it never grows: \`flex-wrap\` is what stops the
+     controls being shoved off the right edge on a narrow pane, which is the other half of "the
+     dash is all over the place". */
+  .cab-controls{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+    padding:8px 12px;background:linear-gradient(#15181c,#0b0d10);border-top:1px solid #2a2f36}
+  /* \`touch-action:none\` is what makes the wheel STEERABLE on a touch screen rather than a thing
+     you scroll the page with. The buttons already had it; the wheel — the one control you are
+     meant to drag — did not. */
+  .cab-wheel{width:112px;height:112px;flex:0 0 auto;touch-action:none;cursor:grab}
+  .cab-wheel:active{cursor:grabbing}
+  /* A control you can tab to has to SHOW that you have tabbed to it. */
+  .cab-btn:focus-visible,.cab-pedal:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
+  .cab-gauges{display:flex;flex-wrap:wrap;gap:10px 16px;flex:1 1 auto;min-width:0}
   .cab-readout{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
-  .cab-readout b{font-size:22px;color:#e8c07a;font-variant-numeric:tabular-nums}
+  /* THE SHELF IS THE SAME ROOM AS THE GLASS. \`--cab-glow\` is set on the wrap from the same
+     CAB_TRIM entry the renderer paints the dash with, so the numbers under the windscreen are lit
+     by the truck you are actually in rather than by one amber that every rung shared. */
+  .cab-readout b{font-size:22px;color:var(--cab-glow,#e8c07a);font-variant-numeric:tabular-nums}
   .cab-readout span{font-size:9px;letter-spacing:.14em;color:#7c848f}
   .cab-surface.s-shoulder{color:#d8a24e}
   .cab-surface.s-offroad{color:#d2603f}
@@ -531,7 +625,22 @@ function ensureCabStyles() {
   .cab-tach{position:relative;flex:0 0 96px;height:8px;border:1px solid #333a43;border-radius:3px;background:#12151a;overflow:hidden}
   .cab-tach.over{border-color:#9a4e4e}
   .cab-tach-band{position:absolute;left:42%;width:26%;top:0;bottom:0;background:#2f5c39}
-  .cab-tach-needle{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#e8c07a}
+  .cab-tach-needle{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--cab-glow,#e8c07a)}
+  /* ── THE FOUR CABS ────────────────────────────────────────────────────────
+     Materials, and only materials. A tier changes what the shelf is MADE of and
+     which instruments are bolted to it (CAB_KIT) — never a number the physics
+     read, which all live in effTruckParams on the server. */
+  .cab-t0 .cab-controls{background:linear-gradient(#23241d,#111209);border-top-color:#3a3a2c}  /* flaking olive steel */
+  .cab-t0 .cab-btn,.cab-t0 .cab-pedal{background:#1e1f18;border-color:#3d3e30}
+  .cab-t2 .cab-controls{background:linear-gradient(#182219,#0a100c);border-top-color:#2b3a30}  /* green vinyl */
+  .cab-t2 .cab-btn,.cab-t2 .cab-pedal{background:#16201a;border-color:#2e4033}
+  /* Walnut and brass, and a warm lamp over the bunk washing down onto the shelf. The Orlov is a
+     bedroom; the pool of light is the single strongest thing that says so. */
+  .cab-t3 .cab-controls{background:
+      radial-gradient(140% 180% at 50% -60%,rgba(255,214,150,.16),transparent 60%),
+      linear-gradient(#2c211a,#100b07);border-top-color:#5a4028}
+  .cab-t3 .cab-btn,.cab-t3 .cab-pedal{background:#241a13;border-color:#5a4028;color:#e6d3b6}
+  .cab-t3 .cab-readout span{color:#9c8a72}
   /* Touch: the controls get BIGGER on a small screen rather than smaller, because that is the one
      place they are the only way in — the wheel shrinks to make room for them, not the reverse. */
   @media (max-width:700px){
@@ -617,6 +726,10 @@ export function closeCab() {
   stopEngineAudio();                                 // the diesel does not idle on in an empty room
   removeEventListener('keydown', st.onKey);
   removeEventListener('keyup', st.onKey);
+  // Each pedal and steer button parked a release on the window (a pointerup that lands outside the
+  // control still has to let go of it). They are not the pane's, so nothing else takes them down,
+  // and a driver who parked and drove again would stack another set on top of the last.
+  (st.winOff || []).forEach((off) => removeEventListener('pointerup', off));
   st.wheel?.destroy?.();
   disposeWindshield(st.id);
   st.container.innerHTML = '';

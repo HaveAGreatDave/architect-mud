@@ -68,13 +68,18 @@ export async function resolveForLogRung(player, payload, { skill = 'hacking' } =
   };
 }
 
-export async function textRender(player, payload) {
+// `skill` names the check the LOG rung resolves on. It defaults to hacking
+// because every family that existed when the ladder was built was an intrusion
+// game. Calibrating an implant is not, so a family whose board is not about
+// breaking into something must say which skill it is actually about — otherwise
+// the bottom rung silently grades a different competence than the other two.
+export async function textRender(player, payload, { skill = 'hacking' } = {}) {
   if (!payload) return payload;
   // The bottom rung never opens a board — see above. `render: 'resolve'` tells the
   // client to fire the resolve verb straight away with the server's own outcome,
   // so the authoritative path is unchanged: the same verb, the same arguments.
   if (await prefersLoggedPanelsOrDefault(player)) {
-    const { won, score, line } = await resolveForLogRung(player, payload);
+    const { won, score, line } = await resolveForLogRung(player, payload, { skill });
     // Both shapes ride along; the client hands both to `onResult`, and each
     // family's own callback reads whichever one it already read.
     return { ...payload, render: 'resolve', autoWon: won, autoScore: score, message: line };

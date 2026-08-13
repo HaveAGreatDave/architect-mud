@@ -1,0 +1,14 @@
+{
+  "description": "A lectern of dark wood, absurd in a room like this, holding a book that is updated by hand. Names, dates, withdrawals. The most recent entries are in a careful clerical script with no corrections anywhere, and the columns run back further than the building has existed. Nowhere on any page is there a figure in credits. That conversation happens at Halcyon, and it happens before you die.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furniture_asc_vat_ledger",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the standing ledger",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": null,
+  "zone_id": "zone_asc_vats_hall"
+}

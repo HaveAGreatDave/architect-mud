@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "There is something under their collar that shifts when they breathe.",
+    "obvious": "A pale ribbed organism is wrapped around their torso and up over one shoulder, pulsing slowly, fused into them at the edges.",
+    "extreme": "The symbiote has taken most of them. It sheathes their body in wet ribbed grey, sends runners down every limb, and its own eyes open somewhere near their collarbone to look at you."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "Something else is living on you now, and it has decided the arrangement suits it. It feeds you. It keeps you warm. It is awake when you are not.",
+  "drawbacks": [
+    "It has its own opinions"
+  ],
+  "effects": {
+    "heal_rate": 0.4,
+    "sleep_need_reduction": 0.4,
+    "cold_resistance": 0.3,
+    "poison_resistance": 0.3,
+    "social_penalty": 0.45
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_symbiote",
+  "name": "Symbiotic Organism",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "obvious",
+  "visible": 1
+}

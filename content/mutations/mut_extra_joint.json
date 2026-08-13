@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "Their left arm hangs slightly wrong.",
+    "obvious": "There is an extra joint halfway down their left forearm, and it flexes when they reach.",
+    "extreme": "Their left arm folds in three places. When they reach across the table it arrives from an angle that makes you sit back."
+  },
+  "blocks_slots": [
+    "hands"
+  ],
+  "body_parts": [
+    "left_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "An additional joint partway down one arm. It bends where nothing should bend, and it reaches where nothing should reach.",
+  "drawbacks": [
+    "Sleeves are a real problem"
+  ],
+  "effects": {
+    "carry_bonus": 8
+  },
+  "expression_band": "radiation",
+  "id": "mut_extra_joint",
+  "name": "Extra Joint",
+  "polarity": "mixed",
+  "radiation_threshold": 60,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1500,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

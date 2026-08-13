@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "Their nostrils flare when you come close.",
+    "obvious": "They keep scenting the air, and their eyes go to movement before it finishes happening.",
+    "extreme": "They track you by smell alone with their eyes shut, and they tilt their head at sounds nobody else in the room can hear."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "Everything sharpened at once. You can smell blood through a wall and hear a heartbeat across a room, and you have started noticing that you enjoy it.",
+  "drawbacks": [
+    "You cannot stop noticing"
+  ],
+  "effects": {
+    "acuity_smell": 3,
+    "acuity_hearing": 3,
+    "acuity_sight": 1,
+    "lowlight_vision": true
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_predator_senses",
+  "name": "Predator's Senses",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "concealable",
+  "visible": 1
+}

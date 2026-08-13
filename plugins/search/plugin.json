@@ -1,0 +1,9 @@
+{
+  "name": "search",
+  "version": "1.0.0",
+  "description": "The `search` verb — turning a room over by hand. A single-shot skill check (deliberately NOT a posture loop; `scavenge` in plugins/scavenging already owns that shape) whose results come entirely from registered providers. The plugin itself knows how to roll and how to fail; it knows nothing about what can be found. Anything that wants to be findable calls registerSearchProvider() and decides its own bar off the roll margin.",
+  "commands": ["search"],
+  "hooks": [],
+  "events": { "consumes": [], "emits": [] },
+  "ticks": []
+}

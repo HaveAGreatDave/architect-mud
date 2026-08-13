@@ -1,0 +1,12 @@
+{
+  "description": "A signal generator and a scope head cable-tied to a board, powered off a cell that is visibly not the right cell. It works. It works about as well as it looks.",
+  "flags": {},
+  "id": "item_calib_rig_scrap",
+  "name": "a scratch-built calibration rig",
+  "tags": {
+    "calibration_rig": true
+  },
+  "type": "misc",
+  "value": 120,
+  "weight": 900
+}

@@ -1,9 +1,22 @@
 {
   "cost": 1200,
   "description": "Calf and thigh servos that fire on your reflexes, not your fatigue. You move before the meat around you has decided to.",
+  "failure_messages": {
+    "burnout": "A gear strips somewhere in the thigh, and the leg answers half a beat late from now on.",
+    "dead": "Both actuators shut down. You are walking on meat and bone, and it feels like wading.",
+    "fault": "The knee servo loses synchronisation. Your leg goes out from under you mid-stride.",
+    "strain": "The servos in your legs whine on every step, and the heat of them climbs behind your knees."
+  },
+  "heat_rate": 0.9,
   "id": "aug_sprint_actuators",
+  "install_difficulty": 6,
+  "item_id": "item_aug_sprint_actuators",
+  "licensed": 1,
   "name": "Sprint Actuators",
+  "overclock_max": 1,
+  "power_draw": 1.4,
   "rep_gate": "known",
+  "salvage_item_id": "item_ruined_sprint_actuators",
   "slot": "legs",
   "soak": {},
   "special": null,

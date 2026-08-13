@@ -1,9 +1,22 @@
 {
   "cost": 650,
   "description": "Your eyes come out; something better goes in. Low-light overlays and threat-tagging sharpen everything you look at.",
+  "failure_messages": {
+    "burnout": "One optic dims and does not come back up. Everything is suddenly flat on that side.",
+    "dead": "The array goes dark. You are looking through two dead lenses and nothing else.",
+    "fault": "Your vision tears into bands of static. You are blind for as long as it takes to be frightening.",
+    "strain": "The overlay starts to smear at the edges, colours dragging a half-second behind what you look at."
+  },
+  "heat_rate": 0.3,
   "id": "aug_ocular_array",
+  "install_difficulty": 6,
+  "item_id": "item_aug_ocular_array",
+  "licensed": 1,
   "name": "Ocular Array",
+  "overclock_max": 1,
+  "power_draw": 0.8,
   "rep_gate": "neutral",
+  "salvage_item_id": "item_ruined_ocular_array",
   "slot": "eyes",
   "soak": {},
   "special": null,

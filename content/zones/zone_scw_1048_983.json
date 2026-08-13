@@ -21,6 +21,7 @@
     "west": "zone_scw_1047_983"
   },
   "flags": {
+    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

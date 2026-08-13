@@ -1,7 +1,36 @@
 import { getPlayerIdeologyRep, adjustReputation, hydrateIdeologyProfile, PATHS } from '../../server/engine/ideologies.js';
 import { classifyLean } from '../../server/engine/ideologies.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getFlag, setFlag, registerConditionShape } from '../../server/engine/flags.js';
+import { getReputation, getTier, REP_TIERS } from '../../server/engine/ideologies.js';
+
+/**
+ * `{ ideology_rep: 'ideology_wildblood', tier: 'inner_circle' }` as a VINE
+ * condition, so authored dialogue can gate on standing rather than on a quest
+ * flag standing in for it.
+ *
+ * This existed nowhere before Phase 2 of the mutation work, which meant the only
+ * way to gate a node on how an order actually felt about you was to mirror the
+ * rep into a flag by hand and then keep the two in step forever. Registered here
+ * rather than in flags.js because reputation is this plugin's domain, and the
+ * shape registry is the seam for exactly that (server/engine/flags.js).
+ *
+ * `tier` takes a tier id; `min` takes a raw number. Unknown tiers fail CLOSED,
+ * which is the same rule every other condition shape follows: a typo locks the
+ * option rather than silently opening it.
+ */
+registerConditionShape('ideology_rep', async (cond, player) => {
+  const id = cond.ideology_rep || cond.ideology_id;
+  if (!id || !player?.id) return false;
+  const rep = Number(await getReputation(player.id, id)) || 0;
+
+  if (cond.min != null) return rep >= Number(cond.min);
+  if (!cond.tier) return rep > 0;
+
+  const want = REP_TIERS.findIndex(t => t.id === cond.tier);
+  if (want < 0) return false;                       // unknown tier: fail closed
+  return REP_TIERS.indexOf(getTier(rep)) >= want;
+});
 
 // One bipolar axis + a categorical path (see server/engine/ideologies.js). The
 // player's stance is a signed flag; each path is a separate affinity flag. Both

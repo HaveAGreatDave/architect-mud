@@ -455,6 +455,10 @@ function scheduleTicks() {
         const r = weatherEventStep() || {};
         announceWeatherEvent(r.lines);
         syncWeatherEventSignal(r.event ?? null);
+        // A benign event is delivered by vantage, and the signal above is
+        // change-detected — so a player who moved between phases would keep (or
+        // never get) it. Re-sweep the occupied zones every tick while one runs.
+        if (r.event?.benign) broadcastEventByVantage(r.event);
       }
       const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
       broadcastZoneWeather(occupied);
@@ -1958,7 +1962,15 @@ function syncWeatherEventSignal(event) {
   const key = event ? `${event.type}:${event.phase}` : 'none';
   if (key === lastWeatherEventKey) return;
   lastWeatherEventKey = key;
-  if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
+  // A SEVERE event's client signal is global: an ion storm's overlay reaches
+  // everybody, because what it is doing to the city reaches everybody. A BENIGN
+  // one (a rainbow) is delivered by vantage instead — its whole payload is light,
+  // and there is no light nine metres under the street. The plugin tells us which
+  // this is; the engine never learns the type names.
+  if (deps.broadcast) {
+    if (event?.benign) broadcastEventByVantage(event);
+    else deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
+  }
   emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
   // The EMP pulse. This is the only change-detected event seam in the file, so
   // it's the one place a "fires exactly once, during the peak" effect can live.
@@ -1980,6 +1992,25 @@ function syncWeatherEventSignal(event) {
     pulseTimer = null;
   }
 }
+// Per-zone delivery of a benign event's client signal, keyed by the same vantage
+// rule the announce prose uses. `buried` is told the event is OVER (a null), not
+// left alone: the zones are re-swept every 30s while one is running (below), so
+// walking down into The Under mid-rainbow has to take the colour off the room
+// text, and walking back up has to put it back. The client's toggle is
+// idempotent, so a repeated send costs nothing.
+function broadcastEventByVantage(event) {
+  if (!deps.broadcast) return;
+  const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+  for (const zoneId of occupied) {
+    const seen = event && skyVantage(zoneId) !== 'buried';
+    deps.broadcast(zoneId, {
+      type: 'weather_event',
+      eventType: seen ? event.type : null,
+      phase: seen ? event.phase : null,
+    });
+  }
+}
+
 // How far into the peak the grid goes down. The peak runs 240s, so this is the
 // first quarter of it spent underneath the thing before it takes the lights.
 const EMP_PULSE_DELAY_MS = 60_000;

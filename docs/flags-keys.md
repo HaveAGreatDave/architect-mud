@@ -135,6 +135,11 @@ nothing, silently; wire a reader first.
 | `audience_door` | broadcast | studio doorman — while alive, present on the tile outside a channel's `studio_zone_id`, and on shift (08:00–02:00), the way in needs a `custom_data.show_pass` stamped for the showing airing right now. Kill him, wait him out, or catch him off shift and the door is just a door (see [systems-broadcast.md](systems-broadcast.md#studio-audience-door)) |
 | `battle_cries` | combat | lines shouted in combat |
 | `repairman` | wear | bench repair — standing in this NPC's zone turns `repair <item>` from a capped field patch into full restoration, priced off item value and discounted by your standing with them ([systems-durability.md](systems-durability.md)) |
+| `surgeon` | augments | marks this NPC as someone who fits chrome. The ZONE opts in with `augment_clinic` (the theatre); this is the person, so a clinic with nobody in it refuses you ([systems-augments.md](systems-augments.md)) |
+| `surgeon_skill` | augments | 0–10. Their hands. Drives the install roll directly, so this is the whole difference between a specialist and a hack |
+| `surgeon_rate` | augments | 0.4–1.8 price multiplier on the fitting fee (a fraction of the hardware's own cost). Combines with `relationHelp`, so a friend is cheaper than a stranger at the same rate |
+| `surgeon_risk` | augments | 0.00–0.30 added complication chance, on top of the skill-vs-difficulty term |
+| `surgeon_licensed` | augments | 1 = Ascendant credentials, 0 = back alley. Unlicensed hands on licensed chrome are a point of difficulty; the reverse costs nothing |
 | `bouncer` | strippers | bouncer NPC — enforces club ejection |
 | `bouncer_eject_zone` | strippers | where this bouncer throws you (optional; falls back to a derived zone) |
 | `charter_pilot` | flight | offers charter flights |
@@ -173,6 +178,7 @@ nothing, silently; wire a reader first.
 | `preshow_drink` | npc-drugs | the DRINK counterpart to `preshow_habit`, same cadence and its own pouring ritual (Neil Mcmanistan's "embassy reserve"). Always sedated, `neverOut`. **Separate from `preshow_habit` on purpose** — a drink's name is authored flavour and is never in the drugs catalogue, so the drug path would classify whisky as a stimulant |
 | `booze_habit` | npc-drugs | drink name for a standing dependency on no schedule but its own (20-min cooldown × 35%/scan). Always sedated, **never** floored — an NPC out cold stops turning up for work |
 | `drug_habit` | npc-drugs | drug name for a standing habit, same cadence as `booze_habit` but with the drug's own classified effect (and it *can* put them under). A stimulant comedown sets `ai.crashSleepy`, which sends them to bed early |
+| `stray_cat` | strays | marks the animal the strays plugin owns (Cathode in Dray Lane) — the plugin's only selector, so its pet hook, kill handler and accolade predicates all key off this rather than an id. Pairs with `home_zone` pointing at an exitless den zone, which is what makes hiding work; do NOT add `no_attack` (killing it is the point). See [systems-strays.md](systems-strays.md) |
 | `stripper` | strippers | performs at the club |
 | `studio_npc` | broadcast | broadcast-studio actor |
 | `table_id` | gametable | which game table the NPC sits at |

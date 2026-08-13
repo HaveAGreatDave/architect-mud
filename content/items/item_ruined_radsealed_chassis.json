@@ -1,0 +1,14 @@
+{
+  "description": "The seal is cracked from the inside and the lead lining has slumped. It would keep nothing out now.",
+  "flags": {},
+  "id": "item_ruined_radsealed_chassis",
+  "name": "a breached chassis shell",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 88,
+  "weight": 6000
+}

@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "Their eyes catch the light in too many places at once.",
+    "obvious": "Their eyes have gone to clustered facets, dark and geometric, and they track you without turning their head.",
+    "extreme": "Two great domed compound eyes take up most of their face, a thousand facets each, and there is nowhere in the room they are not looking."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "Your eyes have divided into clustered facets. You see almost everything at once, and none of it the way you used to.",
+  "drawbacks": [
+    "People cannot hold eye contact with you"
+  ],
+  "effects": {
+    "acuity_sight": 4,
+    "lowlight_vision": true,
+    "social_penalty": 0.4
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_compound_eyes",
+  "name": "Compound Eyes",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "extreme",
+  "visible": 1
+}

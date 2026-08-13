@@ -18,6 +18,7 @@
  * recipes/reagents/labs are content.
  */
 import { query, withTransaction } from '../../server/models/db.js';
+import { adjustSanity } from '../../server/engine/condition.js';
 import { textRender } from '../../server/engine/minigame.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
 import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
@@ -214,8 +215,9 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
     // Toxic byproduct — a flash of heat and acrid smoke. Nastier for higher-tier drugs.
     const dmg = 6 + tier * 4; // tier3=18 … tier5=26
     const hp = Math.max(0, (player.hp || 0) - dmg);
-    const sanity = Math.max(0, (player.sanity || 0) - (3 + tier * 2));
-    player.hp = hp; player.sanity = sanity;
+    adjustSanity(player, -(3 + tier * 2), 'synthesis_byproduct');
+    const sanity = player.sanity;   // what actually landed, after composure
+    player.hp = hp;
     query('UPDATE players SET hp=$1, sanity=$2 WHERE id=$3', [hp, sanity, player.id]).catch(() => {});
     if (hp <= 0) {
       broadcast(null, { type: 'output', message: `<span class="overdose-warning">The mixture detonates in your hands. The last thing you smell is burning.</span>`, player_update: { hp, sanity } }, null, player.id);
@@ -611,8 +613,9 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
     await withTransaction(consume);
     const dmg = 25 + Math.round(p.comp.instability * 30);
     const hp = Math.max(0, (player.hp || 0) - dmg);
-    const sanity = Math.max(0, (player.sanity || 0) - 15);
-    player.hp = hp; player.sanity = sanity;
+    adjustSanity(player, -15, 'splice_critical');
+    const sanity = player.sanity;   // what actually landed, after composure
+    player.hp = hp;
     query('UPDATE players SET hp=$1, sanity=$2 WHERE id=$3', [hp, sanity, player.id]).catch(() => {});
     if (hp <= 0) {
       broadcast(null, { type: 'output', message: `<span class="overdose-warning">The splice goes critical — a white flash, a wall of heat. It takes you with it.</span>`, player_update: { hp, sanity } }, null, player.id);

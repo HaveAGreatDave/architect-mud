@@ -40,7 +40,7 @@ import { loadDrugs, clearActiveDrugBuffs } from "./engine/drugs.js";
 import { loadItems, getItem } from "./engine/items-cache.js";
 import { reloadCrimes } from "./engine/crimes.js";
 import { reloadAliases } from "./engine/commands/aliases.js";
-import { loadMutations } from "./engine/mutations.js";
+import { loadMutations, hydrateMutations, flushMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import { loadScriptTriggers } from "./engine/script-triggers.js";
 import {
@@ -707,6 +707,7 @@ wss.on("connection", (ws) => {
 				// knows this player — the live object (and its Map) is discarded
 				// by removeLivePlayer a few lines down.
 				if (player) await flushRelations(player).catch(() => {});
+				if (player) await flushMutations(player).catch(() => {});
 				// Flags are write-through (no dirty set to flush) — just drop the
 				// cache so the module registry stops pinning a dead player object.
 				evictPlayerFlags(session.playerId);
@@ -1128,6 +1129,7 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 	// hydrate races it and the last few minutes of knowing someone are lost.
 	const priorSession = getLivePlayer(player.id);
 	if (priorSession) await flushRelations(priorSession).catch(() => {});
+	if (priorSession) await flushMutations(priorSession).catch(() => {});
 	// Independent reads — one round trip's latency, not two.
 	// The ideology profile (stance + strongest path) is hydrated for the same
 	// reason: reputation decay consults it on every vendor price lookup, and five
@@ -1139,6 +1141,10 @@ async function finishAuth(ws, session, player, seedDisplayRung, explicitDisplayR
 		hydrateRelations(livePlayer),
 		hydrateIdeologyProfile(livePlayer),
 		hydratePlayerFlags(livePlayer),
+		// Mutations are read on the combat, describe and senses paths and are
+		// sync by contract there, so the one query they cost lands here with the
+		// rest of the login batch.
+		hydrateMutations(livePlayer),
 	]);
 	// Latch the Display Mode rung onto the live player, AFTER the flag cache is
 	// warm so this costs nothing. The room-look renderer runs on every move and

@@ -1,0 +1,26 @@
+{
+  "appearance": {},
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [],
+  "description": "You do not smell like a person any more. Dogs lose you. So does polite company.",
+  "drawbacks": [
+    "Nobody wants to stand near you"
+  ],
+  "effects": {
+    "social_penalty": 0.3
+  },
+  "expression_band": "radiation",
+  "id": "mut_altered_scent",
+  "name": "Altered Scent",
+  "polarity": "mixed",
+  "radiation_threshold": 40,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 500,
+  "treatable": true,
+  "visibility_class": "hidden",
+  "visible": 0
+}

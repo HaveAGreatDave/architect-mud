@@ -1,9 +1,22 @@
 {
   "cost": 400,
   "description": "A port set into the base of the skull, the first chrome anyone gets. Direct data-feed sharpens the wits that matter for splicing and cracking.",
+  "failure_messages": {
+    "burnout": "Something in the port cooks. The smell reaches you through the bone.",
+    "dead": "The jack dies. The feed goes, and the quiet where it was is enormous.",
+    "fault": "The jack shorts. For a second every word you know arrives at once and none of them are yours.",
+    "strain": "The jack at the base of your skull goes warm, then hot, and the feed picks up a hum you can feel in your teeth."
+  },
+  "heat_rate": 0.2,
   "id": "aug_dermal_jack",
+  "install_difficulty": 3,
+  "item_id": "item_aug_dermal_jack",
+  "licensed": 1,
   "name": "Dermal Jack",
+  "overclock_max": 1,
+  "power_draw": 0.4,
   "rep_gate": "unknown",
+  "salvage_item_id": "item_ruined_dermal_jack",
   "slot": "neural",
   "soak": {},
   "special": null,

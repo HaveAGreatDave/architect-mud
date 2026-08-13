@@ -8,11 +8,14 @@ import { getZoneProtection } from './protection.js';
 import { query } from '../models/db.js';
 import { getEquippedWeapon } from './inventory.js';
 import { wear, WEAR_EVENTS, conditionPenalty, announceWear } from './durability.js';
+import { strain } from './strain.js';
 import { fireDamageToPlayer, fireDamageToEnemy, dominantDamageType } from './damage-events.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
 import { knockOut, isOut } from './unconscious.js';
 import { applyEffect } from './effects.js';
 import { sendToPlayer } from './messaging.js';
+import { PART_TO_SLOT, DEFAULT_BODY_PART_WEIGHTS, partLabelOf, hitWeightsForPlayer } from './body-parts.js';
+import { mutationFlag } from './mutations.js';
 
 // A power attack (`pow`) multiplies the rolled damage after crit and before the
 // head bonus and soak, and costs 1.5x the stance's swing time.
@@ -91,6 +94,83 @@ export function clearCooldown(playerId, action) {
   if (cds) delete cds[action];
 }
 
+// ── The swing seam ───────────────────────────────────────────────────────────
+//
+// The one place a plugin can see a swing while it is still resolving, and bend
+// it. Everything else in this file that a plugin touches is a FIELD POKE — the
+// injury plugin maintains `enemy._injuryHitMod`, the weapon plugin sets
+// `player._powQueued` — and that pattern is good at exactly one thing: intent
+// armed somewhere else, earlier. It cannot express OBSERVATION, which is what a
+// system that learns an opponent over the course of a fight needs.
+//
+// A REGISTRY, deliberately, and not a `gatherHook`. `gatherHook` is async: it
+// awaits every handler, so one plugin doing a query inside it would put a DB
+// round trip on every swing in the game. senses.js:127 made this exact call for
+// the movement path — it is why `acuitySync` exists beside `acuityFor` — and
+// combat is hotter than movement. A registry of plain functions cannot become a
+// round trip no matter what a plugin does inside it.
+//
+// SYNC BY CONTRACT, and stricter than every other contributor registry here:
+//
+//   · may not await          (the loop ignores the promise; your work vanishes)
+//   · may not query          (RAM is authoritative on this path — read the
+//                             hydrated caches, never the database)
+//   · may not send           (a sendToPlayer here is N websocket writes inside
+//                             the tick's enemy loop; push prose into ctx.lines
+//                             and the engine appends it to the message it was
+//                             already sending)
+//
+// It runs twice per swing, in both directions. Two phases:
+//
+//   'pre'   before the to-hit roll — the ctx's modifier fields are read back
+//   'post'  after the outcome is known, INCLUDING ON A MISS, which is the whole
+//           reason this isn't built on damage-events.js: a system that reads an
+//           opponent learns as much from a swing that missed as one that landed
+//
+const swingContributors = new Map();
+
+export function registerSwingContributor(fn, owner = 'unknown') {
+  if (typeof fn === 'function') swingContributors.set(owner, fn);
+}
+export function getSwingContributors() { return [...swingContributors.keys()]; }
+
+function applySwing(phase, ctx) {
+  if (!swingContributors.size) return null;
+  for (const fn of swingContributors.values()) {
+    try { fn(phase, ctx); } catch { /* a broken technique is not a broken swing */ }
+  }
+  return ctx;
+}
+
+// Build the ctx INSIDE the size test, never before it: with nothing registered
+// the cost of this seam has to be one Map.size read and no allocation at all.
+function beginSwing(ctx) {
+  return swingContributors.size ? applySwing('pre', ctx) : null;
+}
+function endSwing(swing, outcome) {
+  if (!swing) return;
+  Object.assign(swing, outcome);
+  applySwing('post', swing);
+}
+// Prose a contributor asked to ride this swing's message.
+function swingLines(swing) {
+  return swing?.lines?.length ? swing.lines.join('') : '';
+}
+
+// Test surface. The seam's whole promise is "combat is unchanged when nothing
+// is registered", and that is only worth anything if it's asserted — but the
+// helpers are internal so a plugin can't call them and fake a swing.
+export const _swingTest = {
+  begin: beginSwing,
+  end: endSwing,
+  lines: swingLines,
+  clear: () => swingContributors.clear(),
+  // Snapshot/restore so the "combat is unchanged when nothing is registered"
+  // assertions can still be made in a world where real plugins have registered.
+  snapshot: () => new Map(swingContributors),
+  restore: (m) => { swingContributors.clear(); for (const [k, v] of m) swingContributors.set(k, v); },
+};
+
 // ── Contested flee ───────────────────────────────────────────────────────────
 // You can't simply walk out of a fight any more: breaking contact costs an
 // attack cycle and a roll, in both directions. Same shape as every to-hit in
@@ -134,7 +214,12 @@ export function toughestAttacker(player) {
 // really is the escape stance), against the best attacker in the room. Trains
 // Dodge on the attempt whether it lands or not, like every other evasion.
 export async function playerFleeRoll(player, attackerHit) {
-  const rating = (await effectiveSkill(player, 'dodge')) + defenseBonus(player);
+  // Going straight up is the oldest way out of a fight. Applied to the flee
+  // contest only, never to the dodge roll in the fight itself: wings help you
+  // LEAVE, they do not make you harder to hit while you stay. That split is what
+  // keeps flight a mobility mutation rather than a combat one.
+  const wings = mutationFlag(player, 'flight') ? 6 : 0;
+  const rating = (await effectiveSkill(player, 'dodge')) + defenseBonus(player) + wings;
   const margin = rollFleeContest(rating, attackerHit);
   await awardSkillUse(player.id, 'dodge', margin);
   return margin >= 0;
@@ -328,31 +413,10 @@ function dodgedMissLine(attackerName) {
   return `${attackerName} lunges — <span class="dodge-tag">you slip aside</span>.`;
 }
 
-const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:11, right_leg:11, feet:4 };
-
-// Which equip slot covers each struck body part. Arms share the hands piece,
-// legs share the legs piece, feet has its own boots piece.
-const PART_TO_SLOT = {
-  head: 'head', torso: 'torso',
-  left_arm: 'hands', right_arm: 'hands',
-  left_leg: 'legs', right_leg: 'legs',
-  feet: 'feet',
-};
-
-const PART_LABELS = {
-  head: 'head', torso: 'torso',
-  left_arm: 'left arm', right_arm: 'right arm',
-  left_leg: 'left leg', right_leg: 'right leg',
-  feet: 'feet',
-};
-
-// Anatomy is data, so a part name can be anything a creature authors —
-// `upper_left_arm`, `venom_sac`, `fluke`. It must never reach a player with the
-// underscores still in it. The humanoid labels win where they exist; everything
-// else is humanised.
-export function partLabelOf(part) {
-  return PART_LABELS[part] || String(part || '').replace(/_/g, ' ');
-}
+// Anatomy lives in server/engine/body-parts.js — one table, four former copies.
+// `partLabelOf` is re-exported so every existing importer of it from this module
+// keeps working; the tables themselves are read directly from the substrate.
+export { partLabelOf };
 
 // ── Wielding something you have no business wielding ─────────────────────────
 //
@@ -698,6 +762,11 @@ export function executionShot(attacker, { part, damage, critical, targetHpMax, w
 
 // Weighted pick of a struck body part. Pass explicit weights (e.g. a monster's
 // per-part hit %) or fall back to the global tunable default (~torso-heavy).
+//
+// When the TARGET is a player, callers pass `targetWeights(player)` rather than
+// nothing — a body that has grown something can be struck on it. That helper
+// returns the tunable default unchanged for anyone who hasn't, so this stays
+// exactly as it was for every ordinary body.
 function rollBodyPart(customWeights) {
   const weights = customWeights || getTunable('body_part_weights', DEFAULT_BODY_PART_WEIGHTS);
   const parts = Object.keys(weights);
@@ -708,6 +777,13 @@ function rollBodyPart(customWeights) {
     if (roll < 0) return p;
   }
   return parts[parts.length - 1] || 'torso';
+}
+
+// The struck-part weights for a specific player target. Identity on the tunable
+// default for anyone carrying no part-granting mutation, which is what makes
+// this free to call from every player-target swing.
+function targetWeights(player) {
+  return hitWeightsForPlayer(player, getTunable('body_part_weights', DEFAULT_BODY_PART_WEIGHTS));
 }
 
 // Reduce a typed-soak map against a damage type. Matched type → full value;
@@ -745,6 +821,11 @@ function playerPartSoak(player, part, damageType) {
 // The armour that actually absorbed the blow — not every worn piece. Getting hit
 // in the leg does nothing to your helmet.
 function wearStruckArmor(player, part) {
+  // Strain fires FIRST, and unconditionally — before the row check. Chrome under
+  // the skin is worked by taking the blow whether or not there was armour over it
+  // to wear out, so an unarmoured player's implants still heat. Sync by contract
+  // (server/engine/strain.js); it never awaits and never queries.
+  strain(player, 'taken');
   const row = player?._wornRows?.get(PART_TO_SLOT[part]);
   if (!row) return;
   announceWear(player, row, wear(player, row, WEAR_EVENTS.taken, 'combat:taken'));
@@ -760,6 +841,9 @@ function weaponScale(player) {
 }
 
 function wearHeldWeapon(player) {
+  // Same rule as wearStruckArmor: an unarmed swing has no row to wear but a
+  // hydraulic arm still did the work, so strain is unconditional.
+  strain(player, 'swing');
   const row = player?._equippedWeapon?.row;
   if (!row) return;
   announceWear(player, row, wear(player, row, WEAR_EVENTS.swing, 'combat:swing'));
@@ -851,14 +935,22 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   // It is in the air and you are not. Ranged ignores this; so does a stunned
   // flier, because a stunned flier is on the floor.
   const flight = flightCombatPenalty(enemy, weaponStats, attackSkill);
+  const swing = beginSwing({
+    kind: 'outgoing', player, enemy, weaponStats, attackSkill, power, enemyDodge,
+    hitMod: 0, damageScale: 1, critBonus: 0, lines: [],
+  });
   const margin = (attackSkill + hitBonus(player) - enemyDodge) + aimCost + (unskilled?.hitMod || 0)
-    + (flight?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
+    + (flight?.hitMod || 0) + (swing?.hitMod || 0) + rollSwing() + await darknessHitPenalty(enemy.zoneId, player);
   const hit = margin >= 0;
 
   // Water drags the swing out on top of the stance interval.
   setCooldown(player.id, 'attack', swingInterval(player) + (water?.swingExtraMs || 0));
 
   if (!hit) {
+    // Closed out HERE and not below, so a miss still reaches 'post': a swing
+    // that missed taught you as much about the thing as one that landed. The
+    // hit branch closes its own after the damage is known.
+    endSwing(swing, { hit, margin });
     return {
       success: true,
       hit: false,
@@ -866,7 +958,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       power,
       // Say WHY, or a run of misses reads as bad luck instead of a wrong tool.
       message: playerMissLine(player, enemy.name, power)
-        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It is above you. You need reach, or something that shoots.</span>` : ''),
+        + (flight?.hitMod < 0 ? ` <span class="dmg-type">It is above you. You need reach, or something that shoots.</span>` : '')
+        + swingLines(swing),
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
       enemyHpMax: enemy.hp_max,
@@ -876,7 +969,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   wearHeldWeapon(player);   // the swing landed — the weapon that landed it wears
   const critThreshold = getTunable('crit_threshold', 8);
   const critMultiplier = getTunable('crit_multiplier', 1.5);
-  const critical = margin >= critThreshold;
+  const critical = margin >= (critThreshold - (swing?.critBonus || 0));
 
   const damage_min = weaponStats?.damage_min || 2;
   const damage_max = weaponStats?.damage_max || 5;
@@ -890,6 +983,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   if (water) damage = Math.max(1, Math.round(damage * water.damageScale));
   if (critical) damage = Math.floor(damage * critMultiplier);
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
+  if (swing && swing.damageScale !== 1) damage = Math.max(1, Math.round(damage * swing.damageScale));
 
   // Buckshot lands as several impacts; everything else is a single one, which
   // is the same code path with a one-element list.
@@ -995,6 +1089,9 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   enemy.hp -= damage;
   enemy.targetId = player.id;
 
+  // The hit branch's single 'post', with the outcome complete.
+  endSwing(swing, { hit, margin, damage, impacts, critical, part, killed: enemy.hp <= 0 });
+
   if (enemy.hp <= 0) {
     player.mob_kills = (player.mob_kills || 0) + 1;
     query('UPDATE players SET mob_kills=mob_kills+1 WHERE id=$1', [player.id]).catch(() => {});
@@ -1008,7 +1105,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       damage,
       margin,
       power,
-      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}. ${enemy.death_message}`,
+      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}. ${enemy.death_message}${swingLines(swing)}`,
       loot,
       enemyId: enemyInstanceId,
       butcher_table: enemy.butcher_table || [],
@@ -1024,7 +1121,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     power,
-    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}`,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}${swingLines(swing)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -1053,8 +1150,17 @@ export async function enemyAttackPlayer(enemy, player) {
   // half of §8b that makes aiming at a limb a TACTIC rather than just flavour.
   const enemyHit = (enemy.hit ?? 1) + (Number(enemy._injuryHitMod) || 0);
   const { dodgeTerm, dodged } = await playerDefence(player);
-  const margin = (enemyHit - dodgeTerm) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
-  const hit = margin >= 0;
+  const swing = beginSwing({
+    kind: 'incoming', player, enemy, enemyHit, dodgeTerm, dodged,
+    hitMod: 0, soakBonus: 0, negate: false, negateLine: null, lines: [],
+  });
+  const margin = (enemyHit - dodgeTerm + (swing?.hitMod || 0)) + rollSwing() + await darknessHitPenalty(enemy.zoneId);
+  // `negate` is a STATED OUTCOME, and deliberately not just a big negative
+  // hitMod. A technique that steps inside the arc has already made its roll, in
+  // the plugin, before it set this — expressing it as a to-hit penalty would let
+  // it silently fail against a high-`hit` enemy, which is the exact opposite of
+  // what a technique like that is for.
+  const hit = margin >= 0 && !swing?.negate;
 
   const cries = enemy.flags?.battle_cries;
   const cry = (isFirstStrike && Array.isArray(cries) && cries.length && tryBattleCry(enemy.templateId, enemy.zoneId))
@@ -1064,7 +1170,13 @@ export async function enemyAttackPlayer(enemy, player) {
   if (!hit) {
     // Evading trains Dodge — the closer the call, the better you learn (abs margin).
     await awardSkillUse(player.id, 'dodge', margin);
-    return { hit: false, message: `${cry}${dodged ? dodgedMissLine(enemy.name) : `${enemy.name} attacks you and misses.`}` };
+    endSwing(swing, { hit, margin, damage: 0 });
+    // A negated swing prints the technique's OWN line. Falling through to the
+    // ordinary miss text would read as luck, and the whole point of stepping
+    // inside a strike is that it wasn't.
+    const missLine = swing?.negateLine
+      || (dodged ? dodgedMissLine(enemy.name) : `${enemy.name} attacks you and misses.`);
+    return { hit: false, message: `${cry}${missLine}${swingLines(swing)}` };
   }
 
   const critThreshold = getTunable('crit_threshold', 8);
@@ -1097,7 +1209,7 @@ export async function enemyAttackPlayer(enemy, player) {
   const impacts = [];
 
   for (let g = 0; g < groups; g++) {
-    const p = rollBodyPart();
+    const p = rollBodyPart(targetWeights(player));
     const hm = p === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
     // Post-soak contribution per component, so the damage-events seam can name
     // the type that actually did the work rather than whichever was listed first.
@@ -1111,7 +1223,13 @@ export async function enemyAttackPlayer(enemy, player) {
       let amt = raw;
       if (critical) amt = Math.floor(amt * critMultiplier);
       amt = Math.floor(amt * hm);
-      const soaked = playerPartSoak(player, p, c.type);
+      // A braced body is read HERE, at the moment the blow lands, rather than
+      // baked into player.soak. `player.soak` is a cache rebuilt on equip and
+      // login; a timed stance written into it would need invalidating on every
+      // path that can end one, and a single missed path leaves a player armoured
+      // forever — the worst failure available to a system whose whole premise is
+      // that it grants no permanent passive.
+      const soaked = playerPartSoak(player, p, c.type) + (swing?.soakBonus || 0);
       const landed = Math.max(0, amt - soaked);
       contributions.push({ type: c.type, amount: landed });
       gTotal += landed;
@@ -1129,6 +1247,7 @@ export async function enemyAttackPlayer(enemy, player) {
   }
 
   const damage = Math.max(1, total);
+  endSwing(swing, { hit, margin, damage, impacts, critical });
   for (const im of impacts) {
     if (im.damage <= 0) continue;
     fireDamageToPlayer(player, {
@@ -1168,7 +1287,7 @@ export async function enemyAttackPlayer(enemy, player) {
     critical,
     message: critical
       ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`
-      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}`,
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${dodged ? DODGE_BROKEN : ''}${radTag}${selfHp}${swingLines(swing)}`,
   };
 }
 
@@ -1248,7 +1367,7 @@ export async function flushDirtyResources() {
 // route through handlePlayerDeath.
 export async function applyStrikeToPlayer(player, { min, max, damageType = 'kinetic' }) {
   await ensureTunables();
-  const part = rollBodyPart();
+  const part = rollBodyPart(targetWeights(player));
   const raw = randInt(min, max);
   const soaked = playerPartSoak(player, part, damageType);
   let damage = raw;
@@ -1263,6 +1382,50 @@ export async function applyStrikeToPlayer(player, { min, max, damageType = 'kine
   player.hp = Math.max(0, before - damage);
   player._resDirty = true; // coalesced into the 1s flushDirtyResources write
   return { damage, part, partLabel: partLabelOf(part), killed: player.hp <= 0 };
+}
+
+/**
+ * The enemy-side mirror of applyStrikeToPlayer: a source of damage that is not a
+ * swing. No hit roll, no cooldown, no weapon — an electrical discharge or a
+ * sonic burst does not miss, it simply happens to everything nearby.
+ *
+ * Exists so a plugin never has to write `enemy.hp -=` itself. Doing that by hand
+ * skips the part roll, the typed soak, the damage observers that injury hangs
+ * off, and the loot/removal path on death, and every one of those omissions is a
+ * bug that only shows up much later.
+ *
+ * Lethal outcomes ARE handled here (loot + instance removal), because unlike a
+ * player death there is no respawn story for the caller to own.
+ */
+export async function applyStrikeToEnemy(player, enemy, { min, max, damageType = 'kinetic' }) {
+  await ensureTunables();
+  if (!enemy || enemy.hp <= 0) return null;
+
+  const part = rollBodyPart(enemyBodyPartWeights(enemy));
+  const raw = randInt(min, max);
+  const soaked = enemyPartSoak(enemy, part, damageType);
+  let damage = raw;
+  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
+  damage = Math.max(1, damage - soaked);
+
+  fireDamageToEnemy(enemy, {
+    part, damage, baseDamage: Math.max(1, raw - soaked),
+    type: damageType, critical: false, source: 'strike',
+  });
+
+  enemy.hp -= damage;
+  enemy.targetId = player?.id || enemy.targetId;
+
+  if (enemy.hp <= 0) {
+    if (player) {
+      player.mob_kills = (player.mob_kills || 0) + 1;
+      query('UPDATE players SET mob_kills=mob_kills+1 WHERE id=$1', [player.id]).catch(() => {});
+    }
+    const loot = resolveEnemyLoot(enemy);
+    removeEnemyInstance(enemy.instanceId);
+    return { damage, part, partLabel: partLabelOf(part), killed: true, loot, enemyId: enemy.instanceId };
+  }
+  return { damage, part, partLabel: partLabelOf(part), killed: false };
 }
 
 function resolveEnemyLoot(enemy) {
@@ -1326,7 +1489,7 @@ export async function pvpSwing(attacker, defender) {
   }
 
   const critical = margin >= getTunable('crit_threshold', 8);
-  const part = rollBodyPart(aimedWeights(attacker, null));
+  const part = rollBodyPart(aimedWeights(attacker, targetWeights(defender)));
 
   const rawRoll = Math.max(1, Math.round(randInt(damage_min, damage_max) * weaponScale(attacker)));
   let damage = rawRoll;
@@ -1346,7 +1509,7 @@ export async function pvpSwing(attacker, defender) {
   const baseShares = splitSpread(pvpBase, groups);
 
   splitSpread(damage, groups).forEach((share, i) => {
-    const p = groups > 1 ? rollBodyPart(aimedWeights(attacker, null)) : part;
+    const p = groups > 1 ? rollBodyPart(aimedWeights(attacker, targetWeights(defender))) : part;
     let amt = share;
     if (p === 'head') amt = Math.floor(amt * headMultiplier);
     const soak = playerPartSoak(defender, p, damageType);
@@ -1618,7 +1781,7 @@ export async function npcAttackPlayer(npc, player) {
     ? npc.flags.weapon
     : [{ type: 'kinetic', min: 1, max: 3 }];
   const damageTypes = [...new Set(weaponArr.map(c => c.type))].join('/');
-  const part = rollBodyPart();
+  const part = rollBodyPart(targetWeights(player));
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
   let total = 0;
   for (const c of weaponArr) {
@@ -1724,7 +1887,7 @@ export async function pvpSwingSleeping(attacker, defender) {
   const damage_max = dmg.max ?? 4;
 
   const critical = Math.random() < 0.1;
-  const part = rollBodyPart();
+  const part = rollBodyPart(targetWeights(defender));
   const partLabel = partLabelOf(part);
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
 

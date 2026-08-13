@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "Their shoulder blades stand out much too far.",
+    "obvious": "Folded wings sit against their back, ribbed and leathery, twitching when they are startled.",
+    "extreme": "They have wings that fill the room when they open, dark and veined and easily twice their height. Everyone has stopped talking."
+  },
+  "blocks_slots": [
+    "torso"
+  ],
+  "body_parts": [
+    "wing_left",
+    "wing_right"
+  ],
+  "conceal_slots": [],
+  "description": "Wings. Actual wings, grown from your shoulder blades, ribbed and enormous. Whether they will ever carry you is a question the Wildblood argue about.",
+  "drawbacks": [
+    "No coat, no pack, no torso armour"
+  ],
+  "effects": {
+    "social_penalty": 0.7,
+    "carry_bonus": 10,
+    "flight": true,
+    "part_hit_weight": 7
+  },
+  "expression_band": "mutagen",
+  "id": "mut_wb_wings",
+  "name": "Wings",
+  "polarity": "mixed",
+  "radiation_threshold": 999,
+  "source": "mutagen",
+  "stat_modifiers": {},
+  "treat_cost": 0,
+  "treatable": false,
+  "visibility_class": "extreme",
+  "visible": 1
+}

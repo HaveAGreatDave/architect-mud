@@ -25,11 +25,26 @@ export const SKILLS = {
   drone_ops:   { id:'drone_ops',   name:'Drone Ops',   category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Piloting and commanding drones. Doing your dirty work from a safe-ish distance.' },
   piloting:    { id:'piloting',    name:'Piloting',    category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Flying aircraft — throttle, stick, and rudder over a world that wants you back on the ground. Takeoffs are optional; landings are not.' },
   security:    { id:'security',    name:'Security',    category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Locks, alarms, and surveillance — cracking theirs and trusting none of your own.' },
+  // Deliberately NOT folded into `hacking`. Hacking is getting into a thing — a
+  // door, a till, an ATM. Nullcraft is attacking what a thing DEPENDS on: its
+  // power, its telemetry, its radio, the fact that its owner overclocked it.
+  // They share hardware (hack-gear.js) and they are different competences;
+  // merging them would silently regrade every breach already in the world.
+  nullcraft:   { id:'nullcraft',   name:'Nullcraft',   category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Making other people’s machines stop working. Jamming, spoofing, and talking a stranger’s arm into ignoring them.' },
   persuasion:  { id:'persuasion',  name:'Persuasion',  category:'social',   stats:['stat_cool','stat_brains'], desc:'Getting people to do what you want with words instead of violence. The expensive way is cheaper here.' },
   intimidate:  { id:'intimidate',  name:'Intimidate',  category:'social',   stats:['stat_brawn','stat_cool'], desc:'Getting people to do what you want by promising violence. Body language as a weapon.' },
   deception:   { id:'deception',   name:'Deception',   category:'social',   stats:['stat_cool','stat_brains'], desc:'Lying convincingly. Disguises, cons, and a straight face under pressure.' },
   faction_lore:{ id:'faction_lore',name:'Faction Lore',category:'social',   stats:['stat_brains'], desc:'Knowing who runs what, who hates whom, and which favors are worth calling in.' },
   architect_interface: { id:'architect_interface', name:'Architect Interface', category:'arcane', stats:['stat_brains','stat_cool'], desc:'Communing with the Architect’s systems. Touching the machine-god’s thoughts without losing your own.' },
+  // ONE skill for the whole Exodus discipline, not one per discipline. Six IP
+  // tracks would be six grinds nobody finishes, and psionics already gates its
+  // breadth on RANK (the `psi_rank` player flag) rather than on skill level.
+  //
+  // Note there is deliberately no companion `psi_resistance` skill. Resisting is
+  // a derived property of who you already are — Cool, Brains, Long Watch mastery,
+  // Static Mind, a coprocessor — netted at read time by psi-resist.js. Authoring
+  // it as a second trainable skill would be the same number written down twice.
+  psionics:    { id:'psionics',    name:'Psionics',    category:'arcane', stats:['stat_cool','stat_brains'], desc:'The discipline the Basin laughs at, right up until a door opens on its own. Holding a thought steady enough that the world has to agree with it.' },
 };
 
 // Floored average of a skill's governing stats — the bonus that stacks on top

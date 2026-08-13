@@ -3,6 +3,7 @@ import { exitTargets } from '../exits.js';
 import { describeZone } from './describe.js';
 import { drainZonePower } from '../environment.js';
 import { query } from '../../models/db.js';
+import { adjustSanity } from '../condition.js';
 
 const HAUNT_MESSAGES = [
   'An icy breath curls across your neck. There is nobody there.',
@@ -142,7 +143,10 @@ export async function cmdGhostHaunt(targetHandle, session, broadcast) {
   if (!target) return { type: 'ghost_error', message: `${targetHandle} is not online.` };
   const hauntMsg = HAUNT_MESSAGES[Math.floor(Math.random() * HAUNT_MESSAGES.length)];
   broadcast(null, { type: 'ambient', message: `<span style="color:#9f7aea;font-style:italic">${hauntMsg}</span>` }, null, target.id);
-  await query('UPDATE players SET sanity = GREATEST(0, sanity - 10) WHERE id=$1', [target.id]);
-  if (target.sanity !== undefined) target.sanity = Math.max(0, target.sanity - 10);
+  // Resist FIRST, then persist what actually landed. Writing the raw -10 to the
+  // DB and the resisted value to memory would leave the two disagreeing until
+  // the next flush overwrote one of them.
+  const landed = adjustSanity(target, -10, 'haunt');
+  if (landed) await query('UPDATE players SET sanity = GREATEST(0, sanity + $2) WHERE id=$1', [target.id, landed]);
   return { type: 'ghost_haunt_result', message: `Phantom sent to ${target.handle}.` };
 }

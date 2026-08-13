@@ -201,6 +201,67 @@ function projSky(azDeg, elDeg, heading, W, horizonY, FL) {
   return { sx, sy, front };
 }
 
+// ── Rainbows, out the canopy ─────────────────────────────────────────────────
+//
+// Drawn at the REAL place a rainbow is: centred on the antisolar point (directly
+// opposite the sun, below the horizon while the sun is up) at an angular radius
+// of 42°, through the same projSky the sun and the stars use. So it sits at a
+// true compass bearing — turn toward the sun and it slides off the canopy behind
+// you, which is the entire reason it's worth drawing in a flight sim at all
+// rather than pasting an arc across the glass.
+//
+// `arcs` is 1 or 3. The second is the reflection and its colours run REVERSED
+// (red innermost) at the wider 51° radius, which is the detail that makes a
+// double read as a real one; the third is fainter again and wider still.
+const BOW_RADII = [42, 51, 58];
+const BOW_BANDS = [
+  [255, 78, 88], [255, 156, 62], [255, 228, 100],
+  [120, 235, 140], [96, 205, 255], [126, 136, 255], [208, 116, 255],
+];
+
+function drawSkyRainbow(ctx, W, horizonY, heading, FL, sunAzDeg, sunElDeg, arcs, m) {
+  const antiAz = sunAzDeg + 180;
+  const antiEl = -sunElDeg;                 // as far below the horizon as the sun is above it
+  // A high sun pushes the arc's crown under the horizon: at sun elevation 42° there
+  // is nothing left to see. Fade it out rather than clipping to an abrupt nothing.
+  const crown = 42 - sunElDeg;
+  if (crown <= 2) return;
+  const vis = clamp(crown / 18, 0, 1) * m;
+  const bandDeg = 1.5;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'butt';
+  for (let a = 0; a < arcs; a++) {
+    const R = BOW_RADII[a];
+    const alpha = (0.30 * vis) / (1 + a * 1.5);
+    if (alpha < 0.004) continue;
+    for (let i = 0; i < BOW_BANDS.length; i++) {
+      const [r, g, b] = BOW_BANDS[a % 2 === 1 ? BOW_BANDS.length - 1 - i : i];
+      const rad = R + (i - 3) * bandDeg;
+      // Walk the arc in screen space, dropping any sample that has gone below the
+      // horizon or behind the aircraft. Each run of kept samples is its own stroke,
+      // so an arc cut by the canopy edge doesn't get a chord drawn across it.
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.lineWidth = 3;
+      let drawing = false;
+      const endRun = () => { if (drawing) { ctx.stroke(); drawing = false; } };
+      for (let t = -90; t <= 90; t += 3) {
+        const th = t * Math.PI / 180;
+        const el = antiEl + rad * Math.cos(th);
+        if (el <= 0.3) { endRun(); continue; }
+        // Azimuth spreads with elevation the way a small circle on a sphere does.
+        const az = antiAz + (rad * Math.sin(th)) / Math.max(0.35, Math.cos(el * Math.PI / 180));
+        const p = projSky(az, el, heading, W, horizonY, FL);
+        if (!p.front) { endRun(); continue; }
+        if (!drawing) { ctx.beginPath(); ctx.moveTo(p.sx, p.sy); drawing = true; }
+        else ctx.lineTo(p.sx, p.sy);
+      }
+      endRun();
+    }
+  }
+  ctx.restore();
+}
+
 function smoothstep(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
 
 // The height (in world grid units) the cloud deck sits above the aircraft — sets how fast a
@@ -546,6 +607,11 @@ export function paintWindshield(id, view) {
   // the sky is doing something with a name, that's what you're flying through.
   const wxEvent = v.event?.type && WX_EVENT_CAST[v.event.type] ? v.event : null;
   const wx = wxEvent ? wxEvent.type : (v.weather || 'clear').toLowerCase();
+  // A rainbow is the one hero event that does NOT outrank the weather: the sky it
+  // is standing in is still the sky you're flying through, so it takes no canopy
+  // cast, no haze slot and no on-glass behaviour. It is drawn where it actually
+  // is (see drawSkyRainbow) and named on the badge. 1 arc, or 3 for the good one.
+  const bowArcs = v.event?.type === 'triple_rainbow' ? 3 : (v.event?.type === 'rainbow' ? 1 : 0);
   const sky = skyAt(v.hour == null ? 12 : v.hour);
   // Chase distance is size-relative: the camera sits `chaseBack` tiles behind a reference
   // (prop-class) craft, but pulls IN for physically smaller airframes (the Mayfly ultralight
@@ -931,6 +997,14 @@ export function paintWindshield(id, view) {
     }
   }
 
+  // A rainbow, if the sky is standing one. Last thing before the ground, so the
+  // ground fill and its haze band paint over whatever dips below the horizon —
+  // the arc gets its bottom clip for free and never draws across the terrain.
+  if (bowArcs && sunUp && !framed && worldBlend > 0.02) {
+    drawSkyRainbow(ctx, W, horizonY, vw.heading, skyFL, 90 + _sunT * 180, sunElev * 62,
+      bowArcs, v.event?.phase === 'peak' ? 1 : 0.55);
+  }
+
   // Ground.
   g = ctx.createLinearGradient(0, horizonY, 0, H + (H - horizonY));
   g.addColorStop(0, rgb(gTop)); g.addColorStop(1, rgb(gBot));
@@ -1211,7 +1285,7 @@ export function paintWindshield(id, view) {
     drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
     drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   }
-  if (!v.windowClass) drawWxBadge(ctx, W, wx, v.wind);
+  if (!v.windowClass) drawWxBadge(ctx, W, bowArcs ? v.event.type : wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
   // above (drawGunTracers) so they streak out with real depth toward the target.
@@ -1364,17 +1438,78 @@ function drawCanopy(ctx, W, H) {
 // view lands when there is a trailer to see in them.
 const CAB_POST = 0.014;        // centre screen post, as a fraction of width
 const CAB_DASH = 0.30;         // dash height, as a fraction of height
+
+// ── WHAT YOUR MONEY BOUGHT, FROM THE SEAT ────────────────────────────────────
+// Four trucks, four interiors. Until this table existed every rung of the fleet sat behind the
+// same grey plastic and the same two dials, so a 31,000₵ Continental and a 1,300₵ Barrow were the
+// same room with different numbers underneath it — and the room is where a driver spends the
+// twenty minutes, not the spec sheet.
+//
+// THE LADDER IS INSTRUMENTS AND MATERIALS, NEVER DRIVING AIDS. Nothing here steers, brakes or
+// shifts for you: the physics are `effTruckParams`'s and they are identical whichever cab you are
+// sitting in. What a cheap truck actually costs you is INFORMATION — the Barrow has no rev
+// counter at all, so you drive it on the sound of it, which is the oldest skill in the game and
+// the one the expensive trucks quietly take away from you. That is also why the ladder is safe to
+// widen later: adding a gauge can never make a truck faster.
+//
+// `dials` is how many instruments are in the binnacle, `band` whether the tachometer paints the
+// green torque arc, `lamps` the row of marker lights along the header (a cab-roof indulgence
+// nobody needs), `charm` the thing swinging off the mirror arm on a bad road. Everything else is
+// colour, and colour is most of it: sun-bleached steel, grey moulding, green vinyl, walnut.
+export const CAB_TRIM = {
+  // KRELL BARROW — painted steel, half of it showing through. One gauge, no band, no indulgences.
+  0: { hdr: ['#20211c', '#2b2c25'], pil: ['#22231d', '#35362c'], post: '#26271f',
+       dash: ['#3a3a2f', '#20211a', '#101109'], lip: 'rgba(210,200,150,0.13)',
+       rim: 'rgba(34,32,26,0.95)', rimHi: 'rgba(190,180,140,0.10)',
+       face: ['#191811', '#0b0a06'], ring: 'rgba(180,165,120,0.24)', needle: '#c98f3c',
+       glow: '#c08a3e', dials: 1, band: false, lamps: 0, charm: true },
+  // OSTREK COURIER — grey moulded plastic, honest and anonymous. The tachometer arrives here.
+  1: { hdr: ['#16181c', '#23262b'], pil: ['#1a1d21', '#2c3037'], post: '#212429',
+       dash: ['#31353c', '#191c20', '#0d0f12'], lip: 'rgba(190,205,225,0.16)',
+       rim: 'rgba(28,31,36,0.95)', rimHi: 'rgba(150,165,185,0.13)',
+       face: ['#171a1f', '#0a0c0f'], ring: 'rgba(150,165,185,0.28)', needle: '#e8c07a',
+       glow: '#9fb4c4', dials: 2, band: false, lamps: 0, charm: false },
+  // VACHON DRAYMAN — dark green vinyl over a chrome bezel strip. The band appears: the truck
+  // starts telling you where the engine wants to be rather than leaving you to find it.
+  2: { hdr: ['#121815', '#1d2721'], pil: ['#151d19', '#26332c'], post: '#1a2320',
+       dash: ['#2b3a33', '#161e1a', '#0a0f0d'], lip: 'rgba(180,225,200,0.20)',
+       rim: 'rgba(24,33,28,0.95)', rimHi: 'rgba(160,210,180,0.15)',
+       face: ['#121a16', '#070b09'], ring: 'rgba(150,205,175,0.30)', needle: '#8fe0a0',
+       glow: '#7fc98b', dials: 2, band: true, lamps: 3, charm: false },
+  // ORLOV CONTINENTAL — walnut fascia, brass bezels, a warm lamp over the bunk and five markers
+  // across the roof. This is somebody's bedroom and it is meant to read as one.
+  3: { hdr: ['#1b1512', '#2e241c'], pil: ['#1e1713', '#3a2d22'], post: '#241b15',
+       dash: ['#5a3f28', '#2a1e14', '#120c08'], lip: 'rgba(255,215,150,0.24)',
+       rim: 'rgba(46,33,22,0.95)', rimHi: 'rgba(232,192,122,0.22)',
+       face: ['#1d1409', '#0c0805'], ring: 'rgba(232,192,122,0.40)', needle: '#ffd489',
+       glow: '#e8c07a', dials: 2, band: true, lamps: 5, charm: false },
+};
+export const cabTrim = (tier) => CAB_TRIM[tier] ?? CAB_TRIM[1];
+
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
+  const T = cabTrim(v?.tier);
   const dash = H * (1 - CAB_DASH);
   const pillar = W * 0.075;
 
   // 1. Header — the roof line, deeper than an aircraft's because you sit UNDER a sleeper.
   const hdr = H * 0.085;
   const hg = ctx.createLinearGradient(0, 0, 0, hdr);
-  hg.addColorStop(0, '#16181c'); hg.addColorStop(1, '#23262b');
+  hg.addColorStop(0, T.hdr[0]); hg.addColorStop(1, T.hdr[1]);
   ctx.fillStyle = hg; ctx.fillRect(0, 0, W, hdr);
   ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, hdr - 2, W, 2);
+
+  // 1b. MARKER LIGHTS along the roof line — the row of little amber lozenges a driver bolts on
+  //     because they look like something, and which the cheap trucks in the fleet do not have.
+  //     They sit INSIDE the cab's header rather than out on the world model, which is honest: you
+  //     are seeing the glow off your own roof through the top of the screen, not the lamps.
+  for (let i = 0; i < (T.lamps || 0); i++) {
+    const lx = W * (0.5 + (i - (T.lamps - 1) / 2) * 0.062), ly = hdr * 0.52, lr = Math.max(1.6, W * 0.0042);
+    const lg = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr * 4);
+    lg.addColorStop(0, 'rgba(255,196,110,0.85)'); lg.addColorStop(1, 'rgba(255,170,70,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, ly, lr * 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffcd83'; ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2); ctx.fill();
+  }
 
   // 2. A-pillars. Wide, raked, and they genuinely block the view — which is honest, and which is
   //    why the mirrors sit on them rather than floating in the glass.
@@ -1384,14 +1519,26 @@ function drawCabInterior(ctx, W, H, v) {
     else { ctx.moveTo(W, hdr); ctx.lineTo(W - pillar, hdr); ctx.lineTo(W - pillar * 0.55, dash); ctx.lineTo(W, dash); }
     ctx.closePath();
     const pg = ctx.createLinearGradient(side < 0 ? 0 : W, 0, side < 0 ? pillar : W - pillar, 0);
-    pg.addColorStop(0, '#1a1d21'); pg.addColorStop(1, '#2c3037');
+    pg.addColorStop(0, T.pil[0]); pg.addColorStop(1, T.pil[1]);
     ctx.fillStyle = pg; ctx.fill();
+  }
+
+  // 2b. THE CHARM. Something on a string off the header, swinging with the lean of the truck —
+  //     the one piece of decoration the WORST cab in the fleet has and the best one does not,
+  //     because a truck this old is somebody's second home and an expensive one is a company car.
+  if (T.charm) {
+    const sway = Math.sin(performance.now() / 620) * W * 0.006;
+    const ax = W * 0.5 + W * 0.115, ay = hdr;
+    ctx.strokeStyle = 'rgba(180,170,150,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax + sway, ay + H * 0.075); ctx.stroke();
+    ctx.fillStyle = 'rgba(190,80,70,0.85)';
+    ctx.beginPath(); ctx.arc(ax + sway, ay + H * 0.082, Math.max(2.5, W * 0.006), 0, Math.PI * 2); ctx.fill();
   }
 
   // 3. Centre post — the split between the two screen panes. Thin, and dead centre, so it reads
   //    as a windscreen divider rather than as a crack in the canvas.
   const post = Math.max(2, W * CAB_POST);
-  ctx.fillStyle = '#212429';
+  ctx.fillStyle = T.post;
   ctx.fillRect(W / 2 - post / 2, hdr, post, dash - hdr);
   ctx.fillStyle = 'rgba(255,255,255,0.05)';
   ctx.fillRect(W / 2 - post / 2, hdr, 1, dash - hdr);
@@ -1400,14 +1547,14 @@ function drawCabInterior(ctx, W, H, v) {
   //    glow back up onto the glass (drawInstrumentReflection already does exactly this for the
   //    cockpit and slides it with bank — here it slides with lean, unchanged).
   const dg = ctx.createLinearGradient(0, dash - H * 0.03, 0, H);
-  dg.addColorStop(0, '#31353c'); dg.addColorStop(0.18, '#191c20'); dg.addColorStop(1, '#0d0f12');
+  dg.addColorStop(0, T.dash[0]); dg.addColorStop(0.18, T.dash[1]); dg.addColorStop(1, T.dash[2]);
   ctx.fillStyle = dg;
   ctx.beginPath();
   ctx.moveTo(0, dash + H * 0.02);
   ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
   ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
   // The lip highlight — a single bright line is what makes moulded plastic read as moulded.
-  ctx.strokeStyle = 'rgba(190,205,225,0.16)'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = T.lip; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(0, dash + H * 0.02);
   ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
@@ -1438,9 +1585,14 @@ function drawCabInterior(ctx, W, H, v) {
   //     actually go. The DOM readouts under the glass stay (they are the accessible record and
   //     they are what a screen reader gets), but a truck whose only instruments are HTML below the
   //     picture is a website with a picture on it. These are the same numbers, in the world.
-  const bx = W * 0.34, by = dash + H * 0.10, br = Math.min(W, H) * 0.052;
-  drawCabDial(ctx, bx, by, br, v?.rpmFrac ?? 0, v?.band, 'RPM', v?.inBand);
-  drawCabDial(ctx, bx + br * 2.5, by, br, Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH');
+  //     HOW MANY dials, and whether the rev counter has a band on it, is the fleet ladder — see
+  //     CAB_TRIM. The Barrow gets the speedometer and nothing else: there is no tachometer in that
+  //     truck, so the only thing telling you where the engine is, is the engine.
+  const one = T.dials < 2;
+  const br = Math.min(W, H) * 0.052, bx = W * 0.34, by = dash + H * 0.10;
+  if (!one) drawCabDial(ctx, bx, by, br, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM', v?.inBand, T);
+  drawCabDial(ctx, one ? bx : bx + br * 2.5, by, br,
+    Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH', false, T);
 
   // 4d. The wheel rim, cut off by the bottom of the frame. The real wheel is a widget below the
   //     glass; this is the top arc of it in the scene, and it is most of what makes the view read
@@ -1448,8 +1600,8 @@ function drawCabInterior(ctx, W, H, v) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(W * 0.42, H * 1.16, H * 0.30, Math.PI * 1.18, Math.PI * 1.82);
-  ctx.strokeStyle = 'rgba(28,31,36,0.95)'; ctx.lineWidth = Math.max(6, H * 0.030); ctx.stroke();
-  ctx.strokeStyle = 'rgba(150,165,185,0.13)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = T.rim; ctx.lineWidth = Math.max(6, H * 0.030); ctx.stroke();
+  ctx.strokeStyle = T.rimHi; ctx.lineWidth = 1.2; ctx.stroke();
   ctx.restore();
 
   // 5. Mirrors, one per pillar. Housing, glass, and a hint of what is behind — a dark road with
@@ -1484,20 +1636,21 @@ function cabDashTex() {
 // One dial. `frac` is 0..1 of the sweep; `band` (optional, in the same units) paints the green arc
 // the gearbox wants you to keep the needle inside — which is the entire point of having a tachometer
 // in a truck rather than a number.
-function drawCabDial(ctx, cx, cy, r, frac, band, label, lit) {
+function drawCabDial(ctx, cx, cy, r, frac, band, label, lit, T = CAB_TRIM[1]) {
   const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
   const fg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r);
-  fg.addColorStop(0, '#171a1f'); fg.addColorStop(1, '#0a0c0f');
+  fg.addColorStop(0, T.face[0]); fg.addColorStop(1, T.face[1]);
   ctx.fillStyle = fg; ctx.fill();
-  ctx.strokeStyle = 'rgba(150,165,185,0.28)'; ctx.lineWidth = 1.4; ctx.stroke();
+  // The bezel is where the money shows: a hairline of steel on the Barrow, brass on the Orlov.
+  ctx.strokeStyle = T.ring; ctx.lineWidth = T.dials > 1 && T.lamps >= 5 ? 2.2 : 1.4; ctx.stroke();
   if (band) {                                                       // the torque band, drawn once
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.80, A0 + (A1 - A0) * band[0], A0 + (A1 - A0) * band[1]);
     ctx.strokeStyle = 'rgba(90,190,110,0.55)'; ctx.lineWidth = Math.max(2, r * 0.14); ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(190,205,225,0.30)'; ctx.lineWidth = 1;    // ticks
+  ctx.strokeStyle = T.ring; ctx.lineWidth = 1;                      // ticks
   for (let i = 0; i <= 8; i++) {
     const a = A0 + (A1 - A0) * (i / 8);
     ctx.beginPath();
@@ -1506,7 +1659,7 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, lit) {
     ctx.stroke();
   }
   const a = A0 + (A1 - A0) * Math.max(0, Math.min(1, frac));        // the needle
-  ctx.strokeStyle = lit ? '#8fe0a0' : '#e8c07a';
+  ctx.strokeStyle = lit ? '#8fe0a0' : T.needle;
   ctx.lineWidth = Math.max(1.6, r * 0.09); ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * 0.78, cy + Math.sin(a) * r * 0.78); ctx.stroke();
   ctx.fillStyle = '#2a2f36'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2); ctx.fill();
@@ -1965,7 +2118,10 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
 }
 
 const WX_LABEL = { rain: '☔ RAIN', storm: '⛈ STORM', snow: '❄ SNOW', ash: '⛆ ASHFALL', dust: '⛆ DUST', fog: '🌫 FOG', cloudy: '☁ OVERCAST', clear: '☀ CLEAR',
-  acid_rain: '☣ ACID RAIN', ion_storm: '⚡ ION STORM' };
+  acid_rain: '☣ ACID RAIN', ion_storm: '⚡ ION STORM',
+  // Not an alarm colour, deliberately: the badge answers "what am I flying
+  // through", and the answer here is nothing at all. It's a note, not a warning.
+  rainbow: '🌈 RAINBOW', triple_rainbow: '🌈 TRIPLE RAINBOW' };
 // Hero events read in the same alarm colour as a storm — the badge is the pilot's
 // one-glance answer to "what am I actually flying through".
 const WX_ALARM = new Set(['storm', 'acid_rain', 'ion_storm']);

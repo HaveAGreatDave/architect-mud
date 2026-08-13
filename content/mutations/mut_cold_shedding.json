@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "They are running warm, and there is a sheen of sweat on them in a cold room.",
+    "obvious": "Heat comes off them in the cold like off an engine. They are in shirtsleeves and comfortable.",
+    "extreme": "The air bends slightly above their shoulders. Snow does not settle on them, and standing close is like standing near a stove."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "You run hot. Genuinely hot, all the time, burning through food to do it. The cold cannot touch you and the heat nearly kills you.",
+  "drawbacks": [
+    "You are always hungry",
+    "Heat is unbearable"
+  ],
+  "effects": {
+    "cold_resistance": 0.45,
+    "heat_resistance": -0.35
+  },
+  "expression_band": "radiation",
+  "id": "mut_cold_shedding",
+  "name": "Cold-Shedding Metabolism",
+  "polarity": "mixed",
+  "radiation_threshold": 45,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 750,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

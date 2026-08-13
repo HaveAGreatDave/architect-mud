@@ -2,7 +2,9 @@
   "name": "surveillance",
   "version": "0.6.1",
   "description": "SPECTER — player spy networks + a witnessed-crime wanted system. P1-5: plant/hub/record/counterplay/devices. P6: 0-5 star wanted, escalating police tiers up to Arbiters, evidence + bounties. Also consumes storefront.staffWitnessed — hired shop staff (plugins/storefront) are a forced witness for shoplifting/hacking, the same convention as vendor.safeHackWitnessed.",
-  "after": ["bodily"],
+  "after": [
+    "bodily"
+  ],
   "commands": [
     "plant",
     "retrieve",
@@ -32,7 +34,8 @@
     "crush"
   ],
   "hooks": [
-    "zone.delete"
+    "zone.delete",
+    "tech.targets"
   ],
   "routePrefix": "/surveillance",
   "specializedActions": [
@@ -108,5 +111,11 @@
       "exposed": false,
       "note": "Destroys a saved microreel. The reel IS the datachip you carry, so this destroys a tradeable object — two-step, and named for what happens to the chip. Was a SPECTER-app button only."
     }
+  },
+  "events": {
+    "consumes": [
+      "mutation.reported"
+    ],
+    "emits": []
   }
 }

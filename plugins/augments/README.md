@@ -1,87 +1,93 @@
 # augments
 
-**Purpose** — installable cybernetics: the machine-path (Ascendant) mirror of the
-flesh-path (Wildblood) mutation system. Where mutations are radiation-random,
-permanent, and free, augments are **chosen, paid, slot-limited, and removable**.
-Installing chrome applies its `stat_modifiers` (the same additive path as
-`grantMutation`), nudges the player down the **Machine** path, and costs standing
-with the two human-path orders (the Long Watch, the Wildblood) — the deliberate
-teeth that make flesh-vs-machine a real choice. Install/remove is **clinic work**,
-gated to a zone flagged `flags.augment_clinic`; listing your own chrome works
-anywhere.
+**Purpose** — chrome as a machine you own, not a stat you bought. The machine-path
+(Ascendant) mirror of the flesh-path (Wildblood) mutation system: where mutations
+are radiation-random, permanent and free, augments are **chosen, paid,
+slot-limited, removable — and maintained**. They have a condition, a calibration,
+a temperature and a limit you can decide to exceed.
 
-This is the full Ascendant Stronghold augment system
-([docs/proposals/ascendant-stronghold.md](../../docs/proposals/ascendant-stronghold.md)).
-All three combat/death engine seams are now wired:
-- **Soak** — a `registerArmorContributor` (in `recomputeArmor`) layers each
-  installed augment's per-slot `soak` into `player.soak` (subdermal weave = armor
-  under the skin), and sets `player.chromed`.
-- **Chrome can't mutate** — `checkMutationTrigger` bails on `player.chromed`; the
-  FIRST install calls the engine's `burnAllMutations()` (the flesh→machine
-  conversion). `player.chromed` is derived (armor contributor + a `player.login`
-  handler), never a stored column.
-- **Cortical-backup death loop** — a `player.respawnZone` hook rolls a non-jailed
-  death back to the last Vats snapshot (jail wins when wanted).
+Full as-built: **[docs/systems-augments.md](../../docs/systems-augments.md)**.
+Origin: [docs/proposals/ascendant-stronghold.md](../../docs/proposals/ascendant-stronghold.md).
+
+## Files
+
+| File | Holds |
+|---|---|
+| `index.js` | routing + the four seam registrations + the 1m flush. Nothing else. |
+| `state.js` | catalog, hydrated roster, every derived number. **THE ONLY WRITER OF `player_augments`.** |
+| `install.js` | item → body and back: surgery, risk bands, repair, salvage. |
+| `surgeon.js` | who holds the scalpel, what they charge, how likely they are to botch it. |
+| `tuning.js` | calibration and the board that sets it. |
+| `overclock.js` | heat, strain, running past spec, and coming apart. |
+| `death.js` | why nobody farms chrome off corpses. |
+| `backup.js` | the Ascendant cortical-backup loop. |
+| `nulltarget.js` | Null-operation targeting of installed chrome. |
 
 ## Commands
 
-- `augment` / `augments` — list installed chrome + per-slot usage (anywhere).
-- `augment install <name>` — install (at a clinic; checks slot cap, rep gate, cost;
-  first install burns off any mutations).
-- `augment remove <name>` — uninstall (at a clinic; reverses stat + path effects).
-- `backup` — snapshot inventory+credits at the Vats Registry (`ascendant_registry`);
-  requires the Cortical Backup augment.
-- `assurance [buy <n>]` — buy prepaid restores at a `assurance_policy` desk (the
-  secret Halcyon front); eligibility-gated on owning Cortical Backup. (Named
-  `assurance`, not `policy` — the insurance plugin owns `policy` for aircraft.)
+- `augment` / `augments` — your chrome: condition, calibration, heat, slot usage.
+- `augment quote <name>` — every surgeon in the room, their stars, complication rate and fee, **before** you commit.
+- `augment install <name> [with <surgeon>]` — surgery. Consumes the hardware item; charged before the roll.
+- `augment remove <name>` — pulled at a clinic; rolls too, so remove→reinstall is not a free re-roll.
+- `augment repair <name>` — restores **condition only**. Calibration is untouched by design.
+- `augment overclock <name> [level]` — past spec, at your own risk.
+- `calibrate <name>` — the tuning board. Consumes a `calibration_rig`, or uses a clinic bench.
+- `calibrateresolve` — the board reporting in (client-issued, never typed).
+- `backup` — snapshot at the Vats Registry. Now includes the augment roster.
+- `assurance [buy n]` — prepaid restores at the Halcyon front.
 
 ## Registered actions
 
 None. Install/remove **dispatch** the ideology-owned Actions `ADJUST_PATH` and
-`ADJUST_REPUTATION` (never touching ideology state directly — the interaction rule).
+`ADJUST_REPUTATION` rather than touching ideology state directly.
 
-## Events emitted
+## Events
 
-None.
-
-## Events consumed
-
-`player.login` — derives `player.chromed` at connect (belt-and-braces alongside
-the armor contributor) for the mutation-block guard.
+Consumes `player.login` (hydrate the roster + the `chromed_ever` flag) and
+`player.death` (corruption — skipped when the death was `claimed`).
 
 ## Hooks
 
-`player.respawnZone` — the cortical-backup respawn. Yields (returns `undefined`)
-whenever the player is wanted, so jail's own hook claims the death first.
+`player.respawnZone` — the cortical-backup restore. Yields whenever the player is
+wanted, so jail claims the death first. `tech.targets` — Null targeting.
 
 ## Tick usage
 
-None.
+One `1m` **flush**, not a tick — no simulation runs in it. It writes the condition
+that heat burned on the combat path, for the players who actually burned any.
+Deliberate acts write through immediately and never wait for it.
 
-## Dependencies
+## Three things not to "fix"
 
-`ideologies` — provides `getPlayerIdeologyRep` / `REP_TIERS` (rep gate) and the
-`ADJUST_PATH` / `ADJUST_REPUTATION` Actions dispatched on install.
+1. **Heat is never persisted.** It is memory-only, decayed lazily off a
+   timestamp, and cooling off on logout is correct for a minutes-scale
+   phenomenon. Its durable residue is `condition`. Do not add a column.
+2. **Zero condition does not destroy an installed augment.** It goes *dead* and
+   waits for a surgeon. `durability.js` rule 4 destroys an item at zero; a thing
+   disintegrating inside a torso is neither narratable nor actionable.
+3. **Calibration 100 reproduces the authored value exactly.** That is the
+   migration invariant that made the move off baked `players.stat_*` net-zero for
+   every live character. Regress asserts it three ways.
 
-## Config
-
-None.
+And one that will look like a bug the first time somebody plays it: **subdermal
+soak now scales with condition and calibration.** A battered uncalibrated weave
+genuinely stops less than a fresh tuned one. That is the system working.
 
 ## Data schema
 
-- **`augments`** (content, boot-cached) — the catalog: `id, name, description,
-  slot, tier, cost, rep_gate, stat_modifiers, soak, visible, special`.
-- **`player_augments`** (per-player) — installed chrome:
-  `player_id, augment_id, slot, installed_at`.
-- **`player_backups`** (per-player, runtime) — the cortical-backup loop:
-  `player_id, snapshot (jsonb: credits+inventory), restores_remaining, saved_at`.
+- **`augments`** (content, boot-cached) — the catalog. Authored columns only.
+- **`player_augments`** (per-player, RAM-authoritative after login) — runtime columns only.
+- **`player_backups`** (per-player, runtime) — cortical snapshots + prepaid restores.
 
-Slot capacity per region is enforced in code (`SLOT_CAPS`):
-neural 2 · eyes 1 · torso 2 · arms 1 · legs 1. (The neural cap of 2 forces a real
-choice at the top: the Dermal Jack plus **one** of Neural Co-processor / Cortical
-Backup.)
+The split is the design: no `excludeColumns` needed on either, and `content:lint`
+has nothing to trip on. See [docs/systems-augments.md §3](../../docs/systems-augments.md).
+
+`SLOT_CAPS` (in `state.js`): neural 2 · eyes 1 · torso 2 · arms 1 · legs 1.
 
 ## Extension points
 
-`registerArmorContributor(fn)` (from `server/engine/commands/inventory.js`) — any
-system can layer non-armor soak into `player.soak` the same way augments do.
+- `registerStatContributor(fn, owner)` — `server/engine/condition.js`. Derived
+  stat contribution; the seam that replaced baked `UPDATE players SET stat_x`.
+- `registerStrainContributor(fn, owner)` — `server/engine/strain.js`. Anything
+  that wants to notice a body being worked, synchronously, on the combat path.
+- `registerArmorContributor(fn)` — `server/engine/commands/inventory.js`.

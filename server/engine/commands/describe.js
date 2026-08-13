@@ -21,7 +21,7 @@ import {
 } from "../environment.js";
 import { acuitySync } from "../senses.js";
 import { isHiddenFrom } from "../stealth.js";
-import { getCustodianOutcastResponse } from "../mutations.js";
+import { getCustodianOutcastResponse, mutationSeesInDark } from "../mutations.js";
 import { allExits } from "../exits.js";
 import { districtFor } from "../districts.js";
 import {
@@ -851,6 +851,19 @@ export async function describeZone(zone, player, out = {}) {
 		const shifted = shiftVisibility(vis, Math.round(sight));
 		vis.category = shifted.category;
 		vis.visibility = shifted.visibility;
+	}
+	// An organ that does not use light at all. Thermal pits and echolocation
+	// answer a different question from sharp eyes, which is why this is not
+	// folded into the acuity shift above: a keener eye is worth nothing in a
+	// pitch-black room, and a heat sense does not care that the room is dark.
+	//
+	// Deliberately lifts to `dim` rather than to full light. You are not seeing
+	// the room, you are seeing what is warm in it, and the prose downstream is
+	// still the low-light prose.
+	if (vis.category === "pitch_dark" && mutationSeesInDark(player)) {
+		const lifted = shiftVisibility(vis, 2);
+		vis.category = lifted.category;
+		vis.visibility = lifted.visibility;
 	}
 	out.vis = vis;
 	if (vis.category === "pitch_dark") {

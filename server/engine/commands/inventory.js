@@ -18,8 +18,10 @@ import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
 import { sectionize, facetOf, AXIS_ORDER } from '../classify.js';
+import { runEquipGates } from '../equip-gates.js';
 import { loggedPanelsSync } from '../presentation.js';
 import { conditionBand, wears } from '../durability.js';
+import { adjustSanity } from '../condition.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -676,6 +678,23 @@ async function cmdUse(targetStr, player, broadcast, route = 'use') {
     const r = await dispatchAction({ type: 'consume.begin', actor: player, params: { item, itemKind: 'item' }, context: { broadcast } });
     if (r && !r.passthrough) return r;
   }
+  // Wildblood mutagen. Routed to its own Action rather than through
+  // `consume.begin` because that type is already owned by the consume plugin and
+  // the registry is one-handler-per-type.
+  //
+  // THIS IS THE ONLY PATH THAT CONSUMES A MUTAGEN ITEM, which is the point: the
+  // membership gate lives behind this dispatch, so buying or being given a flask
+  // and drinking it early cannot work. A refusal returns here WITHOUT reaching
+  // applyItemUse, so the item is not spent.
+  if (t.mutagen && getRegisteredActions().includes('MUTAGEN_CONSUME')) {
+    const r = await dispatchAction({ type: 'MUTAGEN_CONSUME', actor: player, params: { item }, context: { broadcast } });
+    if (r && !r.passthrough) {
+      // The mutation landed, so now spend the flask — the same atomic consume
+      // every other consumable gets, not a bespoke delete.
+      if (r.consumed) await finishConsumeItem(player, item.id, broadcast);
+      return r;
+    }
+  }
   return applyItemUse(player, item, broadcast);
 }
 
@@ -769,7 +788,7 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
     messages.push(`${slakeLine(player)}${portionLine('thirst', (player.thirst || 0) - before, t.restore_thirst)}`);
   }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
-  if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }
+  if (t.restore_sanity) { const d = adjustSanity(player, t.restore_sanity, 'item'); messages.push(`${d>0?'+':''}${d} Sanity.`); }
   // Credit chips pay out a per-instance amount (custom_data.credits, variable from
   // a loot roll or a dropped corpse) and fall back to a fixed item-type value.
   const creditGrant = cd?.credits ?? t.grants_credits;
@@ -873,8 +892,8 @@ export async function applyItemUse(player, item, broadcast, opts = {}) {
       messages.push(`${hz.radiation > 0 ? '+' : ''}${hz.radiation} Radiation. <span class="text-dim">Something in that was hot.</span>`);
     }
     if (hz.sanity) {
-      player.sanity = Math.min(player.sanity_max, Math.max(0, (player.sanity || 0) + hz.sanity));
-      messages.push(`${hz.sanity > 0 ? '+' : ''}${hz.sanity} Sanity.`);
+      const d = adjustSanity(player, hz.sanity, 'food_hazard');
+      if (d) messages.push(`${d > 0 ? '+' : ''}${d} Sanity.`);
     }
     for (const [effect, chance] of Object.entries(hz.status_chance || {})) {
       const p = Number(chance);
@@ -985,6 +1004,16 @@ async function equipResolved(item, player, broadcast) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
+
+  // The veto chain (engine/equip-gates.js). Runs BEFORE the stack split below,
+  // because that split writes rows — a gate that fires after it would leave a
+  // solo unit orphaned out of a stack for a garment the player never put on.
+  //
+  // Empty in Phase 1: nothing registers a blocking gate yet, so this is a
+  // no-op loop over an empty array on the equip path. It exists so that a body
+  // which cannot physically wear a thing has somewhere to say so.
+  const gated = await runEquipGates({ player, item, row: item, slot, layer: bodyLayer(item), action: 'equip' });
+  if (gated?.block) return { type: 'error', message: gated.message || `You can't wear that.` };
 
   // ONE OFF THE STACK. Equipping used to flip is_equipped on the whole row, so
   // wearing one of `boots ×3` wore all three — and the moment the pair took a

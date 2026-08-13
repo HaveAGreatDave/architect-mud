@@ -53,6 +53,7 @@ import { registerConditionShape } from './flags.js';
 import { emit, on } from './events.js';
 import { getLivePlayer, world } from './world.js';
 import { warmthMultiplier } from './hygiene.js';
+import { mutationNumber } from './mutations.js';
 
 // ── Scale ────────────────────────────────────────────────────────────────────
 //
@@ -280,7 +281,12 @@ export function adjustRelation(player, npcId, { familiarity = 0, warmth = 0, rea
   // …and being visibly clean is the other end of the same dial: it makes people
   // warm to you FASTER. Both ends live in one function in hygiene.js so the
   // penalty and the reward can never drift apart.
-  if (warmth > 0) warmth *= warmthMultiplier(player);
+  // …and a body people can't stop looking at is the third end of the same dial.
+  // Same contract as hygiene: GAINS only, so a mutation slows how fast someone
+  // warms to you and can never drive them backwards. Applied here rather than
+  // folded into warmthMultiplier because hygiene.js must not have to know that
+  // mutations exist.
+  if (warmth > 0) warmth *= warmthMultiplier(player) * (1 - mutationNumber(player, 'social_penalty'));
 
   const beforeTier = relationTier(rel);
   rel.familiarity = Math.min(FAMILIARITY_MAX, Math.max(0, rel.familiarity + familiarity));

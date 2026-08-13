@@ -1,0 +1,21 @@
+{
+  "description": "A machined slab the size of a hardback, seamless, with one recessed port and no branding whatsoever. It runs a selective field — it will take a stranger's neural link off the air and leave every radio in the room untouched, including yours. That restraint is what costs the money.",
+  "flags": {},
+  "id": "item_null_black_box",
+  "name": "black box",
+  "tags": {
+    "description": "A machined slab the size of a hardback, seamless, with one recessed port and no branding whatsoever. It runs a selective field — it will take a stranger's neural link off the air and leave every radio in the room untouched, including yours. That restraint is what costs the money.",
+    "electronic": true,
+    "misc": true,
+    "null_device": true,
+    "null_intrusion": 6,
+    "null_jam_radius": 1,
+    "null_jam_strength": 85,
+    "null_selective": true,
+    "null_stealth": 45,
+    "unique": true
+  },
+  "type": "misc",
+  "value": 3200,
+  "weight": 900
+}

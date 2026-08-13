@@ -7,16 +7,16 @@
 // mechanically different from `edged` to the leg, this becomes a matrix nobody
 // can balance.
 
-// The parts combat actually rolls (server/engine/combat.js:254). Arms and legs
-// are lateralized, which the naming layer gets for free.
-export const PARTS = ['head', 'torso', 'left_arm', 'right_arm', 'left_leg', 'right_leg', 'feet'];
-
-export const PART_LABELS = {
-  head: 'head', torso: 'torso',
-  left_arm: 'left arm', right_arm: 'right arm',
-  left_leg: 'left leg', right_leg: 'right leg',
-  feet: 'feet',
-};
+// Anatomy is the engine's, not this plugin's — server/engine/body-parts.js owns
+// the one table. Re-exported here under the names this plugin's own modules and
+// regress suite already import.
+//
+// `PARTS` is still the humanoid seven and must stay that way: aiming, foe
+// anatomy and the aim-target list all ask what a body is generically shaped
+// like. `ALL_PARTS` additionally covers the parts a mutation can GROW, and is
+// used only where the question is about one specific body — what can be
+// injured, and what this player's paper doll shows.
+export { PARTS, ALL_PARTS, PART_LABELS, partsForPlayer } from '../../server/engine/body-parts.js';
 
 // Severity is an integer so it can be compared and stepped. 0 is "no injury".
 export const BRUISED = 1;

@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "The skin between their fingers runs a little high.",
+    "obvious": "Translucent webbing runs to the first knuckle of every finger.",
+    "extreme": "Their hands are paddles, webbed nearly to the fingertips and veined pink. They hold a glass in their whole palm."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "Skin has grown between your fingers, most of the way to the tips. Excellent in water. Awkward everywhere else.",
+  "drawbacks": [
+    "Fine work is fiddly"
+  ],
+  "effects": {
+    "swim": true
+  },
+  "expression_band": "radiation",
+  "id": "mut_webbed_fingers",
+  "name": "Webbed Fingers",
+  "polarity": "mixed",
+  "radiation_threshold": 45,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 700,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

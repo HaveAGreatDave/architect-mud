@@ -1,17 +1,28 @@
 {
+  "appearance": {},
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [],
   "description": "Your thoughts are a white noise channel. Partial immunity to sanity loss. Architect signals are louder.",
   "drawbacks": [
     "Occasional intrusive Architect messages"
   ],
   "effects": {
-    "sanity_drain_reduction": 0.5
+    "sanity_drain_reduction": 0.35
   },
+  "expression_band": "radiation",
   "id": "mut_static_mind",
   "name": "Static Mind",
   "polarity": "positive",
   "radiation_threshold": 70,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_cool": 2
   },
+  "treat_cost": 1400,
+  "treatable": true,
+  "visibility_class": "hidden",
   "visible": 0
 }

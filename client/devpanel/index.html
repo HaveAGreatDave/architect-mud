@@ -501,7 +501,16 @@
     try {
       const d = await directAPI('/dev/studio', 'POST', {});
       if (!d || d.error) throw new Error(d && d.error || 'no response');
-      if (tab) tab.location = d.url; else location.href = d.url;
+      // The Studio serves from its OWN origin, so it cannot read this panel's
+      // stored theme — localStorage does not cross an origin. Hand it over in the
+      // URL instead, so a launched Studio opens wearing the panel's palette. It
+      // still keeps its own picker; this only seeds the first paint.
+      let url = d.url;
+      try {
+        const theme = (devSettings || {}).theme;
+        if (theme) url += (url.includes('?') ? '&' : '?') + 'theme=' + encodeURIComponent(theme);
+      } catch {}
+      if (tab) tab.location = url; else location.href = url;
     } catch (e) {
       if (tab) tab.close();
       alert('Could not start the Map Studio: ' + e.message + '\nRun it by hand with: npm run studio');

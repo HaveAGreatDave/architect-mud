@@ -680,6 +680,59 @@ body.fsim-external #look-resize-handle { display: none; }
 	font-style: normal;
 	color: var(--text);
 }
+/* ── Rainbow sky ─────────────────────────────────────────────────────────────
+   While a rainbow hero weather event stands (plugins/weather NAMED_EVENTS), the
+   room's own prose takes the colour: a banded gradient clipped to the text and
+   drifting slowly across it. Deliberately only the room description and the
+   event line — not the whole log, which has to stay readable, and not the exit
+   or object links, which have to stay recognisable as links.
+
+   The animation is the whole effect, so a reader who has asked for less motion
+   gets the bands standing still rather than nothing at all (below). */
+@keyframes rainbow-shimmer {
+	from { background-position: 0 0; }
+	to   { background-position: 200% 0; }
+}
+body.rainbow-sky .room-desc,
+body.rainbow-sky .weather-event {
+	background-image: linear-gradient(
+		100deg,
+		#ff5f6d 0%, #ffb347 14%, #ffe66d 28%, #7ee787 42%,
+		#5fd4ff 56%, #7c83ff 70%, #d67bff 84%, #ff5f6d 100%);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	animation: rainbow-shimmer 9s linear infinite;
+	/* The bands wash out the prose's own weight at small sizes; a hair more
+	   letter-spacing keeps it as legible as it was in plain text. */
+	letter-spacing: 0.2px;
+}
+/* Peak is the couple of minutes the arc is actually overhead — faster drift and
+   a soft bloom behind the letters. Approach and passing are the same colours,
+   quieter, so the event has a shape rather than an on/off switch. */
+body.rainbow-sky.rainbow-peak .room-desc,
+body.rainbow-sky.rainbow-peak .weather-event {
+	animation-duration: 6s;
+	filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.28));
+}
+/* Three arcs, and the text says so: tighter bands (the gradient repeats within
+   the same sweep), brighter bloom, a touch quicker. This is the one the whole
+   street stopped walking for. */
+body.rainbow-sky.rainbow-triple .room-desc,
+body.rainbow-sky.rainbow-triple .weather-event {
+	background-size: 90% 100%;
+	animation-duration: 5s;
+	filter: saturate(1.35) drop-shadow(0 0 6px rgba(255, 255, 255, 0.42));
+}
+@media (prefers-reduced-motion: reduce) {
+	body.rainbow-sky .room-desc,
+	body.rainbow-sky .weather-event {
+		animation: none;
+		filter: none;
+	}
+}
 .room-desc.collapsed {
 	display: -webkit-box;
 	-webkit-line-clamp: 1;

@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "There is something slightly wrong about how their skin settles when they move.",
+    "obvious": "Their flesh moves a half-beat behind them, settling and re-settling like something under tension.",
+    "extreme": "They ripple. A tap on the shoulder travels across their whole torso and comes back, and nothing about the way they stand is quite still."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [
+    "torso"
+  ],
+  "description": "Your connective tissue has gone elastic. Blunt force spreads out and goes nowhere. Anything sharp goes in easy.",
+  "drawbacks": [
+    "Blades find you much too easily"
+  ],
+  "effects": {
+    "soak_kinetic": 4,
+    "soak_edged": -2
+  },
+  "expression_band": "radiation",
+  "id": "mut_rubberized_flesh",
+  "name": "Rubberized Flesh",
+  "polarity": "mixed",
+  "radiation_threshold": 50,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1000,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "Their skin tone is uneven, patched lighter across the throat.",
+    "obvious": "Their skin is mottled in irregular grey and ochre blotches, like something weathered.",
+    "extreme": "They are patterned rather than coloured, grey and rust in hard-edged patches from scalp to wrist. In the dust you would walk past them."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso",
+    "head"
+  ],
+  "conceal_slots": [
+    "torso",
+    "head"
+  ],
+  "description": "Your pigment has broken into irregular patches of grey and ochre. Out in the dust you nearly disappear. Under a streetlight you very much do not.",
+  "drawbacks": [
+    "You look wrong under city light"
+  ],
+  "effects": {
+    "social_penalty": 0.2
+  },
+  "expression_band": "radiation",
+  "id": "mut_mottled_skin",
+  "name": "Mottled Skin",
+  "polarity": "mixed",
+  "radiation_threshold": 40,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 600,
+  "treatable": true,
+  "visibility_class": "obvious",
+  "visible": 1
+}

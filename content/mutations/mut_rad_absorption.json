@@ -1,17 +1,28 @@
 {
+  "appearance": {},
+  "blocks_slots": [],
+  "body_parts": [
+    "torso"
+  ],
+  "conceal_slots": [],
   "description": "Your body has learned to metabolize radiation instead of being destroyed by it. Slowly.",
   "drawbacks": [
     "You glow faintly in the dark, so stealth is harder"
   ],
   "effects": {
-    "rad_resistance": 0.3
+    "rad_resistance": 0.6
   },
+  "expression_band": "radiation",
   "id": "mut_rad_absorption",
   "name": "Rad Absorption",
   "polarity": "positive",
   "radiation_threshold": 80,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_endurance": 2
   },
-  "visible": 1
+  "treat_cost": 2000,
+  "treatable": true,
+  "visibility_class": "hidden",
+  "visible": 0
 }

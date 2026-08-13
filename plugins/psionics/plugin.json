@@ -1,0 +1,61 @@
+{
+  "name": "psionics",
+  "version": "1.0.0",
+  "description": "Psionics — the Exodus discipline, Phase 1 (psychometry + telekinesis). The substrate is server/engine/psionics.js and the vocabulary is server/engine/psionics-abilities.js; this plugin is the verbs. Two rules carry it. The body pays: strain is a ladder of nosebleeds, blood from the ears, a seizure, and finally real injury through the ordinary damage path, which is the only thing bounding how long a psion can push. And psychometry reads the world's own exhaust rather than inventing fiction — residue.js listens to events that already fire and no other system was modified to feed it. Telekinesis is a DELIVERY MECHANISM for verbs that already exist (`reach` fires the specialized-action registry), never a parallel set of them.",
+  "commands": [
+    "psi",
+    "dwell",
+    "still",
+    "draw",
+    "reach",
+    "press",
+    "psiresolve",
+    "ward",
+    "bulwark",
+    "redoubt",
+    "spark",
+    "burn",
+    "cascade"
+  ],
+  "hooks": [
+    "tick.minute"
+  ],
+  "events": {
+    "consumes": [
+      "player.logout",
+      "player.login",
+      "zone.entered",
+      "player.death",
+      "npc.killed",
+      "enemy.killed",
+      "being.knockedOut",
+      "crime.witnessed",
+      "sanity.changed"
+    ],
+    "emits": []
+  },
+  "actions": {
+    "registers": []
+  },
+  "ticks": [
+    {
+      "cadence": "1m",
+      "what": "stillness posture (drains resonance, surfaces one residue line) and ward upkeep (drains while a field stands, collapses at empty and SAYS so — a shield that vanishes silently is a shield you get killed behind). One Map walk over live players; both halves early-out on a player doing neither."
+    }
+  ],
+  "lockTypes": [
+    "psi — Exodus doors. authFn is `isAwakened`, nothing more: opening a door the Exodus already tuned is the lowest thing the discipline does, and gating it harder would lock initiates out of their own home. Not hackable, not pickable; mark Exodus doors unbreakable in content the way the Long Watch blast door is. First refusal fires the guide's one-shot explanation (`psi_walked_into_door`) and every refusal after it is a flat, unexplained non-opening."
+  ],
+  "dependencies": [],
+  "extensionPoints": [
+    "registerPsiResistor(fn, owner) — contribute to how hard a mind is to reach. Resistance is DERIVED from who you already are (Cool, Brains, Long Watch mastery, Static Mind, a coprocessor), never authored as a second trainable skill. See server/engine/psi-resist.js.",
+    "registerDiscipline / registerPsiAbility — the vocabulary. An ability naming an unregistered discipline or target kind is a BUILD FAILURE (unknownAbilityKeys), and a discipline with no abilities in it is too (unreachableDisciplines).",
+    "player_flags `psi_rank` (the eight-rung ladder) and `psi_focus` / `psi_focus_second` (major and minor). Rank is depth, focus is breadth: you major in one art and minor in another, and you are only ever truly exceptional in your major."
+  ],
+  "specializedActions": [
+    {
+      "verb": "purify",
+      "requiredFlag": "psi_purifier"
+    }
+  ]
+}

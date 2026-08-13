@@ -285,7 +285,7 @@ function isAnimal(name) {
   return ANIMAL_KEYWORDS.some(k => lower.includes(k));
 }
 
-function cmdPet(targetStr, player, broadcast) {
+async function cmdPet(targetStr, player, broadcast) {
   if (!targetStr) return { type: 'error', message: 'Pet what?' };
 
   const npcs    = getZoneNpcs(player.current_zone).map(n => ({ ...n, _kind: 'npc' }));
@@ -319,8 +319,20 @@ function cmdPet(targetStr, player, broadcast) {
     return { type: 'output', message: `You reach out to pet ${target.name}. It does not appreciate this.` };
   }
 
+  // Let a plugin claim this one before the wholesome default (same shape as the
+  // 'npc.talk' hook above: undefined falls through, a response object claims it).
+  // An animal with opinions about WHO is reaching for it answers here — the
+  // stray in Dray Lane refuses a hand that has killed it before.
+  //
+  // NOTE for subscribers: `target` is a SPREAD COPY built at the top of this
+  // function, not the live NPC. Read its flags freely; re-look-up by id before
+  // mutating anything.
+  const petHook = await fireHook('npc.petAttempt', { player, npc: target, zoneId: player.current_zone, broadcast });
+  if (petHook !== undefined) return petHook;
+
   // NPC animal — wholesome
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} pets ${target.name}.` }, player.id);
+  emit('npc.petted', { actor: player, npc: target, zoneId: player.current_zone });
   return { type: 'output', message: `You pet ${target.name}. It seems to enjoy the attention.` };
 }
 

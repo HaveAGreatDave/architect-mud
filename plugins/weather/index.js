@@ -14,7 +14,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { recomputeEquipped } from '../../server/engine/commands/inventory.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
-import { devTriggerWeatherEvent, registerWeatherEventCurrent } from '../../server/engine/environment.js';
+import { devTriggerWeatherEvent, registerWeatherEventCurrent, getEnvironmentState } from '../../server/engine/environment.js';
 
 const SEASON_BY_MONTH = [
   'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
@@ -269,6 +269,7 @@ const field = {
   systems: [],        // moving cells (below)
   baseCloud: 0,       // ambient cloudiness floor from weatherType
   date: null,         // the game date the field was seeded for (drives hero-event scheduling)
+  precipType: 'rain', // what the day's precip cells drop (rain/snow) — read by the rainbow gate
   baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
   wind: null,         // { angle, kph } — the prevailing wind that drifts every cell
@@ -436,8 +437,75 @@ const NAMED_EVENTS = {
       },
     },
   },
+  // ── The benign ones ────────────────────────────────────────────────────────
+  // A rainbow is a hero event by machinery and nothing else: it rides the same
+  // lifecycle, the same vantage-keyed announce, the same client signal. What it
+  // is NOT is a severity preset, so `severity: 0` leaves currentBaseSeverity()
+  // exactly where the forecast put it and no gear-gated channel notices it.
+  //
+  // `benign` keeps it out of the SCHEDULED pool: a rainbow cannot be forecast a
+  // week out, because it is not a property of the day. It is a property of a
+  // moment where a shower has just walked off the map and the sun is still up,
+  // which is a condition the FIELD knows and the forecast never could. See
+  // rollRainbow() below for the sun-after-rain test that fires it.
+  rainbow: {
+    label: 'rainbow', severity: 0, benign: true,
+    present: { icon: '🌈', fx: 'rainbow', audio: 'rainbow', pool: 'rainbow', sky: 'clear', severe: 'none' },
+    phases: {
+      approach: {
+        secs: 30,
+        line: 'The last of the rain walks off east and the light comes back all at once, low and gold and wrong-coloured.',
+        window: 'The rain stops running down the glass. Outside, the light has come back low and gold, and something in it is beginning to bend.',
+        inside: 'The drumming overhead stops. Whatever light finds its way in has gone warm and strange at the edges.',
+      },
+      peak: {
+        secs: 120,
+        line: 'A rainbow stands over the rooftops, whole and shameless, and for a couple of minutes the whole street is lit in colours nothing here was built to hold.',
+        window: 'A rainbow stands in the window frame, whole and shameless, and it puts colour across the sill and the floor and your hands.',
+        inside: 'Colour comes in under the door and along the walls, banded and impossible, thrown from something outside you cannot see.',
+      },
+      passing: {
+        secs: 30,
+        line: 'The colours thin out and let the sky go back to being the sky.',
+        window: 'The bands go pale in the frame and the window is just a window again.',
+        inside: 'The banded light on the wall fades out, and the room goes back to its ordinary colours.',
+      },
+    },
+  },
+  // Rarer again, and the one worth stopping for. Same shape, longer peak, and
+  // every line written a rung brighter — the client renders three arcs and turns
+  // the shimmer up to match (see RAINBOW_TYPES on both sides).
+  triple_rainbow: {
+    label: 'triple rainbow', severity: 0, benign: true,
+    present: { icon: '🌈', fx: 'triple_rainbow', audio: 'rainbow', pool: 'rainbow', sky: 'clear', severe: 'none' },
+    phases: {
+      approach: {
+        secs: 30,
+        line: 'The rain quits mid-stride. The air goes glassy and clean, and the light coming through it has too many colours in it already.',
+        window: 'The rain quits mid-stride and the glass clears. The light coming through it has too many colours in it already.',
+        inside: 'The rain quits mid-stride, and the light working its way in has gone to pieces on the way.',
+      },
+      peak: {
+        secs: 180,
+        line: 'Three rainbows stand over the city, one inside the next inside the next, burning clean through the smog like the sky forgot what century it is. People stop walking. Somebody starts crying and does not explain.',
+        window: 'Three rainbows fill the window, one inside the next inside the next, and the room behind you goes to colour with them. You do not look away.',
+        inside: 'Banded colour floods in from every gap at once, layered three deep and far too bright to be coming from anything ordinary. Whatever is out there, people are shouting about it.',
+      },
+      passing: {
+        secs: 45,
+        line: 'The outer arcs go first, then the second, and the last one holds a while longer before it lets go. The sky is only a sky again, and the street starts moving.',
+        window: 'The arcs go out one after another in the frame, and the last one holds a while longer before it lets go.',
+        inside: 'The layered colour drains off the walls a band at a time until the room is only lit again.',
+      },
+    },
+  },
 };
 const PHASE_ORDER = ['approach', 'peak', 'passing'];
+// Scheduled and ambush events pick from here — never from Object.keys, which
+// would put rainbows in the seven-day forecast and hand them a severity slot.
+// Everything in NAMED_EVENTS stays directly triggerable (dev panel, VINE).
+const SCHEDULABLE_EVENTS = Object.keys(NAMED_EVENTS).filter(t => !NAMED_EVENTS[t].benign);
+const RAINBOW_TYPES = new Set(['rainbow', 'triple_rainbow']);
 // An unscheduled event can still ambush you, but it's now the rare case — the
 // ordinary path is a scheduled day (below), which the forecast has been warning
 // about for a week.
@@ -467,8 +535,7 @@ export function heroEventForDate(dateStr) {
   if (!dateStr) return null;
   const rand = mulberry32(seedFromString(`heroevent:${dateStr}`));
   if (rand() >= HERO_EVENT_DAY_CHANCE) return null;
-  const types = Object.keys(NAMED_EVENTS);
-  return types[Math.floor(rand() * types.length)];
+  return SCHEDULABLE_EVENTS[Math.floor(rand() * SCHEDULABLE_EVENTS.length)];
 }
 
 // The announce pair for one phase of one event, or null — exported so regress
@@ -482,7 +549,9 @@ export function heroEventAnnounce(type, phase) {
 // Presentation block for a type, or null. The one accessor every surface uses.
 export function heroEventPresentation(type) {
   const def = NAMED_EVENTS[type];
-  return def ? { type, label: def.label, ...def.present } : null;
+  // `benign` and `severity` ride along so a surface can ask whether this event is
+  // something to shelter from without keeping its own list of the two that aren't.
+  return def ? { type, label: def.label, benign: !!def.benign, severity: def.severity, ...def.present } : null;
 }
 
 // The three fields a forecast row carries for a hero day. Attached HERE rather
@@ -544,8 +613,14 @@ function startWeatherEvent(type) {
 
 // Current event as { type, phase } | null — the signal the engine broadcasts to
 // clients (FX overlay) and re-emits for the audio plugin (soundscape bed).
+// `benign` rides along because the engine decides how to DELIVER the signal from
+// it: a severe event's overlay goes to everybody, a rainbow's goes only to zones
+// that can see the sky. The engine must not learn the type names to work that
+// out — see broadcastEventByVantage in environment.js.
 function currentEventSnapshot() {
-  return activeEvent ? { type: activeEvent.type, phase: activeEvent.phase } : null;
+  return activeEvent
+    ? { type: activeEvent.type, phase: activeEvent.phase, benign: !!NAMED_EVENTS[activeEvent.type].benign }
+    : null;
 }
 
 // Advance the lifecycle by wall-clock and/or auto-roll a new event. Returns
@@ -554,9 +629,73 @@ function currentEventSnapshot() {
 // Hand the engine a live read of the current event, for the dev panel badge.
 registerWeatherEventCurrent(currentEventSnapshot);
 
+// ── Sun after rain ──────────────────────────────────────────────────────────
+//
+// The one hero event with a CONDITION instead of a schedule. A rainbow is not a
+// kind of day, it is a moment at the back edge of a shower, so it is rolled
+// against the live field rather than against the date: the shower has to have
+// been real, it has to have moved off, the sky has to have opened, and the sun
+// has to still be up. Fail any of those and there is nothing to roll for.
+//
+// The field is sampled on a coarse grid rather than at one point, because "it
+// stopped raining" asked of a single tile is answered by a cell drifting two
+// steps sideways. This is the sky over the whole map, which is the scope a hero
+// event is announced at. 25 samples over single-digit cells, once per 30s.
+const RAINBOW_GRID = 5;                          // samples per axis across the map
+const RAINBOW_MEMORY_MS = 25 * 60 * 1000;        // how long after a shower the light can still catch it
+const RAINBOW_WET_ENOUGH = 0.20;                 // map fraction under rain that counts as "it rained"
+const RAINBOW_DRY_ENOUGH = 0.06;                 // ...and the fraction it has to fall back to
+const RAINBOW_CLEAR_ENOUGH = 0.50;               // map fraction still under thick cloud
+const RAINBOW_SUN = 0.35;                        // ambient light floor: the sun is genuinely up
+const RAINBOW_CHANCE_PER_30S = 0.05;             // rare even once every gate is open
+const TRIPLE_SHARE = 0.05;                       // ...and 1 in 20 of those is the good one
+let lastRainAtMs = 0;
+
+function sampleSkyCoarse() {
+  const b = field.bounds;
+  if (!b) return null;
+  let wet = 0, thick = 0, n = 0;
+  for (let i = 0; i < RAINBOW_GRID; i++) {
+    for (let j = 0; j < RAINBOW_GRID; j++) {
+      const gx = b.minX + ((b.maxX - b.minX) * i) / (RAINBOW_GRID - 1);
+      const gy = b.minY + ((b.maxY - b.minY) * j) / (RAINBOW_GRID - 1);
+      const s = sampleWeatherAt(gx, gy);
+      n++;
+      if (s.precipRate > 0.05) wet++;
+      if (s.cloudCover >= 0.7) thick++;
+    }
+  }
+  return { wetFrac: wet / n, cloudFrac: thick / n };
+}
+
+// The wet-memory clock. Stepped EVERY tick, including while another event is
+// running, so a shower that fell during an ion storm still counts once the storm
+// has gone. Returns the sky it sampled so the roll below can reuse it.
+function noteWetSky() {
+  const sky = sampleSkyCoarse();
+  if (sky && sky.wetFrac >= RAINBOW_WET_ENOUGH) lastRainAtMs = Date.now();
+  return sky;
+}
+
+// Returns 'rainbow' | 'triple_rainbow' | null, given this step's sampled sky.
+function rollRainbow(sky) {
+  if (!sky) return null;
+  const now = Date.now();
+  if (sky.wetFrac >= RAINBOW_WET_ENOUGH) return null;                           // still raining on the map
+  if (!lastRainAtMs || now - lastRainAtMs > RAINBOW_MEMORY_MS) return null;     // no shower to be the back edge of
+  if (sky.wetFrac > RAINBOW_DRY_ENOUGH || sky.cloudFrac > RAINBOW_CLEAR_ENOUGH) return null;
+  // Snow and sleet make no rainbow, and acid rain has other things on its mind.
+  if (field.precipType !== 'rain') return null;
+  if ((getEnvironmentState().ambientLight ?? 0) < RAINBOW_SUN) return null;     // the sun has to be up to do this
+  if (Math.random() >= RAINBOW_CHANCE_PER_30S) return null;
+  lastRainAtMs = 0;   // one rainbow per shower, however long the light holds
+  return Math.random() < TRIPLE_SHARE ? 'triple_rainbow' : 'rainbow';
+}
+
 function stepWeatherEvent() {
   const now = Date.now();
   const lines = [];
+  const sky = noteWetSky();
   if (!activeEvent) {
     // Today's scheduled hero event, if this is one of its days and it hasn't
     // already been and gone. The forecast has shown this coming all week; only
@@ -572,9 +711,12 @@ function stepWeatherEvent() {
       const line = startWeatherEvent(scheduled);
       if (line) lines.push(line);
     } else if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
-      const types = Object.keys(NAMED_EVENTS);
-      const line = startWeatherEvent(types[Math.floor(Math.random() * types.length)]);
+      const line = startWeatherEvent(SCHEDULABLE_EVENTS[Math.floor(Math.random() * SCHEDULABLE_EVENTS.length)]);
       if (line) lines.push(line);
+    } else {
+      // Nothing severe is due. Is the sky doing the other thing?
+      const bow = rollRainbow(sky);
+      if (bow) { const line = startWeatherEvent(bow); if (line) lines.push(line); }
     }
     return { lines, event: currentEventSnapshot() };
   }
@@ -683,6 +825,7 @@ function seedField(date, forecast0, bounds) {
   field.systems      = systems;
   field.baseCloud    = baseCloud;
   field.baseSeverity = severityForForecast0(weatherType, tempC, windKph);
+  field.precipType   = precipTypeForFieldTemp(tempC);   // what the day's cells are dropping — a rainbow needs it to be rain
   field.bounds       = bounds;
   field.wind         = wind;
 }
@@ -817,8 +960,15 @@ async function fryCarriedElectronics(playerIds) {
   return namesByPlayer;
 }
 
-on('weather.empPulse', async ({ minutes }) => {
-  const players = getAllLivePlayers();
+// The pulse is scoped by ZONE when a caller supplies one, and global otherwise.
+//
+// That parameter exists so a hand-thrown EMP charge (Nullcraft) is the SAME
+// pulse the ion storm fires — same fry rule, same `fried` instance flag, same
+// faraday-bag exemption, same chrome blackout, same bench repair — rather than a
+// second implementation that would inevitably disagree about what a shielded
+// container does. A charge is a small storm; the sky is a large one.
+on('weather.empPulse', async ({ minutes, zoneId = null }) => {
+  const players = getAllLivePlayers().filter(p => !zoneId || p.current_zone === zoneId);
   if (!players.length) return;
   let fried;
   try { fried = await fryCarriedElectronics(players.map(p => p.id)); }

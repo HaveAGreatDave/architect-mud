@@ -149,6 +149,46 @@ console.log('— layer 1: manifest contracts —');
       `if it is a per-object session timer, add it to SESSION_TIMER_FILES in tests/regress.js with a reason`);
   }
 
+  // Sanity moves through ONE funnel. `adjustSanity` in condition.js is where a
+  // loss meets the player's composure (resistSanityLoss) and where a change
+  // becomes observable (the `sanity.changed` event). It was added because the
+  // resist function sat dead for months while twenty-odd call sites each did
+  // their own clamp — a character built entirely for Cool ate exactly the same
+  // horror as one who wasn't. A new `player.sanity = …` silently opts back out
+  // of both, so the sweep is the only thing that keeps the funnel true.
+  {
+    const SANITY_WRITE_OK = new Set([
+      'server/engine/condition.js',   // the funnel itself
+    ]);
+    const offenders = [];
+    const walk = async (dir, base, rel = '') => {
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        const r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) { await walk(join(dir, e.name), base, r); continue; }
+        if (!e.name.endsWith('.js') || e.name === 'regress.js') continue;
+        const full = `${base}/${r}`;
+        if (SANITY_WRITE_OK.has(full)) continue;
+        const src = (await readFile(join(dir, e.name), 'utf8'))
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/(^|[^:])\/\/.*$/gm, '$1');
+        // Match a write to a BEING's sanity, not to a data bag that happens to
+        // carry the word. `statUpdates.sanity` / `out.sanity` / `c.instant.sanity`
+        // are payloads being assembled for a persistence or effects path and are
+        // not the thing this rule is about; the receiver name is what tells them
+        // apart. The trade is that a player held in an oddly-named local would be
+        // missed — worth it, because a sweep that cries wolf gets deleted.
+        if (/\b(?:player|target|actor|victim|entity|defender|attacker|npc|being|p|t)\.sanity\s*=(?!=)/.test(src))
+          offenders.push(full);
+      }
+    };
+    await walk(PLUGINS_DIR, 'plugins');
+    await walk(join(__dirname, '../server'), 'server');
+    check('sanity is written only through adjustSanity()',
+      offenders.length === 0,
+      `${offenders.join(', ')} — call adjustSanity(player, delta, reason) from server/engine/condition.js ` +
+      `instead of assigning player.sanity, or a loss skips composure and the change fires no event`);
+  }
+
   // Help guides name verbs. A guide that names a verb nobody registers is worse
   // than no guide — it teaches a player something that does not work. Engine
   // builtins aren't in the plugin registry, so they're allowed through by name.
@@ -824,6 +864,62 @@ console.log('— layer 1h: item / stat conditions + dialogue tokens —');
     interp('“Evening, ${player.handle}.” ${npc.name} does not look up.',
       { npc: { name: 'Vale' }, player: { handle: 'Dud' } })
       === '“Evening, Dud.” Vale does not look up.');
+}
+
+// ── Layer 1h2: the swing seam ────────────────────────────────────────────────
+// The seam plugins bend a swing through. What matters most here is the NEGATIVE
+// case: with nothing registered, combat must be byte-for-byte what it was, and
+// the seam must allocate nothing. Everything else in this block pins the
+// contract, so the failure mode for a badly-written contributor is "your
+// technique does nothing" rather than "combat hangs".
+console.log('— layer 1h2: swing seam —');
+{
+  const { registerSwingContributor, getSwingContributors, _swingTest }
+    = await import('../server/engine/combat.js');
+
+  // Real plugins register here (mastery does). Step them aside so the
+  // nothing-registered assertions can still be made, and put them back at the end.
+  const liveContributors = _swingTest.snapshot();
+  _swingTest.clear();
+
+  check('the engine itself registers no contributor — the seam is for plugins',
+    getSwingContributors().length === 0, getSwingContributors().join(', '));
+  check('an empty registry returns null rather than a context object',
+    _swingTest.begin({ hitMod: 0 }) === null);
+  check('...and closing a null swing is a no-op, not a throw',
+    _swingTest.end(null, { hit: true }) === undefined);
+  check('a null swing contributes no prose', _swingTest.lines(null) === '');
+
+  const seen = [];
+  registerSwingContributor((phase, ctx) => { seen.push(phase); ctx.hitMod += 3; }, '_regress');
+  const ctx = _swingTest.begin({ kind: 'outgoing', hitMod: 0, lines: [] });
+  check('a registered contributor sees "pre" and its modifier is read back',
+    ctx && ctx.hitMod === 3 && seen[0] === 'pre', JSON.stringify(seen));
+  _swingTest.end(ctx, { hit: false, margin: -2 });
+  check('...and sees "post" WITH the outcome, including on a miss',
+    seen[1] === 'post' && ctx.hit === false && ctx.margin === -2, JSON.stringify(seen));
+
+  // The two ways a plugin can be wrong. Neither may take a swing down with it.
+  registerSwingContributor(() => { throw new Error('boom'); }, '_regress_thrower');
+  registerSwingContributor(async () => { await Promise.resolve(); }, '_regress_async');
+  const survived = _swingTest.begin({ hitMod: 0, lines: [] });
+  check('a contributor that throws is skipped, and the swing still resolves',
+    survived !== null && survived.hitMod === 3);
+  check('...and one that awaits does not make the seam async',
+    typeof _swingTest.begin({ hitMod: 0 })?.then !== 'function');
+
+  // Prose rides the context, so a contributor never has to reach for the socket.
+  registerSwingContributor((phase, c) => { if (phase === 'post') c.lines?.push(' <i>read.</i>'); }, '_regress');
+  const proseCtx = _swingTest.begin({ hitMod: 0, lines: [] });
+  _swingTest.end(proseCtx, { hit: true });
+  check('prose pushed in post rides the message the engine was already sending',
+    _swingTest.lines(proseCtx) === ' <i>read.</i>', _swingTest.lines(proseCtx));
+
+  // Stand the test contributors down and give the real ones back — one left
+  // registered would bend every combat case that runs after this block.
+  _swingTest.restore(liveContributors);
+  check('the real contributors are back for the cases that follow',
+    getSwingContributors().length === liveContributors.size, getSwingContributors().join(', '));
 }
 
 // ── Layer 1i: relations substrate (player↔NPC) ───────────────────────────

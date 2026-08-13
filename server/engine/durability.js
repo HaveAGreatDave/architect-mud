@@ -46,6 +46,7 @@ import { query } from '../models/db.js';
 import { emit } from './events.js';
 import { world } from './world.js';
 import { sendToPlayer } from './messaging.js';
+import { mutationNumber } from './mutations.js';
 
 // ── What wears ───────────────────────────────────────────────────────────────
 //
@@ -237,7 +238,11 @@ export function wear(player, row, points, reason = null) {
   if (!player._wearPending) player._wearPending = new Map();
   const before = conditionBand(effectiveCondition(row, player));
 
-  const amount = (Number(points) || 0) / capacity;
+  // Acidic sweat and the like: some bodies are simply harder on cloth than
+  // others. A multiplier rather than a flat add, so it scales with how punishing
+  // the event already was — a mutation makes wear worse, it doesn't invent it.
+  const bodyFactor = 1 + mutationNumber(player, 'wear_acceleration');
+  const amount = ((Number(points) || 0) / capacity) * bodyFactor;
   if (amount <= 0) return null;
   player._wearPending.set(id, (player._wearPending.get(id) || 0) + amount);
 

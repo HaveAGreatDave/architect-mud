@@ -1,0 +1,14 @@
+{
+  "description": "A sealed puck with a pull-tab and a printed warning nobody reads. It empties a room of working electronics and is scrupulously fair about whose electronics they were.",
+  "flags": {},
+  "id": "item_null_emp_charge",
+  "name": "EMP charge",
+  "tags": {
+    "description": "A sealed puck with a pull-tab and a printed warning nobody reads. It empties a room of working electronics and is scrupulously fair about whose electronics they were.",
+    "emp_charge": true,
+    "misc": true
+  },
+  "type": "misc",
+  "value": 480,
+  "weight": 400
+}

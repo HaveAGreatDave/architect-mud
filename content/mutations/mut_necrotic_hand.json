@@ -1,16 +1,33 @@
 {
+  "appearance": {
+    "subtle": "The skin of their left hand is grey and dry.",
+    "obvious": "Their left hand is dead, grey-black to the wrist, and does not move quite in time with the rest of them.",
+    "extreme": "Their left hand is a blackened dead thing on the end of a living arm. The rot has reached the elbow and stopped there, for now."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
   "description": "One hand has darkened and hardened. Melee attacks cause bleeding. You can't wear gloves.",
   "drawbacks": [
     "Cannot equip gloves"
   ],
   "effects": {
-    "chance": 0.3,
-    "status_on_hit": "bleeding"
+    "social_penalty": 0.3,
+    "unarmed_damage_bonus": 1
   },
+  "expression_band": "radiation",
   "id": "mut_necrotic_hand",
   "name": "Necrotic Hand",
   "polarity": "mixed",
   "radiation_threshold": 50,
+  "source": "radiation",
   "stat_modifiers": {},
+  "treat_cost": 1800,
+  "treatable": false,
+  "visibility_class": "obvious",
   "visible": 1
 }

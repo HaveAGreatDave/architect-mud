@@ -1,15 +1,37 @@
 {
+  "appearance": {
+    "subtle": "There is a dressing showing at their collar.",
+    "obvious": "Open sores weep along their forearms and neck, crusted at the edges.",
+    "extreme": "They are covered in running sores from the jaw down, and the smell arrives before they do."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "torso",
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "torso",
+    "hands"
+  ],
   "description": "Open lesions that never quite heal. Purely cosmetic. Purely awful.",
   "drawbacks": [
     "Visibly diseased, so NPCs react poorly"
   ],
-  "effects": {},
+  "effects": {
+    "social_penalty": 0.35
+  },
+  "expression_band": "radiation",
   "id": "mut_weeping_sores",
   "name": "Weeping Sores",
   "polarity": "negative",
   "radiation_threshold": 45,
+  "source": "radiation",
   "stat_modifiers": {
     "stat_cool": -2
   },
+  "treat_cost": 1000,
+  "treatable": true,
+  "visibility_class": "obvious",
   "visible": 1
 }

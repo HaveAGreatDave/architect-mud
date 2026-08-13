@@ -1,0 +1,33 @@
+{
+  "appearance": {
+    "subtle": "They blink slightly out of time with themselves.",
+    "obvious": "A clear second lid sweeps sideways across their eyes and back.",
+    "extreme": "Their eyes are permanently half-shuttered behind a sliding grey film, and they walk into a dust storm without squinting."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "A second eyelid that closes sideways. Dust, smoke, grit and chemical spray have all stopped being your problem.",
+  "drawbacks": [
+    "Very visible when it closes"
+  ],
+  "effects": {
+    "acuity_sight": 1,
+    "poison_resistance": 0.2
+  },
+  "expression_band": "radiation",
+  "id": "mut_nictitating_membrane",
+  "name": "Nictitating Membrane",
+  "polarity": "positive",
+  "radiation_threshold": 50,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1000,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

@@ -1,0 +1,36 @@
+{
+  "appearance": {
+    "subtle": "Their knuckles and elbows look swollen, and they move a little stiffly.",
+    "obvious": "Bone has collared their joints into visible knots. They turn from the waist because their neck will not.",
+    "extreme": "Every joint is a knurl of overgrown bone. They move like something assembled rather than grown, in straight lines and single planes."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "left_arm",
+    "right_arm",
+    "left_leg",
+    "right_leg"
+  ],
+  "conceal_slots": [
+    "hands",
+    "legs"
+  ],
+  "description": "Extra bone has grown a collar around every major joint. Hard to break. Hard to bend.",
+  "drawbacks": [
+    "You have lost a lot of flexibility"
+  ],
+  "effects": {
+    "soak_kinetic": 3
+  },
+  "expression_band": "radiation",
+  "id": "mut_ossified_joints",
+  "name": "Ossified Joints",
+  "polarity": "mixed",
+  "radiation_threshold": 50,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 1100,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

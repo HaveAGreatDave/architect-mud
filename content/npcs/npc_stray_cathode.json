@@ -1,0 +1,27 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "A grey tabby, rangy, missing most of one ear and unbothered about it. The right front leg stops at the wrist and continues as something else: a machined paw in dull steel, four articulated toes, a seam of amber light under the fur where it joins. It walks on it perfectly well. It has clearly walked on it for years. Nothing about the rest of the animal suggests it thinks the arrangement is unusual.",
+  "dialogue_tree": {},
+  "faction": null,
+  "flags": {
+    "no_banter": true,
+    "posted": true,
+    "stray_cat": true
+  },
+  "home_activities": [],
+  "home_zone": "zone_dray_lane_den",
+  "hp": 8,
+  "hp_max": 8,
+  "id": "npc_stray_cathode",
+  "name": "Cathode",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_schedule": {},
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -1,0 +1,35 @@
+{
+  "appearance": {
+    "subtle": "Their nails are thick and yellowed, filed to blunt points.",
+    "obvious": "Their fingernails are horn, curved and thick, and they have stopped pretending to trim them.",
+    "extreme": "Their hands end in claws. Dark, ridged, and long enough that they hold a cup with their fingertips because the nails will not clear it."
+  },
+  "blocks_slots": [
+    "hands"
+  ],
+  "body_parts": [
+    "left_arm",
+    "right_arm"
+  ],
+  "conceal_slots": [
+    "hands"
+  ],
+  "description": "Your fingernails have kept growing and kept hardening. They are closer to claws now, and they do not file down.",
+  "drawbacks": [
+    "Gloves are a problem"
+  ],
+  "effects": {
+    "unarmed_damage_bonus": 2
+  },
+  "expression_band": "radiation",
+  "id": "mut_keratin_nails",
+  "name": "Keratin Nails",
+  "polarity": "mixed",
+  "radiation_threshold": 45,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 600,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}

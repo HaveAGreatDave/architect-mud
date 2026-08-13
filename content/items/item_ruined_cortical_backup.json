@@ -1,0 +1,14 @@
+{
+  "description": "The slab is inert and unnaturally light, as though something has been taken out of it. The Ascendant lock is still engaged and always will be.",
+  "flags": {},
+  "id": "item_ruined_cortical_backup",
+  "name": "a dead backup unit",
+  "tags": {
+    "no_install": true,
+    "no_repair": true,
+    "scrap": true
+  },
+  "type": "misc",
+  "value": 240,
+  "weight": 300
+}

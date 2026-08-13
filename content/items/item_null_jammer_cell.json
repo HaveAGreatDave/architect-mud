@@ -1,0 +1,15 @@
+{
+  "description": "A squat grey cell, warm to the touch even flat. Feeds a jam field for about four minutes and then it is scrap — the Null buy them by the strip and nobody has ever seen one recharged.",
+  "flags": {},
+  "id": "item_null_jammer_cell",
+  "name": "jammer cell",
+  "tags": {
+    "description": "A squat grey cell, warm to the touch even flat. Feeds a jam field for about four minutes and then it is scrap — the Null buy them by the strip and nobody has ever seen one recharged.",
+    "electronic": true,
+    "jammer_cell": true,
+    "misc": true
+  },
+  "type": "misc",
+  "value": 85,
+  "weight": 180
+}

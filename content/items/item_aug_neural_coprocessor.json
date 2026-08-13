@@ -1,0 +1,12 @@
+{
+  "description": "A wafer of dark ceramic in an anti-static clamshell, its contact face a grid too fine to resolve. It is cold, and stays cold.",
+  "flags": {},
+  "id": "item_aug_neural_coprocessor",
+  "name": "a neural co-processor",
+  "tags": {
+    "augment_hardware": "aug_neural_coprocessor"
+  },
+  "type": "misc",
+  "value": 2000,
+  "weight": 200
+}

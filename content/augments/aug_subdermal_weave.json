@@ -1,9 +1,22 @@
 {
   "cost": 900,
   "description": "A lattice of impact-diffusing mesh threaded just beneath the skin of the torso. Invisible under clothes, it turns a killing blow into a bad bruise: armor you never take off.",
+  "failure_messages": {
+    "burnout": "Threads part somewhere under the skin, one after another, like a seam giving.",
+    "dead": "The weave is dead mesh now. It is still in you; it just is not doing anything.",
+    "fault": "The lattice seizes and locks across your ribs. For a moment you cannot get a full breath in.",
+    "strain": "The weave under your skin tightens across the chest, and breathing gets a size smaller."
+  },
+  "heat_rate": 0.4,
   "id": "aug_subdermal_weave",
+  "install_difficulty": 5,
+  "item_id": "item_aug_subdermal_weave",
+  "licensed": 1,
   "name": "Subdermal Weave",
+  "overclock_max": 1,
+  "power_draw": 0.6,
   "rep_gate": "neutral",
+  "salvage_item_id": "item_ruined_subdermal_weave",
   "slot": "torso",
   "soak": {
     "torso": {

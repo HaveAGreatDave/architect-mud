@@ -1,0 +1,34 @@
+{
+  "appearance": {
+    "subtle": "Their pupils are a little too wide for the light in here.",
+    "obvious": "Their pupils are blown open, black and wet, and they keep turning away from the lamps.",
+    "extreme": "Their eyes are almost entirely pupil. They flinch from every light source in the room and squint at you like you are a window."
+  },
+  "blocks_slots": [],
+  "body_parts": [
+    "head"
+  ],
+  "conceal_slots": [
+    "head"
+  ],
+  "description": "Your pupils have stopped closing all the way. The dark got easier. Everything else got worse.",
+  "drawbacks": [
+    "Daylight is genuinely painful"
+  ],
+  "effects": {
+    "acuity_sight": 1,
+    "lowlight_vision": true,
+    "brightlight_penalty": 2
+  },
+  "expression_band": "radiation",
+  "id": "mut_photophobia",
+  "name": "Photophobia",
+  "polarity": "mixed",
+  "radiation_threshold": 40,
+  "source": "radiation",
+  "stat_modifiers": {},
+  "treat_cost": 700,
+  "treatable": true,
+  "visibility_class": "concealable",
+  "visible": 1
+}
