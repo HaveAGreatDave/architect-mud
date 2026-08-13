@@ -61,6 +61,42 @@ const CAB_KIT = {
 };
 const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 
+// ── THE CONTROLS, IN ONE PLACE ───────────────────────────────────────────────
+// The cab had eleven controls and no list of them. Every one carried a `title` on its own button,
+// which is a tooltip on a touch screen nobody will ever see, and the gear hint on the dash named
+// two keys out of eleven. This table is the legend the ? card renders, and it is written as data so
+// that adding a control without telling anybody about it takes a deliberate omission.
+const CONTROLS = [
+  ['Wheel / ← →', 'Steer. Drag the wheel — that is the control. The arrows wind the same wheel on for a keyboard or a thumb, and it walks back to centre when you let go.'],
+  ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
+  ['Z / BRAKE', 'Service brakes. They heat, and hot brakes fade.'],
+  ['X / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine.'],
+  ['C / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
+  ['. and ,', 'Shift up / down. Gear 0 is neutral.'],
+  ['/', 'Splitter — half a gear.'],
+  ['R', 'Reverse. Only from a standstill.'],
+  ['H / centre boss', 'Air horn. The room hears it.'],
+  ['V', 'Wipers: off, intermittent, low, high.'],
+  ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
+  // The look keys are the flight sim's Q/E/S exactly, and that parity is worth more than either of
+  // the two obvious letters for the chase camera — hence F. See the key handler.
+  ['F', 'External view — a chase camera behind the rig. The cab is where the instruments are; this is where the trailer is.'],
+  ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
+  ['⛶ / ⊟', 'Fullscreen, or hide the text panel for more road.'],
+];
+
+// The damage HUD's vocabulary, and the one place the client says anything about what a component
+// IS. The numbers and the bands are the server's (damage.js); these are the words next to them, and
+// each note names the consequence rather than the part — a driver needs to know what a bar costs
+// them, not what it is called. The trailer's row appears only when there is a trailer, which is why
+// this is filtered against the payload rather than rendered blind.
+const DMG_PARTS = [
+  { key: 'engine',  short: 'ENG', label: 'ENGINE',  note: 'pull' },
+  { key: 'wheels',  short: 'WHL', label: 'WHEELS',  note: 'grip and stopping' },
+  { key: 'body',    short: 'BDY', label: 'BODY',    note: 'what it is worth' },
+  { key: 'trailer', short: 'TRL', label: 'TRAILER', note: 'the box behind you' },
+];
+
 let st = null;
 
 export function isCabActive() { return !!st; }
@@ -79,8 +115,29 @@ export function openCab(ctx = {}) {
   container.innerHTML = `
     <div class="cab-wrap cab-t${P.tier ?? 1}" style="--cab-glow:${cabTrim(P.tier).glow}">
       ${windshieldHTML(id, kit.label)}
+      <!-- THE GLASS CHROME. Three buttons over the windscreen, in the same corner and with the same
+           glyphs the flight sim and the hangar use (⛶ / ⊟ / ◎), because a player who has flown
+           already knows what they do. They are on the VIEW rather than on the dash shelf: the dash
+           is the truck, and none of these three is a thing the truck has. -->
+      <div class="cab-chrome">
+        <button class="cab-cbtn cab-viewbtn" title="external / cab view (F)">◎ EXT</button>
+        <button class="cab-cbtn cab-fsbtn" title="fullscreen">⛶</button>
+        <button class="cab-cbtn cab-hidebtn" title="hide the text panel — more road">⊟</button>
+        <button class="cab-cbtn cab-helpbtn" title="controls (?)">?</button>
+      </div>
+      <!-- THE DAMAGE STRIP. Small by default and small on purpose: four letters and four coloured
+           pips is enough to tell a driver at a glance that something is wrong and which thing, and
+           anything larger is a panel competing with the road for the same eyes. Clicking it opens
+           the full read — labelled bars, percentages, and what each one costs you — which is the
+           thing you look at while parked, not while moving. One control, two densities.
+           The bars are the SERVER's numbers (cabContext.dmg); nothing here computes a band. -->
+      <div class="cab-dmg" role="group" aria-label="Damage">
+        <button class="cab-dmg-strip" aria-expanded="false" title="damage (D)"></button>
+        <div class="cab-dmg-full" hidden></div>
+      </div>
+      <div class="cab-help" hidden></div>
       <div class="cab-controls">
-        <canvas class="cab-wheel" width="220" height="220" aria-label="Steering wheel"></canvas>
+        <canvas class="cab-wheel" width="220" height="220" aria-label="Steering wheel — drag to steer, press the centre for the horn"></canvas>
         <div class="cab-gauges">
           <div class="cab-readout"><b class="cab-mph">0</b><span>MPH</span></div>
           <div class="cab-readout"><b class="cab-odo">0</b><span>TILES TO GO</span></div>
@@ -119,6 +176,16 @@ export function openCab(ctx = {}) {
           <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)">◀</button>
           <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)">▶</button>
         </div>
+        <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
+             truck has exactly the same problem an aircraft does (you cannot see behind you) and a
+             player who has flown already has the habit. HELD, not toggled, for the reason a
+             shoulder-check is held — you look, you come back, and a view you can leave yourself
+             stuck in at fifty miles an hour is a view that kills you. -->
+        <div class="cab-look" role="group" aria-label="Look">
+          <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)">↖</button>
+          <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)">↗</button>
+          <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)">↺</button>
+        </div>
       </div>
     </div>`;
 
@@ -133,13 +200,27 @@ export function openCab(ctx = {}) {
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
     hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', wipers: 0,
     last: performance.now(), lastSync: 0, lastAudio: 0, raf: 0, hitCd: 0, prev: null, contacts: ctx.contacts || [],
+    // Seeded from the sim's own starting gear, or the first frame reads as a shift and the box
+    // clunks at a driver who has not touched it.
+    lastGear: sim.gear, lastSplit: sim.split, rpmDip: 0, external: false, tier: P.tier,
+    viewYaw: 0,                                  // degrees off the nose; 0 is through the windscreen
   };
 
-  // The wheel, in ABSOLUTE mode — see helm-wheel.js. A boat sets a course; a truck holds a line.
+  // THE WHEEL IS THE STEERING. Not a decoration beside two arrow buttons — the primary control, and
+  // the dash is laid out around that now: it is the biggest thing on the shelf and it sits at the
+  // left where a hand would be. `art: 'truck'` drops the yacht's compass bezel and wordmark (see
+  // helm-wheel.js), which were a boat's instrument sitting in a cab telling a driver their cardinal
+  // heading while they were trying to hold a lane.
+  //
+  // `selfCentre` is slower than it was (5.0 → 2.6). A front axle does walk back to centre, but at
+  // 5/s the wheel snapped straight out of your hand the instant you let go, so holding a long bend
+  // meant holding the pointer down for the whole bend and any keyboard input was a series of jabs.
+  // At 2.6 you can set an angle, let go, and correct — which is how you actually drive.
   st.wheel = createHelmWheel(container.querySelector('.cab-wheel'), {
-    accent: cabTrim(P.tier).glow, mode: 'absolute', lock: 1.6, selfCentre: 5.0,
+    accent: cabTrim(P.tier).glow, mode: 'absolute', art: 'truck',
+    lock: 1.6, selfCentre: 2.6, keyRate: 2.6,
     onSteer: (axle) => { st.input.steer = axle; },
-    getHeading: () => st.sim.heading,
+    onHorn: () => sendCmdSilent('horn'),
   });
 
   // Pedals: hold-to-apply on pointer, and A/Z on the keyboard so a keyboard driver isn't
@@ -192,6 +273,37 @@ export function openCab(ctx = {}) {
   };
   steerHold('.cab-left', -1);
   steerHold('.cab-right', 1);
+
+  // The look controls, on the same held-button machinery. `viewYaw` is degrees off the nose and 0
+  // is forward, which is why the renderer's cab-interior gate reads `!v.viewYaw` — see windshield.
+  const lookHold = (sel, yaw) => {
+    const el = container.querySelector(sel);
+    const on = (e) => { st.viewYaw = yaw; el.classList.add('on'); showViewTag(yaw); e.preventDefault(); };
+    const off = () => { if (!st) return; if (st.viewYaw === yaw) { st.viewYaw = 0; showViewTag(0); } el.classList.remove('on'); };
+    el.addEventListener('pointerdown', on);
+    el.addEventListener('pointerup', off);
+    el.addEventListener('pointerleave', off);
+    el.addEventListener('pointercancel', off);
+    el.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
+    el.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
+    el.addEventListener('blur', off);
+    addEventListener('pointerup', off);
+    winOff.push(off);
+  };
+  lookHold('.cab-lookl', -90);
+  lookHold('.cab-lookr', 90);
+  lookHold('.cab-lookb', 180);
+
+  // Which way you are facing, said in the corner. Without it a driver who looked over their
+  // shoulder and had a pointer slip is looking at a road going the wrong way with no explanation.
+  function showViewTag(yaw) {
+    const tag = container.querySelector('.ws-label');
+    if (!tag) return;
+    tag.textContent = yaw === -90 ? 'LEFT WINDOW' : yaw === 90 ? 'RIGHT WINDOW'
+      : yaw === 180 ? 'OVER THE SHOULDER' : kitFor(P).label;
+    tag.classList.toggle('ws-label-look', !!yaw);
+  }
+  st.showViewTag = showViewTag;
   st.winOff = winOff;                                 // see closeCab — these outlive the pane otherwise
 
   // The gearbox, by hand. `tap` is a click/touch that fires ONCE per press — a shift is an edge,
@@ -225,11 +337,26 @@ export function openCab(ctx = {}) {
     // report. It only takes at a stop, which is where a real box lets you have it too.
     else if (down && !e.repeat && k === 'r') toggleReverse();
     else if (down && !e.repeat && k === 'v') cycleWipers();
+    // F, not E and not V. E is the flight sim's look-right and that parity is worth more than this
+    // key is; V is the wiper stalk, which is the control a driver grabs in a hurry.
+    else if (down && !e.repeat && k === 'f') st.setExternal?.(!st.external);
+    // Shift+/ arrives as '?', so the splitter's own '/' branch above never sees it.
+    else if (down && !e.repeat && k === '?') st.toggleHelp?.();
+    else if (down && !e.repeat && k === 'd') container.querySelector('.cab-dmg-strip')?.click();
+    else if (down && k === 'escape' && !container.querySelector('.cab-help')?.hidden) st.toggleHelp?.(false);
     // Held would be a stuck horn and a round trip per frame; one pull per press, `e.repeat` filtered.
     else if (down && !e.repeat && k === 'h') sendCmdSilent('horn');
     // STEERING BY KEYBOARD. Until this existed a keyboard driver could accelerate, brake and shift
     // — and could not turn, which is not a harder way to drive, it is not driving. It goes through
     // the wheel widget so the wheel on screen turns with it.
+    // Q / E / S — held shoulder-checks, on the flight sim's own three keys so the habit carries.
+    // The release is guarded on the CURRENT yaw, so letting go of Q while E is still down leaves
+    // you looking right rather than snapping forward into a bend you cannot see.
+    else if (k === 'q' || k === 'e' || k === 's') {
+      const yaw = k === 'q' ? -90 : k === 'e' ? 90 : 180;
+      if (down) { st.viewYaw = yaw; st.showViewTag?.(yaw); }
+      else if (st.viewYaw === yaw) { st.viewYaw = 0; st.showViewTag?.(0); }
+    }
     else if (k === 'arrowleft' || k === 'arrowright') {
       const dir = k === 'arrowleft' ? -1 : 1;
       if (down) st.steerKey = dir;
@@ -260,6 +387,86 @@ export function openCab(ctx = {}) {
       el.classList.toggle('on', st.wipers > 0);
     }
   }
+
+  // ── THE VIEW CHROME ────────────────────────────────────────────────────────
+  // Fullscreen and hide-panel are BODY classes, exactly as the flight sim and the hangar do it
+  // (`fsim-fullscreen` / `fsim-hidepanel`), because what they change is the page layout and not
+  // anything about the cab. Fullscreen supersedes hide-panel — the same precedence, so a player who
+  // learned it in an aircraft does not have to learn it again in a truck.
+  const fsBtn = container.querySelector('.cab-fsbtn');
+  const hideBtn = container.querySelector('.cab-hidebtn');
+  const viewBtn = container.querySelector('.cab-viewbtn');
+  fsBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('cab-fullscreen');
+    fsBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('cab-hidepanel'); hideBtn.classList.remove('on'); }
+  });
+  hideBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('cab-hidepanel');
+    hideBtn.classList.toggle('on', on);
+    if (on) { document.body.classList.remove('cab-fullscreen'); fsBtn.classList.remove('on'); }
+  });
+  // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
+  // header note lists `external` among the things it deliberately did not pass — so this is not a
+  // new camera, it is the existing one turned on with `hideOwnShip`, plus a rig drawn over it
+  // (drawRig, below). There is no truck in the world model to render, and there should not be: the
+  // truck is not a world object, it is you.
+  viewBtn.addEventListener('click', () => setExternal(!st.external));
+  function setExternal(on) {
+    st.external = !!on;
+    viewBtn.classList.toggle('on', st.external);
+    viewBtn.textContent = st.external ? '◎ CAB' : '◎ EXT';
+    container.querySelector('.cab-wrap')?.classList.toggle('cab-ext', st.external);
+  }
+  st.setExternal = setExternal;
+
+  // ── THE DAMAGE HUD ─────────────────────────────────────────────────────────
+  // Two densities over one payload. `renderDamage` is called from `cabContext` (the server push)
+  // rather than from the frame loop, because damage changes when the server says so — a few times a
+  // minute at most — and repainting four DOM bars at 60fps to show a number that has not moved is
+  // the kind of cost that only shows up on somebody else's laptop.
+  const dmgStrip = container.querySelector('.cab-dmg-strip');
+  const dmgFull = container.querySelector('.cab-dmg-full');
+  dmgStrip.addEventListener('click', () => {
+    const open = dmgFull.hidden;
+    dmgFull.hidden = !open;
+    dmgStrip.setAttribute('aria-expanded', String(open));
+  });
+  st.renderDamage = (d) => {
+    if (!d) return;
+    st.dmg = d;
+    // The strip: one pip per component, and the WORST one drives whether the whole strip is
+    // shouting. A driver should not have to read four pips to find out that one of them is red.
+    const parts = DMG_PARTS.filter(p => d[p.key]);
+    const worst = parts.reduce((w, p) => Math.min(w, d[p.key].v), 1);
+    dmgStrip.innerHTML = parts.map(p =>
+      `<i class="cab-pip b-${d[p.key].band}" title="${p.label} ${Math.round(d[p.key].v * 100)}%">`
+      + `<em style="height:${Math.round(d[p.key].v * 100)}%"></em><b>${p.short}</b></i>`).join('');
+    dmgStrip.classList.toggle('warn', worst < 0.40);
+    dmgStrip.classList.toggle('bad', worst < 0.15);
+    dmgFull.innerHTML = `<h4>CONDITION</h4>` + parts.map((p) => {
+      const v = d[p.key];
+      return `<div class="cab-dmg-row"><span class="cab-dmg-lbl">${p.label}</span>`
+        + `<span class="cab-dmg-bar b-${v.band}"><i style="width:${Math.round(v.v * 100)}%"></i></span>`
+        + `<b>${Math.round(v.v * 100)}%</b><span class="cab-dmg-note">${p.note}</span></div>`;
+    }).join('')
+      + `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time — `
+      + `<b>rig repair shop engine</b>. Out here, <b>fix</b> needs a box of spares.</p>`;
+  };
+
+  // The controls card. Built from ONE table so the legend cannot drift from the buttons — every row
+  // here names a control that exists above, and a control with no row is a control nobody finds.
+  const helpEl = container.querySelector('.cab-help');
+  helpEl.innerHTML = `<h4>DRIVING</h4><dl>${CONTROLS.map(([k, d]) =>
+    `<dt>${k}</dt><dd>${d}</dd>`).join('')}</dl>
+    <p class="cab-help-foot">Everything here is also a button on the dash. Press <b>?</b> or <b>Esc</b> to close.</p>`;
+  const toggleHelp = (show) => {
+    helpEl.hidden = show === undefined ? !helpEl.hidden : !show;
+    container.querySelector('.cab-helpbtn')?.classList.toggle('on', !helpEl.hidden);
+  };
+  container.querySelector('.cab-helpbtn').addEventListener('click', () => toggleHelp());
+  helpEl.addEventListener('click', () => toggleHelp(false));
+  st.toggleHelp = toggleHelp;
 
   // THE ROLLER DOOR. Only when you turned the key inside a shed — see below.
   if (ctx.fromBay) rollUp(container);
@@ -344,6 +551,8 @@ export function cabContext(ctx) {
   // brakes back gets them back while you are sitting in it rather than at the next mount.
   if (ctx.params || ctx.typeId) setParams(ctx);
   if (ctx.condition != null) st.condition = ctx.condition;
+  // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
+  if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
@@ -391,6 +600,29 @@ export function cabContext(ctx) {
 const SWEEP = 4;
 const TRUCK_CLEAR_Z = 0.010;   // cab roof in render world-z (FLOOR_Z is one storey ≈ 0.028)
 const BUMP_MPH = 12;           // at or below this it is a bump; above it, you hit something
+// Below this the server is never told at all. A kerb at walking pace is not an incident and does
+// not need a sentence in the log — the rebound and the jolt on the glass have already said it.
+const REPORT_MPH = 6;
+
+// The physical answer to a wall, on the glass rather than in the log. Scaled by how hard you came
+// in, so a nudge is a twitch and a real hit throws the whole view — which is the feedback that
+// makes the printed line unnecessary at low speed.
+function bumpJolt(mph) {
+  const wrap = st?.container?.querySelector('.cab-wrap');
+  if (!wrap) return;
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
+  wrap.classList.remove('cab-jolt', 'cab-jolt-hard');
+  void wrap.offsetWidth;                                   // restart the animation on a repeat hit
+  wrap.classList.add(mph > BUMP_MPH ? 'cab-jolt-hard' : 'cab-jolt');
+  setTimeout(() => wrap.classList.remove('cab-jolt', 'cab-jolt-hard'), 620);
+  try {
+    const d = window.ProceduralSFX?.buildActionCue({
+      action: 'impact', surface: mph > BUMP_MPH ? 'metal' : 'plastic',
+      intensity: Math.min(1, 0.25 + mph / 60), seed: 1200 + ((mph * 7) | 0),
+    });
+    if (d) window.AudioEngine?.playSfx(d, Math.min(0.7, 0.2 + mph / 90));
+  } catch { /* audio is never load-bearing */ }
+}
 
 function obstructionAhead(st) {
   const map = st.map, mc = { x: st.mapX, y: st.mapY };
@@ -411,6 +643,113 @@ function obstructionAhead(st) {
     if (z > worst) worst = z;
   }
   return worst;
+}
+
+// A shift, as a sound. Two cues rather than a sample: the lever through the gate (a short metal
+// impact, dry) and the clutch taking the load again a beat later (a softer thud). Built from the
+// same procedural generator everything else in the game uses, so it sits in the mix correctly and
+// costs no asset.
+function shiftCue(half, toNeutral) {
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  if (!A || !S) return;
+  const cue = (o, gain, delay = 0) => {
+    const fire = () => { try { const d = S.buildActionCue(o); if (d) A.playSfx(d, gain); } catch { /* never load-bearing */ } };
+    if (delay) setTimeout(fire, delay); else fire();
+  };
+  const seed = 3300 + ((performance.now() | 0) % 997);   // the gate is never quite the same twice
+  cue({ action: 'impact', surface: 'metal', intensity: half ? 0.28 : 0.5, seed }, half ? 0.16 : 0.3);
+  // Into neutral there is nothing to take up — the second half of the sound is the clutch biting,
+  // and in neutral it never does.
+  if (!toNeutral) cue({ action: 'impact', surface: 'rubber', intensity: half ? 0.2 : 0.36, seed: seed + 41 }, half ? 0.12 : 0.22, half ? 90 : 150);
+}
+
+// ── THE RIG, SEEN FROM BEHIND ────────────────────────────────────────────────
+// The chase camera is the renderer's own (`external` + `hideOwnShip`), which means the world is
+// correct for free and there is nothing here but the vehicle. It is drawn in 2D over the finished
+// frame rather than as a world object, for the same reason the yacht is: the truck is not IN the
+// world model, it is the thing the world is being rendered for, and putting it in the tile map
+// would mean the collision probe could hit it.
+//
+// It is a rear three-quarter silhouette, and it articulates: the trailer swings by φ, the whole rig
+// leans out of a turn on the yaw rate, and the wheels' track narrows as the box comes round. That
+// is enough to reverse a trailer by, which is the entire reason to have this view at all.
+function drawRig(st, r) {
+  const cv = document.getElementById(st.id);
+  if (!cv || !cv.getContext || !cv.clientWidth) return;
+  const g = cv.getContext('2d');
+  const tier = st.tier ?? 1;
+  // The renderer scales its backing store dynamically under load (see paintWindshield), so the
+  // device ratio is NOT a constant here — it is derived from the canvas we were actually given, or
+  // the rig drifts off the middle of the road the moment the frame rate dips.
+  const k = cv.width / cv.clientWidth;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  g.save();
+  g.setTransform(k, 0, 0, k, 0, 0);
+  // Screen-centred, sat low — the camera is behind and above, so the rig lives in the bottom third.
+  const cx = W / 2, cy = H * 0.74, S = Math.min(W, H) * 0.0016;
+  const lean = Math.max(-0.09, Math.min(0.09, (r.slip || 0) * Math.sign(st.sim.yawRate || 0) * 0.5));
+  const trim = tier === 3 ? '#e8c07a' : '#9fb4c8';
+
+  // The trailer first — it is behind the tractor, so it is painted first and the cab overlaps it.
+  if (r.hitched) {
+    g.save();
+    g.translate(cx, cy);
+    // φ is the articulation angle in degrees. Positive means the box has swung to the driver's
+    // right, so from behind it slides LEFT across the view and foreshortens.
+    const phi = (r.phi || 0) * Math.PI / 180;
+    g.translate(-Math.sin(phi) * 120 * S * 6, 0);
+    g.transform(Math.cos(phi) * 0.85 + 0.15, 0, Math.sin(phi) * 0.55, 1, 0, 0);
+    g.scale(1, 1);
+    g.fillStyle = '#20262d';
+    g.strokeStyle = Math.abs(r.phi) > 55 ? '#d2603f' : '#39424c';
+    g.lineWidth = 1.5;
+    const tw = 220 * S * 6, th = 150 * S * 6;
+    g.beginPath(); g.rect(-tw / 2, -th, tw, th); g.fill(); g.stroke();
+    // Doors, hinges, and the plate light — the three things you can see of a box at night.
+    g.strokeStyle = '#2b333b';
+    g.beginPath(); g.moveTo(0, -th); g.lineTo(0, 0); g.stroke();
+    g.fillStyle = 'rgba(255,240,200,.5)';
+    g.fillRect(-tw * 0.06, -th * 0.06, tw * 0.12, th * 0.03);
+    g.restore();
+  }
+
+  // The tractor. Cab, roof fairing, mudflaps, and the two red lamps that tell you it is a vehicle
+  // and not a shed — which at this size is most of the work the drawing has to do.
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(lean);
+  const w = 170 * S * 6, h = 118 * S * 6;
+  g.fillStyle = '#1b2026';
+  g.strokeStyle = '#3b444f'; g.lineWidth = 1.6;
+  g.beginPath(); g.rect(-w / 2, -h, w, h); g.fill(); g.stroke();
+  // Roof fairing — the shape that reads as "truck" rather than "van" from directly behind.
+  g.fillStyle = '#232a31';
+  g.beginPath();
+  g.moveTo(-w * 0.42, -h); g.lineTo(-w * 0.30, -h * 1.22);
+  g.lineTo(w * 0.30, -h * 1.22); g.lineTo(w * 0.42, -h); g.closePath();
+  g.fill(); g.stroke();
+  // Marker lights along the fairing — five, as they are on a real cab roof.
+  g.fillStyle = trim;
+  for (let i = -2; i <= 2; i++) g.fillRect(i * w * 0.11 - w * 0.014, -h * 1.20, w * 0.028, h * 0.035);
+  // Tail lamps, brighter under braking. The one honest instrument in this view.
+  const braking = st.input.brake > 0;
+  g.fillStyle = braking ? '#ff4b3a' : '#8e2a22';
+  g.shadowColor = '#ff4b3a'; g.shadowBlur = braking ? 14 : 4;
+  g.fillRect(-w * 0.46, -h * 0.42, w * 0.10, h * 0.20);
+  g.fillRect(w * 0.36, -h * 0.42, w * 0.10, h * 0.20);
+  g.shadowBlur = 0;
+  // Reversing lamps, on the same principle.
+  if (r.reversing) {
+    g.fillStyle = '#e9f2ff'; g.shadowColor = '#e9f2ff'; g.shadowBlur = 12;
+    g.fillRect(-w * 0.10, -h * 0.30, w * 0.20, h * 0.08);
+    g.shadowBlur = 0;
+  }
+  // Tyres and mudflaps.
+  g.fillStyle = '#0d1013';
+  g.fillRect(-w * 0.54, -h * 0.30, w * 0.10, h * 0.30);
+  g.fillRect(w * 0.44, -h * 0.30, w * 0.10, h * 0.30);
+  g.restore();
+  g.restore();
 }
 
 function frame(now) {
@@ -435,15 +774,48 @@ function frame(now) {
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
 
-    // Solid geometry. On contact the truck does not pass through it: it is put back where it was
-    // and stopped dead, which is the honest outcome for a wall and needs no rebound model.
+    // Solid geometry. THE WALL PUSHES BACK; it does not swallow you.
+    //
+    // This used to put the truck back where it was and set the speed to zero, and that was the
+    // wrong outcome for two reasons that only show up once you are actually driving. A dead stop
+    // against a facade leaves the rig nosed INTO the geometry with the throttle still down, so the
+    // next frame collides again, and again, at whatever speed the pedal has rebuilt — which is the
+    // log full of identical "something plastic gives" lines. And a truck that simply stops is a
+    // truck you cannot recover without finding reverse, in a gearbox, while touching a building.
+    //
+    // So it REBOUNDS: put back to the last clear position, then pushed a little further back along
+    // the way it came, with the speed reversed and heavily damped. You end up a truck's length off
+    // the wall, rolling gently backwards, pointed the way you were — which you can drive out of.
+    // `hitCd` is now a genuine quiet window rather than a re-fire guard, because the rebound has
+    // already separated the two bodies.
     if (st.hitCd > 0) st.hitCd -= dt;
     else if (obstructionAhead(st) > 0) {
-      const mph = st.sim.speed;
-      st.sim.x = st.prev.x; st.sim.y = st.prev.y;
-      st.sim.speed = 0; st.sim.yawRate = 0;
-      st.hitCd = 0.9;                                  // don't re-fire every frame while nosed against it
-      sendCmdSilent(`truckevent ${mph > BUMP_MPH ? 'crash' : 'bump'} ${Math.round(mph)}`);
+      const mph = Math.abs(st.sim.speed);
+      const h = st.sim.heading * Math.PI / 180;
+      const dirSign = Math.sign(st.sim.speed) || 1;
+      st.sim.x = st.prev.x - Math.sin(h) * 0.35 * dirSign;
+      st.sim.y = st.prev.y + Math.cos(h) * 0.35 * dirSign;
+      // A rebound, not a bounce-house: you keep a fifth of what you arrived with, backwards, and
+      // never more than walking pace. Hitting a wall harder must not launch you further off it.
+      st.sim.speed = -dirSign * Math.min(6, mph * 0.2);
+      st.sim.yawRate = 0;
+      st.sim.brakeTemp = st.sim.brakeTemp || 0;
+      // ONE LINE PER IMPACT, and only for impacts worth a line. Nudging a kerb at three miles an
+      // hour in a yard is not an event, it is parking; the server hears about it only if the rig
+      // actually took something. The cooldown is long enough that scraping down a row of frontages
+      // reads as one incident rather than eleven.
+      st.hitCd = mph > BUMP_MPH ? 1.6 : 4.0;
+      // WHICH END OF THE TRUCK MET IT. The server has no geometry at all, so this is the one fact
+      // about a collision only the client can know — and it decides which components take the
+      // damage (damage.js `impactSplit`). Reversing is a rear impact by definition; with the wheel
+      // wound over you are scraping the flank rather than nosing into it, which is the case that
+      // costs you a tyre. Deliberately not forgeable in any useful direction: every area routes the
+      // same TOTAL into the truck and only the destination changes.
+      const area = st.sim.speed < 0 ? 'rear'
+        : Math.abs(st.input.steer || 0) > 0.45 ? 'side'
+        : 'front';
+      if (mph >= REPORT_MPH) sendCmdSilent(`truckevent ${mph > BUMP_MPH ? 'crash' : 'bump'} ${Math.round(mph)} ${area}`);
+      bumpJolt(mph);
     }
 
     const q = (s) => st.container.querySelector(s);
@@ -493,22 +865,55 @@ function frame(now) {
       : 'BOBTAIL';
     q('.cab-riginfo').className = 'cab-riginfo' + (r.folding ? ' b-fade' : '');
 
+    // THE GEARBOX HAS A VOICE. `s.shifted` has been set by truckShift since phase 1.5 and nothing
+    // has ever listened to it — the box was silent, which is why shifting felt like changing a
+    // number rather than operating a machine. A shift in a real truck is three sounds in about a
+    // third of a second: the lever going through the gate, the engine dropping off the load, and
+    // the clutch taking it back up. Two cues and an rpm dip get all of it.
+    //
+    // It rides `sim.gear` rather than the flag, because the flag is set by the auto box and the
+    // splitter too and they are all the same event to an ear. A SPLIT is deliberately quieter — it
+    // is an air valve on the knob, not a lever through a gate.
+    if (st.sim.gear !== st.lastGear || st.sim.split !== st.lastSplit) {
+      const half = st.sim.gear === st.lastGear;        // same gear, splitter moved
+      shiftCue(half, st.sim.gear === 0);
+      // The engine drops off the load for a moment. Purely cosmetic — the model has already
+      // computed the real rpm from road speed through the new ratio, and this is the tenth of a
+      // second of clutch travel that model does not simulate, applied to what the EAR gets only.
+      st.rpmDip = half ? 0.06 : 0.14;
+      st.lastGear = st.sim.gear; st.lastSplit = st.sim.split;
+    }
+    if (st.rpmDip > 0) st.rpmDip = Math.max(0, st.rpmDip - dt * 0.9);
+
     // The voice. rpm/gear/surface are the three things a diesel tells you about, so all three go
     // over; `continuous: true` picks the live parametric synth rather than the deck-craft loops.
+    // THROTTLE IS BOOST, not the pedal: `r.pedal` is the spooled number the engine is actually
+    // making, so the note comes up with the pull instead of snapping the instant a key goes down —
+    // which is most of what makes a big diesel sound heavy.
     if (now - st.lastAudio >= 220) {
       st.lastAudio = now;
       updateEngineAudio({
         continuous: true, class: 'truck', engineOn: !st.dry, airborne: false, onGround: true,
-        rpm: st.sim.rpm, throttle: st.input.throttle * 100, spd: r.speed,
+        rpm: Math.max(0, st.sim.rpm - (st.rpmDip || 0)), throttle: r.pedal * 100, spd: r.speed,
         groundSpeed: r.speed, surface: st.input.surface || 'road',
-        cabin: true, weather: st.weather,
+        cabin: !st.external, weather: st.weather,
       });
     }
 
     // Hand the world to the flight sim's renderer. `height: 0` is the ground camera; the map
     // window came from the server and was derived by the same mapWindow a cockpit uses.
+    // THE EXTERNAL VIEW IS THE SAME CALL. `external` + `hideOwnShip` is the exact pair the Helm
+    // chase view passes (helm-view.js) — a real camera behind and above, with the renderer's own
+    // aircraft model suppressed because there is no aircraft. What sits at screen centre is
+    // drawRig, painted over the finished frame below. `tier` is still passed and does not need
+    // gating — drawCabInterior is already `!ext` inside the renderer, so the painted cab suppresses
+    // itself the moment the camera leaves it.
     paintWindshield(st.id, {
       cls: 'truck', phase: 'ground', worldBlend: 1,
+      ...(st.external ? { external: true, hideOwnShip: true, extZoom: 1.15, extPitch: 0.42 } : {}),
+      // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
+      // are for — and yawing a third-person view off the vehicle it is following is just lost.
+      viewYaw: st.external ? 0 : (st.viewYaw || 0),
       height: 0, speed: r.speed / 68,
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
@@ -534,6 +939,8 @@ function frame(now) {
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
       acX: st.sim.x, acY: st.sim.y,
     });
+    // Over the finished frame, never inside it — see drawRig.
+    if (st.external) { st.tier = P.tier; drawRig(st, r); }
 
     // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
     // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
@@ -583,7 +990,11 @@ function ensureCabStyles() {
   /* \`touch-action:none\` is what makes the wheel STEERABLE on a touch screen rather than a thing
      you scroll the page with. The buttons already had it; the wheel — the one control you are
      meant to drag — did not. */
-  .cab-wheel{width:112px;height:112px;flex:0 0 auto;touch-action:none;cursor:grab}
+  /* THE WHEEL IS THE BIGGEST THING ON THE SHELF, because it is the control you
+     use continuously and everything else is used in moments. At 112px it read as
+     an ornament sitting next to the two arrow buttons that were doing the actual
+     steering; at 148 it is the obvious thing to grab. */
+  .cab-wheel{width:148px;height:148px;flex:0 0 auto;touch-action:none;cursor:grab}
   .cab-wheel:active{cursor:grabbing}
   /* A control you can tab to has to SHOW that you have tabbed to it. */
   .cab-btn:focus-visible,.cab-pedal:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
@@ -597,7 +1008,10 @@ function ensureCabStyles() {
   .cab-surface.s-shoulder{color:#d8a24e}
   .cab-surface.s-offroad{color:#d2603f}
   .cab-pedals{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
-  .cab-box,.cab-steer{display:flex;gap:5px;flex:0 0 auto;align-items:center}
+  .cab-box,.cab-steer,.cab-look{display:flex;gap:5px;flex:0 0 auto;align-items:center}
+  /* The look tag over the glass. It has to be loud: a driver whose pointer slipped off a
+     shoulder-check needs to know instantly why the road is going sideways. */
+  .ws-label-look{color:#0a0c0f !important;background:var(--cab-glow,#e8c07a);padding:1px 6px;border-radius:3px}
   .cab-btn{min-width:34px;min-height:34px;padding:6px 8px;font:600 13px/1 inherit;color:#c8d2de;
     background:#191d22;border:1px solid #333a43;border-radius:4px;cursor:pointer;touch-action:none;user-select:none}
   .cab-btn:active,.cab-btn.on{background:#2b3138;border-color:#5c6672;color:#fff}
@@ -644,13 +1058,92 @@ function ensureCabStyles() {
   /* Touch: the controls get BIGGER on a small screen rather than smaller, because that is the one
      place they are the only way in — the wheel shrinks to make room for them, not the reverse. */
   @media (max-width:700px){
-    .cab-wheel{width:84px;height:84px}.cab-readout b{font-size:17px}.cab-tach{display:none}
+    .cab-wheel{width:112px;height:112px}.cab-readout b{font-size:17px}.cab-tach{display:none}
     .cab-controls{flex-wrap:wrap;gap:8px}
     .cab-btn{min-width:44px;min-height:44px;font-size:15px}
     .cab-pedal{padding:12px 14px}
     .cab-pedals{flex-direction:row;flex-wrap:wrap}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{padding:12px 16px} }
+
+  /* ── THE GLASS CHROME ──────────────────────────────────────────────────────
+     Deliberately the flight sim's chrome, moved: same corner, same glyphs, same
+     precedence (fullscreen beats hide-panel). A driver who has flown does not
+     have to learn a second set. */
+  .cab-chrome{position:absolute;top:6px;right:6px;z-index:5;display:flex;gap:4px}
+  .cab-cbtn{background:rgba(6,10,14,.82);border:1px solid #3a4550;color:#dfe8f2;
+    font:600 12px/1 inherit;padding:5px 8px;border-radius:4px;cursor:pointer;backdrop-filter:blur(2px)}
+  .cab-cbtn:hover{background:var(--cab-glow,#e8c07a);color:#0a0c0f;border-color:var(--cab-glow,#e8c07a)}
+  .cab-cbtn.on{background:var(--cab-glow,#e8c07a);color:#0a0c0f;border-color:var(--cab-glow,#e8c07a)}
+  .cab-cbtn:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
+  /* Fullscreen / hide-panel. Body classes, because what they change is the PAGE
+     and not the cab — the same seam \`fsim-fullscreen\` uses. */
+  body.cab-fullscreen #sidebar,body.cab-fullscreen #output,body.cab-fullscreen #input-row{display:none}
+  body.cab-fullscreen #area-pane{position:fixed;inset:0;z-index:60;max-width:none;width:100vw;height:100vh}
+  body.cab-hidepanel #output{display:none}
+  body.cab-hidepanel #area-pane{flex:1 1 auto}
+
+  /* ── THE DAMAGE HUD ────────────────────────────────────────────────────────
+     Bottom-left of the glass, opposite the view chrome. Small enough to ignore
+     when everything is fine, and the pips carry the colour so a bad one is
+     visible without reading anything. */
+  .cab-dmg{position:absolute;left:6px;bottom:6px;z-index:5;display:flex;flex-direction:column;
+    align-items:flex-start;gap:5px}
+  .cab-dmg-strip{display:flex;gap:3px;align-items:flex-end;background:rgba(6,10,14,.8);
+    border:1px solid #3a4550;border-radius:4px;padding:4px 5px;cursor:pointer}
+  .cab-dmg-strip:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
+  .cab-dmg-strip.warn{border-color:#8a6a2e}
+  .cab-dmg-strip.bad{border-color:#9a4e4e;animation:cab-dmg-pulse 1.6s ease-in-out infinite}
+  @keyframes cab-dmg-pulse{0%,100%{box-shadow:0 0 0 0 rgba(210,96,63,0)}50%{box-shadow:0 0 0 3px rgba(210,96,63,.3)}}
+  .cab-pip{position:relative;display:flex;flex-direction:column-reverse;align-items:center;
+    width:16px;height:26px;background:#12161b;border-radius:2px;overflow:hidden}
+  /* The fill is bottom-anchored, so a bar that is going down LOOKS like it is going down. */
+  .cab-pip em{display:block;width:100%;background:#5f8f6a}
+  .cab-pip b{position:absolute;bottom:1px;font:600 7px/1 inherit;letter-spacing:.04em;
+    color:#dfe8f2;text-shadow:0 1px 2px #000}
+  .cab-pip.b-worked em{background:#6f8f5f}
+  .cab-pip.b-tired em{background:#b08a3e}
+  .cab-pip.b-ailing em{background:#c07038}
+  .cab-pip.b-derelict em{background:#c04a3a}
+  .cab-dmg-full{background:rgba(6,9,13,.94);border:1px solid #3a4550;border-radius:6px;
+    padding:10px 12px;color:#d5dde7;font-size:11px;min-width:250px}
+  .cab-dmg-full[hidden]{display:none}
+  .cab-dmg-full h4{margin:0 0 7px;font-size:10px;letter-spacing:.18em;color:var(--cab-glow,#e8c07a)}
+  .cab-dmg-row{display:grid;grid-template-columns:60px 1fr 34px;gap:6px;align-items:center;margin:3px 0}
+  .cab-dmg-lbl{font-size:9px;letter-spacing:.1em;color:#8b95a2}
+  .cab-dmg-bar{height:7px;background:#12161b;border-radius:3px;overflow:hidden}
+  .cab-dmg-bar i{display:block;height:100%;background:#5f8f6a}
+  .cab-dmg-bar.b-worked i{background:#6f8f5f}
+  .cab-dmg-bar.b-tired i{background:#b08a3e}
+  .cab-dmg-bar.b-ailing i{background:#c07038}
+  .cab-dmg-bar.b-derelict i{background:#c04a3a}
+  .cab-dmg-row b{font-variant-numeric:tabular-nums;font-size:11px;text-align:right}
+  /* The note wraps under its row rather than squeezing the bar — it is the part you read once. */
+  .cab-dmg-note{grid-column:2 / -1;font-size:9px;color:#6f7883;margin-top:-2px}
+  .cab-dmg-foot{margin:8px 0 0;font-size:10px;color:#78828e;line-height:1.5}
+
+  /* The controls card. It sits over the glass rather than in the dash, because
+     it is not part of the truck — and it closes on any click, so it can never be
+     the thing between a driver and a brake pedal. */
+  .cab-help{position:absolute;inset:8px 8px auto 8px;z-index:6;max-height:calc(100% - 16px);
+    overflow:auto;background:rgba(6,9,13,.94);border:1px solid #3a4550;border-radius:6px;
+    padding:12px 14px;color:#d5dde7;font-size:12px;line-height:1.45}
+  .cab-help[hidden]{display:none}
+  .cab-help h4{margin:0 0 8px;font-size:11px;letter-spacing:.18em;color:var(--cab-glow,#e8c07a)}
+  .cab-help dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0}
+  .cab-help dt{color:var(--cab-glow,#e8c07a);font-weight:600;white-space:nowrap}
+  .cab-help dd{margin:0;color:#aeb9c6}
+  .cab-help-foot{margin:10px 0 0;color:#78828e;font-size:11px}
+
+  /* Hitting something. The view takes the hit — which is what makes the printed
+     line unnecessary below reporting speed. */
+  .cab-jolt .ws-wrap{animation:cab-jolt .28s ease-out}
+  .cab-jolt-hard .ws-wrap{animation:cab-jolt-hard .55s cubic-bezier(.2,.9,.3,1)}
+  @keyframes cab-jolt{0%{transform:translate3d(0,4px,0)}55%{transform:translate3d(-2px,-2px,0)}100%{transform:none}}
+  @keyframes cab-jolt-hard{0%{transform:translate3d(0,14px,0) rotate(.6deg)}
+    30%{transform:translate3d(-8px,-6px,0) rotate(-.5deg)}
+    60%{transform:translate3d(5px,3px,0) rotate(.25deg)}100%{transform:none}}
+  @media (prefers-reduced-motion:reduce){.cab-jolt .ws-wrap,.cab-jolt-hard .ws-wrap{animation:none}}
 
   /* ── THE SHED, AND THE DOOR GOING UP ──────────────────────────────────────
      Everything here sits INSIDE .ws-wrap, over a windscreen that is already
@@ -721,6 +1214,9 @@ function ensureCabStyles() {
 export function closeCab() {
   if (!st) return;
   clearRollUp();
+  // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
+  // driver who parked in fullscreen would be left with no log and no command box.
+  document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
   suppressWeatherFx(false);
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room

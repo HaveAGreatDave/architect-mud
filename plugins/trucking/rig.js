@@ -7,11 +7,17 @@
 //
 // THREE RULES, and each is a decision about where a number is allowed to live:
 //
-//  1. CONDITION IS A SCALAR AND EVERY CONSEQUENCE IS DERIVED FROM IT. There is no damage model
-//     with parts in it, because a truck has one meaningful question — will it do the run — and a
-//     list of broken components answers it worse than one number does. Wear comes off distance and
-//     off contact, and everything the player feels (power, brakes, the chance it won't catch) is
-//     derived here rather than stored anywhere.
+//  1. ⚠ SUPERSEDED — see damage.js. This rule used to read "CONDITION IS A SCALAR AND THERE IS NO
+//     DAMAGE MODEL", on the reasoning that a truck has one meaningful question (will it do the run)
+//     which a list of components answers worse than one number does. That was right until the truck
+//     became a thing you CRASH: with real collision geometry, four hundred miles of gravel and a
+//     rebound off a wall are the same event to a single scalar, and they are not the same event.
+//     There are now four components — engine, wheels, body, trailer — and `condition` is DERIVED
+//     from them (`overall`) rather than written directly. It is still a real column and still what
+//     resale, the bands, the repair price and the breakdown roll read, so nothing downstream of the
+//     truck's health had to learn that components exist. What survives of the old rule, and what
+//     matters, is the second sentence: everything the player FEELS is still derived here, in
+//     `effTruckParams`, and stored nowhere.
 //
 //  2. THE CLIENT SIMULATES WITH THE PARAMETERS THE SERVER HANDS IT. `effTruckParams` is the ONLY
 //     place a tune, a kit or a worn engine turns into physics, and its output is the `p` object
@@ -26,6 +32,7 @@
 //     money is for — and what they mostly buy is a wider range on the dials.
 
 import { TYPES, SURFACES } from '../../client/game/js/panels/flight-model.js';
+import { partEffects } from './damage.js';
 
 // ── Tuning ───────────────────────────────────────────────────────────────────
 // Four knobs, each one a real trade. `lo`/`hi` name the two poles the way the dial shows them.
@@ -103,8 +110,18 @@ export function repairCost(type, condition, pro) {
 // ── The one place a tune becomes physics ─────────────────────────────────────
 // Returns the `p` object the CLIENT MODEL takes (flight-model.js step/stepTruck), which is why
 // nothing downstream of here has to know that tuning exists at all.
-export function effTruckParams(typeId, cd = {}, condition = 1) {
+// `dmg` is the per-component bag (damage.js). Passing it is OPTIONAL and its absence reproduces the
+// old behaviour exactly — `partEffects` on a full bag returns 1.0 across the board — which is the
+// migration invariant that made the component model net-zero for every truck already on the road.
+//
+// The split of responsibility: `condition` (the derived headline) still does the broad, legible
+// thing it always did, and the components then say WHICH of those penalties you actually earned. A
+// truck with a good engine and destroyed wheels now stops badly and pulls fine, where before it was
+// simply "worn" in both directions at once — and the driver could not have told you which, because
+// there was nothing to tell.
+export function effTruckParams(typeId, cd = {}, condition = 1, dmg = null) {
   const base = TYPES[typeId]?.ground ? TYPES[typeId] : TYPES.hauler;
+  const pe = partEffects(dmg || {});
   const t = cd.tune || {}, kits = installedKits(cd);
   const g = t.gearing || 0, b = t.boost || 0, s = t.suspension || 0, br = t.brakes || 0;
   // Condition bites POWER and BRAKES and nothing else. A worn truck is not a truck that steers
@@ -113,12 +130,12 @@ export function effTruckParams(typeId, cd = {}, condition = 1) {
   const c = Math.max(0, Math.min(1, condition ?? 1));
   const health = 0.55 + 0.45 * c;                       // derelict still moves; it just isn't worth much
   const p = { ...base };
-  p.thrustMax = base.thrustMax * (1 - g * 0.14) * (1 + b * 0.16) * (1 + (kits.includes('bigcam') ? 0.09 : 0)) * health;
+  p.thrustMax = base.thrustMax * (1 - g * 0.14) * (1 + b * 0.16) * (1 + (kits.includes('bigcam') ? 0.09 : 0)) * health * pe.thrustMax;
   p.topSpeed  = Math.round(base.topSpeed * (1 + g * 0.10));
   p.dragP     = base.dragP * (kits.includes('aerokit') ? 0.90 : 1);
   p.rollFric  = base.rollFric * (kits.includes('aerokit') ? 0.96 : 1);
   p.wheelbase = base.wheelbase * (1 - s * 0.12);        // stiffer = quicker turn-in (a shorter effective base)
-  p.brake     = base.brake * (1 + br * 0.14) * (0.7 + 0.3 * c);
+  p.brake     = base.brake * (1 + br * 0.14) * (0.7 + 0.3 * c) * pe.brake;
   p.jake      = base.jake * (kits.includes('jakeplus') ? 1.25 : 1);
   p.tank      = Math.round(base.tank * (kits.includes('auxtank') ? 1.25 : 1));
   p.engineLag = base.engineLag * (1 + Math.max(0, -b) * 0.10) * (1 + (1 - c) * 0.35);
@@ -187,12 +204,25 @@ const BREAK_KEYS = Object.keys(BREAKDOWNS);
 // bottom of Tired ≈ 1%. Bad ground doubles it — a rig shaken to pieces on the verge is the driver's
 // own doing and should read that way.
 const BREAK_PER_TILE = 0.011;
+// THE BOTTOM OF THE BAR IS A WALL, NOT A STEEPER SLOPE. The quadratic alone made a completely worn
+// out truck a ~60% chance over a full crossing, which meant the honest way to read the condition
+// bar was "keep driving and hope" — and a player who did that and got away with it had learned
+// exactly the wrong lesson. At or below `TERMINAL_CONDITION` the rig is finished: the next tile it
+// turns a wheel on breaks it, every time, and that breakdown cannot be fixed at the roadside (see
+// the terminal gate in `fix`). A truck at zero is not a truck with bad luck, it is scrap that is
+// still moving, and the only thing left to decide is who pays to drag it in.
+export const TERMINAL_CONDITION = 0.04;
 export function breakChance(tiles, { condition = 1, surface = 'road' } = {}) {
+  if ((condition ?? 1) <= TERMINAL_CONDITION) return Math.max(0, tiles) > 0 ? 1 : 0;
   const deficit = Math.max(0, 0.5 - (condition ?? 1));
   if (deficit <= 0) return 0;
   const rough = surface === 'offroad' ? 2 : surface === 'shoulder' ? 1.4 : 1;
   return Math.max(0, tiles) * BREAK_PER_TILE * deficit * deficit * rough;
 }
+// Is this breakdown one a driver can do anything about? Terminal ones are not — there is no clamp,
+// no bleed and no strap that puts a scrapped rig back on the road, and pretending otherwise would
+// make the bottom of the condition bar mean nothing again.
+export const isTerminal = (condition) => (condition ?? 1) <= TERMINAL_CONDITION;
 export function breakdownRoll(tiles, opts = {}) {
   const p = breakChance(tiles, opts);
   if (p <= 0 || Math.random() >= p) return null;
@@ -205,6 +235,16 @@ export function breakdownRoll(tiles, opts = {}) {
 export function fixOdds(fabrication = 0, attempts = 0) {
   return Math.min(1, 0.34 + (fabrication || 0) / 160 + attempts * 0.22);
 }
+// WHAT A ROADSIDE FIX COSTS YOU BEFORE THE DICE. Two gates, and they are the reason the tow exists
+// at all: without them `fix` came good by the fourth attempt for anybody, free, forever, so a
+// breakdown was a delay and never a decision. Now it is a decision made at the depot, hours
+// earlier, about whether to spend money on a box of spares you might not need.
+//
+// The SKILL floor is low on purpose — this is not a Fabrication gate on the trucking career, it is
+// the difference between somebody who can hold a spanner and somebody who cannot. The PART is the
+// real one, because a part is a thing you have to have thought of.
+export const FIX_MIN_FAB = 12;
+export const SPARES_ITEM = 'item_truck_spares';
 // What a successful roadside fix buys: tiles of immunity, not condition. Enough to reach the far
 // side of a crossing from about half way, and never enough to make a bench optional.
 export const FIX_GRACE_TILES = 260;

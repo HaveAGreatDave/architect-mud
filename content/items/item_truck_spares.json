@@ -1,0 +1,13 @@
+{
+  "description": "A steel box with a hinged lid and a handle worn smooth, packed the way people pack things they hope never to open: hose in three diameters, jubilee clips, a coil of brake line, spare emitter tape, two fuses that are the wrong rating and one that is not, and a tube of something that says it seals anything. It is heavy in the way that reassures you at the yard and annoys you every single mile after.",
+  "flags": {},
+  "id": "item_truck_spares",
+  "name": "box of truck spares",
+  "tags": {
+    "description": "A steel box with a hinged lid and a handle worn smooth, packed the way people pack things they hope never to open: hose in three diameters, jubilee clips, a coil of brake line, spare emitter tape, two fuses that are the wrong rating and one that is not, and a tube of something that says it seals anything. It is heavy in the way that reassures you at the yard and annoys you every single mile after.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 120,
+  "weight": 6400
+}

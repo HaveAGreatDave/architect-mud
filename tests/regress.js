@@ -2176,6 +2176,8 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
     ['item_bulk_frozen', 'bulk frozen brick', { consumable: true, storage_tier: 'frozen' }],    // by FACET
     ['item_bulk_tinned', 'bulk tinned probe', { consumable: true, food_profile: 'preserved' }], // by ALIAS
     ['item_bulk_rock', 'bulk rock', { misc: true }],                                            // by nothing
+    ['item_bulk_chilled', 'bulk chilled probe',                                                 // wants a cold box
+      { consumable: true, perishable: true, spoil_rate: 'fast' }],
   ];
   try {
     for (const [id, name, tags] of PROBES) {
@@ -2215,6 +2217,26 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
     check('bulk sweep by alias, and "non-perishable" means FOOD that keeps — not the rock',
       np.includes('item_bulk_frozen') && np.includes('item_bulk_tinned') && !np.includes('item_bulk_rock'), np.join());
 
+    // The cupboard word: everything the cold half doesn't want. Both directions of
+    // this matter — the frozen brick and the chilled probe staying OUT is what
+    // makes it safe to type at a cabinet and walk away.
+    await give();
+    await run('put all pantry in crate');
+    const pan = await inCrate();
+    check('"all pantry" sweeps shelf-stable food and the kitchen kit',
+      pan.includes('item_bulk_tinned') && pan.includes('item_bulk_utensil'), pan.join());
+    check('...and leaves anything that wants a cold box',
+      !pan.includes('item_bulk_frozen') && !pan.includes('item_bulk_chilled'), pan.join());
+    check('...and is still food-only, so the rock stays put',
+      !pan.includes('item_bulk_rock'), pan.join());
+
+    await give();
+    await run('put all cupboard in crate');
+    check('"cupboard" and "cabinet" say the same thing as "pantry"',
+      (await inCrate()).sort().join() === pan.sort().join(), (await inCrate()).join());
+
+    await give();
+    await run('put all non-perishable in crate');
     // ...and back out again, by the same word. A category that only works in one
     // direction is half a feature.
     await run('pull all frozen from crate');

@@ -44,14 +44,27 @@ export const TRAILER_TYPES = [
 ];
 export const trailerType = (id) => TRAILER_TYPES.find(t => t.id === id) || null;
 
-const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash';
+const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash, condition';
 
 const shape = (r) => r && ({
   id: r.id, name: r.name, ownerId: r.owner_id,
   kg: r.kg, ratedKg: r.rated_kg,
   parkedZone: r.parked_zone, towedBy: r.towed_by,
   cargo: r.cargo || null, stash: r.stash || null,
+  // The fourth component of the damage model (see damage.js). It is on the BOX rather than in the
+  // truck's bag because a trailer outlives the tractor that towed it — damage that followed the
+  // truck would heal itself every time somebody swapped boxes in a yard.
+  condition: r.condition == null ? 1 : Number(r.condition),
 });
+
+// The trailer's half of the damage writer. Deliberately not guarded on ownership: a trailer you are
+// towing is a trailer you are damaging, and the hitch is what already proved you were allowed to be
+// towing it. Guarding here would refuse to record damage to somebody else's box that you crashed,
+// which is the one case where recording it matters most.
+export async function setTrailerCondition(id, condition) {
+  await query('UPDATE trailers SET condition = $1 WHERE id = $2',
+    [Math.max(0, Math.min(1, condition)), id]).catch(() => {});
+}
 
 export async function trailersAt(zoneId) {
   const { rows } = await query(`SELECT ${SELECT} FROM trailers WHERE parked_zone = $1 ORDER BY created_at`, [zoneId])

@@ -24,13 +24,18 @@
 // answer is whether a quarter of an hour of changing country with a city coming out of the haze is
 // worth doing on its own. Everything else is downstream of that answer.
 
-import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
+import { saveDrivingState, restoreDrivingState } from './resume.js';
+// The damage model. `condition` is still the headline number every older reader uses; these four
+// components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
+import { applyDamage, impactSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand } from './damage.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { setPosture } from '../../server/engine/posture.js';
 import { query } from '../../server/models/db.js';
+import { randomUUID } from 'crypto';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { startTextDrive, stopTextDrive, setTextTarget, isTextDriving, textDriveCommand } from './textdrive.js';
@@ -40,7 +45,7 @@ import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleVa
   setCondition, saveTruckData, setFuel, recoverTruckTo } from './fleet.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul,
-  BREAKDOWNS, fixOdds, FIX_GRACE_TILES } from './rig.js';
+  BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM } from './rig.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
 import { surfaceAt } from '../flight/state.js';
@@ -50,10 +55,10 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
 import { corridorPos, corridorAt, TILES_PER_ROOM } from './corridor.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
-import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
-  buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg } from './trailers.js';
+  buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition } from './trailers.js';
 
 const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -135,7 +140,9 @@ async function cmdDrive(args, raw, player) {
   rig.type = owned.type;
   rig.cd = owned.custom_data || {};
   rig.condition = owned.condition ?? 1;
-  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition);
+  rig.dmg = damageOf({ cd: rig.cd, condition: owned.condition });
+  rig.condition = overall(rig.dmg);
+  rig.params = effTruckParams(owned.type_id, rig.cd, rig.condition, rig.dmg);
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
@@ -463,7 +470,7 @@ const FUEL_FULL = 380;
 // through `effTruckParams`: a bar that moves when a dial turns is promising the wheel, and the
 // wheel is handed the same object. Each is normalised 0..1 against the fleet's own spread.
 function axesFor(typeId, cd, condition) {
-  const p = effTruckParams(typeId, cd, condition);
+  const p = effTruckParams(typeId, cd, condition, damageOf({ cd, condition }));
   const n = (v, lo, hi) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
   return {
     pull:  +n(p.thrustMax / p.mass, 1.5, 4.6).toFixed(2),      // grunt per tonne — what drags a full box uphill
@@ -747,6 +754,12 @@ async function cmdRig(args, raw, player) {
   if (!depot) return say('You would need to be at a depot. The benches are in the yards.');
   const rest = args.slice(1);
 
+  // SPARES ARE SOLD BEFORE THE TRUCK IS RESOLVED, and that is not an ordering accident. Every other
+  // subcommand is work done ON a machine and rightly refuses without one parked here; a box of
+  // spares is stock off a shelf, and needing a truck present to buy the thing you buy so you can
+  // rescue a truck that is NOT present would be exactly backwards.
+  if (sub === 'spares') return await rigSpares(player, rest[0]);
+
   // Which truck. The panel always names it explicitly (its buttons carry the id as the first token
   // after the subcommand), and a player typing never does — so an unnamed one means "the one
   // standing here", which at a depot is unambiguous by the one-truck-per-yard rule.
@@ -756,21 +769,58 @@ async function cmdRig(args, raw, player) {
   if (rigOf(player)?.truckId === truck.id) return say('Climb down first — nobody works on a truck they are sitting in.');
   const cd = truck.custom_data || {};
 
-  if (sub === 'repair') return await rigRepair(player, truck, cd, rest[0]);
+  if (sub === 'repair') return await rigRepair(player, truck, cd, rest[0], rest[1] || (PARTS.includes((rest[0]||'').toLowerCase()) ? rest[0] : null));
   if (sub === 'tune') return await rigTune(player, truck, cd, rest);
   if (sub === 'kit') return await rigKit(player, truck, cd, rest[0]);
   if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
+}
+
+// The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
+// yard — which is the whole design of it. One box is one roadside attempt (`fix` spends it whether
+// the repair takes or not), so carrying two is a real answer to a bad night and carrying six is a
+// tonne of steel you are paying to accelerate for four hundred miles.
+const SPARES_PRICE = 140;
+async function rigSpares(player, nArg) {
+  const n = Math.max(1, Math.min(6, parseInt(nArg, 10) || 1));
+  const cost = SPARES_PRICE * n;
+  if ((player.credits || 0) < cost) {
+    return say(`A box of spares is <b>${SPARES_PRICE}₵</b>. <span class="text-dim">You have ${player.credits || 0}₵.</span>`);
+  }
+  player.credits -= cost;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  const have = await sparesInHand(player);
+  if (have) await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id=$2', [n, have.id]);
+  else {
+    await query(
+      'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,$4,1.0)',
+      [`inv_${randomUUID().slice(0, 12)}`, player.id, SPARES_ITEM, n]
+    );
+  }
+  return say(`<span class="item-grant">${n === 1 ? 'A box' : `${n} boxes`} of truck spares.</span>\n`
+    + `<span class="text-dim">The man behind the counter does not ask where you are going. `
+    + `One box is one go at it on the shoulder, and it is spent whether the repair takes or not.</span> `
+    + `<span class="item-loss">-${cost}₵</span>`);
 }
 
 // TWO WAYS TO FIX A TRUCK, and the difference between them is certainty, not just price. A shop
 // does it properly and charges for that. Your own hands are cheaper, botchable, and — the real
 // constraint — cannot take a rig past Worked, because there is a limit to what gets done on a
 // concrete floor with the toolbox that lives behind the seat.
-async function rigRepair(player, truck, cd, mode) {
+async function rigRepair(player, truck, cd, mode, part) {
   const pro = /^(shop|pay|pro|full|bench)$/.test((mode || '').toLowerCase());
+  // ONE COMPONENT, OR THE WHOLE TRUCK. `rig repair shop engine` fixes the engine and charges for
+  // the engine; `rig repair shop` fixes everything, as it always has. The targeted form is the
+  // whole reason the component model is worth having at a bench: a driver who has ruined the
+  // wheels on gravel and left the engine alone should be able to pay for wheels, and the old
+  // single bar could not express that bill. The default staying whole-truck matters just as much —
+  // nobody should have to learn a parts vocabulary to keep a truck on the road.
+  const dmg = damageOf({ cd, condition: truck.condition });
+  const target = PARTS.includes((part || '').toLowerCase()) ? part.toLowerCase() : null;
+  if (target) return await rigRepairPart(player, truck, cd, dmg, target, pro);
   const cond = truck.condition ?? 1;
   if (cond >= 0.995) return say(`The ${truck.type.name} is as good as it gets.`);
   if (!pro && cond >= FIELD_CAP) return say(`Nothing you can do to it with hand tools — it is already past what a field repair reaches. <span class="text-dim">rig repair shop</span>`);
@@ -790,13 +840,56 @@ async function rigRepair(player, truck, cd, mode) {
     await awardSkillUse(player.id, 'fabrication', chk.margin);
     if (!chk.success) note = ' <span class="text-amber">(Some of it beat you.)</span>';
   }
-  await setCondition(truck.id, player.id, to);
+  // A WHOLE-TRUCK REPAIR LIFTS EVERY COMPONENT TO THE SAME PLACE, and then the headline number is
+  // re-derived from them rather than written on its own. Writing `condition` directly here — which
+  // is what this did before components existed — would have left the bag untouched underneath it,
+  // so the next flush from a drive would recompute `overall` off the old parts and silently undo
+  // the repair the player had just paid for.
+  for (const p of PARTS) dmg[p] = Math.max(dmg[p], to);
+  cd.dmg = dmg;
+  await saveTruckData(truck.id, player.id, cd);
+  await setCondition(truck.id, player.id, overall(dmg));
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
-  const band = bandOf(to);
+  const band = bandOf(overall(dmg));
   return say(`<span class="item-grant">${pro ? "The depot's fitters take it in and give it back right" : 'You get under it yourself'} — ${cost}₵. `
-    + `${truck.type.name}: <b>${band.label}</b> (${Math.round(to * 100)}%).</span>${note}`);
+    + `${truck.type.name}: <b>${band.label}</b> (${Math.round(overall(dmg) * 100)}%).</span>${note}`);
+}
+
+// One component. Priced off the SHARE of the truck a whole repair would have cost — a third of the
+// tractor each — so three targeted repairs come to the same money as one whole one and there is no
+// arbitrage either way. The field cap and the skill check are the same ones; there is deliberately
+// no separate difficulty per part, because "wheels are easier than an engine" is a rule nobody
+// could learn from the outside and it would only ever read as inconsistency.
+async function rigRepairPart(player, truck, cd, dmg, part, pro) {
+  const label = PART_LABELS[part].label;
+  const at = dmg[part];
+  if (at >= 0.995) return say(`The ${label.toLowerCase()} is as good as it gets.`);
+  if (!pro && at >= FIELD_CAP) {
+    return say(`Nothing you can do to the ${label.toLowerCase()} with hand tools. <span class="text-dim">rig repair shop ${part}</span>`);
+  }
+  const cost = Math.max(1, Math.ceil(repairCost(truck.type, at, pro) / PARTS.length));
+  if ((player.credits || 0) < cost) return say(`That is ${cost}₵ of parts and labour and you have ${player.credits || 0}₵.`);
+  player.credits -= cost;
+  let to, note = '';
+  if (pro) to = 1;
+  else {
+    const chk = await skillCheck(player, 'fabrication', 5);
+    to = Math.min(FIELD_CAP, at + (FIELD_CAP - at) * (chk.success ? 1 : 0.55));
+    await awardSkillUse(player.id, 'fabrication', chk.margin);
+    if (!chk.success) note = ' <span class="text-amber">(Some of it beat you.)</span>';
+  }
+  dmg[part] = Math.max(dmg[part], to);
+  cd.dmg = dmg;
+  await saveTruckData(truck.id, player.id, cd);
+  await setCondition(truck.id, player.id, overall(dmg));
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  return say(`<span class="item-grant">${pro ? 'The fitters have it out and back in' : 'You do the ' + label.toLowerCase() + ' yourself'} — ${cost}₵. `
+    + `<b>${label}: ${partBand(to).label}</b> (${Math.round(to * 100)}%).</span>${note}\n`
+    + `<span class="text-dim">Truck overall: ${bandOf(overall(dmg)).label}.</span>`);
 }
 
 // The dials. All four commit at once, exactly as flight's `tuneset` does, because they are read
@@ -1250,9 +1343,36 @@ async function cmdFix(args, raw, player) {
       : 'Nothing on it is broken. Wear is a bench job — see <span class="text-dim">rig repair</span>.');
   }
   const b = BREAKDOWNS[rig.broken.kind] || BREAKDOWNS.hose;
+
+  // THE TERMINAL GATE. A rig at the bottom of the condition bar is not broken, it is finished, and
+  // there is nothing in a toolbox that answers that. This is the one refusal in the whole system
+  // that does not offer another attempt — it offers the tow instead, which is the point.
+  if (isTerminal(rig.condition)) {
+    return say('<span class="text-amber">You get the panel up and stand looking at it for a while.</span>\n'
+      + '<span class="text-dim">There is nothing here to fix. It is not one thing that has gone — it is everything, all at '
+      + `once, the way it always is in the end. You are not driving this out. <b>${teachVerb('tow', 'tow')}</b> is the number to call.</span>`);
+  }
+
+  // THE PARTS. `fix` used to need nothing at all and came good by the fourth attempt for anybody,
+  // which made a breakdown a delay rather than a decision. The decision now happens hours earlier,
+  // at a depot, when you either bought a box of spares or told yourself you would be fine.
+  const spares = await sparesInHand(player);
+  if (!spares) {
+    return say(`<span class="text-amber">You know exactly what ${b.label} needs. You do not have it.</span>\n`
+      + `<span class="text-dim">A box of truck spares is a depot counter and a few credits, and it is the difference between `
+      + `this and a tow. <b>${teachVerb('tow', 'tow')}</b>, then.</span>`);
+  }
   const fab = await effectiveSkill(player, 'fabrication');
+  if (fab < FIX_MIN_FAB) {
+    return say('<span class="text-amber">You have the part in your hand and no idea which end of it goes where.</span>\n'
+      + `<span class="text-dim">This is a job for somebody who has done it before. <b>${teachVerb('tow', 'tow')}</b>.</span>`);
+  }
   const odds = fixOdds(fab, rig.broken.attempts);
   rig.broken.attempts++;
+  // THE PART IS SPENT ON THE ATTEMPT, NOT ON THE SUCCESS. You cut the hose to length before you
+  // find out whether it holds, and a system where failure costs nothing is a system where you
+  // simply retry until it works — which is what this replaced.
+  await spendSpares(spares);
   if (Math.random() >= odds) {
     await awardSkillUse(player.id, 'fabrication', 0);
     return say(`<span class="text-amber">You get at ${b.label} with what is in the box, and it beats you. `
@@ -1266,6 +1386,111 @@ async function cmdFix(args, raw, player) {
   pushCab(rig, { fixed: true });
   return say(`<span class="item-grant">${b.fixed}</span>\n`
     + `<span class="text-dim">It will hold for a while. It is not repaired — that is a bench and a bill, and the bar on it has not moved.</span>`);
+}
+
+// Resolved by ITEM ID rather than by name or tag. A tag would be the house preference, but a tag
+// exists to let CONTENT decide which things behave a certain way, and there is exactly one thing
+// here: a box of spares for a truck. Inventing a vocabulary entry for a set of size one is how tag
+// catalogues get to two hundred entries nobody can remember.
+async function sparesInHand(player) {
+  const { rows } = await query(
+    `SELECT id, quantity FROM player_inventory
+      WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND quantity > 0 LIMIT 1`,
+    [player.id, SPARES_ITEM]
+  ).catch(() => ({ rows: [] }));
+  return rows[0] || null;
+}
+async function spendSpares(row) {
+  if (row.quantity > 1) await query('UPDATE player_inventory SET quantity = quantity - 1 WHERE id=$1', [row.id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+}
+
+// ── tow ──────────────────────────────────────────────────────────────────────
+// THE WAY OUT, AND THE ONLY ONE THAT COSTS MONEY. Everything else in this system can be answered
+// with time, a spanner or a walk; this is what a driver reaches for when the truck is genuinely
+// finished, and it is deliberately expensive, because the whole of the condition bar means nothing
+// if the bottom of it is cheap.
+//
+// TWO OUTCOMES, and the second one is why this can never strand anybody:
+//
+//   PAID     — a low-loader comes out, the rig goes back to the depot it started from, and you go
+//              with it. The truck is still wrecked; a tow is transport, not a repair. That bill is
+//              the bench's, and it is waiting for you.
+//   UNPAID   — the recovery firm takes it anyway and holds it against the fee. That is an IMPOUND,
+//              which this system already has and already knows how to release: `drive` pays the
+//              lot and hands the truck back, so there is no new verb, no new state, and no way to
+//              end up with a truck that exists nowhere. You still get carried home. You are broke
+//              and on foot and your truck is behind a fence, which is a hole to dig out of rather
+//              than a dead end — and it is the honest price of driving a rig into the ground.
+//
+// Reusing the impound path is the entire reason this is short. The alternative — a debt column, a
+// bespoke "recovered" state, a second release verb — would have been three new pieces of state to
+// answer a question `impound_fee` already answers.
+async function cmdTow(args, raw, player) {
+  const rig = rigOf(player);
+  if (!rig) return say('You are not driving anything, so there is nothing out here to come and get.');
+  if (!rig.broken && !rig.dry && !isTerminal(rig.condition)) {
+    return say('It is going. Whatever you think is wrong with it, a recovery driver is going to charge you to '
+      + 'tell you the same thing. <span class="text-dim">If you have simply had enough, <b>park</b>.</span>');
+  }
+  const truck = rig.truckId ? await getTruck(rig.truckId, player.id) : null;
+  if (!truck) return say('There is no paperwork on this thing. Nobody is coming out for it.');
+
+  // Home is the depot it belongs to. Not the nearest one — a recovery firm takes a truck to the
+  // yard whose name is on the movement order, which is the yard you set out from.
+  const homeId = truck.depot_zone || rig.fromDepot || rig.zoneId;
+  const fee = towFee(truck.type, rig.zoneId || homeId, homeId);
+  const canPay = (player.credits || 0) >= fee;
+
+  // The truck comes off the road either way, and that is one statement rather than two branches:
+  // where it ends up is the same, only who owns the debt changes.
+  await query(
+    'UPDATE trucks SET depot_zone=$1, impound_fee = COALESCE(impound_fee,0) + $2 WHERE id=$3 AND owner_id=$4',
+    [homeId, canPay ? 0 : fee, truck.id, player.id]
+  ).catch(() => {});
+  if (canPay) {
+    player.credits = (player.credits || 0) - fee;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+    sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  }
+
+  // The load is dropped with the truck, not carried by a man in a cab — a recovery driver is not
+  // going to hand-ball somebody else's freight into the back of their pickup.
+  const lostLoad = rig.cargo ? ' The load goes back to the yard on the same ramps, and the contract on it is dead.' : '';
+  rig.cargo = null;
+
+  // Down off the road, on `park`'s own machinery — the truck's home is written above, so the rig's
+  // own zone is set to match before the flush, and everything else (the text run, the fuel and
+  // odometer flush, the posture, closing the pane) is the sequence park already established.
+  rig.zoneId = bayForYard(homeId)?.zone.id || homeId;
+  dismountRig(player.id);
+  stopTextDrive(player.id);
+  await flushZone(player, rig);
+  // The road remembers this one too. A recovered rig left a wreck on the shoulder exactly as an
+  // abandoned one does — it is the same truck, in the same place, for the same reason.
+  if (rig.leg !== 'city') markWreck(rig, player);
+  await persistTruck(rig);
+  setPosture(player, 'standing');
+  // YOU GET THE RIDE, and that is the whole difference between this and `park`. Walking away leaves
+  // you where you stood; a tow is a thing you are IN, so the player travels with the truck.
+  const homeZone = getZone(rig.zoneId) || getZone(homeId);
+  if (homeZone && homeZone.id !== player.current_zone) {
+    removePlayerFromZone(player.current_zone, player.id);
+    player.current_zone = homeZone.id;
+    addPlayerToZone(homeZone.id, player.id);
+    await query('UPDATE players SET current_zone=$1 WHERE id=$2', [homeZone.id, player.id]).catch(() => {});
+  }
+  sendToPlayer(player.id, { type: 'truck_sim_close' });
+
+  return say(canPay
+    ? `<span class="text-amber">You make the call and then you sit on the step for a long time.</span>\n`
+      + `<span class="text-dim">The low-loader that turns up is older than your truck and considerably better maintained. `
+      + `You ride back in the passenger seat with your boots on the dash, and nobody says anything the whole way.${lostLoad} `
+      + `The ${truck.type.name} is at ${depotNameOf(homeId)}, and it is going to need a bench.</span> <span class="item-loss">-${fee}₵</span>`
+    : `<span class="text-amber">You make the call. The recovery driver looks at your account, then at the truck, then at you.</span>\n`
+      + `<span class="text-dim">They take it anyway — that is the part people forget about recovery firms — and they keep it. `
+      + `${fee}₵ is what it costs to see it again, and it is sitting behind their fence at ${depotNameOf(homeId)} until you have it.${lostLoad} `
+      + `They drop you at the gate. It is a long way to anywhere from there.</span>`);
 }
 
 // ── truckevent ───────────────────────────────────────────────────────────────
@@ -1290,29 +1515,52 @@ async function cmdTruckEvent(args, raw, player) {
   if (ev === 'bump' || ev === 'crash') {
     const mph = Math.max(0, Math.min(70, Number(args[1]) || 0));
     rig.speed = 0;
+    // ONE INCIDENT, ONE LINE. The client rebounds off geometry and rate-limits its own reports, but
+    // a driver working along a row of shopfronts can still land several inside a few seconds, and
+    // the log is the thing that suffers. This is the server's own floor under that: below it the
+    // impact still WEARS the rig — the bill is real either way — it simply does not narrate.
+    const now = Date.now();
+    const quiet = rig._lastImpactAt && now - rig._lastImpactAt < 8000;
+    rig._lastImpactAt = now;
     // The rig wears what it hit. In RAM like every other wear on this path, clamped off the same
     // server-side speed the crime code trusts — so a client cannot claim a gentle nudge to save
     // itself a repair bill any more than it can claim a gentle nudge to dodge the police.
-    rig.condition = Math.max(0, (rig.condition ?? 1) - wearForImpact(ev === 'bump' ? mph * 0.25 : mph));
+    // WHERE IT LANDS, not just how much. `wearForImpact` still owns the total (and still clamps
+    // off the server's own speed, so a client cannot claim a gentle nudge to save itself a bill);
+    // `impactSplit` decides which components eat it, off the area the client observed. A rear
+    // impact with a box on the back is the trailer's, not the tractor's — which is the whole
+    // reason the trailer has its own bar.
+    const area = IMPACT_AREAS.includes(args[2]) ? args[2] : 'front';
+    const total = wearForImpact(ev === 'bump' ? mph * 0.25 : mph);
+    if (area === 'rear' && rig.trailer) {
+      // You reversed a trailer into something. The tractor barely felt it; the box did.
+      rig.trailer.condition = Math.max(0, (rig.trailer.condition ?? 1) - total * 0.8);
+      await setTrailerCondition(rig.trailer.id, rig.trailer.condition).catch(() => {});
+      applyDamage(rig, impactSplit(total * 0.2, 'rear'));
+    } else {
+      applyDamage(rig, impactSplit(total, area));
+    }
     if (ev === 'bump') {
       pushCab(rig, { stopped: true });
+      if (quiet) return { type: 'noop' };
       return say('You nose into it at walking pace. Something plastic gives, somewhere behind you.');
     }
     pushCab(rig, { stopped: true });
 
-    // PHASE 4 — A CRASH IN A CITY IS A CRIME; a crash in the waste is a bad afternoon. Same impact,
-    // same speed, different consequence, and the difference is simply whether anybody was there to
-    // see it. That is not a special case bolted onto trucking — it is the witnessed-crime system
-    // doing exactly what it already does for everything else, and it is the whole reason driving in
-    // a populated place has to feel different from driving on an empty road.
+    // NO CHARGE FOR HITTING A BUILDING. This used to raise `vandalism` through the witnessed-crime
+    // system whenever a city-leg impact cleared RECKLESS_MPH, and the reasoning was sound in the
+    // abstract — you have destroyed somebody's property in the street, which is what that charge is
+    // for. In practice it was the one consequence in the whole sim that nobody could consent to:
+    // the corridor is narrow, the buildings ARE the corridor walls, and the collision probe is a
+    // geometric sweep with no notion of intent, so an ordinary bend taken slightly wide put stars
+    // on a driver who was doing the job correctly. A wanted level you acquire by steering is not a
+    // crime system, it is a tax on the render distance.
     //
-    // `vandalism` rather than something bespoke: you have destroyed somebody's property in the
-    // street, which is what that charge is for. The waste has no owners and no witnesses, so the
-    // corridor leg is charged with nothing at all.
+    // The truck still pays: it wears (above), the load still spoils (below), and the rebound costs
+    // you every mile an hour you had. Damage to the rig is the consequence, and it is enough of one.
+    // (If deliberate ramming ever needs charging, that wants a test for INTENT — repeated impacts
+    // on the same structure, at speed, off-route — not a speed threshold on an accident.)
     const inTown = rig.leg === 'city';
-    if (inTown && mph >= RECKLESS_MPH) {
-      await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'vandalism' } }).catch(() => {});
-    }
 
     // The load takes it. A trailer full of somebody else's freight that has just been through a
     // wall is worth less than it was, and the contract pays on what arrives.
@@ -1322,12 +1570,13 @@ async function cmdTruckEvent(args, raw, player) {
       if (lost > 0) { rig.cargo.pay = (rig.cargo.pay || 0) - lost; spoiled = ` <span class="text-amber">The load is worth ${lost}₵ less than it was.</span>`; }
     }
 
+    if (quiet && !spoiled) return { type: 'noop' };
     return {
       type: 'emote',
-      message: `<span class="text-amber">You put ${mph} mph of loaded truck into a building. The world goes sideways, the load shifts with a bang like a dropped piano, and everything stops.</span>`
+      message: `<span class="text-amber">You put ${mph} mph of loaded truck into a building. The world goes sideways, the load shifts with a bang like a dropped piano, and the rig comes back off it hard.</span>`
         + spoiled
         + (inTown && mph >= RECKLESS_MPH
-          ? `\n<span class="text-dim">People are already coming out to look at it, and somebody has a slate out.</span>`
+          ? `\n<span class="text-dim">People are coming out to look at it. Nobody has a slate out — they have seen worse done to that wall.</span>`
           : ''),
     };
   }
@@ -1611,7 +1860,17 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
 
 // A driver who dies, logs out, or otherwise stops being a driver leaves no rig behind in RAM.
 // (The crossing itself is voidwalking's to clean up; this is only the steering wheel.)
-on('player.logout', ({ id }) => rigs.delete(id));
+// LOGGING OUT IN THE CAB IS NOT LOSING THE TRUCK. This used to be a bare `rigs.delete(id)`, which
+// is correct as cleanup and wrong as consequence: a dropped socket in the middle of the waste ended
+// the haul, and the haul is the game. `saveDrivingState` writes ONE record and then deletes the rig
+// itself, so the cleanup still happens on every path. See resume.js for what is and is not stored.
+on('player.logout', ({ id }) => { saveDrivingState(id).catch(() => rigs.delete(id)); });
+// …and back in. Nothing here can strand a login: every failure inside returns false and leaves the
+// player standing exactly where the ordinary login put them.
+on('player.login', async ({ id }) => {
+  const player = getLivePlayer(id);
+  if (player) await restoreDrivingState(player, { mountOnCrossing }).catch(() => {});
+});
 on('player.death', ({ id }) => { if (rigs.has(id)) { rigs.delete(id); sendToPlayer(id, { type: 'truck_sim_close' }); } });
 
 // ── The fifth wheel ──────────────────────────────────────────────────────────
@@ -1868,6 +2127,7 @@ export const commands = {
   dropoff: cmdDropoff,
   park: cmdPark,
   fix: cmdFix,
+  tow: cmdTow,
   cb: cmdCb,
   horn: cmdHorn,
   honk: cmdHorn,   // both, because half the people who want this will type the other one

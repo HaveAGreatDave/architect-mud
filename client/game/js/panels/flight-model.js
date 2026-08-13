@@ -726,8 +726,26 @@ function stepTruck(state, input, p, dt) {
   // centre and you hold a line, where a boat's helm sets a course and keeps it. (This is the one
   // real behavioural change made to the shared helm-wheel widget; see its `absolute` mode.)
   const steer = clamp(input.steer || 0, -1, 1);
-  const throttle = clamp(input.throttle || 0, 0, 1);
   const brake = clamp(input.brake || 0, 0, 1);
+
+  // THE PEDAL IS NOT THE ENGINE. A big turbodiesel does not make its torque the instant a foot
+  // moves: the pedal opens the rack, the rack builds boost, and boost is what pulls. Until now
+  // `throttle` went straight into `drive`, so the truck answered a keypress like a go-kart — and
+  // the harder the gear multiplied it (`ratioBoost`), the more violent that was, which is why the
+  // twitchiest place to drive was FIRST, the gear you spend all your yard time in.
+  //
+  // So the throttle is a first-order FOLLOWER (`s.pedal`) and the lag is GEAR-DEPENDENT: a deep
+  // reduction is a lot of driveline to wind up, so low gears come in slowest. Lifting is quick —
+  // fuel stops being fuel immediately, and a throttle that hung on the way DOWN would be a truck
+  // you cannot park. Nothing else in the model changed; every consumer below reads `throttle`,
+  // which is now the boosted number rather than the pedal position.
+  const pedal = clamp(input.throttle || 0, 0, 1);
+  const gearIdx = Math.abs(clamp(s.gear ?? 1, -1, p.gears.length - 1));
+  // 1st ≈ 1.05 s to full pull, top ≈ 0.36 s. Reverse takes first's number, as it takes its ratio.
+  const spool = 0.95 + 2.0 * ((gearIdx <= 1 ? 0 : gearIdx - 1) / Math.max(1, p.gears.length - 2));
+  const rate = pedal > (s.pedal ?? 0) ? spool : 6.0;
+  s.pedal = clamp((s.pedal ?? 0) + (pedal - (s.pedal ?? 0)) * Math.min(1, rate * dt), 0, 1);
+  const throttle = s.pedal;
 
   // 1. Surface. The corridor tells us what is under the tyres; the model only knows how each one
   //    behaves. Grip scales cornering, drag scales how hard it is to hold speed, and `cap` is the
@@ -976,6 +994,7 @@ export function createTruckState(p) {
   return {
     speed: 0, heading: 180, x: 0, y: 0,          // parked at the gate, pointed down-corridor (south)
     rpm: IDLE, yawRate: 0, slip: 0, wasSliding: false,
+    pedal: 0,                                    // boost, not pedal position — see the spool follower in stepTruck
     gear: 1, split: false, stalled: false, inBand: false, shifted: false,
     onRoad: true, groundSpeed: 0,
     // The rig. `hitched` false is BOBTAIL and is a real way to drive, not an unfinished one:
@@ -995,6 +1014,8 @@ export function truckReadout(s, p) {
     rpm: Math.round(s.rpm * 100),
     gear: s.gear, gears: p.gears.length - 1,
     inBand: !!s.inBand, stalled: !!s.stalled,
+    pedal: +(s.pedal || 0).toFixed(2),           // BOOST, not pedal position — what the engine is actually making
+
     best: bestGear(s.speed, p),                 // a suggestion, never an automatic
     slip: +s.slip.toFixed(2),
     hitched: !!s.hitched, phi: +(s.phi || 0).toFixed(1),

@@ -44,7 +44,19 @@ export function createHelmWheel(canvas, opts = {}) {
 
   const centre = () => { const r = canvas.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   const angOf = (e, c) => Math.atan2(e.clientY - c.y, e.clientX - c.x);
-  function down(e) { if (!enabled) return; const c = centre(); grabbing = true; lastPA = angOf(e, c); vel = 0; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
+  function down(e) {
+    if (!enabled) return;
+    // The horn boss. A press inside the hub is the horn and is NOT a grab — pulling the wheel by
+    // its centre gives you almost no leverage anyway (the angle delta at r≈0 is noise), so this
+    // costs no steering and buys the control that is drawn there.
+    if (TRUCK_ART && onHorn) {
+      const b = canvas.getBoundingClientRect();
+      const R = Math.min(b.width, b.height) / 2 - 2;
+      if (Math.hypot(e.clientX - (b.left + b.width / 2), e.clientY - (b.top + b.height / 2)) < R * 0.30) {
+        onHorn(); e.preventDefault(); return;
+      }
+    }
+    const c = centre(); grabbing = true; lastPA = angOf(e, c); vel = 0; lastT = performance.now(); canvas.setPointerCapture?.(e.pointerId); canvas.style.cursor = 'grabbing'; e.preventDefault(); }
   function move(e) {
     if (!grabbing) return;
     const c = centre(), pa = angOf(e, c);
@@ -71,6 +83,9 @@ export function createHelmWheel(canvas, opts = {}) {
   // centre on release. Same widget, same art, same feel in the hand; the only difference is which
   // of the two questions it is answering. The yacht never passes `mode`, so it is untouched.
   const ABSOLUTE = opts.mode === 'absolute';
+  // Which wheel is drawn. The yacht never passes this, so it keeps the helm it always had.
+  const TRUCK_ART = opts.art === 'truck';
+  const onHorn = opts.onHorn || null;              // the boss is a button, because on a truck it is
   const LOCK = (opts.lock || 1.6) * Math.PI;   // wheel rotation (rad) from centre to full lock
   const RETURN = opts.selfCentre ?? 5.0;       // how briskly the axle walks back to centre (per s)
   const KEY_RATE = opts.keyRate ?? 3.2;        // radians/s a held arrow key winds the wheel on
@@ -104,7 +119,94 @@ export function createHelmWheel(canvas, opts = {}) {
     reported = angle;
   }
 
+  // ── THE TRUCK WHEEL ───────────────────────────────────────────────────────
+  // `art: 'truck'` replaces the yacht's helm entirely, and it had to: what was on the cab's dash
+  // was a five-spoke ship's wheel with a COMPASS BEZEL around it and ECHELON stamped on the boss —
+  // a yacht's instrument, in a diesel truck, telling a driver their heading in cardinal points
+  // while they tried to hold a lane. The bezel was actively misleading, because in absolute mode
+  // the thing you steer with is the wheel's POSITION and the bezel is a fixed ring that never moves
+  // with it; a driver reading N/E/S/W was reading a control they were not operating.
+  //
+  // So: no bezel, no cardinal points, no wordmark, no course needle. A three-spoke commercial-
+  // vehicle wheel, a horn boss, and the ONE indicator a truck actually has — a lock gauge under the
+  // hub showing how much steering is wound on and which way. It fills the whole canvas, because the
+  // ring you have to be able to grab with a thumb is the primary control in this cab.
+  function drawTruck() {
+    const box = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, box.width, box.height);
+    ctx.globalAlpha = enabled ? 1 : 0.4;
+    const cx = box.width / 2, cy = box.height / 2, R = Math.min(box.width, box.height) / 2 - 2;
+    const rimO = R * 0.97, rimI = R * 0.78, hubR = R * 0.30;
+    const lock = Math.max(-1, Math.min(1, angle / LOCK));
+
+    // The lock gauge: a fixed arc across the bottom with a travelling pip. It does NOT rotate, and
+    // that is the point — it is the one part of the display that answers "how much have I got on?"
+    // when the wheel itself has been spun far enough that you have lost count of the spokes.
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.lineWidth = Math.max(2, R * 0.035); ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(120,140,160,0.25)';
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.995, Math.PI * 0.18, Math.PI * 0.82); ctx.stroke();
+    const gA = Math.PI * 0.5 + lock * Math.PI * 0.32;
+    ctx.strokeStyle = Math.abs(lock) > 0.92 ? '#d2603f' : accent;
+    ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.995, Math.PI * 0.5, gA, lock < 0); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Centre notch — the straight-ahead mark you steer back to.
+    ctx.strokeStyle = 'rgba(210,225,240,0.55)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, R * 0.94); ctx.lineTo(0, R * 1.05); ctx.stroke();
+    ctx.restore();
+
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+    // The rim: moulded polyurethane over a steel core, not carbon. Two tones and a highlight is
+    // enough to read as something you grip rather than something you polish.
+    const rg = ctx.createRadialGradient(0, -rimO * 0.4, rimI * 0.2, 0, 0, rimO);
+    rg.addColorStop(0, '#3a3f47'); rg.addColorStop(0.55, '#23272d'); rg.addColorStop(1, '#14171b');
+    ctx.beginPath(); ctx.arc(0, 0, rimO, 0, 7); ctx.arc(0, 0, rimI, 0, 7, true);
+    ctx.fillStyle = rg; ctx.fill('evenodd');
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+    ctx.beginPath(); ctx.arc(0, 0, rimO - 1, 0, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath(); ctx.arc(0, 0, rimI + 1, 0, 7); ctx.stroke();
+    // Thumb grips at ten and two — the two places a hand actually lives, and the fastest read of
+    // which way up the wheel is when it is wound over.
+    for (const a of [-Math.PI * 0.72, -Math.PI * 0.28]) {
+      ctx.save(); ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      roundRect(ctx, -R * 0.055, -rimO + R * 0.02, R * 0.11, (rimO - rimI) - R * 0.04, R * 0.03);
+      ctx.fill(); ctx.restore();
+    }
+    // Three spokes: one up, two down at 120°. A truck wheel, in one line of geometry.
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.rotate(i / 3 * Math.PI * 2);
+      const sg = ctx.createLinearGradient(-R * 0.06, 0, R * 0.06, 0);
+      sg.addColorStop(0, '#1a1e23'); sg.addColorStop(0.5, '#333941'); sg.addColorStop(1, '#1a1e23');
+      ctx.fillStyle = sg;
+      roundRect(ctx, -R * 0.075, -rimI - 1, R * 0.15, rimI - hubR * 0.55, R * 0.05); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // The boss stays UPRIGHT — it is bolted to the column, not to the rim, and a horn push that
+    // spun round with the wheel would be the one part nobody could aim for.
+    ctx.save(); ctx.translate(cx, cy);
+    const bg = ctx.createRadialGradient(-hubR * 0.3, -hubR * 0.35, 1, 0, 0, hubR);
+    bg.addColorStop(0, '#2c323a'); bg.addColorStop(1, '#0d1013');
+    ctx.beginPath(); ctx.arc(0, 0, hubR, 0, 7); ctx.fillStyle = bg; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, R * 0.018); ctx.strokeStyle = shade(accent, 0.8);
+    ctx.beginPath(); ctx.arc(0, 0, hubR * 0.92, 0, 7); ctx.stroke();
+    ctx.fillStyle = shade(accent, 0.9);
+    ctx.font = `700 ${Math.max(7, hubR * 0.26)}px 'DejaVu Sans Mono',monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('HORN', 0, 0);
+    ctx.restore();
+  }
+
   function draw() {
+    if (TRUCK_ART) return drawTruck();
     const box = canvas.getBoundingClientRect();
     const dpr = Math.min(2, devicePixelRatio || 1);
     const W = Math.max(2, Math.round(box.width * dpr)), H = Math.max(2, Math.round(box.height * dpr));

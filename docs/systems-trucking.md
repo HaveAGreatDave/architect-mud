@@ -918,13 +918,84 @@ The waste run is the game; being shown it has to be a certainty, not a dice roll
 found it by no longer being able to find a crossing to take — the test failure and the bug were the
 same fact.
 
-**A crash in a city is a crime; a crash in the waste is a bad afternoon.** Same impact, same speed,
-different consequence, and the difference is only whether anybody was there to see it. Past
-`RECKLESS_MPH` on the city leg it charges `vandalism` — you have destroyed somebody's property in
-the street — and the witnessed-crime system does the rest with nothing bespoke. The corridor is
-charged with nothing at all, because the waste has no owners and no witnesses. The load takes it
-either way: freight that has just been through a wall is worth less, and the contract pays on what
-arrives.
+## Damage, per component *(2026-08-13)*
+
+⚠ **This supersedes rule 1 at the top of `rig.js`** ("condition is a scalar; there is no damage
+model"). That rule was right for the system it was written for — a truck you drove until a bar went
+down and then paid to put back up. What broke it is that the truck became a thing you **crash**:
+with real collision geometry, four hundred miles of gravel and a rebound off a wall are the same
+event to a single scalar, and they are not the same event.
+
+Four components, each earning its place by answering something the others cannot — **engine**
+(makes power; wears with distance and abuse), **wheels** (hold the road; wear with distance and
+*much* faster off the tarmac), **body** (holds the shape; wears with **nothing but impacts**, so its
+bar is a history rather than a maintenance schedule), and **trailer** (its own `trailers.condition`
+column, because a box outlives the tractor that towed it and damage that followed the truck would
+heal every time you swapped trailers).
+
+Three decisions carry it:
+
+- **The headline number survives, and is now derived.** `trucks.condition` is still a column, still
+  persisted, still what resale, the five bands, `repairCost` and the breakdown roll read — it is
+  computed by `overall()` instead of written directly. That is the whole reason this was affordable:
+  nothing downstream of the truck's health had to learn that components exist. The bag lives in
+  `trucks.custom_data.dmg` (no new sparse columns), merged with `jsonb_set` so a flush from the road
+  cannot clobber a tune committed at a bench.
+- **The weakest link, not a mean** — weighted 0.6 worst / 0.4 average. An average lets a pristine
+  engine hide destroyed wheels, and the destroyed wheels are the thing about to end your evening.
+  A truck with one dead system reads as a dead truck, because it is one. **At parity the derivation
+  returns exactly the old number**, which is the migration invariant that made switching a live
+  fleet net-zero; regress asserts it at five points across the range.
+- **The body has no mechanical effect, ever.** It costs resale and it costs how the truck looks, and
+  it must never quietly make you slower — the moment it does it is a second engine bar with a
+  different name. Regress asserts `partEffects` is identity for a destroyed body.
+
+Impacts route off an `area` token the client sends with `truckevent` (`front`/`rear`/`side`, derived
+from the direction of travel and how much lock was on). **Every area costs the same total** and only
+the destination changes, which is what makes an unverifiable client fact safe to trust: a side
+scrape is a tyre bill, a nose-first hit reaches the engine, and reversing a loaded rig into
+something is charged 80% to the *trailer*. Nothing is cheaper to hit.
+
+At a bench, `rig repair shop engine` fixes one component and charges a third of the whole-truck
+bill, so three targeted repairs cost the same as one whole one and there is no arbitrage. The
+default stays whole-truck — nobody should have to learn a parts vocabulary to keep a truck running.
+In the cab, a four-pip strip sits bottom-left and opens into labelled bars (`D`); the client
+computes no band and no colour, it renders `cabContext.dmg`.
+
+**The bottom of the bar is a wall, not a steeper slope.** At or below `TERMINAL_CONDITION` the next
+tile breaks the rig every time and `fix` refuses outright — a truck at zero is not a truck with bad
+luck, it is scrap that is still moving. A roadside `fix` now needs a `item_truck_spares` box (spent
+on the **attempt**, not the success) and Fabrication ≥ 12, which is what makes `tow` reachable at
+all: paid, a low-loader takes you and the rig home; unpaid, it is recovered and held against the
+fee on the existing `impound_fee` path that `drive` already settles. So nobody is ever stranded and
+nothing new stores the debt.
+
+---
+
+**A wall pushes back; it does not arrest you.** ⚠ *Revised 2026-08-13 — this section previously
+described a crash as a crime and a dead stop, and both halves are gone.*
+
+An impact used to charge `vandalism` through the witnessed-crime system past `RECKLESS_MPH` on the
+city leg, on the reasoning that you have destroyed somebody's property in the street. In the
+abstract that is correct. In practice it was the one consequence in the sim nobody could consent
+to: the corridor is narrow, the **buildings are its walls**, and the collision probe is a geometric
+sweep with no notion of intent — so an ordinary bend taken slightly wide put stars on a driver who
+was doing the job properly. A wanted level you acquire by *steering* is not a crime system, it is a
+tax on the render distance. Nothing is charged now. (If deliberate ramming ever wants charging, it
+needs a test for INTENT — repeated impacts on one structure, at speed, off-route — not a speed
+threshold on an accident.)
+
+The other half was the physics. Contact put the rig back at its last clear position and set the
+speed to zero, which left it nosed **into** the geometry with the throttle still down: the next
+frame collided again, at whatever speed the pedal had rebuilt, and the log filled with identical
+impact lines. It now **rebounds** — pushed back along its own heading with a fifth of its speed,
+reversed and capped at walking pace — so the two bodies separate and you can drive out of it
+without hunting for reverse against a wall. Reporting is floored (`REPORT_MPH`) and rate-limited on
+both sides: below it the impact still *wears* the rig, it simply does not narrate, because the
+jolt on the glass and the rebound have already said it.
+
+The load still takes it: freight that has just been through a wall is worth less, and the contract
+pays on what arrives.
 
 ---
 

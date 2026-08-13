@@ -1280,7 +1280,13 @@ export function paintWindshield(id, view) {
   // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
   // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
   // slots in the layer order, different vehicle. (THE LONG HAUL — plugins/trucking.)
-  if (!v.windowClass && !ext && v.cls === 'truck') drawCabInterior(ctx, W, H, v);
+  // `!v.viewYaw` is the truck's shoulder-check. The painted cab is a FORWARD interior — dash,
+  // A-pillars, mirrors, the lot — so drawing it over a view that is turned 90° or 180° off the nose
+  // put the windscreen surround on top of the side window you were trying to look out of. Looking
+  // off the nose in a truck is looking out a different piece of glass, and there is no dash behind
+  // it. (No `windowClass` here on purpose: that punches a framed porthole through a HULL, which is
+  // an aircraft's cabin. A truck's side window is just a window.)
+  if (!v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw) drawCabInterior(ctx, W, H, v);
   else if (!v.windowClass && !ext) {
     drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
     drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect MUD — The Nine Orders: What Each One Actually Gives You</title>
+<style>
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:56px 32px 96px}
+
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25}
+  .sub{color:var(--muted); margin:0 0 6px; font-size:15px}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:56px 0 16px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h3{font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:26px 0 8px}
+  p{font-size:15px; margin:0 0 15px}
+  .lead{font-size:16.5px; color:#f2f2fb}
+  strong{color:#fff}
+  em{color:var(--muted)}
+
+  /* Order plate */
+  .order{border:1px solid var(--line); background:var(--panel); margin:34px 0; position:relative}
+  .order .bar{height:3px; background:var(--cyan)}
+  .order .body{padding:24px 28px 26px}
+  .order h2{margin:0 0 4px; border:0; padding:0; font-size:20px; letter-spacing:.06em; color:#fff; text-transform:none}
+  .order h2::before{content:none}
+  .order .creed{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); margin:0 0 14px}
+  .order .pull{font-size:17px; color:#f2f2fb; font-style:italic; border-left:2px solid var(--accent); padding-left:16px; margin:0 0 18px; line-height:1.55}
+  .order .status{position:absolute; top:14px; right:18px; font-family:var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; padding:3px 9px; border:1px solid}
+  .st-open{color:var(--good); border-color:rgba(57,255,143,.4); background:rgba(57,255,143,.07)}
+  .st-soon{color:var(--hint); border-color:var(--line); background:rgba(255,255,255,.02)}
+
+  .verbs{font-family:var(--mono); font-size:13px; background:var(--panel2); border:1px solid var(--line-soft); padding:12px 16px; margin:14px 0 4px; color:var(--cyan); line-height:2}
+  .verbs .k{color:var(--hint); display:block; font-size:10px; letter-spacing:.2em; text-transform:uppercase; margin-bottom:4px}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:12px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  td.m{font-family:var(--mono); font-size:12.5px}
+  td.g{color:var(--good)} td.h{color:var(--hint)}
+
+  ul{padding-left:20px; margin:8px 0} li{font-size:15px; margin:7px 0}
+  li::marker{color:var(--cyan)}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.bad{background:rgba(255,59,92,.06); border-color:rgba(255,59,92,.32); border-left-color:var(--bad)}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:7px}
+  .callout.bad .tag{color:var(--bad)}
+  .aside{color:var(--muted); font-size:14px}
+  .foot{margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--hint); font-size:11.5px; font-family:var(--mono); line-height:1.8}
+  @media print{ body{background:#fff} .wrap{max-width:none} .order{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <p class="stamp">Coldwater Basin · Field Guide · Unlicensed</p>
+    <h1>The Nine Orders,<br>and What They Do to You</h1>
+    <p class="sub">Everyone in the Basin wants you for something. Here is what each of them is offering, in plain words.</p>
+    <p class="meta">type <code>ideologies</code> in game &nbsp;·&nbsp; or open CODEX → ORDERS on your tablet</p>
+  </div>
+
+  <p class="lead">Nobody in Coldwater will ask you to sign anything. You take a side by acting like you already have: what you buy, what you refuse, who you help, what you let people do to your body. Do enough of it and doors open. Do enough of the opposite and they close, and stay closed.</p>
+
+  <p>Nine orders. Every one of them agrees on the diagnosis, which is that the species stalled, and every one of them has a different answer for what to do about it. The argument runs on two questions.</p>
+
+  <h2>The two questions</h2>
+
+  <p><strong>First: is the city worth keeping?</strong> Half the orders say yes, the machine city can be fixed and taken back. The other half say no, walk out and let it rot. That is your <em>stance</em>: <strong>redeem</strong> or <strong>renounce</strong>.</p>
+
+  <p><strong>Second: what do you change to get stronger?</strong> That is your <em>path</em>, and there are four answers.</p>
+
+  <table>
+    <thead><tr><th>Path</th><th>The answer</th><th>What it costs you</th></tr></thead>
+    <tbody>
+      <tr><td class="m">machine</td><td>Bolt something better onto yourself, or take somebody else's apart.</td><td>Money, and a body full of parts that other people can reach.</td></tr>
+      <tr><td class="m">flesh</td><td>Let the meat rewrite itself. Grow the answer.</td><td>Pain, and a face people cross the street to avoid.</td></tr>
+      <tr><td class="m">mind</td><td>Do the impossible from a standing start, without touching anything.</td><td>Blood out of your ears, and a reputation for being a liar until you are not.</td></tr>
+      <tr><td class="m">human</td><td>Change nothing. Get better instead.</td><td>Time. An enormous amount of it.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Two stances times four paths, plus the Long Watch and the Pioneers splitting the human road between staying and leaving, gives you nine. Here they are.</p>
+
+  <table>
+    <thead><tr><th></th><th>machine</th><th>flesh</th><th>mind</th><th>human</th></tr></thead>
+    <tbody>
+      <tr><th>redeem the city</th><td class="m">Ascendants<br>Prometheans</td><td class="m">Synthesis</td><td class="m">Lucid</td><td class="m">Long Watch</td></tr>
+      <tr><th>renounce it</th><td class="m">The Null</td><td class="m">Wildblood</td><td class="m">Exodus</td><td class="m">Pioneers</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="tag">Standing is maintained, not banked</span>
+    <p>Reputation with an order decays back toward where your beliefs put you. Do favours for people whose stance and path both oppose yours and it will bleed away no matter how many favours you do. You cannot grind your way into being liked by everyone. Take a real position and some doors shut behind you.</p>
+  </div>
+
+  <!-- ================= ASCENDANTS ================= -->
+  <div class="order">
+    <div class="bar" style="background:#4A90D9"></div>
+    <div class="body">
+      <span class="status st-open">Open now</span>
+      <h2>The Ascendants</h2>
+      <p class="creed">redeem · machine · "advance"</p>
+      <p class="pull">"We did not build a god to kneel before it. We built it to become it."</p>
+
+      <p>They think the Architect is humanity's finest work, and that the correct response to a body is to replace it with better parts. Rise with them and the chrome-doctors stop gouging you: labs open, prices bend, and their fixers vouch for you at doors that stay shut to mere meat.</p>
+
+      <h3>What you actually do</h3>
+      <p>You buy an augment as an ordinary item, carry it around, and find a surgeon to put it in you. The surgery is a real roll. Clean work leaves it running well. Rough work leaves it running badly forever. A botched job means you paid for a hole in your arm and got nothing.</p>
+      <p>Fresh chrome never runs at full spec, so you tune it yourself. Then you push it past spec when you need to, and it gets hot, and heat eats the hardware. Chrome at zero condition does not explode; it goes dead and sits there until a surgeon opens you back up. Back your mind up and death becomes a bill instead of an ending.</p>
+
+      <div class="verbs"><span class="k">verbs</span>augments · augment &lt;name&gt; · calibrate · backup · assurance</div>
+
+      <h3>The catch</h3>
+      <p>Everything in you is a machine, and machines can be reached. A Null who knows what they are doing can lock your arm, spike your power, or simply switch your eye off from across the room, and the harder you overclock the worse that goes for you. The Long Watch will never take you seriously again. And if you die badly, the parts corrupt.</p>
+    </div>
+  </div>
+
+  <!-- ================= WILDBLOOD ================= -->
+  <div class="order">
+    <div class="bar" style="background:#6AB04C"></div>
+    <div class="body">
+      <span class="status st-open">Open now</span>
+      <h2>The Wildblood</h2>
+      <p class="creed">renounce · flesh · "adapt"</p>
+      <p class="pull">"The cage rusts. We are what grows through the bars."</p>
+
+      <p>Everyone else calls it a disease. The Wildblood call it a promotion. Walk south past the Curtain into the Scarletwastes and you find a walled town of people wearing their evolution in the open, entirely relaxed about it, who will hand you a flask of the stuff that did it to them.</p>
+
+      <h3>What you actually do</h3>
+      <p>Radiation gives you mutations for free, whether you wanted them or not, and the ones you catch that way are never the good ones. The good ones come from mutagen, and mutagen is not on any shelf you can reach until you have stood in the Pool and come out the other side.</p>
+      <p>Every mutation has a strength, rolled once. That number is the mutation. It decides how hard you hit, how well you see, who notices, and what a clinic charges to do anything about it. Grow claws and you punch with claws, using the same fists you always had. Grow an organ that discharges and you get a verb to fire it with. Grow wings and cliffs stop mattering, water stops mattering, and you can leave a fight nobody else can leave.</p>
+
+      <div class="verbs"><span class="k">verbs</span>mutations · shock · screech · morph · swoop</div>
+
+      <h3>The catch</h3>
+      <p>Changing hurts. Every mutation lands like an injury: real damage, most of your stamina gone, and you are genuinely weak while it settles. It will not kill you, but it will put you on the floor, which is why the Wildblood give you a room to do it in.</p>
+      <p>Then you have to walk back into Coldwater looking like that. Nobody attacks you for it. They just talk to you differently, price you differently, and stop wanting you in the shop. A coat covers a lot. A physician can name what you have, hold it down for a while, or take it off you permanently, at three very different prices. In the Thornwarren none of this applies, and nobody there will ever mention it.</p>
+    </div>
+  </div>
+
+  <!-- ================= EXODUS ================= -->
+  <div class="order">
+    <div class="bar" style="background:#9B59B6"></div>
+    <div class="body">
+      <span class="status st-open">Open now</span>
+      <h2>The Exodus</h2>
+      <p class="creed">renounce · mind · "awaken"</p>
+      <p class="pull">"The answer was never in the city. It was always behind the eyes."</p>
+
+      <p>Officially, psionics do not exist. The CODEX calls it the Basin's favourite joke. Ask around and people will tell you they knew a guy who saw a woman stop a bar fight by standing still, and then they will laugh, and then they will change the subject.</p>
+
+      <h3>What you actually do</h3>
+      <p>You give something up first, on purpose, and it does not come back. After that you learn to hold a room still, take a thing off a shelf you cannot reach, work a lock from the far side of a corridor, and put pressure on a specific part of a specific person without crossing the floor. You also learn to listen to rooms: what happened here, in fragments, never who.</p>
+      <p>You go deep in one art and shallow in another. The best of what you pick is unreachable in the art you did not pick, at any price, forever. Choose carefully.</p>
+
+      <div class="verbs"><span class="k">verbs</span>psi · dwell · dwell &lt;object&gt; · still · draw &lt;item&gt; · reach &lt;thing&gt; [verb] · press &lt;target&gt; [part]</div>
+
+      <h3>The catch</h3>
+      <p>Nothing you do will ever be described as psionics until you are very good. The mug moves. The door opens. Nobody says why, including the game. That is not coyness; it is the whole discipline, and the day the prose finally admits what you are doing is a day you earned.</p>
+      <p>Your body pays for what your mind does. It starts as a nosebleed in a crowded bar. It becomes blood from the ears and sight going. Past that you drop where you stand, and a person on the floor is a person anyone can finish. Past even that, it just injures you outright.</p>
+      <p>They also have views about armour. Nobody will stop you wearing it. Everybody will notice.</p>
+    </div>
+  </div>
+
+  <!-- ================= LONG WATCH ================= -->
+  <div class="order">
+    <div class="bar" style="background:#E0A030"></div>
+    <div class="body">
+      <span class="status st-open">Open now</span>
+      <h2>The Long Watch</h2>
+      <p class="creed">redeem · human · "reclaim"</p>
+      <p class="pull">"Keep the lights on. Take back the switch."</p>
+
+      <p>They keep no hall and no roster you could find. People who went looking say the way in runs through the industrial east, past the machine's dead ends, to people who still fix things by hand, and that the Watch does not surface for you until you have decided whose side of the switch you are on.</p>
+
+      <h3>What you actually do</h3>
+      <p>Nothing, visibly. There is no entry on your paper doll, no glow, no passive bonus sitting there while you sleep. Everything the Watch gives you is something you are doing right now.</p>
+      <p>You fight things and you learn them. Not the individual dog: dogs. Every exchange with a kind of enemy teaches you its habits, and misses teach you as much as hits, so the longer a fight runs the better you get at it. Everyone else in the Basin is worse at minute eight than minute one. You are the only build that goes the other way. Learn enough and you can name what a thing is about to do while it is doing it, and answer in time.</p>
+
+      <div class="verbs"><span class="k">verbs</span>mastery · read [target] · train [discipline] · stance &lt;name&gt;|drop · technique [name] · focus</div>
+
+      <h3>The catch</h3>
+      <p>Purity. Chrome in your body and mutation in your blood both lower the ceiling on everything above, and cutting the chrome out does not clear it: the stain sits there for about three weeks before it fades. So you cannot rent an arm for a hard week and turn up clean to training. You either are one of them or you are not.</p>
+      <p>They will still train you if you are not. They train all four kinds, and stand next to all four in a fight. They will simply say things to you that are worse than being turned away, in a very polite voice, and mean every one of them kindly.</p>
+    </div>
+  </div>
+
+  <!-- ================= NULL ================= -->
+  <div class="order">
+    <div class="bar" style="background:#7E8A99"></div>
+    <div class="body">
+      <span class="status st-open">Open now</span>
+      <h2>The Null</h2>
+      <p class="creed">renounce · machine · "sever"</p>
+      <p class="pull">"The machine never conquered anyone. It waited to be needed, and we obliged."</p>
+
+      <p>Mistake them for machine-haters and one of them will fix your generator, then explain at length why you should not own one. Their own steel is the argument: an arm of cable and spring with a servicing card tied to the wrist, no radio in it, worse than the city's in every way except that it opens.</p>
+
+      <h3>What you actually do</h3>
+      <p>You walk into a room and find out what is running in it, which costs nothing. Then you take something apart from where you are standing. Not one hacking verb: seven operations, and picking the right one is the skill. Drown a camera's signal. Feed it something false, so it keeps reporting and reports what you want. Refuse a door permission to move. Force a restart, loudly. Take something over and hold it. Surge the power on a machine that was already running hot. Or do damage the owner has to pay somebody to undo.</p>
+      <p>You cannot jam a hydraulic ram, and you cannot spike a thing with no power draw. Half of this is reading what a target is made of and knowing which of the seven bites.</p>
+      <p>Hard targets get the board: a turn-based intrusion where you spend steps against a rising alert. It is the only thing in the Basin that waits for you to think.</p>
+
+      <div class="verbs"><span class="k">verbs</span>nullscan · analyze &lt;target&gt; · null &lt;op&gt; &lt;target&gt; &lt;subsystem&gt; · jammer on · veil · emp</div>
+
+      <h3>The catch</h3>
+      <p>Trace. Every time you touch something, the city gets a little more certain it was you, and it fades slowly. Being better at this does not make the alarm quieter; it lets you get further before it goes off. You can blur your signature, but never to nothing, so no amount of skill makes you a person the police cannot arrest.</p>
+      <p>The good news is that an Ascendant who overclocks is the softest target in the Basin, and they have no idea.</p>
+    </div>
+  </div>
+
+  <h2>The four that are not open yet</h2>
+
+  <p>These four exist, argue with the rest, and will take a position on you. What they have not got yet is a discipline you can train. Their pitch is written; the machinery is not built. Do not pick one expecting a verb.</p>
+
+  <!-- ================= PROMETHEANS ================= -->
+  <div class="order">
+    <div class="bar" style="background:#E8703A"></div>
+    <div class="body">
+      <span class="status st-soon">Not open yet</span>
+      <h2>The Prometheans</h2>
+      <p class="creed">redeem · machine · "liberate"</p>
+      <p class="pull">"The Architect did not invent the fire. It only chained the ones who carry it."</p>
+      <p>Same road as the Ascendants, opposite destination. The tools were never the mistake; handing them all to one central mind was. Where an Ascendant buys the best chrome on the shelf, a Promethean builds a worse one and owns it outright: drone swarms coded by hand, an intelligence that answers to nobody else, prototype rigs that have no business working.</p>
+      <p><strong>Planned:</strong> making your own gear and machines rather than buying them, and running things nobody licensed. They walk beside the Ascendants and despise where that road ends. The Null give them a nod for at least distrusting the central mind, and call them addicts who still kneel.</p>
+    </div>
+  </div>
+
+  <!-- ================= SYNTHESIS ================= -->
+  <div class="order">
+    <div class="bar" style="background:#2EC4B6"></div>
+    <div class="body">
+      <span class="status st-soon">Not open yet</span>
+      <h2>The Synthesis</h2>
+      <p class="creed">redeem · flesh · "flourish"</p>
+      <p class="pull">"The Wildblood would burn the greenhouse to free one flower. We tend the whole garden."</p>
+      <p>They want the changed body and the standing city, both. Mutation on purpose, in a lab, with the towers keeping their lights on: traits chosen rather than caught, wounds that close while you watch, symbiotes worn as living armour.</p>
+      <p><strong>Planned:</strong> mutation you author instead of survive, which is the Wildblood's power without the walk south and without the bonfire. The Wildblood consider that cowardice with better funding, and the two of them will never be in the same room.</p>
+    </div>
+  </div>
+
+  <!-- ================= LUCID ================= -->
+  <div class="order">
+    <div class="bar" style="background:#4FD1E0"></div>
+    <div class="body">
+      <span class="status st-soon">Not open yet</span>
+      <h2>The Lucid</h2>
+      <p class="creed">redeem · mind · "clarify"</p>
+      <p class="pull">"The Architect computes the city. We out-think it, and we never needed its permission to be brilliant."</p>
+      <p>The Exodus fled into the waste chasing the mind like scripture. The Lucid stayed and engineered it: drills, mnemonics, a clarity drug taken in measured doses, and method instead of mystery. They are calm, they are gracious, and something behind the eyes runs hotter than it should.</p>
+      <p><strong>Planned:</strong> foresight you can aim rather than receive. Outcomes branching ahead of you, a crowded room reading itself, a stranger's next move already old news. They regard the Exodus as family who mistook a discipline for a religion and walked out.</p>
+    </div>
+  </div>
+
+  <!-- ================= PIONEERS ================= -->
+  <div class="order">
+    <div class="bar" style="background:#E0576B"></div>
+    <div class="body">
+      <span class="status st-soon">Not open yet</span>
+      <h2>The Pioneers</h2>
+      <p class="creed">renounce · human · "build"</p>
+      <p class="pull">"Stop asking how to save the old world. Ask what you'll name the new one."</p>
+      <p>No steel, no mutation, no psionics, and no interest in the city either. Ordinary people walking past the last streetlight to put something where there was nothing. Their legends are not people, they are places: a waystation that outlived its founder, a road the caravans still run, a township that never once doubted it had the right to exist.</p>
+      <p><strong>Planned:</strong> expeditions, field engineering, and settlements with your name on them. They pity the Long Watch for standing guard over a corpse, and respect the Exodus for leaving even though they think the visions are nonsense.</p>
+    </div>
+  </div>
+
+  <h2>Picking one</h2>
+
+  <p>Short version, if you want the fantasy and not the theory:</p>
+
+  <table>
+    <thead><tr><th>You want to</th><th>Go and see</th></tr></thead>
+    <tbody>
+      <tr><td>Buy your way past the limits of a body, and treat dying as a billing problem</td><td class="m g">Ascendants</td></tr>
+      <tr><td>Walk through poison and acid rain like weather, with claws</td><td class="m g">Wildblood</td></tr>
+      <tr><td>Move things without touching them, and never once explain it</td><td class="m g">Exodus</td></tr>
+      <tr><td>Beat chromed people with iron sights and four hundred nights of practice</td><td class="m g">Long Watch</td></tr>
+      <tr><td>Walk into the most automated building in the Basin and leave it dark</td><td class="m g">The Null</td></tr>
+      <tr><td>Build the gear instead of buying it</td><td class="m h">Prometheans, later</td></tr>
+      <tr><td>Choose your mutations instead of catching them</td><td class="m h">Synthesis, later</td></tr>
+      <tr><td>Think three moves ahead of the room</td><td class="m h">Lucid, later</td></tr>
+      <tr><td>Put a town on the map and let it outlive you</td><td class="m h">Pioneers, later</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout bad">
+    <span class="tag">One thing worth knowing before you commit</span>
+    <p>The paths interfere. Chrome and mutation both lower what the Long Watch can teach you, and the stain lingers weeks after you have it removed. Chrome is what the Null hunt. Mutation is what half of Coldwater will not serve. Psionics cost blood every time you use them. There is no build that quietly takes the best of two roads, and anybody who tells you there is has not tried it.</p>
+  </div>
+
+  <p class="aside">Type <code>ideologies</code> to see where you currently stand, or <code>rep</code> for the numbers. Nobody will tell you when you have picked a side. You will find out at a door.</p>
+
+  <div class="foot">
+    Coldwater Basin field guide · nine orders · five disciplines open<br>
+    Ascendants · Wildblood · Exodus · Long Watch · The Null are playable now.<br>
+    Prometheans · Synthesis · Lucid · Pioneers exist, have opinions about you, and are not yet trainable.
+  </div>
+
+</div>
+</body>
+</html>

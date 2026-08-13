@@ -284,7 +284,11 @@ async function resolveDropContainer(ref, zoneId) {
   const { rows } = await query(
     `SELECT id FROM furniture
      WHERE zone_id=$1 AND object_type='container'
-       AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+       AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2)
+     -- Same tie-break 'stow' uses: a name match beats an alias match, and among
+     -- aliases the non-frozen box wins, so an authored drop at "fridge" lands in
+     -- the refrigerated body rather than its paired freezer.
+     ORDER BY (name ILIKE $2) DESC, (flags->>'preserves' = 'frozen') ASC, id LIMIT 1`,
     [zoneId, `%${ref}%`]
   );
   return rows.length ? rows[0].id : null;

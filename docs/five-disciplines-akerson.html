@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architect MUD — Engineering Memo: The Five Disciplines</title>
+<style>
+  /* Architect house palette — lifted from client/game/styles.css so this reads
+     like the thing it's about: deep navy-black, hairline navy rules, cyan for
+     signal, magenta reserved for the one accent the game reserves it for. */
+  :root{
+    --bg:#05050a; --panel:#0d0d16; --panel2:#15151f;
+    --line:#2a2a40; --line-soft:#1b1b2b;
+    --ink:#e8e8f5; --muted:#9aa8c7; --hint:#6b7a9c;
+    --cyan:#28e5ff; --blue:#5b9dff; --accent:#ff2ec4;
+    --good:#39ff8f; --bad:#ff3b5c; --amber:#f5b942;
+    --mono:"Courier New",Courier,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    font-family:var(--sans); color:var(--ink); margin:0; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:
+      linear-gradient(rgba(40,229,255,.028) 1px, transparent 1px) 0 0/100% 28px,
+      linear-gradient(90deg, rgba(40,229,255,.028) 1px, transparent 1px) 0 0/28px 100%,
+      radial-gradient(1200px 600px at 50% -10%, #101a2e 0%, var(--bg) 70%);
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:56px 32px 96px}
+
+  .plate{border:1px solid var(--line); background:linear-gradient(180deg,var(--panel) 0%,rgba(13,13,22,.5) 100%); padding:26px 28px; margin:0 0 34px; position:relative}
+  .plate::before{content:""; position:absolute; inset:5px; border:1px solid var(--line-soft); pointer-events:none}
+  .stamp{font-family:var(--mono); font-size:11px; letter-spacing:.34em; text-transform:uppercase; color:var(--cyan); margin:0 0 12px}
+  h1{font-family:var(--mono); font-size:27px; font-weight:700; letter-spacing:-.01em; margin:0 0 10px; color:#fff; line-height:1.25}
+  .sub{color:var(--muted); margin:0 0 6px; font-size:15px}
+  .meta{color:var(--hint); font-size:12px; margin:0; font-family:var(--mono); letter-spacing:.04em}
+
+  h2{
+    font-family:var(--mono); font-size:16px; font-weight:700; color:var(--cyan);
+    letter-spacing:.16em; text-transform:uppercase; margin:56px 0 16px;
+    padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  h2::before{content:"▸ "; color:var(--accent)}
+  h3{font-family:var(--mono); font-size:14px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); margin:32px 0 10px}
+  h4{font-family:var(--mono); font-size:12.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:24px 0 8px}
+  p{font-size:15px; margin:0 0 15px}
+  .lead{font-size:16.5px; color:#f2f2fb}
+  strong{color:#fff}
+  em{color:var(--muted)}
+
+  .haiku{
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:22px 26px; margin:26px 0 30px; color:var(--ink);
+    white-space:pre-line; font-family:var(--mono); font-size:15.5px; line-height:2;
+  }
+  .haiku .attrib{display:block; font-family:var(--sans); font-size:12px; color:var(--hint); margin-top:14px; white-space:normal; line-height:1.6}
+  .haiku.small{font-size:14px; padding:16px 22px; margin:20px 0 24px; border-left-color:var(--cyan)}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:22px 0 10px}
+  .card{background:var(--panel); border:1px solid var(--line); padding:16px 18px; position:relative; overflow:hidden}
+  .card::after{content:""; position:absolute; left:0; top:0; width:2px; height:100%; background:var(--cyan); opacity:.55}
+  .card .label{font-family:var(--mono); font-size:10.5px; color:var(--hint); margin:0 0 8px; text-transform:uppercase; letter-spacing:.18em}
+  .card .val{font-family:var(--mono); font-size:20px; font-weight:700; margin:0; color:#fff}
+  .card .val.g{color:var(--good)} .card .val.a{color:var(--amber)}
+  .card .note{font-size:11.5px; color:var(--muted); margin:6px 0 0; font-family:var(--mono)}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px; margin:10px 0 6px; background:var(--panel)}
+  th,td{border:1px solid var(--line); padding:8px 12px; text-align:left; vertical-align:top}
+  th{background:var(--panel2); color:var(--cyan); font-family:var(--mono); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.13em}
+  td.num,th.num{text-align:right; font-family:var(--mono)}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  td.g{color:var(--good); font-weight:700} td.r{color:var(--bad); font-weight:700} td.a{color:var(--amber); font-weight:700}
+  td.m{font-family:var(--mono); font-size:12.5px}
+
+  ul{padding-left:20px; margin:8px 0} li{font-size:15px; margin:7px 0}
+  li::marker{color:var(--cyan)}
+  code{background:var(--panel2); border:1px solid var(--line-soft); padding:1.5px 6px; font-size:12.5px; font-family:var(--mono); color:var(--cyan)}
+
+  .callout{background:rgba(245,185,66,.06); border:1px solid rgba(245,185,66,.32); border-left:3px solid var(--amber); padding:15px 19px; margin:20px 0}
+  .callout.bad{background:rgba(255,59,92,.06); border-color:rgba(255,59,92,.32); border-left-color:var(--bad)}
+  .callout.good{background:rgba(57,255,143,.05); border-color:rgba(57,255,143,.28); border-left-color:var(--good)}
+  .callout p:last-child{margin-bottom:0}
+  .callout .tag{font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:7px}
+  .callout.bad .tag{color:var(--bad)} .callout.good .tag{color:var(--good)}
+  .aside{color:var(--muted); font-size:14px}
+  .foot{margin-top:56px; padding-top:18px; border-top:1px solid var(--line); color:var(--hint); font-size:11.5px; font-family:var(--mono); line-height:1.8}
+  @media print{ body{background:#fff} .wrap{max-width:none} h2{page-break-after:avoid} table{page-break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <p class="stamp">Architect MUD · Engineering Memo · Character Systems</p>
+    <h1>Five Disciplines, and the<br>Question Each One Answers</h1>
+    <p class="sub">To John Akerson, fellow Architect engineer — with haikus, because it was that kind of week</p>
+    <p class="meta">2026-08-13 &nbsp;·&nbsp; branch main &nbsp;·&nbsp; mutations · augments · psionics · mastery · nullcraft</p>
+  </div>
+
+  <div class="haiku">Five answers, one asked:
+    what will you let them do to
+    the body you have?
+    <span class="attrib">— composed after realising the four orders had four philosophies and, until this month, exactly one shared mechanic between them: nothing</span>
+  </div>
+
+  <p class="lead">John. The factions have had opinions since we wrote them and mechanics since about a fortnight ago. This memo is the tour: <strong>mutations</strong> (the Wildblood's flesh), <strong>augments</strong> (the Ascendants' chrome), <strong>psionics</strong> (the Exodus's deniable impossibility), <strong>mastery</strong> (the Long Watch's stubborn nothing), and <strong>nullcraft</strong> (the Null's refusal to build anything at all). Five separate systems, one shared spine, and — the part I'm actually proud of — <em>almost no new state</em>. Most of this is old substrate finally being asked the right question.</p>
+
+  <div class="cards">
+    <div class="card"><p class="label">Disciplines shipped</p><p class="val g">5</p><p class="note">4 orders + the body itself</p></div>
+    <div class="card"><p class="label">New parallel combat paths</p><p class="val g">0</p><p class="note">claws are weaponStats</p></div>
+    <div class="card"><p class="label">New `players` columns</p><p class="val g">0</p><p class="note">flags + feature tables</p></div>
+    <div class="card"><p class="label">Effect keys with no reader</p><p class="val g">0</p><p class="note">regress asserts empty</p></div>
+  </div>
+
+  <h2>The map: which order answers what</h2>
+
+  <p>Every discipline is an answer to the same question — <em>you are outmatched; what do you change?</em> — and the answers deliberately do not overlap. This table is the whole design on one page.</p>
+
+  <table>
+    <thead><tr><th>Order</th><th>Discipline</th><th>The move</th><th>The price</th></tr></thead>
+    <tbody>
+      <tr><td>Ascendants</td><td class="m">augments</td><td>Buy a better machine and install it in yourself.</td><td>Money, surgery, heat, and a machine that fails <em>as a machine</em>.</td></tr>
+      <tr><td>Wildblood</td><td class="m">mutations</td><td>Let the body answer instead. Rewrite the meat.</td><td>Real injury on every turn, and a town that recoils from you.</td></tr>
+      <tr><td>Exodus</td><td class="m">psionics</td><td>Still a room and move what is in it without a touch.</td><td>Blood, ears, seizure — the mind spends the body.</td></tr>
+      <tr><td>Long Watch</td><td class="m">mastery</td><td>Change nothing about yourself. Learn the <em>enemy</em>.</td><td>Purity: chrome and mutation lower your ceiling, permanently-ish.</td></tr>
+      <tr><td>The Null</td><td class="m">nullcraft</td><td>Make somebody else's machine stop working.</td><td>Trace — the city's growing certainty it was you.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="aside">The elegance, such as it is: <strong>mastery's purity cap is what makes the other four cost something.</strong> Chrome and mutation are no longer free upside, because there is one build in the game that they lock you out of — and it is the build that looks like nothing at all.</p>
+
+  <!-- ============================ MUTATIONS ============================ -->
+  <h2>I. Mutations — the flesh answers</h2>
+
+  <div class="haiku">Rads wrote one number
+    once, and never wrote again.
+    All the rest derives.
+    <span class="attrib">— on `expression`, the 1–100 scalar rolled at grant, and the several months during which we instead baked stat modifiers straight into players.stat_* and then tried to un-bake them by reversing the arithmetic</span>
+  </div>
+
+  <p><strong>Status: Phases 1–4 built.</strong> Radiation half, Wildblood half, the authoring seam, and the cost of turning. Three rules carry it, and each one is a thing we got wrong first.</p>
+
+  <h3>1. Expression, not a boolean</h3>
+  <p>Every carried mutation has a strength from <strong>1 to 100</strong>, rolled <em>once</em> at grant and thereafter only ever <em>reduced</em>, by treatment. Soak, acuity, who can see it, what a clinic charges to name it — all of it derives from that one number. A mutation is never "on"; it is a magnitude.</p>
+  <p><strong>Radiation cannot roll above 84.</strong> That ceiling is deliberate and load-bearing: a legendary rad mutation you could pick up by standing in a hot room would undercut the entire reason to walk south and find the Wildblood. Rads give you the ordinary bands. The Pool gives you the rest.</p>
+
+  <h3>2. Nothing is baked</h3>
+  <p>Contributions are <strong>derived at read time</strong> and netted by the same readers that already net gear and status effects. The old model added <code>stat_modifiers</code> into <code>players.stat_*</code> and reversed the arithmetic to remove them, which is unrecoverable the instant a mutation can be <em>partly</em> treated. <code>hp_max</code> is the single exception, because it's a persisted column read from dozens of sites.</p>
+  <div class="callout good">
+    <span class="tag">The migration invariant</span>
+    <p><code>scaleByExpression</code> guarantees that <strong>a mutation at expression 100 reproduces its authored value exactly</strong>. That identity is why the move off baked stats was net-zero for every existing character, and regress asserts it. The same trick appears in augments as <code>calibration</code> defaulting to 100 — same reason, same proof.</p>
+  </div>
+
+  <h3>3. An unread effect key is a build failure</h3>
+  <p>We authored an <code>effects</code> object on every mutation and then <em>read it from literally nothing</em> for months. So the vocabulary is now a registry: an unregistered key fails the suite, and <strong>regress asserts the unconsumed list is empty</strong>. Adding a key without a reader needs a comment saying why, plus the cap raised in the same commit.</p>
+
+  <h3>Visibility, and the thing the fee actually buys</h3>
+  <p>Concealment is <strong>generic</strong> — a coat hides a torso mutation because it <em>covers the torso</em>, never because anyone wrote that coat into that mutation. Detection is <strong>per observer</strong> through <code>acuitySync</code>: bad light, bad eyes, no read. And <code>visibly_mutated</code> is now a write-through cache rather than a one-way latch, which means <strong>treatment restores your standing</strong> — which is most of what a physician's fee is for.</p>
+
+  <h3>Phase 2 — the Wildblood half</h3>
+  <table>
+    <thead><tr><th>Thing</th><th>How it's built</th><th>Why that way</th></tr></thead>
+    <tbody>
+      <tr><td>Natural weapons</td><td>A natural weapon <strong>IS a <code>weaponStats</code> object</strong> — the same plain object a pipe produces, handed to the same <code>playerAttackEnemy</code>.</td><td>Soak, crits, injury and body parts treat a clawed hand identically. No parallel combat path exists to drift. Returns <code>null</code> for an unmutated body, and is consulted <em>only</em> on the unarmed branch — pick up a pipe and you use the pipe.</td></tr>
+      <tr><td>Active organs</td><td><code>shock</code> / <code>screech</code> / <code>morph</code> are <strong>verbs</strong>, routed through <code>applyStrikeToEnemy</code>.</td><td>An organ you cannot choose to fire is just a damage number with a story attached. And never write <code>enemy.hp</code> from a plugin — that skips the part roll, typed soak, damage observers and loot-on-death.</td></tr>
+      <tr><td>Clothing conflicts</td><td>A garment that doesn't fit is <strong>refused, never destroyed</strong>. The way out is an <code>accommodates</code> tag carrying <em>shapes</em> — <code>TAIL</code>, <code>WINGS</code>, <code>CARAPACE</code> — never mutation ids.</td><td>The body is the wrong shape; the coat is fine. Shapes mean one tailored coat serves every mutation with a tail.</td></tr>
+      <tr><td>Flight</td><td>Mobility, not gravity: the one named exemption to <code>engine:impassable-terrain</code>, dry water crossing on the boat path, a flee bonus, and the <code>swoop</code> dive.</td><td>There's no fall-damage system to ride, so wings reach four seams that already exist. <strong>Wings help you LEAVE a fight, never survive one</strong> — the bonus is on the flee roll only, and regress asserts <code>defenseBonus</code> is untouched.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout bad">
+    <span class="tag">Never a gear exemption</span>
+    <p>The terrain exemption must stay attached to <em>wings</em>. The day something purchasable opens a cliff, the map's difficulty gradient is a shop.</p>
+  </div>
+
+  <h3>Phase 4 — the turn costs blood</h3>
+
+  <div class="haiku small">Becoming costs blood.
+    The floor is one hit point, so
+    it can never win.
+    <span class="attrib">— on `onset.js`, and on why the Wildblood offering you a safe room for the Quickening is a mechanic rather than a line of dialogue</span>
+  </div>
+
+  <p><strong>Mutating is an injury.</strong> Not a notification, not a level-up. <code>onset.js</code> fires off the <code>mutation.gained</code> event that every grant path already emits: real HP that has to be mended, most of your stamina gone up front, genuine weakness while it runs, scaling with expression and worse for mutagen. <strong>Floored at 1 HP</strong>, so it can never kill you.</p>
+
+  <div class="callout">
+    <span class="tag">⚠ Regress trap</span>
+    <p>A suite that grants a mutation on the <em>shared</em> fake player must restore hp/stamina/statuses afterwards — or the sneak and weightbench suites go red for reasons that look nothing whatsoever like mutations.</p>
+  </div>
+
+  <h4>Three medical tiers, three prices</h4>
+  <table>
+    <thead><tr><th>Tier</th><th>What you get</th><th>The design note</th></tr></thead>
+    <tbody>
+      <tr><td class="m">diagnose</td><td>A <strong>name</strong>. Nothing else.</td><td>Deliberately mechanically inert. An unseen mutation reads as "Something unnamed" until a physician names it — because a diagnostic that also <em>helped</em> would make not-knowing a penalty rather than an information state.</td></tr>
+      <tr><td class="m">suppress</td><td>Temporary reduction, through the one <code>effectiveExpression</code> chokepoint.</td><td>Reaches every contribution because there is exactly one place to reach. Reports as <em>held down</em>, never as cured.</td></tr>
+      <tr><td class="m">treat</td><td>Permanent reduction. Expensive.</td><td>The only thing that moves the stored number down, and the only thing that buys your standing back.</td></tr>
+    </tbody>
+  </table>
+
+  <p>The social ladder (<code>reactions.js</code>) is <strong>socially hostile long before it is physically hostile</strong> — there is no "mutant ⇒ attack" rule anywhere and regress asserts none of its lines is violence. And it <strong>never fires in the Scarletwastes</strong>, a hard region check, because a town that recoiled from its own people would break the one thing that region exists for.</p>
+
+  <div class="callout bad">
+    <span class="tag">Deploy order</span>
+    <p><code>scripts/unbake-mutation-stats.mjs</code> runs against prod <strong>before</strong> the new code serves traffic. Get that backwards and every stat is double-counted, on every character, silently.</p>
+  </div>
+
+  <!-- ============================ AUGMENTS ============================ -->
+  <h2>II. Augments — chrome as a machine you own</h2>
+
+  <div class="haiku">A thing in a box,
+    a thing in your hands, a thing
+    humming in your arm.
+    <span class="attrib">— on the discovery that an augment is three things, and that refusing to be an item first is the only reason we'd have had to build condition, quality, trade and looting a second time</span>
+  </div>
+
+  <p><strong>Status: built.</strong> The machine-path mirror of mutations. An augment is now <em>three</em> things that used to be one — an authored catalog row, an <strong>ordinary inventory item</strong> while it's in your hands, and an installed record once it's in you. Which is why nothing here re-implements condition, quality, trade or looting: reusing <code>durability.js</code> and <code>player_inventory</code> got all four for free.</p>
+
+  <h3>The schema split is the design</h3>
+  <p>Every column the <em>runtime</em> mutates lives on <code>player_augments</code>. Every column an <em>author</em> writes lives on <code>augments</code>. Neither table needs an <code>excludeColumns</code> entry, and <code>content:lint</code> has nothing to trip on. That is the whole rule, and it took one afternoon and saves us the entire class of bug where a deploy overwrites a player's calibration with an authored default.</p>
+
+  <h3>Surgery — a real roll, by a real person</h3>
+  <p>Installation is a check by an NPC flagged <code>surgeon</code>, in five bands. <strong>You pay before the roll</strong>, exactly as the repair bench and the clinic do.</p>
+
+  <table>
+    <thead><tr><th>Outcome</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td class="g">Clean</td><td>Installed, calibration seeded high — but still under 100.</td></tr>
+      <tr><td>Ordinary</td><td>Installed, seeded mid. The board is where you make it up.</td></tr>
+      <tr><td class="a">Rough</td><td>Installed, seeded low, and you feel it.</td></tr>
+      <tr><td class="r">Botched</td><td>Installed, and calibration is <strong>permanently capped</strong>. It will never be right again.</td></tr>
+      <tr><td class="r">margin &lt; −10</td><td>The hardware is <strong>destroyed</strong>. You still paid.</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Every band seeds calibration below 100.</strong> Fresh chrome always under-performs its sheet, which is what makes tuning a thing you do rather than a thing you read about.</p>
+
+  <h3>Calibration is scored, not passed</h3>
+  <p>The tuning board reports a <strong>0–100 score</strong>, not a win. Every other minigame family in the game is pass/fail; a boolean here would collapse calibration into a coin flip and delete the reason to be good at it. The client is <strong>bounded, not trusted</strong> — pending map, nonce, TTL, and the score is clamped server-side.</p>
+
+  <h3>Overclock, heat, and coming apart</h3>
+
+  <div class="haiku small">Run it past the line.
+    The heat forgets on logout.
+    The wear it left stays.
+    <span class="attrib">— on why heat is memory-only, decayed lazily off a timestamp, and emphatically does not need a column</span>
+  </div>
+
+  <p><code>overclock_max</code> is <strong>one authored field that is the entire mechanical statement of the licensed-vs-back-alley split</strong> — and it later did double duty as nullcraft's security derivation, which is the closest thing to a free lunch in this codebase. Heat accrues in memory on the combat hot path via <code>registerStrainContributor</code> (sync by contract), and its durable residue is <code>condition</code>, flushed coalesced. Cooling off while logged out is <em>correct</em>, not a bug.</p>
+
+  <div class="callout">
+    <span class="tag">Rule 4, inverted on purpose</span>
+    <p><code>durability.js</code> destroys an item at zero condition. <strong>Installed chrome does not get destroyed</strong> — it goes <em>dead</em> and waits for a surgeon. A thing disintegrating inside a torso is neither narratable nor actionable.</p>
+  </div>
+
+  <div class="callout bad">
+    <span class="tag">⚠ The ordering trap</span>
+    <p>Death corruption is graded — each augment rolls independently, weighted by condition. But corruption <strong>must be skipped whenever the death was <code>claimed</code></strong>, or it deletes the exact rows a cortical restore is about to write back. Check that before touching any death path.</p>
+  </div>
+
+  <p>And the authoring gate I like most: <strong>an overclockable augment with no <code>failure_messages</code> fails the build.</strong> "Bionic malfunction." is precisely what that guards against — a failing arm should say something a person wrote.</p>
+
+  <!-- ============================ PSIONICS ============================ -->
+  <h2>III. Psionics — the deniable discipline</h2>
+
+  <div class="haiku">Say what it is and
+    it stops. So the mug just moves.
+    Nobody saw why.
+    <span class="attrib">— on Codex XIV, which calls psionics "the Basin's favourite joke", and on Terminus's ruling that stating a thing kills it</span>
+  </div>
+
+  <p><strong>Status: Phases 1–2 built</strong> — psychometry, telekinesis, aegis, ergokinesis, the initiation. This is the fifth answer, and the one whose entire design problem is that <em>describing it ruins it</em>. The ideology row promised it in prose years ago: they <em>"still a room and move what is in it without a touch."</em></p>
+
+  <h3>1. Deniability is the progression</h3>
+  <p><strong>Below Seer, no output line may claim a mechanism.</strong> Not "you sense", not "telepathy", not "your mind reaches out". The mug moves; nobody says why. At Seer the prose is finally permitted to be impossible — and <em>the player crossing that line IS the arc.</em></p>
+  <p>The law lives in <strong>one function</strong> — <code>voice()</code> in <code>plugins/psionics/prose.js</code> — with a <code>CAUSAL_WORDS</code> ban list and a <code>violatesLowRank()</code> regress seam. A law spread across forty template strings is a wish, not a law.</p>
+
+  <h3>2. The body pays</h3>
+
+  <div class="haiku small">Blood out of the ears.
+    Something in the room gave way
+    and it was not you.
+    <span class="attrib">— on the strain ladder, which broadcasts to the room, because deniability that nobody can witness failing is not deniability</span>
+  </div>
+
+  <table>
+    <thead><tr><th class="num">Rung</th><th>Backlash</th><th>Built from</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Nosebleed.</td><td>cosmetic + the room sees it</td></tr>
+      <tr><td class="num">2</td><td>Blood from the ears, failing sight.</td><td>existing impairment statuses</td></tr>
+      <tr><td class="num">3</td><td><strong>Seizure</strong> — you go down where you stand.</td><td><code>knockOut</code>, the cosh's own seam, so you are <em>killable where you lie</em></td></tr>
+      <tr><td class="num">4</td><td>Real damage.</td><td><code>applyStrikeToPlayer</code>, so the injury plugin's observers hang an actual wound off it</td></tr>
+    </tbody>
+  </table>
+
+  <p>Nothing here invents a punishment. Every rung is a mechanic the game already had, pointed inward. <strong>The backlash ladder and the deniability ladder are the same ladder</strong> — a nosebleed in a bar is a statement whether you wanted to make one or not.</p>
+
+  <h3>3. Psychometry reads the world's own exhaust</h3>
+  <p><code>residue.js</code> subscribes to events that <em>already fire</em>, into a decaying per-zone ring buffer. <strong>No other system was modified to feed it</strong> — disable the plugin and the events carry on unchanged. An impression is fragmentary and <strong>unattributed, forever</strong>.</p>
+  <p class="aside">That last word is what stops it deleting SPECTER. <strong>Cameras answer WHO. Psychometry answers WHAT HAPPENED HERE</strong> — and then sends you off to find out who.</p>
+
+  <h3>4. You major in one art and minor in another</h3>
+  <p><code>psi_rank</code> is depth; <code>psi_focus</code> is breadth. Top abilities are <code>focusOnly</code> and <strong>unreachable off-major at any cost</strong> — so there is no build that both takes bodies and walks dreams. Four gates, all <em>data</em> (rank, focus, resonance, cost), passed to <code>registerPsiAbility</code>, so no handler ever re-derives one.</p>
+  <p>Resistance is <strong>derived</strong> from Cool, Brains, mastery, Static Mind and coprocessor — with deliberately <em>no second skill</em> to level. And <code>PSI_CAP</code> is <code>VEIL_CAP</code>'s sibling: nothing ever reaches certainty.</p>
+
+  <div class="callout bad">
+    <span class="tag">⚠ The verb-collision trap — it cost three renames</span>
+    <p><code>attune</code> and <code>pull</code> are <strong>engine builtins</strong>. <code>read</code> is a <code>specializedAction</code> in <em>six</em> plugins. And plugin commands silently beat both classes, so nothing errors — the old verb just quietly stops working. <strong>Checking <code>plugin.json</code> command arrays is NOT sufficient.</strong> Grep the engine and the specialized-action registry too.</p>
+  </div>
+
+  <p>The counterpart rule: <code>reach</code> fires <code>fireSpecializedAction</code>, so <strong>telekinesis always delivers verbs that already exist</strong> rather than reimplementing them. The day somebody writes a bespoke telekinetic <em>open</em> is the day the system starts growing a shadow copy of the whole command set.</p>
+
+  <h3>The Purifier and the coat</h3>
+  <p>The initiation is <strong>the only irreversible cost a player chooses on purpose</strong>. And the armour taboo is <strong>purely social</strong> — armour is never blocked and never penalised, no stat hit, no refusal to equip. Two reasons exist for it and <em>only one is ever said aloud</em>.</p>
+
+  <p><strong>Still design:</strong> telepathy, precognition, biokinesis, projection and dreamwalking, compulsion. Not registered — which, given the registry's build-failure contracts, means they cannot half-exist.</p>
+
+  <!-- ============================ MASTERY ============================ -->
+  <h2>IV. Mastery — the Long Watch's stubborn nothing</h2>
+
+  <div class="haiku">The dog swings again.
+    Nothing about you has changed.
+    You have simply watched.
+    <span class="attrib">— on `Read`, keyed on enemy.templateId, so four hundred dogs are one row and the four hundred and first is a formality</span>
+  </div>
+
+  <p><strong>Status: Phases 0–5 built.</strong> The swing seam, the purity cap, the stain, Read, Exploit, composure, stances, techniques and the read window.</p>
+
+  <div class="callout good">
+    <span class="tag">The rule the whole system is built on</span>
+    <p><strong>A Long Watch veteran must not look supernatural on inspection.</strong> No paper-doll entry. No glow. And — the hard part — <strong>no permanent passive whatsoever</strong>. Everything they have, they are currently doing.</p>
+  </div>
+
+  <h3>Read is the mechanical identity</h3>
+  <p>Here is the inversion that justifies the system: <strong>every other build in Architect gets <em>worse</em> over a long fight</strong> — stamina drains, condition falls, heat climbs, strain lands. Mastery gets <em>better</em>. Familiarity accrues per <code>enemy.templateId</code>, so the fight you're in is informed by every fight you've had with that thing.</p>
+  <p><strong>A miss teaches as much as a hit.</strong> That single requirement is why Read hangs off the new sync <code>registerSwingContributor</code> seam rather than damage events — a damage-event model literally cannot see the swings that missed, which are the ones you learn most from.</p>
+
+  <h3>Purity — the ceiling, and the stain</h3>
+
+  <div class="haiku small">Chrome lowers the roof.
+    Cut it out and the stain stays
+    for three weeks after.
+    <span class="attrib">— on the fact that without a decay window, chrome is rentable: install for the fight, extract before the training</span>
+  </div>
+
+  <p>Rank is <strong>stored raw; the purity cap applies on read.</strong> Chrome and mutation lower your ceiling — floored at 10, because <em>chrome makes mastery impossible, not discipline</em>. Removing them leaves a decaying stain in <code>player_purity</code> that fades over roughly three weeks. Without the stain the whole cap is a rental fee.</p>
+
+  <h3>Composure, stances, techniques</h3>
+  <p><strong>Composure</strong> is the Long Watch's overclock, made of nothing but skill — runtime only, no column, no table. <strong>Techniques</strong> are armed by a verb and consumed by exactly one swing in their own direction, and they can <em>fail</em>. <strong>Stances</strong> are held, drain stamina on the 10s tick, and end on four explicit edges.</p>
+
+  <h3>The read window</h3>
+  <p>A reaction minigame that had to fit inside a synchronous swing resolution: there is no point inside <code>enemyAttackPlayer</code> at which we can await a human. So the deadline comes from <strong>the engine's own schedule</strong> — <code>enemy.lastAttack + interval</code> — rather than a timer we'd have to keep honest. <strong>Letting it lapse costs nothing</strong>; the Composure was spent when the window opened. <strong>Correctness is decided server-side</strong>: the client sends the chosen <em>word</em>, and <code>correct</code> never crosses the wire.</p>
+  <p class="aside">Three presentations off the Display Mode ladder: <code>log</code> narrates it, <code>textgames</code> draws a board in the area pane, <code>visual</code> floats a window. The tells are the puzzle — each answer has its own and no two share one, asserted in tests.</p>
+
+  <div class="callout bad">
+    <span class="tag">⚠ Do not gate on the social ladder</span>
+    <p><code>regardOf</code> / <code>standingGreeting</code> exist <strong>to be SAID, never CHECKED</strong>. Nothing may gate on them. The Watch <em>admits all four</em> kinds — they train them, and stand next to them in a fight. The nastiest lines are the polite ones; <em>"you can't help what you are"</em> is worse than any threat, and it is worse precisely because it never becomes a mechanic.</p>
+  </div>
+
+  <!-- ============================ NULLCRAFT ============================ -->
+  <h2>V. Nullcraft — the Null's refusal</h2>
+
+  <div class="haiku">They bought a better
+    machine. We did not. We made
+    theirs stop working right.
+    <span class="attrib">— on the fourth faction answer, and the only one whose implementation was mostly a promotion of code that had already been quietly shipping for months</span>
+  </div>
+
+  <p><strong>Status: built</strong> — the substrate, the seven operations, the turn-based intrusion board, the hardware, veiling and EMP.</p>
+
+  <div class="callout good">
+    <span class="tag">The rule the whole thing rests on</span>
+    <p><strong>Nullcraft never invents a second copy of state that already exists.</strong> A surprising amount of this shipped years ago, camera-scoped and scattered: <code>security_devices.status_flags</code> has held <code>{jammed, spoofed, hijacked_by, looping, blinded}</code> since forever, <code>getInterferenceZones</code> already jammed zones, <code>isWitnessed</code> already read it. This is a <em>promotion</em> of that model onto bionics, drones and locks — not a new one.</p>
+  </div>
+
+  <h3>Trace is RAM-authoritative, and decays at read</h3>
+
+  <div class="haiku small">The trace lives in RAM.
+    Log out and the city holds
+    nothing against you.
+    <span class="attrib">— which sounds like an exploit until you notice that everything durable you broke is still broken, through its own writer</span>
+  </div>
+
+  <p>The engine file owns <strong>no table</strong>. Decay happens on read, never on a tick. A logout drops everything transient — and only <em>durable damage</em> persists, written by <strong>the contributor's own writer</strong>: an augment's <code>condition</code>, a device's status. Nullcraft never writes another system's table.</p>
+
+  <h3>Targets arrive by gather hook</h3>
+  <p><code>tech.targets</code> (the <code>workspace.provider</code> seam) gathers what's in the room, and <strong><code>apply()</code> lives on the target</strong>. That's what keeps the substrate free of imports from augments and surveillance. The integration is genuinely <strong>one line in <code>deviceStatus()</code> and one filter in <code>getAugments()</code></strong> — so every downstream reader inherits Null jamming without knowing the system exists.</p>
+
+  <h3>Security is derived, never authored twice</h3>
+  <p><code>overclock_max</code> — already the entire mechanical statement of the licensed-vs-back-alley split — does double duty as the security derivation. Licensed chrome is the hard target, and <strong>nothing new was authored to make it so.</strong></p>
+
+  <h3>The seven operations</h3>
+  <table>
+    <thead><tr><th>Op</th><th>Kind</th><th>Applies to</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td class="m">jam</td><td>transient</td><td class="m">sensor, telemetry, network</td><td>Drown the signal. Nothing damaged, nothing learned.</td></tr>
+      <tr><td class="m">spoof</td><td>transient</td><td class="m">sensor, telemetry, network</td><td>Feed it something false — better when you want the machine <em>trusted</em>, not silent.</td></tr>
+      <tr><td class="m">lock</td><td>transient</td><td class="m">actuation, control, power</td><td>Refuse it permission to act. Brief, and often all you needed.</td></tr>
+      <tr><td class="m">crash</td><td>transient</td><td class="m">control, processing, security</td><td>Force a restart. Loud, total, impossible to miss.</td></tr>
+      <tr><td class="m">hijack</td><td class="a">persistent</td><td class="m">control, actuation, network</td><td>Possession, for as long as you hold the trace down.</td></tr>
+      <tr><td class="m">powerspike</td><td class="r">durable</td><td class="m">power</td><td>Surge the supply. Devastating against a machine already running hot; a flicker against one at spec.</td></tr>
+      <tr><td class="m">sabotage</td><td class="r">durable</td><td class="m">power, actuation, control, processing</td><td>Real damage the owner pays to undo.</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>The applicability table is load-bearing.</strong> You cannot jam a hydraulic ram. Collapse that and you have one verb with six skins. <strong>The three kinds are the tactical decision</strong> — a thirty-second servo lock and a repair bill are different crimes.</p>
+
+  <h3>The verbs</h3>
+  <table>
+    <thead><tr><th>Verb</th><th>Cost</th><th>Gives you</th></tr></thead>
+    <tbody>
+      <tr><td class="m">nullscan</td><td class="g">free, no roll</td><td>What is powered in this room.</td></tr>
+      <tr><td class="m">analyze &lt;target&gt;</td><td>a check, a little trace</td><td>Subsystems, exposure bands, security band, radio state.</td></tr>
+      <tr><td class="m">null &lt;op&gt; &lt;target&gt; &lt;subsystem&gt;</td><td>a check, trace by op</td><td>The operation itself.</td></tr>
+    </tbody>
+  </table>
+  <p><strong><code>nullscan</code> is free on purpose</strong> — it is the discoverability rung. Detail scales with skill: below Nullcraft 3, <code>analyze</code> names the surface and little else.</p>
+
+  <h3>The intrusion board</h3>
+  <p>The <strong>only turn-based minigame in the client</strong>, and that is the point — everything else in the game is a reflex or a timer, and the Null are the faction that gets to <em>think</em>. <strong>Skill buys steps and starting intel, never a lower alert cost.</strong> A better Null goes further on the same alarm budget; they don't make the alarm quieter.</p>
+
+  <h3>Hardware, jamming, EMP, veiling</h3>
+  <ul>
+    <li><strong>Intrusion strength cancels target security. Stealth buys TIME, not power</strong> — the two axes must never collapse into one stat.</li>
+    <li><code>jammer on</code> spends a <code>jammer_cell</code> and runs a field for ~4 minutes.</li>
+    <li><code>emp</code> fires <strong>the same pulse the ion storm fires</strong>, scoped to your room. One implementation, two causes.</li>
+    <li><code>veil</code> blurs your electronic signature — capped at <code>VEIL_CAP = 0.85</code>, because <strong>ghosting must never make a player unarrestable</strong>.</li>
+    <li>The counterplay is real and manual: <code>player_augments.custom_data.radio_off</code>. <strong>Telemetry is not vital</strong> — turning your arm's radio off costs you convenience, not the arm.</li>
+    <li><code>powerspike</code> is the payoff of the whole design: damage scales with how far past spec the target was already running. The Ascendant who overclocked is the one who dies of it.</li>
+  </ul>
+
+  <p class="aside">Architect's own network ladder — the infrastructure tier above all this — is <strong>design only</strong>.</p>
+
+  <!-- ============================ SHARED ============================ -->
+  <h2>What they share, which is the actual work</h2>
+
+  <p>Five disciplines, and the reason the diff isn't catastrophic is that four of them are mostly <em>readers</em> of substrate that already existed. The pattern repeats so consistently it's almost a house style now:</p>
+
+  <table>
+    <thead><tr><th>Pattern</th><th>Mutations</th><th>Augments</th><th>Psionics</th><th>Mastery</th><th>Nullcraft</th></tr></thead>
+    <tbody>
+      <tr><td>A single scalar everything derives from</td><td class="m">expression</td><td class="m">calibration</td><td class="m">resonance</td><td class="m">purity</td><td class="m">trace</td></tr>
+      <tr><td>Derived at read, never baked</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td></tr>
+      <tr><td>Sync + query-free on hot paths</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td><td class="g">✓</td></tr>
+      <tr><td>Reaches combat via an existing seam</td><td class="m">weaponStats</td><td class="m">stat/armor contributor</td><td class="m">applyStrikeToPlayer</td><td class="m">swing contributor</td><td class="m">status_flags</td></tr>
+      <tr><td>A cap that stops certainty</td><td class="m">rad ≤ 84</td><td class="m">calib &lt; 100</td><td class="m">PSI_CAP</td><td class="m">floor 10</td><td class="m">VEIL_CAP</td></tr>
+      <tr><td>An unauthored-voice build failure</td><td class="g">✓ effect keys</td><td class="g">✓ failure_messages</td><td class="g">✓ prose law</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <p>Three of the five have a <strong>build-failure contract on authoring</strong> rather than a code review convention, and I'd like the other two to grow one. It's the cheapest quality mechanism we have: the vocabulary is a registry, an unregistered key fails the suite, and nobody has to remember anything.</p>
+
+  <h3>The four caps, and why they're all the same cap</h3>
+  <p><code>PSI_CAP</code>, <code>VEIL_CAP</code>, the radiation ceiling at 84, and calibration seeding under 100 are one idea wearing four names: <strong>no system may ever reach certainty.</strong> A ghost who cannot be arrested, a rad mutation as good as the Pool's, a psionic who never fails, chrome that needs no tuning — each of those individually deletes a reason to play something else.</p>
+
+  <h2>What's still design</h2>
+  <ul>
+    <li><strong>Psionics:</strong> telepathy, precognition, biokinesis, projection/dreamwalking, compulsion. The Gate Keeper NPC outside Terminus still needs authoring.</li>
+    <li><strong>Nullcraft:</strong> Architect's network ladder — the infrastructure tier.</li>
+    <li><strong>Augments:</strong> power draw, the unlicensed Promethean path, and the paperdoll UI. Deferred by design, not by accident.</li>
+    <li><strong>Mutations:</strong> nothing. Every registered effect key has a reader and regress asserts the unconsumed list is empty.</li>
+  </ul>
+
+  <div class="haiku">Four ways to become
+    something else. One way to stay
+    exactly yourself.
+    <span class="attrib">— and the fifth is the hardest to build, because it has to be mechanically real while looking, on inspection, like nothing at all</span>
+  </div>
+
+  <p class="lead">That's the tour. The bit I'd most like you to break is the purity stain window — three weeks is a number I picked because it felt long enough to make chrome a decision rather than a rental, and I have no data behind it at all. Everything else has a regress assertion behind it; that one has a vibe.</p>
+
+  <div class="foot">
+    Sources: docs/systems-mutations.md · docs/systems-augments.md · docs/systems-psionics.md · docs/systems-mastery.md · docs/systems-nullcraft.md<br>
+    Haikus composed on-site. No em dashes were used in any in-world dialogue quoted herein.<br>
+    Architect MUD · engineering memo · 2026-08-13
+  </div>
+
+</div>
+</body>
+</html>

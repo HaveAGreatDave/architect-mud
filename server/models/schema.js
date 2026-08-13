@@ -2810,6 +2810,11 @@ export const SCHEMA_SQL = `
     stash         JSONB,                          -- what is NOT on the manifest (see the weigh station)
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  -- The box's own damage bar. It is the fourth component of the damage model (plugins/trucking/
+  -- damage.js) and it lives HERE rather than in the truck's bag for the reason the trailer is a row
+  -- at all: a trailer outlives the tractor that towed it, gets dropped in yards, and is routinely
+  -- somebody else's problem. Damage that followed the truck would heal every time you swapped boxes.
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS condition REAL NOT NULL DEFAULT 1.0;
   CREATE INDEX IF NOT EXISTS idx_trailers_owner ON trailers(owner_id);
   CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;

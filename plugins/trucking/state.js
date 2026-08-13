@@ -23,6 +23,7 @@ import { mapWindow, surfaceAt, aircraftNearCoord } from '../flight/state.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM,
   addWreck, wreckAhead } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
+import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -166,8 +167,17 @@ export function reconcileTruck(rig, d, now = Date.now()) {
     // WEAR ACCRUES ON USE, NEVER ON THE CLOCK, and it accrues IN RAM — this is the hot path, four
     // times a second per driver, and a condition write here would be a query per frame. It rides
     // home on `park` in the same coalesced UPDATE that already carries fuel and the odometer.
-    rig.condition = Math.max(0, (rig.condition ?? 1)
-      - wearFor(moved, { surface: surfaceUnder(rig), tune: rig.cd?.tune || {}, condition: rig.condition ?? 1 }));
+    //
+    // PER COMPONENT since the damage model landed. `wearFor` still computes the TOTAL — the tune,
+    // the surface and the death-spiral multiplier are unchanged and still live in rig.js — and
+    // `wearSplit` decides where that total goes. The body is deliberately not in the split: miles
+    // do not dent panels, only impacts do. `applyDamage` recomputes `rig.condition` from the parts,
+    // so every downstream reader of the headline number (the breakdown roll two lines below,
+    // resale, the repair price, the band label) is untouched by any of this.
+    applyDamage(rig, wearSplit(
+      wearFor(moved, { surface: surfaceUnder(rig), tune: rig.cd?.tune || {}, condition: rig.condition ?? 1 }),
+      { surface: surfaceUnder(rig) }
+    ));
     // A GAUGE THAT NEVER BITES IS DECORATION. For a long time this counted down to zero and the
     // truck simply carried on, which made every tank number in the fleet a label rather than a
     // constraint. Running dry now stops it dead, and the low warning fires once on the way past so
@@ -440,6 +450,21 @@ export function cabContext(rig, extra = {}) {
     typeId: rig.typeId || null,
     params: rig.params || rig.type || null,
     condition: +(rig.condition ?? 1).toFixed(3),
+    // THE DAMAGE HUD's whole payload. Four numbers and a band each, assembled here rather than in
+    // the client, because "how bad is this" is a fact about the truck and not a rendering choice —
+    // the panel is a skin over these numbers and computes none of them (the same rule the card
+    // reveal and the poker table follow). The trailer's bar is the TRAILER's row, which is why it
+    // is absent when you are bobtail rather than showing a hopeful 100%.
+    dmg: (() => {
+      const d = rig.dmg || (rig.dmg = damageOf(rig));
+      const out = {};
+      for (const p of PARTS) out[p] = { v: +d[p].toFixed(3), band: partBand(d[p]).key };
+      if (rig.trailer) {
+        const tc = rig.trailer.condition ?? 1;
+        out.trailer = { v: +tc.toFixed(3), band: partBand(tc).key };
+      }
+      return out;
+    })(),
     // The cab clamps its own throttle on both of these for the feel; the server clamps the speed
     // for the truth. Same split as `dry`, which is the shape this followed deliberately.
     broken: rig.broken ? rig.broken.kind : null,

@@ -17,7 +17,7 @@ import { getItem } from '../items-cache.js';
 import { fireHook } from '../plugins.js';
 import { applyEffect } from '../effects.js';
 import { sendToPlayer } from '../messaging.js';
-import { sectionize, facetOf, AXIS_ORDER } from '../classify.js';
+import { sectionize, facetOf, AXIS_ORDER, storageFacet } from '../classify.js';
 import { runEquipGates } from '../equip-gates.js';
 import { loggedPanelsSync } from '../presentation.js';
 import { conditionBand, wears } from '../durability.js';
@@ -1454,6 +1454,18 @@ export function containerReply(view, player, doneLine = null) {
   return { type: 'examine', message: renderContainerText(view) };
 }
 
+// Two furniture rows can answer to the same word. A refrigerator and its own
+// drop-freezer box both carry the alias "fridge" deliberately, so `open fridge`
+// works whichever half you name — and for OPEN that's harmless, since the paired
+// panel shows both boxes either way. For `put <x> in fridge` it isn't: an
+// unordered LIMIT 1 lands the groceries in the freezer as often as not.
+//
+// So the tie is broken here rather than left to the planner. A match on the
+// furniture's own NAME beats a match on an alias, and among alias matches the
+// non-frozen box wins — "fridge" means the refrigerated body, and a player who
+// means the cold half types "freezer", which the name match already answers.
+const FURN_MATCH_ORDER = `ORDER BY (name ILIKE $2) DESC, (flags->>'preserves' = 'frozen') ASC, id`;
+
 async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!nameStr) return null;
   let container = await resolveContainer(nameStr, player);
@@ -1461,7 +1473,7 @@ async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!container) {
     // No item container matched — try a furniture container in this zone.
     const { rows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
       [player.current_zone, `%${nameStr}%`]
     );
     if (!rows.length) return null;
@@ -1726,7 +1738,37 @@ function matchesFacet(row, f) {
 // item in the game that doesn't rot, which is a rifle and a pair of boots, and
 // nobody typing it at a cupboard means that.
 const isFoodish = t => !!(t.consumable || t.food_profile);
+
+// The cupboard word — the other end of unpacking the shopping. `frozen` and
+// `refrigerated` are facet labels a player can already type at a cold box, but
+// what's LEFT after the cold half has none: "dry goods" is the label and nobody
+// says it, and `non-perishable` is a mouthful nobody reaches for mid-sweep.
+//
+// Derived, not listed: it asks the storage axis the same question the shelf
+// sections ask, and takes anything that doesn't want a cold box. A new storage
+// tier joins or leaves this word the day it's authored, with nothing written
+// twice. Perishables are OUT even when they'd survive an hour on a counter — the
+// point of the word is that what it sweeps is what you can walk away from.
+//
+// The kitchen kit rides along because a cabinet holds pots as readily as it holds
+// flour, and "anything that goes in a cabinet" is what the word means. Food-ish or
+// kitchenware and nothing else, for the same reason "non-perishable" is food-only:
+// swept literally it would mean your rifle and your boots.
+//
+// Food is asked FIRST and the kitchen kit only answers for what isn't food, which
+// is not pedantry: a flatbread is a real `vessel` (you cook a dish onto it — see
+// `edible_vessel`) and it also goes stale. Asked as an either/or it would ride the
+// cookware branch into a cupboard and rot there.
+const isShelfStable = t => isFoodish(t)
+  ? (!t.perishable && storageFacet(t) === 'Dry Goods')
+  : !!(t.vessel || t.utensil || t.tableware || t.drinkware);
+
 const FILTER_ALIASES = {
+  'pantry': isShelfStable,
+  'cupboard': isShelfStable,
+  'cabinet': isShelfStable,
+  'shelf stable': isShelfStable,
+  'ambient': isShelfStable,
   'non perishable': t => isFoodish(t) && !t.perishable,
   'nonperishable': t => isFoodish(t) && !t.perishable,
   'unperishable': t => isFoodish(t) && !t.perishable,
@@ -1806,7 +1848,7 @@ async function cmdStow(argStr, player) {
   if (!container && containerPart) {
     // No item/ground container matched — fall through to a furniture container in this zone.
     const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (fRows.length) container = await loadContainerById(fRows[0].id, player);
@@ -1893,7 +1935,7 @@ async function cmdPull(argStr, player) {
     // this zone, same as `stow` does. Without this the text path could never reach
     // a shop cooler or any other furniture container; only the GUI `pullid` could.
     const { rows: fRows } = await query(
-      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) LIMIT 1`,
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND (name ILIKE $2 OR flags->>'aliases' ILIKE $2) ${FURN_MATCH_ORDER} LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (fRows.length) container = await loadContainerById(fRows[0].id, player);

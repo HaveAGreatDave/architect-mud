@@ -18,6 +18,8 @@ import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
+import { damageOf, overall, wearSplit, impactSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
+import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
@@ -840,6 +842,85 @@ export default async function regress({ run, check, getPlayer }) {
       wrecksOn(route).length <= 12, wrecksOn(route).length);
     _clearWrecks();
     check('and a clean road has none on it', wrecksOn(route).length === 0);
+  }
+
+  // ── 4b. The damage model ───────────────────────────────────────────────────
+  // Four components under one derived headline. Every case here is a rule from damage.js that would
+  // be silently violable otherwise — most importantly the MIGRATION INVARIANT, which is what made
+  // it safe to switch a live fleet over: a truck with no component bag must come out of this
+  // identical to the truck that went in.
+  {
+    // The invariant, at both ends of the range and in the middle. `damageOf` on a row with no bag
+    // falls back to the single condition for every part, and `overall` of a uniform bag is exactly
+    // that number — so no existing truck's condition moved by a hair when this shipped.
+    let uniformOk = true;
+    for (const c of [1, 0.87, 0.5, 0.22, 0]) {
+      const d = damageOf({ condition: c });
+      if (Math.abs(overall(d) - c) > 1e-9) uniformOk = false;
+    }
+    check('a truck with no component bag is EXACTLY as worn as it was (the migration invariant)', uniformOk);
+
+    // Weakest link, not a mean. This is the case the whole weighting exists for: an average would
+    // let a perfect engine and a perfect body hide wheels that are about to end the evening.
+    const oneDead = overall({ engine: 1, wheels: 0, body: 1 });
+    check('one destroyed component reads as a destroyed truck, not as two-thirds of one',
+      oneDead < 0.45, oneDead);
+    check('…and it is strictly worse than the mean would have been', oneDead < 2 / 3);
+
+    // Miles never dent panels. The body bar is a history of impacts and nothing else, and if
+    // distance ever leaks into it the component stops meaning anything.
+    const roadSplit = wearSplit(0.01, { surface: 'road' });
+    check('distance wears the engine and the wheels and NEVER the body', roadSplit.body === 0);
+    const vergeSplit = wearSplit(0.01, { surface: 'offroad' });
+    check('the verge is a tyre bill — wheels wear far harder off the tarmac',
+      vergeSplit.wheels > roadSplit.wheels * 3, `${vergeSplit.wheels} vs ${roadSplit.wheels}`);
+    check('…and the engine does not care what it is rolling over',
+      Math.abs(vergeSplit.engine - roadSplit.engine) < 1e-9);
+
+    // Impacts land where the truck was hit, and every area costs the SAME total — which is what
+    // makes the client's `area` token safe to trust. It chooses a destination, never a discount.
+    for (const area of IMPACT_AREAS) {
+      const s = impactSplit(0.2, area);
+      const sum = s.engine + s.wheels + s.body;
+      check(`a ${area} impact costs the same total as any other`, Math.abs(sum - 0.2) < 1e-9, sum);
+      // The body is never NOT the biggest share. That is what makes it the impact component, and
+      // it is what stops any area token being a way to route damage somewhere cheaper to fix.
+      check(`…and the body always takes the largest share of it`,
+        s.body >= Math.max(s.engine, s.wheels), JSON.stringify(s));
+    }
+    check('a scrape down the flank is a wheel bill in a way a nose-first hit is not',
+      impactSplit(1, 'side').wheels > impactSplit(1, 'front').wheels * 3);
+    check('backing into something barely touches the engine',
+      impactSplit(1, 'rear').engine < impactSplit(1, 'front').engine / 5);
+
+    // A full bag must reproduce the untouched parameter set exactly, or every truck in the game
+    // quietly changed handling the day this landed.
+    const eff = partEffects({ engine: 1, wheels: 1, body: 1 });
+    check('an undamaged truck is affected by nothing',
+      eff.thrustMax === 1 && eff.brake === 1 && eff.grip === 1, JSON.stringify(eff));
+    const worn = partEffects({ engine: 0, wheels: 0, body: 0 });
+    check('…and a destroyed one is slower and vaguer but never immobile',
+      worn.thrustMax > 0.5 && worn.brake > 0.5 && worn.grip > 0.5, JSON.stringify(worn));
+    // The body is the one component with NO mechanical effect, and it has to stay that way — the
+    // moment it makes you slower it is a second engine bar wearing a different name.
+    const bodyOnly = partEffects({ engine: 1, wheels: 1, body: 0 });
+    check('a battered body costs you resale and nothing else — it never makes the truck worse to drive',
+      bodyOnly.thrustMax === 1 && bodyOnly.brake === 1 && bodyOnly.grip === 1);
+
+    // The bottom of the bar is a wall. A worn-out truck breaking down is not a die roll.
+    check('a truck at the bottom of the bar breaks on the next tile, every time',
+      breakChance(1, { condition: 0 }) === 1 && breakChance(1, { condition: TERMINAL_CONDITION }) === 1);
+    check('…and a healthy one never does', breakChance(500, { condition: 0.9 }) === 0);
+    check('…and standing still cannot break anything', breakChance(0, { condition: 0 }) === 0);
+    check('the terminal gate agrees with the roll', isTerminal(0) && !isTerminal(0.5));
+
+    // `applyDamage` is the only writer, and the headline number must always follow the parts it is
+    // derived from — a path that writes one without the other is how a paid-for repair gets undone.
+    const rig = { dmg: { engine: 1, wheels: 1, body: 1 }, condition: 1 };
+    applyDamage(rig, impactSplit(0.3, 'front'));
+    check('applying damage re-derives the headline number from the parts',
+      Math.abs(rig.condition - overall(rig.dmg)) < 1e-9 && rig.condition < 1);
+    check('…and nothing can be driven below zero', applyDamage(rig, { engine: 99, wheels: 99, body: 99 }) === 0);
   }
 
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────

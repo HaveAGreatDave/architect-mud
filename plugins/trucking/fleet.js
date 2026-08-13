@@ -91,9 +91,21 @@ export async function persistTruck(rig) {
   // Condition rides the SAME coalesced write as fuel and the odometer. It is accrued in RAM on
   // the drive (state.js, off distance and off contact) exactly as durability's `wear()` is, for
   // the same reason: a wear tick that wrote the DB would be a query per second per driver.
-  await query('UPDATE trucks SET fuel = $1, odometer = odometer + $2, depot_zone = $3, condition = $4 WHERE id = $5',
+  //
+  // THE PER-COMPONENT BAG RIDES THE SAME STATEMENT, merged into `custom_data` rather than written
+  // over it — `jsonb_set` on the one key means a flush cannot clobber a tune, a kit or a paint job
+  // that was committed at a bench while the rig was out. `condition` stays the DERIVED headline
+  // (damage.js `overall`) and stays a real column, so resale, the bands and the breakdown roll all
+  // keep reading the thing they always read.
+  const dmg = rig.dmg || null;
+  await query(
+    `UPDATE trucks SET fuel = $1, odometer = odometer + $2, depot_zone = $3, condition = $4,
+       custom_data = CASE WHEN $6::jsonb IS NULL THEN custom_data
+                          ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $6::jsonb, true) END
+     WHERE id = $5`,
     [Math.max(0, Math.min(1, rig.fuel)), Math.max(0, rig.travelled || 0), rig.zoneId || null,
-      Math.max(0, Math.min(1, rig.condition ?? 1)), rig.truckId]
+      Math.max(0, Math.min(1, rig.condition ?? 1)), rig.truckId,
+      dmg ? JSON.stringify(dmg) : null]
   ).catch(() => {});
   rig.travelled = 0;
 }
