@@ -80,9 +80,22 @@ function applyOpsReadonlyVisibility(show) {
   document.getElementById('auth-badge').textContent = `[${role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
-  currentPanel = 'dashboard';
-  activatePanelNav('dashboard');
-  setTimeout(() => { loadPanel('dashboard'); startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel(); }, 0);
+  // WHICH PANEL TO OPEN ON. `?panel=` is how the ⇄ Local button (index.html) hands
+  // your place over when you jump machines — switching from the deployed panel to
+  // your own should not also cost you the screen you were working on.
+  //
+  // Validated against the nav rather than trusted: the value comes off a URL, and
+  // `loadPanel` on a name that does not exist leaves you looking at an empty pane
+  // with no way back. Anything unrecognised silently falls back to the dashboard,
+  // which is also what a bare /dev has always done.
+  let startPanel = 'dashboard';
+  try {
+    const want = new URLSearchParams(location.search).get('panel');
+    if (want && document.querySelector(`.nav-item[data-panel="${CSS.escape(want)}"]`)) startPanel = want;
+  } catch {}
+  currentPanel = startPanel;
+  activatePanelNav(startPanel);
+  setTimeout(() => { loadPanel(startPanel); startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel(); }, 0);
 })();
 applyDevSettings();
 

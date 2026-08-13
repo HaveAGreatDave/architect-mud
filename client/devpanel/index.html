@@ -56,6 +56,11 @@
     <button class="action-btn danger" id="reject-all-btn" onclick="rejectAll()" style="display:none">Reject All</button>
     <button onclick="devpanelLogout()" title="Sign Out" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;line-height:1;font-family:var(--font)">⏻</button>
     <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮 Play</button>
+    <!-- ⇄ LOCAL. Revealed only on a REMOTE origin — on localhost you are already
+         there and the button would be a no-op wearing a label. See switchToLocal:
+         it probes /health before it navigates, because a dead link to a server
+         that isn't running is worse than no link at all. -->
+    <button id="local-btn" onclick="switchToLocal(event)" title="Switch to the local dev panel (starts the local server if it isn't running)" style="display:none;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid var(--accent);color:var(--accent);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⇄ Local</button>
   </div>
 </div>
 
@@ -520,6 +525,130 @@
     return false;
   }
   window.openMapStudio = openMapStudio;
+
+  // ── ⇄ LOCAL — jump from the deployed panel to the one on your own machine ──
+  //
+  // THE HONEST LIMIT, WRITTEN DOWN SO NOBODY RE-DISCOVERS IT. A web page cannot
+  // start a process on the machine viewing it. The Map Studio button above LOOKS
+  // like a counter-example and is not: it works because the local GAME SERVER is
+  // already running and spawns the Studio for it. Here the thing that needs
+  // starting IS the game server, and when it is down there is nothing local
+  // listening to be asked. Prod cannot reach into your laptop, and it should not
+  // be able to.
+  //
+  // So this does the two halves separately and is honest about which is which:
+  //
+  //   RUNNING     — probe, then navigate. Free.
+  //   NOT RUNNING — hand over the one thing a browser CAN do, which is follow a
+  //                 URL the operating system knows how to run (architect://dev,
+  //                 registered once by scripts/register-dev-protocol.bat), and
+  //                 fall back to the command itself, one click to copy.
+  //
+  // WHY /health AND NOT A no-cors PING. `no-cors` gives an opaque response: you
+  // learn that SOMETHING answered on port 3000 and nothing else — a stale Vite,
+  // another project, a print server. /health already exists, already sends CORS
+  // headers, and returns `{status:'ok'}`, so we can confirm it is actually this
+  // game server before sending anybody there.
+  const LOCAL_ORIGIN = 'http://localhost:3000';
+  const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
+
+  // Chrome, Edge and Firefox all treat http://localhost as a trustworthy origin
+  // and exempt it from mixed-content blocking, which is the only reason an https
+  // panel can probe it at all. Safari does not — hence the catch, which lands in
+  // exactly the same "can't reach it" branch as a server that is genuinely down.
+  async function localServerUp(ms = 1500) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(LOCAL_ORIGIN + '/health', { signal: ctl.signal, cache: 'no-store' });
+      if (!r.ok) return false;
+      const d = await r.json();
+      return d && d.status === 'ok';
+    } catch { return false; }
+    finally { clearTimeout(t); }
+  }
+
+  async function switchToLocal(ev) {
+    if (ev) ev.preventDefault();
+    const el = document.getElementById('local-btn');
+    const label = el ? el.textContent : '';
+    if (el) { el.textContent = '⇄ …'; el.disabled = true; }
+    try {
+      if (await localServerUp()) return goLocal();
+      offerToStartLocal();
+    } finally {
+      if (el) { el.textContent = label; el.disabled = false; }
+    }
+    return false;
+  }
+
+  // The panel you were looking at travels with you. `currentPanel` is a global the
+  // panel router already maintains, and bootstrap reads `?panel=` on the far side —
+  // switching machines mid-task should not also cost you your place.
+  function goLocal() {
+    let url = LOCAL_ORIGIN + '/dev';
+    try {
+      if (typeof currentPanel === 'string' && currentPanel) url += '?panel=' + encodeURIComponent(currentPanel);
+    } catch {}
+    location.href = url;
+  }
+
+  // Not running. Two ways forward, in the order they are likely to work, and the
+  // second one always works.
+  function offerToStartLocal() {
+    const cmd = 'npm run dev';
+    openModal('Local server is not running', `
+      <p style="margin:0 0 12px;color:var(--text-dim);line-height:1.6">
+        Nothing answered on <code>${LOCAL_ORIGIN}</code>. A web page cannot start a process on your
+        machine, so one of these has to do it.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="border:1px solid var(--border);border-radius:3px;padding:10px">
+          <div style="font-size:11px;letter-spacing:1px;color:var(--accent);margin-bottom:6px">1 &middot; ONE CLICK</div>
+          <p style="margin:0 0 8px;color:var(--text-dim);font-size:12px;line-height:1.5">
+            Needs the <code>architect://</code> handler registered once — run
+            <code>scripts\\register-dev-protocol.bat</code> and this button starts working for good.
+          </p>
+          <button class="action-btn" onclick="startLocalViaProtocol()">▶ Start local server</button>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:3px;padding:10px">
+          <div style="font-size:11px;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">2 &middot; BY HAND</div>
+          <p style="margin:0 0 8px;color:var(--text-dim);font-size:12px;line-height:1.5">Run this in the repo, then come back.</p>
+          <div style="display:flex;gap:6px;align-items:center">
+            <code style="flex:1;background:var(--bg2);padding:6px 8px;border-radius:2px;user-select:all">${cmd}</code>
+            <button class="action-btn" onclick="navigator.clipboard.writeText('${cmd}').then(()=>toast('Copied'))">Copy</button>
+          </div>
+        </div>
+      </div>
+      <p id="local-wait" style="margin:12px 0 0;color:var(--text-dim);font-size:12px;display:none"></p>`);
+  }
+
+  // Fire the protocol URL and then WAIT FOR THE PORT, rather than assuming. If the
+  // handler is not registered, nothing happens at all — no error, no navigation —
+  // which is precisely why this polls and then says so out loud instead of leaving
+  // a modal sitting there looking like it worked.
+  async function startLocalViaProtocol() {
+    const wait = document.getElementById('local-wait');
+    const show = (t) => { if (wait) { wait.style.display = ''; wait.textContent = t; } };
+    show('Asking your machine to start it…');
+    try { location.href = 'architect://dev'; } catch {}
+    for (let i = 0; i < 30; i++) {                 // ~30s: a cold boot loads the whole world
+      await new Promise(r => setTimeout(r, 1000));
+      show(`Waiting for ${LOCAL_ORIGIN} … ${i + 1}s`);
+      if (await localServerUp(900)) { closeModal(); return goLocal(); }
+    }
+    show('Still nothing. The handler is probably not registered — run scripts\\register-dev-protocol.bat, or start it by hand with the command above.');
+  }
+
+  window.switchToLocal = switchToLocal;
+  window.startLocalViaProtocol = startLocalViaProtocol;
+  window.localServerUp = localServerUp;
+
+  // Remote origins only — see the button's own comment.
+  if (!LOCAL_HOSTS.includes(location.hostname)) {
+    const b = document.getElementById('local-btn');
+    if (b) b.style.display = '';
+  }
 </script>
 </body>
 </html>

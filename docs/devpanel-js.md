@@ -389,6 +389,7 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `applyDevSettings()` — applies theme/font/density before the first render.
 - `window.addEventListener('storage', ...)` — syncs settings changes from other tabs.
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
+- **The opening panel**, which is `dashboard` unless `?panel=<name>` says otherwise. That parameter is how the header's **⇄ Local** button (inline in `index.html`) hands your place over when you jump from the deployed panel to the one on your own machine. It is **validated against the nav** (`.nav-item[data-panel=…]`) rather than trusted — the value comes off a URL, and `loadPanel` on a name that does not exist leaves you staring at an empty pane with no way back. Anything unrecognised silently falls back to the dashboard, which is what a bare `/dev` has always done.
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
 - **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, marks every nav entry whose panel can't write on prod with a padlock and `data-ops-ro` (an inline `OPS_LOCK_SVG` drawn in `currentColor` — `.ops-lock` points it at `--accent`, so it themes; the old emoji `🔒` did not), injects the **show read-only** toggle at the top of the nav, adds `body.ops-mode`, and relabels the header.
