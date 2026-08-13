@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Old cuts on their hands have healed into raised white cord.",
+    "extreme": "They are armoured in their own scar tissue, overlapping ridges of it from jaw to knuckle. Nothing on them has healed flat.",
     "obvious": "Thick ropes of scar tissue cross their forearms and throat, every one of them raised and pale.",
-    "extreme": "They are armoured in their own scar tissue, overlapping ridges of it from jaw to knuckle. Nothing on them has healed flat."
+    "subtle": "Old cuts on their hands have healed into raised white cord."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "hands"
@@ -19,11 +20,12 @@
     "The scarring accumulates and never fades"
   ],
   "effects": {
-    "heal_rate": 0.35,
     "bleed_resistance": 0.3,
+    "heal_rate": 0.35,
     "social_penalty": 0.1
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_regenerative_scarring",
   "name": "Regenerative Scarring",
   "polarity": "mixed",

@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their skin tone seems to shift slightly against the wall behind them.",
+    "extreme": "When they stop moving they are very difficult to look at directly. The wall continues across them, and your eye keeps sliding off.",
     "obvious": "Their exposed skin is running with slow colour, matching the room a half-second behind.",
-    "extreme": "When they stop moving they are very difficult to look at directly. The wall continues across them, and your eye keeps sliding off."
+    "subtle": "Their skin tone seems to shift slightly against the wall behind them."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "hands"
@@ -23,6 +24,7 @@
     "social_penalty": 0.15
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_chameleon",
   "name": "Chameleon Skin",
   "polarity": "mixed",

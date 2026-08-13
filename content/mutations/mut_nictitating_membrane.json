@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "They blink slightly out of time with themselves.",
+    "extreme": "Their eyes are permanently half-shuttered behind a sliding grey film, and they walk into a dust storm without squinting.",
     "obvious": "A clear second lid sweeps sideways across their eyes and back.",
-    "extreme": "Their eyes are permanently half-shuttered behind a sliding grey film, and they walk into a dust storm without squinting."
+    "subtle": "They blink slightly out of time with themselves."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -20,6 +21,7 @@
     "poison_resistance": 0.2
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_nictitating_membrane",
   "name": "Nictitating Membrane",
   "polarity": "positive",

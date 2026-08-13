@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "They talk with their mouth a little too closed.",
+    "extreme": "A grey prehensile tongue, long as a forearm, which they use to pick things up without appearing to think about it.",
     "obvious": "Their tongue is far too long for their mouth, and it shows when they speak.",
-    "extreme": "A grey prehensile tongue, long as a forearm, which they use to pick things up without appearing to think about it."
+    "subtle": "They talk with their mouth a little too closed."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -19,6 +20,7 @@
     "social_penalty": 0.25
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_prehensile_tongue",
   "name": "Prehensile Tongue",
   "polarity": "mixed",

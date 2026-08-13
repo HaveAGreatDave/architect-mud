@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Something shifts under the back of their coat.",
+    "extreme": "Six chitinous limbs arch from their back, each taller than they are. They are standing on four of them and using the others to hold three separate things.",
     "obvious": "Two thin jointed limbs unfold from beneath their shoulder blades and fold back again.",
-    "extreme": "Six chitinous limbs arch from their back, each taller than they are. They are standing on four of them and using the others to hold three separate things."
+    "subtle": "Something shifts under the back of their coat."
   },
   "blocks_slots": [
     "torso"
@@ -10,6 +10,7 @@
   "body_parts": [
     "aux_limb"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "Additional jointed limbs have unfolded from beneath your shoulder blades. They are not arms. They are better at some things than arms are.",
   "drawbacks": [
@@ -17,11 +18,12 @@
   ],
   "effects": {
     "carry_bonus": 30,
-    "unarmed_damage_bonus": 4,
+    "part_hit_weight": 5,
     "social_penalty": 0.6,
-    "part_hit_weight": 5
+    "unarmed_damage_bonus": 4
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_spider_limbs",
   "name": "Spider Limbs",
   "polarity": "mixed",

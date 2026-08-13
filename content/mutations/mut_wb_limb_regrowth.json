@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "One of their fingers is noticeably newer than the others.",
+    "extreme": "Their left arm is visibly younger than the rest of them, hairless and pink from the elbow down, and it does not match.",
     "obvious": "Two fingers on their off hand are pale, soft and undersized, clearly regrown.",
-    "extreme": "Their left arm is visibly younger than the rest of them, hairless and pink from the elbow down, and it does not match."
+    "subtle": "One of their fingers is noticeably newer than the others."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -11,6 +11,7 @@
     "left_leg",
     "right_leg"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands",
     "legs"
@@ -20,10 +21,11 @@
     "The new part is never quite the old part"
   ],
   "effects": {
-    "limb_regrowth": 0.7,
-    "heal_rate": 0.2
+    "heal_rate": 0.2,
+    "limb_regrowth": 0.7
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_limb_regrowth",
   "name": "Limb Regrowth",
   "polarity": "mixed",

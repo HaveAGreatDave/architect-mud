@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their jaw sits heavy and their teeth crowd forward.",
+    "extreme": "Their head is mostly mouth. It hinges open past the ears, four rows deep, and there is a second smaller set of jaws further back that you wish you had not seen.",
     "obvious": "Their jaw opens further than a jaw should, and there are two rows of teeth behind the first.",
-    "extreme": "Their head is mostly mouth. It hinges open past the ears, four rows deep, and there is a second smaller set of jaws further back that you wish you had not seen."
+    "subtle": "Their jaw sits heavy and their teeth crowd forward."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "Your jaw has rebuilt itself around the question of what you can eat. The answer is nearly everything, and the hinge goes back further than it should.",
   "drawbacks": [
@@ -15,11 +16,12 @@
   ],
   "effects": {
     "bite_attack": true,
-    "unarmed_damage_bonus": 5,
     "poison_resistance": 0.4,
-    "social_penalty": 0.55
+    "social_penalty": 0.55,
+    "unarmed_damage_bonus": 5
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_maw",
   "name": "Carnivorous Maw",
   "polarity": "mixed",

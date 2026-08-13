@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "They feel solid in a way that does not match their build.",
+    "extreme": "Their whole body is sheathed in a dense grey membrane, hardened into visible plates over the heart and the belly and the throat.",
     "obvious": "A grey membrane shows at their collar and cuffs, sitting under the skin like a second garment.",
-    "extreme": "Their whole body is sheathed in a dense grey membrane, hardened into visible plates over the heart and the belly and the throat."
+    "subtle": "They feel solid in a way that does not match their build."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,12 +17,13 @@
     "You are heavier than you look"
   ],
   "effects": {
-    "soak_kinetic": 5,
     "soak_edged": 4,
     "soak_energy": 3,
-    "soak_fire": 3
+    "soak_fire": 3,
+    "soak_kinetic": 5
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_bio_armor",
   "name": "Biological Armor",
   "polarity": "mixed",

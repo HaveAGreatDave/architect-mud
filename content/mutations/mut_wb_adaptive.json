@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their skin looks slightly different from the last time you saw them.",
+    "extreme": "They are a different shape from one week to the next. Right now they are pale and thick-hided and shedding, and next week they will not be.",
     "obvious": "Their skin has visibly changed texture across the exposed parts, thickened where the weather has been at it.",
-    "extreme": "They are a different shape from one week to the next. Right now they are pale and thick-hided and shedding, and next week they will not be."
+    "subtle": "Their skin looks slightly different from the last time you saw them."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -17,12 +18,13 @@
   ],
   "effects": {
     "cold_resistance": 0.35,
+    "disease_resistance": 0.3,
     "heat_resistance": 0.35,
-    "rad_resistance": 0.35,
     "poison_resistance": 0.35,
-    "disease_resistance": 0.3
+    "rad_resistance": 0.35
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_adaptive",
   "name": "Adaptive Flesh",
   "polarity": "mixed",

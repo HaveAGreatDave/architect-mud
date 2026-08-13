@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their voice has an odd second note under it.",
+    "extreme": "Their ribcage is a drum. When they speak, glass hums, and the sound arrives in your chest before it reaches your ears.",
     "obvious": "Their chest is barrelled out around something, and their voice carries a resonance that sits wrong in your ears.",
-    "extreme": "Their ribcage is a drum. When they speak, glass hums, and the sound arrives in your chest before it reaches your ears."
+    "subtle": "Their voice has an odd second note under it."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,10 +17,11 @@
     "It hurts you to use it too"
   ],
   "effects": {
-    "sonic_attack": 10,
-    "acuity_hearing": 1
+    "acuity_hearing": 1,
+    "sonic_attack": 10
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_sonic_organ",
   "name": "Sonic Organ",
   "polarity": "mixed",

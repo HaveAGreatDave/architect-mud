@@ -190,33 +190,33 @@
     },
     {
       "item_id": "item_wb_split_gloves",
-      "price": 700,
-      "min_trust": 1
+      "min_trust": 1,
+      "price": 700
     },
     {
       "item_id": "item_wb_tailed_trousers",
-      "price": 950,
-      "min_trust": 2
+      "min_trust": 2,
+      "price": 950
     },
     {
       "item_id": "item_wb_plated_wrap",
-      "price": 2100,
-      "min_trust": 2
+      "min_trust": 2,
+      "price": 2100
     },
     {
       "item_id": "item_wb_wide_hood",
-      "price": 1550,
-      "min_trust": 2
+      "min_trust": 2,
+      "price": 1550
     },
     {
       "item_id": "item_wb_winged_harness",
-      "price": 2900,
-      "min_trust": 2
+      "min_trust": 2,
+      "price": 2900
     },
     {
       "item_id": "item_wb_mutagen",
-      "price": 4000,
-      "min_trust": 3
+      "min_trust": 3,
+      "price": 4000
     }
   ],
   "vendor_restock_rate": 1,

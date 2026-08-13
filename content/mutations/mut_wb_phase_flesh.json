@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their outline seems indistinct at the edges.",
+    "extreme": "They are barely holding a human shape. Their edges blur, their limbs elongate as they reach, and part of their shoulder is currently inside the doorframe.",
     "obvious": "Their flesh sags and firms as they move, and their fingers are longer than they were a minute ago.",
-    "extreme": "They are barely holding a human shape. Their edges blur, their limbs elongate as they reach, and part of their shoulder is currently inside the doorframe."
+    "subtle": "Their outline seems indistinct at the edges."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,11 +17,12 @@
     "Holding a shape is work"
   ],
   "effects": {
-    "soak_kinetic": 4,
     "camouflage": 2,
+    "soak_kinetic": 4,
     "social_penalty": 0.4
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_phase_flesh",
   "name": "Phase Flesh",
   "polarity": "mixed",

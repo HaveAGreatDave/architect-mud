@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their coat hangs badly at the back.",
+    "extreme": "A heavy muscular tail longer than they are tall, ending in a horned knot of bone. It is holding a drink. They are not looking at it.",
     "obvious": "A thick tail as long as their leg, moving with obvious intent, keeping their balance as they turn.",
-    "extreme": "A heavy muscular tail longer than they are tall, ending in a horned knot of bone. It is holding a drink. They are not looking at it."
+    "subtle": "Their coat hangs badly at the back."
   },
   "blocks_slots": [
     "legs"
@@ -10,6 +10,7 @@
   "body_parts": [
     "tail"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "A long muscular tail that does what a hand does, and reaches where a hand cannot. You stopped noticing you were using it about a week in.",
   "drawbacks": [
@@ -17,11 +18,12 @@
   ],
   "effects": {
     "carry_bonus": 15,
-    "unarmed_damage_bonus": 3,
+    "part_hit_weight": 4,
     "social_penalty": 0.35,
-    "part_hit_weight": 4
+    "unarmed_damage_bonus": 3
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_prehensile_tail",
   "name": "Prehensile Tail",
   "polarity": "mixed",

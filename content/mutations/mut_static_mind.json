@@ -4,6 +4,7 @@
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "Your thoughts are a white noise channel. Partial immunity to sanity loss. Architect signals are louder.",
   "drawbacks": [
@@ -13,6 +14,7 @@
     "sanity_drain_reduction": 0.35
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_static_mind",
   "name": "Static Mind",
   "polarity": "positive",

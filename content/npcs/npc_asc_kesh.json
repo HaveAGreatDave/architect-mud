@@ -90,10 +90,10 @@
     "personality": "doctor",
     "posted": true,
     "surgeon": true,
-    "surgeon_skill": 9,
+    "surgeon_licensed": 1,
     "surgeon_rate": 1.6,
     "surgeon_risk": 0.015,
-    "surgeon_licensed": 1
+    "surgeon_skill": 9
   },
   "home_activities": [],
   "home_zone": "zone_asc_clinic_consult",

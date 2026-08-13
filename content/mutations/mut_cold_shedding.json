@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "They are running warm, and there is a sheen of sweat on them in a cold room.",
+    "extreme": "The air bends slightly above their shoulders. Snow does not settle on them, and standing close is like standing near a stove.",
     "obvious": "Heat comes off them in the cold like off an engine. They are in shirtsleeves and comfortable.",
-    "extreme": "The air bends slightly above their shoulders. Snow does not settle on them, and standing close is like standing near a stove."
+    "subtle": "They are running warm, and there is a sheen of sweat on them in a cold room."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -21,6 +22,7 @@
     "heat_resistance": -0.35
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_cold_shedding",
   "name": "Cold-Shedding Metabolism",
   "polarity": "mixed",

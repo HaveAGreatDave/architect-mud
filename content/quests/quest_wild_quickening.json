@@ -23,24 +23,24 @@
   "repeatable": 0,
   "rewards": {
     "credits": 0,
-    "xp": 120,
     "flags": [
       {
-        "scope": "player",
         "flag": "wild_quickening_done",
+        "scope": "player",
         "value": "done"
       },
       {
-        "scope": "player",
         "flag": "wildblood_quickened",
+        "scope": "player",
         "value": "1"
       },
       {
-        "scope": "player",
         "flag": "wildblood_trust",
+        "scope": "player",
         "value": "3"
       }
-    ]
+    ],
+    "xp": 120
   },
   "updated_at": "1786000000"
 }

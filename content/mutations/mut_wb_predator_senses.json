@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their nostrils flare when you come close.",
+    "extreme": "They track you by smell alone with their eyes shut, and they tilt their head at sounds nobody else in the room can hear.",
     "obvious": "They keep scenting the air, and their eyes go to movement before it finishes happening.",
-    "extreme": "They track you by smell alone with their eyes shut, and they tilt their head at sounds nobody else in the room can hear."
+    "subtle": "Their nostrils flare when you come close."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -16,12 +17,13 @@
     "You cannot stop noticing"
   ],
   "effects": {
-    "acuity_smell": 3,
     "acuity_hearing": 3,
     "acuity_sight": 1,
+    "acuity_smell": 3,
     "lowlight_vision": true
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_predator_senses",
   "name": "Predator's Senses",
   "polarity": "mixed",

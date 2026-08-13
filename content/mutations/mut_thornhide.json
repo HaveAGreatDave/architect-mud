@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "The backs of their hands are darker than the rest of them, and rough.",
+    "extreme": "They are hided over in dark thorn-bark from the jaw down, grained and split and hard, and where it creases at the joints there are short blunt spines.",
     "obvious": "Their skin has gone dark and barked over the forearms and the back of the neck, split into small hard plates like a thorn stem.",
-    "extreme": "They are hided over in dark thorn-bark from the jaw down, grained and split and hard, and where it creases at the joints there are short blunt spines."
+    "subtle": "The backs of their hands are darker than the rest of them, and rough."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "hands"
@@ -19,12 +20,13 @@
     "Everyone in the city can see what you are now"
   ],
   "effects": {
+    "cold_resistance": 0.2,
     "soak_edged": 4,
     "soak_kinetic": 2,
-    "cold_resistance": 0.2,
     "social_penalty": 0.3
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_thornhide",
   "name": "Thornhide",
   "polarity": "mixed",

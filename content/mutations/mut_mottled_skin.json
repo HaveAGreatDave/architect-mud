@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "Their skin tone is uneven, patched lighter across the throat.",
+    "extreme": "They are patterned rather than coloured, grey and rust in hard-edged patches from scalp to wrist. In the dust you would walk past them.",
     "obvious": "Their skin is mottled in irregular grey and ochre blotches, like something weathered.",
-    "extreme": "They are patterned rather than coloured, grey and rust in hard-edged patches from scalp to wrist. In the dust you would walk past them."
+    "subtle": "Their skin tone is uneven, patched lighter across the throat."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso",
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "head"
@@ -21,6 +22,7 @@
     "social_penalty": 0.2
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_mottled_skin",
   "name": "Mottled Skin",
   "polarity": "mixed",

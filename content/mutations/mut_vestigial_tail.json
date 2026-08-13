@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "They are sitting oddly, forward on the chair.",
+    "extreme": "A thick tail hangs to the back of their knees, cut through the seat of trousers that have been altered for it.",
     "obvious": "There is a short tail at the base of their spine, pushing their coat out of shape.",
-    "extreme": "A thick tail hangs to the back of their knees, cut through the seat of trousers that have been altered for it."
+    "subtle": "They are sitting oddly, forward on the chair."
   },
   "blocks_slots": [
     "legs"
@@ -10,6 +10,7 @@
   "body_parts": [
     "tail"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "legs"
   ],

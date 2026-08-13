@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "Their hands are not quite steady.",
+    "extreme": "Their hands shake so badly they keep them in their pockets, and they have stopped trying to carry a full cup.",
     "obvious": "Their hands shake constantly, and they hold things with both.",
-    "extreme": "Their hands shake so badly they keep them in their pockets, and they have stopped trying to carry a full cup."
+    "subtle": "Their hands are not quite steady."
   },
   "blocks_slots": [],
   "body_parts": [
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -18,6 +19,7 @@
   ],
   "effects": {},
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_tremor_hands",
   "name": "Tremor Hands",
   "polarity": "negative",

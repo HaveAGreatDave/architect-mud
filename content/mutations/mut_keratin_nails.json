@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their nails are thick and yellowed, filed to blunt points.",
+    "extreme": "Their hands end in claws. Dark, ridged, and long enough that they hold a cup with their fingertips because the nails will not clear it.",
     "obvious": "Their fingernails are horn, curved and thick, and they have stopped pretending to trim them.",
-    "extreme": "Their hands end in claws. Dark, ridged, and long enough that they hold a cup with their fingertips because the nails will not clear it."
+    "subtle": "Their nails are thick and yellowed, filed to blunt points."
   },
   "blocks_slots": [
     "hands"
@@ -11,6 +11,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -22,6 +23,7 @@
     "unarmed_damage_bonus": 2
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_keratin_nails",
   "name": "Keratin Nails",
   "polarity": "mixed",

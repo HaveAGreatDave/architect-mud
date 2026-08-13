@@ -4,17 +4,17 @@
   "id": "item_wb_plated_wrap",
   "name": "shell-cut wrap",
   "tags": {
-    "slot": "torso",
-    "layer": "outerwear",
     "accommodates": [
       "CARAPACE",
       "TENTACLES"
     ],
     "armor_soak": {
-      "kinetic": 2,
-      "acid": 2
+      "acid": 2,
+      "kinetic": 2
     },
-    "description": "Overlapping panels on long ties, meant to be laid over something ridged and pulled snug rather than buttoned across a flat chest."
+    "description": "Overlapping panels on long ties, meant to be laid over something ridged and pulled snug rather than buttoned across a flat chest.",
+    "layer": "outerwear",
+    "slot": "torso"
   },
   "type": "clothing",
   "value": 1900,

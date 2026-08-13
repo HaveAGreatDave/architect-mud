@@ -5,8 +5,8 @@
   "name": "flask of mutagen",
   "tags": {
     "consumable": true,
-    "mutagen": true,
-    "description": "A thick glass flask of something dark that moves when the flask does not. Warm to hold. It is not still."
+    "description": "A thick glass flask of something dark that moves when the flask does not. Warm to hold. It is not still.",
+    "mutagen": true
   },
   "type": "consumable",
   "value": 4000,

@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "There are pale scored lines along the sides of their neck.",
+    "extreme": "Rows of working gills run their neck and flank, fanning when they breathe. Out of water they sound like something drowning slowly.",
     "obvious": "Gill slits open and close along their throat and lower ribs, wet and red at the edges.",
-    "extreme": "Rows of working gills run their neck and flank, fanning when they breathe. Out of water they sound like something drowning slowly."
+    "subtle": "There are pale scored lines along the sides of their neck."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,12 +17,13 @@
     "They stay wet and they need to"
   ],
   "effects": {
-    "gills": true,
-    "swim": true,
     "cold_resistance": 0.2,
-    "social_penalty": 0.2
+    "gills": true,
+    "social_penalty": 0.2,
+    "swim": true
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_gills",
   "name": "Gills",
   "polarity": "mixed",

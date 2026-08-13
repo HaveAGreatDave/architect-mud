@@ -4,14 +4,16 @@
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "You can eat almost anything. Food poisoning is no longer a concern. What is a concern is what you now find appetizing.",
   "drawbacks": [],
   "effects": {
-    "poison_resistance": 0.4,
-    "disease_resistance": 0.25
+    "disease_resistance": 0.25,
+    "poison_resistance": 0.4
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_iron_stomach",
   "name": "Iron Stomach",
   "polarity": "positive",

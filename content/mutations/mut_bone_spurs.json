@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their knuckles are heavy and knotted.",
+    "extreme": "Ridges of bone run the backs of both hands and out along the forearms, dry and yellowed. They cannot make a fist without them showing.",
     "obvious": "Points of bone have come through the skin over every knuckle, worn smooth and yellow.",
-    "extreme": "Ridges of bone run the backs of both hands and out along the forearms, dry and yellowed. They cannot make a fist without them showing."
+    "subtle": "Their knuckles are heavy and knotted."
   },
   "blocks_slots": [
     "hands"
@@ -11,6 +11,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -23,6 +24,7 @@
     "unarmed_damage_bonus": 3
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_bone_spurs",
   "name": "Bone Spurs",
   "polarity": "mixed",

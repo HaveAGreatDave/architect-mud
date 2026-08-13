@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "There are old parallel scars along both their forearms.",
+    "extreme": "Blades of bone stand a foot clear of each forearm, ivory and edged, wet where they came through. The wounds are already closing around them.",
     "obvious": "Ridges of bone run the length of their forearms, and the skin over them is split and rehealed a hundred times.",
-    "extreme": "Blades of bone stand a foot clear of each forearm, ivory and edged, wet where they came through. The wounds are already closing around them."
+    "subtle": "There are old parallel scars along both their forearms."
   },
   "blocks_slots": [],
   "body_parts": [
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -17,11 +18,12 @@
     "Deploying them opens your arms every time"
   ],
   "effects": {
+    "unarmed_bleed_chance": 0.4,
     "unarmed_damage_bonus": 7,
-    "unarmed_edged": true,
-    "unarmed_bleed_chance": 0.4
+    "unarmed_edged": true
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_bone_blades",
   "name": "Bone Blades",
   "polarity": "mixed",

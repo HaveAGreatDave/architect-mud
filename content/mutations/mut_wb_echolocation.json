@@ -1,23 +1,25 @@
 {
   "appearance": {
-    "subtle": "There is a faint clicking when they enter a room.",
+    "extreme": "The clicking is constant and loud enough to feel. Their eyes have gone milky and useless and it has not slowed them at all.",
     "obvious": "They click steadily as they move, head tilting, and they navigate a dark room without slowing down.",
-    "extreme": "The clicking is constant and loud enough to feel. Their eyes have gone milky and useless and it has not slowed them at all."
+    "subtle": "There is a faint clicking when they enter a room."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "You have started making a sound too high to hear and reading the room off what comes back. Darkness and smoke stopped mattering.",
   "drawbacks": [
     "The clicking is constant and people notice"
   ],
   "effects": {
-    "echolocation": true,
-    "acuity_hearing": 3
+    "acuity_hearing": 3,
+    "echolocation": true
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_echolocation",
   "name": "Echolocation",
   "polarity": "mixed",

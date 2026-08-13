@@ -23,19 +23,19 @@
   "repeatable": 0,
   "rewards": {
     "credits": 40,
-    "xp": 25,
     "flags": [
       {
-        "scope": "player",
         "flag": "wild_seen_done",
+        "scope": "player",
         "value": "done"
       },
       {
-        "scope": "player",
         "flag": "wildblood_trust",
+        "scope": "player",
         "value": "1"
       }
-    ]
+    ],
+    "xp": 25
   },
   "updated_at": "1786000000"
 }

@@ -1,24 +1,26 @@
 {
   "appearance": {
-    "subtle": "Their teeth look heavier than they should.",
+    "extreme": "Their mouth is full of dense conical teeth, too many and too large, and their lips do not entirely close over them.",
     "obvious": "Their teeth are thick and pointed, crowding the front of their mouth.",
-    "extreme": "Their mouth is full of dense conical teeth, too many and too large, and their lips do not entirely close over them."
+    "subtle": "Their teeth look heavier than they should."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "Your teeth have thickened and come to points. A bite means something now, and so does a smile.",
   "drawbacks": [
     "You cannot talk without showing them"
   ],
   "effects": {
-    "unarmed_damage_bonus": 2,
     "bite_attack": true,
-    "social_penalty": 0.15
+    "social_penalty": 0.15,
+    "unarmed_damage_bonus": 2
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_calcified_teeth",
   "name": "Calcified Teeth",
   "polarity": "mixed",

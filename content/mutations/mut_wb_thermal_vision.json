@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "There are two shallow depressions above their eyebrows.",
+    "extreme": "Their brow is a row of gaping heat pits and their eyes have clouded to nothing. They found you in the dark immediately, and they knew where you had been sitting.",
     "obvious": "Two dark pits sit above their eyes, wet and open, and they turn their face toward warm things rather than lit ones.",
-    "extreme": "Their brow is a row of gaping heat pits and their eyes have clouded to nothing. They found you in the dark immediately, and they knew where you had been sitting."
+    "subtle": "There are two shallow depressions above their eyebrows."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -16,11 +17,12 @@
     "Your actual eyes have got worse"
   ],
   "effects": {
-    "thermal_vision": true,
     "acuity_sight": 2,
-    "social_penalty": 0.2
+    "social_penalty": 0.2,
+    "thermal_vision": true
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_thermal_vision",
   "name": "Thermal Vision",
   "polarity": "mixed",

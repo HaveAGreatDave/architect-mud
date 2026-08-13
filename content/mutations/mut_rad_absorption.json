@@ -4,6 +4,7 @@
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [],
   "description": "Your body has learned to metabolize radiation instead of being destroyed by it. Slowly.",
   "drawbacks": [
@@ -13,6 +14,7 @@
     "rad_resistance": 0.6
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_rad_absorption",
   "name": "Rad Absorption",
   "polarity": "positive",

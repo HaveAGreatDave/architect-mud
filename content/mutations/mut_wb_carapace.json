@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Hard ridges show through their shirt across the shoulders.",
+    "extreme": "They are armoured. Segmented black plate from throat to hip and out along the limbs, matte and slightly iridescent, with the seams flexing as they breathe.",
     "obvious": "Overlapping plates of dark chitin cover their chest and run down over the shoulders, clicking faintly when they move.",
-    "extreme": "They are armoured. Segmented black plate from throat to hip and out along the limbs, matte and slightly iridescent, with the seams flexing as they breathe."
+    "subtle": "Hard ridges show through their shirt across the shoulders."
   },
   "blocks_slots": [
     "torso"
@@ -10,6 +10,7 @@
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -18,12 +19,13 @@
     "Conventional torso armour will not close over it"
   ],
   "effects": {
-    "soak_kinetic": 8,
-    "soak_edged": 6,
     "soak_acid": 4,
+    "soak_edged": 6,
+    "soak_kinetic": 8,
     "social_penalty": 0.3
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_carapace",
   "name": "Chitinous Carapace",
   "polarity": "mixed",

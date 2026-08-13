@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "There is a swelling under their jaw on both sides.",
+    "extreme": "Their jaw is distended around the glands and their hands are permanently wet with venom. Where they rested a palm, the table has gone soft.",
     "obvious": "Glands bulge under their jaw, and their knuckles weep a clear fluid that beads and does not dry.",
-    "extreme": "Their jaw is distended around the glands and their hands are permanently wet with venom. Where they rested a palm, the table has gone soft."
+    "subtle": "There is a swelling under their jaw on both sides."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -18,11 +19,12 @@
     "You have to be careful about kissing anyone"
   ],
   "effects": {
-    "venom_potency": 0.7,
+    "bite_attack": true,
     "unarmed_damage_bonus": 2,
-    "bite_attack": true
+    "venom_potency": 0.7
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_venom",
   "name": "Venom Glands",
   "polarity": "mixed",

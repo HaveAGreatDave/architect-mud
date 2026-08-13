@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their collar is stained through in a way that does not look like ordinary sweat.",
+    "extreme": "Their clothing is holed and yellowed wherever it touches them. The smell is eye-watering, and the floor where they stood is tacky.",
     "obvious": "Their clothes are eaten thin at the collar and armpits, and there is a sharp chemical smell about them.",
-    "extreme": "Their clothing is holed and yellowed wherever it touches them. The smell is eye-watering, and the floor where they stood is tacky."
+    "subtle": "Their collar is stained through in a way that does not look like ordinary sweat."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -17,10 +18,11 @@
     "People do not want to touch you"
   ],
   "effects": {
-    "wear_acceleration": 0.6,
-    "social_penalty": 0.2
+    "social_penalty": 0.2,
+    "wear_acceleration": 0.6
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_acidic_sweat",
   "name": "Acidic Sweat",
   "polarity": "mixed",

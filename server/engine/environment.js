@@ -479,7 +479,12 @@ function scheduleTicks() {
 // scripts/set-calendar-date.mjs.
 const START_DATE = '2076-07-13';
 
-async function ensureClockRow(query) {
+// Exported for the regress harness, which deliberately does NOT boot the
+// environment but still has suites that read the calendar (birthday, cleaning).
+// A CI database is built from the content files, and world_clock is runtime — so
+// without this the singleton row simply does not exist there, and gameToday()
+// answers null on CI while passing on any dev DB that has ever run the server.
+export async function ensureClockRow(query) {
   const today = START_DATE;
   await query(
     `INSERT INTO world_clock (id, game_date, game_time_minutes, day_of_week, season)

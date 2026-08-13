@@ -4,17 +4,17 @@
   "id": "item_wb_winged_harness",
   "name": "winged drover harness",
   "tags": {
-    "slot": "torso",
-    "layer": "armor",
     "accommodates": [
       "WINGS",
       "EXTRA_LIMBS"
     ],
     "armor_soak": {
-      "kinetic": 4,
-      "edged": 3
+      "edged": 3,
+      "kinetic": 4
     },
-    "description": "Strapping and boiled hide, everything routed forward and low. Where a coat would have a back, this has two long open channels and a lot of buckles."
+    "description": "Strapping and boiled hide, everything routed forward and low. Where a coat would have a back, this has two long open channels and a lot of buckles.",
+    "layer": "armor",
+    "slot": "torso"
   },
   "type": "clothing",
   "value": 2600,

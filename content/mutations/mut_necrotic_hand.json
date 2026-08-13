@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "The skin of their left hand is grey and dry.",
+    "extreme": "Their left hand is a blackened dead thing on the end of a living arm. The rot has reached the elbow and stopped there, for now.",
     "obvious": "Their left hand is dead, grey-black to the wrist, and does not move quite in time with the rest of them.",
-    "extreme": "Their left hand is a blackened dead thing on the end of a living arm. The rot has reached the elbow and stopped there, for now."
+    "subtle": "The skin of their left hand is grey and dry."
   },
   "blocks_slots": [],
   "body_parts": [
     "left_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -20,6 +21,7 @@
     "unarmed_damage_bonus": 1
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_necrotic_hand",
   "name": "Necrotic Hand",
   "polarity": "mixed",

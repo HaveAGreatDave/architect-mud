@@ -38,6 +38,87 @@
       "options": [],
       "text": "\"Right you are.\" Dorrit is already straightening the second rank. \"Blanket's here till the light goes.\""
     },
+    "cat": {
+      "_vine": {
+        "x": 460,
+        "y": 680
+      },
+      "options": [
+        {
+          "label": "Can you get her to come?",
+          "next": "cat_call"
+        },
+        {
+          "label": "Who fitted the paw?",
+          "next": "cat_paw"
+        },
+        {
+          "label": "Cathode isn't a paw.",
+          "next": "cat_wrong"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"That's Cathode.\" Dorrit does not look up. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
+    },
+    "cat_call": {
+      "_vine": {
+        "x": 460,
+        "y": 900
+      },
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"You shout her name.\" Dorrit says this as though it were obvious, which it is. \"<span class=\"action-link verb-teach\" data-action=\"Cathode!\" title=\"Cathode!\">Cathode!</span>, or <span class=\"action-link verb-teach\" data-action=\"Here Cathode!\" title=\"Here Cathode!\">Here Cathode!</span> if you're feeling formal about it. Anywhere in the city, she's got ears on her.\" <span class=\"text-dim\">He goes back to the blanket.</span> \"She'll not come, mind. Nine times in ten she'll not come. That's not the shouting being wrong, that's a cat.\"\n\n\"And don't stand there doing it over and over,\" he adds, without heat. \"She's not a machine with a slot in it. You ask once and you get on with your day, and one time in a while you'll turn round and she'll be sat behind you looking put out about it.\""
+    },
+    "cat_paid": {
+      "_vine": {
+        "x": 1300,
+        "y": 760
+      },
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Somebody paid a great deal for it,\" Dorrit agrees. \"And then either lost her or let her go, and I've thought about which for years and I've never got anywhere with it, so I've stopped.\" <span class=\"text-dim\">He straightens the second rank.</span> \"She's not looking for them. That's the only bit of it I'm sure about.\""
+    },
+    "cat_paw": {
+      "_vine": {
+        "x": 880,
+        "y": 760
+      },
+      "options": [
+        {
+          "label": "Somebody paid for that.",
+          "next": "cat_paid"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"No idea.\" He says it flatly, the way he says a thing is broken. \"She was already walking on it when she turned up, and she was full grown then, and that was a good few years ago now.\" <span class=\"text-dim\">He turns a nub of copper over and puts it back exactly where it was.</span> \"I've had a proper look at it, mind. Twice, both times she allowed it. It's good work. It's better work than anything that's ever come across this blanket.\""
+    },
+    "cat_wrong": {
+      "_vine": {
+        "x": 880,
+        "y": 620
+      },
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"I'm aware,\" says Dorrit, with enormous dignity. \"I was eleven years in a bonded store and about four days into this blanket when I named her, and I hadn't learned the trade yet.\" <span class=\"text-dim\">He does not appear even slightly embarrassed.</span> \"It's her name now. You don't get to take a thing's name off it because you've since read up.\""
+    },
     "how": {
       "_vine": {
         "x": 460,
@@ -126,87 +207,6 @@
         }
       ],
       "text": "\"Some of it. I'll tell you which, and I'll tell you before you pay, and that is the entire reason anybody comes back down this lane twice.\" <span class=\"text-dim\">He taps a dead cell block.</span> \"That one's a paperweight with a story. Priced like one.\""
-    },
-    "cat": {
-      "_vine": {
-        "x": 460,
-        "y": 680
-      },
-      "options": [
-        {
-          "label": "Can you get her to come?",
-          "next": "cat_call"
-        },
-        {
-          "label": "Who fitted the paw?",
-          "next": "cat_paw"
-        },
-        {
-          "label": "Cathode isn't a paw.",
-          "next": "cat_wrong"
-        },
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ],
-      "text": "\"That's Cathode.\" Dorrit does not look up. \"Comes and goes. Doesn't want feeding and takes it as an insult if you offer.\" <span class=\"text-dim\">He squares a row.</span> \"I named her off the leg. Seemed like the thing to do and nobody else was going to.\""
-    },
-    "cat_call": {
-      "_vine": {
-        "x": 460,
-        "y": 900
-      },
-      "options": [
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ],
-      "text": "\"You shout her name.\" Dorrit says this as though it were obvious, which it is. \"<span class=\"action-link verb-teach\" data-action=\"Cathode!\" title=\"Cathode!\">Cathode!</span>, or <span class=\"action-link verb-teach\" data-action=\"Here Cathode!\" title=\"Here Cathode!\">Here Cathode!</span> if you're feeling formal about it. Anywhere in the city, she's got ears on her.\" <span class=\"text-dim\">He goes back to the blanket.</span> \"She'll not come, mind. Nine times in ten she'll not come. That's not the shouting being wrong, that's a cat.\"\n\n\"And don't stand there doing it over and over,\" he adds, without heat. \"She's not a machine with a slot in it. You ask once and you get on with your day, and one time in a while you'll turn round and she'll be sat behind you looking put out about it.\""
-    },
-    "cat_paw": {
-      "_vine": {
-        "x": 880,
-        "y": 760
-      },
-      "options": [
-        {
-          "label": "Somebody paid for that.",
-          "next": "cat_paid"
-        },
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ],
-      "text": "\"No idea.\" He says it flatly, the way he says a thing is broken. \"She was already walking on it when she turned up, and she was full grown then, and that was a good few years ago now.\" <span class=\"text-dim\">He turns a nub of copper over and puts it back exactly where it was.</span> \"I've had a proper look at it, mind. Twice, both times she allowed it. It's good work. It's better work than anything that's ever come across this blanket.\""
-    },
-    "cat_paid": {
-      "_vine": {
-        "x": 1300,
-        "y": 760
-      },
-      "options": [
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Somebody paid a great deal for it,\" Dorrit agrees. \"And then either lost her or let her go, and I've thought about which for years and I've never got anywhere with it, so I've stopped.\" <span class=\"text-dim\">He straightens the second rank.</span> \"She's not looking for them. That's the only bit of it I'm sure about.\""
-    },
-    "cat_wrong": {
-      "_vine": {
-        "x": 880,
-        "y": 620
-      },
-      "options": [
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ],
-      "text": "\"I'm aware,\" says Dorrit, with enormous dignity. \"I was eleven years in a bonded store and about four days into this blanket when I named her, and I hadn't learned the trade yet.\" <span class=\"text-dim\">He does not appear even slightly embarrassed.</span> \"It's her name now. You don't get to take a thing's name off it because you've since read up.\""
     },
     "root": {
       "_vine": {

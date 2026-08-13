@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their ears are larger than they ought to be, and set oddly high.",
+    "extreme": "Their ears are enormous, veined and mobile, swivelling independently. They wince when the door goes.",
     "obvious": "Their ears are broad and thin enough to light through, and they turn slightly toward every sound in the room.",
-    "extreme": "Their ears are enormous, veined and mobile, swivelling independently. They wince when the door goes."
+    "subtle": "Their ears are larger than they ought to be, and set oddly high."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -21,6 +22,7 @@
     "social_penalty": 0.15
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_enlarged_ears",
   "name": "Enlarged Ears",
   "polarity": "mixed",

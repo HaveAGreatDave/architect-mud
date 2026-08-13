@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "There is a mark on the back of their skull under the hair.",
+    "extreme": "The eye at the back of their head is fully formed and larger than the other two. It finds you before they turn around.",
     "obvious": "A third eye sits open at the back of their skull, tracking independently.",
-    "extreme": "The eye at the back of their head is fully formed and larger than the other two. It finds you before they turn around."
+    "subtle": "There is a mark on the back of their skull under the hair."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -20,6 +21,7 @@
     "social_penalty": 0.25
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_extra_eye",
   "name": "Extra Eye",
   "polarity": "mixed",

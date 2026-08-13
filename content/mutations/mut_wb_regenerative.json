@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "A cut on their hand is already closing.",
+    "extreme": "Their flesh crawls constantly, closing and reforming. Something opened them earlier today and there is no mark left to say where.",
     "obvious": "A fresh wound on their forearm is knitting shut as you look at it, pink and working.",
-    "extreme": "Their flesh crawls constantly, closing and reforming. Something opened them earlier today and there is no mark left to say where."
+    "subtle": "A cut on their hand is already closing."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,11 +17,12 @@
     "Healing hurts more than the wound"
   ],
   "effects": {
-    "heal_rate": 0.8,
     "bleed_resistance": 0.6,
+    "heal_rate": 0.8,
     "sleep_need_reduction": 0.2
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_regenerative",
   "name": "Regenerative Flesh",
   "polarity": "mixed",

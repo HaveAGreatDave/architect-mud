@@ -36,19 +36,19 @@
   "repeatable": 0,
   "rewards": {
     "credits": 120,
-    "xp": 45,
     "flags": [
       {
-        "scope": "player",
         "flag": "wild_proving_done",
+        "scope": "player",
         "value": "done"
       },
       {
-        "scope": "player",
         "flag": "wildblood_trust",
+        "scope": "player",
         "value": "2"
       }
-    ]
+    ],
+    "xp": 45
   },
   "updated_at": "1786000000"
 }

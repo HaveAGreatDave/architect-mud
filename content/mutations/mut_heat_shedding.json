@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their skin is unusually cool, and the veins at their wrists sit close to the surface.",
+    "extreme": "Their skin is a visible lattice of vessels, radiating heat off them in the cold air. They shiver constantly and do not seem to notice.",
     "obvious": "A dense web of surface veins runs up their arms and throat, and they are cold to be near.",
-    "extreme": "Their skin is a visible lattice of vessels, radiating heat off them in the cold air. They shiver constantly and do not seem to notice."
+    "subtle": "Their skin is unusually cool, and the veins at their wrists sit close to the surface."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,10 +17,11 @@
     "Cold cuts straight through you"
   ],
   "effects": {
-    "heat_resistance": 0.45,
-    "cold_resistance": -0.35
+    "cold_resistance": -0.35,
+    "heat_resistance": 0.45
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_heat_shedding",
   "name": "Heat-Shedding Skin",
   "polarity": "mixed",

@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "There is a dressing showing at their collar.",
+    "extreme": "They are covered in running sores from the jaw down, and the smell arrives before they do.",
     "obvious": "Open sores weep along their forearms and neck, crusted at the edges.",
-    "extreme": "They are covered in running sores from the jaw down, and the smell arrives before they do."
+    "subtle": "There is a dressing showing at their collar."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "hands"
@@ -22,6 +23,7 @@
     "social_penalty": 0.35
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_weeping_sores",
   "name": "Weeping Sores",
   "polarity": "negative",

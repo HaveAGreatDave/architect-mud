@@ -77,6 +77,13 @@ const broadcast = (zoneId, payload, exclude, toPlayer) => { sent.push({ zoneId, 
 
 console.log('— regression: booting world + plugins (no server) —');
 await initWorld();
+// The world clock's singleton row is created by initEnvironment() at real boot,
+// which this harness does not run. It is runtime state, so a from-files CI
+// database has no row at all and every calendar read answers null.
+{
+  const { ensureClockRow } = await import('../server/engine/environment.js');
+  await ensureClockRow(query).catch(() => {});
+}
 await loadItems();
 // The drug cache is boot state in production (server/index.js loads it), and
 // anything that resolves a drug reads it. Without it DRUG_CACHE is {}, so every

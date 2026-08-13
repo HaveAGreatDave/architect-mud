@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their knuckles and elbows look swollen, and they move a little stiffly.",
+    "extreme": "Every joint is a knurl of overgrown bone. They move like something assembled rather than grown, in straight lines and single planes.",
     "obvious": "Bone has collared their joints into visible knots. They turn from the waist because their neck will not.",
-    "extreme": "Every joint is a knurl of overgrown bone. They move like something assembled rather than grown, in straight lines and single planes."
+    "subtle": "Their knuckles and elbows look swollen, and they move a little stiffly."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -11,6 +11,7 @@
     "left_leg",
     "right_leg"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands",
     "legs"
@@ -23,6 +24,7 @@
     "soak_kinetic": 3
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_ossified_joints",
   "name": "Ossified Joints",
   "polarity": "mixed",

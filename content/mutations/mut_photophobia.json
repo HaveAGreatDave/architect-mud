@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Their pupils are a little too wide for the light in here.",
+    "extreme": "Their eyes are almost entirely pupil. They flinch from every light source in the room and squint at you like you are a window.",
     "obvious": "Their pupils are blown open, black and wet, and they keep turning away from the lamps.",
-    "extreme": "Their eyes are almost entirely pupil. They flinch from every light source in the room and squint at you like you are a window."
+    "subtle": "Their pupils are a little too wide for the light in here."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -17,10 +18,11 @@
   ],
   "effects": {
     "acuity_sight": 1,
-    "lowlight_vision": true,
-    "brightlight_penalty": 2
+    "brightlight_penalty": 2,
+    "lowlight_vision": true
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_photophobia",
   "name": "Photophobia",
   "polarity": "mixed",

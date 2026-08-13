@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "There is something under their collar that shifts when they breathe.",
+    "extreme": "The symbiote has taken most of them. It sheathes their body in wet ribbed grey, sends runners down every limb, and its own eyes open somewhere near their collarbone to look at you.",
     "obvious": "A pale ribbed organism is wrapped around their torso and up over one shoulder, pulsing slowly, fused into them at the edges.",
-    "extreme": "The symbiote has taken most of them. It sheathes their body in wet ribbed grey, sends runners down every limb, and its own eyes open somewhere near their collarbone to look at you."
+    "subtle": "There is something under their collar that shifts when they breathe."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso"
   ],
@@ -16,13 +17,14 @@
     "It has its own opinions"
   ],
   "effects": {
-    "heal_rate": 0.4,
-    "sleep_need_reduction": 0.4,
     "cold_resistance": 0.3,
+    "heal_rate": 0.4,
     "poison_resistance": 0.3,
+    "sleep_need_reduction": 0.4,
     "social_penalty": 0.45
   },
   "expression_band": "mutagen",
+  "grants_part": null,
   "id": "mut_wb_symbiote",
   "name": "Symbiotic Organism",
   "polarity": "mixed",

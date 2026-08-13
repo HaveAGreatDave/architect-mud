@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "A scatter of pale freckles across their cheekbones that catch the light oddly.",
+    "extreme": "They are freckled with cold green light from the jaw down. In an unlit room you could read by them, and they know it.",
     "obvious": "Their skin is mottled with spots that hold a faint green cast, brightest at the throat.",
-    "extreme": "They are freckled with cold green light from the jaw down. In an unlit room you could read by them, and they know it."
+    "subtle": "A scatter of pale freckles across their cheekbones that catch the light oddly."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso",
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "head"
@@ -21,6 +22,7 @@
     "rad_resistance": 0.1
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_rad_freckles",
   "name": "Radiation Freckles",
   "polarity": "mixed",

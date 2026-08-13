@@ -1,8 +1,8 @@
 {
   "appearance": {
-    "subtle": "Their forearms have a dull, hide-like sheen where the skin has thickened.",
+    "extreme": "They are wearing hide instead of skin. It creases rather than folds, and the rain beads and runs off them like off a tarpaulin.",
     "obvious": "Their skin is thick and leathery, creased into plates at the elbows and across the back of the neck.",
-    "extreme": "They are wearing hide instead of skin. It creases rather than folds, and the rain beads and runs off them like off a tarpaulin."
+    "subtle": "Their forearms have a dull, hide-like sheen where the skin has thickened."
   },
   "blocks_slots": [],
   "body_parts": [
@@ -10,6 +10,7 @@
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "hands"
@@ -19,11 +20,12 @@
     "Everything feels like it is through a glove"
   ],
   "effects": {
-    "soak_edged": 3,
+    "acuity_smell": -1,
     "soak_acid": 2,
-    "acuity_smell": -1
+    "soak_edged": 3
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_dermal_thickening",
   "name": "Dermal Thickening",
   "polarity": "positive",

@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "The skin between their fingers runs a little high.",
+    "extreme": "Their hands are paddles, webbed nearly to the fingertips and veined pink. They hold a glass in their whole palm.",
     "obvious": "Translucent webbing runs to the first knuckle of every finger.",
-    "extreme": "Their hands are paddles, webbed nearly to the fingertips and veined pink. They hold a glass in their whole palm."
+    "subtle": "The skin between their fingers runs a little high."
   },
   "blocks_slots": [],
   "body_parts": [
     "left_arm",
     "right_arm"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "hands"
   ],
@@ -20,6 +21,7 @@
     "swim": true
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_webbed_fingers",
   "name": "Webbed Fingers",
   "polarity": "mixed",

@@ -1,14 +1,15 @@
 {
   "appearance": {
-    "subtle": "Their hair is unusually thick, and there is more of it on the backs of their hands than there was.",
+    "extreme": "They are furred. Thick, fast-growing, and cropped raggedly wherever it got in the way.",
     "obvious": "Coarse dark hair covers their forearms and the back of their neck, dense as pelt.",
-    "extreme": "They are furred. Thick, fast-growing, and cropped raggedly wherever it got in the way."
+    "subtle": "Their hair is unusually thick, and there is more of it on the backs of their hands than there was."
   },
   "blocks_slots": [],
   "body_parts": [
     "torso",
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "torso",
     "head"
@@ -21,6 +22,7 @@
     "cold_resistance": 0.2
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_thickened_hair",
   "name": "Thickened Hair",
   "polarity": "mixed",

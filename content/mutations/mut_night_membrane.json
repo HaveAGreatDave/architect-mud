@@ -1,13 +1,14 @@
 {
   "appearance": {
-    "subtle": "Something pale flickers across their eyes when they blink.",
+    "extreme": "Their eyes are permanently filmed over in the dark, flat and reflective as an animal caught in headlights. Looking at them is difficult.",
     "obvious": "A milky membrane slides sideways across their eyes when the light shifts, and they do not seem to notice doing it.",
-    "extreme": "Their eyes are permanently filmed over in the dark, flat and reflective as an animal caught in headlights. Looking at them is difficult."
+    "subtle": "Something pale flickers across their eyes when they blink."
   },
   "blocks_slots": [],
   "body_parts": [
     "head"
   ],
+  "clone_inheritance": "all",
   "conceal_slots": [
     "head"
   ],
@@ -18,11 +19,12 @@
   ],
   "effects": {
     "acuity_sight": 2,
-    "lowlight_vision": true,
     "brightlight_penalty": 3,
+    "lowlight_vision": true,
     "social_penalty": 0.15
   },
   "expression_band": "radiation",
+  "grants_part": null,
   "id": "mut_night_membrane",
   "name": "Night Membrane",
   "polarity": "mixed",
