@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "Oracle-9 told you where to go before you asked her anything, and she told you what would be there. She knows these tunnels better than the people who dug them and she listens to every relay in the Under, so there is nothing strange about it at all. Go and see whether she was right.",
+  "fail_on": [],
+  "id": "quest_exo_1",
+  "meta": {},
+  "name": "Packet Loss",
+  "objectives": [
+    {
+      "desc": "Go where Oracle-9 said the water would be coming through, and see for yourself.",
+      "emotes": [
+        "{who} stands in it for a moment, working out how she could have known."
+      ],
+      "id": "o_relay",
+      "type": "visit",
+      "zone": "zone_under_902_909"
+    },
+    {
+      "desc": "Go back down to Oracle-9 and tell her she was right.",
+      "emotes": [
+        "{who} arrives with the answer and finds she is already looking up."
+      ],
+      "id": "o_back",
+      "type": "visit",
+      "zone": "zone_yards_tenement_u3_6"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 70,
+    "flags": [
+      {
+        "flag": "exo_q1_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 18
+  },
+  "updated_at": "1784000000"
+}

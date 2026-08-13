@@ -161,6 +161,31 @@ cheap and genuinely temporary.
 
 ## 4. The verbs
 
+### The door — nullcraft is the Null's, and standing is the key
+
+**Every registered verb is wrapped in `initiatesOnly`**, which refuses anyone below
+`INITIATE_REP` (200 — the `known` tier) with `ideology_null`. The refusal is a bare
+`Unknown command.`, the convention psionics already keeps: a surface you cannot
+reach should not advertise itself.
+
+Two rules to preserve.
+
+**The skill is not the gate.** `nullcraftLevel` decides how *well* you do this;
+standing decides *whether you may*. Collapsing the two is what shipped originally,
+and it meant a point in a skill bought a whole faction's identity — the Ascendants
+sell chrome, the Wildblood hand out flasks, the Long Watch teach, and every one of
+those is a commitment made *before* the thing is handed over. This is the same.
+
+**The wrapper, not a check per handler.** It is applied once at the `commands`
+export so a verb added later cannot forget it, and `regress.js` asserts every
+declared command in `plugin.json` actually goes through it — a handler wired
+straight to its `cmd*` function fails the suite rather than shipping an open door.
+
+The way in is content, not code: `quest_null_1..3` off Maud Threlfall
+(`npc_dw_threlfall`, the tally room at `zone_dw_769_976`), granting 60 / 80 / 120.
+That ordering is deliberate — 140 after the second job leaves you short, so the
+discipline opens on the **initiation** and never before it.
+
 `plugins/nullcraft/` — three commands.
 
 | Verb | Cost | Does |

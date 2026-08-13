@@ -49,8 +49,533 @@
       ],
       "text": "\"Here is the reading nobody wants.\" She opens her eyes properly, and they are perfectly lucid, which is somehow the worst part. \"Maybe nothing new is happening. Maybe minds have always synchronised under a shared signal, and the old world proved it for a hundred years and called it something else.\" A small, terrible smile. \"The Exodus want out through the inside. I keep asking them the same question and they keep not answering it.\n\nIf a thought can be predicted perfectly, whose was it?\""
     },
+    "exo_accept_1": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_1"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Third junction east. Mind your footing on the way back, the second stair is gone.\"\n\nHer eyes close the rest of the way, which is how you know you have been dismissed."
+    },
+    "exo_accept_2": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_2"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Down the west stair, past the pumps, and keep going after you think you have gone too far.\" Her eyes close. \"No light. I will know.\""
+    },
+    "exo_accept_3": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_exo_3"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Take as long as you like. Nobody is waiting.\"\n\nShe watches you the whole way to the tunnel mouth, which she has never done before either."
+    },
+    "exo_after": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Leave.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit,\" she says, to somebody who has not come in yet."
+    },
+    "exo_all": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It can.\" A small, unpleasant smile. \"Come back when you have got tired of not believing me.\""
+    },
+    "exo_chair": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "All of it?",
+          "next": "exo_chair_all"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You are carrying things.\" She has not opened her eyes and does not need to. \"Metal, or the other kind. It does not matter which. Both of them hum.\"\n\nShe tips her head at the chair bolted to the floor under its hood of salvaged gear.\n\n\"The room I am sending you to is the only place under this city with nothing in it. You cannot go and sit in an empty room while you are the loudest thing in it. Sit in the chair first. It takes it all back out.\""
+    },
+    "exo_chair_all": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"All of it. The steel and the changes both, and it does not give any of it back.\" Perfectly level, no persuasion in it anywhere. \"Nobody here will pretend that is a small thing or talk you round. Most people go back up the stairs at this point and I have never once thought less of them.\"\n\nA pause.\n\n\"It is over there. It is not going anywhere.\""
+    },
+    "exo_how": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will look.",
+          "next": "exo_accept_1"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have lived under this city for eleven years and I can hear every relay in it from this chair.\" Flat, reasonable, faintly bored. \"Water in a storm line makes a noise. The noise goes somewhere. I am the somewhere.\"\n\nA pause.\n\n\"You were hoping for a better answer. Everyone is. There is not one, and you should be suspicious of anybody who offers you one.\""
+    },
+    "exo_member": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "She does not look up. \"You are still counting something. Stop it, or count it quietly.\""
+    },
+    "exo_noticed": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "exo_after"
+        }
+      ],
+      "text": "\"I have no idea.\" She closes her eyes. \"That is the honest answer and it is the one nobody wants. Possibly nothing. Possibly you sat in a dark room twice and walked home. Ask me again in a year and I will give you the same answer with more confidence.\""
+    },
+    "exo_offer_1": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How would you know that?",
+          "next": "exo_how"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fine. I will look.",
+          "next": "exo_accept_1"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Third junction east, where the old storm line comes in.\" She has not opened her eyes. \"There is water coming through the wall about hip height. It started this morning and nobody has reported it, because nobody has been down there this morning.\"\n\nThe fibre at the base of her skull shifts.\n\n\"Go and look at it. Then come back and tell me I was right, and we will both pretend that was interesting.\""
+    },
+    "exo_offer_2": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And then what?",
+          "next": "exo_thenwhat"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "exo_accept_2"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That sounds like nothing.",
+          "next": "exo_thenwhat"
+        }
+      ],
+      "text": "\"There is a room two levels down with nothing in it.\" She says this as though continuing a conversation you were not having. \"No relay, no cable, no water in the wall, no hum. Dead since before the Glitch were the Glitch. It is the only place under this city where there is nothing at all to hear.\"\n\nHer head tilts a fraction.\n\n\"Go and sit in it. Do not take a light. Do not take anything that makes a noise. Sit there until you are bored, and then sit there after that.\""
+    },
+    "exo_offer_3": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have said it three times.",
+          "next": "exo_three"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go.",
+          "next": "exo_accept_3"
+        }
+      ],
+      "text": "\"The same room.\" Her eyes are open, which you realise you have never seen. \"The same stair, the same dark, the same nothing. I want you to go and sit in it again.\"\n\nShe waits.\n\n\"Nothing is going to happen. Nothing happened last time. This is not a test and there is no second half and I am not going to be doing anything clever at this end while you sit there.\"\n\nA beat.\n\n\"I have now said that three times. Go on.\""
+    },
+    "exo_report_1": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_1"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 70,
+          "ideology_id": "ideology_exodus",
+          "reason": "Packet Loss"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That cannot be all of it.",
+          "next": "exo_all"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hip height.\" She does not make it a question and does not look pleased. \"Good. Now stop thinking about how I knew, because that is the least useful question available to you and you have been chewing on it the whole walk back.\"\n\nShe shifts, and the fan of fibre moves with her like something turning over.\n\n\"Everyone who comes down here wants the trick explained. The trick is that I sit very still in a place where there is nothing else to listen to. That is genuinely all of it.\""
+    },
+    "exo_report_2": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_2"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 70,
+          "ideology_id": "ideology_exodus",
+          "reason": "The Quiet Room"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "So why did you send me?",
+          "next": "exo_why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing,\" she agrees, before you have said it. \"Yes. You sat in a room and nothing happened and you have walked all the way back down here to tell me so, and you are annoyed about it, and you came anyway.\"\n\nShe is quiet for long enough that you think she has gone to sleep.\n\n\"Most people do not come back after that one. Not because it is hard. Because there is no reason to.\""
+    },
+    "exo_report_3": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_exo_3"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_exodus",
+          "reason": "Nothing Happened"
+        },
+        {
+          "action": "PSI_AWAKEN",
+          "rank": "awakened"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I supposed to have noticed?",
+          "next": "exo_noticed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "exo_after"
+        }
+      ],
+      "text": "\"You came down the last stretch without counting the turnings,\" she says. \"You have counted them every other time. I could hear you doing it.\"\n\nShe lets that sit exactly as long as it needs to.\n\n\"I told you nothing would happen and nothing did. I want you to hold on to that, because in about a week you are going to start telling yourself a much more interesting story about tonight, and it will be wrong, and it will make you stupid.\"\n\nThe fan of fibre at the base of her skull is completely still.\n\n\"Go up. Sleep somewhere warm. And when you notice something you should not have noticed, do not say it out loud in front of anybody. Not because it is dangerous.\" A pause. \"Because you will sound like me, and people do not sit down when I ask them to. They just do.\""
+    },
+    "exo_thenwhat": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "exo_accept_2"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then nothing.\" She sounds almost irritated by the question. \"There is no second half. You sit in a quiet room, you get bored, you come back, and you tell me it was a quiet room.\"\n\nThe fibre twitches.\n\n\"People find this very difficult. Not the sitting. The nothing.\""
+    },
+    "exo_three": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go.",
+          "next": "exo_accept_3"
+        }
+      ],
+      "text": "\"I have.\" She does not elaborate. \"Go and sit in the room.\""
+    },
+    "exo_why": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Again?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because the room is not for you to do something in.\" She still has not opened her eyes. \"It is for you to find out what is left when there is nothing coming in. Most people find out there is nothing there. That is a real answer and it is not a shameful one.\"\n\nA pause, and the fibre goes still.\n\n\"Come back tomorrow. I want you to do it again.\""
+    },
     "root": {
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_1",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You said something was going to be there.",
+          "next": "exo_offer_1"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_1",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You were right about the water.",
+          "next": "exo_report_1"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_q1_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_exo_2",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Is there anything else?",
+          "next": "exo_offer_2"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_2",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I sat in your room. Nothing happened.",
+          "next": "exo_report_2"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_q2_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I am ready for the room.",
+          "next": "exo_chair"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "exo_q2_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_exo_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You wanted me to do it again.",
+          "next": "exo_offer_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_exo_3",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "exo_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I sat in it again.",
+          "next": "exo_report_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "psi_rank",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Anything for me?",
+          "next": "exo_member"
+        },
         {
           "label": "Are you reading my mind?",
           "next": "codex_reading"

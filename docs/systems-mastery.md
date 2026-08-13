@@ -87,10 +87,36 @@ that an exploit may only name a body part the combat system will actually resolv
 `requires` is checked against the enemy's real `body_parts`, so a line about a knee can never
 print for something with no knee.
 
-## Purity — the ceiling and the stain
+## Purity — the door, the ceiling and the stain
 
-Without a limiter nothing stops a player taking all of it: chrome for the soak, mutations for
-the reach, discipline on top. So a modified body has a **ceiling**.
+Two separate mechanisms, and keeping them separate is the whole trick.
+
+### The door — cleanse yourself first
+
+**The Watch will not teach a body that is still carrying metal or mutation.** `train` at an
+instructor refuses outright, ahead of the reputation check and ahead of everything else — a
+picket sees the chrome long before they get round to asking who vouched for you, and a chromed
+stranger told *"come back when someone can vouch"* would go away and do the wrong work for a
+week. Have it cut out, have the flesh corrected, come back in your own body. `cleanseDemand()`
+is where they say so; the refusal names **what has to go and nothing else** — no number, no
+rank, no rep, no flag, the same convention `capReason` and the mutagen gate already keep.
+
+⚠ **The door reads `carriesModification()`, never the social ladder below.** That is not
+fussiness: the ladder has a PSIONIC rung and a FORMER rung, and wiring the door to `regardOf`
+would silently start refusing two groups the Watch admit. And `carriesModification` is
+deliberately **not `currentLoad > 0`** — the load quantises, so a mutation at expression 12
+floors to zero steps and costs no ceiling at all. That is right for a ceiling and wrong for a
+door. The Watch are not doing arithmetic; they are looking at you.
+
+The one thing this must never become is a *ceiling* on the currently-modified. Refusing at the
+door and then also capping them is one punishment charged twice, and the cap would never be
+read by anybody.
+
+### The ceiling
+
+Once you *have* cleansed, the door opens and only the ceiling remains. Without a limiter
+nothing stops a player cleaning up, training, and re-installing: chrome for the soak, mutations
+for the reach, discipline on top. So a formerly-modified body has a **ceiling**.
 
 ```
 cap = 100 − 12×(working augments) − 5×floor(total mutation expression / 20)
@@ -133,9 +159,13 @@ grudge**. Augmented gets **cold superiority** — you bought what we bled for. M
 **disgust**, which is a different thing and is the one place the Watch stops sounding
 reasonable.
 
-**They admit all four.** They train all four, and stand next to all four in a fight, and have
-words for three of them anyway. That contradiction is deliberate and must never be resolved by
-the code — a Watch that refused service would be a simpler and much less interesting faction.
+**They admit three of the four, and go on having words for two of them.** Pure, psionic and the
+cleansed all get taught; the walkaway gets mocked at the door and then let through it, and the
+retread gets inspected like a rebuilt engine and then started at the feet. That contradiction —
+training somebody you are quietly contemptuous of — is deliberate and must never be resolved by
+the code. What is *not* a contradiction is the fourth case: a body still carrying metal or
+mutation is turned away, and that refusal lives at [the door](#the-door--cleanse-yourself-first)
+reading `carriesModification`, **not here**.
 
 Two registers, and **the coded one is the default**. They mostly do not say the quiet part:
 *"the assisted"*, *"how much of that's under warranty"*, *"nobody holds it against you"*, and
@@ -149,6 +179,8 @@ slur and is doing the same work — which is why the coded list is the longer on
 
 ⚠ **Nothing may read this to refuse anything.** `regardOf` / `standingWord` /
 `standingGreeting` exist to be *said*, not *checked*. Grep before wiring any of it to a door.
+There *is* a door now, and it reads `carriesModification()` instead — if you find yourself
+reaching for `regardOf` to gate something, that is the function you actually wanted.
 
 ## The swing seam
 
@@ -180,6 +212,10 @@ Content, not a table — an NPC flagged:
 The refusal **never names reputation, a tier or a flag** (the mutagen-gate convention), and the
 purity ceiling is explained in prose that never prints a number. `MASTERY_TEACH` is the
 authored VINE route.
+
+`doTrain` checks in this order and the order is load-bearing: **the door** (still carrying
+chrome or mutation → `cleanseDemand`, refuse), then reputation, then the discipline offered,
+then the purity **ceiling**, then the instructor's own `max_rank`.
 
 ## Composure, stances and techniques
 

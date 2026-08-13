@@ -169,6 +169,42 @@ through `applyStrikeToEnemy`. **Never write `enemy.hp` from a plugin.**
 
 ## The initiation, the door, and the coat
 
+### PSI_AWAKEN — the authored way in
+
+`registerAction('PSI_AWAKEN')` (`plugins/psionics/index.js`) is the seam a quest chain
+uses to open the ladder, and `GRANT_MUTATION`'s rule applies exactly: **an authored door
+is still a door**. It re-checks rather than trusting the author, because a dialogue node
+is content and content gets copied. Four refusals, three of which a bare `SET_FLAG`
+would have allowed:
+
+| Refusal | Why it must be here |
+|---|---|
+| Rank not on the ladder | `psiRank` runs the stored value through `rankIndex` and returns null for anything unrecognised — **a typo would not throw**, it would leave a player unawakened holding a flag that looks set. Invisible in the DB. |
+| Below `known` with `ideology_exodus` | Psionics is the Exodus's discipline. Same threshold nullcraft uses. |
+| Still carrying chrome or mutation | The Purifier below is a *rule*, not a scene. Until this check existed, a chromed player could walk the chain and awaken with the chair untouched. |
+| Already at or above the target rung | Quests get re-run in ways nobody predicts; a re-fired node must never demote a dreamwalker. |
+
+It **says nothing to the player** on success. The deniability law means the moment of
+awakening cannot be announced by the engine — whatever the player is told, they are told
+by the NPC in front of them, in a line that claims nothing. A system message here would
+be the game confirming psionics, which is the one thing it never does.
+
+The purity check reads `rosterOf` and `getMutations` **directly** rather than through
+mastery's identical `carriesModification`: that would make psionics depend on the Long
+Watch's plugin for an Exodus rule.
+
+**The way in is content:** `quest_exo_1..3` off Oracle-9 (`npc_glitch_oracle`), granting
+70 / 70 / 120. The chain is deliberately three errands that refuse to be about anything —
+verify a thing she could plausibly just know, then sit in a dead room, then sit in it
+again — and **no player-visible line in any of it names a mechanism**. She is emphatic,
+three times, that nothing will happen. Nothing does. The player crosses the line
+themselves later, the first time `dwell` tells them something they had no way to know.
+
+⚠ Regress covers the **refusal paths only**, and deliberately: the success path writes
+`psi_rank`, and doing that to the shared fake player would awaken it for every suite that
+runs afterwards — mastery's ladder reads `isAwakened` and would start classifying it as
+PSIONIC. Same cross-suite leak the mutations suite paid for once.
+
 ### The Purifier — the only irreversible cost a player chooses on purpose
 
 Before the Exodus let you in, you submit to a machine that strips **every mutation and every

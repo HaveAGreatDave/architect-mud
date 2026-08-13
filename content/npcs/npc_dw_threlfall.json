@@ -100,6 +100,381 @@
       ],
       "text": "\"Loud is for people who are not sure.\" She goes back to the board. \"Ask Imre why. He will tell you at length and you will not enjoy it. Ask Selke why and she will tell you in a sentence.\""
     },
+    "nl_about": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Later.\" Flat, unhurried, entirely without ceremony. \"Come and find me when you have slept. There is a walk I want you to do and I would rather you were not tired for it.\""
+    },
+    "nl_accept_1": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_1"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Northeast track, along the shoulder, you will see it.\" She is already back on the column. \"Wind the drum until it stops taking cord. Read the pen against the chart and remember the number. Do not write it on your hand.\""
+    },
+    "nl_accept_2": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_2"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Up the row, the door with the light in it.\" Back to the column. \"Lay the parts out in the order they come off. That is not advice, it is the lesson, and she will not say it to you.\""
+    },
+    "nl_accept_3": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_null_3"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Follow the tailrace up and keep the water on your left.\" She lets you get to the door. \"It is not a shrine and nobody has put anything on it. That is deliberate.\""
+    },
+    "nl_member": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You are on the rota now, which is the only membership anybody here has got.\" She hands you the straight edge without looking. \"Hold that a moment.\""
+    },
+    "nl_offer_1": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will do it.",
+          "next": "nl_accept_1"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do I get?",
+          "next": "nl_wage"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Gauge duty.\" She does not make it sound like an offer, because it is not one. \"The chart in the gauge house is drawn by a pen on an arm off a float, and the drum it draws on is wound by whoever has the duty. Nobody has it today.\"\n\nShe rules a line and does not look up.\n\n\"It is an hour there and an hour back and there is nothing at the other end but a shed. I am not going to pretend it is interesting.\""
+    },
+    "nl_offer_2": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I taking apart?",
+          "next": "nl_school_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go up.",
+          "next": "nl_accept_2"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Wenna keeps a room up the row with a bench in it and no children.\" She says this as though it followed from something. \"There is a rule in this works and it is not on the board because nobody would need reminding. Nobody here owns a thing they cannot take apart.\"\n\nShe finally looks at you.\n\n\"You are carrying several. So am I. The difference is I have had mine to bits.\""
+    },
+    "nl_offer_3": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why that?",
+          "next": "nl_why_breach"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go.",
+          "next": "nl_accept_3"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "She is not at the board. That is the first thing you notice, and it is genuinely alarming.\n\n\"There is a cut upstream where the grid used to come into this valley.\" She has her hands in her coat pockets. \"Poles, a conduit, a road they made to build it. It has been dead since before I was born and there is nothing up there worth carrying home.\"\n\nShe nods, roughly northeast, through two walls.\n\n\"Go and look at it. Take as long as you like. Then come back here and do not tell me what you thought, because I will already know.\""
+    },
+    "nl_report_1": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_1"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_null",
+          "reason": "The Rent"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -4
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "It was a shed.",
+          "next": "nl_shed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything else needs doing?",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is the number.\" She writes it in the column without checking it, which you understand later is the entire compliment. \"You went, you wound it, you came back, and you did not embellish.\"\n\nShe rules the line off.\n\n\"Most people who come through here tell me the walk was long. You have not mentioned the walk.\""
+    },
+    "nl_report_2": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_2"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 80,
+          "ideology_id": "ideology_null",
+          "reason": "Nothing You Cannot Mend"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -5
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is it about?",
+          "next": "nl_about"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I had.",
+          "next": "nl_about"
+        }
+      ],
+      "text": "\"Selke says it went back together and that you did not ask her anything until you had finished.\" Threlfall writes nothing down about this. \"She does not say that about many people. She did not say it about me.\"\n\nShe straightens the edge on the board.\n\n\"You will have worked out by now that none of this is about the tray.\""
+    },
+    "nl_report_3": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_null_3"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 120,
+          "ideology_id": "ideology_null",
+          "reason": "The Quiet Part"
+        },
+        {
+          "action": "ADJUST_STANCE",
+          "delta": -8
+        },
+        {
+          "action": "ADJUST_PATH",
+          "delta": 10,
+          "path": "machine"
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "null_initiated",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Teach me.",
+          "next": "nl_taught"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why me?",
+          "next": "nl_whyme"
+        }
+      ],
+      "text": "\"Right.\" She waits until you have stopped in front of her. \"The valley below that cut had power for sixty years and then it did not, and nobody up there died of it. That is what is up there. It is not a warning and it is not a monument. It is just the thing being true.\"\n\nShe sits down, which she does not do.\n\n\"Everybody outside this works believes the machine took something from them. It did not take anything. They handed it over, one convenience at a time, and each one was reasonable on the day.\"\n\nA long pause. She is choosing.\n\n\"We can make a machine stop. Not a bomb, not a fire. Properly, quietly, in front of its owner, without touching it. You will have guessed that already or you would not have come back three times.\""
+    },
+    "nl_school_what": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go up.",
+          "next": "nl_accept_2"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Another time.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Whatever is in the tray.\" A shrug that closes the subject without any rudeness in it. \"She does not tell you beforehand and she does not help. If you get it back together, Selke looks at it. If you do not, you sit there until you do.\"\n\nShe picks the chalk back up.\n\n\"There is no failing it. There is only how long it takes, and nobody writes that down either.\""
+    },
+    "nl_shed": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is a shed.\" Something that is very nearly humour, again. \"Come back tomorrow. There will be something on the board.\""
+    },
+    "nl_taught": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is not one thing, it is a habit.\" She is back on her feet and back at the board inside a sentence, which is a relief to both of you. \"You listen to a room until you know what is powered in it. Then you find out what it is made of. Then, if there is a reason, you make one part of it stop being true.\n\n\"Go and listen to a room. That is all of it, and it is most of it.\"\n\nShe rules a line, and the subject is closed in the way only she can close one."
+    },
+    "nl_wage": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fine. I will do it.",
+          "next": "nl_accept_1"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not today.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sixty and a meal you would have got anyway.\" She sets the chalk in its groove. \"If you were hoping for the other kind of answer, the one about what we stand for, you have come to the wrong person and I would say so to anybody.\"\n\nA pause, exactly as long as it needs to be.\n\n\"Do the duty and come back. That is the entire arrangement and I am not going to dress it up.\""
+    },
+    "nl_why_breach": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I will go.",
+          "next": "nl_accept_3"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not now.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because everyone who stays here goes up there once.\" She does not elaborate and does not look away either. \"You can go now or you can go in a year. Nobody has ever gone twice.\""
+    },
+    "nl_whyme": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Teach me.",
+          "next": "nl_taught"
+        }
+      ],
+      "text": "\"Because you wound a drum in a shed for sixty credits and did not mention the walk.\" She says it as though it settles the matter, and it does. \"Everything after that was checking.\""
+    },
     "notanswer": {
       "actions": [],
       "options": [
@@ -171,6 +546,137 @@
       "actions": [],
       "first": "She finishes her line before she speaks. \"You came in off the northeast track, so you have walked past the fuel tank and the water can and you did not help yourself to either, which is more than most.\" She sets the chalk down in its groove. \"Maud Threlfall. I keep the board. What do you want?\"",
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_1",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I am looking for work.",
+          "next": "nl_offer_1"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_1",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q1_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "The gauge is wound.",
+          "next": "nl_report_1"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_q1_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_null_2",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Anything on the board?",
+          "next": "nl_offer_2"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_2",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q2_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "It went back together.",
+          "next": "nl_report_2"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_q2_done",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "quest_null_3",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "You said there was a walk.",
+          "next": "nl_offer_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "quest_null_3",
+              "op": "set",
+              "scope": "player"
+            },
+            {
+              "flag": "null_q3_done",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "I went up to the cut.",
+          "next": "nl_report_3"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "null_initiated",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "enabled": true,
+          "label": "Anything needs doing?",
+          "next": "nl_member"
+        },
         {
           "actions": [],
           "conditions": [],

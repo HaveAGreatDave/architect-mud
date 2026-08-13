@@ -13,10 +13,12 @@ import {
 import {
   purityCap, effectiveRank, chromeLoad, fleshLoad, capReason, stainOf, standingGreeting,
   standingWord, regardOf, REGARD, REGARD_ORDER, CAP_FLOOR, CHROME_COST, STAIN_HALF_LIFE_DAYS,
+  carriesModification, cleanseDemand,
 } from './purity.js';
 import {
   archetypeOf, readTier, tierAtLeast, noteExchange, bankHeat, sweepStaleFights, heatOn,
 } from './reads.js';
+import { getMutationCache, loadMutations } from '../../server/engine/mutations.js';
 import { matchExploits, EXPLOITS, EFFECT_KEYS } from './exploits.js';
 import {
   getComposure, awardComposure, spendComposure, decayComposure, composureCap,
@@ -112,6 +114,60 @@ export default async function regress({ run, check, getPlayer }) {
   check('...and a modified one is told in prose, never a number',
     typeof capReason(clean) === 'string' && !/\d/.test(capReason(clean)), capReason(clean));
   clean._augments.clear();
+
+  // ── the door: cleanse yourself first ─────────────────────────────────────
+  // The Watch refuse to TEACH a body still carrying metal or mutation. Separate
+  // mechanism from the ceiling, and the separation is the thing under test: the
+  // door reads what you ARE carrying, the ceiling reads what you CARRIED.
+  const door = (over = {}) => ({ _augments: new Map(), _mutations: new Map(), _disciplines: new Map(), ...over });
+
+  check('an unmodified body is not asked to cleanse anything',
+    !carriesModification(door()) && cleanseDemand(door(), 'Vance') === null);
+
+  const chromed = door({ _augments: new Map([['a', { condition: 1 }]]) });
+  check('working chrome closes the door', carriesModification(chromed));
+  check('...and a DEAD augment does not — it is not something you are carrying',
+    !carriesModification(door({ _augments: new Map([['a', { condition: 0 }]]) })));
+
+  // A REAL catalog id, not an invented one: `getMutations` silently skips ids
+  // it has no definition for, so a made-up key would give a fleshLoad of 0 and
+  // these next three checks would pass while testing nothing at all.
+  // The catalog is loaded on demand and this suite may run before the mutations
+  // one does; without this the id is undefined, `getMutations` returns nothing,
+  // and the three checks below pass while testing an unmutated body.
+  await loadMutations();
+  const mutId = Object.keys(getMutationCache())[0];
+  const carrying = (expression) => door({ _mutations: new Map([[mutId, { expression }]]) });
+
+  // The load quantises and the door must not. One mutation at expression 12
+  // floors to zero steps and costs no ceiling at all; the Watch still see it.
+  const faintly = carrying(12);
+  check('a mutation too faint to move the CEILING still closes the DOOR',
+    !!mutId && purityCap(faintly) === 100 && carriesModification(faintly), mutId);
+
+  check('the refusal names what has to go and never a number', (() => {
+    for (const p of [chromed, faintly, door({
+      _augments: new Map([['a', { condition: 1 }]]),
+      _mutations: new Map([[mutId, { expression: 40 }]]),
+    })]) {
+      const d = cleanseDemand(p, 'Vance');
+      if (!d || !d.includes('Vance') || /\d/.test(d.replace(/class="[^"]*"/g, ''))) return false;
+    }
+    return true;
+  })());
+
+  // The load-bearing one. Cleaning up must OPEN the door — otherwise the stain
+  // is unreachable and the whole ceiling mechanic is dead code.
+  const retread = door();
+  retread._purity = { load: 60, at: Date.now() };
+  check('someone who CLEANED UP is let in, and met by the ceiling instead of the door',
+    !carriesModification(retread) && cleanseDemand(retread) === null
+    && stainOf(retread) > 0 && purityCap(retread) < 100);
+
+  // The door must not be wired to the social ladder — it has rungs the Watch
+  // admit, and refusing them here would be a silent second gate.
+  check('an awakened mind is never asked to cleanse — psionics is not a BODY',
+    !carriesModification(door({ _flags: new Map([['psi_rank', 'seer']]) })));
 
   // ── the ladder: pure > psionic > augmented > mutant ───────────────────────
   // Social texture ONLY. The load-bearing assertion is the last one: nothing in

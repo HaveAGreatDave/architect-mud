@@ -546,6 +546,10 @@ navigate the entire city without knowing a single compass direction.</p>
 the fifth if you ignore them. Check with <code>stats</code>; buy a meal before
 you need one.</p>
 
+<p>The fixes are the obvious words: <code>eat &lt;thing&gt;</code>,
+<code>drink &lt;thing&gt;</code>, <code>sleep</code> in a bed, and a clinic for
+radiation. <code>use</code> works on most of it if you can't remember which.</p>
+
 <div class="note">
   <span class="lbl">Radiation is the sneaky one</span>
   It doesn't hurt. It just climbs — and high enough, it hands you a permanent
@@ -624,23 +628,22 @@ decide is this:</p>
 </table>
 
 <p><b>Aiming</b> is opt-in and easy to overrate. <code>aim head</code>,
-<code>aim left leg</code>, <code>aim auto</code> to stop. It sticks until you
-change it, and resets to auto when you log in. A called shot costs you
-accuracy — a lot of it, at low skill. With an unskilled hand on a weapon, a
-head shot lands about one swing in twenty; the same shot at centre mass lands
-better than half the time. Weapon skill buys that cost down but never to
-nothing. Aim at a limb you want to wreck, or when you're good enough to afford
-it. Otherwise leave it on auto.</p>
+<code>aim left leg</code>, <code>aim auto</code> to stop. A called shot costs
+accuracy, and at low skill it costs a great deal of it — a head shot from an
+unskilled hand mostly misses. Aim at a limb you want to wreck, or once you're
+good enough to afford it. Otherwise leave it on auto.</p>
 
-<p><code>pow</code> and <code>dodge</code> share one ten-second cooldown, so
-every ten seconds you're choosing offence <i>or</i> defence, not both.
-<code>pow</code> is a wind-up, not an extra attack — it throws away whatever
-progress your current swing had made and takes about half again as long to
-land, then hits for two and a half times damage. Worth it to finish something;
-a bad trade when you're the one running out of HP. <code>dodge</code> is the
-other side: five seconds of much better defence, spent the moment something
-swings at you, and you can't attack while it's up. Use it when a fight has
-turned and you need one exchange to go your way.</p>
+<p><code>pow</code> and <code>dodge</code> share a cooldown, so you are always
+choosing offence <i>or</i> defence, never both. <code>pow</code> is a wind-up
+rather than an extra swing: it takes longer to land and hurts far more, which is
+how you finish something and a bad trade when you're the one running out of HP.
+<code>dodge</code> gives up your attack for a few seconds of much better
+defence — for when a fight has turned and you need one exchange to go your
+way.</p>
+
+<p>And you can leave. <code>flee</code> breaks off a fight you're losing,
+<code>sneak</code> keeps you out of one — each observer notices you separately,
+so one person spotting you doesn't mean everybody has.</p>
 
 <div class="term">
   <div class="bar"><i></i>Rust Alley — calling a shot</div>
@@ -797,16 +800,12 @@ things, and the pan can be wrong in ways it will tell you about.</p>
 with nothing in it refuses to cook, so <code>fill</code> a vessel at a water source
 first.</p>
 
-<h3>A drink, and the fact that it takes time</h3>
+<h3>The bar</h3>
 
-<p>Finished drinks live on the <em>vessel</em>, not as some new object. That is the
-whole point of owning a good mug. <code>mix</code> at a bar, <code>brew</code>
-if there's a machine for it.</p>
-
-<p>The detail worth knowing: drinking a beer is a <b>timed act</b>. Twelve to
-eighteen seconds, narrated as you go, with the effect landing at the end — and
-walking out of the room interrupts it. Finishing one means sitting still for it, which is the
-point.</p>
+<p>A finished drink lives on the <em>vessel</em>, which is the whole point of owning
+a good mug. <code>mix</code> at a bar, <code>brew</code> if there's a machine for it,
+and drink it where you are — anything worth finishing takes long enough that leaving
+the room cuts it short.</p>
 
 <h3>The television</h3>
 

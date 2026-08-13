@@ -35,7 +35,9 @@
     "emits": []
   },
   "actions": {
-    "registers": []
+    "registers": [
+      "PSI_AWAKEN"
+    ]
   },
   "ticks": [
     {
@@ -46,7 +48,11 @@
   "lockTypes": [
     "psi — Exodus doors. authFn is `isAwakened`, nothing more: opening a door the Exodus already tuned is the lowest thing the discipline does, and gating it harder would lock initiates out of their own home. Not hackable, not pickable; mark Exodus doors unbreakable in content the way the Long Watch blast door is. First refusal fires the guide's one-shot explanation (`psi_walked_into_door`) and every refusal after it is a flat, unexplained non-opening."
   ],
-  "dependencies": [],
+  "dependencies": [
+    "ideologies",
+    "augments",
+    "mutations"
+  ],
   "extensionPoints": [
     "registerPsiResistor(fn, owner) — contribute to how hard a mind is to reach. Resistance is DERIVED from who you already are (Cool, Brains, Long Watch mastery, Static Mind, a coprocessor), never authored as a second trainable skill. See server/engine/psi-resist.js.",
     "registerDiscipline / registerPsiAbility — the vocabulary. An ability naming an unregistered discipline or target kind is a BUILD FAILURE (unknownAbilityKeys), and a discipline with no abilities in it is too (unreachableDisciplines).",

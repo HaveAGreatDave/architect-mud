@@ -8,10 +8,24 @@
  *
  * Three rules carry the whole file.
  *
- * 1. THE CEILING IS A CEILING, NEVER A REFUSAL. Floored at 10, not 0. A chromed
- *    fighter can still train, still learns, still improves. They cannot get
- *    GOOD. Chrome does not make discipline impossible, it makes MASTERY
- *    impossible, and the distance between those two sentences is the fiction.
+ * 1. THE CEILING IS A CEILING, NEVER A REFUSAL — but THE DOOR IS A DOOR. Two
+ *    separate mechanisms, and keeping them separate is the whole trick.
+ *
+ *    The Watch will not teach a body that is STILL CARRYING metal or mutation.
+ *    Cleanse yourself first; that is the price of admission, and `cleanseDemand`
+ *    is where they say so. It reads `currentLoad` — a mechanical fact — and
+ *    never the social ladder further down this file.
+ *
+ *    But once you HAVE cleansed, the door opens and only the ceiling remains:
+ *    the stain lets you in, caps how far you go, and floors at 10, never 0. A
+ *    retread still trains, still learns, still improves. They cannot get GOOD.
+ *    Chrome does not make discipline impossible, it makes MASTERY impossible,
+ *    and the distance between those two sentences is the fiction.
+ *
+ *    So the refusal is about what you ARE carrying and the ceiling is about what
+ *    you CARRIED. Collapse them and one of the two dies: gate on the stain and
+ *    the ceiling never gets read by anybody; gate on nothing and "cleanse
+ *    yourself" is a line of prose with no teeth.
  *
  * 2. STORED RANK IS NEVER LOWERED — the cap applies on READ. Reversing the
  *    arithmetic into the stored number would be unrecoverable the moment any of
@@ -78,6 +92,25 @@ export function fleshLoad(player) {
 export function currentLoad(player) {
   return (CHROME_COST * chromeLoad(player))
        + (Math.floor(fleshLoad(player) / FLESH_PER_STEP) * FLESH_COST);
+}
+
+/**
+ * Is this body still carrying the thing the Watch will not teach around?
+ *
+ * DELIBERATELY NOT `currentLoad(player) > 0`. The load quantises — a single
+ * mutation at expression 12 floors to zero steps and costs no ceiling at all,
+ * which is correct for a CEILING and completely wrong for a DOOR. The Watch are
+ * not doing arithmetic; they are looking at you. Any working chrome, any
+ * expressed mutation, and the answer is yes.
+ *
+ * Note what is absent: the stain, and `isPsionic`. Someone who cleaned up is
+ * admitted (that is what the ceiling is FOR), and psionics is a mind rather than
+ * a body, so it never reaches this — the Watch mock the Exodus at the door and
+ * then hold it open, which is exactly the snobbery-with-no-teeth the ladder
+ * below describes.
+ */
+export function carriesModification(player) {
+  return chromeLoad(player) > 0 || fleshLoad(player) > 0;
 }
 
 // ── the stain ───────────────────────────────────────────────────────────────
@@ -342,6 +375,46 @@ export function capReason(player, now = Date.now()) {
   return flesh > 60
     ? 'your body is busy being something else, and it will not hold still long enough to learn'
     : 'the flesh has started going its own way, and it does not take instruction';
+}
+
+// ── the door ────────────────────────────────────────────────────────────────
+
+/**
+ * The refusal at the door, for a body still carrying metal or mutation.
+ *
+ * The one thing in this file that IS a gate, and it reads `chromeLoad` /
+ * `fleshLoad` — never `regardOf`, never `standingWord`. That separation is not
+ * fussiness: the ladder has a PSIONIC rung and a FORMER rung, and wiring the
+ * door to it would silently start refusing two groups the Watch admit.
+ *
+ * Three rules for the prose.
+ *
+ * - IT NAMES WHAT HAS TO GO, and nothing else. No number, no rank, no rep, no
+ *   flag — the same convention `capReason` and the mutagen gate already keep.
+ * - IT IS NOT AN ARGUMENT. They do not explain the philosophy, sell the order,
+ *   or offer terms. They tell you to come back different and go back to work.
+ *   An instructor who debated you would be recruiting; this is a closed door.
+ * - THE MUTANT VERSION IS COLDER THAN THE CHROME ONE. Chrome is a thing you
+ *   bought and can have taken out, and they say so almost practically. Flesh
+ *   gets the register the ladder reserves for it, and they do not make it easy
+ *   to hear. It must still never be violence, and never a slur here — the slur
+ *   is for the people they DID let in.
+ */
+export function cleanseDemand(player, npcName = 'They') {
+  const chrome = chromeLoad(player) > 0;
+  const flesh = fleshLoad(player) > 0;
+  if (!chrome && !flesh) return null;
+
+  if (chrome && flesh) {
+    return `${npcName} stops you at arm's length, and does not pretend to be looking anywhere else.`
+      + `\n<span class="text-dim">"There's metal in you and the flesh has gone its own way besides. I'm not teaching that. Get yourself cut clean and unpicked both, and then we'll see about you."</span>`;
+  }
+  if (chrome) {
+    return `${npcName} glances at where the metal goes in, and their whole manner closes like a door.`
+      + `\n<span class="text-dim">"No. Not while you're carrying that." A shrug, almost practical. "Have it taken out. Come back in your own body and I'll start you at the feet — not before."</span>`;
+  }
+  return `${npcName} looks at you a beat too long, and steps back the exact distance they have decided is polite.`
+    + `\n<span class="text-dim">"I'm not going to be able to help you." Flat, and final. "Go and get corrected. Properly. Then come and stand in front of me again."</span>`;
 }
 
 export const _test = { STAIN_FLOOR, STAIN_WRITE_THRESHOLD, WORD, GREETINGS, PLAIN_CHANCE };

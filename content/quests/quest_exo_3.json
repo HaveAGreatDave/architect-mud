@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "Oracle-9 has asked you to go back to the quiet room and sit in it again. That is the entire instruction. She was very clear that nothing is going to happen, that nothing happened last time, and that this is not a test. She was clear about it three times, which is twice more than a person is usually clear about anything.",
+  "fail_on": [],
+  "id": "quest_exo_3",
+  "meta": {},
+  "name": "Nothing Happened",
+  "objectives": [
+    {
+      "desc": "Go back to the quiet room. Sit in it again. Nothing is going to happen.",
+      "emotes": [
+        "{who} settles into the dark for the second time, and this time does not wait for anything."
+      ],
+      "id": "o_again",
+      "type": "visit",
+      "zone": "zone_under_894_904"
+    },
+    {
+      "desc": "Go back down to Oracle-9.",
+      "emotes": [
+        "{who} comes down the last stretch without needing to count the turnings."
+      ],
+      "id": "o_return",
+      "type": "visit",
+      "zone": "zone_yards_tenement_u3_6"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 160,
+    "flags": [
+      {
+        "flag": "exo_q3_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 44
+  },
+  "updated_at": "1784000000"
+}

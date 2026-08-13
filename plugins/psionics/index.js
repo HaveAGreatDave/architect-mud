@@ -45,6 +45,11 @@
  *    `psi_open_door` is the day this stops scaling.
  */
 import { on } from '../../server/engine/events.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { setFlag } from '../../server/engine/flags.js';
+import { getReputation } from '../../server/engine/ideologies.js';
+import { rosterOf } from '../augments/state.js';
+import { getMutations } from '../../server/engine/mutations.js';
 import { world } from '../../server/engine/world.js';
 import { teachVerb, sendToPlayer } from '../../server/engine/messaging.js';
 import { effectiveSkill } from '../../server/engine/skills.js';
@@ -53,7 +58,7 @@ import {
   strainBandOf, forgetPlayer, isAwakened, maxResonance,
 } from '../../server/engine/psionics.js';
 import {
-  getDisciplines, getPsiAbilities, rankAtLeast, RANKS,
+  getDisciplines, getPsiAbilities, rankAtLeast, RANKS, rankIndex,
 } from '../../server/engine/psionics-abilities.js';
 import { registerPsiResistor } from '../../server/engine/psi-resist.js';
 import { readRoom, readObject, still, stillTick } from './psychometry.js';
@@ -252,6 +257,73 @@ export const hooks = {
     }
   },
 };
+
+// ── PSI_AWAKEN — the authored way in ─────────────────────────────────────────
+//
+// Psionics is the Exodus's discipline, so this is the seam a quest chain uses to
+// open it, and `GRANT_MUTATION`'s rule applies exactly: AN AUTHORED DOOR IS STILL
+// A DOOR. The action re-checks Exodus standing rather than trusting the author,
+// because a dialogue node is content and content gets copied.
+//
+// THREE THINGS IT REFUSES, each of which a bare SET_FLAG would have allowed:
+//
+// 1. A rung that is not on the ladder. `psiRank` runs the stored value through
+//    `rankIndex` and returns null for anything unrecognised, so a typo would not
+//    error — it would silently leave the player unawakened with a flag that looks
+//    set. That is the worst possible failure and it is invisible in the DB.
+// 2. Going BACKWARDS. An authored node that re-fires must never demote a
+//    dreamwalker to awakened, and quests get re-run in ways nobody predicts.
+// 3. Anyone the Exodus have not taken in. Same threshold nullcraft uses.
+//
+// It says nothing to the player. The deniability law (prose.js) means the moment
+// of awakening cannot be announced by the engine — whatever the player is told,
+// they are told by the NPC standing in front of them, in a line that claims
+// nothing. A system message here would be the game confirming psionics, which is
+// the one thing it never does.
+const EXODUS = 'ideology_exodus';
+const AWAKEN_REP = 200;
+
+registerAction({
+  type: 'PSI_AWAKEN',
+  handler: async ({ actor, params }) => {
+    if (!actor?.id) return { type: 'error', message: 'No one to awaken.' };
+    const to = String(params?.rank || 'awakened').toLowerCase();
+    if (rankIndex(to) < 0) return { type: 'error', message: `Unknown psi rank: ${to}` };
+
+    if ((await getReputation(actor.id, EXODUS)) < AWAKEN_REP) {
+      // Silent, and deliberately so: an authored node that fires for someone who
+      // has not done the work should do nothing at all rather than explain
+      // itself. The NPC's own prose is the only thing the player ever sees.
+      return { type: 'psi', awakened: false, reason: 'standing' };
+    }
+
+    // The Purifier is not decoration. This doc's own initiation says the Exodus
+    // strip every mutation and augment out of you BEFORE they let you in, and
+    // until this check existed that was prose with nothing behind it — a chromed
+    // player could walk the chain and awaken with the chair untouched.
+    //
+    // It reads the two loads directly rather than any purity/standing helper,
+    // for the same reason the Long Watch door does: those helpers carry social
+    // rungs (former, psionic) that would refuse people who are already clean.
+    //
+    // Read from the SOURCES (augments' roster, the mutations engine) rather than
+    // through mastery's `carriesModification`, which is the same predicate: that
+    // would make psionics depend on the Long Watch's plugin for an Exodus rule.
+    const carryingChrome = [...(rosterOf(actor)?.values() || [])].some(r => (r?.condition ?? 1) > 0);
+    const carryingFlesh = (getMutations(actor) || []).some(m => (Number(m?.expression) || 0) > 0);
+    if (carryingChrome || carryingFlesh) {
+      return { type: 'psi', awakened: false, reason: 'unclean' };
+    }
+
+    const from = psiRank(actor);
+    if (from && rankIndex(from) >= rankIndex(to)) {
+      return { type: 'psi', awakened: false, reason: 'already', rank: from };
+    }
+
+    await setFlag('player', 'psi_rank', to, actor);
+    return { type: 'psi', awakened: true, rank: to };
+  },
+});
 
 export const commands = {
   psi: cmdPsi,

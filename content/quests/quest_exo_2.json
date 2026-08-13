@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "There is a dead spot down here where nothing transmits and nothing has for years: no relay, no signal, no hum in the walls. Oracle-9 wants you to sit in it. Not do anything in it. Sit in it, on your own, for as long as you can stand, and then come back and tell her what happened. She seems entirely aware that the answer will be nothing.",
+  "fail_on": [],
+  "id": "quest_exo_2",
+  "meta": {},
+  "name": "The Quiet Room",
+  "objectives": [
+    {
+      "desc": "Find the dead spot where nothing transmits, and sit in it a while.",
+      "emotes": [
+        "{who} sits down in the dark and stops trying to do anything about it."
+      ],
+      "id": "o_sit",
+      "type": "visit",
+      "zone": "zone_under_894_904"
+    },
+    {
+      "desc": "Go back and tell Oracle-9 what happened, which was nothing.",
+      "emotes": [
+        "{who} comes back down with nothing to report and reports it."
+      ],
+      "id": "o_report",
+      "type": "visit",
+      "zone": "zone_yards_tenement_u3_6"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 100,
+    "flags": [
+      {
+        "flag": "exo_q2_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 26
+  },
+  "updated_at": "1784000000"
+}

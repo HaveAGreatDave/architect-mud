@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "There is a place upstream where the old grid came into the valley, and there is nothing there now but a cut, a stub of conduit and a great deal of weather. Threlfall wants you to walk up and look at it. She has been unusually specific about the walking up and looking, and unusually vague about why, and for the first time since you met her she did not go straight back to the board.",
+  "fail_on": [],
+  "id": "quest_null_3",
+  "meta": {},
+  "name": "The Quiet Part",
+  "objectives": [
+    {
+      "desc": "Walk up to the breach where the old grid came in, and look at what is left of it.",
+      "emotes": [
+        "{who} stands at the cut for a while longer than looking at it requires."
+      ],
+      "id": "o_breach",
+      "type": "visit",
+      "zone": "zone_dw_778_982"
+    },
+    {
+      "desc": "Go back to the tally. Threlfall will be waiting, and she will not be at the board.",
+      "emotes": [
+        "{who} comes in with the answer already worked out and says none of it."
+      ],
+      "id": "o_tally",
+      "type": "visit",
+      "zone": "zone_dw_769_976"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 140,
+    "flags": [
+      {
+        "flag": "null_q3_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 40
+  },
+  "updated_at": "1784000000"
+}

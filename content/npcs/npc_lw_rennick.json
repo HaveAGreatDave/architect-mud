@@ -21,6 +21,19 @@
       "options": [],
       "text": "The picket says nothing more, and somehow you're already walking away."
     },
+    "carrying": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "bye"
+        },
+        {
+          "label": "That's a hard line.",
+          "next": "hardline"
+        }
+      ],
+      "text": "The picket does not answer straight away, and the pause is the answer. \"Then you get it taken out, and you get the flesh corrected, and you come back standing in your own body.\" No heat in it at all. \"Not a step of it happens down here. We don't do that work and we wouldn't know how. Go and be cleansed, properly, and present yourself again.\" A beat. \"We'll know. Everyone always thinks we won't.\""
+    },
     "give_pass": {
       "actions": [
         {
@@ -36,6 +49,15 @@
         }
       ],
       "text": "The picket studies you a long moment: your gear, your hands, the way you got this deep and lived. Something settles. \"You came all this way, and you lean the right direction. That's rare enough to spend a word on.\" The rifle lowers an inch. \"Don't loiter at this door. Go up top, Kessler Street, a repair shop called Percussive Maintenance. Tell the man there: the lights stay on, somebody should keep the switch. He'll know what to do with you. Now move, before something with more teeth than me finds you here.\""
+    },
+    "hardline": {
+      "options": [
+        {
+          "label": "Leave.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is,\" the picket agrees, perfectly pleasant. \"You'll find nobody here who thinks it isn't, and nobody here who'll move it.\" The rifle has not moved either. \"There are four other answers in this city and every one of them will take you tonight, exactly as you stand. That's rather the difference.\""
     },
     "root": {
       "options": [
@@ -72,11 +94,28 @@
           "next": "wary"
         },
         {
+          "label": "What would it take to be let in?",
+          "next": "terms"
+        },
+        {
           "label": "Leave.",
           "next": "bye"
         }
       ],
       "text": "You almost don't see them until they want you to. \"Far enough.\" The voice is quiet, unhurried, certain. \"That door isn't for you, and the things back the way you came aren't either. State your business or turn around.\""
+    },
+    "terms": {
+      "options": [
+        {
+          "label": "And if I am carrying something?",
+          "next": "carrying"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Terms,\" the picket says, as if reading a list they have read a great many times. \"You come as you were made. No steel in you, nothing growing that shouldn't be. Not because we're better than the ones who did it, though I'll not pretend some here don't think so. Because everything past this door was built by people who had nothing but their hands, and it doesn't work for anyone who took the other road.\""
     },
     "wary": {
       "options": [
@@ -85,7 +124,7 @@
           "next": "root"
         }
       ],
-      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here, and it doesn't open for the curious.\" A pause, measuring you. \"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want, really decide, and maybe there's a place down here for you. Come back the same as you are now, and there isn't.\""
+      "text": "\"What this is,\" the picket says, \"is as far as you go. There's a door here, and it doesn't open for the curious.\" A pause, measuring you. \"The machine owns most people before they ever think to ask who does. Go and decide what kind of city you actually want, really decide, and maybe there's a place down here for you. Come back the same as you are now, and there isn't.\" A flick of the eyes, down and up, taking inventory of you. \"And come back in the body you were issued. We've no use for the bought or the slipped, whatever they can do.\""
     }
   },
   "faction": "ideology_long_watch",

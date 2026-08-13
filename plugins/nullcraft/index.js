@@ -52,6 +52,7 @@ import {
 import {
   getNullOperation, getNullOperations, operationsFor,
 } from '../../server/engine/nullcraft-ops.js';
+import { getReputation } from '../../server/engine/ideologies.js';
 
 // How long a transient operation holds. Scaled by how well the check went, so a
 // squeaked jam is a moment and a clean one buys you the room. The floor matters
@@ -488,17 +489,52 @@ async function failureReaction(player, target, subsystem, opId, check, broadcast
 // `player.logout` carries { id, handle }.
 on('player.logout', ({ id }) => { if (id) { forgetPlayer(id); pending.delete(id); } });
 
+// ── the door ─────────────────────────────────────────────────────────────────
+//
+// NULLCRAFT IS THE NULL'S LADDER AND NOBODY ELSE'S. The Ascendants sell chrome,
+// the Wildblood hand out flasks, the Long Watch teach — and each of those is a
+// commitment you make before you get the thing. This is the same: you do not
+// pick nullcraft up as a hobby, you go and become one of them.
+//
+// The refusal is a bare `Unknown command.`, the convention psionics already
+// keeps, and for the same reason: a surface you cannot reach should not
+// advertise itself. A player who has never met the Null has no idea the verb
+// exists, which is the correct amount for them to know.
+//
+// ⚠ THE SKILL IS NOT THE GATE. `nullcraftLevel` still decides how WELL you do
+// this; standing decides WHETHER you may. Collapsing the two — gating on the
+// skill alone — is what the system did before, and it let anyone who put a
+// point in a skill walk through a faction's whole identity.
+const NULL_ORDER = 'ideology_null';
+// `known`, matching the floor chrome sits behind. Anything lower is not a gate:
+// a character who has never met the Null already sits at neutral.
+const INITIATE_REP = 200;
+
+async function isInitiated(player) {
+  if (!player?.id) return false;
+  return (await getReputation(player.id, NULL_ORDER)) >= INITIATE_REP;
+}
+
+// One wrapper rather than a check pasted into seven handlers, so a verb added
+// later cannot forget it. Awaiting a rep read here is affordable: these are
+// deliberate player actions, never a tick and never the swing path.
+const initiatesOnly = (fn) => async (args, raw, player, broadcast) => {
+  if (!(await isInitiated(player))) return { type: 'error', message: 'Unknown command.' };
+  return fn(args, raw, player, broadcast);
+};
+
 export const commands = {
-  nullscan: cmdNullscan,
-  analyze: cmdAnalyze,
-  null: cmdNull,
-  nullresolve: cmdNullResolve,
-  jammer: cmdJammer,
-  veil: cmdVeil,
-  emp: cmdEmp,
+  nullscan: initiatesOnly(cmdNullscan),
+  analyze: initiatesOnly(cmdAnalyze),
+  null: initiatesOnly(cmdNull),
+  nullresolve: initiatesOnly(cmdNullResolve),
+  jammer: initiatesOnly(cmdJammer),
+  veil: initiatesOnly(cmdVeil),
+  emp: initiatesOnly(cmdEmp),
 };
 
 export const _test = {
   cmdNullscan, cmdAnalyze, cmdNull, cmdNullResolve, failureReaction,
   securityBand, exposureBand, holdFor, pending,
+  isInitiated, initiatesOnly, NULL_ORDER, INITIATE_REP,
 };

@@ -91,6 +91,27 @@ that logging out was going to cool off anyway.
 
 ## 5. Surgery
 
+### The floor — chrome is the Ascendants' discipline
+
+`MIN_INSTALL_TIER` (`install.js`) is a **floor under every install**: `known` with
+`ideology_ascendants`, resolved together with the piece's own `rep_gate` so
+whichever is higher wins. A piece authored above the floor keeps its own rung
+untouched (the cortical backup is `inner_circle` and stays there).
+
+It is stated once, in code, rather than trusted to every author remembering,
+because the failure is silent: **a new augment with no `rep_gate` would quietly
+become the free entry rung**, and nobody would notice until a player with no
+Ascendant standing at all was walking around chromed.
+
+`known` is deliberately the value — a character who has never met an Ascendant
+already sits at `neutral`, so gating there reads as a gate and functions as an
+open door.
+
+⚠ When the unlicensed Promethean path (§10) is built, **this constant is what it
+carves its exemption out of** — an unlicensed cutter is supposed to be how you get
+chrome without kneeling to the campus. Until then there is no back door, and that
+is intentional rather than an oversight.
+
 A surgeon is **an NPC with flat flags**, the `flags.repairman` precedent exactly —
 so an unlicensed back-alley cutter is a JSON file and *zero code*:
 

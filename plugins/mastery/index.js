@@ -42,6 +42,7 @@ import {
 } from './state.js';
 import {
   purityCap, effectiveRank, capReason, standingGreeting, standingWord, regardOf,
+  carriesModification, cleanseDemand,
 } from './purity.js';
 import {
   archetypeOf, noteExchange, bankHeat, sweepStaleFights, tierOn, tierLine, tierAtLeast,
@@ -282,6 +283,19 @@ async function doTrain(player, entry, wanted) {
   const { npc, cfg } = entry;
   const offered = Array.isArray(cfg.disciplines) ? cfg.disciplines.filter(d => DISCIPLINES.includes(d)) : [];
   if (!offered.length) return { type: 'error', message: `${npc.name} has nothing to teach.` };
+
+  // THE DOOR, and it is checked FIRST — before reputation, before discipline,
+  // before anything. A picket sees the metal long before they get round to
+  // asking who vouched for you, and a chromed stranger who is told "come back
+  // when someone can vouch" would go away and do the wrong work for a week.
+  //
+  // Sync, no query, and it reads `carriesModification` rather than the social
+  // ladder — see the note over `cleanseDemand`. Someone who has CLEANED UP is
+  // let through here and met by the ceiling instead, which is the whole reason
+  // the stain exists.
+  if (carriesModification(player)) {
+    return { type: 'output', message: cleanseDemand(player, npc.name) };
+  }
 
   // The reputation gate. The refusal NEVER names reputation, a tier or a flag —
   // same convention the mutagen gate follows. An NPC who does not trust you says

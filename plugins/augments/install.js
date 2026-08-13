@@ -43,6 +43,32 @@ const PATH_GAIN = 8;
 const TIER_RANK = Object.fromEntries(REP_TIERS.map((t, i) => [t.id, i]));
 
 /**
+ * THE FLOOR. Chrome is the Ascendants' discipline, the same way mutation is the
+ * Wildblood's and mastery is the Long Watch's, so fitting ANY of it takes real
+ * standing with them — you commit, and then you get the hardware.
+ *
+ * This is a floor under the per-augment `rep_gate`, not a replacement for it:
+ * an author still sets the rung each piece sits on (the cortical backup is
+ * inner_circle and should stay there), and this only stops a piece authored
+ * below the floor from being a way to skip the commitment entirely.
+ *
+ * It is stated ONCE, here, rather than trusted to every author remembering,
+ * because the failure mode is silent: a new augment with no `rep_gate` would
+ * quietly become the free entry rung and nobody would notice until a player
+ * with no Ascendant standing at all was walking around chromed.
+ *
+ * `known` is deliberately the value. Anything below it is free — a character
+ * who has never met an Ascendant already sits at `neutral`, so gating at
+ * `neutral` reads as a gate and functions as an open door.
+ *
+ * ⚠ When the unlicensed Promethean path is built, THIS is the constant it
+ * carves an exemption out of — an unlicensed cutter is supposed to be how you
+ * get chrome without kneeling to the campus. Until that exists, there is no
+ * back door, and that is intentional rather than an oversight.
+ */
+const MIN_INSTALL_TIER = 'known';
+
+/**
  * The five bands. Condition and calibration both fall together, but they fall for
  * different reasons and the player can act on them differently: condition is
  * repaired, calibration is tuned, and `botched` is neither — it is a permanent
@@ -158,10 +184,21 @@ export async function installAugment(rest, player) {
     return { type: 'error', message: `No free ${aug.slot} slot (${usedInSlot}/${cap}). Pull something first.` };
   }
 
+  // The floor and the piece's own gate are one check: whichever is higher wins,
+  // so a piece authored above the floor keeps its own rung untouched.
   const rank = await ascendantRank(player.id);
-  if (rank < (TIER_RANK[aug.rep_gate] ?? 0)) {
-    const gate = REP_TIERS.find(t => t.id === aug.rep_gate);
-    return { type: 'error', message: `${aug.name} is reserved for those the Ascendants trust (${gate?.label || aug.rep_gate}). Raise your standing first.` };
+  const pieceRank = TIER_RANK[aug.rep_gate] ?? 0;
+  const floorRank = TIER_RANK[MIN_INSTALL_TIER];
+  const needRank = Math.max(pieceRank, floorRank);
+  if (rank < needRank) {
+    const gate = REP_TIERS[needRank];
+    // Two different refusals, because they send you to do different work.
+    // "Not this one yet" means keep climbing; "not any of this yet" means you
+    // have not joined, and a player who conflates them wastes a week.
+    return { type: 'error', message: pieceRank <= floorRank
+      ? `Chrome is not something you buy your way into. The Ascendants fit their own, `
+        + `and nobody here knows you well enough to open you up. Do their work first.`
+      : `${aug.name} is reserved for those the Ascendants trust (${gate?.label || 'higher standing'}). Raise your standing first.` };
   }
 
   // The hardware itself must be in your hands. This is the whole point of the

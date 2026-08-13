@@ -23,7 +23,7 @@ import {
 } from '../../server/engine/nullcraft-ops.js';
 import { nullAugmentDown, augmentKey, VITAL } from '../augments/state.js';
 import { nullSuppressed, deviceKey } from '../surveillance/nulltarget.js';
-import { _test } from './index.js';
+import { _test, commands } from './index.js';
 
 export default async function regress({ check }) {
   const P = 'regress-null-player';
@@ -315,4 +315,40 @@ export default async function regress({ check }) {
   addTrace(P, 30, 30);
   forgetPlayer(P);
   check('logout drops all runtime state', traceOf(P) === 0 && veilFactor(P) === 0);
+
+  // ── The door: nullcraft is the Null's, not a skill anyone can pick up ──────
+  //
+  // The wrapper is what makes this true for a verb added LATER, so the case
+  // that matters is the coverage one: every registered command goes through it.
+  // A verb wired straight to its handler would be an open door nobody noticed.
+
+  const gatedCalls = [];
+  const fakeRep = { reputation: 0 };
+  const wrapped = _test.initiatesOnly(async () => { gatedCalls.push(1); return { type: 'output', message: 'ran' }; });
+
+  const outsider = { id: '00000000-0000-0000-0000-0000000000ff' };
+  const refused = await wrapped([], '', outsider);
+  check('an outsider is refused, and is not told the surface exists',
+    refused?.message === 'Unknown command.' && gatedCalls.length === 0, refused?.message);
+
+  check('the refusal reveals nothing about the Null, the skill or the standing',
+    !/null|rep|standing|skill|trace/i.test(String(refused?.message)), refused?.message);
+
+  check('the initiate threshold is a real tier, not an open door',
+    _test.INITIATE_REP >= 200 && _test.NULL_ORDER === 'ideology_null');
+
+  check('EVERY registered command goes through the door, not just the loud ones', (() => {
+    // Compare against the manifest so a verb added to plugin.json without the
+    // wrapper fails here rather than in production.
+    const declared = ['nullscan', 'analyze', 'null', 'nullresolve', 'jammer', 'veil', 'emp'];
+    for (const v of declared) {
+      const fn = commands[v];
+      if (typeof fn !== 'function') return false;
+      // A wrapped handler is the arrow above, never the raw cmd* function.
+      if (fn === _test.cmdNullscan || fn === _test.cmdAnalyze
+        || fn === _test.cmdNull || fn === _test.cmdNullResolve) return false;
+    }
+    return Object.keys(commands).length === declared.length;
+  })());
+  void fakeRep;
 }

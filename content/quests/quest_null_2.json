@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "Denholm keeps a schoolroom with no children in it. What is in it is a bench, a tray of parts, and a rule: nobody here owns a thing they cannot take apart. Threlfall wants you to sit down at it. She has not said what you are stripping and she has not said what happens if you cannot put it back.",
+  "fail_on": [],
+  "id": "quest_null_2",
+  "meta": {},
+  "name": "Nothing You Cannot Mend",
+  "objectives": [
+    {
+      "desc": "Sit down at the bench in the schoolroom and let Denholm hand you the tray.",
+      "emotes": [
+        "{who} lays the parts out in the order they came off, which is the whole lesson."
+      ],
+      "id": "o_school",
+      "type": "visit",
+      "zone": "zone_dw_767_975"
+    },
+    {
+      "desc": "Take the reassembled thing to Machin at the bench and let her look at it.",
+      "emotes": [
+        "{who} sets it down and takes their hands off it, which is harder than it sounds."
+      ],
+      "id": "o_bench",
+      "type": "visit",
+      "zone": "zone_dw_768_974"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 90,
+    "flags": [
+      {
+        "flag": "null_q2_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 22
+  },
+  "updated_at": "1784000000"
+}

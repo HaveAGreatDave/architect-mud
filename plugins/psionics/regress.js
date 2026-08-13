@@ -27,6 +27,7 @@ import { _test as taboo } from './reactions.js';
 import { _test as door } from './door.js';
 import { _test as purifier } from './purifier.js';
 import { SKILLS } from '../../server/engine/skills.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 export default async function regress({ check, getPlayer }) {
   const ZONE = 'zone_regress_psi';
@@ -306,6 +307,39 @@ export default async function regress({ check, getPlayer }) {
   // most confusing possible red.
   check('our test zone is left clean', residueAt(ZONE).length === 0,
     `${_residueZoneCount()} zones hold residue, ${residueAt(ZONE).length} in ours`);
+
+  // ── PSI_AWAKEN: the authored door is still a door ─────────────────────────
+  //
+  // ⚠ ONLY THE REFUSAL PATHS ARE EXERCISED HERE, and that is deliberate rather
+  // than lazy. The success path WRITES `psi_rank`, and doing that to the shared
+  // fake player would awaken it for every suite that runs after this one —
+  // mastery's ladder reads `isAwakened` and would start classifying it as
+  // PSIONIC, which is exactly the cross-suite leak the mutations suite already
+  // paid for once. The refusals write nothing, so they are safe to assert, and
+  // they are the two failures that are otherwise SILENT.
+  //
+  // The success and no-demote paths are covered by a scratch-player behavioural
+  // check run at authoring time (see docs/systems-psionics.md).
+  const ghost = { id: '00000000-0000-4000-8000-00000000dead', _flags: new Map() };
+
+  const noStanding = await dispatchAction({
+    type: 'PSI_AWAKEN', actor: ghost, params: { rank: 'awakened' },
+  });
+  check('PSI_AWAKEN refuses somebody the Exodus have not taken in',
+    noStanding?.awakened === false && noStanding.reason === 'standing', JSON.stringify(noStanding));
+  check('...and writes no flag doing it', !ghost._flags.get('psi_rank'));
+
+  const offLadder = await dispatchAction({
+    type: 'PSI_AWAKEN', actor: ghost, params: { rank: 'archmage' },
+  });
+  // The failure this guards: `psiRank` runs the stored value through rankIndex
+  // and returns null for anything unrecognised, so a typo would not throw — it
+  // would leave a player unawakened holding a flag that LOOKS set.
+  check('PSI_AWAKEN rejects a rank that is not on the ladder, loudly',
+    offLadder?.type === 'error', JSON.stringify(offLadder));
+
+  check('every rung the action accepts is a real rung',
+    RANKS.length === 8 && RANKS[0] === 'awakened');
 }
 
 /** psiState is the only reader; this keeps the strain assertion readable. */

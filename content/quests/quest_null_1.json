@@ -1,0 +1,44 @@
+{
+  "category": null,
+  "description": "Threlfall has put you on gauge duty, which is not a favour and not a test in any way she would admit to. Walk out to the gauge house, wind the drum, check the chart against the board, and come back. Twice a day is the rent this place pays for a lake that does not need it. Doing it once is how they find out whether you turn up.",
+  "fail_on": [],
+  "id": "quest_null_1",
+  "meta": {},
+  "name": "The Rent",
+  "objectives": [
+    {
+      "desc": "Walk out to the gauge house on the far shoulder of the dam and wind the drum.",
+      "emotes": [
+        "{who} winds the cord back onto the drum and squints at the pen line."
+      ],
+      "id": "o_gauge",
+      "type": "visit",
+      "zone": "zone_dw_778_972"
+    },
+    {
+      "desc": "Report the reading back at the tally.",
+      "emotes": [
+        "{who} reads the figure off without being asked twice."
+      ],
+      "id": "o_back",
+      "type": "visit",
+      "zone": "zone_dw_769_976"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 60,
+    "flags": [
+      {
+        "flag": "null_q1_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 14
+  },
+  "updated_at": "1784000000"
+}
