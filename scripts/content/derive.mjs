@@ -83,6 +83,7 @@ export const PROP_DEFAULTS = Object.freeze({
   swimmable: false,   // entering costs stamina; wetness, drowning, hypothermia
   underwater: false,  // submerged BELOW a surface tile: breath timer, colder, dark
   passable: true,     // a body may enter this tile at all — cliff is the one no
+  thermal: false,     // this water is geothermally heated (waterTemperature)
   routable: true,     // GPS and pathfinding may cross it
   buildable: true,    // the dev-panel builder may place/move a building here
   frontage: false,    // a street a building's front door can face onto
@@ -468,6 +469,11 @@ export const BUILDING_TYPE_ICON = Object.freeze({
   gun_shop: 'bldg_gunshop', casino: 'bldg_casino', fence: 'bldg_fence', chem_supply: 'bldg_chem',
   butcher: 'bldg_butcher',
   comic_shop: 'bldg_comics',
+  // The Reach (docs/../memory: project_the_reach) — the frontier town's Main Street. These are
+  // trades the rest of the world runs out of a corner of some other building and the Reach gives
+  // a whole false front to, which is the entire point of how the place looks.
+  mercantile: 'bldg_mercantile', assay: 'bldg_assay', undertaker: 'bldg_undertaker',
+  bathhouse: 'bldg_bathhouse',
   // Terminus (docs/proposals/terminus.md). The Exodus grow their own food behind the wall; the
   // glasshouses are the only thing tall enough to be seen from the apron. Registered NOW rather
   // than backfilled later: in pass 1 they are `is_building` mass and never reach this table (it is

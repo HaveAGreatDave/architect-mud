@@ -15,10 +15,9 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The yard behind the bathhouse, hung with lines of grey towels that dry stiff in about eleven minutes. A boiler stack pokes up through a lean-to roof and breathes steam that smells faintly of the pipe it came through. The runoff has cut a warm little channel across the dirt and something green is growing in it, the only green in town.",
   "exits": {
     "east": "zone_the_reach_871_1957",
-    "north": "zone_the_reach_870_1956",
     "west": "zone_the_reach_869_1957"
   },
   "flags": {
@@ -27,10 +26,10 @@
     "terrain": "dirt"
   },
   "grid_x": 910,
-  "grid_y": 985,
+  "grid_y": 1041,
   "grid_z": 0,
   "id": "zone_the_reach_870_1957",
   "map_id": "map_world",
-  "name": "The Reach 870,1957",
+  "name": "Bathhouse Yard",
   "parent_zone": null
 }

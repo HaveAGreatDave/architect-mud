@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "The wall throws a hard cold shadow out across the ash, with an edge you could measure.",
+    "Columns, all the same width, all the way along, and nobody cut them.",
+    "A block has come off the face recently, and it lies where it landed with the ash not yet blown over it.",
+    "You walk the foot of it for a while looking for a break, and there is not one here.",
     "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
     "The wind comes across the flat and there is nothing here for it to make a noise against.",
     "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
-    "Something metal has been dragged across the flat here, one long score, going west.",
-    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
-    "The light goes flat and colourless and the horizon stops being a line at all.",
-    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
-    "A bird goes over, low, and you hear the feathers.",
-    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
-    "Your boots come up grey to the ankle and stay that way."
+    "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.",
+  "description": "A face of frozen rock, columnar where it cooled slowly, so the whole wall is a rank of black pillars standing shoulder to shoulder. Broken stuff piled at the foot of it. It is one piece and it does not offer a hold.",
   "exits": {
     "east": "zone_dw_804_978",
     "north": "zone_dw_803_977",
@@ -23,15 +20,15 @@
   "flags": {
     "emp_shadow": true,
     "lawless": true,
+    "no_spawn": true,
     "region_id": "region_deadwater",
-    "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "ash"
+    "terrain": "cliff"
   },
   "grid_x": 803,
   "grid_y": 978,
   "grid_z": 0,
   "id": "zone_dw_803_978",
   "map_id": "map_world",
-  "name": "Broken Level",
+  "name": "The Edge of the Flow",
   "parent_zone": null
 }

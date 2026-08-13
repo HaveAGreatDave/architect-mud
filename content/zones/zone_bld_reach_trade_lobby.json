@@ -1,0 +1,29 @@
+{
+  "ambient_events": [
+    "The chiller cabinet cycles up, runs a while, and settles again.",
+    "Water ticks into a drain somewhere behind the wall.",
+    "The building holds its cool while the street outside goes on baking.",
+    "A fly finds the room, decides against it, and leaves.",
+    "The curtain in the corner moves a little on nothing you can feel.",
+    "Somewhere out back, metal is being struck once, and then once more, unhurried."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Cool, dim, and startlingly clean, which is the first thing that gets you. A chiller cabinet takes up the back wall, running off the town's grid and running well. A workbench along one side holds a jar of nails, a hammer, and a punch, and beside them a stack of pipe offcuts cut to a length that means only one thing. Somebody has hung a curtain to make a corner private. It is the only soft thing in the building.",
+  "exits": {
+    "down": "zone_util_zone_bld_reach_trade_lobby",
+    "south": "zone_the_reach_868_1954"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_868_1954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_reach_trade_lobby",
+  "map_id": "map_int_bld_reach_trade",
+  "name": "The Cold Room",
+  "parent_zone": "zone_the_reach_868_1954"
+}

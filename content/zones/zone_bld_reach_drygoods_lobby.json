@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Something settles in a sack and the whole stack shifts a quarter inch.",
+    "The ladder rolls a foot along its rail and stops.",
+    "Dust turns over slowly in the bar of light from the window.",
+    "The awning outside cracks once in the wind and goes quiet.",
+    "A price gets rubbed off a shelf edge and chalked back on a little higher.",
+    "The floorboards give under you with a sound like an old man being helped up."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Shelves to the ceiling on three walls, and a ladder on a rail to reach the top of them. Sacks stacked into a wall of their own, a coil of rope hanging off a hook, boots paired and strung together by the laces. The whole room smells of dust, sacking, and coffee that got ground in here at some point and has never fully left. Prices are chalked on the shelf edges and rubbed out often.",
+  "exits": {
+    "down": "zone_util_zone_bld_reach_drygoods_lobby",
+    "south": "zone_the_reach_870_1954"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "window": {
+      "description": "A shopfront pane onto Main Street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_the_reach_870_1954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_reach_drygoods_lobby",
+  "map_id": "map_int_bld_reach_drygoods",
+  "name": "The Dry Goods Floor",
+  "parent_zone": "zone_the_reach_870_1954"
+}

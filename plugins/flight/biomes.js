@@ -20,6 +20,7 @@ export const BIOMES = [
   'freight', 'marquee', 'citycore', 'parkland', 'park', 'forest', 'uptown', 'civic', 'airport',
   'scrub', 'redrock', 'ash',   // the arid wildlands beyond the Curtain (dry, not water)
   'hardpan', 'alkali', 'cliff', 'plateau',   // badlands accents: cracked lakebed, salt crust, canyon rim, caprock top
+  'basalt', 'deadwood', 'sinter', 'hotspring',   // the volcanic set: lava rock, dead stands, vent crust, geothermal water
   'asphalt', 'concrete', 'pier',   // painted paved surfaces — read as tarmac/slab/planking, NOT grass
 ];
 
@@ -40,7 +41,11 @@ const TERRAIN_BIOME = {
   // cliff + plateau are ONE landform: the rim you cannot walk up and the tableland on
   // top of it. They keep separate biomes because they are lit differently (the top
   // takes the sun, the face does not) and because the windshield walls only the rim.
-  hardpan: 'hardpan', alkali: 'alkali', cliff: 'cliff', plateau: 'plateau',
+  hardpan: 'hardpan', alkali: 'alkali', cliff: 'cliff', plateau: 'plateau', ramp: 'plateau',
+  // The volcanic set. SURFACES, not elevation — a region can be volcanic and flat. hotspring keeps
+  // its own biome rather than borrowing 'water' because the whole point is that it does not look
+  // like the bay: milky mineral teal with steam standing off it, not cold blue.
+  basalt: 'basalt', deadwood: 'deadwood', sinter: 'sinter', hotspring: 'hotspring',
 };
 
 // The tag used for the map/silhouettes — airfields read as 'airport'.

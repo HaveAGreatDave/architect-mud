@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Hardpan gone pale and chalky, littered with the long bleached shapes that give this end of the waste its name. Most of them are animal. Not all of them are.",
   "exits": {
     "north": "zone_the_reach_882_1949",
     "south": "zone_the_reach_882_1951",
@@ -24,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 922,
-  "grid_y": 978,
+  "grid_y": 1034,
   "grid_z": 0,
   "id": "zone_the_reach_882_1950",
   "map_id": "map_world",
-  "name": "The Reach 882,1950",
+  "name": "The Bonepile Reach",
   "parent_zone": null
 }

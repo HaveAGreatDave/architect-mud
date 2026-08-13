@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The horizon does the same thing in every direction, which is a fact your feet will learn before your eyes admit it.",
   "exits": {
     "east": "zone_the_reach_873_1966",
     "north": "zone_the_reach_872_1965",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 912,
-  "grid_y": 994,
+  "grid_y": 1050,
   "grid_z": 0,
   "id": "zone_the_reach_872_1966",
   "map_id": "map_world",
-  "name": "The Reach 872,1966",
+  "name": "The Reach Scrub",
   "parent_zone": null
 }

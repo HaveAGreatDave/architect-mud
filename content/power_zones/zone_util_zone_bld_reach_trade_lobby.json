@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_bld_reach_trade_lobby",
+  "id": "zone_util_zone_bld_reach_trade_lobby",
+  "max_capacity_kw": 1000,
+  "name": "The Cold Room Utility",
+  "source_type": "junction_box"
+}

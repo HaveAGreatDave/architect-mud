@@ -187,7 +187,7 @@
     "personality": "gruff"
   },
   "home_activities": [],
-  "home_zone": "zone_terminus_1202_916",
+  "home_zone": "zone_terminus_1202_940",
   "hp": 24,
   "hp_max": 24,
   "id": "npc_terminus_quartermaster",
@@ -202,5 +202,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_terminus_1202_916"
+  "work_zone_id": "zone_terminus_1202_940"
 }

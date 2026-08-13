@@ -21,7 +21,7 @@
     "radiation": 37,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "gravel"
+    "terrain": "ramp"
   },
   "grid_x": 1055,
   "grid_y": 975,

@@ -1,0 +1,14 @@
+{
+  "description": "Forty-odd bottles in a wooden rack, labels hand-inked and half of them abbreviations only one person alive can expand. Two spaces are empty. The dust says they have been empty a long time.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_assay_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the reagent rack",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_assay_lobby"
+}

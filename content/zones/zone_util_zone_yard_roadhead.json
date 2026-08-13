@@ -8,7 +8,7 @@
   "flags": {
     "is_interior": true,
     "region_id": "region_terminus",
-    "world_exit_zone": "zone_terminus_1202_915"
+    "world_exit_zone": "zone_terminus_1202_939"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_util_zone_yard_roadhead",
   "map_id": "map_int_yard_roadhead",
   "name": "Last Requisition — Utility Room",
-  "parent_zone": "zone_terminus_1202_915"
+  "parent_zone": "zone_terminus_1202_939"
 }

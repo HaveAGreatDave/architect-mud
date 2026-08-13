@@ -15,12 +15,11 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Graded hardpan running south toward the strip, kept passable because the Reach eats when the strip works and does not when it does not. The surface is bladed smooth twice a season and rutted again within a week. Poles carry a single fat cable down the east side, back toward the Dynamo.",
   "exits": {
     "east": "zone_the_reach_872_1956",
     "north": "zone_the_reach_871_1955",
-    "south": "zone_the_reach_871_1957",
-    "west": "zone_the_reach_870_1956"
+    "south": "zone_the_reach_871_1957"
   },
   "flags": {
     "lawless": true,
@@ -28,10 +27,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 911,
-  "grid_y": 984,
+  "grid_y": 1040,
   "grid_z": 0,
   "id": "zone_the_reach_871_1956",
   "map_id": "map_world",
-  "name": "The Reach 871,1956",
+  "name": "The Field Road",
   "parent_zone": null
 }

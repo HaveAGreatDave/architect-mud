@@ -2,10 +2,11 @@
 
 Terrain is the **ground surface** of a zone tile (road, concrete, grass, water,
 dock…). It is authored per-zone in `flags.terrain` (a single string) and painted
-through a dev-panel Maps mode. Terrain still blocks no step — water is entered as a
-*swim* ([plugins/swimming](../plugins/swimming/index.js)), and the only engine move
-gate on weight/terrain is encumbrance
-([movement.js:76](../server/engine/commands/movement.js)).
+through a dev-panel Maps mode. Terrain blocks a step in **exactly one** case: `cliff`, whose
+`props.passable` is false ([High ground](#high-ground-cliff--plateau--ramp-2026-08-12)). Everything
+else is entered — water is a *swim* ([plugins/swimming](../plugins/swimming/index.js)), never a wall.
+The engine's move gates are encumbrance, door locks, and `engine:impassable-terrain`
+([movement.js](../server/engine/commands/movement.js)).
 
 Since 2026-07-30 terrain is **presentation + a preset set of gameplay properties**
 that a tile can override — see [Terrain presets GAMEPLAY
@@ -67,7 +68,13 @@ current values — the file is authoritative, this table is a convenience.
 | `marsh` | Marsh | `#4d5a30` toxic murky ripples (wildlands) |
 | `hardpan` | Hardpan | `#b8ab90` cracked pale lakebed (badlands accent) |
 | `alkali` | Alkali Flat | `#d9d5c8` near-white salt crust — the brightest ground in the palette, on purpose (badlands accent) |
-| `cliff` | Cliff Face | `#3a1e16` canyon rim. **The only accent with gameplay props**: `routable:false, buildable:false` |
+| `basalt` | Basalt | `#33323a` frozen lava rock — the darkest ground in the palette, on purpose |
+| `deadwood` | Dead Stand | `#4a4034` trees that died standing — the mirror of `forest` |
+| `sinter` | Sinter Crust | `#c9b878` the pale mineral apron a hot spring lays down. `buildable:false` |
+| `hotspring` | Hot Spring | `#3f8b84` geothermal water — swimmable, `routable:false`, and the only terrain carrying `thermal` |
+| `plateau` | Plateau | `#7a4029` the tableland on top of a massif — walkable (see [High ground](#high-ground-cliff--plateau--ramp-2026-08-12)) |
+| `ramp` | Ramp | `#9a6238` the break in a rim that lets you up — walkable |
+| `cliff` | Cliff Face | `#5c3224` the rim itself. **The only terrain in the game a body cannot enter**: `passable:false, routable:false, buildable:false` |
 
 **Runways** are a special case in the palette but **not** a `flags.terrain` value. The two directional
 runway swatches (`Runway ↕ N-S`, `Runway ↔ E-W`, `RUNWAY_KEYS` in [maps.js](../client/devpanel/js/panels/maps.js))
@@ -88,15 +95,129 @@ these four are no longer special. They map to their own
 arid flight biomes — `scrub`→`scrub`, `redrock`→`redrock`, `ash`→`ash` (dry-land tints, never water) —
 while `marsh`→`badlands`, in [biomes.js](../plugins/flight/biomes.js).
 
-The three **badlands accents** (`hardpan`/`alkali`/`cliff`) were added to break up the Scarletwastes,
-which is 4,836 tiles of uniform `redrock` deliberately left for hand-painting in the Studio. They are
-palette entries only — **nothing in code paints them**, by the same rule that keeps `redrock` uniform.
-Each takes its own flight biome rather than borrowing `badlands`, because the whole point of painting
-one is that it reads as different ground from the air, and each scatters at its own density
-(`cliff` densest, `alkali` very nearly bare — a salt flat that sprouts a bush stops reading as poisoned).
-`cliff` is the only one with `props`: `routable:false` keeps GPS and pathfinding from crossing a canyon
-rim. Note that is **routing, not passability** — exits remain the SSOT for where a player can walk, so a
-cliff tile with an exit is still walkable and that is intended (a switchback trail is authored as exits).
+The **badlands accents** (`hardpan`/`alkali`, and originally `cliff`) were added to break up the
+Scarletwastes. Each takes its own flight biome rather than borrowing `badlands`, because the whole
+point of painting one is that it reads as different ground from the air, and each scatters at its own
+density (`alkali` very nearly bare — a salt flat that sprouts a bush stops reading as poisoned).
+`hardpan` and `alkali` are still palette entries only. **`cliff` no longer is**, on both counts: the
+Scarletwastes landform pass paints it, and it scatters nothing because it is a raised mass now rather
+than a tint with rocks on it. See below.
+## The volcanic set: `basalt` + `deadwood` + `sinter` + `hotspring` (2026-08-12)
+
+Four surfaces added for Deadwater, whose reservoir is now geothermal. **They are SURFACES, not
+elevation** — height is the cliff/plateau/ramp trio and nothing else, so a region can be volcanic and
+flat, or red and mountainous, without either vocabulary knowing about the other.
+
+- **`basalt`** — frozen lava rock, the darkest ground in the palette on purpose. A volcanic flat that
+  reads as merely "grey" is `ash` again. Scatters at `redrock` density: a lava field is strewn with
+  the stuff it froze out of.
+- **`deadwood`** — the exact mirror of `forest`. `drawDeadStand` is `drawForestTile` with the snag
+  billboard the ash flats already scattered one of, denser at the same seed (nothing thinned these)
+  and never a conifer, because a dead conifer keeps no shape worth drawing. Deliberately **not** in
+  `GRASS_BIOMES`: a dead stand stands on dust, and the vegetation mottle would green it.
+- **`sinter`** — the pale mineral apron a spring lays down. `buildable: false`, because a crust over
+  a vent is not a foundation. Nearly bare scatter, like the alkali flat it resembles.
+- **`hotspring`** — geothermal water. Counts as water in the ground LUT (it takes the water material,
+  not teal dirt) and cannot drag sea off-map with it, since `fillOffMap` only seeds ocean from water
+  north of `BAY_SHORE_Y`. Steam plumes on every other tile, so it reads as water venting in places
+  rather than as a fog bank.
+
+### `props.thermal`, and the system it deliberately doesn't add
+
+`thermal` (default `false`) is read by exactly one function, `waterTemperature()`, which returns a
+flat **39 °C** and ignores the seasonal derivation entirely — what heats a spring is *under* it, so
+an offset on a seasonal curve would be the wrong shape, and the point is that it is warm in winter.
+
+That single number is the whole feature. `gameLoop` already uses `waterTemperature` as the effective
+ambient **while submerged**, so a spring warms you through the ordinary body-temperature model, with
+wet clothing and insulation working exactly as they do in cold water. **No buff, no timer, no second
+warming system.** It is not scalding either, because there is no damage channel behind it — a spring
+that should hurt authors `water_temp_c` and gets it, since that check runs first.
+
+**Trap:** a transient zone (`registerTransientZone`) has no derived row, and `propsOf` documents that
+the terrain *preset* rung is unreachable from the engine — it needs the palette, a build-time input.
+So a transient hot spring must pass `thermal: true` as a flag; the terrain name alone does nothing
+there. Real tiles get it from the build.
+
+## High ground: `cliff` + `plateau` + `ramp` (2026-08-12)
+
+**Superseding the paragraph above for `cliff`**: it was a palette entry nothing painted, `routable:false`
+and walkable anyway. It is now a landform, and it is **the only ground in the game a body cannot enter**.
+
+Three terrains, one landform, split by what they answer rather than by what they look like:
+
+| terrain | fill | passable | what it is |
+|---|---|---|---|
+| `plateau` | `#7a4029` | yes | the tableland on top |
+| `cliff` | `#5c3224` | **no** | the rim you cannot climb |
+| `ramp` | `#9a6238` | yes | the break in the rim that lets you |
+
+All three are `auto_tile_family: "cliff"`. **The family is the LANDFORM, not the terrain** — a rim tile
+counts the tableland behind it as its own kind and draws no face inward. Give the top a family of its
+own and every massif gets a second outline drawn one tile inside the first.
+
+### The three seams it rests on
+
+- **`props.passable`** (default `true`, new) — read by exactly one law, the `engine:impassable-terrain`
+  move gate in [movement.js](../server/engine/commands/movement.js). It exists so a paint stroke can
+  shape where players walk **without anybody editing an exit graph**: drag a run of cliff across a map
+  in the Studio and the map now has a pass in it. Everything else that stops you is mass
+  (`building_type`) or a missing exit, and both are authored per tile by something that knows the whole
+  map. **The graph stays true** — the tiles are still adjacent, derive still projects the edge, the
+  minimap still draws the join; the refusal happens at the move. Deleting edges instead would mean a
+  terrain stroke silently rewrites world geometry, and repainting would not restore it.
+  `getConnectedDestinations` ([describe.js](../server/engine/commands/describe.js)) drops impassable
+  destinations from the player-facing exit list, so a funnel does not offer four ways and refuse three.
+  **No climb and no gear exemption, deliberately** — a wall you can sometimes get over is a difficulty
+  check, not a funnel, and the value of the feature is that the ways through are legible. If a climb is
+  ever wanted it goes in that gate as one named exemption, the way `bypassEncumbrance` is.
+- **`auto_tile_family`** ([derive.mjs](../scripts/content/derive.mjs)) — a second piece set.
+  **The letters are the sides that JOIN, in every family, always**: a road draws arms toward its own
+  kind, a cliff draws a face where its own kind stops. One payload, one meaning, two directories of
+  SVGs; the inversion lives entirely in the art, which is why a second family cost 16 files and no
+  branch. `featureProvenance`'s stale test is now same-family-by-name rather than `startsWith('road_')`,
+  or every hand-pinned cliff piece would read as current forever.
+- **`hi` + `cf` on the flight cell** ([state.js](../plugins/flight/state.js)) — high ground, and the
+  sides it continues on, exactly as `rd` is for road and `cur` for the Curtain. `drawCliffMass`
+  ([windshield.js](../client/game/js/panels/windshield.js)) caps every `hi` tile and walls only the
+  sides missing from `cf`, so a painted blob raises **one merged massif**: the only vertical surfaces
+  are on its outline. Three things make it read as terrain rather than as crates — **full tile width**
+  (`draw3DBoxAt`'s ±0.44 setback is right for buildings and wrong for ground: at ±0.44 adjacent tiles
+  show a lit seam between them), **strata at fixed height fractions** so beds line up across tiles, and
+  **the top always capped** including on interior tiles, or the plateau is hollow from above.
+  Rendering only: **CFIT reads building mass, not terrain**, so a pilot may still fly through a mesa.
+
+### The top is not a constant
+
+`CLIFF_H` alone gave every tableland in the world the same height and every rim a dead-level top
+running to the draw distance — an extruded stamp, not country. `cliffHeightAt(wx, wy)` varies it
+smoothly with **world position and nothing else** (0.39–0.65 world-z, period ~13 tiles), so massifs
+differ from each other and a long escarpment rises and falls along its length.
+
+It has to be a function of position rather than of the tile or a seed, because **two adjacent tiles
+must agree about the height of the edge they share without either being told about the other**. The
+neighbour step that leaves is at worst 4.4% of a full cliff.
+
+That undulation costs one thing, and it is paid: where high ground continues but this tile is the
+taller of the two, the difference is an open sliver you would **see straight through into the inside
+of the massif**. So a short step face is drawn from the neighbour's height up to ours, and only in
+that direction — the lower tile draws nothing, so each step is drawn exactly once by whichever side
+owns it. A step takes the plain fill and the bright rim line but no strata: three beds on a sliver a
+few percent of a tile tall is noise.
+
+**Nothing generates cliffs beyond the map rim.** `fillOffMap` only ever emits `scrub`/`redrock` into
+the wildlands fill, and `drawCliffMass` is driven by `hi`, which exists only on real map cells — so a
+massif can never run procedurally to the horizon.
+
+`ramp` must be high ground rather than open ground beside it: the outline comes from adjacency, so a
+ramp that counted as low would have the tableland behind it draw a wall straight across the only way
+up. It gets a paler fill instead, because the map is where a funnel is actually read.
+
+Built into [build-scarletwastes.mjs](../scripts/build-scarletwastes.mjs), where the mesa rim becomes
+cliff and the passes come from a **second continuous noise field** — a threshold on noise clusters into
+two or three walkable tiles you can see from a distance and aim for, where a per-tile hash would scatter
+single-tile pinholes and funnel nobody. A flood-fill pass then **guarantees every massif has a way up**
+(a sealed tableland is unreadable: "no way up here" has to imply "so there is one somewhere else").
 
 `park` is a **manicured** green (distinct from feral `grass`): it maps to its own `park` flight biome
 (designed park — benches, ponds, groves) where `grass`→`parkland` (feral single tree). A park tile can
@@ -139,6 +260,8 @@ still blue on the map, walked across, no new terrain type invented. Full design 
 | `liquid` | `false` | you are **in** the tile, not **on** it | fishing, voidwalking (no rim) |
 | `swimmable` | `false` | stamina, wetness, drowning, hypothermia | swimming |
 | `underwater` | `false` | submerged below a surface tile: breath timer, colder, dark | swimming, `waterTemperature` |
+| `thermal` | `false` | this water is geothermally **heated** | `waterTemperature()` |
+| `passable` | `true` | a body may **enter** the tile at all — `cliff` is the one no | the `engine:impassable-terrain` move gate, the exit list |
 | `routable` | `true` | GPS/pathfinding may cross it | pathfinding, GPS |
 | `buildable` | `true` | the dev-panel builder may place here | the map API |
 | `frontage` | `false` | a street a building's front door may face onto | the map API |
@@ -266,7 +389,7 @@ for the per-tile installer and Auto-Resolve.
   `TERRAIN_BIOME[flags.terrain]` **first**, before any id-prefix/danger inference — so an authored
   terrain wins the flight biome. The map: `water→water`, `dock→pier`, `grass→parkland`, `park→park`, `forest→forest`,
   `asphalt→asphalt`, `concrete→concrete`, `dirt/sand/gravel/marsh→badlands`, `scrub→scrub`,
-  `redrock→redrock`, `ash→ash`, `hardpan→hardpan`, `alkali→alkali`, `cliff→cliff`. (`road` and `dirt_road` are intentionally absent — they're drawn by
+  `redrock→redrock`, `ash→ash`, `hardpan→hardpan`, `alkali→alkali`, `cliff→cliff`, `plateau→plateau`, `ramp→plateau`. (`road` and `dirt_road` are intentionally absent — they're drawn by
   the road channel from `flags.icon`/`artery`, not the biome.) See
   [reference/world-rendering.md](reference/world-rendering.md).
   - **The open flight sim flies a baked snapshot, not the live world.** `client/game/flightsim.html`

@@ -1,0 +1,14 @@
+{
+  "description": "A dozen straight razors laid out on a strop-worn shelf, each one with a name scratched into the scale. They are customers' razors, kept here, and using somebody else's is the closest thing the Reach has to a hanging offence.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_soak_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the razor shelf",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_soak_lobby"
+}

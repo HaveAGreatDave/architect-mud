@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Thorn has taken root in a heap of something structural and made a thicket of it. Birds nest in the middle of that and are welcome to it.",
   "exits": {
     "east": "zone_the_reach_869_1950",
     "north": "zone_the_reach_868_1949",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 908,
-  "grid_y": 978,
+  "grid_y": 1034,
   "grid_z": 0,
   "id": "zone_the_reach_868_1950",
   "map_id": "map_world",
-  "name": "The Reach 868,1950",
+  "name": "The Bonepile Reach",
   "parent_zone": null
 }

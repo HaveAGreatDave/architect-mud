@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The rock is undercut at the base where the wind has been working on it for longer than there have been people to watch. There is room under there for a person who did not want to be found.",
   "exits": {
     "east": "zone_the_reach_866_1965",
     "north": "zone_the_reach_865_1964",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 905,
-  "grid_y": 993,
+  "grid_y": 1049,
   "grid_z": 0,
   "id": "zone_the_reach_865_1965",
   "map_id": "map_world",
-  "name": "The Reach 865,1965",
+  "name": "The Sisters",
   "parent_zone": null
 }

@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Main Street gives up here without ceremony. The hardpan goes soft at the edges, the last boardwalk plank is propped on a fuel drum, and past that it is scrub all the way to the horizon. Somebody has driven a length of rail into the ground and hung a bell on it. Nobody in town will say what the bell is for, only that you would know.",
   "exits": {
     "east": "zone_the_reach_869_1955",
     "north": "zone_the_reach_868_1954",
@@ -28,10 +28,10 @@
     "terrain": "dirt"
   },
   "grid_x": 908,
-  "grid_y": 983,
+  "grid_y": 1039,
   "grid_z": 0,
   "id": "zone_the_reach_868_1955",
   "map_id": "map_world",
-  "name": "The Reach 868,1955",
+  "name": "Main Street, West End",
   "parent_zone": null
 }

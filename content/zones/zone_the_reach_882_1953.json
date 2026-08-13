@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Nothing here but thorn, grit, and the long copper light. A road came through once. You can see the line of it if you stand right and want it enough.",
   "exits": {
     "north": "zone_the_reach_882_1952",
     "south": "zone_the_reach_882_1954",
@@ -24,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 922,
-  "grid_y": 981,
+  "grid_y": 1037,
   "grid_z": 0,
   "id": "zone_the_reach_882_1953",
   "map_id": "map_world",
-  "name": "The Reach 882,1953",
+  "name": "The Long Scrub",
   "parent_zone": null
 }

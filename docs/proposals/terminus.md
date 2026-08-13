@@ -129,10 +129,10 @@ only do that because he is the one who touched the machine, and he is not going 
 
 | | |
 |---|---|
-| Bounding box | **x 1200–1219, y 910–929** (20×20 = 400 tiles, hole-free rectangle) |
+| Bounding box | **x 1200–1213, y 934–947** (14×14 = 196 tiles, hole-free rectangle) — as built |
 | Base terrain | `redrock` — continues Coldwater's east rim honestly, and "remote launch mesa" is the canon image (`systems-wildlands.md:83`) |
 | Clearance | ~245 tiles east of Coldwater's rim. Nothing exists past x=955 anywhere |
-| Latitude | Sits inside the y 909–947 band, the only **land** on Coldwater's east edge — y 896–908 is basin, and **water is never a rim** |
+| Latitude | Sits inside the y 909–947 band, the only **land** on Coldwater's east edge — y 896–908 is basin, and **water is never a rim**. Moved south to y 934–947 (2026-08-12) so it is not sitting on the coast: the basin reaches y909 on this side, and the old y910 north edge read as a shoreline settlement. Its south edge is now level with Coldwater's own south rim, and the return leg lands at `zone_district_955_940` |
 
 **The route is the void's east limb, and only that.** The overland stub reserved in the Wildblood
 proposal (`919_927`, which `systems-wildlands.md` calls `921_927` — the docs disagree) becomes

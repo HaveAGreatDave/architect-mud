@@ -1,0 +1,14 @@
+{
+  "description": "A pre-Handoff cold cabinet, stainless and dented, humming with a competence nothing else in town can match. The gasket has been replaced with something hand-cut and it still seals.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_trade_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the chiller cabinet",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_trade_lobby"
+}

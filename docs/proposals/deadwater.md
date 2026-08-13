@@ -255,3 +255,39 @@ re-lean on their next `rep`** — a correction, but a visible one.
 - **A Scarletwastes overland crossing.** Filed separately: `VOIDS` has no
   `region_scarletwastes` key in either direction, so despite its own doc describing a roadhead the
   only way in is flying to The Strip. Deadwater does not repeat the omission.
+
+## The ground, and the heat under it (2026-08-12)
+
+The region shipped as one flat sheet of `ash` with a graded gravel platform in the middle of it, and
+that split was doing real work: **the ground changes underfoot exactly where somebody started looking
+after it.** It is kept whole. `LANDFORM_OFF` is the one place the exemptions are written down, and
+nothing below paints inside the works, on a road, on the dam or on an authored set-piece.
+
+Everything outside it is now volcanic country, and **the reason is the water**. A reservoir this
+still, in a basin this dead, held at a temperature nothing seasonal explains, has something under it.
+So the ground says so.
+
+| family | terrain | tiles | what it is |
+|---|---|---|---|
+| `ash` | `ash` | 2042 | the original country, still what you cross most of |
+| `lava` | `basalt` | 789 | frozen flows, black and sharp |
+| `snags` | `deadwood` | 562 | stands that died standing, ringed around the water |
+| `flow` | `plateau` | 435 | the top of an old flow, walkable |
+| `cliff` | `cliff` | 307 | the flow FRONT, where it stopped. **Impassable** |
+| `sinter` | `sinter` | 180 | the mineral apron the spring lays down |
+| `spring` | `hotspring` | 202 | the reservoir and the tailrace |
+| `ramp` | `ramp` | 76 | the breaches in the front, and the only ways up |
+
+The apron is keyed off **distance from the lake**, not off noise, because that is what it physically
+is: the water put it there, so it rings the water and reaches no further than the water has reached.
+The dead stands take the ground just outside it — close enough that whatever comes up with the water
+got them, far enough that they had grown first.
+
+**The heat is never explained.** It is stated the way everything else here is stated, as maintenance:
+a thermometer on a worn cord, somebody logging the temperature twice a day, nobody wondering aloud.
+The one ambient beat that used to say `cold` is the only line the change cost. The name still works —
+Deadwater is the flat water in a wake, and warm water lies flatter than cold.
+
+**Checked on every build:** every plateau tile is sealed by cliff or ramp (zero leaks), and a flood
+fill from the Roadhead still reaches the Tally, the eastern ruts, the gallery through the dam and the
+head of the water. Roads are exempt from the landform pass, so they can never be walled off.

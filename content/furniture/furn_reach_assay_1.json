@@ -1,0 +1,14 @@
+{
+  "description": "A pre-Handoff analytical balance under a glass hood, levelled on a slab of stone set into the floor so the street's traffic cannot argue with it. It is the single most valuable object in the Reach and it sits in plain view, which tells you what happens to anyone who touches it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_assay_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the assay balance",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_assay_lobby"
+}

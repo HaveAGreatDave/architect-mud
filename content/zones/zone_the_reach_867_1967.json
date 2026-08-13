@@ -12,11 +12,10 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Two low rock shoulders stand up out of the scrub here, close enough together to throw shade on each other in the evening. Between them the ground is swept clean by wind.",
   "exits": {
     "east": "zone_the_reach_868_1967",
     "north": "zone_the_reach_867_1966",
-    "south": "zone_the_reach_867_1968",
     "west": "zone_the_reach_866_1967"
   },
   "flags": {
@@ -25,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 907,
-  "grid_y": 995,
+  "grid_y": 1051,
   "grid_z": 0,
   "id": "zone_the_reach_867_1967",
   "map_id": "map_world",
-  "name": "The Reach 867,1967",
+  "name": "The Sisters",
   "parent_zone": null
 }

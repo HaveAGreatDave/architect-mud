@@ -1,0 +1,132 @@
+{
+  "banter": [
+    [
+      "\"Tub, shave, or both. Both is cheaper and you look like both.\""
+    ],
+    [
+      "\"Water's not dear because I'm greedy. Water's dear because it's water.\""
+    ],
+    [
+      "\"Leave your business on the boardwalk. Nobody has ever started a fight naked and won it.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Tullia Vane runs the hottest water for two hundred miles and prices it accordingly, without apology and without ever once being talked down. She is rangy and pink from the steam, with her sleeves permanently rolled and her hair tied up in a rag, and she can tell how long somebody has been out in the waste by the colour of the water they leave behind. She has thrown men twice her size out into the street for less than you would think.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 580,
+        "y": 240
+      },
+      "text": [
+        "\"Mind the slats,\" she says, without looking up."
+      ]
+    },
+    "price": {
+      "_vine": {
+        "x": 320,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"More than you want and less than it's worth. Hot's dearer than cold and the third tub down is the hottest, whatever the others tell you.\"",
+        "\"And you get the towel back off me at the door. I've had people walk out wearing them.\""
+      ]
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "How much for a tub?",
+          "next": "price"
+        },
+        {
+          "label": "Where does the water come from?",
+          "next": "water"
+        },
+        {
+          "label": "Rules?",
+          "next": "rules"
+        }
+      ],
+      "text": [
+        "Tullia looks you over with a professional eye, the way a farrier looks at a hoof. \"Tub, shave, or both?\""
+      ],
+      "text_by_relation": {
+        "first": [
+          "A rangy woman, pink from the steam, straightens up from a tap and wipes her hands down her apron. \"Vane. My water, my rules, and the first rule is that whatever you're carrying stays out on the boardwalk.\" She looks you over. \"Tub, shave, or both?\""
+        ],
+        "known": [
+          "\"Same as last time?\" Tullia is already turning a tap."
+        ]
+      }
+    },
+    "rules": {
+      "_vine": {
+        "x": 320,
+        "y": 360
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Guns on the boardwalk, grudges with them. You use your own razor off that shelf or you use mine, never anybody else's.\"",
+        "\"And nobody talks about who was in here yesterday. Half this town does business naked in my tubs and it works precisely because of that.\""
+      ]
+    },
+    "water": {
+      "_vine": {
+        "x": 320,
+        "y": 240
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Out of the ground, four hundred feet down, and it comes up warm already, which nobody has ever satisfactorily explained to me.\"",
+        "\"Bram says it's the Dynamo bleeding heat into the aquifer. Bram says a lot of things. I've stopped correcting him and started charging for it.\""
+      ]
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy oilcloth apron, wet through at the hem",
+      "a sleeveless undershirt gone thin from boiling",
+      "plain drawers and a plain bra"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_reach_soak_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_bathkeeper",
+  "name": "Tullia Vane",
+  "npc_type": "clerk",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

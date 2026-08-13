@@ -1,0 +1,14 @@
+{
+  "description": "Lengths of steel pipe stacked by size, each cut square, each with a flat filed on one side ready for a name. Two of them are already lettered. Neither name is one you know.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_trade_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the pipe rack",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_trade_lobby"
+}

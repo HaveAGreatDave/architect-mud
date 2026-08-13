@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Brush and broken ground, close-cropped where the goats got to it before the goats stopped happening. The wind carries the smell of frying oil out from the saloon and then takes it away again.",
   "exits": {
     "east": "zone_the_reach_875_1958",
     "north": "zone_the_reach_874_1957",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 914,
-  "grid_y": 986,
+  "grid_y": 1042,
   "grid_z": 0,
   "id": "zone_the_reach_874_1958",
   "map_id": "map_world",
-  "name": "The Reach 874,1958",
+  "name": "Town Flats",
   "parent_zone": null
 }

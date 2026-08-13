@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "Every track on this flat comes together here and goes up.",
+    "Loose black rock the whole way, worn to a pale line down the middle where the traffic goes.",
+    "Somebody has stacked the moved blocks in a row rather than just shoving them off, which tells you who lives here.",
+    "A survey peg at the foot of the gap, driven true, with a number burned into the top of it.",
     "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
     "The wind comes across the flat and there is nothing here for it to make a noise against.",
     "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
-    "Something metal has been dragged across the flat here, one long score, going west.",
-    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
-    "The light goes flat and colourless and the horizon stops being a line at all.",
-    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
-    "A bird goes over, low, and you hear the feathers.",
-    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
-    "Your boots come up grey to the ankle and stay that way."
+    "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.",
+  "description": "Where the wall has failed and come down in a fan, making a rough stair onto the flow. Somebody has rolled the worst blocks aside and left them in a line at the bottom, which is the only work anybody has done to it.",
   "exits": {
     "east": "zone_dw_732_986",
     "north": "zone_dw_731_985",
@@ -25,13 +22,13 @@
     "lawless": true,
     "region_id": "region_deadwater",
     "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "ash"
+    "terrain": "ramp"
   },
   "grid_x": 731,
   "grid_y": 986,
   "grid_z": 0,
   "id": "zone_dw_731_986",
   "map_id": "map_world",
-  "name": "Cinderlevel",
+  "name": "The Gap",
   "parent_zone": null
 }

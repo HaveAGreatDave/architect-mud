@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A patch of level ground south of town where the dirt has been turned over more times than the rest of it. There are no headstones. There are lengths of pipe driven upright, one for each, with a name punched into the metal with a hammer and a nail, and a few with no name at all. The Reach does not do ceremony. It does do bookkeeping.",
   "exits": {
     "east": "zone_the_reach_871_1959",
     "south": "zone_the_reach_870_1960",
@@ -27,10 +27,10 @@
     "terrain": "dirt"
   },
   "grid_x": 910,
-  "grid_y": 987,
+  "grid_y": 1043,
   "grid_z": 0,
   "id": "zone_the_reach_870_1959",
   "map_id": "map_world",
-  "name": "The Reach 870,1959",
+  "name": "Boot Ground",
   "parent_zone": null
 }

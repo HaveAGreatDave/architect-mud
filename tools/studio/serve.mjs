@@ -507,7 +507,7 @@ const REF_CACHE = new Map();
 // as "roads / buildings / runways / one-offs" rather than an alphabet soup.
 function iconOptions() {
   const family = (n) => /^road_/.test(n) ? 'road' : /^bldg_/.test(n) ? 'building'
-    : /^runway_/.test(n) ? 'runway' : 'other';
+    : /^runway_/.test(n) ? 'runway' : /^cliff_/.test(n) ? 'cliff' : 'other';
   return (assetRefIds('zone_icons') || [])
     .map(id => ({ id, name: `${family(id)} · ${id}` }))
     .sort((a, b) => a.name.localeCompare(b.name));

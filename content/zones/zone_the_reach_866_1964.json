@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A dry wash cuts between the rocks, floored with rounded stone that says water comes through here hard, once a year, and briefly.",
   "exits": {
     "east": "zone_the_reach_867_1964",
     "north": "zone_the_reach_866_1963",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 906,
-  "grid_y": 992,
+  "grid_y": 1048,
   "grid_z": 0,
   "id": "zone_the_reach_866_1964",
   "map_id": "map_world",
-  "name": "The Reach 866,1964",
+  "name": "Sisters Wash",
   "parent_zone": null
 }

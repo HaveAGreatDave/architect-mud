@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_reach_soak_lobby",
+  "b": "zone_the_reach_870_1956",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_bld_reach_soak_lobby_north_xxpa",
+  "lockable": true,
+  "one_way": false
+}

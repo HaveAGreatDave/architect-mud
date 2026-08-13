@@ -1,0 +1,14 @@
+{
+  "description": "Four riveted steel tubs, each one a cut-down tank of something that used to fly. The rivets are hot to the touch on the fed side and cool at the far end, so everybody has an opinion about which tub is best and everybody is wrong.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_soak_1",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the soaking tubs",
+  "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_soak_lobby"
+}

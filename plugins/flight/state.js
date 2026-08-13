@@ -716,11 +716,12 @@ function isRoadCell(c) {
     || f.terrain === 'road' || f.terrain === 'dirt_road';
 }
 
-// HIGH GROUND. The two terrains that stand a tile-height above the plain, and the only
+// HIGH GROUND. The three terrains that stand a tile-height above the plain, and the only
 // place that list is written down. `plateau` is the top you walk on, `cliff` the rim you
-// cannot — an elevation question, deliberately not a passability one, because the massif
-// has to merge across the boundary between them.
-const HIGH_TERRAIN = new Set(['cliff', 'plateau']);
+// cannot, `ramp` the break in the rim that lets you. An elevation question, deliberately
+// NOT a passability one: cliff and ramp differ on exactly that and still have to merge
+// into one mass, or the only way up is rendered as a hole in the landform.
+const HIGH_TERRAIN = new Set(['cliff', 'plateau', 'ramp']);
 function isHighCell(c) { return !!c && HIGH_TERRAIN.has(c.flags?.terrain); }
 
 // The Curtain — the Architect's energy wall on the city's land edges (flags.curtain). The

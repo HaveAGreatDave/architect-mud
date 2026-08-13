@@ -91,7 +91,7 @@ export const VOIDS = {
       // of the two cheapest trucks and beyond ANY truck's round trip, so the fleet ladder doubles
       // as a map gate and the far yard's fuel pump is the only way home. See
       // docs/proposals/terminus.md.
-      { key: 'exodus', dest: 'zone_terminus_1200_916', region: 'region_terminus', heading: 'Exodus', dir: 'east', length: 12 },
+      { key: 'exodus', dest: 'zone_terminus_1200_940', region: 'region_terminus', heading: 'Exodus', dir: 'east', length: 12 },
       // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
       //
       // `dir: 'west'` is not a preference, it is the last cardinal left: `reach` holds south and
@@ -158,7 +158,7 @@ export const VOIDS = {
     // West out of Terminus, onto Coldwater's east rim at the same latitude as the Roadhead — you
     // come back in level with where you left.
     dests: [
-      { key: 'coldwater', dest: 'zone_district_955_916', region: 'region_coldwater', heading: 'Coldwater', dir: 'west', length: 12 },
+      { key: 'coldwater', dest: 'zone_district_955_940', region: 'region_coldwater', heading: 'Coldwater', dir: 'west', length: 12 },
     ],
   },
 };

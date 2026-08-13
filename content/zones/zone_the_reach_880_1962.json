@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Scrub grows tall and unhealthy in the low ground, thick-stemmed and glossy, greener than anything has a right to be out here.",
   "exits": {
     "east": "zone_the_reach_881_1962",
     "north": "zone_the_reach_880_1961",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 920,
-  "grid_y": 990,
+  "grid_y": 1046,
   "grid_z": 0,
   "id": "zone_the_reach_880_1962",
   "map_id": "map_world",
-  "name": "The Reach 880,1962",
+  "name": "Sump Flats",
   "parent_zone": null
 }

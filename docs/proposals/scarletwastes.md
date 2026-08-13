@@ -39,12 +39,38 @@ and it is still the thing not to do. **If you want it different, change the surf
 |---|---|---|---|
 | `flat` | `redrock` | 1792 | the original country, still what you cross most of |
 | `scrub` | `scrub` | 1074 | grey-green thorn in the drainage lines |
-| `mesa` | `redrock` | 943 | caprock plateaus, flat on top and a long way up |
+| `mesa` | `plateau` | 542 | caprock tablelands, flat on top and a long way up |
 | `scree` | `gravel` | 500 | the talus skirt a mesa sheds |
+| `cliff` | `cliff` | 324 | the rim of a tableland. **Impassable** |
 | `pan` | `sand` | 121 | dry lake floor, the flattest ground here |
+| `ramp` | `ramp` | 77 | the break in a rim, and the only way up |
 | `lake` | `water` | 68 | the Slake |
 | `shore` | `dirt` | 29 | rutted cart ground at the waterline |
 | `haul` | `dirt_road` | 20 | the Water Road |
+
+### The mesas are walled, and the gaps are the point
+
+A mesa tile with a lower neighbour is the edge of a tableland, and the edge of a tableland is a face
+you do not walk up. That one rule turns loose high ground into **walled massifs** — `cliff` is the only
+impassable ground in the game ([systems-terrain.md](../systems-terrain.md#high-ground-cliff--plateau--ramp-2026-08-12))
+— so crossing this country becomes a question of where the ways through are.
+
+The ways through come from a **second continuous field**, not a per-tile roll, and that is the whole
+difference between a pass and a hole: noise above a threshold clusters, so a gap is two or three
+walkable tiles in a row you can see from a distance and aim for. A hash per rim tile would scatter
+single-tile pinholes around every massif, and a wall with a door every fifth stone funnels nobody.
+
+A flood-fill pass then **guarantees every massif has a way up**: any massif whose rim holds no pass has
+its most pass-like tile promoted to one. A sealed tableland is the worst outcome available, because it
+breaks the reading — "there is no way up here" has to imply "so there is one somewhere else". A
+one-tile massif is exempt: that is a stack of rock with no inside to reach, and cutting a notch into a
+boulder to reach its own outer edge is not a pass.
+
+**The high-ground test is not `fbm > MESA_H`.** It also excludes the town box, the authored set, the
+lake and the road, because a tile the landform pass never gets to decide is not high ground whatever
+the height field says. Ask the field alone and the rim believes the massif continues into the
+Thornwarren, declines to draw a face there, and the tableland meets the thorn wall with no drop between
+them. Verified after every build: **zero plateau tiles touch open ground.**
 
 **Authored tiles and the whole town box are exempt** and keep flat `redrock`. Those are set-pieces
 whose prose names the surface underfoot, and a mesa top under the Screaming Line contradicts the

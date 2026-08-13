@@ -1,0 +1,132 @@
+{
+  "banter": [
+    [
+      "\"Everyone gets the pipe. Rich, poor, wanted. Same pipe.\""
+    ],
+    [
+      "\"Folks think I'm morbid. I'm tidy. There's a difference and it matters.\""
+    ],
+    [
+      "\"You don't owe me anything yet. Try to keep it that way.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Hollis Tam is a wide, slow man with careful hands and a face that has stopped bothering with expressions. He does the one job in the Reach that everyone needs and nobody wants to owe him for, and he has never once raised his price for it. He listens more than he talks, which in a town of liars makes him the most informed man on the street.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 580,
+        "y": 240
+      },
+      "text": [
+        "He nods, and goes back to the bench."
+      ]
+    },
+    "cabinet": {
+      "_vine": {
+        "x": 320,
+        "y": 240
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Nobody you'd know.\" He says it the same way he says everything. \"Pilot came in short of the strip about a week back. No papers, which out here is normal, so he waits until somebody comes asking.\"",
+        "\"Somebody usually comes asking. Not always in time to matter.\""
+      ]
+    },
+    "column": {
+      "_vine": {
+        "x": 320,
+        "y": 360
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "For the first time he looks faintly amused. \"Days. How long they were in the Reach before it got them.\"",
+        "\"Longest in that book is thirty-one years. Shortest is under an hour. I put both in the same ground and I charged the same for it.\""
+      ]
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "What is it you actually do here?",
+          "next": "work"
+        },
+        {
+          "label": "Who's in the cabinet?",
+          "next": "cabinet"
+        },
+        {
+          "label": "What's the third column in the ledger?",
+          "next": "column"
+        }
+      ],
+      "text": [
+        "Hollis looks up from the bench, sets down what he is holding, and waits. He does not fill the silence for you."
+      ],
+      "text_by_relation": {
+        "first": [
+          "The big man at the bench puts down a punch and turns. \"Hollis Tam,\" he says. \"I keep the cold room. You'll not need me today. Most don't, the first day.\""
+        ],
+        "known": [
+          "Hollis nods you in and goes back to the bench. \"Still upright. Good.\""
+        ]
+      }
+    },
+    "work": {
+      "_vine": {
+        "x": 320,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Somebody has to. Out here a body left out is a problem for the whole street by the second day, and a problem for the water by the fourth.\"",
+        "He shrugs, once. \"I take them, I cool them, I put them in the ground out south with a pipe and a name. If there's family, they pay. If there isn't, the town does. Nobody has ever argued about it.\""
+      ]
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a heavy rubberised apron, scrubbed pale",
+      "a grey collarless shirt with the sleeves rolled past the elbow",
+      "canvas trousers and plain shorts"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_reach_trade_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_undertaker",
+  "name": "Hollis Tam",
+  "npc_type": "labourer",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

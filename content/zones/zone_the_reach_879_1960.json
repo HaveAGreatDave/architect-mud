@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Nothing here but thorn, grit, and the long copper light. A road came through once. You can see the line of it if you stand right and want it enough.",
   "exits": {
     "east": "zone_the_reach_880_1960",
     "north": "zone_the_reach_879_1959",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 919,
-  "grid_y": 988,
+  "grid_y": 1044,
   "grid_z": 0,
   "id": "zone_the_reach_879_1960",
   "map_id": "map_world",
-  "name": "The Reach 879,1960",
+  "name": "The Long Flats",
   "parent_zone": null
 }

@@ -134,6 +134,108 @@ const write = (p, obj) => writeFileSync(p, canonical(obj), 'utf8');
 const dist = (x, y, [px, py]) => Math.hypot(x - px, y - py);
 const pick = (arr, x, y) => arr[Math.abs(x * 31 + y * 17) % arr.length];
 
+// ── LANDFORM: the volcanic ground ────────────────────────────────────────────
+// The region shipped as one flat sheet of `ash` with a graded gravel platform in the middle of it.
+// The ash/gravel split was rule 4 doing real work (the ground changes underfoot exactly where
+// somebody started looking after it) and it is KEPT WHOLE: nothing below paints inside the works.
+//
+// Everything outside it becomes volcanic country, and the reason is the water. A reservoir this
+// still, in a basin this dead, held at a temperature nothing seasonal explains, has something under
+// it. So the ground says so: lava rock, the mineral apron a hot spring lays down, stands of trees
+// that died standing, and the cliffs of an old flow front.
+//
+// SAME RULE AS THE SCARLETWASTES: the ground is a field, not a sprinkle. One continuous height
+// surface, one moisture-ish surface, thresholds on both. Deterministic hashed value noise, no RNG,
+// so a rebuild is byte-identical.
+function hash2(ix, iy, salt) {
+  let h = (ix * 374761393 + iy * 668265263 + salt * 2246822519) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function noise(x, y, scale, salt) {
+  const fx = x / scale, fy = y / scale;
+  const ix = Math.floor(fx), iy = Math.floor(fy);
+  const tx = fx - ix, ty = fy - iy;
+  const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+  const a = hash2(ix, iy, salt), b = hash2(ix + 1, iy, salt);
+  const c = hash2(ix, iy + 1, salt), d = hash2(ix + 1, iy + 1, salt);
+  const top = a + (b - a) * sx, bot = c + (d - c) * sx;
+  return top + (bot - top) * sy;
+}
+const fbm = (x, y, scale, salt) => noise(x, y, scale, salt) * 0.68 + noise(x, y, scale / 2.7, salt + 91) * 0.32;
+
+// Ground the landform pass is NOT allowed to touch: the works platform, the dam, the roads, the
+// water and every authored set-piece. Asked once, by everything, so the exemptions cannot drift
+// apart between the terrain, the rim test and the massif flood-fill.
+const LANDFORM_OFF = (x, y) => inWorks(x, y) || onRoad(x, y) || isDamMass(x, y)
+  || inLake(x, y) || inTailrace(x, y) || y === DAM_Y;
+
+const MESA_H = 0.645;
+// High ground: an old flow front, standing above the ash the way a lava field does where it stopped.
+const isMesa = (x, y) => x >= X0 && x <= X1 && y >= Y0 && y <= Y1
+  && !LANDFORM_OFF(x, y) && !OUTSIDE[`${x}_${y}`] && fbm(x, y, 12, 5) > MESA_H;
+// The ways up. A second continuous field, so a gap is two or three tiles you can see and aim for
+// rather than a scatter of pinholes. See docs/proposals/scarletwastes.md for why that matters.
+const isPass = (x, y) => fbm(x, y, 4.5, 61) > 0.70;
+
+// Every massif gets a way up, guaranteed rather than hoped for. Lazy: it walks isMesa, which reads
+// the authored OUTSIDE table declared below, so evaluating at module load would hit its dead zone.
+let _forced = null;
+const forcedRamps = () => (_forced ??= (() => {
+  const forced = new Set(), seen = new Set();
+  const key = (x, y) => `${x}_${y}`;
+  for (let x = X0; x <= X1; x++) {
+    for (let y = Y0; y <= Y1; y++) {
+      if (!isMesa(x, y) || seen.has(key(x, y))) continue;
+      const stack = [[x, y]], rim = [];
+      let hasPass = false;
+      seen.add(key(x, y));
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        if (!isMesa(cx, cy - 1) || !isMesa(cx, cy + 1) || !isMesa(cx + 1, cy) || !isMesa(cx - 1, cy)) {
+          rim.push([cx, cy]);
+          if (isPass(cx, cy)) hasPass = true;
+        }
+        for (const [nx, ny] of [[cx, cy - 1], [cx, cy + 1], [cx + 1, cy], [cx - 1, cy]]) {
+          if (!isMesa(nx, ny) || seen.has(key(nx, ny))) continue;
+          seen.add(key(nx, ny));
+          stack.push([nx, ny]);
+        }
+      }
+      if (hasPass || rim.length <= 1) continue;   // a one-tile massif has no inside to reach
+      const best = rim.reduce((a, b) => (fbm(b[0], b[1], 4.5, 61) > fbm(a[0], a[1], 4.5, 61) ? b : a));
+      forced.add(key(best[0], best[1]));
+    }
+  }
+  return forced;
+})());
+
+// The sinter apron: the pale mineral shelf a hot spring lays down around itself. Keyed off distance
+// from the LAKE rather than from noise, because that is what it physically is — the water put it
+// there, so it rings the water and reaches no further than the water has reached.
+const lakeField = (x, y) => Math.hypot((x - LAKE_CX) / LAKE_RX, (y - LAKE_CY) / LAKE_RY);
+
+function landformAt(x, y) {
+  if (inLake(x, y) || inTailrace(x, y)) return 'spring';
+  if (LANDFORM_OFF(x, y)) return 'ash';
+  if (isMesa(x, y)) {
+    const rim = !isMesa(x, y - 1) || !isMesa(x, y + 1) || !isMesa(x + 1, y) || !isMesa(x - 1, y);
+    if (rim) return (isPass(x, y) || forcedRamps().has(`${x}_${y}`)) ? 'ramp' : 'cliff';
+    return 'flow';                       // the top of the old flow, walkable
+  }
+  // The apron, then the trees the water killed, then the rock, then ash.
+  if (lakeField(x, y) < 1.5) return 'sinter';
+  // Dead stands take the ground just outside the apron: close enough to the water that whatever
+  // comes up with it got them, far enough that they had grown first.
+  if (lakeField(x, y) < 3.4 && fbm(x, y, 6, 17) > 0.56) return 'snags';
+  if (fbm(x, y, 9, 33) > 0.60) return 'lava';
+  return 'ash';
+}
+const TERRAIN_OF = {
+  spring: 'hotspring', sinter: 'sinter', snags: 'deadwood', lava: 'basalt',
+  flow: 'plateau', cliff: 'cliff', ramp: 'ramp', ash: 'ash',
+};
+
 // ── AMBIENT: the open ground ─────────────────────────────────────────────────
 // Ash: burnt grey waste that takes a print and keeps it. The wind is in here because the region has
 // no engine noise anywhere in it, and silence has to be described or it reads as unfinished. Note
@@ -156,16 +258,106 @@ const AMBIENT_WASTE = [
 // ── AMBIENT: the reservoir shore ─────────────────────────────────────────────
 // The name of the region, doing its work. Deadwater is the still water in a wake, and the thing
 // about still water is how much it looks like something you could walk on.
+// THE WATER IS HOT, and the region never explains why. It is stated the way everything else here is
+// stated, as maintenance: somebody logs the temperature, somebody rakes the screen, nobody wonders
+// aloud. The stillness is unchanged and so is the name — Deadwater is the flat water in a wake, and
+// warm water lies flatter than cold. What the heat costs is the one beat that used to say `cold`.
 const AMBIENT_WATER = [
   'The water does not move. Not a ripple, not a slap against the stone, nothing.',
-  'A gull sits out on the surface, a long way from anywhere, entirely still.',
+  'Steam comes off the surface in slow sheets and leans away downwind without hurrying.',
   'The far shore is in the water as well as above it, and the two do not disagree by a hair.',
   'Something breaks the surface out in the middle, once, and the rings go out for a very long time.',
-  'A tide line of grey scum along the stone, and above it, older lines, each one a dry year.',
-  'The cold comes off it in a sheet and stops about a foot inland.',
-  'Reeds at the margin, standing in their own reflection, not one of them stirring.',
+  'A rime of pale mineral along the stone, and above it, older rings of it, each one a dry year.',
+  'The warmth comes off it in a sheet and stops about a foot inland.',
+  'The smell is minerals and old eggs, and after a while you stop noticing it.',
+  'A thermometer on a cord hangs off the staging into the water, and the cord is worn where it is lifted.',
   'A rowing boat is drawn up on the stone, turned over, its bottom recently tarred.',
 ];
+
+// ── The volcanic ground, in words ────────────────────────────────────────────
+// `ash` is deliberately absent: it falls through to the region's original prose, so the country you
+// cross most of is still the country Deadwater shipped as, and the rest are the exceptions.
+const LANDFORM = {
+  lava: {
+    names: ['The Clinker', 'Blackground', 'The Ropes', 'Slagfield', 'The Hard Black'],
+    descs: [
+      'Black rock, and it went off in ropes: the whole surface is a set of frozen coils and folds lying over each other in the direction it was going. It rings under a boot and it takes the skin off a hand that goes down on it. Nothing has grown in it and there is no soil in it to grow in.',
+      'A field of broken black glass and clinker, sharp all over, with the pale ash blown into the hollows between the lobes so the ground reads as a dark map with light rivers in it.',
+      'Lava rock, gone matt and grey-black with age, standing a foot or two proud of the ash flat it stopped on. The edge of it is as clean as a tide line: this far, and then it cooled.',
+    ],
+    ambient: [
+      'The rock is warm through the boot, and it is not the sun doing it.',
+      'A piece of clinker breaks off under your heel with a sound like crockery.',
+      'Steam standing up out of a crack, thin and steady, going nowhere.',
+      'The black eats the light. Even at noon the ground reads as a hole.',
+    ],
+  },
+  sinter: {
+    names: ['The White Apron', 'Sinter Shelf', 'The Terraces', 'Crustground'],
+    descs: [
+      'The pale shelf the water has been laying down around itself for a very long time: mineral crust in flat terraces, off-white and faintly yellow, ringed and lipped like something poured. It is hollow in places and it says so underfoot, so you keep to the trodden line.',
+      'Crust, bone-pale, crazed all over into plates and stained sulphur-yellow along every crack. Warm through the sole. Somebody has laid a run of planks across the worst of it and pegged them down, and the planks are recent.',
+    ],
+    ambient: [
+      'The crust gives very slightly underfoot and does not break, which is somehow worse.',
+      'A plate of it lifts at the edge and there is water under it, and the water is moving.',
+      'Yellow along every crack, in a colour nothing else here is.',
+      'Somebody has driven a peg at the edge of the sound ground and painted the top of it white.',
+    ],
+  },
+  snags: {
+    names: ['The Standing Dead', 'Grey Stand', 'The Bare Wood', 'Deadfall Rise'],
+    descs: [
+      'A stand of trees that died where they stood and never fell: bark long gone, trunks silver-grey and sanded smooth on the windward side, every branch bare and none of them broken off. There is no undergrowth at all. They are not close enough together to be a wood and there are far too many of them to be anything else.',
+      'Dead timber, standing. Whatever killed them did it to all of them in the same season, because they are all the same shade of grey and every one of them still has its shape. The ground between is packed ash and it takes a print.',
+    ],
+    ambient: [
+      'The wind goes through the stand and makes almost no sound, because there is nothing left on them to make one with.',
+      'A trunk has a ring of pale mineral around it at knee height, and so does the next one, and so does the next.',
+      'Every one of them is grey on the same side, and it is the same side as the water.',
+      'A bird is up in the bare branches, doing nothing, in no hurry.',
+    ],
+  },
+  flow: {
+    names: ['The Flow Top', 'High Black', 'The Level', 'Old Flow'],
+    descs: [
+      'The top of the old flow, flat as a poured floor and black as a stove, with the ash drifted into every low place in it. From up here the whole grey basin lies out below with the water standing in the middle of it and the steam going up off it in a line.',
+      'A level of hard black rock standing above the flats, cracked into slabs the size of doors by nothing but time. Where the slabs have parted the crack goes down further than you can see and lets no light in.',
+    ],
+    ambient: [
+      'From up here the steam off the water reads as one long standing plume.',
+      'The slabs ring differently where they are hollow underneath, and you find yourself testing them.',
+      'Ash has drifted into every crack and made a pale grid of the whole level.',
+      'The wind is steadier up here, and colder, and it comes off the water warm.',
+    ],
+  },
+  cliff: {
+    names: ['The Flow Front', 'The Black Wall', 'Stopline', 'The Edge of the Flow'],
+    descs: [
+      'The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There is no way up it here. It runs off in both directions along the same line.',
+      'A face of frozen rock, columnar where it cooled slowly, so the whole wall is a rank of black pillars standing shoulder to shoulder. Broken stuff piled at the foot of it. It is one piece and it does not offer a hold.',
+    ],
+    ambient: [
+      'The wall throws a hard cold shadow out across the ash, with an edge you could measure.',
+      'Columns, all the same width, all the way along, and nobody cut them.',
+      'A block has come off the face recently, and it lies where it landed with the ash not yet blown over it.',
+      'You walk the foot of it for a while looking for a break, and there is not one here.',
+    ],
+  },
+  ramp: {
+    names: ['The Breach', 'The Way Up', 'Broken Front', 'The Gap'],
+    descs: [
+      'A break in the flow front, and the only one for a long way: a slope of fallen black rock wedged into the gap, steep and loose, going up onto the level. Everything that crosses this ground crosses it here and the ground says so, because the ash on the approach is beaten flat and it is not beaten flat anywhere else.',
+      'Where the wall has failed and come down in a fan, making a rough stair onto the flow. Somebody has rolled the worst blocks aside and left them in a line at the bottom, which is the only work anybody has done to it.',
+    ],
+    ambient: [
+      'Every track on this flat comes together here and goes up.',
+      'Loose black rock the whole way, worn to a pale line down the middle where the traffic goes.',
+      'Somebody has stacked the moved blocks in a row rather than just shoving them off, which tells you who lives here.',
+      'A survey peg at the foot of the gap, driven true, with a number burned into the top of it.',
+    ],
+  },
+};
 
 // ── AMBIENT: the works ───────────────────────────────────────────────────────
 // Hand tools, patient noise, and people who are not in a hurry. NOT ONE of these mentions the
@@ -357,11 +549,18 @@ function main() {
       // the same thing as scattering terrain about — inside each one it stays a flat canvas for the
       // Studio. `ash` also carries its OWN flight biome rather than falling into generic badlands
       // (plugins/flight/biomes.js:35), so the region reads distinct from the air for free.
+      //
+      // THE LANDFORM PASS sits UNDER that split and never crosses it: the works platform is still
+      // graded gravel, the roads are still dirt_road, and the ash/gravel line still falls exactly
+      // where somebody started looking after the ground. Outside it, the flat sheet of ash has
+      // become volcanic country, because the water is hot and something has to be putting the heat
+      // in. See LANDFORM_OFF, which is the one place those exemptions are written down.
+      const lf = built ? 'ash' : landformAt(x, y);
+      const land = LANDFORM[lf] || null;
       if (!built) {
-        flags.terrain = water ? 'water'
-          : onRoad(x, y) ? 'dirt_road'
-            : inWorks(x, y) ? 'gravel'
-              : 'ash';
+        flags.terrain = onRoad(x, y) ? 'dirt_road'
+          : inWorks(x, y) ? 'gravel'
+            : TERRAIN_OF[lf];
       }
 
       // THE ION-STORM SHADOW. Stamped on all 4,836 tiles now and consumed later by the jamming
@@ -386,30 +585,40 @@ function main() {
       else flags.no_spawn = true;
       // The open grade is worth working over. The lake, the works, the dam and every authored
       // set-piece are not: a loot table on the Gauge House would have people searching a chair.
-      if (!inWorks(x, y) && !water && !built && !works && !out) {
+      // A cliff face is added to that list: nobody can stand on one, so a loot table there is a
+      // table no player will ever roll on, and anything spawned would be spawned out of reach.
+      if (!inWorks(x, y) && !water && !built && !works && !out && lf !== 'cliff') {
         flags.scavenging_table_id = 'scav_industrial_salvage';
       }
+      if (lf === 'cliff') flags.no_spawn = true;
       if (water) lake++;
 
       const q = inWorks(x, y) && !works ? QUARTERS[quarterAt(x, y)] : null;
       const name = works?.name || out?.name
         || (mass ? 'The Dam' : q ? pick(q.names, x, y)
           : water ? (inTailrace(x, y) ? 'The Tailrace' : 'The Deadwater')
-            : pick(TILE_NAMES, x, y));
+            : land ? pick(land.names, x, y)
+              : pick(TILE_NAMES, x, y));
 
       const description = works?.desc || out?.desc || (mass ? DAM_DESC : q ? pick(q.descs, x, y)
         : inTailrace(x, y)
           ? 'The channel the water leaves by, running south in a cut of dressed stone with a plank walk along one side of it. It moves fast here and it is the only thing in the region in a hurry.'
           : water
-            ? 'Still water, and a great deal of it. The surface holds the sky without altering it in any way, and the cold comes up off it in a sheet. Nothing about it moves unless something makes it move.'
+            ? 'Still water, and a great deal of it, and it is warm. The surface holds the sky without altering it in any way and gives off steam in slow sheets that lean away downwind and come apart about head height. It smells of minerals and old eggs. Nothing about it moves unless something makes it move, and whatever is heating it is a long way underneath.'
+            : land
+              ? pick(land.descs, x, y)
             : dist(x, y, [CX, CY]) < 18
               ? 'Packed ash, and it holds a print the way nothing else does: the flat is crossed with tracks, most of them feet and one set of wheels, all going the same two ways, and none of them washed out. Off north a grey wall goes across the whole horizon with water standing behind it.'
               : 'Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.');
 
+      // The landform's own beats come FIRST and the region's follow, so a flow top still gets the
+      // survey pegs and the grey ash underfoot. A tile is somewhere in Deadwater before it is a
+      // lava field. Water and the ground within sight of it keep the shore pool whole.
       const ambient = mass ? []
         : inWorks(x, y) ? AMBIENT_WORKS
           : (water || dist(x, y, [LAKE_CX, LAKE_CY]) < 8) ? AMBIENT_WATER
-            : AMBIENT_WASTE;
+            : land ? [...land.ambient, ...AMBIENT_WASTE.slice(0, 4)]
+              : AMBIENT_WASTE;
 
       if (works || out) authored++;
 

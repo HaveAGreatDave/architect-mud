@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The burner ticks as it cools, then stops.",
+    "Glass touches glass behind the counter, deliberate and unhurried.",
+    "Something in a stoppered bottle changes colour on its own and nobody looks up.",
+    "The extraction fan in the wall kicks on, coughs, and pulls the sharp smell out of the room for a while.",
+    "A pencil scratches. The board by the door gets a new number and the old one gets a line through it.",
+    "The shutter rails creak as the building shifts in the heat."
+  ],
+  "ambient_theme": "indoors",
+  "description": "One long counter of scarred steel splits the room, and everything worth anything is on the far side of it. Behind the counter: a balance under a glass hood, a rack of reagent bottles with hand-inked labels, and a burner that has scorched a black halo into the wall behind it. The air is sharp with something that makes the back of your throat itch. A sheet pinned by the door lists what a grade is worth this week, corrected three times in pencil.",
+  "exits": {
+    "down": "zone_util_zone_bld_reach_assay_lobby",
+    "south": "zone_the_reach_869_1954"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "window": {
+      "description": "A shopfront pane onto Main Street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_the_reach_869_1954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_reach_assay_lobby",
+  "map_id": "map_int_bld_reach_assay",
+  "name": "The Assay Counter",
+  "parent_zone": "zone_the_reach_869_1954"
+}

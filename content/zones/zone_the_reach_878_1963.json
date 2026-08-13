@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Standing water in a shallow depression, held up by a hardpan that will not drink. A rainbow sits on the surface and does not move when the wind does.",
   "exits": {
     "east": "zone_the_reach_879_1963",
     "north": "zone_the_reach_878_1962",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 918,
-  "grid_y": 991,
+  "grid_y": 1047,
   "grid_z": 0,
   "id": "zone_the_reach_878_1963",
   "map_id": "map_world",
-  "name": "The Reach 878,1963",
+  "name": "The Sump",
   "parent_zone": null
 }

@@ -1,0 +1,132 @@
+{
+  "banter": [
+    [
+      "\"The number is the number. Argue with the balance, not with me.\""
+    ],
+    [
+      "\"Everybody wants a second opinion. Nobody wants to pay for the first one twice.\""
+    ],
+    [
+      "\"I don't care what's in the jar. I care what's in the jar, if you follow.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Neve Calder is small, precise, and entirely unbothered by anyone's opinion of her, including yours. She came out to the Reach with a balance, a case of reagents, and no explanation, and she has given the same number to a warlord and to a kid with a jar of dirt. Her hands are stained to the second knuckle in colours that do not wash out and she has stopped noticing.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 580,
+        "y": 240
+      },
+      "text": [
+        "She has already gone back to the balance."
+      ]
+    },
+    "grade": {
+      "_vine": {
+        "x": 320,
+        "y": 120
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Purity, near enough. What it was cut with, usually. Where it was made, sometimes, if whoever made it was careless about their water.\"",
+        "\"That last one is why people are nervous in here. A grade is a number. A source is a name.\""
+      ]
+    },
+    "pay": {
+      "_vine": {
+        "x": 320,
+        "y": 240
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Whoever is holding the jar. Flat rate, same for everyone, no discounts and no favours, which is the entire reason this works.\"",
+        "\"The day I grade high for a friend is the day my number is worth nothing and I go back to wherever it was I came from.\""
+      ]
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "What can you actually tell from a sample?",
+          "next": "grade"
+        },
+        {
+          "label": "Who pays you to do this?",
+          "next": "pay"
+        },
+        {
+          "label": "Why the Reach, of all places?",
+          "next": "why"
+        }
+      ],
+      "text": [
+        "Neve is already looking at you over the top of the balance hood. \"Bringing me something, or just cooling off?\""
+      ],
+      "text_by_relation": {
+        "first": [
+          "A small woman behind the counter finishes writing a number, underlines it, and only then looks up. \"Calder. I grade what people bring in, I do not buy it, and I do not remember faces on purpose.\" She taps the counter. \"So. Are you bringing me something?\""
+        ],
+        "known": [
+          "\"You again.\" She sounds almost pleased about it. \"Go on then.\""
+        ]
+      }
+    },
+    "why": {
+      "_vine": {
+        "x": 320,
+        "y": 360
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Because out here nobody has ever asked me for a licence.\" She goes back to the balance. \"And because the trade needs one honest instrument standing in the middle of it or it eats itself inside a year.\"",
+        "\"That is not sentiment. That is just what happens.\""
+      ]
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a chemist's coat burned through in three places and patched in four",
+      "a high-collared shirt buttoned to the throat",
+      "practical cotton underthings"
+    ],
+    "personality": "scientist"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_reach_assay_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_assayer",
+  "name": "Neve Calder",
+  "npc_type": "professional",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 0,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The last of the made ground. Beyond this the track becomes a suggestion and then becomes scrub. Tyre marks come up out of the waste and stop dead, as though whatever made them walked the rest of the way in on purpose.",
   "exits": {
     "east": "zone_the_reach_870_1959",
     "north": "zone_the_reach_869_1958",
@@ -28,10 +28,10 @@
     "terrain": "dirt"
   },
   "grid_x": 909,
-  "grid_y": 987,
+  "grid_y": 1043,
   "grid_z": 0,
   "id": "zone_the_reach_869_1959",
   "map_id": "map_world",
-  "name": "The Reach 869,1959",
+  "name": "The Back Track, South End",
   "parent_zone": null
 }

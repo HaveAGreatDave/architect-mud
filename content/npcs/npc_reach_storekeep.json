@@ -1,0 +1,186 @@
+{
+  "banter": [
+    [
+      "\"Everything on that shelf, somebody flew in. Price is the flying, not the thing.\""
+    ],
+    [
+      "\"Credit's between me and you. Goes no further, and it goes both ways.\""
+    ],
+    [
+      "\"I've been out of stock twice in eleven years. I remember both.\""
+    ]
+  ],
+  "behaviour_graph": {},
+  "chitchat": [],
+  "description": "Orrin Peake keeps the only shop in the Reach that sells things instead of favours, and he is quietly, ferociously proud of it. He is a soft-bodied, tidy man with a pencil behind his ear and an apron that stays clean, and he knows the stock level of every shelf in the building without looking. He extends credit to people the rest of town would not lend a match to, and he has never yet been wrong about which ones.",
+  "dialogue_tree": {
+    "bye": {
+      "_vine": {
+        "x": 580,
+        "y": 240
+      },
+      "text": [
+        "\"Mind the step,\" says Orrin, and means it."
+      ]
+    },
+    "credit": {
+      "_vine": {
+        "x": 320,
+        "y": 360
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Everyone's a stranger here. If I only sold to people I trusted I'd have four customers and three of them owe me already.\"",
+        "He taps the counter. \"You'll get credit off me the second time you come in, not the first. And if you don't come back, well. Hollis has your details and I have his ear.\""
+      ]
+    },
+    "root": {
+      "_vine": {
+        "x": 60,
+        "y": 200
+      },
+      "options": [
+        {
+          "label": "Let's see what you've got.",
+          "next": "shop"
+        },
+        {
+          "label": "How does anything get out here?",
+          "next": "supply"
+        },
+        {
+          "label": "You give credit? In the Reach?",
+          "next": "credit"
+        }
+      ],
+      "text": [
+        "Orrin straightens up behind the counter, pencil already coming off his ear. \"Right then. What are you short of?\""
+      ],
+      "text_by_relation": {
+        "first": [
+          "A tidy man in a clean apron comes down the ladder rather faster than looks safe. \"Orrin Peake. This is the Dry Goods, and it is the only place on this street where the price is written down before you ask it.\" He looks pleased about that. \"So. What are you short of?\""
+        ],
+        "known": [
+          "\"There he is,\" says Orrin, or something close enough to it. \"Usual, or are we being adventurous?\""
+        ]
+      }
+    },
+    "shop": {
+      "_vine": {
+        "x": 320,
+        "y": 120
+      },
+      "actions": [
+        {
+          "action": "OPEN_SHOP"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Take your time. It's all there is for two hundred miles, so it may as well be a browse.\""
+      ]
+    },
+    "supply": {
+      "_vine": {
+        "x": 320,
+        "y": 240
+      },
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": [
+        "\"Sky, mostly. Cass tells me what's landing, I tell her what I'll take off it, and between us the shelves stay about half full.\"",
+        "\"Overland comes in maybe twice a year and always cheaper, and always with somebody missing off the crew. I've stopped asking about that.\""
+      ]
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a canvas shopkeeper's apron, clean, pockets worn through",
+      "a striped shirt with sleeve garters above the elbow",
+      "flannel trousers and long shorts"
+    ],
+    "personality": "vendor",
+    "vendor_shop_name": "The Dry Goods"
+  },
+  "home_activities": [],
+  "home_zone": "zone_bld_reach_drygoods_lobby",
+  "hp": 20,
+  "hp_max": 20,
+  "id": "npc_reach_storekeep",
+  "name": "Orrin Peake",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_water_bottle",
+      "price": 7
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 12
+    },
+    {
+      "item_id": "item_salt_ration",
+      "price": 4
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 5
+    },
+    {
+      "item_id": "item_towel_rough",
+      "price": 12
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "price": 8
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 15
+    },
+    {
+      "item_id": "item_coffee_grounds",
+      "price": 14
+    },
+    {
+      "item_id": "item_kitchen_knife",
+      "price": 55
+    },
+    {
+      "item_id": "item_steel_toe_boots",
+      "price": 55
+    },
+    {
+      "item_id": "item_bucket_hat",
+      "price": 40
+    },
+    {
+      "item_id": "item_tangled_wire",
+      "price": 6
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Dry Goods",
+  "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": null
+}

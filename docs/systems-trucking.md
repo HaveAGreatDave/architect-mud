@@ -539,7 +539,7 @@ So `flags.truck_depot` now belongs on an **interior zone behind a facade**, and 
 key:
 
 ```json
-"truck_depot": { "name": "The Roadhead Depot", "yard": "zone_terminus_1202_916" }
+"truck_depot": { "name": "The Roadhead Depot", "yard": "zone_terminus_1202_940" }
 ```
 
 `yard` is the **hardstand outside the roller door** — a real, drivable street tile with grid

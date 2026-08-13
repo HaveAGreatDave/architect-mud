@@ -1,0 +1,14 @@
+{
+  "description": "A sheet of slate ruled into columns: grade, purity, what it pays this week. Everything has been rubbed out and rewritten so often the slate has gone soft and grey. The bottom row is blank and has never once been used.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_assay_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the grade board",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_assay_lobby"
+}

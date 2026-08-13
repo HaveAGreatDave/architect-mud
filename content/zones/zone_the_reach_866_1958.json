@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Close enough that the Dynamo's hum reaches you as a feeling rather than a sound. The brush here is cropped low and the ground is scattered with the small hard rubbish of a settled place.",
   "exits": {
     "east": "zone_the_reach_867_1958",
     "north": "zone_the_reach_866_1957",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 906,
-  "grid_y": 986,
+  "grid_y": 1042,
   "grid_z": 0,
   "id": "zone_the_reach_866_1958",
   "map_id": "map_world",
-  "name": "The Reach 866,1958",
+  "name": "Town Flats",
   "parent_zone": null
 }

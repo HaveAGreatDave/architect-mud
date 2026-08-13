@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The street crosses the Back Track here, and four different sets of ruts argue about where the road actually is. A power line sags overhead on poles that were never plumb, ticking as it heats. Boot-worn boardwalk runs along the north side at knee height, high enough that the dust blows under it instead of over.",
   "exits": {
     "east": "zone_the_reach_870_1955",
     "north": "zone_the_reach_869_1954",
@@ -30,10 +30,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 909,
-  "grid_y": 983,
+  "grid_y": 1039,
   "grid_z": 0,
   "id": "zone_the_reach_869_1955",
   "map_id": "map_world",
-  "name": "The Reach 869,1955",
+  "name": "Main Street, The Crossing",
   "parent_zone": null
 }

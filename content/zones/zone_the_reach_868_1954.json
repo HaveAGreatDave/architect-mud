@@ -1,37 +1,27 @@
 {
-  "ambient_events": [
-    "Somewhere behind a wall, two voices are having the same argument they had last night.",
-    "A screen door bangs. Nobody comes out.",
-    "The dirt holds every footprint that's crossed it today. There are not many.",
-    "A generator note wavers, catches, and settles back into its drone.",
-    "Somebody's radio is playing the same three songs the Coyote's Rest plays. There is only the one tape out here.",
-    "Grit drifts across the road in long slow ribbons, filling in yesterday's ruts.",
-    "A dog you never see barks twice, somewhere past the last building, and thinks better of it.",
-    "The heat comes up off the road in a sheet. Nothing moves in it.",
-    "An engine drones somewhere overhead. Every face in the street tilts up, watches, and goes back to what it was doing.",
-    "Someone has scratched a tally into a doorframe. Forty-odd marks. No indication of what they count.",
-    "Bootprints, tyre-ruts, and a long smooth drag where something heavy got hauled toward the field.",
-    "Washing hangs dead-still on a line, bleached to no colour at all.",
-    "The light goes long and copper and every building in the Reach throws a shadow twice its height."
-  ],
-  "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "description": "A narrow shopfront at the west end of the street, its false front squared off and painted a flat grey that has gone chalky in the sun. No sign, no name, only a length of black ribbon nailed above the door and replaced whenever it frays. The window is shuttered from the inside. Everybody in the Reach knows what this place is and nobody says it out loud.",
   "exits": {
-    "east": "zone_the_reach_869_1954",
-    "north": "zone_the_reach_868_1953",
-    "south": "zone_the_reach_868_1955",
-    "west": "zone_the_reach_867_1954"
+    "north": "zone_bld_reach_trade_lobby",
+    "south": "zone_the_reach_868_1955"
   },
   "flags": {
+    "building_name": "The Quiet Trade",
+    "building_type": "undertaker",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "lawless": true,
     "region_id": "region_the_reach",
-    "terrain": "dirt"
+    "world_exit_zone": "zone_the_reach_868_1955"
   },
   "grid_x": 908,
-  "grid_y": 982,
+  "grid_y": 1038,
   "grid_z": 0,
   "id": "zone_the_reach_868_1954",
   "map_id": "map_world",
-  "name": "The Reach 868,1954",
+  "marker": "QT",
+  "name": "The Quiet Trade",
   "parent_zone": null
 }

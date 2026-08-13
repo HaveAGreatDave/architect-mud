@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.",
+  "exits": {
+    "up": "zone_bld_reach_soak_lobby"
+  },
+  "flags": {
+    "is_interior": true,
+    "lawless": true,
+    "world_exit_zone": "zone_the_reach_870_1956"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_bld_reach_soak_lobby",
+  "map_id": "map_int_bld_reach_soak",
+  "name": "The Soaking Room — Utility Room",
+  "parent_zone": "zone_the_reach_870_1956"
+}

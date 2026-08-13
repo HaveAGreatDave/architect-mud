@@ -27,6 +27,11 @@
     "                  tiles reads as one continuous escarpment with a clean outline",
     "                  instead of sixteen boxed-in squares, and it lives entirely in",
     "                  the art: derive emits the same adjacency for both.",
+    "                  THE FAMILY IS THE LANDFORM, NOT THE TERRAIN. plateau and cliff",
+    "                  are both family 'cliff', so a rim tile counts the tableland",
+    "                  behind it as its own kind and draws no face inward. Give the",
+    "                  top a family of its own and every massif gets a second outline",
+    "                  drawn around its inside, one tile in from the first.",
     "speed_mult        movement pacing. THE fix for a live bug: pacing keyed off",
     "                  flags.icon matching /^road_/, so 55 of 158 painted road",
     "                  tiles carried no speed-up at all.",
@@ -219,15 +224,59 @@
       "text": null,
       "glyph": null,
       "minimap_class": "plateau",
-      "auto_tile": false
+      "auto_tile": true,
+      "auto_tile_family": "cliff"
     },
-    "plateau": {
-      "label": "Plateau",
-      "fill": "#7a4029",
+    "basalt": {
+      "label": "Basalt",
+      "fill": "#33323a",
       "text": null,
       "glyph": null,
-      "minimap_class": "plateau",
+      "minimap_class": "basalt",
       "auto_tile": false
+    },
+    "deadwood": {
+      "label": "Dead Stand",
+      "fill": "#4a4034",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "deadwood",
+      "auto_tile": false
+    },
+    "sinter": {
+      "label": "Sinter Crust",
+      "fill": "#c9b878",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "sinter",
+      "auto_tile": false,
+      "props": {
+        "buildable": false
+      }
+    },
+    "hotspring": {
+      "label": "Hot Spring",
+      "fill": "#3f8b84",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "hotspring",
+      "auto_tile": false,
+      "props": {
+        "liquid": true,
+        "swimmable": true,
+        "thermal": true,
+        "routable": false,
+        "buildable": false
+      }
+    },
+    "ramp": {
+      "label": "Ramp",
+      "fill": "#9a6238",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "ramp",
+      "auto_tile": true,
+      "auto_tile_family": "cliff"
     },
     "cliff": {
       "label": "Cliff Face",
@@ -298,6 +347,19 @@
     "            overland void rim does not exist here). default false",
     "swimmable   entering costs stamina; wetness, drowning, hypothermia. default false",
     "underwater  submerged BELOW a surface tile: breath timer, colder, dark. default false",
+    "thermal     this water is geothermally heated. default false. Read by",
+    "            waterTemperature(), so a hot spring lands on the ORDINARY body-",
+    "            temperature model rather than a second one: submerged, the spring's",
+    "            temperature IS your effective ambient, so it warms you exactly as",
+    "            cold water chills you, and wet clothing works against you either way.",
+    "            An authored `water_temp_c` still wins, for a tile that wants a number.",
+    "",
+    "THE VOLCANIC SET (basalt / deadwood / sinter / hotspring) is surfaces, NOT elevation.",
+    "Height is the cliff/plateau/ramp trio and nothing else, so a region can be volcanic",
+    "and flat, or red and mountainous, without either vocabulary knowing about the other.",
+    "sinter is `buildable: false` because a crust over a vent is not a foundation, and",
+    "hotspring is `routable: false` like all open water: swum, never pathed across.",
+    "",
     "passable    a body may enter this tile at all. default TRUE. The ONE terrain",
     "            that says no is cliff, and it is the only wall in the game that is",
     "            not a building: everything else that stops you is mass (a wall's",
@@ -312,6 +374,14 @@
     "Only DIVERGENCE from the defaults is recorded, so a terrain with no props block",
     "inherits everything — which is what most solid ground wants. marsh is deliberately",
     "NOT liquid/swimmable: a marsh is walked, not swum (decision, 2026-07-30).",
+    "",
+    "RAMP IS THE THIRD, and it is the whole point of the other two. A ramp is high",
+    "ground you CAN walk: same landform, same family, no `passable: false`. It has to",
+    "be part of the massif rather than open ground beside it, because the outline is",
+    "drawn from adjacency — a ramp that counted as low would have the tableland behind",
+    "it draw a wall straight across the only way up, which is the one tile in a funnel",
+    "that must not have a wall on it. It gets its own paler fill so the ways through",
+    "are legible on the map at a glance, which is where a funnel is actually read.",
     "",
     "PLATEAU AND CLIFF ARE ONE LANDFORM IN TWO TERRAINS, and they are split because",
     "they answer differently, not because they look different. The top is walked; the",

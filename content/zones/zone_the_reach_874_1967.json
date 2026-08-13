@@ -12,11 +12,10 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A rusted length of pipe lies half-buried, running the wrong way for any pipe to run. It goes into the ground at one end and nowhere at the other.",
   "exits": {
     "east": "zone_the_reach_875_1967",
     "north": "zone_the_reach_874_1966",
-    "south": "zone_the_reach_874_1968",
     "west": "zone_the_reach_873_1967"
   },
   "flags": {
@@ -25,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 914,
-  "grid_y": 995,
+  "grid_y": 1051,
   "grid_z": 0,
   "id": "zone_the_reach_874_1967",
   "map_id": "map_world",
-  "name": "The Reach 874,1967",
+  "name": "The Deep Scrub",
   "parent_zone": null
 }

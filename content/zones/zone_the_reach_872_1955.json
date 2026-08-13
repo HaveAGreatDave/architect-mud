@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The busiest twenty feet in the Reach. The saloon porch overhangs the boardwalk, the coyote sign buzzes and stutters above it, and there is a hitching rail out front that has not held an animal in living memory and holds six bike chains instead. The ground by the step is packed black and shiny from boots.",
   "exits": {
     "east": "zone_the_reach_873_1955",
     "north": "zone_the_reach_872_1954",
@@ -29,10 +29,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 912,
-  "grid_y": 983,
+  "grid_y": 1039,
   "grid_z": 0,
   "id": "zone_the_reach_872_1955",
   "map_id": "map_world",
-  "name": "The Reach 872,1955",
+  "name": "Main Street, Outside the Coyote’s",
   "parent_zone": null
 }

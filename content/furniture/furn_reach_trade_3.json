@@ -1,0 +1,14 @@
+{
+  "description": "A hardbacked book on a stand by the door, open, a pen on a string beside it. Names, dates, and a third column with only a number in it. Nobody has ever explained the third column.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_trade_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ledger",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_trade_lobby"
+}

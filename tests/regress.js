@@ -2242,6 +2242,10 @@ check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items
 
 const gateOwners = getRegisteredMoveGates();
 check('engine law gates registered', gateOwners.includes('engine:door-lock') && gateOwners.includes('engine:encumbrance'), gateOwners.join(','));
+// Impassable terrain is a LAW, not a filter on the exit graph — the tiles stay adjacent
+// and the refusal happens at the move. If this gate ever stops being registered, a cliff
+// silently becomes scenery you can stroll through and every funnel in the world opens.
+check('impassable-terrain gate registered', gateOwners.includes('engine:impassable-terrain'), gateOwners.join(','));
 
 // Protection substrate: apartments publish forcefields through it, and a
 // registered provider claims a zone.
@@ -2967,6 +2971,26 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     check('surface water stays liquid and temperate', surfaceC >= 2 && surfaceC <= 24, String(surfaceC));
     check('deep water is colder than the surface', deepC < surfaceC, `${deepC} < ${surfaceC}`);
     check('deep water is capped below the surface maximum', deepC <= 12, String(deepC));
+    // GEOTHERMAL WATER. A hot spring is heated from underneath, so it must ignore the seasonal
+    // derivation entirely rather than offsetting it — the whole point is that it is warm in winter.
+    // It has to land ABOVE the surface band (or it is not a refuge) and it must not be scalding
+    // (there is no damage channel behind it), and an authored number still has to win, because
+    // that is the escape hatch for a spring that should hurt.
+    // `thermal: true` is passed as a FLAG rather than left to the hotspring preset, for the same
+    // reason the deep-water case above passes `underwater: true`: a transient zone has no derived
+    // row, and propsOf documents that the terrain PRESET rung is unreachable from the engine (it
+    // needs the palette, a build-time input). The preset half is covered by the resolveProps suite;
+    // this is the runtime branch.
+    const springId = 'zone_regress_spring_' + process.pid;
+    registerTransientZone({ id: springId, name: 'Regress Spring', description: 'Hot water.', exits: {}, flags: { terrain: 'hotspring', thermal: true } });
+    const springC = waterTemperature(springId);
+    check('a hot spring is warmer than any surface water', springC > surfaceC && springC > 24, `${springC} > ${surfaceC}`);
+    check('a hot spring is bathing temperature, not scalding', springC >= 30 && springC <= 45, String(springC));
+    removeTransientZone(springId);
+    const scaldId = 'zone_regress_scald_' + process.pid;
+    registerTransientZone({ id: scaldId, name: 'Regress Scald', description: 'Hot water.', exits: {}, flags: { terrain: 'hotspring', thermal: true, water_temp_c: 82 } });
+    check('an authored temperature still beats the thermal preset', waterTemperature(scaldId) === 82, String(waterTemperature(scaldId)));
+    removeTransientZone(scaldId);
     removeTransientZone(seaId);
     removeTransientZone(deepId);
   }
@@ -3554,6 +3578,18 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   const autoNoFeature = autoTiles.filter(z => !specAt(z.id)?.feature);
   check('every auto-tiling tile resolves to a connector piece',
     autoNoFeature.length === 0, autoNoFeature.slice(0, 3).map(z => z.id).join(', '));
+  // THE PIECE FILE HAS TO EXIST. The check above only proves a tile named a piece; the
+  // name is turned into `/assets/zone-icons/<name>.svg` by a CSS mask, and a missing file
+  // fails SILENTLY — the tile just draws nothing, which on a cliff means an escarpment
+  // with no outline and no way to tell it from open ground. A second family made that a
+  // live risk: 16 new files, and the naming rule is generated, not typed.
+  {
+    const iconDir = join(__dirname, '..', 'client', 'game', 'assets', 'zone-icons');
+    const wanted = [...new Set(specs.map(s => s.feature).filter(f => /^cliff_/.test(f || '')))];
+    const missing = wanted.filter(n => !existsSync(join(iconDir, `${n}.svg`)));
+    check(`every cliff piece a tile asks for exists on disk (${wanted.length} distinct)`,
+      wanted.length > 0 && missing.length === 0, missing.join(', '));
+  }
   // An authored flags.icon is the OVERRIDE rung and must win — that is the whole
   // basis for overriding a tile in the Studio.
   const overridden = zonesForDerive.filter(z => z.flags?.icon);
@@ -3617,6 +3653,27 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
       P({ terrain: 'water' }).swimmable === true && P({ terrain: 'water' }).routable === false);
     check('props: solid ground inherits the defaults',
       P({ terrain: 'road' }).routable === true && P({ terrain: 'road' }).swimmable === false);
+    // THE LANDFORM TRIO. cliff is the only impassable terrain in the game; plateau and
+    // ramp are the same landform and must NOT inherit that — a tableland you cannot
+    // stand on is scenery, and a ramp that refuses you is a wall with a paler fill.
+    check('props: cliff is the one terrain a body cannot enter',
+      P({ terrain: 'cliff' }).passable === false && P({ terrain: 'cliff' }).routable === false);
+    check('props: the plateau on top of it, and the ramp up to it, are walkable',
+      P({ terrain: 'plateau' }).passable === true && P({ terrain: 'ramp' }).passable === true);
+    check('props: everything else is passable by default',
+      P({}).passable === true && P({ terrain: 'water' }).passable === true);
+    // THE VOLCANIC SET is surfaces, not elevation: none of it may raise ground or block a step.
+    // hotspring is the exception that proves it — water, so swum rather than walked, and the only
+    // terrain carrying `thermal`.
+    check('props: a hot spring is swimmable water that is heated',
+      P({ terrain: 'hotspring' }).thermal === true && P({ terrain: 'hotspring' }).swimmable === true
+      && P({ terrain: 'hotspring' }).liquid === true && P({ terrain: 'hotspring' }).routable === false);
+    check('props: cold water is not thermal',
+      P({ terrain: 'water' }).thermal === false && P({}).thermal === false);
+    check('props: basalt, dead stands and sinter are ordinary walkable ground',
+      ['basalt', 'deadwood', 'sinter'].every(t => P({ terrain: t }).passable === true
+        && P({ terrain: t }).swimmable === false));
+    check('props: a sinter crust is not a foundation', P({ terrain: 'sinter' }).buildable === false);
     // THE tri-state regression. `false` must beat the preset — if this fails, the
     // override rung has collapsed back to presence-only and a frozen bay is
     // unauthorable. It is the reason the shape is `tristate` and not `flag`.

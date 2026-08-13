@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_reach_drygoods_lobby",
+  "b": "zone_util_zone_bld_reach_drygoods_lobby",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_bld_reach_drygoods_lobby_down_1nr9",
+  "lockable": false,
+  "one_way": false
+}

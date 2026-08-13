@@ -388,6 +388,11 @@ const BIOME_GROUND = {
   // massif rises out of the country around it, so a hue unrelated to that country would
   // read as a fence somebody built rather than as ground.
   hardpan: [184, 171, 144], alkali: [217, 213, 200], cliff: [92, 50, 36], plateau: [122, 64, 41],
+  // The volcanic set. basalt is the darkest ground in the game on purpose — fresh lava rock eats
+  // light, and a volcanic flat that reads as merely "grey" is just ash again. sinter is the pale
+  // mineral apron a vent lays down; hotspring is deliberately NOT the bay's blue (it is milky with
+  // dissolved mineral, and the difference is the point).
+  basalt: [51, 50, 58], deadwood: [74, 64, 52], sinter: [201, 184, 120], hotspring: [63, 139, 132],
   // Painted paved surfaces (flags.terrain): dark tarmac, pale concrete slab, weathered
   // dock planking. Deliberately NOT in GRASS_BIOMES, so they take the concrete-checker
   // material and read as pavement instead of turf.
@@ -401,7 +406,11 @@ const GRASS_BIOMES = new Set(['parkland', 'park', 'forest', 'citycore', 'uptown'
 // Bare dry-land biomes — get the carved badland relief (wildsRelief), a per-tile arid tint
 // jitter, and the sand-ripple/cracked-clay ground material instead of flat fill. The off-map
 // wildlands fill is arid by construction, so it isn't listed here (it passes arid=1 directly).
-const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands', 'hardpan', 'alkali', 'cliff', 'plateau']);
+// `hotspring` is deliberately absent: it is water, and water takes neither the badland relief nor
+// the cracked-clay material. `deadwood` is absent from GRASS_BIOMES for the mirror-image reason —
+// a dead stand is standing on dust, not on turf, and the fine vegetation mottle would green it.
+const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands', 'hardpan', 'alkali', 'cliff', 'plateau',
+  'basalt', 'deadwood', 'sinter']);
 // Man-made / paved surfaces — the coast-wobble domain warp skips these so a concrete slab, tarmac,
 // pier or airport ramp keeps its straight built edges instead of going wavy (apron tiles are added
 // dynamically in the LUT via the nearField test).
@@ -2532,7 +2541,11 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
         if (arid) { const j = vnoise2(awx * 0.21, awy * 0.21) - 0.5; col = [clamp(col[0] + j * 46, 40, 210), clamp(col[1] + j * 30, 30, 190), clamp(col[2] + j * 22, 24, 170)]; }
         const shade = reliefShade(awx, awy, litX, litY, arid);
         const paved = apron || PAVED_BIOMES.has(bi) ? 1 : 0;   // man-made surface → excluded from the coast wobble
-        out[rx] = [col[0], col[1], col[2], bi === 'water' ? 1 : 0, grassy ? 1 : 0, shade, paved];
+        // WATERNESS. `hotspring` counts: it is a body of water and must take the water material
+        // (ripple, reflection, the swim-over read) rather than being painted as teal dirt. It cannot
+        // drag the sea off-map with it either — fillOffMap only seeds ocean from water tiles NORTH
+        // of BAY_SHORE_Y, and a spring is an inland feature far south of that line.
+        out[rx] = [col[0], col[1], col[2], (bi === 'water' || bi === 'hotspring') ? 1 : 0, grassy ? 1 : 0, shade, paved];
       }
       LUT[ry] = out;
     }
@@ -3217,6 +3230,13 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_reach_saloon: [104, 82, 58], ty_reach_saloon_dk: [66, 50, 36], ty_reach_board: [120, 96, 62],
   ty_reach_dynamo: [92, 88, 80], ty_reach_tank: [104, 72, 46], ty_reach_scorch: [40, 34, 30],
   ty_reach_motel: [110, 100, 88], ty_reach_motel_roof: [72, 58, 44], ty_reach_water: [96, 84, 68],
+  // Main Street, second pass — the trades the Reach gives a whole false front to. Timber that has
+  // been in this sun for decades, a poured blockhouse, a flat grey nobody repaints, and a bathhouse
+  // shed the steam has stained darker at the eaves than anywhere else in town.
+  ty_reach_merc: [138, 116, 84], ty_reach_merc_dk: [84, 66, 44], ty_reach_awning: [128, 112, 76],
+  ty_reach_assay: [118, 116, 108], ty_reach_assay_dk: [76, 74, 68],
+  ty_reach_grey: [96, 94, 90], ty_reach_grey_dk: [58, 56, 54],
+  ty_reach_bath: [108, 98, 86], ty_reach_bath_roof: [70, 62, 52], ty_reach_skin: [140, 136, 128],
   ty_door: [20, 22, 26] };
 const BLDG_H = { uptown: 0.36, civic: 0.21, citycore: 0.18, marquee: 0.22, freight: 0.14, industrial: 0.26, infra: 0.32, ruins: 0.16, oldcoldwater: 0.11, docks: 0.17, __nofly: 0.6 };
 
@@ -4084,7 +4104,23 @@ function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
 // engine:impassable-terrain move gate); nothing here decides where a body may walk, and a
 // pilot may still fly straight through a mesa — CFIT reads building mass, not terrain.
 const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey building: it has to clear the scatter and read as a landform from the air, without becoming a wall of the Curtain's height.
-function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
+
+// THE TOP IS NOT A CONSTANT, and this is what stops a massif reading as a fence.
+//
+// A single CLIFF_H everywhere gives every tableland in the world the same height and every rim a
+// dead-level top running to the draw distance: an extruded stamp, not country. Height is instead a
+// smooth function of WORLD POSITION, so tablelands differ from each other, a long escarpment rises
+// and falls along its length, and a rim never runs flat to the horizon.
+//
+// It must be a function of position and nothing else — not of the tile, not of a seed. Two adjacent
+// tiles have to be able to agree about the height of the edge they share, and the only way to do
+// that without passing data between them is for both to compute it from the same coordinates.
+// LOW FREQUENCY on purpose (period ~13 tiles): neighbours then differ by a few percent, so the top
+// undulates instead of jittering into a staircase.
+const cliffHeightAt = (wx, wy) => CLIFF_H * (0.72 + 0.56 * (
+  vnoise2(wx * 0.077, wy * 0.077) * 0.7 + vnoise2(wx * 0.031, wy * 0.031) * 0.3));
+
+function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx, wy) {
   const NEAR = 0.08;
   // The SAME sun key the Mode-7 floor hillshades with (see the LUT builder), derived here
   // rather than passed, so a massif's lit face and the shadow the ground draws beside it
@@ -4097,7 +4133,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
   const j = (frac(seed * 0.317) - 0.5) * 12;
   const day = 1 - night * 0.72;
   const col = (t, k) => rgb([(base[0] + j) * t * day, (base[1] + j * 0.7) * t * day, (base[2] + j * 0.5) * t * day], alpha);
-  const H = CLIFF_H;
+  const H = cliffHeightAt(wx, wy);
   const CS = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];   // n-w, n-e, s-e, s-w
 
   // The cap. Painted first at its own depth so the painter's algorithm can still sort a
@@ -4121,7 +4157,21 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
     ['n', 0, 1, 0, -1], ['e', 1, 2, 1, 0], ['s', 2, 3, 0, 1], ['w', 3, 0, -1, 0],
   ];
   for (const [d, i, k, nx, ny] of SIDES) {
-    if (run.indexOf(d) >= 0) continue;              // high ground carries on this way — no face
+    // THE STEP. High ground carries on this way, so there is no cliff here — but the neighbour's top
+    // is at ITS OWN height, and where this tile is the taller of the two, the difference is an open
+    // sliver you would see straight through into the inside of the massif. Close it with a short
+    // face from the neighbour's height up to ours, and only in that direction: the lower tile draws
+    // nothing, so the step is drawn exactly once by whichever side owns it.
+    //
+    // This is the price of an undulating top, and it is the whole reason the height function takes
+    // world coordinates rather than a per-tile seed — both tiles have to compute the same number for
+    // the edge they share, without either one being told about the other.
+    let z0 = 0, z1 = H;
+    if (run.indexOf(d) >= 0) {
+      const nh = cliffHeightAt(wx + nx, wy + ny);
+      if (nh >= H - 0.002) continue;                // neighbour is level or taller — it owns the step
+      z0 = nh;
+    }
     // Backface cull, same normal·view test the boxes use, chase-`back` folded in.
     const mx = nx * 0.5, my = ny * 0.5;
     if (mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) >= 0) continue;
@@ -4131,8 +4181,12 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
     if (fa < NEAR && fb < NEAR) continue;
     if (fa < NEAR) { const s = (NEAR - fa) / (fb - fa); ax += (bx - ax) * s; ay += (by - ay) * s; }
     else if (fb < NEAR) { const s = (NEAR - fb) / (fa - fb); bx += (ax - bx) * s; by += (ay - by) * s; }
-    const tA = cam.proj(ax, ay, H), tB = cam.proj(bx, by, H);
-    const bA = cam.proj(ax, ay, 0), bB = cam.proj(bx, by, 0);
+    const tA = cam.proj(ax, ay, z1), tB = cam.proj(bx, by, z1);
+    const bA = cam.proj(ax, ay, z0), bB = cam.proj(bx, by, z0);
+    // A step is a band a few percent of a tile tall. Strata and the rim highlight are drawn for a
+    // FULL face and read as noise on a sliver, so the step takes the plain fill and the bright top
+    // line only — the line is what makes the step legible as a break in the caprock at all.
+    const isStep = z0 > 0;
     // Lambert-ish key so the four aspects of a massif are not the same colour — a
     // south face and a north face at the same tone is what makes blocks look like blocks.
     const nl = clamp(0.62 + (nx * litX + ny * litY) * 0.42, 0.4, 1.12);
@@ -4152,7 +4206,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
       ctx.clip();
       ctx.strokeStyle = col(nl * 0.78, 0);
       ctx.lineWidth = 1;
-      for (const t of [0.3, 0.52, 0.74]) {
+      for (const t of isStep ? [] : [0.3, 0.52, 0.74]) {
         const l = { x: tA.sx + (bA.sx - tA.sx) * t, y: tA.sy + (bA.sy - tA.sy) * t };
         const r = { x: tB.sx + (bB.sx - tB.sx) * t, y: tB.sy + (bB.sy - tB.sy) * t };
         ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.stroke();
@@ -4332,6 +4386,45 @@ function drawForestTile(ctx, cam, dx, dy, night, seed, alpha) {
     else drawTreeBB(ctx, cam, dx + t.ox, dy + t.oy, night, t.s, alpha);
   }
 }
+// A DEAD STAND — deadwood's tile dressing, and the exact mirror of drawForestTile. `forest` is a
+// full stand of living trees where parkland gets a lone one; `deadwood` is a full stand of the snag
+// the ash flats already scatter one of. Same structure, same sort, one different billboard: the
+// vocabulary was already here, and a stand of bare trunks is what a killed forest looks like from
+// the air. Deliberately DENSER than the living stand at the same seed (nothing thinned these; they
+// died standing) and never a conifer silhouette, because a dead conifer keeps no shape worth drawing.
+function drawDeadStand(ctx, cam, dx, dy, night, seed, alpha) {
+  const n = 5 + (seed % 4);
+  const snags = [];
+  for (let i = 0; i < n; i++) {
+    const ox = (frac(seed + i * 3.1) - 0.5) * 0.86, oy = (frac(seed + i * 7.7) - 0.5) * 0.86;
+    const q = cam.proj(dx + ox, dy + oy, 0); if (!q || q.f <= 0.06) continue;
+    snags.push({ ox, oy, f: q.f, s: seed + i * 13 });
+  }
+  snags.sort((a, b) => b.f - a.f);   // far first — painter order, same as the living stand
+  for (const t of snags) drawDeadTreeBB(ctx, cam, dx + t.ox, dy + t.oy, night, t.s, alpha);
+}
+
+// STEAM off a hot spring. The one thing that tells a pilot the water is hot rather than merely a
+// funny colour, so it is drawn on the water tile itself rather than scattered nearby. Slow, tall,
+// and drifting with nothing — a plume that raced would read as smoke, and this is not a fire.
+function drawSteamPlume(ctx, cam, dx, dy, night, seed, alpha, now) {
+  const p = cam.proj(dx, dy, 0); if (!p || p.f <= 0.06) return;
+  const h = clamp(30 / p.f, 2, 54);
+  const drift = Math.sin(now / 2600 + seed) * h * 0.16;
+  const g = ctx.createLinearGradient(p.sx, p.sy, p.sx + drift, p.sy - h);
+  // Warmer and brighter by day; at night it takes what little light there is and mostly vanishes.
+  const a = alpha * (0.30 - night * 0.16);
+  g.addColorStop(0, `rgba(228,240,238,${Math.max(0, a)})`);
+  g.addColorStop(1, 'rgba(228,240,238,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(p.sx - h * 0.16, p.sy);
+  ctx.quadraticCurveTo(p.sx + drift - h * 0.30, p.sy - h * 0.6, p.sx + drift, p.sy - h);
+  ctx.quadraticCurveTo(p.sx + drift + h * 0.30, p.sy - h * 0.6, p.sx + h * 0.16, p.sy);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   const p = cam.proj(dx, dy, 0), s = clamp(22 / p.f, 2, 40);
   ctx.globalAlpha = alpha; ctx.fillStyle = rgb(fogTint([120, 92, 60], p.f));
@@ -6003,6 +6096,13 @@ const NAMED_MODELS = {
   thecoyotesrest:                 { type: 'saloon',    pal: 'ty_reach_saloon', neon: '#ff6a3a' },
   thedynamo:                      { type: 'dynamo',    pal: 'ty_reach_dynamo', neon: '#6cf0ff' },
   thelayover:                     { type: 'layover',   pal: 'ty_reach_motel',  neon: '#ff5a86' },
+  // Main Street, second pass. Four false fronts in an unbroken row plus the freight shed at the
+  // south end, so the Reach reads as a STREET from the air and not four landmarks in a field.
+  thedrygoods:                    { type: 'mercantile', pal: 'ty_reach_merc',  neon: '#ffd07a' },
+  theassay:                       { type: 'assay',      pal: 'ty_reach_assay', neon: '#9fe8ff' },
+  thequiettrade:                  { type: 'undertaker', pal: 'ty_reach_grey' },
+  thelongsoak:                    { type: 'bathhouse',  pal: 'ty_reach_bath',  neon: '#7affd6' },
+  thelastload:                    { type: 'lastload',   pal: 'ty_reach_skin',  neon: '#ffb14a' },
 };
 function namedModel(name) { return NAMED_MODELS[bldgSlug(name)] || null; }
 
@@ -6048,6 +6148,12 @@ const TYPE_MODEL = {
   kitchenware:      { type: 'shop',      pal: 'ty_kitchen', neon: '#ff9a3e' },
   butcher:          { type: 'butcher',   pal: 'ty_butcher', neon: '#ff3e4a' },
   bank:             { type: 'bank',      pal: 'ty_marble' },
+  // The Reach's Main Street trades. Registered by TYPE as well as by name so a second
+  // frontier town gets a false-front mercantile for free rather than a borrowed biome box.
+  mercantile:       { type: 'mercantile', pal: 'ty_reach_merc',  neon: '#ffd07a' },
+  assay:            { type: 'assay',      pal: 'ty_reach_assay', neon: '#9fe8ff' },
+  undertaker:       { type: 'undertaker', pal: 'ty_reach_grey' },
+  bathhouse:        { type: 'bathhouse',  pal: 'ty_reach_bath',  neon: '#7affd6' },
   // The Yards — semi-industrial freight district (see docs/proposals/yards.md).
   warehouse:         { type: 'warehouse',         pal: 'ty_wh_metal' },
   // THE LONG HAUL — the depot you walk into. Registered as well as `case`d, per the note above.
@@ -7567,6 +7673,164 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const t = now || 0, buzz = (Math.sin(t * 0.02) > -0.6) ? 0.85 : 0.2; const tex = bakeSignText('VA ANCY', '#ff8fb0', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha * buzz)); } }
       // 4) A porch light kept burning like a habit.
       { const [lx, ly] = F(-fh * 0.95, fh * 1.14); glowPool(ctx, cam, lx, ly, wallTop * 0.7, '255,206,140', 6, alpha * (night ? 0.5 : 0.28)); }
+      break;
+    }
+    case 'mercantile': {   // THE DRY GOODS (The Reach) — the widest front on Main Street and the only
+      // one whose boards are still true: a squared false-front parapet lettered in white, a canvas
+      // awning on posts over a swept boardwalk, barrels either side of the door, warm goods-lit windows.
+      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+      const bodyTop = h * 0.62, frontTop = h * 1.22, FR = fh * 1.0;
+      // 1) Body + the FALSE FRONT — a taller squared parapet pulled forward to the entrance face.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, bodyTop, pal, seed, night, alpha, true);
+      { const [fx, fy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.92, 0, frontTop, 'ty_reach_merc_dk', seed + 1, night, alpha, true); }
+      // A cornice board capping the parapet — the one bit of carpentry anybody in town is proud of.
+      { const [cx, cy] = F(0, fh * 0.2); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.98, frontTop, frontTop + h * 0.05, 'ty_reach_merc', seed + 2, night, alpha, true); }
+      // 2) AWNING on three posts over the boardwalk, plus the plank strip itself.
+      { const azL = bodyTop * 0.54, azH = bodyTop * 0.62, [ax, ay] = F(0, fh * 1.2);
+        draw3DBoxAt(ctx, cam, ax, ay, fh * 0.96, azL, azH, 'ty_reach_awning', seed + 3, night, alpha, true);
+        for (const s of [-0.84, 0, 0.84]) { const [px, py] = F(fh * s, fh * 1.44); draw3DBoxAt(ctx, cam, px, py, fh * 0.03, 0, azL, 'ty_reach_merc_dk', seed + 9 + s, night, alpha, false); }
+        const pl = [P(-fh * 0.94, fh * 1.02, 0.02), P(fh * 0.94, fh * 1.02, 0.02), P(fh * 0.94, fh * 1.48, 0.02), P(-fh * 0.94, fh * 1.48, 0.02)];
+        if (pl.every(p => p.f > 0.1)) emitFace(decoDepth(pl[0].f, pl[1].f, pl[2].f, pl[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(96,76,52,0.85)'; ctx.beginPath(); pl.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+      // 3) Doorway + BARRELS either side of it, standing on the boardwalk under the canvas.
+      { const [gx, gy] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, bodyTop * 0.5, 'ty_door', seed + 4, night, alpha, false); }
+      for (const s of [-0.44, 0.44]) { const [bx, by] = F(fh * s, fh * 1.14); drawFacetDrum(ctx, cam, bx, by, 0, h * 0.17, fh * 0.09, fh * 0.085, 9, alpha, (f) => `rgb(${112 + f.nl * 52 | 0},${86 + f.nl * 40 | 0},${52 + f.nl * 24 | 0})`, 'rgb(72,54,34)'); }
+      // 4) THE DRY GOODS painted across the parapet in white, and a smaller price board by the door.
+      if (frontVis) {
+        const bz0 = frontTop * 0.62, bz1 = frontTop * 0.86, bhw = fh * 0.84;
+        const TL = P(-bhw, FR + 0.006, bz1), TR = P(bhw, FR + 0.006, bz1), BR = P(bhw, FR + 0.006, bz0), BL = P(-bhw, FR + 0.006, bz0);
+        if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE DRY GOODS', '#f2ead6', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+        if (night) { const [wx, wy] = F(-fh * 0.4, fh * 0.96); glowPool(ctx, cam, wx, wy, bodyTop * 0.52, '255,198,124', 11, alpha * 0.42); }   // goods-lit window
+      }
+      if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.6, '255,208,132', 12, alpha * 0.18);
+      break;
+    }
+    case 'assay': {   // THE ASSAY (The Reach) — a squat poured blockhouse wearing a two-storey false
+      // front that fools nobody: ASSAY a foot high, a steel shutter on rails beside the door, a fume
+      // stack breathing something thin, and a hard blue-white burner glow behind the one window.
+      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+      const bodyTop = h * 0.5, frontTop = h * 1.3, FR = fh * 1.0;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.84, 0, bodyTop, pal, seed, night, alpha, true);
+      { const [fx, fy] = F(0, fh * 0.18); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.82, 0, frontTop, 'ty_reach_assay_dk', seed + 1, night, alpha, true); }
+      // 1) STEEL SHUTTER on rails beside the door — a proud slab of plate that comes down fast.
+      { const [sx, sy] = F(fh * 0.46, fh * 0.94); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.2, bodyTop * 0.06, bodyTop * 0.78, 'ty_reach_skin', seed + 5, night, alpha, false); }
+      { const [gx, gy] = F(-fh * 0.2, fh * 0.9); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.15, 0, bodyTop * 0.56, 'ty_door', seed + 4, night, alpha, false); }
+      // 2) FUME STACK — a thin pipe off the back shoulder with a colourless wisp coming off it.
+      { const [px, py] = F(fh * 0.5, -fh * 0.42), stackTop = h * 1.02;
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.05, 0, stackTop, 'ty_reach_assay_dk', seed + 6, night, alpha, true);
+        drawSmoke(ctx, cam, px, py, stackTop, '176,180,168', alpha * 0.6, now, seed + 6); }
+      // 3) The balance sits on a stone plinth inside; from outside it reads as one hard-lit window.
+      { const [wx, wy] = F(-fh * 0.44, fh * 0.9); glowPool(ctx, cam, wx, wy, bodyTop * 0.6, '190,232,255', 8, alpha * (night ? 0.46 : 0.2)); }
+      // 4) ASSAY, and under it in a different hand and a different decade, the disclaimer.
+      if (frontVis) {
+        const bhw = fh * 0.7;
+        for (const [txt, col, z0, z1, hwm] of [['ASSAY', '#dfe6ea', frontTop * 0.66, frontTop * 0.9, 1],
+                                               ['WE DO NOT ASK WHERE', '#9aa4a8', frontTop * 0.5, frontTop * 0.6, 1.04]]) {
+          const w = bhw * hwm;
+          const TL = P(-w, FR + 0.006, z1), TR = P(w, FR + 0.006, z1), BR = P(w, FR + 0.006, z0), BL = P(-w, FR + 0.006, z0);
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText(txt, col, night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); }
+        }
+      }
+      if (night) glowPool(ctx, cam, dx, dy, bodyTop * 0.7, '150,200,224', 10, alpha * 0.16);
+      break;
+    }
+    case 'undertaker': {   // THE QUIET TRADE (The Reach) — the one building on the street with no sign
+      // on it, and everybody knows what it is: a narrow flat-grey false front gone chalky, a shuttered
+      // window, a length of black ribbon over the door, and the pipe stock leaning against the flank.
+      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+      const bodyTop = h * 0.56, frontTop = h * 1.1, FR = fh * 1.0;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.62, 0, bodyTop, pal, seed, night, alpha, true);
+      { const [fx, fy] = F(0, fh * 0.3); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.6, 0, frontTop, 'ty_reach_grey_dk', seed + 1, night, alpha, true); }
+      // 1) SHUTTERED WINDOW — boarded from the inside, so it reads as a flat dead panel, not glass.
+      if (frontVis) { const wz0 = bodyTop * 0.3, wz1 = bodyTop * 0.72, whw = fh * 0.24;
+        const q = [P(-whw - fh * 0.18, FR + 0.004, wz1), P(-fh * 0.18 + whw, FR + 0.004, wz1), P(-fh * 0.18 + whw, FR + 0.004, wz0), P(-whw - fh * 0.18, FR + 0.004, wz0)];
+        if (q.every(p => p.f > 0.12)) emitFace(decoDepth(q[0].f, q[1].f, q[2].f, q[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(38,38,40,0.94)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+      // 2) The door, and the BLACK RIBBON nailed above it and replaced whenever it frays.
+      { const [gx, gy] = F(fh * 0.24, fh * 0.94); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.14, 0, bodyTop * 0.54, 'ty_door', seed + 4, night, alpha, false); }
+      if (frontVis) { const rz0 = bodyTop * 0.58, rz1 = bodyTop * 0.66, rhw = fh * 0.2;
+        const q = [P(fh * 0.24 - rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz1), P(fh * 0.24 + rhw, FR + 0.005, rz0), P(fh * 0.24 - rhw, FR + 0.005, rz0)];
+        if (q.every(p => p.f > 0.12)) emitFace(decoDepth(q[0].f, q[1].f, q[2].f, q[3].f), () => { ctx.globalAlpha = alpha; ctx.fillStyle = 'rgba(14,12,14,0.95)'; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; }); }
+      // 3) PIPE STOCK — cut lengths leaned against the flank, waiting to be given a name.
+      for (const [i, s] of [[0, -0.86], [1, -0.78], [2, -0.7]]) {
+        const [px, py] = F(fh * s, -fh * 0.1 + i * fh * 0.06);
+        draw3DBoxAt(ctx, cam, px, py, fh * 0.025, 0, bodyTop * (0.62 + i * 0.06), 'ty_reach_skin', seed + 12 + i, night, alpha, false);
+      }
+      // 4) One lamp over the door, left on. The chiller cabinet's draw is the only load in the building.
+      { const [lx, ly] = F(fh * 0.24, fh * 1.02); glowPool(ctx, cam, lx, ly, bodyTop * 0.8, '210,214,220', 5, alpha * (night ? 0.42 : 0.16)); }
+      break;
+    }
+    case 'bathhouse': {   // THE LONG SOAK (The Reach) — the only building in town that spends water on
+      // purpose: a long low shed under a shallow roof, a boiler stack leaning a permanent thread of
+      // steam off the ridge, header tanks on the roof, and mismatched bolted letters, one upside down.
+      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+      const wallTop = h * 0.44, FR = fh * 1.0;
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.06, 0, wallTop, pal, seed, night, alpha, false);
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, wallTop, wallTop + h * 0.06, 'ty_reach_bath_roof', seed + 1, night, alpha, true);
+      // 1) BOILER STACK off the back corner, breathing steam that never quite stops.
+      { const [px, py] = F(-fh * 0.62, -fh * 0.5), stackTop = h * 0.98;
+        drawFacetDrum(ctx, cam, px, py, 0, stackTop, fh * 0.08, fh * 0.07, 8, alpha, (f) => `rgb(${86 + f.nl * 40 | 0},${78 + f.nl * 34 | 0},${66 + f.nl * 26 | 0})`, 'rgb(58,50,42)');
+        drawSmoke(ctx, cam, px, py, stackTop, '212,214,210', alpha * 0.8, now, seed + 7); }
+      // 2) HEADER TANKS on the roof — two drums on a cradle, feeding the manifold by gravity.
+      for (const [i, s] of [[0, -0.3], [1, 0.28]]) { const [tx, ty] = F(fh * s, -fh * 0.16), z0 = wallTop + h * 0.06;
+        drawFacetDrum(ctx, cam, tx, ty, z0, z0 + h * 0.2, fh * 0.16, fh * 0.16, 9, alpha, (f) => `rgb(${100 + f.nl * 44 | 0},${92 + f.nl * 40 | 0},${76 + f.nl * 30 | 0})`, 'rgb(66,60,50)');
+        drawRing(ctx, cam, tx, ty, z0 + h * 0.12, fh * 0.165, 9, 'rgba(0,0,0,0.28)', 1, alpha); void i; }
+      // 3) Door, and a low step off the boardwalk.
+      { const [gx, gy] = F(0, fh * 1.08); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.16, 0, wallTop * 0.66, 'ty_door', seed + 4, night, alpha, false); }
+      // 4) THE LONG SOAK in bolted-on letters. The 'A' is fitted upside down and has been for so long
+      //    that it counts as the name now: its quad is drawn with the top and bottom corners swapped.
+      if (frontVis) {
+        const bz0 = wallTop * 1.02, bz1 = wallTop * 1.4, x0 = -fh * 0.92, span = fh * 1.84, N = 13;   // 'THE LONG SOAK'
+        const cell = (i, n) => [x0 + span * (i / N), x0 + span * ((i + n) / N)];
+        for (const [txt, i, n, flip] of [['THE LONG SO', 0, 11, false], ['A', 11, 1, true], ['K', 12, 1, false]]) {
+          const [xa, xb] = cell(i, n);
+          const tl = P(xa, FR + 0.006, bz1), tr = P(xb, FR + 0.006, bz1), br = P(xb, FR + 0.006, bz0), bl = P(xa, FR + 0.006, bz0);
+          if (![tl, tr, br, bl].every(p => p.f > 0.12)) continue;
+          const tex = bakeSignText(txt, '#cfe9df', night ? 1 : 0, false);
+          const [A, B, C, D] = flip ? [bl, br, tr, tl] : [tl, tr, br, bl];
+          emitFace(decoDepth(tl.f, tr.f, br.f, bl.f), () => drawSurfaceText(ctx, A, B, C, D, tex, false, alpha));
+        }
+      }
+      // 5) Steam glow at the eaves and a warm wet light out of the doorway.
+      if (night) { const [lx, ly] = F(0, fh * 1.04); glowPool(ctx, cam, lx, ly, wallTop * 0.6, '190,255,232', 9, alpha * 0.34); }
+      glowPool(ctx, cam, dx, dy, wallTop + h * 0.12, '214,226,220', 10, alpha * (night ? 0.2 : 0.12));
+      break;
+    }
+    case 'lastload': {   // THE LAST LOAD (The Reach) — the freight shed at the south end, mismatched
+      // sheet with half of it aircraft skin, roller door up because it is always up, and THE LAST LOA
+      // hand-painted across the lintel by somebody who ran out of wall before they ran out of word.
+      const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+      const wallTop = h * 0.66, hw = fh * 0.92, archH = hw * 0.3;
+      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);
+      drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.96, wallTop, archH, 8, alpha, [126, 122, 114]);
+      // 1) The mismatched panels — two salvaged plates of a different metal slapped over the flank.
+      { const [px, py] = F(-hw * 0.58, -hw * 0.18); draw3DBoxAt(ctx, cam, px, py, hw * 0.24, wallTop * 0.14, wallTop * 0.7, 'ty_reach_rust', seed + 3, night, alpha, false); }
+      { const [px, py] = F(-hw * 0.58, hw * 0.34); draw3DBoxAt(ctx, cam, px, py, hw * 0.2, wallTop * 0.3, wallTop * 0.92, 'ty_reach_hangar', seed + 4, night, alpha, false); }
+      // 2) ROLLER DOOR, up. A dark bay wide enough to take a truck, with the door itself rolled into
+      //    a drum above the opening.
+      if (frontVis) {
+        const odw = hw * 0.6, oTop = wallTop * 0.76;
+        const o = [P(-odw, hw + 0.003, 0), P(odw, hw + 0.003, 0), P(odw, hw + 0.003, oTop), P(-odw, hw + 0.003, oTop)];
+        if (o.every(p => p.f > 0.1)) emitFace(o.reduce((s, p) => s + p.f, 0) / 4 - 0.002, () => {
+          const trace = (pp) => { ctx.beginPath(); pp.forEach((p, i) => i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)); ctx.closePath(); };
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = night ? 'rgba(40,36,30,0.96)' : 'rgba(16,16,18,0.97)'; trace(o); ctx.fill();
+          ctx.strokeStyle = 'rgba(8,8,10,0.9)'; ctx.lineWidth = 1.4; trace(o); ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
+        { const [rx, ry] = F(0, hw * 0.96); drawFacetDrum(ctx, cam, rx, ry, oTop, oTop + h * 0.08, odw, odw, 6, alpha, (f) => `rgb(${118 + f.nl * 44 | 0},${114 + f.nl * 40 | 0},${106 + f.nl * 34 | 0})`, 'rgb(70,68,64)'); }
+        // THE LAST LOA — freehand, and then they gave up on the second D.
+        { const bz0 = oTop + h * 0.1, bz1 = oTop + h * 0.22, bhw = hw * 0.66;
+          const TL = P(-bhw, hw + 0.006, bz1), TR = P(bhw, hw + 0.006, bz1), BR = P(bhw, hw + 0.006, bz0), BL = P(-bhw, hw + 0.006, bz0);
+          if ([TL, TR, BR, BL].every(p => p.f > 0.12)) { const tex = bakeSignText('THE LAST LOA', m.neon || '#ffb14a', night ? 1 : 0, false); emitFace(decoDepth(TL.f, TR.f, BR.f, BL.f), () => drawSurfaceText(ctx, TL, TR, BR, BL, tex, false, alpha)); } }
+        if (night) { const [bx, by] = F(0, hw); glowPool(ctx, cam, bx, by, wallTop * 0.34, '255,200,132', 12, alpha * 0.36); }
+      }
+      // 3) TWO TRAILERS on their legs alongside, grass grown up through the axles.
+      for (const [i, s] of [[0, 0.78], [1, 1.18]]) {
+        const [tx, ty] = F(fh * s, -fh * 0.1);
+        draw3DBoxAt(ctx, cam, tx, ty, fh * 0.16, h * 0.14, h * 0.46, 'ty_reach_hangar', seed + 20 + i, night, alpha, true);
+        for (const o of [-0.1, 0.1]) { const [lx, ly] = F(fh * s + fh * o, -fh * 0.1); draw3DBoxAt(ctx, cam, lx, ly, fh * 0.02, 0, h * 0.14, 'ty_reach_grey_dk', seed + 24 + i, night, alpha, false); }
+      }
+      // 4) A fuel can wedging something open, which is how everything here is held.
+      { const [cx, cy] = F(-hw * 0.5, hw * 1.06); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.05, 0, h * 0.1, 'ty_reach_rust', seed + 30, night, alpha, true); }
       break;
     }
     case 'hangar': {   // AIRPORT: glazed passenger terminal + hangar shed + ATC tower, floodlit at night
@@ -9171,11 +9435,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // and a tableland tile take the same call and differ only in the run they hand it, so
     // there is no seam through the middle of a massif.
     if (it.c.hi && !it.c.bt) {
-      emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun));
+      emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun, it.wx, it.wy));
       continue;
     }
     if (bi === 'park' && !it.c.bt) { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
     if (bi === 'forest' && !it.c.bt && !it.c.road) { emitFace(od, () => drawForestTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // painted woodland: a full stand per tile, not the parkland lone tree
+    if (bi === 'deadwood' && !it.c.bt && !it.c.road) { emitFace(od, () => drawDeadStand(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // the mirror of forest: a full stand of the snag the ash flats scatter one of
+    // Steam stands off the hot water itself. Every OTHER tile, so a spring reads as a body of water
+    // venting in places rather than as a uniform fog bank, which is what a full-density plume looked
+    // like from altitude.
+    if (bi === 'hotspring' && !it.c.bt) { if ((it.seed % 2) === 0) emitFace(od, () => drawSteamPlume(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now)); continue; }
     if (bi === 'parkland' && !it.c.bt) { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
     // Per-tile jitter: nudge a scattered object off its tile centre by a world-stable hash so the
     // wilds don't read as objects lined up on the grid. Two independent hashes (x/y) span ±~0.4 tile,
@@ -9195,6 +9464,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // `cliff` is gone from this list: it is a raised MASS now (drawCliffMass, above), and
     // a cliff tile never reaches here. Scattering boulders at ground level over a tile that
     // stands half a world-z above it put the rocks at the foot of an invisible landform.
+    // basalt scatters at redrock's density (a lava field is strewn with the stuff it froze out of);
+    // sinter is nearly bare, like the alkali flat it resembles, because a mineral apron that sprouts
+    // boulders stops reading as something the water laid down.
+    if ((bi === 'basalt' || bi === 'sinter') && !it.c.bt) { const every = bi === 'basalt' ? 2 : 8; if ((it.seed % every) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi === 'basalt' ? 'ash' : 'alkali', night, it.seed, alpha)); continue; }
     if ((bi === 'hardpan' || bi === 'alkali') && !it.c.bt) { const every = bi === 'hardpan' ? 5 : 9; if ((it.seed % every) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests

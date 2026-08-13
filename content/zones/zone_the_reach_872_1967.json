@@ -12,11 +12,10 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Thorn and hardpan and a wind that never fully commits. The town is somewhere behind you and does not look any closer when you turn around.",
   "exits": {
     "east": "zone_the_reach_873_1967",
     "north": "zone_the_reach_872_1966",
-    "south": "zone_the_reach_872_1968",
     "west": "zone_the_reach_871_1967"
   },
   "flags": {
@@ -25,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 912,
-  "grid_y": 995,
+  "grid_y": 1051,
   "grid_z": 0,
   "id": "zone_the_reach_872_1967",
   "map_id": "map_world",
-  "name": "The Reach 872,1967",
+  "name": "The Deep Scrub",
   "parent_zone": null
 }

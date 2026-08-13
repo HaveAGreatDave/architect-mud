@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The wind has all the room it needs here and uses it. Grit ticks off your teeth if you talk.",
   "exits": {
     "east": "zone_the_reach_879_1953",
     "north": "zone_the_reach_878_1952",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 918,
-  "grid_y": 981,
+  "grid_y": 1037,
   "grid_z": 0,
   "id": "zone_the_reach_878_1953",
   "map_id": "map_world",
-  "name": "The Reach 878,1953",
+  "name": "The Long Flats",
   "parent_zone": null
 }

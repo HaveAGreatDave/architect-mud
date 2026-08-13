@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "The crust gives very slightly underfoot and does not break, which is somehow worse.",
+    "A plate of it lifts at the edge and there is water under it, and the water is moving.",
+    "Yellow along every crack, in a colour nothing else here is.",
+    "Somebody has driven a peg at the edge of the sound ground and painted the top of it white.",
     "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
     "The wind comes across the flat and there is nothing here for it to make a noise against.",
     "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
-    "Something metal has been dragged across the flat here, one long score, going west.",
-    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
-    "The light goes flat and colourless and the horizon stops being a line at all.",
-    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
-    "A bird goes over, low, and you hear the feathers.",
-    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
-    "Your boots come up grey to the ankle and stay that way."
+    "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "Packed ash, and it holds a print the way nothing else does: the flat is crossed with tracks, most of them feet and one set of wheels, all going the same two ways, and none of them washed out. Off north a grey wall goes across the whole horizon with water standing behind it.",
+  "description": "Crust, bone-pale, crazed all over into plates and stained sulphur-yellow along every crack. Warm through the sole. Somebody has laid a run of planks across the worst of it and pegged them down, and the planks are recent.",
   "exits": {
     "east": "zone_dw_780_970",
     "north": "zone_dw_779_969",
@@ -25,13 +22,13 @@
     "lawless": true,
     "region_id": "region_deadwater",
     "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "ash"
+    "terrain": "sinter"
   },
   "grid_x": 779,
   "grid_y": 970,
   "grid_z": 0,
   "id": "zone_dw_779_970",
   "map_id": "map_world",
-  "name": "The Print Ground",
+  "name": "Crustground",
   "parent_zone": null
 }

@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A low ridge of pale wreck and paler bone, picked over so thoroughly that even the pickers have stopped coming. The wind moves through it with a dry whistling note.",
   "exits": {
     "east": "zone_the_reach_865_1948",
     "south": "zone_the_reach_864_1949",
@@ -24,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 904,
-  "grid_y": 976,
+  "grid_y": 1032,
   "grid_z": 0,
   "id": "zone_the_reach_864_1948",
   "map_id": "map_world",
-  "name": "The Reach 864,1948",
+  "name": "The Bonepile Reach",
   "parent_zone": null
 }

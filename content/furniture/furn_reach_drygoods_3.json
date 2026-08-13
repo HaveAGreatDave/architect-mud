@@ -1,0 +1,14 @@
+{
+  "description": "A coil of good rope on an iron hook, sold by the arm-length and cut with a knife kept on a nail beside it. There is a second, shorter coil that is not for sale and nobody has ever explained.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_drygoods_3",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rope hook",
+  "object_type": "decoration",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_drygoods_lobby"
+}

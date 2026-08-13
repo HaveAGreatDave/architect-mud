@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "The manifold clanks somewhere overhead and every tap in the room shudders in sympathy.",
+    "Steam rolls off the water and goes looking for the ceiling.",
+    "Someone in the far tub lets out a long breath and slides down another inch.",
+    "The boiler out back thumps twice and settles into its rhythm.",
+    "Water runs off the slats and finds the drain, unhurried.",
+    "The mirror gives up entirely and fogs over from edge to edge."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Warm, wet air that fogs everything you own inside of a minute. Four deep tubs of riveted steel sit in a row on a slatted floor, each one big enough to lose a man in, each fed by its own tap off a manifold that clanks when anyone anywhere in the building turns something. A barber's chair stands by the window under a shelf of straight razors. Somebody has hung a mirror. The steam has beaten it.",
+  "exits": {
+    "down": "zone_util_zone_bld_reach_soak_lobby",
+    "north": "zone_the_reach_870_1956"
+  },
+  "flags": {
+    "is_building": true,
+    "is_interior": true,
+    "lawless": true,
+    "window": {
+      "description": "A shopfront pane onto Main Street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",
+      "light": 0.85,
+      "name": "the shopfront window",
+      "visibility": 0.9
+    },
+    "world_exit_zone": "zone_the_reach_870_1956"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_bld_reach_soak_lobby",
+  "map_id": "map_int_bld_reach_soak",
+  "name": "The Soaking Room",
+  "parent_zone": "zone_the_reach_870_1956"
+}

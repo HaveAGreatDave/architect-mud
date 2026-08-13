@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The ground crunches. It is not gravel. Whatever died out here died in enough numbers that walking quietly is not an option.",
   "exits": {
     "east": "zone_the_reach_866_1949",
     "north": "zone_the_reach_865_1948",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 905,
-  "grid_y": 977,
+  "grid_y": 1033,
   "grid_z": 0,
   "id": "zone_the_reach_865_1949",
   "map_id": "map_world",
-  "name": "The Reach 865,1949",
+  "name": "Bonepile Flats",
   "parent_zone": null
 }

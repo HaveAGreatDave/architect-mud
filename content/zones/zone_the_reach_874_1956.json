@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "A shallow wash runs past the edge of town, dry eleven months out of twelve, carrying a season's worth of the Reach's smaller mistakes down toward the flats.",
   "exits": {
     "east": "zone_the_reach_875_1956",
     "north": "zone_the_reach_874_1955",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 914,
-  "grid_y": 984,
+  "grid_y": 1040,
   "grid_z": 0,
   "id": "zone_the_reach_874_1956",
   "map_id": "map_world",
-  "name": "The Reach 874,1956",
+  "name": "The Town Flats",
   "parent_zone": null
 }

@@ -10,7 +10,11 @@
 // tiles so the region stays a hole-free rectangle (the void requires that), but nothing connects to
 // it. That is deliberate: in pass 1 the inside is a rumour.
 //
-// LAYOUT (14x14, x 1200-1213, y 910-923). You arrive from the WEST, off Coldwater's east rim.
+// LAYOUT (14x14, x 1200-1213, y 934-947). You arrive from the WEST, off Coldwater's east rim.
+//
+// The y band is deliberate: it sits well south of the basin coast (water reaches y909 on this
+// side of the map), so Terminus reads as inland desert rather than a settlement on the shore, and
+// its south edge is level with Coldwater's own south rim.
 //
 //     x1200 .. 1204   1205    1206 .. 1213
 //     +-------------+------+---------------+
@@ -35,9 +39,9 @@ import { join } from 'path';
 
 const ROOT = process.cwd();
 const REGION = 'region_terminus';
-const X0 = 1200, X1 = 1213, Y0 = 910, Y1 = 923;
+const X0 = 1200, X1 = 1213, Y0 = 934, Y1 = 947;
 const WALL_X = 1205;                 // the wall column
-const ROAD_Y = 916;                  // the one road: runs east from the roadhead to the gate
+const ROAD_Y = 940;                  // the one road: runs east from the roadhead to the gate
 const APRON = (x) => x < WALL_X;
 
 const id = (x, y) => `zone_terminus_${x}_${y}`;
@@ -100,7 +104,7 @@ const pick = (arr, x, y) => arr[Math.abs(x * 31 + y * 17) % arr.length];
 const BUILDINGS = {
   // The quartermaster. The district's joke: a creed that renounces the machine still needs
   // bearings, and somebody has to buy them from Coldwater.
-  [`${1202}_${915}`]: {
+  [`${1202}_${939}`]: {
     name: 'Last Requisition', type: 'warehouse', entrance: 'south', floors: 1,
     desc: 'A long shed of corrugated sheet, painted the colour of the rock so it barely reads as a building at all. The doors stand open on crates stencilled with Coldwater foundry marks that somebody has made a serious effort to scrub off and then given up on. A hand-lettered board by the door lists what is wanted and what is paid, and a second board underneath it, in the same hand, lists what will not be bought at any price.',
   },
@@ -120,7 +124,7 @@ const BUILDINGS = {
 // you see roofs and nothing else, and at night you see them lit. It turns the wall from a bunker
 // into a community you are outside of, which is a much harder thing to walk away from.
 const GLASSHOUSES = [
-  [1207, 913], [1207, 919], [1209, 916], [1211, 912], [1211, 920],
+  [1207, 937], [1207, 943], [1209, 940], [1211, 936], [1211, 944],
 ];
 const glasshouse = (n) => ({
   name: `Glasshouse ${n}`, type: 'greenhouse', entrance: 'west', floors: 2,
@@ -210,7 +214,7 @@ function main() {
         flags.truck_fuel = true;    // the only diesel between here and Coldwater, sold reluctantly
       }
       // THE GANTRY. A VTOL pad, not an airstrip: they built it to leave the planet.
-      if (x === 1203 && y === 919) {
+      if (x === 1203 && y === 943) {
         Object.assign(flags, { airfield_id: 'terminus_gantry' });
       }
 
@@ -282,7 +286,7 @@ function main() {
     capacity_kw: 10000, city_generator_id: null, connection_range: 0, flags: {},
     fuel_burn_rate: 0, fuel_remaining: 0, fuel_type: null, generator_type: 'city_plant',
     id: 'gen_region_region_terminus', name: 'The Standing Charge', owner_id: null,
-    zone_id: id(1201, 920),
+    zone_id: id(1201, 944),
   });
   // vtol_only is the whole point: the circle-H pad renders instead of a strip, and anything with a
   // wing cannot use it. They were never building for aeroplanes.

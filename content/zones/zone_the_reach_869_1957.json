@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Ruts deep enough to catch a boot, cut by something heavy that comes through more often than the town admits. A stack of pallets leans against a wall with the top one weighted by a rock. Chalk marks on the plate siding, a number and an arrow, meaning something to two people in the Reach.",
   "exits": {
     "east": "zone_the_reach_870_1957",
     "north": "zone_the_reach_869_1956",
@@ -30,10 +30,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 909,
-  "grid_y": 985,
+  "grid_y": 1041,
   "grid_z": 0,
   "id": "zone_the_reach_869_1957",
   "map_id": "map_world",
-  "name": "The Reach 869,1957",
+  "name": "The Back Track",
   "parent_zone": null
 }

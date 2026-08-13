@@ -12,7 +12,7 @@
   "description": "The shed floor, high enough to stand a trailer in and long enough to stand three. Diesel, cold iron and the ghost of somebody's lunch. Trucks nose-in along one wall under a strip light with a flicker in it; along the other, racking, pallets, and a desk with a board over it — freight going out, prices coming in, and a chalked column of what the exchange is paying today. The door stands open on the road south.",
   "exits": {
     "down": "zone_util_zone_yard_roadhead",
-    "south": "zone_terminus_1202_915"
+    "south": "zone_terminus_1202_939"
   },
   "flags": {
     "building_name": "Last Requisition",
@@ -22,9 +22,9 @@
     "region_id": "region_terminus",
     "truck_depot": {
       "name": "The Roadhead Depot",
-      "yard": "zone_terminus_1202_916"
+      "yard": "zone_terminus_1202_940"
     },
-    "world_exit_zone": "zone_terminus_1202_915"
+    "world_exit_zone": "zone_terminus_1202_939"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -32,5 +32,5 @@
   "id": "zone_yard_roadhead",
   "map_id": "map_int_yard_roadhead",
   "name": "Last Requisition — the shed",
-  "parent_zone": "zone_terminus_1202_915"
+  "parent_zone": "zone_terminus_1202_939"
 }

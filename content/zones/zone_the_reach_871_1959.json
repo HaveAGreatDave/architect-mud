@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The road's last stretch before the waste takes it. Somebody has laid a run of pierced steel plank across the softest part and pegged it down, which works, which is the highest praise anything in the Reach gets. Out past it the scrub goes on for as long as you want to think about.",
   "exits": {
     "east": "zone_the_reach_872_1959",
     "north": "zone_the_reach_871_1958",
@@ -28,10 +28,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 911,
-  "grid_y": 987,
+  "grid_y": 1043,
   "grid_z": 0,
   "id": "zone_the_reach_871_1959",
   "map_id": "map_world",
-  "name": "The Reach 871,1959",
+  "name": "The Field Road, South End",
   "parent_zone": null
 }

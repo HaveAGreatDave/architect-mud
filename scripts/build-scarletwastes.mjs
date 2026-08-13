@@ -282,7 +282,7 @@ function computeForcedRamps() {
 
 const TERRAIN_OF = {
   lake: 'water', shore: 'dirt', haul: 'dirt_road', mesa: 'plateau', cliff: 'cliff',
-  ramp: 'gravel', scree: 'gravel', scrub: 'scrub', pan: 'sand', flat: 'redrock',
+  ramp: 'ramp', scree: 'gravel', scrub: 'scrub', pan: 'sand', flat: 'redrock',
 };
 
 // ── AMBIENT: the open waste ──────────────────────────────────────────────────

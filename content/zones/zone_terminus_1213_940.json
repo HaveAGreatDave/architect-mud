@@ -1,0 +1,35 @@
+{
+  "ambient_events": [
+    "Wind comes off the flats in one long unbroken note and does not stop.",
+    "Somebody is counting, somewhere out of sight, and does not hurry.",
+    "A line of figures crosses the middle distance, walking, and none of them look over.",
+    "Chalk marks on a rock face. A date, maybe. It has been corrected twice.",
+    "The gate does not open. Nothing about it suggests it is going to.",
+    "Two figures pass on the wall walk. Neither speaks. Both change direction.",
+    "Somewhere behind the wall, a great many people stop doing something at the same moment.",
+    "A child watches you from the top of the wall. An adult arrives and moves them along, and you do not hear anybody call.",
+    "The light goes flat and red and every stone throws a shadow twice its length.",
+    "Rope, coiled and re-coiled until it is perfect. Nobody has been near it.",
+    "A hand goes up on the wall walk, in greeting, a moment before you had decided to raise yours.",
+    "There is no rubbish here. Not a scrap, not anywhere, and no bins either.",
+    "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "north": "zone_terminus_1213_939",
+    "south": "zone_terminus_1213_941",
+    "west": "zone_terminus_1212_940"
+  },
+  "flags": {
+    "region_id": "region_terminus",
+    "terrain": "redrock"
+  },
+  "grid_x": 1213,
+  "grid_y": 940,
+  "grid_z": 0,
+  "id": "zone_terminus_1213_940",
+  "map_id": "map_world",
+  "name": "Scoured Rock",
+  "parent_zone": null
+}

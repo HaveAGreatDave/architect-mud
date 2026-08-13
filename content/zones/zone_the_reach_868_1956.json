@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "An unclaimed lot on the wrong side of the street, staked out with rebar and twine by somebody with a plan and no follow-through. The twine has gone brittle and one corner has blown flat. A stack of salvaged plate sits in the middle of it, sun-bleached on top, still oily underneath.",
   "exits": {
     "east": "zone_the_reach_869_1956",
     "north": "zone_the_reach_868_1955",
@@ -28,10 +28,10 @@
     "terrain": "dirt"
   },
   "grid_x": 908,
-  "grid_y": 984,
+  "grid_y": 1040,
   "grid_z": 0,
   "id": "zone_the_reach_868_1956",
   "map_id": "map_world",
-  "name": "The Reach 868,1956",
+  "name": "The West Lots",
   "parent_zone": null
 }

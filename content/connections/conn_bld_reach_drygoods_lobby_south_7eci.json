@@ -1,0 +1,9 @@
+{
+  "a": "zone_bld_reach_drygoods_lobby",
+  "b": "zone_the_reach_870_1954",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_bld_reach_drygoods_lobby_south_7eci",
+  "lockable": true,
+  "one_way": false
+}

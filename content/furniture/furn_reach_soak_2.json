@@ -1,0 +1,14 @@
+{
+  "description": "A pre-Handoff barber's chair, cast iron and cracked leather, pumped up and down with a foot pedal that shrieks. The headrest has been replaced with a folded towel and never replaced again.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_reach_soak_2",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the barber chair",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_bld_reach_soak_lobby"
+}

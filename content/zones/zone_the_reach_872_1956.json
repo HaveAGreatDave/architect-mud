@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Tyre ruts fan out from the town and lose their nerve one by one. A cairn of stacked plate marks something, or marked something, back when the person who stacked it was still around.",
   "exits": {
     "east": "zone_the_reach_873_1956",
     "north": "zone_the_reach_872_1955",
@@ -25,10 +25,10 @@
     "terrain": "scrub"
   },
   "grid_x": 912,
-  "grid_y": 984,
+  "grid_y": 1040,
   "grid_z": 0,
   "id": "zone_the_reach_872_1956",
   "map_id": "map_world",
-  "name": "The Reach 872,1956",
+  "name": "The Town Flats",
   "parent_zone": null
 }

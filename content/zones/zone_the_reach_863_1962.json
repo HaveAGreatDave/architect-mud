@@ -12,7 +12,7 @@
     "The light goes long and copper, and the whole waste seems to hold its breath."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Scrub grows in the lee of the stone, thicker and darker than out on the open flats, and the shade under it holds the night's cool most of the morning.",
   "exits": {
     "east": "zone_the_reach_864_1962",
     "north": "zone_the_reach_863_1961",
@@ -24,10 +24,10 @@
     "terrain": "scrub"
   },
   "grid_x": 903,
-  "grid_y": 990,
+  "grid_y": 1046,
   "grid_z": 0,
   "id": "zone_the_reach_863_1962",
   "map_id": "map_world",
-  "name": "The Reach 863,1962",
+  "name": "Sisters Wash",
   "parent_zone": null
 }

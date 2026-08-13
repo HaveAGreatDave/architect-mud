@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The track runs out toward the airstrip here, and the ground turns to grit that skitters when the wind gets under it. A fifty-gallon drum has been cut in half and set up as a burn barrel; the inside is white with ash and the rim is warm. Whatever was burnt in it last, nobody wrote down.",
   "exits": {
     "east": "zone_the_reach_870_1958",
     "north": "zone_the_reach_869_1957",
@@ -30,10 +30,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 909,
-  "grid_y": 986,
+  "grid_y": 1042,
   "grid_z": 0,
   "id": "zone_the_reach_869_1958",
   "map_id": "map_world",
-  "name": "The Reach 869,1958",
+  "name": "The Back Track, Lower",
   "parent_zone": null
 }

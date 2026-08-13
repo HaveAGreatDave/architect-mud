@@ -2416,6 +2416,11 @@ const WATER_MIN_C = 2;          // liquid, but only just — the ice edge
 const WATER_MAX_C = 24;         // a shallow temperate sea at the end of a hot summer
 const DEEP_WATER_DROP_C = 5;    // below the thermocline, colder and far more stable
 const DEEP_WATER_MAX_C = 12;
+// A geothermal spring, held at a bathing temperature all year. Hot enough to be a genuine warm
+// refuge against the body-temperature model (comfortably above skin), and deliberately NOT scalding:
+// a tile that boils people needs a damage channel, and this feature does not have one. A spring
+// that should hurt authors `water_temp_c` and gets it, since that check runs first.
+const THERMAL_WATER_C = 39;
 export function waterTemperature(zoneId) {
   // Flags come from the WORLD, not from `state.zones`. The environment's own zone map is a
   // snapshot of the POWER graph and only ever contains zones that belong to a power zone —
@@ -2432,6 +2437,15 @@ export function waterTemperature(zoneId) {
   // flag — the 82 tiles the comment above found unreadable were migrated to that terrain.
   // So this asks the build what the tile resolved to, which also means a tile that
   // overrides the property one way or the other gets the matching temperature for free.
+  // GEOTHERMAL WATER. A hot spring is not a seasonal body of water — what heats it is under it,
+  // not above it — so it ignores the seasonal derivation entirely rather than offsetting it. This
+  // is deliberately the ONLY thing the feature adds: gameLoop uses waterTemperature as the
+  // effective ambient while submerged, so a spring warms you through the ordinary body-temperature
+  // model, with wet clothing and insulation working exactly as they do in cold water. There is no
+  // second warming system, no buff and no timer.
+  //
+  // Below the authored `water_temp_c` check on purpose: a tile that names a number still wins.
+  if (propsOf(zoneId).thermal) return THERMAL_WATER_C;
   if (!propsOf(zoneId).underwater) return Math.round(surface * 10) / 10;
   return Math.round(Math.max(WATER_MIN_C, Math.min(DEEP_WATER_MAX_C, surface - DEEP_WATER_DROP_C)) * 10) / 10;
 }

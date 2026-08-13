@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "Halfway down, where the town noise thins out and the wind comes back in. A windsock on a leaning pole marks the turn for the strip; it has been mended with three colours of tape and hangs dead most days. Aircraft grease has soaked the ground into a black patch that never quite dries.",
   "exits": {
     "east": "zone_the_reach_872_1957",
     "north": "zone_the_reach_871_1956",
@@ -28,10 +28,10 @@
     "terrain": "dirt_road"
   },
   "grid_x": 911,
-  "grid_y": 985,
+  "grid_y": 1041,
   "grid_z": 0,
   "id": "zone_the_reach_871_1957",
   "map_id": "map_world",
-  "name": "The Reach 871,1957",
+  "name": "The Field Road",
   "parent_zone": null
 }

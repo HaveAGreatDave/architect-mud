@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "The wind goes through the stand and makes almost no sound, because there is nothing left on them to make one with.",
+    "A trunk has a ring of pale mineral around it at knee height, and so does the next one, and so does the next.",
+    "Every one of them is grey on the same side, and it is the same side as the water.",
+    "A bird is up in the bare branches, doing nothing, in no hurry.",
     "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
     "The wind comes across the flat and there is nothing here for it to make a noise against.",
     "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
-    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
-    "Something metal has been dragged across the flat here, one long score, going west.",
-    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
-    "The light goes flat and colourless and the horizon stops being a line at all.",
-    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
-    "A bird goes over, low, and you hear the feathers.",
-    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
-    "Your boots come up grey to the ankle and stay that way."
+    "Tyre ruts, old ones, pressed into the grey and never rained back out."
   ],
   "ambient_theme": "wasteland",
-  "description": "Grey ash to the horizon, level and going nowhere in particular. Nothing grows in it worth the word and nothing has for a long time. There is a great deal of sky, and the quiet out here is not the absence of noise, it is the absence of anything that would make one.",
+  "description": "A stand of trees that died where they stood and never fell: bark long gone, trunks silver-grey and sanded smooth on the windward side, every branch bare and none of them broken off. There is no undergrowth at all. They are not close enough together to be a wood and there are far too many of them to be anything else.",
   "exits": {
     "east": "zone_dw_803_958",
     "north": "zone_dw_802_957",
@@ -25,13 +22,13 @@
     "lawless": true,
     "region_id": "region_deadwater",
     "scavenging_table_id": "scav_industrial_salvage",
-    "terrain": "ash"
+    "terrain": "deadwood"
   },
   "grid_x": 802,
   "grid_y": 958,
   "grid_z": 0,
   "id": "zone_dw_802_958",
   "map_id": "map_world",
-  "name": "The Grey Flat",
+  "name": "The Standing Dead",
   "parent_zone": null
 }

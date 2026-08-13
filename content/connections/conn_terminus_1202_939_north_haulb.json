@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1202_939",
+  "b": "zone_yard_roadhead",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_terminus_1202_939_north_haulb",
+  "lockable": true,
+  "one_way": false
+}

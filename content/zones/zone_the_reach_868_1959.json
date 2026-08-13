@@ -15,7 +15,7 @@
     "The light goes long and copper and every building in the Reach throws a shadow twice its height."
   ],
   "ambient_theme": "wasteland",
-  "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
+  "description": "The southwest corner of the settlement, marked by an upended truck bonnet somebody painted with a single word and then let the sun eat off it. From here the whole Reach is visible in one look: six roofs, a strip, and a lot of nothing arranged around them.",
   "exits": {
     "east": "zone_the_reach_869_1959",
     "north": "zone_the_reach_868_1958",
@@ -28,10 +28,10 @@
     "terrain": "dirt"
   },
   "grid_x": 908,
-  "grid_y": 987,
+  "grid_y": 1043,
   "grid_z": 0,
   "id": "zone_the_reach_868_1959",
   "map_id": "map_world",
-  "name": "The Reach 868,1959",
+  "name": "The West Lots, South Corner",
   "parent_zone": null
 }
