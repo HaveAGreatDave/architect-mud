@@ -1288,8 +1288,8 @@ export function paintWindshield(id, view) {
   // an aircraft's cabin. A truck's side window is just a window.)
   if (!v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw) drawCabInterior(ctx, W, H, v);
   else if (!v.windowClass && !ext) {
-    drawCanopy(ctx, W, H);   // DA62-style curved windscreen header (forward view)
-    drawCowl(ctx, W, H, v.cls);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
+    drawCanopyCached(ctx, W, H, dpr);   // DA62-style curved windscreen header (forward view)
+    drawCowlCached(ctx, W, H, v.cls, dpr);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   }
   if (!v.windowClass) drawWxBadge(ctx, W, bowArcs ? v.event.type : wx, v.wind);
   if (v.hud) drawHud(ctx, W, H, v);
@@ -1307,7 +1307,7 @@ export function paintWindshield(id, view) {
     ctx.restore();
   }
   // Passenger cabin: cut the view into a window shaped to fit the aircraft.
-  if (v.windowClass) drawWindowFrame(ctx, W, H, v.windowClass, v.livery);
+  if (v.windowClass) drawWindowFrameCached(ctx, W, H, v.windowClass, v.livery, dpr);
 
   ctx.restore();
 }
@@ -1735,6 +1735,57 @@ function drawCabMirror(ctx, x, y, w, h, v) {
   ctx.beginPath(); ctx.moveTo(x, y + h * 0.18); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h * 0.1); ctx.lineTo(x, y + h * 0.3);
   ctx.closePath(); ctx.fill();
   ctx.restore();
+}
+
+// ── Baked static overlays ────────────────────────────────────────────────────
+//
+// The canopy header, the nose cowl and the passenger window frame are the only three layers in the
+// scene that DO NOT MOVE. They are pure functions of (W, H, class, livery) — no time, no attitude,
+// no weather, no night — and between them they built ~14 gradients, two clips and a rivet loop
+// every frame, for a picture identical to the one they drew the frame before. Bake each into an
+// offscreen canvas once and blit it thereafter.
+//
+// SOURCE-OVER IS WHY THIS IS SAFE. Every one of the three paints only source-over (semi-transparent
+// fills and strokes layered onto whatever the world left behind), and source-over composition is
+// associative — layering A then B onto a transparent buffer and compositing the result over the
+// world gives exactly the pixels that compositing A then B directly over the world does. A layer
+// that reached for 'lighter', 'overlay' or ctx.filter could NOT be baked this way; that is the test
+// to apply before adding a fourth, and it is why the truck cab is absent from this list (its dash
+// texture is an 'overlay' pattern, and its charm and dials move anyway).
+//
+// The buffer is sized in BACKING pixels (W×dpr) and blitted into the W×H CSS-pixel rect the caller's
+// ctx is already scaled to, so the mapping is 1:1 and nothing is resampled. dpr is part of the key
+// because the dynamic-resolution dial moves it: a 0.1 step change re-bakes, which is exactly as
+// often as the canvas backing store itself re-allocates.
+const _bakedLayers = new Map();
+function bakedLayer(key, W, H, dpr, draw) {
+  const hit = _bakedLayers.get(key);
+  if (hit && hit.w === W && hit.h === H && hit.dpr === dpr) return hit.c;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(W * dpr)); c.height = Math.max(1, Math.round(H * dpr));
+  const cx = c.getContext('2d');
+  if (!cx) return null;
+  cx.scale(dpr, dpr);
+  draw(cx);
+  _bakedLayers.set(key, { c, w: W, h: H, dpr });
+  return c;
+}
+// The three wrappers. Each keeps the raw drawing function untouched and reachable — shapeRenderSmoke
+// still executes the real arm against its DOM stub, so the smoke test proves the geometry runs
+// rather than proving a cache returns a canvas.
+function drawCanopyCached(ctx, W, H, dpr) {
+  const c = bakedLayer('canopy', W, H, dpr, (cx) => drawCanopy(cx, W, H));
+  if (c) ctx.drawImage(c, 0, 0, W, H); else drawCanopy(ctx, W, H);
+}
+function drawCowlCached(ctx, W, H, cls, dpr) {
+  const c = bakedLayer(`cowl:${cls || 'default'}`, W, H, dpr, (cx) => drawCowl(cx, W, H, cls));
+  if (c) ctx.drawImage(c, 0, 0, W, H); else drawCowl(ctx, W, H, cls);
+}
+function drawWindowFrameCached(ctx, W, H, cls, livery, dpr) {
+  // Livery is part of the key: the hull surround is painted in the craft's own primary colour, so a
+  // repaint must re-bake. `base` is the only field drawWindowFrame reads off it.
+  const c = bakedLayer(`window:${cls}|${(livery && livery.base) || ''}`, W, H, dpr, (cx) => drawWindowFrame(cx, W, H, cls, livery));
+  if (c) ctx.drawImage(c, 0, 0, W, H); else drawWindowFrame(ctx, W, H, cls, livery);
 }
 
 const COWL_DEPTH = { ultralight: 0.12, heli: 0.14, prop: 0.17, heavy: 0.22, gunship: 0.19, wreck: 0.16, default: 0.17 };
@@ -2569,7 +2620,12 @@ const COAST_WOBBLE = 6, DIRT = BIOME_GROUND.badlands, REDROCK = BIOME_GROUND.red
 // past the west edge) nor flip the craft's land/sea memory to sea (open ocean bleeding in behind them).
 // Same world-pinned assumption as the rest of this function ("the bay sits at low y, sea is north-only").
 const BAY_SHORE_Y = 910;
-function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
+// `offLand` is the craft's smoothed land/sea memory (a number, or null when there is none yet) —
+// read-only here. The WRITE-BACK lives in rememberOffLand below, deliberately split out: this
+// function's whole result is cached across frames (see groundLUT), but the memory must keep easing
+// every frame or a held cache would freeze it. Returns `anyBuilt` so the caller knows which of the
+// original's three exits it took — only the built path ever updated the memory.
+function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, offLand = null) {
   const water = new Array(mh), land = new Array(mh);
   let anyBuilt = false;
   for (let y = 0; y < mh; y++) {
@@ -2590,7 +2646,7 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
   // inherit `st.offLand`, a smoothed 0..1 memory of whether the craft's ground point was over land the
   // last time any tile WAS built: land → run the wildlands on to the horizon; sea (or unknown) → ocean.
   if (!anyBuilt) {
-    if (!st || (st.offLand ?? 0) <= 0.5) return LUT;   // over open sea, or no memory yet → ocean fallback (unchanged)
+    if (offLand == null || offLand <= 0.5) return { LUT, anyBuilt };   // over open sea, or no memory yet → ocean fallback (unchanged)
     for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
       const awx = (x - R) + wcx, awy = (y - R) + wcy;
       const rr = clamp(0.55 + vnoise2(awx * 0.06, awy * 0.06) * 0.6 - 0.15, 0, 1);   // deep out reads mostly rust mesa, noise-mottled
@@ -2598,7 +2654,7 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
       LUT[y][x] = [col[0], col[1], col[2], 0, 0, reliefShade(awx, awy, litX, litY, 1)];
       if (wildOut) wildOut[y][x] = rr < 0.45 ? 'scrub' : 'redrock';
     }
-    return LUT;
+    return { LUT, anyBuilt };
   }
   const fW = distField(water, mw, mh), fL = distField(land, mw, mh);
   const dW = fW.d, dL = fL.d, wSrcY = fW.sy;   // wSrcY[y][x] = row of the nearest built water
@@ -2623,16 +2679,89 @@ function fillOffMap(LUT, mw, mh, R, wcx, wcy, litX, litY, wildOut, st = null) {
     LUT[y][x] = [col[0], col[1], col[2], 0, 0, shade];
     if (wildOut) wildOut[y][x] = rr < 0.45 ? 'scrub' : 'redrock';   // hand the object pass a matching scatter biome (dirt shore → scrub, rust deep → redrock mesa)
   }
-  // Remember whether the craft's ground point is over land vs water (now that the centre cell is
-  // resolved, on- or off-map), smoothed across frames so a fully-empty window can inherit it above.
-  if (st) {
-    const ci = Math.round(R), cc = LUT[ci] && LUT[ci][ci];
-    // Only the northern bay reads as "over sea"; crossing an inland river/canal (south of the shore)
-    // must NOT flip the memory, or the deep-off-map fallback would paint ocean once you've passed it.
-    const centerLand = cc ? ((cc[3] > 0.5 && ((ci - R) + wcy) <= BAY_SHORE_Y) ? 0 : 1) : (st.offLand ?? 0);
-    st.offLand = st.offLand == null ? centerLand : st.offLand + (centerLand - st.offLand) * 0.12;
+  return { LUT, anyBuilt };
+}
+
+// Remember whether the craft's ground point is over land vs water (now that the centre cell is
+// resolved, on- or off-map), smoothed across frames so a fully-empty window can inherit it above.
+// Called EVERY frame — including frames that reused a cached LUT — because the easing is per-frame.
+// Only ever called on the built path, matching the original's early returns.
+function rememberOffLand(LUT, R, wcy, st) {
+  if (!st) return;
+  const ci = Math.round(R), cc = LUT[ci] && LUT[ci][ci];
+  // Only the northern bay reads as "over sea"; crossing an inland river/canal (south of the shore)
+  // must NOT flip the memory, or the deep-off-map fallback would paint ocean once you've passed it.
+  const centerLand = cc ? ((cc[3] > 0.5 && ((ci - R) + wcy) <= BAY_SHORE_Y) ? 0 : 1) : (st.offLand ?? 0);
+  st.offLand = st.offLand == null ? centerLand : st.offLand + (centerLand - st.offLand) * 0.12;
+}
+
+// ── The ground-material LUT, CACHED ACROSS FRAMES ────────────────────────────
+//
+// Per-tile material for the whole visible window: [r, g, b, waterness, grassness, hillshade, paved],
+// or null for an unbuilt/off-map tile, which fillOffMap then resolves into wildlands or open sea.
+// The per-pixel Mode-7 sampler just indexes it.
+//
+// IT DOES NOT DEPEND ON THE CAMERA. Nothing in here reads heading, position-within-tile, pitch or
+// altitude — only the map window's CONTENTS, the world coordinates of its centre, the sun direction
+// and the sky's fallback colour. All four change on a server tick, not per rAF; the camera moves
+// every frame and the LUT does not care. Rebuilding it per frame was ~5,300 cells of noise and
+// hillshade, ~150 array allocations, plus TWO full chamfer distance transforms over the whole grid
+// inside fillOffMap — all of it thrown away and recomputed identically the next frame.
+//
+// The cache is ONE SLOT, held on the scene state (`st`) rather than the module, so two live
+// windshields — the flight sim and a helm chase on the same page — don't evict each other every
+// frame. A miss costs one key comparison; there is no growth and no eviction policy to get wrong.
+//
+// `map` is compared BY IDENTITY on purpose: the server hands the client a fresh array each time it
+// sends a window (`F.map = msg.map`), so identity is an exact content key and costs nothing. A
+// caller that synthesises its own map per frame (the truck corridor) simply never hits — no
+// regression, since that is what every caller did before.
+let _lutSlot = null;   // fallback slot for callers with no scene state
+function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
+  const store = st || (_lutSlot = _lutSlot || {});
+  const c = store._lut;
+  // offLand only reaches the build through fillOffMap's deep-off-map branch, and only as a threshold
+  // — so the BUCKET is the key, not the eased value, or the cache would miss on every frame's ease.
+  const offBucket = (st && (st.offLand ?? 0) > 0.5) ? 1 : 0;
+  const g0 = gTop && gTop[0], g1 = gTop && gTop[1], g2 = gTop && gTop[2];   // sky fallback colour; only read for a biome with no ground entry
+  if (c && c.map === map && c.wcx === wcx && c.wcy === wcy && c.litX === litX && c.litY === litY
+      && c.g0 === g0 && c.g1 === g1 && c.g2 === g2 && c.off === offBucket) return c;
+
+  const LUT = new Array(mh);
+  const wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
+  for (let ry = 0; ry < mh; ry++) {
+    const row = map[ry], out = new Array(row.length);
+    for (let rx = 0; rx < row.length; rx++) {
+      const cell = row[rx], bi = cell && cell.biome;
+      let grassy = GRASS_BIOMES.has(bi);
+      // Grassed district tile touching a runway → keep it grey tarmac apron, not turf.
+      const apron = grassy && nearField(map, rx, ry);
+      if (apron) grassy = false;
+      if (!bi) { out[rx] = null; continue; }   // unbuilt/off-map — fillOffMap inherits it from the nearest built tile
+      const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
+      const arid = !apron && ARID_BIOMES.has(bi) ? 1 : 0;
+      let col = apron ? APRON_GREY : (BIOME_GROUND[bi] || gTop);
+      // Arid tint jitter: drift each dry tile between rust / ochre / pale sand off a per-tile
+      // noise value, so a whole redrock district isn't one flat plate but a mottled badland.
+      if (arid) { const j = vnoise2(awx * 0.21, awy * 0.21) - 0.5; col = [clamp(col[0] + j * 46, 40, 210), clamp(col[1] + j * 30, 30, 190), clamp(col[2] + j * 22, 24, 170)]; }
+      const shade = reliefShade(awx, awy, litX, litY, arid);
+      const paved = apron || PAVED_BIOMES.has(bi) ? 1 : 0;   // man-made surface → excluded from the coast wobble
+      // WATERNESS. `hotspring` counts: it is a body of water and must take the water material
+      // (ripple, reflection, the swim-over read) rather than being painted as teal dirt. It cannot
+      // drag the sea off-map with it either — fillOffMap only seeds ocean from water tiles NORTH
+      // of BAY_SHORE_Y, and a spring is an inland feature far south of that line.
+      out[rx] = [col[0], col[1], col[2], (bi === 'water' || bi === 'hotspring') ? 1 : 0, grassy ? 1 : 0, shade, paved];
+    }
+    LUT[ry] = out;
   }
-  return LUT;
+  const filled = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY, wildFill,
+    st ? (st.offLand ?? 0) : null);   // extend the edge → wildlands + irregular coast
+  // Everything downstream (the per-pixel sampler, drawWorldObjects' wild-scatter read) treats both
+  // grids as read-only, which is what makes handing the same objects back next frame safe.
+  return (store._lut = {
+    LUT: filled.LUT, wildFill, anyBuilt: filled.anyBuilt,
+    map, wcx, wcy, litX, litY, g0, g1, g2, off: offBucket,
+  });
 }
 
 function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32, st = null) {
@@ -2684,34 +2813,9 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62, litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
   let LUT = null, wildFill = null;
   if (map) {
-    LUT = new Array(mh);
-    wildFill = map.map((row) => new Array(row.length).fill(null));   // parallel grid; fillOffMap tags each empty tile sea|scrub|redrock
-    for (let ry = 0; ry < mh; ry++) {
-      const row = map[ry], out = new Array(row.length);
-      for (let rx = 0; rx < row.length; rx++) {
-        const c = row[rx], bi = c && c.biome;
-        let grassy = GRASS_BIOMES.has(bi);
-        // Grassed district tile touching a runway → keep it grey tarmac apron, not turf.
-        const apron = grassy && nearField(map, rx, ry);
-        if (apron) grassy = false;
-        if (!bi) { out[rx] = null; continue; }   // unbuilt/off-map — fillOffMap inherits it from the nearest built tile
-        const awx = (rx - R) + wcx, awy = (ry - R) + wcy;   // absolute world tile (relief stays put, doesn't slide)
-        const arid = !apron && ARID_BIOMES.has(bi) ? 1 : 0;
-        let col = apron ? APRON_GREY : (BIOME_GROUND[bi] || gTop);
-        // Arid tint jitter: drift each dry tile between rust / ochre / pale sand off a per-tile
-        // noise value, so a whole redrock district isn't one flat plate but a mottled badland.
-        if (arid) { const j = vnoise2(awx * 0.21, awy * 0.21) - 0.5; col = [clamp(col[0] + j * 46, 40, 210), clamp(col[1] + j * 30, 30, 190), clamp(col[2] + j * 22, 24, 170)]; }
-        const shade = reliefShade(awx, awy, litX, litY, arid);
-        const paved = apron || PAVED_BIOMES.has(bi) ? 1 : 0;   // man-made surface → excluded from the coast wobble
-        // WATERNESS. `hotspring` counts: it is a body of water and must take the water material
-        // (ripple, reflection, the swim-over read) rather than being painted as teal dirt. It cannot
-        // drag the sea off-map with it either — fillOffMap only seeds ocean from water tiles NORTH
-        // of BAY_SHORE_Y, and a spring is an inland feature far south of that line.
-        out[rx] = [col[0], col[1], col[2], (bi === 'water' || bi === 'hotspring') ? 1 : 0, grassy ? 1 : 0, shade, paved];
-      }
-      LUT[ry] = out;
-    }
-    LUT = fillOffMap(LUT, mh ? map[0].length : 0, mh, R, wcx, wcy, litX, litY, wildFill, st);   // extend the edge → wildlands + irregular coast
+    const built = groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st);
+    LUT = built.LUT; wildFill = built.wildFill;
+    if (built.anyBuilt) rememberOffLand(LUT, R, wcy, st);
   }
   v._wildFill = wildFill;   // hand the gap classification to drawWorldObjects (same frame, runs after this floor pass)
   const sample = (rx, ry) => {
@@ -3904,6 +4008,37 @@ function fogWeight(f) { if (!FOG_STATE) return 0; const ff = clamp((f - FOG_NEAR
 // shadow-facing = cool + dark at the base). Null when off or outside the world pass.
 const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };   // '#rrggbb' → [r,g,b]; palette lives in RENDER_TUNE (live colour pickers)
 let LIGHT_STATE = null;
+// Wall-light colour memo. A wall's lit ramp is a function of ONE scalar — litC, how squarely its
+// outward normal faces the key — so walls facing the same way share a colour exactly. Quantising
+// litC into buckets turns ~2,750 per-frame mix()+toFixed()+template-literal runs into at most 64.
+//
+// 64 BUCKETS, NOT 8. The bucket count is the only thing here that can be seen: too coarse and a row
+// of near-parallel facades steps between shades. At 64 the step is 1/64 of the sky→key mix and
+// ~0.003 of the alpha ramp — below what an 8-bit channel can represent once the fill is composited,
+// so this is not a visible approximation. Don't lower it for a saving that is already spent.
+//
+// The cache is keyed on the LIGHT_STATE OBJECT ITSELF, not a frame counter: drawWorldObjects builds
+// a fresh one per frame, and the several passes that save/restore/null it (the shape-capture sweep,
+// the LOD adornment pass, the deck and yacht draws) swap the object back — so identity tracks the
+// real lighting scope for free, including a nested pass restoring an outer one.
+const WALL_LIT_BUCKETS = 64;
+let _wallLit = { owner: null, slots: new Array(WALL_LIT_BUCKETS + 1) };
+function wallLit(litC) {
+  const L = LIGHT_STATE;
+  if (_wallLit.owner !== L) _wallLit = { owner: L, slots: new Array(WALL_LIT_BUCKETS + 1) };
+  const b = Math.round(litC * WALL_LIT_BUCKETS);
+  const hit = _wallLit.slots[b];
+  if (hit) return hit;
+  const q = b / WALL_LIT_BUCKETS;
+  const tc = mix(L.sky, L.key, q), sd = L.shadow, s = L.str;
+  const aTop = s * (0.06 + 0.14 * q), aBot = s * (0.30 + 0.22 * (1 - q));
+  const mc = mix(tc, sd, 0.5);
+  return (_wallLit.slots[b] = {
+    top: `rgba(${tc[0] | 0},${tc[1] | 0},${tc[2] | 0},${aTop.toFixed(3)})`,
+    bot: `rgba(${sd[0]},${sd[1]},${sd[2]},${aBot.toFixed(3)})`,
+    solid: `rgba(${mc[0] | 0},${mc[1] | 0},${mc[2] | 0},${((aTop + aBot) * 0.5).toFixed(3)})`,
+  });
+}
 function beginFaces() { FACE_SINK = []; }
 function emitFace(depth, fn) { if (FACE_SINK) { FACE_SINK.push({ d: depth, fn }); if (PERF.on) PERF.n.faces++; } else fn(); }
 function flushFaces() { const s = FACE_SINK; if (!s) return; FACE_SINK = null; s.sort((a, b) => b.d - a.d); for (const e of s) e.fn(); }
@@ -4113,15 +4248,14 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     if (LIGHT_STATE) {
       const nx = cs[i][0] + cs[j][0], ny = cs[i][1] + cs[j][1], nlen = Math.hypot(nx, ny) || 1;
       const litC = clamp(0.5 + (nx / nlen * LIGHT_STATE.sx + ny / nlen * LIGHT_STATE.sy) * 0.5, 0, 1);
-      const tc = mix(LIGHT_STATE.sky, LIGHT_STATE.key, litC), sd = LIGHT_STATE.shadow, s = LIGHT_STATE.str;
-      const aTop = s * (0.06 + 0.14 * litC), aBot = s * (0.30 + 0.22 * (1 - litC));
-      if (Math.abs(botY - topY) > 18) {   // tall on screen → real gradient
-        litTop = `rgba(${tc[0] | 0},${tc[1] | 0},${tc[2] | 0},${aTop.toFixed(3)})`;
-        litBot = `rgba(${sd[0]},${sd[1]},${sd[2]},${aBot.toFixed(3)})`;
-      } else {   // short/far → one flat fill at the ramp's midpoint
-        const mc = mix(tc, sd, 0.5);
-        litSolid = `rgba(${mc[0] | 0},${mc[1] | 0},${mc[2] | 0},${((aTop + aBot) * 0.5).toFixed(3)})`;
-      }
+      // These three strings depend ONLY on litC — the wall's outward normal against the key — and on
+      // LIGHT_STATE, which is fixed for the frame. A dense skyline emits ~2,750 mass faces per frame,
+      // and every one of them was running a mix(), two toFixed(3) and two template literals to arrive
+      // at a colour it shared with dozens of walls facing the same way. Quantise the normal into
+      // WALL_LIT_BUCKETS and memoise per bucket for the frame instead.
+      const lit = wallLit(litC);
+      if (Math.abs(botY - topY) > 18) { litTop = lit.top; litBot = lit.bot; }   // tall on screen → real gradient
+      else litSolid = lit.solid;                                                // short/far → one flat fill at the ramp's midpoint
     }
     // Depth = front-corner f MINUS the same height bias the roof uses (see the roof note below). Stacked
     // concentric boxes on one centre (a stepped tower's tiers + their projecting cornice/frieze bands) have
