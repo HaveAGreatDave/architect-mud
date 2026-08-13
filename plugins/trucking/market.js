@@ -51,9 +51,21 @@ export const COMMODITIES = {
 // sits on a basin: water, protein, parts, medical go OUT. The Reach is a salvage economy with a
 // chemistry problem: baled alloy and industrial chems come BACK. So the return trip is never empty
 // and the two directions never want the same box.
+// DEADWATER is a machine shop sitting on a reservoir, and its profile is read straight off that.
+// It MAKES parts and it STRIPS scrap, so both go out cheap. It is sitting on the head of the
+// Basin's water, so water is cheap too, which is the one place the geography rather than the trade
+// sets a number. Nothing grows on graded gravel and nobody here refines anything, so protein,
+// chems and medical all come in dear.
+//
+// Note what that does to the map, because it was not designed in and is the better half of it: the
+// Coldwater run and the Reach run trade DIFFERENT BOXES. Coldwater wants scrap (1.28) and sells
+// medical and protein cheap, so that corridor is salvage out and food and medicine back. The Reach
+// wants parts (1.30) and sells chems cheap (0.78), so THAT corridor is machined parts out and drums
+// back. One region, two live routes, and neither of them is the other one with the labels changed.
 const REGIONS = {
   region_coldwater: { scrap: 1.28, water: 0.80, protein: 0.82, chems: 1.24, parts: 0.76, medical: 0.84 },
   region_the_reach: { scrap: 0.76, water: 1.30, protein: 1.26, chems: 0.78, parts: 1.30, medical: 1.28 },
+  region_deadwater:  { scrap: 0.74, water: 0.82, protein: 1.24, chems: 1.32, parts: 0.70, medical: 1.30 },
 };
 // An unknown region trades at par rather than crashing — new content should never break the market.
 const PAR = { scrap: 1, water: 1, protein: 1, chems: 1, parts: 1, medical: 1 };

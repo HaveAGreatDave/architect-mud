@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Somebody is filing something flat, and has been for a while, and is in no hurry to stop.",
+    "A hand crank goes round twelve times, pauses, and goes round twelve more.",
+    "Two people are arguing about a tolerance. Neither of them is angry and both of them are certain.",
+    "Woodsmoke, machine oil, and under both of them, wet stone.",
+    "A tray of bearings on a bench, laid out in a row in the order they came out.",
+    "The clock on the shop wall ticks, and you can see the escapement doing it.",
+    "A belt slaps somewhere overhead, running off a shaft that runs off the water.",
+    "Somebody drops a spanner and somebody else, out of sight, names the size of it correctly.",
+    "A child goes past carrying a part in both hands, very carefully, on an errand that clearly matters.",
+    "Chalk marks on a doorframe at four heights, the highest one recent.",
+    "Somebody laughs, once, and goes back to work.",
+    "A kettle comes to the boil on a plate over the forge and is taken off it by somebody who was waiting."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "A dozen crates facing a slate, and on the wall above the slate a clock with the case off, so the escapement is out in the open and the whole class can watch it let go, and let go, and let go. The slate this morning carries long division, a diagram of a lever with the fulcrum in the wrong place and a correction beside it in a smaller hand, and, low down where a short person could reach, somebody's name written out thirty times, getting better.",
+  "exits": {
+    "east": "zone_dw_768_975",
+    "north": "zone_dw_767_974",
+    "south": "zone_dw_767_976",
+    "west": "zone_dw_766_975"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "no_spawn": true,
+    "region_id": "region_deadwater",
+    "terrain": "gravel"
+  },
+  "grid_x": 767,
+  "grid_y": 975,
+  "grid_z": 0,
+  "id": "zone_dw_767_975",
+  "map_id": "map_world",
+  "name": "The Schoolroom",
+  "parent_zone": null
+}

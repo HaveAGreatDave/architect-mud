@@ -13,7 +13,7 @@
     "Something is growing out of a crack in the rock that should not be able to. It is doing well."
   ],
   "ambient_theme": "wasteland",
-  "description": "A smaller gap in the thorn, one leaf, barred from the inside with a length of axle. A worn track runs south from it toward country nobody has bothered to name. Somebody has wedged a child's boot in the frame at head height, laces knotted, which is either a warning or a joke and is very obviously the second one.",
+  "description": "A smaller gap in the thorn, one leaf, barred from the inside with a length of axle. This is the water gate in everything but name: the cart ruts come up to it deep and go away west round the outside of the wall, and there is a stack of empty barrels against the thorn waiting on the next run down to the Slake. Somebody has wedged a child's boot in the frame at head height, laces knotted, which is either a warning or a joke and is very obviously the second one.",
   "exits": {
     "north": "zone_scw_1046_983",
     "south": "zone_scw_1046_985"

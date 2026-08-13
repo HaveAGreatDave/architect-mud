@@ -15,6 +15,7 @@
   "description": "A raw, undeveloped stretch of ground. [PLANNER STUB]",
   "exits": {
     "north": "zone_the_reach_882_1966",
+    "south": "zone_the_reach_882_1968",
     "west": "zone_the_reach_881_1967"
   },
   "flags": {

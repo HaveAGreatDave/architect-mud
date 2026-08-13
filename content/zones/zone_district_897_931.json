@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud has not yet closed.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "The wood thins out into iron-stained reed again, the last trunks standing apart like people who have decided not to go any further east. Behind you it is green and close. Ahead it is the flats, and you can see for a mile, and everything can see you.",
   "exits": {
     "east": "zone_district_898_931",
     "north": "zone_district_897_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "marsh"
+    "terrain": "forest"
   },
   "grid_x": 897,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_897_931",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "The Hush",
   "parent_zone": null
 }

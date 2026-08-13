@@ -21,6 +21,8 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
 import vm from 'vm';
+import net from 'net';
+import { spawn } from 'child_process';
 import { sendPasswordResetEmail, sendVerificationEmail, isMailerConfigured, mailerConfigProblem } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { areRegistrationsOpen, registrationsClosedMessage, setRegistrationsOpen } from '../engine/registrations.js';
@@ -444,6 +446,7 @@ async function dispatchApiRequest(url, method, body, headers) {
   if (path==='/dev/notes' && method==='POST') return requireDev(auth, ()=>apiCreateDevNote(body, auth));
   if (path.startsWith('/dev/notes/') && method==='PATCH') return requireDev(auth, ()=>apiUpdateDevNote(path.split('/')[3], body));
   if (path.startsWith('/dev/notes/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteDevNote(path.split('/')[3]));
+  if (path==='/dev/studio' && method==='POST') return requireDev(auth, apiStartStudio);
   if (path==='/dev/contributions' && method==='GET') return requireDev(auth, apiGetDevContributions);
   if (path==='/dev/identities/automatch' && method==='POST') return requireDev(auth, apiAutomatchDevIdentities);
   if (path==='/dev/identities' && method==='GET') return requireDev(auth, apiGetDevIdentities);
@@ -2599,6 +2602,54 @@ async function apiUpdateDevNote(id, body) {
 async function apiDeleteDevNote(id) {
   await query(`DELETE FROM dev_notes WHERE id=$1`, [id]);
   return { status: 200, body: { ok: true } };
+}
+
+// ── Map Studio launcher (LOCAL DEV ONLY) ────────────────────────────────────
+// The Studio is a separate process (`npm run studio`, port 5180) that edits
+// content/ files with no DB. The devpanel's sidebar link asks here first so a
+// developer doesn't have to remember to start it in a second terminal.
+//
+// It spawns DETACHED and unref'd: the Studio must outlive a game-server restart,
+// or every `npm run dev` cycle would kill the editor you're working in. It is
+// hard-refused on production — there is no content/ tree to edit there, and
+// spawning processes from an HTTP route is a local-convenience affordance only.
+const STUDIO_PORT = Number(process.env.STUDIO_PORT) || 5180;
+
+function studioIsUp() {
+  return new Promise(resolve => {
+    const sock = net.connect({ port: STUDIO_PORT, host: '127.0.0.1' });
+    const done = up => { sock.destroy(); resolve(up); };
+    sock.setTimeout(400);
+    sock.once('connect', () => done(true));
+    sock.once('timeout', () => done(false));
+    sock.once('error', () => done(false));
+  });
+}
+
+async function apiStartStudio() {
+  const url = `http://localhost:${STUDIO_PORT}`;
+  if (process.env.NODE_ENV === 'production' || process.env.CONTENT_READONLY) {
+    return { status: 403, body: { error: 'The Studio is local-only.' } };
+  }
+  if (await studioIsUp()) return { status: 200, body: { ok: true, url, started: false } };
+
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  try {
+    const child = spawn(process.execPath, ['tools/studio/serve.mjs', String(STUDIO_PORT)], {
+      cwd: root, detached: true, stdio: 'ignore', windowsHide: true,
+    });
+    child.unref();
+  } catch (e) {
+    return { status: 500, body: { error: `Could not start the Studio: ${e.message}` } };
+  }
+
+  // Poll rather than guess — the caller opens the tab, and a tab opened before
+  // the listener exists just shows a connection error.
+  for (let i = 0; i < 40; i++) {
+    if (await studioIsUp()) return { status: 200, body: { ok: true, url, started: true } };
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return { status: 504, body: { error: 'The Studio did not come up in time.' } };
 }
 
 // Aggregated per-author contribution stats (commits/lines/file-changes) for a

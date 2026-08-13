@@ -7,6 +7,13 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
 // management makes sense. Prod 302s bare /dev → /admin, so the game's Dev button
 // needs no environment awareness of its own.
 window.OPS_MODE = location.pathname.replace(/\/+$/, '') === '/admin';
+
+// The read-only marker. An emoji 🔒 carries its own colour and ignores the theme,
+// so it sat in the nav as the one thing on the page that never changed with the
+// accent. Drawn instead, in currentColor, and pointed at --accent in styles.css.
+const OPS_LOCK_SVG = '<svg class="ops-lock" viewBox="0 0 10 12" aria-hidden="true">'
+  + '<path d="M2.6 5.2V3.4a2.4 2.4 0 0 1 4.8 0v1.8" fill="none" stroke="currentColor" stroke-width="1.2"/>'
+  + '<rect x="0.8" y="5.2" width="8.4" height="6.2" rx="1.2" fill="currentColor"/></svg>';
 if (window.OPS_MODE) {
   document.body.classList.add('ops-mode');
   document.title = 'Architect — Admin';
@@ -21,7 +28,8 @@ if (window.OPS_MODE) {
   nav.querySelectorAll('.nav-item[data-panel]').forEach(n => {
     if (!opsPanelReadOnly(n.dataset.panel)) return;
     n.dataset.opsRo = '1';
-    n.textContent = `${n.textContent.trim()} 🔒`;
+    n.textContent = n.textContent.trim() + ' ';
+    n.insertAdjacentHTML('beforeend', OPS_LOCK_SVG);
     n.title = 'Read-only on production — look all you like; edit locally and deploy';
   });
   // "World" keeps its live-world ops (Crime/Flight/Power/Bank); with the content
@@ -31,7 +39,7 @@ if (window.OPS_MODE) {
   });
   nav.insertAdjacentHTML('afterbegin',
     '<label id="ops-ro-toggle" title="Show the panels that are read-only on production">'
-    + '<input type="checkbox" id="ops-ro-checkbox" onchange="setOpsShowReadonly(this.checked)"> show read-only 🔒</label>');
+    + '<input type="checkbox" id="ops-ro-checkbox" onchange="setOpsShowReadonly(this.checked)"> show read-only ' + OPS_LOCK_SVG + '</label>');
   const show = localStorage.getItem('devpanel-ops-show-ro') === '1';
   document.getElementById('ops-ro-checkbox').checked = show;
   applyOpsReadonlyVisibility(show);

@@ -369,15 +369,38 @@
 						color: var(--text-dim);
 					">
 					New here?
-					<a href="/guide.html" target="_blank" rel="noopener"
+					<!-- The href is rewritten to the -text edition when the Log rung is
+					     chosen above (syncGuideLinkRung in net.js). The illustrated
+					     pages are the default because they are what most players want;
+					     a player who has just said "I use a screen reader" should not
+					     then be handed the version built around pictures. -->
+					<a
+						href="/guide.html"
+						id="guide-link-guide"
+						data-guide-visual="/guide.html"
+						data-guide-log="/guide-text.html"
+						target="_blank"
+						rel="noopener"
 						>Read the first-hour guide</a
 					>
 					&nbsp;·&nbsp;
-					<a href="/tour.html" target="_blank" rel="noopener"
+					<a
+						href="/tour.html"
+						id="guide-link-tour"
+						data-guide-visual="/tour.html"
+						data-guide-log="/tour-text.html"
+						target="_blank"
+						rel="noopener"
 						>See what's in it</a
 					>
 					&nbsp;·&nbsp;
-					<a href="/lore.html" target="_blank" rel="noopener"
+					<a
+						href="/lore.html"
+						id="guide-link-lore"
+						data-guide-visual="/lore.html"
+						data-guide-log="/lore-text.html"
+						target="_blank"
+						rel="noopener"
 						>The story &amp; the orders</a
 					>
 				</div>

@@ -1,0 +1,136 @@
+{
+  "banter": [],
+  "chitchat": [
+    "If you take something, the slate is by the door.",
+    "Fourth bin along, and it is not where you are looking.",
+    "I have two of those and I would like to keep having two.",
+    "Write the quantity. Everyone forgets the quantity."
+  ],
+  "description": "A wiry person up a set of library steps with a drawer open, checking a count against a card and moving their lips while they do it. The shed behind them is the most orderly room for four hundred miles: fasteners by thread and length, bar stock standing in bins by section, bearings boxed and dated. Nothing is locked. There is a slate by the door with the last four things taken written on it in a small, even hand.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Slate. By the door. Quantity.\""
+    },
+    "cards": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What goes out most?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Every line.\" They pat the pocket. \"Thread, length, section, bin, count, and the date it last moved. In a cabinet, on paper, in that handwriting, and there is a second copy in the hall because one copy is not a copy.\"\n\nA small, fierce pride.\n\n\"Ockley will not fit a thread I do not hold. That is not him being obliging, that is the arrangement. He asks me first.\""
+    },
+    "locked": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have a card for everything?",
+          "next": "cards"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" They close the drawer with a hip. \"There is a slate. You write what you took and your name and the quantity. That is the lock.\"\n\nThey consider the objection you have not made yet.\n\n\"It fails about twice a year, and both times it was somebody who needed the thing at two in the morning and wrote it up at six. A door would not have improved either occasion.\""
+    },
+    "out": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Fine files and lamp oil, and it is not close.\" They are already writing something down. \"Files because everybody is always filing something flat, and oil because the light is oil and always has been.\n\n\"What comes IN most is other people's machines, in pieces, on a cart. We are very good at that.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "They come down two steps and look at you over the drawer. \"You are not looking for anything, you are looking at the shelving.\" A short nod, as though this is a respectable thing to be doing. \"Hobbe Padgett. It is all like this. Ask me for anything and I will have it in under a minute and I will be insufferable about it.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing is locked.",
+          "next": "locked"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You have a card for everything?",
+          "next": "cards"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What goes out most?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back. The slate is by the door.\"",
+      "text_by_relation": {
+        "close": "\"Good, you can count for me. Two eyes are worth four hands and I have said that before.\"",
+        "familiar": "They tip the drawer toward you so you can see it is exactly what the card says. \"Look at that. Perfect.\"",
+        "known": "\"You know where the slate is.\""
+      }
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a long coat with a card index in the pocket",
+      "fingerless gloves worn through at the tips",
+      "a pencil on a string round the neck"
+    ],
+    "personality": "clerk"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_770_976",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_padgett",
+  "name": "Hobbe Padgett",
+  "npc_type": "npc",
+  "sex": "other",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_770_976"
+}

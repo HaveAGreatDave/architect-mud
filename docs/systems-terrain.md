@@ -54,6 +54,7 @@ current values — the file is authoritative, this table is a convenience.
 | `concrete` | Concrete | `#8a8d91` |
 | `grass` | Grass | `#2f3a26` |
 | `park` | Park | `#46a24e` manicured green + authored flight-sim dressing |
+| `forest` | Forest | `#1e3a22` closed woodland — a full stand of trees per tile in the flight sim (`drawForestTile`), not the parkland lone tree |
 | `dirt` | Dirt | `#6b5138` |
 | `sand` | Sand | `#c2b280` |
 | `gravel` | Gravel | `#7d7a73` |
@@ -64,6 +65,9 @@ current values — the file is authoritative, this table is a convenience.
 | `redrock` | Red Rock | `#6f3524` rust mesa facets (wildlands) |
 | `ash` | Ash | `#4f4b47` burnt-grey flecks (wildlands) |
 | `marsh` | Marsh | `#4d5a30` toxic murky ripples (wildlands) |
+| `hardpan` | Hardpan | `#b8ab90` cracked pale lakebed (badlands accent) |
+| `alkali` | Alkali Flat | `#d9d5c8` near-white salt crust — the brightest ground in the palette, on purpose (badlands accent) |
+| `cliff` | Cliff Face | `#3a1e16` canyon rim. **The only accent with gameplay props**: `routable:false, buildable:false` |
 
 **Runways** are a special case in the palette but **not** a `flags.terrain` value. The two directional
 runway swatches (`Runway ↕ N-S`, `Runway ↔ E-W`, `RUNWAY_KEYS` in [maps.js](../client/devpanel/js/panels/maps.js))
@@ -83,6 +87,16 @@ with the marker text, which is how painting the Fisherman Statue's square `park`
 these four are no longer special. They map to their own
 arid flight biomes — `scrub`→`scrub`, `redrock`→`redrock`, `ash`→`ash` (dry-land tints, never water) —
 while `marsh`→`badlands`, in [biomes.js](../plugins/flight/biomes.js).
+
+The three **badlands accents** (`hardpan`/`alkali`/`cliff`) were added to break up the Scarletwastes,
+which is 4,836 tiles of uniform `redrock` deliberately left for hand-painting in the Studio. They are
+palette entries only — **nothing in code paints them**, by the same rule that keeps `redrock` uniform.
+Each takes its own flight biome rather than borrowing `badlands`, because the whole point of painting
+one is that it reads as different ground from the air, and each scatters at its own density
+(`cliff` densest, `alkali` very nearly bare — a salt flat that sprouts a bush stops reading as poisoned).
+`cliff` is the only one with `props`: `routable:false` keeps GPS and pathfinding from crossing a canyon
+rim. Note that is **routing, not passability** — exits remain the SSOT for where a player can walk, so a
+cliff tile with an exit is still walkable and that is intended (a switchback trail is authored as exits).
 
 `park` is a **manicured** green (distinct from feral `grass`): it maps to its own `park` flight biome
 (designed park — benches, ponds, groves) where `grass`→`parkland` (feral single tree). A park tile can
@@ -250,9 +264,9 @@ for the per-tile installer and Auto-Resolve.
 - **Flight** — `flags.terrain` **does** drive the aerial ground tint.
   `districtBiome()` ([biomes.js:55](../plugins/flight/biomes.js)) checks
   `TERRAIN_BIOME[flags.terrain]` **first**, before any id-prefix/danger inference — so an authored
-  terrain wins the flight biome. The map: `water→water`, `dock→pier`, `grass→parkland`, `park→park`,
+  terrain wins the flight biome. The map: `water→water`, `dock→pier`, `grass→parkland`, `park→park`, `forest→forest`,
   `asphalt→asphalt`, `concrete→concrete`, `dirt/sand/gravel/marsh→badlands`, `scrub→scrub`,
-  `redrock→redrock`, `ash→ash`. (`road` and `dirt_road` are intentionally absent — they're drawn by
+  `redrock→redrock`, `ash→ash`, `hardpan→hardpan`, `alkali→alkali`, `cliff→cliff`. (`road` and `dirt_road` are intentionally absent — they're drawn by
   the road channel from `flags.icon`/`artery`, not the biome.) See
   [reference/world-rendering.md](reference/world-rendering.md).
   - **The open flight sim flies a baked snapshot, not the live world.** `client/game/flightsim.html`

@@ -53,6 +53,25 @@ export default async function regress({ run, check, getPlayer }) {
     check('restore returns the legal item', restored.rows.some(r => r.item_id === misc));
     check('restore does not return the weapon', !restored.rows.some(r => r.item_id === wpn));
 
+    // The garb is a souvenir: released prisoners keep the jumpsuit, and it comes
+    // off the torso on the way out so it can't fight the restored clothes for the slot.
+    const garb = 'item_prison_jumpsuit';
+    if ((await query('SELECT 1 FROM items WHERE id=$1', [garb])).rows.length) {
+      const tid3 = `jailtest3_${p.id}`;
+      await query('DELETE FROM player_inventory WHERE player_id=$1', [tid3]).catch(() => {});
+      await query(
+        `INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped,slot,layer) VALUES ($1,$2,$3,1,1,'torso',2)`,
+        [`${tid3}_g`, tid3, garb]
+      );
+      await _test.restoreHeld(tid3, [{ item_id: misc, quantity: 1 }]);
+      const after = await query('SELECT item_id, is_equipped, slot FROM player_inventory WHERE player_id=$1', [tid3]);
+      const kept = after.rows.find(r => r.item_id === garb);
+      check('released prisoner keeps the jumpsuit', !!kept, JSON.stringify(after.rows)?.slice(0, 120));
+      check('…unequipped, so it does not clash with restored clothes', !!kept && !kept.is_equipped && !kept.slot);
+      check('…and their own things come back with it', after.rows.some(r => r.item_id === misc));
+      await query('DELETE FROM player_inventory WHERE player_id=$1', [tid3]).catch(() => {});
+    }
+
     // A sealed climate crate survives the search — packaged contraband is kept on
     // the player (not bagged, not deleted).
     const tid2 = `jailtest2_${p.id}`;

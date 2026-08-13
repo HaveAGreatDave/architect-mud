@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The water does not move. Not a ripple, not a slap against the stone, nothing.",
+    "A gull sits out on the surface, a long way from anywhere, entirely still.",
+    "The far shore is in the water as well as above it, and the two do not disagree by a hair.",
+    "Something breaks the surface out in the middle, once, and the rings go out for a very long time.",
+    "A tide line of grey scum along the stone, and above it, older lines, each one a dry year.",
+    "The cold comes off it in a sheet and stops about a foot inland.",
+    "Reeds at the margin, standing in their own reflection, not one of them stirring.",
+    "A rowing boat is drawn up on the stone, turned over, its bottom recently tarred."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "A tunnel driven straight through the body of the dam, wide enough for two and lit by nothing at all, so you go through it with a hand on the wall. The wall is dry. Halfway along, a gauge is set into the stone at chest height with a brass cover on a hinge, and the cover is open, and the needle behind it is steady. Somebody has chalked the date beside it. The far end is a grey rectangle of daylight with water noise underneath it.",
+  "exits": {
+    "north": "zone_dw_769_971",
+    "south": "zone_dw_769_973"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "lawless": true,
+    "region_id": "region_deadwater",
+    "terrain": "ash"
+  },
+  "grid_x": 769,
+  "grid_y": 972,
+  "grid_z": 0,
+  "id": "zone_dw_769_972",
+  "map_id": "map_world",
+  "name": "The Gallery",
+  "parent_zone": null
+}

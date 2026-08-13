@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "Wind hisses through the scrub, carrying grit and the far-off drone of a plane that isn't coming here.",
+    "Something small breaks cover and bolts through the brush, gone before you can place it.",
+    "Heat-shimmer wobbles the horizon; for a moment the town looks like it's underwater.",
+    "A dust-devil spins up out of nowhere, staggers a few yards across the hardpan, and collapses.",
+    "Out in the flats a loose sheet of metal bangs, over and over, in a wind that never fully quits.",
+    "The scrub ticks and rustles as the day's heat bleeds slowly out of it.",
+    "A buzzard rides the thermals in a wide, patient circle, in no hurry at all.",
+    "Grit stings your cheek. The wind out here doesn't stop; it just changes its mind.",
+    "Tire-ruts and bootprints cross the hardpan and vanish into the brush, going nowhere good.",
+    "The light goes long and copper, and the whole waste seems to hold its breath."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Scrub and hardpan, running flat to a horizon that never gets any closer. The brush comes up to the knee in patches and gives out to bare grit in others, and the wind works steadily through all of it. Nothing out here was built, and nothing out here was cleared.",
+  "exits": {
+    "east": "zone_the_reach_869_1969",
+    "north": "zone_the_reach_868_1968",
+    "south": "zone_the_reach_868_1970",
+    "west": "zone_the_reach_867_1969"
+  },
+  "flags": {
+    "lawless": true,
+    "region_id": "region_the_reach",
+    "terrain": "scrub"
+  },
+  "grid_x": 908,
+  "grid_y": 997,
+  "grid_z": 0,
+  "id": "zone_the_reach_868_1969",
+  "map_id": "map_world",
+  "name": "The Reach 868,1969",
+  "parent_zone": null
+}

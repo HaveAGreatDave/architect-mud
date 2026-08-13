@@ -20,9 +20,56 @@ Reached from the northwest off Coldwater's rim: by air at **The Strip** (`scarle
 rental, a windsock repaired with a shirt) or overland to **The Roadhead** (`1024_957`, truck depot +
 fuel). The old Deeper Wild tile south of the South Gate now names it and points at it.
 
-**Every tile outside the town is `redrock` and nothing else.** That is the brief, not a shortcut: the
-region ships as one flat canvas so it can be painted by hand in the Studio afterwards. There are no
-roads, no scrub, no marsh. Do not scatter terrain into it in code. Paint it.
+### The landform (2026-08-12)
+
+The region originally shipped as one flat sheet of `redrock`, to be hand-painted in the Studio later.
+It never was, and 4,836 identical tiles is not a canvas, it is a colour. The landform is now
+**derived** in the generator, under the rule that replaces "paint it later":
+
+> **The ground is a field, not a sprinkle.**
+
+Every terrain comes off **one continuous height surface** (two-octave hashed value noise, no RNG, so
+a rebuild is byte-identical), and each family is a threshold on it. That is what makes the bands
+contiguous: a mesa always sheds its own scree skirt, never a cliff straight to hardpan, and scrub
+takes the low ground because the low ground is where the runoff goes. A per-tile scatter — a tile
+disagreeing with its neighbour by accident — is the failure the original brief was guarding against,
+and it is still the thing not to do. **If you want it different, change the surface.**
+
+| Family | `flags.terrain` | Tiles | What it is |
+|---|---|---|---|
+| `flat` | `redrock` | 1792 | the original country, still what you cross most of |
+| `scrub` | `scrub` | 1074 | grey-green thorn in the drainage lines |
+| `mesa` | `redrock` | 943 | caprock plateaus, flat on top and a long way up |
+| `scree` | `gravel` | 500 | the talus skirt a mesa sheds |
+| `pan` | `sand` | 121 | dry lake floor, the flattest ground here |
+| `lake` | `water` | 68 | the Slake |
+| `shore` | `dirt` | 29 | rutted cart ground at the waterline |
+| `haul` | `dirt_road` | 20 | the Water Road |
+
+**Authored tiles and the whole town box are exempt** and keep flat `redrock`. Those are set-pieces
+whose prose names the surface underfoot, and a mesa top under the Screaming Line contradicts the
+sentence above it.
+
+### The Slake, and why it is not the town's pride
+
+The lake sits at **(1030, 978)**, west of the wall, in the floor of the region's one real basin. It
+is the Wildblood's water source and it is deliberately **not** the thing they boast about. The
+Sweetwater takes rain off the roofs; that is what Sill Moraine built. The Slake is the dry-month
+fallback: hauled by cart, tipped into a second plated inlet at the top of the same limestone and bone
+beds, tested in the same glass tubes. **SLAKE WATER: BOTH BEDS, TWICE.**
+
+That ordering is load-bearing. A town with a lake at the door does not need to invent the best
+filtration for sixty miles, and the filtration is the argument. So the lake is authored as *work* —
+ruts, barrels, a graded hard standing, two people leaning into a loaded cart and not talking.
+
+The **Water Road** runs from the waterline round the outside of the thorn to the Sally Gate, which is
+now the water gate in everything but name. It is an explicit tile list, not a derived path: a route
+that bends around a town is a decision somebody made with a loaded cart, and it stops one tile short
+of the water, because a road drawn one tile further is a road in the lake.
+
+**The basin is the second hole in the radiation curve** (rad 4, keyed off the lake field so the hard
+standing is not a sixteen-point step from the water it stands in) for exactly the same reason the
+town is the first one.
 
 ## The two things that make it a place rather than a rectangle
 

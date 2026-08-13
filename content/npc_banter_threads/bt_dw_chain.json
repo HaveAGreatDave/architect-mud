@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_dw_chain",
+  "lines": [
+    "\"The chain wants dressing flat where it was mended.\"",
+    "\"It has been mended twice, it is fine.\"",
+    "\"It will take a hand off.\"",
+    "\"Then I will dress it flat.\"",
+    "\"Today.\"",
+    "\"Today.\""
+  ],
+  "personality": "labourer",
+  "sort_order": 303
+}

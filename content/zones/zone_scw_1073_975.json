@@ -1,19 +1,17 @@
 {
   "ambient_events": [
+    "The scrub moves in a line off to your right, tracking you, and then stops when you stop.",
+    "A thorn takes hold of a sleeve and does not let go until it is asked to properly.",
+    "Something small and quick goes down a run in the brush and the whole thicket ticks with it.",
+    "Seed pods, acid-pitted and rattling, hundreds of them, all at once and then not.",
+    "A patch of the scrub is dead and bleached white in a ring about ten feet across. Nothing has grown back into it.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+    "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.",
+  "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
   "exits": {
     "east": "zone_scw_1074_975",
     "north": "zone_scw_1073_974",
@@ -25,13 +23,13 @@
     "radiation": 25,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 1073,
   "grid_y": 975,
   "grid_z": 0,
   "id": "zone_scw_1073_975",
   "map_id": "map_world",
-  "name": "The Standing Heat",
+  "name": "Low Growth",
   "parent_zone": null
 }

@@ -391,7 +391,7 @@ Ghost Mode — an in-panel floating dialog that opens a dedicated WebSocket tagg
 - `document.addEventListener('DOMContentLoaded', ...)` — wires up the settings panel controls (theme select, font size buttons, density buttons).
 - The password-field `keydown` listener (Enter → `devLogin()`).
 - The auto-auth IIFE — checks `sessionStorage` for a token passed from the game client and skips the login screen if valid.
-- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, marks every nav entry whose panel can't write on prod with a `🔒` and `data-ops-ro`, injects the **show read-only** toggle at the top of the nav, adds `body.ops-mode`, and relabels the header.
+- **The ops-mode block** — sets `window.OPS_MODE` when the page was served at `/admin`, marks every nav entry whose panel can't write on prod with a padlock and `data-ops-ro` (an inline `OPS_LOCK_SVG` drawn in `currentColor` — `.ops-lock` points it at `--accent`, so it themes; the old emoji `🔒` did not), injects the **show read-only** toggle at the top of the nav, adds `body.ops-mode`, and relabels the header.
 - `setOpsShowReadonly()` / `applyOpsReadonlyVisibility()` — the toggle. Hides/shows the `data-ops-ro` entries (and any section header left standing over nothing), remembered in `localStorage` under `devpanel-ops-show-ro`.
 
 ### Ops mode (`/admin`) — one file, two views

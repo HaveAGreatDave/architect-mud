@@ -118,6 +118,14 @@
       "minimap_class": "park",
       "auto_tile": false
     },
+    "forest": {
+      "label": "Forest",
+      "fill": "#1e3a22",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "forest",
+      "auto_tile": false
+    },
     "dirt": {
       "label": "Dirt",
       "fill": "#6b5138",
@@ -179,6 +187,34 @@
       "glyph": null,
       "minimap_class": "redrock",
       "auto_tile": false
+    },
+    "hardpan": {
+      "label": "Hardpan",
+      "fill": "#b8ab90",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "hardpan",
+      "auto_tile": false
+    },
+    "alkali": {
+      "label": "Alkali Flat",
+      "fill": "#d9d5c8",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "alkali",
+      "auto_tile": false
+    },
+    "cliff": {
+      "label": "Cliff Face",
+      "fill": "#3a1e16",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "cliff",
+      "auto_tile": false,
+      "props": {
+        "routable": false,
+        "buildable": false
+      }
     },
     "ash": {
       "label": "Ash",

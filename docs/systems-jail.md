@@ -31,9 +31,12 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
      immediately. It's a "jumpsuit": one garment worn on the torso that also fills
      the legs via its `covers:['legs']` tag (see the equip engine), so a stripped
      prisoner isn't left half-naked. Insert-if-present, so a world missing the item
-     (e.g. the regress harness) just skips it. Removed automatically at release —
-     `restoreHeld` wipes the whole inventory (garb included) before restoring the
-     held snapshot, so you walk out in your own clothes again.
+     (e.g. the regress harness) just skips it. **You keep it at release** — nobody
+     launders a jumpsuit for the next occupant. `restoreHeld` clears everything
+     *except* `item_prison_jumpsuit` before restoring the held snapshot, and
+     unequips the garb (`is_equipped = 0, slot = NULL`) so it can't fight the
+     restored clothes for the torso slot: you walk out in your own things, carrying
+     the jumpsuit.
    - Writes a `jail_prisoners` row with `release_at = now + stars minutes`.
    - Returns `{ zone: cell, message }` — the engine respawns you in the cell, skips
      the corpse (the cops bagged your gear), and shows the holding-cell flavor.
@@ -74,6 +77,13 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
    prisoner walks the door freely while a cellmate still doing time gets nothing (the
    old "release leaves the door open for everyone" tradeoff is gone). Offline
    releases are DB-only.
+4. **Pardon (dev).** The devpanel **Emergency** panel carries a *Prison Roll* table
+   (who's inside, charge, sentence, fine, time left) with a **Pardon** button per
+   row. A pardon is not a separate exit path: `POST /jail/pardon` zeroes the fine
+   (which makes the refund whole), pulls `release_at` to `NOW()`, and calls the same
+   `release()` — so the gear, the cash and the walk-out are the ordinary ones, and
+   nothing has to be kept in sync with them. `GET /jail/prisoners` feeds the table.
+   Both are dev/admin/builder/designer only.
 
 ## Timing
 

@@ -185,8 +185,8 @@ async function confiscate(playerId, handle, actor = null) {
 
 // Issue the prison jumpsuit and put it on. Worn on the torso; its `covers` tag
 // (see items) fills the legs from the same single garment, so a stripped prisoner
-// isn't left half-naked. Removed automatically at release — restoreHeld() wipes
-// the whole inventory (garb included) before restoring the held snapshot.
+// isn't left half-naked. Kept at release — restoreHeld() clears everything else
+// but leaves the garb in the inventory, unequipped.
 async function dressInGarb(playerId) {
   // Insert-if-present: a booking never hinges on the garb item being seeded, so a
   // world without item_prison_jumpsuit (e.g. the regress harness) just skips it.
@@ -197,10 +197,21 @@ async function dressInGarb(playerId) {
   );
 }
 
-// Wipe whatever the player is carrying (prison garb) and restore the held snapshot.
+// Wipe whatever the player is carrying and restore the held snapshot. The prison
+// jumpsuit is the one exception: a released prisoner KEEPS it (Precinct 9 doesn't
+// want it back). It's unequipped on the way out so it can't fight the restored
+// clothes for the torso slot — you walk out in your own gear, carrying the garb.
 async function restoreHeld(playerId, held) {
   const items = Array.isArray(held) ? held : [];
-  await query('DELETE FROM player_inventory WHERE player_id = $1', [playerId]);
+  await query(
+    `DELETE FROM player_inventory WHERE player_id = $1 AND item_id <> $2`,
+    [playerId, PRISON_JUMPSUIT]
+  );
+  await query(
+    `UPDATE player_inventory SET is_equipped = 0, slot = NULL
+      WHERE player_id = $1 AND item_id = $2`,
+    [playerId, PRISON_JUMPSUIT]
+  );
   for (const it of items) {
     await query(
       `INSERT INTO player_inventory
@@ -588,6 +599,9 @@ async function release(playerId) {
       const zone = getZone(rec.release_zone);
       if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone, 8, player) });
       sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
+      // Nobody launders a jumpsuit for a second occupant. You change back into your
+      // own clothes and the garb goes in the tub with them.
+      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">Nobody asks for the jumpsuit back. You bundle it under one arm on the way out.</span>` });
       if (rec.held_credits || rec.fine) {
         const ledger = rec.fine > 0
           ? `₵${rec.held_credits} seized, ₵${rec.fine} kept for your fine — ₵${Math.max(0, refund)} back${refund < 0 ? ` and you're ₵${-refund} in the hole` : ''}.`
@@ -823,6 +837,63 @@ schedule('1h', () => purgeEvidence());
 
 // Place the duty roster once the world has loaded (the minute tick maintains it).
 setTimeout(() => { try { syncShift(); } catch (e) { console.error('[jail] shift sync error:', e.message); } }, 5000);
+
+// ── Dev routes: the prison roll + the pardon ─────────────────────────────────
+// A pardon is an early release with the fine forgiven, so it reuses release()
+// wholesale rather than re-implementing the walk-out: zero the fine (which makes
+// the refund whole), pull the deadline to now, and let the ordinary release path
+// return the gear, the cash and the freedom. Nothing here writes a jail row that
+// release() doesn't then delete.
+function _devOk(auth) {
+  return auth && ['dev', 'admin', 'builder', 'designer'].includes(auth.role);
+}
+
+export const routeHandler = async (path, method, body, auth) => {
+  if (!path.startsWith('/jail')) return null;
+  if (!_devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+
+  if (path === '/jail/prisoners' && method === 'GET') {
+    const { rows } = await query(
+      `SELECT jp.player_id, p.handle, jp.stars, jp.fine, jp.charge, jp.cell_zone,
+              jp.release_at, jp.created_at
+         FROM jail_prisoners jp LEFT JOIN players p ON p.id = jp.player_id
+        ORDER BY jp.release_at ASC`
+    ).catch(() => ({ rows: [] }));
+    const now = Date.now();
+    return { status: 200, body: {
+      prisoners: rows.map(r => ({
+        playerId: r.player_id,
+        handle: r.handle || r.player_id,
+        stars: Number(r.stars) || 0,
+        fine: Number(r.fine) || 0,
+        charge: r.charge || 'unspecified',
+        cellZone: r.cell_zone,
+        // Real seconds left, not game ms — the panel counts down in the dev's clock.
+        remainingSec: Math.max(0, Math.round(gameMsToReal(new Date(r.release_at).getTime() - now) / 1000)),
+        online: !!getLivePlayer(r.player_id),
+      })),
+    } };
+  }
+
+  if (path === '/jail/pardon' && method === 'POST') {
+    const playerId = String(body?.playerId || '');
+    if (!playerId) return { status: 400, body: { error: 'playerId required' } };
+    const { rows } = await query('SELECT player_id, fine FROM jail_prisoners WHERE player_id = $1', [playerId]);
+    if (!rows[0]) return { status: 404, body: { error: 'That player is not in jail' } };
+    const forgiven = Number(rows[0].fine) || 0;
+    await query('UPDATE jail_prisoners SET fine = 0, release_at = NOW() WHERE player_id = $1', [playerId]);
+    // The guard's line reads as a normal walk-out; the pardon itself is announced
+    // separately so a released prisoner knows the fine was struck, not paid.
+    const player = getLivePlayer(playerId);
+    if (player && forgiven > 0) {
+      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">A pardon comes down the wire from somewhere above Precinct 9. Your fine of ₵${forgiven} is struck from the record.</span>` });
+    }
+    await release(playerId);
+    return { status: 200, body: { ok: true, forgiven } };
+  }
+
+  return { status: 404, body: { error: 'Unknown jail route' } };
+};
 
 export const commands = {
   conceal: cmdConceal,

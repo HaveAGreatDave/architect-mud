@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "Ruts either side of you, deep enough to turn an ankle in, worn by the same wheels going the same way for years.",
+    "A barrel hoop lies in the ditch, rusted through, and somebody has scratched a tally into the plate beside it.",
+    "A water cart comes the other way, empty, moving fast, and the two hauling it lift a hand without slowing.",
+    "A spill line of dark ground runs along the rut for thirty yards and stops. Somebody had a bad day here.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+    "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Open red country, and something has been through it: the ground is cut with a great many tracks, most of them feet, some of them dogs, all of them heading the same two ways. Off south the horizon has a dark line across it that does not behave like a ridge.",
+  "description": "Cart ruts, cut deep and kept, running between the lake and the town the long way round the outside of the thorn. The two sets of wheel marks are not the same depth: the ones going east are the loaded ones. Somebody has laid broken plate into the soft stretches and pegged it down, and somebody replaces a peg now and again.",
   "exits": {
     "east": "zone_scw_1037_980",
     "north": "zone_scw_1036_979",
@@ -22,16 +19,16 @@
   },
   "flags": {
     "lawless": true,
-    "radiation": 21,
+    "radiation": 4,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt_road"
   },
   "grid_x": 1036,
   "grid_y": 980,
   "grid_z": 0,
   "id": "zone_scw_1036_980",
   "map_id": "map_world",
-  "name": "The Weeping Rock",
+  "name": "The Water Road",
   "parent_zone": null
 }

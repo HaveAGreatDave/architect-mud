@@ -6,9 +6,12 @@
 //
 // See docs/proposals/scarletwastes.md for the design. Two things this file is built around:
 //
-// 1. THE GROUND IS UNIFORM ON PURPOSE. Every tile outside the town is `redrock` and nothing else.
-//    That is not laziness, it is the brief: the region ships as one flat canvas so it can be painted
-//    by hand in the Studio afterwards. Do not "improve" it by scattering terrain here. Paint it.
+// 1. THE GROUND IS A FIELD, NOT A SPRINKLE. The region originally shipped as one flat sheet of
+//    `redrock` to be hand-painted in the Studio later. It never was, and 4,836 identical tiles is
+//    not a canvas, it is a colour. The landform is now DERIVED, from one continuous height surface,
+//    so mesas carry their own scree skirts and scrub grows in the low ground that holds the runoff.
+//    If you change it, change the surface. Do not scatter terrain per tile: a tile that disagrees
+//    with its neighbour by accident is the failure the original brief was guarding against.
 //
 // 2. THE TOWN IS THE POINT. The Wildblood have never had a home; they have had three squatters in a
 //    Coldwater tenement and four empty zone shells. This builds The Thornwarren as a walled town,
@@ -108,6 +111,93 @@ function radAt(x, y) {
   return Math.max(9, Math.round(58 - (d - 1) * 1.7));
 }
 
+// ── LANDFORM ─────────────────────────────────────────────────────────────────
+// The region shipped as one flat sheet of `redrock` so it could be painted by hand in the Studio.
+// It never was, and 4,836 identical tiles is not a canvas, it is a colour. So the landform is
+// derived here instead, and the rule that replaces "paint it later" is:
+//
+//   THE GROUND IS A FIELD, NOT A SPRINKLE. Every terrain here comes out of one continuous height
+//   surface, so mesas have skirts, scrub grows in the low ground that holds what little water there
+//   is, and the lake sits in the bottom of a basin. Nothing is scattered per tile. A tile never
+//   disagrees with its neighbour by accident, which is the failure mode of a random scatter and the
+//   reason the brief said not to do one.
+//
+// Deterministic value noise: a hash lattice sampled with a smoothstep, so a rebuild produces the
+// identical map and no diff. No RNG anywhere in this file, on purpose.
+function hash2(ix, iy, salt) {
+  let h = (ix * 374761393 + iy * 668265263 + salt * 2246822519) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+function noise(x, y, scale, salt) {
+  const fx = x / scale, fy = y / scale;
+  const ix = Math.floor(fx), iy = Math.floor(fy);
+  const tx = fx - ix, ty = fy - iy;
+  const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+  const a = hash2(ix, iy, salt), b = hash2(ix + 1, iy, salt);
+  const c = hash2(ix, iy + 1, salt), d = hash2(ix + 1, iy + 1, salt);
+  return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
+}
+// Two octaves. One is too smooth to read as broken country; three costs nothing and buys nothing.
+const fbm = (x, y, scale, salt) => noise(x, y, scale, salt) * 0.68 + noise(x, y, scale / 2.7, salt + 91) * 0.32;
+
+// ── THE SLAKE ────────────────────────────────────────────────────────────────
+// The lake, west of the town, in the floor of the region's one real basin.
+//
+// It is the town's water source and it is NOT the town's pride. The Sweetwater takes rain off the
+// roofs and that is the thing Sill Moraine built and the thing the Thornwarren boasts about. The
+// Slake is what you fall back on in a dry month: hauled by cart, tipped into the same limestone and
+// bone beds, tested in the same glass tubes. That ordering matters. A town with a lake at the door
+// does not need to invent the best filtration for sixty miles, and the filtration is the argument.
+//
+// So the lake is authored as WORK: a wagon track, a hard standing, a jetty, a queue.
+const LAKE = [1030, 978];
+const LAKE_RX = 5.4, LAKE_RY = 4.1;
+// Wobbled ellipse. The wobble is what stops it reading as a stamped oval from the air.
+function lakeField(x, y) {
+  const dx = (x - LAKE[0]) / LAKE_RX, dy = (y - LAKE[1]) / LAKE_RY;
+  const r = Math.hypot(dx, dy);
+  return r - (fbm(x, y, 5, 7) - 0.5) * 0.42;
+}
+const isLake = (x, y) => lakeField(x, y) < 1;
+// The shore band is narrow on purpose. The field is an ELLIPSE metric, so a generous band is much
+// wider in x than in y and puts cart ground against the thorn wall six tiles from any water.
+const isShore = (x, y) => !isLake(x, y) && lakeField(x, y) < 1.2;
+
+// THE WATER ROAD. Cart ruts from the shore round the outside of the wall to the Sally Gate, because
+// the wall has two gaps in it and neither of them is on the lake side. Authored as an explicit tile
+// list rather than derived: a route that bends around a town is a decision somebody made with a
+// loaded cart, and a pathfinder would have found a different, worse one.
+const WATER_ROAD = new Set();
+// It stops at the waterline. The westmost tile is the hard standing you back a cart onto, and the
+// tile west of THAT is open water: a road drawn one tile further is a road in the lake.
+for (let y = 978; y <= 986; y++) WATER_ROAD.add(`1036_${y}`);
+for (let x = 1036; x <= 1046; x++) WATER_ROAD.add(`${x}_986`);
+WATER_ROAD.add('1046_985');
+
+// The landform for any tile outside the town box and outside the authored set. Returns a family
+// key; TERRAIN_OF maps it to a `flags.terrain` value, and the name/desc/ambient tables key off it.
+//
+// The height surface is one call. Everything else is a threshold on it, which is what makes the
+// bands contiguous: a mesa always has a skirt of its own scree, never a cliff straight to hardpan.
+function landformAt(x, y) {
+  if (WATER_ROAD.has(`${x}_${y}`)) return 'haul';
+  if (isLake(x, y)) return 'lake';
+  if (isShore(x, y)) return 'shore';
+  const h = fbm(x, y, 11, 3);
+  if (h > 0.635) return 'mesa';        // caprock. flat on top, and the top is a long way up.
+  if (h > 0.575) return 'scree';       // the skirt of broken rock a mesa sheds
+  // Scrub takes the low ground, because the low ground is where the runoff goes and stays.
+  const wet = fbm(x, y, 7, 23) + (0.5 - h) * 0.55;
+  if (wet > 0.635) return 'scrub';
+  if (h < 0.36 && fbm(x, y, 6, 41) > 0.55) return 'pan';   // dry lake floor, the flattest thing here
+  return 'flat';
+}
+const TERRAIN_OF = {
+  lake: 'water', shore: 'dirt', haul: 'dirt_road', mesa: 'redrock',
+  scree: 'gravel', scrub: 'scrub', pan: 'sand', flat: 'redrock',
+};
+
 // ── AMBIENT: the open waste ──────────────────────────────────────────────────
 // Red rock, acid weather, and things growing that have no business growing. The last beat is the
 // region's whole argument in one line, and it never says who it is about.
@@ -164,6 +254,110 @@ const TILE_NAMES = [
   'The Weeping Rock', 'Ash Flats', 'The Quiet Red', 'Broken Country',
 ];
 
+// ── The landform, in words ───────────────────────────────────────────────────
+// One entry per family from landformAt. `flat` is deliberately absent: it falls through to the
+// original waste prose, so the country the region shipped with is still the country you cross most
+// of, and the mesas and the scrub are the exceptions that make it read as distance.
+//
+// The lake gets no lyricism about being a relief. It is a working water source in a bad place and
+// the people who use it treat it as a chore, which is the same thing the masks and the rota do.
+const LANDFORM = {
+  mesa: {
+    names: ['The High Table', 'Caprock', 'The Standing Bench', 'Red Mesa', 'The Long Shelf'],
+    descs: [
+      'The top of a mesa, flat as a floor and red as an old brick, with the whole region laid out under it in bands of colour going away to nothing. The caprock rings under a boot. At the edge the ground simply stops and the drop is a long one, and the wind comes up it hard enough to lean on.',
+      'Bare table rock, scoured clean, cut across by shallow channels the rain has worn and then worn deeper. Nothing grows up here at all. There is a cairn on the high point that somebody built a long time ago and nobody has knocked over.',
+      'A shelf of red stone standing a hundred feet clear of the flats, its face banded in every shade the country has, laid down and then eaten back until only this much was left. From up here the dark line of the thorn is visible a long way off and reads as exactly what it is.',
+    ],
+    ambient: [
+      'A bird goes over below you, which takes a moment to make sense of.',
+      'The wind comes up the face of the drop in one long push and then drops away to nothing.',
+      'A stone goes off the edge. You do not hear it land.',
+      'Heat coming off the caprock in a shimmer, so the horizon detaches and floats a hand above the ground.',
+      'Rain marks up here too, a thousand pale rings, on rock nothing has stood on in years.',
+    ],
+  },
+  scree: {
+    names: ['The Skirt', 'Talus', 'The Spill', 'Broken Foot', 'The Slide'],
+    descs: [
+      'The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.',
+      'A fan of scree run out from a notch in the cliff above, sorted by nothing but weight: the big pieces at the bottom, the grit at the top, and a channel down the middle of it where the water goes when there is water.',
+      'Loose ground at the foot of the wall of rock, walking on it a matter of picking the flat pieces. There are bones down among the stones and there is no telling how they got there or from how high.',
+    ],
+    ambient: [
+      'Something shifts underfoot and a run of small stones goes down the slope ahead of you.',
+      'A slab the size of a door lies where it landed, and it has not been there long enough to weather.',
+      'The face above is banded like something cut through, and every band is a different red.',
+      'Grit rattles down out of the notch above with no wind to explain it.',
+    ],
+  },
+  scrub: {
+    names: ['The Grey Thicket', 'Scrub Bench', 'The Bristle', 'Low Growth', 'The Grabbing Ground'],
+    descs: [
+      'Scrubland, and after a day of bare rock the colour of it is a shock: grey-green thorn to knee height in every direction, growing out of ground that is more grit than soil. It is not soft country. Every plant in it is armed, and the pale rings of the rain sit on the leaves as burn scars.',
+      'Low thicket over a shallow pan where whatever rain falls runs to and stays a while. The scrub grows thickest along the channels and you can read the drainage off it from any small rise, like a map somebody drew in a hurry.',
+      'Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.',
+    ],
+    ambient: [
+      'The scrub moves in a line off to your right, tracking you, and then stops when you stop.',
+      'A thorn takes hold of a sleeve and does not let go until it is asked to properly.',
+      'Something small and quick goes down a run in the brush and the whole thicket ticks with it.',
+      'Seed pods, acid-pitted and rattling, hundreds of them, all at once and then not.',
+      'A patch of the scrub is dead and bleached white in a ring about ten feet across. Nothing has grown back into it.',
+    ],
+  },
+  pan: {
+    names: ['The White Pan', 'Saltground', 'The Dry Bed', 'Bleach Flat'],
+    descs: [
+      'The floor of a lake that stopped being a lake a long time ago: pale silt baked into plates and curled at every edge, going away flat for a quarter of a mile. Your boots leave the first marks in it since the last rain. There is a crust of something white along the low side and it is not salt.',
+      'A dry bed of fine pale sand and cracked mud, the flattest ground in the region and the emptiest. In the middle of it, absolutely alone, stands one dead tree with everything sanded off it but the trunk.',
+    ],
+    ambient: [
+      'A dust devil stands up out on the pan, walks a hundred yards, and lies down again.',
+      'The mud plates crack under a boot with a sound like biscuit.',
+      'Your own tracks, going away behind you, the only marks on the whole flat.',
+      'The white crust on the low ground is furred like frost and the day is far too hot for that.',
+    ],
+  },
+  shore: {
+    names: ['The Slake Shore', 'The Hard Standing', 'Cart Ground', 'The Draw'],
+    descs: [
+      'The margin of the lake, and the ground here is packed hard and rutted deep by cart wheels going down and coming back heavier. Barrels stacked and chained. A tide line of pale crust where the water has stood at higher marks, each old line a wetter year than this one.',
+      'Sloped ground running down to water, graded by hand at some point and kept graded, with stone laid into the worst of it so a loaded axle does not sit down. Reeds at the edge, thin and grey, and a great many bootprints between them all pointing the same two ways.',
+    ],
+    ambient: [
+      'A cart comes up off the shore with four barrels roped on and two people leaning into it, and neither of them is talking.',
+      'Water slaps the stone once and then goes back to doing nothing.',
+      'Empty barrels stacked in threes, every one of them numbered in the same hand as the drums in the town.',
+      'A dog drinks at the margin, stops, looks out across the water for a while, and goes back to drinking.',
+    ],
+  },
+  lake: {
+    names: ['The Slake'],
+    descs: [
+      'Open water, a red-brown sheet of it lying in the bottom of the basin with the rock going up all round in steps. It is not clean and it does not pretend to be: a scum of pale crust rings the whole margin and the deep of it is the colour of stewed tea. It is also the only standing water for sixty miles that has anything alive in it, which is why there are ruts coming down to it from the east.',
+    ],
+    ambient: [
+      'The surface takes the light flat and red and gives nothing back.',
+      'Something moves out in the deep water and the rings come in slowly and go on coming for a long time.',
+      'A skin of pale crust rocks against the margin and breaks up and re-forms.',
+      'The wind comes across the water and arrives at you tasting of iron.',
+    ],
+  },
+  haul: {
+    names: ['The Water Road'],
+    descs: [
+      'Cart ruts, cut deep and kept, running between the lake and the town the long way round the outside of the thorn. The two sets of wheel marks are not the same depth: the ones going east are the loaded ones. Somebody has laid broken plate into the soft stretches and pegged it down, and somebody replaces a peg now and again.',
+    ],
+    ambient: [
+      'Ruts either side of you, deep enough to turn an ankle in, worn by the same wheels going the same way for years.',
+      'A barrel hoop lies in the ditch, rusted through, and somebody has scratched a tally into the plate beside it.',
+      'A water cart comes the other way, empty, moving fast, and the two hauling it lift a hand without slowing.',
+      'A spill line of dark ground runs along the rut for thirty yards and stops. Somebody had a bad day here.',
+    ],
+  },
+};
+
 // ── The wall ─────────────────────────────────────────────────────────────────
 // GROWN, NOT BUILT, and that is the single most important sentence in this file.
 //
@@ -192,7 +386,7 @@ const TOWN = {
   },
   [`${SOUTH_GATE[0]}_${SOUTH_GATE[1]}`]: {
     name: 'The Sally Gate', gate: true,
-    desc: 'A smaller gap in the thorn, one leaf, barred from the inside with a length of axle. A worn track runs south from it toward country nobody has bothered to name. Somebody has wedged a child\'s boot in the frame at head height, laces knotted, which is either a warning or a joke and is very obviously the second one.',
+    desc: 'A smaller gap in the thorn, one leaf, barred from the inside with a length of axle. This is the water gate in everything but name: the cart ruts come up to it deep and go away west round the outside of the wall, and there is a stack of empty barrels against the thorn waiting on the next run down to the Slake. Somebody has wedged a child\'s boot in the frame at head height, laces knotted, which is either a warning or a joke and is very obviously the second one.',
   },
   [`${CX}_${CY}`]: {
     name: 'The Commons', hub: true,
@@ -200,7 +394,7 @@ const TOWN = {
   },
   [`${CX}_${CY - 1}`]: {
     name: 'The Sweetwater', landmark: true,
-    desc: 'The reason the town is here, and the best-made thing for sixty miles. Rain comes off every roof in the Thornwarren down channelled gutters into a stepped run of settling tanks, through three beds of crushed limestone and burnt bone, and comes out the far end into a covered cistern sweet enough to drink. The stonework is old and the ironwork is not, and both are immaculate. A test bench by the outflow holds a rack of little glass tubes and a chart, and the chart has been filled in twice a day, in different hands, for a very long time.',
+    desc: 'The reason the town is here, and the best-made thing for sixty miles. Rain comes off every roof in the Thornwarren down channelled gutters into a stepped run of settling tanks, through three beds of crushed limestone and burnt bone, and comes out the far end into a covered cistern sweet enough to drink. The stonework is old and the ironwork is not, and both are immaculate. A test bench by the outflow holds a rack of little glass tubes and a chart, and the chart has been filled in twice a day, in different hands, for a very long time. There is a second inlet at the top of the run, wider, plated, built to take a barrel tipped straight into it, and the board above it reads SLAKE WATER: BOTH BEDS, TWICE. In a dry month the whole town drinks the lake, and it drinks it through this.',
   },
   [`${CX - 1}_${CY - 1}`]: {
     name: 'The Bathhouse',
@@ -346,6 +540,7 @@ function main() {
   }
 
   let zones = 0, wallTiles = 0, authored = 0;
+  const tally = {};
 
   for (let x = X0; x <= X1; x++) {
     for (let y = Y0; y <= Y1; y++) {
@@ -379,7 +574,14 @@ function main() {
       // terrain must NOT be set — painted terrain on a building tile suppresses its map code and the
       // wall would vanish off the map and the tablet. content:lint catches it; it is easy to re-add
       // by reflex.
-      const flags = { region_id: REGION, radiation: radAt(x, y), terrain: 'redrock' };
+      // LANDFORM. Authored tiles (the trophy road, the Pool, the strip, the roadhead, the hide, the
+      // stripping ground) and everything in the town box keep the flat red ground they were written
+      // on: those are set-pieces whose prose names the surface underfoot, and a mesa top under the
+      // Screaming Line would contradict the sentence above it. Everywhere else gets the field.
+      const lf = (inTown(x, y) || town || out) ? 'flat' : landformAt(x, y);
+      const land = LANDFORM[lf] || null;
+      if (!inTown(x, y)) tally[lf] = (tally[lf] || 0) + 1;
+      const flags = { region_id: REGION, radiation: radAt(x, y), terrain: TERRAIN_OF[lf] };
       if (isWallMass) {
         // SOLID, BUT NOT A LANDMARK. The wall has to stop a vehicle: `groundObstructionAt` reads
         // buildingHeightZ, and the render cell's `bt` comes from `flags.building_type` and nothing
@@ -399,27 +601,43 @@ function main() {
         Object.assign(flags, { building_type: 'ruins', floors: 1 });
         wallTiles++;
       }
+      // The lake is the drinking source. The rad gradient out here bottoms at 9 on distance alone,
+      // and a town that hauls its dry-month water out of a 9 is a town poisoning itself slowly,
+      // which is the one thing the Thornwarren is written never to do. So the basin is a second
+      // hole in the curve, for the same reason the town is the first one.
+      // Keyed off the BASIN, not the family, so the hard standing at the waterline is not a step of
+      // sixteen points from the water it is standing in.
+      if (!inTown(x, y) && lakeField(x, y) < 1.2) flags.radiation = 4;
       if (out?.depot) { flags.truck_depot = { name: 'The Roadhead' }; flags.truck_fuel = true; }
       if (out?.strip) flags.airfield_id = 'scarlet_strip';
       // The wilds have no law out here, and the town enforces its own inside the thorn.
       if (!inside(x, y)) flags.lawless = true;
       // Scavenging: the open waste is worth working over. The town and its burial ground are not.
-      if (!inTown(x, y)) flags.scavenging_table_id = 'scav_irradiated_salvage';
+      // Nothing is scavenged off open water. Everything else out here is worth working over.
+      if (!inTown(x, y) && lf !== 'lake') flags.scavenging_table_id = 'scav_irradiated_salvage';
       if (inTown(x, y)) flags.no_spawn = true;
 
       const q = inside(x, y) ? QUARTERS[quarterAt(x, y)] : null;
       const name = town?.name || out?.name
-        || (isWallMass ? 'The Thorn Wall' : q ? pick(q.names, x, y) : pick(TILE_NAMES, x, y));
+        || (isWallMass ? 'The Thorn Wall' : q ? pick(q.names, x, y)
+          : land ? pick(land.names, x, y) : pick(TILE_NAMES, x, y));
 
       const onRoad = y >= 963 && y <= 967 && x === NORTH_GATE[0];
+      // The Pool's corruption band beats the landform: within six tiles of it the ground itself is
+      // the set-piece, and it is the same wrong ground whatever shape the country is in.
       const description = town?.desc || out?.desc || (isWallMass ? WALL_DESC : q ? pick(q.descs, x, y)
         : dist(x, y, POOL) < 6
           ? 'Red rock, and the rock here is wrong: banded through with a colour that is not mineral, and warm to the back of the hand from a foot away. Nothing grows. The few bones lying about have gone the same colour as the ground.'
+          : land
+            ? pick(land.descs, x, y)
           : dist(x, y, [CX, CY]) < 14
             ? 'Open red country, and something has been through it: the ground is cut with a great many tracks, most of them feet, some of them dogs, all of them heading the same two ways. Off south the horizon has a dark line across it that does not behave like a ridge.'
             : 'Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.');
 
-      const ambient = isWallMass ? [] : inside(x, y) ? AMBIENT_TOWN : onRoad ? AMBIENT_ROAD : AMBIENT_WASTE;
+      // The landform's own beats, then the region's, so a mesa top still gets the walking weather and
+      // the ticking rock. A shore is a place in the Scarletwastes before it is a shore.
+      const ambient = isWallMass ? [] : inside(x, y) ? AMBIENT_TOWN : onRoad ? AMBIENT_ROAD
+        : land ? [...land.ambient, ...AMBIENT_WASTE.slice(0, 4)] : AMBIENT_WASTE;
 
       if (town || out) authored++;
 
@@ -501,7 +719,9 @@ function main() {
   });
 
   console.log(`scarletwastes: wrote ${zones} zones + ${zones} power_zones, 1 region, 1 generator, 1 airfield`);
-  console.log(`  box        x${X0}-${X1} y${Y0}-${Y1}  (${X1 - X0 + 1}x${Y1 - Y0 + 1}, all redrock)`);
+  console.log(`  box        x${X0}-${X1} y${Y0}-${Y1}  (${X1 - X0 + 1}x${Y1 - Y0 + 1})`);
+  console.log(`  landform   ${Object.entries(tally).sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k} ${n}`).join(', ')}`);
   console.log(`  thornwarren x${TX0}-${TX1} y${TY0}-${TY1}  (${wallTiles} wall tiles, 2 gates)`);
   console.log(`  authored   ${authored} hand-written tiles`);
   console.log(`  walls      ${walls} blocked connection file(s)`);

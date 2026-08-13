@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "Something shifts underfoot and a run of small stones goes down the slope ahead of you.",
+    "A slab the size of a door lies where it landed, and it has not been there long enough to weather.",
+    "The face above is banded like something cut through, and every band is a different red.",
+    "Grit rattles down out of the notch above with no wind to explain it.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+    "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.",
+  "description": "The skirt of a mesa, a long slope of broken rock shed off the face above over a very long time, everything from fist-sized to the size of a truck. Nothing here is stable. Everything you put a foot on shifts a little and then decides not to.",
   "exits": {
     "east": "zone_scw_1041_998",
     "north": "zone_scw_1040_997",
@@ -25,13 +22,13 @@
     "radiation": 26,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "gravel"
   },
   "grid_x": 1040,
   "grid_y": 998,
   "grid_z": 0,
   "id": "zone_scw_1040_998",
   "map_id": "map_world",
-  "name": "The Slow Burn",
+  "name": "Talus",
   "parent_zone": null
 }

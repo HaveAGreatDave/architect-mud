@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_dw_789_1000",
+  "max_capacity_kw": 0,
+  "name": "Broken Level",
+  "source_type": "city_grid"
+}

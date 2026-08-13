@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "Brackish channels wander through beds of iron-stained reed, going nowhere in particular. The ground between them gives underfoot and smells of rot and old metal.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "The heart of the stand, and the reason for the name. The wind is working the tops hard enough to see, and none of it reaches down here. You can hear your own swallowing. The lake shows through the trunks to the south in flat grey slices.",
   "exits": {
     "east": "zone_district_896_931",
     "north": "zone_district_895_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "marsh"
+    "terrain": "forest"
   },
   "grid_x": 895,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_895_931",
   "map_id": "map_world",
-  "name": "Ferric Wash",
+  "name": "The Hush",
   "parent_zone": null
 }

@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "The surface takes the light flat and red and gives nothing back.",
+    "Something moves out in the deep water and the rings come in slowly and go on coming for a long time.",
+    "A skin of pale crust rocks against the margin and breaks up and re-forms.",
+    "The wind comes across the water and arrives at you tasting of iron.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+    "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.",
+  "description": "Open water, a red-brown sheet of it lying in the bottom of the basin with the rock going up all round in steps. It is not clean and it does not pretend to be: a scum of pale crust rings the whole margin and the deep of it is the colour of stewed tea. It is also the only standing water for sixty miles that has anything alive in it, which is why there are ruts coming down to it from the east.",
   "exits": {
     "east": "zone_scw_1027_980",
     "north": "zone_scw_1026_979",
@@ -22,16 +19,15 @@
   },
   "flags": {
     "lawless": true,
-    "radiation": 9,
+    "radiation": 4,
     "region_id": "region_scarletwastes",
-    "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "water"
   },
   "grid_x": 1026,
   "grid_y": 980,
   "grid_z": 0,
   "id": "zone_scw_1026_980",
   "map_id": "map_world",
-  "name": "The Quiet Red",
+  "name": "The Slake",
   "parent_zone": null
 }

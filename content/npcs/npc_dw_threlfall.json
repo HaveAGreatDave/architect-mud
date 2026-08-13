@@ -1,0 +1,303 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Gauge duty is short this week. It is always short.",
+    "If that is about the rota it goes on the board, not to me.",
+    "Mind the belting where it crosses the yard.",
+    "There is tea in the hall and it is nobody's in particular."
+  ],
+  "description": "A broad woman in her sixties standing at the tally board with a piece of chalk and a straight edge, ruling off a column. Her hands are a machinist's hands and one of her thumbnails has grown back wrong. She rules the line, checks it against the board, and only then looks at you, and she does it without any of the hurry you were expecting.",
+  "dialogue_tree": {
+    "broke": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Then we would mend it.\" A pause, and something that is very nearly humour. \"That is not a boast. It is just the only option we have arranged for ourselves.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the belting.\""
+    },
+    "camp": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who keeps the lights on here?",
+          "next": "lights"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everybody is. It is the grey.\" She is not offended in the least. \"Grey reads as poor. It is only what colour gravel is.\""
+    },
+    "dark": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And if it broke?",
+          "next": "broke"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is dark. There is no grid in it, there never was, and we did not take one out.\" She says this as though you had asked about the weather. \"The wheels give us shaft power and the shaft power turns things. Light is lamps, and lamps are oil, and oil is a job somebody does on Tuesdays.\"\n\nShe taps the board where it says gauge.\n\n\"The chart on the gauge house wall is drawn by a pen on an arm off a float on a wire, and the drum it draws on is turned by a weight on a cord, and the cord is wound by whoever has gauge duty. That is the most complicated thing in this region. You could take all of it apart on that bench with a screwdriver and put it back before dinner.\""
+    },
+    "lights": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are all the sums in the little room?",
+          "next": "reckoning"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nobody. It is water.\" She points, roughly north, through two walls. \"Eighty feet of poured stone holding back a lake, and the lake goes through four wheels on its way out, and the wheels turn a shaft, and the shaft goes everywhere. It has done it since before anybody here was born and it will do it after.\"\n\nShe picks the chalk back up.\n\n\"It does not need us. We check it twice a day anyway. Twice a day is the rent.\""
+    },
+    "louder": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Loud is for people who are not sure.\" She goes back to the board. \"Ask Imre why. He will tell you at length and you will not enjoy it. Ask Selke why and she will tell you in a sentence.\""
+    },
+    "notanswer": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" She rules the line. \"It is a job description.\""
+    },
+    "place": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A little.",
+          "next": "camp"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I was expecting it to be dark.",
+          "next": "dark"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A works. Two hundred and ten people, four wheels turning off the dam, and a stores you can find anything in inside a minute.\" She nods at the board. \"That is the whole of it. We machine, we strip, we mend, and we eat together on the days somebody organises it.\"\n\nShe considers you.\n\n\"You were expecting a camp.\""
+    },
+    "reckoning": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Get where?",
+          "next": "where"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fifty-three people to do what?",
+          "next": "where"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Imre's room.\" She does not look up. \"Fuel, loads, distances, and how many go. It is a long way east and it is a bad road the whole distance, and the number at the bottom is how many of us it takes to get there with enough left to do anything when we arrive.\"\n\nShe rules another line.\n\n\"He has had it down to forty and back up to sixty-one twice this year. It is currently fifty-three.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "She finishes her line before she speaks. \"You came in off the northeast track, so you have walked past the fuel tank and the water can and you did not help yourself to either, which is more than most.\" She sets the chalk down in its groove. \"Maud Threlfall. I keep the board. What do you want?\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "place"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who keeps the lights on here?",
+          "next": "lights"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are all the sums in the little room?",
+          "next": "reckoning"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You are back. Board is over there if you are looking for work.\"",
+      "text_by_relation": {
+        "close": "\"Good.\" She puts the chalk down properly, which from her is an event. \"Sit down and tell me something that is not a number.\"",
+        "familiar": "She hands you the straight edge without looking, the way you hand a thing to somebody who will hand it back. \"Hold that a moment.\"",
+        "known": "\"There you are. Shut the door on the belting, it whines.\""
+      }
+    },
+    "shutdown": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Something louder.",
+          "next": "louder"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why?",
+          "next": "why"
+        }
+      ],
+      "text": "\"It is a shutdown.\" She finally looks at you properly, and her expression is patient rather than fierce. \"What did you want it to be?\""
+    },
+    "where": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You say that like it is a shutdown.",
+          "next": "shutdown"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The far side of the world, where the thing that runs everything keeps itself.\" Flat, unhurried, entirely without ceremony. \"We are going to go and switch it off.\"\n\nShe checks the column against the board.\n\n\"Not this year. The rig fleet will not carry fifty-three that far and the fuel maths does not close. So we machine, and we sell parts east, and Imre does the sums again in the spring.\""
+    },
+    "why": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not an answer.",
+          "next": "notanswer"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fair enough.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I keep the board.\" A shrug that closes the subject without any rudeness in it at all. \"Reasons are not on the board. Hours are on the board.\""
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a canvas coat gone shiny at the cuffs",
+      "a shirt with the collar turned once already",
+      "boots resoled by somebody competent"
+    ],
+    "personality": "professional"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_769_976",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_threlfall",
+  "name": "Maud Threlfall",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_769_976"
+}

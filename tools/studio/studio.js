@@ -711,16 +711,16 @@ function featureLine(p) {
 
 function drawPortal(x, y, c, seams, authoredDoor) {
   const leaves = seams.find(s => s.way === 'out') || seams[0];
-  ctx.strokeStyle = '#8ab4ff'; ctx.lineWidth = c >= 12 ? 2 : 1;
+  ctx.strokeStyle = chrome('--seam'); ctx.lineWidth = c >= 12 ? 2 : 1;
   ctx.strokeRect(x + 1, y + 1, c - 3, c - 3);
   if (c < 9) return;
   // The authored door already barred this tile — don't bar a second edge.
   if (authoredDoor) return;
   // An inbound-only seam's direction belongs to the tile at the OTHER end, so it
   // is not an edge of this one.
-  if (leaves.way === 'out' && edgeBar(x, y, c, leaves.dir, '#8ab4ff')) return;
+  if (leaves.way === 'out' && edgeBar(x, y, c, leaves.dir, chrome('--seam'))) return;
   const m = (c - 1) / 2, q = Math.max(2.5, c * 0.2);
-  ctx.fillStyle = '#8ab4ff'; ctx.lineWidth = 1.5;
+  ctx.fillStyle = chrome('--seam'); ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(x + m, y + m, q * 0.7, 0, 7);
   if (leaves.way === 'out') ctx.fill(); else ctx.stroke();
 }
@@ -811,7 +811,7 @@ function drawDistrictEdges(c) {
 }
 
 function draw() {
-  ctx.fillStyle = '#0e0f12';
+  ctx.fillStyle = chrome('--bg');
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const c = state.cell;
   ctx.font = `${Math.max(6, Math.floor(c * 0.62))}px ui-monospace, monospace`;
@@ -821,7 +821,7 @@ function draw() {
     const x = sx(z.grid_x), y = sy(z.grid_y);
     if (x + c < 0 || y + c < 0 || x > canvas.width || y > canvas.height) continue;
     const spec = z.spec || {};
-    ctx.fillStyle = spec.fill || '#1a1c21';
+    ctx.fillStyle = spec.fill || chrome('--bg3');
     // EDGE TO EDGE. Painted ground is a surface, not a swatch: the 1px gutter this
     // used to leave broke a bay into 945 blue squares and a road into a dotted line
     // of separate tiles. The grid comes back as a hairline once you are zoomed in
@@ -837,7 +837,7 @@ function draw() {
     // rather than a dot because the side is the useful half: a street of shops
     // reads as a row of thresholds facing the road, and a door on the wrong side
     // is visible from across the map instead of one tile at a time.
-    const authoredDoor = !!(spec.entrance && c >= 8 && edgeBar(x, y, c, spec.entrance, '#ffd479'));
+    const authoredDoor = !!(spec.entrance && c >= 8 && edgeBar(x, y, c, spec.entrance, chrome('--entrance')));
     // The two layers that stand on the ground, in the same order the game stacks
     // them: the footprint SVG, then the code someone reads off it. Which of the two
     // a tile shows is the OVERLAY MODE, and the rule is the game's — minimap.js's
@@ -927,7 +927,7 @@ function draw() {
       // other non-map mark here — the scrim is the canvas background and the heat is
       // --bad, the same red a stale pin and a refused destination wear.
       ctx.globalAlpha = 0.62;
-      ctx.fillStyle = '#0e0f12';
+      ctx.fillStyle = chrome('--bg');
       ctx.fillRect(x, y, c, c);
       ctx.globalAlpha = 1;
       const a = heatAlpha(threat);
@@ -2083,9 +2083,63 @@ async function lintNow() {
     : `lint clean · <b>${w}</b> warning(s) <span class="muted">· derived-half rules need an import</span>`;
 }
 
+// ── Theme ────────────────────────────────────────────────────────────────────
+// The dev panel's themes, not a second set: every id here has its palette in
+// client/shared/themes.css, which this page <link>s. The Studio is served from
+// its own port, so it cannot READ the dev panel's stored choice — localStorage
+// does not cross an origin — but it stores under the same key, so a Studio ever
+// served from the game server would find the panel's answer already there.
+const THEME_KEY = 'architect_settings';
+const STUDIO_THEMES = [
+  ['Dark', [
+    ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],['contrast','Terminal'],
+    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+    ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
+    ['tide','Tide'],['dusk','Dusk'],['solarflare','Solar Flare'],['abyss','Abyss'],
+    ['mulberry','Mulberry'],['umber','Umber'],
+  ]],
+  ['Light', [
+    ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],['arctic','Arctic'],
+    ['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+    ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
+    ['meadow','Meadow'],['clay','Clay'],['highbeam','Highbeam'],
+  ]],
+];
+
+function applyTheme(id) {
+  document.documentElement.setAttribute('data-theme', id || 'dark');
+  // chrome() caches, and the canvas is drawn from that cache — a theme change
+  // that did not clear it would repaint the map in the OLD palette's ink.
+  CSSVAR.clear();
+  draw();
+}
+
+function initTheme() {
+  const sel = $('#theme');
+  if (!sel) return;
+  let saved = 'dark';
+  try { saved = JSON.parse(localStorage.getItem(THEME_KEY) || '{}').theme || 'dark'; } catch {}
+  sel.innerHTML = STUDIO_THEMES.map(([label, items]) =>
+    `<optgroup label="${label}">${items.map(([v, l]) =>
+      `<option value="${v}"${v === saved ? ' selected' : ''}>${l}</option>`).join('')}</optgroup>`).join('');
+  // A custom dev-panel theme has no palette block here; fall back to Void rather
+  // than leaving an unstyled data-theme on the element.
+  if (!sel.value) sel.value = 'dark';
+  applyTheme(sel.value);
+  sel.addEventListener('change', () => {
+    applyTheme(sel.value);
+    try {
+      const s = JSON.parse(localStorage.getItem(THEME_KEY) || '{}');
+      s.theme = sel.value;
+      localStorage.setItem(THEME_KEY, JSON.stringify(s));
+    } catch {}
+  });
+}
+
 window.addEventListener('resize', resize);
 await loadCatalog();
 resize();
+initTheme();
 await loadMaps();
 await loadDistrictList();
 // The log is the SERVER'S — a reloaded tab can still take back what the session

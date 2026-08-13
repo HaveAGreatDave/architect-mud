@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Somebody is filing something flat, and has been for a while, and is in no hurry to stop.",
+    "A hand crank goes round twelve times, pauses, and goes round twelve more.",
+    "Two people are arguing about a tolerance. Neither of them is angry and both of them are certain.",
+    "Woodsmoke, machine oil, and under both of them, wet stone.",
+    "A tray of bearings on a bench, laid out in a row in the order they came out.",
+    "The clock on the shop wall ticks, and you can see the escapement doing it.",
+    "A belt slaps somewhere overhead, running off a shaft that runs off the water.",
+    "Somebody drops a spanner and somebody else, out of sight, names the size of it correctly.",
+    "A child goes past carrying a part in both hands, very carefully, on an errand that clearly matters.",
+    "Chalk marks on a doorframe at four heights, the highest one recent.",
+    "Somebody laughs, once, and goes back to work.",
+    "A kettle comes to the boil on a plate over the forge and is taken off it by somebody who was waiting."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "A long steel bench under a window, laid out for close work: a vice, a rack of files graded fine to coarse, an oil stone, a tray. Somebody is sitting at it with their sleeve rolled to the shoulder and their arm off at the elbow, and the arm is in the vice with the forearm plate open. They are cleaning a track in it with a bristle brush, without looking, the way you clean something you know. What they are talking to you about is the water rota, which they think is unfair, at length, with examples.",
+  "exits": {
+    "east": "zone_dw_769_974",
+    "north": "zone_dw_768_973",
+    "south": "zone_dw_768_975",
+    "west": "zone_dw_767_974"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "no_spawn": true,
+    "region_id": "region_deadwater",
+    "terrain": "gravel"
+  },
+  "grid_x": 768,
+  "grid_y": 974,
+  "grid_z": 0,
+  "id": "zone_dw_768_974",
+  "map_id": "map_world",
+  "name": "The Bench",
+  "parent_zone": null
+}

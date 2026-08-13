@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_dw_758_990",
+  "max_capacity_kw": 0,
+  "name": "The Old Survey",
+  "source_type": "city_grid"
+}

@@ -1,0 +1,196 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Casings go on the alloy stack. Not this stack.",
+    "Anything that thinks goes indoors, under the cloth.",
+    "Mind the seam, it will have your shin.",
+    "If you are here to sell me a machine, I will buy it broken."
+  ],
+  "description": "A heavy man kneeling on the seam of an opened hull with a prybar across his knee, sorting through the inside of it without any particular hurry. The frames behind him are laid out in rows, stripped, all facing the same way. There is a wooden box beside him about the size of a bread tin with a crank folded into its side and a wire aerial wound round it, and he has a hand on the box the whole time he talks to you.",
+  "dialogue_tree": {
+    "box": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That works on people?",
+          "next": "people"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You keep the thinking parts.",
+          "next": "parts"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A crank and a coil and a bit of wire.\" He turns it so you can see, and the lid is off, and there is genuinely nothing else in it. \"You wind it and it makes a noise nothing wants to hear. Not a noise you can hear.\n\n\"Anything close by that is listening to itself stops listening for a while. It does not last. You have to keep winding.\"\n\nHe puts his hand back on it.\n\n\"Mine has no battery in it, which is the point of it, and I made the coil in the winding shop on a Thursday.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Out along the row, not across it.\""
+    },
+    "come": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You keep the thinking parts.",
+          "next": "parts"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everywhere. They come down, or they stop, or somebody drags one in on a cart from four days out and wants paying for it.\" He works a fastener loose. \"We buy them broken. We are the only people who will.\""
+    },
+    "keepwhy": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "He thinks about it for a while, and the answer, when it comes, is not a speech.\n\n\"Because throwing them away is a thing you do with rubbish.\""
+    },
+    "onme": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is nothing in me to stop.\" He knocks a knuckle against his own forearm, and it is flesh. \"Selke has a steel one and it is cable and spring, so it does not care either.\n\n\"That is not us being clever. That is just what we happen to be made of.\""
+    },
+    "parts": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why keep them at all?",
+          "next": "keepwhy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Every one.\" He nods at the shed behind him. \"There is a shelf indoors with a cloth over it. Everything on it used to make a decision.\n\n\"We do not use them and we do not sell them. They go on the shelf, and the shelf gets longer, and when we go east somebody will be able to say how many there were.\""
+    },
+    "people": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "And it cannot be used on you?",
+          "next": "onme"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It works on what is in them.\" No relish in it at all, which is somehow worse. \"A drone, mostly. A person with the city's work in their arm, also, and they do not enjoy it and it does not hurt them.\n\n\"You do not point it at somebody standing at the top of a ladder. That is the whole of the rule and everybody knows the rule.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He does not get up. \"You are stood in the row.\" He says it mildly and waits until you move, which is worse than if he had not. \"Yestin Grieve. This is the yard. We take them apart properly, from that end to this end, and everything gets kept.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in the box?",
+          "next": "box"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where do these come from?",
+          "next": "come"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You keep the thinking parts.",
+          "next": "parts"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Row. Mind the row.\"",
+      "text_by_relation": {
+        "close": "\"Right.\" He sets the prybar down. \"You can hold a casing steady and I will tell you what it is.\"",
+        "familiar": "He kicks a crate over for you to sit on without looking up. \"Sit down, you make me nervous stood up.\"",
+        "known": "\"You are learning where to stand. Good.\""
+      }
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a grey coat stiff with old oil",
+      "heavy gloves with the fingers cut back",
+      "a bandolier of drivers and prybars"
+    ],
+    "personality": "mercenary"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_776_980",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_grieve",
+  "name": "Yestin Grieve",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_776_980"
+}

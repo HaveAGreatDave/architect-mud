@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The water does not move. Not a ripple, not a slap against the stone, nothing.",
+    "A gull sits out on the surface, a long way from anywhere, entirely still.",
+    "The far shore is in the water as well as above it, and the two do not disagree by a hair.",
+    "Something breaks the surface out in the middle, once, and the rings go out for a very long time.",
+    "A tide line of grey scum along the stone, and above it, older lines, each one a dry year.",
+    "The cold comes off it in a sheet and stops about a foot inland.",
+    "Reeds at the margin, standing in their own reflection, not one of them stirring.",
+    "A rowing boat is drawn up on the stone, turned over, its bottom recently tarred."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Still water, and a great deal of it. The surface holds the sky without altering it in any way, and the cold comes up off it in a sheet. Nothing about it moves unless something makes it move.",
+  "exits": {
+    "east": "zone_dw_763_967",
+    "north": "zone_dw_762_966",
+    "south": "zone_dw_762_968",
+    "west": "zone_dw_761_967"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "lawless": true,
+    "region_id": "region_deadwater",
+    "terrain": "water"
+  },
+  "grid_x": 762,
+  "grid_y": 967,
+  "grid_z": 0,
+  "id": "zone_dw_762_967",
+  "map_id": "map_world",
+  "name": "The Deadwater",
+  "parent_zone": null
+}

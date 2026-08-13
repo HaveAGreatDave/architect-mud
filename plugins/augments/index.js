@@ -28,7 +28,12 @@ import { registerArmorContributor, addSoakToSlot, recomputeEquipped } from '../.
 import { burnAllMutations } from '../../server/engine/mutations.js';
 
 const ASCENDANTS = 'ideology_ascendants';
-const OPPOSED = ['ideology_long_watch', 'ideology_wildblood']; // the human-path orders
+// The orders that hold an Ascendant install against you. The first two are the human-path orders.
+// The Null are here for a different reason and it is worth the sentence: their objection is to
+// RELIANCE, not to hardware. They wear steel arms themselves, but theirs are cable and spring with a
+// servicing card tied to the wrist, and nothing in one of those is an `augments` row — so a Null
+// limb never reaches this code path and only city chrome ever costs you standing with them.
+const OPPOSED = ['ideology_long_watch', 'ideology_wildblood', 'ideology_null'];
 
 // Slot capacity per body region — caps force real builds over stacking.
 const SLOT_CAPS = { neural: 2, eyes: 1, torso: 2, arms: 1, legs: 1 };

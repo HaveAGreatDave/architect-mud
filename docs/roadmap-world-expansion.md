@@ -216,8 +216,27 @@ A big map is forgettable without anchors. Proposed named mega-landmarks (on the 
 - **The Undercity** — the buried layer; smuggling, hiding, old infrastructure.
 - **The Deep Data Center** — the Architect's core. The deepest narrative thread, the endgame.
 
-### Decision 7 — The Architect's Core payoff
-- **(A) Reachable but near-unsurvivable endgame zone.** *(Recommended)* A real place veterans
+### Decision 7 — The Architect's Core payoff — **RESOLVED (A), amended 2026-08-12**
+
+> **Amended, not reversed.** The Deep Data Center stays far north-east and stays
+> reachable-but-near-unsurvivable. What changed is that there is now **a faction that intends to go
+> there**: the Null, in [Deadwater](proposals/deadwater.md), who have a chalk column on a wall costing
+> the expedition at fifty-three people. So the endgame acquires an ally and a motive **without
+> acquiring a quest-giver.**
+>
+> Everything that made option (A) the right answer is unchanged and is now load-bearing. **The
+> Architect still never speaks and never rewards** ([story.md](story.md);
+> [systems-corps.md](systems-corps.md) — *"indifferent infrastructure, never a quest-giver"*). The
+> assault is narrated entirely by the Null and by machinery: turret logs, power draw, and the
+> Curtain's existing Invader test, which flags `renounce`-aligned characters and therefore flags them
+> already. Arriving is still the feat.
+>
+> Note also that the Null are sited **as far from their objective as the map allows** — far south-west
+> against a far north-east core. That is deliberate: crossing the entire world is the cost of the
+> endgame. Still unanswered, and it blocks the build: **is the assault repeatable, per-player
+> instanced, or one-way?** It would be the first thing in this game with a conclusion.
+
+- **(A) Reachable but near-unsurvivable endgame zone.** *(CHOSEN)* A real place veterans
   mount expeditions toward; arriving is a legend-making feat, not a quest turn-in.
 - **(B) Never physically reachable.** It's always "over there," felt through infrastructure and
   signals only — preserving the mystery permanently ([story.md](story.md): the machine is watching,
@@ -428,7 +447,7 @@ Drone, Arbiter-Class Enforcement Unit) all exist as enemies today.
 | 4 | PvP in inner ruins | A — opt-in / flagged |
 | 5 | Phase ordering | A — outward by ring |
 | 6 | Wave size | A — one district per wave |
-| 7 | Architect's Core payoff | A — reachable near-unsurvivable endgame |
+| 7 | Architect's Core payoff | A — reachable near-unsurvivable endgame — **RESOLVED, amended: the Null march on it ([Deadwater](proposals/deadwater.md)); the Architect still never speaks** |
 | 8 | Must-have landmarks | *(multi-select)* |
 | 9 | Territory mechanics | A — influence tug-of-war |
 | 10 | Player agency over territory | A — corps can capture badlands |

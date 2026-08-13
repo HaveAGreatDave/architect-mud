@@ -92,6 +92,17 @@ export const VOIDS = {
       // as a map gate and the far yard's fuel pump is the only way home. See
       // docs/proposals/terminus.md.
       { key: 'exodus', dest: 'zone_terminus_1200_916', region: 'region_terminus', heading: 'Exodus', dir: 'east', length: 12 },
+      // DEADWATER, southwest, landing at the Roadhead six tiles in off its east rim.
+      //
+      // `dir: 'west'` is not a preference, it is the last cardinal left: `reach` holds south and
+      // `exodus` holds east, and north is the basin (a water tile has no rim in any direction, so
+      // there was never a fourth). THE FORK IS NOW FULL AT THREE LIMBS. A fifth destination off
+      // Coldwater needs a design change — a second gate, or a fork that is not a room with four
+      // walls — and not another row in this array.
+      //
+      // `length: 8` explicitly, the same reason as the Reach: the derivation is straight-line and
+      // 45 tiles of gap would clamp to MIN_ROOMS (5), leaving a single room behind a trunk of 4.
+      { key: 'deadwater', dest: 'zone_dw_812_955', region: 'region_deadwater', heading: 'Deadwater', dir: 'west', length: 8 },
     ],
   },
 
@@ -112,11 +123,33 @@ export const VOIDS = {
   // still ahead of you.)
   region_the_reach: {
     origin: 'The Reach',
-    trunk: 1,
-    // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
-    // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
+    // Raised 1 → 2 when Deadwater gave the Reach a second way out. This is the one place in this
+    // table where a SHIPPED crossing changed shape: the Coldwater limb keeps its `length: 8`, so
+    // the corridor is the same distance it always was and the tank maths in flight-model.js still
+    // holds — only the trunk/limb split moved. A trunk of 2 stays detour-free (`trunkLen >= 3`),
+    // which is right: the gamble belongs on the way out, not on a leg home.
+    trunk: 2,
     dests: [
+      // North out of the Reach, back onto the dirt road at the foot of the Coldwater map — the one
+      // tile on that whole rim that is `dirt_road` rather than redrock, because it is the road.
       { key: 'coldwater', dest: 'zone_district_918_947', region: 'region_coldwater', heading: 'Coldwater', dir: 'north', length: 8 },
+      // West across the flats to Deadwater's Eastern Ruts. `west` is both true and free (north is
+      // Coldwater's), so the Reach is the one region whose two crossings do not compete.
+      { key: 'deadwater', dest: 'zone_dw_818_988', region: 'region_deadwater', heading: 'Deadwater', dir: 'west', length: 8 },
+    ],
+  },
+  region_deadwater: {
+    origin: 'Deadwater',
+    trunk: 2,
+    dests: [
+      // NORTH out of Deadwater for Coldwater, and this is the one dest in the table that is NOT the
+      // mirror of its outbound leg (`dir: 'west'` from Coldwater). It is not an oversight: Coldwater
+      // lies entirely north of Deadwater AND entirely east of it, so both readings are true, and
+      // `east` is already spoken for by the Reach below. Landing on Coldwater's south rim at x870
+      // keeps it clear of the Reach's own arrival at x918 on the same row.
+      { key: 'coldwater', dest: 'zone_district_870_947', region: 'region_coldwater', heading: 'Coldwater', dir: 'north', length: 8 },
+      // East to the Reach's west rim, level with the middle of its original block.
+      { key: 'reach', dest: 'zone_the_reach_863_1956', region: 'region_the_reach', heading: 'The Reach', dir: 'east', length: 8 },
     ],
   },
   region_terminus: {

@@ -374,9 +374,16 @@ const BIOME_GROUND = {
   ruins: [78, 98, 56], oldcoldwater: [56, 94, 52], industrial: [52, 86, 48],
   infra: [54, 92, 50], freight: [54, 90, 50], marquee: [58, 96, 54],
   citycore: [56, 96, 52], parkland: [58, 92, 54], park: [52, 112, 50], uptown: [60, 104, 56], civic: [58, 98, 54],
+  // Closed-canopy woodland: darker and bluer than parkland turf, so a forest reads as shade
+  // from the air even before the tree stand on top of it resolves out of the fog.
+  forest: [34, 66, 38],
   airport: [60, 64, 60],
   // Arid wildlands beyond the Curtain: dry olive scrub, rust-red mesa, burnt ash flats.
   scrub: [126, 120, 78], redrock: [150, 82, 54], ash: [84, 80, 74],
+  // Badlands accents: pale cracked lakebed, near-white salt crust, dark canyon rim. Alkali is
+  // deliberately the brightest ground in the game — from the air it should look like a hole
+  // in the rust, which is exactly what a dry salt pan looks like.
+  hardpan: [184, 171, 144], alkali: [217, 213, 200], cliff: [92, 50, 36],
   // Painted paved surfaces (flags.terrain): dark tarmac, pale concrete slab, weathered
   // dock planking. Deliberately NOT in GRASS_BIOMES, so they take the concrete-checker
   // material and read as pavement instead of turf.
@@ -385,12 +392,12 @@ const BIOME_GROUND = {
 // Biomes whose bare ground reads as GRASS — the fine vegetation mottle instead of the
 // concrete checker, so the green above lands as turf. Kept OFF: water, desert badlands, and
 // the airport ramp (stays concrete grey).
-const GRASS_BIOMES = new Set(['parkland', 'park', 'citycore', 'uptown', 'civic', 'infra', 'freight',
+const GRASS_BIOMES = new Set(['parkland', 'park', 'forest', 'citycore', 'uptown', 'civic', 'infra', 'freight',
   'marquee', 'oldcoldwater', 'industrial', 'ruins', 'docks']);
 // Bare dry-land biomes — get the carved badland relief (wildsRelief), a per-tile arid tint
 // jitter, and the sand-ripple/cracked-clay ground material instead of flat fill. The off-map
 // wildlands fill is arid by construction, so it isn't listed here (it passes arid=1 directly).
-const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands']);
+const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands', 'hardpan', 'alkali', 'cliff']);
 // Man-made / paved surfaces — the coast-wobble domain warp skips these so a concrete slab, tarmac,
 // pier or airport ramp keeps its straight built edges instead of going wavy (apron tiles are added
 // dynamically in the LUT via the nearField test).
@@ -4174,6 +4181,44 @@ function drawTreeBB(ctx, cam, dx, dy, night, seed, alpha) {
   }
   ctx.globalAlpha = 1;
 }
+// A conifer: a dark tapered spire with a short trunk. The forest's second species — a stand of
+// nothing but drawTreeBB blobs reads as one shrub repeated, and two silhouettes is enough for the
+// eye to call it a wood.
+function drawConiferBB(ctx, cam, dx, dy, night, seed, alpha) {
+  const p = cam.proj(dx, dy, 0); if (!p || p.f <= 0.06) return;
+  const s = clamp(30 / p.f, 3, 60), nm = night ? 0.55 : 1;
+  const h = s * (1.3 + frac(seed) * 0.8), w = s * (0.32 + frac(seed + 5) * 0.14), x = p.sx, by = p.sy;
+  const dark = fogTint([22 * nm, 48 * nm, 30 * nm], p.f), lit = fogTint([40 * nm, 76 * nm, 42 * nm], p.f);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = rgb(fogTint([44 * nm, 34 * nm, 26 * nm], p.f));
+  ctx.fillRect(x - Math.max(0.6, s * 0.04), by - h * 0.22, Math.max(1.2, s * 0.08), h * 0.22);   // trunk
+  // Three stacked skirts, each narrower than the one below — the classic fir taper.
+  for (let i = 0; i < 3; i++) {
+    const t = i / 3, yb = by - h * (0.18 + t * 0.62), yt = by - h * (0.5 + t * 0.5), hw = w * (1 - t * 0.42);
+    ctx.fillStyle = rgb(i === 2 ? lit : dark);
+    ctx.beginPath(); ctx.moveTo(x - hw, yb); ctx.lineTo(x + hw, yb); ctx.lineTo(x, yt); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+// A FOREST tile (flags.terrain 'forest' → 'forest' biome): a whole stand on one tile rather than
+// the parkland biome's single lone tree, so wooded ground reads as canopy from the air. Trees are
+// placed in WORLD offsets (not screen offsets) so they keep their depth under the Mode-7 warp, and
+// are drawn far-to-near so a near trunk overlaps the one behind it. Seeded off the tile, so a wood
+// stays put as the map window recentres.
+function drawForestTile(ctx, cam, dx, dy, night, seed, alpha) {
+  const n = 4 + (seed % 3);
+  const trees = [];
+  for (let i = 0; i < n; i++) {
+    const ox = (frac(seed + i * 3.1) - 0.5) * 0.8, oy = (frac(seed + i * 7.7) - 0.5) * 0.8;
+    const q = cam.proj(dx + ox, dy + oy, 0); if (!q || q.f <= 0.06) continue;
+    trees.push({ ox, oy, f: q.f, conifer: ((seed + i) % 3) === 0, s: seed + i * 13 });
+  }
+  trees.sort((a, b) => b.f - a.f);   // far first
+  for (const t of trees) {
+    if (t.conifer) drawConiferBB(ctx, cam, dx + t.ox, dy + t.oy, night, t.s, alpha);
+    else drawTreeBB(ctx, cam, dx + t.ox, dy + t.oy, night, t.s, alpha);
+  }
+}
 function drawRockBB(ctx, cam, dx, dy, night, seed, alpha) {
   const p = cam.proj(dx, dy, 0), s = clamp(22 / p.f, 2, 40);
   ctx.globalAlpha = alpha; ctx.fillStyle = rgb(fogTint([120, 92, 60], p.f));
@@ -4262,6 +4307,20 @@ function drawWildScatter(ctx, cam, dx, dy, bi, night, seed, alpha) {
     if (k <= 1) drawCactusBB(ctx, cam, dx, dy, night, seed, alpha);
     else if (k === 2 || k === 3) drawBrushBB(ctx, cam, dx, dy, night, seed, alpha);
     else if (k === 4) drawTumbleweedBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+  } else if (bi === 'cliff') {
+    // A canyon rim: broken stone and the odd standing pillar, never vegetation.
+    if (k <= 2) drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 3 || k === 4) drawHoodooBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawMesaBB(ctx, cam, dx, dy, night, seed, alpha);
+  } else if (bi === 'hardpan') {
+    // Cracked lakebed: a stone or a dead stick, and nothing else — the sparseness IS the tile.
+    if (k <= 3) drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
+    else if (k === 4) drawDeadTreeBB(ctx, cam, dx, dy, night, seed, alpha);
+    else drawTumbleweedBB(ctx, cam, dx, dy, night, seed, alpha);
+  } else if (bi === 'alkali') {
+    // Salt crust: bone and stone only. Nothing green has any business here.
+    if (k <= 3) drawBonesBB(ctx, cam, dx, dy, night, seed, alpha);
     else drawRockBB(ctx, cam, dx, dy, night, seed, alpha);
   } else {   // ash flats
     if (k <= 1) drawDeadTreeBB(ctx, cam, dx, dy, night, seed, alpha);
@@ -8994,6 +9053,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     if (it.c.kind === 'nofly') { emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     if (it.c.cur) { emitFace(od, () => drawCurtainWall(ctx, cam, it.dx, it.dy, it.c.cur, alpha, now)); continue; }   // the Curtain energy wall on a land-edge tile
     if (bi === 'park' && !it.c.bt) { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
+    if (bi === 'forest' && !it.c.bt && !it.c.road) { emitFace(od, () => drawForestTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // painted woodland: a full stand per tile, not the parkland lone tree
     if (bi === 'parkland' && !it.c.bt) { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
     // Per-tile jitter: nudge a scattered object off its tile centre by a world-stable hash so the
     // wilds don't read as objects lined up on the grid. Two independent hashes (x/y) span ±~0.4 tile,
@@ -9007,6 +9067,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Arid wildlands: per-biome scatter (mesa/hoodoo over redrock, cactus/brush over scrub, dead
     // snags/bone over ash) picked by the tile seed. Rust mesa (redrock) is denser than scrub/ash.
     if ((bi === 'scrub' || bi === 'redrock' || bi === 'ash') && !it.c.bt) { if ((it.seed % (bi === 'redrock' ? 2 : 3)) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
+    // The badlands accents scatter at their OWN densities, because emptiness is what each one is
+    // FOR. A cliff rim is the densest rock in the game (every other tile); hardpan is thin; an
+    // alkali flat is very nearly bare, and a flat that sprouts a bush stops reading as poisoned.
+    if ((bi === 'cliff' || bi === 'hardpan' || bi === 'alkali') && !it.c.bt) { const every = bi === 'cliff' ? 2 : bi === 'hardpan' ? 5 : 9; if ((it.seed % every) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic

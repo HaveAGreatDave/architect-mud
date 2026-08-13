@@ -1,0 +1,34 @@
+{
+  "ambient_events": [
+    "The water does not move. Not a ripple, not a slap against the stone, nothing.",
+    "A gull sits out on the surface, a long way from anywhere, entirely still.",
+    "The far shore is in the water as well as above it, and the two do not disagree by a hair.",
+    "Something breaks the surface out in the middle, once, and the rings go out for a very long time.",
+    "A tide line of grey scum along the stone, and above it, older lines, each one a dry year.",
+    "The cold comes off it in a sheet and stops about a foot inland.",
+    "Reeds at the margin, standing in their own reflection, not one of them stirring.",
+    "A rowing boat is drawn up on the stone, turned over, its bottom recently tarred."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Packed ash, and it holds a print the way nothing else does: the flat is crossed with tracks, most of them feet and one set of wheels, all going the same two ways, and none of them washed out. Off north a grey wall goes across the whole horizon with water standing behind it.",
+  "exits": {
+    "east": "zone_dw_775_961",
+    "north": "zone_dw_774_960",
+    "south": "zone_dw_774_962",
+    "west": "zone_dw_773_961"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "lawless": true,
+    "region_id": "region_deadwater",
+    "scavenging_table_id": "scav_industrial_salvage",
+    "terrain": "ash"
+  },
+  "grid_x": 774,
+  "grid_y": 961,
+  "grid_z": 0,
+  "id": "zone_dw_774_961",
+  "map_id": "map_world",
+  "name": "Broken Level",
+  "parent_zone": null
+}

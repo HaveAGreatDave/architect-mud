@@ -122,7 +122,10 @@
   }
   #ops-ro-toggle:hover { color: var(--text); }
   #ops-ro-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
-  /* The 🔒 is appended to the label text, so at the fixed 160px it wrapped onto
+  /* The lock is drawn (bootstrap.js) rather than typed, so it takes the theme's
+     accent like everything else instead of shipping its own emoji colour. */
+  .ops-lock { width: 9px; height: 11px; vertical-align: -1px; flex: none; color: var(--accent); }
+  /* The lock is appended to the label text, so at the fixed 160px it wrapped onto
      its own line under the longer entries (Region Maps, SoundScript) and read as
      a padlock locking nothing. In ops mode the nav sizes to its widest item
      instead — the marker always sits on the line it belongs to. Capped so a long

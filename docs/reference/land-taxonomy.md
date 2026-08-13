@@ -29,7 +29,7 @@ labelling layer on top of the grid. See [systems-world.md](../systems-world.md).
 
 ### Region — the spatial "place" (renamed 2026-07-19 from *district*)
 A **region** is a named rectangle of the `map_world` grid — the big world-map places a pilot would
-navigate toward: **Coldwater**, **The Reach**, **Terminus**, **The Scarletwastes**. SSOT is the **`regions` table**
+navigate toward: **Coldwater**, **The Reach**, **Terminus**, **The Scarletwastes**, **Deadwater**. SSOT is the **`regions` table**
 (`id/name/base_terrain/grid_z/defaults`); member tiles point back with **`flags.region_id`**. Bounds are
 derived from member tiles at read time, never stored (so moving a region can't desync them). Authored
 in the dev-panel **World Editor** ("New Region", "Region Maps", drag-to-move), published through

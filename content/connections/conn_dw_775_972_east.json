@@ -1,0 +1,9 @@
+{
+  "a": "zone_dw_775_972",
+  "b": "zone_dw_776_972",
+  "blocked": true,
+  "dir": "east",
+  "id": "conn_dw_775_972_east",
+  "lockable": false,
+  "one_way": false
+}

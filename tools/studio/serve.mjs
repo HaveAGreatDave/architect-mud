@@ -1106,6 +1106,12 @@ const server = createServer(async (req, res) => {
       return send(res, 200, await readFile(join(HERE, 'studio.js')), 'text/javascript; charset=utf-8');
     }
 
+    // The shared theme palettes, served straight out of client/shared so the
+    // Studio wears the dev panel's themes rather than a second copy of them.
+    if (req.method === 'GET' && path === '/shared/themes.css') {
+      return send(res, 200, await readFile(join(HERE, '..', '..', 'client', 'shared', 'themes.css')), 'text/css; charset=utf-8');
+    }
+
     // The game's own zone-icon assets, served so the canvas rasterises the SAME file
     // the minimap masks rather than a canvas impression of it. Name-restricted to
     // `[A-Za-z0-9_-]` and joined onto a fixed directory, so the path cannot climb out

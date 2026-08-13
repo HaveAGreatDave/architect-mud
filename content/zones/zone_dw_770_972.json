@@ -1,0 +1,20 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "wasteland",
+  "description": "The dam, seen from its foot: a wedge of poured stone eighty feet high and far thicker at the bottom than the top, holding back everything on the other side of it by weighing more than the water does. There is nothing on it that moves. No cable, no motor, no panel, no light. Somebody has painted a level scale up one face in feet, by hand, and somebody else has been reading it twice a day for long enough to wear a path to the foot of it.",
+  "exits": {},
+  "flags": {
+    "building_type": "ruins",
+    "emp_shadow": true,
+    "floors": 1,
+    "lawless": true,
+    "region_id": "region_deadwater"
+  },
+  "grid_x": 770,
+  "grid_y": 972,
+  "grid_z": 0,
+  "id": "zone_dw_770_972",
+  "map_id": "map_world",
+  "name": "The Dam",
+  "parent_zone": null
+}

@@ -1,0 +1,156 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Sit if you are stopping. Not on the table.",
+    "I have four on the shelf and none of them is a left.",
+    "The card goes with the limb. Always the card.",
+    "If it clicks it wants oil. If it grinds, come to me."
+  ],
+  "description": "A small, unhurried man washing his hands at a basin beside a scrubbed table, and he goes on washing them for a good while after you come in. Behind him four finished limbs stand on a shelf in plain steel and leather, each with a card tied to the wrist on a loop of string. A hand-cranked drill sits on a stand with three bits laid out beside it in a fold of leather, in order.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Wash your hands before you eat. Nobody does and everybody should.\""
+    },
+    "card": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do you make them from scratch?",
+          "next": "scratch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The interval and the sizes.\" He unhooks one and hands it to you, and the card is exactly that: a servicing interval, a list of thread sizes, and a column of dates in four different hands. \"Eight days out here. Twelve in the works, where there is less grit.\n\n\"An arm nobody can service is an ornament. So the sizes are on the card, and the sizes are ones the stores actually holds, and if I ever fit a thread the stores does not hold you may take it off me and hit me with it.\""
+    },
+    "city": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You have.\" Entirely unbothered. \"Lighter, quicker, better than the one it replaced, and it talks to something.\"\n\nHe puts the limb back on its hook and squares the card.\n\n\"Bring one out here and in a season the grit is in it and you cannot open it, and there is nobody within four hundred miles who is allowed to. Then you have a good arm you are not permitted to mend.\n\n\"Mine are worse. Mine open.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He dries his hands finger by finger. \"You have all your limbs, so you are not a patient, which makes you a visitor, and visitors ask about the shelf.\" He nods at it without turning. \"Perrin Ockley. Ask about the shelf.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Tell me about the shelf.",
+          "next": "shelf"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do you make them from scratch?",
+          "next": "scratch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the card for?",
+          "next": "card"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back again. Nothing broken, I see.\"",
+      "text_by_relation": {
+        "close": "\"Good.\" He dries the last finger. \"You can crank for me. It is duller than it looks and I will talk while we do it.\"",
+        "familiar": "He pushes the stool out with his foot. \"Sit. You can hold a wrist for me later if you have a strong stomach.\"",
+        "known": "\"Come in. Do not lean on the instruments.\""
+      }
+    },
+    "scratch": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I have seen better arms in the city.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Rarely. I make them out of what came in.\" A slight, dry pleasure. \"The plate off a hull, spring off a wreck, cable off whatever the yard has stripped this month. The leather I do buy, because nobody here tans well and I am tired of pretending otherwise.\n\n\"None of it is clever. All of it is a person's hands.\""
+    },
+    "shelf": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the card for?",
+          "next": "card"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do you make them from scratch?",
+          "next": "scratch"
+        }
+      ],
+      "text": "\"Four arms and no legs, which is the wrong way round for a place with a quarry in its history, but people bring me what breaks.\" He sets the towel on its rail, square. \"They are not new. Every one of them has been on somebody. You take it off, it is cleaned, the sockets are packed to fit the next person, and it goes back up there.\n\n\"There is one on that shelf older than I am. It has had three owners and about nine elbows.\""
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a smock boiled grey",
+      "sleeves rolled and pinned above the elbow",
+      "an apron of oiled cloth"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_771_976",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_ockley",
+  "name": "Perrin Ockley",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_771_976"
+}

@@ -1008,7 +1008,7 @@ export const POI_LEGEND = {
 // with yellow lane markings; every other terrain is a seamless coloured expanse. The
 // .mm-<terrain> / .map-<terrain> classes carry no art any more — they only drop the
 // tile border so neighbours read as one surface.
-const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer']);
+const TERRAIN = new Set(['road', 'dirt_road', 'water', 'grass', 'park', 'forest', 'asphalt', 'concrete', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff']);
 // (Every painted surface keeps whatever stands on it — see the terrain branch in the
 // cell loop. There is no longer a glyph-keeping subset: blanking icons and building
 // overlays on painted ground was the bug that hid the Fisherman Statue.)

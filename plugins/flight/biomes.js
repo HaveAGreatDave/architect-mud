@@ -17,8 +17,9 @@
 
 export const BIOMES = [
   'water', 'docks', 'ruins', 'oldcoldwater', 'badlands', 'industrial', 'infra',
-  'freight', 'marquee', 'citycore', 'parkland', 'park', 'uptown', 'civic', 'airport',
+  'freight', 'marquee', 'citycore', 'parkland', 'park', 'forest', 'uptown', 'civic', 'airport',
   'scrub', 'redrock', 'ash',   // the arid wildlands beyond the Curtain (dry, not water)
+  'hardpan', 'alkali', 'cliff',   // badlands accents: cracked lakebed, salt crust, canyon rim
   'asphalt', 'concrete', 'pier',   // painted paved surfaces — read as tarmac/slab/planking, NOT grass
 ];
 
@@ -28,11 +29,15 @@ export const BIOMES = [
 // (asphalt/concrete/dock) get their OWN biomes rather than borrowing citycore/docks —
 // those are in GRASS_BIOMES, so routing through them painted the pavement green.
 const TERRAIN_BIOME = {
-  water: 'water', dock: 'pier', grass: 'parkland', park: 'park',
+  water: 'water', dock: 'pier', grass: 'parkland', park: 'park', forest: 'forest',
   asphalt: 'asphalt', concrete: 'concrete',
   dirt: 'badlands', sand: 'badlands', gravel: 'badlands',
   // The wildlands read arid & desolate — dry scrub flats and rust mesa, never water.
   scrub: 'scrub', redrock: 'redrock', ash: 'ash', marsh: 'badlands',
+  // Badlands accents. They get their OWN biomes rather than borrowing 'badlands', because
+  // the whole point of painting them is that they read as different ground from the air:
+  // pale cracked lakebed, near-white salt crust, and the dark rim of a canyon.
+  hardpan: 'hardpan', alkali: 'alkali', cliff: 'cliff',
 };
 
 // The tag used for the map/silhouettes — airfields read as 'airport'.

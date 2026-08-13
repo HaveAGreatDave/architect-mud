@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_dw_eightdays",
+  "lines": [
+    "\"How long since you did yours?\"",
+    "\"Eight days.\"",
+    "\"It is eleven days.\"",
+    "\"It is eight days and a bit.\"",
+    "\"It is eleven, I wrote it on the card.\"",
+    "the sound of somebody getting a brush."
+  ],
+  "personality": "labourer",
+  "sort_order": 305
+}

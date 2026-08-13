@@ -1,8 +1,8 @@
 {
   "ambient_events": [],
-  "ambient_theme": "wasteland",
-  "color": "#b5744a",
-  "description": "A low fen of silt and sedge, the water beneath it black and slow. Something crossed it recently enough that the reeds are still bent, and the mud has not yet closed.",
+  "ambient_theme": "forest",
+  "color": "#3f5c3a",
+  "description": "Trees crowd right down to the waterline, roots arched out of the bank where the lake has been quietly eating it. Someone has cut three of them, a long time ago, and left the rounds where they fell. Whoever it was did not come back for them.",
   "exits": {
     "east": "zone_district_897_931",
     "north": "zone_district_896_930",
@@ -13,13 +13,13 @@
     "district": "wilds",
     "radiation": 32,
     "region_id": "region_coldwater",
-    "terrain": "marsh"
+    "terrain": "forest"
   },
   "grid_x": 896,
   "grid_y": 931,
   "grid_z": 0,
   "id": "zone_district_896_931",
   "map_id": "map_world",
-  "name": "The Ironpan",
+  "name": "The Hush",
   "parent_zone": null
 }

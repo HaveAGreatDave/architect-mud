@@ -1,0 +1,183 @@
+{
+  "banter": [],
+  "chitchat": [
+    "They can all do long division and none of them will admit it.",
+    "The lever diagram was wrong and somebody very small corrected it.",
+    "Do not tell them about the fulcrum, let them find it.",
+    "If you can do a proper knot come back on Thursday."
+  ],
+  "description": "A young woman perched on a crate at the front of a room of other crates, marking slates on her knee with a rag in her other hand. Above her on the wall is a clock with its case off, the escapement out in the open, letting go and letting go. Every few seconds one of the children still in the room looks up at it, which suggests they all do that, all day, and nobody has told them not to.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the crates. They are load-bearing and so are the children.\""
+    },
+    "clock": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you teach them?",
+          "next": "teach"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"So they can see it.\" She says it as though there could not be another reason, and there could not. \"It is the only clock in the works and it does one thing over and over where anybody can watch it do it.\n\n\"By the time they are seven they can all tell you why it does not simply fall. That is most of what I am for.\""
+    },
+    "going": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What will you tell them when it is not?",
+          "next": "not"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Are you going?",
+          "next": "you"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "She is quiet for a moment, and she does not stop stacking.\n\n\"They know. It is on a board in a room with the door open, so of course they know, and two of them have counted the names and worked out which ones are their mothers.\"\n\nShe squares the pile.\n\n\"They ask me if it will work. I tell them Imre has done the sums nine times and Maud has checked them, which is true, and is not an answer, and the older ones have started to notice that it is not an answer.\""
+    },
+    "not": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Are you going?",
+          "next": "you"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I have not decided.\" No performance in it. \"I have four years to decide, which Imre would tell you is three years and a bit.\n\n\"Whatever I land on, it will not be a story. They can all watch an escapement. They would spot it.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "She looks up with a slate in her hand. \"You are the one off the track, and if you have come to be looked at, they will look at you for about four seconds and then look at the clock.\" She sets the slate on the pile. \"Wenna Denholm. That is the class. The clock beats me every time.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why is the clock open?",
+          "next": "clock"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you teach them?",
+          "next": "teach"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do they know where the grown-ups are going?",
+          "next": "going"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hello again. Mind the crates.\"",
+      "text_by_relation": {
+        "close": "\"Oh good.\" She shifts along the crate. \"Sit down. They are better behaved with a stranger in and I intend to exploit that.\"",
+        "familiar": "She hands you a slate and a rag without comment, which is an invitation.",
+        "known": "\"Come in. Do not sit on the front one, it is Til's.\""
+      }
+    },
+    "teach": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do they know where the grown-ups are going?",
+          "next": "going"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Letters, sums, and how things hold each other up.\" She stacks the slates. \"Levers this month, badly. Somebody put the fulcrum at the wrong end on the board and somebody smaller rubbed it out and put it right, and I have left both of them up there because that is the lesson, not the lever.\""
+    },
+    "you": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" She almost smiles. \"Somebody has to be here in four years when the ones who went are not, and be doing long division at nine in the morning as though nothing has changed. That is a job. It is on the board.\""
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a cardigan with chalk on both cuffs",
+      "a skirt of heavy grey cloth",
+      "a whistle on a cord, never used"
+    ],
+    "personality": "professional"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_767_975",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_denholm",
+  "name": "Wenna Denholm",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_767_975"
+}

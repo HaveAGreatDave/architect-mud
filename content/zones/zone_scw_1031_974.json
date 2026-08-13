@@ -1,19 +1,16 @@
 {
   "ambient_events": [
+    "A cart comes up off the shore with four barrels roped on and two people leaning into it, and neither of them is talking.",
+    "Water slaps the stone once and then goes back to doing nothing.",
+    "Empty barrels stacked in threes, every one of them numbered in the same hand as the drums in the town.",
+    "A dog drinks at the margin, stops, looks out across the water for a while, and goes back to drinking.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
-    "Something small goes over your boot and is gone into a crack before you can name it.",
-    "The rock ticks as it cools. It goes on doing it after you stop walking.",
-    "Bones, bleached and scattered, and none of them arranged in any way that means anything.",
-    "A drum of standing water, lid long gone, the surface skinned over and still.",
-    "Scrub has come up through a seam in the hardpan and made a fist of itself there.",
-    "Old wreckage, stripped to the frame, every panel worth carrying already carried away.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Something is growing out of a crack in the rock that should not be able to. It is doing well."
+    "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock to the horizon in every direction, pitted all over with pale rings a hair deep where the rain has stood and eaten. The wind never entirely stops. There is a great deal of sky and none of it is reassuring.",
+  "description": "Sloped ground running down to water, graded by hand at some point and kept graded, with stone laid into the worst of it so a loaded axle does not sit down. Reeds at the edge, thin and grey, and a great many bootprints between them all pointing the same two ways.",
   "exits": {
     "east": "zone_scw_1032_974",
     "north": "zone_scw_1031_973",
@@ -22,16 +19,16 @@
   },
   "flags": {
     "lawless": true,
-    "radiation": 9,
+    "radiation": 4,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "dirt"
   },
   "grid_x": 1031,
   "grid_y": 974,
   "grid_z": 0,
   "id": "zone_scw_1031_974",
   "map_id": "map_world",
-  "name": "Rustwater",
+  "name": "The Draw",
   "parent_zone": null
 }

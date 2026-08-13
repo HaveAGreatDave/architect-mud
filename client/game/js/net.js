@@ -217,13 +217,36 @@ function pickedDisplayRung() {
 // and everything else stays a seed that only fills an empty slot.
 let displayRungTouched = false;
 
+// THE WAY IN HAS TO MATCH THE RUNG THEY JUST PICKED.
+//
+// The three guide links under the form point at the illustrated pages, which is
+// right for almost everybody. But a player who has just ticked `log` has said,
+// in the plainest terms available on this screen, that they are reading with a
+// screen reader — and the very next thing offered to them was the edition built
+// around pictures. Each guide already ships a -text sibling; the anchors carry
+// both hrefs as data attributes, so this only ever swaps between two authored
+// pages and can never invent a URL.
+//
+// `log` alone, not `textgames`: the middle rung keeps maps and panels, so the
+// illustrated pages still describe the game that player is going to see.
+function syncGuideLinkRung(rung) {
+  const key = rung === 'log' ? 'guideLog' : 'guideVisual';
+  for (const a of document.querySelectorAll('#guide-link-wrap a[data-guide-visual]')) {
+    const href = a.dataset[key];
+    if (href) a.href = href;
+  }
+}
+
 // Bound once at init on the fieldset, so it survives the radios being re-rendered
 // and needs no per-input listener.
 export function watchDisplayRungChoice() {
   const set = document.querySelector('.auth-display-set');
   if (!set) return;
   set.addEventListener('change', (e) => {
-    if (e.target?.name === 'auth-display') displayRungTouched = true;
+    if (e.target?.name === 'auth-display') {
+      displayRungTouched = true;
+      syncGuideLinkRung(e.target.value);
+    }
   });
 }
 
@@ -246,6 +269,10 @@ export function restoreDisplayRungPref() {
   const el = document.querySelector(`input[name="auth-display"][value="${v}"]`);
   if (!el) return;
   el.checked = true;
+  // A restored `log` is still a player who reads with a screen reader, even
+  // though they haven't touched anything this visit — the links follow the rung
+  // that is showing, not the one that was clicked.
+  syncGuideLinkRung(v);
   // Open it only for a rung the player went LOOKING for. `visual` is the ordinary
   // graphical game, so restoring it used to throw the whole accessibility panel
   // open on every visit for the majority of players — a wall of radio buttons

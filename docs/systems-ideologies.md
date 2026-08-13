@@ -73,7 +73,7 @@ Either half alone is a *disagreement*. Both together is being a different kind o
 
 A row that was never stamped (pre-existing rows before this shipped) is **left alone** until something touches it — no retroactive mass decay on deploy.
 
-### The four canonical ideologies (owner-less `orgs`, `is_npc=1`)
+### The five canonical ideologies (owner-less `orgs`, `is_npc=1`)
 
 | Ideology | id | Stance | Path |
 |---|---|---|---|
@@ -81,9 +81,20 @@ A row that was never stamped (pre-existing rows before this shipped) is **left a
 | The Long Watch | `ideology_long_watch` | redeem | human |
 | The Wildblood | `ideology_wildblood` | renounce | flesh |
 | The Exodus | `ideology_exodus` | renounce | mind |
+| The Null | `ideology_null` | renounce | machine |
 
-Plus **5 gated expansion orders** (`flags.expansion: true`, preview-only, never
-win the lean): `ideology_prometheans`, `ideology_synthesis`, `ideology_null`,
+**The Null were promoted off `flags.expansion` when Deadwater shipped**, and the
+reason is worth keeping: `classifyLean` scores stance × path, and the four orders
+above left **renounce·machine empty**, so a player who had renounced the world
+*and* leaned machine leaned **Ascendants** — the order they were most specifically
+not. Promotion closed a hole rather than adding an option. It was also the cheapest
+of the five to promote: the Null share their cell with nobody, so unlike the
+**Prometheans** (who would sit on redeem·machine beside the Ascendants) they needed
+no authority axis. Existing renounce·machine characters silently re-lean on their
+next `rep`. See [proposals/deadwater.md](proposals/deadwater.md).
+
+Plus **4 gated expansion orders** (`flags.expansion: true`, preview-only, never
+win the lean): `ideology_prometheans`, `ideology_synthesis`,
 `ideology_pioneers`, `ideology_lucid`. Defined as content JSON under
 `content/orgs/ideology_*.json`, positioned by `flags.stance` + `flags.path`.
 
@@ -119,9 +130,17 @@ win the lean): `ideology_prometheans`, `ideology_synthesis`, `ideology_null`,
 
 ## Rivalry graph
 
-`content/org_relations/ideology_*__ideology_*.json` — 8 directional
-`{"stance":"hostile"}` edges among the 4 canon orders (Ascendants opposed by all
-three others; Long Watch ↔ Wildblood; reciprocal rows each way). The tablet app
+`content/org_relations/ideology_*__ideology_*.json` — 10 directional
+`{"stance":"hostile"}` edges among the 5 canon orders (Ascendants opposed by all
+four others; Long Watch ↔ Wildblood; reciprocal rows each way). The tablet app
 reads these via `org_relations rel JOIN orgs` and buckets `hostile` as "opposed".
-Expansion orders have no relation rows yet. (This `org_relations` table supersedes
-the old `hostile_to[]`/`friendly_to[]` fields.)
+The remaining expansion orders have no relation rows yet. (This `org_relations`
+table supersedes the old `hostile_to[]`/`friendly_to[]` fields.)
+
+**The Null have exactly one authored pair, with the Ascendants, and the two edges
+they do *not* have are deliberate.** No Wildblood edge: both are `renounce`, so
+`restingRep` puts them at 0 on its own and an authored hostile row would invent a
+quarrel the fiction does not have. No Long Watch edge either: opposite stance
+**and** a different path already drives the −200 floor, so a row there would be
+redundant rather than wrong. Authored edges are for hostility the axes cannot
+derive.

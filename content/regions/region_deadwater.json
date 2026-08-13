@@ -1,0 +1,11 @@
+{
+  "base_terrain": "ash",
+  "climate_bias": {
+    "dryness": 0.5,
+    "temp": 4
+  },
+  "defaults": {},
+  "grid_z": 0,
+  "id": "region_deadwater",
+  "name": "Deadwater"
+}

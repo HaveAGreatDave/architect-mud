@@ -1,0 +1,237 @@
+{
+  "banter": [],
+  "chitchat": [
+    "Fifty-three. It was fifty-one on Monday and I was wrong on Monday.",
+    "Do not lean on the wall, the chalk comes off.",
+    "If you know the dry weight of a Barrow deck I would be glad of it.",
+    "I have made an error somewhere in the fuel and I will find it."
+  ],
+  "description": "A thin, tidy man at a table covered in working, with chalk on his cuff and a pencil behind each ear. He is halfway through a column when you come in and he finishes it before he stops, and when he does stop he looks up with the mild, slightly startled friendliness of somebody who has not spoken out loud for a few hours. The wall behind him is a route east, drawn many times.",
+  "dialogue_tree": {
+    "agree": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Not one of them.\" No self-pity in it whatsoever. \"Two hundred and nine people who think I am wrong, and fifty-two of them are coming anyway, and not one has ever suggested I should stay behind for it.\n\n\"Go and ask Selke. She will put it better than I can and she will put it against me, and she is still going, which is the part I find restful.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind the chalk.\""
+    },
+    "die": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does anyone here agree with you?",
+          "next": "agree"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I want to stop.\" He considers the distinction properly rather than defending himself. \"Those may be the same and I have not been able to decide. Nobody else here wants it, if that is what you are asking. They want the switch. I want what is behind the switch, and they know that, and they have never once held it against me.\"\n\nHe almost smiles.\n\n\"Selke calls it my hobby.\""
+    },
+    "evidence": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then why go?",
+          "next": "thengo"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does anyone here agree with you?",
+          "next": "agree"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\" He says it immediately and without any distress at all. \"None. I have looked for eleven years and I have found nothing that is not also explained by the world simply being the world.\"\n\nHe picks the pencil back up and turns it over.\n\n\"And I know that any evidence I did find, the idea would eat. Rain, no rain, a repeated day, the smallest thing there is. It would all fit. A thing that cannot be wrong is not worth much, and I have been told so, correctly, by people I like.\"\n\nHe shrugs.\n\n\"I still think it. I do not ask anybody to. I would be a liar if I did.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He finishes the column, sets the pencil down, and blinks at you. \"Oh. Hello. You are the one who came in on the track.\" He does not get up. \"Imre Cobbald. I do the sums for going east. Do you know anything about fuel weights? Almost nobody does and I keep asking.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are you working out?",
+          "next": "sums"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the route on the wall?",
+          "next": "route"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why are you going?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hello again. Still fifty-three.\"",
+      "text_by_relation": {
+        "close": "\"Good, sit down.\" He puts the pencil behind his ear with the other one. \"I want to say a thing out loud and have somebody find the hole in it.\"",
+        "familiar": "He turns a sheet around so you can see it, which is the friendliest thing he does. \"Look at this and tell me it is wrong.\"",
+        "known": "\"You are back. I have moved the water allowance, which changes everything and also nothing.\""
+      }
+    },
+    "route": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why are you going?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"East. All of it.\" He waves the pencil at the wall without turning round. \"Out to the ruts, across to the scrub, up the road to the city, and then a very long way past the city into country I have only ever had described to me twice, and the two descriptions did not agree.\"\n\nHe taps a point near the far edge, where the plaster has gone thin from rubbing out.\n\n\"That is where it keeps itself. Nobody has stood there. Everything past the second-to-last mark is somebody else's word, so I have costed it twice and taken the worse number.\""
+    },
+    "sums": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the route on the wall?",
+          "next": "route"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why are you going?",
+          "next": "why"
+        }
+      ],
+      "text": "\"How many of us can get to the far east of the world and still be useful when we arrive.\" He turns a sheet toward you and it is, disappointingly, just arithmetic. \"Rigs, decks, tank ranges, fuel we can carry against fuel we can buy, water, food, and how much of the load is people rather than the things people need.\n\n\"Fifty-three, today. It wants to be forty. Forty gets there on what we have.\""
+    },
+    "thengo": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does anyone here agree with you?",
+          "next": "agree"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because the going is not the same question.\" He is quite firm about this, and it is the only firm thing he says. \"If I am right, switching it off ends a thing that should not be running. If I am wrong, switching it off takes the hand off the back of everybody's neck.\n\n\"I have never been able to construct a version where we should leave it on. That sum, at least, closes.\""
+    },
+    "why": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Do you have any evidence?",
+          "next": "evidence"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You want to die.",
+          "next": "die"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Does anyone here agree with you?",
+          "next": "agree"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "He puts the pencil down, and for the first time he seems reluctant, and it is not shame, it is tidiness. He does not like saying things he cannot support.\n\n\"I think none of this is real. I think we are inside something that is running, and I think the thing that runs everything is the part of it we can reach, and I would like to reach it and stop it, and stop being.\"\n\nA pause.\n\n\"That is the whole of it. I am aware of how it sounds.\""
+    }
+  },
+  "faction": "ideology_null",
+  "flags": {
+    "clothing_layers": [
+      "a grey coat with a pen in every pocket",
+      "a knitted waistcoat mended at one elbow",
+      "spectacles with a wire arm"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_dw_767_977",
+  "hp": 28,
+  "hp_max": 28,
+  "id": "npc_dw_cobbald",
+  "name": "Imre Cobbald",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_dw_767_977"
+}

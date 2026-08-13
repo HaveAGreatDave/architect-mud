@@ -931,7 +931,7 @@ function textBoardAndMarket(p) {
     + '<span class="text-dim">haul &lt;n&gt; · market buy &lt;good&gt; [qty|full] · market sell · yard buy &lt;type&gt;</span>';
 }
 
-const REGION_LABEL = { region_coldwater: 'Coldwater', region_the_reach: 'The Reach' };
+const REGION_LABEL = { region_coldwater: 'Coldwater', region_the_reach: 'The Reach', region_deadwater: 'Deadwater' };
 const regionLabel = (r) => REGION_LABEL[r] || (r || '').replace(/^region_/, '').replace(/_/g, ' ');
 
 async function marketBuy(player, rig, here, region, good, qtyArg) {

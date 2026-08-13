@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 0,
+  "flags": {},
+  "generator_id": null,
+  "id": "zone_dw_728_1001",
+  "max_capacity_kw": 0,
+  "name": "Grey Mile",
+  "source_type": "city_grid"
+}

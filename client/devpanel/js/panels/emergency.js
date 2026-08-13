@@ -86,7 +86,62 @@ async function _refreshCrimeLog() {
 function _startCrimeLogPoll() {
   _stopCrimeLogPoll();
   _refreshCrimeLog();
-  _crimeLogTimer = setInterval(_refreshCrimeLog, 3000);
+  _refreshJailRoll();
+  // One timer for both tables — they live on the same panel and share a cadence.
+  _crimeLogTimer = setInterval(() => { _refreshCrimeLog(); _refreshJailRoll(); }, 3000);
+}
+
+// ── Prison roll: who's inside, and the pardon button ─────────────────────────
+function _remain(sec) {
+  sec = Math.max(0, Number(sec) || 0);
+  const m = Math.floor(sec / 60);
+  return m ? `${m}m ${sec % 60}s` : `${sec}s`;
+}
+
+function _jailRollHtml(prisoners) {
+  if (!prisoners.length) return `<div style="font-size:11px;color:var(--text-dim);padding:6px 0">Holding is empty.</div>`;
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-size:9px">
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Prisoner</th>
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Charge</th>
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Sentence</th>
+      <th style="text-align:right;padding:0 12px 6px 0;font-weight:700">Fine</th>
+      <th style="text-align:right;padding:0 0 6px 0;font-weight:700">Remaining</th>
+      <th style="padding:0 0 6px 12px;font-weight:700"></th>
+    </tr></thead>
+    <tbody>${prisoners.map(p => `
+      <tr>
+        <td style="padding:5px 12px 5px 0;color:var(--text);font-weight:600">${_crimeEsc(p.handle)}${p.online ? '' : ' <span style="font-weight:400;color:var(--text-dim)">(offline)</span>'}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_crimeEsc(p.charge)}</td>
+        <td style="padding:5px 12px 5px 0;color:#ff6b6b;letter-spacing:1px;white-space:nowrap">${_starBar(p.stars)}</td>
+        <td style="padding:5px 12px 5px 0;color:var(--text-dim);text-align:right;white-space:nowrap">₵${p.fine}</td>
+        <td style="padding:5px 0;color:var(--text-dim);text-align:right;white-space:nowrap">${_remain(p.remainingSec)}</td>
+        <td style="padding:5px 0 5px 12px;text-align:right"><button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="pardonPrisoner('${_crimeEsc(p.playerId)}','${_crimeEsc(p.handle)}')">Pardon</button></td>
+      </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function _refreshJailRoll() {
+  const body = document.getElementById('jail-roll-body');
+  if (!body) return;
+  const data = await directAPI('/jail/prisoners');
+  const el = document.getElementById('jail-roll-body');
+  if (!el) return;   // navigated away mid-request
+  if (data?.error) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text-dim);padding:6px 0">${_crimeEsc(data.error)}</div>`;
+    return;
+  }
+  el.innerHTML = _jailRollHtml(Array.isArray(data?.prisoners) ? data.prisoners : []);
+}
+
+async function pardonPrisoner(playerId, handle) {
+  if (!playerId) { toast('No player id for that row', true); return; }
+  if (!(await dpConfirm(`Pardon ${handle}? They walk out now and the fine is forgiven.`))) return;
+  const r = await directAPI('/jail/pardon', 'POST', { playerId });
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`${handle} pardoned${r.forgiven ? ` — ₵${r.forgiven} fine forgiven` : ''}`);
+  _refreshJailRoll();
+  _refreshCrimeLog();
 }
 
 let _espDefaultMessage = '';
@@ -128,6 +183,15 @@ function renderEmergencyPanel(data) {
           <span style="font-size:10px;color:var(--text-dim)">live — active crimes clear to history on arrest, death, or decay</span>
         </div>
         <div id="crime-log-body"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
+      </div>
+
+      <!-- Prison Roll -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim)">Prison Roll</div>
+          <span style="font-size:10px;color:var(--text-dim)">a pardon releases at once and forgives the fine</span>
+        </div>
+        <div id="jail-roll-body"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
       </div>
 
       <!-- Penalties -->

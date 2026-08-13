@@ -1,0 +1,40 @@
+{
+  "ambient_events": [
+    "Ash, packed hard and grey as a cold hearth, taking the print of your boot and keeping it.",
+    "The wind comes across the flat and there is nothing here for it to make a noise against.",
+    "A length of rail lies half-sunk in the ash, bright along its top edge where boots have crossed it.",
+    "Tyre ruts, old ones, pressed into the grey and never rained back out.",
+    "Something metal has been dragged across the flat here, one long score, going west.",
+    "A stack of sorted plate, weathered but square, waiting a very long time for somebody to come back for it.",
+    "The light goes flat and colourless and the horizon stops being a line at all.",
+    "A survey peg, driven true, with a number burned into the top of it in a hand that meant it.",
+    "A bird goes over, low, and you hear the feathers.",
+    "Bolt holes in a concrete pad, forty of them, in two neat rows, and no machine on them.",
+    "Your boots come up grey to the ankle and stay that way."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Where the track in from the northeast stops pretending to be a road: a graded turning circle, a fuel tank up on a stand with a hand pump and a gauge glass, and a plate shack with a stove pipe. A board by the door lists distances, in a column, in feet and miles, all of them correct. Somebody has left a full can of water on the step with a tin over the top of it, and it is obvious from the ring in the dust that it lives there.",
+  "exits": {
+    "east": "zone_dw_813_955",
+    "north": "zone_dw_812_954",
+    "south": "zone_dw_812_956",
+    "west": "zone_dw_811_955"
+  },
+  "flags": {
+    "emp_shadow": true,
+    "lawless": true,
+    "region_id": "region_deadwater",
+    "terrain": "dirt_road",
+    "truck_depot": {
+      "name": "The Roadhead"
+    },
+    "truck_fuel": true
+  },
+  "grid_x": 812,
+  "grid_y": 955,
+  "grid_z": 0,
+  "id": "zone_dw_812_955",
+  "map_id": "map_world",
+  "name": "The Roadhead",
+  "parent_zone": null
+}

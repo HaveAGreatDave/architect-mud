@@ -72,6 +72,12 @@
     <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
     <div class="nav-item" data-panel="world" onclick="showPanel('world')">🌐 World Map</div>
     <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Region Maps</div>
+    <!-- The Studio is a SEPARATE local process (npm run studio, :5180) that edits
+         content/ files with no DB — so this is a link out, not a panel, and it is
+         revealed only on localhost where that server can exist. No data-panel: the
+         ops read-only sweep in bootstrap.js keys off that attribute. -->
+    <a class="nav-item" id="nav-map-studio" href="http://localhost:5180" target="_blank" rel="noopener"
+       onclick="return openMapStudio(event)" style="display:none;text-decoration:none">🏗 Map Studio ↗</a>
     <div class="nav-item" data-panel="emergency" onclick="showPanel('emergency')">⚖ Crime</div>
     <div class="nav-item" data-panel="flight" onclick="showPanel('flight')">✈ Flight</div>
     <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
@@ -477,5 +483,34 @@
 <script src="/dev/js/core/panels.js"></script>
 <script src="/dev/js/core/auth.js"></script>
 <script src="/dev/js/bootstrap.js"></script>
+<script>
+  // Local dev only — the Studio serves from the developer's own machine.
+  if (['localhost', '127.0.0.1', '::1'].includes(location.hostname)) {
+    document.getElementById('nav-map-studio').style.display = '';
+  }
+
+  // Ask the game server to start the Studio if it isn't listening, THEN open the
+  // tab — a tab opened first would race the listener and show a connection error.
+  // The window is opened up front (a popup blocker only trusts a window opened in
+  // the click handler itself) and navigated once the server says it's up.
+  async function openMapStudio(ev) {
+    ev.preventDefault();
+    const el = ev.currentTarget, label = el.textContent;
+    const tab = window.open('', '_blank');
+    el.textContent = '🏗 Map Studio …';
+    try {
+      const d = await directAPI('/dev/studio', 'POST', {});
+      if (!d || d.error) throw new Error(d && d.error || 'no response');
+      if (tab) tab.location = d.url; else location.href = d.url;
+    } catch (e) {
+      if (tab) tab.close();
+      alert('Could not start the Map Studio: ' + e.message + '\nRun it by hand with: npm run studio');
+    } finally {
+      el.textContent = label;
+    }
+    return false;
+  }
+  window.openMapStudio = openMapStudio;
+</script>
 </body>
 </html>

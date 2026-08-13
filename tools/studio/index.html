@@ -5,38 +5,85 @@
 <title>Studio — Architect MUD</title>
 <style>
   :root {
-    --bg: #0e0f12; --panel: #16181d; --panel2: #1d2027; --line: #2a2e37;
-    --text: #d5d8de; --dim: #838a97; --accent: #6ee7d0; --warn: #e7b96e; --bad: #e77a6e;
+    /* THE DEV PANEL'S PALETTE, not a second one. This block is the Void base
+       theme only — every OTHER theme arrives from client/shared/themes.css,
+       <link>ed after this <style> exactly as the dev panel and the game client
+       do, so the three tools cannot own three copies of a palette. Keep these
+       in step with client/devpanel/styles.css if the base theme moves. */
+    --bg: #05050a;
+    --bg2: #0d0d16;
+    --bg3: #15151f;
+    --border: #2a2a40;
+    --text: #e8e8f5;
+    --text-dim: #8888a8;
+    --text-bright: #ffffff;
+    --accent: #ff2ec4;
+    --accent-dim: #6e1957;
+    --green: #39ff8f;
+    --purple: #b86bff;
+    --accent2: var(--green);
+    --red: #ff3b5c;
+    --orange: #ff9a3c;
+    --yellow: #f5e642;
+    --cyan: #28e5ff;
+    --font: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
+    /* The Studio's own names, kept as aliases onto the canonical palette so the
+       existing var() call sites need no changes. They are `var()` references,
+       NOT literals, which is what makes them follow a theme: a [data-theme]
+       block only ever overrides the canonical names. The canvas is fine with
+       this — chrome() reads them through getComputedStyle, which hands back the
+       substituted value, never the `var()` token. */
+    --panel: var(--bg2);
+    --panel2: var(--bg3);
+    --line: var(--border);
+    --dim: var(--text-dim);
+    --warn: var(--orange);
+    --bad: var(--red);
     /* Chrome the canvas also draws with — kept next to the rest of the chrome so
        the swatch in the key and the outline on the tile cannot drift apart. */
-    --seam: #8ab4ff; --entrance: #ffd479;
+    --seam: var(--cyan);
+    --entrance: var(--yellow);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: var(--bg); color: var(--text); display: grid; grid-template-columns: 220px 1fr 330px;
-    font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg); color: var(--text);
+    display: grid; grid-template-columns: 220px 1fr 330px; grid-template-rows: auto 1fr;
+    font-family: var(--font); font-size: 12px; line-height: 1.45;
   }
+  /* Header — the dev panel's, so the two tools open the same way: a spaced logo
+     in the accent, a second word in green, everything else pushed right. */
+  #header {
+    grid-column: 1 / -1;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 8px 16px; display: flex; align-items: center; gap: 16px;
+  }
+  #header .logo { color: var(--accent); font-size: 14px; letter-spacing: 4px; }
+  #header .logo span { color: var(--orange); }
+  #header .sub { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
   aside, section { overflow-y: auto; }
-  aside { background: var(--panel); border-right: 1px solid var(--line); padding: 10px; overflow-x: hidden; }
-  section#inspector { background: var(--panel); border-left: 1px solid var(--line); padding: 10px; }
-  main { position: relative; overflow: hidden; }
+  aside { background: var(--bg2); border-right: 1px solid var(--border); padding: 10px; overflow-x: hidden; }
+  section#inspector { background: var(--bg2); border-left: 1px solid var(--border); padding: 10px; }
+  main { position: relative; overflow: hidden; background: var(--bg); }
   canvas { display: block; cursor: crosshair; }
-  h2 { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
-       margin: 14px 0 6px; font-weight: 600; }
+  h2 { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim);
+       margin: 14px 0 6px; font-weight: normal; }
   h2:first-child { margin-top: 0; }
   .row { display: flex; gap: 5px; align-items: center; }
-  button { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
-           border-radius: 3px; padding: 4px 8px; cursor: pointer; }
-  button:hover { border-color: var(--accent); }
-  button.on { background: var(--accent); color: #0e0f12; border-color: var(--accent); }
+  /* Buttons are the dev panel's .action-btn: transparent, a hairline border, and
+     the accent arriving on hover rather than sitting there. */
+  button { font-family: var(--font); font-size: 11px; background: transparent; color: var(--text-dim);
+           border: 1px solid var(--border); border-radius: 2px; padding: 4px 8px; cursor: pointer;
+           transition: all 0.1s; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .maplist button { display: block; width: 100%; text-align: left; margin-bottom: 2px; }
   .maplist .n { color: var(--dim); float: right; }
   /* The map list fans down. 71 entries open at all times is most of a 190px column
      spent on a list you use once a session — the summary keeps the answer it was
      giving (which map is open) and gives the space back to the tools. */
-  details.fan > summary { list-style: none; cursor: pointer; background: var(--panel2);
-    border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px;
+  details.fan > summary { list-style: none; cursor: pointer; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 2px; padding: 4px 8px;
     display: flex; gap: 6px; align-items: center; }
   details.fan > summary::-webkit-details-marker { display: none; }
   details.fan > summary:hover { border-color: var(--accent); }
@@ -45,14 +92,15 @@
   details.fan > summary .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   details.fan > summary .n { color: var(--dim); flex: none; }
   details.fan > .maplist { max-height: 40vh; overflow-y: auto; margin-top: 4px;
-    border: 1px solid var(--line); border-radius: 3px; padding: 3px; }
+    border: 1px solid var(--border); border-radius: 2px; padding: 3px; }
   /* The view switch: thirds of one control, because they are three ways of
      looking at the same map rather than three screens. */
   .viewsw { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; margin-bottom: 10px; }
-  .viewsw button { border-radius: 0; padding: 4px 2px; border-left: 0; }
-  .viewsw button:first-child { border-left: 1px solid var(--line); }
-  .viewsw button:first-child { border-radius: 3px 0 0 3px; }
-  .viewsw button:last-child { border-radius: 0 3px 3px 0; }
+  .viewsw button { border-radius: 0; padding: 5px 2px; border-left: 0;
+    text-transform: uppercase; letter-spacing: 1px; font-size: 10px; }
+  .viewsw button:first-child { border-left: 1px solid var(--border); }
+  .viewsw button:first-child { border-radius: 2px 0 0 2px; }
+  .viewsw button:last-child { border-radius: 0 2px 2px 0; }
   /* A district in the list: its own colour, its name, how many tiles claim it. */
   .dlist button { display: flex; width: 100%; text-align: left; margin-bottom: 2px;
                   gap: 6px; align-items: center; }
@@ -85,7 +133,7 @@
   /* The heat ramp, as the canvas lays it down: the same tone under every step, so
      the key is a swatch of the map rather than a picture of one. */
   .heatkey { display: flex; gap: 0; align-items: center; margin: 4px 0 2px; }
-  .heatkey i { width: 15px; height: 11px; background: #14161b; display: block; }
+  .heatkey i { width: 15px; height: 11px; background: var(--bg3); display: block; }
   .heatkey i > span { display: block; width: 100%; height: 100%; background: var(--bad); }
   /* The action log. An undone entry is still THERE — it is what redo means — so it
      is dimmed rather than removed, and the line between the two is drawn where the
@@ -94,23 +142,28 @@
   #log button.here { border-color: var(--accent); }
   #log .when { color: var(--dim); float: right; margin-left: 6px; }
   .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
-  .sw { height: 26px; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; position: relative; }
+  .sw { height: 26px; border: 1px solid var(--border); border-radius: 2px; cursor: pointer; position: relative; }
   .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
   .sw span { position: absolute; inset: auto 0 1px 0; text-align: center; font-size: 8px;
              color: #000; text-shadow: 0 0 3px #fff; }
-  label { display: block; color: var(--dim); margin: 7px 0 2px; font-size: 10.5px;
-          letter-spacing: .04em; text-transform: uppercase; }
+  label { display: block; color: var(--text-dim); margin: 7px 0 2px; font-size: 10px;
+          letter-spacing: 1px; text-transform: uppercase; }
   input[type=text], input[type=number], select, textarea {
-    width: 100%; font: inherit; background: #0b0c0f; color: var(--text);
-    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px;
+    width: 100%; font-family: var(--font); font-size: 12px; background: var(--bg3);
+    color: var(--text-bright);
+    border: 1px solid var(--border); border-radius: 2px; padding: 5px 8px;
+    outline: none; transition: border-color 0.15s;
   }
+  input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--bg3); }
+  input[type=checkbox] { accent-color: var(--accent); }
   textarea { resize: vertical; min-height: 54px; }
-  .help { color: var(--dim); font-size: 10px; margin-top: 2px; }
+  .help { color: var(--text-dim); font-size: 10px; margin-top: 2px; line-height: 1.5; }
   /* A pin that adjacency has moved on beneath — a defect, not a decision, so it
      reads as one. Matches the red dot the canvas puts on the same tile. */
   .help.stale { color: var(--bad); }
-  .grp { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 6px; }
-  .grp > .t { color: var(--accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  .grp { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 6px; }
+  .grp > .t { color: var(--accent); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
   /* A group with nothing set on this tile, and the unset remainder of one that has
      something: shut, counted, and one click from open. The heading of an empty group
      is dim rather than accent — the colour is for a section holding an answer. */
@@ -138,24 +191,31 @@
      refused save that reports itself off-screen is the one message here that must
      never be missed. */
   .actions { position: sticky; bottom: -10px; z-index: 2; margin-top: 12px;
-             background: var(--panel); border-top: 1px solid var(--line);
+             background: var(--bg2); border-top: 1px solid var(--border);
              padding: 8px 0 10px; }
   .actions .row { gap: 5px; }
-  #errs { color: var(--bad); white-space: pre-wrap; margin-top: 8px; }
-  #status { position: absolute; left: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
-            border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
-  #lint { position: absolute; right: 8px; bottom: 8px; background: #000a; padding: 4px 8px;
-          border: 1px solid var(--line); border-radius: 3px; max-width: 46%; }
-  #lint b { color: var(--warn); }
-  .muted { color: var(--dim); }
-  .pill { display: inline-block; border: 1px solid var(--line); border-radius: 9px;
-          padding: 0 6px; color: var(--dim); font-size: 10px; }
-  button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+  /* Save is the primary act of this panel, so it wears the dev panel's primary
+     button rather than being one more grey outline among four. */
+  .actions button[id$="-save"] { border-color: var(--accent); color: var(--accent); }
+  .actions button[id$="-save"]:hover { background: var(--accent); color: var(--bg); }
+  #errs { color: var(--red); white-space: pre-wrap; margin-top: 8px; }
+  #status { position: absolute; left: 8px; bottom: 8px; background: var(--bg2); padding: 4px 8px;
+            border: 1px solid var(--border); border-radius: 2px; pointer-events: none;
+            font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
+  #lint { position: absolute; right: 8px; bottom: 8px; background: var(--bg2); padding: 4px 8px;
+          border: 1px solid var(--border); border-radius: 2px; max-width: 46%;
+          font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
+  #lint b { color: var(--orange); }
+  .muted { color: var(--text-dim); }
+  .pill { display: inline-block; border: 1px solid var(--border); border-radius: 2px;
+          padding: 1px 6px; color: var(--text-dim); font-size: 10px; background: var(--bg3); }
+  button:disabled { opacity: .45; cursor: default; border-color: var(--border); }
+  button:disabled:hover { color: var(--text-dim); border-color: var(--border); }
   /* Floors ride on the map, not in the sidebar: which storey you are looking at is
      a fact about the picture, and the picture is where you look when you change it. */
   #floors { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column;
-            gap: 3px; background: #000a; padding: 4px; border: 1px solid var(--line);
-            border-radius: 3px; }
+            gap: 3px; background: var(--bg2); padding: 4px; border: 1px solid var(--border);
+            border-radius: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
   #floors button { min-width: 34px; }
   /* A seam, in the inspector: where this tile (or this map) leads.
      A GRID, not an inline arrow beside inline text. The arrow used to be a 12px
@@ -186,16 +246,42 @@
   .key i.no { border: 0; border-radius: 2px; background: repeating-linear-gradient(45deg,
     var(--bad) 0 2px, transparent 2px 5px); }
   /* The move plan, in the inspector: what would be written, before it is. */
-  #inspector .files { max-height: 26vh; overflow-y: auto; color: var(--dim); font-size: 10px;
-    border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; margin-top: 4px; }
-  #inspector .warn { color: var(--warn); white-space: pre-wrap; margin-top: 6px; font-size: 10.5px; }
+  #inspector .files { max-height: 26vh; overflow-y: auto; color: var(--text-dim); font-size: 10px;
+    border: 1px solid var(--border); border-radius: 2px; padding: 4px 6px; margin-top: 4px;
+    background: var(--bg3); }
+  #inspector .warn { color: var(--orange); white-space: pre-wrap; margin-top: 6px; font-size: 10.5px; }
   /* The door sides a building can turn to. A side it cannot reach stays visible and
      says why on hover, rather than vanishing and leaving you to guess. */
   .turn { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin-top: 4px; }
-  .turn button.now { background: var(--entrance); color: #0e0f12; border-color: var(--entrance); }
+  .turn button.now { background: var(--entrance); color: var(--bg); border-color: var(--entrance); }
+
+  /* Scrollbars, as the dev panel themes them. `height` matters as much as `width`
+     or a horizontally scrolling pane keeps the OS's grey bar next to a themed
+     vertical one; the Firefox half and the WebKit half are both needed. */
+  * { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg2); }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  ::-webkit-scrollbar-corner { background: var(--bg2); }
+
+  /* Theme picker — pushed to the right-hand end of the header, deliberately quiet. */
+  #themepick { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  #themepick label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+  #themepick select { font-family: var(--font); font-size: 11px; background: var(--bg3); color: var(--text);
+                      border: 1px solid var(--border); border-radius: 2px; padding: 3px 6px; }
 </style>
+<!-- The shared palettes, exactly as the dev panel and the game client load them:
+     AFTER this file's own <style>, because a [data-theme] block and :root have
+     equal specificity and the later rule has to be the theme. -->
+<link rel="stylesheet" href="/shared/themes.css">
 </head>
 <body>
+<div id="header">
+  <div class="logo">ARCHITECT <span>STUDIO</span></div>
+  <div class="sub">map authoring — files, not database</div>
+  <div id="themepick"><label for="theme">Theme</label><select id="theme"></select></div>
+</div>
 <aside>
   <div class="viewsw">
     <button id="v-tiles" class="on">Tiles</button><button id="v-districts">Districts</button><button id="v-threat">Threat</button>
