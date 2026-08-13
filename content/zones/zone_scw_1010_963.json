@@ -1,17 +1,16 @@
 {
   "ambient_events": [
-    "A bird goes over below you, which takes a moment to make sense of.",
-    "The wind comes up the face of the drop in one long push and then drops away to nothing.",
-    "A stone goes off the edge. You do not hear it land.",
-    "Heat coming off the caprock in a shimmer, so the horizon detaches and floats a hand above the ground.",
-    "Rain marks up here too, a thousand pale rings, on rock nothing has stood on in years.",
+    "A slab lets go somewhere along the face, a long way off, and the sound arrives well after it.",
+    "Birds are nesting in the undercut, a whole colony of them, and they are not interested in you.",
+    "The shadow of the wall lies out across the flats, cold, with a hard edge on it.",
+    "You follow the foot of it for a while looking for a break, and there is not one here.",
     "The wind comes across the flats carrying grit and a faint sharp smell, like a struck match held too long.",
     "Rain marks on the rock, thousands of them, each one a pale ring eaten a hair deep.",
     "A long way off, weather is walking. It is the wrong colour for weather.",
     "Something small goes over your boot and is gone into a crack before you can name it."
   ],
   "ambient_theme": "wasteland",
-  "description": "A shelf of red stone standing a hundred feet clear of the flats, its face banded in every shade the country has, laid down and then eaten back until only this much was left. From up here the dark line of the thorn is visible a long way off and reads as exactly what it is.",
+  "description": "The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.",
   "exits": {
     "east": "zone_scw_1011_963",
     "north": "zone_scw_1010_962",
@@ -20,16 +19,16 @@
   },
   "flags": {
     "lawless": true,
+    "no_spawn": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
-    "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "cliff"
   },
   "grid_x": 1010,
   "grid_y": 963,
   "grid_z": 0,
   "id": "zone_scw_1010_963",
   "map_id": "map_world",
-  "name": "Caprock",
+  "name": "The Rimrock",
   "parent_zone": null
 }

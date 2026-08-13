@@ -7733,7 +7733,7 @@ function renderIdeology(d, crumb) {
 // readout with no bearing fix, and live status chips. Fills the space and sells the
 // void; carries no data the minimap doesn't (payload is just `nodes`). Short-circuits
 // the tile path.
-const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK', hardpan: 'CRACKED HARDPAN', alkali: 'ALKALI FLAT', cliff: 'CLIFF FACE' };
+const JOURNEY_SUBSTRATE = { scrub: 'SCRUBLAND', ash: 'ASH FLATS', redrock: 'RED ROCK', marsh: 'DEAD MARSH', road: 'OLD ROADBED', dirt_road: 'DIRT TRACK', hardpan: 'CRACKED HARDPAN', alkali: 'ALKALI FLAT', cliff: 'CLIFF FACE', plateau: 'CAPROCK PLATEAU' };
 function journeyAhead(nodes, cur) {
   if (cur.void_detour) return 'dead';
   const sId = cur.exits?.south;

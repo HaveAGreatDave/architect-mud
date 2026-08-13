@@ -19,7 +19,7 @@ export const BIOMES = [
   'water', 'docks', 'ruins', 'oldcoldwater', 'badlands', 'industrial', 'infra',
   'freight', 'marquee', 'citycore', 'parkland', 'park', 'forest', 'uptown', 'civic', 'airport',
   'scrub', 'redrock', 'ash',   // the arid wildlands beyond the Curtain (dry, not water)
-  'hardpan', 'alkali', 'cliff',   // badlands accents: cracked lakebed, salt crust, canyon rim
+  'hardpan', 'alkali', 'cliff', 'plateau',   // badlands accents: cracked lakebed, salt crust, canyon rim, caprock top
   'asphalt', 'concrete', 'pier',   // painted paved surfaces — read as tarmac/slab/planking, NOT grass
 ];
 
@@ -37,7 +37,10 @@ const TERRAIN_BIOME = {
   // Badlands accents. They get their OWN biomes rather than borrowing 'badlands', because
   // the whole point of painting them is that they read as different ground from the air:
   // pale cracked lakebed, near-white salt crust, and the dark rim of a canyon.
-  hardpan: 'hardpan', alkali: 'alkali', cliff: 'cliff',
+  // cliff + plateau are ONE landform: the rim you cannot walk up and the tableland on
+  // top of it. They keep separate biomes because they are lit differently (the top
+  // takes the sun, the face does not) and because the windshield walls only the rim.
+  hardpan: 'hardpan', alkali: 'alkali', cliff: 'cliff', plateau: 'plateau',
 };
 
 // The tag used for the map/silhouettes — airfields read as 'airport'.

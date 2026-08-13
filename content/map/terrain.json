@@ -213,9 +213,25 @@
       "minimap_class": "alkali",
       "auto_tile": false
     },
+    "plateau": {
+      "label": "Plateau",
+      "fill": "#7a4029",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "plateau",
+      "auto_tile": false
+    },
+    "plateau": {
+      "label": "Plateau",
+      "fill": "#7a4029",
+      "text": null,
+      "glyph": null,
+      "minimap_class": "plateau",
+      "auto_tile": false
+    },
     "cliff": {
       "label": "Cliff Face",
-      "fill": "#3a1e16",
+      "fill": "#5c3224",
       "text": "#c8836a",
       "glyph": null,
       "minimap_class": "cliff",
@@ -296,6 +312,15 @@
     "Only DIVERGENCE from the defaults is recorded, so a terrain with no props block",
     "inherits everything — which is what most solid ground wants. marsh is deliberately",
     "NOT liquid/swimmable: a marsh is walked, not swum (decision, 2026-07-30).",
+    "",
+    "PLATEAU AND CLIFF ARE ONE LANDFORM IN TWO TERRAINS, and they are split because",
+    "they answer differently, not because they look different. The top is walked; the",
+    "rim is not. Painted together they raise ONE merged massif in the flight sim (the",
+    "cell carries `hi` for high ground and `cf` for the sides it continues on), and",
+    "the map draws the rim's outline from the same adjacency. Both sit in the redrock",
+    "family on purpose: it is the same rock, lit differently — the top catches the sun",
+    "(#7a4029) and the face does not (#5c3224). A cliff painted in a colour unrelated",
+    "to the ground it rises out of reads as a fence, not as country.",
     "",
     "underwater shares water's minimap class and reads as the same substance; its",
     "fill is a shade darker (#14283a against #1d3b52) because that is what the 82",

@@ -182,7 +182,18 @@ WATER_ROAD.add('1046_985');
 // bands contiguous: a mesa always has a skirt of its own scree, never a cliff straight to hardpan.
 // The caprock threshold, named because three things read it and a fourth would drift.
 const MESA_H = 0.635;
-const isMesa = (x, y) => fbm(x, y, 11, 3) > MESA_H;
+// HIGH GROUND, asked the same way by everything that asks.
+//
+// Not `fbm > MESA_H` on its own: a tile the landform pass never gets to decide is not high
+// ground, whatever the height field says about it. The town box and the authored set are
+// flat by exemption, and so is anything the lake or the road already claimed. Ask the
+// height field alone and the rim test believes the massif continues into the Thornwarren,
+// declines to draw a face there, and the tableland runs into the thorn wall with no drop
+// between them — a step you can see from the air and cannot explain.
+const isMesa = (x, y) => x >= X0 && x <= X1 && y >= Y0 && y <= Y1
+  && !inTown(x, y) && !OUTSIDE[`${x}_${y}`]
+  && !isLake(x, y) && !isShore(x, y) && !WATER_ROAD.has(`${x}_${y}`)
+  && fbm(x, y, 11, 3) > MESA_H;
 
 // THE RIM IS A CLIFF, AND THE GAPS IN IT ARE THE POINT.
 //
@@ -206,7 +217,7 @@ function landformAt(x, y) {
   const h = fbm(x, y, 11, 3);
   if (h > MESA_H) {
     const rim = !isMesa(x, y - 1) || !isMesa(x, y + 1) || !isMesa(x + 1, y) || !isMesa(x - 1, y);
-    if (rim) return isPass(x, y) ? 'ramp' : 'cliff';
+    if (rim) return (isPass(x, y) || forcedRamps().has(`${x}_${y}`)) ? 'ramp' : 'cliff';
     return 'mesa';                     // caprock. flat on top, and the top is a long way up.
   }
   if (h > 0.575) return 'scree';       // the skirt of broken rock a mesa sheds
@@ -216,9 +227,62 @@ function landformAt(x, y) {
   if (h < 0.36 && fbm(x, y, 6, 41) > 0.55) return 'pan';   // dry lake floor, the flattest thing here
   return 'flat';
 }
+// `mesa` is `plateau` and `cliff` is its rim: one landform, two terrains, because the top
+// is walked and the rim is not. Together they raise a merged massif in the flight sim and
+// the rim draws its own outline on the map, both off the same adjacency.
+// EVERY MASSIF GETS A WAY UP, and this is the pass that guarantees it rather than hoping.
+//
+// The pass field is continuous and the mesas are not, so a small massif can easily fall
+// entirely in low-pass country and come out sealed: a tableland with no route onto it, and
+// no way for a player to tell it apart from one that has a notch they have not found. That
+// is the worst of both — the funnel stops being readable, because "there is no way up here"
+// stops implying "so there is one somewhere else".
+//
+// So: flood the high ground into massifs, and any massif with no ramp has its most
+// pass-like rim tile promoted to one. Deterministic (the field decides which tile, not a
+// counter or an iteration order), and it runs once at module load over 4,836 tiles.
+//
+// LAZY, and that is not a style choice: it walks `isMesa`, which reads the authored OUTSIDE
+// table declared further down this file. Evaluated at module load it would hit that table in
+// its temporal dead zone. Computed on first ask (from main), everything it needs exists.
+let _forcedRamps = null;
+const forcedRamps = () => (_forcedRamps ??= computeForcedRamps());
+function computeForcedRamps() {
+  const forced = new Set();
+  const key = (x, y) => `${x}_${y}`;
+  const high = isMesa;
+  const seen = new Set();
+  for (let x = X0; x <= X1; x++) {
+    for (let y = Y0; y <= Y1; y++) {
+      if (!high(x, y) || seen.has(key(x, y))) continue;
+      // One massif: flood it, remembering its rim and whether anything in it is already a pass.
+      const stack = [[x, y]], rim = [];
+      let hasPass = false;
+      seen.add(key(x, y));
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        const edge = !high(cx, cy - 1) || !high(cx, cy + 1) || !high(cx + 1, cy) || !high(cx - 1, cy);
+        if (edge) { rim.push([cx, cy]); if (isPass(cx, cy)) hasPass = true; }
+        for (const [nx, ny] of [[cx, cy - 1], [cx, cy + 1], [cx + 1, cy], [cx - 1, cy]]) {
+          if (!high(nx, ny) || seen.has(key(nx, ny))) continue;
+          seen.add(key(nx, ny));
+          stack.push([nx, ny]);
+        }
+      }
+      // A one-tile massif is a stack of rock, not a tableland. It has no inside to reach,
+      // so it needs no way up and gets none: forcing a ramp there would carve a notch into
+      // a boulder to reach its own outer edge.
+      if (hasPass || rim.length <= 1) continue;
+      const best = rim.reduce((a, b) => (isPass(b[0], b[1]) || fbm(b[0], b[1], 4.5, 77) > fbm(a[0], a[1], 4.5, 77) ? b : a));
+      forced.add(key(best[0], best[1]));
+    }
+  }
+  return forced;
+}
+
 const TERRAIN_OF = {
-  lake: 'water', shore: 'dirt', haul: 'dirt_road', mesa: 'redrock',
-  scree: 'gravel', scrub: 'scrub', pan: 'sand', flat: 'redrock',
+  lake: 'water', shore: 'dirt', haul: 'dirt_road', mesa: 'plateau', cliff: 'cliff',
+  ramp: 'gravel', scree: 'gravel', scrub: 'scrub', pan: 'sand', flat: 'redrock',
 };
 
 // ── AMBIENT: the open waste ──────────────────────────────────────────────────
@@ -298,6 +362,33 @@ const LANDFORM = {
       'A stone goes off the edge. You do not hear it land.',
       'Heat coming off the caprock in a shimmer, so the horizon detaches and floats a hand above the ground.',
       'Rain marks up here too, a thousand pale rings, on rock nothing has stood on in years.',
+    ],
+  },
+  cliff: {
+    names: ['The Red Wall', 'The Rimrock', 'The Escarpment', 'The Drop', 'Sheer'],
+    descs: [
+      'The rock goes up in one piece, banded red on red, too high to see the top of from underneath and too sheer to argue with. It runs away in both directions along the same line and does not offer anything that could be called a way up.',
+      'A wall of caprock standing out of the flats, undercut at the base where the weather has got in and eaten the softer bed away, so the top overhangs slightly and the shade under it is deep and cold.',
+      'The face of the tableland: a hundred feet of banded rock with nothing on it but the marks of the rain, and a fan of fallen stone piled at the foot where pieces of it have given up over the years.',
+    ],
+    ambient: [
+      'A slab lets go somewhere along the face, a long way off, and the sound arrives well after it.',
+      'Birds are nesting in the undercut, a whole colony of them, and they are not interested in you.',
+      'The shadow of the wall lies out across the flats, cold, with a hard edge on it.',
+      'You follow the foot of it for a while looking for a break, and there is not one here.',
+    ],
+  },
+  ramp: {
+    names: ['The Notch', 'The Way Up', 'The Break', 'Broken Stair'],
+    descs: [
+      'A break in the wall, and the only one for a long way: a ramp of fallen rock wedged into a notch in the face, steep and loose but climbable, going up into a cut that turns out of sight. Everything that crosses this country crosses it here, and the ground says so.',
+      'Where the escarpment has failed, a whole section of it come down at once a long time ago and never cleared, making a ragged stair up to the tableland. Tracks come in from both sides and converge on it: feet, dogs, cart wheels, all of them funnelled to the one gap.',
+    ],
+    ambient: [
+      'Every track in this country comes together here and goes up. There is no other way through for miles.',
+      'Somebody has stacked a cairn at the foot of the notch, and somebody else has added to it.',
+      'Loose rock underfoot the whole way up, and worn smooth in a line down the middle where the traffic goes.',
+      'A pair of hounds sit at the top of the ramp, watching who comes through, and do not move.',
     ],
   },
   scree: {
@@ -636,8 +727,11 @@ function main() {
       // The wilds have no law out here, and the town enforces its own inside the thorn.
       if (!inside(x, y)) flags.lawless = true;
       // Scavenging: the open waste is worth working over. The town and its burial ground are not.
-      // Nothing is scavenged off open water. Everything else out here is worth working over.
-      if (!inTown(x, y) && lf !== 'lake') flags.scavenging_table_id = 'scav_irradiated_salvage';
+      // Nothing is scavenged off open water, and nothing is scavenged off a rock face
+      // nobody can stand on. A cliff tile spawns nothing for the same reason: the move
+      // gate means no player will ever meet what is standing there.
+      if (!inTown(x, y) && lf !== 'lake' && lf !== 'cliff') flags.scavenging_table_id = 'scav_irradiated_salvage';
+      if (lf === 'cliff') flags.no_spawn = true;
       if (inTown(x, y)) flags.no_spawn = true;
 
       const q = inside(x, y) ? QUARTERS[quarterAt(x, y)] : null;

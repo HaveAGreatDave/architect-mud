@@ -383,7 +383,11 @@ const BIOME_GROUND = {
   // Badlands accents: pale cracked lakebed, near-white salt crust, dark canyon rim. Alkali is
   // deliberately the brightest ground in the game — from the air it should look like a hole
   // in the rust, which is exactly what a dry salt pan looks like.
-  hardpan: [184, 171, 144], alkali: [217, 213, 200], cliff: [92, 50, 36],
+  // cliff/plateau are ONE landform lit two ways: the caprock top takes the sun, the face
+  // beneath it does not. Both sit deliberately in the redrock family ([150,82,54]) — the
+  // massif rises out of the country around it, so a hue unrelated to that country would
+  // read as a fence somebody built rather than as ground.
+  hardpan: [184, 171, 144], alkali: [217, 213, 200], cliff: [92, 50, 36], plateau: [122, 64, 41],
   // Painted paved surfaces (flags.terrain): dark tarmac, pale concrete slab, weathered
   // dock planking. Deliberately NOT in GRASS_BIOMES, so they take the concrete-checker
   // material and read as pavement instead of turf.
@@ -397,7 +401,7 @@ const GRASS_BIOMES = new Set(['parkland', 'park', 'forest', 'citycore', 'uptown'
 // Bare dry-land biomes — get the carved badland relief (wildsRelief), a per-tile arid tint
 // jitter, and the sand-ripple/cracked-clay ground material instead of flat fill. The off-map
 // wildlands fill is arid by construction, so it isn't listed here (it passes arid=1 directly).
-const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands', 'hardpan', 'alkali', 'cliff']);
+const ARID_BIOMES = new Set(['scrub', 'redrock', 'ash', 'badlands', 'hardpan', 'alkali', 'cliff', 'plateau']);
 // Man-made / paved surfaces — the coast-wobble domain warp skips these so a concrete slab, tarmac,
 // pier or airport ramp keeps its straight built edges instead of going wavy (apron tiles are added
 // dynamically in the LUT via the nearField test).
@@ -4053,6 +4057,115 @@ function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   if (e && w) seg(dx - 0.5, dy, dx + 0.5, dy);   // full E–W span
   else if (e) seg(dx, dy, dx + 0.5, dy);          // reach east only
   else if (w) seg(dx, dy, dx - 0.5, dy);          // reach west only
+}
+
+// ── High ground: cliff + plateau, drawn as ONE merged massif ─────────────────
+//
+// A raised landform is the only ground in the game that has a top and a side, and the
+// whole problem is making a painted BLOB of tiles read as one tableland rather than as
+// a field of separate blocks. Three decisions do that:
+//
+// 1. FULL TILE WIDTH, no setback. Every other mass here is `draw3DBoxAt`, whose footprint
+//    is clamped to ±0.44 so a building keeps a gap to its neighbour and to the road. That
+//    clamp is exactly wrong for terrain: at ±0.44 two adjacent cliff tiles show a seam of
+//    open ground between them, lit from below, and the massif reads as crates. Ground has
+//    no setback from itself, so this draws to the tile edge and the tops abut exactly.
+//
+// 2. A WALL ONLY WHERE THE HIGH GROUND STOPS. `cf` is the run (the sides that continue),
+//    so the faces drawn are its complement — the same inversion the map's cliff piece set
+//    uses, for the same reason. An interior tile draws no wall at all, which is what
+//    "morphed together" means: the only vertical surfaces in a massif are on its outline.
+//
+// 3. THE TOP IS ALWAYS CAPPED, on rim and interior alike. The caps are what tile into a
+//    continuous surface, and skipping them on interior tiles would leave the plateau
+//    hollow the moment you were high enough to look down into it.
+//
+// This is rendering only. The rim's impassability is a server law (props.passable, see the
+// engine:impassable-terrain move gate); nothing here decides where a body may walk, and a
+// pilot may still fly straight through a mesa — CFIT reads building mass, not terrain.
+const CLIFF_H = 0.52;   // world-z of the tableland top. Roughly a 4-storey building: it has to clear the scatter and read as a landform from the air, without becoming a wall of the Curtain's height.
+function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun) {
+  const NEAR = 0.08;
+  // The SAME sun key the Mode-7 floor hillshades with (see the LUT builder), derived here
+  // rather than passed, so a massif's lit face and the shadow the ground draws beside it
+  // can never disagree about where the sun is.
+  const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62;
+  const litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
+  const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
+  const base = BIOME_COL[biome] || BIOME_COL.cliff;
+  // Per-tile tone jitter so a long escarpment is not one flat colour across forty tiles.
+  const j = (frac(seed * 0.317) - 0.5) * 12;
+  const day = 1 - night * 0.72;
+  const col = (t, k) => rgb([(base[0] + j) * t * day, (base[1] + j * 0.7) * t * day, (base[2] + j * 0.5) * t * day], alpha);
+  const H = CLIFF_H;
+  const CS = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];   // n-w, n-e, s-e, s-w
+
+  // The cap. Painted first at its own depth so the painter's algorithm can still sort a
+  // near tile's wall over a far tile's top.
+  const capPts = CS.map(([a, b]) => cam.proj(dx + a, dy + b, H));
+  if (capPts.every(p => p.f > NEAR)) {
+    emitFace(capPts.reduce((s, p) => s + p.f, 0) / 4, () => {
+      ctx.beginPath();
+      ctx.moveTo(capPts[0].sx, capPts[0].sy);
+      for (let i = 1; i < 4; i++) ctx.lineTo(capPts[i].sx, capPts[i].sy);
+      ctx.closePath();
+      // The top is the lit surface — the sun key the floor hillshade uses, so a mesa top
+      // and the plain around it agree about where the sun is.
+      ctx.fillStyle = col(1.06 + (litX + litY) * 0.02, 0);
+      ctx.fill();
+    });
+  }
+
+  // The faces. One per side the massif does NOT continue on.
+  const SIDES = [
+    ['n', 0, 1, 0, -1], ['e', 1, 2, 1, 0], ['s', 2, 3, 0, 1], ['w', 3, 0, -1, 0],
+  ];
+  for (const [d, i, k, nx, ny] of SIDES) {
+    if (run.indexOf(d) >= 0) continue;              // high ground carries on this way — no face
+    // Backface cull, same normal·view test the boxes use, chase-`back` folded in.
+    const mx = nx * 0.5, my = ny * 0.5;
+    if (mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) >= 0) continue;
+    let [ax, ay] = CS[i].map((v, n2) => v + (n2 === 0 ? dx : dy));
+    let [bx, by] = CS[k].map((v, n2) => v + (n2 === 0 ? dx : dy));
+    const fa = rawF(ax, ay), fb = rawF(bx, by);
+    if (fa < NEAR && fb < NEAR) continue;
+    if (fa < NEAR) { const s = (NEAR - fa) / (fb - fa); ax += (bx - ax) * s; ay += (by - ay) * s; }
+    else if (fb < NEAR) { const s = (NEAR - fb) / (fa - fb); bx += (ax - bx) * s; by += (ay - by) * s; }
+    const tA = cam.proj(ax, ay, H), tB = cam.proj(bx, by, H);
+    const bA = cam.proj(ax, ay, 0), bB = cam.proj(bx, by, 0);
+    // Lambert-ish key so the four aspects of a massif are not the same colour — a
+    // south face and a north face at the same tone is what makes blocks look like blocks.
+    const nl = clamp(0.62 + (nx * litX + ny * litY) * 0.42, 0.4, 1.12);
+    emitFace((tA.f + tB.f) / 2, () => {
+      ctx.beginPath();
+      ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.lineTo(bB.sx, bB.sy); ctx.lineTo(bA.sx, bA.sy);
+      ctx.closePath();
+      const topY = (tA.sy + tB.sy) / 2, botY = (bA.sy + bB.sy) / 2;
+      const g = ctx.createLinearGradient(0, topY, 0, botY);
+      g.addColorStop(0, col(nl * 1.12, 0));      // the caprock band, hardest and brightest
+      g.addColorStop(0.22, col(nl, 0));
+      g.addColorStop(1, col(nl * 0.62, 0));      // into the shadow at the foot, where the scree is
+      ctx.fillStyle = g; ctx.fill();
+      // Strata. Three horizontal bands at fixed height fractions, so the beds line up
+      // ACROSS adjacent tiles and a long face reads as one cut through the same rock.
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = col(nl * 0.78, 0);
+      ctx.lineWidth = 1;
+      for (const t of [0.3, 0.52, 0.74]) {
+        const l = { x: tA.sx + (bA.sx - tA.sx) * t, y: tA.sy + (bA.sy - tA.sy) * t };
+        const r = { x: tB.sx + (bB.sx - tB.sx) * t, y: tB.sy + (bB.sy - tB.sy) * t };
+        ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(r.x, r.y); ctx.stroke();
+      }
+      ctx.restore();
+      // The rim line. A hard bright edge along the very top of the face is what sells a
+      // drop rather than a slope, and it is continuous across neighbouring tiles because
+      // both draw it at the same world-z.
+      ctx.strokeStyle = col(1.3, 0);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(tA.sx, tA.sy); ctx.lineTo(tB.sx, tB.sy); ctx.stroke();
+    });
+  }
 }
 
 // A faceted vertical DRUM (cylinder/cone) through the world camera — the rounded alternative to
@@ -9052,6 +9165,15 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     }   // the Echelon — a high-poly superyacht hull, sun-lit (wake/heading present only when she's under way; `sub` glides her sub-tile toward her destination across a passage). padDome = an auto-land guidance dome over her helipad, drawn for a nearby helicopter.
     if (it.c.kind === 'nofly') { emitFace(od, () => draw3DBox(ctx, cam, it.dx, it.dy, 0.3, 0.55, '__nofly', it.seed, night, alpha * 0.7)); continue; }
     if (it.c.cur) { emitFace(od, () => drawCurtainWall(ctx, cam, it.dx, it.dy, it.c.cur, alpha, now)); continue; }   // the Curtain energy wall on a land-edge tile
+    // HIGH GROUND before any scatter branch. A raised tile is a MASS, not a dressing on
+    // the floor — the rocks the cliff biome used to sprinkle sat at ground level, i.e. at
+    // the foot of a landform that was not being drawn. `hi` is the whole test: a rim tile
+    // and a tableland tile take the same call and differ only in the run they hand it, so
+    // there is no seam through the middle of a massif.
+    if (it.c.hi && !it.c.bt) {
+      emitFace(od, () => drawCliffMass(ctx, cam, it.dx, it.dy, it.c.cf || '', bi, it.seed, night, alpha, sun));
+      continue;
+    }
     if (bi === 'park' && !it.c.bt) { emitFace(od, () => drawParkTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha, now, it.c.pf)); continue; }   // manicured park: authored `park_feature` (symmetry) or a seeded dressing (grove / pond / benches / flowerbeds / path)
     if (bi === 'forest' && !it.c.bt && !it.c.road) { emitFace(od, () => drawForestTile(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }   // painted woodland: a full stand per tile, not the parkland lone tree
     if (bi === 'parkland' && !it.c.bt) { emitFace(od, () => drawTreeBB(ctx, cam, it.dx, it.dy, night, it.seed, alpha)); continue; }
@@ -9070,7 +9192,10 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // The badlands accents scatter at their OWN densities, because emptiness is what each one is
     // FOR. A cliff rim is the densest rock in the game (every other tile); hardpan is thin; an
     // alkali flat is very nearly bare, and a flat that sprouts a bush stops reading as poisoned.
-    if ((bi === 'cliff' || bi === 'hardpan' || bi === 'alkali') && !it.c.bt) { const every = bi === 'cliff' ? 2 : bi === 'hardpan' ? 5 : 9; if ((it.seed % every) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
+    // `cliff` is gone from this list: it is a raised MASS now (drawCliffMass, above), and
+    // a cliff tile never reaches here. Scattering boulders at ground level over a tile that
+    // stands half a world-z above it put the rocks at the foot of an invisible landform.
+    if ((bi === 'hardpan' || bi === 'alkali') && !it.c.bt) { const every = bi === 'hardpan' ? 5 : 9; if ((it.seed % every) === 0) emitFace(od, () => drawWildScatter(ctx, cam, it.dx + jx, it.dy + jy, bi, night, it.seed, alpha)); continue; }
     // Trees & small forests on OPEN grass (no building, no road here). A coarse per-area hash
     // makes whole ~4-tile patches lean wooded or clear, so stands cluster into small forests
     // instead of a uniform sprinkle; sparse areas still get the odd lone tree. Deterministic

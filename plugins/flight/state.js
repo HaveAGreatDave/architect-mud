@@ -716,6 +716,13 @@ function isRoadCell(c) {
     || f.terrain === 'road' || f.terrain === 'dirt_road';
 }
 
+// HIGH GROUND. The two terrains that stand a tile-height above the plain, and the only
+// place that list is written down. `plateau` is the top you walk on, `cliff` the rim you
+// cannot — an elevation question, deliberately not a passability one, because the massif
+// has to merge across the boundary between them.
+const HIGH_TERRAIN = new Set(['cliff', 'plateau']);
+function isHighCell(c) { return !!c && HIGH_TERRAIN.has(c.flags?.terrain); }
+
 // The Curtain — the Architect's energy wall on the city's land edges (flags.curtain). The
 // windshield raises a shimmer plane on each such tile; it needs to know WHICH neighbours are
 // also Curtain so the wall arms only reach toward real neighbours and fuse into one barrier.
@@ -832,7 +839,30 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (it's the gap) but still needs the wall's run — read it off its Curtain neighbours so the
   // gate's flanking pylons line up with the wall it breaches.
   const cur = (cell.flags?.curtain || cell.flags?.perimeter_gate) ? curtainRun(x, y, at) : undefined;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, cur, ft, pf: cell.flags?.park_feature };
+  // HIGH GROUND — a raised landform, and the sides it CONTINUES on.
+  //
+  // `hi` says this tile stands a tile-height above the plain; `cf` is the run, exactly
+  // as `rd` is for road and `cur` is for the Curtain. The windshield caps every `hi`
+  // tile and walls only the sides missing from `cf`, which is what makes a painted
+  // blob of them one merged massif with a continuous rim rather than a field of
+  // separate blocks with visible seams between them.
+  //
+  // Two terrains, one landform: `plateau` is the walkable top, `cliff` the rim you
+  // cannot climb. The renderer must not care which — a rim tile beside a top tile has
+  // no wall BETWEEN them, or the massif is walled through its own middle. So `isHigh`
+  // asks about elevation and nothing else, and the passable/impassable split stays
+  // where it belongs, in props.
+  let hi, cf;
+  if (isHighCell(cell)) {
+    hi = 1;
+    let s = '';
+    if (isHighCell(at(x, y - 1))) s += 'n';
+    if (isHighCell(at(x + 1, y))) s += 'e';
+    if (isHighCell(at(x, y + 1))) s += 's';
+    if (isHighCell(at(x - 1, y))) s += 'w';
+    cf = s;
+  }
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature };
 }
 
 export function mapWindow(a, radius = 36, at = surfaceAt) {
