@@ -1,29 +1,31 @@
 {
-  "id": "dxp_psilocybin_heron",
-  "drug_id": "drug_psilocybin",
-  "matches": null,
-  "scope": "person",
-  "name": "a heron wearing an apron",
+  "asks": [
+    "Are you being served?",
+    "How long have you been standing there?",
+    "Do you know what time we close?"
+  ],
   "description": "A grey heron stands here in a stained work apron, folded up to nearly your height, moving about its business with the unhurried care of somebody who has done this shift a thousand times.",
-  "looks": [
-    "The apron is tied properly, in a bow, at the back. Somebody with hands did that, and it was not this.",
-    "It watches you along the beak, entirely level, and does not blink for a length of time you decide not to measure.",
-    "Everything it does, it does in one movement and then stops completely, which is somehow the least human part."
-  ],
-  "says": [
-    "Two minutes. Everyone gets two minutes.",
-    "I have been on since six. It does not get easier.",
-    "Stand where you like. Not there."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} folds its neck down, picks something invisible off the floor, and straightens.",
     "{it} shifts its weight from one leg to the other and settles, apron swinging.",
     "{it} wipes its hands on the apron. It does not have hands.",
     "{it} turns its head all the way round to the door, holds it, and turns back."
   ],
-  "asks": [
-    "Are you being served?",
-    "How long have you been standing there?",
-    "Do you know what time we close?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_psilocybin_heron",
+  "looks": [
+    "The apron is tied properly, in a bow, at the back. Somebody with hands did that, and it was not this.",
+    "It watches you along the beak, entirely level, and does not blink for a length of time you decide not to measure.",
+    "Everything it does, it does in one movement and then stops completely, which is somehow the least human part."
+  ],
+  "matches": null,
+  "name": "a heron wearing an apron",
+  "says": [
+    "Two minutes. Everyone gets two minutes.",
+    "I have been on since six. It does not get easier.",
+    "Stand where you like. Not there."
+  ],
+  "scope": "person"
 }

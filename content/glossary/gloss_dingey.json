@@ -1,8 +1,8 @@
 {
-  "id": "gloss_dingey",
-  "term": "dingey",
-  "gloss": "A dinghy: a small open boat.",
   "aliases": [
     "dingeys"
-  ]
+  ],
+  "gloss": "A dinghy: a small open boat.",
+  "id": "gloss_dingey",
+  "term": "dingey"
 }

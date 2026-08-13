@@ -1,8 +1,8 @@
 {
-  "id": "gloss_anabaptist",
-  "term": "anabaptist",
-  "gloss": "A Protestant sect that rejected infant baptism and was persecuted by nearly everyone.",
   "aliases": [
     "anabaptists"
-  ]
+  ],
+  "gloss": "A Protestant sect that rejected infant baptism and was persecuted by nearly everyone.",
+  "id": "gloss_anabaptist",
+  "term": "anabaptist"
 }

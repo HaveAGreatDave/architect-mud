@@ -1,8 +1,8 @@
 {
-  "id": "gloss_torpor",
-  "term": "torpor",
-  "gloss": "Heavy sluggishness; being unable to rouse yourself.",
   "aliases": [
     "torpid"
-  ]
+  ],
+  "gloss": "Heavy sluggishness; being unable to rouse yourself.",
+  "id": "gloss_torpor",
+  "term": "torpor"
 }

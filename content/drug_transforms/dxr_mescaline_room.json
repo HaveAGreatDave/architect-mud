@@ -1,15 +1,19 @@
 {
-  "id": "dxr_mescaline_room",
-  "drug_id": "drug_mescaline",
-  "matches": null,
-  "scope": "room",
-  "name": "the room, meaning it",
+  "asks": [],
   "description": "Everything here was placed by someone paying full attention.",
+  "drug_id": "drug_mescaline",
+  "emotes": [],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxr_mescaline_room",
   "looks": [
     "Everything here has been put where it is, deliberately, and every decision was correct.",
     "This place has weight. It has been here a long time and it intends to stay.",
     "The light in here is moving onto the right things and taking its time about it.",
     "There is a great deal of significance in this room and none of it is in a hurry."
   ],
-  "says": []
+  "matches": null,
+  "name": "the room, meaning it",
+  "says": [],
+  "scope": "room"
 }

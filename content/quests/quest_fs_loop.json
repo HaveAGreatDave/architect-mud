@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The full delivery loop: Ironside Street, Meltwater Row, Voss Avenue, and out to Cinder Lane, in that order or not at all. 20₵.",
+  "fail_on": [],
   "id": "quest_fs_loop",
   "meta": {
     "taskSeconds": 5
@@ -61,6 +62,7 @@
       "zone": "zone_district_902_908"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

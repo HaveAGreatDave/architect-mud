@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_003",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} goes absolutely still in a way that is more movement than moving would have been.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} goes absolutely still in a way that is more movement than moving would have been.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

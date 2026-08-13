@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Ansel Rooke works the Guardian battery north of the vats, and his radar keeps painting ground returns nobody is assigned to deal with: scavengers coming in past the gate and stripping the facility while the gun points at the sky. Thin them out.",
+  "fail_on": [],
   "id": "quest_pest_control",
   "meta": {},
   "name": "Pest Control",
@@ -12,6 +13,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

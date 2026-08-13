@@ -1,33 +1,33 @@
 {
-  "id": "dt_salvia_the_seam",
-  "name": "The Seam",
-  "description": "The world has a seam in it and you have gone in along the seam. You are the length of it. Everything is happening sideways at a constant speed and you have been part of this arrangement for much longer than you have been alive.",
-  "cause": "drug",
-  "drug_id": "drug_salvia",
-  "objects": [
-    {
-      "name": "the seam",
-      "looks": [
-        "It runs through everything, and you are what runs along it.",
-        "You have been travelling it since before you had a name for travelling.",
-        "It turns a corner that is not a direction, and you turn with it."
-      ]
-    },
-    {
-      "name": "the thing turning you",
-      "looks": [
-        "Enormous and entirely uninterested, the way a machine is uninterested.",
-        "It is checking your edges. You have edges.",
-        "It has done this to many things. You are not special and this is a relief."
-      ]
-    }
-  ],
   "ambient": [
     "You are turned through ninety degrees of something that is not space.",
     "The sideways speed increases without anything moving.",
     "A voice says a number, and you are the number."
   ],
-  "weather": "Weather is happening sideways, at a constant speed, somewhere off to one side of you.",
+  "cause": "drug",
+  "description": "The world has a seam in it and you have gone in along the seam. You are the length of it. Everything is happening sideways at a constant speed and you have been part of this arrangement for much longer than you have been alive.",
+  "drug_id": "drug_salvia",
   "fx": "wind",
-  "fx_intensity": 1
+  "fx_intensity": 1,
+  "id": "dt_salvia_the_seam",
+  "name": "The Seam",
+  "objects": [
+    {
+      "looks": [
+        "It runs through everything, and you are what runs along it.",
+        "You have been travelling it since before you had a name for travelling.",
+        "It turns a corner that is not a direction, and you turn with it."
+      ],
+      "name": "the seam"
+    },
+    {
+      "looks": [
+        "Enormous and entirely uninterested, the way a machine is uninterested.",
+        "It is checking your edges. You have edges.",
+        "It has done this to many things. You are not special and this is a relief."
+      ],
+      "name": "the thing turning you"
+    }
+  ],
+  "weather": "Weather is happening sideways, at a constant speed, somewhere off to one side of you."
 }

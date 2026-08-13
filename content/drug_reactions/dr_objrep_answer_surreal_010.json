@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_surreal_010",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "surreal",
-  "self_line": "Then we are talking about the same evening after all.",
-  "room_line": "",
+  "id": "dr_objrep_answer_surreal_010",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Then we are talking about the same evening after all.",
+  "source": "object_reply_answer",
+  "tone": "surreal"
 }

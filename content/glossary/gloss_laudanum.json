@@ -1,6 +1,6 @@
 {
-  "id": "gloss_laudanum",
-  "term": "laudanum",
+  "aliases": [],
   "gloss": "Opium dissolved in alcohol: legal, cheap, and sold over the counter for everything from toothache to grief.",
-  "aliases": []
+  "id": "gloss_laudanum",
+  "term": "laudanum"
 }

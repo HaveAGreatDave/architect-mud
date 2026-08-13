@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The shareholders in the Altitude Sickness lounge have grown bored, and a bored shareholder is a dangerous thing. Vane the bartender is quietly brokering a bounty on the bay leviathan.",
+  "fail_on": [],
   "id": "quest_leviathan_bounty",
   "meta": {},
   "name": "Deep Pockets",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

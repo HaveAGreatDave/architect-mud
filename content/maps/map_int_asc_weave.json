@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_asc_weave_line",
   "id": "map_int_asc_weave",
+  "name": "The Weave",
   "parent_zone_id": "zone_district_893_907"
 }

@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_mq_sump_bar",
   "id": "map_int_mq_sump",
+  "name": "Sump",
   "parent_zone_id": "zone_district_921_914"
 }

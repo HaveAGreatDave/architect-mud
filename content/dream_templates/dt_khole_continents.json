@@ -1,33 +1,33 @@
 {
-  "id": "dt_khole_continents",
-  "name": "The Slow Continents",
-  "description": "Shapes the size of countries are moving past each other, very slowly, in a space with no floor and no reason to have one. You understand their business completely and could not begin to say what it is. This is the least frightened you have ever been.",
-  "cause": "drug",
-  "drug_id": "drug_khole",
-  "objects": [
-    {
-      "name": "the shapes",
-      "looks": [
-        "Continental. Patient. Getting on with it.",
-        "One of them has been about to touch another for a geological age.",
-        "They are the same shape as the sound you can hear."
-      ]
-    },
-    {
-      "name": "the space between them",
-      "looks": [
-        "Not empty. Occupied by the fact of them being apart.",
-        "It is where you are.",
-        "It closes very slightly, and everything gets more comfortable."
-      ]
-    }
-  ],
   "ambient": [
     "Two of the shapes achieve a new relationship, over a long time, and it matters.",
     "The sound changes key without having been a sound.",
     "Something passes underneath which had been above."
   ],
-  "weather": "Somewhere above all this there is a pressure system the size of a country, and it is moving very slowly.",
+  "cause": "drug",
+  "description": "Shapes the size of countries are moving past each other, very slowly, in a space with no floor and no reason to have one. You understand their business completely and could not begin to say what it is. This is the least frightened you have ever been.",
+  "drug_id": "drug_khole",
   "fx": "fog",
-  "fx_intensity": 0.8
+  "fx_intensity": 0.8,
+  "id": "dt_khole_continents",
+  "name": "The Slow Continents",
+  "objects": [
+    {
+      "looks": [
+        "Continental. Patient. Getting on with it.",
+        "One of them has been about to touch another for a geological age.",
+        "They are the same shape as the sound you can hear."
+      ],
+      "name": "the shapes"
+    },
+    {
+      "looks": [
+        "Not empty. Occupied by the fact of them being apart.",
+        "It is where you are.",
+        "It closes very slightly, and everything gets more comfortable."
+      ],
+      "name": "the space between them"
+    }
+  ],
+  "weather": "Somewhere above all this there is a pressure system the size of a country, and it is moving very slowly."
 }

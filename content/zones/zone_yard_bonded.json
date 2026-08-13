@@ -13,17 +13,17 @@
     "claimable_asset": "warehouse",
     "is_building": true,
     "is_interior": true,
+    "truck_depot": {
+      "name": "Kessler Street Yard",
+      "yard": "zone_district_922_908"
+    },
     "window": {
       "description": "A window set too high in the wall to see the ground through, so it offers the sky and nothing else. On a bad day that is more information than you want.",
       "light": 0.7,
       "name": "the high window",
       "visibility": 0.75
     },
-    "world_exit_zone": "zone_district_922_907",
-    "truck_depot": {
-      "name": "Kessler Street Yard",
-      "yard": "zone_district_922_908"
-    }
+    "world_exit_zone": "zone_district_922_907"
   },
   "grid_x": 0,
   "grid_y": 0,

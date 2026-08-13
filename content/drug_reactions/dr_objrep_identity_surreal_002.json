@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_surreal_002",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "surreal",
-  "self_line": "I do not remember before. I remember AFTER quite well, which is the wrong way round and I know it.",
-  "room_line": "",
+  "id": "dr_objrep_identity_surreal_002",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I do not remember before. I remember AFTER quite well, which is the wrong way round and I know it.",
+  "source": "object_reply_identity",
+  "tone": "surreal"
 }

@@ -4,5 +4,7 @@
   "description": "NIGHT SHIFT AT NUMBER FOUR — title card.",
   "id": "night_shift_title",
   "name": "night_shift_title",
-  "tags": []
+  "tags": [],
+  "type": "ascii",
+  "updated_at": "1786127334"
 }

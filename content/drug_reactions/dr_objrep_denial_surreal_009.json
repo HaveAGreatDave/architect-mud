@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_surreal_009",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "surreal",
-  "self_line": "Everybody gets there eventually. Very few of them stop talking to me afterwards.",
-  "room_line": "",
+  "id": "dr_objrep_denial_surreal_009",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Everybody gets there eventually. Very few of them stop talking to me afterwards.",
+  "source": "object_reply_denial",
+  "tone": "surreal"
 }

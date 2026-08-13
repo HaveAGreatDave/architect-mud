@@ -3,518 +3,518 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
-        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "bsm_pre_0"
+        "next": "bsm_pre_0",
+        "type": "start"
       },
       "bsm_1": {
-        "type": "title_card",
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
         "graphic_id": "form_nine_title",
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "type": "say",
-        "text": "No letterbox. No frame line. Whoever shot this had a consumer deck and a lamp and did not know the word for any of it.",
-        "style": "narration",
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "type": "say",
-        "text": "♪ Room tone. A radiator. That is the entire soundtrack of this picture. ♪",
-        "style": "ambient",
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "A CORRIDOR",
-        "subtext": "UNKNOWN",
-        "graphic_id": "",
-        "duration_s": 6,
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "type": "say",
-        "text": "A queue, filmed from the back. Twelve people. A strip light with a kink in it. The camera does not move for two minutes and forty seconds.",
-        "style": "narration",
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "type": "say",
-        "text": "(off camera) says, \"Are you going to say anything?\"",
-        "style": "verbatim",
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "type": "say",
-        "text": "The Clerk says, \"I'm ninth.\"",
-        "style": "verbatim",
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 1",
-        "subtext": "The Queue",
-        "duration_s": 8,
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "type": "say",
-        "text": "The shutter comes down on the service window. Everybody leaves. The camera stays.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "type": "title_card"
       },
       "bsm_10": {
-        "type": "say",
-        "text": "One man is still standing in the corridor.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "next": "bsm_11"
+        "next": "bsm_11",
+        "style": "narration",
+        "text": "One man is still standing in the corridor.",
+        "type": "say"
       },
       "bsm_11": {
-        "type": "say",
-        "text": "(off camera) says, \"They've shut.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "next": "bsm_12"
+        "next": "bsm_12",
+        "style": "verbatim",
+        "text": "(off camera) says, \"They've shut.\"",
+        "type": "say"
       },
       "bsm_12": {
-        "type": "say",
-        "text": "The Clerk says, \"They've shut today.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "style": "verbatim",
+        "text": "The Clerk says, \"They've shut today.\"",
+        "type": "say"
       },
       "bsm_13": {
-        "type": "say",
-        "text": "(off camera) says, \"They'll shut tomorrow.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "style": "verbatim",
+        "text": "(off camera) says, \"They'll shut tomorrow.\"",
+        "type": "say"
       },
       "bsm_14": {
-        "type": "say",
-        "text": "The Clerk says, \"Then I'll be here tomorrow.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "style": "verbatim",
+        "text": "The Clerk says, \"Then I'll be here tomorrow.\"",
+        "type": "say"
       },
       "bsm_15": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE SAME CORRIDOR",
-        "subtext": "LATER, HOW MUCH LATER IS NOT RECORDED",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "next": "bsm_16"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_16",
+        "overlayType": "lower_third",
+        "subtext": "LATER, HOW MUCH LATER IS NOT RECORDED",
+        "text": "THE SAME CORRIDOR",
+        "type": "overlay"
       },
       "bsm_16": {
-        "type": "say",
-        "text": "The same wall. The same man. The strip light has been changed; you can tell because it is straight now.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "next": "bsm_17"
+        "next": "bsm_17",
+        "style": "narration",
+        "text": "The same wall. The same man. The strip light has been changed; you can tell because it is straight now.",
+        "type": "say"
       },
       "bsm_17": {
-        "type": "say",
-        "text": "Fourteen weeks of tape exist. Eleven minutes of it are in this print. The rest is a wall.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "next": "bsm_18"
+        "next": "bsm_18",
+        "style": "narration",
+        "text": "Fourteen weeks of tape exist. Eleven minutes of it are in this print. The rest is a wall.",
+        "type": "say"
       },
       "bsm_18": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 2",
-        "subtext": "Form 9",
-        "duration_s": 8,
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "next": "bsm_19"
+        "duration_s": 8,
+        "next": "bsm_19",
+        "overlayType": "act_card",
+        "subtext": "Form 9",
+        "text": "ACT 2",
+        "type": "overlay"
       },
       "bsm_19": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "AN OFFICE",
-        "subtext": "THE ONLY TIME THE CAMERA WAS ALLOWED IN",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "next": "bsm_20"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_20",
+        "overlayType": "lower_third",
+        "subtext": "THE ONLY TIME THE CAMERA WAS ALLOWED IN",
+        "text": "AN OFFICE",
+        "type": "overlay"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "next": "bsm_3",
+        "style": "narration",
+        "text": "No letterbox. No frame line. Whoever shot this had a consumer deck and a lamp and did not know the word for any of it.",
+        "type": "say"
       },
       "bsm_20": {
-        "type": "say",
-        "text": "A table. Two people on one side. The Clerk on the other, exactly the same size in frame as he was in the corridor, because the camera has not been moved and nobody thought to move it.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 720
         },
-        "next": "bsm_21"
+        "next": "bsm_21",
+        "style": "narration",
+        "text": "A table. Two people on one side. The Clerk on the other, exactly the same size in frame as he was in the corridor, because the camera has not been moved and nobody thought to move it.",
+        "type": "say"
       },
       "bsm_21": {
-        "type": "say",
-        "text": "The Official says, \"You understand this doesn't go anywhere.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 720
         },
-        "next": "bsm_22"
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "The Official says, \"You understand this doesn't go anywhere.\"",
+        "type": "say"
       },
       "bsm_22": {
-        "type": "say",
-        "text": "The Clerk says, \"It goes to you.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "next": "bsm_23"
+        "next": "bsm_23",
+        "style": "verbatim",
+        "text": "The Clerk says, \"It goes to you.\"",
+        "type": "say"
       },
       "bsm_23": {
-        "type": "say",
-        "text": "The Official says, \"And then it goes in a drawer.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "next": "bsm_24"
+        "next": "bsm_24",
+        "style": "verbatim",
+        "text": "The Official says, \"And then it goes in a drawer.\"",
+        "type": "say"
       },
       "bsm_24": {
-        "type": "say",
-        "text": "The Clerk says, \"Then it's in a drawer.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "next": "bsm_25"
+        "next": "bsm_25",
+        "style": "verbatim",
+        "text": "The Clerk says, \"Then it's in a drawer.\"",
+        "type": "say"
       },
       "bsm_25": {
-        "type": "say",
-        "text": "The Official says, \"Do you know how many of these we get? Nine. Nine last year. Nine is a rounding error.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "next": "bsm_26"
+        "next": "bsm_26",
+        "style": "verbatim",
+        "text": "The Official says, \"Do you know how many of these we get? Nine. Nine last year. Nine is a rounding error.\"",
+        "type": "say"
       },
       "bsm_26": {
-        "type": "say",
-        "text": "The Clerk says, \"Then it costs you nothing to take it.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 880
         },
-        "next": "bsm_27"
+        "next": "bsm_27",
+        "style": "verbatim",
+        "text": "The Clerk says, \"Then it costs you nothing to take it.\"",
+        "type": "say"
       },
       "bsm_27": {
-        "type": "say",
-        "text": "The Official takes it. The tape runs on for another forty seconds afterwards with nobody saying anything, because whoever was holding the camera did not know to stop.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 880
         },
-        "next": "bsm_28"
+        "next": "bsm_28",
+        "style": "narration",
+        "text": "The Official takes it. The tape runs on for another forty seconds afterwards with nobody saying anything, because whoever was holding the camera did not know to stop.",
+        "type": "say"
       },
       "bsm_28": {
-        "type": "tech_difficulties",
-        "duration": 5,
         "_vine": {
           "x": 740,
           "y": 880
         },
-        "next": "bsm_29"
+        "duration": 5,
+        "next": "bsm_29",
+        "type": "tech_difficulties"
       },
       "bsm_29": {
-        "type": "overlay",
-        "overlayType": "intermission",
-        "text": "INTERMISSION",
-        "subtext": "",
-        "duration_s": 30,
         "_vine": {
           "x": 960,
           "y": 880
         },
-        "next": "bsm_30"
+        "duration_s": 30,
+        "next": "bsm_30",
+        "overlayType": "intermission",
+        "subtext": "",
+        "text": "INTERMISSION",
+        "type": "overlay"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "style": "ambient",
+        "text": "♪ Room tone. A radiator. That is the entire soundtrack of this picture. ♪",
+        "type": "say"
       },
       "bsm_30": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 3",
-        "subtext": "Ten",
-        "duration_s": 8,
         "_vine": {
           "x": 80,
           "y": 1040
         },
-        "next": "bsm_31"
+        "duration_s": 8,
+        "next": "bsm_31",
+        "overlayType": "act_card",
+        "subtext": "Ten",
+        "text": "ACT 3",
+        "type": "overlay"
       },
       "bsm_31": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "OUTSIDE",
-        "subtext": "RAIN",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "next": "bsm_32"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_32",
+        "overlayType": "lower_third",
+        "subtext": "RAIN",
+        "text": "OUTSIDE",
+        "type": "overlay"
       },
       "bsm_32": {
-        "type": "say",
-        "text": "Two men under an overhang. The audio is almost entirely rain.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "next": "bsm_33"
+        "next": "bsm_33",
+        "style": "narration",
+        "text": "Two men under an overhang. The audio is almost entirely rain.",
+        "type": "say"
       },
       "bsm_33": {
-        "type": "say",
-        "text": "(off camera) says, \"Did they take it?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1040
         },
-        "next": "bsm_34"
+        "next": "bsm_34",
+        "style": "verbatim",
+        "text": "(off camera) says, \"Did they take it?\"",
+        "type": "say"
       },
       "bsm_34": {
-        "type": "say",
-        "text": "The Clerk says, \"Yes.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "next": "bsm_35"
+        "next": "bsm_35",
+        "style": "verbatim",
+        "text": "The Clerk says, \"Yes.\"",
+        "type": "say"
       },
       "bsm_35": {
-        "type": "say",
-        "text": "(off camera) says, \"Does that mean anything?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1200
         },
-        "next": "bsm_36"
+        "next": "bsm_36",
+        "style": "verbatim",
+        "text": "(off camera) says, \"Does that mean anything?\"",
+        "type": "say"
       },
       "bsm_36": {
-        "type": "say",
-        "text": "The Clerk says, \"No.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1200
         },
-        "next": "bsm_37"
+        "next": "bsm_37",
+        "style": "verbatim",
+        "text": "The Clerk says, \"No.\"",
+        "type": "say"
       },
       "bsm_37": {
-        "type": "say",
-        "text": "(off camera) says, \"Then why?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "next": "bsm_38"
+        "next": "bsm_38",
+        "style": "verbatim",
+        "text": "(off camera) says, \"Then why?\"",
+        "type": "say"
       },
       "bsm_38": {
-        "type": "say",
-        "text": "He thinks about it for long enough that on most copies the viewer assumes the tape has stuck.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "next": "bsm_39"
+        "next": "bsm_39",
+        "style": "narration",
+        "text": "He thinks about it for long enough that on most copies the viewer assumes the tape has stuck.",
+        "type": "say"
       },
       "bsm_39": {
-        "type": "say",
-        "text": "The Clerk says, \"Because next year it'll be ten.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "next": "bsm_40"
+        "next": "bsm_40",
+        "style": "verbatim",
+        "text": "The Clerk says, \"Because next year it'll be ten.\"",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_5",
+        "overlayType": "lower_third",
+        "subtext": "UNKNOWN",
+        "text": "A CORRIDOR",
+        "type": "overlay"
       },
       "bsm_40": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE CORRIDOR",
-        "subtext": "LAST ROLL",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 80,
           "y": 1360
         },
-        "next": "bsm_41"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_41",
+        "overlayType": "lower_third",
+        "subtext": "LAST ROLL",
+        "text": "THE CORRIDOR",
+        "type": "overlay"
       },
       "bsm_41": {
-        "type": "say",
-        "text": "The service window with the shutter down and a printed notice taped to it: THIS OFFICE HAS BEEN CLOSED. ENQUIRIES BY POST.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 1360
         },
-        "next": "bsm_42"
+        "next": "bsm_42",
+        "style": "narration",
+        "text": "The service window with the shutter down and a printed notice taped to it: THIS OFFICE HAS BEEN CLOSED. ENQUIRIES BY POST.",
+        "type": "say"
       },
       "bsm_42": {
-        "type": "say",
-        "text": "A man sitting on the floor against the wall with a folder open on his knees, writing.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1360
         },
-        "next": "bsm_43"
+        "next": "bsm_43",
+        "style": "narration",
+        "text": "A man sitting on the floor against the wall with a folder open on his knees, writing.",
+        "type": "say"
       },
       "bsm_43": {
-        "type": "say",
-        "text": "It was forty by the third year. They had to print more.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 1360
         },
-        "next": "bsm_44"
+        "next": "bsm_44",
+        "style": "narration",
+        "text": "It was forty by the third year. They had to print more.",
+        "type": "say"
       },
       "bsm_44": {
-        "type": "say",
-        "text": "That is the whole of the victory, and the picture is aware of how that sounds.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1360
         },
-        "next": "bsm_45"
+        "next": "bsm_45",
+        "style": "narration",
+        "text": "That is the whole of the victory, and the picture is aware of how that sounds.",
+        "type": "say"
       },
       "bsm_45": {
-        "type": "credits",
-        "text": "FORM 9\n\nThe Clerk .............. would not give his name to the camera\nThe Official ........... did not know she was being filmed\nThe Voice .............. whoever was holding it\n\nTHERE IS NO DISTRIBUTOR AND THERE ARE NO RIGHTS.\nIF SOMEBODY CHARGED YOU TO WATCH THIS, TAKE YOUR MONEY BACK OFF THEM.",
-        "duration": 16,
         "_vine": {
           "x": 80,
           "y": 1520
-        }
+        },
+        "duration": 16,
+        "text": "FORM 9\n\nThe Clerk .............. would not give his name to the camera\nThe Official ........... did not know she was being filmed\nThe Voice .............. whoever was holding it\n\nTHERE IS NO DISTRIBUTOR AND THERE ARE NO RIGHTS.\nIF SOMEBODY CHARGED YOU TO WATCH THIS, TAKE YOUR MONEY BACK OFF THEM.",
+        "type": "credits"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "next": "bsm_6",
+        "style": "narration",
+        "text": "A queue, filmed from the back. Twelve people. A strip light with a kink in it. The camera does not move for two minutes and forty seconds.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "verbatim",
+        "text": "(off camera) says, \"Are you going to say anything?\"",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "verbatim",
+        "text": "The Clerk says, \"I'm ninth.\"",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "duration_s": 8,
+        "next": "bsm_9",
+        "overlayType": "act_card",
+        "subtext": "The Queue",
+        "text": "ACT 1",
+        "type": "overlay"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "narration",
+        "text": "The shutter comes down on the service window. Everybody leaves. The camera stays.",
+        "type": "say"
       },
       "bsm_pre_0": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "NO DISTRIBUTOR",
-        "subtext": "presents",
-        "duration_s": 5,
         "_vine": {
           "x": 80,
           "y": -120
         },
-        "next": "bsm_pre_1"
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "NO DISTRIBUTOR",
+        "type": "overlay"
       },
       "bsm_pre_1": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
-        "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "duration_s": 5,
         "_vine": {
           "x": 300,
           "y": -120
         },
-        "next": "bsm_pre_2"
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
+        "type": "overlay"
       },
       "bsm_pre_2": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "A film by unknown",
-        "subtext": "",
-        "duration_s": 5,
         "_vine": {
           "x": 520,
           "y": -120
         },
-        "next": "bsm_1"
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by unknown",
+        "type": "overlay"
       }
     }
   },
@@ -525,9 +525,8 @@
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "no distributor",
-    "rating": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
-    "director": "unknown",
+    "airDays": null,
+    "airSlots": null,
     "cast": [
       {
         "label": "CLERK",
@@ -545,11 +544,12 @@
         "role": "whoever was holding the camera"
       }
     ],
-    "title": "form_nine_title",
+    "director": "unknown",
+    "presents": "no distributor",
+    "rating": "UNCERTIFIED — THIS PRINT HAS NEVER BEEN SUBMITTED",
+    "runtime": 660,
     "theme": "",
-    "airSlots": null,
-    "airDays": null,
-    "runtime": 660
+    "title": "form_nine_title"
   },
   "gameshow_pools": null,
   "id": "bc_form_nine",

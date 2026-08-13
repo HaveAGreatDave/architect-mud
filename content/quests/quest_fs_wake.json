@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The clocks are lies and the sirens stopped working, so the shift workers pay a human alarm. Bang on doors through Marrow Street, then rouse Voss Avenue before the whistle. Dodge what they throw. 10₵.",
+  "fail_on": [],
   "id": "quest_fs_wake",
   "meta": {},
   "name": "Human Alarm",
@@ -33,6 +34,7 @@
       "zone": "zone_district_903_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

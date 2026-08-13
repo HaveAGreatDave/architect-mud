@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_surreal_005",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "surreal",
-  "self_line": "I was part of the building. The building has not noticed I am missing.",
-  "room_line": "",
+  "id": "dr_objrep_identity_surreal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I was part of the building. The building has not noticed I am missing.",
+  "source": "object_reply_identity",
+  "tone": "surreal"
 }

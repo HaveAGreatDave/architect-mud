@@ -6,14 +6,14 @@
   "tags": {
     "__own": {
       "damage": {
-        "min": 12,
-        "max": 22
+        "max": 22,
+        "min": 12
       },
       "damage_type": "kinetic",
       "demolition": true,
       "demolition_damage": {
-        "min": 40,
-        "max": 70
+        "max": 70,
+        "min": 40
       },
       "min_skill": {
         "clubs": 5
@@ -23,21 +23,21 @@
       "weapon_clubs"
     ],
     "damage": {
-      "min": 12,
-      "max": 22
+      "max": 22,
+      "min": 12
     },
     "damage_type": "kinetic",
     "demolition": true,
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "clubs",
     "demolition_damage": {
-      "min": 40,
-      "max": 70
+      "max": 70,
+      "min": 40
     },
     "min_skill": {
       "clubs": 5
-    }
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
   },
   "type": "weapon",
   "value": 1020,

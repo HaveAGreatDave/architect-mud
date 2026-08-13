@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Someone with no one left is being carried through the meat district and the family that isn't there paid for a crowd. Walk Cinder Lane, then Marrow Street, and look devastated. Tears optional but appreciated. 20₵.",
+  "fail_on": [],
   "id": "quest_fs_mourn",
   "meta": {},
   "name": "Professional Mourner",
@@ -33,6 +34,7 @@
       "zone": "zone_district_915_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

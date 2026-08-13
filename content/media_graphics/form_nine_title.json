@@ -4,5 +4,7 @@
   "description": "FORM 9 — title card.",
   "id": "form_nine_title",
   "name": "form_nine_title",
-  "tags": []
+  "tags": [],
+  "type": "ascii",
+  "updated_at": "1786127334"
 }

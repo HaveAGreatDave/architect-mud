@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_yard_wharf",
   "id": "map_int_yard_wharf",
+  "name": "The Wet Handoff",
   "parent_zone_id": "zone_district_926_908"
 }

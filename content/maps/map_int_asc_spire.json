@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_asc_spire_concourse",
   "id": "map_int_asc_spire",
+  "name": "The Spire",
   "parent_zone_id": "zone_district_892_906"
 }

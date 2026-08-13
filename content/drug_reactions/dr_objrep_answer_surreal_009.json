@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_surreal_009",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "surreal",
-  "self_line": "I have written it down, in the only way I have of writing things down.",
-  "room_line": "",
+  "id": "dr_objrep_answer_surreal_009",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I have written it down, in the only way I have of writing things down.",
+  "source": "object_reply_answer",
+  "tone": "surreal"
 }

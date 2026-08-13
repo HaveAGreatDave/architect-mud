@@ -1,33 +1,33 @@
 {
-  "id": "dream_the_meeting",
-  "name": "The Meeting",
-  "description": "A long table, a great many chairs, and everybody knows what this is about except you. There are papers at every seat, face down. Someone is standing at the end waiting for you to sit so they can begin. You are already sitting.",
-  "cause": "dream",
-  "drug_id": null,
-  "objects": [
-    {
-      "name": "the papers",
-      "looks": [
-        "Face down. Everyone else’s are face up and identical to the back of yours.",
-        "You turn one over. It is a photograph of the table, taken from where you are sitting.",
-        "They are minutes. Of this. Including this."
-      ]
-    },
-    {
-      "name": "the person standing",
-      "looks": [
-        "Waiting, with enormous patience, for something you have already done.",
-        "Their name is on a card in front of them, and it is a word, not a name.",
-        "They have begun. You have missed the beginning. It is going well."
-      ]
-    }
-  ],
   "ambient": [
     "Everyone turns a page at once. You do not have a page.",
     "Somebody at the far end says your name in the middle of a sentence, and continues.",
     "The chair beside you is pulled out, and pushed back in."
   ],
-  "weather": "The room is air-conditioned to a degree nobody has ever asked for. It has been like this for years.",
+  "cause": "dream",
+  "description": "A long table, a great many chairs, and everybody knows what this is about except you. There are papers at every seat, face down. Someone is standing at the end waiting for you to sit so they can begin. You are already sitting.",
+  "drug_id": null,
   "fx": "ash",
-  "fx_intensity": 0.2
+  "fx_intensity": 0.2,
+  "id": "dream_the_meeting",
+  "name": "The Meeting",
+  "objects": [
+    {
+      "looks": [
+        "Face down. Everyone else’s are face up and identical to the back of yours.",
+        "You turn one over. It is a photograph of the table, taken from where you are sitting.",
+        "They are minutes. Of this. Including this."
+      ],
+      "name": "the papers"
+    },
+    {
+      "looks": [
+        "Waiting, with enormous patience, for something you have already done.",
+        "Their name is on a card in front of them, and it is a word, not a name.",
+        "They have begun. You have missed the beginning. It is going well."
+      ],
+      "name": "the person standing"
+    }
+  ],
+  "weather": "The room is air-conditioned to a degree nobody has ever asked for. It has been like this for years."
 }

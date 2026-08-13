@@ -1,159 +1,159 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "attack",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 9
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
   },
-  {
-   "part": "torso",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {
-    "edged": 2,
-    "kinetic": 3
-   },
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 7,
- "butcher_table": [],
- "death_message": "The deadhead mutant goes to its knees, stays there a moment like it is thinking, and topples into the runoff.",
- "description": "The far western lines were sealed for a reason and this is a good part of it. Huge, slack-faced, its skull grown thick and blind over where the eyes used to be, it has been fed by whatever the city flushed for longer than the district above has had a name.",
- "dodge": 1,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy turns its blind, overgrown head toward $player and knows exactly where you are.",
-   "$enemy fills the tunnel shoulder to shoulder coming at $player.",
-   "Something enormous in $enemy draws breath and lets it out over $player."
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 9
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "edged": 2,
+        "kinetic": 3
+      },
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 8000
- },
- "hit": 6,
- "hp_max": 70,
- "id": "enemy_deadhead_mutant",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    3
-   ],
-   "weight": 26
+  "butcher_difficulty": 7,
+  "butcher_table": [],
+  "death_message": "The deadhead mutant goes to its knees, stays there a moment like it is thinking, and topples into the runoff.",
+  "description": "The far western lines were sealed for a reason and this is a good part of it. Huge, slack-faced, its skull grown thick and blind over where the eyes used to be, it has been fed by whatever the city flushed for longer than the district above has had a name.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy turns its blind, overgrown head toward $player and knows exactly where you are.",
+      "$enemy fills the tunnel shoulder to shoulder coming at $player.",
+      "Something enormous in $enemy draws breath and lets it out over $player."
+    ],
+    "first_strike_delay_ms": 8000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 15
-  },
-  {
-   "item": "item_battery",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 10
-  },
-  {
-   "credits": [
-    55,
-    130
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 24
-  },
-  {
-   "credits": [
-    140,
-    300
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "deadhead mutant",
- "weapon": [
-  {
-   "max": 9,
-   "min": 4,
-   "type": "kinetic"
-  }
- ]
+  "hit": 6,
+  "hp_max": 70,
+  "id": "enemy_deadhead_mutant",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 26
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 15
+    },
+    {
+      "item": "item_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        55,
+        130
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 24
+    },
+    {
+      "credits": [
+        140,
+        300
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "deadhead mutant",
+  "weapon": [
+    {
+      "max": 9,
+      "min": 4,
+      "type": "kinetic"
+    }
+  ]
 }

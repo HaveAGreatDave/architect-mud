@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Nothing's actually broken that hitting won't briefly fix. Do the rounds with a wrench: bang the pipes at Ironside Street, Meltwater Row, and Foundry Way until the gauges twitch. That's the whole job. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_pipes",
   "meta": {},
   "name": "Percussive Maintenance",
@@ -48,6 +49,7 @@
       "zone": "zone_district_912_912"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

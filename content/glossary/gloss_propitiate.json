@@ -1,9 +1,9 @@
 {
-  "id": "gloss_propitiate",
-  "term": "propitiate",
-  "gloss": "To appease someone angry.",
   "aliases": [
     "propitiated",
     "propitiation"
-  ]
+  ],
+  "gloss": "To appease someone angry.",
+  "id": "gloss_propitiate",
+  "term": "propitiate"
 }

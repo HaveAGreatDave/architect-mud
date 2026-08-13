@@ -1,28 +1,30 @@
 {
-  "id": "dx_blotter_door_recursive",
-  "drug_id": "drug_blotter",
-  "matches": "door",
-  "scope": "object",
-  "name": "a doorway repeating into itself",
+  "asks": [
+    "Which one were you going to use?",
+    "Did you come in through me? Think about it before you answer.",
+    "Shall I keep going, or is this enough?"
+  ],
   "description": "A door, correct in every particular, occurring several times in the same place: each frame a little smaller, receding into itself, all of them slightly ajar.",
-  "looks": [
-    "Opening it would open all of them, in order, quite slowly.",
-    "The handle is at four heights and each is the right one.",
-    "Behind it is this room, one iteration in, with somebody in it who moves when you move."
-  ],
-  "says": [
-    "Through, or through, or through?",
-    "I go where you have already been. Sorry.",
-    "There is no last one. I have checked."
-  ],
+  "drug_id": "drug_blotter",
   "emotes": [
     "{it} swings a few degrees, and every copy of it swings a moment later, in order.",
     "A draught comes out of {it} that has been through several rooms to get here.",
     "{it} adds another frame to the sequence, quietly, while you are looking elsewhere."
   ],
-  "asks": [
-    "Which one were you going to use?",
-    "Did you come in through me? Think about it before you answer.",
-    "Shall I keep going, or is this enough?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_blotter_door_recursive",
+  "looks": [
+    "Opening it would open all of them, in order, quite slowly.",
+    "The handle is at four heights and each is the right one.",
+    "Behind it is this room, one iteration in, with somebody in it who moves when you move."
+  ],
+  "matches": "door",
+  "name": "a doorway repeating into itself",
+  "says": [
+    "Through, or through, or through?",
+    "I go where you have already been. Sorry.",
+    "There is no last one. I have checked."
+  ],
+  "scope": "object"
 }

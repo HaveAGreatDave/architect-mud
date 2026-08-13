@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_asc_clinic_consult",
   "id": "map_int_asc_clinic",
+  "name": "Chrome Clinic",
   "parent_zone_id": "zone_district_893_905"
 }

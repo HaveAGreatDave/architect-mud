@@ -1,6 +1,7 @@
 {
   "category": "Job Board",
   "description": "Empty freight, wrong direction, on foot, because the thing that should have carried it is unserviceable and everyone here is out of favours. Hangar bay to the apron, up the road, into town. It pays because it is miserable. 30₵.",
+  "fail_on": [],
   "id": "quest_reach_deadhead",
   "meta": {},
   "name": "Deadhead",
@@ -63,6 +64,7 @@
       "zone": "zone_the_reach_872_1955"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

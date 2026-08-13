@@ -1,25 +1,27 @@
 {
-  "id": "dxs_default_watcher",
-  "drug_id": null,
-  "matches": null,
-  "scope": "spawn",
-  "name": "a tall thin figure made of coats",
+  "asks": [
+    "Are you all right? You have been a while.",
+    "Would you rather I waited outside?"
+  ],
   "description": "A figure stands here, built out of hanging coats and nothing else, shoulders far too high, perfectly still and entirely aware of you.",
+  "drug_id": null,
+  "emotes": [
+    "{it} settles half an inch and is somehow closer.",
+    "A sleeve of {it} swings gently and stops."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_default_watcher",
   "looks": [
     "It has no obvious front. It is looking at you.",
     "It has moved. You would swear to it and you would be wrong.",
     "The coats are yours, or near enough that arguing would be work."
   ],
+  "matches": null,
+  "name": "a tall thin figure made of coats",
   "says": [
     "Do not mind me.",
     "I will be here when it wears off."
   ],
-  "emotes": [
-    "{it} settles half an inch and is somehow closer.",
-    "A sleeve of {it} swings gently and stops."
-  ],
-  "asks": [
-    "Are you all right? You have been a while.",
-    "Would you rather I waited outside?"
-  ]
+  "scope": "spawn"
 }

@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_surreal_507",
   "drug_id": null,
-  "source": "npc",
-  "tone": "surreal",
-  "relation": "known",
+  "id": "dr_npc_surreal_507",
   "npc_type": null,
+  "relation": "known",
+  "room_line": "{npc} carries on talking to {player} as though nothing has changed.",
   "self_line": "{npc} carries on the conversation you were having, and you cannot find the start of it.",
-  "room_line": "{npc} carries on talking to {player} as though nothing has changed."
+  "source": "npc",
+  "tone": "surreal"
 }

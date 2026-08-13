@@ -1,8 +1,8 @@
 {
-  "id": "gloss_aeronaut",
-  "term": "aeronaut",
-  "gloss": "A flyer: the pilot of an aircraft.",
   "aliases": [
     "aeronauts"
-  ]
+  ],
+  "gloss": "A flyer: the pilot of an aircraft.",
+  "id": "gloss_aeronaut",
+  "term": "aeronaut"
 }

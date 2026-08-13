@@ -1,33 +1,33 @@
 {
-  "id": "dt_deadair_studio",
-  "name": "The Dead Studio",
-  "description": "A broadcast booth with the ON AIR light off and the desk still warm. Every fader is up. The monitors show a level that is not coming from anywhere. Whoever was talking stopped mid-word, and the room has the specific quality of a room that has just been listening.",
-  "cause": "drug",
-  "drug_id": "drug_deadair",
-  "objects": [
-    {
-      "name": "the desk",
-      "looks": [
-        "Every fader up. Nothing is going anywhere.",
-        "The needles move to a voice you cannot hear.",
-        "One channel is labelled with your name, in tape, in pen, going soft."
-      ]
-    },
-    {
-      "name": "the ON AIR light",
-      "looks": [
-        "Off. It has the look of a thing that has only just gone off.",
-        "It comes on. Nothing is being broadcast. It goes off.",
-        "There is dust on it, except where a thumb has been."
-      ]
-    }
-  ],
   "ambient": [
     "The level meters move for a while, and settle.",
     "The headphones on the desk are producing a small, clear silence.",
     "Somewhere down the line, a transmitter that nobody maintains keys up."
   ],
-  "weather": "The air is dead and slightly overwarm, the way a room is when the equipment has been on all night.",
+  "cause": "drug",
+  "description": "A broadcast booth with the ON AIR light off and the desk still warm. Every fader is up. The monitors show a level that is not coming from anywhere. Whoever was talking stopped mid-word, and the room has the specific quality of a room that has just been listening.",
+  "drug_id": "drug_deadair",
   "fx": "ash",
-  "fx_intensity": 0.3
+  "fx_intensity": 0.3,
+  "id": "dt_deadair_studio",
+  "name": "The Dead Studio",
+  "objects": [
+    {
+      "looks": [
+        "Every fader up. Nothing is going anywhere.",
+        "The needles move to a voice you cannot hear.",
+        "One channel is labelled with your name, in tape, in pen, going soft."
+      ],
+      "name": "the desk"
+    },
+    {
+      "looks": [
+        "Off. It has the look of a thing that has only just gone off.",
+        "It comes on. Nothing is being broadcast. It goes off.",
+        "There is dust on it, except where a thumb has been."
+      ],
+      "name": "the ON AIR light"
+    }
+  ],
+  "weather": "The air is dead and slightly overwarm, the way a room is when the equipment has been on all night."
 }

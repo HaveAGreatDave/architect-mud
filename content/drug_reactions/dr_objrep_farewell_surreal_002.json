@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_farewell_surreal_002",
   "drug_id": null,
-  "source": "object_reply_farewell",
-  "tone": "surreal",
-  "self_line": "I will be here. That is most of what I do.",
-  "room_line": "",
+  "id": "dr_objrep_farewell_surreal_002",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I will be here. That is most of what I do.",
+  "source": "object_reply_farewell",
+  "tone": "surreal"
 }

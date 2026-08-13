@@ -45,7 +45,9 @@
         "{who} watches a column of eleven thousand names copy across, and stops reading them."
       ],
       "id": "o_ledger",
-      "requires": ["o_infil"],
+      "requires": [
+        "o_infil"
+      ],
       "type": "hack",
       "zone": "zone_asc_vats_registry"
     },
@@ -53,7 +55,9 @@
       "count": 1,
       "desc": "Talk to Sub-Registrar Nine. Once she steps out from behind that desk there is no version of this where nobody notices.",
       "id": "o_word",
-      "requires": ["o_ledger"],
+      "requires": [
+        "o_ledger"
+      ],
       "target": "npc_asc_nine",
       "type": "talk"
     },
@@ -65,7 +69,9 @@
         "{who} checks the road behind them again."
       ],
       "id": "o_out",
-      "requires": ["o_word"],
+      "requires": [
+        "o_word"
+      ],
       "target": "npc_asc_nine",
       "type": "escort",
       "zone": "zone_lw_entry"
@@ -75,7 +81,9 @@
       "desc": "Put the slate in Cyrelle's hands.",
       "id": "o_hand",
       "item_id": "item_lapse_slate",
-      "requires": ["o_out"],
+      "requires": [
+        "o_out"
+      ],
       "type": "give"
     }
   ],

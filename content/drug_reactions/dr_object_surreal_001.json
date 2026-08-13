@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_001",
   "drug_id": null,
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "I was doing this long before you came in.",
-  "room_line": "",
+  "id": "dr_object_surreal_001",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I was doing this long before you came in.",
+  "source": "object",
+  "tone": "surreal"
 }

@@ -1,8 +1,8 @@
 {
-  "id": "gloss_hatchway",
-  "term": "hatchway",
-  "gloss": "An opening in a ship's deck, and the way down through it.",
   "aliases": [
     "hatchways"
-  ]
+  ],
+  "gloss": "An opening in a ship's deck, and the way down through it.",
+  "id": "gloss_hatchway",
+  "term": "hatchway"
 }

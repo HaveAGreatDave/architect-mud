@@ -1,16 +1,18 @@
 {
-  "id": "dxw_mescaline_weather",
-  "drug_id": "drug_mescaline",
-  "matches": null,
-  "scope": "weather",
-  "name": "the weather, meaning it",
+  "asks": [],
   "description": "The weather is doing something deliberate.",
+  "drug_id": "drug_mescaline",
+  "emotes": [],
+  "fx": "wind",
+  "fx_intensity": 0.4,
+  "id": "dxw_mescaline_weather",
   "looks": [
     "The wind arrives with news and you very nearly get it.",
     "The light is coming round things and taking its time about it.",
     "This weather has been coming for a long way and it knows where it is going."
   ],
+  "matches": null,
+  "name": "the weather, meaning it",
   "says": [],
-  "fx": "wind",
-  "fx_intensity": 0.4
+  "scope": "weather"
 }

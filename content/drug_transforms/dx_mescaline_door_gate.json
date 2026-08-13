@@ -1,28 +1,30 @@
 {
-  "id": "dx_mescaline_door_gate",
-  "drug_id": "drug_mescaline",
-  "matches": "door",
-  "scope": "object",
-  "name": "a temple gate",
+  "asks": [
+    "Coming or going?",
+    "Do you know what is on the other side? Genuinely?",
+    "Would you like me to stay open?"
+  ],
   "description": "Two upright stones and a lintel, cut with a border of small figures walking in one direction. The gap between them is dark and gives out a steady cool draught.",
-  "looks": [
-    "The figures on the border are all walking the same way, and they are all carrying something, and none of them are carrying the same thing.",
-    "The threshold stone is worn into a hollow deep enough to hold rain.",
-    "The dark inside the gap does not get lighter when you bring a light to it. It simply accommodates you."
-  ],
-  "says": [
-    "Through is through. It has always been that simple.",
-    "Wipe your feet. Somebody has always had to say it.",
-    "They all went the same way. It did not go badly for them."
-  ],
+  "drug_id": "drug_mescaline",
   "emotes": [
     "The draught out of {it} lifts the dust on the floor and lays it in a line.",
     "The figures carved along {it} are, for a moment, one step further along.",
     "{it} stands there being a way out, patiently, with no opinion about it."
   ],
-  "asks": [
-    "Coming or going?",
-    "Do you know what is on the other side? Genuinely?",
-    "Would you like me to stay open?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_mescaline_door_gate",
+  "looks": [
+    "The figures on the border are all walking the same way, and they are all carrying something, and none of them are carrying the same thing.",
+    "The threshold stone is worn into a hollow deep enough to hold rain.",
+    "The dark inside the gap does not get lighter when you bring a light to it. It simply accommodates you."
+  ],
+  "matches": "door",
+  "name": "a temple gate",
+  "says": [
+    "Through is through. It has always been that simple.",
+    "Wipe your feet. Somebody has always had to say it.",
+    "They all went the same way. It did not go badly for them."
+  ],
+  "scope": "object"
 }

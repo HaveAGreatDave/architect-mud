@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_meltwater_clinic",
   "id": "map_int_clinic",
+  "name": "Co-Pay & Pray",
   "parent_zone_id": "zone_district_915_910"
 }

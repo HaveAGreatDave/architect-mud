@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Ward Nine needs bodies counted at the statue plaza and down Meltwater Row. Nobody will verify the number. Make one up that feels municipal. 12₵.",
+  "fail_on": [],
   "id": "quest_ward_census",
   "meta": {
     "taskSeconds": 5
@@ -31,6 +32,7 @@
       "zone": "zone_district_907_910"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

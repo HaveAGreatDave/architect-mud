@@ -1,8 +1,8 @@
 {
-  "id": "gloss_granser",
-  "term": "granser",
-  "gloss": "Grandfather, in the dialect the survivors' grandchildren speak.",
   "aliases": [
     "grandsire"
-  ]
+  ],
+  "gloss": "Grandfather, in the dialect the survivors' grandchildren speak.",
+  "id": "gloss_granser",
+  "term": "granser"
 }

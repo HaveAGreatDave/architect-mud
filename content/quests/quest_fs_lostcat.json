@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The franchise manager's cat got out and she's inconsolable and paying. Look for 'Mister Pockets' along Voss Avenue, out into Residential Area, and back through Marrow Street. Everyone knows how this ends. 10₵.",
+  "fail_on": [],
   "id": "quest_fs_lostcat",
   "meta": {},
   "name": "Lost Cat",
@@ -48,6 +49,7 @@
       "zone": "zone_district_913_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

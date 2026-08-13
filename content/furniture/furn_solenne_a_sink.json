@@ -2,10 +2,10 @@
   "description": "A seamless composite basin that runs straight out of the counter without a join. The tap comes on when your hands are under it and goes off when they are not, which is charming for about a week.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
-    "water_source": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

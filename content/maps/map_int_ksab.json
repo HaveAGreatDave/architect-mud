@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_ksab_lobby",
   "id": "map_int_ksab",
+  "name": "KSAB Writers' Wing",
   "parent_zone_id": "zone_district_913_910"
 }

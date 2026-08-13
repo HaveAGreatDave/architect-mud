@@ -1,11 +1,11 @@
 {
   "description": "Soft-close doors above the counter, three shelves deep. One hinge has started to drop, which in this building counts as a scandal. The bottom shelf is at eye level and holds the crockery; above it, one for dry goods and one for everything that has no other home.",
   "flags": {
-    "dish_cabinet": true,
-    "container": 24000,
-    "compartment_label": "Crockery",
+    "aliases": "cabinet,cupboard,crockery",
     "compartment_index": 0,
-    "aliases": "cabinet,cupboard,crockery"
+    "compartment_label": "Crockery",
+    "container": 24000,
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

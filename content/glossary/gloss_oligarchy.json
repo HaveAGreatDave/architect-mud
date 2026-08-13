@@ -1,9 +1,9 @@
 {
-  "id": "gloss_oligarchy",
-  "term": "oligarchy",
-  "gloss": "Rule by a small group of the very rich.",
   "aliases": [
     "oligarchs",
     "oligarch"
-  ]
+  ],
+  "gloss": "Rule by a small group of the very rich.",
+  "id": "gloss_oligarchy",
+  "term": "oligarchy"
 }

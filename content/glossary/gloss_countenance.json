@@ -1,8 +1,8 @@
 {
-  "id": "gloss_countenance",
-  "term": "countenance",
-  "gloss": "A person's face, or their expression.",
   "aliases": [
     "countenances"
-  ]
+  ],
+  "gloss": "A person's face, or their expression.",
+  "id": "gloss_countenance",
+  "term": "countenance"
 }

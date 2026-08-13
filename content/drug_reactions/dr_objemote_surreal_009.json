@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_009",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} rearranges some part of itself that you had not noticed it had.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_009",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} rearranges some part of itself that you had not noticed it had.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

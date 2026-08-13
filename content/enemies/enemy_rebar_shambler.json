@@ -1,150 +1,150 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "attack",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 9
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
   },
-  {
-   "part": "torso",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {
-    "kinetic": 2
-   },
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 5,
- "butcher_table": [],
- "death_message": "The rebar shambler comes apart into the rubble it always was, one slab at a time.",
- "description": "A man-shaped mass of collapsed tunnel that got up. Rebar runs through it the way bone runs through anything else, and where the concrete has spalled away you can see the rust has gone all the way in. It walks like the ceiling it used to be.",
- "dodge": 0,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy swings a fistful of rebar at $player without hurrying.",
-   "Concrete grinds inside $enemy as it turns on $player.",
-   "$enemy takes a step toward $player and the floor feels it."
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 9
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 2
+      },
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 6000
- },
- "hit": 3,
- "hp_max": 40,
- "id": "enemy_rebar_shambler",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 28
+  "butcher_difficulty": 5,
+  "butcher_table": [],
+  "death_message": "The rebar shambler comes apart into the rubble it always was, one slab at a time.",
+  "description": "A man-shaped mass of collapsed tunnel that got up. Rebar runs through it the way bone runs through anything else, and where the concrete has spalled away you can see the rust has gone all the way in. It walks like the ceiling it used to be.",
+  "dodge": 0,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy swings a fistful of rebar at $player without hurrying.",
+      "Concrete grinds inside $enemy as it turns on $player.",
+      "$enemy takes a step toward $player and the floor feels it."
+    ],
+    "first_strike_delay_ms": 6000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 14
-  },
-  {
-   "credits": [
-    25,
-    70
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 22
-  },
-  {
-   "credits": [
-    80,
-    160
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "rebar shambler",
- "weapon": [
-  {
-   "max": 6,
-   "min": 3,
-   "type": "kinetic"
-  },
-  {
-   "max": 3,
-   "min": 1,
-   "type": "edged"
-  }
- ]
+  "hit": 3,
+  "hp_max": 40,
+  "id": "enemy_rebar_shambler",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 28
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "credits": [
+        25,
+        70
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "credits": [
+        80,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "rebar shambler",
+  "weapon": [
+    {
+      "max": 6,
+      "min": 3,
+      "type": "kinetic"
+    },
+    {
+      "max": 3,
+      "min": 1,
+      "type": "edged"
+    }
+  ]
 }

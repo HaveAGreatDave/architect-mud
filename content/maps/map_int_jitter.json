@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_stimcafe",
   "id": "map_int_jitter",
+  "name": "Battery Acid Coffee Co.",
   "parent_zone_id": "zone_district_906_912"
 }

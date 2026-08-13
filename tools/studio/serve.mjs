@@ -44,7 +44,7 @@ import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds }
 // subsequent no-op save produce a diff — quietly voiding the one property the
 // whole tool is built on.
 import { contentEntries } from '../../server/models/content-registry.js';
-import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance } from '../../scripts/content/derive.mjs';
+import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance, autoTileFamily } from '../../scripts/content/derive.mjs';
 import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
 // The two structural operations, as pure planners. They live beside derive.mjs and
 // map-anchor.mjs for the same reason those do: regress drives them without a server,
@@ -330,7 +330,8 @@ function world() {
 // including when a pin has gone stale against the lanes painted since (§7.7).
 function provOf(zone) {
   if (!zone) return { source: null, name: null, implied: null };
-  return featureProvenance(zone, world().render.get(zone.id)?.spec?.auto_tile ?? null);
+  return featureProvenance(zone, world().render.get(zone.id)?.spec?.auto_tile ?? null,
+    autoTileFamily(zone, palette));
 }
 
 // The four tiles orthogonally touching this one, on its own map and floor. The

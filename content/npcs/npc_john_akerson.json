@@ -11,36 +11,7 @@
       "n_check": {
         "action_type": "CHECK_WORK",
         "goToWork": "n_work",
-        "haveLife": "n_off_home_check",
-        "type": "action"
-      },
-      "n_off_home_check": {
-        "condition_type": "AT_HOME",
-        "ifFalse": "n_off_random",
-        "ifTrue": "n_home_idle",
-        "type": "condition"
-      },
-      "n_off_random": {
-        "branch_0": "n_life",
-        "branch_1": "n_go_home",
-        "branches": [
-          {
-            "weight": 1
-          },
-          {
-            "weight": 2
-          }
-        ],
-        "type": "random"
-      },
-      "n_go_home": {
-        "action_type": "GO_HOME",
-        "next": "n_home_idle",
-        "type": "action"
-      },
-      "n_home_idle": {
-        "action_type": "AT_HOME_LIFE",
-        "next": "n_check",
+        "haveLife": "n_life",
         "type": "action"
       },
       "n_life": {
@@ -65,69 +36,32 @@
   "chitchat": [],
   "description": "A broadcast studio host.",
   "dialogue_tree": {
-    "root": {
+    "bye": {
       "_vine": {
         "x": 60,
-        "y": 300
+        "y": 900
       },
       "actions": [],
-      "text": "Akerson turns from the mirror with the timing of a man who has practised turning from mirrors. <span class=\"text-dim\">The smile arrives before the eye contact does.</span>\n\n\"You know, people say to me, John, how do you do it, and I tell them: you don't *do* it. You *are* it.\" He lets that land on you like it's a gift. \"Anyway. You wanted something.\"",
-      "options": [
-        {
-          "label": "Tell me about the show.",
-          "next": "n_show"
-        },
-        {
-          "label": "Someone said you cook.",
-          "next": "n_recipe",
-          "conditions": [
-            {
-              "on_air": false
-            }
-          ]
-        },
-        {
-          "label": "Someone said you cook.",
-          "next": "n_notnow",
-          "conditions": [
-            {
-              "on_air": true
-            }
-          ]
-        }
-      ]
+      "options": [],
+      "text": "\"Mm.\" He has already returned to the mirror. \"Tell them I was taller than you expected.\""
     },
-    "n_show": {
-      "_vine": {
-        "x": 420,
-        "y": 160
-      },
-      "actions": [],
-      "text": "\"The show.\" He says it the way other men say their children's names. \"Forty minutes, live, no net. Everyone in this building has a job and mine is the only one that can't be done by somebody else.\"\n\n<span class=\"text-dim\">He waits. There is clearly a follow-up question he would like you to ask.</span>",
-      "options": [
-        {
-          "label": "How are the numbers?",
-          "next": "n_ratings"
-        },
-        {
-          "label": "Right.",
-          "next": "root"
-        }
-      ]
-    },
-    "n_ratings": {
+    "n_barb": {
       "_vine": {
         "x": 780,
-        "y": 160
+        "y": 780
       },
       "actions": [],
-      "text": "\"*Numbers.*\" A short laugh, entirely for his own benefit. \"I stopped reading them years ago. Obviously I know them. I just don't *read* them.\" He adjusts a cuff that did not need adjusting. \"Second in the slot. Behind a channel that runs executions. That's not a ratings problem, that's a *civilisation* problem.\"",
       "options": [
         {
-          "label": "Sure it is.",
+          "label": "Show me, then.",
+          "next": "n_teach"
+        },
+        {
+          "label": "Another time.",
           "next": "root"
         }
-      ]
+      ],
+      "text": "\"It *is* a lot of talk. That's the job.\" He seems genuinely pleased with you for the first time. \"But I've fed that pasta to two network heads and a woman who owns a moon, and not one of them left. Say what you like about me, and people do, at length, it's a whole genre. The sauce works.\""
     },
     "n_notnow": {
       "_vine": {
@@ -135,13 +69,27 @@
         "y": 480
       },
       "actions": [],
-      "text": "He holds up one finger without looking at you, the gesture of a man silencing a room he assumes is listening.\n\n\"Not now. I'm on in a few and I don't hand out anything good before a show. Voice goes flat when I give something away for free.\" <span class=\"text-dim\">He is already facing the lights again.</span> \"Catch me off the clock. I'm significantly more generous when nobody's watching, which is one of the great ironies of my life.\"",
       "options": [
         {
           "label": "Fine.",
           "next": "root"
         }
-      ]
+      ],
+      "text": "He holds up one finger without looking at you, the gesture of a man silencing a room he assumes is listening.\n\n\"Not now. I'm on in a few and I don't hand out anything good before a show. Voice goes flat when I give something away for free.\" <span class=\"text-dim\">He is already facing the lights again.</span> \"Catch me off the clock. I'm significantly more generous when nobody's watching, which is one of the great ironies of my life.\""
+    },
+    "n_ratings": {
+      "_vine": {
+        "x": 780,
+        "y": 160
+      },
+      "actions": [],
+      "options": [
+        {
+          "label": "Sure it is.",
+          "next": "root"
+        }
+      ],
+      "text": "\"*Numbers.*\" A short laugh, entirely for his own benefit. \"I stopped reading them years ago. Obviously I know them. I just don't *read* them.\" He adjusts a cuff that did not need adjusting. \"Second in the slot. Behind a channel that runs executions. That's not a ratings problem, that's a *civilisation* problem.\""
     },
     "n_recipe": {
       "_vine": {
@@ -149,7 +97,6 @@
         "y": 660
       },
       "actions": [],
-      "text": "\"*Cook.*\" He says it like you've mispronounced something. \"I don't cook. I have three dishes and one of them is famous, which is a better ratio than any chef in this city can claim.\"\n\nHe leans in. This is the part he likes.\n\n\"Penne alla gin. And before you say it: yes, it's meant to be vodka. Vodka is *nothing*, it's a rumour with a proof rating. Gin has an opinion. You cook the tomato down until it stops being a vegetable, you take the pan *off the heat*, you put the gin in, and the alcohol leaves and the whole hedge stays behind.\"",
       "options": [
         {
           "label": "Would you show me?",
@@ -163,25 +110,26 @@
           "label": "Maybe another time.",
           "next": "root"
         }
-      ]
+      ],
+      "text": "\"*Cook.*\" He says it like you've mispronounced something. \"I don't cook. I have three dishes and one of them is famous, which is a better ratio than any chef in this city can claim.\"\n\nHe leans in. This is the part he likes.\n\n\"Penne alla gin. And before you say it: yes, it's meant to be vodka. Vodka is *nothing*, it's a rumour with a proof rating. Gin has an opinion. You cook the tomato down until it stops being a vegetable, you take the pan *off the heat*, you put the gin in, and the alcohol leaves and the whole hedge stays behind.\""
     },
-    "n_barb": {
+    "n_show": {
       "_vine": {
-        "x": 780,
-        "y": 780
+        "x": 420,
+        "y": 160
       },
       "actions": [],
-      "text": "\"It *is* a lot of talk. That's the job.\" He seems genuinely pleased with you for the first time. \"But I've fed that pasta to two network heads and a woman who owns a moon, and not one of them left. Say what you like about me, and people do, at length, it's a whole genre. The sauce works.\"",
       "options": [
         {
-          "label": "Show me, then.",
-          "next": "n_teach"
+          "label": "How are the numbers?",
+          "next": "n_ratings"
         },
         {
-          "label": "Another time.",
+          "label": "Right.",
           "next": "root"
         }
-      ]
+      ],
+      "text": "\"The show.\" He says it the way other men say their children's names. \"Forty minutes, live, no net. Everyone in this building has a job and mine is the only one that can't be done by somebody else.\"\n\n<span class=\"text-dim\">He waits. There is clearly a follow-up question he would like you to ask.</span>"
     },
     "n_teach": {
       "_vine": {
@@ -194,13 +142,13 @@
           "recipe": "penne_alla_gin"
         }
       ],
-      "text": "He talks you through it twice, the second time slower, and both times he manages to mention the woman who owns the moon.\n\n\"Pan, not a pot. You want it wide enough that the water leaves. Penne, because the ridges hold the sauce and smooth pasta is for people who don't finish things. Tomato, hard, until it darkens. Gin *off the heat* unless you want a fire and a story. Cream last, and stop stirring before you think you should.\"\n\n<span class=\"text-dim\">He straightens up, done, and checks his reflection to see how the teaching looked on him.</span>\n\n\"There. Now two of us can make it. Don't let that get around.\"",
       "options": [
         {
           "label": "Thanks, John.",
           "next": "n_thanks"
         }
-      ]
+      ],
+      "text": "He talks you through it twice, the second time slower, and both times he manages to mention the woman who owns the moon.\n\n\"Pan, not a pot. You want it wide enough that the water leaves. Penne, because the ridges hold the sauce and smooth pasta is for people who don't finish things. Tomato, hard, until it darkens. Gin *off the heat* unless you want a fire and a story. Cream last, and stop stirring before you think you should.\"\n\n<span class=\"text-dim\">He straightens up, done, and checks his reflection to see how the teaching looked on him.</span>\n\n\"There. Now two of us can make it. Don't let that get around.\""
     },
     "n_thanks": {
       "_vine": {
@@ -208,22 +156,45 @@
         "y": 660
       },
       "actions": [],
-      "text": "\"*Thanks.*\" He waves it off with real discomfort, the first honest thing he's done all conversation. \"Just... if it comes out well, say where you got it. Not for me. For the *record*.\"",
       "options": [
         {
           "label": "For the record.",
           "next": "root"
         }
-      ]
+      ],
+      "text": "\"*Thanks.*\" He waves it off with real discomfort, the first honest thing he's done all conversation. \"Just... if it comes out well, say where you got it. Not for me. For the *record*.\""
     },
-    "bye": {
+    "root": {
       "_vine": {
         "x": 60,
-        "y": 900
+        "y": 300
       },
       "actions": [],
-      "options": [],
-      "text": "\"Mm.\" He has already returned to the mirror. \"Tell them I was taller than you expected.\""
+      "options": [
+        {
+          "label": "Tell me about the show.",
+          "next": "n_show"
+        },
+        {
+          "conditions": [
+            {
+              "on_air": false
+            }
+          ],
+          "label": "Someone said you cook.",
+          "next": "n_recipe"
+        },
+        {
+          "conditions": [
+            {
+              "on_air": true
+            }
+          ],
+          "label": "Someone said you cook.",
+          "next": "n_notnow"
+        }
+      ],
+      "text": "Akerson turns from the mirror with the timing of a man who has practised turning from mirrors. <span class=\"text-dim\">The smile arrives before the eye contact does.</span>\n\n\"You know, people say to me, John, how do you do it, and I tell them: you don't *do* it. You *are* it.\" He lets that land on you like it's a gift. \"Anyway. You wanted something.\""
     }
   },
   "faction": null,

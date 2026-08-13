@@ -3,20 +3,16 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "next": "has_target",
-        "type": "start"
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
       },
       "has_target": {
         "condition_type": "HAS_TARGET",
         "ifFalse": "idle",
         "ifTrue": "attack",
         "type": "condition"
-      },
-      "attack": {
-        "action_type": "ATTACK",
-        "next": "loop",
-        "type": "action"
       },
       "idle": {
         "action_type": "IDLE",
@@ -26,53 +22,57 @@
       "loop": {
         "next": "start",
         "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
       }
     }
   },
   "body_parts": [
     {
       "part": "head",
-      "weight": 8,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 8
     },
     {
       "part": "torso",
-      "weight": 26,
       "soak": {
         "kinetic": 3
-      }
+      },
+      "weight": 26
     },
     {
       "part": "left_arm",
-      "weight": 20,
+      "role": "attack",
       "soak": {
         "kinetic": 2
       },
-      "role": "attack"
+      "weight": 20
     },
     {
       "part": "right_arm",
-      "weight": 20,
+      "role": "attack",
       "soak": {
         "kinetic": 2
       },
-      "role": "attack"
+      "weight": 20
     },
     {
       "part": "left_leg",
-      "weight": 13,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 13
     },
     {
       "part": "right_leg",
-      "weight": 13,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 13
     }
   ],
   "butcher_difficulty": 6,
@@ -131,16 +131,16 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "knuckle-dragger",
   "weapon": [
     {
-      "type": "kinetic",
+      "max": 7,
       "min": 3,
-      "max": 7
+      "type": "kinetic"
     }
   ]
 }

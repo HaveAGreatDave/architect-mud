@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_surreal_001",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "surreal",
-  "self_line": "Before this I was the same as I am. You were simply somewhere else in the room.",
-  "room_line": "",
+  "id": "dr_objrep_identity_surreal_001",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Before this I was the same as I am. You were simply somewhere else in the room.",
+  "source": "object_reply_identity",
+  "tone": "surreal"
 }

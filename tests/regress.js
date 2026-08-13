@@ -51,7 +51,7 @@ import { CONTENT_TABLES, EXCLUDED_TABLES, REGISTRY } from '../server/models/cont
 import { SCHEMA_SQL } from '../server/models/schema.js';
 import { handleApiRequest, apiUpdateZone, apiPatchZoneTag } from '../server/api/routes.js';
 import { query } from '../server/models/db.js';
-import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, deriveColors, deriveLabel, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
+import { resolveDefault, resolveTerrain, resolveProps, PROP_DEFAULTS, deriveWorld, deriveMarker, deriveColors, deriveLabel, assignBuildingMarkers, projectEdges, edgesToExits, OPPOSITE, featureProvenance, autoTileFamily, buildCellIndex, gridKey } from '../scripts/content/derive.mjs';
 import { ASSET_REFS, assetRefIds, isAssetRef } from '../scripts/content/lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -3562,11 +3562,16 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // featureProvenance is what the Studio explains a tile with. It must be the SAME
   // precedence deriveFeature ships, or the editor is describing a tile the build did
   // not make — so it is checked against deriveFeature on every tile, not sampled.
+  // The FAMILY has to be threaded here for the same reason the Studio threads it: a
+  // cliff tile's piece is `cliff_ns`, and provenance called at the default family
+  // would say `road_ns` and report every cliff in the world as an editor/build
+  // disagreement. Same function, same arguments, or this check is not checking.
   const provMismatch = zonesForDerive.filter(z =>
-    featureProvenance(z, specAt(z.id)?.auto_tile ?? null).name !== (specAt(z.id)?.feature ?? null));
+    featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette)).name
+      !== (specAt(z.id)?.feature ?? null));
   check('the provenance an editor shows is the feature the build ships',
     provMismatch.length === 0, provMismatch.slice(0, 3).map(z => z.id).join(', '));
-  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null));
+  const provSrc = zonesForDerive.map(z => featureProvenance(z, specAt(z.id)?.auto_tile ?? null, autoTileFamily(z, palette)));
   check('every feature reports which rung produced it',
     provSrc.every(p => (p.name === null) === (p.source === null)
       && (p.source === null || ['authored', 'rooftop', 'auto'].includes(p.source))));
@@ -4194,7 +4199,12 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   // without the log knowing what an anchor push is.
   check('the Studio journals undo where the writes happen, not in the client',
     /function record\(table, id, after\)/.test(serve) && /record\(table, id, obj\);/.test(serve)
-    && !/localStorage/.test(client));
+    // The client half is asserted as "no PERSISTED undo state", not "no localStorage at
+    // all" — the Studio runs on its own port and cannot read the dev panel's stored theme,
+    // so it keeps its own, and a colour preference is not an edit buffer. The original
+    // blanket ban went red the day the theme toggle landed, for a line that has nothing to
+    // do with undo.
+    && !/localStorage[^;\n]*(undo|redo|journal|history|entries)/i.test(client));
   // Both sides of every file, so reverting is the same write in the other direction
   // rather than a per-operation inverse (un-paint, un-assign) with its own bugs.
   check('an undo entry keeps the whole row from both sides',

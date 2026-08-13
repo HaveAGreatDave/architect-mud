@@ -1,33 +1,33 @@
 {
-  "id": "dt_threshold_hall",
-  "name": "The Hall Of Frames",
-  "description": "A corridor lined on both sides with doorways, all of them open, all of them showing this corridor. You can see yourself getting smaller in both directions and you are not certain which of them is looking back. The carpet is the same carpet forever.",
-  "cause": "drug",
-  "drug_id": "drug_threshold",
-  "objects": [
-    {
-      "name": "the openings",
-      "looks": [
-        "Each one shows this corridor, with one fewer of you in it.",
-        "You wave. The waves arrive out of order.",
-        "One of them shows the corridor empty, and it is the nearest."
-      ]
-    },
-    {
-      "name": "the carpet",
-      "looks": [
-        "Worn along the middle by a great deal of walking, all of it recent.",
-        "The pattern is the wallpaper, lying down.",
-        "Your footprints are in the pile, going both ways, in your size."
-      ]
-    }
-  ],
   "ambient": [
     "A door somewhere in the sequence closes, and the number of yous drops by one.",
     "The corridor lengthens by one frame while you are looking at the other end.",
     "Every version of you turns their head at once, and not toward you."
   ],
-  "weather": "The air in here has been breathed a great many times and is not stale.",
+  "cause": "drug",
+  "description": "A corridor lined on both sides with doorways, all of them open, all of them showing this corridor. You can see yourself getting smaller in both directions and you are not certain which of them is looking back. The carpet is the same carpet forever.",
+  "drug_id": "drug_threshold",
   "fx": "fog",
-  "fx_intensity": 0.4
+  "fx_intensity": 0.4,
+  "id": "dt_threshold_hall",
+  "name": "The Hall Of Frames",
+  "objects": [
+    {
+      "looks": [
+        "Each one shows this corridor, with one fewer of you in it.",
+        "You wave. The waves arrive out of order.",
+        "One of them shows the corridor empty, and it is the nearest."
+      ],
+      "name": "the openings"
+    },
+    {
+      "looks": [
+        "Worn along the middle by a great deal of walking, all of it recent.",
+        "The pattern is the wallpaper, lying down.",
+        "Your footprints are in the pile, going both ways, in your size."
+      ],
+      "name": "the carpet"
+    }
+  ],
+  "weather": "The air in here has been breathed a great many times and is not stale."
 }

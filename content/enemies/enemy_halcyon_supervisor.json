@@ -24,19 +24,6 @@
         "next": "loop",
         "type": "action"
       },
-      "rounds": {
-        "action_type": "PATROL",
-        "next": "loop",
-        "params": {
-          "loop": true,
-          "mode": "walk",
-          "waypoints": [
-            "zone_asc_vats_registry",
-            "zone_asc_vats_hall"
-          ]
-        },
-        "type": "action"
-      },
       "loop": {
         "next": "start",
         "type": "loop"
@@ -49,6 +36,19 @@
           "pct": 20
         },
         "type": "condition"
+      },
+      "rounds": {
+        "action_type": "PATROL",
+        "next": "loop",
+        "params": {
+          "loop": true,
+          "mode": "walk",
+          "waypoints": [
+            "zone_asc_vats_registry",
+            "zone_asc_vats_hall"
+          ]
+        },
+        "type": "action"
       },
       "start": {
         "next": "has_target",
@@ -140,8 +140,8 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "Supervisor, Halcyon Compliance",

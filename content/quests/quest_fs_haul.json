@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The long one nobody else wants: parcel through Ironside Street to Voss Avenue, on to Cinder Lane, and all the way to Foundry Way before you turn back. It pays because it's a hike. 25₵.",
+  "fail_on": [],
   "id": "quest_fs_haul",
   "meta": {
     "taskSeconds": 5
@@ -61,6 +62,7 @@
       "zone": "zone_district_913_912"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

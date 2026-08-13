@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_003",
   "drug_id": null,
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "You are the third one today. Nobody stays.",
-  "room_line": "",
+  "id": "dr_object_surreal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You are the third one today. Nobody stays.",
+  "source": "object",
+  "tone": "surreal"
 }

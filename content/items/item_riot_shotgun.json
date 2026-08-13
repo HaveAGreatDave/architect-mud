@@ -9,13 +9,13 @@
       "min": 9
     },
     "description": "A short, brutal pump-action with a heat-scarred barrel. Whitlock shipped sixty thousand to precincts that no longer exist, and every one of them still works. Solves problems in a wide, apologetic spread.",
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "firearms",
-    "spread": 2,
     "min_skill": {
       "firearms": 3
-    }
+    },
+    "slot": "weapon_hand",
+    "spread": 2,
+    "weapon": true,
+    "weapon_skill": "firearms"
   },
   "type": "weapon",
   "value": 660,

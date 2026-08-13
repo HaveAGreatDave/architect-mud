@@ -1,41 +1,41 @@
 {
-  "id": "dream_the_wrong_flat",
-  "name": "Your Place, Slightly Wrong",
-  "description": "Your own rooms, laid out from memory by someone working off a description. The furniture is right and standing in the wrong relationships. The window shows the correct view from a floor you do not live on. Everything is clean in a way you have never managed.",
-  "cause": "dream",
-  "drug_id": null,
-  "objects": [
-    {
-      "name": "your things",
-      "looks": [
-        "Arranged by someone being careful. Nothing is where you put it.",
-        "One object is missing and you cannot work out which, only that the room is lighter without it.",
-        "They have been dusted. You feel obscurely accused."
-      ]
-    },
-    {
-      "name": "the window",
-      "looks": [
-        "The right street, seen from about nine floors too high.",
-        "It is the hour just before the light arrives, and it stays that hour.",
-        "Your reflection is in it, doing the washing up behind you."
-      ]
-    },
-    {
-      "name": "the door to the other room",
-      "looks": [
-        "You do not have another room.",
-        "Ajar, and the light beyond it is on, and the bill for it is yours.",
-        "Someone in there stops moving when you look."
-      ]
-    }
-  ],
   "ambient": [
     "The heating comes on, as it does at this hour, in a place with no heating.",
     "A key turns in a lock somewhere below and you know exactly whose it is and cannot say.",
     "The room gets very slightly smaller, and settles."
   ],
-  "weather": "Through the window the light of a whole day passes and comes back round, and the room does not change with it.",
+  "cause": "dream",
+  "description": "Your own rooms, laid out from memory by someone working off a description. The furniture is right and standing in the wrong relationships. The window shows the correct view from a floor you do not live on. Everything is clean in a way you have never managed.",
+  "drug_id": null,
   "fx": "ash",
-  "fx_intensity": 0.25
+  "fx_intensity": 0.25,
+  "id": "dream_the_wrong_flat",
+  "name": "Your Place, Slightly Wrong",
+  "objects": [
+    {
+      "looks": [
+        "Arranged by someone being careful. Nothing is where you put it.",
+        "One object is missing and you cannot work out which, only that the room is lighter without it.",
+        "They have been dusted. You feel obscurely accused."
+      ],
+      "name": "your things"
+    },
+    {
+      "looks": [
+        "The right street, seen from about nine floors too high.",
+        "It is the hour just before the light arrives, and it stays that hour.",
+        "Your reflection is in it, doing the washing up behind you."
+      ],
+      "name": "the window"
+    },
+    {
+      "looks": [
+        "You do not have another room.",
+        "Ajar, and the light beyond it is on, and the bill for it is yours.",
+        "Someone in there stops moving when you look."
+      ],
+      "name": "the door to the other room"
+    }
+  ],
+  "weather": "Through the window the light of a whole day passes and comes back round, and the room does not change with it."
 }

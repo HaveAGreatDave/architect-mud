@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_011",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} tilts, holds an impossible angle, and comes back upright.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_011",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} tilts, holds an impossible angle, and comes back upright.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

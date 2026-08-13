@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_011",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "Does the floor feel far away to you as well?",
-  "room_line": "",
+  "id": "dr_objask_surreal_011",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Does the floor feel far away to you as well?",
+  "source": "object_ask",
+  "tone": "surreal"
 }

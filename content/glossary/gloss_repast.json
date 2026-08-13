@@ -1,8 +1,8 @@
 {
-  "id": "gloss_repast",
-  "term": "repast",
-  "gloss": "A meal.",
   "aliases": [
     "repasts"
-  ]
+  ],
+  "gloss": "A meal.",
+  "id": "gloss_repast",
+  "term": "repast"
 }

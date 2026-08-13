@@ -1,8 +1,8 @@
 {
-  "id": "gloss_gunwale",
-  "term": "gunwale",
-  "gloss": "The upper edge of a boat's side.",
   "aliases": [
     "gunwales"
-  ]
+  ],
+  "gloss": "The upper edge of a boat's side.",
+  "id": "gloss_gunwale",
+  "term": "gunwale"
 }

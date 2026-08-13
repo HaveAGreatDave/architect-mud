@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_sewer_bat",
- "id": "zs_under_919_909_sewer_bat",
- "max_count": 2,
- "respawn_seconds": 240,
- "spawn_weight": 50,
- "zone_id": "zone_under_919_909"
+  "enemy_id": "enemy_sewer_bat",
+  "id": "zs_under_919_909_sewer_bat",
+  "max_count": 2,
+  "respawn_seconds": 240,
+  "spawn_weight": 50,
+  "zone_id": "zone_under_919_909"
 }

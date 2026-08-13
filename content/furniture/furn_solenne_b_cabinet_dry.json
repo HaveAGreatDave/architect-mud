@@ -1,12 +1,12 @@
 {
   "description": "The middle shelf of the wall cabinet, lined with a grey paper somebody cut to fit and never replaced. Dry goods live here.",
   "flags": {
-    "dish_cabinet": true,
-    "container": 20000,
-    "compartment_of": "furn_solenne_b_cabinet",
-    "compartment_label": "Dry Goods",
+    "aliases": "dry goods,dry shelf,middle shelf",
     "compartment_index": 1,
-    "aliases": "dry goods,dry shelf,middle shelf"
+    "compartment_label": "Dry Goods",
+    "compartment_of": "furn_solenne_b_cabinet",
+    "container": 20000,
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

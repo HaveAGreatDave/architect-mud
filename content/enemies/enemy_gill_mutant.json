@@ -3,20 +3,16 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "next": "has_target",
-        "type": "start"
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
       },
       "has_target": {
         "condition_type": "HAS_TARGET",
         "ifFalse": "idle",
         "ifTrue": "attack",
         "type": "condition"
-      },
-      "attack": {
-        "action_type": "ATTACK",
-        "next": "loop",
-        "type": "action"
       },
       "idle": {
         "action_type": "IDLE",
@@ -26,66 +22,70 @@
       "loop": {
         "next": "start",
         "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
       }
     }
   },
   "body_parts": [
     {
+      "grants": {
+        "component": 1
+      },
       "part": "head",
-      "weight": 9,
       "soak": {
         "kinetic": 1
       },
-      "grants": {
-        "component": 1
-      }
+      "weight": 9
     },
     {
+      "grants": {
+        "capability": "waterbreath"
+      },
       "part": "gills",
-      "weight": 7,
       "soak": {
         "kinetic": 0
       },
-      "grants": {
-        "capability": "waterbreath"
-      }
+      "weight": 7
     },
     {
       "part": "torso",
-      "weight": 32,
       "soak": {
         "kinetic": 2
-      }
+      },
+      "weight": 32
     },
     {
       "part": "left_arm",
-      "weight": 12,
+      "role": "attack",
       "soak": {
         "kinetic": 1
       },
-      "role": "attack"
+      "weight": 12
     },
     {
       "part": "right_arm",
-      "weight": 12,
+      "role": "attack",
       "soak": {
         "kinetic": 1
       },
-      "role": "attack"
+      "weight": 12
     },
     {
       "part": "left_leg",
-      "weight": 14,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 14
     },
     {
       "part": "right_leg",
-      "weight": 14,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 14
     }
   ],
   "butcher_difficulty": 5,
@@ -136,21 +136,21 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "gill-necked mutant",
   "weapon": [
     {
-      "type": "kinetic",
+      "max": 5,
       "min": 2,
-      "max": 5
+      "type": "kinetic"
     },
     {
-      "type": "edged",
+      "max": 3,
       "min": 1,
-      "max": 3
+      "type": "edged"
     }
   ]
 }

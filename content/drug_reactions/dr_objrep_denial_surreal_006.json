@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_surreal_006",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "surreal",
-  "self_line": "I did not say I was. You have been extremely generous about that on your own.",
-  "room_line": "",
+  "id": "dr_objrep_denial_surreal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I did not say I was. You have been extremely generous about that on your own.",
+  "source": "object_reply_denial",
+  "tone": "surreal"
 }

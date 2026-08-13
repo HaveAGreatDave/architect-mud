@@ -1,9 +1,9 @@
 {
   "description": "Lit from within, because of course it is. The pans in it have been used exactly enough to look used.",
   "flags": {
-    "dish_cabinet": true,
+    "aliases": "cabinet,cupboard,glass cabinet",
     "container": 80000,
-    "aliases": "cabinet,cupboard,glass cabinet"
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

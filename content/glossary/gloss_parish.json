@@ -1,8 +1,8 @@
 {
-  "id": "gloss_parish",
-  "term": "parish",
-  "gloss": "The local unit responsible for its own poor. Your parish was who you fell back on.",
   "aliases": [
     "parishes"
-  ]
+  ],
+  "gloss": "The local unit responsible for its own poor. Your parish was who you fell back on.",
+  "id": "gloss_parish",
+  "term": "parish"
 }

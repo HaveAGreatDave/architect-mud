@@ -1,29 +1,31 @@
 {
-  "id": "dx_psilocybin_table_bull",
-  "drug_id": "drug_psilocybin",
-  "matches": "table",
-  "scope": "object",
-  "name": "a bull lying down",
+  "asks": [
+    "Is there anything on my back? There is usually something on my back.",
+    "Do you intend to sit down, or is this a passing-through?",
+    "What is that noise? It has been going since before you arrived."
+  ],
   "description": "A black bull has folded its legs under itself right there, back flat and broad as a table top, and is chewing at nothing with its eyes half shut.",
-  "looks": [
-    "The back is a flat plane of muscle you could genuinely eat off. Flies are not landing on it; they are keeping a respectful distance.",
-    "One horn is broken off short. The stump has been rubbed smooth against something, over years.",
-    "Its jaw works sideways, unhurried, grinding a mouthful of something it did not get in this room."
-  ],
-  "says": [
-    "Put it down on me if you like. I will not move quickly.",
-    "The floor is cold. I have been improving it.",
-    "I stood up once today. It was enough."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} snorts, and a cloud of dust lifts off the floorboards in front of it.",
     "{it} works its jaw sideways, slowly, staring at the middle distance.",
     "{it} swings its head round to look at you with one enormous wet eye, then loses interest.",
     "{it} shifts, and the whole floor takes the weight and gives it back."
   ],
-  "asks": [
-    "Is there anything on my back? There is usually something on my back.",
-    "Do you intend to sit down, or is this a passing-through?",
-    "What is that noise? It has been going since before you arrived."
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_table_bull",
+  "looks": [
+    "The back is a flat plane of muscle you could genuinely eat off. Flies are not landing on it; they are keeping a respectful distance.",
+    "One horn is broken off short. The stump has been rubbed smooth against something, over years.",
+    "Its jaw works sideways, unhurried, grinding a mouthful of something it did not get in this room."
+  ],
+  "matches": "table",
+  "name": "a bull lying down",
+  "says": [
+    "Put it down on me if you like. I will not move quickly.",
+    "The floor is cold. I have been improving it.",
+    "I stood up once today. It was enough."
+  ],
+  "scope": "object"
 }

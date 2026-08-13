@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_normal_003",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "normal",
-  "self_line": "You could just say you want to be left alone.",
-  "room_line": "",
+  "id": "dr_objrep_denial_normal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You could just say you want to be left alone.",
+  "source": "object_reply_denial",
+  "tone": "normal"
 }

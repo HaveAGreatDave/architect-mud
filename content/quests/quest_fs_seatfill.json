@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "A dead room is bad for business, so the bars pay bodies to look like regulars. Fill a stool at the Dead Pigeon, then again at Sump. Nurse one drink. Laugh at the right times. 20₵.",
+  "fail_on": [],
   "id": "quest_fs_seatfill",
   "meta": {},
   "name": "Seat Filler",
@@ -33,6 +34,7 @@
       "zone": "zone_mq_sump_bar"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

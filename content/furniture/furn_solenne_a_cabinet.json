@@ -1,9 +1,9 @@
 {
   "description": "Soft-close doors above the counter, holding whatever the last tenant did not take with them.",
   "flags": {
-    "dish_cabinet": true,
+    "aliases": "cabinet,cupboard",
     "container": 60000,
-    "aliases": "cabinet,cupboard"
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

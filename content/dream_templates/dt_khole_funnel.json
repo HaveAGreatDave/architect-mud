@@ -1,33 +1,33 @@
 {
-  "id": "dt_khole_funnel",
-  "name": "The Grey Funnel",
-  "description": "A smooth grey slope going down and inward, and you are sliding along the inside of it at a speed that has no urgency in it at all. There is no fear here. There is not much of anything here. Your body is a thing you have been told about by somebody reliable.",
-  "cause": "drug",
-  "drug_id": "drug_khole",
-  "objects": [
-    {
-      "name": "the slope",
-      "looks": [
-        "Featureless, and going past very fast, and you are not moving.",
-        "You put a hand to it. The hand is a long way off and takes a while to report back.",
-        "It is not grey. There is no word for it and grey is the nearest one available."
-      ]
-    },
-    {
-      "name": "your body",
-      "looks": [
-        "A rumour. Well sourced, but a rumour.",
-        "It is somewhere behind and above, doing its own admin.",
-        "You remember owning one. The memory is fond and getting fonder."
-      ]
-    }
-  ],
   "ambient": [
     "The angle of the slope changes and you do not.",
     "Something enormous passes on the far side of the surface, unhurried.",
     "A very long way off, somebody says something kind, once."
   ],
-  "weather": "There is no weather. There is no air, particularly. Nothing here needs any and neither do you.",
+  "cause": "drug",
+  "description": "A smooth grey slope going down and inward, and you are sliding along the inside of it at a speed that has no urgency in it at all. There is no fear here. There is not much of anything here. Your body is a thing you have been told about by somebody reliable.",
+  "drug_id": "drug_khole",
   "fx": "snow",
-  "fx_intensity": 0.85
+  "fx_intensity": 0.85,
+  "id": "dt_khole_funnel",
+  "name": "The Grey Funnel",
+  "objects": [
+    {
+      "looks": [
+        "Featureless, and going past very fast, and you are not moving.",
+        "You put a hand to it. The hand is a long way off and takes a while to report back.",
+        "It is not grey. There is no word for it and grey is the nearest one available."
+      ],
+      "name": "the slope"
+    },
+    {
+      "looks": [
+        "A rumour. Well sourced, but a rumour.",
+        "It is somewhere behind and above, doing its own admin.",
+        "You remember owning one. The memory is fond and getting fonder."
+      ],
+      "name": "your body"
+    }
+  ],
+  "weather": "There is no weather. There is no air, particularly. Nothing here needs any and neither do you."
 }

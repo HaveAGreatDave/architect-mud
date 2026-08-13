@@ -1,8 +1,8 @@
 {
-  "id": "gloss_scab",
-  "term": "scab",
-  "gloss": "A worker who crosses a picket line during a strike.",
   "aliases": [
     "scabs"
-  ]
+  ],
+  "gloss": "A worker who crosses a picket line during a strike.",
+  "id": "gloss_scab",
+  "term": "scab"
 }

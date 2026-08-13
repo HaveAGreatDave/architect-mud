@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_041",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "self_line": "{npc} moves a little further away from you, without seeming to decide to.",
-  "room_line": "{npc} drifts a step away from {player} without appearing to notice doing it.",
+  "id": "dr_npc_normal_041",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "{npc} drifts a step away from {player} without appearing to notice doing it.",
+  "self_line": "{npc} moves a little further away from you, without seeming to decide to.",
+  "source": "npc",
+  "tone": "normal"
 }

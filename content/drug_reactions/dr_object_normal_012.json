@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_012",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "Did you ever sort out the bins?",
-  "room_line": "",
+  "id": "dr_object_normal_012",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Did you ever sort out the bins?",
+  "source": "object",
+  "tone": "normal"
 }

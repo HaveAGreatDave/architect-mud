@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Count Foundry Way stock, then walk Residential Area cache and tally how much has walked off on its own. 10₵.",
+  "fail_on": [],
   "id": "quest_fs_count",
   "meta": {
     "taskSeconds": 5
@@ -33,6 +34,7 @@
       "zone": "zone_district_922_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

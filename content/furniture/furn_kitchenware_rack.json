@@ -1,9 +1,9 @@
 {
   "description": "Pegboard and hooks, every piece hung at an angle chosen by somebody with strong feelings about pegboard.",
   "flags": {
-    "dish_cabinet": true,
+    "aliases": "rack,display,pegboard",
     "container": 60000,
-    "aliases": "rack,display,pegboard"
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

@@ -259,14 +259,14 @@
     ],
     "consort": true,
     "consort_archetype": "strategist",
+    "consort_house_of": "Cyd",
     "consort_pairing": "strategist_romantic",
     "consort_sex": "female",
     "devoted_to": "Cyd",
     "mis_requires_zone_flag": "mis_ok",
     "mis_willing": true,
     "no_banter": true,
-    "personality": "consort",
-    "consort_house_of": "Cyd"
+    "personality": "consort"
   },
   "home_activities": [],
   "home_zone": "zone_echelon_suite_boudoir",

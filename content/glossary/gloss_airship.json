@@ -1,10 +1,10 @@
 {
-  "id": "gloss_airship",
-  "term": "airship",
-  "gloss": "A steerable powered balloon.",
   "aliases": [
     "air-ship",
     "airships",
     "air-ships"
-  ]
+  ],
+  "gloss": "A steerable powered balloon.",
+  "id": "gloss_airship",
+  "term": "airship"
 }

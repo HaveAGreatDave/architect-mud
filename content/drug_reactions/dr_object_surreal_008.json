@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_008",
   "drug_id": null,
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "I am the same all the way through. Ask the others.",
-  "room_line": "",
+  "id": "dr_object_surreal_008",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I am the same all the way through. Ask the others.",
+  "source": "object",
+  "tone": "surreal"
 }

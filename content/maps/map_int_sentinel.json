@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_sentinel_bullpen",
   "id": "map_int_sentinel",
+  "name": "Coldwater Sentinel",
   "parent_zone_id": "zone_district_914_910"
 }

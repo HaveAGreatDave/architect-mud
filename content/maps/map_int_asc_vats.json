@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_asc_vats_registry",
   "id": "map_int_asc_vats",
+  "name": "The Vats",
   "parent_zone_id": "zone_district_892_905"
 }

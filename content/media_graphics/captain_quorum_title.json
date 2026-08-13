@@ -4,5 +4,7 @@
   "description": "CAPTAIN QUORUM: A FRIENDLY AMENDMENT — title card.",
   "id": "captain_quorum_title",
   "name": "captain_quorum_title",
-  "tags": []
+  "tags": [],
+  "type": "ascii",
+  "updated_at": "1786127334"
 }

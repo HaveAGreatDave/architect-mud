@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_007",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "Do I look right to you? Be specific.",
-  "room_line": "",
+  "id": "dr_objask_surreal_007",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Do I look right to you? Be specific.",
+  "source": "object_ask",
+  "tone": "surreal"
 }

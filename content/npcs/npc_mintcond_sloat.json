@@ -12,10 +12,16 @@
         "type": "action"
       },
       "atm_wait": {
+        "jitter": 20,
         "next": "deposit",
         "seconds": 10,
-        "type": "wait",
-        "jitter": 20
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
       },
       "check_work": {
         "action_type": "CHECK_VENDOR_WORK",
@@ -121,12 +127,6 @@
         "next": "player_check",
         "seconds": 60,
         "type": "wait"
-      },
-      "cash_up": {
-        "type": "wait",
-        "seconds": 20,
-        "jitter": 900,
-        "next": "collect_safe"
       }
     }
   },
@@ -139,6 +139,112 @@
   ],
   "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never once been thanked for it, and he will correct you — courteously, exhaustively, and at a volume that assumes an audience — on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
   "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" The stool creaks and he is already reading again before the bell over the door has finished."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"People tell me things while they are deciding whether to spend money.\" He shrugs. \"It is a slow shop. There is a lot of deciding.\""
+    },
+    "grading": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Grading is a number between one and ten that describes a piece of paper, and it is the closest thing this city has to an honest institution.\" He puts his hand flat on the counter. \"Corners, spine, colour of the interior pages, whether some animal has folded it. Nine-four is near mint. Ten does not exist and anybody who tells you they have one is lying to you about that and probably about other things.\" He looks at you levelly. \"It is not a conversation. It is not a NEGOTIATION. It is a measurement. I do not care what your uncle said.\""
+    },
+    "grievance": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "read"
+        }
+      ],
+      "text": "\"The Grievance.\" He says the title flatly, without any of the performance. \"Some clerk drew it on a photocopier because nobody would read the form. Says so on the back. Says COPY IT, DO NOT SELL IT, and if somebody sold you one, take your money back off them.\" He looks at the box for a moment. \"So I price it at what the paper cost me, and I buy every one I find, and I do not discuss it, and no, that is not a bargaining position, that is the actual end of the conversation.\""
+    },
+    "late": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "tapes"
+        }
+      ],
+      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it does not start again until we are square.\" He turns a page. \"Two people on that wall have their names underlined twice. They are not, at present, customers.\""
+    },
+    "looking": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Good.\" He means it. \"Looking is free and it has always been free and the sign in the window says DO NOT TAP THE GLASS, not DO NOT LOOK AT IT.\" He goes back to his page. \"Take your time. Don't stack anything face down.\""
+    },
+    "meter": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "read"
+        }
+      ],
+      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You are MEANT to skip them — the skipping is the thing, you feel the thickness of it under your thumb, that is a comic doing something a film physically cannot do, which is why the film is —\" He stops. \"The film is fine. The film is fine. I have said what I am going to say about the film.\""
+    },
+    "mint": {
+      "options": [
+        {
+          "label": "Why you?",
+          "next": "mint_why"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Since the city got bored of it.\" He nods at the press on its plinth, and the worn strip of carpet in front of it. \"They had five. Bank had one, the permits ward had one, records had one, the casino had one because of course it did. All decommissioned inside a year, because nobody in a civic building has ever once cared whether the registration was out by half a millimetre.\" A pause. \"I bought them at auction. One at a time. That one is four of them.\""
+    },
+    "mint_why": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Because a card is not a receipt.\" He says it like he has said it a thousand times, and he has. \"It is a record of a person on a particular day, in what they happened to be wearing, with whatever they happened to be carrying, and it is PERMANENT, and it is the only permanent thing most people in this city will ever own.\" He straightens the cloth on the glass. \"The bank treated that like a novelty item next to the deposit boxes. So. Stand on the carpet when you're ready and I'll strike you a good one.\""
+    },
+    "read": {
+      "options": [
+        {
+          "label": "Tell me about The Meter Reader.",
+          "next": "meter"
+        },
+        {
+          "label": "Tell me about Sister Steel.",
+          "next": "steel"
+        },
+        {
+          "label": "And the photocopied one?",
+          "next": "grievance"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Oh, we are doing this.\" He puts the book down. He is delighted and would rather die than show it. \"Right. Everybody wants me to say The Meter Reader, because everybody has seen the film, and the film is a crime. Sister Steel is the better book and it is not close. And there is a photocopied thing in the fifty-credit box that is worth more than either of them and costs less than a sandwich.\" A beat. \"You can read all of them on that tablet for nothing, incidentally. Scans have been up for years. I am not going to pretend otherwise.\""
+    },
     "root": {
       "options": [
         {
@@ -172,40 +278,10 @@
       ],
       "text": "\"Mm.\" He does not get off the stool. \"Racks are reading copies, wall is graded, counter is cards, back room is tapes and the back room is by invitation. Ask before you handle anything and we will get along.\"",
       "text_by_relation": {
+        "familiar": "He is already reaching under the counter before you are all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I did not put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You do not have to take it.\"",
         "first": "The large man on the stool marks his place with a finger and looks at you the way a customs officer looks at a bag.\n\n\"Emmett Sloat. This is mine.\" A small pause, in which he decides to be generous. \"Racks in the middle are reading copies — creased, cheap, meant to be read, that is what they are FOR. The wall is graded and the wall is not a browsing wall. Counter is cards. Back room is tapes.\" He returns to his page. \"Ask before you handle anything and we will get along famously.\"",
-        "known": "\"You.\" He turns a page. \"You handled the spinner rack correctly last time. I noticed. I notice everything, it is a curse.\" He finally looks up. \"What.\"",
-        "familiar": "He is already reaching under the counter before you are all the way through the door, and what comes out is a book in a sleeve with a strip of paper in it marked, in blunt pencil, with your name.\n\n\"Came in Thursday. I did not put it out.\" He slides it across the glass and immediately looks somewhere else, as though the transaction embarrasses him. \"You do not have to take it.\""
+        "known": "\"You.\" He turns a page. \"You handled the spinner rack correctly last time. I noticed. I notice everything, it is a curse.\" He finally looks up. \"What.\""
       }
-    },
-    "read": {
-      "options": [
-        {
-          "label": "Tell me about The Meter Reader.",
-          "next": "meter"
-        },
-        {
-          "label": "Tell me about Sister Steel.",
-          "next": "steel"
-        },
-        {
-          "label": "And the photocopied one?",
-          "next": "grievance"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Oh, we are doing this.\" He puts the book down. He is delighted and would rather die than show it. \"Right. Everybody wants me to say The Meter Reader, because everybody has seen the film, and the film is a crime. Sister Steel is the better book and it is not close. And there is a photocopied thing in the fifty-credit box that is worth more than either of them and costs less than a sandwich.\" A beat. \"You can read all of them on that tablet for nothing, incidentally. Scans have been up for years. I am not going to pretend otherwise.\""
-    },
-    "meter": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "read"
-        }
-      ],
-      "text": "\"Forty pages. A man goes up a building taking readings and the numbers keep going up in flats with nobody in them.\" He shrugs, enormously. \"Twenty-four pages of it are BLANK FORMS. People skip them. You are MEANT to skip them — the skipping is the thing, you feel the thickness of it under your thumb, that is a comic doing something a film physically cannot do, which is why the film is —\" He stops. \"The film is fine. The film is fine. I have said what I am going to say about the film.\""
     },
     "steel": {
       "options": [
@@ -215,37 +291,6 @@
         }
       ],
       "text": "\"Ilse Marek. Wrote it, drew it, inked it, lettered it, fourteen months, on paper you could sand a floor with.\" He is speaking more quietly now, which from him is remarkable. \"There is a page where a woman walks down a corridor in nine panels and nobody says anything. Nine panels. Eleven seconds. Best page anybody in this city ever drew.\" He taps the glass. \"First printing has a note from her on the inside back cover. They took it out of every edition after. If you ever see one with the note in it, you buy it, and you do not haggle, and you do not tell me, because I will make an offer and I will not be able to help myself.\""
-    },
-    "grievance": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "read"
-        }
-      ],
-      "text": "\"The Grievance.\" He says the title flatly, without any of the performance. \"Some clerk drew it on a photocopier because nobody would read the form. Says so on the back. Says COPY IT, DO NOT SELL IT, and if somebody sold you one, take your money back off them.\" He looks at the box for a moment. \"So I price it at what the paper cost me, and I buy every one I find, and I do not discuss it, and no, that is not a bargaining position, that is the actual end of the conversation.\""
-    },
-    "mint": {
-      "options": [
-        {
-          "label": "Why you?",
-          "next": "mint_why"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Since the city got bored of it.\" He nods at the press on its plinth, and the worn strip of carpet in front of it. \"They had five. Bank had one, the permits ward had one, records had one, the casino had one because of course it did. All decommissioned inside a year, because nobody in a civic building has ever once cared whether the registration was out by half a millimetre.\" A pause. \"I bought them at auction. One at a time. That one is four of them.\""
-    },
-    "mint_why": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Because a card is not a receipt.\" He says it like he has said it a thousand times, and he has. \"It is a record of a person on a particular day, in what they happened to be wearing, with whatever they happened to be carrying, and it is PERMANENT, and it is the only permanent thing most people in this city will ever own.\" He straightens the cloth on the glass. \"The bank treated that like a novelty item next to the deposit boxes. So. Stand on the carpet when you're ready and I'll strike you a good one.\""
     },
     "tapes": {
       "options": [
@@ -259,51 +304,6 @@
         }
       ],
       "text": "\"Rental.\" He says the word with some satisfaction. \"Not sale. There are eleven working tape decks in this district and about forty tapes, and if I sold them there would be four tapes and one very rich idiot.\" He points the book at the bead curtain. \"Back room, the wall. Card in the slot means it's out, blank slot means it's in. You take a tape, I write your name on the card, and you bring it back.\""
-    },
-    "late": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "tapes"
-        }
-      ],
-      "text": "\"Then I write the date under your name.\" He lets that sit. \"And then, every day after that, it costs you. And when it costs you enough, the wall stops opening for you, and it does not start again until we are square.\" He turns a page. \"Two people on that wall have their names underlined twice. They are not, at present, customers.\""
-    },
-    "grading": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Grading is a number between one and ten that describes a piece of paper, and it is the closest thing this city has to an honest institution.\" He puts his hand flat on the counter. \"Corners, spine, colour of the interior pages, whether some animal has folded it. Nine-four is near mint. Ten does not exist and anybody who tells you they have one is lying to you about that and probably about other things.\" He looks at you levelly. \"It is not a conversation. It is not a NEGOTIATION. It is a measurement. I do not care what your uncle said.\""
-    },
-    "gossip": {
-      "actions": [
-        {
-          "action": "GOSSIP_TELL"
-        }
-      ],
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"People tell me things while they are deciding whether to spend money.\" He shrugs. \"It is a slow shop. There is a lot of deciding.\""
-    },
-    "looking": {
-      "options": [
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Good.\" He means it. \"Looking is free and it has always been free and the sign in the window says DO NOT TAP THE GLASS, not DO NOT LOOK AT IT.\" He goes back to his page. \"Take your time. Don't stack anything face down.\""
-    },
-    "bye": {
-      "options": [],
-      "text": "\"Mm.\" The stool creaks and he is already reading again before the bell over the door has finished."
     }
   },
   "faction": null,
@@ -360,7 +360,31 @@
   ],
   "vendor_restock_rate": 2,
   "vendor_schedule": {
+    "fri": [
+      {
+        "from": 11,
+        "to": 24
+      }
+    ],
     "mon": [
+      {
+        "from": 11,
+        "to": 22
+      }
+    ],
+    "sat": [
+      {
+        "from": 11,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 13,
+        "to": 20
+      }
+    ],
+    "thu": [
       {
         "from": 11,
         "to": 22
@@ -376,30 +400,6 @@
       {
         "from": 11,
         "to": 22
-      }
-    ],
-    "thu": [
-      {
-        "from": 11,
-        "to": 22
-      }
-    ],
-    "fri": [
-      {
-        "from": 11,
-        "to": 24
-      }
-    ],
-    "sat": [
-      {
-        "from": 11,
-        "to": 24
-      }
-    ],
-    "sun": [
-      {
-        "from": 13,
-        "to": 20
       }
     ]
   },

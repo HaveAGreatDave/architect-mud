@@ -1,15 +1,19 @@
 {
-  "id": "dxr_blotter_room",
-  "drug_id": "drug_blotter",
-  "matches": null,
-  "scope": "room",
-  "name": "the room, elaborating",
+  "asks": [],
   "description": "The room has stopped pretending it is not made of pattern.",
+  "drug_id": "drug_blotter",
+  "emotes": [],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxr_blotter_room",
   "looks": [
     "Every surface here is quietly producing more of itself, and getting better at it.",
     "The corners of this place are doing more work than corners should, and enjoying it.",
     "The whole room repeats. You can see the join, and the join contains the room.",
     "Colour is arriving in this place from somewhere it is not kept."
   ],
-  "says": []
+  "matches": null,
+  "name": "the room, elaborating",
+  "says": [],
+  "scope": "room"
 }

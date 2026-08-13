@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_013",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "You will remember this bit. Which bit do you think you will remember?",
-  "room_line": "",
+  "id": "dr_objask_surreal_013",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You will remember this bit. Which bit do you think you will remember?",
+  "source": "object_ask",
+  "tone": "surreal"
 }

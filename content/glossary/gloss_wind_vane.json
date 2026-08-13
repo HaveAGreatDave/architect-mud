@@ -1,9 +1,9 @@
 {
-  "id": "gloss_wind_vane",
-  "term": "wind-vane",
-  "gloss": "In Wells, not a weathercock but a giant power turbine. The wind-vane keepers are the men who run the city.",
   "aliases": [
     "wind vane",
     "wind-vanes"
-  ]
+  ],
+  "gloss": "In Wells, not a weathercock but a giant power turbine. The wind-vane keepers are the men who run the city.",
+  "id": "gloss_wind_vane",
+  "term": "wind-vane"
 }

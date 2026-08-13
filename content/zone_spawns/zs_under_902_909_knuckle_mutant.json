@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_knuckle_mutant",
- "id": "zs_under_902_909_knuckle_mutant",
- "max_count": 1,
- "respawn_seconds": 420,
- "spawn_weight": 40,
- "zone_id": "zone_under_902_909"
+  "enemy_id": "enemy_knuckle_mutant",
+  "id": "zs_under_902_909_knuckle_mutant",
+  "max_count": 1,
+  "respawn_seconds": 420,
+  "spawn_weight": 40,
+  "zone_id": "zone_under_902_909"
 }

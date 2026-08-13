@@ -1,21 +1,21 @@
 {
   "description": "A slab of brushed titanium sitting under the Chromavision on its own machined shelf, no bigger than a hardback and considerably heavier. The loading door does not have a catch. You offer it a cassette and it takes it from you, draws it in over about four seconds, and closes without a sound. A single amber bar reports what it is doing. Polaris sold these to people who owned exactly one film and wanted it treated properly.",
   "flags": {
-    "media_deck": true,
-    "mini_deck": true,
     "beta_player": true,
     "channel_id": "ch_0_vcr",
+    "deck_active": "bc_the_meter_reader",
     "deck_brand": "Polaris",
-    "deck_mark": "✦",
-    "deck_style": "slab",
-    "deck_silent": true,
     "deck_cassettes": [
       "bc_the_meter_reader"
     ],
-    "deck_active": "bc_the_meter_reader",
+    "deck_mark": "✦",
+    "deck_silent": true,
+    "deck_style": "slab",
     "interactions": [
       "watch"
-    ]
+    ],
+    "media_deck": true,
+    "mini_deck": true
   },
   "hp": null,
   "hp_max": null,

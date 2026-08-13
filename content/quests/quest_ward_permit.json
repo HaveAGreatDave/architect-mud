@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "A stamped permit needs walking to Marrow Street and then over to Foundry Way, where it will be ignored in person rather than by post. 14₵.",
+  "fail_on": [],
   "id": "quest_ward_permit",
   "meta": {
     "taskSeconds": 5
@@ -31,6 +32,7 @@
       "zone": "zone_district_911_912"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

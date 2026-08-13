@@ -2,10 +2,10 @@
   "description": "A single block of dark stone hollowed out into a basin deep enough to lose a roasting tray in, with a bridge tap arched over it in unlacquered brass. It is the only thing in this kitchen that looks like it was made by hand, and it probably was.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
-    "water_source": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

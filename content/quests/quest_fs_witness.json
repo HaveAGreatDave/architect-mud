@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Two signatures short of legal, someone needs a warm body to swear they saw a thing they didn't. Stand as witness at Halcyon Boulevard, then again at Voss Avenue. Nod when nodded at. 25₵.",
+  "fail_on": [],
   "id": "quest_fs_witness",
   "meta": {},
   "name": "Rent-a-Witness",
@@ -33,6 +34,7 @@
       "zone": "zone_district_905_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

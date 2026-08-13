@@ -1,8 +1,8 @@
 {
-  "id": "gloss_trust",
-  "term": "trust",
-  "gloss": "A combine of companies acting as one to fix prices and crush competitors.",
   "aliases": [
     "trusts"
-  ]
+  ],
+  "gloss": "A combine of companies acting as one to fix prices and crush competitors.",
+  "id": "gloss_trust",
+  "term": "trust"
 }

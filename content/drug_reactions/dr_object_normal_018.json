@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_018",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "You should sit down for a minute.",
-  "room_line": "",
+  "id": "dr_object_normal_018",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You should sit down for a minute.",
+  "source": "object",
+  "tone": "normal"
 }

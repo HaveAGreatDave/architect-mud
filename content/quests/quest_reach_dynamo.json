@@ -1,6 +1,7 @@
 {
   "category": "Job Board",
   "description": "Bram needs a second pair of hands at the Dynamo, which is his way of saying he needs somebody to hold a live thing steady while he does something ill-advised to it. Switch room, then the turbine floor, then go tell the street the lights are staying on. 24₵.",
+  "fail_on": [],
   "id": "quest_reach_dynamo",
   "meta": {},
   "name": "Hold This, Don't Let Go",
@@ -48,6 +49,7 @@
       "zone": "zone_the_reach_872_1955"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

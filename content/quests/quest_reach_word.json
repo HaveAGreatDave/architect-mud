@@ -1,6 +1,7 @@
 {
   "category": "Job Board",
   "description": "A message for a buyer staying at the Layover. Not written down, not on any deck. Memorised, carried in a skull, and said once. If you get it wrong, you get it wrong out loud. 18₵.",
+  "fail_on": [],
   "id": "quest_reach_word",
   "meta": {},
   "name": "Word of Mouth",
@@ -48,6 +49,7 @@
       "zone": "zone_bld_900_1171_walk2"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

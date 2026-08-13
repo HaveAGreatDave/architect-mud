@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_surreal_034",
   "drug_id": null,
-  "source": "npc",
-  "tone": "surreal",
-  "self_line": "{npc} watches you for a moment too long, then decides it is not their business.",
-  "room_line": "{npc} clocks {player}, takes in the eyes, and looks pointedly at something else.",
+  "id": "dr_npc_surreal_034",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "{npc} clocks {player}, takes in the eyes, and looks pointedly at something else.",
+  "self_line": "{npc} watches you for a moment too long, then decides it is not their business.",
+  "source": "npc",
+  "tone": "surreal"
 }

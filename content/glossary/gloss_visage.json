@@ -1,8 +1,8 @@
 {
-  "id": "gloss_visage",
-  "term": "visage",
-  "gloss": "A face.",
   "aliases": [
     "visages"
-  ]
+  ],
+  "gloss": "A face.",
+  "id": "gloss_visage",
+  "term": "visage"
 }

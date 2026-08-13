@@ -111,8 +111,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "sewer slime",

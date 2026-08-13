@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_014",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} settles, and a fine rain of dust comes off it and never reaches the floor.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_014",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} settles, and a fine rain of dust comes off it and never reaches the floor.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

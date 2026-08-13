@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_mq_grocery",
   "id": "map_int_mq_grocery",
+  "name": "Ration Nine",
   "parent_zone_id": "zone_district_920_908"
 }

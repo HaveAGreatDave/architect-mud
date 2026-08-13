@@ -4,8 +4,8 @@
   "id": "item_cassette_hard_wired_4_the_ductwork",
   "name": "Cassette: Hard Wired 4: The Ductwork",
   "tags": {
-    "media_cassette": true,
     "broadcast_id": "bc_hard_wired_4",
+    "media_cassette": true,
     "unique": true
   },
   "type": "media",

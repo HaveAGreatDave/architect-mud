@@ -3,12 +3,12 @@
   "key": "body_part_weights",
   "label": "Body part hit weights",
   "value": {
+    "feet": 4,
     "head": 10,
     "left_arm": 12,
     "left_leg": 13,
     "right_arm": 12,
     "right_leg": 13,
-    "torso": 40,
-    "feet": 4
+    "torso": 40
   }
 }

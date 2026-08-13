@@ -1,9 +1,9 @@
 {
-  "id": "gloss_serf",
-  "term": "serf",
-  "gloss": "A labourer bound to an estate, unable to leave. The book's word for what workers become.",
   "aliases": [
     "serfs",
     "serfdom"
-  ]
+  ],
+  "gloss": "A labourer bound to an estate, unable to leave. The book's word for what workers become.",
+  "id": "gloss_serf",
+  "term": "serf"
 }

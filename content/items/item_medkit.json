@@ -12,12 +12,12 @@
     },
     "stackable": true,
     "treat_frostbite": {
-      "steps": 1,
-      "floor": 1
+      "floor": 1,
+      "steps": 1
     },
     "treat_injury": {
-      "steps": 1,
-      "floor": 1
+      "floor": 1,
+      "steps": 1
     }
   },
   "type": "consumable",

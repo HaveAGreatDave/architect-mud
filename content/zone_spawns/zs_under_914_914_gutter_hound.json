@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_gutter_hound",
- "id": "zs_under_914_914_gutter_hound",
- "max_count": 2,
- "respawn_seconds": 300,
- "spawn_weight": 50,
- "zone_id": "zone_under_914_914"
+  "enemy_id": "enemy_gutter_hound",
+  "id": "zs_under_914_914_gutter_hound",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 50,
+  "zone_id": "zone_under_914_914"
 }

@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_031",
   "drug_id": "drug_psilocybin",
-  "source": "object",
-  "tone": "normal",
-  "self_line": "You look tired, love.",
-  "room_line": "",
+  "id": "dr_object_normal_031",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You look tired, love.",
+  "source": "object",
+  "tone": "normal"
 }

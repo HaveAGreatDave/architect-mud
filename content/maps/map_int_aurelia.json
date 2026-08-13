@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_aurelia_floor",
   "id": "map_int_aurelia",
+  "name": "Aurelia",
   "parent_zone_id": "zone_district_895_907"
 }

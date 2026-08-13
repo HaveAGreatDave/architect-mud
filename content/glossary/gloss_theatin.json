@@ -1,8 +1,8 @@
 {
-  "id": "gloss_theatin",
-  "term": "theatin",
-  "gloss": "A member of a Catholic order of priests.",
   "aliases": [
     "theatins"
-  ]
+  ],
+  "gloss": "A member of a Catholic order of priests.",
+  "id": "gloss_theatin",
+  "term": "theatin"
 }

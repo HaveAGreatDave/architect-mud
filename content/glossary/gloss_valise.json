@@ -1,8 +1,8 @@
 {
-  "id": "gloss_valise",
-  "term": "valise",
-  "gloss": "A small travelling case.",
   "aliases": [
     "valises"
-  ]
+  ],
+  "gloss": "A small travelling case.",
+  "id": "gloss_valise",
+  "term": "valise"
 }

@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_019",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "It is colder than it looks out. Take a coat.",
-  "room_line": "",
+  "id": "dr_object_normal_019",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "It is colder than it looks out. Take a coat.",
+  "source": "object",
+  "tone": "normal"
 }

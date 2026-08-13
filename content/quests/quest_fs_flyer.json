@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "A stack of damp franchise flyers and a bucket of paste. Slap them up across the Strip, Halcyon Boulevard, and Cinder Lane. Nobody reads them. That's not the point. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_flyer",
   "meta": {},
   "name": "Papering the Strip",
@@ -48,6 +49,7 @@
       "zone": "zone_district_902_908"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

@@ -1,8 +1,8 @@
 {
-  "id": "gloss_vivisected",
-  "term": "vivisected",
-  "gloss": "Operated on while alive.",
   "aliases": [
     "vivisect"
-  ]
+  ],
+  "gloss": "Operated on while alive.",
+  "id": "gloss_vivisected",
+  "term": "vivisected"
 }

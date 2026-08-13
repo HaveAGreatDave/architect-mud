@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_006",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "Is there anything behind me? I cannot turn round.",
-  "room_line": "",
+  "id": "dr_objask_surreal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Is there anything behind me? I cannot turn round.",
+  "source": "object_ask",
+  "tone": "surreal"
 }

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_leviathan_cabin",
+  "id": "zone_util_zone_leviathan_cabin",
+  "max_capacity_kw": 1000,
+  "name": "Main Cabin — Utility Room",
+  "source_type": "junction_box"
+}

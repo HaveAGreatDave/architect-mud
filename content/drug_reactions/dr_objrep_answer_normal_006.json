@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_normal_006",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "normal",
-  "self_line": "I did not mean anything by asking.",
-  "room_line": "",
+  "id": "dr_objrep_answer_normal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I did not mean anything by asking.",
+  "source": "object_reply_answer",
+  "tone": "normal"
 }

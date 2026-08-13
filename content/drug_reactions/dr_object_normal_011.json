@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_011",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "Have you eaten today? Properly, I mean.",
-  "room_line": "",
+  "id": "dr_object_normal_011",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Have you eaten today? Properly, I mean.",
+  "source": "object",
+  "tone": "normal"
 }

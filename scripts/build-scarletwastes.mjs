@@ -180,12 +180,35 @@ WATER_ROAD.add('1046_985');
 //
 // The height surface is one call. Everything else is a threshold on it, which is what makes the
 // bands contiguous: a mesa always has a skirt of its own scree, never a cliff straight to hardpan.
+// The caprock threshold, named because three things read it and a fourth would drift.
+const MESA_H = 0.635;
+const isMesa = (x, y) => fbm(x, y, 11, 3) > MESA_H;
+
+// THE RIM IS A CLIFF, AND THE GAPS IN IT ARE THE POINT.
+//
+// A mesa tile with a lower neighbour is the edge of the tableland, and the edge of a
+// tableland is a face you do not walk up. That single rule turns 943 loose high tiles
+// into walled massifs: the impassable `cliff` terrain draws itself as one continuous
+// escarpment (the piece set faces outward, see derive's autoTileName), and crossing
+// the region becomes a question of where the ways through are.
+//
+// The ways through come from a SECOND CONTINUOUS FIELD, not a per-tile roll. That is
+// the whole difference between a pass and a hole: noise above a threshold clusters, so
+// a gap is two or three tiles of walkable ramp in a row that you can see from a
+// distance and aim for. A hash per rim tile would scatter single-tile pinholes around
+// every massif, and a wall with a door every fifth stone funnels nobody.
+const isPass = (x, y) => fbm(x, y, 4.5, 77) > 0.70;
+
 function landformAt(x, y) {
   if (WATER_ROAD.has(`${x}_${y}`)) return 'haul';
   if (isLake(x, y)) return 'lake';
   if (isShore(x, y)) return 'shore';
   const h = fbm(x, y, 11, 3);
-  if (h > 0.635) return 'mesa';        // caprock. flat on top, and the top is a long way up.
+  if (h > MESA_H) {
+    const rim = !isMesa(x, y - 1) || !isMesa(x, y + 1) || !isMesa(x + 1, y) || !isMesa(x - 1, y);
+    if (rim) return isPass(x, y) ? 'ramp' : 'cliff';
+    return 'mesa';                     // caprock. flat on top, and the top is a long way up.
+  }
   if (h > 0.575) return 'scree';       // the skirt of broken rock a mesa sheds
   // Scrub takes the low ground, because the low ground is where the runoff goes and stays.
   const wet = fbm(x, y, 7, 23) + (0.5 - h) * 0.55;

@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_normal_008",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "normal",
-  "self_line": "You should sit down for a bit, after.",
-  "room_line": "",
+  "id": "dr_objrep_answer_normal_008",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "You should sit down for a bit, after.",
+  "source": "object_reply_answer",
+  "tone": "normal"
 }

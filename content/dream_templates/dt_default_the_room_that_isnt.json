@@ -1,30 +1,33 @@
 {
-  "id": "dt_default_the_room_that_isnt",
-  "name": "A Room That Is Not There",
-  "description": "It has the dimensions of a room and none of the reasons for one. The walls are the colour of whatever you last looked at. There is a light source and it is not anywhere. You are very aware that this has been assembled quickly and on your behalf.",
-  "cause": "drug",
-  "drug_id": null,
-  "objects": [
-    {
-      "name": "the walls",
-      "looks": [
-        "The colour of whatever you last looked at. They update.",
-        "They are the right distance away and there are not enough of them.",
-        "One of them is doing the work of two, and doing it well."
-      ]
-    },
-    {
-      "name": "the light",
-      "looks": [
-        "There is plenty of it and no source. Nobody has minded until now.",
-        "It comes from about a foot in front of your face.",
-        "It dims when you stop needing it and comes back before you ask."
-      ]
-    }
-  ],
   "ambient": [
     "The room adjusts one dimension and gets away with it.",
     "The light source moves to somewhere more convenient.",
     "For a moment the walls forget their colour, and then they have it."
-  ]
+  ],
+  "cause": "drug",
+  "description": "It has the dimensions of a room and none of the reasons for one. The walls are the colour of whatever you last looked at. There is a light source and it is not anywhere. You are very aware that this has been assembled quickly and on your behalf.",
+  "drug_id": null,
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dt_default_the_room_that_isnt",
+  "name": "A Room That Is Not There",
+  "objects": [
+    {
+      "looks": [
+        "The colour of whatever you last looked at. They update.",
+        "They are the right distance away and there are not enough of them.",
+        "One of them is doing the work of two, and doing it well."
+      ],
+      "name": "the walls"
+    },
+    {
+      "looks": [
+        "There is plenty of it and no source. Nobody has minded until now.",
+        "It comes from about a foot in front of your face.",
+        "It dims when you stop needing it and comes back before you ask."
+      ],
+      "name": "the light"
+    }
+  ],
+  "weather": null
 }

@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_voltage_floor",
+  "id": "zone_voltage_vip",
+  "max_capacity_kw": 1000,
+  "name": "VIP Mezzanine",
+  "source_type": "junction_box"
+}

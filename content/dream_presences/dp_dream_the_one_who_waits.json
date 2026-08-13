@@ -1,22 +1,22 @@
 {
-  "id": "dp_dream_the_one_who_waits",
-  "name": "a figure in the doorway",
-  "cause": "dream",
-  "drug_id": null,
   "arrivals": [
     "Somebody has come to stand in the doorway and is waiting.",
     "There is a figure at the edge of the room, arrived, not entering.",
     "A shape fills the doorway, politely, and stays there."
   ],
+  "cause": "dream",
   "departures": [
     "The doorway is empty. It has been for some time.",
     "They have moved on to wait somewhere else.",
     "They step back and are not in the next room either."
   ],
+  "drug_id": null,
+  "id": "dp_dream_the_one_who_waits",
   "looks": [
     "Waiting. Not for you specifically, which is somehow worse.",
     "They have been standing that way long enough to have decided to.",
     "You cannot see the face and it would not help.",
     "They lift a hand, slightly, the way you do when you have been seen."
-  ]
+  ],
+  "name": "a figure in the doorway"
 }

@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_ward_permits",
   "id": "map_int_ward",
+  "name": "Office of Permitted Suffering",
   "parent_zone_id": "zone_district_906_911"
 }

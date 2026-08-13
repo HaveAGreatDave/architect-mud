@@ -1,8 +1,8 @@
 {
-  "id": "gloss_gainsay",
-  "term": "gainsay",
-  "gloss": "To deny or contradict.",
   "aliases": [
     "gainsaid"
-  ]
+  ],
+  "gloss": "To deny or contradict.",
+  "id": "gloss_gainsay",
+  "term": "gainsay"
 }

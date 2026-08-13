@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_014",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "Your mother called. Twice.",
-  "room_line": "",
+  "id": "dr_object_normal_014",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Your mother called. Twice.",
+  "source": "object",
+  "tone": "normal"
 }

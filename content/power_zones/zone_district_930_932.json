@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_the_reach",
+  "id": "zone_district_930_932",
+  "max_capacity_kw": 10000,
+  "name": "The Ironpan",
+  "source_type": "city_grid"
+}

@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_normal_003",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "normal",
-  "self_line": "{it} settles with a creak that any old thing in any old room would make.",
-  "room_line": "",
+  "id": "dr_objemote_normal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} settles with a creak that any old thing in any old room would make.",
+  "source": "object_emote",
+  "tone": "normal"
 }

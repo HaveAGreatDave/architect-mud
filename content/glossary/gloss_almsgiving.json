@@ -1,8 +1,8 @@
 {
-  "id": "gloss_almsgiving",
-  "term": "almsgiving",
-  "gloss": "Charity to the poor.",
   "aliases": [
     "alms"
-  ]
+  ],
+  "gloss": "Charity to the poor.",
+  "id": "gloss_almsgiving",
+  "term": "almsgiving"
 }

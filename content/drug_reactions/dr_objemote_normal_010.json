@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_normal_010",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "normal",
-  "self_line": "{it} stretches, or does whatever it has instead of stretching.",
-  "room_line": "",
+  "id": "dr_objemote_normal_010",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} stretches, or does whatever it has instead of stretching.",
+  "source": "object_emote",
+  "tone": "normal"
 }

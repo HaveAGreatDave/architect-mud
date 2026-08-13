@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Sanitation needs a vermin tally for the yards, and by 'needs' they mean a number to file. Count the rats down Meltwater Row, Marrow Street, and Foundry Way. Round up if it's scary. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_ratcount",
   "meta": {},
   "name": "Vermin Census",
@@ -48,6 +49,7 @@
       "zone": "zone_district_914_913"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

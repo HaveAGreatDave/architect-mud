@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_normal_005",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "normal",
-  "self_line": "Suit yourself. I am not going anywhere.",
-  "room_line": "",
+  "id": "dr_objrep_denial_normal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Suit yourself. I am not going anywhere.",
+  "source": "object_reply_denial",
+  "tone": "normal"
 }

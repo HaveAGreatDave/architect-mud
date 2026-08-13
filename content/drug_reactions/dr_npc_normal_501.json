@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_501",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": "stranger",
+  "id": "dr_npc_normal_501",
   "npc_type": null,
+  "relation": "stranger",
+  "room_line": "{npc} gives {player} a wide berth and does not look back.",
   "self_line": "{npc} gives you a wide berth and does not look back.",
-  "room_line": "{npc} gives {player} a wide berth and does not look back."
+  "source": "npc",
+  "tone": "normal"
 }

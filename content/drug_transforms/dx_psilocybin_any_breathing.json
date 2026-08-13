@@ -1,29 +1,31 @@
 {
-  "id": "dx_psilocybin_any_breathing",
-  "drug_id": "drug_psilocybin",
-  "matches": null,
-  "scope": "object",
-  "name": "a large animal asleep against the wall",
+  "asks": [
+    "Are you cold? You have the look of somebody cold.",
+    "Do you know what I was before this?",
+    "Will you still be here when I wake up properly?"
+  ],
   "description": "Something the size of a horse is asleep against the wall with its legs folded under it, flanks going in and out. You could not name the species and it does not seem to matter.",
-  "looks": [
-    "In. Out. Slowly, in time with something that is not you, and after a while in time with you.",
-    "The coat is short and warm and slightly damp, the way an animal is damp after standing in weather.",
-    "It has a smell, hay and hot dust, and the smell is the most convincing part of it."
-  ],
-  "says": [
-    "Breathe with me. You already are.",
-    "I was doing this before you came in.",
-    "Do not be alarmed. I would not know how."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} sighs out through its nose and the hair on your arms moves.",
     "{it} twitches all over the way a dog twitches when it is dreaming.",
     "{it} lifts its head, ears swivelling, listens to nothing, and puts it down again.",
     "{it} folds a leg under itself and gets comfortable in a way that takes about a minute."
   ],
-  "asks": [
-    "Are you cold? You have the look of somebody cold.",
-    "Do you know what I was before this?",
-    "Will you still be here when I wake up properly?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_any_breathing",
+  "looks": [
+    "In. Out. Slowly, in time with something that is not you, and after a while in time with you.",
+    "The coat is short and warm and slightly damp, the way an animal is damp after standing in weather.",
+    "It has a smell, hay and hot dust, and the smell is the most convincing part of it."
+  ],
+  "matches": null,
+  "name": "a large animal asleep against the wall",
+  "says": [
+    "Breathe with me. You already are.",
+    "I was doing this before you came in.",
+    "Do not be alarmed. I would not know how."
+  ],
+  "scope": "object"
 }

@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_rebar_shambler",
- "id": "zs_under_923_913_rebar_shambler",
- "max_count": 2,
- "respawn_seconds": 300,
- "spawn_weight": 45,
- "zone_id": "zone_under_923_913"
+  "enemy_id": "enemy_rebar_shambler",
+  "id": "zs_under_923_913_rebar_shambler",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 45,
+  "zone_id": "zone_under_923_913"
 }

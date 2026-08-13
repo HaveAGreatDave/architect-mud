@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_blind_crawler",
- "id": "zs_under_915_909_blind_crawler",
- "max_count": 2,
- "respawn_seconds": 300,
- "spawn_weight": 50,
- "zone_id": "zone_under_915_909"
+  "enemy_id": "enemy_blind_crawler",
+  "id": "zs_under_915_909_blind_crawler",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 50,
+  "zone_id": "zone_under_915_909"
 }

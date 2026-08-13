@@ -1,28 +1,30 @@
 {
-  "id": "dx_default_door_water",
-  "drug_id": null,
-  "matches": "door",
-  "scope": "object",
-  "name": "a standing sheet of water",
+  "asks": [
+    "Are you going through, or are you looking at yourself?",
+    "Did somebody come through just before you?",
+    "Can you swim? It is not important. I am asking."
+  ],
   "description": "Where the door was there is a pane of water held upright in the frame, unsupported, its surface trembling slightly. The room on the far side of it is visible and about a second behind.",
-  "looks": [
-    "The surface shivers in rings when anybody in the room speaks, including you.",
-    "Your reflection in it is doing what you are doing, with a delay you can just about measure.",
-    "A drip is forming at the bottom edge. It has been forming for a while and it is not going to fall."
-  ],
-  "says": [
-    "You can come through. You will be wet on the other side, briefly.",
-    "Everything that has gone through me is still in me somewhere.",
-    "Speak up. It makes a nice pattern."
-  ],
+  "drug_id": null,
   "emotes": [
     "Rings run out across {it} from a point about head height.",
     "{it} bulges towards the room and settles flat again.",
     "The room reflected in {it} does something the room does not do."
   ],
-  "asks": [
-    "Are you going through, or are you looking at yourself?",
-    "Did somebody come through just before you?",
-    "Can you swim? It is not important. I am asking."
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_door_water",
+  "looks": [
+    "The surface shivers in rings when anybody in the room speaks, including you.",
+    "Your reflection in it is doing what you are doing, with a delay you can just about measure.",
+    "A drip is forming at the bottom edge. It has been forming for a while and it is not going to fall."
+  ],
+  "matches": "door",
+  "name": "a standing sheet of water",
+  "says": [
+    "You can come through. You will be wet on the other side, briefly.",
+    "Everything that has gone through me is still in me somewhere.",
+    "Speak up. It makes a nice pattern."
+  ],
+  "scope": "object"
 }

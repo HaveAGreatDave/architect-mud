@@ -1,8 +1,8 @@
 {
-  "id": "gloss_abjure",
-  "term": "abjure",
-  "gloss": "To renounce something under oath.",
   "aliases": [
     "abjured"
-  ]
+  ],
+  "gloss": "To renounce something under oath.",
+  "id": "gloss_abjure",
+  "term": "abjure"
 }

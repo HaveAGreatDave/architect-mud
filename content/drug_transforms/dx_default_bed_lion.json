@@ -1,28 +1,30 @@
 {
-  "id": "dx_default_bed_lion",
-  "drug_id": null,
-  "matches": "bed",
-  "scope": "object",
-  "name": "a sleeping lion",
+  "asks": [
+    "Are you getting in or not?",
+    "How long have you been awake? Honestly.",
+    "Do you know what was here before me?"
+  ],
   "description": "A lion is asleep across the room with its front paws crossed, flanks rising and falling. It occupies the space and the warmth that something else used to.",
-  "looks": [
-    "Dust-coloured, scarred across the muzzle, and enormous in the calm way of a thing that has never had to prove it.",
-    "One ear tracks you around the room. Nothing else moves.",
-    "It smells of hot stone and old meat, and the smell is what stops you arguing with it."
-  ],
-  "says": [
-    "Lie down if you are going to.",
-    "I am not going to be up for hours.",
-    "You are letting the heat out, standing there."
-  ],
+  "drug_id": null,
   "emotes": [
     "{it} yawns, jaw cracking, and resettles with a long groan.",
     "{it} stretches until the claws show and lets the leg drop.",
     "{it} rolls half over and takes up rather more room than before."
   ],
-  "asks": [
-    "Are you getting in or not?",
-    "How long have you been awake? Honestly.",
-    "Do you know what was here before me?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_default_bed_lion",
+  "looks": [
+    "Dust-coloured, scarred across the muzzle, and enormous in the calm way of a thing that has never had to prove it.",
+    "One ear tracks you around the room. Nothing else moves.",
+    "It smells of hot stone and old meat, and the smell is what stops you arguing with it."
+  ],
+  "matches": "bed",
+  "name": "a sleeping lion",
+  "says": [
+    "Lie down if you are going to.",
+    "I am not going to be up for hours.",
+    "You are letting the heat out, standing there."
+  ],
+  "scope": "object"
 }

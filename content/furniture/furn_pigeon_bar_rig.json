@@ -1,8 +1,8 @@
 {
   "description": "A squat chrome machine bolted to the back bar, hissing gently to itself between orders. The drip tray has not been emptied since anyone can remember.",
   "flags": {
-    "brew_tier": "barista",
-    "aliases": "rig,espresso,coffee machine"
+    "aliases": "rig,espresso,coffee machine",
+    "brew_tier": "barista"
   },
   "hp": null,
   "hp_max": null,

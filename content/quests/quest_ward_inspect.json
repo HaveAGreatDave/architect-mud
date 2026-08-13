@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Ward Nine requires an occupancy inspection of the east side of Fisherman's Green and the far end of Meltwater. Look official. Touch nothing. 10₵.",
+  "fail_on": [],
   "id": "quest_ward_inspect",
   "meta": {
     "taskSeconds": 5
@@ -31,6 +32,7 @@
       "zone": "zone_district_907_912"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

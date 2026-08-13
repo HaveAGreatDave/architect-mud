@@ -1,8 +1,8 @@
 {
-  "id": "gloss_calumny",
-  "term": "calumny",
-  "gloss": "A damaging lie told about someone.",
   "aliases": [
     "calumnies"
-  ]
+  ],
+  "gloss": "A damaging lie told about someone.",
+  "id": "gloss_calumny",
+  "term": "calumny"
 }

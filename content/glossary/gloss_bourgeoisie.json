@@ -1,8 +1,8 @@
 {
-  "id": "gloss_bourgeoisie",
-  "term": "bourgeoisie",
-  "gloss": "The property-owning middle class.",
   "aliases": [
     "bourgeois"
-  ]
+  ],
+  "gloss": "The property-owning middle class.",
+  "id": "gloss_bourgeoisie",
+  "term": "bourgeoisie"
 }

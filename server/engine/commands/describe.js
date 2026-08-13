@@ -10,6 +10,7 @@ import {
 	isEnterableFacade,
 	facadeStreetTile,
 	getZoneFurniture,
+	propsOf,
 } from "../world.js";
 import { OPPOSITE } from "../directions.js";
 import {
@@ -120,6 +121,14 @@ function getConnectedDestinations(zone) {
 	if (zone?.flags?.hide_exits) return { buildings, rooms, plain };
 	for (const { dir: direction, target: targetId } of allExits(zone)) {
 		const targetZone = getZone(targetId);
+		// A tile a body cannot enter is not a way out, so it is not listed as one.
+		// The edge is still real and the minimap still draws it — this is the
+		// player-facing list only, the same half `hide_exits` suppresses. Without
+		// this, painting a cliff funnel produces a room that offers you four
+		// directions and refuses three of them, which reads as a bug rather than
+		// as terrain. (The refusal itself is engine:impassable-terrain in
+		// movement.js; this is the same law told before you walk into it.)
+		if (targetZone && !propsOf(targetZone.id).passable) continue;
 		// Leaving a building: an interior exit onto an enterable facade actually
 		// spills you straight onto the street behind it in one move (see
 		// resolveFacadeTransit). Show it as an exit onto that street — labeled

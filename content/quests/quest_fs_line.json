@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Hold a place in the line at Voss Avenue, then carry the ticket down to Cinder Lane for someone who matters more than you. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_line",
   "meta": {
     "taskSeconds": 5
@@ -33,6 +34,7 @@
       "zone": "zone_district_902_907"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

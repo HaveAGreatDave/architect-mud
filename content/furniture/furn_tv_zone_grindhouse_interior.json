@@ -14,6 +14,8 @@
   "hp": null,
   "hp_max": null,
   "id": "furn_tv_zone_grindhouse_interior",
+  "light_type": "lamp",
+  "lumen_output": null,
   "name": "a corner television",
   "object_type": "furniture",
   "power_draw_kw": 0.08,

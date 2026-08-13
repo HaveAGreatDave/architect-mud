@@ -1,8 +1,8 @@
 {
   "description": "A slab of black glass and machined aluminium that grinds, tamps, brews and steams without ever being asked twice. It has a screen. The screen has a personality setting.",
   "flags": {
-    "brew_tier": "machine",
-    "aliases": "coffee machine,bean-to-cup,machine"
+    "aliases": "coffee machine,bean-to-cup,machine",
+    "brew_tier": "machine"
   },
   "hp": null,
   "hp_max": null,

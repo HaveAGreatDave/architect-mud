@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_greenroom_lounge",
   "id": "map_int_greenroom",
+  "name": "The Deadline",
   "parent_zone_id": "zone_district_912_910"
 }

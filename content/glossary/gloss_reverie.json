@@ -1,8 +1,8 @@
 {
-  "id": "gloss_reverie",
-  "term": "reverie",
-  "gloss": "A waking dream; being lost in thought.",
   "aliases": [
     "reveries"
-  ]
+  ],
+  "gloss": "A waking dream; being lost in thought.",
+  "id": "gloss_reverie",
+  "term": "reverie"
 }

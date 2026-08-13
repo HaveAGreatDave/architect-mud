@@ -1,6 +1,6 @@
 {
-  "id": "gloss_pneumatic",
-  "term": "pneumatic",
+  "aliases": [],
   "gloss": "Driven by compressed air.",
-  "aliases": []
+  "id": "gloss_pneumatic",
+  "term": "pneumatic"
 }

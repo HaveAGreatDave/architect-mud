@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_aa_wastes_bunker",
   "id": "map_int_aa_wastes",
+  "name": "Wastes Gun Nest",
   "parent_zone_id": "zone_district_891_907"
 }

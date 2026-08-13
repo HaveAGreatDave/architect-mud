@@ -1,6 +1,7 @@
 {
   "category": "The Under",
   "description": "Dredge has been after one piece for months: a signal relay that went down with the old junction, somewhere past the Deep Trunk in the Deep Reach. She'll dig the cistern till she dies, but she won't go that deep. You will. Bring it back.",
+  "fail_on": [],
   "id": "quest_under_salvage",
   "meta": {},
   "name": "What the Cistern Keeps",
@@ -18,6 +19,7 @@
       "zone": "zone_under_deepreach"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

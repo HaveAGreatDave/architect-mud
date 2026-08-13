@@ -3,523 +3,523 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
-        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "bsm_pre_0"
+        "next": "bsm_pre_0",
+        "type": "start"
       },
       "bsm_1": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": true,
-        "text": "",
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
         "duration_s": 0,
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "type": "title_card",
-        "graphic_id": "night_shift_title",
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "type": "say",
-        "text": "♪ A single held organ note, recorded in a stairwell, badly. ♪",
-        "style": "ambient",
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "type": "say",
-        "text": "An unofficial sequel to a picture the studio did not own, shot in eleven nights in a foundry that was still working days. Everything you see is real and nothing you hear is.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "NUMBER FOUR FOUNDRY",
-        "subtext": "THIRD SHIFT",
-        "graphic_id": "",
-        "duration_s": 6,
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "type": "say",
-        "text": "A woman signs a book at a gate under a lamp with moths in it. This is ADA DELPH and she has never held a ladle in her life.",
-        "style": "narration",
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "type": "say",
-        "text": "They were forty hands short that winter and they were not fussy about it.",
-        "style": "narration",
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 1",
-        "subtext": "The New Hand",
-        "duration_s": 8,
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "type": "say",
-        "text": "The floor. Heat haze rendered by shooting through a fire, which is the sort of thing Prine did instead of paying for an effect.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "on": true,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_10": {
-        "type": "say",
-        "text": "The Foreman says, \"You stand there. You don't stand there. Anything comes off the ladle, you don't look at it, you move.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "next": "bsm_11"
+        "next": "bsm_11",
+        "style": "verbatim",
+        "text": "The Foreman says, \"You stand there. You don't stand there. Anything comes off the ladle, you don't look at it, you move.\"",
+        "type": "say"
       },
       "bsm_11": {
-        "type": "say",
-        "text": "Ada Delph says, \"What was here before me?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "next": "bsm_12"
+        "next": "bsm_12",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"What was here before me?\"",
+        "type": "say"
       },
       "bsm_12": {
-        "type": "say",
-        "text": "The Foreman says, \"A man.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "style": "verbatim",
+        "text": "The Foreman says, \"A man.\"",
+        "type": "say"
       },
       "bsm_13": {
-        "type": "say",
-        "text": "Ada Delph says, \"Where'd he go?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"Where'd he go?\"",
+        "type": "say"
       },
       "bsm_14": {
-        "type": "say",
-        "text": "The Foreman does not answer. He signs something and walks out of frame, and the camera stays on the doorway he left through for eleven full seconds.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "style": "narration",
+        "text": "The Foreman does not answer. He signs something and walks out of frame, and the camera stays on the doorway he left through for eleven full seconds.",
+        "type": "say"
       },
       "bsm_15": {
-        "type": "say",
-        "text": "♪ The organ note has not stopped. It has not stopped since the titles. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "next": "bsm_16"
+        "next": "bsm_16",
+        "style": "ambient",
+        "text": "♪ The organ note has not stopped. It has not stopped since the titles. ♪",
+        "type": "say"
       },
       "bsm_16": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 2",
-        "subtext": "The Count",
-        "duration_s": 8,
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "next": "bsm_17"
+        "duration_s": 8,
+        "next": "bsm_17",
+        "overlayType": "act_card",
+        "subtext": "The Count",
+        "text": "ACT 2",
+        "type": "overlay"
       },
       "bsm_17": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE POUR",
-        "subtext": "0340",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "next": "bsm_18"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_18",
+        "overlayType": "lower_third",
+        "subtext": "0340",
+        "text": "THE POUR",
+        "type": "overlay"
       },
       "bsm_18": {
-        "type": "say",
-        "text": "The ladle tips. White metal into a mould, and the whole top of the frame goes to bare light.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "next": "bsm_19"
+        "next": "bsm_19",
+        "style": "narration",
+        "text": "The ladle tips. White metal into a mould, and the whole top of the frame goes to bare light.",
+        "type": "say"
       },
       "bsm_19": {
-        "type": "say",
-        "text": "There is a thing every foundry hand knows and no foundry will write down: the pour makes a sound, and the sound is different on a night when the count is wrong.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "next": "bsm_20"
+        "next": "bsm_20",
+        "style": "narration",
+        "text": "There is a thing every foundry hand knows and no foundry will write down: the pour makes a sound, and the sound is different on a night when the count is wrong.",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "night_shift_title",
+        "next": "bsm_3",
+        "type": "title_card"
       },
       "bsm_20": {
-        "type": "say",
-        "text": "DELPH, at the rail, listening. She has been on the floor four nights and she has already started to listen.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 720
         },
-        "next": "bsm_21"
+        "next": "bsm_21",
+        "style": "narration",
+        "text": "DELPH, at the rail, listening. She has been on the floor four nights and she has already started to listen.",
+        "type": "say"
       },
       "bsm_21": {
-        "type": "say",
-        "text": "Ada Delph says, \"That's a different note.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 720
         },
-        "next": "bsm_22"
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"That's a different note.\"",
+        "type": "say"
       },
       "bsm_22": {
-        "type": "say",
-        "text": "The Foreman says, \"That's the same note it's been for thirty years.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "next": "bsm_23"
+        "next": "bsm_23",
+        "style": "verbatim",
+        "text": "The Foreman says, \"That's the same note it's been for thirty years.\"",
+        "type": "say"
       },
       "bsm_23": {
-        "type": "say",
-        "text": "Ada Delph says, \"It's a different note.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "next": "bsm_24"
+        "next": "bsm_24",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"It's a different note.\"",
+        "type": "say"
       },
       "bsm_24": {
-        "type": "say",
-        "text": "Close on the mould. The metal, settling. And in the settling — for two frames, and only two, and they are two of the most argued-about frames in Coldwater cinema — something that is not a defect in the casting.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "next": "bsm_25"
+        "next": "bsm_25",
+        "style": "narration",
+        "text": "Close on the mould. The metal, settling. And in the settling — for two frames, and only two, and they are two of the most argued-about frames in Coldwater cinema — something that is not a defect in the casting.",
+        "type": "say"
       },
       "bsm_25": {
-        "type": "tech_difficulties",
-        "duration": 7,
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "next": "bsm_26"
+        "duration": 7,
+        "next": "bsm_26",
+        "type": "tech_difficulties"
       },
       "bsm_26": {
-        "type": "say",
-        "text": "The tape you are watching has been copied at least four times and the two frames are gone. They are gone from almost every copy. Ask the man who rented it to you; he will tell you, at length, which prints still have them.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 880
         },
-        "next": "bsm_27"
+        "next": "bsm_27",
+        "style": "narration",
+        "text": "The tape you are watching has been copied at least four times and the two frames are gone. They are gone from almost every copy. Ask the man who rented it to you; he will tell you, at length, which prints still have them.",
+        "type": "say"
       },
       "bsm_27": {
-        "type": "overlay",
-        "overlayType": "intermission",
-        "text": "INTERMISSION",
-        "subtext": "",
-        "duration_s": 40,
         "_vine": {
           "x": 520,
           "y": 880
         },
-        "next": "bsm_28"
+        "duration_s": 40,
+        "next": "bsm_28",
+        "overlayType": "intermission",
+        "subtext": "",
+        "text": "INTERMISSION",
+        "type": "overlay"
       },
       "bsm_28": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 3",
-        "subtext": "The Reading",
-        "duration_s": 8,
         "_vine": {
           "x": 740,
           "y": 880
         },
-        "next": "bsm_29"
+        "duration_s": 8,
+        "next": "bsm_29",
+        "overlayType": "act_card",
+        "subtext": "The Reading",
+        "text": "ACT 3",
+        "type": "overlay"
       },
       "bsm_29": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE OFFICE",
-        "subtext": "BEFORE DAWN",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 960,
           "y": 880
         },
-        "next": "bsm_30"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_30",
+        "overlayType": "lower_third",
+        "subtext": "BEFORE DAWN",
+        "text": "THE OFFICE",
+        "type": "overlay"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "style": "ambient",
+        "text": "♪ A single held organ note, recorded in a stairwell, badly. ♪",
+        "type": "say"
       },
       "bsm_30": {
-        "type": "say",
-        "text": "A ledger open on a desk. Names in a column. A great many names.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1040
         },
-        "next": "bsm_31"
+        "next": "bsm_31",
+        "style": "narration",
+        "text": "A ledger open on a desk. Names in a column. A great many names.",
+        "type": "say"
       },
       "bsm_31": {
-        "type": "say",
-        "text": "Ada Delph says, \"Sixty-one names and none of them clocked out.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "next": "bsm_32"
+        "next": "bsm_32",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"Sixty-one names and none of them clocked out.\"",
+        "type": "say"
       },
       "bsm_32": {
-        "type": "say",
-        "text": "The Foreman says, \"They were reassigned.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "next": "bsm_33"
+        "next": "bsm_33",
+        "style": "verbatim",
+        "text": "The Foreman says, \"They were reassigned.\"",
+        "type": "say"
       },
       "bsm_33": {
-        "type": "say",
-        "text": "Ada Delph says, \"To WHERE.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1040
         },
-        "next": "bsm_34"
+        "next": "bsm_34",
+        "style": "verbatim",
+        "text": "Ada Delph says, \"To WHERE.\"",
+        "type": "say"
       },
       "bsm_34": {
-        "type": "say",
-        "text": "The Foreman says, \"There's a form. It goes up. It doesn't come back.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "next": "bsm_35"
+        "next": "bsm_35",
+        "style": "verbatim",
+        "text": "The Foreman says, \"There's a form. It goes up. It doesn't come back.\"",
+        "type": "say"
       },
       "bsm_35": {
-        "type": "say",
-        "text": "She looks at him for a long time. He does not look away, and Prine holds it until it stops being a stand-off and becomes something sadder.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1200
         },
-        "next": "bsm_36"
+        "next": "bsm_36",
+        "style": "narration",
+        "text": "She looks at him for a long time. He does not look away, and Prine holds it until it stops being a stand-off and becomes something sadder.",
+        "type": "say"
       },
       "bsm_36": {
-        "type": "say",
-        "text": "The Foreman says, \"I've asked.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1200
         },
-        "next": "bsm_37"
+        "next": "bsm_37",
+        "style": "verbatim",
+        "text": "The Foreman says, \"I've asked.\"",
+        "type": "say"
       },
       "bsm_37": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE FLOOR",
-        "subtext": "THE LAST POUR OF THE SHIFT",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "next": "bsm_38"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_38",
+        "overlayType": "lower_third",
+        "subtext": "THE LAST POUR OF THE SHIFT",
+        "text": "THE FLOOR",
+        "type": "overlay"
       },
       "bsm_38": {
-        "type": "say",
-        "text": "DELPH at the rail. The ladle coming over. The light coming up.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "next": "bsm_39"
+        "next": "bsm_39",
+        "style": "narration",
+        "text": "DELPH at the rail. The ladle coming over. The light coming up.",
+        "type": "say"
       },
       "bsm_39": {
-        "type": "say",
-        "text": "She stayed eleven years.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "next": "bsm_40"
+        "next": "bsm_40",
+        "style": "narration",
+        "text": "She stayed eleven years.",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "An unofficial sequel to a picture the studio did not own, shot in eleven nights in a foundry that was still working days. Everything you see is real and nothing you hear is.",
+        "type": "say"
       },
       "bsm_40": {
-        "type": "say",
-        "text": "She never once got used to the note.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1360
         },
-        "next": "bsm_41"
+        "next": "bsm_41",
+        "style": "narration",
+        "text": "She never once got used to the note.",
+        "type": "say"
       },
       "bsm_41": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 3,
         "_vine": {
           "x": 300,
           "y": 1360
         },
-        "next": "bsm_42"
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_42",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_42": {
-        "type": "say",
-        "text": "The gate. The book. The lamp. The moths. A new hand signing in, whose face we do not see.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1360
         },
-        "next": "bsm_43"
+        "next": "bsm_43",
+        "style": "narration",
+        "text": "The gate. The book. The lamp. The moths. A new hand signing in, whose face we do not see.",
+        "type": "say"
       },
       "bsm_43": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
-        "text": "",
-        "duration_s": 2,
         "_vine": {
           "x": 740,
           "y": 1360
         },
-        "next": "bsm_44"
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_44",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_44": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": false,
-        "text": "",
-        "duration_s": 0,
         "_vine": {
           "x": 960,
           "y": 1360
         },
-        "next": "bsm_45"
+        "duration_s": 0,
+        "next": "bsm_45",
+        "on": false,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_45": {
-        "type": "credits",
-        "text": "NIGHT SHIFT AT NUMBER FOUR\n\nAda Delph .............. the new hand\nThe Foreman ............ who signs the forms\nThe Pour ............... itself\n\nA MELTWATER DRIVE-IN RELEASING PICTURE\n\nNo foundry gave permission for any of this.",
-        "duration": 18,
         "_vine": {
           "x": 80,
           "y": 1520
-        }
+        },
+        "duration": 18,
+        "text": "NIGHT SHIFT AT NUMBER FOUR\n\nAda Delph .............. the new hand\nThe Foreman ............ who signs the forms\nThe Pour ............... itself\n\nA MELTWATER DRIVE-IN RELEASING PICTURE\n\nNo foundry gave permission for any of this.",
+        "type": "credits"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_6",
+        "overlayType": "lower_third",
+        "subtext": "THIRD SHIFT",
+        "text": "NUMBER FOUR FOUNDRY",
+        "type": "overlay"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A woman signs a book at a gate under a lamp with moths in it. This is ADA DELPH and she has never held a ladle in her life.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "They were forty hands short that winter and they were not fussy about it.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "duration_s": 8,
+        "next": "bsm_9",
+        "overlayType": "act_card",
+        "subtext": "The New Hand",
+        "text": "ACT 1",
+        "type": "overlay"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "narration",
+        "text": "The floor. Heat haze rendered by shooting through a fire, which is the sort of thing Prine did instead of paying for an effect.",
+        "type": "say"
       },
       "bsm_pre_0": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "MELTWATER DRIVE-IN RELEASING",
-        "subtext": "presents",
-        "duration_s": 5,
         "_vine": {
           "x": 80,
           "y": -120
         },
-        "next": "bsm_pre_1"
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "MELTWATER DRIVE-IN RELEASING",
+        "type": "overlay"
       },
       "bsm_pre_1": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "CERTIFIED: NOT FOR THE NERVOUS",
-        "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "duration_s": 5,
         "_vine": {
           "x": 300,
           "y": -120
         },
-        "next": "bsm_pre_2"
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "CERTIFIED: NOT FOR THE NERVOUS",
+        "type": "overlay"
       },
       "bsm_pre_2": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "A film by Auggie Prine",
-        "subtext": "",
-        "duration_s": 5,
         "_vine": {
           "x": 520,
           "y": -120
         },
-        "next": "bsm_1"
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by Auggie Prine",
+        "type": "overlay"
       }
     }
   },
@@ -530,9 +530,8 @@
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "Meltwater Drive-In Releasing",
-    "rating": "CERTIFIED: NOT FOR THE NERVOUS",
-    "director": "Auggie Prine",
+    "airDays": null,
+    "airSlots": null,
     "cast": [
       {
         "label": "DELPH",
@@ -550,11 +549,12 @@
         "role": "itself"
       }
     ],
-    "title": "night_shift_title",
+    "director": "Auggie Prine",
+    "presents": "Meltwater Drive-In Releasing",
+    "rating": "CERTIFIED: NOT FOR THE NERVOUS",
+    "runtime": 840,
     "theme": "",
-    "airSlots": null,
-    "airDays": null,
-    "runtime": 840
+    "title": "night_shift_title"
   },
   "gameshow_pools": null,
   "id": "bc_night_shift_number_four",

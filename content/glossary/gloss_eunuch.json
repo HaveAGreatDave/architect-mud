@@ -1,8 +1,8 @@
 {
-  "id": "gloss_eunuch",
-  "term": "eunuch",
-  "gloss": "A castrated man, often employed as a guard or servant in a household.",
   "aliases": [
     "eunuchs"
-  ]
+  ],
+  "gloss": "A castrated man, often employed as a guard or servant in a household.",
+  "id": "gloss_eunuch",
+  "term": "eunuch"
 }

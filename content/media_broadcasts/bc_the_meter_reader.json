@@ -3,1015 +3,1015 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
-        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "bsm_pre_0"
+        "next": "bsm_pre_0",
+        "type": "start"
       },
       "bsm_1": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": true,
-        "text": "",
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
         "duration_s": 0,
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "type": "title_card",
-        "graphic_id": "meter_reader_title",
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "type": "say",
-        "text": "♪ A saxophone that has never once been asked to hurry. ♪",
-        "style": "ambient",
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "type": "say",
-        "text": "The print is a fourth-generation dub. Every fade goes green, and somebody has recorded eleven seconds of a soap opera over the top of the fifth reel, which is honestly an improvement.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "COLDWATER, SOLENNE RESIDENCES",
-        "subtext": "THE WET MONTH, 2083",
-        "graphic_id": "",
-        "duration_s": 6,
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "type": "say",
-        "text": "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she is not looking at, and the pen leaves a mark like a signature on something more binding.",
-        "style": "narration",
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "type": "say",
-        "text": "They gave me a torch, a clipboard, and a master key to four hundred and twelve doors.",
-        "style": "narration",
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "type": "say",
-        "text": "Nobody at Utilities ever asked what I did with the other three hundred and ninety.",
-        "style": "narration",
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Meter reader. It's not the job people think it is.\"",
-        "style": "verbatim",
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "on": true,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_10": {
-        "type": "say",
-        "text": "Cassia Wick says, \"It's worse. And it takes longer.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "next": "bsm_11"
+        "next": "bsm_11",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"It's worse. And it takes longer.\"",
+        "type": "say"
       },
       "bsm_11": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 1",
-        "subtext": "Consumption",
-        "duration_s": 8,
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "next": "bsm_12"
+        "duration_s": 8,
+        "next": "bsm_12",
+        "overlayType": "act_card",
+        "subtext": "Consumption",
+        "text": "ACT 1",
+        "type": "overlay"
       },
       "bsm_12": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "UNIT 12-C",
-        "subtext": "TUESDAY, 14:40",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "next": "bsm_13"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_13",
+        "overlayType": "lower_third",
+        "subtext": "TUESDAY, 14:40",
+        "text": "UNIT 12-C",
+        "type": "overlay"
       },
       "bsm_13": {
-        "type": "say",
-        "text": "MRS OKONJO opens the door in a housecoat and the specific dignity of somebody who has decided in advance not to be embarrassed.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "style": "narration",
+        "text": "MRS OKONJO opens the door in a housecoat and the specific dignity of somebody who has decided in advance not to be embarrassed.",
+        "type": "say"
       },
       "bsm_14": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"You're the one from the letters.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"You're the one from the letters.\"",
+        "type": "say"
       },
       "bsm_15": {
-        "type": "say",
-        "text": "Cassia Wick says, \"I'm the one from the meter, ma'am. The letters come from a different building.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "next": "bsm_16"
+        "next": "bsm_16",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"I'm the one from the meter, ma'am. The letters come from a different building.\"",
+        "type": "say"
       },
       "bsm_16": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"Come in, then. Read whatever you like.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "next": "bsm_17"
+        "next": "bsm_17",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"Come in, then. Read whatever you like.\"",
+        "type": "say"
       },
       "bsm_17": {
-        "type": "say",
-        "text": "The cupboard with the meter in it is behind the bed. It is always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "next": "bsm_18"
+        "next": "bsm_18",
+        "style": "narration",
+        "text": "The cupboard with the meter in it is behind the bed. It is always behind the bed. The picture makes nothing of this at all, which is somehow filthier.",
+        "type": "say"
       },
       "bsm_18": {
-        "type": "say",
-        "text": "Cassia Wick says, \"You're using four times what a single occupant uses.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "next": "bsm_19"
+        "next": "bsm_19",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"You're using four times what a single occupant uses.\"",
+        "type": "say"
       },
       "bsm_19": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"I run hot.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "next": "bsm_20"
+        "next": "bsm_20",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"I run hot.\"",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "meter_reader_title",
+        "next": "bsm_3",
+        "type": "title_card"
       },
       "bsm_20": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Ma'am, this dial hasn't stopped since March.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 720
         },
-        "next": "bsm_21"
+        "next": "bsm_21",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Ma'am, this dial hasn't stopped since March.\"",
+        "type": "say"
       },
       "bsm_21": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"Neither have I, dear.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 720
         },
-        "next": "bsm_22"
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"Neither have I, dear.\"",
+        "type": "say"
       },
       "bsm_22": {
-        "type": "say",
-        "text": "She sits on the edge of the bed. CASSIA kneels to the meter, which puts her at a height the director holds for eleven full seconds without a single line of dialogue.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "next": "bsm_23"
+        "next": "bsm_23",
+        "style": "narration",
+        "text": "She sits on the edge of the bed. CASSIA kneels to the meter, which puts her at a height the director holds for eleven full seconds without a single line of dialogue.",
+        "type": "say"
       },
       "bsm_23": {
-        "type": "say",
-        "text": "♪ The saxophone remembers it has a job to do. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "next": "bsm_24"
+        "next": "bsm_24",
+        "style": "ambient",
+        "text": "♪ The saxophone remembers it has a job to do. ♪",
+        "type": "say"
       },
       "bsm_24": {
-        "type": "say",
-        "text": "There is a moment in every apartment where the reading stops being about the reading.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "next": "bsm_25"
+        "next": "bsm_25",
+        "style": "narration",
+        "text": "There is a moment in every apartment where the reading stops being about the reading.",
+        "type": "say"
       },
       "bsm_25": {
-        "type": "say",
-        "text": "Mine took four seconds. Hers had been waiting since March.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "next": "bsm_26"
+        "next": "bsm_26",
+        "style": "narration",
+        "text": "Mine took four seconds. Hers had been waiting since March.",
+        "type": "say"
       },
       "bsm_26": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 3,
         "_vine": {
           "x": 300,
           "y": 880
         },
-        "next": "bsm_27"
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_27",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_27": {
-        "type": "say",
-        "text": "Later. The meter is still ticking. Nobody has looked at it.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 880
         },
-        "next": "bsm_28"
+        "next": "bsm_28",
+        "style": "narration",
+        "text": "Later. The meter is still ticking. Nobody has looked at it.",
+        "type": "say"
       },
       "bsm_28": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
-        "text": "",
-        "duration_s": 2,
         "_vine": {
           "x": 740,
           "y": 880
         },
-        "next": "bsm_29"
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_29",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_29": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"Will you have to put that in the report?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 880
         },
-        "next": "bsm_30"
+        "next": "bsm_30",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"Will you have to put that in the report?\"",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "style": "ambient",
+        "text": "♪ A saxophone that has never once been asked to hurry. ♪",
+        "type": "say"
       },
       "bsm_30": {
-        "type": "say",
-        "text": "Cassia Wick says, \"I'll put down that the unit was drawing heavily and the tenant was cooperative.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1040
         },
-        "next": "bsm_31"
+        "next": "bsm_31",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"I'll put down that the unit was drawing heavily and the tenant was cooperative.\"",
+        "type": "say"
       },
       "bsm_31": {
-        "type": "say",
-        "text": "Mrs. Okonjo says, \"Was I?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "next": "bsm_32"
+        "next": "bsm_32",
+        "style": "verbatim",
+        "text": "Mrs. Okonjo says, \"Was I?\"",
+        "type": "say"
       },
       "bsm_32": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Twice.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "next": "bsm_33"
+        "next": "bsm_33",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Twice.\"",
+        "type": "say"
       },
       "bsm_33": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 2",
-        "subtext": "The Poet in 19-A",
-        "duration_s": 8,
         "_vine": {
           "x": 740,
           "y": 1040
         },
-        "next": "bsm_34"
+        "duration_s": 8,
+        "next": "bsm_34",
+        "overlayType": "act_card",
+        "subtext": "The Poet in 19-A",
+        "text": "ACT 2",
+        "type": "overlay"
       },
       "bsm_34": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "UNIT 19-A",
-        "subtext": "THURSDAY, 22:10",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "next": "bsm_35"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_35",
+        "overlayType": "lower_third",
+        "subtext": "THURSDAY, 22:10",
+        "text": "UNIT 19-A",
+        "type": "overlay"
       },
       "bsm_35": {
-        "type": "say",
-        "text": "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that is losing an argument with gravity.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1200
         },
-        "next": "bsm_36"
+        "next": "bsm_36",
+        "style": "narration",
+        "text": "DELF answers the door barefoot, holding a notebook the way other men hold a shield, and wearing a bathrobe that is losing an argument with gravity.",
+        "type": "say"
       },
       "bsm_36": {
-        "type": "say",
-        "text": "Delf says, \"You're not going to believe this, but I was writing about you.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1200
         },
-        "next": "bsm_37"
+        "next": "bsm_37",
+        "style": "verbatim",
+        "text": "Delf says, \"You're not going to believe this, but I was writing about you.\"",
+        "type": "say"
       },
       "bsm_37": {
-        "type": "say",
-        "text": "Cassia Wick says, \"I'd believe it. Everybody in this building is writing about somebody.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "next": "bsm_38"
+        "next": "bsm_38",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"I'd believe it. Everybody in this building is writing about somebody.\"",
+        "type": "say"
       },
       "bsm_38": {
-        "type": "say",
-        "text": "Delf says, \"It's called \"The Woman Who Reads What We Use.\"\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "next": "bsm_39"
+        "next": "bsm_39",
+        "style": "verbatim",
+        "text": "Delf says, \"It's called \"The Woman Who Reads What We Use.\"\"",
+        "type": "say"
       },
       "bsm_39": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Is it long?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "next": "bsm_40"
+        "next": "bsm_40",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Is it long?\"",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "The print is a fourth-generation dub. Every fade goes green, and somebody has recorded eleven seconds of a soap opera over the top of the fifth reel, which is honestly an improvement.",
+        "type": "say"
       },
       "bsm_40": {
-        "type": "say",
-        "text": "Delf says, \"It's nine pages.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1360
         },
-        "next": "bsm_41"
+        "next": "bsm_41",
+        "style": "verbatim",
+        "text": "Delf says, \"It's nine pages.\"",
+        "type": "say"
       },
       "bsm_41": {
-        "type": "say",
-        "text": "Cassia Wick says, \"That's a no, then.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1360
         },
-        "next": "bsm_42"
+        "next": "bsm_42",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"That's a no, then.\"",
+        "type": "say"
       },
       "bsm_42": {
-        "type": "say",
-        "text": "He reads her a stanza anyway. It is very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1360
         },
-        "next": "bsm_43"
+        "next": "bsm_43",
+        "style": "narration",
+        "text": "He reads her a stanza anyway. It is very bad. The picture lets it run in full, which is the closest this film ever comes to cruelty.",
+        "type": "say"
       },
       "bsm_43": {
-        "type": "say",
-        "text": "Delf says, \"\"You come with your torch / into the dark of my cupboard / and you take a number from me / and you write it down.\"\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1360
         },
-        "next": "bsm_44"
+        "next": "bsm_44",
+        "style": "verbatim",
+        "text": "Delf says, \"\"You come with your torch / into the dark of my cupboard / and you take a number from me / and you write it down.\"\"",
+        "type": "say"
       },
       "bsm_44": {
-        "type": "say",
-        "text": "Cassia Wick says, \"That's the job, yes.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1360
         },
-        "next": "bsm_45"
+        "next": "bsm_45",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"That's the job, yes.\"",
+        "type": "say"
       },
       "bsm_45": {
-        "type": "say",
-        "text": "Delf says, \"It's a metaphor.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1520
         },
-        "next": "bsm_46"
+        "next": "bsm_46",
+        "style": "verbatim",
+        "text": "Delf says, \"It's a metaphor.\"",
+        "type": "say"
       },
       "bsm_46": {
-        "type": "say",
-        "text": "Cassia Wick says, \"It's a cupboard, Delf.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1520
         },
-        "next": "bsm_47"
+        "next": "bsm_47",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"It's a cupboard, Delf.\"",
+        "type": "say"
       },
       "bsm_47": {
-        "type": "say",
-        "text": "She checks his meter. It reads almost nothing. He has been sitting in the dark for a month because he spent the standing charge on lamp oil, for the atmosphere.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1520
         },
-        "next": "bsm_48"
+        "next": "bsm_48",
+        "style": "narration",
+        "text": "She checks his meter. It reads almost nothing. He has been sitting in the dark for a month because he spent the standing charge on lamp oil, for the atmosphere.",
+        "type": "say"
       },
       "bsm_48": {
-        "type": "say",
-        "text": "Some of them consume everything. Some of them consume nothing and call it art.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 1520
         },
-        "next": "bsm_49"
+        "next": "bsm_49",
+        "style": "narration",
+        "text": "Some of them consume everything. Some of them consume nothing and call it art.",
+        "type": "say"
       },
       "bsm_49": {
-        "type": "say",
-        "text": "Both of them want you to notice, and both of them get what they want.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1520
         },
-        "next": "bsm_50"
+        "next": "bsm_50",
+        "style": "narration",
+        "text": "Both of them want you to notice, and both of them get what they want.",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_6",
+        "overlayType": "lower_third",
+        "subtext": "THE WET MONTH, 2083",
+        "text": "COLDWATER, SOLENNE RESIDENCES",
+        "type": "overlay"
       },
       "bsm_50": {
-        "type": "say",
-        "text": "♪ Wah-wah pedal. Somebody has clearly been told this is the sensual one. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 80,
           "y": 1680
         },
-        "next": "bsm_51"
+        "next": "bsm_51",
+        "style": "ambient",
+        "text": "♪ Wah-wah pedal. Somebody has clearly been told this is the sensual one. ♪",
+        "type": "say"
       },
       "bsm_51": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Put the notebook down.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1680
         },
-        "next": "bsm_52"
+        "next": "bsm_52",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Put the notebook down.\"",
+        "type": "say"
       },
       "bsm_52": {
-        "type": "say",
-        "text": "Delf says, \"Which part is this?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1680
         },
-        "next": "bsm_53"
+        "next": "bsm_53",
+        "style": "verbatim",
+        "text": "Delf says, \"Which part is this?\"",
+        "type": "say"
       },
       "bsm_53": {
-        "type": "say",
-        "text": "Cassia Wick says, \"The part with no pages.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1680
         },
-        "next": "bsm_54"
+        "next": "bsm_54",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"The part with no pages.\"",
+        "type": "say"
       },
       "bsm_54": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 3,
         "_vine": {
           "x": 960,
           "y": 1680
         },
-        "next": "bsm_55"
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_55",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_55": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE STAIRWELL",
-        "subtext": "LATER",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 80,
           "y": 1840
         },
-        "next": "bsm_56"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_56",
+        "overlayType": "lower_third",
+        "subtext": "LATER",
+        "text": "THE STAIRWELL",
+        "type": "overlay"
       },
       "bsm_56": {
-        "type": "say",
-        "text": "CASSIA sits on the landing writing up her clipboard by torchlight. She writes: 19-A: NEGLIGIBLE DRAW. TENANT ADVISED.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 1840
         },
-        "next": "bsm_57"
+        "next": "bsm_57",
+        "style": "narration",
+        "text": "CASSIA sits on the landing writing up her clipboard by torchlight. She writes: 19-A: NEGLIGIBLE DRAW. TENANT ADVISED.",
+        "type": "say"
       },
       "bsm_57": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Advised.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1840
         },
-        "next": "bsm_58"
+        "next": "bsm_58",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Advised.\"",
+        "type": "say"
       },
       "bsm_58": {
-        "type": "tech_difficulties",
-        "duration": 8,
         "_vine": {
           "x": 740,
           "y": 1840
         },
-        "next": "bsm_59"
+        "duration": 8,
+        "next": "bsm_59",
+        "type": "tech_difficulties"
       },
       "bsm_59": {
-        "type": "say",
-        "text": "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we are back, in a different room, with somebody's belt already on the floor.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1840
         },
-        "next": "bsm_60"
+        "next": "bsm_60",
+        "style": "narration",
+        "text": "REEL FIVE IS TAPED OVER. Eleven seconds of a soap opera, a woman shouting the word \"GERALD\", and then we are back, in a different room, with somebody's belt already on the floor.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "Rain on a lobby window. A woman in a grey utility coverall signs a clipboard she is not looking at, and the pen leaves a mark like a signature on something more binding.",
+        "type": "say"
       },
       "bsm_60": {
-        "type": "overlay",
-        "overlayType": "intermission",
-        "text": "INTERMISSION",
-        "subtext": "",
-        "duration_s": 45,
         "_vine": {
           "x": 80,
           "y": 2000
         },
-        "next": "bsm_61"
+        "duration_s": 45,
+        "next": "bsm_61",
+        "overlayType": "intermission",
+        "subtext": "",
+        "text": "INTERMISSION",
+        "type": "overlay"
       },
       "bsm_61": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 3",
-        "subtext": "Compliance",
-        "duration_s": 8,
         "_vine": {
           "x": 300,
           "y": 2000
         },
-        "next": "bsm_62"
+        "duration_s": 8,
+        "next": "bsm_62",
+        "overlayType": "act_card",
+        "subtext": "Compliance",
+        "text": "ACT 3",
+        "type": "overlay"
       },
       "bsm_62": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "UTILITIES COMPLIANCE, SUB-LEVEL 2",
-        "subtext": "THE DRY MONTH",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 2000
         },
-        "next": "bsm_63"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_63",
+        "overlayType": "lower_third",
+        "subtext": "THE DRY MONTH",
+        "text": "UTILITIES COMPLIANCE, SUB-LEVEL 2",
+        "type": "overlay"
       },
       "bsm_63": {
-        "type": "say",
-        "text": "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he is either very unimportant or the most dangerous man in the building.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 2000
         },
-        "next": "bsm_64"
+        "next": "bsm_64",
+        "style": "narration",
+        "text": "MR CORVUS has an office with no window and a desk with no papers on it, which in Coldwater means he is either very unimportant or the most dangerous man in the building.",
+        "type": "say"
       },
       "bsm_64": {
-        "type": "say",
-        "text": "Mr. Corvus says, \"Four hundred and twelve units, Miss Wick. Your route posts the highest satisfaction figures in the district.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2000
         },
-        "next": "bsm_65"
+        "next": "bsm_65",
+        "style": "verbatim",
+        "text": "Mr. Corvus says, \"Four hundred and twelve units, Miss Wick. Your route posts the highest satisfaction figures in the district.\"",
+        "type": "say"
       },
       "bsm_65": {
-        "type": "say",
-        "text": "Cassia Wick says, \"People like knowing where they stand.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2160
         },
-        "next": "bsm_66"
+        "next": "bsm_66",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"People like knowing where they stand.\"",
+        "type": "say"
       },
       "bsm_66": {
-        "type": "say",
-        "text": "Mr. Corvus says, \"People like a great deal more than that, apparently.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 2160
         },
-        "next": "bsm_67"
+        "next": "bsm_67",
+        "style": "verbatim",
+        "text": "Mr. Corvus says, \"People like a great deal more than that, apparently.\"",
+        "type": "say"
       },
       "bsm_67": {
-        "type": "say",
-        "text": "He slides a folder across the desk. She does not open it. The green fade eats the corner of the frame.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2160
         },
-        "next": "bsm_68"
+        "next": "bsm_68",
+        "style": "narration",
+        "text": "He slides a folder across the desk. She does not open it. The green fade eats the corner of the frame.",
+        "type": "say"
       },
       "bsm_68": {
-        "type": "say",
-        "text": "Mr. Corvus says, \"There is a column on this form for irregular access.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 2160
         },
-        "next": "bsm_69"
+        "next": "bsm_69",
+        "style": "verbatim",
+        "text": "Mr. Corvus says, \"There is a column on this form for irregular access.\"",
+        "type": "say"
       },
       "bsm_69": {
-        "type": "say",
-        "text": "Cassia Wick says, \"There's a column for everything. That's the trouble with the form.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2160
         },
-        "next": "bsm_70"
+        "next": "bsm_70",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"There's a column for everything. That's the trouble with the form.\"",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "They gave me a torch, a clipboard, and a master key to four hundred and twelve doors.",
+        "type": "say"
       },
       "bsm_70": {
-        "type": "say",
-        "text": "Mr. Corvus says, \"I could make it go away.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2320
         },
-        "next": "bsm_71"
+        "next": "bsm_71",
+        "style": "verbatim",
+        "text": "Mr. Corvus says, \"I could make it go away.\"",
+        "type": "say"
       },
       "bsm_71": {
-        "type": "say",
-        "text": "Cassia Wick says, \"And what would that cost me, Mr. Corvus?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 2320
         },
-        "next": "bsm_72"
+        "next": "bsm_72",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"And what would that cost me, Mr. Corvus?\"",
+        "type": "say"
       },
       "bsm_72": {
-        "type": "say",
-        "text": "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face does not move once.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2320
         },
-        "next": "bsm_73"
+        "next": "bsm_73",
+        "style": "narration",
+        "text": "He tells her. It takes him a while, and the picture wisely stays on her face for all of it, and her face does not move once.",
+        "type": "say"
       },
       "bsm_73": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Stand up.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 2320
         },
-        "next": "bsm_74"
+        "next": "bsm_74",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Stand up.\"",
+        "type": "say"
       },
       "bsm_74": {
-        "type": "say",
-        "text": "Mr. Corvus says, \"I beg your...\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2320
         },
-        "next": "bsm_75"
+        "next": "bsm_75",
+        "style": "verbatim",
+        "text": "Mr. Corvus says, \"I beg your...\"",
+        "type": "say"
       },
       "bsm_75": {
-        "type": "say",
-        "text": "Cassia Wick says, \"Stand up and read your own meter.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2480
         },
-        "next": "bsm_76"
+        "next": "bsm_76",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Stand up and read your own meter.\"",
+        "type": "say"
       },
       "bsm_76": {
-        "type": "say",
-        "text": "She turns his desk lamp around. Behind him, set into the wall, is his unit's dial. It has been running flat out, all night, every night, for two years: a building's worth of draw going into one windowless room nobody is ever invited into.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 2480
         },
-        "next": "bsm_77"
+        "next": "bsm_77",
+        "style": "narration",
+        "text": "She turns his desk lamp around. Behind him, set into the wall, is his unit's dial. It has been running flat out, all night, every night, for two years: a building's worth of draw going into one windowless room nobody is ever invited into.",
+        "type": "say"
       },
       "bsm_77": {
-        "type": "say",
-        "text": "Everybody in Coldwater is consuming something.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2480
         },
-        "next": "bsm_78"
+        "next": "bsm_78",
+        "style": "narration",
+        "text": "Everybody in Coldwater is consuming something.",
+        "type": "say"
       },
       "bsm_78": {
-        "type": "say",
-        "text": "The only real sin is doing it off somebody else's line.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 2480
         },
-        "next": "bsm_79"
+        "next": "bsm_79",
+        "style": "narration",
+        "text": "The only real sin is doing it off somebody else's line.",
+        "type": "say"
       },
       "bsm_79": {
-        "type": "say",
-        "text": "♪ The saxophone, finally, in a hurry. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 960,
           "y": 2480
         },
-        "next": "bsm_80"
+        "next": "bsm_80",
+        "style": "ambient",
+        "text": "♪ The saxophone, finally, in a hurry. ♪",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "narration",
+        "text": "Nobody at Utilities ever asked what I did with the other three hundred and ninety.",
+        "type": "say"
       },
       "bsm_80": {
-        "type": "say",
-        "text": "What follows was cut in three districts, restored badly twice, and is the entire reason this tape is not sold in shops. The transfer flares white. Somebody is laughing. It is not Mr. Corvus.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 2640
         },
-        "next": "bsm_81"
+        "next": "bsm_81",
+        "style": "narration",
+        "text": "What follows was cut in three districts, restored badly twice, and is the entire reason this tape is not sold in shops. The transfer flares white. Somebody is laughing. It is not Mr. Corvus.",
+        "type": "say"
       },
       "bsm_81": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 4,
         "_vine": {
           "x": 300,
           "y": 2640
         },
-        "next": "bsm_82"
+        "duration_s": 4,
+        "fade": "out",
+        "next": "bsm_82",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_82": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE LOBBY",
-        "subtext": "THE FOLLOWING WEEK",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 2640
         },
-        "next": "bsm_83"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_83",
+        "overlayType": "lower_third",
+        "subtext": "THE FOLLOWING WEEK",
+        "text": "THE LOBBY",
+        "type": "overlay"
       },
       "bsm_83": {
-        "type": "say",
-        "text": "A new notice on the board: UTILITIES COMPLIANCE: POSITION VACANT. Someone has drawn a circle on it, worn flat on one side.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 2640
         },
-        "next": "bsm_84"
+        "next": "bsm_84",
+        "style": "narration",
+        "text": "A new notice on the board: UTILITIES COMPLIANCE: POSITION VACANT. Someone has drawn a circle on it, worn flat on one side.",
+        "type": "say"
       },
       "bsm_84": {
-        "type": "say",
-        "text": "Bev Trask says, \"They're saying you got him transferred.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2640
         },
-        "next": "bsm_85"
+        "next": "bsm_85",
+        "style": "verbatim",
+        "text": "Bev Trask says, \"They're saying you got him transferred.\"",
+        "type": "say"
       },
       "bsm_85": {
-        "type": "say",
-        "text": "Cassia Wick says, \"I got him metered.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2800
         },
-        "next": "bsm_86"
+        "next": "bsm_86",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"I got him metered.\"",
+        "type": "say"
       },
       "bsm_86": {
-        "type": "say",
-        "text": "Bev Trask says, \"Same thing, in this town.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 2800
         },
-        "next": "bsm_87"
+        "next": "bsm_87",
+        "style": "verbatim",
+        "text": "Bev Trask says, \"Same thing, in this town.\"",
+        "type": "say"
       },
       "bsm_87": {
-        "type": "say",
-        "text": "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera does not follow her, because the camera has learned some manners.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2800
         },
-        "next": "bsm_88"
+        "next": "bsm_88",
+        "style": "narration",
+        "text": "CASSIA takes her torch and her clipboard and starts up the stairs. Four hundred and eleven doors to go. The camera does not follow her, because the camera has learned some manners.",
+        "type": "say"
       },
       "bsm_88": {
-        "type": "say",
-        "text": "Tuesdays, twelfth floor.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 2800
         },
-        "next": "bsm_89"
+        "next": "bsm_89",
+        "style": "narration",
+        "text": "Tuesdays, twelfth floor.",
+        "type": "say"
       },
       "bsm_89": {
-        "type": "say",
-        "text": "Bring a torch. Bring a clipboard.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 2800
         },
-        "next": "bsm_90"
+        "next": "bsm_90",
+        "style": "narration",
+        "text": "Bring a torch. Bring a clipboard.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "verbatim",
+        "text": "Cassia Wick says, \"Meter reader. It's not the job people think it is.\"",
+        "type": "say"
       },
       "bsm_90": {
-        "type": "say",
-        "text": "Don't bring anybody with you.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 2960
         },
-        "next": "bsm_91"
+        "next": "bsm_91",
+        "style": "narration",
+        "text": "Don't bring anybody with you.",
+        "type": "say"
       },
       "bsm_91": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
-        "text": "",
-        "duration_s": 2,
         "_vine": {
           "x": 300,
           "y": 2960
         },
-        "next": "bsm_92"
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_92",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_92": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": false,
-        "text": "",
-        "duration_s": 0,
         "_vine": {
           "x": 520,
           "y": 2960
         },
-        "next": "bsm_93"
+        "duration_s": 0,
+        "next": "bsm_93",
+        "on": false,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_93": {
-        "type": "credits",
-        "text": "THE METER READER: VOLUME NINE\n\nCassia Wick ......... the reader\nMrs. Okonjo ......... four months behind, entirely unashamed\nDelf ................ nine pages, no lamp oil\nMr. Corvus .......... two years of unbilled draw\nBev Trask ........... the super, who knew all along\n\nDIRECTED BY A FRIEND\nPHOTOGRAPHED IN ONE BUILDING, MOSTLY IN CUPBOARDS\n\nA SABLE WICK VAULT RELEASING PICTURE\n\nVolumes One through Eight are believed lost.\nVolume Ten was never made. Ask anybody why.",
-        "duration": 20,
         "_vine": {
           "x": 740,
           "y": 2960
-        }
+        },
+        "duration": 20,
+        "text": "THE METER READER: VOLUME NINE\n\nCassia Wick ......... the reader\nMrs. Okonjo ......... four months behind, entirely unashamed\nDelf ................ nine pages, no lamp oil\nMr. Corvus .......... two years of unbilled draw\nBev Trask ........... the super, who knew all along\n\nDIRECTED BY A FRIEND\nPHOTOGRAPHED IN ONE BUILDING, MOSTLY IN CUPBOARDS\n\nA SABLE WICK VAULT RELEASING PICTURE\n\nVolumes One through Eight are believed lost.\nVolume Ten was never made. Ask anybody why.",
+        "type": "credits"
       },
       "bsm_pre_0": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "SABLE WICK VAULT RELEASING",
-        "subtext": "presents",
-        "duration_s": 5,
         "_vine": {
           "x": 80,
           "y": -120
         },
-        "next": "bsm_pre_1"
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "SABLE WICK VAULT RELEASING",
+        "type": "overlay"
       },
       "bsm_pre_1": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "CERTIFIED: PRIVATE VIEWING ONLY · TAPE MAY RUN HOT",
-        "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "duration_s": 5,
         "_vine": {
           "x": 300,
           "y": -120
         },
-        "next": "bsm_pre_2"
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "CERTIFIED: PRIVATE VIEWING ONLY · TAPE MAY RUN HOT",
+        "type": "overlay"
       },
       "bsm_pre_2": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "A film by credited only as A FRIEND",
-        "subtext": "",
-        "duration_s": 5,
         "_vine": {
           "x": 520,
           "y": -120
         },
-        "next": "bsm_1"
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by credited only as A FRIEND",
+        "type": "overlay"
       }
     }
   },
@@ -1022,9 +1022,8 @@
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "Sable Wick Vault Releasing",
-    "rating": "CERTIFIED: PRIVATE VIEWING ONLY · TAPE MAY RUN HOT",
-    "director": "credited only as A FRIEND",
+    "airDays": null,
+    "airSlots": null,
     "cast": [
       {
         "label": "CASSIA",
@@ -1052,11 +1051,12 @@
         "role": "Utilities Compliance"
       }
     ],
-    "title": "meter_reader_title",
+    "director": "credited only as A FRIEND",
+    "presents": "Sable Wick Vault Releasing",
+    "rating": "CERTIFIED: PRIVATE VIEWING ONLY · TAPE MAY RUN HOT",
+    "runtime": 1500,
     "theme": "",
-    "airSlots": null,
-    "airDays": null,
-    "runtime": 1500
+    "title": "meter_reader_title"
   },
   "gameshow_pools": null,
   "id": "bc_the_meter_reader",

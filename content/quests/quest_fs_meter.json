@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Read the dead meters at Ironside Street, then the dead meters up at Plaza North, and copy down numbers no one will ever check. 10₵.",
+  "fail_on": [],
   "id": "quest_fs_meter",
   "meta": {
     "taskSeconds": 5
@@ -33,6 +34,7 @@
       "zone": "zone_district_894_904"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

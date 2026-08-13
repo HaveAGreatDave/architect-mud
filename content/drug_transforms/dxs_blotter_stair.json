@@ -1,25 +1,27 @@
 {
-  "id": "dxs_blotter_stair",
-  "drug_id": "drug_blotter",
-  "matches": null,
-  "scope": "spawn",
-  "name": "a short flight of stairs to nowhere",
+  "asks": [
+    "Are you going up?",
+    "Did somebody just come down? I felt somebody come down."
+  ],
   "description": "Four steps stand here, immaculately built in pale wood with a brass rail, arriving at the height they started from.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} creaks under a weight that is not on it.",
+    "The brass rail on {it} takes a highlight from a light that is not in the room."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_blotter_stair",
   "looks": [
     "Up, and back to here. Beautiful work.",
     "The treads are worn where nobody could have walked.",
     "You climb them and are exactly where you were and delighted."
   ],
+  "matches": null,
+  "name": "a short flight of stairs to nowhere",
   "says": [
     "After you.",
     "It is funnier the second time."
   ],
-  "emotes": [
-    "{it} creaks under a weight that is not on it.",
-    "The brass rail on {it} takes a highlight from a light that is not in the room."
-  ],
-  "asks": [
-    "Are you going up?",
-    "Did somebody just come down? I felt somebody come down."
-  ]
+  "scope": "spawn"
 }

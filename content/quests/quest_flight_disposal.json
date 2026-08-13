@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Contraband. Fly it dark.",
+  "fail_on": [],
   "id": "quest_flight_disposal",
   "meta": {
     "deadlineMins": 30,
@@ -17,6 +18,7 @@
   },
   "name": "Disposal",
   "objectives": [],
+  "penalties": {},
   "quest_type": "flight_template",
   "repeatable": 1,
   "rewards": {},

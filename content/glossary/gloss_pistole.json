@@ -1,8 +1,8 @@
 {
-  "id": "gloss_pistole",
-  "term": "pistole",
-  "gloss": "A Spanish gold coin, widely used across Europe.",
   "aliases": [
     "pistoles"
-  ]
+  ],
+  "gloss": "A Spanish gold coin, widely used across Europe.",
+  "id": "gloss_pistole",
+  "term": "pistole"
 }

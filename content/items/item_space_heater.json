@@ -1,11 +1,11 @@
 {
   "description": "A squat ceramic block on a wire frame, with a handle and a dial nobody trusts.",
   "flags": {
+    "heater_battery_min": 720,
+    "heater_target_c": 20,
     "interactions": [
       "lift"
     ],
-    "heater_target_c": 20,
-    "heater_battery_min": 720,
     "power_draw_kw": 0.8
   },
   "id": "item_space_heater",

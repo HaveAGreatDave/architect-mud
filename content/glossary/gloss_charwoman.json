@@ -1,8 +1,8 @@
 {
-  "id": "gloss_charwoman",
-  "term": "charwoman",
-  "gloss": "A woman hired by the day to clean.",
   "aliases": [
     "charwomen"
-  ]
+  ],
+  "gloss": "A woman hired by the day to clean.",
+  "id": "gloss_charwoman",
+  "term": "charwoman"
 }

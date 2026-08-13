@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_farewell_normal_002",
   "drug_id": null,
-  "source": "object_reply_farewell",
-  "tone": "normal",
-  "self_line": "See you, then.",
-  "room_line": "",
+  "id": "dr_objrep_farewell_normal_002",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "See you, then.",
+  "source": "object_reply_farewell",
+  "tone": "normal"
 }

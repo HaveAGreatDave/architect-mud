@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_surreal_008",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "surreal",
-  "self_line": "And when it wears off, will you be sure I was not? Genuinely sure?",
-  "room_line": "",
+  "id": "dr_objrep_denial_surreal_008",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "And when it wears off, will you be sure I was not? Genuinely sure?",
+  "source": "object_reply_denial",
+  "tone": "surreal"
 }

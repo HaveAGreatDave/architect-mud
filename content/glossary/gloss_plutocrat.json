@@ -1,9 +1,9 @@
 {
-  "id": "gloss_plutocrat",
-  "term": "plutocrat",
-  "gloss": "Someone whose power comes from wealth.",
   "aliases": [
     "plutocrats",
     "plutocracy"
-  ]
+  ],
+  "gloss": "Someone whose power comes from wealth.",
+  "id": "gloss_plutocrat",
+  "term": "plutocrat"
 }

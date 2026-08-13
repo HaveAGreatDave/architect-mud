@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_502",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": "stranger",
+  "id": "dr_npc_normal_502",
   "npc_type": null,
+  "relation": "stranger",
+  "room_line": "{npc} looks at {player}, weighs it up, and decides not to get involved.",
   "self_line": "{npc} decides, visibly, not to get involved.",
-  "room_line": "{npc} looks at {player}, weighs it up, and decides not to get involved."
+  "source": "npc",
+  "tone": "normal"
 }

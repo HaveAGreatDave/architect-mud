@@ -1,33 +1,33 @@
 {
-  "id": "dt_ibogaine_the_screening",
-  "name": "The Screening",
-  "description": "It has started at the beginning and it is going to do all of it. Your life, in order, at the correct speed, with somebody attentive sitting just off to one side. Nothing is being skipped. There is a dry electrical buzzing through all of it, head to foot.",
-  "cause": "drug",
-  "drug_id": "drug_ibogaine",
-  "objects": [
-    {
-      "name": "the buzzing",
-      "looks": [
-        "Dry, electrical, total. It is in your teeth and your heels.",
-        "It is the projector, in some sense you will not be able to explain later.",
-        "It gets louder at the parts that matter."
-      ]
-    },
-    {
-      "name": "the one sitting off to one side",
-      "looks": [
-        "Attentive. Not judging. Taking it in properly, which is worse.",
-        "They have been here for all of it and will stay for the rest.",
-        "They are waiting for you to say something about this part."
-      ]
-    }
-  ],
   "ambient": [
     "It moves on to the next part, at the correct speed.",
     "The buzzing rises through something you had not thought about in years.",
     "A pause, and the sense of a note being made."
   ],
-  "weather": "A dry electrical warmth, head to foot, that rises at the parts that matter.",
+  "cause": "drug",
+  "description": "It has started at the beginning and it is going to do all of it. Your life, in order, at the correct speed, with somebody attentive sitting just off to one side. Nothing is being skipped. There is a dry electrical buzzing through all of it, head to foot.",
+  "drug_id": "drug_ibogaine",
   "fx": "ash",
-  "fx_intensity": 0.6
+  "fx_intensity": 0.6,
+  "id": "dt_ibogaine_the_screening",
+  "name": "The Screening",
+  "objects": [
+    {
+      "looks": [
+        "Dry, electrical, total. It is in your teeth and your heels.",
+        "It is the projector, in some sense you will not be able to explain later.",
+        "It gets louder at the parts that matter."
+      ],
+      "name": "the buzzing"
+    },
+    {
+      "looks": [
+        "Attentive. Not judging. Taking it in properly, which is worse.",
+        "They have been here for all of it and will stay for the rest.",
+        "They are waiting for you to say something about this part."
+      ],
+      "name": "the one sitting off to one side"
+    }
+  ],
+  "weather": "A dry electrical warmth, head to foot, that rises at the parts that matter."
 }

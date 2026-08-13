@@ -1,9 +1,9 @@
 {
-  "id": "gloss_pedant",
-  "term": "pedant",
-  "gloss": "Someone obsessed with small points of correctness.",
   "aliases": [
     "pedantry",
     "pedantic"
-  ]
+  ],
+  "gloss": "Someone obsessed with small points of correctness.",
+  "id": "gloss_pedant",
+  "term": "pedant"
 }

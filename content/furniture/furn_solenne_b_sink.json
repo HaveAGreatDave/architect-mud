@@ -2,10 +2,10 @@
   "description": "A brushed-steel basin sunk flush into the counter beside the range, deep enough to stand a stockpot in. Two levers: one cold, one hot enough to make the point.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
-    "water_source": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

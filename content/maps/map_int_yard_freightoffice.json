@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_yard_freightoffice",
   "id": "map_int_yard_freightoffice",
+  "name": "Yards Freight Office",
   "parent_zone_id": "zone_district_922_912"
 }

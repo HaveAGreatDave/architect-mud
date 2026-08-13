@@ -1,146 +1,146 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "attack",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {},
-   "weight": 9
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
   },
-  {
-   "part": "torso",
-   "soak": {},
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {},
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 2,
- "butcher_table": [],
- "death_message": "The choking swarm thins, scatters, and is suddenly only a bad smell and a few dead flies on the water.",
- "description": "Not a thing but a weather: a rolling knot of pale sewer flies thick enough to have a front edge. It goes for the mouth and the eyes because that is where the warm air is, and there is nothing in it big enough to hit.",
- "dodge": 5,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy rolls down the tunnel and breaks over $player.",
-   "The hum off $enemy climbs as it finds $player.",
-   "$enemy closes on $player from every direction at once."
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 9
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 6000
- },
- "hit": 6,
- "hp_max": 30,
- "id": "enemy_choke_swarm",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    3
-   ],
-   "weight": 26
+  "butcher_difficulty": 2,
+  "butcher_table": [],
+  "death_message": "The choking swarm thins, scatters, and is suddenly only a bad smell and a few dead flies on the water.",
+  "description": "Not a thing but a weather: a rolling knot of pale sewer flies thick enough to have a front edge. It goes for the mouth and the eyes because that is where the warm air is, and there is nothing in it big enough to hit.",
+  "dodge": 5,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy rolls down the tunnel and breaks over $player.",
+      "The hum off $enemy climbs as it finds $player.",
+      "$enemy closes on $player from every direction at once."
+    ],
+    "first_strike_delay_ms": 6000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 15
-  },
-  {
-   "item": "item_battery",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 10
-  },
-  {
-   "credits": [
-    55,
-    130
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 24
-  },
-  {
-   "credits": [
-    140,
-    300
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "choking swarm",
- "weapon": [
-  {
-   "max": 4,
-   "min": 2,
-   "type": "kinetic"
-  },
-  {
-   "max": 4,
-   "min": 2,
-   "type": "kinetic"
-  }
- ]
+  "hit": 6,
+  "hp_max": 30,
+  "id": "enemy_choke_swarm",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 26
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 15
+    },
+    {
+      "item": "item_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        55,
+        130
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 24
+    },
+    {
+      "credits": [
+        140,
+        300
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "choking swarm",
+  "weapon": [
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    },
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
 }

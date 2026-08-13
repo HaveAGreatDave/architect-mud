@@ -12,10 +12,16 @@
         "type": "action"
       },
       "atm_wait": {
+        "jitter": 20,
         "next": "deposit",
         "seconds": 10,
-        "type": "wait",
-        "jitter": 20
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
       },
       "check_work": {
         "action_type": "CHECK_VENDOR_WORK",
@@ -121,12 +127,6 @@
         "next": "player_check",
         "seconds": 60,
         "type": "wait"
-      },
-      "cash_up": {
-        "type": "wait",
-        "seconds": 20,
-        "jitter": 900,
-        "next": "collect_safe"
       }
     }
   },
@@ -459,12 +459,12 @@
         "He looks up, patient as a net. \"Say the thing you came in to say.\""
       ],
       "text_by_relation": {
-        "first": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\"",
-        "known": "\"You again.\" He almost sounds pleased about it. \"Go on, what’s short today?\"",
         "familiar": [
           "\"There you are.\" He’s already reaching for the cells drawer. \"What’s it this time?\"",
           "\"Still upright. Good.\" He nods at the crates. \"Take what you need, we’ll square it after.\""
-        ]
+        ],
+        "first": "\"Name’s Grady. Folks call me Two-Cell. I sell the things that keep you breathing long enough to become a repeat customer.\"",
+        "known": "\"You again.\" He almost sounds pleased about it. \"Go on, what’s short today?\""
       }
     },
     "sewer_accepted": {

@@ -1,29 +1,31 @@
 {
-  "id": "dx_blotter_chair_lattice",
-  "drug_id": "drug_blotter",
-  "matches": "chair",
-  "scope": "object",
-  "name": "a throne of folding brass",
+  "asks": [
+    "How many layers can you actually see? Be honest.",
+    "Would you like arms on me? I can do arms.",
+    "Does this pattern remind you of something? It reminds everyone of something."
+  ],
   "description": "A seat assembled from brass lattice, every strut carrying a smaller copy of the whole frame, unfolding and refolding at the edges without ever finishing.",
-  "looks": [
-    "Every part of it contains a smaller whole one. You follow it in about four levels and have to stop.",
-    "It is keeping time with your pulse and improving on it.",
-    "The armrest ends in a scroll, and the scroll ends in an armrest, and so on, politely, forever."
-  ],
-  "says": [
-    "Sit down. Or do not. Both are already happening.",
-    "I am the same shape all the way in.",
-    "The ornament is not decoration. The ornament is the load path."
-  ],
+  "drug_id": "drug_blotter",
   "emotes": [
     "{it} unfolds a new tier of ornament along one arm and folds it away again, tidily.",
     "{it} ticks, quietly, like a clock going about its business.",
     "A section of {it} rotates through ninety degrees and arrives back where it started, improved.",
     "{it} throws a shadow with more detail in it than {it} has."
   ],
-  "asks": [
-    "How many layers can you actually see? Be honest.",
-    "Would you like arms on me? I can do arms.",
-    "Does this pattern remind you of something? It reminds everyone of something."
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_blotter_chair_lattice",
+  "looks": [
+    "Every part of it contains a smaller whole one. You follow it in about four levels and have to stop.",
+    "It is keeping time with your pulse and improving on it.",
+    "The armrest ends in a scroll, and the scroll ends in an armrest, and so on, politely, forever."
+  ],
+  "matches": "chair",
+  "name": "a throne of folding brass",
+  "says": [
+    "Sit down. Or do not. Both are already happening.",
+    "I am the same shape all the way in.",
+    "The ornament is not decoration. The ornament is the load path."
+  ],
+  "scope": "object"
 }

@@ -1,8 +1,8 @@
 {
-  "id": "gloss_puma",
-  "term": "puma",
-  "gloss": "A cougar: a large American cat.",
   "aliases": [
     "pumas"
-  ]
+  ],
+  "gloss": "A cougar: a large American cat.",
+  "id": "gloss_puma",
+  "term": "puma"
 }

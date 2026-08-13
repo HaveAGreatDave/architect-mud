@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_mintcond_floor",
   "id": "map_int_mintcond",
+  "name": "Mint Condition",
   "parent_zone_id": "zone_district_919_913"
 }

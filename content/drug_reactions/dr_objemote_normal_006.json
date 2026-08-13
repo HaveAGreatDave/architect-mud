@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_normal_006",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "normal",
-  "self_line": "{it} sighs. It is a completely ordinary sigh and that is the worst part.",
-  "room_line": "",
+  "id": "dr_objemote_normal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} sighs. It is a completely ordinary sigh and that is the worst part.",
+  "source": "object_emote",
+  "tone": "normal"
 }

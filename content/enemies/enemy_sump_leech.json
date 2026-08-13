@@ -1,142 +1,142 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "attack",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {},
-   "weight": 9
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
   },
-  {
-   "part": "torso",
-   "soak": {},
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {},
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {},
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 3,
- "butcher_table": [
-  {
-   "item": "item_raw_meat",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 100
-  }
- ],
- "death_message": "The sump leech unclenches all at once and slumps into the water it came out of.",
- "description": "A slick black length of muscle as thick as a thigh, ringed all the way down and open at the front into a wheel of small hooked teeth. It hunts by warmth and it has never once been in a hurry.",
- "dodge": 2,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy humps its whole length up out of the water toward $player.",
-   "$enemy's tooth-wheel opens and closes on nothing, tasting $player.",
-   "$enemy leaves a wet black track across the brick as it comes for $player."
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 9
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 6000
- },
- "hit": 4,
- "hp_max": 24,
- "id": "enemy_sump_leech",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 28
+  "butcher_difficulty": 3,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The sump leech unclenches all at once and slumps into the water it came out of.",
+  "description": "A slick black length of muscle as thick as a thigh, ringed all the way down and open at the front into a wheel of small hooked teeth. It hunts by warmth and it has never once been in a hurry.",
+  "dodge": 2,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy humps its whole length up out of the water toward $player.",
+      "$enemy's tooth-wheel opens and closes on nothing, tasting $player.",
+      "$enemy leaves a wet black track across the brick as it comes for $player."
+    ],
+    "first_strike_delay_ms": 6000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 14
-  },
-  {
-   "credits": [
-    25,
-    70
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 22
-  },
-  {
-   "credits": [
-    80,
-    160
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "sump leech",
- "weapon": [
-  {
-   "max": 4,
-   "min": 2,
-   "type": "kinetic"
-  }
- ]
+  "hit": 4,
+  "hp_max": 24,
+  "id": "enemy_sump_leech",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 28
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "credits": [
+        25,
+        70
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "credits": [
+        80,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "sump leech",
+  "weapon": [
+    {
+      "max": 4,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
 }

@@ -1,8 +1,8 @@
 {
-  "id": "gloss_draught",
-  "term": "draught",
-  "gloss": "A measured dose of liquid medicine. Not a breeze, in this sense.",
   "aliases": [
     "draughts"
-  ]
+  ],
+  "gloss": "A measured dose of liquid medicine. Not a breeze, in this sense.",
+  "id": "gloss_draught",
+  "term": "draught"
 }

@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_515",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": null,
+  "id": "dr_npc_normal_515",
   "npc_type": "cop",
+  "relation": null,
+  "room_line": "{npc} looks {player} over a beat too long, and files it away.",
   "self_line": "{npc} looks at you a beat too long and files it away.",
-  "room_line": "{npc} looks {player} over a beat too long, and files it away."
+  "source": "npc",
+  "tone": "normal"
 }

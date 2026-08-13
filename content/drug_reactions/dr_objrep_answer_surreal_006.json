@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_surreal_006",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "surreal",
-  "self_line": "Say it once more, slower, and I will have it properly.",
-  "room_line": "",
+  "id": "dr_objrep_answer_surreal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Say it once more, slower, and I will have it properly.",
+  "source": "object_reply_answer",
+  "tone": "surreal"
 }

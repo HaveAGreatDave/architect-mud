@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Tar-pit horrors have been dragging scavengers off the only clean water in the flats. Ma Cinder wants them dealt with.",
+  "fail_on": [],
   "id": "quest_bog_standard",
   "meta": {},
   "name": "Bog Standard",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

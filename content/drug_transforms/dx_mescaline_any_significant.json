@@ -1,28 +1,30 @@
 {
-  "id": "dx_mescaline_any_significant",
-  "drug_id": "drug_mescaline",
-  "matches": null,
-  "scope": "object",
-  "name": "a reliquary of black glass",
+  "asks": [
+    "Do you know what I am for? Nobody has, yet.",
+    "Would you move me? I would rather you did not, but you may.",
+    "Who sent you in here?"
+  ],
   "description": "A box of black glass the length of a forearm sits exactly in the middle of where it is, catching the light in a single hard line. It is the most important object you have ever seen and you have no idea what it is for.",
-  "looks": [
-    "Placed. Not left. Placed, and every decision about it was correct.",
-    "It has weight the way a word has meaning. Lifting it would be a whole afternoon.",
-    "There is something inside it, and the glass is exactly dark enough that you will never know what."
-  ],
-  "says": [
-    "I have been here longer than the room.",
-    "Somebody stood exactly where you are standing, for a very good reason.",
-    "Nothing is required of you. That is the point."
-  ],
+  "drug_id": "drug_mescaline",
   "emotes": [
     "The line of light along {it} moves, though nothing in the room has.",
     "{it} sits in the exact middle of everything, and everything arranges itself around it.",
     "For a moment {it} is warm to look at, the way a lit window is warm."
   ],
-  "asks": [
-    "Do you know what I am for? Nobody has, yet.",
-    "Would you move me? I would rather you did not, but you may.",
-    "Who sent you in here?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_mescaline_any_significant",
+  "looks": [
+    "Placed. Not left. Placed, and every decision about it was correct.",
+    "It has weight the way a word has meaning. Lifting it would be a whole afternoon.",
+    "There is something inside it, and the glass is exactly dark enough that you will never know what."
+  ],
+  "matches": null,
+  "name": "a reliquary of black glass",
+  "says": [
+    "I have been here longer than the room.",
+    "Somebody stood exactly where you are standing, for a very good reason.",
+    "Nothing is required of you. That is the point."
+  ],
+  "scope": "object"
 }

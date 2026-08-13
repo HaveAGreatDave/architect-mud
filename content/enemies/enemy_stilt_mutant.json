@@ -3,20 +3,16 @@
   "behaviour_graph": {
     "_start": "start",
     "nodes": {
-      "start": {
-        "next": "has_target",
-        "type": "start"
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
       },
       "has_target": {
         "condition_type": "HAS_TARGET",
         "ifFalse": "idle",
         "ifTrue": "attack",
         "type": "condition"
-      },
-      "attack": {
-        "action_type": "ATTACK",
-        "next": "loop",
-        "type": "action"
       },
       "idle": {
         "action_type": "IDLE",
@@ -26,55 +22,59 @@
       "loop": {
         "next": "start",
         "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
       }
     }
   },
   "body_parts": [
     {
       "part": "head",
-      "weight": 10,
       "soak": {
         "kinetic": 0
-      }
+      },
+      "weight": 10
     },
     {
       "part": "torso",
-      "weight": 26,
       "soak": {
         "kinetic": 1
-      }
+      },
+      "weight": 26
     },
     {
       "part": "left_arm",
-      "weight": 10,
+      "role": "attack",
       "soak": {
         "kinetic": 0
       },
-      "role": "attack"
+      "weight": 10
     },
     {
       "part": "right_arm",
-      "weight": 10,
+      "role": "attack",
       "soak": {
         "kinetic": 0
       },
-      "role": "attack"
+      "weight": 10
     },
     {
       "part": "left_leg",
-      "weight": 22,
+      "role": "mobility",
       "soak": {
         "kinetic": 0
       },
-      "role": "mobility"
+      "weight": 22
     },
     {
       "part": "right_leg",
-      "weight": 22,
+      "role": "mobility",
       "soak": {
         "kinetic": 0
       },
-      "role": "mobility"
+      "weight": 22
     }
   ],
   "butcher_difficulty": 4,
@@ -125,16 +125,16 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "stilt-legged mutant",
   "weapon": [
     {
-      "type": "kinetic",
+      "max": 4,
       "min": 2,
-      "max": 4
+      "type": "kinetic"
     }
   ]
 }

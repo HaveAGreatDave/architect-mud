@@ -57,12 +57,36 @@
     }
   },
   "body_parts": [
-    { "part": "head", "soak": {}, "weight": 10 },
-    { "part": "torso", "soak": {}, "weight": 40 },
-    { "part": "left_arm", "soak": {}, "weight": 12 },
-    { "part": "right_arm", "soak": {}, "weight": 12 },
-    { "part": "left_leg", "soak": {}, "weight": 13 },
-    { "part": "right_leg", "soak": {}, "weight": 13 }
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
   ],
   "butcher_difficulty": 6,
   "butcher_table": [],
@@ -90,21 +114,37 @@
   "id": "enemy_halcyon_adjuster",
   "loot_table": [
     {
-      "credits": [80, 160],
+      "credits": [
+        80,
+        160
+      ],
       "item": "item_credit_chip",
-      "qty": [1, 1],
+      "qty": [
+        1,
+        1
+      ],
       "weight": 70
     },
     {
-      "credits": [200, 420],
+      "credits": [
+        200,
+        420
+      ],
       "item": "item_credit_chip",
-      "qty": [1, 1],
-      "weight": 4,
-      "super": true
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 4
     }
   ],
   "name": "Adjuster, Halcyon Retention",
   "weapon": [
-    { "max": 3, "min": 1, "type": "kinetic" }
+    {
+      "max": 3,
+      "min": 1,
+      "type": "kinetic"
+    }
   ]
 }

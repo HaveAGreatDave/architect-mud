@@ -1,8 +1,8 @@
 {
-  "id": "gloss_apothecary",
-  "term": "apothecary",
-  "gloss": "A chemist: someone who mixes and sells drugs.",
   "aliases": [
     "apothecaries"
-  ]
+  ],
+  "gloss": "A chemist: someone who mixes and sells drugs.",
+  "id": "gloss_apothecary",
+  "term": "apothecary"
 }

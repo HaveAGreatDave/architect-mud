@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_004",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} leans out from the wall a few degrees and stays there.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_004",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} leans out from the wall a few degrees and stays there.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

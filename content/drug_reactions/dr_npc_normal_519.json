@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_519",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": null,
+  "id": "dr_npc_normal_519",
   "npc_type": "bartender",
+  "relation": null,
+  "room_line": "{npc} cuts {player} off before they have asked for anything.",
   "self_line": "{npc} cuts you off before you have asked for anything.",
-  "room_line": "{npc} cuts {player} off before they have asked for anything."
+  "source": "npc",
+  "tone": "normal"
 }

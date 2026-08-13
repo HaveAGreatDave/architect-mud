@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_voltage_floor",
   "id": "map_int_voltage",
+  "name": "Voltage",
   "parent_zone_id": "zone_district_895_908"
 }

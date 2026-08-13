@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_answer_normal_005",
   "drug_id": null,
-  "source": "object_reply_answer",
-  "tone": "normal",
-  "self_line": "Well. There you are, then.",
-  "room_line": "",
+  "id": "dr_objrep_answer_normal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Well. There you are, then.",
+  "source": "object_reply_answer",
+  "tone": "normal"
 }

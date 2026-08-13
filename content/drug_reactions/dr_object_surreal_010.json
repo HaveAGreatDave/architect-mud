@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_010",
   "drug_id": null,
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "Keep going. It is not much further and it is not far at all.",
-  "room_line": "",
+  "id": "dr_object_surreal_010",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Keep going. It is not much further and it is not far at all.",
+  "source": "object",
+  "tone": "surreal"
 }

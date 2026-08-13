@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "A mystery-shopper franchise auditor is 'in the district' so every stoop needs sweeping before they see it. Sweep the Strip, Foundry Way, and Halcyon Boulevard. The ash comes back by morning. So do you. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_sweep",
   "meta": {},
   "name": "Ash Detail",
@@ -48,6 +49,7 @@
       "zone": "zone_district_894_905"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

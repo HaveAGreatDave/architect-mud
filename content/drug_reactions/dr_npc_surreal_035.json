@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_surreal_035",
   "drug_id": null,
-  "source": "npc",
-  "tone": "surreal",
-  "self_line": "{npc} is nodding along to something. You are fairly sure you have not spoken.",
-  "room_line": "{npc} nods along to {player}, who has not said anything.",
+  "id": "dr_npc_surreal_035",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "{npc} nods along to {player}, who has not said anything.",
+  "self_line": "{npc} is nodding along to something. You are fairly sure you have not spoken.",
+  "source": "npc",
+  "tone": "surreal"
 }

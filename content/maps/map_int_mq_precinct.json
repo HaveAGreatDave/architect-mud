@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_mq_precinct_lobby",
   "id": "map_int_mq_precinct",
+  "name": "Precinct 9",
   "parent_zone_id": "zone_district_922_911"
 }

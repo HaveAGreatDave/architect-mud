@@ -1,10 +1,10 @@
 {
-  "id": "dr_objemote_surreal_012",
   "drug_id": null,
-  "source": "object_emote",
-  "tone": "surreal",
-  "self_line": "{it} runs a ripple from one end of itself to the other, like a horse shifting a fly.",
-  "room_line": "",
+  "id": "dr_objemote_surreal_012",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "{it} runs a ripple from one end of itself to the other, like a horse shifting a fly.",
+  "source": "object_emote",
+  "tone": "surreal"
 }

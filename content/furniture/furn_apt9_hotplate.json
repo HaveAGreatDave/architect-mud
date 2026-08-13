@@ -1,8 +1,8 @@
 {
   "description": "A single ring and a scorched enamel kettle that whistles a semitone flat. Between them they have kept this room alive for years.",
   "flags": {
-    "brew_tier": "kettle",
-    "aliases": "kettle,hotplate"
+    "aliases": "kettle,hotplate",
+    "brew_tier": "kettle"
   },
   "hp": null,
   "hp_max": null,

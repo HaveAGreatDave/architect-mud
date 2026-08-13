@@ -6,31 +6,31 @@
   "tags": {
     "__own": {
       "damage": {
-        "min": 6,
-        "max": 13
+        "max": 13,
+        "min": 6
       },
       "damage_type": "edged",
-      "weapon_skill": "blades",
+      "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them. The signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted.",
       "min_skill": {
         "blades": 2
       },
-      "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them. The signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted."
+      "weapon_skill": "blades"
     },
     "__super": [
       "weapon_blades"
     ],
     "damage": {
-      "min": 6,
-      "max": 13
+      "max": 13,
+      "min": 6
     },
     "damage_type": "edged",
-    "weapon_skill": "blades",
+    "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them. The signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted.",
     "min_skill": {
       "blades": 2
     },
-    "description": "The Trueline is Vessa Orme's own pattern: a straight, honest, slightly overweight shortsword with nothing clever about it anywhere. She makes about one a week and will not be hurried. The circle worn flat on one side is the house mark and goes on all of them. The signature under the guard does not. That one she cuts by hand, and only into the ones that came out the way she wanted.",
     "slot": "weapon_hand",
-    "weapon": true
+    "weapon": true,
+    "weapon_skill": "blades"
   },
   "type": "weapon",
   "value": 450,

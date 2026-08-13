@@ -1,6 +1,7 @@
 {
   "category": "Job Board",
   "description": "Cass counted the freight off a night arrival and came up one pallet light. It didn't fly away. Walk the apron, walk the scrub past the threshold, then go tell the hangar what you found, or didn't. 22₵.",
+  "fail_on": [],
   "id": "quest_reach_pallet",
   "meta": {},
   "name": "One Pallet Short",
@@ -48,6 +49,7 @@
       "zone": "zone_bld_897_1175_lobby"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

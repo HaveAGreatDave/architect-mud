@@ -11,10 +11,10 @@
       },
       "damage_type": "kinetic",
       "description": "A Whitlock Doorman with two feet of barrel removed by someone in a hurry. The factory stamp still promises COMPLIANCE THROUGH PRESENCE. Loud enough to end an argument and start three more.",
-      "spread": 3,
       "min_skill": {
         "firearms": 7
-      }
+      },
+      "spread": 3
     },
     "__super": [
       "weapon_firearms"
@@ -25,13 +25,13 @@
     },
     "damage_type": "kinetic",
     "description": "A Whitlock Doorman with two feet of barrel removed by someone in a hurry. The factory stamp still promises COMPLIANCE THROUGH PRESENCE. Loud enough to end an argument and start three more.",
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "firearms",
-    "spread": 3,
     "min_skill": {
       "firearms": 7
-    }
+    },
+    "slot": "weapon_hand",
+    "spread": 3,
+    "weapon": true,
+    "weapon_skill": "firearms"
   },
   "type": "weapon",
   "value": 1860,

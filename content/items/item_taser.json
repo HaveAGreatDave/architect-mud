@@ -29,9 +29,9 @@
     "status_chance": {
       "stunned": 0.3
     },
+    "water_shock": true,
     "weapon": true,
-    "weapon_skill": "science",
-    "water_shock": true
+    "weapon_skill": "science"
   },
   "type": "weapon",
   "value": 195,

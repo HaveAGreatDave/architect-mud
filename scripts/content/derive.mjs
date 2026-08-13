@@ -82,6 +82,7 @@ export const PROP_DEFAULTS = Object.freeze({
   liquid: false,      // you are IN this tile, not ON it
   swimmable: false,   // entering costs stamina; wetness, drowning, hypothermia
   underwater: false,  // submerged BELOW a surface tile: breath timer, colder, dark
+  passable: true,     // a body may enter this tile at all — cliff is the one no
   routable: true,     // GPS and pathfinding may cross it
   buildable: true,    // the dev-panel builder may place/move a building here
   frontage: false,    // a street a building's front door can face onto
@@ -497,9 +498,24 @@ export function buildingIconSvg(zone) {
 
 // The connector piece an auto-tiled tile draws. Direction order is n,e,s,w and must
 // stay that way — it is the filename (`road_nesw.svg`), not a set.
-export const autoTileName = (at) => {
+/**
+ * The piece this tile's adjacency implies, as `<family>_<sides>`.
+ *
+ * THE LETTERS ARE THE SIDES THAT JOIN, in every family, always. A road draws arms
+ * toward those sides; a cliff draws a FACE on the sides that are missing from them.
+ * Both families ship 16 pieces under the identical naming rule, and the inversion
+ * lives entirely in the art — which is the only reason a second family costs a
+ * directory of SVGs and not a branch in this pass.
+ *
+ * That matters more than it looks. If `cliff_ns` meant "faces north and south" and
+ * `road_ns` meant "joins north and south", then one payload would carry two meanings
+ * depending on who read it, and the Studio, the minimap, the tablet and this file
+ * would each have to know which. They do not: the payload means one thing, and a
+ * renderer that can draw a road can draw a cliff by loading a different directory.
+ */
+export const autoTileName = (at, family = 'road') => {
   const s = ['n', 'e', 's', 'w'].filter((d) => at?.[d]).join('');
-  return s ? `road_${s}` : 'road_x';   // no neighbours ⇒ the lone dot
+  return s ? `${family}_${s}` : `${family}_x`;   // no neighbours ⇒ the lone piece
 };
 
 /**
@@ -517,8 +533,14 @@ export const autoTileName = (at) => {
  * retires the third and fourth copies of the road-adjacency rule (world.js
  * `roadConnector`, the dev panel's mirror of it).
  */
-export function deriveFeature(zone, autoTile = null) {
-  return featureProvenance(zone, autoTile).name;
+export function deriveFeature(zone, autoTile = null, family = 'road') {
+  return featureProvenance(zone, autoTile, family).name;
+}
+
+// Which piece set a tile's terrain draws from. One line, exported, because three
+// callers need the answer and the fourth copy of it would be the one that drifts.
+export function autoTileFamily(zone, palette) {
+  return paletteEntry(zone, palette)?.auto_tile_family || 'road';
 }
 
 /**
@@ -541,12 +563,18 @@ export function deriveFeature(zone, autoTile = null) {
  * @returns {{ source: 'authored'|'rooftop'|'auto'|null, name: string|null,
  *             implied: string|null, stale: boolean }}
  */
-export function featureProvenance(zone, autoTile = null) {
-  const implied = autoTile ? autoTileName(autoTile) : null;
+export function featureProvenance(zone, autoTile = null, family = 'road') {
+  const implied = autoTile ? autoTileName(autoTile, family) : null;
   const authored = zone?.flags?.icon;
   if (authored) {
     const name = String(authored);
-    const stale = !!implied && name.startsWith('road_') && implied !== name;
+    // SAME-FAMILY ONLY, read off the names themselves rather than hardcoding 'road'.
+    // The rule never was about roads: a pinned piece is stale when its neighbours
+    // have moved on WITHIN ITS OWN PIECE SET, and `runway_ns` beside road lanes is a
+    // deliberate choice of a different set. Spelling that as `startsWith('road_')`
+    // happened to be correct while road was the only family; with a second one it
+    // would call every hand-pinned cliff piece current, forever.
+    const stale = !!implied && name.split('_')[0] === implied.split('_')[0] && implied !== name;
     return { source: 'authored', name, implied, stale };
   }
   const rooftop = buildingIconSvg(zone);
@@ -866,9 +894,10 @@ export function buildRenderSpec(zone, palette, resolved, ctx = {}) {
   // anything and the Studio fell back to lettering the road with `#`.
   const autoTile = entry?.auto_tile ? deriveAutoTile(zone, palette, ctx) : null;
   if (autoTile) spec.auto_tile = autoTile;
+  const family = entry?.auto_tile_family || 'road';
   // The two layers that stand on the ground. Both present-iff, so a renderer tests
   // for the layer instead of testing a null against five thousand tiles.
-  const feature = deriveFeature(zone, autoTile);
+  const feature = deriveFeature(zone, autoTile, family);
   if (feature) spec.feature = feature;
   const label = deriveLabel(zone, palette, ctx);
   if (label) spec.label = label;
@@ -927,7 +956,7 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
     // preferring either would be this pass deciding content.
     // Reported from featureProvenance's `stale`, not re-derived here — the Studio warns
     // on the same tiles this list names, because it is the same function deciding.
-    const prov = featureProvenance(zone, spec.auto_tile ?? null);
+    const prov = featureProvenance(zone, spec.auto_tile ?? null, autoTileFamily(zone, palette));
     if (prov.stale) featureOverrides.push({ id: zone.id, authored: prov.name, implied: prov.implied });
     // ONE CHANNEL PER VALUE. `glyph` was `resolved.marker` under a second name,
     // top-level `color`/`bg_color` were `spec.text`/`spec.fill`, and top-level

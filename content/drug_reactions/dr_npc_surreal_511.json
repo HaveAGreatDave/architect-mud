@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_surreal_511",
   "drug_id": null,
-  "source": "npc",
-  "tone": "surreal",
-  "relation": "close",
+  "id": "dr_npc_surreal_511",
   "npc_type": null,
+  "relation": "close",
+  "room_line": "{npc} says something quiet to {player}, who does not appear to hear it.",
   "self_line": "{npc} is saying something kind and it is arriving from a long way off.",
-  "room_line": "{npc} says something quiet to {player}, who does not appear to hear it."
+  "source": "npc",
+  "tone": "surreal"
 }

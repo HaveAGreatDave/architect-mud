@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "There is a street camera on the Precinct 9 approach the Watch have wanted dark for months. Halloran wants its memory core: not smashed, pulled. Bring back the eye, and prove you'll put your hands on the machine when it counts.",
+  "fail_on": [],
   "id": "quest_lw_2",
   "meta": {},
   "name": "Blind Spot",
@@ -16,6 +17,7 @@
       "zone": "zone_district_922_911"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

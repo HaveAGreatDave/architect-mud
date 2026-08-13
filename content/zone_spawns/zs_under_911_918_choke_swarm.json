@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_choke_swarm",
- "id": "zs_under_911_918_choke_swarm",
- "max_count": 2,
- "respawn_seconds": 360,
- "spawn_weight": 45,
- "zone_id": "zone_under_911_918"
+  "enemy_id": "enemy_choke_swarm",
+  "id": "zs_under_911_918_choke_swarm",
+  "max_count": 2,
+  "respawn_seconds": 360,
+  "spawn_weight": 45,
+  "zone_id": "zone_under_911_918"
 }

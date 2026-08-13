@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { renderMapBriefing, renderMapChart } from '../map-text.js';
 import { loggedPanelsSync, textMinigamesSync } from '../presentation.js';
-import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, doorOnLink, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, getZoneNpcs, tryBattleCry, isEnterableFacade, frontDoorOf, getMapByParentZone, buildingIconSvg, buildingTypeOf, zoneTerrain, tileIconSvg, buildingEntranceDir, interiorExitDirs, interiorOpenDirs, facadeStreetTile, applyMinimapVisibility, specOf, persistableZone, propsOf } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
@@ -110,6 +110,33 @@ registerMoveGate(async ({ player, opts }) => {
     return { block: true, message: `You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
   }
 }, 'engine:encumbrance');
+
+// IMPASSABLE GROUND. `props.passable` is false on exactly one terrain (cliff), and
+// this is the only law that reads it. It exists because of what a cliff has to be
+// able to do that nothing else in the engine could: shape where players may walk
+// WITHOUT anybody hand-editing an exit graph. A painter drags a run of cliff across
+// a map in the Studio and the map now has a pass in it.
+//
+// Everything else that stops you is either mass (a building_type footprint, which is
+// what the Thornwarren's thorn is) or an exit that was never written. Both are
+// authored per tile by something that knows the whole map. Terrain is painted, and a
+// paint stroke has to be able to mean something on its own or the Studio is drawing
+// wallpaper.
+//
+// It is a gate rather than a filter on the exit graph on purpose: the graph stays
+// TRUE (the tiles are still adjacent, the minimap still draws the join, derive still
+// projects the edge), and the refusal happens at the moment a body tries to move.
+// Deleting the edges instead would mean a terrain stroke silently rewrites world
+// geometry, and repainting it back would not restore what it removed.
+//
+// No climb, deliberately, and no gear exemption. A wall you can sometimes get over
+// is not a funnel, it is a difficulty check, and the whole value of the feature is
+// that a player can look at the map and KNOW where the ways through are. If a climb
+// is ever wanted it goes here, as one named exemption, the way bypassEncumbrance is.
+registerMoveGate(async ({ to }) => {
+  if (!to || propsOf(to.id).passable) return;
+  return { block: true, message: 'The rock goes up sheer in front of you. There is no way up it here.' };
+}, 'engine:impassable-terrain');
 
 // Water is no longer a wall. Entering a water tile is a SWIM, not a block — the
 // swimming plugin (plugins/swimming) charges the stamina, soaks you, pulls your

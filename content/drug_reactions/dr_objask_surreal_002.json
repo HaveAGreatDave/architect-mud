@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_002",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "How long have you been in this room? Your answer and mine differ.",
-  "room_line": "",
+  "id": "dr_objask_surreal_002",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "How long have you been in this room? Your answer and mine differ.",
+  "source": "object_ask",
+  "tone": "surreal"
 }

@@ -1,8 +1,8 @@
 {
-  "id": "gloss_perfidy",
-  "term": "perfidy",
-  "gloss": "Treachery.",
   "aliases": [
     "perfidious"
-  ]
+  ],
+  "gloss": "Treachery.",
+  "id": "gloss_perfidy",
+  "term": "perfidy"
 }

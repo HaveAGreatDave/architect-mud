@@ -3,1015 +3,1015 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
-        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "bsm_pre_0"
+        "next": "bsm_pre_0",
+        "type": "start"
       },
       "bsm_1": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": true,
-        "text": "",
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
         "duration_s": 0,
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
+        "next": "bsm_2",
+        "on": true,
+        "overlayType": "letterbox",
         "text": "",
-        "duration_s": 2,
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "SOLENNE RESIDENCES, FLOOR THIRTY",
-        "subtext": "LATE, AND GETTING LATER",
-        "graphic_id": "",
-        "duration_s": 6,
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "type": "say",
-        "text": "The city turns past the glass like something on a spit. Rain, but expensive rain.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "type": "wait",
-        "duration": 3,
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 1",
-        "subtext": "Previously, On Hard Wired",
-        "duration_s": 8,
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "type": "say",
-        "text": "Previously: Cruz fixed the boiler. Then he fixed the OTHER boiler. Then Greta died in a",
-        "style": "narration",
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "type": "say",
-        "text": "freight elevator, which we are contractually obliged to remind you was NOT Cruz's fault.",
-        "style": "narration",
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "type": "say",
-        "text": "Also, there was a war. It was mostly off-screen. Budget.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10"
+        "type": "overlay"
       },
       "bsm_10": {
-        "type": "wait",
-        "duration": 4,
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "next": "bsm_11"
+        "duration": 4,
+        "next": "bsm_11",
+        "type": "wait"
       },
       "bsm_11": {
-        "type": "say",
-        "text": "A doorbell chimes in a key chosen by a committee. DELPHINE VOSS crosses forty feet of\napartment in a robe that cost more than the door.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "next": "bsm_12"
+        "next": "bsm_12",
+        "style": "narration",
+        "text": "A doorbell chimes in a key chosen by a committee. DELPHINE VOSS crosses forty feet of\napartment in a robe that cost more than the door.",
+        "type": "say"
       },
       "bsm_12": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Who is it.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Who is it.\"",
+        "type": "say"
       },
       "bsm_13": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"Building maintenance, ma'am. I'm here about your pressure.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"Building maintenance, ma'am. I'm here about your pressure.\"",
+        "type": "say"
       },
       "bsm_14": {
-        "type": "say",
-        "text": "Delphine Voss says, \"My what.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"My what.\"",
+        "type": "say"
       },
       "bsm_15": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"Your water pressure.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "next": "bsm_16"
+        "next": "bsm_16",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"Your water pressure.\"",
+        "type": "say"
       },
       "bsm_16": {
-        "type": "say",
-        "text": "Delphine Voss says, \"...Yes. Of course. That.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "next": "bsm_17"
+        "next": "bsm_17",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"...Yes. Of course. That.\"",
+        "type": "say"
       },
       "bsm_17": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "next": "bsm_18"
+        "duration": 3,
+        "next": "bsm_18",
+        "type": "wait"
       },
       "bsm_18": {
-        "type": "say",
-        "text": "She opens the door. CRUZ MANDIBLE stands there holding a wrench the size of an argument.\nHe is wet. It is not raining in the corridor. Nobody addresses this.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "next": "bsm_19"
+        "next": "bsm_19",
+        "style": "narration",
+        "text": "She opens the door. CRUZ MANDIBLE stands there holding a wrench the size of an argument.\nHe is wet. It is not raining in the corridor. Nobody addresses this.",
+        "type": "say"
       },
       "bsm_19": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"I understand there's been some trouble with the flow.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "next": "bsm_20"
+        "next": "bsm_20",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"I understand there's been some trouble with the flow.\"",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_3",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_20": {
-        "type": "say",
-        "text": "Delphine Voss says, \"It comes on strong and then it just... stops.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 720
         },
-        "next": "bsm_21"
+        "next": "bsm_21",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"It comes on strong and then it just... stops.\"",
+        "type": "say"
       },
       "bsm_21": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"That's a common fault in a unit this old.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 720
         },
-        "next": "bsm_22"
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"That's a common fault in a unit this old.\"",
+        "type": "say"
       },
       "bsm_22": {
-        "type": "say",
-        "text": "Delphine Voss says, \"The unit is four years old.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "next": "bsm_23"
+        "next": "bsm_23",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"The unit is four years old.\"",
+        "type": "say"
       },
       "bsm_23": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"Then it's a common fault in a unit this new.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "next": "bsm_24"
+        "next": "bsm_24",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"Then it's a common fault in a unit this new.\"",
+        "type": "say"
       },
       "bsm_24": {
-        "type": "wait",
-        "duration": 2,
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "next": "bsm_25"
+        "duration": 2,
+        "next": "bsm_25",
+        "type": "wait"
       },
       "bsm_25": {
-        "type": "say",
-        "text": "CRUZ kneels at the wall panel. His overalls do the thing overalls do in this genre. The\ncamera holds on it for eleven seconds, which is four seconds longer than the director\nremembers approving.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "next": "bsm_26"
+        "next": "bsm_26",
+        "style": "narration",
+        "text": "CRUZ kneels at the wall panel. His overalls do the thing overalls do in this genre. The\ncamera holds on it for eleven seconds, which is four seconds longer than the director\nremembers approving.",
+        "type": "say"
       },
       "bsm_26": {
-        "type": "wait",
-        "duration": 4,
         "_vine": {
           "x": 300,
           "y": 880
         },
-        "next": "bsm_27"
+        "duration": 4,
+        "next": "bsm_27",
+        "type": "wait"
       },
       "bsm_27": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Will you have to go deep?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 880
         },
-        "next": "bsm_28"
+        "next": "bsm_28",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Will you have to go deep?\"",
+        "type": "say"
       },
       "bsm_28": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"Ma'am, I always go deep. It's in the manual.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 880
         },
-        "next": "bsm_29"
+        "next": "bsm_29",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"Ma'am, I always go deep. It's in the manual.\"",
+        "type": "say"
       },
       "bsm_29": {
-        "type": "say",
-        "text": "The Building says, \"RESIDENT ADVISORY. AN UNSCHEDULED MAINTENANCE EVENT IS OCCURRING IN YOUR UNIT.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 880
         },
-        "next": "bsm_30"
+        "next": "bsm_30",
+        "style": "verbatim",
+        "text": "The Building says, \"RESIDENT ADVISORY. AN UNSCHEDULED MAINTENANCE EVENT IS OCCURRING IN YOUR UNIT.\"",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_4",
+        "overlayType": "lower_third",
+        "subtext": "LATE, AND GETTING LATER",
+        "text": "SOLENNE RESIDENCES, FLOOR THIRTY",
+        "type": "overlay"
       },
       "bsm_30": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Not now, building.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1040
         },
-        "next": "bsm_31"
+        "next": "bsm_31",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Not now, building.\"",
+        "type": "say"
       },
       "bsm_31": {
-        "type": "say",
-        "text": "The Building says, \"PLEASE RATE YOUR MAINTENANCE EVENT FROM ONE TO FIVE STARS.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "next": "bsm_32"
+        "next": "bsm_32",
+        "style": "verbatim",
+        "text": "The Building says, \"PLEASE RATE YOUR MAINTENANCE EVENT FROM ONE TO FIVE STARS.\"",
+        "type": "say"
       },
       "bsm_32": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"I said NOT NOW, building.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "next": "bsm_33"
+        "next": "bsm_33",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"I said NOT NOW, building.\"",
+        "type": "say"
       },
       "bsm_33": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 740,
           "y": 1040
         },
-        "next": "bsm_34"
+        "duration": 3,
+        "next": "bsm_34",
+        "type": "wait"
       },
       "bsm_34": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 2",
-        "subtext": "The Ductwork",
-        "duration_s": 8,
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "next": "bsm_35"
+        "duration_s": 8,
+        "next": "bsm_35",
+        "overlayType": "act_card",
+        "subtext": "The Ductwork",
+        "text": "ACT 2",
+        "type": "overlay"
       },
       "bsm_35": {
-        "type": "overlay",
+        "_vine": {
+          "x": 80,
+          "y": 1200
+        },
+        "next": "bsm_36",
         "overlayType": "text_card",
         "text": "BITTERSWEET OPTICS PRESENTS\n\nA FILM SHOT ENTIRELY IN ONE APARTMENT\n\nBECAUSE WE ONLY HAD THE ONE APARTMENT",
-        "_vine": {
-          "x": 80,
-          "y": 1200
-        },
-        "next": "bsm_36"
+        "type": "overlay"
       },
       "bsm_36": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 300,
           "y": 1200
         },
-        "next": "bsm_37"
+        "duration": 3,
+        "next": "bsm_37",
+        "type": "wait"
       },
       "bsm_37": {
-        "type": "say",
-        "text": "CRUZ removes a grille. Steam rolls out of the duct in a great voluptuous cloud, because\nthe effects department owned exactly one machine and had been saving it.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "next": "bsm_38"
+        "next": "bsm_38",
+        "style": "narration",
+        "text": "CRUZ removes a grille. Steam rolls out of the duct in a great voluptuous cloud, because\nthe effects department owned exactly one machine and had been saving it.",
+        "type": "say"
       },
       "bsm_38": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"Whoever installed this ran the hot line straight into the cold return. Cross-connected.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "next": "bsm_39"
+        "next": "bsm_39",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"Whoever installed this ran the hot line straight into the cold return. Cross-connected.\"",
+        "type": "say"
       },
       "bsm_39": {
-        "type": "say",
-        "text": "Everything's been touching everything for years.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "next": "bsm_40"
+        "next": "bsm_40",
+        "style": "narration",
+        "text": "Everything's been touching everything for years.",
+        "type": "say"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "The city turns past the glass like something on a spit. Rain, but expensive rain.",
+        "type": "say"
       },
       "bsm_40": {
-        "type": "say",
-        "text": "Delphine Voss says, \"In this building? Scandalous.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1360
         },
-        "next": "bsm_41"
+        "next": "bsm_41",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"In this building? Scandalous.\"",
+        "type": "say"
       },
       "bsm_41": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"I'll need to get my hands on the coupling.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1360
         },
-        "next": "bsm_42"
+        "next": "bsm_42",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"I'll need to get my hands on the coupling.\"",
+        "type": "say"
       },
       "bsm_42": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Do you need help?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1360
         },
-        "next": "bsm_43"
+        "next": "bsm_43",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Do you need help?\"",
+        "type": "say"
       },
       "bsm_43": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"I'd never turn down another pair of hands.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1360
         },
-        "next": "bsm_44"
+        "next": "bsm_44",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"I'd never turn down another pair of hands.\"",
+        "type": "say"
       },
       "bsm_44": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 960,
           "y": 1360
         },
-        "next": "bsm_45"
+        "duration": 3,
+        "next": "bsm_45",
+        "type": "wait"
       },
       "bsm_45": {
-        "type": "say",
-        "text": "They both reach into the wall. Their fingers meet somewhere in the dark on a fitting neither\nof them can see. There is a long, meaningful silence. Somewhere, a pipe groans.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1520
         },
-        "next": "bsm_46"
+        "next": "bsm_46",
+        "style": "narration",
+        "text": "They both reach into the wall. Their fingers meet somewhere in the dark on a fitting neither\nof them can see. There is a long, meaningful silence. Somewhere, a pipe groans.",
+        "type": "say"
       },
       "bsm_46": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Is that...\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 1520
         },
-        "next": "bsm_47"
+        "next": "bsm_47",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Is that...\"",
+        "type": "say"
       },
       "bsm_47": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"That's the ballcock.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 1520
         },
-        "next": "bsm_48"
+        "next": "bsm_48",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"That's the ballcock.\"",
+        "type": "say"
       },
       "bsm_48": {
-        "type": "say",
-        "text": "Delphine Voss says, \"The what?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 1520
         },
-        "next": "bsm_49"
+        "next": "bsm_49",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"The what?\"",
+        "type": "say"
       },
       "bsm_49": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"It's a technical term. It regulates the rise.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 1520
         },
-        "next": "bsm_50"
+        "next": "bsm_50",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"It's a technical term. It regulates the rise.\"",
+        "type": "say"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "duration": 3,
+        "next": "bsm_6",
+        "type": "wait"
       },
       "bsm_50": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Of course it does.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1680
         },
-        "next": "bsm_51"
+        "next": "bsm_51",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Of course it does.\"",
+        "type": "say"
       },
       "bsm_51": {
-        "type": "wait",
-        "duration": 4,
         "_vine": {
           "x": 300,
           "y": 1680
         },
-        "next": "bsm_52"
+        "duration": 4,
+        "next": "bsm_52",
+        "type": "wait"
       },
       "bsm_52": {
-        "type": "music",
+        "_vine": {
+          "x": 520,
+          "y": 1680
+        },
+        "next": "bsm_53",
         "song": "",
         "text": "A saxophone begins, uninvited, from somewhere below the floor. It will not stop for the\nremainder of the picture. The composer was paid in full.",
-        "_vine": {
-          "x": 520,
-          "y": 1680
-        },
-        "next": "bsm_53"
+        "type": "music"
       },
       "bsm_53": {
-        "type": "say",
-        "text": "DELPHINE lets the robe slip from one shoulder, which is as far as it gets, because the\nshoulder is where our exhibition licence expires.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 1680
         },
-        "next": "bsm_54"
+        "next": "bsm_54",
+        "style": "narration",
+        "text": "DELPHINE lets the robe slip from one shoulder, which is as far as it gets, because the\nshoulder is where our exhibition licence expires.",
+        "type": "say"
       },
       "bsm_54": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 3,
         "_vine": {
           "x": 960,
           "y": 1680
         },
-        "next": "bsm_55"
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_55",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_55": {
-        "type": "say",
-        "text": "What follows is forty minutes of the most explicit, most athletically ill-advised plumbing",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1840
         },
-        "next": "bsm_56"
+        "next": "bsm_56",
+        "style": "narration",
+        "text": "What follows is forty minutes of the most explicit, most athletically ill-advised plumbing",
+        "type": "say"
       },
       "bsm_56": {
-        "type": "say",
-        "text": "in the history of the Basin. We are legally unable to show you any of it.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 1840
         },
-        "next": "bsm_57"
+        "next": "bsm_57",
+        "style": "narration",
+        "text": "in the history of the Basin. We are legally unable to show you any of it.",
+        "type": "say"
       },
       "bsm_57": {
-        "type": "say",
-        "text": "Instead, please enjoy this exterior shot of the building.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1840
         },
-        "next": "bsm_58"
+        "next": "bsm_58",
+        "style": "narration",
+        "text": "Instead, please enjoy this exterior shot of the building.",
+        "type": "say"
       },
       "bsm_58": {
-        "type": "wait",
-        "duration": 6,
         "_vine": {
           "x": 740,
           "y": 1840
         },
-        "next": "bsm_59"
+        "duration": 6,
+        "next": "bsm_59",
+        "type": "wait"
       },
       "bsm_59": {
-        "type": "say",
-        "text": "An exterior shot of the building. Nothing happens. A light in one window goes out. Another\ngoes on. A third window, unrelated, is simply a window.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 1840
         },
-        "next": "bsm_60"
+        "next": "bsm_60",
+        "style": "narration",
+        "text": "An exterior shot of the building. Nothing happens. A light in one window goes out. Another\ngoes on. A third window, unrelated, is simply a window.",
+        "type": "say"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "duration_s": 8,
+        "next": "bsm_7",
+        "overlayType": "act_card",
+        "subtext": "Previously, On Hard Wired",
+        "text": "ACT 1",
+        "type": "overlay"
       },
       "bsm_60": {
-        "type": "wait",
-        "duration": 6,
         "_vine": {
           "x": 80,
           "y": 2000
         },
-        "next": "bsm_61"
+        "duration": 6,
+        "next": "bsm_61",
+        "type": "wait"
       },
       "bsm_61": {
-        "type": "say",
-        "text": "Still the exterior of the building. A bird lands. The bird leaves. The saxophone continues\nwithout visible support.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 2000
         },
-        "next": "bsm_62"
+        "next": "bsm_62",
+        "style": "narration",
+        "text": "Still the exterior of the building. A bird lands. The bird leaves. The saxophone continues\nwithout visible support.",
+        "type": "say"
       },
       "bsm_62": {
-        "type": "wait",
-        "duration": 5,
         "_vine": {
           "x": 520,
           "y": 2000
         },
-        "next": "bsm_63"
+        "duration": 5,
+        "next": "bsm_63",
+        "type": "wait"
       },
       "bsm_63": {
-        "type": "overlay",
-        "overlayType": "intermission",
-        "text": "INTERMISSION",
-        "subtext": "",
-        "duration_s": 20,
         "_vine": {
           "x": 740,
           "y": 2000
         },
-        "next": "bsm_64"
+        "duration_s": 20,
+        "next": "bsm_64",
+        "overlayType": "intermission",
+        "subtext": "",
+        "text": "INTERMISSION",
+        "type": "overlay"
       },
       "bsm_64": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
-        "text": "",
-        "duration_s": 2,
         "_vine": {
           "x": 960,
           "y": 2000
         },
-        "next": "bsm_65"
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_65",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_65": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 3",
-        "subtext": "Complications",
-        "duration_s": 8,
         "_vine": {
           "x": 80,
           "y": 2160
         },
-        "next": "bsm_66"
+        "duration_s": 8,
+        "next": "bsm_66",
+        "overlayType": "act_card",
+        "subtext": "Complications",
+        "text": "ACT 3",
+        "type": "overlay"
       },
       "bsm_66": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE SAME APARTMENT",
-        "subtext": "FORTY MINUTES OF PLUMBING LATER",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 300,
           "y": 2160
         },
-        "next": "bsm_67"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_67",
+        "overlayType": "lower_third",
+        "subtext": "FORTY MINUTES OF PLUMBING LATER",
+        "text": "THE SAME APARTMENT",
+        "type": "overlay"
       },
       "bsm_67": {
-        "type": "say",
-        "text": "CRUZ lies on the floor among his tools, spent, glowing, holding a length of copper pipe he\nhas plainly bent by hand. DELPHINE stands at the glass. Something enormous has been resolved.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2160
         },
-        "next": "bsm_68"
+        "next": "bsm_68",
+        "style": "narration",
+        "text": "CRUZ lies on the floor among his tools, spent, glowing, holding a length of copper pipe he\nhas plainly bent by hand. DELPHINE stands at the glass. Something enormous has been resolved.",
+        "type": "say"
       },
       "bsm_68": {
-        "type": "say",
-        "text": "Delphine Voss says, \"That was... comprehensive.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 2160
         },
-        "next": "bsm_69"
+        "next": "bsm_69",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"That was... comprehensive.\"",
+        "type": "say"
       },
       "bsm_69": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"I'll send the invoice.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2160
         },
-        "next": "bsm_70"
+        "next": "bsm_70",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"I'll send the invoice.\"",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "Previously: Cruz fixed the boiler. Then he fixed the OTHER boiler. Then Greta died in a",
+        "type": "say"
       },
       "bsm_70": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Send it slowly.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2320
         },
-        "next": "bsm_71"
+        "next": "bsm_71",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Send it slowly.\"",
+        "type": "say"
       },
       "bsm_71": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 300,
           "y": 2320
         },
-        "next": "bsm_72"
+        "duration": 3,
+        "next": "bsm_72",
+        "type": "wait"
       },
       "bsm_72": {
-        "type": "say",
-        "text": "The door opens. GRETA VOSS-VOSS stands in it. She is dressed for a funeral. Her own, as it\nhappens. She was buried in this.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2320
         },
-        "next": "bsm_73"
+        "next": "bsm_73",
+        "style": "narration",
+        "text": "The door opens. GRETA VOSS-VOSS stands in it. She is dressed for a funeral. Her own, as it\nhappens. She was buried in this.",
+        "type": "say"
       },
       "bsm_73": {
-        "type": "say",
-        "text": "Greta Voss-Voss says, \"Hello, sister.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 2320
         },
-        "next": "bsm_74"
+        "next": "bsm_74",
+        "style": "verbatim",
+        "text": "Greta Voss-Voss says, \"Hello, sister.\"",
+        "type": "say"
       },
       "bsm_74": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Greta! You're... you were in the elevator...\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2320
         },
-        "next": "bsm_75"
+        "next": "bsm_75",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Greta! You're... you were in the elevator...\"",
+        "type": "say"
       },
       "bsm_75": {
-        "type": "say",
-        "text": "Greta Voss-Voss says, \"I got out at a different floor.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2480
         },
-        "next": "bsm_76"
+        "next": "bsm_76",
+        "style": "verbatim",
+        "text": "Greta Voss-Voss says, \"I got out at a different floor.\"",
+        "type": "say"
       },
       "bsm_76": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"That's not how elevators...\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 2480
         },
-        "next": "bsm_77"
+        "next": "bsm_77",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"That's not how elevators...\"",
+        "type": "say"
       },
       "bsm_77": {
-        "type": "say",
-        "text": "Greta Voss-Voss says, \"It's how THAT one works, Cruz.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 2480
         },
-        "next": "bsm_78"
+        "next": "bsm_78",
+        "style": "verbatim",
+        "text": "Greta Voss-Voss says, \"It's how THAT one works, Cruz.\"",
+        "type": "say"
       },
       "bsm_78": {
-        "type": "wait",
-        "duration": 4,
         "_vine": {
           "x": 740,
           "y": 2480
         },
-        "next": "bsm_79"
+        "duration": 4,
+        "next": "bsm_79",
+        "type": "wait"
       },
       "bsm_79": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Why are you here?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2480
         },
-        "next": "bsm_80"
+        "next": "bsm_80",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Why are you here?\"",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "narration",
+        "text": "freight elevator, which we are contractually obliged to remind you was NOT Cruz's fault.",
+        "type": "say"
       },
       "bsm_80": {
-        "type": "say",
-        "text": "Greta Voss-Voss says, \"Because the pressure's off in MY unit too.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2640
         },
-        "next": "bsm_81"
+        "next": "bsm_81",
+        "style": "verbatim",
+        "text": "Greta Voss-Voss says, \"Because the pressure's off in MY unit too.\"",
+        "type": "say"
       },
       "bsm_81": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 300,
           "y": 2640
         },
-        "next": "bsm_82"
+        "duration": 3,
+        "next": "bsm_82",
+        "type": "wait"
       },
       "bsm_82": {
-        "type": "say",
-        "text": "CRUZ slowly sits up. He looks at his wrench. He looks at the two women. He looks at the\nceiling, where the building is definitely listening. He is a professional, and this is a\nservice call, and there is a form for this.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 2640
         },
-        "next": "bsm_83"
+        "next": "bsm_83",
+        "style": "narration",
+        "text": "CRUZ slowly sits up. He looks at his wrench. He looks at the two women. He looks at the\nceiling, where the building is definitely listening. He is a professional, and this is a\nservice call, and there is a form for this.",
+        "type": "say"
       },
       "bsm_83": {
-        "type": "say",
-        "text": "Cruz Mandible says, \"...I'll have to see the manifold.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 2640
         },
-        "next": "bsm_84"
+        "next": "bsm_84",
+        "style": "verbatim",
+        "text": "Cruz Mandible says, \"...I'll have to see the manifold.\"",
+        "type": "say"
       },
       "bsm_84": {
-        "type": "say",
-        "text": "The Building says, \"RESIDENT ADVISORY. AN UNSCHEDULED MAINTENANCE EVENT IS OCCURRING IN YOUR UNIT.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 2640
         },
-        "next": "bsm_85"
+        "next": "bsm_85",
+        "style": "verbatim",
+        "text": "The Building says, \"RESIDENT ADVISORY. AN UNSCHEDULED MAINTENANCE EVENT IS OCCURRING IN YOUR UNIT.\"",
+        "type": "say"
       },
       "bsm_85": {
-        "type": "say",
-        "text": "The Building says, \"AGAIN.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 2800
         },
-        "next": "bsm_86"
+        "next": "bsm_86",
+        "style": "verbatim",
+        "text": "The Building says, \"AGAIN.\"",
+        "type": "say"
       },
       "bsm_86": {
-        "type": "say",
-        "text": "Delphine Voss says, \"Building, mute.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 2800
         },
-        "next": "bsm_87"
+        "next": "bsm_87",
+        "style": "verbatim",
+        "text": "Delphine Voss says, \"Building, mute.\"",
+        "type": "say"
       },
       "bsm_87": {
-        "type": "say",
-        "text": "The Building says, \"MUTING. ENJOY YOUR MAINTENANCE EVENT. PLEASE RATE...\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 2800
         },
-        "next": "bsm_88"
+        "next": "bsm_88",
+        "style": "verbatim",
+        "text": "The Building says, \"MUTING. ENJOY YOUR MAINTENANCE EVENT. PLEASE RATE...\"",
+        "type": "say"
       },
       "bsm_88": {
-        "type": "wait",
-        "duration": 2,
         "_vine": {
           "x": 740,
           "y": 2800
         },
-        "next": "bsm_89"
+        "duration": 2,
+        "next": "bsm_89",
+        "type": "wait"
       },
       "bsm_89": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 4,
         "_vine": {
           "x": 960,
           "y": 2800
         },
-        "next": "bsm_90"
+        "duration_s": 4,
+        "fade": "out",
+        "next": "bsm_90",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "next": "bsm_10",
+        "style": "narration",
+        "text": "Also, there was a war. It was mostly off-screen. Budget.",
+        "type": "say"
       },
       "bsm_90": {
-        "type": "say",
-        "text": "Hard Wired will return in \"Hard Wired 5: Backflow Prevention\", assuming the Estate of Auggie",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 2960
         },
-        "next": "bsm_91"
+        "next": "bsm_91",
+        "style": "narration",
+        "text": "Hard Wired will return in \"Hard Wired 5: Backflow Prevention\", assuming the Estate of Auggie",
+        "type": "say"
       },
       "bsm_91": {
-        "type": "say",
-        "text": "Prine can be reached, which it cannot.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 2960
         },
-        "next": "bsm_92"
+        "next": "bsm_92",
+        "style": "narration",
+        "text": "Prine can be reached, which it cannot.",
+        "type": "say"
       },
       "bsm_92": {
-        "type": "wait",
-        "duration": 3,
         "_vine": {
           "x": 520,
           "y": 2960
         },
-        "next": "bsm_93"
+        "duration": 3,
+        "next": "bsm_93",
+        "type": "wait"
       },
       "bsm_93": {
-        "type": "overlay",
-        "overlayType": "text_card",
-        "text": "NO PIPES WERE HARMED IN THE MAKING OF THIS PICTURE\n\nTHREE (3) PIPES WERE HARMED\n\nTHE OTHER FIGURE WAS A CLERICAL ERROR AND HAS BEEN PROSECUTED",
         "_vine": {
           "x": 740,
           "y": 2960
         },
-        "next": "bsm_94"
+        "next": "bsm_94",
+        "overlayType": "text_card",
+        "text": "NO PIPES WERE HARMED IN THE MAKING OF THIS PICTURE\n\nTHREE (3) PIPES WERE HARMED\n\nTHE OTHER FIGURE WAS A CLERICAL ERROR AND HAS BEEN PROSECUTED",
+        "type": "overlay"
       },
       "bsm_94": {
-        "type": "wait",
-        "duration": 4,
         "_vine": {
           "x": 960,
           "y": 2960
         },
-        "next": "bsm_95"
+        "duration": 4,
+        "next": "bsm_95",
+        "type": "wait"
       },
       "bsm_95": {
-        "type": "credits",
-        "text": "HARD WIRED 4: THE DUCTWORK\n\nDELPHINE VOSS ......... Delphine Voss\nCRUZ MANDIBLE ......... Cruz Mandible\nGRETA VOSS-VOSS ....... Greta Voss-Voss\nTHE BUILDING .......... itself\n\nWRENCH WRANGLER\nUnavailable For Comment\n\nSAXOPHONE\nUncredited, Unrepentant\n\nSTEAM BY\nThe One Machine\n\nSHOT ON LOCATION AT SOLENNE RESIDENCES\nWITHOUT THE KNOWLEDGE OR CONSENT OF SOLENNE RESIDENCES\n\nA BITTERSWEET OPTICS PICTURE",
-        "duration": 25,
         "_vine": {
           "x": 80,
           "y": 3120
         },
-        "next": "bsm_96"
+        "duration": 25,
+        "next": "bsm_96",
+        "text": "HARD WIRED 4: THE DUCTWORK\n\nDELPHINE VOSS ......... Delphine Voss\nCRUZ MANDIBLE ......... Cruz Mandible\nGRETA VOSS-VOSS ....... Greta Voss-Voss\nTHE BUILDING .......... itself\n\nWRENCH WRANGLER\nUnavailable For Comment\n\nSAXOPHONE\nUncredited, Unrepentant\n\nSTEAM BY\nThe One Machine\n\nSHOT ON LOCATION AT SOLENNE RESIDENCES\nWITHOUT THE KNOWLEDGE OR CONSENT OF SOLENNE RESIDENCES\n\nA BITTERSWEET OPTICS PICTURE",
+        "type": "credits"
       },
       "bsm_96": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": false,
-        "text": "",
-        "duration_s": 0,
         "_vine": {
           "x": 300,
           "y": 3120
-        }
+        },
+        "duration_s": 0,
+        "on": false,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_pre_0": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "BITTERSWEET OPTICS · A DIVISION OF A LARGER CONCERN",
-        "subtext": "presents",
-        "duration_s": 5,
         "_vine": {
           "x": 80,
           "y": -120
         },
-        "next": "bsm_pre_1"
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "BITTERSWEET OPTICS · A DIVISION OF A LARGER CONCERN",
+        "type": "overlay"
       },
       "bsm_pre_1": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
-        "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "duration_s": 5,
         "_vine": {
           "x": 300,
           "y": -120
         },
-        "next": "bsm_pre_2"
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
+        "type": "overlay"
       },
       "bsm_pre_2": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "A film by Auggie Prine (as 'A. Prine'), (as 'Alan Smithee'), (as 'The Estate Of Auggie Prine')",
-        "subtext": "",
-        "duration_s": 5,
         "_vine": {
           "x": 520,
           "y": -120
         },
-        "next": "bsm_1"
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by Auggie Prine (as 'A. Prine'), (as 'Alan Smithee'), (as 'The Estate Of Auggie Prine')",
+        "type": "overlay"
       }
     }
   },
@@ -1022,9 +1022,8 @@
   "enabled": 0,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "Bittersweet Optics: A Division Of A Larger Concern",
-    "rating": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
-    "director": "Auggie Prine (as 'A. Prine'), (as 'Alan Smithee'), (as 'The Estate Of Auggie Prine')",
+    "airDays": null,
+    "airSlots": null,
     "cast": [
       {
         "label": "DELPHINE",
@@ -1047,11 +1046,12 @@
         "role": "Delphine's sister, previously deceased, currently not"
       }
     ],
-    "title": "",
+    "director": "Auggie Prine (as 'A. Prine'), (as 'Alan Smithee'), (as 'The Estate Of Auggie Prine')",
+    "presents": "Bittersweet Optics: A Division Of A Larger Concern",
+    "rating": "CERTIFIED 18+: CONTAINS ADULT SITUATIONS, MILD PLUMBING, AND ONE (1) UNRESOLVED SUBPLOT",
+    "runtime": 600,
     "theme": "",
-    "airSlots": null,
-    "airDays": null,
-    "runtime": 600
+    "title": ""
   },
   "gameshow_pools": null,
   "id": "bc_hard_wired_4",

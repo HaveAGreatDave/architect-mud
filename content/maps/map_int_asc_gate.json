@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_asc_gate_post",
   "id": "map_int_asc_gate",
+  "name": "The Ascension Gate",
   "parent_zone_id": "zone_district_893_906"
 }

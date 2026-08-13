@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 5000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_aurelia_floor",
+  "id": "zone_aurelia_floor",
+  "max_capacity_kw": 1000,
+  "name": "Aurelia",
+  "source_type": "junction_box"
+}

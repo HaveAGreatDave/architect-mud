@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "A spool of citizen records has gone missing in the west wastes, and something is denning on it. The Registrar at Ledger Hall wants it cleared.",
+  "fail_on": [],
   "id": "quest_paper_trail",
   "meta": {},
   "name": "Paper Trail",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

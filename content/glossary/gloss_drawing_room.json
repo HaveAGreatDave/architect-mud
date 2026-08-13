@@ -1,9 +1,9 @@
 {
-  "id": "gloss_drawing_room",
-  "term": "drawing-room",
-  "gloss": "The room a household received guests in.",
   "aliases": [
     "drawing room",
     "drawing-rooms"
-  ]
+  ],
+  "gloss": "The room a household received guests in.",
+  "id": "gloss_drawing_room",
+  "term": "drawing-room"
 }

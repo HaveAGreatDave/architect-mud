@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_026",
   "drug_id": "drug_mescaline",
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "I have been here longer than the road has.",
-  "room_line": "",
+  "id": "dr_object_surreal_026",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I have been here longer than the road has.",
+  "source": "object",
+  "tone": "surreal"
 }

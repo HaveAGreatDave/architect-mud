@@ -1,8 +1,8 @@
 {
-  "id": "gloss_opium_eating",
-  "term": "opium-eating",
-  "gloss": "Taking opium by mouth as a habit.",
   "aliases": [
     "opium eating"
-  ]
+  ],
+  "gloss": "Taking opium by mouth as a habit.",
+  "id": "gloss_opium_eating",
+  "term": "opium-eating"
 }

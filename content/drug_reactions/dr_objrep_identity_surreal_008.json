@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_surreal_008",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "surreal",
-  "self_line": "The honest answer is that I have only been anything since you came in.",
-  "room_line": "",
+  "id": "dr_objrep_identity_surreal_008",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "The honest answer is that I have only been anything since you came in.",
+  "source": "object_reply_identity",
+  "tone": "surreal"
 }

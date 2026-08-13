@@ -1,22 +1,22 @@
 {
-  "id": "dp_ibogaine_the_witness",
-  "name": "the one who sits with you",
-  "cause": "drug",
-  "drug_id": "drug_ibogaine",
   "arrivals": [
     "Somebody sits down, just off to one side, and settles in for the duration.",
     "The attentive one is here again, taking it in properly.",
     "A presence arrives with the air of someone who has read the file."
   ],
+  "cause": "drug",
   "departures": [
     "They move on to another part of it, still listening.",
     "They are elsewhere in the accounting now.",
     "They step out, briefly, the way people do."
   ],
+  "drug_id": "drug_ibogaine",
+  "id": "dp_ibogaine_the_witness",
   "looks": [
     "Attentive. Not judging. Taking it in properly, which is worse.",
     "They have been here for all of it and have not once interrupted.",
     "They are waiting for you to say something about this part.",
     "They look exactly like somebody. You will not be able to say who."
-  ]
+  ],
+  "name": "the one who sits with you"
 }

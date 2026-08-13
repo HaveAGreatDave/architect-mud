@@ -1,29 +1,31 @@
 {
-  "id": "dx_psilocybin_wall_bark",
-  "drug_id": "drug_psilocybin",
-  "matches": "wall",
-  "scope": "object",
-  "name": "the side of an enormous tree",
+  "asks": [
+    "How long have you got? I ask everyone.",
+    "Do you know how deep this room goes?",
+    "Would you cut your name in? Most people do."
+  ],
   "description": "The wall is bark: deep-fissured, warm, running up past where the ceiling should be and going on. Sap has dried in the cracks in long amber runs.",
-  "looks": [
-    "The fissures run vertically, wide enough to get your fingers into, and there is something moving deep in one of them.",
-    "It is warmer than the room. Put a palm flat on it and you can feel it working, very slowly, somewhere behind the bark.",
-    "Names have been cut into it at about shoulder height. None of them are people you know. One of them is nearly yours."
-  ],
-  "says": [
-    "I was here when this was a field. I will manage.",
-    "Do not lean on that part. It is newer than it looks.",
-    "The roof is mine. So is the floor, further down than you think."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} creaks the way a mast creaks, high up, out of sight.",
     "Something small runs up {it} and disappears into a crack.",
     "A slow bead of sap works its way down {it} and stops, thinking about it.",
     "{it} shifts a fraction, and every hanging thing in the room swings."
   ],
-  "asks": [
-    "How long have you got? I ask everyone.",
-    "Do you know how deep this room goes?",
-    "Would you cut your name in? Most people do."
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_wall_bark",
+  "looks": [
+    "The fissures run vertically, wide enough to get your fingers into, and there is something moving deep in one of them.",
+    "It is warmer than the room. Put a palm flat on it and you can feel it working, very slowly, somewhere behind the bark.",
+    "Names have been cut into it at about shoulder height. None of them are people you know. One of them is nearly yours."
+  ],
+  "matches": "wall",
+  "name": "the side of an enormous tree",
+  "says": [
+    "I was here when this was a field. I will manage.",
+    "Do not lean on that part. It is newer than it looks.",
+    "The roof is mine. So is the floor, further down than you think."
+  ],
+  "scope": "object"
 }

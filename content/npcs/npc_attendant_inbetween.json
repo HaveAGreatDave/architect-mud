@@ -19,21 +19,27 @@
       "text": "\"The one that decided the world needed another of you. I do not know why it decided this. I am not built to know why. It looked at a very large number, found it wanting by one, and that one is you. Do not read comfort into that. Do not read cruelty into it either. It simply balanced.\""
     },
     "describe": {
+      "actions": [
+        {
+          "action": "PROLOGUE_BEACON",
+          "at": "terminal"
+        }
+      ],
       "options": [
         {
           "label": "Back",
           "next": "root"
         }
       ],
-      "text": "\"The terminal gives you a body. It does not give you a self. For that there is a word: type .describe followed by whatever is true about you, and that is what a stranger will see when they look. Leave it unsaid and they will see nothing at all -- which is its own kind of true, for now.\"",
+      "text": "\"The terminal gives you a body. It does not give you a self. For that there is a word: type .describe followed by whatever is true about you, and that is what a stranger will see when they look. Leave it unsaid and they will see nothing at all -- which is its own kind of true, for now.\""
+    },
+    "root": {
       "actions": [
         {
           "action": "PROLOGUE_BEACON",
-          "at": "terminal"
+          "at": "none"
         }
-      ]
-    },
-    "root": {
+      ],
       "options": [
         {
           "label": "Where am I?",
@@ -60,13 +66,7 @@
           "next": null
         }
       ],
-      "text": "The attendant inclines its head. \"You have questions. Everyone does, at the start. You most of all, perhaps -- the Architect willed you into being a few moments ago, and did not think to warn you first. Ask. I will answer what I am permitted to, which is less than you would like.\"",
-      "actions": [
-        {
-          "action": "PROLOGUE_BEACON",
-          "at": "none"
-        }
-      ]
+      "text": "The attendant inclines its head. \"You have questions. Everyone does, at the start. You most of all, perhaps -- the Architect willed you into being a few moments ago, and did not think to warn you first. Ask. I will answer what I am permitted to, which is less than you would like.\""
     },
     "safe": {
       "options": [

@@ -4,8 +4,8 @@
   "id": "item_spray_paint",
   "name": "Chromaflux 167 Spraycan",
   "tags": {
-    "spray_paint": true,
-    "misc": true
+    "misc": true,
+    "spray_paint": true
   },
   "type": "misc",
   "value": 120,

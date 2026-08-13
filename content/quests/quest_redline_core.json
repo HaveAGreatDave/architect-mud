@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Slake has watched people walk west into the Redline for years and watched none of them walk back. She doesn't want the core cleared, which can't be done. She wants proof it can be touched: the ticking heart of the thing that rules the killing floor, cut out and carried home.",
+  "fail_on": [],
   "id": "quest_redline_core",
   "meta": {},
   "name": "The Killing Floor",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

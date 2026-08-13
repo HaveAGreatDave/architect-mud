@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_normal_003",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "normal",
-  "self_line": "What time is it out there?",
-  "room_line": "",
+  "id": "dr_objask_normal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "What time is it out there?",
+  "source": "object_ask",
+  "tone": "normal"
 }

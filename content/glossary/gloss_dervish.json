@@ -1,8 +1,8 @@
 {
-  "id": "gloss_dervish",
-  "term": "dervish",
-  "gloss": "A member of a Muslim ascetic order, sought out for wisdom.",
   "aliases": [
     "dervishes"
-  ]
+  ],
+  "gloss": "A member of a Muslim ascetic order, sought out for wisdom.",
+  "id": "gloss_dervish",
+  "term": "dervish"
 }

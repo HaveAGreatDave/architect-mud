@@ -1,9 +1,9 @@
 {
   "description": "Wire, rusting at every joint, draining into a tray that has not been emptied. Everything in it is dry and has been for days.",
   "flags": {
-    "dish_cabinet": true,
+    "aliases": "rack,dish rack,draining board",
     "container": 30000,
-    "aliases": "rack,dish rack,draining board"
+    "dish_cabinet": true
   },
   "hp": null,
   "hp_max": null,

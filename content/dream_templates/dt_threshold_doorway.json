@@ -1,33 +1,33 @@
 {
-  "id": "dt_threshold_doorway",
-  "name": "The Doorway",
-  "description": "A door frame standing on its own, with no wall to belong to and both sides fully lit. Going through it is the simplest thing available to you and you have not done it yet. You have a very clear sense that the person who comes out is going to be asked to account for the person who went in.",
-  "cause": "drug",
-  "drug_id": "drug_threshold",
-  "objects": [
-    {
-      "name": "the frame",
-      "looks": [
-        "Ordinary. Painted many times. The last coat is still tacky.",
-        "There is a draught through it, and no weather on either side to make one.",
-        "The far side of it is this side, viewed from slightly further away than you are."
-      ]
-    },
-    {
-      "name": "your own edges",
-      "looks": [
-        "Where you stop is negotiable and being negotiated.",
-        "You put a hand out and it arrives before you send it.",
-        "There is more of you than there was and it is all yours and it is a lot to hold."
-      ]
-    }
-  ],
   "ambient": [
     "The frame settles, the way a door does in a house getting cold.",
     "Something goes through it the other way and does not disturb the air.",
     "For a moment there are two of the frame, and then there is the practised one."
   ],
-  "weather": "There is a draught through the frame, and no weather on either side to make one.",
+  "cause": "drug",
+  "description": "A door frame standing on its own, with no wall to belong to and both sides fully lit. Going through it is the simplest thing available to you and you have not done it yet. You have a very clear sense that the person who comes out is going to be asked to account for the person who went in.",
+  "drug_id": "drug_threshold",
   "fx": "wind",
-  "fx_intensity": 0.5
+  "fx_intensity": 0.5,
+  "id": "dt_threshold_doorway",
+  "name": "The Doorway",
+  "objects": [
+    {
+      "looks": [
+        "Ordinary. Painted many times. The last coat is still tacky.",
+        "There is a draught through it, and no weather on either side to make one.",
+        "The far side of it is this side, viewed from slightly further away than you are."
+      ],
+      "name": "the frame"
+    },
+    {
+      "looks": [
+        "Where you stop is negotiable and being negotiated.",
+        "You put a hand out and it arrives before you send it.",
+        "There is more of you than there was and it is all yours and it is a lot to hold."
+      ],
+      "name": "your own edges"
+    }
+  ],
+  "weather": "There is a draught through the frame, and no weather on either side to make one."
 }

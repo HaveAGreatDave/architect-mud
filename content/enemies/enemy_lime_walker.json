@@ -1,153 +1,153 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "attack",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 9
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "attack",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
   },
-  {
-   "part": "torso",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {
-    "kinetic": 3
-   },
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 6,
- "butcher_table": [],
- "death_message": "The lime-crusted walker cracks open down its whole length and the shell falls away empty.",
- "description": "Decades of drip have built a shell of grey lime over it, joint by joint, until it wears the tunnel as armour. It cracks when it moves and seals itself again standing still. Nobody knows what is inside and nobody has got that far.",
- "dodge": 1,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy cracks its crust loose and comes at $player.",
-   "Grey dust sheets off $enemy as it squares up to $player.",
-   "$enemy raises an arm at $player like the wall itself is objecting."
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 9
+    },
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 3
+      },
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 6000
- },
- "hit": 5,
- "hp_max": 54,
- "id": "enemy_lime_walker",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    3
-   ],
-   "weight": 26
+  "butcher_difficulty": 6,
+  "butcher_table": [],
+  "death_message": "The lime-crusted walker cracks open down its whole length and the shell falls away empty.",
+  "description": "Decades of drip have built a shell of grey lime over it, joint by joint, until it wears the tunnel as armour. It cracks when it moves and seals itself again standing still. Nobody knows what is inside and nobody has got that far.",
+  "dodge": 1,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy cracks its crust loose and comes at $player.",
+      "Grey dust sheets off $enemy as it squares up to $player.",
+      "$enemy raises an arm at $player like the wall itself is objecting."
+    ],
+    "first_strike_delay_ms": 6000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 15
-  },
-  {
-   "item": "item_battery",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 10
-  },
-  {
-   "credits": [
-    55,
-    130
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 24
-  },
-  {
-   "credits": [
-    140,
-    300
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "lime-crusted walker",
- "weapon": [
-  {
-   "max": 7,
-   "min": 4,
-   "type": "kinetic"
-  }
- ]
+  "hit": 5,
+  "hp_max": 54,
+  "id": "enemy_lime_walker",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 26
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 15
+    },
+    {
+      "item": "item_battery",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 10
+    },
+    {
+      "credits": [
+        55,
+        130
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 24
+    },
+    {
+      "credits": [
+        140,
+        300
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "lime-crusted walker",
+  "weapon": [
+    {
+      "max": 7,
+      "min": 4,
+      "type": "kinetic"
+    }
+  ]
 }

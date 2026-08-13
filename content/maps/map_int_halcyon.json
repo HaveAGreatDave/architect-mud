@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_halcyon_lobby",
   "id": "map_int_halcyon",
+  "name": "Halcyon Towers",
   "parent_zone_id": "zone_district_895_906"
 }

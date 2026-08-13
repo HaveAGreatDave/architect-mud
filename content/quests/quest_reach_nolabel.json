@@ -1,6 +1,7 @@
 {
   "category": "Job Board",
   "description": "There's a crate in the Stash with no markings on it, and Marla would like it to be at the field instead of under her bar. Take it out through town and leave it on the apron. Nobody will ask you what's in it, and you will extend the same courtesy. 25₵.",
+  "fail_on": [],
   "id": "quest_reach_nolabel",
   "meta": {},
   "name": "Nothing To Declare",
@@ -48,6 +49,7 @@
       "zone": "zone_the_reach_870_1958"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

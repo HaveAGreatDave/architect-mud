@@ -1,8 +1,8 @@
 {
-  "id": "gloss_succour",
-  "term": "succour",
-  "gloss": "Help given in hardship.",
   "aliases": [
     "succor"
-  ]
+  ],
+  "gloss": "Help given in hardship.",
+  "id": "gloss_succour",
+  "term": "succour"
 }

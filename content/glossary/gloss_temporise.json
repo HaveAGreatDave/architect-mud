@@ -1,10 +1,10 @@
 {
-  "id": "gloss_temporise",
-  "term": "temporise",
-  "gloss": "To stall for time.",
   "aliases": [
     "temporize",
     "temporised",
     "temporized"
-  ]
+  ],
+  "gloss": "To stall for time.",
+  "id": "gloss_temporise",
+  "term": "temporise"
 }

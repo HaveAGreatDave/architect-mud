@@ -12,10 +12,16 @@
         "type": "action"
       },
       "atm_wait": {
+        "jitter": 20,
         "next": "deposit",
         "seconds": 10,
-        "type": "wait",
-        "jitter": 20
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
       },
       "check_work": {
         "action_type": "CHECK_VENDOR_WORK",
@@ -121,15 +127,10 @@
         "next": "player_check",
         "seconds": 60,
         "type": "wait"
-      },
-      "cash_up": {
-        "type": "wait",
-        "seconds": 20,
-        "jitter": 900,
-        "next": "collect_safe"
       }
     }
   },
+  "chitchat": [],
   "description": "A short, thick-forearmed woman with a burn scar that climbs out of her collar and stops just under her jaw, and the permanent squint of somebody who has looked into a forge for a living. She talks to you while working and does not stop working.",
   "dialogue_tree": {
     "bye": {
@@ -176,6 +177,7 @@
       "text": "She wipes her hands and lifts the counter flap."
     }
   },
+  "faction": null,
   "flags": {
     "clothing_layers": [
       "a scorched leather forge apron, scarred white where sparks have landed",
@@ -185,11 +187,15 @@
     "personality": "vendor",
     "repairman": true
   },
+  "home_activities": [],
   "home_zone": "zone_meridian_unit_401",
+  "hp": 20,
+  "hp_max": 20,
   "id": "npc_smith_vessa",
   "name": "Vessa Orme",
   "npc_type": "vendor",
   "sex": "female",
+  "studio_zone_id": null,
   "vendor_inventory": [
     {
       "item_id": "item_leafspring_blade",
@@ -264,5 +270,7 @@
   },
   "vendor_shop_name": "Grind House",
   "vendor_stock_size": 12,
+  "wander_zones": [],
+  "wanders": 0,
   "work_zone_id": "zone_grindhouse_interior"
 }

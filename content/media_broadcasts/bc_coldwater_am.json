@@ -33,6 +33,14 @@
     "cohost": "npc_am_dorn",
     "host": "npc_am_pace",
     "pools": {
+      "audience": [
+        "And a very good morning to all {watching} of you watching right now! >> {watching}. He said the number out loud, Coldwater. He said it on purpose.",
+        "There are {watching} sets tuned to us this second and I love every one of you. >> There are {watching} sets tuned to us and one of them is the one in this building.",
+        "{watching} of you! That's a CROWD! >> That is a number. Crowd is a decision you have made about the number.",
+        "We're never alone, Hal. {watching} people, right now, with us. >> {watching} people who could not find the dial. But with us. Yes.",
+        "Wave to the {watching} at home! >> They cannot see us wave. That is the arrangement. That has always been the arrangement.",
+        "To the {watching} of you out there: you are the reason we do this. >> We do this because the deck is powered and the door was open."
+      ],
       "beat.aside": [
         "Moving on! >> We're not going to sit with that at all, are we.",
         "And we'll stay on that one as it develops. >> It won't develop. It'll be replaced.",
@@ -83,6 +91,23 @@
         "Standings quoted at time of reading. Ledgers turn.",
         "Letters are opened. Letters are not answered."
       ],
+      "mailbag": [
+        "Letter from a viewer in Meltwater Row. She wants to know if the sunrise is real. >> Next letter.",
+        "This one asks whether the curfew applies to cats. >> The curfew applies to whatever the patrol decides it applies to. That includes cats. That includes you.",
+        "A gentleman in the Yards writes to say he's been watching us for eleven years! >> Then he has our sympathy and our respect, in that order.",
+        "Somebody wants to know what Hal is like off camera. >> This.",
+        "A viewer asks: what's the secret to a happy morning? >> Low expectations, applied early.",
+        "This one is just a drawing of the two of us. >> It is a drawing of one of us and a shape.",
+        "Here's a lovely one. A young man in the Solenne writes to say we're like family to him. >> Tell him families are also mostly obligation and a shared address.",
+        "One viewer asks if we do requests! >> We do. They are declined here, on air, so everybody can enjoy them.",
+        "A letter with no name on it, just the words HOW LONG. >> That is the whole letter and it is the best one we have had all week.",
+        "Somebody's written in to complain about Hal. >> Somebody's written in to be RIGHT about Hal. There is a difference and they have earned it.",
+        "This viewer wants to know why we never show the weather outside the studio. >> Because the studio does not have an outside. Next letter."
+      ],
+      "mailbag.banner": [
+        "THE MAILBAG | YOU WROTE IN, WE OPENED IT",
+        "THE MAILBAG | LETTERS FROM PEOPLE WITH TIME"
+      ],
       "open": [
         "Good MORNING, Coldwater! It is {time}, it is {temp} degrees, and you are ALIVE! >> Statistically.",
         "Good morning, Coldwater. {day}, {time}, {temp} degrees. >> All four of those are true and only one of them is good news.",
@@ -94,6 +119,13 @@
         "Top of the {season} morning to you, Coldwater! {temp} degrees! >> Bottom of it, more accurately. We are at the bottom of the Basin.",
         "It's {time}, I'm Bijou, that's Hal, and this is the best part of your day! >> That is a sentence about your day, not about this programme.",
         "Here we GO, Coldwater! {day}! {temp} degrees! Nothing can stop us! >> {temp} degrees can stop us. It stopped a man on Meltwater Row on {day} last week."
+      ],
+      "plug": [
+        "Don't go anywhere today, because {tonight} is on at {tonightTime}! >> It is on at {tonightTime} whether you go somewhere or not.",
+        "Coming up later on this channel: {tonight}, {tonightTime}. >> Set nothing. It will find you.",
+        "And you will NOT want to miss {tonight}, {tonightTime}! >> You will be able to miss it. People manage.",
+        "{tonightTime} tonight, it's {tonight}. Mark it! >> Mark it on what, Bijou.",
+        "Big one later: {tonight}, {tonightTime}, right here. >> Right here. Where else would it be."
       ],
       "runin.banner": [
         "YOUR MORNING RUN-IN | WHAT THE CITY IS DOING TO YOU TODAY"
@@ -153,6 +185,27 @@
         "From this couch to yours: go and GET it! >> From this couch to yours: go and survive it.",
         "See you at {time} tomorrow! >> It will not be {time} tomorrow. It is never the same time twice. Nobody has ever asked why."
       ],
+      "sportsdesk": [
+        "And to the sport, where {leader} are top at {leaderRecord}. >> Somebody has to be.",
+        "{leader} lead the way this morning, {leaderRecord}. >> Enjoy it, {leader}. Ledgers turn."
+      ],
+      "sportsdesk.banner": [
+        "THE SLATE | WHO IS BEATING WHOM",
+        "THE SLATE | STANDINGS, SUCH AS THEY ARE"
+      ],
+      "sportsdesk.baseball": [
+        "Deadball! {leader} sit top of the table at {leaderRecord}! >> A game of nine innings and one municipal ambulance.",
+        "Your Deadball leaders this morning: {leader}, {leaderRecord}. >> Written down. Which is more than most of us get.",
+        "{leader} are {leaderRecord} and playing BEAUTIFULLY. >> They are {leaderRecord} and playing within the rules as currently enforced.",
+        "Deadball fans, {leader} are your table-toppers, {leaderRecord}! >> Deadball fans. Plural. Optimistic.",
+        "How about {leader}, Hal! {leaderRecord}! >> How about them."
+      ],
+      "sportsdesk.hockey": [
+        "Cluster Puck! {puckLeader} top the CPhL at {puckRecord}! >> On ice we did not have to make. The one gift this basin gives.",
+        "{puckLeader} lead the Puck, {puckRecord}. >> A sport where the ambulance is part of the ground staff.",
+        "Your Cluster Puck standings: {puckLeader}, {puckRecord}, and looking STRONG. >> Looking upright. In that league it is the same statistic.",
+        "{puckLeader} are {puckRecord} and I for one am THRILLED. >> You are contractually thrilled. It is in the same clause as my chair."
+      ],
       "ticker.lead": [
         "COLDWATER A.M.",
         "COLDWATER A.M. · YOU ARE AWAKE, SO ARE WE",
@@ -175,13 +228,33 @@
       "weather.banner": [
         "THE WINDOW | WHAT IT IS DOING TO YOU OUT THERE"
       ],
+      "weather.blizzard": [
+        "It is a BLIZZARD out there, {temp} degrees, wind {wind}! >> Do not go out. That is the whole segment. Bijou, tell them not to go out.",
+        "Blizzard conditions across the Basin this morning. >> If you can see the far side of your own street, you are indoors. Stay there."
+      ],
       "weather.clear": [
         "CLEAR skies, Coldwater! {temp} degrees and you can see all the way to the ridge! >> You can see all the way to the ridge. Take a moment with that.",
         "Not a cloud, {temp} degrees. It's a beautiful morning. >> It's a visible morning. Beautiful is a stretch."
       ],
+      "weather.cloudy": [
+        "Cloud over the Basin, {temp} degrees, nothing dramatic. >> Nothing dramatic is the best forecast this city has.",
+        "A grey one, {temp} degrees, wind {wind}. >> Grey is the house colour. We had it done."
+      ],
       "weather.fog": [
         "Fog on the Basin, {temp} degrees, can't see past the Locks. >> The fog is doing us a favour. Let it.",
         "Thick fog this morning. Take it slow. >> Take it slow, or arrive somewhere unplanned and permanent."
+      ],
+      "weather.haze": [
+        "Bit of haze on the Basin, {temp} degrees. >> Breathe through something with a weave.",
+        "Hazy start, {temp} degrees, {precip} percent later. >> Whatever is in that haze got there somehow. Do not go looking for how."
+      ],
+      "weather.ion": [
+        "The Service is calling this an ION STORM, Hal. Something for the diary! >> Power down what you love. Unplug it, and sit with it, and wait.",
+        "Ion storm over the Basin this morning. Lights may flicker! >> Lights may stop. Doors may stop. Lifts may stop with you in them."
+      ],
+      "weather.overcast": [
+        "Full overcast this morning, {temp} degrees. >> The lid is on. It will be on tomorrow.",
+        "No sky to speak of, {temp} degrees, feels like {feels}. >> There is a sky. It has simply declined to participate."
       ],
       "weather.rain": [
         "Rain, {temp} degrees, {precip} percent and climbing. >> It is raining on the window that is not a window. There is something in that.",
@@ -192,94 +265,21 @@
         "This one has teeth. Wind {wind}, feels like {feels}. >> If you have somewhere with walls, be in it. If you don't, find someone who does.",
         "Severe conditions today, Coldwater. >> Severe means the city stops pretending it can protect you. Act accordingly."
       ],
-      "weather.snow": [
-        "Snow this morning! {temp} degrees. >> Snow is rain that decided to take its time about ruining your day.",
-        "It's snowing, it's {temp}, and it is very pretty from in here. >> From in here."
-      ],
-      "weather.thunderstorm": [
-        "Thunderstorms, {temp} degrees, wind at {wind}. >> If you can hear it, it can reach you.",
-        "Storms over the Basin this morning. >> The Basin has never won one of these."
-      ],
-      "mailbag.banner": [
-        "THE MAILBAG | YOU WROTE IN, WE OPENED IT",
-        "THE MAILBAG | LETTERS FROM PEOPLE WITH TIME"
-      ],
-      "mailbag": [
-        "Letter from a viewer in Meltwater Row. She wants to know if the sunrise is real. >> Next letter.",
-        "This one asks whether the curfew applies to cats. >> The curfew applies to whatever the patrol decides it applies to. That includes cats. That includes you.",
-        "A gentleman in the Yards writes to say he's been watching us for eleven years! >> Then he has our sympathy and our respect, in that order.",
-        "Somebody wants to know what Hal is like off camera. >> This.",
-        "A viewer asks: what's the secret to a happy morning? >> Low expectations, applied early.",
-        "This one is just a drawing of the two of us. >> It is a drawing of one of us and a shape.",
-        "Here's a lovely one. A young man in the Solenne writes to say we're like family to him. >> Tell him families are also mostly obligation and a shared address.",
-        "One viewer asks if we do requests! >> We do. They are declined here, on air, so everybody can enjoy them.",
-        "A letter with no name on it, just the words HOW LONG. >> That is the whole letter and it is the best one we have had all week.",
-        "Somebody's written in to complain about Hal. >> Somebody's written in to be RIGHT about Hal. There is a difference and they have earned it.",
-        "This viewer wants to know why we never show the weather outside the studio. >> Because the studio does not have an outside. Next letter."
-      ],
-      "sportsdesk.banner": [
-        "THE SLATE | WHO IS BEATING WHOM",
-        "THE SLATE | STANDINGS, SUCH AS THEY ARE"
-      ],
-      "sportsdesk": [
-        "And to the sport, where {leader} are top at {leaderRecord}. >> Somebody has to be.",
-        "{leader} lead the way this morning, {leaderRecord}. >> Enjoy it, {leader}. Ledgers turn."
-      ],
-      "sportsdesk.baseball": [
-        "Deadball! {leader} sit top of the table at {leaderRecord}! >> A game of nine innings and one municipal ambulance.",
-        "Your Deadball leaders this morning: {leader}, {leaderRecord}. >> Written down. Which is more than most of us get.",
-        "{leader} are {leaderRecord} and playing BEAUTIFULLY. >> They are {leaderRecord} and playing within the rules as currently enforced.",
-        "Deadball fans, {leader} are your table-toppers, {leaderRecord}! >> Deadball fans. Plural. Optimistic.",
-        "How about {leader}, Hal! {leaderRecord}! >> How about them."
-      ],
-      "sportsdesk.hockey": [
-        "Cluster Puck! {puckLeader} top the CPhL at {puckRecord}! >> On ice we did not have to make. The one gift this basin gives.",
-        "{puckLeader} lead the Puck, {puckRecord}. >> A sport where the ambulance is part of the ground staff.",
-        "Your Cluster Puck standings: {puckLeader}, {puckRecord}, and looking STRONG. >> Looking upright. In that league it is the same statistic.",
-        "{puckLeader} are {puckRecord} and I for one am THRILLED. >> You are contractually thrilled. It is in the same clause as my chair."
-      ],
-      "audience": [
-        "And a very good morning to all {watching} of you watching right now! >> {watching}. He said the number out loud, Coldwater. He said it on purpose.",
-        "There are {watching} sets tuned to us this second and I love every one of you. >> There are {watching} sets tuned to us and one of them is the one in this building.",
-        "{watching} of you! That's a CROWD! >> That is a number. Crowd is a decision you have made about the number.",
-        "We're never alone, Hal. {watching} people, right now, with us. >> {watching} people who could not find the dial. But with us. Yes.",
-        "Wave to the {watching} at home! >> They cannot see us wave. That is the arrangement. That has always been the arrangement.",
-        "To the {watching} of you out there: you are the reason we do this. >> We do this because the deck is powered and the door was open."
-      ],
-      "plug": [
-        "Don't go anywhere today, because {tonight} is on at {tonightTime}! >> It is on at {tonightTime} whether you go somewhere or not.",
-        "Coming up later on this channel: {tonight}, {tonightTime}. >> Set nothing. It will find you.",
-        "And you will NOT want to miss {tonight}, {tonightTime}! >> You will be able to miss it. People manage.",
-        "{tonightTime} tonight, it's {tonight}. Mark it! >> Mark it on what, Bijou.",
-        "Big one later: {tonight}, {tonightTime}, right here. >> Right here. Where else would it be."
-      ],
-      "weather.cloudy": [
-        "Cloud over the Basin, {temp} degrees, nothing dramatic. >> Nothing dramatic is the best forecast this city has.",
-        "A grey one, {temp} degrees, wind {wind}. >> Grey is the house colour. We had it done."
-      ],
-      "weather.overcast": [
-        "Full overcast this morning, {temp} degrees. >> The lid is on. It will be on tomorrow.",
-        "No sky to speak of, {temp} degrees, feels like {feels}. >> There is a sky. It has simply declined to participate."
-      ],
-      "weather.haze": [
-        "Bit of haze on the Basin, {temp} degrees. >> Breathe through something with a weave.",
-        "Hazy start, {temp} degrees, {precip} percent later. >> Whatever is in that haze got there somehow. Do not go looking for how."
-      ],
       "weather.sleet": [
         "Sleet, Coldwater. {temp} degrees. Mind your footing! >> Sleet is snow that could not commit and rain that would not leave.",
         "Sleet and {wind} of wind, feels like {feels}. >> Every surface out there is now a decision you get to make once."
       ],
-      "weather.blizzard": [
-        "It is a BLIZZARD out there, {temp} degrees, wind {wind}! >> Do not go out. That is the whole segment. Bijou, tell them not to go out.",
-        "Blizzard conditions across the Basin this morning. >> If you can see the far side of your own street, you are indoors. Stay there."
+      "weather.snow": [
+        "Snow this morning! {temp} degrees. >> Snow is rain that decided to take its time about ruining your day.",
+        "It's snowing, it's {temp}, and it is very pretty from in here. >> From in here."
       ],
       "weather.storm": [
         "Storm on the Basin, wind {wind}, feels like {feels}. >> The Basin is a bowl. Think about what a bowl is for.",
         "Big weather this morning, Coldwater! Wind {wind}! >> Big weather. Small city. Guess."
       ],
-      "weather.ion": [
-        "The Service is calling this an ION STORM, Hal. Something for the diary! >> Power down what you love. Unplug it, and sit with it, and wait.",
-        "Ion storm over the Basin this morning. Lights may flicker! >> Lights may stop. Doors may stop. Lifts may stop with you in them."
+      "weather.thunderstorm": [
+        "Thunderstorms, {temp} degrees, wind at {wind}. >> If you can hear it, it can reach you.",
+        "Storms over the Basin this morning. >> The Basin has never won one of these."
       ]
     },
     "theme": "coldwater_am_theme",

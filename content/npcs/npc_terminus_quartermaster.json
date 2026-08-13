@@ -1,5 +1,6 @@
 {
   "banter": [],
+  "behaviour_graph": {},
   "chitchat": [
     "Leave it by the doors. I'll get to it.",
     "If it has a serial number on it, scratch the number off before you bring it to me. That's not a rule, it's a courtesy.",
@@ -9,69 +10,171 @@
   ],
   "description": "A rangy man in a coat that was expensive before it was buried, running a pencil down a list he clearly knows by heart. He works at the open doors of the shed rather than inside it, which seems deliberate: everything he handles is handled in the light where the settlement can see him do it. He has the manner of somebody who has made peace with a contradiction by refusing, absolutely, to discuss it.",
   "dialogue_tree": {
-    "root": {
-      "first": "He looks up, takes you in, and goes back to the list. \"You'll be after the gate. Everyone's after the gate. I'm Stannard, I do the buying, and the buying is out here.\"",
-      "text": "\"Buying's out here. Gate's not mine.\"",
-      "text_by_relation": {
-        "known": "\"You again. Whatever it is, leave it by the doors.\"",
-        "familiar": "He does not look up, but the pencil stops. \"Go on then.\"",
-        "close": "\"There you are.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\""
-      },
+    "arrangement": {
+      "actions": [],
       "options": [
-        { "label": "What do you buy?", "next": "buy", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "You renounce all this. And you're buying it.", "next": "contradiction", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What's behind the wall?", "next": "wall", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Nothing.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
       ],
-      "actions": []
+      "text": "\"It's a job.\" He goes back to the list. \"Everyone here has one. Mine has an ending in it, which is more than most people get.\""
     },
     "buy": {
-      "text": "\"Bearings. Wire. Anything that turns without complaining. Glass, if it's clean. Medical, always, at a price that will surprise you.\n\nWhat I don't buy is anything that thinks. No cores, no boards, no augments, nothing with a light on it that comes on by itself. Bring me one of those and we are finished, you and I, permanently.\"",
+      "actions": [],
       "options": [
-        { "label": "You renounce all this. And you're buying it.", "next": "contradiction", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What's behind the wall?", "next": "wall", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Right.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You renounce all this. And you're buying it.",
+          "next": "contradiction"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's behind the wall?",
+          "next": "wall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
       ],
-      "actions": []
-    },
-    "contradiction": {
-      "text": "The pencil stops. He does not look angry. He looks like a man hearing a joke he stopped finding funny a long time ago.\n\n\"We are leaving. Leaving takes a wall, and water, and a hundred small turning things, and none of us can make a bearing out of good intentions. So somebody stands out here in the light and buys them, where everyone can see it being done, and that somebody is me.\n\nWhen we go, I don't. That's the arrangement. Somebody has to be the one who touched it.\"",
-      "options": [
-        { "label": "That's a hell of an arrangement.", "next": "arrangement", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What do you buy?", "next": "buy", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "I'm sorry.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "arrangement": {
-      "text": "\"It's a job.\" He goes back to the list. \"Everyone here has one. Mine has an ending in it, which is more than most people get.\"",
-      "options": [
-        { "label": "What do you buy?", "next": "buy", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Right.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "wall": {
-      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it is all you are getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\"",
-      "options": [
-        { "label": "How would it come to that?", "next": "howin", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What do you buy?", "next": "buy", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Fine.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "howin": {
-      "text": "\"Not by asking me, and not by paying. That's most of the ways off the table already.\n\nThey watch what people do. Not here, particularly. Everywhere. If you ever find yourself doing the sort of work they'd approve of, you'll know, because you'll have chosen it for your own reasons and not for theirs. That's the whole of it. That's the only door.\"",
-      "options": [
-        { "label": "What do you buy?", "next": "buy", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Understood.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
+      "text": "\"Bearings. Wire. Anything that turns without complaining. Glass, if it's clean. Medical, always, at a price that will surprise you.\n\nWhat I don't buy is anything that thinks. No cores, no boards, no augments, nothing with a light on it that comes on by itself. Bring me one of those and we are finished, you and I, permanently.\""
     },
     "bye": {
-      "text": "\"Doors are open. They're always open. That's the point of doors.\"",
+      "actions": [],
       "options": [],
-      "actions": []
+      "text": "\"Doors are open. They're always open. That's the point of doors.\""
+    },
+    "contradiction": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That's a hell of an arrangement.",
+          "next": "arrangement"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'm sorry.",
+          "next": "bye"
+        }
+      ],
+      "text": "The pencil stops. He does not look angry. He looks like a man hearing a joke he stopped finding funny a long time ago.\n\n\"We are leaving. Leaving takes a wall, and water, and a hundred small turning things, and none of us can make a bearing out of good intentions. So somebody stands out here in the light and buys them, where everyone can see it being done, and that somebody is me.\n\nWhen we go, I don't. That's the arrangement. Somebody has to be the one who touched it.\""
+    },
+    "howin": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Not by asking me, and not by paying. That's most of the ways off the table already.\n\nThey watch what people do. Not here, particularly. Everywhere. If you ever find yourself doing the sort of work they'd approve of, you'll know, because you'll have chosen it for your own reasons and not for theirs. That's the whole of it. That's the only door.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "He looks up, takes you in, and goes back to the list. \"You'll be after the gate. Everyone's after the gate. I'm Stannard, I do the buying, and the buying is out here.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You renounce all this. And you're buying it.",
+          "next": "contradiction"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's behind the wall?",
+          "next": "wall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Buying's out here. Gate's not mine.\"",
+      "text_by_relation": {
+        "close": "\"There you are.\" He puts the list down, which from him is an embrace. \"Sit if you like. Don't touch the crates.\"",
+        "familiar": "He does not look up, but the pencil stops. \"Go on then.\"",
+        "known": "\"You again. Whatever it is, leave it by the doors.\""
+      }
+    },
+    "wall": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How would it come to that?",
+          "next": "howin"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What do you buy?",
+          "next": "buy"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Fine.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"People. Same as anywhere. Working, mostly.\"\n\nHe lets that sit exactly long enough for you to know it is all you are getting.\n\n\"They'll tell you themselves, if it ever comes to that. It won't come to that today. Go and look at the gate if you like. It's very good at being a gate.\""
     }
   },
   "faction": "ideology_exodus",

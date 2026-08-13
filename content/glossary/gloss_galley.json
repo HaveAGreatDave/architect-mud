@@ -1,8 +1,8 @@
 {
-  "id": "gloss_galley",
-  "term": "galley",
-  "gloss": "A ship rowed by convicts and slaves chained to the oars. A sentence, not a job.",
   "aliases": [
     "galleys"
-  ]
+  ],
+  "gloss": "A ship rowed by convicts and slaves chained to the oars. A sentence, not a job.",
+  "id": "gloss_galley",
+  "term": "galley"
 }

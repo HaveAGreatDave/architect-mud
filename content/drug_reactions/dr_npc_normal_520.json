@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_520",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": null,
+  "id": "dr_npc_normal_520",
   "npc_type": "dealer",
+  "relation": null,
+  "room_line": "{npc} looks {player} over with the satisfaction of a man reviewing his own work.",
   "self_line": "{npc} looks pleased with the quality of their own product.",
-  "room_line": "{npc} looks {player} over with the satisfaction of a man reviewing his own work."
+  "source": "npc",
+  "tone": "normal"
 }

@@ -1,5 +1,6 @@
 {
   "banter": [],
+  "behaviour_graph": {},
   "chitchat": [
     "Board's fresh. Read it before somebody else does.",
     "Keys are in it. They're always in it. Who's going to take it, the Reach?",
@@ -9,63 +10,165 @@
   ],
   "description": "A wide, unhurried woman in a quilted work coat gone shiny at the elbows, sitting in a plastic chair she has clearly owned longer than the chair was designed to last. A clipboard rests on one knee; she does not look at it. One boot is propped on a crate stencilled with a company that stopped existing some time ago, and she taps it, slowly, at whatever tempo the yard is running at today.",
   "dialogue_tree": {
-    "root": {
-      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.",
-      "text": "Board's up. Fence is that way.",
-      "text_by_relation": {
-        "known": "You again. Board's changed since yesterday, before you ask.",
-        "familiar": "She tips the clipboard at you without looking up. \"Thought I heard your engine. Sit if you want, or don't.\"",
-        "close": "\"There you are.\" She moves her boot off the crate, which from her is a standing ovation. \"Take whatever's on it. I'll square it.\""
-      },
-      "options": [
-        { "label": "What's the work?", "next": "work", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "I need a truck.", "next": "truck", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Where does the road go?", "next": "road", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What's the catch?", "next": "catch", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Nothing. Just looking.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "truck": {
-      "text": "Then buy one. Four along the fence, and they are honestly priced, which out here means nobody has bothered to lie.\n\nThe Krell's thirteen hundred and it is exactly what thirteen hundred buys. It'll get you there and it will not get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have thirty grand and a reason.\n\nBuy small. Run it into the ground. Buy better. That's the job.",
-      "options": [
-        { "label": "What's the work?", "next": "work", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Where does the road go?", "next": "road", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "I'll go and look.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "work": {
-      "text": "Two kinds. Contract work is off the board: somebody's paying a fixed number to get their box from here to there, and the number doesn't move whatever happens on the way. That's wages. Safe, dull, and it always pays.\n\nThe other kind is you buy something with your own money, drive it somewhere that wants it more, and sell it. That one can pay a great deal better and it can also put you in a hole. Your call which sort of person you are.",
-      "options": [
-        { "label": "Where does the road go?", "next": "road", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What's the catch?", "next": "catch", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Right. I'll take a look.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
-    },
-    "road": {
-      "text": "South. Down Kessler, out past the gate, and then the hardtop gives up and it's just graded dirt and whatever the week has done to it. Couple of hours of nothing. Then the Reach comes up out of the haze and there's a yard there called the Last Load, which is a joke, but it's their joke and they've earned it.\n\nBring something back. An empty trailer is a bill you pay in diesel.",
-      "options": [
-        { "label": "What's the catch?", "next": "catch", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "What's the work again?", "next": "work", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Right. I'll take a look.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
-      ],
-      "actions": []
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "Board's there when you want it."
     },
     "catch": {
-      "text": "The catch is that the waste is out there and it doesn't care about your schedule. Things live in it. Some of them come to the road, because the road is where the food walks past.\n\nAnd the truck stops when you stop it, not before. I've had three come back with the front end folded up because somebody found out a wall is a wall at fifty. Watch where you're pointing it.",
+      "actions": [],
       "options": [
-        { "label": "What's the work?", "next": "work", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Where does the road go?", "next": "road", "enabled": true, "conditions": [], "actions": [] },
-        { "label": "Understood.", "next": "bye", "enabled": true, "conditions": [], "actions": [] }
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the work?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the road go?",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Understood.",
+          "next": "bye"
+        }
       ],
-      "actions": []
+      "text": "The catch is that the waste is out there and it doesn't care about your schedule. Things live in it. Some of them come to the road, because the road is where the food walks past.\n\nAnd the truck stops when you stop it, not before. I've had three come back with the front end folded up because somebody found out a wall is a wall at fifty. Watch where you're pointing it."
     },
-    "bye": {
-      "text": "Board's there when you want it.",
-      "options": [],
-      "actions": []
+    "road": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the catch?",
+          "next": "catch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the work again?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right. I'll take a look.",
+          "next": "bye"
+        }
+      ],
+      "text": "South. Down Kessler, out past the gate, and then the hardtop gives up and it's just graded dirt and whatever the week has done to it. Couple of hours of nothing. Then the Reach comes up out of the haze and there's a yard there called the Last Load, which is a joke, but it's their joke and they've earned it.\n\nBring something back. An empty trailer is a bill you pay in diesel."
+    },
+    "root": {
+      "actions": [],
+      "first": "You're standing in front of my board, which means you either want work or you're lost. I'm Rennie. I keep the yard and the yard keeps the road. Work's there for anybody with a truck to put it in, and if you haven't got one, well. That's what the fence is for.",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the work?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I need a truck.",
+          "next": "truck"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the road go?",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the catch?",
+          "next": "catch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing. Just looking.",
+          "next": "bye"
+        }
+      ],
+      "text": "Board's up. Fence is that way.",
+      "text_by_relation": {
+        "close": "\"There you are.\" She moves her boot off the crate, which from her is a standing ovation. \"Take whatever's on it. I'll square it.\"",
+        "familiar": "She tips the clipboard at you without looking up. \"Thought I heard your engine. Sit if you want, or don't.\"",
+        "known": "You again. Board's changed since yesterday, before you ask."
+      }
+    },
+    "truck": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the work?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the road go?",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "I'll go and look.",
+          "next": "bye"
+        }
+      ],
+      "text": "Then buy one. Four along the fence, and they are honestly priced, which out here means nobody has bothered to lie.\n\nThe Krell's thirteen hundred and it is exactly what thirteen hundred buys. It'll get you there and it will not get you there and back on one tank, so plan for that. The Ostrek is quick and small. The Drayman is what most people end up on and there's a reason. And the Orlov will swallow a whole market, if you have thirty grand and a reason.\n\nBuy small. Run it into the ground. Buy better. That's the job."
+    },
+    "work": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the road go?",
+          "next": "road"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the catch?",
+          "next": "catch"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right. I'll take a look.",
+          "next": "bye"
+        }
+      ],
+      "text": "Two kinds. Contract work is off the board: somebody's paying a fixed number to get their box from here to there, and the number doesn't move whatever happens on the way. That's wages. Safe, dull, and it always pays.\n\nThe other kind is you buy something with your own money, drive it somewhere that wants it more, and sell it. That one can pay a great deal better and it can also put you in a hole. Your call which sort of person you are."
     }
   },
   "faction": null,

@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_farewell_surreal_006",
   "drug_id": null,
-  "source": "object_reply_farewell",
-  "tone": "surreal",
-  "self_line": "I will not say anything about this.",
-  "room_line": "",
+  "id": "dr_objrep_farewell_surreal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I will not say anything about this.",
+  "source": "object_reply_farewell",
+  "tone": "surreal"
 }

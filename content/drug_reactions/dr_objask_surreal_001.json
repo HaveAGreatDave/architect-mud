@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_surreal_001",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "surreal",
-  "self_line": "Do you know what I was before this?",
-  "room_line": "",
+  "id": "dr_objask_surreal_001",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Do you know what I was before this?",
+  "source": "object_ask",
+  "tone": "surreal"
 }

@@ -2,10 +2,10 @@
   "description": "A shallow basin bolted to the wall beside the hotplate, its enamel worn through to grey metal in a ring the size of a fist. The tap knocks twice before it gives you anything, and what it gives you is cold.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
-    "water_source": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

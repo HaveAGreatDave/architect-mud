@@ -1,8 +1,8 @@
 {
-  "id": "gloss_schooner",
-  "term": "schooner",
-  "gloss": "A small fast sailing ship with two or more masts.",
   "aliases": [
     "schooners"
-  ]
+  ],
+  "gloss": "A small fast sailing ship with two or more masts.",
+  "id": "gloss_schooner",
+  "term": "schooner"
 }

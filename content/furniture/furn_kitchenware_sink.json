@@ -2,10 +2,10 @@
   "description": "A deep zinc trough set into the end of the counter, kept mirror-bright for the same reason everything else in here is: somebody wants you imagining it in your own kitchen. The tap is a long swan neck you could fill a stockpot under without tilting it.",
   "flags": {
     "aliases": "kitchen sink,sink,basin,tap",
-    "water_source": true,
     "interactions": [
       "lean"
-    ]
+    ],
+    "water_source": true
   },
   "hp": null,
   "hp_max": null,

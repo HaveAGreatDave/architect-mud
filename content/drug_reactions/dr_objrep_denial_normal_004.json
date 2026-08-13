@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_normal_004",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "normal",
-  "self_line": "If you say so. You would know.",
-  "room_line": "",
+  "id": "dr_objrep_denial_normal_004",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "If you say so. You would know.",
+  "source": "object_reply_denial",
+  "tone": "normal"
 }

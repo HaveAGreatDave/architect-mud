@@ -1,8 +1,8 @@
 {
   "description": "Sat on the end of the display range with a hand-lettered card beside it reading TRY ME. People do. Nobody buys it.",
   "flags": {
-    "brew_tier": "kettle",
-    "aliases": "kettle,demonstration kettle"
+    "aliases": "kettle,demonstration kettle",
+    "brew_tier": "kettle"
   },
   "hp": null,
   "hp_max": null,

@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_yard_bonded",
   "id": "map_int_yard_bonded",
+  "name": "Bonded & Bothered",
   "parent_zone_id": "zone_district_922_907"
 }

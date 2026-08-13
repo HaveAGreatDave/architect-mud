@@ -1,8 +1,8 @@
 {
-  "id": "gloss_bulgarians",
-  "term": "bulgarians",
-  "gloss": "Voltaire's thin disguise for the Prussians.",
   "aliases": [
     "bulgarian"
-  ]
+  ],
+  "gloss": "Voltaire's thin disguise for the Prussians.",
+  "id": "gloss_bulgarians",
+  "term": "bulgarians"
 }

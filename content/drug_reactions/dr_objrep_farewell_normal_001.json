@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_farewell_normal_001",
   "drug_id": null,
-  "source": "object_reply_farewell",
-  "tone": "normal",
-  "self_line": "Right you are. Mind how you go.",
-  "room_line": "",
+  "id": "dr_objrep_farewell_normal_001",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Right you are. Mind how you go.",
+  "source": "object_reply_farewell",
+  "tone": "normal"
 }

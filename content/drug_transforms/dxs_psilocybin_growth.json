@@ -1,26 +1,28 @@
 {
-  "id": "dxs_psilocybin_growth",
-  "drug_id": "drug_psilocybin",
-  "matches": null,
-  "scope": "spawn",
-  "name": "a tree coming up through the floor",
+  "asks": [
+    "How long has this building been up?",
+    "Is there a window in here?"
+  ],
   "description": "A young tree has come up through the floor here, tiles shouldered aside in a neat ring, and it is going about its business as if it had been given permission.",
-  "looks": [
-    "It has gone through concrete the way a thought goes through a mood.",
-    "Where it has been longest, the floor has agreed with it and closed round the trunk.",
-    "It has no opinion about you at all, which is a relief."
-  ],
-  "says": [
-    "I was doing this before you came.",
-    "Do not be alarmed. I would not know how."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} puts out a leaf while you are watching, which takes about four seconds.",
     "A tile lifts and cracks somewhere near the base of {it}.",
     "{it} turns very slightly towards the nearest light."
   ],
-  "asks": [
-    "How long has this building been up?",
-    "Is there a window in here?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_psilocybin_growth",
+  "looks": [
+    "It has gone through concrete the way a thought goes through a mood.",
+    "Where it has been longest, the floor has agreed with it and closed round the trunk.",
+    "It has no opinion about you at all, which is a relief."
+  ],
+  "matches": null,
+  "name": "a tree coming up through the floor",
+  "says": [
+    "I was doing this before you came.",
+    "Do not be alarmed. I would not know how."
+  ],
+  "scope": "spawn"
 }

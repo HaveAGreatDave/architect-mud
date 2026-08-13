@@ -1,8 +1,8 @@
 {
-  "id": "gloss_ducat",
-  "term": "ducat",
-  "gloss": "A gold trade coin used across Europe.",
   "aliases": [
     "ducats"
-  ]
+  ],
+  "gloss": "A gold trade coin used across Europe.",
+  "id": "gloss_ducat",
+  "term": "ducat"
 }

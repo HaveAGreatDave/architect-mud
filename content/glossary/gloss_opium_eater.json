@@ -1,9 +1,9 @@
 {
-  "id": "gloss_opium_eater",
-  "term": "opium-eater",
-  "gloss": "Someone who takes opium by mouth rather than smoking it.",
   "aliases": [
     "opium eater",
     "opium-eaters"
-  ]
+  ],
+  "gloss": "Someone who takes opium by mouth rather than smoking it.",
+  "id": "gloss_opium_eater",
+  "term": "opium-eater"
 }

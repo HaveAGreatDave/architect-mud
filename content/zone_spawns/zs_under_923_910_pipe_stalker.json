@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_pipe_stalker",
- "id": "zs_under_923_910_pipe_stalker",
- "max_count": 2,
- "respawn_seconds": 300,
- "spawn_weight": 45,
- "zone_id": "zone_under_923_910"
+  "enemy_id": "enemy_pipe_stalker",
+  "id": "zs_under_923_910_pipe_stalker",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 45,
+  "zone_id": "zone_under_923_910"
 }

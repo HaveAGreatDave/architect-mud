@@ -1,8 +1,8 @@
 {
-  "id": "gloss_costermonger",
-  "term": "costermonger",
-  "gloss": "A street seller of fruit and vegetables from a barrow.",
   "aliases": [
     "costermongers"
-  ]
+  ],
+  "gloss": "A street seller of fruit and vegetables from a barrow.",
+  "id": "gloss_costermonger",
+  "term": "costermonger"
 }

@@ -62,7 +62,7 @@
     "talkshow_guest": true
   },
   "home_activities": [],
-  "home_zone": "zone_solenne_apt_a",
+  "home_zone": "zone_talkshow_backstage",
   "hp": 20,
   "hp_max": 20,
   "id": "npc_guest",

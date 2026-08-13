@@ -1,8 +1,8 @@
 {
-  "id": "gloss_proletariat",
-  "term": "proletariat",
-  "gloss": "The working class, who own nothing but their labour.",
   "aliases": [
     "proletarian"
-  ]
+  ],
+  "gloss": "The working class, who own nothing but their labour.",
+  "id": "gloss_proletariat",
+  "term": "proletariat"
 }

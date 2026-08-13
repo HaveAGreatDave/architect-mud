@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_021",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "Sorry, were you waiting?",
-  "room_line": "",
+  "id": "dr_object_normal_021",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Sorry, were you waiting?",
+  "source": "object",
+  "tone": "normal"
 }

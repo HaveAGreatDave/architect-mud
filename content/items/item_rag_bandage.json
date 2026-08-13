@@ -9,9 +9,9 @@
     "restore_hp": 8,
     "stackable": true,
     "treat_injury": {
-      "steps": 1,
+      "chance": 0.6,
       "floor": 1,
-      "chance": 0.6
+      "steps": 1
     }
   },
   "type": "consumable",

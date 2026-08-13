@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_506",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": "known",
+  "id": "dr_npc_normal_506",
   "npc_type": null,
+  "relation": "known",
+  "room_line": "{npc} asks {player} what they have taken. It is not an accusation.",
   "self_line": "{npc} asks what you have taken. It is not an accusation, which is worse.",
-  "room_line": "{npc} asks {player} what they have taken. It is not an accusation."
+  "source": "npc",
+  "tone": "normal"
 }

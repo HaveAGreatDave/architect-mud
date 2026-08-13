@@ -24,12 +24,12 @@
     },
     "damage_type": "kinetic",
     "description": "A machine pistol held together with spray-paint and spite. Everstock sold these by the pallet alongside drums of cooking oil, and the manual calls the jamming \"a cadence feature\". Empties a mag before it decides to agree.",
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "firearms",
     "min_skill": {
       "firearms": 5
-    }
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
   },
   "type": "weapon",
   "value": 2460,

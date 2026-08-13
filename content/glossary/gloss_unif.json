@@ -1,8 +1,8 @@
 {
-  "id": "gloss_unif",
-  "term": "unif",
-  "gloss": "The uniform every citizen of the One State wears, identical to everyone else's.",
   "aliases": [
     "unifs"
-  ]
+  ],
+  "gloss": "The uniform every citizen of the One State wears, identical to everyone else's.",
+  "id": "gloss_unif",
+  "term": "unif"
 }

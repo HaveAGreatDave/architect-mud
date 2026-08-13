@@ -1,33 +1,33 @@
 {
-  "id": "dt_deadair_carrier",
-  "name": "Carrier Wave",
-  "description": "There is nothing here and it is arriving steadily. Not darkness, but an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
-  "cause": "drug",
-  "drug_id": "drug_deadair",
-  "objects": [
-    {
-      "name": "the tone",
-      "looks": [
-        "Perfectly flat. Enormously well engineered.",
-        "There is something under it, at the very bottom, keeping time.",
-        "It stops. The stopping is much louder."
-      ]
-    },
-    {
-      "name": "the direction it comes from",
-      "looks": [
-        "All of them, evenly, which is how you know it is being done properly.",
-        "Slightly more from behind, now.",
-        "It has a source. The source is patient and has been at this a long time."
-      ]
-    }
-  ],
   "ambient": [
     "The carrier holds. Nothing modulates it.",
     "A gap of perhaps a second, in which something almost says a word.",
     "The tone gets a fraction closer to a voice, and corrects itself."
   ],
-  "weather": "No weather. An even, unbroken absence of it, arriving steadily and at a comfortable volume.",
+  "cause": "drug",
+  "description": "There is nothing here and it is arriving steadily. Not darkness, but an even, unbroken tone of absolutely no information, filling everything at a comfortable volume. You have the strong impression that this is being transmitted deliberately, and well, by someone conscientious.",
+  "drug_id": "drug_deadair",
   "fx": "fog",
-  "fx_intensity": 1
+  "fx_intensity": 1,
+  "id": "dt_deadair_carrier",
+  "name": "Carrier Wave",
+  "objects": [
+    {
+      "looks": [
+        "Perfectly flat. Enormously well engineered.",
+        "There is something under it, at the very bottom, keeping time.",
+        "It stops. The stopping is much louder."
+      ],
+      "name": "the tone"
+    },
+    {
+      "looks": [
+        "All of them, evenly, which is how you know it is being done properly.",
+        "Slightly more from behind, now.",
+        "It has a source. The source is patient and has been at this a long time."
+      ],
+      "name": "the direction it comes from"
+    }
+  ],
+  "weather": "No weather. An even, unbroken absence of it, arriving steadily and at a comfortable volume."
 }

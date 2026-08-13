@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_farewell_surreal_005",
   "drug_id": null,
-  "source": "object_reply_farewell",
-  "tone": "surreal",
-  "self_line": "Mind the step. There is no step. Mind it anyway.",
-  "room_line": "",
+  "id": "dr_objrep_farewell_surreal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Mind the step. There is no step. Mind it anyway.",
+  "source": "object_reply_farewell",
+  "tone": "surreal"
 }

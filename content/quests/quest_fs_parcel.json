@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Carry a sealed parcel out through Ironside Street and Meltwater Row to a drop on Voss Avenue. Don't shake it, don't open it, don't ask. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_parcel",
   "meta": {
     "taskSeconds": 5
@@ -47,6 +48,7 @@
       "zone": "zone_district_904_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

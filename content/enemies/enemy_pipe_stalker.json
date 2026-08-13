@@ -1,168 +1,168 @@
 {
- "behavior": "aggressive",
- "behaviour_graph": {
-  "_start": "start",
-  "nodes": {
-   "attack": {
-    "action_type": "ATTACK",
-    "next": "loop",
-    "type": "action"
-   },
-   "flee": {
-    "action_type": "FLEE",
-    "next": "loop",
-    "type": "action"
-   },
-   "has_target": {
-    "condition_type": "HAS_TARGET",
-    "ifFalse": "idle",
-    "ifTrue": "low_hp",
-    "type": "condition"
-   },
-   "idle": {
-    "action_type": "IDLE",
-    "next": "loop",
-    "type": "action"
-   },
-   "loop": {
-    "next": "start",
-    "type": "loop"
-   },
-   "low_hp": {
-    "condition_type": "HP_BELOW",
-    "ifFalse": "attack",
-    "ifTrue": "flee",
-    "params": {
-     "pct": 20
+  "behavior": "aggressive",
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "attack": {
+        "action_type": "ATTACK",
+        "next": "loop",
+        "type": "action"
+      },
+      "flee": {
+        "action_type": "FLEE",
+        "next": "loop",
+        "type": "action"
+      },
+      "has_target": {
+        "condition_type": "HAS_TARGET",
+        "ifFalse": "idle",
+        "ifTrue": "low_hp",
+        "type": "condition"
+      },
+      "idle": {
+        "action_type": "IDLE",
+        "next": "loop",
+        "type": "action"
+      },
+      "loop": {
+        "next": "start",
+        "type": "loop"
+      },
+      "low_hp": {
+        "condition_type": "HP_BELOW",
+        "ifFalse": "attack",
+        "ifTrue": "flee",
+        "params": {
+          "pct": 20
+        },
+        "type": "condition"
+      },
+      "start": {
+        "next": "has_target",
+        "type": "start"
+      }
+    }
+  },
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 9
     },
-    "type": "condition"
-   },
-   "start": {
-    "next": "has_target",
-    "type": "start"
-   }
-  }
- },
- "body_parts": [
-  {
-   "part": "head",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 9
-  },
-  {
-   "part": "torso",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 47
-  },
-  {
-   "part": "left_arm",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_arm",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 11
-  },
-  {
-   "part": "left_leg",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 11
-  },
-  {
-   "part": "right_leg",
-   "soak": {
-    "kinetic": 1
-   },
-   "weight": 11
-  }
- ],
- "butcher_difficulty": 4,
- "butcher_table": [
-  {
-   "item": "item_raw_meat",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 100
-  }
- ],
- "death_message": "The pipe stalker folds up around the wound and drops off the conduit like a shed coat.",
- "description": "Something that learned to live in the overhead runs and only comes down for a reason. Long grey limbs, a back ridged with pipe scale, and a way of holding still that makes the tunnel feel emptier than it is. You hear it after it has already decided.",
- "dodge": 4,
- "faction": null,
- "flags": {
-  "attacks_npcs": false,
-  "battle_cries": [
-   "$enemy comes down off the pipes in one long silent drop toward $player.",
-   "$enemy circles wide of $player, keeping to where the light is thinnest.",
-   "Scale grates on iron as $enemy shifts its grip above $player."
+    {
+      "part": "torso",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 47
+    },
+    {
+      "part": "left_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_arm",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    },
+    {
+      "part": "left_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    },
+    {
+      "part": "right_leg",
+      "soak": {
+        "kinetic": 1
+      },
+      "weight": 11
+    }
   ],
-  "first_strike_delay_ms": 6000
- },
- "hit": 4,
- "hp_max": 30,
- "id": "enemy_pipe_stalker",
- "loot_table": [
-  {
-   "item": "item_scrap_metal",
-   "qty": [
-    1,
-    2
-   ],
-   "weight": 28
+  "butcher_difficulty": 4,
+  "butcher_table": [
+    {
+      "item": "item_raw_meat",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 100
+    }
+  ],
+  "death_message": "The pipe stalker folds up around the wound and drops off the conduit like a shed coat.",
+  "description": "Something that learned to live in the overhead runs and only comes down for a reason. Long grey limbs, a back ridged with pipe scale, and a way of holding still that makes the tunnel feel emptier than it is. You hear it after it has already decided.",
+  "dodge": 4,
+  "faction": null,
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "$enemy comes down off the pipes in one long silent drop toward $player.",
+      "$enemy circles wide of $player, keeping to where the light is thinnest.",
+      "Scale grates on iron as $enemy shifts its grip above $player."
+    ],
+    "first_strike_delay_ms": 6000
   },
-  {
-   "item": "item_rag_bandage",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 14
-  },
-  {
-   "credits": [
-    25,
-    70
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "weight": 22
-  },
-  {
-   "credits": [
-    80,
-    160
-   ],
-   "item": "item_credit_chip",
-   "qty": [
-    1,
-    1
-   ],
-   "super": true,
-   "weight": 3
-  }
- ],
- "name": "pipe stalker",
- "weapon": [
-  {
-   "max": 5,
-   "min": 2,
-   "type": "kinetic"
-  }
- ]
+  "hit": 4,
+  "hp_max": 30,
+  "id": "enemy_pipe_stalker",
+  "loot_table": [
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 28
+    },
+    {
+      "item": "item_rag_bandage",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 14
+    },
+    {
+      "credits": [
+        25,
+        70
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 22
+    },
+    {
+      "credits": [
+        80,
+        160
+      ],
+      "item": "item_credit_chip",
+      "qty": [
+        1,
+        1
+      ],
+      "super": true,
+      "weight": 3
+    }
+  ],
+  "name": "pipe stalker",
+  "weapon": [
+    {
+      "max": 5,
+      "min": 2,
+      "type": "kinetic"
+    }
+  ]
 }

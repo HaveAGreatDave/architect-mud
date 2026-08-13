@@ -1,8 +1,8 @@
 {
-  "id": "gloss_scullery",
-  "term": "scullery",
-  "gloss": "The back kitchen where dishes and dirty work were done.",
   "aliases": [
     "sculleries"
-  ]
+  ],
+  "gloss": "The back kitchen where dishes and dirty work were done.",
+  "id": "gloss_scullery",
+  "term": "scullery"
 }

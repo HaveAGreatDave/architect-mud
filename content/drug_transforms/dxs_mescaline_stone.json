@@ -1,25 +1,27 @@
 {
-  "id": "dxs_mescaline_stone",
-  "drug_id": "drug_mescaline",
-  "matches": null,
-  "scope": "spawn",
-  "name": "a standing stone",
+  "asks": [
+    "Do you know who put me here?",
+    "Which way is north? You should know that."
+  ],
   "description": "A stone the size of a person stands here, where somebody put it, a long time ago, and the room has been arranged around it ever since without anybody noticing.",
+  "drug_id": "drug_mescaline",
+  "emotes": [
+    "{it} stands there taking up the exact centre of the room, which it did not seem to be doing before.",
+    "The shadow of {it} points somewhere the light cannot account for."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_mescaline_stone",
   "looks": [
     "Marked by hands over a duration you cannot hold.",
     "It is warm on one side, and it is not the side facing the light.",
     "It has weight the way a word has meaning."
   ],
+  "matches": null,
+  "name": "a standing stone",
   "says": [
     "I have been here longer than the road.",
     "Somebody stood exactly there, for a very good reason."
   ],
-  "emotes": [
-    "{it} stands there taking up the exact centre of the room, which it did not seem to be doing before.",
-    "The shadow of {it} points somewhere the light cannot account for."
-  ],
-  "asks": [
-    "Do you know who put me here?",
-    "Which way is north? You should know that."
-  ]
+  "scope": "spawn"
 }

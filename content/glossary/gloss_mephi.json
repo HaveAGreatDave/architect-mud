@@ -1,8 +1,8 @@
 {
-  "id": "gloss_mephi",
-  "term": "mephi",
-  "gloss": "The name of the resistance beyond the Green Wall.",
   "aliases": [
     "mephis"
-  ]
+  ],
+  "gloss": "The name of the resistance beyond the Green Wall.",
+  "id": "gloss_mephi",
+  "term": "mephi"
 }

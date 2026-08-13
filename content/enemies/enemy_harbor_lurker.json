@@ -45,12 +45,12 @@
   },
   "body_parts": [
     {
-      "part": "maw",
-      "soak": {},
-      "weight": 12,
       "grants": {
         "capability": "grab"
-      }
+      },
+      "part": "maw",
+      "soak": {},
+      "weight": 12
     },
     {
       "part": "body",
@@ -65,20 +65,20 @@
       "weight": 16
     },
     {
+      "grants": {
+        "dodge": 2
+      },
       "part": "left_fin",
       "soak": {},
-      "weight": 14,
-      "grants": {
-        "dodge": 2
-      }
+      "weight": 14
     },
     {
-      "part": "right_fin",
-      "soak": {},
-      "weight": 14,
       "grants": {
         "dodge": 2
-      }
+      },
+      "part": "right_fin",
+      "soak": {},
+      "weight": 14
     }
   ],
   "butcher_difficulty": 4,
@@ -139,8 +139,8 @@
         2,
         3
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "harbour lurker",

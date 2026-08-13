@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Legal charter/freight work.",
+  "fail_on": [],
   "id": "quest_flight_medevac",
   "meta": {
     "deadlineMins": 11,
@@ -17,6 +18,7 @@
   },
   "name": "Medevac (URGENT)",
   "objectives": [],
+  "penalties": {},
   "quest_type": "flight_template",
   "repeatable": 1,
   "rewards": {},

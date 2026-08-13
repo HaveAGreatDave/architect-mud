@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_006",
   "drug_id": null,
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "Everyone asks. Nobody waits for the answer.",
-  "room_line": "",
+  "id": "dr_object_surreal_006",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Everyone asks. Nobody waits for the answer.",
+  "source": "object",
+  "tone": "surreal"
 }

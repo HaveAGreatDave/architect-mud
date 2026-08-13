@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_hock_pawn",
   "id": "map_int_hock",
+  "name": "In Hock We Trust",
   "parent_zone_id": "zone_district_916_910"
 }

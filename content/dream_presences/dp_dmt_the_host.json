@@ -1,22 +1,22 @@
 {
-  "id": "dp_dmt_the_host",
-  "name": "something delighted",
-  "cause": "drug",
-  "drug_id": "drug_dmt",
   "arrivals": [
     "Something arrives at speed and is thrilled that you are here.",
     "One of them comes over to see how you are getting on.",
     "A shape assembles itself beside you out of enthusiasm."
   ],
+  "cause": "drug",
   "departures": [
     "It goes back to what it was doing, which is a great deal.",
     "It is elsewhere in the pattern now, still busy.",
     "It withdraws, satisfied, having shown you something."
   ],
+  "drug_id": "drug_dmt",
+  "id": "dp_dmt_the_host",
   "looks": [
     "Delighted. It has too many parts and is using all of them.",
     "It is showing you something and you are not keeping up.",
     "It knows you. It knew you before this and expects to after.",
     "It checks you are following, decides you are close enough, and continues."
-  ]
+  ],
+  "name": "something delighted"
 }

@@ -2,8 +2,8 @@
   "description": "A dented steel cashbox bolted through the shelf under the counter, its lid worn pale where three sets of hands have pushed it shut. Everything the shop takes goes in here, and everyone who works the floor takes their end out of it.",
   "flags": {
     "hack_difficulty": 5,
-    "vendor_safe": true,
     "vendor_npc_id": "npc_ration_cook",
+    "vendor_safe": true,
     "vendor_staff": [
       "npc_butcher",
       "npc_fishmonger"

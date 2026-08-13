@@ -1,33 +1,33 @@
 {
-  "id": "dream_the_coats",
-  "name": "The Coats",
-  "description": "You are pushing through hanging coats the way you did as a child, and it has been going on a long time. Wool, then plastic, then wool. The hangers click above you like slow applause. There is a light ahead, at the same distance it was.",
-  "cause": "dream",
-  "drug_id": null,
-  "objects": [
-    {
-      "name": "the coats",
-      "looks": [
-        "Every one of them belongs to somebody who is alive.",
-        "One of them is warm. Only one.",
-        "You go through the pockets. You find your own hands."
-      ]
-    },
-    {
-      "name": "the light ahead",
-      "looks": [
-        "A doorway, at the same distance as before.",
-        "It is not a light, it is a colour, and you have been calling it a light out of politeness.",
-        "It goes out. You keep going. It comes back on behind you."
-      ]
-    }
-  ],
   "ambient": [
     "The hangers click, several rows back, in the shape of somebody following.",
     "The wool becomes plastic becomes wool.",
     "A child laughs, close, at exactly your height."
   ],
-  "weather": "It is warm in here, and getting warmer the further you go, and the warmth smells like a cupboard.",
+  "cause": "dream",
+  "description": "You are pushing through hanging coats the way you did as a child, and it has been going on a long time. Wool, then plastic, then wool. The hangers click above you like slow applause. There is a light ahead, at the same distance it was.",
+  "drug_id": null,
   "fx": "fog",
-  "fx_intensity": 0.7
+  "fx_intensity": 0.7,
+  "id": "dream_the_coats",
+  "name": "The Coats",
+  "objects": [
+    {
+      "looks": [
+        "Every one of them belongs to somebody who is alive.",
+        "One of them is warm. Only one.",
+        "You go through the pockets. You find your own hands."
+      ],
+      "name": "the coats"
+    },
+    {
+      "looks": [
+        "A doorway, at the same distance as before.",
+        "It is not a light, it is a colour, and you have been calling it a light out of politeness.",
+        "It goes out. You keep going. It comes back on behind you."
+      ],
+      "name": "the light ahead"
+    }
+  ],
+  "weather": "It is warm in here, and getting warmer the further you go, and the warmth smells like a cupboard."
 }

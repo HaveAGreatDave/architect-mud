@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Slag wights have moved into the wasteland the diplomatic quarter dumps downwind of itself, and an accord signing is days away. Consul Alcaraz needs the problem to not exist, discreetly.",
+  "fail_on": [],
   "id": "quest_downwind",
   "meta": {},
   "name": "Downwind",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

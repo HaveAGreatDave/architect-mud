@@ -1,8 +1,8 @@
 {
-  "id": "gloss_victuals",
-  "term": "victuals",
-  "gloss": "Food supplies.",
   "aliases": [
     "victual"
-  ]
+  ],
+  "gloss": "Food supplies.",
+  "id": "gloss_victuals",
+  "term": "victuals"
 }

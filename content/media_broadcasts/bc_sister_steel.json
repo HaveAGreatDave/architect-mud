@@ -3,473 +3,473 @@
     "_start": "bsm_0",
     "nodes": {
       "bsm_0": {
-        "type": "start",
         "_vine": {
           "x": 80,
           "y": 80
         },
-        "next": "bsm_pre_0"
+        "next": "bsm_pre_0",
+        "type": "start"
       },
       "bsm_1": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": true,
-        "text": "",
+        "_vine": {
+          "x": 300,
+          "y": 80
+        },
         "duration_s": 0,
-        "_vine": {
-          "x": 300,
-          "y": 80
-        },
-        "next": "bsm_2"
-      },
-      "bsm_2": {
-        "type": "title_card",
-        "graphic_id": "sister_steel_title",
-        "_vine": {
-          "x": 520,
-          "y": 80
-        },
-        "next": "bsm_3"
-      },
-      "bsm_3": {
-        "type": "say",
-        "text": "♪ A fuzz-guitar sting, badly transferred, with the top end gone. ♪",
-        "style": "ambient",
-        "_vine": {
-          "x": 740,
-          "y": 80
-        },
-        "next": "bsm_4"
-      },
-      "bsm_4": {
-        "type": "say",
-        "text": "The print is scratched to hell. A hair sits in the gate for the whole first minute and nobody in eleven years has cared enough to pull it out.",
-        "style": "narration",
-        "_vine": {
-          "x": 960,
-          "y": 80
-        },
-        "next": "bsm_5"
-      },
-      "bsm_5": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "COLDWATER",
-        "subtext": "2081, THE DRY MONTH",
-        "graphic_id": "",
-        "duration_s": 6,
-        "_vine": {
-          "x": 80,
-          "y": 240
-        },
-        "next": "bsm_6"
-      },
-      "bsm_6": {
-        "type": "say",
-        "text": "A woman crosses a lot full of dead cars carrying something long, wrapped in a moving blanket.",
-        "style": "narration",
-        "_vine": {
-          "x": 300,
-          "y": 240
-        },
-        "next": "bsm_7"
-      },
-      "bsm_7": {
-        "type": "say",
-        "text": "They said the Handoff made men equal.",
-        "style": "narration",
-        "_vine": {
-          "x": 520,
-          "y": 240
-        },
-        "next": "bsm_8"
-      },
-      "bsm_8": {
-        "type": "say",
-        "text": "They lied about that too.",
-        "style": "narration",
-        "_vine": {
-          "x": 740,
-          "y": 240
-        },
-        "next": "bsm_9"
-      },
-      "bsm_9": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 1",
-        "subtext": "The Foreclosure",
-        "duration_s": 8,
-        "_vine": {
-          "x": 960,
-          "y": 240
-        },
-        "next": "bsm_10"
+        "next": "bsm_2",
+        "on": true,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_10": {
-        "type": "say",
-        "text": "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 400
         },
-        "next": "bsm_11"
+        "next": "bsm_11",
+        "style": "narration",
+        "text": "An office. HALLORAN does not look up from his ledger. Behind him, a window looks out on nothing at all.",
+        "type": "say"
       },
       "bsm_11": {
-        "type": "say",
-        "text": "Mr. Halloran says, \"Your permit lapsed, Miss Sark. The machine says it lapsed. I only read what the machine says.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 400
         },
-        "next": "bsm_12"
+        "next": "bsm_12",
+        "style": "verbatim",
+        "text": "Mr. Halloran says, \"Your permit lapsed, Miss Sark. The machine says it lapsed. I only read what the machine says.\"",
+        "type": "say"
       },
       "bsm_12": {
-        "type": "say",
-        "text": "Vonnie Sark says, \"My father cut steel on that floor for thirty years.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 400
         },
-        "next": "bsm_13"
+        "next": "bsm_13",
+        "style": "verbatim",
+        "text": "Vonnie Sark says, \"My father cut steel on that floor for thirty years.\"",
+        "type": "say"
       },
       "bsm_13": {
-        "type": "say",
-        "text": "Mr. Halloran says, \"And the machine has no column for that.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 740,
           "y": 400
         },
-        "next": "bsm_14"
+        "next": "bsm_14",
+        "style": "verbatim",
+        "text": "Mr. Halloran says, \"And the machine has no column for that.\"",
+        "type": "say"
       },
       "bsm_14": {
-        "type": "say",
-        "text": "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 400
         },
-        "next": "bsm_15"
+        "next": "bsm_15",
+        "style": "narration",
+        "text": "He slides a form across the desk. She does not take it. The scratch on the print goes right through her face, and stays there for the rest of the picture.",
+        "type": "say"
       },
       "bsm_15": {
-        "type": "say",
-        "text": "They burned out her forge on a Tuesday.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 560
         },
-        "next": "bsm_16"
+        "next": "bsm_16",
+        "style": "narration",
+        "text": "They burned out her forge on a Tuesday.",
+        "type": "say"
       },
       "bsm_16": {
-        "type": "say",
-        "text": "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 560
         },
-        "next": "bsm_17"
+        "next": "bsm_17",
+        "style": "narration",
+        "text": "By Friday, Vonnie Sark had learned what a foreclosure notice sounds like going through a windscreen.",
+        "type": "say"
       },
       "bsm_17": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 2",
-        "subtext": "The Long Grind",
-        "duration_s": 8,
         "_vine": {
           "x": 520,
           "y": 560
         },
-        "next": "bsm_18"
+        "duration_s": 8,
+        "next": "bsm_18",
+        "overlayType": "act_card",
+        "subtext": "The Long Grind",
+        "text": "ACT 2",
+        "type": "overlay"
       },
       "bsm_18": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "FOUNDRY WAY",
-        "subtext": "THREE WEEKS LATER",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 740,
           "y": 560
         },
-        "next": "bsm_19"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_19",
+        "overlayType": "lower_third",
+        "subtext": "THREE WEEKS LATER",
+        "text": "FOUNDRY WAY",
+        "type": "overlay"
       },
       "bsm_19": {
-        "type": "say",
-        "text": "Sparks. A LOT of sparks; the director has clearly discovered that sparks are free and is going to get his money's worth.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 560
         },
-        "next": "bsm_20"
+        "next": "bsm_20",
+        "style": "narration",
+        "text": "Sparks. A LOT of sparks; the director has clearly discovered that sparks are free and is going to get his money's worth.",
+        "type": "say"
+      },
+      "bsm_2": {
+        "_vine": {
+          "x": 520,
+          "y": 80
+        },
+        "graphic_id": "sister_steel_title",
+        "next": "bsm_3",
+        "type": "title_card"
       },
       "bsm_20": {
-        "type": "say",
-        "text": "♪ Wah-wah pedal, over-committed. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 80,
           "y": 720
         },
-        "next": "bsm_21"
+        "next": "bsm_21",
+        "style": "ambient",
+        "text": "♪ Wah-wah pedal, over-committed. ♪",
+        "type": "say"
       },
       "bsm_21": {
-        "type": "say",
-        "text": "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
-        "style": "verbatim",
         "_vine": {
           "x": 300,
           "y": 720
         },
-        "next": "bsm_22"
+        "next": "bsm_22",
+        "style": "verbatim",
+        "text": "The Preacher says, \"I got a van, I got a shotgun, and I got nothing anybody wants back. What are you building in there, sister?\"",
+        "type": "say"
       },
       "bsm_22": {
-        "type": "say",
-        "text": "Vonnie Sark says, \"Something with teeth.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 520,
           "y": 720
         },
-        "next": "bsm_23"
+        "next": "bsm_23",
+        "style": "verbatim",
+        "text": "Vonnie Sark says, \"Something with teeth.\"",
+        "type": "say"
       },
       "bsm_23": {
-        "type": "tech_difficulties",
-        "duration": 8,
         "_vine": {
           "x": 740,
           "y": 720
         },
-        "next": "bsm_24"
+        "duration": 8,
+        "next": "bsm_24",
+        "type": "tech_difficulties"
       },
       "bsm_24": {
-        "type": "say",
-        "text": "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
-        "style": "narration",
         "_vine": {
           "x": 960,
           "y": 720
         },
-        "next": "bsm_25"
+        "next": "bsm_25",
+        "style": "narration",
+        "text": "REEL FOUR IS MISSING. It has been missing from this print since before The Handoff, and no surviving copy has it. Whatever happened in the Halcyon car park, you will have to take the picture's word for it.",
+        "type": "say"
       },
       "bsm_25": {
-        "type": "overlay",
-        "overlayType": "intermission",
-        "text": "INTERMISSION",
-        "subtext": "",
-        "duration_s": 45,
         "_vine": {
           "x": 80,
           "y": 880
         },
-        "next": "bsm_26"
+        "duration_s": 45,
+        "next": "bsm_26",
+        "overlayType": "intermission",
+        "subtext": "",
+        "text": "INTERMISSION",
+        "type": "overlay"
       },
       "bsm_26": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "ACT 3",
-        "subtext": "Certified Unsuitable",
-        "duration_s": 8,
         "_vine": {
           "x": 300,
           "y": 880
         },
-        "next": "bsm_27"
+        "duration_s": 8,
+        "next": "bsm_27",
+        "overlayType": "act_card",
+        "subtext": "Certified Unsuitable",
+        "text": "ACT 3",
+        "type": "overlay"
       },
       "bsm_27": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "THE HALCYON ATRIUM",
-        "subtext": "THAT NIGHT",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 520,
           "y": 880
         },
-        "next": "bsm_28"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_28",
+        "overlayType": "lower_third",
+        "subtext": "THAT NIGHT",
+        "text": "THE HALCYON ATRIUM",
+        "type": "overlay"
       },
       "bsm_28": {
-        "type": "say",
-        "text": "Fourteen company men. One woman. The audio drops out for nine seconds and comes back somewhere else entirely.",
-        "style": "narration",
         "_vine": {
           "x": 740,
           "y": 880
         },
-        "next": "bsm_29"
+        "next": "bsm_29",
+        "style": "narration",
+        "text": "Fourteen company men. One woman. The audio drops out for nine seconds and comes back somewhere else entirely.",
+        "type": "say"
       },
       "bsm_29": {
-        "type": "say",
-        "text": "Mr. Halloran says, \"You can't do this. There are PROCEDURES.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 960,
           "y": 880
         },
-        "next": "bsm_30"
+        "next": "bsm_30",
+        "style": "verbatim",
+        "text": "Mr. Halloran says, \"You can't do this. There are PROCEDURES.\"",
+        "type": "say"
+      },
+      "bsm_3": {
+        "_vine": {
+          "x": 740,
+          "y": 80
+        },
+        "next": "bsm_4",
+        "style": "ambient",
+        "text": "♪ A fuzz-guitar sting, badly transferred, with the top end gone. ♪",
+        "type": "say"
       },
       "bsm_30": {
-        "type": "say",
-        "text": "Vonnie Sark says, \"There's a procedure for me too, Mr. Halloran. It's about four feet long and it doesn't file.\"",
-        "style": "verbatim",
         "_vine": {
           "x": 80,
           "y": 1040
         },
-        "next": "bsm_31"
+        "next": "bsm_31",
+        "style": "verbatim",
+        "text": "Vonnie Sark says, \"There's a procedure for me too, Mr. Halloran. It's about four feet long and it doesn't file.\"",
+        "type": "say"
       },
       "bsm_31": {
-        "type": "say",
-        "text": "♪ The fuzz guitar returns, louder, and the print jumps a sprocket. ♪",
-        "style": "ambient",
         "_vine": {
           "x": 300,
           "y": 1040
         },
-        "next": "bsm_32"
+        "next": "bsm_32",
+        "style": "ambient",
+        "text": "♪ The fuzz guitar returns, louder, and the print jumps a sprocket. ♪",
+        "type": "say"
       },
       "bsm_32": {
-        "type": "say",
-        "text": "What follows was cut by three separate censors, restored badly twice, and is still the reason this print has a certificate that reads UNSUITABLE FOR CORPORATE VIEWING.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1040
         },
-        "next": "bsm_33"
+        "next": "bsm_33",
+        "style": "narration",
+        "text": "What follows was cut by three separate censors, restored badly twice, and is still the reason this print has a certificate that reads UNSUITABLE FOR CORPORATE VIEWING.",
+        "type": "say"
       },
       "bsm_33": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "out",
-        "text": "",
-        "duration_s": 3,
         "_vine": {
           "x": 740,
           "y": 1040
         },
-        "next": "bsm_34"
+        "duration_s": 3,
+        "fade": "out",
+        "next": "bsm_34",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_34": {
-        "type": "overlay",
-        "overlayType": "lower_third",
-        "text": "FOUNDRY WAY",
-        "subtext": "THE FOLLOWING SPRING",
-        "graphic_id": "",
-        "duration_s": 6,
         "_vine": {
           "x": 960,
           "y": 1040
         },
-        "next": "bsm_35"
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_35",
+        "overlayType": "lower_third",
+        "subtext": "THE FOLLOWING SPRING",
+        "text": "FOUNDRY WAY",
+        "type": "overlay"
       },
       "bsm_35": {
-        "type": "say",
-        "text": "The forge is lit. A hand-lettered card in the window says OPEN. Somebody has drawn a circle on it, worn flat on one side.",
-        "style": "narration",
         "_vine": {
           "x": 80,
           "y": 1200
         },
-        "next": "bsm_36"
+        "next": "bsm_36",
+        "style": "narration",
+        "text": "The forge is lit. A hand-lettered card in the window says OPEN. Somebody has drawn a circle on it, worn flat on one side.",
+        "type": "say"
       },
       "bsm_36": {
-        "type": "say",
-        "text": "She never got the permit.",
-        "style": "narration",
         "_vine": {
           "x": 300,
           "y": 1200
         },
-        "next": "bsm_37"
+        "next": "bsm_37",
+        "style": "narration",
+        "text": "She never got the permit.",
+        "type": "say"
       },
       "bsm_37": {
-        "type": "say",
-        "text": "She never asked again either.",
-        "style": "narration",
         "_vine": {
           "x": 520,
           "y": 1200
         },
-        "next": "bsm_38"
+        "next": "bsm_38",
+        "style": "narration",
+        "text": "She never asked again either.",
+        "type": "say"
       },
       "bsm_38": {
-        "type": "overlay",
-        "overlayType": "fade",
-        "fade": "in",
-        "text": "",
-        "duration_s": 2,
         "_vine": {
           "x": 740,
           "y": 1200
         },
-        "next": "bsm_39"
+        "duration_s": 2,
+        "fade": "in",
+        "next": "bsm_39",
+        "overlayType": "fade",
+        "text": "",
+        "type": "overlay"
       },
       "bsm_39": {
-        "type": "overlay",
-        "overlayType": "letterbox",
-        "on": false,
-        "text": "",
-        "duration_s": 0,
         "_vine": {
           "x": 960,
           "y": 1200
         },
-        "next": "bsm_40"
+        "duration_s": 0,
+        "next": "bsm_40",
+        "on": false,
+        "overlayType": "letterbox",
+        "text": "",
+        "type": "overlay"
+      },
+      "bsm_4": {
+        "_vine": {
+          "x": 960,
+          "y": 80
+        },
+        "next": "bsm_5",
+        "style": "narration",
+        "text": "The print is scratched to hell. A hair sits in the gate for the whole first minute and nobody in eleven years has cared enough to pull it out.",
+        "type": "say"
       },
       "bsm_40": {
-        "type": "credits",
-        "text": "SISTER STEEL\n\nVonnie Sark ......... herself, mostly\nMr. Halloran ........ a man who read what the machine said\nThe Preacher ........ and his van\n\nA MELTWATER DRIVE-IN RELEASING PICTURE\n\nFilmed on location in Coldwater, without permission.",
-        "duration": 20,
         "_vine": {
           "x": 80,
           "y": 1360
-        }
+        },
+        "duration": 20,
+        "text": "SISTER STEEL\n\nVonnie Sark ......... herself, mostly\nMr. Halloran ........ a man who read what the machine said\nThe Preacher ........ and his van\n\nA MELTWATER DRIVE-IN RELEASING PICTURE\n\nFilmed on location in Coldwater, without permission.",
+        "type": "credits"
+      },
+      "bsm_5": {
+        "_vine": {
+          "x": 80,
+          "y": 240
+        },
+        "duration_s": 6,
+        "graphic_id": "",
+        "next": "bsm_6",
+        "overlayType": "lower_third",
+        "subtext": "2081, THE DRY MONTH",
+        "text": "COLDWATER",
+        "type": "overlay"
+      },
+      "bsm_6": {
+        "_vine": {
+          "x": 300,
+          "y": 240
+        },
+        "next": "bsm_7",
+        "style": "narration",
+        "text": "A woman crosses a lot full of dead cars carrying something long, wrapped in a moving blanket.",
+        "type": "say"
+      },
+      "bsm_7": {
+        "_vine": {
+          "x": 520,
+          "y": 240
+        },
+        "next": "bsm_8",
+        "style": "narration",
+        "text": "They said the Handoff made men equal.",
+        "type": "say"
+      },
+      "bsm_8": {
+        "_vine": {
+          "x": 740,
+          "y": 240
+        },
+        "next": "bsm_9",
+        "style": "narration",
+        "text": "They lied about that too.",
+        "type": "say"
+      },
+      "bsm_9": {
+        "_vine": {
+          "x": 960,
+          "y": 240
+        },
+        "duration_s": 8,
+        "next": "bsm_10",
+        "overlayType": "act_card",
+        "subtext": "The Foreclosure",
+        "text": "ACT 1",
+        "type": "overlay"
       },
       "bsm_pre_0": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "MELTWATER DRIVE-IN RELEASING",
-        "subtext": "presents",
-        "duration_s": 5,
         "_vine": {
           "x": 80,
           "y": -120
         },
-        "next": "bsm_pre_1"
+        "duration_s": 5,
+        "next": "bsm_pre_1",
+        "overlayType": "act_card",
+        "subtext": "presents",
+        "text": "MELTWATER DRIVE-IN RELEASING",
+        "type": "overlay"
       },
       "bsm_pre_1": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
-        "subtext": "BASIN BROADCAST STANDARDS BOARD",
-        "duration_s": 5,
         "_vine": {
           "x": 300,
           "y": -120
         },
-        "next": "bsm_pre_2"
+        "duration_s": 5,
+        "next": "bsm_pre_2",
+        "overlayType": "act_card",
+        "subtext": "BASIN BROADCAST STANDARDS BOARD",
+        "text": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
+        "type": "overlay"
       },
       "bsm_pre_2": {
-        "type": "overlay",
-        "overlayType": "act_card",
-        "text": "A film by Auggie Prine",
-        "subtext": "",
-        "duration_s": 5,
         "_vine": {
           "x": 520,
           "y": -120
         },
-        "next": "bsm_1"
+        "duration_s": 5,
+        "next": "bsm_1",
+        "overlayType": "act_card",
+        "subtext": "",
+        "text": "A film by Auggie Prine",
+        "type": "overlay"
       }
     }
   },
@@ -480,9 +480,8 @@
   "enabled": 1,
   "fallback_messages": [],
   "film_meta": {
-    "presents": "Meltwater Drive-In Releasing",
-    "rating": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
-    "director": "Auggie Prine",
+    "airDays": null,
+    "airSlots": null,
     "cast": [
       {
         "label": "VONNIE",
@@ -500,11 +499,12 @@
         "role": "the man with the van"
       }
     ],
-    "title": "sister_steel_title",
+    "director": "Auggie Prine",
+    "presents": "Meltwater Drive-In Releasing",
+    "rating": "CERTIFIED: UNSUITABLE FOR CORPORATE VIEWING",
+    "runtime": 900,
     "theme": "",
-    "airSlots": null,
-    "airDays": null,
-    "runtime": 900
+    "title": "sister_steel_title"
   },
   "gameshow_pools": null,
   "id": "bc_sister_steel",

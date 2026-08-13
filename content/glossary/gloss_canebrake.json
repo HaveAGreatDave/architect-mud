@@ -1,8 +1,8 @@
 {
-  "id": "gloss_canebrake",
-  "term": "canebrake",
-  "gloss": "A dense thicket of cane.",
   "aliases": [
     "canebrakes"
-  ]
+  ],
+  "gloss": "A dense thicket of cane.",
+  "id": "gloss_canebrake",
+  "term": "canebrake"
 }

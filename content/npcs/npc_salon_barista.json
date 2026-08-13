@@ -12,10 +12,16 @@
         "type": "action"
       },
       "atm_wait": {
+        "jitter": 20,
         "next": "deposit",
         "seconds": 10,
-        "type": "wait",
-        "jitter": 20
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
       },
       "check_work": {
         "action_type": "CHECK_VENDOR_WORK",
@@ -121,12 +127,6 @@
         "next": "player_check",
         "seconds": 60,
         "type": "wait"
-      },
-      "cash_up": {
-        "type": "wait",
-        "seconds": 20,
-        "jitter": 900,
-        "next": "collect_safe"
       }
     }
   },
@@ -169,6 +169,19 @@
       ],
       "text": "Thea considers you for a moment longer than is comfortable. \"People talk over a board like the person pouring is part of the furniture. Eighteen years of it.\" She sets the cloth down. \"Here's one that's gone cold enough to repeat.\""
     },
+    "roast": {
+      "options": [
+        {
+          "label": "One, then.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Beans that grew in dirt, on a hillside, under weather.\" She lets that sit. \"There are four places left doing that and I am not going to tell you which one sells to me. Everything downstairs is grown in a tray under a lamp, and it tastes like a tray under a lamp.\" The lever comes down. \"That's the whole secret. It's not a good secret, it's just expensive.\""
+    },
     "root": {
       "familiar": "\"Yours is coming.\" The lever is already down. She doesn't look up. \"Board by the glass is free, if you're playing. I kept it free.\"",
       "first": "The woman behind the counter watches you take in the window first, the way everyone does. \"They all look at the city,\" she says. \"Give it a week and you'll look at the boards instead.\" She sets a cup down on the marble without being asked. \"Thea Wrenn. I've been up here eighteen years. Coffee's eighteen credits and worth it once.\"",
@@ -200,19 +213,6 @@
         }
       ],
       "text": "Thea has the lever half-down before you've finished crossing the carpet. \"Morning. Blend's the blend, the boards are free, and the glass gets cleaned Thursdays.\" A pause, dry. \"Everything else up here you have to ask for.\""
-    },
-    "roast": {
-      "options": [
-        {
-          "label": "One, then.",
-          "next": "__shop__"
-        },
-        {
-          "label": "Back.",
-          "next": "root"
-        }
-      ],
-      "text": "\"Beans that grew in dirt, on a hillside, under weather.\" She lets that sit. \"There are four places left doing that and I am not going to tell you which one sells to me. Everything downstairs is grown in a tray under a lamp, and it tastes like a tray under a lamp.\" The lever comes down. \"That's the whole secret. It's not a good secret, it's just expensive.\""
     },
     "view": {
       "options": [

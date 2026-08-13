@@ -1,33 +1,33 @@
 {
-  "id": "dt_deadair_repeater",
-  "name": "The Repeater Hut",
-  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that is entirely lit and entirely idle. It has power. It has been serviced. It is relaying, faithfully and at full strength, an absence.",
-  "cause": "drug",
-  "drug_id": "drug_deadair",
-  "objects": [
-    {
-      "name": "the rack",
-      "looks": [
-        "Every light green. Every meter at zero.",
-        "Serviced recently. There is a signature on the card and it has run.",
-        "It is retransmitting something. You can tell by how carefully it is doing it."
-      ]
-    },
-    {
-      "name": "the mast",
-      "looks": [
-        "Guy-wired, painted, correct. Going up further than the sky is.",
-        "It hums, once, in weather that is not happening.",
-        "There is a red light at the top for aircraft. There are no aircraft."
-      ]
-    }
-  ],
   "ambient": [
     "The rack cycles a relay, correctly, for nothing.",
     "The mast takes a gust from a wind that is not here.",
     "A cooling fan spins up, does its job, and spins down."
   ],
-  "weather": "The mast takes a gust from a wind that is not happening. The red light at the top blinks for aircraft that are not coming.",
+  "cause": "drug",
+  "description": "A concrete hut on nothing, with a mast on it and an equipment rack inside that is entirely lit and entirely idle. It has power. It has been serviced. It is relaying, faithfully and at full strength, an absence.",
+  "drug_id": "drug_deadair",
   "fx": "wind",
-  "fx_intensity": 0.7
+  "fx_intensity": 0.7,
+  "id": "dt_deadair_repeater",
+  "name": "The Repeater Hut",
+  "objects": [
+    {
+      "looks": [
+        "Every light green. Every meter at zero.",
+        "Serviced recently. There is a signature on the card and it has run.",
+        "It is retransmitting something. You can tell by how carefully it is doing it."
+      ],
+      "name": "the rack"
+    },
+    {
+      "looks": [
+        "Guy-wired, painted, correct. Going up further than the sky is.",
+        "It hums, once, in weather that is not happening.",
+        "There is a red light at the top for aircraft. There are no aircraft."
+      ],
+      "name": "the mast"
+    }
+  ],
+  "weather": "The mast takes a gust from a wind that is not happening. The red light at the top blinks for aircraft that are not coming."
 }

@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_sump_leech",
- "id": "zs_under_cablingrun_sump_leech",
- "max_count": 2,
- "respawn_seconds": 300,
- "spawn_weight": 45,
- "zone_id": "zone_under_cablingrun"
+  "enemy_id": "enemy_sump_leech",
+  "id": "zs_under_cablingrun_sump_leech",
+  "max_count": 2,
+  "respawn_seconds": 300,
+  "spawn_weight": 45,
+  "zone_id": "zone_under_cablingrun"
 }

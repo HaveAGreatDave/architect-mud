@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_normal_003",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "normal",
-  "self_line": "The same as everything else in here. Look at the state of the place.",
-  "room_line": "",
+  "id": "dr_objrep_identity_normal_003",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "The same as everything else in here. Look at the state of the place.",
+  "source": "object_reply_identity",
+  "tone": "normal"
 }

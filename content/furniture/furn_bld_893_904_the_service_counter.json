@@ -1,8 +1,14 @@
 {
   "description": "A scuffed counter with a bolted-down till.",
   "flags": {},
+  "hp": null,
+  "hp_max": null,
   "id": "furn_bld_893_904_the_service_counter",
+  "light_type": "lamp",
+  "lumen_output": null,
   "name": "the service counter",
   "object_type": "fixture",
+  "power_draw_kw": null,
+  "price": 0,
   "zone_id": "zone_bld_893_904_lobby"
 }

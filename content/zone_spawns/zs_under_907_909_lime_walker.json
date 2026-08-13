@@ -1,8 +1,8 @@
 {
- "enemy_id": "enemy_lime_walker",
- "id": "zs_under_907_909_lime_walker",
- "max_count": 1,
- "respawn_seconds": 420,
- "spawn_weight": 40,
- "zone_id": "zone_under_907_909"
+  "enemy_id": "enemy_lime_walker",
+  "id": "zs_under_907_909_lime_walker",
+  "max_count": 1,
+  "respawn_seconds": 420,
+  "spawn_weight": 40,
+  "zone_id": "zone_under_907_909"
 }

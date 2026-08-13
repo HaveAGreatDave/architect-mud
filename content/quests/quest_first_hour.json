@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Grady says the clonejackers working the strip south of the Embassy are killing his business by killing his customers. Clear two of them out and bring back the flashlight cells they lifted off him.",
+  "fail_on": [],
   "id": "quest_first_hour",
   "meta": {},
   "name": "The First Hour",
@@ -40,6 +41,7 @@
       "zone": "zone_district_918_904"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

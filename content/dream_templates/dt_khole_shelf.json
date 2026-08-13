@@ -1,33 +1,33 @@
 {
-  "id": "dt_khole_shelf",
-  "name": "The Shelf",
-  "description": "You have come to rest on a flat place. It is comfortable in the way that being put down is comfortable. There is a great deal of space above you and it is all the same distance away. Time is being administered here in doses and you are between them.",
-  "cause": "drug",
-  "drug_id": "drug_khole",
-  "objects": [
-    {
-      "name": "the space above",
-      "looks": [
-        "All of it exactly as far away as the rest of it.",
-        "It has a texture, if you stop insisting on looking.",
-        "Something is up there being still, and being still is what it does."
-      ]
-    },
-    {
-      "name": "the flat place",
-      "looks": [
-        "It holds you the way a hand holds a small animal that has stopped struggling.",
-        "Not cold. Not warm. Attentive.",
-        "It has the shape of you already worn into it, from before."
-      ]
-    }
-  ],
   "ambient": [
     "A dose of time is administered. Some passes.",
     "Everything gets one increment further away and stays there.",
     "You almost move. The intention is filed for later."
   ],
-  "weather": "Not cold. Not warm. The temperature of being carried.",
+  "cause": "drug",
+  "description": "You have come to rest on a flat place. It is comfortable in the way that being put down is comfortable. There is a great deal of space above you and it is all the same distance away. Time is being administered here in doses and you are between them.",
+  "drug_id": "drug_khole",
   "fx": "snow",
-  "fx_intensity": 0.4
+  "fx_intensity": 0.4,
+  "id": "dt_khole_shelf",
+  "name": "The Shelf",
+  "objects": [
+    {
+      "looks": [
+        "All of it exactly as far away as the rest of it.",
+        "It has a texture, if you stop insisting on looking.",
+        "Something is up there being still, and being still is what it does."
+      ],
+      "name": "the space above"
+    },
+    {
+      "looks": [
+        "It holds you the way a hand holds a small animal that has stopped struggling.",
+        "Not cold. Not warm. Attentive.",
+        "It has the shape of you already worn into it, from before."
+      ],
+      "name": "the flat place"
+    }
+  ],
+  "weather": "Not cold. Not warm. The temperature of being carried."
 }

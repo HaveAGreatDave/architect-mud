@@ -1,8 +1,8 @@
 {
-  "id": "gloss_staghound",
-  "term": "staghound",
-  "gloss": "A large hound bred to run down deer.",
   "aliases": [
     "staghounds"
-  ]
+  ],
+  "gloss": "A large hound bred to run down deer.",
+  "id": "gloss_staghound",
+  "term": "staghound"
 }

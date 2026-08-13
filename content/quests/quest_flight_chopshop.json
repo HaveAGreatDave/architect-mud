@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Contraband. Fly it dark.",
+  "fail_on": [],
   "id": "quest_flight_chopshop",
   "meta": {
     "deadlineMins": 20,
@@ -18,6 +19,7 @@
   },
   "name": "Chop-Shop Parts",
   "objectives": [],
+  "penalties": {},
   "quest_type": "flight_template",
   "repeatable": 1,
   "rewards": {},

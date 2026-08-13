@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_the_reach",
+  "id": "zone_district_900_935_z-1",
+  "max_capacity_kw": 10000,
+  "name": "The Basin Floor",
+  "source_type": "city_grid"
+}

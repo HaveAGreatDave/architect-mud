@@ -11,13 +11,13 @@
       "duration_seconds": 300
     },
     "treat_frostbite": {
-      "steps": 2,
-      "floor": 1
+      "floor": 1,
+      "steps": 2
     },
     "treat_injury": {
-      "steps": 1,
+      "all": true,
       "floor": 1,
-      "all": true
+      "steps": 1
     }
   },
   "type": "consumable",

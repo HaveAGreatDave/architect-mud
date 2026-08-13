@@ -1,20 +1,12 @@
 {
-  "id": "dx_psilocybin_bed_lion",
-  "drug_id": "drug_psilocybin",
-  "matches": "bed",
-  "scope": "object",
-  "name": "a sleeping lion",
+  "asks": [
+    "Are you getting in, or are you going to stand there deciding?",
+    "How long have you been awake? Honestly.",
+    "Do you know what was here before I was?",
+    "Would you scratch behind the ear? Only the left one."
+  ],
   "description": "A lion lies where the far side of the room is, front paws crossed, ribs going slowly up and down. It takes up the space a bed would take up and it is very warm.",
-  "looks": [
-    "The fur is dust-coloured and thick with old scars, and there is grit worked deep into it. One ear turns toward you without the rest of the head bothering.",
-    "It is breathing at about a third of your rate. Watching it for any length of time makes your own breath slow down to match, which you notice too late.",
-    "Its eyes are open a slit. They have been open a slit the whole time."
-  ],
-  "says": [
-    "Lie down if you are going to. I am not going to be up for hours.",
-    "You are standing in a draught. I can feel it from here.",
-    "I have slept in worse rooms than this one. Not many."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} yawns enormously, jaw cracking, and resettles with a sound like sand pouring.",
     "{it} stretches one foreleg out until the claws show, holds it, and lets it drop.",
@@ -22,10 +14,20 @@
     "{it} scratches behind one ear with a back foot, thumping the floor, and stops mid-motion to look at you.",
     "{it} shifts its weight, and every board under it complains at once."
   ],
-  "asks": [
-    "Are you getting in, or are you going to stand there deciding?",
-    "How long have you been awake? Honestly.",
-    "Do you know what was here before I was?",
-    "Would you scratch behind the ear? Only the left one."
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dx_psilocybin_bed_lion",
+  "looks": [
+    "The fur is dust-coloured and thick with old scars, and there is grit worked deep into it. One ear turns toward you without the rest of the head bothering.",
+    "It is breathing at about a third of your rate. Watching it for any length of time makes your own breath slow down to match, which you notice too late.",
+    "Its eyes are open a slit. They have been open a slit the whole time."
+  ],
+  "matches": "bed",
+  "name": "a sleeping lion",
+  "says": [
+    "Lie down if you are going to. I am not going to be up for hours.",
+    "You are standing in a draught. I can feel it from here.",
+    "I have slept in worse rooms than this one. Not many."
+  ],
+  "scope": "object"
 }

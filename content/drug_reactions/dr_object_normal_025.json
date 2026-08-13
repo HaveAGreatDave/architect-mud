@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_025",
   "drug_id": "drug_blotter",
-  "source": "object",
-  "tone": "normal",
-  "self_line": "Is that clock right?",
-  "room_line": "",
+  "id": "dr_object_normal_025",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Is that clock right?",
+  "source": "object",
+  "tone": "normal"
 }

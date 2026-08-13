@@ -1,8 +1,8 @@
 {
   "description": "Brushed steel, one button, and a boil so quiet you have to look at it to know it is working. It cost more than the cooktop.",
   "flags": {
-    "brew_tier": "kettle",
-    "aliases": "kettle"
+    "aliases": "kettle",
+    "brew_tier": "kettle"
   },
   "hp": null,
   "hp_max": null,

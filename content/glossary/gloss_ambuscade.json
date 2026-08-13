@@ -1,8 +1,8 @@
 {
-  "id": "gloss_ambuscade",
-  "term": "ambuscade",
-  "gloss": "An ambush.",
   "aliases": [
     "ambuscades"
-  ]
+  ],
+  "gloss": "An ambush.",
+  "id": "gloss_ambuscade",
+  "term": "ambuscade"
 }

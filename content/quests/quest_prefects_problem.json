@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Wire-jackal packs have been crossing the buffer wastes and getting into the Registry's overflow archives at the quarter's western edge. Assemblyman Croll wants them culled, quietly.",
+  "fail_on": [],
   "id": "quest_prefects_problem",
   "meta": {},
   "name": "A Matter of Record",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

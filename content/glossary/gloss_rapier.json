@@ -1,8 +1,8 @@
 {
-  "id": "gloss_rapier",
-  "term": "rapier",
-  "gloss": "A light thrusting sword.",
   "aliases": [
     "rapiers"
-  ]
+  ],
+  "gloss": "A light thrusting sword.",
+  "id": "gloss_rapier",
+  "term": "rapier"
 }

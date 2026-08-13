@@ -59,26 +59,26 @@
       "weight": 48
     },
     {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
       "part": "left_tendril",
       "soak": {
         "kinetic": 1
       },
-      "weight": 20,
-      "grants": {
-        "component": 0,
-        "capability": "grab"
-      }
+      "weight": 20
     },
     {
+      "grants": {
+        "capability": "grab",
+        "component": 0
+      },
       "part": "right_tendril",
       "soak": {
         "kinetic": 1
       },
-      "weight": 20,
-      "grants": {
-        "component": 0,
-        "capability": "grab"
-      }
+      "weight": 20
     }
   ],
   "butcher_difficulty": 8,
@@ -147,8 +147,8 @@
         1,
         1
       ],
-      "weight": 3,
-      "super": true
+      "super": true,
+      "weight": 3
     }
   ],
   "name": "tar-pit horror",

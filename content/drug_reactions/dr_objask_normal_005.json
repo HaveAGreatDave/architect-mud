@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_normal_005",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "normal",
-  "self_line": "Is it still raining?",
-  "room_line": "",
+  "id": "dr_objask_normal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Is it still raining?",
+  "source": "object_ask",
+  "tone": "normal"
 }

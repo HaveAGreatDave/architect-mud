@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_normal_005",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "normal",
-  "self_line": "I was cheaper than what they wanted.",
-  "room_line": "",
+  "id": "dr_objrep_identity_normal_005",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "I was cheaper than what they wanted.",
+  "source": "object_reply_identity",
+  "tone": "normal"
 }

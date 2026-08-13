@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_yard_drystore",
   "id": "map_int_yard_drystore",
+  "name": "Shelf Life",
   "parent_zone_id": "zone_district_924_909"
 }

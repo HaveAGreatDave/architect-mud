@@ -1,35 +1,19 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "start",
+    "_start": "n_start",
     "nodes": {
-      "at_work": {
-        "action_type": "AT_WORK",
-        "next": "go_home",
-        "type": "action"
-      },
-      "go_home": {
-        "action_type": "GO_HOME",
-        "next": "home_wait",
-        "type": "action"
-      },
-      "go_to_work": {
-        "action_type": "GO_TO_WORK",
-        "next": "at_work",
-        "type": "action"
-      },
-      "have_life": {
+      "n_life": {
         "action_type": "HAVE_LIFE",
-        "next": "go_to_work",
+        "next": "n_loop",
         "type": "action"
       },
-      "home_wait": {
-        "next": "start",
-        "seconds": 60,
-        "type": "wait"
+      "n_loop": {
+        "next": "n_start",
+        "type": "loop"
       },
-      "start": {
-        "next": "have_life",
+      "n_start": {
+        "next": "n_life",
         "type": "start"
       }
     }
@@ -95,5 +79,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_studio_1782953094650"
+  "work_zone_id": null
 }

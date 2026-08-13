@@ -1,30 +1,33 @@
 {
-  "id": "dt_default_the_long_moment",
-  "name": "The Long Moment",
-  "description": "You have arrived somewhere in the middle of it and it has been going on. There is a floor, or the strong impression of one. Time here is being handled by somebody else and they are doing it generously. Nothing needs you.",
-  "cause": "drug",
-  "drug_id": null,
-  "objects": [
-    {
-      "name": "the floor",
-      "looks": [
-        "Present, on the whole.",
-        "You test it. It agrees to be a floor and continues.",
-        "It goes down a long way and every bit of it is this bit."
-      ]
-    },
-    {
-      "name": "the moment",
-      "looks": [
-        "Still going. It has been very generous so far.",
-        "You look for the edge of it and find more of the middle.",
-        "It is thinning at one end, but not yet, and not soon."
-      ]
-    }
-  ],
   "ambient": [
     "The moment continues, and is not shorter for having continued.",
     "Something is decided somewhere and does not concern you.",
     "The floor becomes slightly more certain of itself."
-  ]
+  ],
+  "cause": "drug",
+  "description": "You have arrived somewhere in the middle of it and it has been going on. There is a floor, or the strong impression of one. Time here is being handled by somebody else and they are doing it generously. Nothing needs you.",
+  "drug_id": null,
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dt_default_the_long_moment",
+  "name": "The Long Moment",
+  "objects": [
+    {
+      "looks": [
+        "Present, on the whole.",
+        "You test it. It agrees to be a floor and continues.",
+        "It goes down a long way and every bit of it is this bit."
+      ],
+      "name": "the floor"
+    },
+    {
+      "looks": [
+        "Still going. It has been very generous so far.",
+        "You look for the edge of it and find more of the middle.",
+        "It is thinning at one end, but not yet, and not soon."
+      ],
+      "name": "the moment"
+    }
+  ],
+  "weather": null
 }

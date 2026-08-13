@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_aa_slag_bunker",
   "id": "map_int_aa_slag",
+  "name": "Slagworks Flak Pit",
   "parent_zone_id": "zone_district_891_905"
 }

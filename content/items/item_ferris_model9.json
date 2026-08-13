@@ -24,12 +24,12 @@
     },
     "damage_type": "kinetic",
     "description": "A boxy polymer service pistol with all the personality of a kettle. Ferris never advertised, never changed the design, and never apologised for either. It does not jam. It has never jammed. Somewhere under the rust of the old world there is a warehouse of these still waiting to not jam.",
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "firearms",
     "min_skill": {
       "firearms": 2
-    }
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "firearms"
   },
   "type": "weapon",
   "value": 690,

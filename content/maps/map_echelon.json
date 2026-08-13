@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_echelon_foyer",
   "id": "map_echelon",
+  "name": "The Echelon",
   "parent_zone_id": "zone_echelon_exterior"
 }

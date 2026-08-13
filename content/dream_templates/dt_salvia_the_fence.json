@@ -1,33 +1,33 @@
 {
-  "id": "dt_salvia_the_fence",
-  "name": "The Fence",
-  "description": "You are a garden fence. This is not a metaphor and it is not funny. You have been a fence for a very long time, in a garden, in an afternoon, and you have the whole history of the paint on you.",
-  "cause": "drug",
-  "drug_id": "drug_salvia",
-  "objects": [
-    {
-      "name": "the paint",
-      "looks": [
-        "Four coats. You remember every one being applied.",
-        "Blistered on the south side, which is your south side.",
-        "Somebody chose this colour and you were there for the conversation."
-      ]
-    },
-    {
-      "name": "the garden",
-      "looks": [
-        "Ordinary. Somebody keeps it. You hold one edge of it.",
-        "A ball came over once. You remember the ball.",
-        "It is the same afternoon it has always been."
-      ]
-    }
-  ],
   "ambient": [
     "Someone leans on you, briefly, and goes away.",
     "The light moves along your length by a whole hour.",
     "A slat two along from you settles, and you feel it as your own."
   ],
-  "weather": "It is the same warm afternoon it has always been, and it is going to stay that way.",
+  "cause": "drug",
+  "description": "You are a garden fence. This is not a metaphor and it is not funny. You have been a fence for a very long time, in a garden, in an afternoon, and you have the whole history of the paint on you.",
+  "drug_id": "drug_salvia",
   "fx": "ash",
-  "fx_intensity": 0.2
+  "fx_intensity": 0.2,
+  "id": "dt_salvia_the_fence",
+  "name": "The Fence",
+  "objects": [
+    {
+      "looks": [
+        "Four coats. You remember every one being applied.",
+        "Blistered on the south side, which is your south side.",
+        "Somebody chose this colour and you were there for the conversation."
+      ],
+      "name": "the paint"
+    },
+    {
+      "looks": [
+        "Ordinary. Somebody keeps it. You hold one edge of it.",
+        "A ball came over once. You remember the ball.",
+        "It is the same afternoon it has always been."
+      ],
+      "name": "the garden"
+    }
+  ],
+  "weather": "It is the same warm afternoon it has always been, and it is going to stay that way."
 }

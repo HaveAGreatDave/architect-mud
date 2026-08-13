@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_mq_cherry_floor",
   "id": "map_int_mq_cherry",
+  "name": "The Cherry Pit",
   "parent_zone_id": "zone_district_901_907"
 }

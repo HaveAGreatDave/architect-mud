@@ -1,36 +1,35 @@
 {
   "banter": [],
   "behaviour_graph": {
-    "_start": "start",
+    "_start": "n_start",
     "nodes": {
-      "at_work": {
+      "n_atwork": {
         "action_type": "AT_WORK",
-        "next": "go_home",
+        "next": "n_check",
         "type": "action"
       },
-      "go_home": {
-        "action_type": "GO_HOME",
-        "next": "home_wait",
+      "n_check": {
+        "action_type": "CHECK_WORK",
+        "goToWork": "n_work",
+        "haveLife": "n_life",
         "type": "action"
       },
-      "go_to_work": {
-        "action_type": "GO_TO_WORK",
-        "next": "at_work",
-        "type": "action"
-      },
-      "have_life": {
+      "n_life": {
         "action_type": "HAVE_LIFE",
-        "next": "go_to_work",
+        "next": "n_check",
         "type": "action"
       },
-      "home_wait": {
-        "next": "start",
-        "seconds": 60,
-        "type": "wait"
-      },
-      "start": {
-        "next": "have_life",
+      "n_start": {
+        "next": "n_check",
         "type": "start"
+      },
+      "n_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "n_atwork",
+        "params": {
+          "zone_id": "zone_studio_1782953094650"
+        },
+        "type": "action"
       }
     }
   },
@@ -61,18 +60,18 @@
   "vendor_inventory": [],
   "vendor_restock_rate": 1,
   "vendor_schedule": {
-    "mon": [],
-    "tue": [],
-    "wed": [],
-    "thu": [],
     "fri": [],
+    "mon": [],
     "sat": [
       {
         "from": 18,
         "to": 21
       }
     ],
-    "sun": []
+    "sun": [],
+    "thu": [],
+    "tue": [],
+    "wed": []
   },
   "vendor_shop_name": null,
   "vendor_stock_size": 10,

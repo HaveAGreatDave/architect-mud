@@ -1,33 +1,33 @@
 {
-  "id": "dt_threshold_landing",
-  "name": "The Landing",
-  "description": "A stair landing between two flights, both of which go up. The wallpaper is a pattern you knew as a child and cannot now describe. There is a window with the light of a whole day passing through it in the time it takes to look away and back.",
-  "cause": "drug",
-  "drug_id": "drug_threshold",
-  "objects": [
-    {
-      "name": "the wallpaper",
-      "looks": [
-        "A pattern you knew before you had words, so you still have no words for it.",
-        "It repeats, and the repeat is slightly longer than the wall.",
-        "It is moving at the speed of a thing that is not moving."
-      ]
-    },
-    {
-      "name": "the window",
-      "looks": [
-        "Morning. Then afternoon, then evening, in the time it takes to blink.",
-        "The glass is warm on the inside.",
-        "Someone in the reflection is going down the stairs. There are no stairs down."
-      ]
-    }
-  ],
   "ambient": [
     "The light in the room advances by several hours and comes back.",
     "Both flights of stairs creak in the same place at the same time.",
     "A door closes above, politely, in a house with no upstairs."
   ],
-  "weather": "Through the window a whole day goes past in the time it takes to look away and back.",
+  "cause": "drug",
+  "description": "A stair landing between two flights, both of which go up. The wallpaper is a pattern you knew as a child and cannot now describe. There is a window with the light of a whole day passing through it in the time it takes to look away and back.",
+  "drug_id": "drug_threshold",
   "fx": "ash",
-  "fx_intensity": 0.35
+  "fx_intensity": 0.35,
+  "id": "dt_threshold_landing",
+  "name": "The Landing",
+  "objects": [
+    {
+      "looks": [
+        "A pattern you knew before you had words, so you still have no words for it.",
+        "It repeats, and the repeat is slightly longer than the wall.",
+        "It is moving at the speed of a thing that is not moving."
+      ],
+      "name": "the wallpaper"
+    },
+    {
+      "looks": [
+        "Morning. Then afternoon, then evening, in the time it takes to blink.",
+        "The glass is warm on the inside.",
+        "Someone in the reflection is going down the stairs. There are no stairs down."
+      ],
+      "name": "the window"
+    }
+  ],
+  "weather": "Through the window a whole day goes past in the time it takes to look away and back."
 }

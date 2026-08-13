@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_denial_normal_001",
   "drug_id": null,
-  "source": "object_reply_denial",
-  "tone": "normal",
-  "self_line": "All right. Have it your way.",
-  "room_line": "",
+  "id": "dr_objrep_denial_normal_001",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "All right. Have it your way.",
+  "source": "object_reply_denial",
+  "tone": "normal"
 }

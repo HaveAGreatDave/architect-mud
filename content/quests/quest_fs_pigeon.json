@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "The birds are eating the signage again and the ad revenue with it. Chase the pigeons off Foundry Way, Cinder Lane, and Marrow Street. Flap your arms. Lose your dignity. Keep the credits. 15₵.",
+  "fail_on": [],
   "id": "quest_fs_pigeon",
   "meta": {},
   "name": "Pigeon Patrol",
@@ -48,6 +49,7 @@
       "zone": "zone_district_914_909"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 1,
   "rewards": {

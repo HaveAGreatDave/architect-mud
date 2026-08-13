@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Legal charter/freight work.",
+  "fail_on": [],
   "id": "quest_flight_freight",
   "meta": {
     "deadlineMins": 30,
@@ -20,6 +21,7 @@
   },
   "name": "Freight",
   "objectives": [],
+  "penalties": {},
   "quest_type": "flight_template",
   "repeatable": 1,
   "rewards": {},

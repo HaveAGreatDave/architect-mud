@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Scavengers have been stripping cargo off the parked flatcars in the sidings faster than the Yards can move it. Voss the yardmaster wants the sidings cleared and isn't fussy how.",
+  "fail_on": [],
   "id": "quest_sidings_cleared",
   "meta": {},
   "name": "Dead Freight",
@@ -13,6 +14,7 @@
       "type": "kill"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

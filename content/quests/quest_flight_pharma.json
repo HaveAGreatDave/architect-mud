@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Legal charter/freight work.",
+  "fail_on": [],
   "id": "quest_flight_pharma",
   "meta": {
     "deadlineMins": 18,
@@ -18,6 +19,7 @@
   },
   "name": "Cold-Chain Meds",
   "objectives": [],
+  "penalties": {},
   "quest_type": "flight_template",
   "repeatable": 1,
   "rewards": {},

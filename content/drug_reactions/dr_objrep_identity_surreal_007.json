@@ -1,10 +1,10 @@
 {
-  "id": "dr_objrep_identity_surreal_007",
   "drug_id": null,
-  "source": "object_reply_identity",
-  "tone": "surreal",
-  "self_line": "There was a shape here before me and I am standing in its footprints, more or less.",
-  "room_line": "",
+  "id": "dr_objrep_identity_surreal_007",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "There was a shape here before me and I am standing in its footprints, more or less.",
+  "source": "object_reply_identity",
+  "tone": "surreal"
 }

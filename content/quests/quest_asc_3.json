@@ -1,6 +1,7 @@
 {
   "category": null,
   "description": "Inside at last. Curator Vess wants to show you the Spire the way the Ascendants show it to the promising: the ladder in the Gallery, a resurrection in the Vats, and whatever waits at the top. Walk it, and learn what Halcyon has really been selling.",
+  "fail_on": [],
   "id": "quest_asc_3",
   "meta": {},
   "name": "Assurance for the Assured",
@@ -42,6 +43,7 @@
       "zone": "zone_asc_spire_sanctum"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

@@ -1,5 +1,6 @@
 {
   "entry_zone_id": "zone_yard_lastload",
   "id": "map_int_yard_lastload",
+  "name": "The Last Load",
   "parent_zone_id": "zone_the_reach_872_1958"
 }

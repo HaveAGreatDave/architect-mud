@@ -1,6 +1,7 @@
 {
   "category": "The Under",
   "description": "Dredge won't spend real work on someone the shallow band could eat. Prove you can hold the deep reaches: put down the mutants that shamble the Rust Gallery and the hounds that work the Groaning Main, north and south of the Throat.",
+  "fail_on": [],
   "id": "quest_under_deepcuts",
   "meta": {},
   "name": "Deep Cuts",
@@ -29,6 +30,7 @@
       "zone": "zone_under_groanpipe"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

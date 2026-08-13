@@ -1,8 +1,8 @@
 {
-  "id": "gloss_casuistry",
-  "term": "casuistry",
-  "gloss": "Clever moral reasoning used to justify what you wanted anyway.",
   "aliases": [
     "casuist"
-  ]
+  ],
+  "gloss": "Clever moral reasoning used to justify what you wanted anyway.",
+  "id": "gloss_casuistry",
+  "term": "casuistry"
 }

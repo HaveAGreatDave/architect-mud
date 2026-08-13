@@ -1,25 +1,27 @@
 {
-  "id": "dxs_blotter_lattice",
-  "drug_id": "drug_blotter",
-  "matches": null,
-  "scope": "spawn",
-  "name": "a lattice standing in the air",
+  "asks": [
+    "How many layers can you see?",
+    "Would you like me smaller? I can be smaller."
+  ],
   "description": "A structure of pure repeating pattern stands here, unsupported, doing its work with the quiet competence of something that has never needed a floor.",
+  "drug_id": "drug_blotter",
+  "emotes": [
+    "{it} rotates a quarter turn and is exactly as it was.",
+    "{it} grows another tier of itself downward, towards the floor, and stops politely short."
+  ],
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_blotter_lattice",
   "looks": [
     "It repeats, and each repeat contains a smaller whole one.",
     "It is keeping time with your pulse and improving on it.",
     "You could put your hand through it. You do not."
   ],
+  "matches": null,
+  "name": "a lattice standing in the air",
   "says": [
     "I am the same shape all the way in.",
     "You are seeing about the first four layers."
   ],
-  "emotes": [
-    "{it} rotates a quarter turn and is exactly as it was.",
-    "{it} grows another tier of itself downward, towards the floor, and stops politely short."
-  ],
-  "asks": [
-    "How many layers can you see?",
-    "Would you like me smaller? I can be smaller."
-  ]
+  "scope": "spawn"
 }

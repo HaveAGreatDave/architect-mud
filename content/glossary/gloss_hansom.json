@@ -1,8 +1,8 @@
 {
-  "id": "gloss_hansom",
-  "term": "hansom",
-  "gloss": "A two-wheeled cab for hire, driver seated behind.",
   "aliases": [
     "hansoms"
-  ]
+  ],
+  "gloss": "A two-wheeled cab for hire, driver seated behind.",
+  "id": "gloss_hansom",
+  "term": "hansom"
 }

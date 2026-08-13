@@ -1,6 +1,7 @@
 {
   "category": "The Under",
   "description": "The reason the Deep Reach never got thinned has a name now, because Dredge gave it one: the Midden. A hundred drowned things grown into one heaving hulk, and it's getting bigger. Go down to the Deep Reach and end it before it decides the cistern looks warm.",
+  "fail_on": [],
   "id": "quest_under_apex",
   "meta": {},
   "name": "The Thing That Doesn't Thin",
@@ -17,6 +18,7 @@
       "zone": "zone_under_deepreach"
     }
   ],
+  "penalties": {},
   "quest_type": "standard",
   "repeatable": 0,
   "rewards": {

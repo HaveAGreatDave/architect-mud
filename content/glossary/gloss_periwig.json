@@ -1,9 +1,9 @@
 {
-  "id": "gloss_periwig",
-  "term": "periwig",
-  "gloss": "A powdered wig worn by gentlemen.",
   "aliases": [
     "periwigs",
     "peruke"
-  ]
+  ],
+  "gloss": "A powdered wig worn by gentlemen.",
+  "id": "gloss_periwig",
+  "term": "periwig"
 }

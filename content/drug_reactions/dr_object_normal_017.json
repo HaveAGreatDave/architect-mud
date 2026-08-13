@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_normal_017",
   "drug_id": null,
-  "source": "object",
-  "tone": "normal",
-  "self_line": "There is a bit left in the pot if you want it.",
-  "room_line": "",
+  "id": "dr_object_normal_017",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "There is a bit left in the pot if you want it.",
+  "source": "object",
+  "tone": "normal"
 }

@@ -1,10 +1,10 @@
 {
-  "id": "dr_npc_normal_509",
   "drug_id": null,
-  "source": "npc",
-  "tone": "normal",
-  "relation": "familiar",
+  "id": "dr_npc_normal_509",
   "npc_type": null,
+  "relation": "familiar",
+  "room_line": "{npc} looks at {player} and sighs like somebody who has done this before.",
   "self_line": "{npc} sighs the specific sigh of somebody who has done this before.",
-  "room_line": "{npc} looks at {player} and sighs like somebody who has done this before."
+  "source": "npc",
+  "tone": "normal"
 }

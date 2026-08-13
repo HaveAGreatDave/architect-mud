@@ -1,26 +1,28 @@
 {
-  "id": "dxs_psilocybin_animal",
-  "drug_id": "drug_psilocybin",
-  "matches": null,
-  "scope": "spawn",
-  "name": "a stag standing in the middle of the room",
+  "asks": [
+    "Which way is out? The way you came?",
+    "Is it raining out there?"
+  ],
   "description": "A stag stands here with its head up, antlers going most of the way to the ceiling, flanks steaming faintly as though it has come a long way at speed.",
-  "looks": [
-    "The antlers are in velvet, and the velvet is torn on one side and hanging.",
-    "It is steaming. The room is not cold enough for anything to steam.",
-    "It has planted all four feet and is not going to be moved by anything you have on you."
-  ],
-  "says": [
-    "I came a long way to stand here.",
-    "Do not get behind me."
-  ],
+  "drug_id": "drug_psilocybin",
   "emotes": [
     "{it} lowers its head and lifts it again, antlers scraping a line down the ceiling.",
     "{it} stamps once. The sound arrives a moment late.",
     "{it} turns an ear towards the door and holds it there."
   ],
-  "asks": [
-    "Which way is out? The way you came?",
-    "Is it raining out there?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxs_psilocybin_animal",
+  "looks": [
+    "The antlers are in velvet, and the velvet is torn on one side and hanging.",
+    "It is steaming. The room is not cold enough for anything to steam.",
+    "It has planted all four feet and is not going to be moved by anything you have on you."
+  ],
+  "matches": null,
+  "name": "a stag standing in the middle of the room",
+  "says": [
+    "I came a long way to stand here.",
+    "Do not get behind me."
+  ],
+  "scope": "spawn"
 }

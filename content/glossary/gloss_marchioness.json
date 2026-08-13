@@ -1,8 +1,8 @@
 {
-  "id": "gloss_marchioness",
-  "term": "marchioness",
-  "gloss": "A noblewoman ranking just below a duchess.",
   "aliases": [
     "marchionesses"
-  ]
+  ],
+  "gloss": "A noblewoman ranking just below a duchess.",
+  "id": "gloss_marchioness",
+  "term": "marchioness"
 }

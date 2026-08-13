@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 10000,
+  "flags": {},
+  "generator_id": "gen_region_region_the_reach",
+  "id": "zone_district_933_900",
+  "max_capacity_kw": 10000,
+  "name": "Coldwater Basin",
+  "source_type": "city_grid"
+}

@@ -1,28 +1,30 @@
 {
-  "id": "dxp_mescaline_pilgrim",
-  "drug_id": "drug_mescaline",
-  "matches": null,
-  "scope": "person",
-  "name": "a pilgrim covered in road dust",
+  "asks": [
+    "Is this the right room? I was told there would be a mark on the door.",
+    "How long have you been here, all told, not tonight?",
+    "Did somebody send you as well?"
+  ],
   "description": "A figure in a long dust-coloured coat stands here, boots worn through at the side, carrying a bundle done up with string. Everything about them says they have walked here from somewhere that took months.",
-  "looks": [
-    "The dust is in the creases of their face and in the weave of the coat and it is not city dust.",
-    "The bundle is tied with a knot you have never seen and would not be able to undo.",
-    "They are looking at you as though they expected you and are checking you against a description."
-  ],
-  "says": [
-    "I have come a long way to be in this room.",
-    "You are the third today. It is not a large number.",
-    "Nothing is required of you. I would say if it were."
-  ],
+  "drug_id": "drug_mescaline",
   "emotes": [
     "{it} sets the bundle down, considers it, and picks it up again.",
     "{it} knocks the dust off one sleeve, and the dust hangs in the air far too long.",
     "{it} looks at the door as though timing something."
   ],
-  "asks": [
-    "Is this the right room? I was told there would be a mark on the door.",
-    "How long have you been here, all told, not tonight?",
-    "Did somebody send you as well?"
-  ]
+  "fx": null,
+  "fx_intensity": 0.5,
+  "id": "dxp_mescaline_pilgrim",
+  "looks": [
+    "The dust is in the creases of their face and in the weave of the coat and it is not city dust.",
+    "The bundle is tied with a knot you have never seen and would not be able to undo.",
+    "They are looking at you as though they expected you and are checking you against a description."
+  ],
+  "matches": null,
+  "name": "a pilgrim covered in road dust",
+  "says": [
+    "I have come a long way to be in this room.",
+    "You are the third today. It is not a large number.",
+    "Nothing is required of you. I would say if it were."
+  ],
+  "scope": "person"
 }

@@ -8,14 +8,14 @@
       "max": 8,
       "min": 4
     },
-    "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
-    "slot": "weapon_hand",
-    "weapon": true,
-    "weapon_skill": "blades",
     "damage_type": "edged",
+    "description": "A full-tang fighting knife with a blackened edge. Never jams, never runs dry, never asks questions.",
     "min_skill": {
       "blades": 1
-    }
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "blades"
   },
   "type": "weapon",
   "value": 165,

@@ -1,10 +1,10 @@
 {
-  "id": "dr_objask_normal_011",
   "drug_id": null,
-  "source": "object_ask",
-  "tone": "normal",
-  "self_line": "Do you like this room? Honestly, do you?",
-  "room_line": "",
+  "id": "dr_objask_normal_011",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Do you like this room? Honestly, do you?",
+  "source": "object_ask",
+  "tone": "normal"
 }

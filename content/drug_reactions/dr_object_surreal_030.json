@@ -1,10 +1,10 @@
 {
-  "id": "dr_object_surreal_030",
   "drug_id": "drug_psilocybin",
-  "source": "object",
-  "tone": "surreal",
-  "self_line": "Do not be alarmed. I would not know how.",
-  "room_line": "",
+  "id": "dr_object_surreal_030",
+  "npc_type": null,
   "relation": null,
-  "npc_type": null
+  "room_line": "",
+  "self_line": "Do not be alarmed. I would not know how.",
+  "source": "object",
+  "tone": "surreal"
 }
