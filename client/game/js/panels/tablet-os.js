@@ -6383,6 +6383,11 @@ function renderTabletSettings(d) {
 // anybody who opens this tab, the same as visiting the site would. That is inherent to an embed
 // rather than something this code chose, and the lazy load is what keeps it to people who asked.
 const DISCORD_SERVER_ID = '1537202670451040316';
+// The invite, and it is deliberately NOT the widget URL. The widget is a live view of who is about
+// and it renders only while Discord's own server-side widget switch is on; the invite is how a
+// person actually joins, and it works when the widget shows nothing at all — which is the exact
+// case the link beside it exists for.
+const DISCORD_INVITE = 'https://discord.gg/kgPYFpQNQ';
 function renderDiscordPage() {
   // The tablet's own theme drives the widget's: a parchment tablet with a black widget bolted into
   // it reads as a bug rather than as a choice. `LIGHT_THEMES` is a list of [value, label] PAIRS,
@@ -6399,7 +6404,7 @@ function renderDiscordPage() {
       sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
     <div class="tos-dis-fall">Nothing there? The widget needs to be switched on in Discord, and
       some networks block the embed outright.</div>
-    <a class="tos-dis-open" href="${esc(src)}" target="_blank" rel="noopener noreferrer">Open Discord</a>
+    <a class="tos-dis-open" href="${esc(DISCORD_INVITE)}" target="_blank" rel="noopener noreferrer">Join the Discord</a>
   </div>`;
 }
 
