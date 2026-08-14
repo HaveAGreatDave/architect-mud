@@ -478,6 +478,11 @@ export function cabContext(rig, extra = {}) {
     // rather than a distance-to-go, because there is no single road to be a distance along.
     s: city ? 0 : Math.round(rig.s), t: city ? 0 : +rig.t.toFixed(2),
     L: city ? 0 : rig.route.L,
+    // WHERE THIS ROAD IS POINTED, for the cab's GPS screen to name. It is the route's own
+    // `destKey` — the exact field the `route` verb sets — so the screen can never say one
+    // destination while the tarmac runs to another. Naming only: the aiming, the fork rules and the
+    // range check all stay in the verb.
+    aim: city ? null : (rig.route?.destKey || null),
     node: city ? 0 : rig.node, nodes: city ? 0 : rig.chain.length,
     surface: surfaceUnder(rig),
     // The other half of the traffic picture: aircraft near the truck, so a driver sees a Mule come

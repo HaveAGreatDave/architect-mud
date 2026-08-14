@@ -712,7 +712,30 @@ wheel is), fuel and leg out on the left flank, brake and trailer right of the ge
 tell-tales in one spread row on the right of the dash **with labels** — an unlit dot is not an
 instrument, it is a hole.
 
-**The band is the binding constraint on gauge size, so the wheel sits low** *(2026-08-14)*. The
+**One instrument row across the whole dash, and the wheel comes back up** *(2026-08-14)*. The layout
+below (wheel pushed down to buy a band above it) traded the wrong thing away: it made the wheel a
+shallow arc, which is not what sitting behind a truck wheel looks like, and the gauges were still
+capped by a strip. **The strip was the problem, not the wheel.** Everything round now sits at ONE
+height on the dash flat, where there is full depth and the rim reaches nothing — tachometer
+immediately left of the wheel, speedometer immediately right, the four small ones further out, then
+the screen. That is the reference photograph's own arrangement, and **it is what lets every gauge be
+a real dial**: the bars were never a style choice, they were what fitted in the strip. The strip over
+the wheel now carries the GEAR and the six tell-tales and nothing else, so the hub is free to sit at
+`1.12H` where a wheel sits. ⚠ **The old binnacle hood is the "egg"** — two quadratic curves meeting
+over a pair of dials draws a fat lozenge; cluster surrounds are squared panels with a lip.
+
+**The GPS screen** *(2026-08-14)*. Far right of the dash, and the rule that keeps it honest: **it
+invents nothing and decides nothing.** The map is `v.map` — the very same window the world outside
+the windscreen is rendered from — so the screen and the view cannot disagree about what is out
+there. Own position is a *heading arrow*, not a dot: a dot tells you where you are, which you knew.
+Setting a destination is **not** done here; that is the `route` verb, which already owns the fork
+rules and the range check, and the screen is a face for it (the preparation-workspace rule — every
+action is a verb string a player could have typed). A HUD that re-derived "can I get there" would be
+a second copy of the answer, and the two would disagree the first time a tank got smaller. `aim` is
+the route's own `destKey`, added to `cabContext` for naming only.
+
+**The band is the binding constraint on gauge size, so the wheel sits low** *(2026-08-14, superseded
+above)*. The
 instruments live between the dash lip and the top of the rim, and at `CAB_DASH = 0.30` with the hub
 at `1.20H` that band was about a tenth of the frame — dials the size of the word underneath them.
 The hub drops to `1.30H` and `CAB_DASH` goes to **0.33**: every 0.01H the wheel drops is 0.01H of

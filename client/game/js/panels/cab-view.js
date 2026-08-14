@@ -115,7 +115,13 @@ const DMG_PARTS = [
 // The chase camera's resting elevation, in radians, matching cockpit.js's REST_PITCH intent: behind
 // and a little above. The renderer clamps this against the terrain, so the orbit can never dip the
 // eye under the road.
-const EXT_REST_PITCH = 0.42;
+// 0.42 → 0.26 rad. The higher angle is right for an aircraft, whose interesting surface is its
+// PLAN — wings, and the ground it is over. A truck's interesting surface is its FLANK: it is a tall
+// box on wheels, and looking down on it at 24° shows you the roof, which is a rectangle. That is
+// most of what "seems very flat" is. Dropped to ~15°, the chase sits nearer the road and the rig
+// has a side, a screen and a stack. The orbit still runs from under-belly to top-down; this is only
+// where it RESTS and where ⟲ puts it back.
+const EXT_REST_PITCH = 0.26;
 
 let st = null;
 
@@ -492,7 +498,14 @@ export function openCab(ctx = {}) {
     // nothing but eat the page scroll would be worse than one that is simply not bound.
     glass.addEventListener('wheel', (e) => {
       if (!st?.external) return;
-      st.extZoom = Math.max(0.4, Math.min(2.2, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
+      // THE FLOOR IS THE DOLLY-IN LIMIT, and 0.4 was not a limit anybody chose — it was copied
+      // from the aircraft orbit, where the subject is forty feet across. The cab multiplies by 1.15
+      // on the way out, so the closest a driver could physically get was 0.46 of the resting
+      // stand-off: nowhere near "fill the frame with the rig". The renderer's own floor is 0.15 and
+      // it is happy there (the Echelon deck-cam's final hold pushes down to it), so this stops
+      // being the binding constraint. Ceiling raised too — a chase camera you can back right off is
+      // how you look at the whole rig with a trailer on.
+      st.extZoom = Math.max(0.16, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
       e.preventDefault();
     }, { passive: false });
   }
@@ -921,6 +934,7 @@ export function cabContext(ctx) {
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
+  st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;   // what the GPS names — the route verb owns the aiming
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
   if (ctx.contacts) st.contacts = ctx.contacts;
@@ -1270,6 +1284,10 @@ function frame(now) {
       stalled: r.stalled,
       fuel: st.dry ? 0 : (st.fuel ?? 1),
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
+      // The GPS screen. 'aim' is the route destKey the server sent; the distance left is derived
+      // from the leg the cab is already driving rather than asked for a second time.
+      aim: st.aim || null,
+      legLeft: st.L ? Math.max(0, (st.L - st.s) / 12) : null,
       brakeTemp: r.brakeTemp, fading: r.fading, brakeGauge: kit.brakeTemp,
       lamps: {
         fuel: st.dry || (st.fuel ?? 1) < 0.15,
