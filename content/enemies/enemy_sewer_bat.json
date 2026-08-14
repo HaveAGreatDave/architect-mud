@@ -97,7 +97,8 @@
       "$enemy shrieks a note you feel more than hear and dives at $player.",
       "$enemy flickers past $player's light, there and gone."
     ],
-    "first_strike_delay_ms": 4000
+    "first_strike_delay_ms": 4000,
+    "vermin": true
   },
   "hit": 3,
   "hp_max": 9,

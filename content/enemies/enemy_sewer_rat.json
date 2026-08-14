@@ -98,7 +98,8 @@
       "$enemy's naked tail lashes as it fixes on $player.",
       "$enemy scrabbles a step closer over the slime-slick brick."
     ],
-    "first_strike_delay_ms": 6000
+    "first_strike_delay_ms": 6000,
+    "vermin": true
   },
   "hit": 1,
   "hp_max": 10,

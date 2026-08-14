@@ -106,7 +106,8 @@
       "$enemy feints sideways, antennae fixed on $player.",
       "$enemy darts under a pipe and comes at $player low."
     ],
-    "first_strike_delay_ms": 4000
+    "first_strike_delay_ms": 4000,
+    "vermin": true
   },
   "hit": 2,
   "hp_max": 6,

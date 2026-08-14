@@ -88,7 +88,8 @@
       "$enemy’s antennae lock onto the gear on $player.",
       "$enemy makes a sound like a dot-matrix printer dying badly."
     ],
-    "first_strike_delay_ms": 6000
+    "first_strike_delay_ms": 6000,
+    "vermin": true
   },
   "hit": 1,
   "hp_max": 9,

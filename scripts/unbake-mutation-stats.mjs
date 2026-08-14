@@ -96,9 +96,9 @@ async function main() {
     // The guard and the correction share a transaction, so a crash midway can
     // never leave a player marked-done but un-corrected.
     const { rows: claim } = await query(
-      `INSERT INTO player_flags (player_id, key, value)
+      `INSERT INTO player_flags (player_id, flag_key, flag_value)
        VALUES ($1, 'mutations_unbaked', '1')
-       ON CONFLICT (player_id, key) DO NOTHING
+       ON CONFLICT (player_id, flag_key) DO NOTHING
        RETURNING player_id`,
       [playerId]
     );

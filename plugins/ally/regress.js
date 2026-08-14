@@ -15,7 +15,7 @@
 // cost nothing when nobody has an ally.
 import { world } from '../../server/engine/world.js';
 import { emit, on } from '../../server/engine/events.js';
-import { npcAttackEnemy } from '../../server/engine/combat.js';
+import { npcAttackEnemy, typeEffectiveness } from '../../server/engine/combat.js';
 import { enemyAttackNpc } from '../../server/engine/combat.js';
 import { registerEnemyDamageObserver } from '../../server/engine/damage-events.js';
 import { registerProtectionProvider } from '../../server/engine/protection.js';
@@ -159,6 +159,42 @@ export default async function regress({ check, getPlayer }) {
     readyToSwing(npc);
     check('a quantum forcefield stops an ally swing too', (await npcAttackEnemy(npc, e)) === null);
     shielded = false;   // providers can't be unregistered; this one answers null forever after
+
+    // ── Chemical is a SPECIALIST type ───────────────────────────────────────
+    //
+    // It arrived with pest control, and its whole design is that it is devastating
+    // to vermin and feeble against everything else — which is what leaves room for
+    // a later broad-spectrum agent to be a real escalation rather than a bigger
+    // number. Asserted through npcAttackEnemy because that path is deterministic
+    // here (hit 99 vs dodge -99 always crits; one body part; fixed 5-5 roll).
+    {
+      const chemNpc = { ...npc, flags: { ...npc.flags, weapon: [{ type: 'chemical', min: 5, max: 5 }] } };
+      const bug = mkEnemy({ flags: { vermin: true } });
+      const notBug = mkEnemy({ flags: {} });
+      readyToSwing(chemNpc);
+      const vsBug = await npcAttackEnemy(chemNpc, bug);
+      readyToSwing(chemNpc);
+      const vsOther = await npcAttackEnemy(chemNpc, notBug);
+      check('chemical lands in full on something flagged vermin',
+        vsBug?.damage === unsoakedDamage, `${vsBug?.damage} vs ${unsoakedDamage}`);
+      check('chemical is heavily reduced against anything else',
+        (vsOther?.damage ?? 99) < (vsBug?.damage ?? 0), `${vsOther?.damage} vs ${vsBug?.damage}`);
+      check('a resisted chemical blow still does at least 1', (vsOther?.damage ?? 0) >= 1, String(vsOther?.damage));
+
+      // The negative half, and the one that matters most: the vermin flag must
+      // be invisible to every other damage type. If this ever fails, somebody
+      // applied the multiplier unconditionally and quietly rebalanced the game.
+      readyToSwing(npc);
+      const kineticVsBug = await npcAttackEnemy(npc, bug);
+      check('the vermin flag does NOT change kinetic damage',
+        kineticVsBug?.damage === unsoakedDamage, `${kineticVsBug?.damage} vs ${unsoakedDamage}`);
+
+      // Players are never vermin, so an NPC with a sprayer is not lethal to
+      // someone who owns no chemical armour and has nowhere to buy any.
+      check('typeEffectiveness treats a player as non-vermin',
+        typeEffectiveness(player, 'chemical') < 1 && typeEffectiveness(player, 'kinetic') === 1);
+      dropEnemy(bug); dropEnemy(notBug);
+    }
 
     // ── 12. Targeting policy ────────────────────────────────────────────────
     npc.flags.ally_targets = ['enemy_ally_test'];

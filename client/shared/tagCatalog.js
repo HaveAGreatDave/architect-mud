@@ -162,7 +162,7 @@
       help: 'Which combat skill earns XP and routes the attack.' },
     damage_type: { label: 'Damage Type', shape: 'enum', scope: 'class', group: 'Combat',
       options: ['kinetic', 'edged', 'energy', 'fire', 'radiation', 'chemical'],
-      help: 'Physical damage category. Used to index per-part armor soak on defender. NOTE on `chemical`: it arrived with pest control, and almost nothing in the world soaks it yet — a chemical weapon effectively ignores existing armour, which is the point of a fumigant and a real balance decision. Author `armor_soak: {chemical: n}` on anything meant to stand up to it.' },
+      help: 'Physical damage category. Used to index per-part armor soak on defender. NOTE on `chemical`: it is a SPECIALIST type. Almost nothing soaks it, so it walks through armour — but it is multiplied down to ~30% against any target that is not flagged `vermin` (see `typeEffectiveness` in combat.js), so a fumigant is devastating on roaches and feeble on people. Opt an enemy in with `flags.vermin: true`; the resistance is the default so a new enemy is never a silent hole.' },
     status_chance: { label: 'Status Chance', shape: 'statmap', scope: 'class', group: 'Combat',
       help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
     butchering: { label: 'Butchering Tool', shape: 'flag', scope: 'class', group: 'Combat',

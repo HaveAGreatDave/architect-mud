@@ -60,6 +60,29 @@ ally's blow cuts through carapace armour the player's identical blow cannot. **K
 CALLER's** — pass `{ credit: player }` — so `combat.js` never learns what an ally is; the policy half
 lives in [plugins/ally](../plugins/ally/README.md).
 
+### Type effectiveness — what the target IS, not what it is wearing
+
+`typeEffectiveness(target, damageType)` (`combat.js`) is a multiplier on the damage **roll**, applied
+in every path that rolls damage: `playerAttackEnemy`, `enemyAttackPlayer`, `npcAttackPlayer`,
+`npcAttackEnemy`, `pvpSwing`, `applyStrikeToPlayer`, `applyStrikeToEnemy`.
+
+Today it answers for exactly one type. **`chemical` is a specialist**: full damage against a target
+whose content says `flags.vermin`, and `chemical_nonvermin_scale` (default **0.3**) against anything
+else — including every player, who have no `flags` at all. Currently flagged vermin: sewer roach,
+printer roach, choke swarm, sewer rat, sewer bat.
+
+Three decisions in that, worth reading before you extend it:
+
+- **It is a multiplier, not soak.** Soak is subtractive and floored at 1, so a flat resistance number
+  that reads as meaningful on a rat is a rounding error on a 95-HP boss.
+- **Resistance is the DEFAULT and vulnerability is opted into.** Authoring `armor_soak: {chemical: n}`
+  onto every enemy instead is 60-odd files today and a silent hole in every enemy added tomorrow.
+- **It scales the value the injury seam scores, not just the HP loss** (`raw`/`gBase`/`pvpBase`, not
+  `amt`), or a resisted blow would wound as hard as an effective one.
+
+The point of the gate is headroom: with chemical meaning *specialist*, a later broad-spectrum agent
+that ignores it is a genuine escalation rather than a bigger number.
+
 ⚠ An enemy keeps `dodge` as a top-level column; an NPC keeps it in `flags.dodge`. `enemyAttackEnemy`
 reads `defender.flags?.dodge` against an enemy, which is why enemy-vs-enemy almost never misses. That
 is a known bug, not a pattern to copy.

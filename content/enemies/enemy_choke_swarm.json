@@ -74,7 +74,8 @@
       "The hum off $enemy climbs as it finds $player.",
       "$enemy closes on $player from every direction at once."
     ],
-    "first_strike_delay_ms": 6000
+    "first_strike_delay_ms": 6000,
+    "vermin": true
   },
   "hit": 6,
   "hp_max": 30,

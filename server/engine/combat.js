@@ -797,6 +797,47 @@ function resolveSoak(soakMap, damageType) {
   return Math.floor(Math.max(...values) * factor);
 }
 
+/**
+ * How well a damage type works on THIS target, as a multiplier on the roll.
+ *
+ * Soak answers "what is it wearing". This answers "what is it", and the two are
+ * different questions: a hazmat suit is armour a roach cannot buy, and a roach's
+ * vulnerability to a fumigant is not something a bigger creature can put on.
+ *
+ * Only `chemical` uses it, and it is deliberately an OPT-IN: an agent that
+ * shrivels vermin does very little to anything with a closed circulatory system
+ * and a face it can hold shut, so a target is resistant unless its content says
+ * `flags.vermin`. Doing it the other way round — authoring `chemical` soak onto
+ * every enemy — is 60-odd files today and a silent hole in every enemy anybody
+ * adds tomorrow, which is the same reason `armor_soak` is authored per item and
+ * this is not.
+ *
+ * A MULTIPLIER, not soak, because soak is subtractive and floored: a flat number
+ * that reads as resistance on a rat is a rounding error on a 95-HP boss.
+ *
+ * Players are never vermin (no `flags` at all), so chemical lands soft on people
+ * whoever swings it — which is what stops an NPC with a sprayer being lethal to a
+ * player who owns no chemical armour and has nowhere to buy any.
+ *
+ * The headroom this buys is the point: once chemical means "specialist", a later
+ * broad-spectrum agent that ignores the vermin gate is a genuine escalation
+ * rather than a bigger number.
+ */
+export function typeEffectiveness(target, damageType) {
+  if (damageType !== 'chemical') return 1;
+  return target?.flags?.vermin ? 1 : getTunable('chemical_nonvermin_scale', 0.3);
+}
+
+// Apply it to a rolled amount. Floored at 1 so a resisted blow is feeble, never
+// nothing — a weapon that reads as doing zero reads as broken.
+function scaleForType(amount, target, damageType) {
+  // A zero passes through untouched — a spread group that rolled nothing must
+  // stay nothing, or the floor below turns every empty pellet into a hit.
+  if (!(amount > 0)) return amount;
+  const eff = typeEffectiveness(target, damageType);
+  return eff === 1 ? amount : Math.max(1, Math.round(amount * eff));
+}
+
 // Total soak for a player on the struck part: typed armor_soak on that slot.
 function playerPartSoak(player, part, damageType) {
   const slot = PART_TO_SLOT[part];
@@ -981,6 +1022,9 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   // multiplier, so a critical underwater is still a bad critical.
   if (unskilled) damage = Math.max(1, Math.round(damage * unskilled.damageScale));
   if (water) damage = Math.max(1, Math.round(damage * water.damageScale));
+  // What it IS, before what it is wearing. Same place in the order as water:
+  // scaled on the roll, so a critical with the wrong agent is still a bad one.
+  damage = scaleForType(damage, enemy, damageType);
   if (critical) damage = Math.floor(damage * critMultiplier);
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
   if (swing && swing.damageScale !== 1) damage = Math.max(1, Math.round(damage * swing.damageScale));
@@ -1218,7 +1262,10 @@ export async function enemyAttackPlayer(enemy, player) {
     let gBase = 0;
 
     for (const { c, shares } of rolls) {
-      const raw = shares[g] ?? 0;
+      // Per COMPONENT, and scaled on `raw` rather than on `amt`, because `raw`
+      // is also what feeds gBase and therefore the injury seam. Scaling only the
+      // damage would leave a resisted blow wounding as hard as an effective one.
+      const raw = scaleForType(shares[g] ?? 0, player, c.type);
       if (raw <= 0) continue;
       let amt = raw;
       if (critical) amt = Math.floor(amt * critMultiplier);
@@ -1368,7 +1415,7 @@ export async function flushDirtyResources() {
 export async function applyStrikeToPlayer(player, { min, max, damageType = 'kinetic' }) {
   await ensureTunables();
   const part = rollBodyPart(targetWeights(player));
-  const raw = randInt(min, max);
+  const raw = scaleForType(randInt(min, max), player, damageType);
   const soaked = playerPartSoak(player, part, damageType);
   let damage = raw;
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
@@ -1402,7 +1449,7 @@ export async function applyStrikeToEnemy(player, enemy, { min, max, damageType =
   if (!enemy || enemy.hp <= 0) return null;
 
   const part = rollBodyPart(enemyBodyPartWeights(enemy));
-  const raw = randInt(min, max);
+  const raw = scaleForType(randInt(min, max), enemy, damageType);
   const soaked = enemyPartSoak(enemy, part, damageType);
   let damage = raw;
   if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
@@ -1491,7 +1538,11 @@ export async function pvpSwing(attacker, defender) {
   const critical = margin >= getTunable('crit_threshold', 8);
   const part = rollBodyPart(aimedWeights(attacker, targetWeights(defender)));
 
-  const rawRoll = Math.max(1, Math.round(randInt(damage_min, damage_max) * weaponScale(attacker)));
+  // Scaled on rawRoll, which is also what pvpBase (the injury score) is built
+  // from — a fumigant in somebody's face is unpleasant and not disabling.
+  const rawRoll = scaleForType(
+    Math.max(1, Math.round(randInt(damage_min, damage_max) * weaponScale(attacker))),
+    defender, damageType);
   let damage = rawRoll;
   if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
   if (power) damage = Math.floor(damage * POW_DAMAGE_MULT);
@@ -1785,7 +1836,7 @@ export async function npcAttackPlayer(npc, player) {
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
   let total = 0;
   for (const c of weaponArr) {
-    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    let amt = scaleForType(randInt(Number(c.min) || 1, Number(c.max) || 3), player, c.type);
     if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
     total += Math.max(0, Math.floor(amt * headMult) - playerPartSoak(player, part, c.type));
   }
@@ -1926,7 +1977,7 @@ export async function npcAttackEnemy(npc, enemy, { credit = null } = {}) {
   let total = 0;
   let rawTotal = 0;
   for (const c of weaponArr) {
-    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    let amt = scaleForType(randInt(Number(c.min) || 1, Number(c.max) || 3), enemy, c.type);
     if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
     const swung = Math.floor(amt * headMult);
     const soaked = enemyPartSoak(enemy, part, c.type);
