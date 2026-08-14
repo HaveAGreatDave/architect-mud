@@ -753,6 +753,20 @@ questions. ⚠ Every own-ext site now goes through `ownExtMul(cls)`: an override
 but not `ownShipBaseWz`/`modelGroundDrop` would scale the model and leave its wheels at the old
 height — a truck hovering over the road.
 
+**A truck lights itself like a truck** *(2026-08-14)*. Straight after the size fix the halos still did
+not match the vehicle — two floodlights a wingspan apart either side of a small rig. Two causes, and
+the first is a one-liner. `wingtipStation(cls)` falls through to `FW_PARAMS[cls] || FW_PARAMS.prop`,
+so a truck was handed **a Twin Otter's wingtips** and its nav lamps were hung at the tips of a wing
+that is not there; it returns `null` for `truck` now. The second is the size: the aeroplane lamp is
+`clamp(3.2 / q.f, …)`, a screen radius keyed to **depth alone**, which is only right for a craft
+whose on-screen size also tracks 1/depth *at the reference scale*. A truck is a small model viewed
+from a proportionally closer camera, so the halo came out ~2× larger while the truck came out
+smaller. The replacement set (`vehicleLamps` in `aircraft3d.js` — headlamps, tail lamps, roof
+markers, every station derived from the constants `buildTruck` lays the mesh out from) sizes its
+glow as a **fraction of the vehicle's own projected track width**, so it is correct at any distance,
+zoom or class size by construction rather than by tuning. Headlamps ride the LIGHTS switch; the rest
+is on whenever the engine is.
+
 **The cab has to be listed in `input.js` as a keyboard owner** *(2026-08-14)*. It owns `A`/`Z`/`X`/`C`,
 the arrows, `,` and `.` — nearly the whole letter row, and every one of them is also a printable
 character. The document-level handler in `client/game/js/input.js` pulls the caret into the command

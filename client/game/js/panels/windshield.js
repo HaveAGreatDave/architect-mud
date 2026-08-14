@@ -34,7 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
-import { aircraftFaces, wingtipStation, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 
@@ -5700,7 +5700,42 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, s * 2.2, 0, 7); ctx.fill();
       ctx.fillStyle = `rgba(255,255,255,${0.75 * lit * nb})`; ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.7, s * 0.42), 0, 7); ctx.fill();
     };
-    if (tip) {
+    // ── A ROAD VEHICLE LIGHTS ITSELF LIKE A ROAD VEHICLE ─────────────────────
+    //
+    // Not port-red / starboard-green / anti-collision strobe, which is the grammar of something
+    // that has to be identified at two miles in the dark by an aircraft. A truck has headlamps at
+    // the front, tail lamps at the back and markers on the roof, and it has them where the mesh
+    // actually built them (vehicleLamps, aircraft3d — the same constants buildTruck lays out from).
+    //
+    // THE SIZE IS MEASURED, NOT TUNED, and that is the fix for a halo bigger than the vehicle. The
+    // aeroplane lamp above is `clamp(3.2 / q.f, …)` — a screen radius keyed to DEPTH alone, which
+    // is right only for a craft whose on-screen size also tracks 1/depth at the reference scale. A
+    // truck is a small model viewed from a proportionally closer camera (see OWN_EXT_MUL_BY_CLS),
+    // so 1/q.f came out ~2× larger while the truck came out smaller: two floodlights either side of
+    // a matchbox. Here the radius is a fraction of the vehicle's own PROJECTED TRACK WIDTH, so it
+    // is correct at any distance, any zoom and any class size by construction.
+    const vl = vehicleLamps(c.cls, c.variant);
+    if (vl) {
+      const ha = P(vl.head[0]), hb = P(vl.head[1]);
+      const track = (ha.f > 0.08 && hb.f > 0.08) ? Math.hypot(ha.sx - hb.sx, ha.sy - hb.sy) : 0;
+      if (track > 0.5) {
+        const glow = (lp, col, lit, k) => {
+          const q = P(lp); if (q.f <= 0.08 || lit <= 0.02) return;
+          const r = Math.max(1, track * k);
+          const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, r);
+          rg.addColorStop(0, `rgba(${col},${0.9 * lit})`); rg.addColorStop(0.45, `rgba(${col},${0.30 * lit})`);
+          rg.addColorStop(1, `rgba(${col},0)`);
+          ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(q.sx, q.sy, r, 0, 7); ctx.fill();
+          ctx.fillStyle = `rgba(255,255,255,${0.85 * lit})`;
+          ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.6, r * 0.16), 0, 7); ctx.fill();
+        };
+        // Headlamps are the LIGHTS switch; the rest of the set is on whenever the engine is.
+        const beam = c.landing ? 1 : 0.20;
+        for (const p of vl.head) glow(p, '255,248,224', beam * nb, 0.40);
+        for (const p of vl.tail) glow(p, '255,70,52', 0.85 * nb, 0.26);
+        for (const p of vl.marker) glow(p, '255,196,110', 0.75 * nb, 0.13);
+      }
+    } else if (tip) {
       const [tf, tg, th] = tip;
       lamp([tf, -tg, th], '255,55,55', 1); lamp([tf, tg, th], '60,255,95', 1);   // port red · starboard green
       lamp([-1.0, 0, 0.14], '255,255,255', strobe); lamp([0.1, 0, -0.16], '255,90,70', beac);

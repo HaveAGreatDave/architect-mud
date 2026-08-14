@@ -1966,11 +1966,48 @@ const FW_PARAMS = {
 // (unknown → prop). Helis have no fixed wings → null.
 export function wingtipStation(cls) {
   if (cls === 'heli') return null;
+  // A TRUCK HAS NO WINGS, and without this line it got a Twin Otter's — the fall-through below is
+  // `FW_PARAMS[cls] || FW_PARAMS.prop`, so the nav lamps were hung at the tips of a wing that is not
+  // there. On screen that is two huge white halos floating a wingspan apart on either side of a
+  // small truck, which is precisely what it looked like. Road vehicles light themselves through
+  // `vehicleLamps` instead.
+  if (cls === 'truck') return null;
   // The Cessna's tip comes off her own wing constants, not a FW_PARAMS row she no longer has —
   // mid-chord at the tip rib, so the lamp sits ON the tip the mesh actually built.
   if (cls === 'ultralight') return [(cePt(CE_SPAN, 0, 0.5)[0] + cePt(CE_SPAN, 1, 0.5)[0]) / 2, CE_SPAN, cePt(CE_SPAN, 0.5, 0.5)[2]];
   const p = FW_PARAMS[cls] || FW_PARAMS.prop;
   return [(p.wTipF + p.wTipB) / 2, p.span, (p.wingH || 0) + (p.dih || 0)];
+}
+
+// WHERE A ROAD VEHICLE'S LAMPS ARE, in the same [fore, lateral, height] mesh space every other
+// station in this file uses — so they land ON the model rather than near it.
+//
+// This is `wingtipStation`'s counterpart and exists for the same reason: the renderer must not keep
+// its own idea of where a lamp goes, because the two would drift and the glow would end up an inch
+// off the thing that is supposed to be glowing. Every station below is derived from the SAME
+// constants `buildTruck` lays the mesh out from (the 0.40 nose anchor, `S.w`, `S.hi`), so a wider
+// truck's headlamps move outboard on their own.
+//
+// Read the variant with the same grammar the mesh does — a trailer or a parked marker must not
+// change which shape's lamps you get.
+export function vehicleLamps(cls, variant = '') {
+  if (cls !== 'truck') return null;
+  const typeId = String(variant).replace(/~.*$/, '').split('+')[0];
+  const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
+  const nose1 = 0.40, cab1 = nose1 - S.nose, cab0 = cab1 - S.cab, frame0 = cab0 - 0.10;
+  return {
+    // Headlamps: low in the bumper, outboard, at the very front of the bonnet.
+    head: [[nose1 - 0.008, -S.w * 0.74, 0.072], [nose1 - 0.008, S.w * 0.74, 0.072]],
+    // Tail lamps: the back of the frame, where a bobtail's are. With a box on the hitch these are
+    // inside the trailer and the depth test drops them, which is correct — you cannot see your own
+    // tractor's tail lamps through a forty-foot trailer either.
+    tail: [[frame0 + 0.004, -S.w * 0.66, 0.085], [frame0 + 0.004, S.w * 0.66, 0.085]],
+    // The five roof markers, only on the trucks that carry them (the same `S.lamps` gate the mesh
+    // uses for the visor row, so a lamp never glows where no lamp was built).
+    marker: S.lamps > 0.2
+      ? [-2, -1, 0, 1, 2].map((i) => [cab1 + 0.026, i * S.w * 0.34, S.hi * 0.985 + 0.006])
+      : [],
+  };
 }
 
 // A class's static ground attitude (deg nose-up) — taildraggers rest nose-high on the tailwheel.
