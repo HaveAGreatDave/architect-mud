@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "Precinct 9",
     "building_type": "police",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

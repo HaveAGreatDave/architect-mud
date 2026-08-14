@@ -10,6 +10,7 @@
   "flags": {
     "assurance_policy": true,
     "building_name": "Halcyon Towers",
+    "floor": "boards",
     "insurance_desk": true,
     "is_interior": true
   },

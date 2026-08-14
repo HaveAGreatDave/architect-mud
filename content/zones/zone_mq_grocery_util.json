@@ -7,6 +7,7 @@
     "south": "zone_mq_grocery_stock"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "terrain": "grass"
   },

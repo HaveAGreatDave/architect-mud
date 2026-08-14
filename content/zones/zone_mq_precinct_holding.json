@@ -15,6 +15,7 @@
   },
   "flags": {
     "allow_sleep": true,
+    "floor": "concrete",
     "is_interior": true
   },
   "grid_x": 0,

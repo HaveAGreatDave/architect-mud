@@ -8,6 +8,7 @@
     "north": "zone_bld_893_904_back"
   },
   "flags": {
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

@@ -26,6 +26,7 @@
       "guards": "the Citadel security detail",
       "wantedMode": "hard"
     },
+    "floor": "boards",
     "is_building": true,
     "is_interior": true
   },

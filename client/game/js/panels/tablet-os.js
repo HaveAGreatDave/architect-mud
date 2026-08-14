@@ -19,7 +19,7 @@ import { sendCmdSilent } from '../net.js';
 import { toggleAutoWalk, isAutoWalking, isRunning, onRunStateChange, setGpsRoute, routeBetween, getTracePath, setMapOpener, FUNC_LEGEND, POI_LEGEND, isWorldWaterVoid, districtCoord, WATER_VOID_FILL, crossingInnerHtml, isOnCrossing } from './minimap.js';
 import { state } from '../state.js';
 import { maybeTabletTour } from './tour.js';
-import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS, A11Y_OPTIONS } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings, openThemeEditor, probeBuiltinThemeColors, DARK_THEMES, LIGHT_THEMES, DEFAULT_AUDIO_SETTINGS, A11Y_OPTIONS, effectiveOptionValue } from '/shared/settings.js';
 import { getChatTabs, getChatMessages, sendChatMessage, markChatRead, onChatUpdate, getOnlinePlayers, refreshOnlinePlayers, ensureChatConversation, leaveChatConversation, removeCorpChannels, getClosedChatTabs, reopenChatTab, getMotdHtml } from './whisper.js';
 import { showPromptDialog, showConfirmDialog, showSelectDialog } from './confirm.js';
 import { parseMarkup } from '../markup.js';
@@ -6283,11 +6283,18 @@ function renderTabletSettings(d) {
   // The rows are generated from A11Y_OPTIONS in client/shared/settings.js — the
   // same table the `accessibility` verb reads. Neither surface owns the list, so
   // they cannot drift apart, and a new option appears in both for free.
-  const a11yRows = A11Y_OPTIONS.map(o =>
-    `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
+  //
+  // Read through effectiveOptionValue rather than off `s` directly: one row
+  // (Sound Detail) is tri-state and derives its default from the display rung,
+  // so reading the raw key would leave every pill unselected for the player who
+  // has never touched it — which reads as 'nothing is on'.
+  const a11yCtx = { displayRung: rungNow };
+  const a11yRows = A11Y_OPTIONS.map(o => {
+    const eff = String(effectiveOptionValue(o, s, a11yCtx));
+    return `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
       <div class="tos-opts">${o.opts.map(v =>
-      `<div class="tos-opt${String(s[o.key]) === String(v.v) ? ' selected' : ''}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</div>`).join('')}</div></div>`
-  ).join('');
+      `<div class="tos-opt${eff === String(v.v) ? ' selected' : ''}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</div>`).join('')}</div></div>`;
+  }).join('');
 
   const pages = {
     General:

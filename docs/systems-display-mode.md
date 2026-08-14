@@ -942,6 +942,59 @@ fails on both that and on them drifting away from the top of `<body>`.
 `#main` is `role="main"`, `#sidebar` is `role="complementary"`, both labelled, so
 landmark navigation has somewhere to go.
 
+## Sound Detail
+
+The second preference whose default is **derived from the rung** rather than
+stored, and the reasoning is worth reading before adding a third.
+
+`sfxDetail` is one row in `A11Y_OPTIONS` — `off` / `limited` / `full`. `limited`
+is today's soundset. `full` adds the world running continuously underneath it:
+a footstep on whatever you are standing on as you enter each tile, doors, locks
+([systems-procedural-audio.md](systems-procedural-audio.md#the-dense-tier--footsteps-doors-locks)).
+
+**A `log`-rung player gets `full` by default.** That is the audience it was built
+for: the room description is abbreviated at that rung, so the ground and the door
+arrive as sound instead of as lines. Everyone else gets `limited`, which is the
+game exactly as it shipped.
+
+### Why it is derived and not written
+
+Seeding a value at login would be a WRITE, and **a write cannot be told apart from
+a choice.** The moment somebody at `log` pressed Limited, or somebody at `visual`
+moved to `log`, the stored value would be the wrong answer with no way to know it
+was never meant. So nothing is stored until a pill is pressed, and a pressed pill
+wins forever after, at every rung — the same [tri-state](#tri-state--keep-the-fourth-state)
+poker's `textTable` felt depends on.
+
+Two consequences, both load-bearing:
+
+- **`accessibility reset` must DELETE the key, not write the first pill.** Writing
+  `off` there would let the escape hatch silence the player it exists to rescue.
+  `verb-smoke.mjs` fails the build if a `resolve` option comes back from a reset
+  with a value.
+- **An option carrying `resolve` must not also carry `def`.** `def` is a stored
+  default and would simply beat the derived one. Also pinned.
+
+Both renderers read `effectiveOptionValue(opt, settings, ctx)` rather than the raw
+key, so neither has to know this row is different — and a second derived option
+later is one `resolve` function, not two more special cases.
+
+### `limited` is a no-op, and that is the safety property
+
+The server stamps `tier: 'full'` on the new cues only. An unmarked cue is
+untouched, so the default rung is provably the game that shipped yesterday. If the
+gate had instead been a *category* applied to all audio, shipping it would have
+been a change to everybody's sound and there would be nothing to say that with
+confidence.
+
+The gate itself lives in **one place** — the `audio_sfx_proc` handler in
+`dispatch.js` — and is client-side, because the setting is localStorage and the
+server holds no copy. A footstep is ~70 bytes, so sending one that gets dropped is
+cheaper than a new settings message plus a server latch. **If this tier ever grows
+dense enough for that to stop being true, the growth path is the one this file
+already describes**: latch it onto the live player at login, read it synchronously,
+never a DB round trip. Don't re-derive that.
+
 ## Escape hatches
 
 A rung is a default, never a lockout. A system may offer a per-moment override that

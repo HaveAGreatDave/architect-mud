@@ -33,7 +33,12 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   if (lower === 'accessibility' || lower.startsWith('accessibility ') ||
       lower === 'access' || lower.startsWith('access ') ||
       lower === 'a11y' || lower.startsWith('a11y ')) {
-    appendHtml(runAccessibilityCommand(cmd.replace(/^\S+\s*/, '').trim()));
+    // The rung rides along because Sound Detail's default is DERIVED from it
+    // rather than stored (see sfxDetail in client/shared/settings.js). Without
+    // it the listing would report Limited to a log-rung player who is actually
+    // hearing Full.
+    appendHtml(runAccessibilityCommand(cmd.replace(/^\S+\s*/, '').trim(),
+      { displayRung: state.player?.displayRung }));
     return true;
   }
   // `echo <text>` prints a local line — never sent to the server. Handy on its

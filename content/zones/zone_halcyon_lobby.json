@@ -12,6 +12,7 @@
   "flags": {
     "building_name": "Halcyon Towers",
     "building_type": "corporate_office",
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "window": {

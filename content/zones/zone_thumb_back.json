@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Thumb On The Scale",
     "building_type": "junkyard",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_919_918"

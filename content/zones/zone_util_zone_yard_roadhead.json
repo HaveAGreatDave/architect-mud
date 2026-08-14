@@ -6,6 +6,7 @@
     "up": "zone_yard_roadhead"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "region_id": "region_terminus",
     "world_exit_zone": "zone_terminus_1202_939"

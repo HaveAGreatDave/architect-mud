@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Mint Condition",
     "building_type": "comic_shop",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_919_913"

@@ -16,6 +16,7 @@
   },
   "flags": {
     "building_name": "Sump",
+    "floor": "concrete",
     "is_interior": true,
     "terrain": "grass"
   },

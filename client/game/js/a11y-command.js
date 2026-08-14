@@ -16,7 +16,7 @@
 // other line. No panel, no overlay, no focus to manage.
 // Relative, not the '/shared/…' form the browser also accepts, so this module can
 // be imported and exercised in Node — see scripts/a11y/verb-smoke.mjs.
-import { loadSettings, saveSettings, applySettings, A11Y_OPTIONS } from '../../shared/settings.js';
+import { loadSettings, saveSettings, applySettings, A11Y_OPTIONS, effectiveOptionValue } from '../../shared/settings.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -38,15 +38,19 @@ function resolveValue(opt, word) {
   return prefixed.length === 1 ? prefixed[0] : null;
 }
 
-function currentLabel(opt, settings) {
-  const cur = String(settings[opt.key]);
+// `ctx` carries whatever a derived option needs to resolve itself — today only
+// the display rung, for Sound Detail. Absent (the Node smoke test) is fine: every
+// `resolve` in the table has to answer without it.
+function currentLabel(opt, settings, ctx) {
+  const cur = String(effectiveOptionValue(opt, settings, ctx));
   const hit = opt.opts.find(o => String(o.v) === cur);
   return hit ? hit.t : cur;
 }
 
-function optionBlock(opt, settings) {
+function optionBlock(opt, settings, ctx) {
+  const eff = String(effectiveOptionValue(opt, settings, ctx));
   const pills = opt.opts.map(o => {
-    const on = String(settings[opt.key]) === String(o.v);
+    const on = eff === String(o.v);
     const cmd = `accessibility ${opt.verb} ${o.t.toLowerCase()}`;
     return on
       ? `<b>[${esc(o.t)}]</b>`
@@ -60,7 +64,7 @@ function optionBlock(opt, settings) {
     + `</div>`;
 }
 
-function listAll(settings) {
+function listAll(settings, ctx) {
   // Display Mode is not in A11Y_OPTIONS because it is server-side state, not a
   // localStorage preference — but it is the single most consequential thing on
   // this list, so it is named first rather than left for the player to find.
@@ -77,16 +81,16 @@ function listAll(settings) {
       + `<a href="#" data-cmd="displaymode log">Log</a><br>`
       + `<span style="color:var(--text-dim)">displaymode &lt;mode&gt;</span>`
     + `</div>`
-    + A11Y_OPTIONS.map(o => optionBlock(o, settings)).join('')
+    + A11Y_OPTIONS.map(o => optionBlock(o, settings, ctx)).join('')
     + `<span style="color:var(--text-dim)">All of this also lives in the tablet: Settings → Accessibility.</span>`
     + `</div>`;
 }
 
-export function runAccessibilityCommand(argstr) {
+export function runAccessibilityCommand(argstr, ctx) {
   const settings = loadSettings();
   const parts = (argstr || '').trim().split(/\s+/).filter(Boolean);
 
-  if (!parts.length) return listAll(settings);
+  if (!parts.length) return listAll(settings, ctx);
 
   const which = parts[0].toLowerCase();
 
@@ -105,7 +109,7 @@ export function runAccessibilityCommand(argstr) {
       + `Try: ${A11Y_OPTIONS.map(o => esc(o.verb)).join(', ')}, reset — or just <a href="#" data-cmd="accessibility">accessibility</a>.</div>`;
   }
 
-  if (parts.length === 1) return `<div class="system">${optionBlock(opt, settings)}</div>`;
+  if (parts.length === 1) return `<div class="system">${optionBlock(opt, settings, ctx)}</div>`;
 
   const chosen = resolveValue(opt, parts.slice(1).join(' '));
   if (!chosen) {

@@ -17,6 +17,7 @@
   "flags": {
     "always_lit": true,
     "district": "longwatch",
+    "floor": "concrete",
     "is_interior": true,
     "safehouse": true,
     "sanctuary": true,

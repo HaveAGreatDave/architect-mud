@@ -9,6 +9,7 @@
     "south": "zone_mq_chrome_f1"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "rent_cost": 50,
     "window": {

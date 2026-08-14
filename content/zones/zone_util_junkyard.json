@@ -9,6 +9,7 @@
     "south": "zone_junkyard_shack"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true
   },
   "grid_x": 0,

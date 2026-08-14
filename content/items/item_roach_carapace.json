@@ -1,0 +1,14 @@
+{
+  "description": "A section of roach shell the size of a dinner plate, cut free at the seam. Still faintly warm on the inside.",
+  "flags": {},
+  "id": "item_roach_carapace",
+  "name": "roach carapace",
+  "tags": {
+    "description": "A section of roach shell the size of a dinner plate, cut free at the seam. Lacquer-brown, ridged, and still faintly warm on the inside. Nobody has ever explained why the count matters, only that somebody down there is keeping one.",
+    "misc": true,
+    "vermin_part": true
+  },
+  "type": "misc",
+  "value": 30,
+  "weight": 200
+}

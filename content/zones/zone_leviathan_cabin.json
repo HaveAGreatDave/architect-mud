@@ -18,6 +18,7 @@
     "always_lit": true,
     "building_name": "Leviathan",
     "cabin_window": true,
+    "floor": "boards",
     "home_slots": [
       {
         "id": "lounge_corner",

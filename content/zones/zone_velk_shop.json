@@ -14,6 +14,7 @@
     "west": "zone_district_920_911"
   },
   "flags": {
+    "floor": "boards",
     "intro_lore": "Every stick of furniture in here belonged to somebody who isn't coming back for it, evicted or printed over or worse, and Velk sells it all with the same brisk cheer, like provenance is a feature and not a warning. Buy the chair. Don't ask whose it was.",
     "is_interior": true,
     "window": {

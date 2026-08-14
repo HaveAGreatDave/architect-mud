@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "The Last Load",
     "building_type": "truck_depot",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "lawless": true,

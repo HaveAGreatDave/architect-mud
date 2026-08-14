@@ -15,6 +15,7 @@
     "west": "zone_bld_900_1171_lobby"
   },
   "flags": {
+    "floor": "metal",
     "is_building": true,
     "is_interior": true,
     "lawless": true,

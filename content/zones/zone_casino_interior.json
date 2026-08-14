@@ -25,6 +25,7 @@
   "flags": {
     "building_name": "The Lucky Bastard",
     "claimable_asset": "casino",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

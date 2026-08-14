@@ -7,6 +7,7 @@
     "up": "zone_start"
   },
   "flags": {
+    "floor": "concrete",
     "intro_lore": "Below the print floor, where the facility keeps the machinery that makes new people and the tanks that quietly dispose of the failed attempts. It hums with power the rest of the block would knife each other for. The Custodians tolerate this place because it still, technically, serves the city; step wrong down here and you'll learn how thin 'technically' is.",
     "is_interior": true,
     "terrain": "grass"

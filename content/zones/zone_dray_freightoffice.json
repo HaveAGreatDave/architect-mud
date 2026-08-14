@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Shipping & Handling",
     "building_type": "freight_office",
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "window": {

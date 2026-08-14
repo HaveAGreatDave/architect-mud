@@ -13,6 +13,7 @@
   "flags": {
     "building_name": "Mercy Row Clinic",
     "claimable_asset": "clinic",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "window": {

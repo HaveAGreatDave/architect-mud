@@ -6,6 +6,7 @@
     "up": "zone_sf_kessler3"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "world_exit_zone": "zone_district_921_913"
   },

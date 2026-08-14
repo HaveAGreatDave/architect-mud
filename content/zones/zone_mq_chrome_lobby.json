@@ -17,6 +17,7 @@
   "flags": {
     "building_name": "Chrome Court",
     "building_type": "apartment",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

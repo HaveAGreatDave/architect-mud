@@ -10,6 +10,7 @@
     "south": "zone_yards_tenement_f9"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "rent_cost": 25,
     "window": {

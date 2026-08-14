@@ -19,6 +19,7 @@
     "always_lit": true,
     "building_name": "The Echelon",
     "echelon": true,
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

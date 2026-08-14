@@ -13,6 +13,7 @@
   },
   "flags": {
     "cell_block": true,
+    "floor": "boards",
     "is_interior": true
   },
   "grid_x": 1,

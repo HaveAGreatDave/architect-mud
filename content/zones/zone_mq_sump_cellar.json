@@ -12,6 +12,7 @@
     "up": "zone_mq_sump_bar"
   },
   "flags": {
+    "floor": "dirt",
     "is_interior": true,
     "terrain": "grass"
   },

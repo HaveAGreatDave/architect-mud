@@ -1,0 +1,458 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "\"Mind the shell. It'll go through a boot sole.\"",
+    "\"Two hundred a week out of this tunnel, and the surface has never heard of me.\"",
+    "\"They come up the risers. Always the risers.\"",
+    "\"You want to worry when it gets quiet down here.\"",
+    "\"Filter's good for forty hours. I change it at thirty.\"",
+    "\"It's a job. Somebody's got to have it.\""
+  ],
+  "description": "A man in a sealed composite pest-control suit stands before you, institutional grey, reinforced at the joints and drawn tight to the body. Blue gloves on his hands, sensor modules riding one shoulder, and a utility harness bristling with injector darts, chemical canisters, traps and instruments you cannot name.\n\nThe respirator beneath his chin has been custom-moulded, the mouthpiece flared wide and deep for reasons that become obvious the moment you look at his face. He wears glasses. The moustache is magnificent.",
+  "dialogue_tree": {
+    "bounty": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_budge_bounty"
+        }
+      ],
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Let's have them, then.\" He counts them out on the ledge without looking up, thumb running the seam of each one. \"Clean cuts. Somebody's been listening.\""
+    },
+    "bye": {
+      "options": [],
+      "text": "\"Go on, then. Keep your light on it.\""
+    },
+    "gear": {
+      "options": [
+        {
+          "label": "What's in the tank?",
+          "next": "tank"
+        },
+        {
+          "label": "Show me the kit.",
+          "next": "__shop__"
+        },
+        {
+          "label": "Back up a second.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Hood first. Everything else is optional and the hood is not.\" He taps the filter drum with two fingers. \"Gauntlets if you're reaching into anything. The lance is the last thing you buy, because if you can't afford the hood you can't afford to use it.\""
+    },
+    "hire": {
+      "actions": [
+        {
+          "action": "ESCORT_START"
+        },
+        {
+          "action": "ALLY_ENLIST"
+        }
+      ],
+      "options": [
+        {
+          "label": "Then let's go.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Callout rate. I walk where you walk and I put down what I can reach.\" He pulls the hood up and the voice goes flat and close behind the lens. \"One condition. When I say I'm done, I'm done, and I go up. I've buried enough of this trade's optimists.\""
+    },
+    "intro_2": {
+      "options": [
+        {
+          "label": "Continue",
+          "next": "intro_3"
+        }
+      ],
+      "text": "Everything about him says that he has been professionally trained to enter places where other people have decided not to go.<br>Then you notice the moustache.<br>It is enormous.<br>Not merely large. Not merely impressive.<br><strong>Enormous.</strong><br>A tremendous, thick, carefully maintained moustache occupies most of his lower face, extending broadly beneath his nose before curling upward at both ends with almost ceremonial precision.<br>It is magnificent.<br>It has volume.<br>It has architecture."
+    },
+    "intro_3": {
+      "options": [
+        {
+          "label": "Continue",
+          "next": "intro_4"
+        }
+      ],
+      "text": "The respirator has clearly been designed around it.<br>You suspect the moustache predates several of the devices on his belt.<br>He looks at you over the top of his glasses.<br>He looks completely serious.<br>He raises a compact UV inspection lamp and sweeps the room with its cold blue light.<br>\"Evening.\"<br>A pause.<br>\"Got a report of activity.\""
+    },
+    "intro_4": {
+      "actions": [
+        {
+          "action": "SET_FLAG",
+          "flag": "budge_met",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "Continue",
+          "next": "root"
+        }
+      ],
+      "text": "The moustache remains perfectly motionless.<br>\"You'll want that handled.\"<br>Another pause.<br>\"Trust me.\"<br>He looks like a man who has seen things crawl out of places things should not crawl out of.<br>He looks like a man who knows exactly what to do when they do.<br>He looks like a man whose moustache has been independently certified for structural integrity."
+    },
+    "job": {
+      "actions": [
+        {
+          "action": "START_QUEST",
+          "quest_id": "quest_budge_bounty"
+        }
+      ],
+      "options": [
+        {
+          "label": "I'll take it.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Piecework.\" He does not make it sound like an opportunity. \"Ten off the count and the shells back here so I can prove I did it. Two fifty. It is the same money whether I was stood next to you or not, before you ask.\""
+    },
+    "kit": {
+      "actions": [
+        {
+          "action": "GRANT_ITEM",
+          "item_id": "item_pest_mask",
+          "quantity": 1
+        },
+        {
+          "action": "SET_FLAG",
+          "flag": "budge_gave_hood",
+          "value": "true"
+        }
+      ],
+      "options": [
+        {
+          "label": "Thanks.",
+          "next": "root"
+        }
+      ],
+      "text": "He digs a spare hood out of the crate and turns it over once, checking the seal, before he hands it across. \"Old stock. The lens is scratched to hell and it'll still be working when you aren't.\" He goes back to the ledge. \"Don't tell me you didn't take it.\""
+    },
+    "root": {
+      "options": [
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "unset",
+              "scope": "player"
+            }
+          ],
+          "label": "Continue",
+          "next": "intro_2"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "What are you doing down here?",
+          "next": "work"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "What should I know about them?",
+          "next": "tips"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "What have you got to sell?",
+          "next": "gear"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_gave_hood",
+              "op": "unset"
+            },
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "I haven't got a mask.",
+          "next": "kit"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Come down with me. I'll pay.",
+          "next": "hire"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_budge_bounty",
+              "op": "unset",
+              "scope": "player"
+            },
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Anything in it for me?",
+          "next": "job"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "quest_budge_bounty",
+              "op": "eq",
+              "scope": "player",
+              "value": "completed"
+            },
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "That's ten of them. Shells and all.",
+          "next": "bounty"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Stand down for now.",
+          "next": "standdown"
+        },
+        {
+          "conditions": [
+            {
+              "flag": "budge_met",
+              "op": "set",
+              "scope": "player"
+            }
+          ],
+          "label": "Nothing. Carry on.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"People don't appreciate good extermination until the walls start moving. You here to lend a hand?\"",
+      "text_by_relation": {
+        "first": "A man stands before you.<br>He is dressed for pest control in the twenty-third century.<br>His suit is a sealed composite thing in institutional grey, reinforced at the joints and cinched tight around the body. It looks less like something a man wears to spray for cockroaches and more like something a man wears to enter a contaminated reactor. A compact respirator hangs around his neck. Sensor modules sit over one shoulder. Blue gloves cover his hands. A utility harness carries injector darts, chemical canisters, traps, probes and several devices whose purposes are probably best left unexplained.<br>There is a company patch on his chest.<br><strong>TOM'S NEIGHBOURHOOD PEST CONTROL.</strong>",
+        "known": "\"People don't appreciate good extermination until the walls start moving. You here to lend a hand?\""
+      }
+    },
+    "standdown": {
+      "actions": [
+        {
+          "action": "ALLY_DISMISS"
+        },
+        {
+          "action": "ESCORT_END"
+        }
+      ],
+      "options": [
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Suits me.\" He lowers the lance and hooks it back on the harness. \"I'll be here.\""
+    },
+    "tank": {
+      "options": [
+        {
+          "label": "Understood.",
+          "next": "gear"
+        }
+      ],
+      "text": "\"Says regulated agricultural compound on the drum.\" He turns it so you can read the label, which has been rained on and is now mostly a suggestion. \"It's not agricultural and it hasn't been regulated since before either of us. Wear the hood.\""
+    },
+    "tips": {
+      "options": [
+        {
+          "label": "And if there's a lot of them?",
+          "next": "tips2"
+        },
+        {
+          "label": "Good to know.",
+          "next": "root"
+        }
+      ],
+      "text": "\"They're fast and they're stupid, which is a worse combination than fast and clever.\" He holds a hand flat at knee height. \"They come in low and they come from the side. Don't watch the one in front of you. Watch the wall.\""
+    },
+    "tips2": {
+      "options": [
+        {
+          "label": "Noted.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Then back into a corner and make them come one at a time. A tunnel's a gift if you use it.\" He shrugs. \"Or don't, and I'll be along in a week for the carapaces.\""
+    },
+    "work": {
+      "options": [
+        {
+          "label": "Does anyone up there know?",
+          "next": "work2"
+        },
+        {
+          "label": "Right.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Same as anyone. Stopping the thing downstairs getting upstairs.\" He nods at the dark. \"They breed in the warm run behind the outfall and they climb. Give them a season unworked and you've got them in the stairwells on Ironside. Give them two and you've got them in the beds.\""
+    },
+    "work2": {
+      "options": [
+        {
+          "label": "Fair enough.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Not a soul.\" He sounds entirely untroubled by it. \"That's the measure of the job, isn't it. Nobody's ever grateful for the thing that didn't happen.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "ally_cooldown_mins": 10,
+    "ally_targets": [
+      "enemy_sewer_roach",
+      "enemy_printer_roach",
+      "enemy_sewer_rat",
+      "enemy_sewer_bat",
+      "enemy_choke_swarm"
+    ],
+    "ally_withdraw_pct": 30,
+    "bounty_buyer": true,
+    "clothing_layers": [
+      "a sealed composite pest-control suit in institutional grey, joints reinforced and the whole thing drawn tight to the body, with a utility harness over it and blue gloves at the wrists",
+      "a padded grey underlayer, ribbed at the spine where the tank rides",
+      "a plain undershirt and shorts, both gone soft with washing"
+    ],
+    "dodge": 3,
+    "escortable": true,
+    "fights_for_you": true,
+    "hit": 6,
+    "mis_willing": false,
+    "personality": "vendor",
+    "weapon": [
+      {
+        "max": 6,
+        "min": 3,
+        "type": "chemical"
+      }
+    ]
+  },
+  "home_activities": [],
+  "home_zone": "zone_under_bend",
+  "hp": 45,
+  "hp_max": 45,
+  "id": "npc_tom_budge",
+  "name": "Tom Budge",
+  "npc_type": "vendor",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_carapace_scraper",
+      "price": 60
+    },
+    {
+      "item_id": "item_pest_gauntlets",
+      "price": 120
+    },
+    {
+      "item_id": "item_pest_mask",
+      "price": 180
+    },
+    {
+      "item_id": "item_bandage",
+      "price": 12
+    },
+    {
+      "item_id": "item_battery",
+      "price": 9
+    },
+    {
+      "item_id": "item_budge_fumigator",
+      "price": 900
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "mon": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "sat": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "sun": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "thu": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "tue": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ],
+    "wed": [
+      {
+        "from": 6,
+        "to": 23
+      }
+    ]
+  },
+  "vendor_shop_name": "Won't Budge Vermin Control",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_under_bend"
+}

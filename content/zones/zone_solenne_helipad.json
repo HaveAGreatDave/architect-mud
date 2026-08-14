@@ -15,6 +15,7 @@
   "flags": {
     "always_lit": true,
     "building_name": "Solenne Residences",
+    "floor": "boards",
     "hangar_interior": true,
     "hangar_ramp": "zone_district_914_908",
     "is_building": true,

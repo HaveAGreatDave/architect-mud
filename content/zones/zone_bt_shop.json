@@ -15,6 +15,7 @@
   "flags": {
     "building_name": "Meat Your Maker",
     "building_type": "butcher",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "terrain": "grass",

@@ -18,6 +18,7 @@
     "building_name": "Leviathan",
     "cabin_window": true,
     "flightdeck": true,
+    "floor": "metal",
     "is_building": true,
     "is_interior": true
   },

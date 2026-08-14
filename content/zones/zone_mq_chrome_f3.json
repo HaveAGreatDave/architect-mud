@@ -18,6 +18,7 @@
     "west": "zone_mq_chrome_304"
   },
   "flags": {
+    "floor": "boards",
     "is_interior": true
   },
   "grid_x": 0,

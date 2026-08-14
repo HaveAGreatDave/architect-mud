@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "KSAB Writers' Wing",
     "building_type": "studio",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_913_910"

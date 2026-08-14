@@ -12,6 +12,7 @@
     "up": "zone_mq_pigeon_bar"
   },
   "flags": {
+    "floor": "boards",
     "is_interior": true
   },
   "grid_x": 0,

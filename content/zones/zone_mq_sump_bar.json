@@ -18,6 +18,7 @@
   "flags": {
     "building_name": "Sump",
     "building_type": "bar",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "terrain": "grass",

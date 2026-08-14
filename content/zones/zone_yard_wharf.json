@@ -10,6 +10,7 @@
   "flags": {
     "building_name": "The Wet Handoff",
     "building_type": "wharf",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

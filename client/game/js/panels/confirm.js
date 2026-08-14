@@ -5,6 +5,26 @@ import { sendCmd } from '../net.js';
 
 let _el = null;
 
+// THESE WERE NOT DIALOGS AS FAR AS ANY ASSISTIVE TECH WAS CONCERNED.
+//
+// a11y-focus.js finds modals by a shortlist — `*-panel`, `*-overlay`, `*-modal`,
+// `[role="dialog"]`, `[data-a11y-modal]` — and `.confirm-window` is none of those.
+// So the four windows in this file, which between them confirm purchases, name
+// corps, take poker bets and gate the sign-out, had no focus trap and no Escape:
+// Tab walked straight out into the page behind them. They were the exact case the
+// comment at the top of a11y-focus.js describes and the one class it missed.
+//
+// Opting in is the documented route (over growing that selector), and it is done
+// here rather than at four call sites so the fifth window somebody adds to this
+// file is covered by construction.
+function asDialog(el, label) {
+  el.setAttribute('data-a11y-modal', '');
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  if (label) el.setAttribute('aria-label', label);
+  return el;
+}
+
 // Exported because the piano panel needs exactly this and a third copy of it
 // would be a third copy. (arrest.js still carries its own; fold it in when
 // somebody is next in there.) Callers with a panel anchored by `bottom` or
@@ -46,6 +66,7 @@ export function showConfirmDialog(msg, onConfirm) {
   close();
   const el = document.createElement('div');
   el.className = 'confirm-window';
+  asDialog(el, msg.title || 'Confirm');
   el.innerHTML = `
     <div class="confirm-drag-handle">
       <span class="confirm-title">${msg.title || 'Confirm'}</span>
@@ -80,6 +101,7 @@ export function showDangerDialog(opts, onConfirm) {
   close();
   const el = document.createElement('div');
   el.className = 'confirm-window confirm-danger';
+  asDialog(el, opts.title || 'Warning');
   el.innerHTML = `
     <div class="confirm-danger-banner">☠ DANGER ☠</div>
     <div class="confirm-drag-handle">
@@ -120,6 +142,7 @@ export function showPromptDialog(opts, onConfirm) {
   closePrompt();
   const el = document.createElement('div');
   el.className = 'confirm-window';
+  asDialog(el, opts.title || 'Enter text');
   el.innerHTML = `
     <div class="confirm-drag-handle">
       <span class="confirm-title">${opts.title || 'Enter text'}</span>
@@ -170,6 +193,7 @@ export function showSelectDialog(opts, onSelect) {
   closeSelect();
   const el = document.createElement('div');
   el.className = 'confirm-window';
+  asDialog(el, opts.title || 'Choose');
   const options = opts.options || [];
   el.innerHTML = `
     <div class="confirm-drag-handle">
@@ -220,6 +244,7 @@ export function showAmountDialog(opts, onConfirm) {
   closeAmount();
   const el = document.createElement('div');
   el.className = 'confirm-window';
+  asDialog(el, opts.title || 'Enter amount');
   el.innerHTML = `
     <div class="confirm-drag-handle">
       <span class="confirm-title">${opts.title || 'Enter amount'}</span>

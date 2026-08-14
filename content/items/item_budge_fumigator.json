@@ -1,0 +1,20 @@
+{
+  "description": "A pressurised wand sprayer with a stubby brass lance and a tank you wear.",
+  "flags": {},
+  "id": "item_budge_fumigator",
+  "name": "pressure fumigator",
+  "tags": {
+    "damage": {
+      "max": 8,
+      "min": 4
+    },
+    "damage_type": "chemical",
+    "description": "A shoulder tank feeding a stubby brass lance through a hose that has been re-clamped more times than is strictly reassuring. Pump the handle, the needle climbs into the red, and the lance throws a cone of something the label calls a REGULATED AGRICULTURAL COMPOUND and the trade calls the good stuff. It does nothing at all to a person wearing a mask, and a great deal to anything breathing through its sides.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "science"
+  },
+  "type": "weapon",
+  "value": 900,
+  "weight": 4200
+}

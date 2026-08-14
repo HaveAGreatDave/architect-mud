@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Track Marks Freight",
     "building_type": "forwarder",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "window": {

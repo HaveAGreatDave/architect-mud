@@ -15,6 +15,7 @@
   "flags": {
     "building_name": "Solenne Residences",
     "building_type": "apartment",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "sanctuary": true,

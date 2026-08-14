@@ -7,6 +7,7 @@
     "south": "zone_mq_sump_cellar"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "terrain": "grass"
   },

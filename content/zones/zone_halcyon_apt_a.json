@@ -9,6 +9,7 @@
   },
   "flags": {
     "building_type": "residential",
+    "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 900,

@@ -6,6 +6,7 @@
     "south": "zone_bld_893_904_lobby"
   },
   "flags": {
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_893_904"

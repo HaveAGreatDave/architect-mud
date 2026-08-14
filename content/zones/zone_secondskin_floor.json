@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Layers",
     "building_type": "outfitter",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

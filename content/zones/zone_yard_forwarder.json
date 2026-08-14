@@ -10,6 +10,7 @@
   "flags": {
     "building_name": "Airfreight Forwarding",
     "building_type": "freight_forwarder",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "window": {

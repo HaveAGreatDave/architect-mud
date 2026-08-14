@@ -10,6 +10,7 @@
   "flags": {
     "always_lit": true,
     "augment_clinic": true,
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "window": {

@@ -18217,3 +18217,96 @@ html[data-status-glyphs="on"] #output .combat-hit::before  { content: "✕\00a0"
 }
 #guide-link-wrap a:hover,
 #guide-link-wrap a:focus-visible { color: #fff; background: rgba(40, 229, 255, 0.14); }
+
+/* ── SIFT disambiguation picker (panels/sift-select.js) ────────────────────────
+   "Which one?" used to be a numbered list in the log and nothing else. Same
+   window furniture as .confirm-window, but no drag handle: this is a list and a
+   keypress, and there is nothing underneath it worth uncovering. Focus rings are
+   explicit and always on — the whole point of the panel is that it can be
+   operated without seeing the log line that opened it. */
+.sift-panel {
+	position: fixed;
+	top: 26%;
+	left: 50%;
+	transform: translateX(-50%);
+	/* Above the Tablet OS overlay, like .confirm-window — a picker can be opened
+	   from a tablet app's own command. */
+	z-index: 9600;
+	width: 380px;
+	max-width: 94vw;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
+	font-family: var(--font-mono);
+}
+.sift-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--border);
+}
+.sift-title {
+	color: var(--accent);
+	font-size: 0.6875rem;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+}
+.sift-x {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	width: 2em;
+	height: 2em;
+	flex: none;
+	cursor: pointer;
+	font-size: 0.6875rem;
+	line-height: 1;
+	font-family: var(--font-mono);
+}
+.sift-range {
+	padding: 8px 14px 0;
+	color: var(--text-dim);
+	font-size: 0.6875rem;
+	letter-spacing: 1px;
+}
+.sift-range:empty { display: none; }
+.sift-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 260px;
+	overflow-y: auto;
+	padding: 12px 14px;
+}
+.sift-opt {
+	text-align: left;
+	padding: 9px 12px;
+	cursor: pointer;
+	font-size: 0.8125rem;
+	font-family: var(--font-mono);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text);
+}
+.sift-opt:hover { border-color: var(--accent); color: var(--text-bright); background: var(--accent-dim); }
+.sift-nav {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	padding: 0 14px 14px;
+}
+.sift-navbtn {
+	padding: 7px 14px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	font-family: var(--font-mono);
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+}
+.sift-navbtn:hover { border-color: var(--accent); }
+.sift-opt:focus-visible,
+.sift-navbtn:focus-visible,
+.sift-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }

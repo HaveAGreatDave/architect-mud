@@ -6,6 +6,7 @@
     "up": "zone_yard_forwarder"
   },
   "flags": {
+    "floor": "tile",
     "is_interior": true,
     "world_exit_zone": "zone_district_924_910"
   },

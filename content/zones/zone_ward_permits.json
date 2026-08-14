@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Office of Permitted Suffering",
     "building_type": "office",
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "window": {

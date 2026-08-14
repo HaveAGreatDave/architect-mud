@@ -10,6 +10,7 @@
     "south": "zone_embassy_floor_2nd"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "window": {
       "description": "One small window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",

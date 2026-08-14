@@ -7,6 +7,7 @@
     "south": "zone_mq_amp_shop"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true
   },
   "grid_x": 0,

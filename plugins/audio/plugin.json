@@ -24,6 +24,8 @@
       "flight.strafeIncoming",
       "flight.aaFired",
       "cooking.sfx",
+      "movement.step",
+      "door.sfx",
       "player.respawn"
     ]
   }

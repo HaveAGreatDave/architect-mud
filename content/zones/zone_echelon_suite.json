@@ -18,6 +18,7 @@
     "building_name": "The Echelon",
     "echelon": true,
     "echelon_suite": true,
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "mis_ok": true,

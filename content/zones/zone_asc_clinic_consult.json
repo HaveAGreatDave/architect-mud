@@ -11,6 +11,7 @@
   "flags": {
     "always_lit": true,
     "augment_clinic": true,
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

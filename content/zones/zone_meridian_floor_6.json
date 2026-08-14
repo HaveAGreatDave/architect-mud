@@ -12,6 +12,7 @@
     "west": "zone_meridian_unit_604"
   },
   "flags": {
+    "floor": "linoleum",
     "is_interior": true,
     "terrain": "grass"
   },

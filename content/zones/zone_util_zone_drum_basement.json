@@ -7,6 +7,7 @@
     "up": "zone_drum_basement"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "world_exit_zone": "zone_district_901_908"
   },

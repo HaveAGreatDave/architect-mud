@@ -8,6 +8,7 @@
   },
   "flags": {
     "echelon": true,
+    "floor": "boards",
     "is_interior": true,
     "mis_ok": true,
     "yacht": true

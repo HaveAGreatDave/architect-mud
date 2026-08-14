@@ -3,14 +3,14 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone, renderOf, specOf } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer, getZoneFurniture, regionForZone, renderOf, specOf, zoneTerrain } from '../../server/engine/world.js';
 import { resolveDefault } from '../../scripts/content/derive.mjs';
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
-import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent } from '../../server/engine/environment.js';
+import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -774,6 +774,165 @@ on('cooking.sfx', ({ zoneId, playerId, personal, ...params }) => {
   else if (zoneId) sendToZone(zoneId, msg);
 });
 
+// ── The dense tier: footsteps, doors, locks ─────────────────────────────────
+//
+// Everything below is stamped `tier: 'full'`, which is the ONE thing that makes
+// this layer safe to ship. The client drops a `full` cue unless the player's
+// Sound Detail says otherwise (client/shared/settings.js), and an UNSTAMPED cue
+// is unchanged — so `limited`, the default for everybody who has not chosen,
+// hears precisely the game that shipped yesterday.
+//
+// The stamp is not a category and not a volume. It answers one question: is this
+// sound the world talking continuously, or is it something that happened?
+const FULL = 'full';
+
+// Terrain → footing class. DERIVED, never authored: `flags.terrain` is already
+// the ground-surface SSOT (docs/systems-terrain.md), so a tile is audible the
+// day it is painted and nobody writes an acoustic number on a zone.
+//
+// The classes are coarse ON PURPOSE. Redrock, hardpan, alkali, basalt and a
+// plateau are one sound at the resolution of a boot — authoring five of them
+// would be five hand-tuned values expressing a difference nobody can hear, which
+// is the same argument that keeps 85 food items on ten material classes.
+export const TERRAIN_STEP = {
+  road: 'stone', asphalt: 'stone', concrete: 'stone', sinter: 'stone',
+  redrock: 'stone', hardpan: 'stone', alkali: 'stone', basalt: 'stone',
+  cliff: 'stone', plateau: 'stone', ramp: 'stone',
+  dirt_road: 'dirt', dirt: 'dirt',
+  gravel: 'gravel', sand: 'sand',
+  grass: 'grass', park: 'grass',
+  scrub: 'scrub', forest: 'scrub', deadwood: 'scrub',
+  marsh: 'marsh', hotspring: 'marsh',
+  water: 'water', underwater: 'water',
+  ash: 'ash',
+  dock: 'boards',
+  // Wet stone underfoot, and the one terrain whose whole character is the echo.
+  sewer: 'metal',
+};
+
+// Interior floor → footing class. `flags.floor` is authored (see tagCatalog.js),
+// and an interior that has never been given one falls back to boards rather than
+// going silent: the failure mode of forgetting is a slightly wrong floor, never a
+// missing sound.
+export const FLOOR_STEP = {
+  boards: 'boards', carpet: 'carpet', tile: 'tile', concrete: 'stone',
+  stone: 'stone', metal: 'metal', dirt: 'dirt', linoleum: 'lino',
+};
+const DEFAULT_FLOOR = 'boards';
+
+export function footingFor(zone) {
+  const t = zoneTerrain(zone);
+  if (t) return TERRAIN_STEP[t] || 'stone';
+  // No terrain means no ground surface, which indoors is the correct answer and
+  // outdoors (a building footprint tile) is simply pavement.
+  if (isIndoorZone(zone)) return FLOOR_STEP[zone?.flags?.floor] || DEFAULT_FLOOR;
+  return 'stone';
+}
+
+// ── Making a sound you hear ten thousand times bearable ─────────────────────
+//
+// This is the only cue in the game a player triggers on almost every input, for
+// as long as they play. Everything below exists because "make it quieter" is not
+// the answer to fatigue — a quiet sound repeated identically is MORE irritating
+// than a loud one that varies, not less.
+//
+// A step is the player's own, plus a much quieter copy for the room. Someone
+// else's arrival is ALREADY a log line; their footstep adds the surface and the
+// fact that it happened now, and it must not compete with your own feet.
+const clamp01Local = v => Math.max(0, Math.min(1, Number(v) || 0));
+const OTHERS_STEP_GAIN = 0.3;
+// Own steps sit deliberately below the game's other sfx. A footstep is the floor
+// of the mix, not an event in it.
+const OWN_STEP_GAIN = 0.55;
+
+// Per-player walking state, RAM only, no column and no query — which foot is next
+// and when the last step landed. Both are cosmetic and a logout losing them is
+// correct (you start the next session on your left).
+const gait = new Map();
+// Movement can arrive faster than a person can walk: auto-walk, run mode, a held
+// key. Below this the step is DROPPED rather than queued — a queue turns a sprint
+// into a machine-gun that runs on after you stop, which is the worst of both.
+const MIN_STEP_MS = 170;
+
+on('movement.step', ({ actor, zone, intensity }) => {
+  const z = getZone(zone);
+  if (!z || !actor) return;
+
+  const now = Date.now();
+  const g = gait.get(actor.id) || { foot: 0, at: 0 };
+  if (now - g.at < MIN_STEP_MS) return;
+  gait.set(actor.id, { foot: g.foot ^ 1, at: now });
+
+  // BLENDING WITH THE WEATHER, and it is not a volume trick. Rain wets the
+  // ground, so the step genuinely moves toward the rain's own spectrum — duller
+  // strike, more splash — which is what makes it sit inside the bed instead of
+  // over it. Indoors and underground are exempt: the rain is not landing there.
+  //
+  // getZonePrecip is the same in-memory read the ambience beds already do on this
+  // path, so this costs nothing new.
+  // `precipType: 'none'` still reports a rate, so both have to be read — a clear
+  // day would otherwise soak every street in the game.
+  let precip = 0;
+  if (!indoorZoneId(zone)) {
+    const { precipType, precipRate } = getZonePrecip(zone) || {};
+    if (precipType && precipType !== 'none') precip = clamp01Local(precipRate);
+  }
+
+  const params = {
+    action: 'footstep', surface: footingFor(z),
+    intensity: intensity ?? 0.5,
+    wet: precip,
+    foot: g.foot,
+    seed: (Math.random() * 0xffffffff) >>> 0,
+  };
+  // …and it ALSO ducks, because in a downpour a footstep really is masked. The
+  // two together are the difference between "quieter" and "in the rain".
+  const duck = 1 - 0.45 * precip;
+  sendToPlayer(actor.id, { type: 'audio_sfx_proc', tier: FULL, gain: OWN_STEP_GAIN * duck, params });
+  sendToZone(zone, { type: 'audio_sfx_proc', tier: FULL, gain: OTHERS_STEP_GAIN * duck, params }, actor.id);
+});
+
+// The gait map is per-session and cosmetic; drop it with the session rather than
+// letting it accumulate a row per character who has ever walked.
+on('player.logout', ({ id }) => { gait.delete(id); });
+
+// A door's `door_type` and its `lock:<family>` tag have both been authored on
+// every door in the game for as long as there have been doors. So this reads what
+// is already there — no new field, no content pass, and a door built in the dev
+// panel tomorrow is audible without anyone opening this file.
+const LOCK_TAG = /^lock:(.+)$/;
+
+export function lockFamilyOf(door) {
+  for (const key of Object.keys(door?.tags || {})) {
+    const m = LOCK_TAG.exec(key);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+on('door.sfx', ({ door, zoneId, actorId, cue }) => {
+  if (!door || !zoneId) return;
+  const family = lockFamilyOf(door);
+  const params = (cue === 'lock' || cue === 'unlock' || cue === 'denied')
+    ? { action: 'lock', surface: family || 'deadbolt', state: cue }
+    : {
+        action: 'door', surface: door.door_type || 'basic', state: cue === 'close' ? 'close' : 'open',
+        // An electronic lock is a powered door, and that is the whole test — a
+        // servo you can hear is a door somebody paid for.
+        powered: !!family && family !== 'shopshutter',
+      };
+  params.seed = (Math.random() * 0xffffffff) >>> 0;
+  // Under the mix, like the footsteps — with one deliberate exception. A REFUSAL
+  // is the one cue here whose whole job is to be noticed, because it is the only
+  // way a player who is not reading finds out the door said no.
+  const gain = cue === 'denied' ? 0.85 : 0.6;
+  const msg = { type: 'audio_sfx_proc', tier: FULL, gain, params };
+  // The actor hears their own door at full gain wherever they now stand; the room
+  // hears it too. A door with no actor (the far side of a transit) is room-only.
+  if (actorId) sendToPlayer(actorId, msg);
+  sendToZone(zoneId, msg, actorId || null);
+});
+
 // Pissing and farting are PUBLIC. Both used to be hand-authored — the stream was
 // one fixed sound whatever the pressure behind it, and went only to the person
 // doing it, so a man relieving himself in a crowded bar was silent to the bar.
@@ -909,17 +1068,15 @@ function knownWeatherAmbientIds() {
 const WEATHER_GAIN = 0.6;
 const MUFFLE_GAIN_MULT = 0.5; // per-hop cut for an outdoor tile hearing a neighboring storm cell's rain, not its own — 1 tile away = 0.5, 2 tiles = 0.25, so it spreads out
 
-// A LOCAL COPY OF THE ENGINE'S RULE, and it had drifted: the engine counts
-// anything below ground as sheltered (nothing down there has a sky), while this
-// one asked only about the interior flags — so the Under, whose tiles carry
-// none, was hearing rain fall on it. Kept local rather than imported because the
-// audio layer only ever needs the zone id, but the two must agree; if the engine
-// rule grows another clause, this follows it.
-function isIndoorZone(zoneId) {
-  const z = getZone(zoneId);
-  if (z?.flags?.open_sky) return false;
-  if ((z?.grid_z ?? 0) < 0) return true;
-  return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
+// This used to be a hand-copied version of the engine's rule, kept local because
+// the audio layer only ever has a zone id — and it had already drifted once (the
+// engine counts anything below ground as sheltered; this one asked only about the
+// interior flags, so the Under was hearing rain fall on it). Its own comment said
+// "the two must agree", which is a wish rather than a mechanism. It is now a
+// one-line adapter over the engine's `isIndoorZone`, so there is nothing left to
+// drift: id in, the engine's answer out.
+function indoorZoneId(zoneId) {
+  return isIndoorZone(getZone(zoneId));
 }
 
 // Intensity → loop gain fraction (multiplies the def's base gain client-side).
@@ -960,7 +1117,7 @@ on('weather.zoneAmbience', (payload) => {
   const zoneId = payload.zoneId;
   const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null };
   const desired = desiredBedsFor(payload);
-  if (isIndoorZone(zoneId)) {
+  if (indoorZoneId(zoneId)) {
     const leak = getWeatherLeakGain(zoneId);
     if (desired.precip) desired.precip.gain *= leak;
     if (desired.wind)   desired.wind.gain   *= leak;

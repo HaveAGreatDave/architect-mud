@@ -12,6 +12,7 @@
     "up": "zone_mq_cherry_floor"
   },
   "flags": {
+    "floor": "carpet",
     "is_interior": true
   },
   "grid_x": 0,

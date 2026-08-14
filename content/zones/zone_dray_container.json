@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Box Office",
     "building_type": "container_yard",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "window": {

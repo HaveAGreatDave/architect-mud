@@ -15,6 +15,7 @@
   "flags": {
     "always_lit": true,
     "district": "longwatch",
+    "floor": "boards",
     "is_interior": true,
     "safehouse": true,
     "sanctuary": true,

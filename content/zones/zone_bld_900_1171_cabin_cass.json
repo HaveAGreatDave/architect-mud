@@ -6,6 +6,7 @@
     "south": "zone_bld_900_1171_walk1"
   },
   "flags": {
+    "floor": "boards",
     "is_building": true,
     "is_dwelling": true,
     "is_interior": true,

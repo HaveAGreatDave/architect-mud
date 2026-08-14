@@ -1869,6 +1869,122 @@ export async function npcAttackNpc(attacker, defender, { floorHp = 0 } = {}) {
   };
 }
 
+// NPC swings at an ENEMY instance. The LAST empty cell of the matrix: until this
+// existed, an NPC could fight a player and another NPC, and an enemy could fight
+// anything at all, but nobody could ever put a friendly body between a player and
+// a mob. That is the whole reason allied NPCs did not exist.
+//
+// Attacker side is `npcAttackNpc`'s, verbatim in spirit: flags.hit, flags.weapon,
+// the same crit threshold and the same `_lastAttack` cooldown field the gameLoop
+// retaliation loop uses — so an ally cannot swing at a player and an enemy in one
+// tick, and a given NPC hits exactly as hard whoever they swing at.
+//
+// Defender side is `applyStrikeToEnemy`'s, NOT `npcAttackNpc`'s: enemies have
+// authored body-part weights and TYPED SOAK, and skipping that is the bug where
+// an ally's chemical spray cuts through carapace armour that a player's identical
+// spray cannot. It also fires the enemy damage observers, so `plugins/injury`
+// hangs a real wound off an ally's blow like anyone else's.
+//
+// ⚠ An enemy keeps `dodge` as a top-level column; an NPC keeps it in `flags`.
+// (`enemyAttackEnemy` above reads `defender.flags?.dodge` against an enemy, which
+// is why enemy-vs-enemy almost never misses. That is a bug, not a pattern.)
+//
+// Deliberately absent: executionShot, applyStun, rollWeaponStatus, water_shock.
+// Every one is a function of a PLAYER's stats and equipped weapon, and an NPC has
+// neither. An ally is a body that swings, not a second player.
+//
+// KILL CREDIT IS THE CALLER'S. Pass `{ credit: player }` and the kill counts for
+// them; pass nothing and it counts for nobody. The engine deliberately does not
+// know what an ally is — same arrangement `applyStrikeToEnemy` already has with
+// its `player` argument. The caller is also responsible for the corpse, the
+// `enemy.killed` event and the death prose; this returns the same killed-result
+// shape `playerAttackEnemy`/`killEnemyInstance` do so no adapter is needed.
+export async function npcAttackEnemy(npc, enemy, { credit = null } = {}) {
+  if (!npc || !enemy || npc._dead || (enemy.hp ?? 0) <= 0) return null;
+  if (getZoneProtection(enemy.zoneId)) return null;   // forcefield stops an ally too
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - (npc._lastAttack || 0) < attackInterval) return null;
+  npc._lastAttack = now;
+
+  const margin = ((npc.flags?.hit ?? 1) - (enemy.dodge ?? 1))
+    + rollSwing() + await darknessHitPenalty(enemy.zoneId);
+  if (margin < 0) {
+    return { hit: false, killed: false, enemyId: enemy.instanceId,
+      message: `${npc.name} swings at ${enemy.name} and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const weaponArr = Array.isArray(npc.flags?.weapon) && npc.flags.weapon.length
+    ? npc.flags.weapon
+    : [{ type: 'kinetic', min: 1, max: 3 }];
+  const damageTypes = [...new Set(weaponArr.map(c => c.type))].join('/');
+  const part = rollBodyPart(enemyBodyPartWeights(enemy));
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+
+  let total = 0;
+  let rawTotal = 0;
+  for (const c of weaponArr) {
+    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    const swung = Math.floor(amt * headMult);
+    const soaked = enemyPartSoak(enemy, part, c.type);
+    rawTotal += swung;
+    total += Math.max(0, swung - soaked);
+  }
+  const damage = Math.max(1, total);
+  const partLabel = partLabelOf(part);
+
+  // Observers BEFORE the hp write and before the kill check, exactly as
+  // applyStrikeToEnemy does — injury needs to see the blow that finished it.
+  // `attacker` is the CREDITED PLAYER, not the NPC: the only thing any observer
+  // does with it is message a socket, and an npc id is not one. `via` carries
+  // who actually swung, for anything that later wants to tell them apart.
+  fireDamageToEnemy(enemy, {
+    part, damage, baseDamage: Math.max(1, rawTotal),
+    type: damageTypes, critical, source: 'npc', attacker: credit || null, via: npc,
+  });
+
+  enemy.hp = Math.max(0, (enemy.hp ?? enemy.hp_max ?? 20) - damage);
+
+  // Make it mutual — but ONLY behind the flag. ai-behaviour honours a non-player
+  // targetId on an enemy solely when `flags.attacks_npcs` is set; without it the
+  // graph resolves the id as a player, gets null, and CLEARS the target. Setting
+  // this unguarded would make an ally protect the player by giving every enemy
+  // that hit it amnesia, which is the opposite of a bodyguard.
+  if (enemy.flags?.attacks_npcs && !enemy.targetId) enemy.targetId = npc.id;
+
+  const killed = enemy.hp <= 0;
+  if (killed) {
+    if (credit) {
+      credit.mob_kills = (credit.mob_kills || 0) + 1;
+      query('UPDATE players SET mob_kills=mob_kills+1 WHERE id=$1', [credit.id]).catch(() => {});
+    }
+    const loot = resolveEnemyLoot(enemy);
+    removeEnemyInstance(enemy.instanceId);
+    npc._combatTargetId = null;   // a stale instanceId is a leak the tick would chase
+    return {
+      hit: true, damage, critical, killed: true, part, partLabel,
+      enemyId: enemy.instanceId,
+      loot,
+      butcher_table: enemy.butcher_table || [],
+      butcher_difficulty: enemy.butcher_difficulty ?? 5,
+      message: critical
+        ? `<span class="crit-tag">CRITICAL HIT</span> ${npc.name} hits ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!`
+        : `${npc.name} hits ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.`,
+    };
+  }
+
+  return {
+    hit: true, damage, critical, killed: false, part, partLabel,
+    enemyId: enemy.instanceId,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> ${npc.name} hits ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!`
+      : `${npc.name} hits ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.`,
+  };
+}
+
 // Like pvpSwing but for a sleeping/offline defender: always hits, no dodge roll.
 // defender is a plain DB row (offline player); soak is 0 since it's not cached.
 export async function pvpSwingSleeping(attacker, defender) {

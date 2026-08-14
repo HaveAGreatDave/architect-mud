@@ -16,6 +16,7 @@
     "building_name": "The Echelon",
     "echelon": true,
     "echelon_bridge": true,
+    "floor": "metal",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",

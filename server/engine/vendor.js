@@ -528,11 +528,13 @@ export const COOK_QUALITY_PRICE = {
   'very good': 1.7, excellent: 2.1, superb: 2.6, masterful: 3.0,
 };
 
-export function computeSellUnitPrice(value, statCool, discount = 0, { potency = 1, drugBuyer = false, cookQuality = null, foodBuyer = false, portion = 1 } = {}) {
+export function computeSellUnitPrice(value, statCool, discount = 0, { potency = 1, drugBuyer = false, cookQuality = null, foodBuyer = false, bountyBuyer = false, portion = 1 } = {}) {
   const coolMult = 1 + (statCool || 0) * 0.05;
   // A specialist pays a premium for what they specialise in; a general vendor
-  // pays the flat 40% for anything.
-  const rate = (drugBuyer || foodBuyer) ? 0.7 : 0.4;
+  // pays the flat 40% for anything. `bountyBuyer` is the third of these and is
+  // paired with the `vermin_part` item tag: an exterminator pays properly for
+  // what he sent you down there to bring back, and the grocer upstairs does not.
+  const rate = (drugBuyer || foodBuyer || bountyBuyer) ? 0.7 : 0.4;
   const pot = Math.min(3, Math.max(0.1, Number(potency) || 1));    // strength scales the payout — a great cook is worth more than a botch
   const qual = cookQuality ? (COOK_QUALITY_PRICE[cookQuality] ?? 1) : 1;
   // Half a dish is worth half. Same rule as the nourishment it carries.
@@ -554,6 +556,7 @@ export async function getSellableInventory(player, npc) {
   const discount = await vendorDiscount(player.id, npc);
   const isDrugBuyer = !!npc.flags?.drug_buyer;
   const isFoodBuyer = !!npc.flags?.food_buyer;
+  const isBountyBuyer = !!npc.flags?.bounty_buyer;
   const sellable = rows
     .filter(r => !r.tags?.quest_item)
     .map(r => {
@@ -566,7 +569,7 @@ export async function getSellableInventory(player, npc) {
         category: vendorCategory(r.tags),
         stats: vendorStatLines(r.tags),
         weight: r.weight,
-        price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: isFoodBuyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }),
+        price: computeSellUnitPrice(r.value, r.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: isDrugBuyer && !!r.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: isFoodBuyer && !!cd?.cook_quality, bountyBuyer: isBountyBuyer && !!r.tags?.vermin_part, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }),
         _tags: r.tags || {},
       };
     });
@@ -602,7 +605,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const sellQty = Math.min(quantity, invItem.quantity);
   const discount = await vendorDiscount(player.id, npc);
   const cd = typeof invItem.custom_data === 'string' ? (() => { try { return JSON.parse(invItem.custom_data); } catch { return {}; } })() : (invItem.custom_data || {});
-  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: !!npc.flags?.food_buyer && !!cd?.cook_quality, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }) * sellQty;
+  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount, { potency: Number(cd?.potency) || 1, drugBuyer: !!npc.flags?.drug_buyer && !!invItem.tags?.drug, cookQuality: cd?.cook_quality || null, foodBuyer: !!npc.flags?.food_buyer && !!cd?.cook_quality, bountyBuyer: !!npc.flags?.bounty_buyer && !!invItem.tags?.vermin_part, portion: (Number(cd?.portion) || 1) * (Number(cd?.yield) || 1) }) * sellQty;
 
   // Pay out and remove the sold item together, so a crash can't credit the
   // player while leaving the item in their inventory (or vice versa).

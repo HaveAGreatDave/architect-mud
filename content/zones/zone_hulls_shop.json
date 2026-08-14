@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Hulls Angels",
     "building_type": "wharf",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

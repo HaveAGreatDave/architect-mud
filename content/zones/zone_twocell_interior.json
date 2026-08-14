@@ -12,6 +12,7 @@
   },
   "flags": {
     "building_name": "Two-Cell Supply",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_920_903"

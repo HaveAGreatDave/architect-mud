@@ -17,6 +17,7 @@
   "flags": {
     "allow_sleep": true,
     "building_name": "The Wash",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "rest_multiplier": 1.2,

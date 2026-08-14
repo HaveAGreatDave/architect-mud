@@ -6,6 +6,7 @@
     "up": "zone_under_alcove"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true
   },
   "grid_x": 918,

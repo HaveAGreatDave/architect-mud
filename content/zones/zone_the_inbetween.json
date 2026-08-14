@@ -14,6 +14,7 @@
   "flags": {
     "always_lit": true,
     "building_name": "The Inbetween",
+    "floor": "boards",
     "is_interior": true,
     "prologue": true,
     "window": {

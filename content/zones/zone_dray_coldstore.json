@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Absolute Zero Holdings",
     "building_type": "cold_storage",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "window": {

@@ -156,12 +156,68 @@ const selectionState = new Map();
 const PAGE_SIZE = 5;
 const TTL = 60_000;
 
+// THE PICKER IS A DECISION, AND A DECISION DOES NOT BELONG IN SCROLLBACK.
+//
+// Sixty-eight call sites open a SIFT picker, and every one of them does the same
+// two things: createSelectionState(), then return the text of formatSelectionPage()
+// as an ordinary `output`. That text is a numbered list with an implicit modal
+// state behind it — the next thing you type means something different than it did
+// a second ago — and in the log it is indistinguishable from any other line. It
+// scrolls away. Nothing announces it. There is no control to focus.
+//
+// Rather than edit sixty-eight sites, the state records a PENDING PAYLOAD whenever
+// it is created or paged, and the socket send in server/index.js takes it and
+// staples it to whatever reply was already going out. One site, and it cannot
+// drift — the same argument as stampToLog next to it.
+//
+// The text is unchanged and still reaches the log at every rung. This is additive:
+// the record stays, the decision gets a control.
+const pendingPayload = new Map();
+
 export function getSelectionState(playerId) {
   return selectionState.get(playerId) ?? null;
 }
 
 export function clearSelectionState(playerId) {
   selectionState.delete(playerId);
+}
+
+/**
+ * The structured twin of formatSelectionPage — same page, same numbering, no markup.
+ * `commands` are the literal strings a player could have typed, so the dialog holds
+ * no logic of its own (the workspace-HUD rule).
+ */
+export function selectionPayload(state) {
+  const { allCandidates, visibleIndex, pageSize, context } = state;
+  const page = allCandidates.slice(visibleIndex, visibleIndex + pageSize);
+  return {
+    verb: context?.verb || null,
+    total: allCandidates.length,
+    from: visibleIndex + 1,
+    to: Math.min(visibleIndex + pageSize, allCandidates.length),
+    options: page.map((c, i) => ({ n: i + 1, label: c.name, command: String(i + 1) })),
+    hasPrev: visibleIndex > 0,
+    hasNext: visibleIndex + pageSize < allCandidates.length,
+  };
+}
+
+// Marks the player's current page as needing to be sent as a dialog. Called on
+// open and on every page turn; consumed once, by the socket send.
+function markPending(playerId) {
+  const st = selectionState.get(playerId);
+  if (st) pendingPayload.set(playerId, selectionPayload(st));
+}
+
+export function takePendingSelection(playerId) {
+  const p = pendingPayload.get(playerId);
+  pendingPayload.delete(playerId);
+  return p ?? null;
+}
+
+// The picker is over — tell the client to close whatever it opened. Distinct from
+// "nothing pending", because a dialog that is already up has to be dismissed.
+export function markSelectionClosed(playerId) {
+  pendingPayload.set(playerId, { close: true });
 }
 
 export function createSelectionState(playerId, allCandidates, context) {
@@ -172,6 +228,7 @@ export function createSelectionState(playerId, allCandidates, context) {
     context,  // { verb, dispatchType?, dispatchParam? }
     expiresAt: Date.now() + TTL,
   });
+  markPending(playerId);
 }
 
 /**
@@ -186,12 +243,18 @@ export function createSelectionState(playerId, allCandidates, context) {
 export function advanceSelectionState(playerId, input) {
   const state = selectionState.get(playerId);
   if (!state || Date.now() > state.expiresAt) {
+    // Sixty seconds passed with the dialog up. The state behind it is gone, so
+    // the dialog has to go too or the next number typed into it does nothing.
+    if (state) markSelectionClosed(playerId);
     selectionState.delete(playerId);
     return null;
   }
   const t = input.trim().toLowerCase();
+  // Every exit from the picker marks it closed, and every page turn re-marks it.
+  // A branch that forgets leaves the dialog on screen with nothing behind it.
   if (t === 'cancel' || t === 'exit') {
     clearSelectionState(playerId);
+    markSelectionClosed(playerId);
     return { type: 'cancel' };
   }
   const n = Number(t);
@@ -200,19 +263,25 @@ export function advanceSelectionState(playerId, input) {
     if (idx < state.allCandidates.length) {
       const candidate = state.allCandidates[idx];
       clearSelectionState(playerId);
+      markSelectionClosed(playerId);
       return { type: 'selected', candidate };
     }
   }
   if (t === 'next') {
     state.visibleIndex = Math.min(state.visibleIndex + PAGE_SIZE, state.allCandidates.length - 1);
+    markPending(playerId);
     return { type: 'page', state };
   }
   if (t === 'prev') {
     state.visibleIndex = Math.max(0, state.visibleIndex - PAGE_SIZE);
+    markPending(playerId);
     return { type: 'page', state };
   }
-  // Anything else: refinement query — clear state and re-process as fresh input
+  // Anything else: refinement query — clear state and re-process as fresh input.
+  // The refinement may open a fresh picker of its own, which will mark itself
+  // pending and overwrite this close — correct in both directions.
   clearSelectionState(playerId);
+  markSelectionClosed(playerId);
   return { type: 'refine', query: input };
 }
 

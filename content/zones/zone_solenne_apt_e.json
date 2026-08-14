@@ -10,6 +10,7 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
+    "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 460,

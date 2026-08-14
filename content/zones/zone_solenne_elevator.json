@@ -59,6 +59,7 @@
         "zone": "zone_solenne_helipad"
       }
     ],
+    "floor": "metal",
     "hide_exits": true,
     "is_interior": true,
     "sanctuary": true

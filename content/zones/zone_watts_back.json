@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Watts The Damage",
     "building_type": "hardware",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_916_907"

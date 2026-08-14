@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Bodega Vu",
     "building_type": "bodega",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

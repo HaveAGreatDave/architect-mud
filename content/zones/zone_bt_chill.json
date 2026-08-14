@@ -12,6 +12,7 @@
     "south": "zone_bt_shop"
   },
   "flags": {
+    "floor": "tile",
     "is_interior": true,
     "terrain": "grass"
   },

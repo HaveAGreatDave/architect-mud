@@ -48,6 +48,7 @@
         "zone": "zone_halcyon_exec"
       }
     ],
+    "floor": "metal",
     "hide_exits": true,
     "is_interior": true
   },

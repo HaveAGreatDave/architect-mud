@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "The Dead Pigeon",
     "building_type": "bar",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

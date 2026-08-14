@@ -74,6 +74,7 @@ import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog, showAmountDialog } from './panels/confirm.js';
+import { openSiftPanel, closeSiftPanel } from './panels/sift-select.js';
 import { showArrestNotice } from './panels/arrest.js';
 import { openApprehendPrompt } from './panels/apprehend.js';
 import { openConcealSearch } from './panels/conceal.js';
@@ -82,7 +83,7 @@ import { openHangarBay, openCharterScreen, closeHangarBay, isHangarBayActive } f
 import { openAdminPanel } from './panels/admin.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
-import { loadSettings } from '/shared/settings.js';
+import { loadSettings, sfxDetail } from '/shared/settings.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -999,6 +1000,11 @@ const handlers = {
   amp_unlock:  (msg) => addAmpUnlock(msg.songId),
   progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
+
+  // The SIFT disambiguation picker. `close` is its own message rather than an
+  // absence, because a picker that has been answered has to take its dialog with
+  // it — see panels/sift-select.js.
+  sift_select: (msg) => { if (msg.close) closeSiftPanel(); else openSiftPanel(msg); },
   // Server asks the player to pick a quantity (e.g. dropping part of a stack).
   // Confirming appends the chosen number to the supplied command.
   qty_prompt: (msg) => {
@@ -1447,6 +1453,25 @@ const handlers = {
   // the sound here from the shared generator — same seed, same field, ~100 bytes
   // on the wire instead of the several KB a serialised burst field costs.
   audio_sfx_proc: (msg) => {
+    // ── The Sound Detail ladder, enforced in one place ──────────────────────
+    //
+    // `off` silences this whole layer. `full` is the dense tier — footsteps,
+    // doors, locks — and a cue marked for it is DROPPED at any lower rung.
+    //
+    // The load-bearing half is what is NOT here: an unmarked cue is untouched,
+    // so `limited` (what everybody who has never chosen gets, unless they play
+    // at the log rung) is a provable no-op against every cue that shipped
+    // before this existed. That is why the gate is a stamp on the new sounds
+    // rather than a category on all of them.
+    //
+    // Client-side because the setting is localStorage and the server holds no
+    // copy — a footstep is ~70 bytes, so sending one that gets dropped is far
+    // cheaper than a new settings message and a server-side latch. If this tier
+    // ever grows dense enough for that to stop being true, the growth path is
+    // the one Display Mode already uses: latch it on the live player at login.
+    const detail = sfxDetail(loadSettings(), state.player?.displayRung);
+    if (detail === 'off') return;
+    if (msg.tier === 'full' && detail !== 'full') return;
     const def = window.ProceduralSFX?.buildCookingCue(msg.params || {});
     if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
   },

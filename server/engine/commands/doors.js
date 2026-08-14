@@ -197,6 +197,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
   if (door.lock_state === 'locked' && !doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The door is locked.' };
   await updateDoor(door, { is_open: 1 });
   emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'open' });
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.`, refresh: true }, player.id);
   return { type:'output', message:'You open the door.' };
 }
@@ -209,6 +210,7 @@ async function cmdCloseDoor(args, raw, player, broadcast) {
   if (!door.is_open) return { type:'error', message:'The door is already closed.' };
   await updateDoor(door, { is_open: 0 });
   emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'close' });
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes the door.`, refresh: true }, player.id);
   return { type:'output', message:'You close the door.' };
 }
@@ -222,19 +224,26 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
 
-  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player))
+  // A refusal is a SOUND as well as a sentence. At the log rung the difference
+  // between a lock that opened and one that turned you away should not be
+  // something you have to read back to establish.
+  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player)) {
+    emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'denied' });
     return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+  }
 
   // Auto-close the door before locking if it's open
   if (door.is_open) {
     await updateDoor(door, { is_open: 0 });
     emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
+    emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'close' });
     broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes and locks the door.`, refresh: true }, player.id);
   } else {
     broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
   }
 
   await updateDoor(door, { lock_state: 'locked' });
+  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'lock' });
   return { type:'output', message: terseLock(player, lockTag.messages?.lock ?? 'You lock the door.', 'Locked.') };
 }
 
@@ -247,10 +256,13 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
-  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player))
+  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player)) {
+    emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'denied' });
     return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+  }
 
   await updateDoor(door, { lock_state: 'unlocked' });
+  emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'unlock' });
   broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
   return { type:'output', message: terseLock(player, lockTag.messages?.unlock ?? 'The lock disengages.', 'Unlocked.') };
 }

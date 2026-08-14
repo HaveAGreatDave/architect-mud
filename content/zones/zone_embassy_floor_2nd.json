@@ -15,6 +15,7 @@
     "west": "zone_apt_4"
   },
   "flags": {
+    "floor": "linoleum",
     "intro_lore": "One flight up from Lowry's, the Embassy still pretends to be a hotel: carpet underfoot, numbers square in their screws, a landing that hasn't quite given up. Four doors, four locks, four small holdouts against the basin outside.",
     "is_interior": true
   },

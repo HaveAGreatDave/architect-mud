@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Adequate!",
     "building_type": "dept_store",
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "window": {

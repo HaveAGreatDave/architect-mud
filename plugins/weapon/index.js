@@ -43,10 +43,18 @@ function weaponSkillId(wskill) {
 	return COMBAT_WEAPON_SKILLS.has(wskill) ? wskill : 'fists';
 }
 
-// Turn a killed-result (from playerAttackEnemy or killEnemyInstance) into a
-// lootable corpse: loot rides on the corpse (owner = corpseId) until looted, not
-// dropped to the ground. Returns the clickable corpse link. Caller broadcasts.
-async function spawnEnemyCorpse(player, targetName, result) {
+// Turn a killed-result (from playerAttackEnemy, killEnemyInstance or an ALLY's
+// npcAttackEnemy) into a lootable corpse: loot rides on the corpse (owner =
+// corpseId) until looted, not dropped to the ground. Returns the clickable corpse
+// link. Caller broadcasts.
+//
+// `where` is a player (the common case, corpse lands in their room) or a bare
+// zone id string. The string form exists because an allied NPC can land the
+// killing blow, and the body belongs where the KILL happened — which is the
+// NPC's tile, not necessarily the player's. It reaches other plugins through
+// registerPlayerCombat() rather than an import, so nothing imports weapon.
+async function spawnEnemyCorpse(where, targetName, result) {
+	const zoneId = typeof where === 'string' ? where : where?.current_zone;
 	const corpseId = `corpse_${result.enemyId || randomUUID()}`;
 	if (result.loot?.length) {
 		for (const drop of result.loot) {
@@ -59,7 +67,7 @@ async function spawnEnemyCorpse(player, targetName, result) {
 	createCorpse({
 		id: corpseId,
 		name: `${targetName}'s corpse`,
-		zoneId: player.current_zone,
+		zoneId,
 		expiresAt: Date.now() + 60 * 60 * 1000,
 		butcher_table: result.butcher_table || [],
 		butcher_difficulty: result.butcher_difficulty ?? 5,
@@ -697,7 +705,7 @@ export async function cmdFlee(arg, player, broadcast) {
 
 // The auto-attack tick in gameLoop.js sustains combat through these — raw
 // function references, never the Action dispatcher (ADR-0001 hot path).
-registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing, tickFleeIntent });
+registerPlayerCombat({ resolveAttack, resolveAttackNpc, offlineSleepSwing, tickFleeIntent, spawnEnemyCorpse });
 
 // Player-initiated combat is an Action. `params.candidate` carries a SIFT
 // selection replay (a player pick from an ambiguous `attack <name>`).

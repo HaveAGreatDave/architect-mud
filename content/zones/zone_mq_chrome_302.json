@@ -9,6 +9,7 @@
     "west": "zone_mq_chrome_f3"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "rent_cost": 50,
     "window": {

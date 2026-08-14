@@ -6,6 +6,7 @@
     "up": "zone_yard_container"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "world_exit_zone": "zone_district_924_907"
   },

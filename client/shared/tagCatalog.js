@@ -115,6 +115,8 @@
       help: 'Credit chip flavor marker. Use grants_credits for the actual payout.' },
     misc: { label: 'Misc', shape: 'flag', scope: 'class', group: 'Type',
       help: 'Catch-all flavor marker for key items, artifacts, accessories.' },
+    vermin_part: { label: 'Vermin Part', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Proof of a pest killed — a carapace, a tail. An NPC flagged `bounty_buyer` pays the specialist rate (0.7 of value) for these, the way `drug_buyer` and `food_buyer` do for theirs; everyone else pays the ordinary 0.4. It is the tag, not the item id, that the price hangs on, so the next pest anybody writes is already worth something to the right person.' },
 
     // --- Equipment ---
     slot: { label: 'Equip Slot', shape: 'enum', scope: 'class', group: 'Equipment',
@@ -159,8 +161,8 @@
       options: ['fists', 'blades', 'clubs', 'firearms', 'science'],
       help: 'Which combat skill earns XP and routes the attack.' },
     damage_type: { label: 'Damage Type', shape: 'enum', scope: 'class', group: 'Combat',
-      options: ['kinetic', 'edged', 'energy', 'fire', 'radiation'],
-      help: 'Physical damage category. Used to index per-part armor soak on defender.' },
+      options: ['kinetic', 'edged', 'energy', 'fire', 'radiation', 'chemical'],
+      help: 'Physical damage category. Used to index per-part armor soak on defender. NOTE on `chemical`: it arrived with pest control, and almost nothing in the world soaks it yet — a chemical weapon effectively ignores existing armour, which is the point of a fumigant and a real balance decision. Author `armor_soak: {chemical: n}` on anything meant to stand up to it.' },
     status_chance: { label: 'Status Chance', shape: 'statmap', scope: 'class', group: 'Combat',
       help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
     butchering: { label: 'Butchering Tool', shape: 'flag', scope: 'class', group: 'Combat',
@@ -598,6 +600,9 @@
       help: 'Scales both stamina regen and HP knit-back for anyone resting in this zone (restRegenTick in gameLoop.js). Default 1. Comfort zones raise it — Solenne units 1.5, penthouse 2.0.' },
     terrain: { label: 'Terrain', shape: 'enum', options: ['water', 'underwater', 'road', 'dirt_road', 'asphalt', 'concrete', 'grass', 'park', 'forest', 'dirt', 'sand', 'gravel', 'dock', 'scrub', 'redrock', 'ash', 'marsh', 'sewer', 'hardpan', 'alkali', 'cliff', 'plateau', 'ramp', 'basalt', 'deadwood', 'sinter', 'hotspring'], scope: 'zone', group: 'Zone: Structure',
       help: 'Ground surface for the map/minimap and the flight-sim ground tint — the authoritative source for zoneTerrain (overrides the inferred surface). Painted in the dev panel: Maps → Terrain mode. Road AND dirt_road tiles auto-tile their connector piece from adjacent road/dirt_road tiles; dirt_road renders as a graded packed-dirt track (brown, wheel ruts, no paint) rather than paved asphalt. NOT render-only for one value: "water" is the SOLE marker for open water — it makes the tile swimmable (stamina, wetness, drowning), impassable to GPS/pathfinding, and a ditching crash to land on. There is no flags.water; test it with zoneTerrain(zone) === \'water\'.' },
+    floor: { label: 'Floor Surface', shape: 'enum',
+      options: ['boards', 'carpet', 'tile', 'concrete', 'stone', 'metal', 'dirt', 'linoleum'], scope: 'zone', group: 'Zone: Structure',
+      help: 'What this floor sounds like underfoot — read by the footstep audio in the dense sound tier. INTERIORS ONLY: outdoors the sound is derived from `terrain`, which is null indoors by design (an interior has no ground surface), so this is the indoor half of the same question. Unset falls back to boards rather than going silent, so forgetting one costs a slightly wrong floor and never a missing sound.' },
     park_feature: { label: 'Park Feature', shape: 'enum', options: ['grove', 'pond', 'benches', 'flowerbeds', 'path'], scope: 'zone', group: 'Zone: Structure',
       help: 'On a "park" terrain tile, forces which flight-sim park dressing it draws (grove/pond/benches/flowerbeds/path) so a park can be laid out symmetrically. Unset → chosen from the tile position hash.' },
 

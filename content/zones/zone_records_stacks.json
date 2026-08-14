@@ -15,6 +15,7 @@
   "flags": {
     "always_lit": true,
     "building_name": "Hall of Records",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_922_910"

@@ -7,6 +7,7 @@
     "out": "zone_apt_11"
   },
   "flags": {
+    "floor": "tile",
     "is_interior": true,
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",

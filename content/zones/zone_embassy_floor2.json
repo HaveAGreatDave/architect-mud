@@ -15,6 +15,7 @@
     "west": "zone_apt_8"
   },
   "flags": {
+    "floor": "linoleum",
     "intro_lore": "Two flights up from Lowry's bar, the hotel starts telling the truth about itself: carpet gone, numbers hanging by one screw, a vending machine that died guarding snacks nobody will ever eat. Four doors, four locks, four small victories against everything on the other side of them.",
     "is_interior": true
   },

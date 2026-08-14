@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Co-Pay & Pray",
     "building_type": "clinic",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "window": {

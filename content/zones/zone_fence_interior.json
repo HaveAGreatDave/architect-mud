@@ -13,6 +13,7 @@
   "flags": {
     "building_name": "Pawn & Pity",
     "claimable_asset": "fence",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "window": {

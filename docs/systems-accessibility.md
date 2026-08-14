@@ -19,6 +19,24 @@ neither owns it. Add an entry and it appears in both, spelled the same way, expl
 An entry is `{ key, label, verb, why, opts:[{v,t}] }`. `why` is written for a player, because the
 verb prints it verbatim.
 
+An entry may also carry **`resolve(settings, ctx)`**, which makes it *tri-state*: never-chosen is a
+real state and the answer is DERIVED rather than stored. Exactly one option uses it today —
+**Sound Detail** (`off` / `limited` / `full`), which defaults to `full` at the `log` rung and
+`limited` everywhere else, because the player with no room pane is the one the dense sound tier was
+built for. Both surfaces read `effectiveOptionValue(opt, settings, ctx)` rather than the raw key, so
+neither renderer knows that row is special and neither prints *"currently undefined"*.
+
+Two rules go with it, both pinned by `verb-smoke.mjs`: **`resolve` and `def` are mutually
+exclusive** (a stored default would simply beat the derived one), and **`accessibility reset` must
+leave a `resolve` key ABSENT** rather than writing the first pill — writing `off` there would have
+the escape hatch silence the player it exists to rescue. The full reasoning is in
+[systems-display-mode.md](systems-display-mode.md#sound-detail); the sounds themselves are in
+[systems-procedural-audio.md](systems-procedural-audio.md#the-dense-tier--footsteps-doors-locks).
+
+**Sound Detail is a preference, not an accessibility-only feature**, and `off` is not the volume
+slider: volume answers *how loud*, this answers *how much*. It changes nothing about the game's
+difficulty, which is the bar every row on this page has to clear.
+
 **The verb is not a convenience.** The settings that make the interface usable must not be reachable
 only *through* that interface — the light switch cannot be inside the dark room. `accessibility` is
 therefore a plain client-side verb with no tablet gate, exactly like `displaymode`, and

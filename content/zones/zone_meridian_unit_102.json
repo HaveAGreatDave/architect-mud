@@ -7,6 +7,7 @@
     "west": "zone_meridian_floor_1"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 200,

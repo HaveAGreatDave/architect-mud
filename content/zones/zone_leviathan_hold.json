@@ -15,6 +15,7 @@
     "aircraft_cabin": "leviathan",
     "always_lit": true,
     "building_name": "Leviathan",
+    "floor": "boards",
     "home_slots": [
       {
         "id": "strongbox",

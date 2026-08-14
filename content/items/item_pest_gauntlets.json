@@ -1,0 +1,21 @@
+{
+  "description": "Elbow-length gauntlets in cracked ochre rubber, palms re-dipped by hand.",
+  "flags": {},
+  "id": "item_pest_gauntlets",
+  "name": "fumigator's gauntlets",
+  "tags": {
+    "armor_soak": {
+      "chemical": 2,
+      "edged": 1
+    },
+    "covers": [
+      "hands"
+    ],
+    "description": "Elbow-length gauntlets in ochre rubber, palms re-dipped by hand so many times the original glove is somewhere in the middle of them. Long enough to reach into a pipe up to the shoulder, which is a thing the job asks of you more often than you would like.",
+    "layer": "armor",
+    "slot": "hands"
+  },
+  "type": "armor",
+  "value": 120,
+  "weight": 400
+}

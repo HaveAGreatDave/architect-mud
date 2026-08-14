@@ -15,6 +15,7 @@
     "south": "zone_the_reach_871_1954"
   },
   "flags": {
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "lawless": true,

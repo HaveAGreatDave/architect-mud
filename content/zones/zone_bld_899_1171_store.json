@@ -13,6 +13,7 @@
     "south": "zone_bld_899_1171_lobby"
   },
   "flags": {
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "lawless": true,

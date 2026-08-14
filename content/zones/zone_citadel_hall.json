@@ -20,6 +20,7 @@
   "flags": {
     "building_name": "Citadel Financial",
     "citadel_public": true,
+    "floor": "stone",
     "is_building": true,
     "is_interior": true,
     "window": {

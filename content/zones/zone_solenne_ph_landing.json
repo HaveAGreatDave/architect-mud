@@ -13,6 +13,7 @@
   },
   "flags": {
     "building_name": "Solenne Residences",
+    "floor": "carpet",
     "is_interior": true,
     "window": {
       "description": "A window with a bad seal, letting in a draught and a slice of whatever the weather is doing.",

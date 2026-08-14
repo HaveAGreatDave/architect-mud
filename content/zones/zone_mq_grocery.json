@@ -15,6 +15,7 @@
   "flags": {
     "building_name": "Ration Nine",
     "building_type": "grocery",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "terrain": "grass",

@@ -10,6 +10,7 @@
     "in": "zone_apt_4_bath"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "window": {

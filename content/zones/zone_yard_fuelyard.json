@@ -10,6 +10,7 @@
   "flags": {
     "building_name": "Flash Point Fuel & Pallet",
     "building_type": "fuel_yard",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "window": {

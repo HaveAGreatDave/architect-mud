@@ -84,6 +84,14 @@
         1
       ],
       "weight": 35
+    },
+    {
+      "item": "item_roach_carapace",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 70
     }
   ],
   "death_message": "The roach flips onto its back, legs cycling once, and is still.",
@@ -91,7 +99,7 @@
   "dodge": 4,
   "faction": null,
   "flags": {
-    "attacks_npcs": false,
+    "attacks_npcs": true,
     "battle_cries": [
       "$enemy rushes $player in a horrible skittering burst.",
       "$enemy's wing-cases rattle a dry warning at $player.",
@@ -128,6 +136,14 @@
       ],
       "super": true,
       "weight": 3
+    },
+    {
+      "item": "item_roach_carapace",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 45
     }
   ],
   "name": "sewer roach",

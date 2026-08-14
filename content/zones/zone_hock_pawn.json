@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "In Hock We Trust",
     "building_type": "fence",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

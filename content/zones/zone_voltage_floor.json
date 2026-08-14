@@ -17,6 +17,7 @@
     "west": "zone_district_895_908"
   },
   "flags": {
+    "floor": "boards",
     "is_interior": true,
     "window": {
       "description": "A full-height pane onto the street, kept just clean enough to trade through. Whatever the weather is doing out there, it is doing it in plain view.",

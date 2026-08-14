@@ -25,6 +25,7 @@ import {
 	describeVoidTeleport,
 	recomputeEquipped,
 } from "./engine/commands/index.js";
+import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { zoneAudience } from "./engine/delivery.js";
 import { modulePreloadTags } from "./modulegraph.js";
@@ -1412,6 +1413,12 @@ async function handleGameCommand(ws, session, msg) {
 		return;
 	}
 	const result = await handleCommand(msg.command, player, broadcast);
+	// SIFT PICKER RIDES THE REPLY, for the same reason stampToLog does. Sixty-eight
+	// call sites open a disambiguation picker and all of them return plain text;
+	// rather than teach all sixty-eight to also send a dialog, the state records
+	// what it just opened (or closed) and we staple it to whatever was already
+	// going out. See the note over `pendingPayload` in engine/sift.js.
+	const _sift = takePendingSelection(player.id);
 	// DISPLAY MODE `log` RIDES EVERY REPLY TOO, for the same reason as the sleep
 	// state below: the room description is built at half a dozen sites
 	// (movement.js, world.js, the login look, gametable's paneOrLook) and there is
@@ -1443,6 +1450,10 @@ async function handleGameCommand(ws, session, msg) {
 			await recomputeEquipped(player);
 		}
 	}
+	// AFTER the reply, deliberately. The picker's text is the record and reaches
+	// #output first; the dialog that takes focus arrives second, so a screen
+	// reader hears what happened before it is moved somewhere new.
+	if (_sift) ws.send(JSON.stringify({ type: 'sift_select', ..._sift }));
 }
 
 async function handleGhostJump(ws, session, msg) {

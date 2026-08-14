@@ -30,7 +30,7 @@ import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../
 import { cmdMove, dragFollowers } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination, _test as describeTest } from '../server/engine/commands/describe.js';
 import { tickOnsets } from '../server/engine/drugs.js';
-import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
+import { getSelectionState, clearSelectionState, takePendingSelection, advanceSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { getHelpTopic, listHelpTopics } from '../server/engine/help.js';
 import { TOPIC_VERBS } from '../server/engine/help-topics.js';
@@ -2457,6 +2457,24 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     check('ambiguous move does not relocate', mover.current_zone === originId, mover.current_zone);
     const sel = getSelectionState(mover.id);
     check('ambiguous move opens SIFT selection', sel?.allCandidates?.length === 2 && sel.context?.verb === 'move', JSON.stringify(sel?.context));
+
+    // THE PICKER IS ALSO A DIALOG. Opening a selection queues a structured payload
+    // that server/index.js staples to the outgoing reply — the one seam that gives
+    // all ~68 picker call sites a focusable control without editing any of them.
+    const pend = takePendingSelection(mover.id);
+    check('opening a picker queues a sift dialog payload',
+      pend && pend.options?.length === 2 && pend.options[0].n === 1 && pend.options[0].command === '1' && pend.verb === 'move',
+      JSON.stringify(pend));
+    // Consumed once — a second reply must not re-open the dialog on top of itself.
+    check('sift payload is taken exactly once', takePendingSelection(mover.id) === null);
+    // Every command a picker option carries must be one the player could have typed.
+    check('sift options are literal typeable commands',
+      (pend?.options || []).every(o => /^[1-9]$/.test(o.command)), JSON.stringify(pend?.options));
+    // Answering it tells the client to close. Without this the dialog outlives the
+    // state behind it and the next number typed into it means nothing.
+    const advSel = advanceSelectionState(mover.id, '1');
+    check('answering the picker resolves a candidate', advSel?.type === 'selected', advSel?.type);
+    check('answering the picker closes the dialog', takePendingSelection(mover.id)?.close === true);
     clearSelectionState(mover.id);
 
     // SIFT: naming the destination resolves to that specific same-direction exit.

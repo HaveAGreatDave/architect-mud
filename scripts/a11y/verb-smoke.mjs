@@ -120,9 +120,41 @@ else bad('prefersReducedMotion() ignored motion=off — every JS animation will 
   // otherwise. This used to assume the first pill ALWAYS, which held until an
   // option arrived whose default belongs in the middle of an ordered scale.
   const defOf = (o) => String(o.def ?? o.opts[0].v);
-  const stuck = A11Y_OPTIONS.filter(o => String(s[o.key]) !== defOf(o));
+  // A `resolve` option is TRI-STATE: its default is not a value at all, it is the
+  // ABSENCE of one, from which `resolve` derives an answer. Reset must therefore
+  // leave the key gone rather than write the first pill — write 'off' here and a
+  // log-rung player who reset would be silenced by the escape hatch.
+  const derived = A11Y_OPTIONS.filter(o => o.resolve);
+  const stuck = A11Y_OPTIONS.filter(o => !o.resolve && String(s[o.key]) !== defOf(o));
+  const written = derived.filter(o => s[o.key] !== undefined);
   if (!stuck.length && !s.fontSizeChosen) ok('`accessibility reset` returns every option to its default');
   else bad(`reset left ${stuck.map(o => o.key).join(', ')}${s.fontSizeChosen ? ' fontSizeChosen' : ''} behind`);
+  if (!written.length) ok(`…and leaves the ${derived.length} derived option(s) unset, so the default stays derived`);
+  else bad(`reset WROTE a value for ${written.map(o => o.key).join(', ')} — that collapses the tri-state and pins the default`);
+}
+
+// ── The tri-state is load-bearing ───────────────────────────────────────────
+// An option carrying a `resolve` must not also carry a `def`: `def` is a stored
+// value, and storing one is exactly what the derived default exists to avoid.
+{
+  const both = A11Y_OPTIONS.filter(o => o.resolve && o.def !== undefined);
+  if (!both.length) ok('no option declares both `resolve` and `def`');
+  else bad(`${both.map(o => o.key).join(', ')} declares both — the stored default will always beat the derived one`);
+
+  const { sfxDetail } = await import('../../client/shared/settings.js');
+  const cases = [
+    [{}, 'log', 'full', 'a log-rung player who has chosen nothing gets the dense tier'],
+    [{}, 'visual', 'limited', 'everyone else gets today\'s soundset'],
+    [{}, undefined, 'limited', 'a never-logged-in client gets today\'s soundset'],
+    [{ sfxDetail: 'limited' }, 'log', 'limited', 'a chosen value beats the rung'],
+    [{ sfxDetail: 'full' }, 'visual', 'full', '…in both directions'],
+    [{ sfxDetail: 'nonsense' }, 'log', 'full', 'a junk value falls back to derived rather than through'],
+  ];
+  let bads = 0;
+  for (const [s, rung, want, why] of cases) {
+    if (sfxDetail(s, rung) !== want) { bad(`sfxDetail(${JSON.stringify(s)}, ${rung}) — ${why}`); bads++; }
+  }
+  if (!bads) ok(`sfxDetail() resolves all ${cases.length} tri-state cases correctly`);
 }
 
 if (failed) {

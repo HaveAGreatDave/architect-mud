@@ -14,6 +14,7 @@
     "south": "zone_voltage_floor"
   },
   "flags": {
+    "floor": "boards",
     "is_interior": true
   },
   "grid_x": 0,

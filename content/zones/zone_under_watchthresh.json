@@ -15,6 +15,7 @@
   },
   "flags": {
     "district": "sewer",
+    "floor": "stone",
     "is_interior": true,
     "terrain": "sewer"
   },

@@ -78,7 +78,53 @@ export const A11Y_OPTIONS = [
     why: 'Sums both channels to one, so nothing is only in the ear you are not using.',
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
   },
+  {
+    // ⚠ NO `def`. This option is deliberately TRI-STATE — see sfxDetail() below.
+    // Giving it a default would store a value for everybody and destroy the
+    // never-chosen state the derived default depends on.
+    key: 'sfxDetail', label: 'Sound Detail', verb: 'sfx',
+    // The only option in the table with a `resolve`. Both renderers ask this
+    // rather than reading the raw key, so neither has to know that "unset" is a
+    // real state here — and neither ends up printing "currently undefined".
+    resolve: (settings, ctx) => sfxDetail(settings, ctx?.displayRung),
+    why: 'How much of the world you hear. Limited is the game\'s usual soundset — sound when something happens. Full adds continuous world sound: a footstep on whatever you are standing on as you enter each tile, doors opening and closing. It is meant to tell you where you are without reading. Full is the default if you play in log mode. Off silences both tiers, and changes nothing about volume — the sliders under Sound are still where you set how loud things are.',
+    opts: [{ v: 'off', t: 'Off' }, { v: 'limited', t: 'Limited' }, { v: 'full', t: 'Full' }],
+  },
 ];
+
+// ── Sound Detail: chosen wins, never-chosen is DERIVED ───────────────────────
+//
+// The one place this question is answered. Every consumer calls this rather than
+// reading `settings.sfxDetail`, because the raw value is absent for almost
+// everybody and absent does not mean `limited`.
+//
+// The tri-state is the whole design, and it is the same one Display Mode's own
+// rungs run on (docs/systems-display-mode.md — "keep the fourth state"). A player
+// on the `log` rung has no room pane to read, so the dense tier is what they
+// should get by default; everyone else should get today's game unchanged. Storing
+// that as a value at login would be a WRITE, and a write cannot be told apart from
+// a choice — the moment somebody at `log` pressed Limited, or somebody at `visual`
+// switched to `log`, the stored value would be the wrong answer with no way to
+// know it was never meant.
+//
+// So nothing is stored until the player presses a pill, and a pressed pill wins
+// forever after, at every rung. `accessibility reset` must DELETE the key rather
+// than write 'limited', or a log-rung player who resets is quietly demoted off the
+// tier the reset was supposed to restore.
+export function sfxDetail(settings, displayRung) {
+  const v = settings?.sfxDetail;
+  if (v === 'off' || v === 'limited' || v === 'full') return v;
+  return displayRung === 'log' ? 'full' : 'limited';
+}
+
+// What an option is CURRENTLY set to, for display. Almost every row answers this
+// with its stored value; a row carrying a `resolve` answers it with a derived one.
+// Both surfaces call this so the tri-state lives in exactly one place, and a
+// second option that ever needs a derived default gets it by adding a `resolve`
+// rather than by teaching two renderers a second special case.
+export function effectiveOptionValue(opt, settings, ctx) {
+  return opt?.resolve ? opt.resolve(settings || {}, ctx) : settings?.[opt.key];
+}
 
 // ── Motion, as a predicate rather than an attribute ─────────────────────────
 //

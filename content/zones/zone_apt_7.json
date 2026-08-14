@@ -10,6 +10,7 @@
     "west": "zone_embassy_floor2"
   },
   "flags": {
+    "floor": "boards",
     "is_apartment": true,
     "is_interior": true,
     "rent_cost": 50,

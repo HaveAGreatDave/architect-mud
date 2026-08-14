@@ -13,6 +13,7 @@
   "flags": {
     "building_name": "Screw It",
     "claimable_asset": "chem_supply",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

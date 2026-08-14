@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Fired & Forgotten",
     "building_type": "shop",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

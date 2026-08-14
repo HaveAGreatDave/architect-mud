@@ -13,6 +13,7 @@
 //   • failing to recognise a close control, so Escape silently does nothing.
 //
 // Run: node scripts/a11y/focus-smoke.mjs   (also wired into pretest:regress)
+import { readFileSync } from 'node:fs';
 import { isModalCandidate, topmostOf, looksLikeClose, findCloseControl, nameGlyphControls, nameDialog, nameField } from '../../client/game/js/a11y-focus.js';
 
 let failed = 0;
@@ -300,6 +301,27 @@ for (const [name, node] of NOT_CLOSERS) {
   row([prose, field2]);
   nameField(field2);
   is(field2._attrs['aria-labelledby'], undefined, 'a paragraph of help text is not read out as a field name');
+}
+
+// ── Every window is DISCOVERABLE as a dialog ────────────────────────────────
+//
+// The manager finds modals by a shortlist of names: `*-panel`, `*-overlay`,
+// `*-modal`, `[role="dialog"]`, `[data-a11y-modal]`. A window whose class matches
+// none of those gets no trap and no Escape however correct the rest of it is, and
+// nothing on screen shows the difference — the only symptom is Tab walking out of
+// a dialog that is still covering the page.
+//
+// `.confirm-window` was exactly that for the four windows in confirm.js, one of
+// which takes poker bets and one of which gates sign-out. These two checks are
+// here so a fifth window added to that file cannot ship the same way.
+{
+  const src = readFileSync(new URL('../../client/game/js/panels/confirm.js', import.meta.url), 'utf8');
+  const windows = (src.match(/className = 'confirm-window/g) || []).length;
+  const optIns = (src.match(/^  asDialog\(/gm) || []).length;
+  is(optIns, windows, `every .confirm-window opts in as a dialog (${windows} window(s))`);
+
+  const sift = readFileSync(new URL('../../client/game/js/panels/sift-select.js', import.meta.url), 'utf8');
+  is(/setAttribute\('role', 'dialog'\)/.test(sift), true, 'the SIFT picker declares itself a dialog');
 }
 
 if (failed) {

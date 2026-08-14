@@ -15,6 +15,7 @@
   "flags": {
     "building_name": "Tine & Temper",
     "building_type": "kitchenware",
+    "floor": "tile",
     "is_building": true,
     "is_interior": true,
     "window": {

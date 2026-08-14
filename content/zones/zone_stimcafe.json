@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Battery Acid Coffee Co.",
     "building_type": "shop",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

@@ -16,6 +16,7 @@
     "west": "zone_yards_tenement_u10_4"
   },
   "flags": {
+    "floor": "boards",
     "is_interior": true
   },
   "grid_x": 0,

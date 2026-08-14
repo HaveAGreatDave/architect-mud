@@ -81,6 +81,9 @@ cue in that tab deterministic.
 | `stream` | a jet of liquid on a surface | **pressure**, surface, phase |
 | `flatus` | exactly what you think | **pressure** |
 | `note` | a struck/plucked musical note | instrument voice, note, **velocity** |
+| `footstep` | one step, per tile entered | footing class, intensity, **wet**, **foot** |
+| `door` | a door leaf opening or closing | `door_type`, open/close, powered |
+| `lock` | the mechanism, not the leaf | lock family, lock/unlock/**denied** |
 
 One generator is not like the others: **`note`** makes a *musical* sound rather than noise made by an
 object, and it is the only one here with **no `vary()` in it at all**. Everything above jitters itself
@@ -151,6 +154,85 @@ That last one is the clearest example of the design paying off. The old hand-aut
 sounded identical whether the character was bursting or barely needed to go, because the only inputs
 were the surface and a phase. Now a full bladder is a hard, high, tight jet that splatters and takes
 several spurts to finish; a nearly-empty one is a loose dribble that doesn't splash at all.
+
+## The dense tier — footsteps, doors, locks
+
+Everything above fires when a player *does* something. This tier is the world
+running continuously underneath that, and it exists for the `log` rung: a room
+description is abbreviated there, so the ground under your feet and the door
+behind you arrive as sound rather than as lines you have to read.
+
+It is gated by **Sound Detail** (`off` / `limited` / `full`) — one row in
+`A11Y_OPTIONS`, defaulting to `full` only at the `log` rung. See
+[systems-display-mode.md](systems-display-mode.md#sound-detail).
+
+**The gate is a stamp on the NEW cues, never a category on all of them.** The
+server sets `tier: 'full'` and the client drops those below the top rung; an
+unmarked cue is untouched. That is what makes `limited` — what everybody who has
+never chosen gets — a *provable* no-op against every cue that shipped before this,
+and it is the property that made the tier safe to turn on for the whole game.
+
+### Nothing is authored twice
+
+| The sound of | comes from | authored |
+|---|---|---|
+| outdoor ground | `flags.terrain` | already the ground-surface SSOT |
+| indoor floor | `flags.floor` | **new** — 591 interiors, seeded then hand-corrected |
+| a door leaf | `doors.door_type` | already on every door |
+| a lock | the door's `lock:<family>` tag | already on every locked door |
+
+Three of those four cost nothing. `flags.floor` is the exception and it has to
+be: `resolveTerrain` returns `null` indoors **by design** — an interior has no
+ground surface — so the indoor half of the question genuinely had no answer in the
+world yet. [`scripts/content/seed-floors.mjs`](../scripts/content/seed-floors.mjs)
+proposes one per room from the zone name and `building_type`; it writes only where
+the key is absent, so it is re-runnable and can never overwrite a hand-made call.
+
+Footing classes are **coarse on purpose**. Redrock, hardpan, alkali, basalt and a
+plateau are one sound under a boot — the same argument that keeps 85 food items on
+ten material classes. A regress case walks the terrain enum in `tagCatalog.js` and
+fails if any value is unmapped, because a terrain added later is otherwise the
+wrong ground under a whole region with nothing to notice it.
+
+### Bearable for ten thousand repetitions
+
+A footstep fires on nearly every input for as long as somebody plays, which makes
+it the only cue in the game where listening *fatigue* is the design problem. Volume
+is not the answer — **a quiet sound repeated identically is more irritating than a
+loud one that varies.** Four things carry it:
+
+- **Alternating feet.** `foot` is 0/1 from a per-player RAM counter; the trailing
+  foot is fractionally lighter and lower. `vary()` alone cannot do this — random
+  jitter is heard as *noise*, an alternating pair is heard as *walking*. Regress
+  pins that the two feet differ at the same seed.
+- **A cadence floor.** Auto-walk, run mode and a held key deliver moves faster than
+  a person walks. Under `MIN_STEP_MS` the step is **dropped, never queued** — a
+  queue turns a sprint into a machine-gun that runs on after you stop.
+- **Under the mix.** Own steps at 0.55, other people's at 0.3. A footstep is the
+  floor of the mix, not an event in it.
+- **Steps get out of the way of speech.** Anything that carries information —
+  a refused lock, combat, dialogue — sits above this tier deliberately.
+
+### Blending with the weather
+
+A step does not merely duck under rain, it **gets wet**. `wet` (0–1, from
+`getZonePrecip`, and only outdoors) moves the step toward the rain's own spectrum:
+the strike is deadened, the top end fills in, a splash layer appears. Then it ducks
+as well. The two together are the difference between *"quieter"* and *"in the
+rain"* — which is the whole point, since a cue that only drops in volume still cuts
+through the bed with the wrong timbre.
+
+⚠ **Only the DELTA does anything.** `wet` is applied as
+`max(0, wet − surface.wetness)`, so rain changes nothing about standing water or a
+marsh. The first version scaled by `wet` directly and went on softening a surface
+that could not get any softer; regress pins it.
+
+### `denied` is information, not decoration
+
+`lock` has three cues and the third is the one that earns its place. At the `log`
+rung a lock that opens and a lock that turns you away must not be the same sound,
+or the player is reading the log to find out whether the door in front of them just
+worked. It is the one cue in this tier deliberately mixed **above** the others.
 
 ## History
 

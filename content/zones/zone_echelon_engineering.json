@@ -18,6 +18,7 @@
     "building_name": "The Echelon",
     "echelon": true,
     "engine_ambience": true,
+    "floor": "linoleum",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_echelon_exterior",

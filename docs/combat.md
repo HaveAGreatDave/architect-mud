@@ -46,8 +46,23 @@ only ever hurts). The step comes from `getZoneVisibility(zone).category` on the 
 applied **from the attacker's own perceived light**: player-initiated swings (`playerAttackEnemy`,
 `playerAttackNpc`, `pvpSwing`) run the `visibility.perceive` hook first, so a lit flashlight cancels the
 penalty for that attacker; monster/NPC swings (`enemyAttackPlayer`, `npcAttackPlayer`) eat the raw zone
-darkness. Mob-vs-mob paths (`enemyAttackNpc`/`enemyAttackEnemy`) apply the raw zone darkness too, so
-every combat direction respects the light level.
+darkness. Mob-vs-mob paths (`enemyAttackNpc`/`enemyAttackEnemy`/`npcAttackEnemy`) apply the raw zone darkness
+too, so every combat direction respects the light level.
+
+**The attack matrix is now complete.** Every attacker/defender pairing has a function in
+`combat.js`: `playerAttackEnemy` · `playerAttackNpc` · `pvpSwing` · `enemyAttackPlayer` ·
+`enemyAttackNpc` · `enemyAttackEnemy` · `npcAttackPlayer` · `npcAttackNpc` · **`npcAttackEnemy`**.
+The last of those is what makes an allied NPC possible at all, and it is the only one built from
+*two* halves rather than one: the attacker side is `npcAttackNpc`'s (`flags.hit`, `flags.weapon`, the
+shared `_lastAttack` cooldown), the defender side is `applyStrikeToEnemy`'s (authored body-part
+weights, **typed soak**, the enemy damage observers). Skipping the second half is the bug where an
+ally's blow cuts through carapace armour the player's identical blow cannot. **Kill credit is the
+CALLER's** — pass `{ credit: player }` — so `combat.js` never learns what an ally is; the policy half
+lives in [plugins/ally](../plugins/ally/README.md).
+
+⚠ An enemy keeps `dodge` as a top-level column; an NPC keeps it in `flags.dodge`. `enemyAttackEnemy`
+reads `defender.flags?.dodge` against an enemy, which is why enemy-vs-enemy almost never misses. That
+is a known bug, not a pattern to copy.
 
 `effectiveSkill = skill level (floor(player_skills.ip/100), 0–10) + average of the skill's governing stats` (`skills.js`). It can exceed 10.
 There is no `dodge_base` term any more — `dodge`/`effectiveSkill('dodge')` is the whole defense value.

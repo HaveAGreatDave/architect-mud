@@ -13,6 +13,7 @@
   "flags": {
     "always_lit": true,
     "building_name": "The Broadcast",
+    "floor": "boards",
     "is_interior": true,
     "prologue": true
   },

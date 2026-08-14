@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Camp Giardia",
     "building_type": "diner",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

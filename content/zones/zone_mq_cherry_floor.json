@@ -16,6 +16,7 @@
   "flags": {
     "building_name": "The Cherry Pit",
     "building_type": "club",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_901_907"

@@ -10,6 +10,7 @@
   "flags": {
     "building_name": "Some Assembly Required",
     "building_type": "fabrication",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

@@ -6,6 +6,7 @@
     "up": "zone_bld_898_1171_lobby"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "lawless": true,
     "world_exit_zone": "zone_the_reach_871_1954"

@@ -12,6 +12,7 @@
     "building_name": "Chill Out Logistics",
     "building_type": "cold_storage",
     "claimable_asset": "warehouse",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

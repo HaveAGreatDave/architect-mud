@@ -16,6 +16,7 @@
     "building_name": "The Echelon",
     "echelon": true,
     "echelon_helipad": true,
+    "floor": "metal",
     "hangar_interior": true,
     "hangar_ramp": "zone_echelon_exterior",
     "is_building": true,

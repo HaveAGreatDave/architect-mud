@@ -12,6 +12,7 @@
     "up": "zone_district_918_901"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true,
     "world_exit_zone": "zone_district_918_901"
   },

@@ -9,6 +9,7 @@
   "flags": {
     "building_name": "Nuts to That",
     "building_type": "hardware",
+    "floor": "concrete",
     "is_building": true,
     "is_interior": true,
     "world_exit_zone": "zone_district_915_908"

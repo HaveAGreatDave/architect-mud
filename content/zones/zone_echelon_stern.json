@@ -17,6 +17,7 @@
     "echelon": true,
     "echelon_view": true,
     "fishing_table_id": "fish_echelon_basin",
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true,
     "naval_ambience": true,

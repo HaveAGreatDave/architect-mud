@@ -11,6 +11,7 @@
   "flags": {
     "building_name": "Lather & Lye",
     "building_type": "bathhouse",
+    "floor": "boards",
     "is_building": true,
     "is_interior": true,
     "window": {

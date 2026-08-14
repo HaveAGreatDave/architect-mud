@@ -513,6 +513,11 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       // changes during a transit. Explicit open/close verbs still persist.
       door.is_open = 1;
       setDoorCache(door.id, door);
+      // The narration already says a locked door disengages and you open it. The
+      // sound is that same sentence, for someone who isn't reading it — and the
+      // lock leads, because that is the order it happens in.
+      if (doorWasLocked) emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'unlock' });
+      emit('door.sfx', { door, zoneId: player.current_zone, actorId: player.id, cue: 'open' });
     }
   }
 
@@ -538,6 +543,26 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // be held while crossing rooms — forceStand('moved') clearing it meant you
   // could never sneak anywhere, only sneak where you already were.
   const sneaking = isSneaking(player);
+
+  // ── The step ────────────────────────────────────────────────────────────────
+  //
+  // A DEDICATED event, deliberately not `zone.entered`. That one is also emitted
+  // by scripted teleports (graph.js), and it is how flight, voidwalking and dream
+  // transitions announce an arrival — so hanging a footstep off it means boots
+  // when you fast-travel, and gating that back out is a list of exclusions
+  // somebody eventually forgets to extend. Only walking calls cmdMove, so the
+  // gate here is structural rather than a condition anyone has to remember.
+  //
+  // Everything it carries is already in hand — no query, on the per-move path.
+  // Intensity is weight and pace: sneaking is most of the point of sneaking, and
+  // running is the one thing a room ought to hear coming.
+  emit('movement.step', {
+    actor: player,
+    zone: targetId,
+    from: oldZoneId,
+    intensity: sneaking ? 0.12 : player.running ? 0.85 : 0.5,
+  });
+
   const interrupted = (player.sleeping?.inDream || sneaking) ? null : forceStand(player, 'moved');
   if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
@@ -600,6 +625,11 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   // Close (and re-lock if locked) the door behind the player
   if (hadDoor && doorWasClosed) {
     door.is_open = 0;
+    // "The door swings closed." Both zones are told, in the two broadcasts below,
+    // because a door shutting is audible from either side of it — so the sound
+    // follows the same two rooms rather than inventing its own audience.
+    emit('door.sfx', { door, zoneId: oldZoneId, actorId: player.id, cue: 'close' });
+    emit('door.sfx', { door, zoneId: targetId, cue: 'close' });
     if (doorWasLocked) {
       door.lock_state = 'locked';
       setDoorCache(door.id, door);
@@ -611,6 +641,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       // that moves a lock already mirrors it; this one was the hole.
       syncApartmentLock(door, 'locked').catch(e =>
         console.error('[movement] apartment lock mirror failed for door', door.id, e.message));
+      emit('door.sfx', { door, zoneId: zone.id, actorId: player.id, cue: 'lock' });
+      emit('door.sfx', { door, zoneId: targetId, cue: 'lock' });
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed and locks.' }, player.id);
     } else {

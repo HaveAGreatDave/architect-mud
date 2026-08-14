@@ -16,6 +16,7 @@
   },
   "flags": {
     "district": "sewer",
+    "floor": "stone",
     "is_interior": true,
     "scavenging_table_id": "scav_sewer",
     "terrain": "sewer"

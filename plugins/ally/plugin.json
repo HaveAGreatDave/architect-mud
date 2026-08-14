@@ -1,0 +1,16 @@
+{
+  "name": "ally",
+  "version": "1.0.0",
+  "description": "An NPC fights on a player's side. The policy half of the allied-NPC seam: which enemy it swings at, who gets the kill credit, and when it backs out of a fight it is losing. The swing itself is engine (combat.js npcAttackEnemy).",
+  "commands": ["ally"],
+  "hooks": [],
+  "actions": {
+    "registers": ["ALLY_ENLIST", "ALLY_DISMISS"],
+    "tagGated": []
+  },
+  "events": {
+    "emits": ["ally.enlisted", "ally.engaged", "ally.kill", "ally.withdrawn", "ally.ended", "enemy.killed"],
+    "consumes": ["escort.ended", "npc.killed", "player.death", "player.logout"]
+  },
+  "dependencies": []
+}

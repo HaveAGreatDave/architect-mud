@@ -17,6 +17,7 @@
   },
   "flags": {
     "building_name": "Citadel Financial",
+    "floor": "carpet",
     "is_building": true,
     "is_interior": true
   },

@@ -613,22 +613,324 @@
     ], 6);
   }
 
+  // ── FOOTSTEP ─────────────────────────────────────────────────────────────────
+  //
+  // One step, voiced by what is under it. Fired once per tile entered, so over a
+  // walk it is the surface you are crossing rather than a sound effect — which is
+  // the whole point: at the `log` rung the room description is abbreviated, and
+  // this puts the ground back without spending a line on it.
+  //
+  //   hardness   0..1  how sharp and bright the strike is (paving vs turf)
+  //   grit       0..1  loose material that scatters after the strike
+  //   wetness    0..1  suck and slap — marsh, shallow water, a wet floor
+  //   give       0..1  how much the surface absorbs; kills the tail
+  //   resonance  0..1  a hollow cavity under the foot — boards, a grate, a deck
+  //
+  // The classes are ACOUSTIC, not places. `stone` is a pavement, a concrete
+  // floor, a basalt flat and a redrock shelf, because at the resolution of a
+  // footstep those are one sound. The terrain→class and floor→class mappings live
+  // in the audio plugin, which owns the world's vocabulary; this file never learns
+  // what `alkali` is.
+  const FOOTSTEPS = {
+    stone:   { hardness: 0.95, grit: 0.12, wetness: 0.0,  give: 0.05, resonance: 0.10 },
+    gravel:  { hardness: 0.70, grit: 0.95, wetness: 0.0,  give: 0.25, resonance: 0.05 },
+    sand:    { hardness: 0.15, grit: 0.75, wetness: 0.05, give: 0.80, resonance: 0.0  },
+    dirt:    { hardness: 0.40, grit: 0.40, wetness: 0.10, give: 0.55, resonance: 0.05 },
+    grass:   { hardness: 0.20, grit: 0.30, wetness: 0.20, give: 0.70, resonance: 0.0  },
+    // The swish is most of it — a brush layer with almost no strike under it.
+    scrub:   { hardness: 0.25, grit: 0.55, wetness: 0.10, give: 0.60, resonance: 0.0  },
+    marsh:   { hardness: 0.10, grit: 0.05, wetness: 0.95, give: 0.85, resonance: 0.0  },
+    water:   { hardness: 0.05, grit: 0.0,  wetness: 1.00, give: 0.70, resonance: 0.0  },
+    // Fine powder. Almost no transient, a long soft hiss.
+    ash:     { hardness: 0.10, grit: 0.65, wetness: 0.0,  give: 0.85, resonance: 0.0  },
+    snow:    { hardness: 0.20, grit: 0.80, wetness: 0.30, give: 0.75, resonance: 0.0  },
+    boards:  { hardness: 0.65, grit: 0.05, wetness: 0.0,  give: 0.20, resonance: 0.85 },
+    carpet:  { hardness: 0.10, grit: 0.0,  wetness: 0.0,  give: 0.90, resonance: 0.05 },
+    tile:    { hardness: 1.00, grit: 0.05, wetness: 0.0,  give: 0.0,  resonance: 0.35 },
+    lino:    { hardness: 0.55, grit: 0.02, wetness: 0.0,  give: 0.30, resonance: 0.20 },
+    metal:   { hardness: 0.90, grit: 0.05, wetness: 0.0,  give: 0.05, resonance: 1.00 },
+  };
+
+  const footing = s => FOOTSTEPS[s] || FOOTSTEPS.stone;
+
+  // `intensity` is weight and pace — sneaking is low, running with a full pack is
+  // high. It moves loudness AND brightness, because a heavy step is not simply a
+  // louder light one.
+  //
+  // TWO PARAMETERS EXIST FOR LISTENING TO THIS FOR HOURS, and they are the
+  // difference between a footstep system and a tapping noise:
+  //
+  //   foot   0|1  which foot. A real walk alternates, and two feet that are not
+  //               quite the same weight is most of what stops a cadence reading
+  //               as a loop. `vary()` alone cannot do this — random jitter is
+  //               heard as noise, an alternating pair is heard as WALKING.
+  //   wet    0..1 standing water on the surface, from the weather. This is how a
+  //               step BLENDS with rain instead of sitting on top of it: in a
+  //               downpour the ground is genuinely wet, so the step moves toward
+  //               the rain's own spectrum rather than cutting through it.
+  function footstep({ surface: surf = 'stone', intensity = 0.5, wet = 0, foot = 0 } = {}) {
+    let f = footing(surf);
+    const i = clamp01(intensity);
+    const w = clamp01(wet);
+
+    // Rain does not wet a carpet. Wetness only lands where weather reaches, and
+    // the caller decides that — but a surface that is already soaking cannot get
+    // wetter, so the two combine by taking the higher.
+    const wetness = Math.max(f.wetness, w);
+    // What the rain ADDS, which is nothing at all to a surface already under
+    // water. Using `w` directly here was subtly wrong: it went on softening a
+    // marsh that could not get any softer, so rain changed the sound of standing
+    // water. Only the delta does anything.
+    const added = Math.max(0, w - f.wetness);
+    // Water on a hard surface deadens the strike and fills in the top end. That
+    // is the whole acoustic reason a wet street sounds quieter than a dry one.
+    const hardness = f.hardness * lerp(1, 0.78, added);
+
+    // The trailing foot is fractionally lighter and lower. Small on purpose:
+    // enough that the ear stops predicting it, not so much that you sound lame.
+    const odd = foot ? 1 : 0;
+    const footPitch = odd ? 0.94 : 1.03;
+    const footGain = odd ? 0.88 : 1.0;
+
+    // The strike. Hard surfaces are a crack; soft ones are a thud with no top end.
+    const freq = vary(lerp(70, 240, hardness) * footPitch, 0.14);
+    // Give shortens everything — a carpet swallows the tail the boards would ring.
+    const decay = vary(lerp(0.16, 0.045, f.give) * lerp(0.8, 1.15, i), 0.18);
+
+    // Shadowing the table's own fields for the rest of the function, so every
+    // layer below reads the weather-adjusted values without threading them.
+    f = { ...f, wetness, hardness };
+
+    return def('step', 0.5, [
+      { waveform: 'triangle', freq,
+        pitchBend: { to: freq * 0.62, time: decay * 0.6 },
+        filter: { type: 'lowpass', freq: vary(lerp(500, 3000, f.hardness), 0.15), q: 1.1 },
+        adsr: { a: 0.001, d: decay, s: 0, r: decay * 0.5 },
+        gain: vary((0.05 + 0.10 * i) * lerp(0.55, 1, f.hardness) * footGain, 0.14) },
+
+      // The contact itself — a few milliseconds of noise across the whole step,
+      // which is what stops a soft surface being a pure tone with nothing on top.
+      { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(lerp(700, 3400, f.hardness), 0.2), q: lerp(0.7, 1.6, f.hardness) },
+        adsr: { a: 0.001, d: vary(lerp(0.05, 0.02, f.hardness), 0.25), s: 0, r: 0.03 },
+        gain: vary((0.035 + 0.06 * i) * lerp(0.7, 1.1, f.grit + f.hardness * 0.4) * footGain, 0.18) },
+
+      // Scatter. Loose material thrown forward and settling AFTER the strike, so
+      // it is delayed — gravel that arrived with the impact would read as a hiss.
+      f.grit > 0.2 && { noiseMix: 1, delay: vary(0.02, 0.4),
+        filter: { type: 'highpass', freq: vary(lerp(1800, 4500, f.grit), 0.2), q: 0.8 },
+        adsr: { a: 0.004, d: vary(lerp(0.05, 0.16, f.grit), 0.3), s: 0, r: 0.07 },
+        gain: vary(0.030 * f.grit * (0.5 + i), 0.22) },
+
+      // Suck and slap. The low wobble is what makes marsh read as marsh rather
+      // than as quiet gravel — mud releases the foot, it doesn't just absorb it.
+      f.wetness > 0.15 && { noiseMix: 1, delay: vary(0.012, 0.3),
+        filter: { type: 'lowpass', freq: vary(lerp(500, 1600, f.wetness), 0.25), q: 2.4 },
+        vibrato: { rate: vary(lerp(6, 18, f.wetness), 0.3), depth: 180 },
+        adsr: { a: 0.005, d: vary(lerp(0.06, 0.20, f.wetness), 0.3), s: 0, r: 0.09 },
+        gain: vary(0.045 * f.wetness * (0.5 + i), 0.2) },
+
+      // The cavity under the foot. A board floor and a steel walkway are the same
+      // strike over a box; this layer IS the box, and it is why an interior
+      // announces itself the moment you step inside.
+      f.resonance > 0.1 && { waveform: 'sine', freq: vary(lerp(95, 190, f.hardness), 0.12), delay: 0.004,
+        filter: { type: 'bandpass', freq: vary(lerp(180, 420, f.resonance), 0.2), q: lerp(2, 7, f.resonance) },
+        adsr: { a: 0.002, d: vary(lerp(0.07, 0.26, f.resonance), 0.22), s: 0, r: 0.10 },
+        gain: vary(0.035 * f.resonance * (0.6 + i), 0.18) },
+    ], 3);
+  }
+
+  // ── DOOR ─────────────────────────────────────────────────────────────────────
+  //
+  // Opening and closing, off the door's OWN authored `door_type` — the field has
+  // been on every door in the game since long before this existed, so a door makes
+  // the right noise with nothing new authored anywhere. Same rule as terrain: the
+  // class is derived from what the world already records.
+  //
+  //   mass      0..1  how much door there is — sets register and how long it takes
+  //   ring      0..1  metal. sheet steel and bars ring; a hung panel does not
+  //   rattle    0..1  slack in the fitting. the entire character of a cheap door
+  //   scrape    0..1  the leaf dragging on its track or its frame
+  //   latch     0..1  how much hardware there is to click at the end
+  //
+  // The two acts are NOT two tables. A close is the same door with the impact at
+  // the END of the movement instead of the beginning, which is exactly what the
+  // thing sounds like — and it means a new door type is one row, not two.
+  const DOORS = {
+    basic:      { mass: 0.45, ring: 0.10, rattle: 0.20, scrape: 0.25, latch: 0.70 },
+    standard:   { mass: 0.45, ring: 0.10, rattle: 0.20, scrape: 0.25, latch: 0.70 },
+    // Loose in the frame and complaining about it. The one players meet most in
+    // the cheap parts of town, and it should tell them that before they look.
+    shoddy:     { mass: 0.30, ring: 0.05, rattle: 0.95, scrape: 0.60, latch: 0.35 },
+    reinforced: { mass: 1.00, ring: 0.55, rattle: 0.05, scrape: 0.20, latch: 1.00 },
+    // A rolling shutter: all travel, barely any latch, and a long way down.
+    shutter:    { mass: 0.75, ring: 0.80, rattle: 0.55, scrape: 0.95, latch: 0.15 },
+    grate:      { mass: 0.55, ring: 1.00, rattle: 0.70, scrape: 0.40, latch: 0.55 },
+  };
+
+  const doorKind = d => DOORS[d] || DOORS.basic;
+
+  // `state` is 'open' | 'close', and 'powered' rides in as a separate flag rather
+  // than a third state, because a powered door still opens AND closes.
+  function door({ surface: kind = 'basic', intensity = 0.5, state = 'open', powered = false } = {}) {
+    const d = doorKind(kind);
+    const closing = state === 'close';
+    const i = clamp01(intensity);
+
+    // Travel time. Heavy doors are slow; a powered one is smooth and unhurried.
+    const travel = vary(lerp(0.28, 0.62, d.mass) * (powered ? 1.25 : 1), 0.15);
+    // A close lands its impact at the end of the swing; an open leads with the
+    // latch coming free and then moves.
+    const hitAt = closing ? travel : 0.004;
+    const bodyFreq = vary(lerp(180, 62, d.mass), 0.12);
+
+    const layers = [
+      // The leaf moving. Present in both directions and the longest thing here.
+      { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(lerp(380, 1500, d.scrape), 0.2), q: lerp(0.9, 2.2, d.scrape) },
+        vibrato: { rate: vary(lerp(3, 11, d.rattle), 0.3), depth: lerp(40, 260, d.rattle) },
+        adsr: { a: vary(0.03, 0.3), d: travel * 0.7, s: 0.45, r: 0.12 },
+        gain: vary((0.020 + 0.030 * d.scrape) * (0.6 + 0.5 * i), 0.18) },
+
+      // The impact — the jamb on a close, the door coming off the latch on an open.
+      { waveform: 'triangle', freq: bodyFreq, delay: hitAt,
+        pitchBend: { to: bodyFreq * 0.7, time: 0.05 },
+        filter: { type: 'lowpass', freq: vary(lerp(700, 2600, d.ring), 0.18), q: 1.3 },
+        adsr: { a: 0.001, d: vary(lerp(0.06, 0.22, d.mass), 0.2), s: 0, r: 0.09 },
+        // A close is decisive; an open is the quieter half of the pair.
+        gain: vary((closing ? 0.10 : 0.055) + 0.09 * i * d.mass, 0.15) },
+
+      // Metal. Bars and sheet steel ring on well after the strike.
+      d.ring > 0.3 && { waveform: 'sine', freq: vary(lerp(600, 2100, d.ring), 0.2), delay: hitAt + 0.006,
+        fm: { rate: vary(2400, 0.2), depth: vary(420, 0.25) },
+        filter: { type: 'bandpass', freq: vary(1700, 0.2), q: 7 },
+        adsr: { a: 0.002, d: vary(lerp(0.10, 0.42, d.ring), 0.25), s: 0, r: 0.18 },
+        gain: vary(0.030 * d.ring * (0.5 + i), 0.2) },
+
+      // Slack. A cheap door knocks about in its frame for a moment afterwards, and
+      // this layer is most of what makes `shoddy` funny.
+      d.rattle > 0.3 && { waveform: 'square', freq: vary(lerp(120, 260, d.rattle), 0.2), delay: hitAt + vary(0.05, 0.4),
+        filter: { type: 'bandpass', freq: vary(900, 0.25), q: 3.2 },
+        tremolo: { rate: vary(lerp(9, 22, d.rattle), 0.25), depth: 0.8 },
+        adsr: { a: 0.004, d: vary(0.16 * d.rattle, 0.3), s: 0, r: 0.10 },
+        gain: vary(0.022 * d.rattle * (0.5 + i), 0.22) },
+
+      // Hardware. The click at the end of a close, the clack at the start of an open.
+      d.latch > 0.2 && { waveform: 'square', freq: vary(2600, 0.15), delay: closing ? travel + 0.03 : 0,
+        filter: { type: 'highpass', freq: 1600, q: 1.1 },
+        adsr: { a: 0, d: vary(0.022, 0.3), s: 0, r: 0.02 },
+        gain: vary(0.030 * d.latch, 0.2) },
+
+      // A servo, where there is one to hear. Deliberately quiet: it is a tell that
+      // the door is powered, not a machine noise in its own right.
+      powered && { waveform: 'sawtooth', freq: vary(220, 0.1),
+        fm: { rate: vary(440, 0.15), depth: vary(90, 0.2) },
+        filter: { type: 'bandpass', freq: vary(700, 0.2), q: 4 },
+        adsr: { a: 0.02, d: travel * 0.6, s: 0.6, r: 0.14 },
+        gain: vary(0.018 * (0.6 + 0.5 * i), 0.15) },
+    ];
+
+    return def(closing ? 'door_close' : 'door_open', travel + 0.45, layers, 3);
+  }
+
+  // ── LOCK ─────────────────────────────────────────────────────────────────────
+  //
+  // The MECHANISM, not the leaf. A door and its lock are two separate sounds
+  // because they are two separate things — you can hear a bolt thrown on a door
+  // that never moves, and that is most of what makes a locked door legible.
+  //
+  // Keyed by lock family, derived from the door's own `lock:<family>` tag, which
+  // has been authored on every locked door in the game since long before this.
+  // Nothing new is authored; an unknown family falls back to a plain deadbolt.
+  //
+  //   bolt        0..1  how much steel moves, and how far
+  //   electronic  0..1  how much of the sound is a TONE rather than metal
+  //   pitch       ×     the family's register
+  //   travel      s     how long the mechanism takes to do its work
+  //
+  // THREE cues, and the third is the one that earns its place. `denied` is a
+  // refusal you can HEAR — at the log rung a lock that turns you away and a lock
+  // that opens must not be the same sound, or a player is reading the log to find
+  // out whether the door in front of them just worked.
+  const LOCKS = {
+    deadbolt:     { bolt: 0.85, electronic: 0.0,  pitch: 1.00, travel: 0.20 },
+    // The common electronic lock. A soft click over a held tone.
+    hololock:     { bolt: 0.25, electronic: 0.85, pitch: 1.30, travel: 0.28 },
+    keycardlock:  { bolt: 0.35, electronic: 0.70, pitch: 1.15, travel: 0.22 },
+    // A domestic privacy catch. Barely any mechanism at all.
+    privacylock:  { bolt: 0.30, electronic: 0.15, pitch: 1.45, travel: 0.12 },
+    viplock:      { bolt: 0.40, electronic: 0.95, pitch: 1.55, travel: 0.30 },
+    yachtlock:    { bolt: 0.55, electronic: 0.60, pitch: 1.20, travel: 0.24 },
+    // Institutional. Heavy, slow, and audibly not interested in your opinion.
+    longwatch:    { bolt: 0.95, electronic: 0.45, pitch: 0.80, travel: 0.38 },
+    detentionlock:{ bolt: 1.00, electronic: 0.35, pitch: 0.70, travel: 0.45 },
+    // A shop shutter's padlock: a chain and a hasp, no electronics whatsoever.
+    shopshutter:  { bolt: 0.75, electronic: 0.0,  pitch: 1.10, travel: 0.18 },
+  };
+
+  const lockKind = l => LOCKS[l] || LOCKS.deadbolt;
+
+  function lock({ surface: family = 'deadbolt', state = 'lock', intensity = 0.5 } = {}) {
+    const L = lockKind(family);
+    const i = clamp01(intensity);
+    const denied = state === 'denied';
+    const opening = state === 'unlock';
+    const dur = vary(L.travel * (denied ? 0.6 : 1), 0.12);
+    // Engaging rises and settles; releasing falls away. A denied attempt is the
+    // mechanism starting and stopping — the tell is that it never resolves.
+    const base = vary(lerp(320, 900, L.electronic) * L.pitch, 0.1);
+    const end = denied ? base * 0.55 : (opening ? base * 0.78 : base * 1.22);
+
+    return def(`lock_${denied ? 'denied' : opening ? 'unlock' : 'lock'}`, dur + 0.4, [
+      // The bolt. Steel sliding and seating.
+      L.bolt > 0.1 && { noiseMix: 1,
+        filter: { type: 'bandpass', freq: vary(lerp(900, 2600, 1 - L.electronic), 0.2), q: lerp(1.2, 3.0, L.bolt) },
+        adsr: { a: 0.003, d: dur * 0.55, s: 0.3, r: 0.08 },
+        gain: vary(0.035 * L.bolt * (0.5 + i), 0.18) },
+      // It seating home — the definite end of the movement. Absent on a refusal,
+      // because nothing seated.
+      !denied && L.bolt > 0.1 && { waveform: 'triangle', freq: vary(lerp(240, 90, L.bolt), 0.12), delay: dur,
+        filter: { type: 'lowpass', freq: vary(1400, 0.2), q: 1.6 },
+        adsr: { a: 0.001, d: vary(lerp(0.05, 0.16, L.bolt), 0.2), s: 0, r: 0.07 },
+        gain: vary(0.055 * L.bolt * (0.6 + i), 0.15) },
+      // The electronics. A held tone that resolves up, down, or not at all.
+      L.electronic > 0.1 && { waveform: 'sine', freq: base,
+        pitchBend: { to: end, time: dur * 0.8 },
+        fm: { rate: base * vary(2, 0.15), depth: base * 0.18 },
+        filter: { type: 'bandpass', freq: base, q: 5 },
+        adsr: { a: 0.008, d: dur * 0.7, s: 0.5, r: 0.14 },
+        gain: vary(0.040 * L.electronic * (0.6 + 0.4 * i), 0.12) },
+      // A refusal buzzes. Short, flat, and unmistakably a no — the one cue here
+      // that has to survive being heard rather than read.
+      denied && { waveform: 'square', freq: vary(base * 0.42, 0.08), delay: dur * 0.5,
+        filter: { type: 'lowpass', freq: vary(1100, 0.2), q: 2.0 },
+        tremolo: { rate: vary(26, 0.15), depth: 0.9 },
+        adsr: { a: 0.004, d: vary(0.16, 0.2), s: 0, r: 0.06 },
+        gain: vary(0.055, 0.15) },
+    ], 3);
+  }
+
   // THE ENTRY POINT. Everything above is deterministic given `rnd`, so seeding
   // here is what makes the client's rebuild bit-identical to whatever the server
   // intended — and what makes a cue reproducible while someone is tuning it.
   //
   // No seed means "vary freely", which is what a purely client-side caller wants.
-  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, seed } = {}) {
+  function buildActionCue({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot, seed } = {}) {
     rnd = Number.isFinite(seed) ? mulberry32(seed) : Math.random;
     try {
-      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state });
+      return _build({ action, material: mat, intensity, surface: surf, vessel, heat, flow, state, powered, wet, foot });
     } finally {
       rnd = Math.random;   // never leave a seeded generator armed for the next caller
     }
   }
 
-  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state } = {}) {
+  function _build({ action, material: mat, intensity = 0.5, surface: surf, vessel, heat, flow, state, powered, wet, foot } = {}) {
     switch (action) {
+      // `surface` carries the surface class for a step and the door_type for a
+      // door, so both reach the same one-argument entry point as everything else.
+      case 'footstep': return footstep({ surface: surf, intensity, wet, foot });
+      case 'door':     return door({ surface: surf, intensity, state, powered });
+      case 'lock':     return lock({ surface: surf, intensity, state });
       case 'chop':    return chop({ material: mat, intensity, state });
       case 'impact':  return impact({ surface: surf || vessel || 'metal', intensity, weight: intensity });
       case 'scrape':  return scrape({ surface: surf || vessel || 'metal', intensity });
@@ -664,6 +966,9 @@
     'proc:streams': { name: 'Procedural — stream surfaces', ref: () => STREAM_SURFACES },
     'proc:flatus': { name: 'Procedural — fart styles', ref: () => FLATUS_STYLES },
     'proc:instruments': { name: 'Procedural — instrument voices', ref: () => INSTRUMENTS },
+    'proc:footsteps': { name: 'Procedural — footing surfaces', ref: () => FOOTSTEPS },
+    'proc:doors': { name: 'Procedural — door types', ref: () => DOORS },
+    'proc:locks': { name: 'Procedural — lock families', ref: () => LOCKS },
   };
 
   function defaults() {
@@ -703,8 +1008,8 @@
     // Kept as an alias: the system started as cooking-only and the name is in
     // the regression suite and the docs. Same function.
     buildCookingCue: buildActionCue,
-    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS,
-    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note,
+    MATERIALS, SURFACES, STATES, STREAM_SURFACES, FLATUS_STYLES, INSTRUMENTS, FOOTSTEPS, DOORS, LOCKS,
+    chop, impact, scrape, stir, pour, sizzle, boil, stream, flatus, microwave, note, footstep, door, lock,
     // Musical notes have their own entry point rather than riding buildActionCue:
     // there is no seed (nothing is random) and the argument names are the ones a
     // caller actually has — instrument, note, velocity.

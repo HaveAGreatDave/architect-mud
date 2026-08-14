@@ -8,6 +8,7 @@
     "up": "zone_drum_shop"
   },
   "flags": {
+    "floor": "concrete",
     "is_interior": true
   },
   "grid_x": 0,

@@ -14,6 +14,7 @@
     "west": "zone_apt_12"
   },
   "flags": {
+    "floor": "linoleum",
     "intro_lore": "One more flight and the building gives up pretending it was ever nice. The people up here climbed past two landings to get further from the noise, the smell, and each other, proof that in Coldwater, effort buys privacy same as money does anywhere else. The one working light burns red, which some call thematic and others call the bulb they had.",
     "is_interior": true
   },

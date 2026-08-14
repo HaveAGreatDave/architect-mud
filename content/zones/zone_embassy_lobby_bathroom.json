@@ -10,6 +10,7 @@
     "west": "zone_residential_lobby"
   },
   "flags": {
+    "floor": "tile",
     "intro_lore": "The Embassy's one shared washroom, same age as the lobby carpet and holding up about as well. Guests share it, Lowry restocks the soap when he remembers, and the lock's a formality more than a promise.",
     "is_interior": true
   },

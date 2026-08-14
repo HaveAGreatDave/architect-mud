@@ -16,6 +16,7 @@
     "echelon": true,
     "echelon_sundeck": true,
     "echelon_view": true,
+    "floor": "metal",
     "is_building": true,
     "is_interior": true,
     "mis_ok": true,
