@@ -811,6 +811,17 @@ The cab's own focus machinery (`grabKeys`, the `⌨ KEYS` tag) was working the w
 not have fixed it — something else was taking the focus back. **Adding a panel that owns keys means
 adding it to that list.**
 
+⚠ **A live rig in RAM is not a reason to skip the cab push — it is the case the push exists for**
+*(2026-08-14)*. `restoreDrivingState` opened with `if (rigs.has(player.id)) return false`, on the
+reasonable-sounding grounds that somebody already mounted needs no restoring. But **`rigs` is server
+memory and the cab is a client panel**, and the event that separates them is the commonest one
+there is: a page reload. The socket drops and the browser is back before `player.logout` runs (or it
+never fires), so the rig is still in the map — and login pushed nothing. The result is total from the
+player's side and invisible from the server's: posture `driving`, every movement verb correctly
+refusing with *"You're behind the wheel — you'd have to park and climb down first"*, and **no truck
+on the screen**. A fresh socket has no cab by construction, so a live rig now re-pushes
+`truck_sim` every time. Pinned by three regress cases (verified to fail against the old line).
+
 ⚠ **An inline pane height is what beats fullscreen, and it is not a specificity problem**
 *(2026-08-14)*. After the flex rules below were already correct, fullscreen still refused to fill —
 because the look-resize handle stores a dragged room-pane height as an **inline style** on

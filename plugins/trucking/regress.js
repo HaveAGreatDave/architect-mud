@@ -18,6 +18,7 @@ import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
+import { restoreDrivingState } from './resume.js';
 import { damageOf, overall, wearSplit, impactSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
@@ -1312,4 +1313,41 @@ export default async function regress({ run, check, getPlayer }) {
       setLivePlayer(player.id, player);
     }
   }
+
+  // ── RECONNECT: A LIVE RIG MUST ALWAYS RE-PUSH THE CAB ─────────────────────
+  //
+  // The failure this pins is invisible from the server's side and total from the player's: the rig
+  // is in `rigs`, the posture is `driving`, every movement verb correctly refuses with "you'd have
+  // to park and climb down first" — and there is no truck on the screen. A page reload gets a
+  // FRESH SOCKET WITH NO CAB PANEL ON IT, and `restoreDrivingState` used to return early on
+  // exactly that state (`rigs.has(id)`), on the reasonable-sounding grounds that somebody already
+  // mounted needs no restoring. `rigs` is server memory; the cab is a client panel; a reload
+  // separates them. A live rig is not a reason to do nothing — it is the case the push exists for.
+  {
+    const pushes = [];
+    const savedBc2 = getBroadcast();
+    const savedRig = rigs.get(player.id);
+    const savedPosture = player.posture;
+    try {
+      setBroadcast((_z, message, _ex, targetId) => { if (targetId === player.id) pushes.push(message); });
+      rigs.set(player.id, {
+        truckId: 't_regress_resume', leg: 'city', x: 10, y: 10, heading: 180,
+        fuel: 1, speed: 0, s: 0, t: 0, node: 0, chain: [], zoneId: player.current_zone,
+        route: null, dmg: null, condition: 1, cd: {}, params: TYPES.hauler, type: TYPES.hauler,
+        typeId: 'hauler', cargo: null, trailer: null,
+      });
+      const out = await restoreDrivingState(player, { mountOnCrossing: () => null });
+      setBroadcast(savedBc2);
+      check('reconnect: a live rig re-pushes the cab instead of returning early', out === true, String(out));
+      check('…and what reaches the client is the cab itself',
+        pushes.some((m) => m?.type === 'truck_sim'),
+        pushes.map((m) => m?.type).join(', ') || 'nothing pushed');
+      check('…and the posture rides the same reconnect', player.posture === 'driving', String(player.posture));
+    } finally {
+      setBroadcast(savedBc2);
+      if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
+      player.posture = savedPosture;
+    }
+  }
+
 }

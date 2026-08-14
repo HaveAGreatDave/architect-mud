@@ -78,7 +78,26 @@ export async function saveDrivingState(playerId) {
 // `mountOnCrossing` is passed in rather than imported, because index.js imports this module and a
 // cycle back the other way is exactly the kind of load-order tangle the plugin loader punishes.
 export async function restoreDrivingState(player, { mountOnCrossing }) {
-  if (!player?.id || rigs.has(player.id)) return false;
+  if (!player?.id) return false;
+
+  // ⚠ A LIVE RIG IN RAM IS NOT A REASON TO DO NOTHING — IT IS THE CASE THIS EXISTS FOR.
+  //
+  // This used to read `if (rigs.has(player.id)) return false`, on the reasonable-sounding grounds
+  // that somebody already mounted needs no restoring. But `rigs` is SERVER memory and the cab is a
+  // CLIENT panel, and the one event that reliably separates them is the one that happens most: a
+  // page reload. The socket drops, the browser comes back in under the time it takes `player.logout`
+  // to run (or the logout never fires at all), so the rig is still in the map — and this returned
+  // false, pushed nothing, and left the player driving a truck with no truck on the screen. The
+  // only tell was the room description in the pane and a refusal to walk: "You're behind the wheel."
+  //
+  // A fresh socket has NO CAB by construction. So a live rig means push the cab, every time.
+  const live = rigs.get(player.id);
+  if (live) {
+    if (!live.truckId) return false;                 // parked/on foot: nothing to be back inside of
+    setPosture(player, 'driving');                   // the posture rides the same reconnect
+    sendToPlayer(player.id, { ...cabContext(live, { mounted: true }), type: 'truck_sim' });
+    return true;
+  }
   const raw = await getFlag('player', KEY, player).catch(() => undefined);
   if (!raw) return false;
   // RULE 1 — consumed first, before anything below can throw.
