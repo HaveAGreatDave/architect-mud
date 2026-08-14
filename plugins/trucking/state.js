@@ -24,6 +24,7 @@ import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider,
   addWreck, wreckAhead } from './corridor.js';
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
+import { routeOptions } from './routes.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -483,6 +484,12 @@ export function cabContext(rig, extra = {}) {
     // destination while the tarmac runs to another. Naming only: the aiming, the fork rules and the
     // range check all stay in the verb.
     aim: city ? null : (rig.route?.destKey || null),
+    // THE FORK, AS THE VERB SEES IT. Not a second opinion: routeOptions is the one function that
+    // answers where this rig can go, and `route` prints the very rows the GPS paints. Distance and
+    // whether the tank reaches are the whole value of the screen — a picker that only listed names
+    // would be a slower way of typing — and both move (a tune changes the tank, the fork passes
+    // behind you), so a copy here would go stale in the one place staleness is dangerous.
+    routes: routeOptions(rig, { zoneId: rig.zoneId, forkAhead: atOrBeforeFork(rig) }),
     node: city ? 0 : rig.node, nodes: city ? 0 : rig.chain.length,
     surface: surfaceUnder(rig),
     // The other half of the traffic picture: aircraft near the truck, so a driver sees a Mule come

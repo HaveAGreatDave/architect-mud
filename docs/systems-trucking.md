@@ -724,6 +724,23 @@ the wheel now carries the GEAR and the six tell-tales and nothing else, so the h
 `1.12H` where a wheel sits. ⚠ **The old binnacle hood is the "egg"** — two quadratic curves meeting
 over a pair of dials draws a fat lozenge; cluster surrounds are squared panels with a lip.
 
+**The GPS is a tap target for `route`** *(2026-08-14)*. Tapping the screen opens a picker; every row
+sends the ordinary `route <key>` command, the same string a player could type, and that verb owns
+**all** the rules — fork still ahead, contracted load overriding the aim, what happens to the
+odometer. The panel re-implements none of it and must not start: the moment it decides anything
+there are two answers to "can I go there", and they disagree the first time a tank gets smaller.
+So `routes.js` holds **one** `routeOptions` that both surfaces read, and six regress cases pin its
+shape. Two decisions inside it. **`reach` is three states, not a boolean** — *further than your tank,
+one way* is a run you can choose to make, and collapsing it into "no" turns a judgement call into a
+locked door; an unreachable row is therefore **shown and greyed, never hidden**, because a missing
+row is a mystery where a row that says why is information. And ⚠ **nothing is requested when the
+picker opens** — the only channel to hand is `trucksync`, which is telemetry clamped against
+wall-clock to defend the odometer, so provoking a refresh with a synthetic one would feed the
+anti-cheat envelope a position the truck is not at in order to update a menu. The cab is pushed on
+every tile change and once a second as a floor; the list is at most a second old and the verb
+re-checks everything anyway. `routes.js` imports nothing from `state.js` (which imports it) — the
+zone and the fork flag are passed in, from the same single implementations.
+
 **The GPS screen** *(2026-08-14)*. Far right of the dash, and the rule that keeps it honest: **it
 invents nothing and decides nothing.** The map is `v.map` — the very same window the world outside
 the windscreen is rendered from — so the screen and the view cannot disagree about what is out

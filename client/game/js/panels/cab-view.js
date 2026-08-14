@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabGpsRect } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -41,6 +41,8 @@ const IDLE_SYNC_MS = 2500;        // stationary — a heartbeat, not a stream
 // now assembles the real set at mount (plugins/trucking/rig.js effTruckParams: the type, its tune,
 // its kits, and how worn it is) and ships it in the cab context, so a bought truck and a tuned
 // truck are both felt at the wheel. The fallback stays for a context that predates the field.
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
 let P = TYPES.hauler;
 // WHICH of the four, kept as its own id. `params` is the effective NUMBERS and deliberately says
 // nothing about the shape — but the external view draws a real mesh now, and `buildTruck` picks the
@@ -81,6 +83,7 @@ const CONTROLS = [
   ['Drag the wheel', 'Steer. The wheel is the one on the dash in front of you — put a hand anywhere on the glass and drag, and it winds on. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
   ['← →', 'Steer, for a keyboard or a thumb. The same wheel, wound on at the pace a wrist manages.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
+  ['GPS screen', 'Tap it. The map is the road you are actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would.'],
   ['Lever', 'The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you are actually in.'],
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
@@ -169,6 +172,9 @@ export function openCab(ctx = {}) {
         <div class="cab-dmg-full" hidden></div>
       </div>
       <div class="cab-help" hidden></div>
+      <!-- THE ROUTE PICKER. Opened by tapping the GPS screen on the dash; every row sends the
+           ordinary 'route &lt;key&gt;' verb, which is what actually decides. -->
+      <div class="cab-routes" hidden></div>
       <!-- WHERE THE KEYS ARE GOING. The cab reads A/Z/X/C/,/./R off the WINDOW, and the command
            bar is an ordinary text input sitting three inches below it — so a driver who had ever
            clicked the log was driving a truck and typing "aaazzzx" into the chat box at the same
@@ -460,6 +466,15 @@ export function openCab(ctx = {}) {
         const hub = cabWheelHub(b.width, b.height);
         if (Math.hypot(e.clientX - b.left - hub.x, e.clientY - b.top - hub.y) < hub.r) {
           sendCmdSilent('horn'); e.preventDefault(); return;
+        }
+        // THE GPS IS A BUTTON, tested against the rectangle the renderer says it drew rather than
+        // against a second copy of the dash layout. Same rule as the horn boss above, and the same
+        // reason: a control that looks like it is somewhere and is somewhere else is worse than no
+        // control. A pane too narrow to carry a screen reports no rectangle and this never fires.
+        const gr = cabGpsRect();
+        if (gr && e.clientX - b.left >= gr.x && e.clientX - b.left <= gr.x + gr.w
+          && e.clientY - b.top >= gr.y && e.clientY - b.top <= gr.y + gr.h) {
+          st.toggleRoutePicker?.(); e.preventDefault(); return;
         }
       }
       drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
@@ -806,6 +821,71 @@ export function openCab(ctx = {}) {
     st.wheel?.setDragging(false);
   }
   st.setExternal = setExternal;
+  // ── THE ROUTE PICKER ───────────────────────────────────────────────────────
+  //
+  // THE SCREEN PROPOSES; THE VERB DECIDES. Every row here sends the ordinary `route <key>` command
+  // — the same string a player could type — and that command owns all of the rules: whether the
+  // fork is still ahead, whether a contracted load overrides the choice, what happens to the
+  // odometer. This panel re-implements none of it, and must not start: the moment it decides
+  // anything, there are two answers to "can I go there" and they disagree the first time a tank
+  // gets smaller.
+  //
+  // Which is also why an unreachable destination is shown and NOT hidden. A greyed row that says
+  // why is information; a missing row is a mystery, and the fuel judgement ("further than your tank,
+  // one way") is a call the driver is allowed to make.
+  {
+    const box = container.querySelector('.cab-routes');
+    const REACH = {
+      ok: ['', 'in range'],
+      thin: ['r-thin', 'past your tank, one way'],
+      far: ['r-far', 'well past your range'],
+    };
+    function renderRoutePicker() {
+      if (!box || box.hidden) return;
+      const R = st.routes;
+      if (!R || !R.dests?.length) {
+        box.innerHTML = '<div class="cab-routes-hd">ROUTE</div>'
+          + '<div class="cab-routes-none">One road out of here, and you are on it.</div>';
+        return;
+      }
+      const rows = R.dests.map((d) => {
+        const [cls, note] = REACH[d.reach] || REACH.ok;
+        return `<button class="cab-route ${cls}${d.current ? ' on' : ''}" data-key="${esc(d.key)}">`
+          + `<b>${esc(d.heading)}</b>`
+          + `<span class="cab-route-d">${d.tiles} tiles &middot; ${note}</span>`
+          + `${d.current ? '<i>▸ running for this</i>' : ''}</button>`;
+      }).join('');
+      // The one thing the picker says on its own account, and it is a statement about the ROAD
+      // rather than a decision about the player: past the junction there is nothing to choose.
+      const foot = R.forkAhead
+        ? '<div class="cab-routes-ft">The fork is still ahead.</div>'
+        : '<div class="cab-routes-ft warn">The fork is behind you — this is the road you are on.</div>';
+      box.innerHTML = `<div class="cab-routes-hd">ROUTE${R.origin ? ' &middot; out of ' + esc(R.origin) : ''}</div>${rows}${foot}`;
+    }
+    st.renderRoutePicker = renderRoutePicker;
+    st.toggleRoutePicker = (on) => {
+      if (!box) return;
+      box.hidden = on === undefined ? !box.hidden : !on;
+      renderRoutePicker();
+      // NOTHING IS REQUESTED ON OPEN. The tempting move is to ask the server for a fresh list, and
+      // the only channel to hand is `trucksync` — which is TELEMETRY, clamped against wall-clock to
+      // defend the odometer. Sending a synthetic one to provoke a reply would be feeding the
+      // anti-cheat envelope a position the truck is not at, to refresh a menu. The cab is already
+      // pushed on every tile change and once a second as a floor, so the list is at most a second
+      // old, and the verb re-checks everything anyway.
+      grabKeys();
+    };
+    box?.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('.cab-route');
+      if (!btn) return;
+      // Straight to the verb, by key. No confirmation and no client-side refusal — if the road says
+      // no, the road says so in its own words, in the log, where every other refusal lives.
+      sendCmdSilent('route ' + btn.dataset.key);
+      st.toggleRoutePicker(false);
+      e.preventDefault();
+    });
+  }
+
   container.querySelector('.cab-orbitreset')?.addEventListener('click', () => {
     st.extYaw = 0; st.extPitch = EXT_REST_PITCH; st.extZoom = 1;
   });
@@ -945,7 +1025,8 @@ export function cabContext(ctx) {
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
-  st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;   // what the GPS names — the route verb owns the aiming
+  st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;
+  if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // what the GPS names — the route verb owns the aiming
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
   if (ctx.contacts) st.contacts = ctx.contacts;
@@ -1483,6 +1564,32 @@ function ensureCabStyles() {
   .cab-rocker.on span{color:#fff}
   .cab-jake.on i{background:#4e9ab0;box-shadow:0 0 8px #4e9ab0}
   .cab-horn:active i{background:#e0b45a;box-shadow:0 0 10px #e0b45a}
+
+  /* ── THE ROUTE PICKER ──────────────────────────────────────────────────────
+     Over the glass, anchored to the right where the screen it belongs to is. It is a panel rather
+     than something drawn on the canvas because it is a LIST OF BUTTONS — tab order, focus rings and
+     a screen reader all come free from being real elements, and none of them would exist on a
+     canvas hit-test. */
+  .cab-routes{position:absolute;right:10px;bottom:76px;z-index:6;min-width:210px;max-width:44%;
+    background:rgba(6,10,14,.94);border:1px solid #35404b;border-radius:5px;padding:7px;
+    box-shadow:0 10px 26px -10px #000;backdrop-filter:blur(3px)}
+  .cab-routes-hd{font:700 9px/1 inherit;letter-spacing:.14em;color:var(--cab-glow,#e8c07a);
+    padding:2px 3px 6px}
+  .cab-route{display:block;width:100%;text-align:left;margin:0 0 4px;padding:6px 8px;cursor:pointer;
+    background:#141a20;border:1px solid #2f3944;border-radius:4px;color:#cfd9e5;font:600 12px/1.25 inherit}
+  .cab-route:hover{background:#1d252d;border-color:#5c6672}
+  .cab-route b{display:block;color:#eaf1f8;font-size:13px}
+  .cab-route-d{display:block;font-size:10px;color:#8b95a2;letter-spacing:.04em;margin-top:2px}
+  .cab-route i{display:block;font-size:9px;color:#8fe0a0;font-style:normal;margin-top:3px}
+  .cab-route.on{border-color:#8fe0a0}
+  /* Shown, never hidden: the fuel judgement is the driver's to make, and a row that is missing is
+     a mystery where a row that says why is information. */
+  .cab-route.r-thin .cab-route-d{color:#d8a24e}
+  .cab-route.r-far .cab-route-d{color:#d2603f}
+  .cab-routes-ft{font:10px/1.3 inherit;color:#7c848f;padding:4px 3px 1px}
+  .cab-routes-ft.warn{color:#d8a24e}
+  .cab-routes-none{font:11px/1.3 inherit;color:#8b95a2;padding:3px}
+  .cab-route:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
 
   /* ── WHO HAS THE KEYBOARD ──────────────────────────────────────────────────
      Bottom-right of the glass, quiet while it is right and loud the moment it is not — because

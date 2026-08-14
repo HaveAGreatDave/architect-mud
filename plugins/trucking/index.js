@@ -48,6 +48,7 @@ import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, 
   BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM } from './rig.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
+import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
@@ -1635,28 +1636,9 @@ async function leaveTheMap(player, rig, broadcast) {
 // contracted haul is a promise with a destination on it, and quietly driving it somewhere else
 // because a `route` from an hour ago is still set would be the system lying about what it is
 // doing. A free rig obeys the aim; a rig with neither takes the first limb, as it always did.
-function aimedDest(info, rig) {
-  const dests = info?.dests || [];
-  if (!dests.length) return null;
-  if (rig?.cargo?.to) {
-    const zone = getZone(rig.cargo.to);
-    const region = zone?.flags?.region_id;
-    const byLoad = region && dests.find(d => d.region === region);
-    if (byLoad) return byLoad;
-  }
-  return dests.find(d => d.key === rig?.aim) || null;
-}
-// Match what somebody typed against a void's destination table — by key, by the heading it is
-// named for, or by a prefix of either. The same shape voidwalking's own `destByHeading` uses,
-// because a driver and a walker should not have to learn two ways to name the same fork.
-function destByWord(dests, word) {
-  const w = String(word || '').trim().toLowerCase();
-  if (!w) return null;
-  return dests.find(d => d.key.toLowerCase() === w || d.heading.toLowerCase() === w)
-    || dests.find(d => d.key.toLowerCase().startsWith(w) || d.heading.toLowerCase().startsWith(w))
-    || dests.find(d => d.heading.toLowerCase().includes(w)) || null;
-}
-
+// `aimedDest` and `destByWord` moved to routes.js — the GPS screen needs them too, and two
+// copies of "which fork is this rig pointed at" is exactly the drift this whole module exists
+// to prevent. Imported above.
 // `route` — where this rig is going, and the one verb that changes it.
 //
 // It answers in two different worlds and deliberately reads as one thing in both: standing in a
@@ -1667,29 +1649,28 @@ function destByWord(dests, word) {
 async function cmdRoute(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('You are not driving anything.');
-  const onRoad = rig.leg === 'corridor';
+  const opts = routeOptions(rig, { zoneId: player.current_zone, forkAhead: atOrBeforeFork(rig) });
+  if (!opts) return say('There is one road out of here and you are on it.');
+  const onRoad = opts.onRoad;
   const info = onRoad && rig.instanceId ? crossingInfo(rig.instanceId) : null;
-  // In the city there is no crossing yet, so the table comes from the region you are standing in.
-  const here = getZone(player.current_zone);
-  const vdef = onRoad ? null : VOIDS[here?.flags?.region_id];
-  const dests = info?.dests || vdef?.dests || [];
-  if (!dests.length) return say('There is one road out of here and you are on it.');
+  const dests = (info?.dests || VOIDS[getZone(player.current_zone)?.flags?.region_id]?.dests || []);
 
   const want = args.join(' ');
-  const current = onRoad ? dests.find(d => d.key === rig.destKey) : aimedDest({ dests }, rig);
   if (!want) {
-    const lines = dests.map((d) => {
-      const mark = d.key === current?.key ? '<span class="text-green">▸</span>' : ' ';
-      const tiles = (d.length || 0) * TILES_PER_ROOM;
-      const tank = rig.params?.tank || rig.type?.tank || 0;
-      const reach = tank ? (tiles <= tank ? '' : tiles <= tank * 2 ? ' <span class="text-amber">— further than your tank, one way</span>' : ' <span class="text-red">— well past your range</span>') : '';
-      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${tiles} tiles${reach}</span>`;
+    // The rows are routeOptions', not this function's — the same rows the GPS screen paints, so the
+    // verb and the dash can never tell a driver two different things about the same fork.
+    const lines = opts.dests.map((d) => {
+      const mark = d.current ? '<span class="text-green">▸</span>' : ' ';
+      const reach = d.reach === 'ok' ? ''
+        : d.reach === 'thin' ? ' <span class="text-amber">— further than your tank, one way</span>'
+        : ' <span class="text-red">— well past your range</span>';
+      return `${mark} <b>${d.heading}</b> <span class="text-dim">(${d.key}) — ${d.tiles} tiles${reach}</span>`;
     });
     const how = onRoad
-      ? (atOrBeforeFork(rig) ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
+      ? (opts.forkAhead ? `<span class="text-dim">The fork is still ahead. <b>route &lt;name&gt;</b> to take the other one.</span>`
         : `<span class="text-dim">The fork is behind you. This is the road you are on now.</span>`)
       : `<span class="text-dim"><b>route &lt;name&gt;</b> to set it before you leave the map. A contracted load overrides it — the run goes where the paperwork says.</span>`;
-    return say(`<span class="text-green">Out of ${info?.origin || vdef?.origin || 'here'}, the road forks toward:</span>\n${lines.join('\n')}\n${how}`);
+    return say(`<span class="text-green">Out of ${opts.origin || 'here'}, the road forks toward:</span>\n${lines.join('\n')}\n${how}`);
   }
 
   const pick = destByWord(dests, want);

@@ -13,12 +13,13 @@ import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R,
   addWreck, wrecksOn, wreckAhead, _clearWrecks } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork } from './state.js';
+  atOrBeforeFork, cabContext } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
 import { restoreDrivingState } from './resume.js';
+import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
@@ -1139,6 +1140,43 @@ export default async function regress({ run, check, getPlayer }) {
       check('the rig lays its road over the crossing\'s own room chain',
         rig.chain?.length > 0 && rig.chain[0] === player.current_zone, `${rig.chain?.length} rooms`);
 
+      // ── THE GPS AND THE VERB GIVE ONE ANSWER ──────────────────────────────────
+      //
+      // The dash screen is a face for `route`, and the whole value of it over typing is the two facts
+      // that MOVE: how far each fork is, and whether this truck's tank reaches. Both are derived from
+      // things that change under you — a tune changes the tank, the fork passes behind you as you
+      // drive — so the danger was never a wrong list, it was a STALE one that still looks authoritative.
+      // `routeOptions` is the single implementation both surfaces read; these cases pin its shape and
+      // the one rule the picker leans on.
+      {
+        const rig = rigs.get(player.id);
+        if (rig && rig.leg === 'corridor') {
+          const opts = routeOptions(rig, { zoneId: player.current_zone, forkAhead: atOrBeforeFork(rig) });
+          check('routes: the road answers with its destinations', !!opts?.dests?.length,
+            JSON.stringify(opts && { n: opts.dests?.length }));
+          check('routes: every row carries the distance the picker prints',
+            (opts?.dests || []).every((d) => Number.isFinite(d.tiles) && d.tiles > 0),
+            JSON.stringify((opts?.dests || []).map((d) => d.tiles)));
+          // THREE STATES, NOT A BOOLEAN. "further than your tank, one way" is a run you can choose to
+          // make; collapsing it into "no" would turn a judgement call into a locked door.
+          check('routes: reach is one of the three the screen paints',
+            (opts?.dests || []).every((d) => ['ok', 'thin', 'far'].includes(d.reach)),
+            JSON.stringify((opts?.dests || []).map((d) => d.reach)));
+          check('routes: exactly one row is marked current',
+            (opts?.dests || []).filter((d) => d.current).length <= 1,
+            JSON.stringify((opts?.dests || []).map((d) => d.current)));
+          // The picker shows the fork as live or dead off this flag alone — it never re-derives it.
+          check('routes: forkAhead agrees with the road itself',
+            opts.forkAhead === atOrBeforeFork(rig), `${opts.forkAhead} vs ${atOrBeforeFork(rig)}`);
+          // …and the cab payload carries the same object, or the screen has nothing to draw.
+          const cab = cabContext(rig, {});
+          check('routes: the cab payload carries them, so the screen and the verb cannot disagree',
+            !!cab.routes?.dests?.length && cab.routes.dests.length === opts.dests.length,
+            JSON.stringify(cab.routes && { n: cab.routes.dests?.length }));
+        }
+      }
+
+
       // Drive the corridor. Feed the odometer forward at a legal rate; the plugin does the rest.
       const rooms = new Set([player.current_zone]);
       const tps = topTilesPerSec() * 0.6;
@@ -1295,6 +1333,7 @@ export default async function regress({ run, check, getPlayer }) {
         check('the text readout names the gear, the band and the speed',
           /gear \d|neutral|STALLED/.test(state?.message || '') && /(pulling|lugging|screaming)/.test(state?.message || ''),
           state?.message?.slice(0, 80));
+
 
         await run('park');
         check('…and can stop', !rigs.has(player.id) && !isTextDriving(player.id));

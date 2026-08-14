@@ -1835,11 +1835,24 @@ function drawCabInterior(ctx, W, H, v) {
 //
 // `mx` is the screen's LEFT edge, `cy` its vertical middle, `u` the small-dial radius the rest of
 // the outboard cluster is scaled from — so the GPS grows and shrinks with its neighbours.
+let _cabGpsRect = null;
+// Null until a cab frame has been painted, and null again the moment one is painted without a
+// screen (a pane too narrow to carry one — see the width bail below). A tap can therefore never
+// land on a GPS that is not there.
+export const cabGpsRect = () => _cabGpsRect;
 function drawCabGps(ctx, W, H, v, T, dash, mx, cy, u) {
+  _cabGpsRect = null;
   const w = Math.min(u * 5.4, W - mx - W * 0.02);
   if (w < u * 1.6) return;                    // no room on this pane shape: no screen, no clutter
   const h = Math.min(u * 3.9, (H - dash) * 0.80);
   const x = mx, y = cy - h * 0.5;
+  // WHAT WAS ACTUALLY DRAWN, for the cab to hit-test a tap against.
+  // The horn boss gets away with a pure function (cabWheelHub) because its geometry is three
+  // numbers. The screen sits at the end of a chain of layout maths — dash height, wheel radius,
+  // small-dial size, four gauge positions — and re-deriving that chain in the cab would be a
+  // second copy of the layout that goes wrong the first time either side is tuned. So the drawer
+  // records its own rectangle and the cab reads it: it cannot drift, because it IS the rectangle.
+  _cabGpsRect = { x, y, w, h };
 
   ctx.save();
   // The bezel: a moulded surround with the screen recessed into it.
