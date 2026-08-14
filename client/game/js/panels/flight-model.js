@@ -672,6 +672,20 @@ export function truckShift(s, p, delta) {
   s.shifted = true;                       // one frame's flag: the cab clunks, the audio bumps
   return s.gear;
 }
+// PICK a gear, rather than stepping to one. A sequential control (the ▲▼ buttons, the , and . keys)
+// says "one more"; an H-GATE says "that one" — you put the lever in a slot and that is the gear you
+// are in, and walking the box up to it one ratio at a time would both be wrong and clunk seven
+// times on the way. Same two writes `truckShift` makes, so the cab's clunk, the audio bump and
+// everything downstream behave identically; only the arithmetic differs.
+// Reverse is −1, neutral 0 — the gate's own legality rules (you cannot select reverse while rolling)
+// live in the cab, with the button and the key that share them, and never here.
+export function truckSelectGear(s, p, gear) {
+  const next = clamp(gear | 0, -1, p.gears.length - 1);
+  if (next === s.gear) return s.gear;
+  s.gear = next;
+  s.shifted = true;
+  return s.gear;
+}
 // The splitter: half a step, which is what the extra lever on the knob is for. Written the long way
 // because the one-liner it replaced chained on truckShift's return value, and that value is a GEAR
 // NUMBER — so a split into neutral was falsy and silently left `s.split` lying about itself.

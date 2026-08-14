@@ -3,43 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ARCHITECT — a retrospective in haiku</title>
+<title>ARCHITECT — 57 days, 2,235 commits</title>
 <style>
   :root{
-    --bg:#07090c; --ink:#d7e3ea; --dim:#6d8492; --neon:#4ee1c1; --hot:#ff5f8d;
-    --rule:rgba(78,225,193,.22);
+    --bg:#080a0d; --panel:#0d1116; --ink:#d9e5ec; --dim:#7b909e; --faint:#4a5a66;
+    --neon:#4ee1c1; --hot:#ff5f8d; --amber:#f0b429;
+    --rule:rgba(120,150,165,.18);
   }
   @media (prefers-color-scheme: light){
-    :root{ --bg:#f4f1ea; --ink:#16202a; --dim:#5d6f7c; --neon:#0a7f6a; --hot:#b0264f; --rule:rgba(10,127,106,.25); }
+    :root{ --bg:#f6f3ec; --panel:#fffdf8; --ink:#141d25; --dim:#55666f; --faint:#8d9aa2;
+           --neon:#0a7f6a; --hot:#b0264f; --amber:#9a6b00; --rule:rgba(20,29,37,.14); }
   }
+  :root[data-theme="dark"]{ --bg:#080a0d; --panel:#0d1116; --ink:#d9e5ec; --dim:#7b909e; --faint:#4a5a66; --neon:#4ee1c1; --hot:#ff5f8d; --amber:#f0b429; --rule:rgba(120,150,165,.18); }
+  :root[data-theme="light"]{ --bg:#f6f3ec; --panel:#fffdf8; --ink:#141d25; --dim:#55666f; --faint:#8d9aa2; --neon:#0a7f6a; --hot:#b0264f; --amber:#9a6b00; --rule:rgba(20,29,37,.14); }
+
   *{box-sizing:border-box}
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
-    line-height:1.65; padding:5rem 1.25rem 7rem;
+    font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",monospace;
+    line-height:1.7; padding:4rem 1.25rem 8rem; font-size:15px;
   }
-  .wrap{max-width:44rem;margin:0 auto}
-  header{border-bottom:1px solid var(--rule);padding-bottom:2.5rem;margin-bottom:3.5rem}
-  h1{font-size:clamp(1.9rem,7vw,3.2rem);margin:0;letter-spacing:.22em;font-weight:600}
-  .sub{color:var(--dim);margin-top:1rem;letter-spacing:.08em;font-size:.85rem}
-  .stats{display:flex;gap:2rem;flex-wrap:wrap;margin-top:2rem;color:var(--dim);font-size:.8rem}
-  .stats b{display:block;color:var(--neon);font-size:1.5rem;letter-spacing:.05em}
+  .wrap{max-width:52rem;margin:0 auto}
+  a{color:var(--neon)}
 
-  .era{margin:0 0 4.5rem}
-  .era-head{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}
-  .date{color:var(--hot);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
-  .era-head h2{font-size:1rem;margin:0;letter-spacing:.14em;font-weight:600;text-transform:uppercase}
-  .rule{flex:1 1 3rem;height:1px;background:var(--rule);min-width:2rem}
+  header{border-bottom:1px solid var(--rule);padding-bottom:2.5rem;margin-bottom:3rem}
+  h1{font-size:clamp(1.8rem,6.5vw,3rem);margin:0;letter-spacing:.2em;font-weight:600}
+  .tagline{color:var(--dim);margin-top:.9rem;letter-spacing:.06em}
 
-  .haiku{
-    font-size:clamp(1.05rem,3.4vw,1.35rem); line-height:2.1;
-    margin:0 0 1.1rem; padding-left:1.25rem;
-    border-left:2px solid var(--rule); white-space:pre-line;
-  }
-  .note{color:var(--dim);font-size:.8rem;margin:0 0 0 1.25rem;font-style:italic}
-  .note code{color:var(--neon);font-style:normal}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;
+    background:var(--rule);border:1px solid var(--rule);margin:2.5rem 0 0}
+  .stat{background:var(--panel);padding:1rem}
+  .stat b{display:block;color:var(--neon);font-size:1.55rem;letter-spacing:.03em;line-height:1.2}
+  .stat span{color:var(--dim);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase}
 
-  footer{border-top:1px solid var(--rule);padding-top:2rem;color:var(--dim);font-size:.8rem}
+  h2.section{font-size:.8rem;letter-spacing:.24em;text-transform:uppercase;color:var(--hot);
+    margin:4.5rem 0 1.75rem;padding-bottom:.6rem;border-bottom:1px solid var(--rule)}
+
+  /* commit chart */
+  .chart{display:flex;align-items:flex-end;gap:.4rem;height:11rem;margin:1.5rem 0 .5rem}
+  .bar{flex:1;background:linear-gradient(to top,var(--neon),transparent);
+    border-top:2px solid var(--neon);position:relative;min-height:2px;opacity:.85}
+  .bar b{position:absolute;top:-1.35rem;left:0;right:0;text-align:center;font-size:.7rem;color:var(--dim);font-weight:400}
+  .chart-x{display:flex;gap:.4rem;color:var(--faint);font-size:.65rem}
+  .chart-x span{flex:1;text-align:center}
+
+  .era{margin:0 0 3.25rem;padding-left:1.5rem;border-left:2px solid var(--rule);position:relative}
+  .era::before{content:"";position:absolute;left:-5px;top:.7rem;width:8px;height:8px;
+    background:var(--hot);border-radius:50%}
+  .era h3{margin:0;font-size:1.15rem;letter-spacing:.04em}
+  .era .when{color:var(--hot);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;display:block;margin-bottom:.3rem}
+  .era p{margin:.85rem 0}
+  .era ul{margin:.85rem 0;padding-left:1.1rem;color:var(--dim)}
+  .era li{margin:.3rem 0}
+  .era li b{color:var(--ink);font-weight:600}
+
+  .haiku{white-space:pre-line;color:var(--amber);font-style:italic;
+    margin:1.25rem 0;padding:.9rem 1.1rem;background:var(--panel);border-left:2px solid var(--amber);line-height:2}
+
+  .pull{background:var(--panel);border:1px solid var(--rule);padding:1.1rem 1.25rem;margin:1.25rem 0}
+  .pull .label{color:var(--hot);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;display:block;margin-bottom:.45rem}
+  .pull p{margin:0}
+  .pull p + p{margin-top:.7rem}
+
+  code{color:var(--neon);font-size:.9em}
+  .quiet{color:var(--dim)}
+
+  table{width:100%;border-collapse:collapse;font-size:.85rem;margin:1.25rem 0}
+  th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{color:var(--faint);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;font-weight:400}
+  td:first-child{color:var(--hot);white-space:nowrap;width:6.5rem}
+  .scroll{overflow-x:auto}
+
+  footer{margin-top:5rem;border-top:1px solid var(--rule);padding-top:2rem;color:var(--dim);font-size:.82rem}
 </style>
 </head>
 <body>
@@ -47,97 +82,235 @@
 
 <header>
   <h1>ARCHITECT</h1>
-  <div class="sub">a retrospective, in seventeen syllables at a time<br>19 June 2026 — 14 August 2026</div>
+  <p class="tagline">A post-singularity browser MUD.<br>
+  57 days, 2,235 commits, two people. 19 June — 14 August 2026.</p>
+
   <div class="stats">
-    <div><b>2,235</b>commits</div>
-    <div><b>57</b>days</div>
-    <div><b>3</b>months</div>
-    <div><b>~39</b>commits / day</div>
+    <div class="stat"><b>2,235</b><span>commits</span></div>
+    <div class="stat"><b>57</b><span>days</span></div>
+    <div class="stat"><b>130</b><span>plugins</span></div>
+    <div class="stat"><b>69</b><span>system docs</span></div>
+    <div class="stat"><b>~209k</b><span>server LOC</span></div>
+    <div class="stat"><b>37k</b><span>content files</span></div>
   </div>
 </header>
 
+<h2 class="section">The shape of it</h2>
+
+<p>Commits per week. The spike is the second week — the fortnight where the whole engine was
+argued into existence. Everything after it is a system landing on a foundation that already held.</p>
+
+<div class="chart">
+  <div class="bar" style="height:33%"><b>200</b></div>
+  <div class="bar" style="height:100%"><b>612</b></div>
+  <div class="bar" style="height:76%"><b>468</b></div>
+  <div class="bar" style="height:39%"><b>237</b></div>
+  <div class="bar" style="height:29%"><b>176</b></div>
+  <div class="bar" style="height:30%"><b>182</b></div>
+  <div class="bar" style="height:34%"><b>206</b></div>
+  <div class="bar" style="height:18%"><b>109</b></div>
+  <div class="bar" style="height:8%"><b>47</b></div>
+</div>
+<div class="chart-x">
+  <span>W25</span><span>W26</span><span>W27</span><span>W28</span><span>W29</span>
+  <span>W30</span><span>W31</span><span>W32</span><span>W33</span>
+</div>
+<p class="quiet" style="font-size:.8rem">1,727 commits from HaveAGreatDave, 509 from akerson. Roughly 39 commits a day, every day, for two months.</p>
+
+<h2 class="section">Eight eras</h2>
+
 <section class="era">
-  <div class="era-head"><span class="date">19 Jun</span><h2>Day One</h2><div class="rule"></div></div>
-  <p class="haiku">A room, and a verb.
-Nothing else exists out there.
-"Heckmud version 0.01"</p>
-  <p class="note">Fifteen commits before midnight. Four of them called <code>Update index.html</code>.</p>
+  <span class="when">19 June · day one</span>
+  <h3>Heckmud version 0.01</h3>
+  <p>A room, a verb, and a Postgres connection string. Fifteen commits before midnight, four of
+  them titled <code>Update index.html</code>, one of them titled <em>"The best version yet"</em> — of a
+  thing that was nine hours old.</p>
+  <p>Three documents were written on day one and all three still govern the project:
+  <b>architecture.md</b> (stack and schema), <b>design.md</b> (intent), and <b>story.md</b>
+  (tone). The last one turned out to matter most; it is still the authority every line of
+  player-facing prose is checked against.</p>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">20 Jun</span><h2>Two Hands on One File</h2><div class="rule"></div></div>
-  <p class="haiku">Merge, revert, merge back.
-"I really think john akerson
-is a rube." Push anyway.</p>
-  <p class="note">The day CLAUDE.md was born, and the day the CSS was split out, reverted, and split out again.</p>
+  <span class="when">20–25 June · week one</span>
+  <h3>Two people, one file</h3>
+  <p>The messy part. Merge, revert, merge back — CSS extracted into standalone files, reverted the
+  same day, extracted again. Commit titles from this stretch include <em>"I hate john akerson"</em>,
+  <em>"jackie is gone dave is BACK"</em>, and <em>"Fixmeplz"</em>.</p>
+  <p>It also produced the single most consequential file in the repo: <b>CLAUDE.md</b>, born 20 June.
+  Everything that followed — the rules about engine vs. content, no ORM, no startup migrations —
+  was the argument this week made necessary.</p>
+  <p>The plugin system arrived almost immediately (<code>weather</code>, <code>mutations</code>,
+  <code>zone-validator</code> on 20 June), and by the 25th there was a
+  <b>plugin-standard.md</b> saying what a plugin owed the engine.</p>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">21–30 Jun</span><h2>The Body Keeps Score</h2><div class="rule"></div></div>
-  <p class="haiku">Hunger, thirst, and rads.
+  <span class="when">26 June – 2 July · the survival stack</span>
+  <h3>The body keeps score</h3>
+  <p>Combat gets body parts, typed soak, cooldowns. Corpses start leaving something behind. In one
+  week the game acquires hunger, thirst, radiation, intoxication, drugs, jail, corps, crime,
+  surveillance, and the broadcast system — twenty-plus plugins, most of which still ship unchanged
+  in shape.</p>
+  <div class="haiku">Hunger, thirst, and rads.
 Armor sums from every source.
-Corpses on the floor.</p>
-  <p class="note">Combat gets body parts and typed soak. The dead start leaving something behind.</p>
+Corpses on the floor.</div>
+  <p>The important decision here wasn't any one system. It was that each of them became a
+  <em>plugin</em> with its own regress suite rather than another branch inside a growing engine file.</p>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">1–7 Jul</span><h2>Git Becomes the World</h2><div class="rule"></div></div>
-  <p class="haiku">The seed script is dead.
-One JSON file per thing —
-a push is a deploy.</p>
-  <p class="note">CODEX cutover, 8 July. <code>CONTENT_READONLY</code> on prod: the database stops being an author.</p>
+  <span class="when">3–8 July · CODEX</span>
+  <h3>Git becomes the world</h3>
+  <p>The cutover. World content stops living in a database somebody edits live and becomes one JSON
+  file per entity under <code>content/</code>, with a push to <code>main</code> as the deploy. The old
+  boot-time <code>migrate()</code> — which rewrote content on every restart and made dev
+  unpredictable — is deleted outright.</p>
+  <div class="pull">
+    <span class="label">The rule that came out of it</span>
+    <p>No startup migrations. Schema is idempotent DDL in one file; content is git; the deploy applies
+    both. Nothing mutates the world because a process happened to boot.</p>
+  </div>
+  <p>7 July: <code>CONTENT_READONLY</code> goes on in production. The database stops being an author.</p>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">8–18 Jul</span><h2>The Sky Opens</h2><div class="rule"></div></div>
-  <p class="haiku">Stall horn. Redrock blur.
+  <span class="when">9–20 July · the sky</span>
+  <h3>The ground was always data</h3>
+  <p>Flight had existed as a banded model with minigame decks. It's abandoned for one continuous
+  client-sim / server-reconcile loop, and the old code becomes unreachable legacy rather than a
+  second supported path. Six aircraft, airfields, hazards, air combat, hangars, licences, insurance.</p>
+  <div class="haiku">Stall horn. Redrock blur.
 The ground was always data —
-now it rushes up.</p>
-  <p class="note">The banded flight model is abandoned for one continuous client-sim/server-reconcile loop.</p>
+now it rushes up.</div>
+  <p>The flight sim turned out to be the project's most demanding consumer of world data, and it
+  exposed things nothing else could: buildings without <code>building_type</code> rendered as flat
+  grassland, which is how a whole category of authoring gap got found.</p>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">19–25 Jul</span><h2>Round Trips</h2><div class="rule"></div></div>
-  <p class="haiku">"less queries for the
-queeries" — the furniture cache
-learns to hold its breath.</p>
-  <p class="note">Read tiers get written down. Hot paths stop asking Postgres anything.</p>
+  <span class="when">14–25 July · round trips</span>
+  <h3>Latency lives in count, not cost</h3>
+  <p>Prod Postgres is remote. A commit titled <em>"less queries for the queeries"</em> marks the week
+  the team stopped optimising queries and started counting them.</p>
+  <ul>
+    <li><b>Read tiers</b> written into architecture.md — what lives in RAM, what's cached, what's cold.</li>
+    <li><b>Hot paths</b> (per-move, per-swing, per-tick) may not add an awaited query at all.</li>
+    <li><b>Sync-by-contract</b> helpers: <code>getRelation</code>, <code>hygieneOf</code>, <code>wear()</code>.</li>
+    <li>A cache is only as safe as its write funnel — which is why <code>furniture</code> and
+    <code>npcs</code> are deliberately <em>not</em> cached.</li>
+  </ul>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">22–31 Jul</span><h2>A Pan Is Not a Dish</h2><div class="rule"></div></div>
-  <p class="haiku">Dry pasta refuses.
-Water goes in as a row,
-not as a number.</p>
-  <p class="note">Cooking ships. 47 recipes, and the rule that a liquid answers every question about the pan and none about the dish.</p>
+  <span class="when">22 July – 7 August · the domestic turn</span>
+  <h3>A pan is not a dish</h3>
+  <p>The most surprising stretch. After a month of combat, crime and aircraft, the game spends three
+  weeks on cooking, drinks, laundry, cleaning, hygiene, a library of public-domain books, a piano you
+  play key by key on your own keyboard, and a stray cat.</p>
+  <p>Cooking alone produced three rules that read like the project's thesis: dry starch cooks in
+  liquid so <code>cook</code> refuses a dry pan; a liquid answers every question about the <em>pan</em>
+  and none about the <em>dish</em>; and an unmatched pan becomes an improvised dish named off a family
+  table rather than "slop" — capped below the authored catalog, so <code>masterful</code> stays earned.</p>
+  <div class="pull">
+    <span class="label">Why this mattered more than it looks</span>
+    <p>These systems have no combat value. They are the ones that made the world feel inhabited rather
+    than traversed — and each was built by reusing a substrate that already existed
+    (durability, relationships, senses, the gather hooks) rather than inventing a parallel one.</p>
+  </div>
 </section>
 
 <section class="era">
-  <div class="era-head"><span class="date">1–7 Aug</span><h2>Rooms That Remember</h2><div class="rule"></div></div>
-  <p class="haiku">The bank had four rooms
-and no front door for a week.
-Someone walked the map.</p>
-  <p class="note">Map audits, jail cells that lock, a shop that closes around you, an NPC who introduces himself exactly once.</p>
-</section>
-
-<section class="era">
-  <div class="era-head"><span class="date">8–13 Aug</span><h2>Flesh, Chrome, and the Quiet Kind</h2><div class="rule"></div></div>
-  <p class="haiku">Nothing is baked in.
-Read the number at read time —
-you can still go back.</p>
-  <p class="note">Mutations, augments, nullcraft, psionics. Four answers to the same question, none of them written into <code>players</code>.</p>
-</section>
-
-<section class="era">
-  <div class="era-head"><span class="date">14 Aug</span><h2>Now</h2><div class="rule"></div></div>
-  <p class="haiku">A title screen glows.
+  <span class="when">8–14 August · four answers</span>
+  <h3>Flesh, chrome, absence, and the quiet kind</h3>
+  <p>The final push gave each faction a discipline, and all four shipped in a week:</p>
+  <div class="scroll"><table>
+    <tr><th>Discipline</th><th>Faction</th><th>The idea</th></tr>
+    <tr><td>Mutations</td><td>Wildblood</td><td>Expression 1–100, rolled once, never baked into a stat column</td></tr>
+    <tr><td>Augments</td><td>Ascendants</td><td>Chrome as a machine you own — catalog row, inventory item, installed record</td></tr>
+    <tr><td>Nullcraft</td><td>The Null</td><td>Make somebody else's machine stop working; promotes state that already existed</td></tr>
+    <tr><td>Psionics</td><td>Exodus</td><td>Deniability is the progression — below Seer, no line may claim a mechanism</td></tr>
+    <tr><td>Mastery</td><td>Long Watch</td><td>No permanent passive at all; you get better <em>during</em> a fight</td></tr>
+  </table></div>
+  <p>Then the road: <b>The Long Haul</b>, where the void between regions became something you steer
+  a truck across rather than something you skip — reusing the flight sim's renderer, voidwalking's
+  encounters, and the boat's helm wheel in a new absolute mode.</p>
+  <div class="haiku">A title screen glows.
 Out the windshield, a highway.
-Hold the line. Drive on.</p>
-  <p class="note">The Long Haul, phase one. The road between regions is something you steer, not something you skip.</p>
+Hold the line. Drive on.</div>
 </section>
+
+<h2 class="section">What the project learned the hard way</h2>
+
+<p>Most of the rules in CLAUDE.md are scar tissue. Each of these is a real outage or a real day lost.</p>
+
+<div class="pull">
+  <span class="label">The backtick</span>
+  <p>Client panels are giant HTML template literals. The house style writes prose comments inside them,
+  and quotes verbs in backticks. A <code>`horn`</code> inside an HTML comment in <code>cab-view.js</code>
+  ended the string mid-sentence and killed the entire client boot on production — chrome rendered, then
+  no room, no vitals, no socket.</p>
+  <p><b>Fix:</b> <code>client:smoke</code> now parses all 202 client files on every regress run. There is
+  no build step, so before that, nothing between an editor and a player's browser ever parsed them.</p>
+</div>
+
+<div class="pull">
+  <span class="label">The coffee roaster</span>
+  <p>One building model passed a palette <em>key</em> where the drawing helper wanted a style
+  <em>function</em>. It froze the flight sim mid-frame — the first time anyone flew past that particular
+  cafe. The only thing that ever ran a building model was a player happening to look at it.</p>
+  <p><b>Fix:</b> <code>shapes:smoke</code> executes all ~83 building models against a DOM stub, night and
+  day, both facings, in about a second.</p>
+</div>
+
+<div class="pull">
+  <span class="label">The stale status line</span>
+  <p>On 27 July an audit reported five shipped systems as outstanding work. Every single error traced to
+  a doc header that said "Not Yet Built" above a body full of ✅ markers.</p>
+  <p><b>Fix:</b> <code>docs:lint</code> fails when a status header contradicts its own body. Compound
+  status ("Phases 0–2 built; rest design") passes, because mixed status is the normal case.</p>
+</div>
+
+<div class="pull">
+  <span class="label">The correction that cost two one-shots</span>
+  <p>CLAUDE.md claimed for weeks that the content deploy "can never touch existing rows". It can — the
+  import is <code>ON CONFLICT DO UPDATE SET &lt;every file column&gt;</code>. Believing otherwise sent two
+  unnecessary hand-run scripts at production before anyone read the importer.</p>
+  <p><b>Fix, 2 August:</b> the paragraph was rewritten in place, with the date and the reason attached.</p>
+</div>
+
+<h2 class="section">The through-line</h2>
+
+<p>Read the 69 system docs end to end and the same instinct shows up in every one, phrased differently:</p>
+
+<ul style="color:var(--dim)">
+  <li><b>Never store what you can derive.</b> Mutation contributions are netted at read time. Heat decays
+  lazily off a timestamp. The shopping list stores what you want, never what you have. The odometer is
+  derived from position, because a self-reported distance lets a client weave and get paid for it.</li>
+  <li><b>One source of truth, or the bug is invisible.</b> The stray cat hides by being in a real,
+  exitless room — because a <code>flags.hidden</code> honoured by the room filter would need honouring by
+  six other readers, and the first one anybody forgot is an invisible cat you can still stab.</li>
+  <li><b>Reuse the seam, don't build a second one.</b> A natural weapon <em>is</em> a weaponStats object.
+  Telekinesis fires existing verbs. A card is a snapshot, not a new subsystem. An augment is an inventory
+  item first, which is how it got condition, trade and looting for free.</li>
+  <li><b>The refusal is the design.</b> A list that doesn't partition usefully stays flat, and that's a
+  success. Psionics below Seer may not name a mechanism. The search verb never pays out. Wings help you
+  leave a fight, never survive one.</li>
+</ul>
+
+<h2 class="section">Where it stands</h2>
+
+<p>A world of roughly 15,000 zone files across four regions, 664 items, 215 NPCs, 1,240 pieces of
+furniture. 130 plugins, each with its own regression suite, sweeping their manifests against the live
+registries on every run. No build step, no ORM, no framework — vanilla JS in the browser, raw WebSockets,
+one <code>query()</code> helper on the server.</p>
+
+<p>Still design rather than built: the Wildlands systems on top of their map, corp espionage and NPC corp
+AI, the unlicensed Promethean augment path, most of psionics past telekinesis, and the unbuilt half of
+the trucking road — the gearbox, the trailer, the weigh station that detects weight and not contraband.</p>
 
 <footer>
-  Fifty-seven days. Every haiku above is a real week of commits.<br>
+  Generated from the repository's own history — 2,235 commits between 19 June and 14 August 2026.<br>
   <em>The corridor synthesises zones, never render cells.</em>
 </footer>
 

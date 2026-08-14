@@ -1153,7 +1153,10 @@ export function paintWindshield(id, view) {
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
       pBegin('aircraft');
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d) and nothing else reads it — but
+      // it has to reach the OWN ship as well as a contact, or the one vehicle you are actually
+      // driving is the one drawn as a default hauler with a box permanently on the back.
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       pEnd();
     }
@@ -1506,11 +1509,24 @@ const CAB_LAMPS = [
   ['dmg', '#d2603f'],
 ];
 
-// WHERE THE HORN IS. The cab hit-tests a press on the glass against the drawn boss, and it must
-// not do that by keeping its own copy of the wheel's geometry — one of the two would be edited
-// eventually and the horn would end up an inch off the thing that looks like the horn. Same three
-// numbers drawCabWheel uses, in canvas CSS pixels.
-export const cabWheelHub = (W, H) => ({ x: W * 0.42, y: H * 1.10, r: H * 0.36 * 0.24 });
+// WHERE THE WHEEL IS. ONE definition, and everything that needs to know reads it: the drawing, the
+// horn hit-test on the glass, and — the reason it had to become a function — the instrument panel,
+// which has to lay itself out ABOVE the rim.
+//
+// That was the whole of "the dash is unreadable". The cluster sat at dash + 0.055H with a radius of
+// 0.098H, and the rim's outer edge came up to 0.74H: the dials were drawn first and the wheel was
+// drawn over the lower half of them, so the two instruments a driver looks at most were each a
+// bottom-cropped semicircle behind a moulded grey annulus. Nothing was mis-sized; they were simply
+// behind the wheel.
+//
+// So the wheel sits LOWER and reads bigger (which is also more honest — a truck wheel is a big
+// thing close to your chest), and it now publishes its own top edge for the panel to clear.
+export const cabWheelGeom = (W, H) => {
+  const R = H * 0.38;
+  return { x: W * 0.42, y: H * 1.20, R, hubR: R * 0.24, rimI: R * 0.80, top: H * 1.20 - R };
+};
+// The horn boss, for the cab's hit-test — derived, never a second copy.
+export const cabWheelHub = (W, H) => { const g = cabWheelGeom(W, H); return { x: g.x, y: g.y, r: g.hubR }; };
 
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
@@ -1625,12 +1641,30 @@ function drawCabInterior(ctx, W, H, v) {
   //     HOW MANY of them is still the fleet ladder (CAB_TRIM.dials / .band). The Barrow gets a
   //     speedometer, a fuel gauge and lamps; there is no tachometer in that truck, so the only
   //     thing telling you where the engine is, is the engine.
-  const panelY = dash + H * 0.055;
-  const dialR = Math.min(W * 0.055, H * 0.098);
+  // THE PANEL IS LAID OUT ACROSS THE DASH, NOT STACKED ON THE COLUMN.
+  //
+  // It used to put all seven instruments and six lamps inside about a fifth of the dash's width,
+  // clustered on the column — with the whole left third and right half of a very wide surface
+  // empty, and the bottom half of the cluster behind the wheel rim. Two different mistakes with one
+  // look: bunched and unreadable.
+  //
+  // A dash is WIDE and a cab is SHORT, so the layout spends the axis it has. The band between the
+  // dash lip and the top of the wheel is the only clear horizontal strip there is, and everything
+  // lives in it: the binnacle straight ahead of the driver where a binnacle is, the secondary
+  // gauges out on the flanks a truck actually puts them on, and the tell-tales in one wide row off
+  // to the right where nothing else is competing for the space. This is the flight sim's own panel
+  // grammar (spread across the coaming, yoke in the middle) applied to a vehicle with a wheel.
+  const wheelG = cabWheelGeom(W, H);
+  const bandTop = dash + H * 0.012;                    // just under the moulded lip
+  const bandBot = Math.min(H * 0.985, wheelG.top - H * 0.008);   // just over the rim
+  const bandH = Math.max(H * 0.06, bandBot - bandTop);
+  const panelY = bandTop + bandH * 0.50;
+  // Sized off the band, capped on width so a very wide pane does not grow dinner plates.
+  const dialR = Math.max(9, Math.min(W * 0.048, bandH * 0.46));
   const twoDials = T.dials >= 2;
-  // The cluster is centred on the column — a driver reads it THROUGH the wheel, which is why the
-  // wheel is drawn after it and why the gauges are up here rather than down where the rim covers.
-  const colX = W * 0.42;
+  // The column, and it is where the driver is — the wheel's own centre, so the binnacle can never
+  // drift off the thing it is supposed to sit behind.
+  const colX = wheelG.x;
   const gap = dialR * 2.35;
   const dialXs = twoDials ? [colX - gap * 0.5, colX + gap * 0.5] : [colX];
 
@@ -1656,18 +1690,26 @@ function drawCabInterior(ctx, W, H, v) {
     Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH',
     String(Math.round(Math.abs(v?.speed || 0))), false, T);
 
-  // THE GEAR, in a lit window between the dials — the number a driver looks at second-most often,
-  // and the one that was previously the same size as the word SURFACE.
+  // THE GEAR, in a big lit window BESIDE the binnacle rather than under it.
+  //
+  // Under it is where the wheel is, which is why it used to disappear the moment you needed it. It
+  // is also the number a driver looks at second-most often and the one hardest to infer from
+  // anything else on the panel — a dial tells you where the revs are, nothing tells you what gear
+  // you are in — so out here it gets to be the size that deserves.
   if (v?.gearLabel != null) {
-    const gw = dialR * 0.92, gh = dialR * 0.66, gx = colX - gw / 2, gy = panelY + dialR * 1.30;
+    const gh = Math.min(bandH * 0.74, dialR * 1.5), gw = gh * 1.05;
+    const gx = colX + hoodW * 0.5 + gw * 0.42, gy = panelY - gh / 2;
     ctx.save();
     roundRectPath(ctx, gx, gy, gw, gh, 3);
     ctx.fillStyle = '#05070a'; ctx.fill();
     ctx.strokeStyle = T.ring; ctx.lineWidth = 1; ctx.stroke();
     ctx.fillStyle = v.stalled ? '#d2603f' : v.inBand ? '#8fe0a0' : T.needle;
-    ctx.font = `700 ${Math.max(8, gh * 0.68) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.font = `700 ${Math.max(9, gh * 0.62) | 0}px 'DejaVu Sans Mono',monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(v.gearLabel), colX, gy + gh * 0.54);
+    ctx.fillText(String(v.gearLabel), gx + gw / 2, gy + gh * 0.54);
+    ctx.font = `700 ${Math.max(6, gh * 0.17) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.fillStyle = 'rgba(150,163,178,0.75)';
+    ctx.fillText('GEAR', gx + gw / 2, gy + gh * 0.16);
     ctx.restore();
   }
 
@@ -1675,29 +1717,42 @@ function drawCabInterior(ctx, W, H, v) {
   // left of the column, brake temperature and the leg on the right. Bars rather than needles,
   // because none of the four is something you read mid-corner — they are what you read on a
   // straight, and a bar is faster to read slowly than a needle is.
-  const barH = dialR * 1.5, barW = Math.max(5, dialR * 0.30);
+  // Bars rather than needles, because none of the four is something you read mid-corner — they are
+  // what you read on a straight, and a bar is faster to read slowly than a needle is.
+  //
+  // FUEL and LEG go out on the LEFT SIDE OF THE DASH, not tucked against the hood: they are the two
+  // longest-range facts on the panel (have I got the range, am I nearly there) and they belong where
+  // the eye lands when it is not on the road. BRK and TRL stay right of the column with the gear,
+  // because both are about what the truck is doing this minute.
+  const barH = Math.min(bandH * 0.78, dialR * 1.7), barW = Math.max(5, dialR * 0.30);
+  const leftPad = Math.max(W * 0.045, barW * 2.2);         // in from the A-pillar, never under it
+  const rightOfGear = colX + hoodW * 0.5 + Math.min(bandH * 0.74, dialR * 1.5) * 1.05 + barW * 2.4;
   const bars = [
-    [colX - hoodW * 0.5 - barW * 3.2, 'FUEL', v?.fuel ?? 1,
+    [leftPad, 'FUEL', v?.fuel ?? 1,
       (v?.fuel ?? 1) <= 0 ? '#d2603f' : (v?.fuel ?? 1) < 0.15 ? '#d8a24e' : '#6f9f7a'],
-    [colX - hoodW * 0.5 - barW * 1.6, 'LEG', v?.legFrac ?? 0, T.needle],
-    [colX + hoodW * 0.5 + barW * 0.6, 'BRK',
+    [leftPad + barW * 2.6, 'LEG', v?.legFrac ?? 0, T.needle],
+    [rightOfGear, 'BRK',
       // A GRADED BRAKE GAUGE IS A TIER-2 LUXURY, the same rule the words follow: below it the bar
       // reads empty and the lamp is the whole instrument. The fade itself is identical — this is
       // only what you can SEE of it.
       T.dials >= 2 && v?.brakeGauge ? Math.min(1, (v?.brakeTemp || 0) / 0.6) : 0,
       v?.fading ? '#d2603f' : (v?.brakeTemp || 0) > 0.42 ? '#d8a24e' : '#5f8f9f'],
-    [colX + hoodW * 0.5 + barW * 2.2, 'TRL', v?.hitched ? Math.min(1, Math.abs(v?.phi || 0) / 60) : 0,
+    [rightOfGear + barW * 2.6, 'TRL', v?.hitched ? Math.min(1, Math.abs(v?.phi || 0) / 60) : 0,
       Math.abs(v?.phi || 0) > 55 ? '#d2603f' : '#8fa4bc'],
   ];
   for (const [bx, lbl, frac, col] of bars) drawCabBar(ctx, bx, panelY - barH * 0.5, barW, barH, frac, col, lbl, T);
 
-  // THE TELL-TALES. Six, in a row under the hood, and every one dark until it is not — a panel of
-  // permanently lit icons is a decal. They are the only place several of these states are visible
-  // at all while the eyes are on the road.
+  // THE TELL-TALES. Six of them, and they now have a WALL OF THEIR OWN out on the right of the dash
+  // — the part of the panel that was empty. They were a huddle of small dots under the hood, which
+  // is the worst place for the one thing on the dash you are meant to catch in peripheral vision:
+  // right next to the two brightest objects on it. Out here they are bigger, spread, and against
+  // nothing. Every one is dark until it is not; a panel of permanently lit icons is a decal.
   const lamps = v?.lamps || {};
-  const lampR = Math.max(2.2, dialR * 0.13);
+  const lampR = Math.max(2.8, Math.min(bandH * 0.16, W * 0.008));
+  const lampSpan = Math.min(W * 0.22, lampR * 3.6 * CAB_LAMPS.length);
+  const lampX0 = Math.min(W * 0.965 - lampSpan, W * 0.78);
   CAB_LAMPS.forEach(([key, col], i) => {
-    const lx = colX + (i - (CAB_LAMPS.length - 1) / 2) * lampR * 3.4, ly = hoodY + hoodH + lampR * 2.6;
+    const lx = lampX0 + (i + 0.5) * (lampSpan / CAB_LAMPS.length), ly = panelY;
     const on = !!lamps[key];
     if (on) {
       const lg2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, lampR * 3.4);
@@ -1706,6 +1761,13 @@ function drawCabInterior(ctx, W, H, v) {
     }
     ctx.fillStyle = on ? col : 'rgba(120,132,146,0.22)';
     ctx.beginPath(); ctx.arc(lx, ly, lampR, 0, Math.PI * 2); ctx.fill();
+    // A LAMP NEEDS A WORD. An unlit dot is not an instrument — it is a hole, and a driver learning
+    // which of six holes means the trailer is folding learns it by having one of them light up
+    // during the incident it was there to warn about. Engraved on the dash, legible dark.
+    ctx.font = `700 ${Math.max(6, lampR * 0.95) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = on ? col : 'rgba(120,132,146,0.42)';
+    ctx.fillText(key.toUpperCase(), lx, ly + lampR * 1.7);
   });
 
   // 4d. THE WHEEL, AND IT IS THE ONLY ONE NOW.
@@ -1837,12 +1899,13 @@ function drawCabBar(ctx, x, y, w, h, frac, col, label, T = CAB_TRIM[1]) {
 // spun past a full turn is which way up it started.
 const CAB_WHEEL_LOCK = Math.PI * 1.6;     // rotation from centre to full lock — helm-wheel's own
 function drawCabWheel(ctx, W, H, v, T) {
-  const cx = W * 0.42, cy = H * 1.10, R = H * 0.36;
+  const G = cabWheelGeom(W, H);
+  const cx = G.x, cy = G.y, R = G.R;
   const rot = Math.max(-1, Math.min(1, v?.steer || 0)) * CAB_WHEEL_LOCK;
   ctx.save();
   ctx.beginPath(); ctx.rect(0, H * (1 - CAB_DASH) - 2, W, H); ctx.clip();   // never above the dash lip
   ctx.translate(cx, cy); ctx.rotate(rot);
-  const rimO = R, rimI = R * 0.80;
+  const rimO = R, rimI = G.rimI;
   // The rim: moulded polyurethane over a steel core. Two tones and a highlight is enough to read
   // as something you grip rather than something you polish.
   const rg = ctx.createRadialGradient(0, -rimO * 0.4, rimI * 0.2, 0, 0, rimO);
@@ -1867,7 +1930,7 @@ function drawCabWheel(ctx, W, H, v, T) {
   roundRectPath(ctx, -R * 0.022, -rimO + R * 0.02, R * 0.044, (rimO - rimI) - R * 0.04, R * 0.02);
   ctx.fill();
   // Three spokes: one up, two down at 120°. A commercial-vehicle wheel, in one line of geometry.
-  const hubR = R * 0.24;
+  const hubR = G.hubR;
   for (let i = 0; i < 3; i++) {
     ctx.save(); ctx.rotate(i / 3 * Math.PI * 2);
     const sg = ctx.createLinearGradient(-R * 0.06, 0, R * 0.06, 0);

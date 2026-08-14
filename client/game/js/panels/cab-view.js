@@ -18,7 +18,7 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub } from './windshield.js';
-import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit } from './flight-model.js';
+import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
@@ -42,7 +42,18 @@ const IDLE_SYNC_MS = 2500;        // stationary — a heartbeat, not a stream
 // its kits, and how worn it is) and ships it in the cab context, so a bought truck and a tuned
 // truck are both felt at the wheel. The fallback stays for a context that predates the field.
 let P = TYPES.hauler;
-const setParams = (ctx) => { P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler; };
+// WHICH of the four, kept as its own id. `params` is the effective NUMBERS and deliberately says
+// nothing about the shape — but the external view draws a real mesh now, and `buildTruck` picks the
+// silhouette off exactly this string (aircraft3d's `<typeId>[+t]` grammar). A context that predates
+// the field falls back to the hauler, the same rung the parameters do.
+let TYPE_ID = 'hauler';
+// Whatever the depot sprayed on it, in the truck paint vocabulary (`truck:` patterns, aircraft3d).
+let PAINT = null;
+const setParams = (ctx) => {
+  P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler;
+  if (ctx && ctx.typeId) TYPE_ID = ctx.typeId;
+  if (ctx && 'paint' in ctx) PAINT = ctx.paint || null;
+};
 
 // WHICH ROOM YOU ARE SITTING IN. One number — the type's `tier`, which rides along in `params`
 // because rig.js spreads the whole type — decides the whole interior: the painted panels out on
@@ -70,7 +81,8 @@ const CONTROLS = [
   ['Drag the wheel', 'Steer. The wheel is the one on the dash in front of you — put a hand anywhere on the glass and drag, and it winds on. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
   ['← →', 'Steer, for a keyboard or a thumb. The same wheel, wound on at the pace a wrist manages.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
-  ['Lever', 'The gear lever. Throw it up or down and it shifts on the throw, then springs back — keep pulling to keep shifting.'],
+  ['Lever', 'The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you are actually in.'],
+  ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
   ['Z / BRAKE', 'Service brakes. They heat, and hot brakes fade.'],
   ['X / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine.'],
@@ -185,16 +197,34 @@ export function openCab(ctx = {}) {
         </div>
 
         <!-- ── THE GATE ────────────────────────────────────────────────────────
-             A shift lever in a slotted plate, and you throw it: drag the knob up or down and it
-             changes gear on the throw, then springs back to the middle the way a real range lever
-             does. The two ▲▼ buttons are still there, small, beside the gate — a lever you can
-             only reach by dragging is a lever a keyboard user does not have, and the whole reason
-             those buttons were added in the first place was that this cab had become key-only. -->
+             AN H, BECAUSE THE BOX IS A 4×2. Every truck in the fleet runs eight forward ratios
+             (flight-model TYPES: 'gears' is nine long, index 0 being neutral), and eight is not a
+             ladder you climb — it is four slots in an H with a RANGE lever that does them twice.
+             That is what a real range-change box is and it is why the shifter is a tree rather than
+             a line: LO gives you 1-4 in the four slots, HI gives you 5-8 in the same four, and your
+             hand learns one shape instead of eight positions.
+             The lever it replaces was a THROW — drag up, it clunks one gear, springs back. Honest
+             for a sequential box and wrong for this one: it made the eight ratios a queue you had to
+             walk, so downshifting three gears for a hill was three drags, and the control told you
+             nothing about where you were. A gate is also a DISPLAY — the knob sits in the slot you
+             are in, which is most of what a gearstick is for.
+             Reverse has its own dogleg, as it does on the real thing, and neutral is the crossgate
+             everything passes through. The ▲▼ buttons stay: a lever you can only work by dragging
+             is a lever a keyboard user does not have. -->
         <div class="cab-col cab-col-gate">
           <div class="cab-gate" role="group" aria-label="Gear lever">
-            <i class="cab-gate-slot"></i>
-            <div class="cab-lever" title="Throw the lever up or down to shift — or use , and ."><b class="cab-knob"></b></div>
+            <i class="cab-gate-rail cab-rail-l"></i>
+            <i class="cab-gate-rail cab-rail-r"></i>
+            <i class="cab-gate-rail cab-rail-x"></i>
+            <i class="cab-gate-rail cab-rail-rev"></i>
+            <div class="cab-gate-marks"></div>
+            <div class="cab-lever" title="Drag the lever into a slot. LO/HI doubles the four slots into eight gears."><b class="cab-knob"></b></div>
           </div>
+          <!-- THE RANGE. One switch, and it is the whole reason four slots are eight gears. It is a
+               button rather than a fifth gate position because that is what it is in the cab: a
+               splitter collar on the knob you flick with a thumb, never somewhere you put the
+               lever. -->
+          <button class="cab-btn cab-range" aria-label="Range" title="Range — LO is gears 1-4, HI is 5-8">LO</button>
           <div class="cab-box" role="group" aria-label="Gearbox">
             <button class="cab-btn cab-up" aria-label="Shift up" title="Shift up (.)">▲</button>
             <button class="cab-btn cab-down" aria-label="Shift down" title="Shift down (,)">▼</button>
@@ -265,6 +295,9 @@ export function openCab(ctx = {}) {
     // was the one view you could not walk around. These are the same three numbers cockpit.js
     // keeps, with the same resting pose.
     extYaw: 0, extPitch: EXT_REST_PITCH, extZoom: 1,
+    // Which half of the gate the lever is looking at. Derived from the gear every frame (see
+    // paintGate) rather than owned here — this is only the starting position.
+    range: false,
     fuel: 1,
   };
 
@@ -302,6 +335,21 @@ export function openCab(ctx = {}) {
   // itself off the road while the player is holding nothing at all.
   const winOff = [];                                  // window-level releases, unwound in closeCab
   const isPress = (e) => e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter';
+  // WHAT A PEDAL LOOKS LIKE IS DERIVED FROM WHAT THE TRUCK IS BEING GIVEN, never from the thing
+  // that gave it. The `on` class used to be added by this handler and by nothing else, so a driver
+  // using A/Z/X/C — which is nearly all of them, since the keys are the fast way to drive — stood
+  // on a throttle that never moved. Two ways in, one of them with a picture attached, is a control
+  // that lies about half the time it is used.
+  // So the frame loop paints it off `st.input` (see paintControls) and every input path gets the
+  // animation for free: the pointer, the key, the ▲ button's own keyboard activation, and anything
+  // added later that writes an input without knowing a pedal is drawn.
+  const CONTROL_PAINT = [['.cab-throttle', 'throttle'], ['.cab-brake', 'brake'],
+    ['.cab-clutch', 'clutch'], ['.cab-jake', 'jake']];
+  st.paintControls = () => {
+    for (const [sel, key] of CONTROL_PAINT) {
+      container.querySelector(sel)?.classList.toggle('on', (st.input[key] || 0) > 0);
+    }
+  };
   const hold = (sel, key) => {
     const el = container.querySelector(sel);
     const on = (e) => { st.input[key] = 1; el.classList.add('on'); e.preventDefault(); };
@@ -480,32 +528,134 @@ export function openCab(ctx = {}) {
   st.onFocusIn = paintFocusTag;
   grabKeys();
 
-  // ── THE LEVER ──────────────────────────────────────────────────────────────
-  // Throw it and it shifts, then springs back to the gate's middle — a range lever's whole
-  // behaviour, and the reason it is a throw rather than a position is that the box has eighteen
-  // ratios and nobody is going to drag a knob to the fourteenth of them. One throw, one gear; keep
-  // pulling and it keeps shifting, at the pace a wrist manages.
+  // ── THE GATE ───────────────────────────────────────────────────────────────
+  //
+  // THE SLOT TABLE IS THE WHOLE THING. Positions are in the plate's own 0..1 space so the gate can
+  // be any size on any screen, and `slot` is the position IN THE RANGE (1-4) rather than a gear —
+  // the gear is `slot + range*4`, which is the one line that makes this a tree instead of eight
+  // hard-coded holes and is why adding a nine-speed later is a number, not a layout.
+  const GATE = [
+    { x: 0.24, y: 0.16, slot: 1 },
+    { x: 0.24, y: 0.84, slot: 2 },
+    { x: 0.52, y: 0.16, slot: 3 },
+    { x: 0.52, y: 0.84, slot: 4 },
+    { x: 0.80, y: 0.84, gear: -1 },     // reverse, on its own dogleg, down and away
+    { x: 0.38, y: 0.50, gear: 0 },      // neutral — the crossgate everything passes through
+  ];
+  const gearOfSlot = (s) => (s.gear != null ? s.gear : s.slot + (st.range ? 4 : 0));
+  // Where the knob SITS when nobody is holding it: the slot the box is actually in. A gate that did
+  // not do this would be a control that forgets what it did, which is the one thing a gearstick is
+  // incapable of.
+  const slotOfGear = (g) => GATE.find((s) => gearOfSlot(s) === g) || null;
   {
+    const gate = container.querySelector('.cab-gate');
     const lever = container.querySelector('.cab-lever');
-    const THROW = 22;                                 // px of travel that counts as a gate change
-    let ly = null, acc = 0;
+    const rangeBtn = container.querySelector('.cab-range');
+    let drag = null;
+    const put = (x, y) => {
+      lever.style.setProperty('--gx', x.toFixed(3));
+      lever.style.setProperty('--gy', y.toFixed(3));
+    };
+    // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
+    // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
+    st.paintGate = () => {
+      if (drag) return;
+      // THE RANGE IS DERIVED, NEVER REMEMBERED SEPARATELY. `,` and `.` and the ▲▼ buttons all walk
+      // the box sequentially and know nothing about a gate, so if the lever's range were its own
+      // stored fact it would go stale the first time somebody used a key — the knob sitting in slot
+      // 2 while the truck was in 6. The gear is the truth; which half of the gate you are looking at
+      // falls out of it.
+      if (st.sim.gear > 0 && st.range !== st.sim.gear > 4) { st.range = st.sim.gear > 4; syncRange(); }
+      const s = slotOfGear(st.sim.gear);
+      // A gear with no slot is one the OTHER range owns (you are in 6 with the lever showing LO).
+      // The knob goes to neutral and the range button is the thing that is wrong, which is exactly
+      // what it looks like in the cab.
+      put(s ? s.x : 0.38, s ? s.y : 0.50);
+      gate.classList.toggle('cab-gate-off', !s && st.sim.gear !== 0);
+    };
+    // NEAREST LEGAL SLOT, never "wherever you let go". A gate is a physical constraint and the
+    // strongest thing it does is stop you selecting something that is not a gear.
+    const snap = (px, py) => {
+      let best = null, bd = Infinity;
+      for (const s of GATE) {
+        const d = (s.x - px) ** 2 + ((s.y - py) * 0.8) ** 2;
+        if (d < bd) { bd = d; best = s; }
+      }
+      return best;
+    };
     lever.addEventListener('pointerdown', (e) => {
-      ly = e.clientY; acc = 0; lever.setPointerCapture?.(e.pointerId);
-      lever.classList.add('on'); e.preventDefault();
+      drag = { id: e.pointerId };
+      lever.setPointerCapture?.(e.pointerId);
+      lever.classList.add('on');
+      e.preventDefault(); e.stopPropagation();
     });
-    lever.addEventListener('pointermove', (e) => {
-      if (ly == null || !st) return;
-      acc += e.clientY - ly; ly = e.clientY;
-      while (acc <= -THROW) { truckShift(st.sim, P, 1); acc += THROW; }    // pull back / up = up a gear
-      while (acc >= THROW) { truckShift(st.sim, P, -1); acc -= THROW; }
-      lever.style.setProperty('--throw', Math.max(-1, Math.min(1, acc / THROW)).toFixed(2));
-    });
-    const drop = () => { ly = null; acc = 0; lever.classList.remove('on'); lever.style.setProperty('--throw', '0'); };
+    const move = (e) => {
+      if (!drag || !st) return;
+      const b = gate.getBoundingClientRect();
+      if (!b.width) return;
+      const px = Math.max(0, Math.min(1, (e.clientX - b.left) / b.width));
+      const py = Math.max(0, Math.min(1, (e.clientY - b.top) / b.height));
+      put(px, py);
+      const s = snap(px, py);
+      gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
+    };
+    const drop = (e) => {
+      if (!drag || !st) { drag = null; return; }
+      const b = gate.getBoundingClientRect();
+      const px = b.width ? Math.max(0, Math.min(1, ((e?.clientX ?? 0) - b.left) / b.width)) : 0.38;
+      const py = b.height ? Math.max(0, Math.min(1, ((e?.clientY ?? 0) - b.top) / b.height)) : 0.50;
+      const s = snap(px, py);
+      drag = null;
+      lever.classList.remove('on');
+      gate.dataset.aim = '';
+      if (s) selectGear(gearOfSlot(s));
+      st.paintGate?.();
+    };
+    lever.addEventListener('pointermove', move);
     lever.addEventListener('pointerup', drop);
     lever.addEventListener('pointercancel', drop);
-    addEventListener('pointerup', drop);
-    winOff.push(drop);
+    // A gate you can also just POINT AT. Dragging is the control; clicking the slot you want is the
+    // same act with less wrist, and on a touch screen it is the only comfortable one.
+    gate.addEventListener('click', (e) => {
+      if (e.target === lever || lever.contains(e.target)) return;
+      const b = gate.getBoundingClientRect();
+      if (!b.width) return;
+      const s = snap((e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
+      if (s) { selectGear(gearOfSlot(s)); st.paintGate?.(); }
+    });
+    rangeBtn.addEventListener('click', (e) => {
+      // THE RANGE MOVES THE GEAR WITH IT, and that is the point of a range change rather than a
+      // display toggle: the lever has not moved, so you are in the same SLOT — one range up is four
+      // ratios up. Flicking it in neutral changes nothing but which four gears the gate offers.
+      st.range = !st.range;
+      rangeBtn.textContent = st.range ? 'HI' : 'LO';
+      rangeBtn.classList.toggle('on', st.range);
+      const cur = slotOfGear(st.sim.gear);
+      if (st.sim.gear > 0 && cur && cur.slot) selectGear(cur.slot + (st.range ? 4 : 0));
+      st.paintGate?.();
+      e.preventDefault();
+    });
+    winOff.push(() => { drag = null; });
   }
+  // ONE DOOR for every way of choosing a gear, so the reverse rule is written once. The H-gate, the
+  // R button and the R key all arrive here.
+  function selectGear(g) {
+    if (g < 0) { toggleReverse(); return; }
+    if (st.sim.gear < 0 && Math.abs(st.sim.speed) >= 2) return;   // rolling backwards: not yet
+    truckSelectGear(st.sim, P, g);
+    // Keep the lever's own range honest with the box: shifting to 6 with the ▲ button has to move
+    // the gate into HI, or the knob would sit in a slot that means something else.
+    if (g > 0) st.range = g > 4;
+    syncRange();
+  }
+  st.selectGear = selectGear;
+  function syncRange() {
+    const rb = container.querySelector('.cab-range');
+    if (!rb) return;
+    rb.textContent = st.range ? 'HI' : 'LO';
+    rb.classList.toggle('on', !!st.range);
+  }
+  const gearLabelOf = (g) => (g < 0 ? 'R' : g === 0 ? 'N' : String(g));
 
   // The gearbox, by hand. `tap` is a click/touch that fires ONCE per press — a shift is an edge,
   // unlike a pedal, and a button that auto-repeated would walk the box to neutral if you rested a
@@ -613,9 +763,9 @@ export function openCab(ctx = {}) {
   });
   // THE EXTERNAL VIEW. The renderer has had a real chase camera the whole time — the cab's own
   // header note lists `external` among the things it deliberately did not pass — so this is not a
-  // new camera, it is the existing one turned on with `hideOwnShip`, plus a rig drawn over it
-  // (drawRig, below). There is no truck in the world model to render, and there should not be: the
-  // truck is not a world object, it is you.
+  // new camera, it is the existing one turned on, model and all. The rig is NOT a world object and
+  // must never become one (the collision probe would hit it); it is the renderer's own-ship, which
+  // is exactly the seam every aircraft already uses to be the thing the world is drawn for.
   viewBtn.addEventListener('click', () => setExternal(!st.external));
   function setExternal(on) {
     st.external = !!on;
@@ -881,212 +1031,33 @@ function shiftCue(half, toNeutral) {
 }
 
 // ── THE RIG, SEEN FROM OUTSIDE ───────────────────────────────────────────────
-// The chase camera is the renderer's own (`external` + `hideOwnShip`), which means the world is
-// correct for free and there is nothing here but the vehicle. It is drawn in 2D over the finished
-// frame rather than as a world object, for the same reason the yacht is: the truck is not IN the
-// world model, it is the thing the world is being rendered for, and putting it in the tile map
-// would mean the collision probe could hit it.
+// There is nothing here but a caption, and that is the point.
 //
-// IT IS A BOX MODEL NOW, NOT A SILHOUETTE, and it had to become one the moment the camera could
-// orbit. A flat rear-view drawing is correct from exactly one angle and is a cardboard cutout from
-// every other, so walking round the rig would have shown you the back of it the whole way round.
-// Eight corners, one yaw, one pitch, a weak perspective — about forty lines, and it is the only
-// thing in the cab that knows what shape a truck is.
+// This used to be a hand-rolled eight-corner box painted over the finished frame, because the
+// renderer was told to hide its own model ('hideOwnShip'). Two things were wrong with that and
+// they were the same thing: a box has no BOBTAIL — a tractor with nothing behind it read as a slab
+// the same as a loaded one — and the camera it drew through was a RESTATEMENT of the renderer's
+// three numbers rather than the renderer's own, so an orbit turned the world under a rig that
+// stayed put. Both are gone with the model: the truck is now the same 'buildTruck' mesh the depot
+// floor and everybody else's windscreen draw, through the same own-ship chase path the aircraft
+// use, so heading, ground anchoring, scale and the empty silhouette all come from one place.
 //
-// THE SCALE WAS ALSO WRONG, and wrong by a factor of about five: `S = min(W,H) * 0.0016` was then
-// multiplied by 6 and by a 170-unit body, which put the tractor at 1.6× the smaller screen
-// dimension — a wall of dark grey with two tail lamps on it, filling the view. Everything here is
-// in METRES now and projected, so the rig is the size a rig is and a longer trailer looks longer
-// instead of looking closer.
-const RIG_M = {
-  // Tractor and box, in metres: half-width, length, height. A day cab is about 2.5 across.
-  cab: { hw: 1.25, len: 6.2, h: 3.6 },
-  box: { hw: 1.30, len: 13.6, h: 4.0 },
-};
-
-function drawRig(st, r) {
+// What could NOT come from there is this: the renderer knows what a truck looks like and nothing
+// about what it is doing. Jackknifing is a fact about the drive, said on the picture because this
+// is the view you would see it happening in.
+function drawRigOverlay(st, r) {
+  if (!(r.hitched && r.folding)) return;
   const cv = document.getElementById(st.id);
   if (!cv || !cv.getContext || !cv.clientWidth) return;
   const g = cv.getContext('2d');
-  const tier = st.tier ?? 1;
-  // The renderer scales its backing store dynamically under load (see paintWindshield), so the
-  // device ratio is NOT a constant here — it is derived from the canvas we were actually given, or
-  // the rig drifts off the middle of the road the moment the frame rate dips.
   const k = cv.width / cv.clientWidth;
   const W = cv.clientWidth, H = cv.clientHeight;
   g.save();
   g.setTransform(k, 0, 0, k, 0, 0);
-
-  // THE CAMERA IS THE RENDERER'S, RESTATED. It is not read from it — the renderer keeps its pose in
-  // its own local units inside paintWindshield — so this mirrors the three numbers we handed it
-  // (extYaw + its resting chaseYaw, extPitch, extZoom) and nothing else. They move together
-  // because they are the same three variables, which is the only coupling that survives a refactor.
-  const az = ((st.extYaw || 0) + 12) * Math.PI / 180;      // 12° is RENDER_TUNE.chaseYaw's 3/4 rest
-  const pitch = Math.max(0.05, Math.min(1.12, st.extPitch ?? 0.42));
-  // NOTE THE DIRECTION. `extZoom` is the renderer's camera DISTANCE, not a magnification — bigger
-  // means further back — so the rig's pixel scale is its reciprocal, and the 1.15 is the same
-  // resting stand-off the paintWindshield call passes. Get this the wrong way round and the truck
-  // grows as you dolly away from it, which is the sort of wrong that looks like a physics bug.
-  const zoom = 1.15 * Math.max(0.4, Math.min(2.2, st.extZoom || 1));
-  // Metres → pixels. Solved off the smaller screen dimension so the rig holds its share of the
-  // frame in a panel and in fullscreen alike; the constant is chosen so a bobtail sits at roughly a
-  // third of the height, which is where a chase camera puts a vehicle.
-  const S = Math.min(W, H) * 0.060 / zoom;
-  const cx = W / 2, cy = H * (0.56 + 0.12 * Math.sin(pitch));
-  const ca = Math.cos(az), sa = Math.sin(az), cp = Math.cos(pitch), sp = Math.sin(pitch);
-
-  // Rig space: +x right of the driver, +y FORWARD, +z up, origin at the fifth wheel on the ground.
-  // Rotate by the camera azimuth, then flatten: forward-depth foreshortens by cos(pitch) and height
-  // lifts by sin — a plain axonometric, which at this size reads exactly as a perspective one does
-  // and cannot degenerate when the camera swings over the top.
-  const proj = (x, y, z) => {
-    const rx = x * ca - y * sa, ry = x * sa + y * ca;
-    return [cx + rx * S, cy - (z * sp * S) + ry * cp * S * 0.55];
-  };
-  // Depth key for the painter's algorithm — how far a face's centre is from the camera, in the
-  // rotated frame. Faces are sorted on it and drawn back to front, which is the whole of what makes
-  // a box look solid from any angle rather than inside-out from half of them.
-  const depth = (pts) => {
-    let d = 0;
-    for (const p of pts) d += p[0] * sa + p[1] * ca;
-    return d / pts.length;
-  };
-
-  // One box: eight corners, six faces, each shaded by which way it points so the thing has a lit
-  // side and a dark side without a light source being modelled anywhere.
-  function box(ox, oy, yaw, m, body, top, trimLine) {
-    const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
-    const local = (lx, ly, lz) => {
-      const x = ox + lx * cy2 - ly * sy2, y = oy + lx * sy2 + ly * cy2;
-      return [x, y, lz];
-    };
-    const c = [
-      local(-m.hw, 0, 0), local(m.hw, 0, 0), local(m.hw, m.len, 0), local(-m.hw, m.len, 0),
-      local(-m.hw, 0, m.h), local(m.hw, 0, m.h), local(m.hw, m.len, m.h), local(-m.hw, m.len, m.h),
-    ];
-    const faces = [
-      { i: [0, 1, 2, 3], f: '#0a0d10' },                      // underside
-      { i: [4, 5, 6, 7], f: top },                            // roof
-      { i: [0, 1, 5, 4], f: body[0] },                        // rear
-      { i: [3, 2, 6, 7], f: body[0] },                        // front
-      { i: [0, 3, 7, 4], f: body[1] },                        // left flank
-      { i: [1, 2, 6, 5], f: body[2] },                        // right flank
-    ];
-    const drawn = faces.map((fc) => ({ ...fc, pts: fc.i.map((n) => c[n]), d: depth(fc.i.map((n) => c[n])) }));
-    drawn.sort((a, b) => b.d - a.d);
-    for (const fc of drawn) {
-      g.beginPath();
-      fc.pts.forEach((p, n) => { const q = proj(p[0], p[1], p[2]); n ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); });
-      g.closePath();
-      g.fillStyle = fc.f; g.fill();
-      g.strokeStyle = 'rgba(120,140,165,0.20)'; g.lineWidth = 1; g.stroke();
-    }
-    // A single bright line along the top of the near flank — the one highlight that makes painted
-    // steel read as painted steel rather than as a filled polygon.
-    if (trimLine) {
-      const a = proj(...c[4]), b = proj(...c[7]);
-      g.strokeStyle = trimLine; g.lineWidth = 1.4;
-      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
-    }
-    return c;
-  }
-
-  // A lamp in rig space, drawn as a glowing disc. Skipped when it has swung behind the body, which
-  // the depth term answers for free.
-  const lamp = (x, y, z, col, rad, on) => {
-    const d = x * sa + y * ca;
-    if (d > 0.2) return;                                       // facing away from the camera
-    const p = proj(x, y, z);
-    const rr = rad * S;
-    const gr = g.createRadialGradient(p[0], p[1], 0, p[0], p[1], rr * (on ? 4.5 : 1.8));
-    gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.beginPath(); g.arc(p[0], p[1], rr * (on ? 4.5 : 1.8), 0, 7); g.fill();
-    g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], rr, 0, 7); g.fill();
-  };
-  // A wheel: a short dark cylinder seen as a rounded slab. Four of them on the drive axle, two on
-  // the steer, and the trailer's bogie — enough that the rig sits ON the road rather than over it.
-  const wheel = (x, y, rad) => {
-    const p0 = proj(x, y, rad), p1 = proj(x, y, 0);
-    g.strokeStyle = '#0b0e11'; g.lineWidth = Math.max(2.5, rad * S * 1.6); g.lineCap = 'round';
-    g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.stroke();
-  };
-
-  // THE GROUND SHADOW FIRST, and it is what sells the whole thing: without it the rig floats an
-  // inch above a road that is being rendered correctly underneath it. One flattened ellipse per
-  // body, at z=0, so it lies in the road plane and swings round with the camera like everything else.
-  const shadow = (ox, oy, yaw, m) => {
-    g.save();
-    const c0 = proj(ox - Math.cos(yaw) * m.hw, oy - Math.sin(yaw) * m.hw, 0);
-    const c1 = proj(ox + Math.sin(yaw) * m.len, oy + Math.cos(yaw) * m.len, 0);
-    g.globalAlpha = 0.42; g.fillStyle = '#000';
-    g.beginPath();
-    g.ellipse((c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2,
-      Math.abs(c1[0] - c0[0]) / 2 + m.hw * S, Math.max(3, m.hw * S * 0.7), 0, 0, 7);
-    g.fill();
-    g.restore();
-  };
-
-  const trailer = !!r.hitched;
-  const phi = (r.phi || 0) * Math.PI / 180;
-  // The tractor sits with its fifth wheel at the origin; the box hangs off it at the articulation
-  // angle, running BACKWARDS from the coupling — which is why its length is negated through the
-  // yaw rather than given a negative extent.
-  const boxYaw = Math.PI + phi;
-  const trim = tier === 3 ? '#e8c07a' : tier === 2 ? '#7fc98b' : tier === 0 ? '#c08a3e' : '#9fb4c8';
-  const skin = tier === 3 ? ['#2a2018', '#3a2c20', '#221a13']
-    : tier === 2 ? ['#16211a', '#1e2d24', '#111a15']
-      : tier === 0 ? ['#22231b', '#2d2e23', '#191a13']
-        : ['#1b2026', '#252c34', '#151a1f'];
-
-  if (trailer) shadow(0, 0, boxYaw, RIG_M.box);
-  shadow(0, -1.4, 0, RIG_M.cab);
-
-  // Painter's order between the two bodies: whichever is further from the camera goes down first.
-  const bodies = [
-    { d: Math.sin(boxYaw) * 0 + Math.cos(az) * -RIG_M.box.len * 0.5, draw: () => {
-      if (!trailer) return;
-      box(0, 0, boxYaw, RIG_M.box, ['#20262d', '#272f37', '#1a2027'], '#2c343d',
-        Math.abs(r.phi) > 55 ? '#d2603f' : 'rgba(170,190,215,0.35)');
-      // Bogie, right at the back of the box, and the plate lamp above it.
-      for (const s of [-1, 1]) for (const a of [11.2, 12.6]) {
-        wheel(Math.sin(boxYaw) * a + Math.cos(boxYaw) * s * RIG_M.box.hw,
-          Math.cos(boxYaw) * a - Math.sin(boxYaw) * s * RIG_M.box.hw, 0.55);
-      }
-      const bx = Math.sin(boxYaw) * RIG_M.box.len, by = Math.cos(boxYaw) * RIG_M.box.len;
-      lamp(bx, by, 1.2, 'rgba(255,240,200,0.7)', 0.10, false);
-    } },
-    { d: Math.cos(az) * RIG_M.cab.len * 0.5, draw: () => {
-      const c = box(0, -1.4, 0, RIG_M.cab, skin, tier === 3 ? '#3a2c20' : '#252c34', trim);
-      // Marker lights across the roof — five of them, as they are on a real cab.
-      for (let i = -2; i <= 2; i++) lamp(i * 0.5, -1.35, RIG_M.cab.h, 'rgba(255,205,131,0.9)', 0.055, false);
-      // Tail lamps, brighter under braking. The one honest instrument in this view.
-      const braking = st.input.brake > 0;
-      for (const s of [-1, 1]) lamp(s * (RIG_M.cab.hw - 0.18), -1.4, 1.0,
-        braking ? 'rgba(255,75,58,0.95)' : 'rgba(142,42,34,0.9)', 0.11, braking);
-      if (r.reversing) lamp(0, -1.4, 1.0, 'rgba(233,242,255,0.95)', 0.10, true);
-      // Steer axle forward, drive axles under the fifth wheel.
-      for (const s of [-1, 1]) {
-        wheel(s * RIG_M.cab.hw, 3.4, 0.62);
-        wheel(s * RIG_M.cab.hw, 0.3, 0.62);
-        wheel(s * RIG_M.cab.hw, -0.9, 0.62);
-      }
-      // Headlamp spill on the road ahead, so a night chase shot has the rig lighting its own way.
-      if ((st.hour ?? 12) < 7 || (st.hour ?? 12) >= 19) {
-        for (const s of [-1, 1]) lamp(s * (RIG_M.cab.hw - 0.25), RIG_M.cab.len - 1.4, 1.1, 'rgba(255,246,214,0.85)', 0.12, true);
-      }
-      return c;
-    } },
-  ];
-  bodies.sort((a, b) => b.d - a.d).forEach((b) => b.draw());
-
-  // JACKKNIFING, said on the picture. This view is where you would see it happening, so this is
-  // where it is called — the DOM readout says the same thing in words for the record.
-  if (trailer && r.folding) {
-    g.fillStyle = '#d2603f';
-    g.font = `700 ${Math.max(10, Math.min(W, H) * 0.028) | 0}px 'DejaVu Sans Mono',monospace`;
-    g.textAlign = 'center';
-    g.fillText('JACKKNIFING', cx, H * 0.16);
-  }
+  g.fillStyle = '#d2603f';
+  g.font = `700 ${Math.max(10, Math.min(W, H) * 0.028) | 0}px 'DejaVu Sans Mono',monospace`;
+  g.textAlign = 'center';
+  g.fillText('JACKKNIFING', W / 2, H * 0.16);
   g.restore();
 }
 
@@ -1166,6 +1137,9 @@ function frame(now) {
     // The box. `best` is shown as a HINT beside the gear and never acted on — an automatic in a
     // truck sim is the whole game deleted. The tach is the same numbers as a dial because you are
     // meant to be able to drive on the sound alone and glance at this to confirm.
+    // The controls follow the truck, whatever moved them — a key, a button, a drag.
+    st.paintGate?.();
+    st.paintControls?.();
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
@@ -1236,17 +1210,33 @@ function frame(now) {
 
     // Hand the world to the flight sim's renderer. `height: 0` is the ground camera; the map
     // window came from the server and was derived by the same mapWindow a cockpit uses.
-    // THE EXTERNAL VIEW IS THE SAME CALL. `external` + `hideOwnShip` is the exact pair the Helm
-    // chase view passes (helm-view.js) — a real camera behind and above, with the renderer's own
-    // aircraft model suppressed because there is no aircraft. What sits at screen centre is
-    // drawRig, painted over the finished frame below. `tier` is still passed and does not need
-    // gating — drawCabInterior is already `!ext` inside the renderer, so the painted cab suppresses
-    // itself the moment the camera leaves it.
+    // THE EXTERNAL VIEW IS THE FLIGHT SIM'S OWN CHASE, MODEL AND ALL.
+    //
+    // It used to pass `hideOwnShip` and then paint a bespoke eight-corner box over the finished
+    // frame — a second truck, in a second projection, with its own copy of the camera pose. Both
+    // bugs that came out of that were the same bug: the model was a BOX, so it had no bobtail
+    // silhouette (a tractor with nothing on it still read as a slab), and its camera was a
+    // restatement of the renderer's rather than the renderer's, so orbiting turned the world
+    // underneath a rig that would not turn with it.
+    //
+    // `buildTruck` has existed the whole time — it is what the depot floor, the wireframe and a rig
+    // seen from somebody's cockpit all draw, it takes the `<typeId>[+t]` grammar, and BOBTAIL IS A
+    // REAL SILHOUETTE in it. So the cab stops drawing its own truck and asks for the same one
+    // everybody else sees, through the same own-ship path the aircraft use: the model keeps its
+    // true heading while the camera orbits, the ground anchor pins it to the road, and running
+    // empty looks like running empty because the mesh is short.
+    //
+    // `tier` is still passed and does not need gating — drawCabInterior is already `!ext` inside
+    // the renderer, so the painted cab suppresses itself the moment the camera leaves it.
     paintWindshield(st.id, {
       cls: 'truck', phase: 'ground', worldBlend: 1,
+      // Which of the four, and whether there is a box on the back. The ONE string that decides the
+      // shape, and it is the same one the yard hands its turntable.
+      variant: TYPE_ID + (r.hitched ? '+t' : ''),
+      livery: PAINT || undefined,
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
-      // put it back down the road. drawRig mirrors these three exactly (see its camera note).
-      ...(st.external ? { external: true, hideOwnShip: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom } : {}),
+      // put it back down the road.
+      ...(st.external ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom } : {}),
       // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
       // are for — and yawing a third-person view off the vehicle it is following is just lost.
       viewYaw: st.external ? 0 : (st.viewYaw || 0),
@@ -1293,8 +1283,8 @@ function frame(now) {
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
       acX: st.sim.x, acY: st.sim.y,
     });
-    // Over the finished frame, never inside it — see drawRig.
-    if (st.external) { st.tier = P.tier; drawRig(st, r); }
+    // The rig itself is the renderer's now; this is only what the renderer cannot know.
+    if (st.external) { st.tier = P.tier; drawRigOverlay(st, r); }
 
     // Stopped and pointing the same way as last time we spoke? Nothing the server needs to know
     // has changed, so drop to the heartbeat. `rolling` is the whole gate — a truck that is not
@@ -1401,17 +1391,42 @@ function ensureCabStyles() {
   .cab-clutch.on{border-color:#8a7ac0}
 
   /* ── THE GATE ──────────────────────────────────────────────────────────────
-     A slotted plate with a lever in it. \`--throw\` is written by the drag handler as −1..1 and is
-     the ONLY thing that moves the knob, so the lever's position and the shift it caused can never
-     disagree — there is no second copy of where the lever is. */
-  .cab-gate{position:relative;width:44px;height:58px;border-radius:5px;
-    background:linear-gradient(#191d22,#0c0f13);border:1px solid #333a43;overflow:hidden}
-  .cab-gate-slot{position:absolute;left:50%;top:8px;bottom:8px;width:7px;margin-left:-3.5px;
-    border-radius:4px;background:#05070a;box-shadow:inset 0 0 6px #000}
-  .cab-lever{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
-    cursor:ns-resize;touch-action:none;
-    transform:translateY(calc(var(--throw,0) * -14px));transition:transform .12s ease-out}
-  .cab-lever.on{transition:none}
+     A milled H-plate with a lever in it. Two variables move the knob and nothing else does:
+     '--gx'/'--gy', the position in the plate's own 0..1 space, written by the drag handler while a
+     hand is on it and by paintGate off the CURRENT GEAR the rest of the time. So the lever's
+     position and the gear it selected can never disagree — there is no second copy of where the
+     lever is, and a shift from a key moves the knob too.
+     Every dimension below is a fraction of '--gw'/'--gh', so the rails, the engraved numbers and the
+     knob all track one pair of numbers when the gate resizes for touch. */
+  .cab-gate{--gw:104px;--gh:62px;position:relative;width:var(--gw);height:var(--gh);border-radius:5px;
+    background:linear-gradient(#191d22,#0c0f13);border:1px solid #333a43;overflow:hidden;
+    touch-action:none;cursor:pointer}
+  /* The milled slots. Two vertical rails, the crossgate that joins them, and reverse's dogleg —
+     drawn as recessed channels rather than painted lines, because the whole read of an H-gate is
+     that the lever is DOWN IN something. Percentages, so they track the GATE table above: rails at
+     24% and 52%, reverse at 80%, crossgate at 50% height. */
+  .cab-gate-rail{position:absolute;background:#05070a;box-shadow:inset 0 0 6px #000;border-radius:4px}
+  .cab-rail-l{left:24%;top:10%;bottom:10%;width:9px;margin-left:-4.5px}
+  .cab-rail-r{left:52%;top:10%;bottom:10%;width:9px;margin-left:-4.5px}
+  .cab-rail-rev{left:80%;top:50%;bottom:10%;width:9px;margin-left:-4.5px}
+  .cab-rail-x{left:24%;right:16%;top:50%;height:9px;margin-top:-4.5px}
+  /* 1 3 R over 2 4 — the numbers milled into the plate, which is the only reason a gate is
+     learnable at a glance. A pair of pseudo-elements would be two labels for six positions, so this is
+     one grid laid over the plate. */
+  .cab-gate-marks{position:absolute;inset:0;pointer-events:none;
+    font:700 8px/1 inherit;color:rgba(150,163,178,.55);letter-spacing:.04em}
+  .cab-gate-marks::before,.cab-gate-marks::after{position:absolute;white-space:pre}
+  .cab-gate-marks::before{content:'1   3   R';left:8%;top:6px}
+  .cab-gate-marks::after{content:'2   4';left:8%;bottom:5px}
+  .cab-lever{position:absolute;left:0;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;
+    cursor:grab;touch-action:none;
+    transform:translate(calc(var(--gx,.38) * var(--gw,104px)),calc(var(--gy,.5) * var(--gh,62px)));
+    transition:transform .14s cubic-bezier(.2,.8,.3,1)}
+  /* No easing while a hand is on it: a knob that lags the finger is a knob that feels broken. */
+  .cab-lever.on{transition:none;cursor:grabbing;z-index:2}
+  /* In a gear the gate's own range does not offer — you shifted into 6 with a key while the lever
+     was in the LO half. The plate says so rather than the knob lying about where it is. */
+  .cab-gate-off .cab-gate-marks{color:rgba(216,162,78,.75)}
   .cab-lever b.cab-knob{display:block;width:100%;height:100%;border-radius:50%;
     background:radial-gradient(circle at 34% 30%,#4a535e,#191d22 70%,#0b0e12);
     border:1px solid #4b5763;box-shadow:0 3px 7px -3px #000, inset 0 1px 0 rgba(255,255,255,.18)}
@@ -1498,6 +1513,11 @@ function ensureCabStyles() {
     .cab-pedal{width:48px;height:56px}
     .cab-brake{width:54px}
     .cab-throttle{height:62px}
+    /* The gate gets BIGGER on touch, not smaller — it is six targets in one plate and on a phone
+       it is the only way to shift at all. One pair of variables moves the rails, the marks and the
+       knob together, because they are all expressed as fractions of it. */
+    .cab-gate{--gw:132px;--gh:74px}
+    .cab-lever{width:26px;height:26px;margin:-13px 0 0 -13px}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{min-width:46px} }
 
@@ -1513,10 +1533,27 @@ function ensureCabStyles() {
   .cab-cbtn:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
   /* Fullscreen / hide-panel. Body classes, because what they change is the PAGE
      and not the cab — the same seam \`fsim-fullscreen\` uses. */
-  body.cab-fullscreen #sidebar,body.cab-fullscreen #output,body.cab-fullscreen #input-row{display:none}
-  body.cab-fullscreen #area-pane{position:fixed;inset:0;z-index:60;max-width:none;width:100vw;height:100vh}
-  body.cab-hidepanel #output{display:none}
-  body.cab-hidepanel #area-pane{flex:1 1 auto}
+  /* ⚠ THESE ARE THE FLIGHT SIM'S RULES, COPIED, and they have to be — the cab had invented its own
+     and got both halves wrong. It hid \`#sidebar\` and \`#input-row\`; the elements are \`#output\`,
+     \`#look-resize-handle\` and \`#bottom-input-wrap\`, so two of the three selectors matched nothing
+     and the log stayed. And it took \`#area-pane\` out of the flex column with \`position:fixed\`,
+     which left the pane's own 12px padding and \`overflow-y:auto\` in place around a wrap that was
+     then asking for 100% of a height nobody had set — a cab inset from every edge with a scrollbar,
+     which is exactly what "it doesn't expand" looked like.
+     The sim's approach is the correct one and is already proven on three panels (fsim, helm,
+     passenger): don't leave the column, GROW in it. */
+  body.cab-fullscreen #area-pane,
+  body.cab-hidepanel #area-pane{max-height:none;flex:1 1 auto}
+  body.cab-fullscreen #area-pane{padding:0}   /* reach every edge — the inset is stolen road */
+  body.cab-fullscreen #area-content,
+  body.cab-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}
+  body.cab-fullscreen .cab-wrap,
+  body.cab-hidepanel .cab-wrap{flex:1 1 auto;min-height:0;height:auto}
+  body.cab-fullscreen #output,
+  body.cab-fullscreen #look-resize-handle,
+  body.cab-fullscreen #bottom-input-wrap{display:none}
+  body.cab-hidepanel #output,
+  body.cab-hidepanel #look-resize-handle{display:none}
   /* ── FULLSCREEN GIVES YOU MORE ROAD, NOT A BIGGER DASH ─────────────────────
      Going fullscreen used to hand the extra height to the shelf as readily as to the glass: the
      dash is a flex row that grows, so a taller window bought a taller strip of buttons and the

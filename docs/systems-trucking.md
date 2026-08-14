@@ -699,6 +699,26 @@ The panel invents nothing: speed, revs, fuel, brake temperature, leg progress, g
 lamps are all values the cab already had. It is still the fleet ladder — `CAB_TRIM.dials`/`.band`
 decide what is bolted to it (no tachometer in a Barrow, here either) and what it is made of.
 
+**The panel is laid out across the dash, and the wheel publishes its own top edge** *(2026-08-14)*.
+The first version of it put all seven instruments and six lamps inside about a fifth of a very wide
+surface, clustered on the column — and drew them *before* the wheel, whose rim came up over the
+bottom half of the cluster. Two different mistakes with one look: **bunched, and unreadable**.
+Nothing was mis-sized; the two instruments a driver reads most were simply behind a moulded grey
+annulus. So `cabWheelGeom(W, H)` is now the **one** definition of where the wheel is — the drawing,
+the horn hit-test (`cabWheelHub` derives from it) and the panel layout all read it, and the panel
+lays itself out in the band between the dash lip and `top`. A dash is wide and a cab is short, so it
+spends the axis it has: binnacle on the column, **gear window beside it** (under it is where the
+wheel is), fuel and leg out on the left flank, brake and trailer right of the gear, and the
+tell-tales in one spread row on the right of the dash **with labels** — an unlit dot is not an
+instrument, it is a hole.
+
+**Every control's appearance is derived from `st.input`, never from the thing that moved it**
+*(2026-08-14)*. The `on` class was added by the pointer handler and by nothing else, so a driver
+using `A`/`Z`/`X`/`C` — which is nearly all of them, since the keys are the fast way to drive —
+stood on a throttle that never moved. `paintControls` runs in the frame loop off the input state, so
+the pointer, the key, a focused button's Space and anything added later all get the animation free.
+Same rule as `paintGate`, and the same reason.
+
 **The cab takes the keyboard, and says so.** Key handling is on the `window` and steps aside for a
 focused text field — correct, and also how a driver ends up typing `aaazzzx` into the command bar
 without finding out, since the bar sits three inches under the glass and every other part of the
@@ -706,12 +726,27 @@ game wants focus. The cab now focuses its own wrap on mount and on any press ins
 the `⌨ KEYS` tag on the glass names who has them. Nothing is trapped: clicking the command bar
 hands them straight back and the tag goes amber to say so.
 
-**The chase view is a box model.** `drawRig` was a flat rear-view silhouette, correct from exactly
-one angle — a cardboard cutout the moment the camera could orbit. It is now eight corners, six
-depth-sorted faces and a weak axonometric projection, dimensioned in **metres**. (The old drawing
-was also about 5× too large: a `min(W,H) * 0.0016` scale multiplied by 6 and a 170-unit body put
-the tractor at 1.6× the smaller screen dimension.) Note the direction of `extZoom` — it is camera
-*distance*, so the rig's pixel scale is its reciprocal.
+**The chase view is the renderer's own ship** *(2026-08-14)*. It used to pass `hideOwnShip` and then
+paint a bespoke box model over the finished frame, and both bugs that came out of that were the same
+bug. A box has **no bobtail** — a tractor with nothing behind it read as the same slab as a loaded
+one — and its camera was a *restatement* of the renderer's three numbers rather than the renderer's,
+so an orbit turned the world underneath a rig that stayed put. `buildTruck` (aircraft3d) had existed
+the whole time: it is what the depot floor, the wireframe and a rig seen from somebody's cockpit all
+draw, it takes the `<typeId>[+t]` grammar, and **bobtail is a real silhouette in it**. So the cab
+asks for the same truck everybody else sees, through the same own-ship chase path the aircraft use —
+heading, ground anchoring, scale and the empty silhouette all come from one place. `variant` had to
+be plumbed into the own-ship call in `windshield.js` (contacts already carried it); without it the
+one vehicle you are actually driving is the only one drawn as a default hauler. All that is left
+over the frame is `drawRigOverlay`, which says JACKKNIFING — a fact about the drive, which the
+renderer cannot know.
+
+**Fullscreen is the flight sim's rules, copied** *(2026-08-14)*. The cab had invented its own and got
+both halves wrong: it hid `#sidebar` and `#input-row` (the elements are `#output`,
+`#look-resize-handle` and `#bottom-input-wrap`, so two of three selectors matched nothing), and it
+took `#area-pane` out of the flex column with `position:fixed` — which left the pane's own 12px
+padding and `overflow-y:auto` around a wrap asking for 100% of a height nobody had set. A cab inset
+from every edge with a scrollbar, which is exactly what "it doesn't expand" looked like. **Don't
+leave the column, grow in it** — the approach already proven on fsim, helm and passenger.
 
 ---
 
@@ -738,6 +773,34 @@ Three details that were each wrong once and are load-bearing:
   torque, so launching in a tall gear is possible, slow, and eventually a stall.
 - **The splitter is written the long way** because the one-liner chained on `truckShift`'s return
   value, which is a GEAR NUMBER — so a split into neutral was falsy and left `split` lying.
+
+### The shifter is an H-gate, because the box is a 4×2 *(2026-08-14)*
+
+Eight forward ratios is not a ladder you climb — it is **four slots in an H with a range lever that
+does them twice**, which is what a real range-change box is. The `GATE` table in `cab-view.js` holds
+positions in the plate's own 0..1 space and a *slot* number (1-4), never a gear; the gear is
+`slot + range*4`. That one line is what makes it a tree rather than eight hard-coded holes, and why
+a nine-speed later is a number and not a layout. Reverse has its own dogleg; neutral is the
+crossgate everything passes through.
+
+What it replaced was a **throw** — drag up, clunk one gear, spring back. Honest for a sequential box
+and wrong for this one: it made eight ratios a queue you had to walk (three drags to drop three
+gears for a hill) and told you nothing about where you were. **A gate is also a display**, which is
+most of what a gearstick is for.
+
+Three rules hold it together:
+
+- **`truckSelectGear` is a new primitive, not a loop over `truckShift`.** A sequential control says
+  "one more"; a gate says "that one", and walking the box up would clunk seven times on the way.
+  Same two writes, so the cab's clunk, the audio bump and everything downstream are identical.
+- **The range is DERIVED from the gear, never stored beside it.** `,`/`.` and the ▲▼ buttons walk
+  the box knowing nothing about a gate, so a remembered range goes stale the first time anyone uses
+  a key — the knob sitting in slot 2 while the truck is in 6. `paintGate` re-derives it every frame.
+- **One door for choosing a gear.** The gate, the R button and the R key all arrive at `selectGear`,
+  so the "reverse only at a stop" rule is written once and cannot drift.
+
+The ▲▼ buttons stay: a lever you can only work by dragging is a lever a keyboard user does not have,
+which is the same reason they were added in the first place.
 
 **And the voice is not polish, it is the tachometer.** `FE_VOICE` gained a `truck` row — low core,
 low pulse rate at high depth (slow cylinder firing is *why* a diesel sounds like one), heavy
