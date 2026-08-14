@@ -740,6 +740,29 @@ one vehicle you are actually driving is the only one drawn as a default hauler. 
 over the frame is `drawRigOverlay`, which says JACKKNIFING — a fact about the drive, which the
 renderer cannot know.
 
+**The own-ship truck needs its own size multiplier** *(2026-08-14)*. Straight after the swap above the
+rig read as almost invisible in the chase view — and it was drawing correctly, just far away.
+Apparent size is model scale over camera distance; `szFac` is floored at **0.46** on purpose (a
+physically tiny airframe pulling the camera all the way in reads as a squashed crop — a trade made
+for the small helicopters, and right for them). So a prop gets `(0.11 × 1.9) / 1.00` and a truck got
+`(0.030 × 1.9) / 0.46`, about a quarter of the frame a hero craft fills. `CONTACT_SIZE.truck` is
+*right as a contact* — a rig seen from an aircraft should be a detail on the road — so the own-ship
+chase gets a **different number** (`OWN_EXT_MUL_BY_CLS`, 3.2, solved to put a truck at exactly a
+prop's apparent size through the clamped camera) rather than the shared one being bent to cover both
+questions. ⚠ Every own-ext site now goes through `ownExtMul(cls)`: an override that reached the draw
+but not `ownShipBaseWz`/`modelGroundDrop` would scale the model and leave its wheels at the old
+height — a truck hovering over the road.
+
+**The cab has to be listed in `input.js` as a keyboard owner** *(2026-08-14)*. It owns `A`/`Z`/`X`/`C`,
+the arrows, `,` and `.` — nearly the whole letter row, and every one of them is also a printable
+character. The document-level handler in `client/game/js/input.js` pulls the caret into the command
+box on any single printable keypress, and guards against exactly this for the flight sim, the cabin
+HUD, the hangar walk, the depot walk, WASD movement and the piano. The cab was never added, so the
+first key of a drive focused the command bar and the rest of it arrived there as `aaaaaaaazzzzzzz`.
+The cab's own focus machinery (`grabKeys`, the `⌨ KEYS` tag) was working the whole time and could
+not have fixed it — something else was taking the focus back. **Adding a panel that owns keys means
+adding it to that list.**
+
 **Fullscreen is the flight sim's rules, copied** *(2026-08-14)*. The cab had invented its own and got
 both halves wrong: it hid `#sidebar` and `#input-row` (the elements are `#output`,
 `#look-resize-handle` and `#bottom-input-wrap`, so two of three selectors matched nothing), and it

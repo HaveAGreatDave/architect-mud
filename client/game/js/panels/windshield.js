@@ -1156,7 +1156,7 @@ export function paintWindshield(id, view) {
       // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d) and nothing else reads it — but
       // it has to reach the OWN ship as well as a contact, or the one vehicle you are actually
       // driving is the one drawn as a default hauler with a box permanently on the back.
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: OWN_EXT_MUL, gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       pEnd();
     }
@@ -5285,7 +5285,27 @@ const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, 
 // so lowering this shrinks the plane against the world/buildings without moving the camera — i.e. it
 // fixes plane↔building scale. It is the ONE own-ext multiplier: the draw, the ground anchor
 // (ownShipBaseWz/modelGroundDrop) and the gun muzzles all read it, so the gear stays pinned to the deck.
+// ⚠ THAT IS STILL TRUE and is why every one of those sites goes through `ownExtMul(cls)` rather than
+// this constant directly — a per-class override that reached the DRAW but not the ground anchor
+// would scale the model and leave its wheels at the old height, i.e. a truck hovering over the road.
 const OWN_EXT_MUL = 1.9;   // was 2.3 — dropped so the hero craft sits truer against the buildings (a Twin Otter reads ~half a tower's footprint, not level with it)
+// …EXCEPT where the camera's own size clamp bites. `szFac` is floored at 0.46, deliberately: a
+// physically tiny airframe pulling the chase camera all the way in reads as an uncomfortably close,
+// squashed crop, so the floor trades a smaller craft for a comfortable standoff. That trade was made
+// for the small HELICOPTERS and it is right for them.
+//
+// It is wrong for a truck, and the arithmetic says why. Apparent size is model scale over camera
+// distance: a prop gets (0.11 × 1.9) / 1.00, a truck gets (0.030 × 1.9) / 0.46 — about a quarter of
+// the frame a hero craft fills, which is the "cab is invisible in external mode" report. The rig was
+// drawing correctly; it was drawing correctly and far away.
+//
+// CONTACT_SIZE.truck is right AS A CONTACT — a rig seen from an aircraft SHOULD be a detail on the
+// road, and that is the number this table exists for. What the own-ship chase wants is a different
+// question, so it gets a different number rather than the shared one being bent to cover both.
+// 3.2 is solved, not guessed: it is the multiplier that puts a truck at exactly a prop's apparent
+// size through the clamped camera.
+const OWN_EXT_MUL_BY_CLS = { truck: 3.2 };
+const ownExtMul = (cls) => OWN_EXT_MUL_BY_CLS[cls] || OWN_EXT_MUL;
 const LOD_HI_TILES = 4.5;   // contacts nearer than this (or the own chase model) render the full-detail mesh; farther ones drop to the coarse LOD (they're only a few px)
 
 // The own-ship external-chase model's centre world-z. Two jobs, and it takes the higher of them:
@@ -5308,7 +5328,7 @@ const mdlKey = (cls, armed) => cls + (armed ? ':a' : '');
 function modelGroundDrop(cls, armed) {                            // level gear drop (cached) → stable chase anchor
   const k = mdlKey(cls, armed);
   if (_groundDropCache[k] != null) return _groundDropCache[k];
-  return (_groundDropCache[k] = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1, armed)));
+  return (_groundDropCache[k] = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls) * CONTACT_VS * (-modelLowestH(cls, 0, 0, 1, armed)));
 }
 // World-z of the model's vertical CENTRE above its ground anchor, at neutral attitude (cached per class).
 // Used to pin the chase framing on the model's middle, not its gear — so the same fraction of hull sits
@@ -5324,7 +5344,7 @@ function modelMidH(cls, armed) {
     for (const p of face.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
   }
   if (lo > hi) { lo = 0; hi = 0; }
-  const S = (CONTACT_SIZE[cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
+  const S = (CONTACT_SIZE[cls] || 0.11) * ownExtMul(cls) * CONTACT_VS;
   return (_modelMidCache[k] = S * (lo + hi) / 2);
 }
 // The most-negative vertex height (craft units) with pitch/bank/gear applied — the model's true
@@ -5372,7 +5392,7 @@ function deckLift(cam, v) {
   return c && c.mark === 'yacht' ? YACHT_DECK_Z : 0;
 }
 function ownShipBaseWz(cam, v) {
-  const S = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL * CONTACT_VS;
+  const S = (CONTACT_SIZE[v.cls] || 0.11) * ownExtMul(v.cls) * CONTACT_VS;
   const natural = modelGroundDrop(v.cls, !!v.armed) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
   const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1, !!v.armed)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
   return Math.max(natural, floor) + deckLift(cam, v);   // + the Echelon's pad height when we're sitting on her deck
@@ -5817,7 +5837,7 @@ function drawGunTracers(ctx, cam, v, now) {
       // External chase: the own ship is a MODEL at (0,0), so the guns must sit on its WINGS,
       // transformed by its heading/bank/pitch exactly like the drawn model — not "ahead of the
       // camera" (which is behind + above the plane, hence the rounds appearing over the top).
-      const SIZE = (CONTACT_SIZE[v.cls] || 0.11) * OWN_EXT_MUL, baseWz = ownShipBaseWz(cam, v);
+      const SIZE = (CONTACT_SIZE[v.cls] || 0.11) * ownExtMul(v.cls), baseWz = ownShipBaseWz(cam, v);
       const roll = (v.bank || 0) * Math.PI / 180, pit = (v.pitch || 0) * Math.PI / 180;
       const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pit), sp = Math.sin(pit);
       const toWorld = (f, g, hh) => { const f1 = f * cp - hh * sp, h1 = f * sp + hh * cp, g2 = g * cr + h1 * sr, h2 = -g * sr + h1 * cr;

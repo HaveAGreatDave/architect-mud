@@ -8,6 +8,12 @@ import { isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { isHangarBayWalkActive } from './panels/hangar-bay.js';
 import { isTruckDepotWalkActive } from './panels/truck-depot.js';
 import { isPianoKeysLive } from './panels/piano.js';
+// THE CAB owns A/Z/X/C, the arrows, the comma and the full stop — nearly the whole letter row.
+// Without this guard every one of them is also a printable character, so the auto-focus below
+// pulled the caret into the command box on the first press and the rest of the drive went into it
+// as 'aaaaaaaaazzzzzzzz'. Every other panel that owns the keyboard is already listed here; the cab
+// was the one that never was.
+import { isCabActive } from './panels/cab-view.js';
 import { toggleAutoWalk, startAutoWalk, cancelAutoWalk, isAutoWalkPromptPending, answerAutoWalkPrompt } from './panels/minimap.js';
 import { runMacroByName, abortMacros } from './panels/smartbar-macros.js';
 import { runAccessibilityCommand } from './a11y-command.js';
@@ -153,6 +159,8 @@ export function initInput({ saveOrigin, notify } = {}) {
     if (isHangarBayWalkActive()) return;
     // The truck depot's walkaround is the same camera around a rig, and owns the same keys.
     if (isTruckDepotWalkActive()) return;
+    // …and driving the thing is the same claim as walking round it.
+    if (isCabActive()) return;
     // WASD keyboard movement owns the keys while armed — don't pull focus into
     // the command box (the window-capture handler in main.js drives movement).
     if (state.wasdMove) return;
