@@ -270,7 +270,32 @@ export default async function regress({ run, check, getPlayer }) {
       return pr[0]?.progress || [];
     };
     // The bus is fire-and-forget; give the subscriber a beat to land its UPDATE.
+    // NEGATIVE cases sleep, because proving nothing happened means giving it the
+    // chance to: there is no value to wait for.
     const settle = () => sleep(120);
+    // A POSITIVE case waits for the value instead. 120ms is a GUESS about how long
+    // a fire-and-forget subscriber takes to reach Postgres, and on a loaded CI
+    // runner against a container DB it is sometimes wrong — which surfaced as one
+    // red that was green locally and MOVED between runs (the equip case, CI
+    // 2026-08-14). Polling makes the wait exactly as long as it needs to be, so a
+    // slow box costs a few milliseconds instead of a false failure, and a genuine
+    // regression still fails — it just takes the full budget to do it.
+    const settled = async (n, ms = 3000) => {
+      const until = Date.now() + ms;
+      for (;;) {
+        const p = await progressOf();
+        if (p[0] === n || Date.now() > until) return p;
+        await sleep(25);
+      }
+    };
+    const statusSettled = async (want, ms = 3000) => {
+      const until = Date.now() + ms;
+      for (;;) {
+        const { rows: s } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
+        if (s[0]?.status === want || Date.now() > until) return s[0]?.status;
+        await sleep(25);
+      }
+    };
 
     // assassinate — an exact NPC, and never an NPC-on-NPC kill with no player behind it.
     await mkQuest([{ id: 'o0', type: 'assassinate', target: 'npc_regress_mark', count: 1, desc: 'Do it' }]);
@@ -279,7 +304,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('assassinate ignores a kill with no player behind it', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_mark', name: 'The Mark' } });
     await settle();
-    check('assassinate advances on npc.killed by a player', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('assassinate advances on npc.killed by a player', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // …and it must not fire for a DIFFERENT NPC — the whole difference from 'kill'
     // is that it names a person, so a near-miss here means it's just kill again.
@@ -295,13 +320,13 @@ export default async function regress({ run, check, getPlayer }) {
     check('escort does not advance at the wrong destination', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('escort.arrived', { actor: player, npc: { id: 'npc_regress_ward', name: 'Ward' }, zone: 'zone_regress_dest' });
     await settle();
-    check('escort advances when the escortee arrives at the destination', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('escort advances when the escortee arrives at the destination', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // talk
     await mkQuest([{ id: 'o0', type: 'talk', target: 'npc_regress_talker', count: 1, desc: 'Go and listen' }]);
     emit('npc.talked', { actor: player, npc: { id: 'npc_regress_talker', name: 'Talker' } });
     await settle();
-    check('talk advances on npc.talked', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('talk advances on npc.talked', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // buy / sell — the vendor events carry `player`, not `actor`, and `itemId`,
     // not `item_id`. Both are easy to get backwards and silent when wrong.
@@ -315,24 +340,24 @@ export default async function regress({ run, check, getPlayer }) {
     await settle();
     emit('vendor.purchase', { player, itemId: 'medkit' });
     await settle();
-    check('buy advances on vendor.purchase (payload uses player/itemId)', (await progressOf())[0] === 2, JSON.stringify(await progressOf()));
+    check('buy advances on vendor.purchase (payload uses player/itemId)', (await settled(2))[0] === 2, JSON.stringify(await progressOf()));
 
     await mkQuest([{ id: 'o0', type: 'sell', count: 1, desc: 'Sell anything' }]);
     emit('vendor.sale', { player, itemId: 'whatever' });
     await settle();
-    check('sell with no target counts any sale', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('sell with no target counts any sale', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // craft — counts the STACK, so one critical craft satisfies "craft 2".
     await mkQuest([{ id: 'o0', type: 'craft', target: 'shiv', count: 2, desc: 'Make two' }]);
     emit('item.crafted', { actor: player, item_id: 'shiv', quantity: 2 });
     await settle();
-    check('craft counts the output quantity, not the craft', (await progressOf())[0] === 2, JSON.stringify(await progressOf()));
+    check('craft counts the output quantity, not the craft', (await settled(2))[0] === 2, JSON.stringify(await progressOf()));
 
     // equip
     await mkQuest([{ id: 'o0', type: 'equip', item_id: 'dinner_jacket', count: 1, desc: 'Dress up' }]);
     emit('item.equipped', { actor: player, item: { item_id: 'dinner_jacket' }, slot: 'torso' });
     await settle();
-    check('equip advances on item.equipped', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('equip advances on item.equipped', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // hack — zone-scoped.
     await mkQuest([{ id: 'o0', type: 'hack', zone: 'zone_regress_till', count: 1, desc: 'Crack it' }]);
@@ -341,7 +366,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('hack does not advance for the wrong site', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('hack.success', { player, zoneId: 'zone_regress_till' });
     await settle();
-    check('hack advances at the named site', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+    check('hack advances at the named site', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
 
     // spend — the numeric-predicate path. This is the one that proves trackEvent
     // can count something other than repetitions; if the generalisation regresses,
@@ -355,7 +380,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('spend ignores a bank transfer', (await progressOf())[0] === 0, JSON.stringify(await progressOf()));
     emit('credits.changed', { actor: player, delta: -900, reason: 'vendor:buy' });
     await settle();
-    check('spend accumulates the AMOUNT, not a count', (await progressOf())[0] === 900, JSON.stringify(await progressOf()));
+    check('spend accumulates the AMOUNT, not a count', (await settled(900))[0] === 900, JSON.stringify(await progressOf()));
     let { rows: st } = await query('SELECT status FROM player_quests WHERE player_id=$1 AND quest_id=$2', [player.id, TYPES_QUEST]);
     check('spend is not complete below the credit target', st[0]?.status === 'active', JSON.stringify(st[0]));
     emit('credits.changed', { actor: player, delta: -200, reason: 'vendor:buy' });
@@ -384,7 +409,7 @@ export default async function regress({ run, check, getPlayer }) {
       await settle();
       emit('weather.event', { type: null, phase: null });
       await settle();
-      check('survive credits a player who stood outdoors through it', (await progressOf())[0] === 1, JSON.stringify(await progressOf()));
+      check('survive credits a player who stood outdoors through it', (await settled(1))[0] === 1, JSON.stringify(await progressOf()));
     } finally {
       player.current_zone = savedZone2;
       world.zones.delete(OUT);
@@ -419,6 +444,16 @@ export default async function regress({ run, check, getPlayer }) {
       return s[0]?.status;
     };
     const settle = () => sleep(120);
+    // …and the same polling wait as the block above, for the same reason: a status
+    // flip driven off a fire-and-forget event lands when it lands.
+    const failed = async (want, ms = 3000) => {
+      const until = Date.now() + ms;
+      for (;;) {
+        const st = await statusOf();
+        if (st === want || Date.now() > until) return st;
+        await sleep(25);
+      }
+    };
 
     // A fail_on condition trips on the SAME event an objective would have used.
     await mkFail(
@@ -431,7 +466,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('an unrelated event does not fail the quest', (await statusOf()) === 'active', await statusOf());
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
     await settle();
-    check('a fail_on condition fails the quest', (await statusOf()) === 'failed', await statusOf());
+    check('a fail_on condition fails the quest', (await failed('failed')) === 'failed', await statusOf());
 
     // A `kill` fail_on is a PROHIBITION — "do this job without shooting anyone".
     // It matches enemy names by SUBSTRING, which is the whole reason one clause
@@ -447,7 +482,7 @@ export default async function regress({ run, check, getPlayer }) {
     check('killing something else does not trip a kill prohibition', (await statusOf()) === 'active', await statusOf());
     emit('enemy.killed', { actor: player, enemy: { name: 'Supervisor, Halcyon Compliance' } });
     await settle();
-    check('a kill fail_on matches the enemy name by substring', (await statusOf()) === 'failed', await statusOf());
+    check('a kill fail_on matches the enemy name by substring', (await failed('failed')) === 'failed', await statusOf());
 
     // …and a failed quest is not turn-in-able, whatever its progress says.
     await mkFail(
@@ -455,7 +490,7 @@ export default async function regress({ run, check, getPlayer }) {
       [{ type: 'assassinate', target: 'npc_regress_witness', desc: 'The witness died.' }]
     );
     emit('npc.killed', { actor: player, npc: { id: 'npc_regress_witness', name: 'The Witness' } });
-    await settle();
+    await failed('failed');
     let r = await dispatchAction({ type: 'TURN_IN', actor: player, params: { quest_id: FAIL_QUEST_ID } });
     check('a failed quest cannot be turned in', r?.type === 'error' && r?.turned_in !== true, JSON.stringify(r));
     check('…and it stays failed after the attempt', (await statusOf()) === 'failed', await statusOf());
