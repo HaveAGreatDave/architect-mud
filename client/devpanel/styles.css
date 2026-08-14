@@ -353,6 +353,43 @@
   .dp-dialog-actions .dp-dialog-ok { background: var(--accent); border-color: var(--accent); color: #000; }
   .dp-dialog-actions .dp-dialog-ok.danger { background: var(--red); border-color: var(--red); color: #000; }
 
+  /* Boot splash — THOMAS. Sits above the auth overlay because on the auto-auth
+     path the overlay is hidden anyway, and on any other path this never shows. */
+  #boot-splash {
+    position: fixed; inset: 0; background: var(--bg); z-index: 600;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 1; transition: opacity 0.25s ease;
+  }
+  #boot-splash.hidden { display: none; }
+  #boot-splash.fading { opacity: 0; pointer-events: none; }
+  /* Same card as the login it stands in for — same width, padding, chrome. */
+  .boot-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    padding: 28px; width: 300px; border-radius: 2px; text-align: center;
+  }
+  .boot-name {
+    color: var(--accent); font-size: 32px; font-weight: bold;
+    letter-spacing: 0.28em; text-indent: 0.28em; line-height: 1;
+  }
+  .boot-welcome { margin-top: 18px; color: var(--text); font-size: 12px; }
+  .boot-welcome .boot-role { color: var(--accent); }
+  /* The expansion is the acronym read out loud, so the initials carry the accent
+     and the rest sits in the ordinary text colour — which is what makes it read
+     black-on-light and white-on-dark without this file knowing either value. */
+  .boot-expansion {
+    margin-top: 14px; color: var(--text); font-size: 13px; letter-spacing: 0.06em;
+  }
+  .boot-expansion b { color: var(--accent); font-weight: bold; }
+  .boot-status {
+    margin-top: 20px; color: var(--text-dim); font-size: 12px; min-height: 2.4em;
+  }
+  .boot-status::after {
+    content: '_'; margin-left: 2px; animation: boot-caret 1s steps(1) infinite;
+  }
+  @keyframes boot-caret { 50% { opacity: 0; } }
+  [data-motion="off"] #boot-splash { transition: none; }
+  [data-motion="off"] .boot-status::after { animation: none; }
+
   /* Auth overlay */
   #auth-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 500;

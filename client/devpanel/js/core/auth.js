@@ -14,7 +14,9 @@ async function devLogin() {
   document.getElementById('auth-badge').textContent = `${data.handle} [${data.role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(data.role)) document.getElementById('ghost-btn').style.display = '';
-  loadPanel('dashboard');
+  // Same treatment as the auto-auth path: armed, so a fast dashboard never sees it.
+  bootSplashArm();
+  Promise.resolve(loadPanel('dashboard')).catch(() => {}).then(bootSplashDone);
   startWorldStatePolling();
   updateStagingBadge();
   showPlayButton();

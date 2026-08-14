@@ -66,18 +66,93 @@ function applyOpsReadonlyVisibility(show) {
   });
 }
 
+// ── Boot splash ─────────────────────────────────────────────────────────────
+// SimCity's loader, in the engine's own voice. Two rules keep it from being the
+// thing that makes the panel feel slow:
+//   1. It is ARMED, not shown. If the first panel resolves inside ARM_DELAY the
+//      splash never paints at all, so a warm cache still opens instantly.
+//   2. Once it HAS painted it stays up for MIN_VISIBLE, because a splash that
+//      blinks out after 40ms reads as a glitch rather than as a load.
+// The first line is always the wake-up; the rest start at a random offset so the
+// same three jokes aren't the ones you read every morning.
+const BOOT_ARM_DELAY = 120;
+const BOOT_MIN_VISIBLE = 700;
+const BOOT_WAKE_LINE = 'Waking THOMAS…';
+const BOOT_LINES = [
+  'Reticulating exits…',
+  'Proofreading the weather…',
+  'Teaching the vending machines to lie…',
+  'Counting the rats. Twice.',
+  'Aligning the Curtain…',
+  'Asking the NPCs where they were last night…',
+  'Warming the neon…',
+  'Sweeping yesterday out of the gutters…',
+  'Deciding what the sky is doing…',
+  'Paying the power bill…',
+  'Checking the sewers for volunteers…',
+  'Rounding the odds in the house\'s favour…',
+  'Feeding the cat…',
+  'Setting the clocks to something plausible…',
+  'Filing the sharp edges off the economy…',
+];
+let _bootArmTimer = null, _bootCycleTimer = null, _bootShownAt = 0;
+
+function bootSplashArm() {
+  _bootArmTimer = setTimeout(() => {
+    _bootArmTimer = null;
+    _bootShownAt = Date.now();
+    const el = document.getElementById('boot-splash');
+    if (!el) return;
+    el.classList.remove('hidden');
+    // Who you are, and what the panel will let you do about it. No name is a
+    // legitimate state (the panel opened outside the game client), so the line
+    // degrades to the role rather than greeting an empty string.
+    const welcome = document.getElementById('boot-welcome');
+    if (welcome) {
+      const who = (typeof devHandle !== 'undefined' && devHandle) ? devHandle : null;
+      welcome.textContent = who ? `Welcome back, ${who}. ` : 'Welcome back. ';
+      const tag = document.createElement('span');
+      tag.className = 'boot-role';
+      tag.textContent = `[${devRole}]`;
+      welcome.appendChild(tag);
+    }
+    let i = Math.floor(Math.random() * BOOT_LINES.length);
+    const status = document.getElementById('boot-status');
+    if (status) status.textContent = BOOT_WAKE_LINE;
+    _bootCycleTimer = setInterval(() => {
+      const s = document.getElementById('boot-status');
+      if (s) s.textContent = BOOT_LINES[i++ % BOOT_LINES.length];
+    }, 750);
+  }, BOOT_ARM_DELAY);
+}
+
+function bootSplashDone() {
+  if (_bootArmTimer) { clearTimeout(_bootArmTimer); _bootArmTimer = null; return; }
+  const el = document.getElementById('boot-splash');
+  if (!el || el.classList.contains('hidden')) return;
+  const wait = Math.max(0, BOOT_MIN_VISIBLE - (Date.now() - _bootShownAt));
+  setTimeout(() => {
+    if (_bootCycleTimer) { clearInterval(_bootCycleTimer); _bootCycleTimer = null; }
+    el.classList.add('fading');
+    setTimeout(() => { el.classList.add('hidden'); el.classList.remove('fading'); }, 260);
+  }, wait);
+}
+
 // Auto-auth if a Bearer token was passed via sessionStorage (e.g. from the game client).
 // Token format: base64("playerId:role:timestamp") — decode to get role without a round-trip.
 (() => {
   const stored = sessionStorage.getItem('devpanel-token');
   if (!stored) return;
-  let role = '', handle = '';
+  let role = '';
   try { [devPlayerId, role] = atob(stored).split(':'); } catch { return; }
   if (!['admin','dev','builder','designer'].includes(role)) return;
   token = stored;
   devRole = role;
+  // Stashed by the game client next to the token; absent if the panel was opened
+  // some other way, in which case everything downstream keeps its old fallback.
+  devHandle = sessionStorage.getItem('devpanel-handle') || null;
   document.getElementById('auth-overlay').classList.add('hidden');
-  document.getElementById('auth-badge').textContent = `[${role}]`;
+  document.getElementById('auth-badge').textContent = devHandle ? `${devHandle} [${role}]` : `[${role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
   // WHICH PANEL TO OPEN ON. `?panel=` is how the ⇄ Local button (index.html) hands
@@ -95,7 +170,13 @@ function applyOpsReadonlyVisibility(show) {
   } catch {}
   currentPanel = startPanel;
   activatePanelNav(startPanel);
-  setTimeout(() => { loadPanel(startPanel); startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel(); }, 0);
+  // The splash comes down when the FIRST PANEL is on screen — not on a timer, so
+  // it can never be the thing you are waiting for.
+  bootSplashArm();
+  setTimeout(() => {
+    Promise.resolve(loadPanel(startPanel)).catch(() => {}).then(bootSplashDone);
+    startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel();
+  }, 0);
 })();
 applyDevSettings();
 

@@ -317,7 +317,13 @@ const handlers = {
     refreshWeaponChip();   // seed the mobile weapon chip; no-op on desktop
     if (msg.env) updateEnvironmentHUD(msg.env);
     else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
-    if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
+    // The dev token encodes playerId:role:timestamp and no name, so the handle
+    // rides alongside it — otherwise the auto-authed panel knows WHAT you are
+    // and never WHO (its auth badge said just "[admin]" for that reason).
+    if (msg.apiToken) {
+      sessionStorage.setItem('devpanel-token', msg.apiToken);
+      sessionStorage.setItem('devpanel-handle', state.player.handle || '');
+    }
     if (msg.reconnectToken) sessionStorage.setItem('reconnect-token', msg.reconnectToken);
     state.myRole = state.player.role;
     // Mirror the rung the SERVER settled on back into the auth screen's local
