@@ -476,7 +476,14 @@ export function openCab(ctx = {}) {
         // Turntable, in the renderer's own units. The pitch bound is short of the poles for the
         // reason cockpit.js's is: a near-vertical orbit stretches the model into a spindle.
         st.extYaw = (st.extYaw + dx * 0.30 + 360) % 360;
-        st.extPitch = Math.max(0.06, Math.min(1.12, st.extPitch - dy * 0.006));
+        // THE FLOOR IS THE RENDERER'S JOB, NOT THIS ONE. 0.06 rad was a hand-shy 3° that stopped
+        // the camera well above the tarmac, so the one shot a road vehicle most wants — level with
+        // the road, looking down the lane at the rig in profile — was unreachable. paintWindshield
+        // already solves the true limit (`groundPitch`, the angle at which the eye would sink into
+        // the terrain) and clamps to it, so passing a lower number asks for flat and gets exactly
+        // as flat as the ground allows. Handing that decision to a constant here was second-
+        // guessing a clamp that knows the terrain height and this one does not.
+        st.extPitch = Math.max(-0.30, Math.min(1.12, st.extPitch - dy * 0.006));
       } else {
         // Screen-width-relative, so the same physical gesture means the same lock at any window
         // size — a fixed radians-per-pixel would make a fullscreen drag four times gentler than a
@@ -505,7 +512,11 @@ export function openCab(ctx = {}) {
       // it is happy there (the Echelon deck-cam's final hold pushes down to it), so this stops
       // being the binding constraint. Ceiling raised too — a chase camera you can back right off is
       // how you look at the whole rig with a trailer on.
-      st.extZoom = Math.max(0.16, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
+      // 0.16 → 0.13, for the same reason the pitch floor moved: the cab multiplies by 1.15 on the
+      // way out, so a 0.16 floor bottomed out at 0.18 and the renderer's own 0.15 limit was never
+      // the one binding. At 0.13 the wheel runs all the way down to what the renderer will actually
+      // allow, and the constraint is the camera's rather than an arbitrary number in the cab.
+      st.extZoom = Math.max(0.13, Math.min(2.8, st.extZoom * (e.deltaY > 0 ? 1.1 : 0.9)));
       e.preventDefault();
     }, { passive: false });
   }

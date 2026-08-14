@@ -5755,10 +5755,31 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
-    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art }); drawn++;
+    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
   }
   if (!drawn) return null;
-  faces.sort((a, b) => b.af - a.af);
+  // PAINTER'S ORDER, far face first — and for a ROAD VEHICLE, quantised.
+  //
+  // The key is a face's MEAN vertex depth, which is the right call for an airframe: a fuselage and
+  // a wing are big, smooth and mostly convex, so two faces at the same depth are genuinely at the
+  // same depth and it does not matter which goes down first.
+  //
+  // A truck is the opposite shape. It is a pile of small boxes SITTING ON other boxes — grille
+  // bars, exhaust stacks, steps, battery boxes, mirror arms — so a detail's mean depth and the
+  // panel it is bolted to differ by millimetres. Orbit the camera and those two means cross, then
+  // cross back, and every crossing swaps which one is painted second. That is the flashing: not
+  // z-fighting, and not the LOD popping either, but a sort order genuinely reversing several times
+  // a second on parts that are physically nested.
+  //
+  // So depths are BUCKETED at a fraction of the model's own size, and anything landing in the same
+  // bucket falls back to MESH ORDER — which `buildTruck` emits inside-out (chassis, then cab, then
+  // the details bolted to it). Ties therefore resolve to "the thing on top is on top", every frame,
+  // regardless of where the camera is. Aircraft keep the exact comparator they always had.
+  if (c.cls === 'truck') {
+    const eps = Math.max(1e-5, SIZE * 0.03);
+    const q = (d) => Math.round(d / eps);
+    faces.sort((a, b) => (q(b.af) - q(a.af)) || (a.i - b.i));
+  } else faces.sort((a, b) => b.af - a.af);
   // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
   const edge = c.designated ? 'rgba(255,90,80,0.95)' : pal.pat === 'hazard' ? shadeRgb(pal.trim, 1.0) : 'rgba(8,10,14,0.7)';
   ctx.lineJoin = 'round';

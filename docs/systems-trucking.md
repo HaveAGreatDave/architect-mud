@@ -811,6 +811,26 @@ The cab's own focus machinery (`grabKeys`, the `⌨ KEYS` tag) was working the w
 not have fixed it — something else was taking the focus back. **Adding a panel that owns keys means
 adding it to that list.**
 
+**The chase model's face sort is BUCKETED for road vehicles** *(2026-08-14)*. Orbiting made the
+details flash — grille bars, stacks, steps, mirror arms winking in and out. Not z-fighting and not
+LOD popping (`sizeMul` ≥ 1.5 pins the truck at full detail): the painter's key is a face's **mean
+vertex depth**, which is right for an airframe — big, smooth, mostly convex, so two faces at the same
+depth genuinely are. A truck is the opposite shape, **a pile of small boxes sitting on other boxes**,
+so a detail and the panel it is bolted to differ by millimetres; rotate the camera and those two
+means cross, then cross back, and every crossing swaps which is painted second. So truck depths are
+bucketed at a fraction of the model's own size and ties fall back to **mesh order**, which
+`buildTruck` emits inside-out — the thing on top stays on top from every angle. Aircraft keep the
+exact comparator they always had. ⚠ The bucket size is a tuning constant and there is **no automated
+proof** of this one; the existing `truckNoseSliceSmoke` checks mesh geometry, not runtime sort order.
+
+**The orbit's limits belong to the renderer, not the cab** *(2026-08-14)*. Both floors were
+hand-shy constants copied from the aircraft camera: pitch stopped at 0.06 rad (~3°), so the one shot
+a road vehicle most wants — level with the tarmac, looking down the lane at the rig in profile — was
+unreachable, and the zoom floor bottomed out at 0.18 once the cab's own ×1.15 was applied, so the
+renderer's 0.15 never bound. `paintWindshield` already solves the true pitch limit (`groundPitch`,
+the angle at which the eye would sink into the terrain) and clamps to it, so the cab now asks for
+flat and gets exactly as flat as the ground allows.
+
 ⚠ **A live rig in RAM is not a reason to skip the cab push — it is the case the push exists for**
 *(2026-08-14)*. `restoreDrivingState` opened with `if (rigs.has(player.id)) return false`, on the
 reasonable-sounding grounds that somebody already mounted needs no restoring. But **`rigs` is server
