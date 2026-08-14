@@ -1761,6 +1761,22 @@ function ensureStyles() {
     #tablet-os-overlay .tos-opt:active { transform:translateY(1px); box-shadow:inset 0 2px 3px var(--tos-bevel-lo); }
     #tablet-os-overlay .tos-opt.selected { border-color:var(--mg-accent); color:var(--mg-accent); font-weight:bold; box-shadow:0 0 8px color-mix(in srgb, var(--mg-accent) 35%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-slider { width:160px; max-width:46vw; accent-color:var(--mg-accent); cursor:pointer; }
+    /* Discord page — the live server widget. The frame is given a real minimum height because an
+       iframe with no intrinsic size collapses to 150px and shows the widget's own scrollbar
+       instead of the widget; it flexes above that so a tall tablet gets more of the member list.
+       A 'color-scheme:dark' on the frame stops a light-themed page painting a white flash behind it
+       while Discord loads. */
+    #tablet-os-overlay .tos-dis { display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px 12px 18px; }
+    #tablet-os-overlay .tos-dis-lede { font-size:0.6875rem; color:var(--tos-fg-dim); text-align:center; max-width:300px; line-height:1.6; }
+    #tablet-os-overlay .tos-dis-frame { width:100%; max-width:350px; min-height:420px; height:52vh; border:0; border-radius:8px;
+      background:var(--tos-surface-lo); color-scheme:dark;
+      box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 8px rgba(0,0,0,.28); }
+    #tablet-os-overlay .tos-dis-fall { font-size:0.625rem; color:var(--tos-fg-dim); text-align:center; max-width:300px; line-height:1.6; opacity:.85; }
+    #tablet-os-overlay .tos-dis-open { display:inline-block; cursor:pointer; padding:7px 14px; border-radius:6px; text-decoration:none;
+      font-size:0.75rem; letter-spacing:.5px; color:var(--mg-accent);
+      border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
+      background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo)); }
+    #tablet-os-overlay .tos-dis-open:hover { filter:brightness(1.15); }
     /* About page — a centered colophon: wordmark, byline, then the support link.
        Deliberately airy (no .tos-set-row dividers) so it reads as a title card
        rather than another list of controls. */
@@ -6329,6 +6345,7 @@ function renderTabletSettings(d) {
     Sound: soundRow + audioToggleRows + volRows +
       `<div class="tos-set-row"><span class="tos-set-label">Sound Settings<span class="tos-set-val">Toggles &amp; volumes</span></span>
         <span class="tos-btn-sub" data-reset-sound="1" style="margin:0">Reset to Default</span></div>`,
+    Discord: renderDiscordPage(),
     About: renderAboutPage(),
   };
   const pageNames = Object.keys(pages);
@@ -6346,6 +6363,46 @@ function renderTabletSettings(d) {
 // the only one worth making. It just says it in the game's voice and in half the
 // words; a paragraph of earnest explanation was reading like a charity mailer in
 // the middle of a city that would mug you. Opens in a new tab, so no wiring.
+// ── Discord ──────────────────────────────────────────────────────────────────
+// The live server widget, embedded. It is the one page in Settings that loads anything from
+// OUTSIDE this game, and that is worth being deliberate about rather than pasting an iframe in:
+//
+//  • THE FRAME IS SANDBOXED to exactly what the widget needs. Discord's own embed code asks for
+//    scripts, same-origin and pop-ups, and no more; without `allow-same-origin` the widget cannot
+//    read its own session and shows nobody online, and without the pop-up pair the Join button
+//    cannot open a tab. Nothing else is granted — no forms, no top-level navigation, so the frame
+//    can never redirect the game out from under a player.
+//  • IT IS ALWAYS ACCOMPANIED BY A PLAIN LINK. An iframe to a third party is the one element on
+//    this page that can silently render nothing — the widget is off in Discord's own server
+//    settings, the network blocks it, an extension eats it — and a blank rectangle with no way
+//    through is worse than no widget. The link works in every one of those cases.
+//  • `loading="lazy"` so opening Settings on the General tab costs no request to discord.com at
+//    all. Nobody who never opens this page ever touches Discord from here.
+//
+// One honest note for whoever reads this next: embedding the widget means Discord sees the IP of
+// anybody who opens this tab, the same as visiting the site would. That is inherent to an embed
+// rather than something this code chose, and the lazy load is what keeps it to people who asked.
+const DISCORD_SERVER_ID = '1537202670451040316';
+function renderDiscordPage() {
+  // The tablet's own theme drives the widget's: a parchment tablet with a black widget bolted into
+  // it reads as a bug rather than as a choice. `LIGHT_THEMES` is a list of [value, label] PAIRS,
+  // so this is a `some` on the first element and not an `includes` — the tempting one-liner is
+  // quietly always false, which would have pinned the widget to dark forever and looked fine on
+  // every dark theme, i.e. on the default.
+  const t = loadTabletTheme();
+  const name = t.linked ? (loadSettings().theme || 'dark') : (t.theme || 'dark');
+  const dark = !LIGHT_THEMES.some(([v]) => v === name);
+  const src = `https://discord.com/widget?id=${encodeURIComponent(DISCORD_SERVER_ID)}&theme=${dark ? 'dark' : 'light'}`;
+  return `<div class="tos-dis">
+    <div class="tos-dis-lede">Who is about, right now. The Basin has a bar and this is it.</div>
+    <iframe class="tos-dis-frame" src="${esc(src)}" title="Architect on Discord" loading="lazy"
+      sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+    <div class="tos-dis-fall">Nothing there? The widget needs to be switched on in Discord, and
+      some networks block the embed outright.</div>
+    <a class="tos-dis-open" href="${esc(src)}" target="_blank" rel="noopener noreferrer">Open Discord</a>
+  </div>`;
+}
+
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>
