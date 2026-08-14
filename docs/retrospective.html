@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — a retrospective in haiku</title>
+<style>
+  :root{
+    --bg:#07090c; --ink:#d7e3ea; --dim:#6d8492; --neon:#4ee1c1; --hot:#ff5f8d;
+    --rule:rgba(78,225,193,.22);
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f1ea; --ink:#16202a; --dim:#5d6f7c; --neon:#0a7f6a; --hot:#b0264f; --rule:rgba(10,127,106,.25); }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    line-height:1.65; padding:5rem 1.25rem 7rem;
+  }
+  .wrap{max-width:44rem;margin:0 auto}
+  header{border-bottom:1px solid var(--rule);padding-bottom:2.5rem;margin-bottom:3.5rem}
+  h1{font-size:clamp(1.9rem,7vw,3.2rem);margin:0;letter-spacing:.22em;font-weight:600}
+  .sub{color:var(--dim);margin-top:1rem;letter-spacing:.08em;font-size:.85rem}
+  .stats{display:flex;gap:2rem;flex-wrap:wrap;margin-top:2rem;color:var(--dim);font-size:.8rem}
+  .stats b{display:block;color:var(--neon);font-size:1.5rem;letter-spacing:.05em}
+
+  .era{margin:0 0 4.5rem}
+  .era-head{display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:2rem}
+  .date{color:var(--hot);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
+  .era-head h2{font-size:1rem;margin:0;letter-spacing:.14em;font-weight:600;text-transform:uppercase}
+  .rule{flex:1 1 3rem;height:1px;background:var(--rule);min-width:2rem}
+
+  .haiku{
+    font-size:clamp(1.05rem,3.4vw,1.35rem); line-height:2.1;
+    margin:0 0 1.1rem; padding-left:1.25rem;
+    border-left:2px solid var(--rule); white-space:pre-line;
+  }
+  .note{color:var(--dim);font-size:.8rem;margin:0 0 0 1.25rem;font-style:italic}
+  .note code{color:var(--neon);font-style:normal}
+
+  footer{border-top:1px solid var(--rule);padding-top:2rem;color:var(--dim);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>ARCHITECT</h1>
+  <div class="sub">a retrospective, in seventeen syllables at a time<br>19 June 2026 — 14 August 2026</div>
+  <div class="stats">
+    <div><b>2,235</b>commits</div>
+    <div><b>57</b>days</div>
+    <div><b>3</b>months</div>
+    <div><b>~39</b>commits / day</div>
+  </div>
+</header>
+
+<section class="era">
+  <div class="era-head"><span class="date">19 Jun</span><h2>Day One</h2><div class="rule"></div></div>
+  <p class="haiku">A room, and a verb.
+Nothing else exists out there.
+"Heckmud version 0.01"</p>
+  <p class="note">Fifteen commits before midnight. Four of them called <code>Update index.html</code>.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">20 Jun</span><h2>Two Hands on One File</h2><div class="rule"></div></div>
+  <p class="haiku">Merge, revert, merge back.
+"I really think john akerson
+is a rube." Push anyway.</p>
+  <p class="note">The day CLAUDE.md was born, and the day the CSS was split out, reverted, and split out again.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">21–30 Jun</span><h2>The Body Keeps Score</h2><div class="rule"></div></div>
+  <p class="haiku">Hunger, thirst, and rads.
+Armor sums from every source.
+Corpses on the floor.</p>
+  <p class="note">Combat gets body parts and typed soak. The dead start leaving something behind.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">1–7 Jul</span><h2>Git Becomes the World</h2><div class="rule"></div></div>
+  <p class="haiku">The seed script is dead.
+One JSON file per thing —
+a push is a deploy.</p>
+  <p class="note">CODEX cutover, 8 July. <code>CONTENT_READONLY</code> on prod: the database stops being an author.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">8–18 Jul</span><h2>The Sky Opens</h2><div class="rule"></div></div>
+  <p class="haiku">Stall horn. Redrock blur.
+The ground was always data —
+now it rushes up.</p>
+  <p class="note">The banded flight model is abandoned for one continuous client-sim/server-reconcile loop.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">19–25 Jul</span><h2>Round Trips</h2><div class="rule"></div></div>
+  <p class="haiku">"less queries for the
+queeries" — the furniture cache
+learns to hold its breath.</p>
+  <p class="note">Read tiers get written down. Hot paths stop asking Postgres anything.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">22–31 Jul</span><h2>A Pan Is Not a Dish</h2><div class="rule"></div></div>
+  <p class="haiku">Dry pasta refuses.
+Water goes in as a row,
+not as a number.</p>
+  <p class="note">Cooking ships. 47 recipes, and the rule that a liquid answers every question about the pan and none about the dish.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">1–7 Aug</span><h2>Rooms That Remember</h2><div class="rule"></div></div>
+  <p class="haiku">The bank had four rooms
+and no front door for a week.
+Someone walked the map.</p>
+  <p class="note">Map audits, jail cells that lock, a shop that closes around you, an NPC who introduces himself exactly once.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">8–13 Aug</span><h2>Flesh, Chrome, and the Quiet Kind</h2><div class="rule"></div></div>
+  <p class="haiku">Nothing is baked in.
+Read the number at read time —
+you can still go back.</p>
+  <p class="note">Mutations, augments, nullcraft, psionics. Four answers to the same question, none of them written into <code>players</code>.</p>
+</section>
+
+<section class="era">
+  <div class="era-head"><span class="date">14 Aug</span><h2>Now</h2><div class="rule"></div></div>
+  <p class="haiku">A title screen glows.
+Out the windshield, a highway.
+Hold the line. Drive on.</p>
+  <p class="note">The Long Haul, phase one. The road between regions is something you steer, not something you skip.</p>
+</section>
+
+<footer>
+  Fifty-seven days. Every haiku above is a real week of commits.<br>
+  <em>The corridor synthesises zones, never render cells.</em>
+</footer>
+
+</div>
+</body>
+</html>

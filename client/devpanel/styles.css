@@ -412,9 +412,15 @@
   /* Smaller than the wordmark on purpose: the acronym explains the logo, it does
      not compete with it. */
   .boot-expansion {
-    margin-top: 18px; color: var(--text); font-size: 11px; letter-spacing: 0.07em;
+    margin-top: 18px; color: var(--text-dim); font-size: 11px; letter-spacing: 0.07em;
   }
-  .boot-expansion b { color: var(--accent); font-weight: bold; }
+  /* The initials are the wordmark restated, so they get size, weight and a little
+     glow while the words they head recede — the contrast is what makes the
+     acronym legible at a glance rather than something you have to spell out. */
+  .boot-expansion b {
+    color: var(--accent); font-weight: bold; font-size: 15px;
+    text-shadow: 0 0 8px var(--accent);
+  }
   .boot-status {
     margin-top: 12px; color: var(--text-dim); font-size: 11px; min-height: 2.4em;
     text-align: left;

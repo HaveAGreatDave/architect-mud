@@ -662,6 +662,57 @@ A truck holds a line and its front axle self-centres, so absolute mode reports w
 normalised −1..+1 axle deflection, clamps to a real lock, and returns to centre on release. Passing
 no `mode` leaves the yacht untouched.
 
+### The dash, the glass, and who has the keyboard
+
+Four decisions in the cab shell are worth knowing before you move anything on it.
+
+**A hand on the road is the primary steering control.** A pointer drag anywhere on the windscreen
+winds the *same* wheel widget (`setDragging`/`wind` on helm-wheel, absolute mode only) — not a
+parallel angle, so what you see turning is what you are turning. The travel is scaled to the
+glass's own width, so the same physical gesture means the same lock at any window size. In the
+**external** view that identical drag orbits the chase camera instead, and the scroll wheel dollies
+it; the two meanings never overlap because the two views never do.
+
+**Fullscreen buys road, not dash.** The shelf is a flex row and a taller window fed it as readily
+as it fed the glass, which is backwards — the reason to go fullscreen is the view. At
+`body.cab-fullscreen` the controls stop being a shelf and become a HUD absolutely positioned over
+the bottom of a windscreen that now runs the full viewport. The renderer's camera is untouched and
+does not need touching: it fills the canvas it is given.
+
+**There is one dashboard and one wheel, and both are in the scene.** There used to be two of each:
+instruments painted on the dash *and* a DOM instrument panel on a shelf below the picture showing
+the same numbers in a second visual language, plus a wheel arc drawn on the glass *and* a canvas
+wheel widget on the shelf that was the one you actually turned — so the wheel in front of the
+driver was the picture. Everything moved into `drawCabInterior` (a full binnacle with hood, two
+dials, a lit gear window, four flanking bars and six tell-tales) and `drawCabWheel` (rim, three
+spokes, thumb grips, an upright horn boss). The shelf below the glass keeps **only the controls**.
+
+Three things hold that together. `helm-wheel` runs **headless** (`canvas: null`) — it still owns
+the angle, the lock clamp, the self-centring and the keyboard, and the renderer only *draws*
+`getLock()`, so there is exactly one steering angle in the cab. The horn hit-tests against the
+renderer's exported `cabWheelHub()` rather than a second copy of the geometry. And the DOM readouts
+are **visually hidden, never deleted** — they are what a screen reader reads and what the log rung
+of the display ladder has always had; the frame loop writes them exactly as before. A canvas gauge
+is not an accessible instrument; a canvas gauge with that behind it is.
+
+The panel invents nothing: speed, revs, fuel, brake temperature, leg progress, gear and the six
+lamps are all values the cab already had. It is still the fleet ladder — `CAB_TRIM.dials`/`.band`
+decide what is bolted to it (no tachometer in a Barrow, here either) and what it is made of.
+
+**The cab takes the keyboard, and says so.** Key handling is on the `window` and steps aside for a
+focused text field — correct, and also how a driver ends up typing `aaazzzx` into the command bar
+without finding out, since the bar sits three inches under the glass and every other part of the
+game wants focus. The cab now focuses its own wrap on mount and on any press inside the pane, and
+the `⌨ KEYS` tag on the glass names who has them. Nothing is trapped: clicking the command bar
+hands them straight back and the tag goes amber to say so.
+
+**The chase view is a box model.** `drawRig` was a flat rear-view silhouette, correct from exactly
+one angle — a cardboard cutout the moment the camera could orbit. It is now eight corners, six
+depth-sorted faces and a weak axonometric projection, dimensioned in **metres**. (The old drawing
+was also about 5× too large: a `min(W,H) * 0.0016` scale multiplied by 6 and a 170-unit body put
+the tractor at 1.6× the smaller screen dimension.) Note the direction of `extZoom` — it is camera
+*distance*, so the rig's pixel scale is its reciprocal.
+
 ---
 
 ## The gearbox, and why it shipped with the sound

@@ -8,8 +8,14 @@
 //   getHeading() — the boat's ACTUAL heading (deg) for the course needle. Optional.
 //   gear         — wheel-turn per heading (higher = much more spinning per rhumb).
 
+// HEADLESS. Pass `canvas: null` and the widget keeps the whole of its job except the drawing —
+// the angle, the lock, the self-centring, the keyboard, the drag API. The truck cab does this
+// because its wheel is painted INTO the scene by the windshield renderer (drawCabWheel) rather
+// than sitting in a box below it, and two wheels in one cab is one wheel too many. The state has
+// to stay here regardless: it is where the self-centring and the lock clamp live, and a copy of
+// those in the renderer is a copy that drifts.
 export function createHelmWheel(canvas, opts = {}) {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas ? canvas.getContext('2d') : null;
   let accent = opts.accent || '#c8a24e';
   const onSteer = opts.onSteer || (() => {});
   const getHeading = opts.getHeading || null;
@@ -70,10 +76,12 @@ export function createHelmWheel(canvas, opts = {}) {
     vel = (dp / dt) * 0.5 + vel * 0.5; lastT = now;
   }
   function up() { if (grabbing) { grabbing = false; canvas.style.cursor = 'grab'; } }
-  canvas.addEventListener('pointerdown', down);
-  canvas.addEventListener('pointermove', move);
-  addEventListener('pointerup', up);
-  canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none';
+  if (canvas) {
+    canvas.addEventListener('pointerdown', down);
+    canvas.addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none';
+  }
 
   // ABSOLUTE mode — for a ROAD VEHICLE (THE LONG HAUL's cab). The default below is a boat's helm:
   // it reports the CHANGE in wheel rotation, so spinning it sets a course and letting go holds it.
@@ -90,6 +98,12 @@ export function createHelmWheel(canvas, opts = {}) {
   const RETURN = opts.selfCentre ?? 5.0;       // how briskly the axle walks back to centre (per s)
   const KEY_RATE = opts.keyRate ?? 3.2;        // radians/s a held arrow key winds the wheel on
   let held = 0;                                // −1 / 0 / +1 from the keyboard
+  // A SECOND PAIR OF HANDS ON THE SAME WHEEL. The cab lets you steer by dragging anywhere on the
+  // windscreen — which is the control you actually want at speed, and the only one that works when
+  // the wheel widget is a small thing in the corner of a fullscreen view. It must wind THIS angle,
+  // not a parallel one, or the wheel on screen stops being the wheel you are turning; and while
+  // that drag is live the self-centring has to stand down exactly as it does for a direct grab.
+  let extGrab = false;
 
   function step(dt) {
     if (!enabled) { vel = 0; reported = angle; return; }   // pinned while underway — accrue no course change
@@ -105,8 +119,8 @@ export function createHelmWheel(canvas, opts = {}) {
     // driver has to turn the wheel you can see, not a parallel invisible one. Holding a key winds
     // the lock on at a rate a wrist would manage; letting go hands it straight back to the
     // self-centring below, so nothing has to remember that a key was ever down.
-    if (held && !grabbing) angle = Math.max(-LOCK, Math.min(LOCK, angle + held * KEY_RATE * dt));
-    if (!grabbing && !held) {
+    if (held && !grabbing && !extGrab) angle = Math.max(-LOCK, Math.min(LOCK, angle + held * KEY_RATE * dt));
+    if (!grabbing && !held && !extGrab) {
       // Self-centring. Exponential toward zero, with a small deadband so it settles rather than
       // creeping — a wheel that never quite reaches centre steers the truck into the ditch over a
       // long enough straight.
@@ -206,6 +220,7 @@ export function createHelmWheel(canvas, opts = {}) {
   }
 
   function draw() {
+    if (!canvas) return;                       // headless — the scene draws this wheel (see the header)
     if (TRUCK_ART) return drawTruck();
     const box = canvas.getBoundingClientRect();
     const dpr = Math.min(2, devicePixelRatio || 1);
@@ -299,9 +314,18 @@ export function createHelmWheel(canvas, opts = {}) {
     // Keyboard input, routed through the widget so the wheel a keyboard driver turns is the one on
     // the screen. Absolute mode only — a boat sets a course and has no use for a held key.
     setHeld(dir) { held = ABSOLUTE ? Math.max(-1, Math.min(1, dir | 0)) : 0; },
-    setEnabled(on) { enabled = on !== false; if (!enabled) { grabbing = false; vel = 0; } canvas.style.cursor = enabled ? 'grab' : 'not-allowed'; },
+    // Steering from somewhere that is not the wheel — the cab's glass drag. `setDragging` suspends
+    // the self-centring for as long as the hand is down, `wind` adds rotation in radians. Both are
+    // absolute-mode only: a boat sets a course, and winding a course on from a drag on the horizon
+    // is not a thing anybody would mean by it.
+    setDragging(on) { if (ABSOLUTE) { extGrab = !!on; if (extGrab) held = 0; } },
+    wind(dRad) { if (ABSOLUTE) angle = Math.max(-LOCK, Math.min(LOCK, angle + (dRad || 0))); },
+    setEnabled(on) { enabled = on !== false; if (!enabled) { grabbing = false; vel = 0; } if (canvas) canvas.style.cursor = enabled ? 'grab' : 'not-allowed'; },
     getAngle: () => angle,
-    destroy() { alive = false; cancelAnimationFrame(raf); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); removeEventListener('pointerup', up); },
+    // The normalised −1..+1 lock — what the truck is actually steered by, and what the scene draws
+    // the rim's rotation from. One number, one owner.
+    getLock: () => Math.max(-1, Math.min(1, angle / LOCK)),
+    destroy() { alive = false; cancelAnimationFrame(raf); canvas?.removeEventListener('pointerdown', down); canvas?.removeEventListener('pointermove', move); removeEventListener('pointerup', up); },
   };
 }
 

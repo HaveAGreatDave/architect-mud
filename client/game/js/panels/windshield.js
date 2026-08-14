@@ -1492,6 +1492,26 @@ export const CAB_TRIM = {
 };
 export const cabTrim = (tier) => CAB_TRIM[tier] ?? CAB_TRIM[1];
 
+// The tell-tale row under the binnacle hood. Order is fixed and the colours are the ones the rest
+// of the cab already uses for those states — a lamp that is a different red from the brake word is
+// a lamp about something else. `v.lamps` is a plain object of booleans the cab assembles; adding a
+// state means a row here AND a key there, which is the coupling that keeps a lamp from meaning
+// nothing.
+const CAB_LAMPS = [
+  ['fuel', '#d2603f'],
+  ['brake', '#d2603f'],
+  ['jake', '#4e9ab0'],
+  ['wipe', '#6fa8d0'],
+  ['trail', '#d8a24e'],
+  ['dmg', '#d2603f'],
+];
+
+// WHERE THE HORN IS. The cab hit-tests a press on the glass against the drawn boss, and it must
+// not do that by keeping its own copy of the wheel's geometry — one of the two would be edited
+// eventually and the horn would end up an inch off the thing that looks like the horn. Same three
+// numbers drawCabWheel uses, in canvas CSS pixels.
+export const cabWheelHub = (W, H) => ({ x: W * 0.42, y: H * 1.10, r: H * 0.36 * 0.24 });
+
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
   const T = cabTrim(v?.tier);
@@ -1587,28 +1607,119 @@ function drawCabInterior(ctx, W, H, v) {
     }
   }
 
-  // 4c. THE BINNACLE — two real dials in the scene, behind the wheel, where a driver's eyes
-  //     actually go. The DOM readouts under the glass stay (they are the accessible record and
-  //     they are what a screen reader gets), but a truck whose only instruments are HTML below the
-  //     picture is a website with a picture on it. These are the same numbers, in the world.
-  //     HOW MANY dials, and whether the rev counter has a band on it, is the fleet ladder — see
-  //     CAB_TRIM. The Barrow gets the speedometer and nothing else: there is no tachometer in that
-  //     truck, so the only thing telling you where the engine is, is the engine.
-  const one = T.dials < 2;
-  const br = Math.min(W, H) * 0.052, bx = W * 0.34, by = dash + H * 0.10;
-  if (!one) drawCabDial(ctx, bx, by, br, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM', v?.inBand, T);
-  drawCabDial(ctx, one ? bx : bx + br * 2.5, by, br,
-    Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH', false, T);
+  // 4c. THE INSTRUMENT PANEL — and this is where the truck's instruments LIVE now, all of them.
+  //
+  //     It used to be two small dials here and a second, larger, DOM instrument panel bolted to a
+  //     shelf underneath the picture, which meant a driver had two dashboards: one in the cab and
+  //     one below the cab, showing the same numbers in two visual languages, and the real estate
+  //     between them — the whole lower third of the view, the actual dash, the thing your eyes go
+  //     to — sat empty. So the empty dash got the instruments and the shelf below the glass kept
+  //     only the CONTROLS. One dashboard, in the place a dashboard is.
+  //
+  //     Nothing was invented to fill it. Every gauge here is a number the cab already had and was
+  //     already showing somewhere: speed, revs, fuel (which the server has sent since phase 1 and
+  //     nothing read), brake temperature, how far through the leg you are, the gear, and six
+  //     tell-tales. The DOM record beneath is now visually hidden rather than deleted — it is what
+  //     a screen reader gets, and it stayed exactly the words it was.
+  //
+  //     HOW MANY of them is still the fleet ladder (CAB_TRIM.dials / .band). The Barrow gets a
+  //     speedometer, a fuel gauge and lamps; there is no tachometer in that truck, so the only
+  //     thing telling you where the engine is, is the engine.
+  const panelY = dash + H * 0.055;
+  const dialR = Math.min(W * 0.055, H * 0.098);
+  const twoDials = T.dials >= 2;
+  // The cluster is centred on the column — a driver reads it THROUGH the wheel, which is why the
+  // wheel is drawn after it and why the gauges are up here rather than down where the rim covers.
+  const colX = W * 0.42;
+  const gap = dialR * 2.35;
+  const dialXs = twoDials ? [colX - gap * 0.5, colX + gap * 0.5] : [colX];
 
-  // 4d. The wheel rim, cut off by the bottom of the frame. The real wheel is a widget below the
-  //     glass; this is the top arc of it in the scene, and it is most of what makes the view read
-  //     as "sat in a seat" rather than as a camera on a bumper.
+  // The binnacle hood — a raised shroud over the dials, which is the thing that stops a drawn
+  // instrument cluster reading as a diagram printed on the dash.
   ctx.save();
+  const hoodW = (twoDials ? gap + dialR * 2.6 : dialR * 3.0), hoodH = dialR * 2.9;
+  const hoodX = colX - hoodW / 2, hoodY = panelY - dialR * 1.45;
   ctx.beginPath();
-  ctx.arc(W * 0.42, H * 1.16, H * 0.30, Math.PI * 1.18, Math.PI * 1.82);
-  ctx.strokeStyle = T.rim; ctx.lineWidth = Math.max(6, H * 0.030); ctx.stroke();
-  ctx.strokeStyle = T.rimHi; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.moveTo(hoodX, hoodY + hoodH);
+  ctx.quadraticCurveTo(hoodX, hoodY - dialR * 0.18, hoodX + hoodW * 0.5, hoodY - dialR * 0.20);
+  ctx.quadraticCurveTo(hoodX + hoodW, hoodY - dialR * 0.18, hoodX + hoodW, hoodY + hoodH);
+  ctx.closePath();
+  const hg2 = ctx.createLinearGradient(0, hoodY, 0, hoodY + hoodH);
+  hg2.addColorStop(0, T.dash[1]); hg2.addColorStop(1, T.face[1]);
+  ctx.fillStyle = hg2; ctx.fill();
+  ctx.strokeStyle = T.lip; ctx.lineWidth = 1.2; ctx.stroke();
   ctx.restore();
+
+  if (twoDials) drawCabDial(ctx, dialXs[0], panelY, dialR, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM',
+    String(Math.round((v?.rpmFrac ?? 0) * 100)), v?.inBand, T);
+  drawCabDial(ctx, dialXs[twoDials ? 1 : 0], panelY, dialR,
+    Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH',
+    String(Math.round(Math.abs(v?.speed || 0))), false, T);
+
+  // THE GEAR, in a lit window between the dials — the number a driver looks at second-most often,
+  // and the one that was previously the same size as the word SURFACE.
+  if (v?.gearLabel != null) {
+    const gw = dialR * 0.92, gh = dialR * 0.66, gx = colX - gw / 2, gy = panelY + dialR * 1.30;
+    ctx.save();
+    roundRectPath(ctx, gx, gy, gw, gh, 3);
+    ctx.fillStyle = '#05070a'; ctx.fill();
+    ctx.strokeStyle = T.ring; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = v.stalled ? '#d2603f' : v.inBand ? '#8fe0a0' : T.needle;
+    ctx.font = `700 ${Math.max(8, gh * 0.68) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(v.gearLabel), colX, gy + gh * 0.54);
+    ctx.restore();
+  }
+
+  // THE SUBSIDIARY GAUGES, out on the flanks where a truck actually puts them: fuel and air on the
+  // left of the column, brake temperature and the leg on the right. Bars rather than needles,
+  // because none of the four is something you read mid-corner — they are what you read on a
+  // straight, and a bar is faster to read slowly than a needle is.
+  const barH = dialR * 1.5, barW = Math.max(5, dialR * 0.30);
+  const bars = [
+    [colX - hoodW * 0.5 - barW * 3.2, 'FUEL', v?.fuel ?? 1,
+      (v?.fuel ?? 1) <= 0 ? '#d2603f' : (v?.fuel ?? 1) < 0.15 ? '#d8a24e' : '#6f9f7a'],
+    [colX - hoodW * 0.5 - barW * 1.6, 'LEG', v?.legFrac ?? 0, T.needle],
+    [colX + hoodW * 0.5 + barW * 0.6, 'BRK',
+      // A GRADED BRAKE GAUGE IS A TIER-2 LUXURY, the same rule the words follow: below it the bar
+      // reads empty and the lamp is the whole instrument. The fade itself is identical — this is
+      // only what you can SEE of it.
+      T.dials >= 2 && v?.brakeGauge ? Math.min(1, (v?.brakeTemp || 0) / 0.6) : 0,
+      v?.fading ? '#d2603f' : (v?.brakeTemp || 0) > 0.42 ? '#d8a24e' : '#5f8f9f'],
+    [colX + hoodW * 0.5 + barW * 2.2, 'TRL', v?.hitched ? Math.min(1, Math.abs(v?.phi || 0) / 60) : 0,
+      Math.abs(v?.phi || 0) > 55 ? '#d2603f' : '#8fa4bc'],
+  ];
+  for (const [bx, lbl, frac, col] of bars) drawCabBar(ctx, bx, panelY - barH * 0.5, barW, barH, frac, col, lbl, T);
+
+  // THE TELL-TALES. Six, in a row under the hood, and every one dark until it is not — a panel of
+  // permanently lit icons is a decal. They are the only place several of these states are visible
+  // at all while the eyes are on the road.
+  const lamps = v?.lamps || {};
+  const lampR = Math.max(2.2, dialR * 0.13);
+  CAB_LAMPS.forEach(([key, col], i) => {
+    const lx = colX + (i - (CAB_LAMPS.length - 1) / 2) * lampR * 3.4, ly = hoodY + hoodH + lampR * 2.6;
+    const on = !!lamps[key];
+    if (on) {
+      const lg2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, lampR * 3.4);
+      lg2.addColorStop(0, col); lg2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = lg2; ctx.beginPath(); ctx.arc(lx, ly, lampR * 3.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = on ? col : 'rgba(120,132,146,0.22)';
+    ctx.beginPath(); ctx.arc(lx, ly, lampR, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // 4d. THE WHEEL, AND IT IS THE ONLY ONE NOW.
+  //
+  //     There were two: an arc of rim drawn here for the look of it, and a separate 148px canvas
+  //     widget on the shelf below that was the one you actually turned. Two wheels in one cab, one
+  //     of them a picture — and the picture was the one in front of you.
+  //
+  //     So this is the real one: rim, three spokes, hub, and it TURNS, because `v.steer` is the
+  //     same normalised lock the truck is being steered by (helm-wheel's absolute mode, which is
+  //     still the one place that angle lives — this only draws it). It is cut off by the bottom of
+  //     the frame the way a wheel is when you are sat behind it, so most of what is drawn is the
+  //     top arc and the spokes coming up out of shot.
+  drawCabWheel(ctx, W, H, v, T);
 
   // 5. Mirrors, one per pillar. Housing, glass, and a hint of what is behind — a dark road with
   //    the verge streaking past, which sells motion even before there is a trailer in them.
@@ -1642,7 +1753,10 @@ function cabDashTex() {
 // One dial. `frac` is 0..1 of the sweep; `band` (optional, in the same units) paints the green arc
 // the gearbox wants you to keep the needle inside — which is the entire point of having a tachometer
 // in a truck rather than a number.
-function drawCabDial(ctx, cx, cy, r, frac, band, label, lit, T = CAB_TRIM[1]) {
+// `read` is the digital echo under the pivot. A dial says HOW MUCH and a number says EXACTLY, and
+// a real instrument panel has always had both — it is also what lets the DOM strip stop being
+// visible without a driver losing the exact figure they had.
+function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[1]) {
   const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -1669,9 +1783,115 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, lit, T = CAB_TRIM[1]) {
   ctx.lineWidth = Math.max(1.6, r * 0.09); ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * 0.78, cy + Math.sin(a) * r * 0.78); ctx.stroke();
   ctx.fillStyle = '#2a2f36'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2); ctx.fill();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  if (read != null) {
+    ctx.fillStyle = T.needle;
+    ctx.font = `700 ${Math.max(8, r * 0.38) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.fillText(String(read), cx, cy + r * 0.50);
+  }
   ctx.fillStyle = 'rgba(150,165,185,0.55)';
-  ctx.font = `${Math.max(6, r * 0.34) | 0}px monospace`; ctx.textAlign = 'center';
-  ctx.fillText(label, cx, cy + r * 0.52);
+  ctx.font = `${Math.max(6, r * 0.24) | 0}px monospace`;
+  ctx.fillText(label, cx, cy + r * (read != null ? 0.76 : 0.52));
+  // The glass. One highlight sweeping the top-left, and it is most of what makes a drawn dial read
+  // as something under a cover rather than as a diagram of one.
+  const gl = ctx.createLinearGradient(cx - r, cy - r, cx + r * 0.3, cy + r * 0.4);
+  gl.addColorStop(0, 'rgba(255,255,255,0.10)'); gl.addColorStop(0.55, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// A subsidiary gauge — the flanking bars. Quarter-graduated, because a bar with no graduations is
+// a mood rather than an instrument.
+function drawCabBar(ctx, x, y, w, h, frac, col, label, T = CAB_TRIM[1]) {
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, 2);
+  ctx.fillStyle = '#05070a'; ctx.fill();
+  ctx.strokeStyle = T.ring; ctx.lineWidth = 1; ctx.stroke();
+  const f = Math.max(0, Math.min(1, frac || 0));
+  if (f > 0.004) {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, 2); ctx.clip();
+    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+    ctx.fillRect(x, y + h * (1 - f), w, h * f);
+    ctx.restore();
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath(); ctx.moveTo(x, y + h * (i / 4)); ctx.lineTo(x + w * 0.55, y + h * (i / 4)); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(150,165,185,0.6)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.font = `700 ${Math.max(5, Math.min(9, w * 0.62)) | 0}px 'DejaVu Sans Mono',monospace`;
+  ctx.fillText(label, x + w / 2, y + h + 2);
+  ctx.restore();
+}
+
+// ── THE WHEEL, IN THE SCENE ──────────────────────────────────────────────────
+// The one wheel. `v.steer` is the normalised −1..+1 lock the truck is actually being steered by
+// (helm-wheel's absolute mode still owns that number and its self-centring; this only draws it),
+// so the rim turns because the axle turned, and there is no second angle anywhere to drift.
+//
+// It is cut off by the bottom of the frame the way a wheel is when you are sitting behind one, so
+// most of what is drawn is the top arc, the two upper spokes and the hub. The lock ramp on the
+// rim is a real truck's centre mark: the one thing you cannot tell from a wheel that has been
+// spun past a full turn is which way up it started.
+const CAB_WHEEL_LOCK = Math.PI * 1.6;     // rotation from centre to full lock — helm-wheel's own
+function drawCabWheel(ctx, W, H, v, T) {
+  const cx = W * 0.42, cy = H * 1.10, R = H * 0.36;
+  const rot = Math.max(-1, Math.min(1, v?.steer || 0)) * CAB_WHEEL_LOCK;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, H * (1 - CAB_DASH) - 2, W, H); ctx.clip();   // never above the dash lip
+  ctx.translate(cx, cy); ctx.rotate(rot);
+  const rimO = R, rimI = R * 0.80;
+  // The rim: moulded polyurethane over a steel core. Two tones and a highlight is enough to read
+  // as something you grip rather than something you polish.
+  const rg = ctx.createRadialGradient(0, -rimO * 0.4, rimI * 0.2, 0, 0, rimO);
+  rg.addColorStop(0, '#3a3f47'); rg.addColorStop(0.55, '#23272d'); rg.addColorStop(1, '#14171b');
+  ctx.beginPath(); ctx.arc(0, 0, rimO, 0, 7); ctx.arc(0, 0, rimI, 0, 7, true);
+  ctx.fillStyle = rg; ctx.fill('evenodd');
+  ctx.lineWidth = 1; ctx.strokeStyle = T.rimHi;
+  ctx.beginPath(); ctx.arc(0, 0, rimO - 1, 0, 7); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath(); ctx.arc(0, 0, rimI + 1, 0, 7); ctx.stroke();
+  // Thumb grips at ten and two — the two places a hand actually lives, and the fastest read of
+  // which way up the wheel is when it has been wound over.
+  for (const a of [-Math.PI * 0.72, -Math.PI * 0.28]) {
+    ctx.save(); ctx.rotate(a + Math.PI / 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    roundRectPath(ctx, -R * 0.05, -rimO + R * 0.018, R * 0.10, (rimO - rimI) - R * 0.036, R * 0.026);
+    ctx.fill(); ctx.restore();
+  }
+  // The centre mark, on the rim at twelve o'clock — a stripe of the cab's own trim colour, and the
+  // only way to read a wound-on wheel at a glance.
+  ctx.fillStyle = T.needle;
+  roundRectPath(ctx, -R * 0.022, -rimO + R * 0.02, R * 0.044, (rimO - rimI) - R * 0.04, R * 0.02);
+  ctx.fill();
+  // Three spokes: one up, two down at 120°. A commercial-vehicle wheel, in one line of geometry.
+  const hubR = R * 0.24;
+  for (let i = 0; i < 3; i++) {
+    ctx.save(); ctx.rotate(i / 3 * Math.PI * 2);
+    const sg = ctx.createLinearGradient(-R * 0.06, 0, R * 0.06, 0);
+    sg.addColorStop(0, '#1a1e23'); sg.addColorStop(0.5, '#333941'); sg.addColorStop(1, '#1a1e23');
+    ctx.fillStyle = sg;
+    roundRectPath(ctx, -R * 0.065, -rimI - 1, R * 0.13, rimI - hubR * 0.5, R * 0.04); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+  // The boss stays UPRIGHT — it is bolted to the column, not to the rim, and the horn push that
+  // spun round with the wheel would be the one part nobody could aim for. It is also the hit
+  // target the cab tests against for the horn (see cab-view's glass handler).
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, H * (1 - CAB_DASH) - 2, W, H); ctx.clip();
+  ctx.translate(cx, cy);
+  const bg = ctx.createRadialGradient(-hubR * 0.3, -hubR * 0.35, 1, 0, 0, hubR);
+  bg.addColorStop(0, '#2c323a'); bg.addColorStop(1, '#0d1013');
+  ctx.beginPath(); ctx.arc(0, 0, hubR, 0, 7); ctx.fillStyle = bg; ctx.fill();
+  ctx.lineWidth = Math.max(1.5, R * 0.014); ctx.strokeStyle = T.ring;
+  ctx.beginPath(); ctx.arc(0, 0, hubR * 0.9, 0, 7); ctx.stroke();
+  ctx.fillStyle = T.needle;
+  ctx.font = `700 ${Math.max(7, hubR * 0.20) | 0}px 'DejaVu Sans Mono',monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('HORN', 0, -hubR * 0.34);
   ctx.restore();
 }
 function drawCabMirror(ctx, x, y, w, h, v) {
@@ -6524,7 +6744,18 @@ export function interiorRenderSmoke() {
     ...Object.keys(COWL_DEPTH).map(cls => [`cowl:${cls}`, () => drawCowl(SHAPE_STUB_CTX, W, H, cls)]),
     ...['ultralight', 'heli', 'heavy', 'gunship', 'prop', 'default'].map(cls =>
       [`window:${cls}`, () => drawWindowFrame(SHAPE_STUB_CTX, W, H, cls, null)]),
-    ['cab', (v) => drawCabInterior(SHAPE_STUB_CTX, W, H, v)],
+    // THE CAB, ONCE PER TIER AND ONCE FULLY LOADED. The interior is now a whole instrument panel
+    // and a steering wheel, and the four tiers take genuinely different branches through it (one
+    // dial or two, band or no band, graded brake gauge or not), so a single default-payload case
+    // would have exercised about half of it. The loaded case is the one that matters: every
+    // optional field present, a wheel wound over, a trailer folded, every lamp lit.
+    ...[0, 1, 2, 3].map(tier => [`cab:t${tier}`, (v) => drawCabInterior(SHAPE_STUB_CTX, W, H, { ...v, tier })]),
+    ['cab:loaded', (v) => drawCabInterior(SHAPE_STUB_CTX, W, H, {
+      ...v, tier: 3, steer: -0.8, rpmFrac: 0.7, band: [0.45, 0.72], inBand: true, topSpeed: 68,
+      gearLabel: '7½', stalled: false, fuel: 0.08, legFrac: 0.42, brakeTemp: 0.5, fading: true,
+      brakeGauge: true, hitched: true, phi: 58,
+      lamps: { fuel: true, brake: true, jake: true, wipe: true, trail: true, dmg: true },
+    })],
   ];
   for (const [key, fn] of cases) {
     for (const hour of [3, 13]) for (const speed of [0, 55]) {
