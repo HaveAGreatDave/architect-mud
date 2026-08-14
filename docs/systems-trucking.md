@@ -712,6 +712,17 @@ wheel is), fuel and leg out on the left flank, brake and trailer right of the ge
 tell-tales in one spread row on the right of the dash **with labels** — an unlit dot is not an
 instrument, it is a hole.
 
+**The band is the binding constraint on gauge size, so the wheel sits low** *(2026-08-14)*. The
+instruments live between the dash lip and the top of the rim, and at `CAB_DASH = 0.30` with the hub
+at `1.20H` that band was about a tenth of the frame — dials the size of the word underneath them.
+The hub drops to `1.30H` and `CAB_DASH` goes to **0.33**: every 0.01H the wheel drops is 0.01H of
+readable dash, and the top arc plus the upper spokes is all you ever see of a wheel you are sitting
+behind. Three points of glass for gauges you can read at a glance is a cheap trade; past ~0.36 you
+are driving through a letterbox. The flanking bars now space themselves as a **fraction of the gap
+they have to fill** rather than a multiple of their own width — "bunched up" was two bars 15px apart
+on a 600px stretch of empty vinyl — and the tell-tale wall is solved *before* the right-hand bars,
+so two independently laid-out instruments can never overlap.
+
 **Every control's appearance is derived from `st.input`, never from the thing that moved it**
 *(2026-08-14)*. The `on` class was added by the pointer handler and by nothing else, so a driver
 using `A`/`Z`/`X`/`C` — which is nearly all of them, since the keys are the fast way to drive —
@@ -776,6 +787,17 @@ first key of a drive focused the command bar and the rest of it arrived there as
 The cab's own focus machinery (`grabKeys`, the `⌨ KEYS` tag) was working the whole time and could
 not have fixed it — something else was taking the focus back. **Adding a panel that owns keys means
 adding it to that list.**
+
+⚠ **An inline pane height is what beats fullscreen, and it is not a specificity problem**
+*(2026-08-14)*. After the flex rules below were already correct, fullscreen still refused to fill —
+because the look-resize handle stores a dragged room-pane height as an **inline style** on
+`#area-pane` and restores it from `localStorage` (`lookPaneHeight`) on every boot. An inline height
+beats every class rule there is, so for anybody who had ever dragged that handle the immersive modes
+grew the pane's *allowance* and left it pinned at the dragged size. Hence `height: auto !important`
+on the fullscreen/hide-panel rules. It is **beaten, not cleared**: that height is the player's saved
+preference for ordinary rooms, and dispatching `lookpaneauto` (the hangar bay's seam) would delete
+it for good on a passing glance at the road. **The flight sim and the helm had the identical bug**
+and are fixed in the same commit — if you add an immersive mode, it needs the same line.
 
 **Fullscreen is the flight sim's rules, copied** *(2026-08-14)*. The cab had invented its own and got
 both halves wrong: it hid `#sidebar` and `#input-row` (the elements are `#output`,

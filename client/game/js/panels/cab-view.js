@@ -144,9 +144,13 @@ export function openCab(ctx = {}) {
         <!-- Only in the chase view, and only because a turntable you can spin is a turntable you
              can get lost on. Same glyph the flight sim's orbit reset uses. -->
         <button class="cab-cbtn cab-orbitreset" title="point the camera back down the road" hidden>⟲</button>
-        <button class="cab-cbtn cab-fsbtn" title="fullscreen">⛶</button>
-        <button class="cab-cbtn cab-hidebtn" title="hide the text panel — more road">⊟</button>
         <button class="cab-cbtn cab-helpbtn" title="controls (?)">?</button>
+        <!-- HIDE-PANEL THEN FULLSCREEN, in that order — they are one ladder and it should read as
+             one, with the biggest rung at the end of the row nearest the corner. The flight sim
+             puts fullscreen first for historical reasons; this is the order that matches what the
+             two buttons actually do to each other (fullscreen supersedes hide-panel). -->
+        <button class="cab-cbtn cab-hidebtn" title="hide the text panel — more road">⊟</button>
+        <button class="cab-cbtn cab-fsbtn" title="fullscreen">⛶</button>
       </div>
       <!-- THE DAMAGE STRIP. Small by default and small on purpose: four letters and four coloured
            pips is enough to tell a driver at a glance that something is wrong and which thing, and
@@ -1542,8 +1546,18 @@ function ensureCabStyles() {
      which is exactly what "it doesn't expand" looked like.
      The sim's approach is the correct one and is already proven on three panels (fsim, helm,
      passenger): don't leave the column, GROW in it. */
+  /* ⚠ THE !important IS LOAD-BEARING AND IS NOT A SPECIFICITY HACK. The look-resize handle lets a
+     player drag the room pane's height, and it stores that as an INLINE style on #area-pane,
+     restored from localStorage on every boot (main.js, 'lookPaneHeight'). An inline height beats
+     every class rule there is, so for anybody who had ever dragged that handle — which is most
+     people — fullscreen grew the pane's ALLOWANCE and then left it pinned at 535px anyway. That is
+     why it kept "not expanding" after the flex rules were already correct: the flex rules WERE
+     applying, and losing to a style attribute.
+     We beat it rather than clearing it, because that height is the player's saved preference for
+     ordinary rooms and fullscreen is a temporary mode — dispatching 'lookpaneauto' (the hangar
+     bay's seam) would delete it for good on a passing glance at the road. */
   body.cab-fullscreen #area-pane,
-  body.cab-hidepanel #area-pane{max-height:none;flex:1 1 auto}
+  body.cab-hidepanel #area-pane{max-height:none !important;height:auto !important;flex:1 1 auto}
   body.cab-fullscreen #area-pane{padding:0}   /* reach every edge — the inset is stolen road */
   body.cab-fullscreen #area-content,
   body.cab-hidepanel #area-content{flex:1 1 auto;display:flex;min-height:0}

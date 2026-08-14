@@ -465,8 +465,17 @@ html[data-density="compact"] #auth-title {
 
 /* Flight-sim fullscreen: the sim expands to fill the whole output column, pushing the
    text log + command pane down out of view for an immersive cockpit. Toggled from the
-   ⛶ button on the sim; the class is cleared when the sim closes. */
-body.fsim-fullscreen #area-pane { max-height: none; flex: 1 1 auto; }
+   ⛶ button on the sim; the class is cleared when the sim closes.
+
+   ⚠ THE !important ON height/max-height IS LOAD-BEARING, on every immersive mode below.
+   The look-resize handle stores a dragged pane height as an INLINE style on #area-pane and
+   restores it from localStorage on boot (main.js, 'lookPaneHeight'). An inline height beats
+   every class rule, so for anybody who had ever dragged that handle these rules grew the
+   pane's ALLOWANCE and it stayed pinned at the dragged size — "fullscreen doesn't expand",
+   with the flex rules applying correctly the whole time and losing to a style attribute.
+   Beaten rather than cleared: that height is the player's saved preference for ordinary
+   rooms, and an immersive mode is temporary. */
+body.fsim-fullscreen #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
 body.fsim-fullscreen #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
 body.fsim-fullscreen .fsim { flex: 1 1 auto; min-height: 0; }
 body.fsim-fullscreen .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
@@ -478,7 +487,7 @@ body.fsim-fullscreen #bottom-input-wrap { display: none; }
    (more outside view; the glass + control rows keep their fixed heights so the cockpit stays
    the same size) but the COMMAND BOX stays put so you can still type. Only the scrollback log
    + its resize handle are folded away. Toggled from the ⊟ button; cleared when the sim closes. */
-body.fsim-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.fsim-hidepanel #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
 body.fsim-hidepanel #area-content { flex: 1 1 auto; display: flex; min-height: 0; }
 body.fsim-hidepanel .fsim { flex: 1 1 auto; min-height: 0; }
 body.fsim-hidepanel .fsim-view { height: auto; flex: 1 1 auto; min-height: 0; }
@@ -489,7 +498,7 @@ body.fsim-hidepanel #look-resize-handle { display: none; }
    console grows to fill the output column (not an OS-fullscreen overlay). Cleared when the helm
    closes. ⛶ folds the command box too; ⊟ keeps it so you can still type. */
 body.helm-fullscreen #area-pane,
-body.helm-hidepanel #area-pane { max-height: none; flex: 1 1 auto; }
+body.helm-hidepanel #area-pane { max-height: none !important; height: auto !important; flex: 1 1 auto; }
 /* Drop the pane's 12px inset in fullscreen so the helm reaches every edge — otherwise the bottom
    padding leaves a gap under the console and steals vertical room from the ship above it. */
 body.helm-fullscreen #area-pane { padding: 0; }

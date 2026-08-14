@@ -1446,7 +1446,12 @@ function drawCanopy(ctx, W, H) {
 // instrument you reverse on. They are stubbed here as real housings with glass — the reflected
 // view lands when there is a trailer to see in them.
 const CAB_POST = 0.014;        // centre screen post, as a fraction of width
-const CAB_DASH = 0.30;         // dash height, as a fraction of height
+// Dash height, as a fraction of the frame. 0.30 → 0.33: the instruments live in the band between
+// this lip and the top of the wheel, and at 0.30 that band was about a tenth of the frame — enough
+// for dials the size of the word under them. Three points of glass is a cheap price for gauges you
+// can read at a glance, which is the entire job of a dash. Raise it further only with the road in
+// mind: past ~0.36 you are driving through a letterbox.
+const CAB_DASH = 0.33;         // dash height, as a fraction of height
 
 // ── WHAT YOUR MONEY BOUGHT, FROM THE SEAT ────────────────────────────────────
 // Four trucks, four interiors. Until this table existed every rung of the fleet sat behind the
@@ -1521,9 +1526,14 @@ const CAB_LAMPS = [
 //
 // So the wheel sits LOWER and reads bigger (which is also more honest — a truck wheel is a big
 // thing close to your chest), and it now publishes its own top edge for the panel to clear.
+// THE WHEEL SITS LOW AND MOSTLY OUT OF FRAME, which is both what it looks like from the seat and
+// what buys the instruments their room. Every 0.01H the hub drops is 0.01H of readable dash, and
+// the top arc plus the upper spokes is all you ever see of a wheel you are sitting behind anyway.
+// The trade is deliberate: a big wheel with the gauges crammed into the gap above it reads as a
+// picture of a cab, and a driver cannot use it.
 export const cabWheelGeom = (W, H) => {
-  const R = H * 0.38;
-  return { x: W * 0.42, y: H * 1.20, R, hubR: R * 0.24, rimI: R * 0.80, top: H * 1.20 - R };
+  const R = H * 0.40, y = H * 1.30;
+  return { x: W * 0.42, y, R, hubR: R * 0.24, rimI: R * 0.80, top: y - R };
 };
 // The horn boss, for the cab's hit-test — derived, never a second copy.
 export const cabWheelHub = (W, H) => { const g = cabWheelGeom(W, H); return { x: g.x, y: g.y, r: g.hubR }; };
@@ -1659,8 +1669,10 @@ function drawCabInterior(ctx, W, H, v) {
   const bandBot = Math.min(H * 0.985, wheelG.top - H * 0.008);   // just over the rim
   const bandH = Math.max(H * 0.06, bandBot - bandTop);
   const panelY = bandTop + bandH * 0.50;
-  // Sized off the band, capped on width so a very wide pane does not grow dinner plates.
-  const dialR = Math.max(9, Math.min(W * 0.048, bandH * 0.46));
+  // Sized off the band, capped on width so a very wide pane does not grow dinner plates. The band
+  // is the binding constraint on almost every pane shape, so 0.46 → 0.48 of it and the width cap
+  // lifted: these are the two numbers that decide whether the gauges are readable.
+  const dialR = Math.max(9, Math.min(W * 0.062, bandH * 0.48));
   const twoDials = T.dials >= 2;
   // The column, and it is where the driver is — the wheel's own centre, so the binnacle can never
   // drift off the thing it is supposed to sit behind.
@@ -1713,31 +1725,40 @@ function drawCabInterior(ctx, W, H, v) {
     ctx.restore();
   }
 
-  // THE SUBSIDIARY GAUGES, out on the flanks where a truck actually puts them: fuel and air on the
-  // left of the column, brake temperature and the leg on the right. Bars rather than needles,
-  // because none of the four is something you read mid-corner — they are what you read on a
-  // straight, and a bar is faster to read slowly than a needle is.
-  // Bars rather than needles, because none of the four is something you read mid-corner — they are
-  // what you read on a straight, and a bar is faster to read slowly than a needle is.
+  // THE SUBSIDIARY GAUGES. Bars rather than needles, because none of the four is something you read
+  // mid-corner — they are what you read on a straight, and a bar is faster to read slowly than a
+  // needle is.
   //
   // FUEL and LEG go out on the LEFT SIDE OF THE DASH, not tucked against the hood: they are the two
   // longest-range facts on the panel (have I got the range, am I nearly there) and they belong where
   // the eye lands when it is not on the road. BRK and TRL stay right of the column with the gear,
   // because both are about what the truck is doing this minute.
-  const barH = Math.min(bandH * 0.78, dialR * 1.7), barW = Math.max(5, dialR * 0.30);
-  const leftPad = Math.max(W * 0.045, barW * 2.2);         // in from the A-pillar, never under it
-  const rightOfGear = colX + hoodW * 0.5 + Math.min(bandH * 0.74, dialR * 1.5) * 1.05 + barW * 2.4;
+  //
+  // The pair SPACING is a fraction of the gap they have to fill rather than a multiple of the bar,
+  // so on a wide pane they spread into the empty dash instead of huddling in a stack at one end —
+  // "everything bunched up" was two bars 15px apart on a 600px stretch of empty vinyl.
+  const barH = Math.min(bandH * 0.86, dialR * 2.0), barW = Math.max(6, dialR * 0.34);
+  const leftPad = Math.max(W * 0.05, barW * 2.2);          // in from the A-pillar, never under it
+  const leftRoom = Math.max(barW * 2.6, (colX - hoodW * 0.55 - leftPad) * 0.42);
+  const gearW = Math.min(bandH * 0.74, dialR * 1.5) * 1.05;
+  const rightOfGear = colX + hoodW * 0.5 + gearW + barW * 2.6;
+  // The tell-tale wall is solved FIRST, because the right-hand bars need to know where it starts —
+  // two instruments that lay themselves out independently and then overlap is the bug this avoids.
+  const lampR = Math.max(3.4, Math.min(bandH * 0.19, W * 0.010));
+  const lampSpan = Math.min(W * 0.24, lampR * 3.8 * CAB_LAMPS.length);
+  const lampX0 = Math.min(W * 0.965 - lampSpan, W * 0.76);
+  const rightRoom = Math.max(barW * 2.6, (lampX0 - rightOfGear) * 0.42);
   const bars = [
     [leftPad, 'FUEL', v?.fuel ?? 1,
       (v?.fuel ?? 1) <= 0 ? '#d2603f' : (v?.fuel ?? 1) < 0.15 ? '#d8a24e' : '#6f9f7a'],
-    [leftPad + barW * 2.6, 'LEG', v?.legFrac ?? 0, T.needle],
+    [leftPad + leftRoom, 'LEG', v?.legFrac ?? 0, T.needle],
     [rightOfGear, 'BRK',
       // A GRADED BRAKE GAUGE IS A TIER-2 LUXURY, the same rule the words follow: below it the bar
       // reads empty and the lamp is the whole instrument. The fade itself is identical — this is
       // only what you can SEE of it.
       T.dials >= 2 && v?.brakeGauge ? Math.min(1, (v?.brakeTemp || 0) / 0.6) : 0,
       v?.fading ? '#d2603f' : (v?.brakeTemp || 0) > 0.42 ? '#d8a24e' : '#5f8f9f'],
-    [rightOfGear + barW * 2.6, 'TRL', v?.hitched ? Math.min(1, Math.abs(v?.phi || 0) / 60) : 0,
+    [rightOfGear + rightRoom, 'TRL', v?.hitched ? Math.min(1, Math.abs(v?.phi || 0) / 60) : 0,
       Math.abs(v?.phi || 0) > 55 ? '#d2603f' : '#8fa4bc'],
   ];
   for (const [bx, lbl, frac, col] of bars) drawCabBar(ctx, bx, panelY - barH * 0.5, barW, barH, frac, col, lbl, T);
@@ -1748,9 +1769,6 @@ function drawCabInterior(ctx, W, H, v) {
   // right next to the two brightest objects on it. Out here they are bigger, spread, and against
   // nothing. Every one is dark until it is not; a panel of permanently lit icons is a decal.
   const lamps = v?.lamps || {};
-  const lampR = Math.max(2.8, Math.min(bandH * 0.16, W * 0.008));
-  const lampSpan = Math.min(W * 0.22, lampR * 3.6 * CAB_LAMPS.length);
-  const lampX0 = Math.min(W * 0.965 - lampSpan, W * 0.78);
   CAB_LAMPS.forEach(([key, col], i) => {
     const lx = lampX0 + (i + 0.5) * (lampSpan / CAB_LAMPS.length), ly = panelY;
     const on = !!lamps[key];
