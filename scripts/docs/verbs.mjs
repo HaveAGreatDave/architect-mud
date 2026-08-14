@@ -30,6 +30,9 @@ const NOT_PLAYER_TYPED = new Set([
   'jackresolve', 'hackresolve', 'safecrackresolve', 'pirateresolve', 'fishresolve',
   'spliceresolve', 'synthresolve', 'strafresolve', 'hijackresolve', 'concealresolve',
   'apprehendresolve', 'tillcrackresolve', 'hackrigresolve', 'splicebegin', 'splicepreview',
+  // …and mastery's Read board, which is the same handshake: the panel reports the answer and the
+  // server decides. Its own handler says so ("Silent — fired by the panel, never typed").
+  'readresolve',
   // Client/session handshakes.
   'introdone', 'tabletdone', 'flightsync', 'flightevent', 'tabletnav', 'tabletaction',
   'selectcassette', 'tablettune', 'sprayapply', 'spraysave', 'spraydel',

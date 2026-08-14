@@ -155,7 +155,16 @@ scoped to this repo's own entrypoints (`server/index.js`, `tests/regress.js`, `s
 never runs in production (`npm start` has no pre-hook). If a sweep can't reach it, wait ~90 s. Player
 stat columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
-`pretest:regress` also runs **`docs:lint`** ([scripts/docs/lint.mjs](scripts/docs/lint.mjs)), which fails
+`pretest:regress` also runs **`docs:lint`**, which is **three checks**, not one — and the hook now
+invokes the npm script rather than one of its files, so there is a single definition of what doc
+linting is. (It called `scripts/docs/lint.mjs` directly until 2026-08-14. The two read identically in
+prose — "docs:lint runs" — so `docs:verbs` and `docs:links` were never gated at all, and a real gap
+sat behind that wording for months. If you add a fourth check, add it to `docs:lint` and the gate
+picks it up.) The three: **`docs:links`**, which fails when a doc link does not resolve;
+**`docs:verbs`**, which fails when a plugin verb is not named in [docs/plugins.md](docs/plugins.md)
+(a verb a player can never type — a client handshake like `readresolve` — goes in `NOT_PLAYER_TYPED`
+in [scripts/docs/verbs.mjs](scripts/docs/verbs.mjs) *with a reason*); and
+[scripts/docs/lint.mjs](scripts/docs/lint.mjs) itself, which fails
 when a doc's **status header contradicts its own body** — a header asserting nothing is built
 ("Not Yet Built", "Nothing here is implemented", "DESIGN ONLY") sitting above a body full of ✅/`*Built:*`
 markers. This exists because on 2026-07-27 an audit reported five shipped systems as outstanding work,
