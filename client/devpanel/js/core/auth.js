@@ -21,6 +21,7 @@ async function devLogin() {
   updateStagingBadge();
   showPlayButton();
   initWhisperPanel();
+  bootSplashStep('session');
 }
 
 async function devpanelLogout() {

@@ -77,6 +77,9 @@ function applyOpsReadonlyVisibility(show) {
 // same three jokes aren't the ones you read every morning.
 const BOOT_ARM_DELAY = 120;
 const BOOT_MIN_VISIBLE = 700;
+// Held after the bar hits 100% — long enough to read as finished, short enough
+// that it is never what you are waiting for.
+const BOOT_SETTLE = 420;
 const BOOT_WAKE_LINE = 'Waking THOMAS…';
 const BOOT_LINES = [
   'Reticulating exits…',
@@ -96,6 +99,27 @@ const BOOT_LINES = [
   'Filing the sharp edges off the economy…',
 ];
 let _bootArmTimer = null, _bootCycleTimer = null, _bootShownAt = 0;
+
+// ── The bar ─────────────────────────────────────────────────────────────────
+// It reports real milestones (bootSplashStep), never a timer: a bar that fills
+// on a clock is a progress-shaped animation, and it lies as soon as the network
+// is slow — which is the only time anybody looks at it.
+//
+// Between milestones it EASES toward the current target rather than jumping, and
+// never reaches it. That is the honest shape of "still working": the bar keeps
+// moving during a long fetch without ever claiming a step finished that hasn't.
+// 100% belongs to bootSplashDone alone.
+const BOOT_MARKS = { shown: 0.12, session: 0.4, panel: 1 };
+let _bootTarget = 0, _bootAt = 0, _bootEaseTimer = null;
+
+function bootSplashStep(mark) {
+  _bootTarget = Math.max(_bootTarget, BOOT_MARKS[mark] ?? 0);
+}
+
+function bootSplashPaintBar() {
+  const fill = document.getElementById('boot-bar-fill');
+  if (fill) fill.style.width = `${Math.round(_bootAt * 100)}%`;
+}
 
 function bootSplashArm() {
   _bootArmTimer = setTimeout(() => {
@@ -123,6 +147,13 @@ function bootSplashArm() {
       const s = document.getElementById('boot-status');
       if (s) s.textContent = BOOT_LINES[i++ % BOOT_LINES.length];
     }, 750);
+
+    bootSplashStep('shown');
+    bootSplashPaintBar();
+    _bootEaseTimer = setInterval(() => {
+      _bootAt += (_bootTarget - _bootAt) * 0.3;
+      bootSplashPaintBar();
+    }, 160);
   }, BOOT_ARM_DELAY);
 }
 
@@ -130,9 +161,17 @@ function bootSplashDone() {
   if (_bootArmTimer) { clearTimeout(_bootArmTimer); _bootArmTimer = null; return; }
   const el = document.getElementById('boot-splash');
   if (!el || el.classList.contains('hidden')) return;
-  const wait = Math.max(0, BOOT_MIN_VISIBLE - (Date.now() - _bootShownAt));
+  // Full, and SEEN to be full: the bar lands on 100% while the card is still up,
+  // so the last thing you look at is a finished bar rather than a vanishing one.
+  if (_bootEaseTimer) { clearInterval(_bootEaseTimer); _bootEaseTimer = null; }
+  _bootAt = _bootTarget = 1;
+  bootSplashPaintBar();
+  const status = document.getElementById('boot-status');
+  if (status) status.textContent = 'THOMAS is awake.';
+  if (_bootCycleTimer) { clearInterval(_bootCycleTimer); _bootCycleTimer = null; }
+
+  const wait = Math.max(BOOT_SETTLE, BOOT_MIN_VISIBLE - (Date.now() - _bootShownAt));
   setTimeout(() => {
-    if (_bootCycleTimer) { clearInterval(_bootCycleTimer); _bootCycleTimer = null; }
     el.classList.add('fading');
     setTimeout(() => { el.classList.add('hidden'); el.classList.remove('fading'); }, 260);
   }, wait);
@@ -176,6 +215,7 @@ function bootSplashDone() {
   setTimeout(() => {
     Promise.resolve(loadPanel(startPanel)).catch(() => {}).then(bootSplashDone);
     startWorldStatePolling(); initMisToggle(); initEmailVerifyToggle(); initRegistrationsToggle(); updateStagingBadge(); showPlayButton(); initWhisperPanel();
+    bootSplashStep('session');   // the session is up; only the panel is outstanding
   }, 0);
 })();
 applyDevSettings();
