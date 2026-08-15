@@ -28,7 +28,7 @@
 //             collision and shadows at any footprint but the captured one.
 //
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
-import { loadWindshield } from './dom-stub.mjs';
+import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
 import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
 
@@ -62,6 +62,16 @@ async function main() {
   for (const f of interiors) {
     problems.push(`interior ${f.key} (hour=${f.hour}, speed=${f.speed}) → ${f.err}`);
   }
+
+  // ── VIEW ──
+  // paintWindshield itself, once per view shape. Every other gate here enters BELOW it, so its own
+  // entry code — view unpacking, camera solve, pass ordering — had no coverage until a one-line TDZ
+  // (`resFloor` read above `const v`) threw on the first line of every paint and blacked out the
+  // truck cab, both cockpits and the helm view with this suite still green.
+  const WS_ID = '__smoke-ws';
+  stubCanvas(WS_ID, 640, 360);
+  const views = ws.viewRenderSmoke(WS_ID);
+  for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
 
   // ── GROUND COLLISION ──
   // Every model probed at truck height, asserting ground-solid ⊆ air-solid. The two probes share
@@ -174,6 +184,7 @@ async function main() {
   const full = at(1), mid = at(0.5), far = at(0);
   console.log(`✓ shapes:smoke — ${models.length} models render clean (night/day × both facings, plus the LOD path across 4 detail levels × 4 facings); ${segs} mass segments captured, ${seedVariant} seed-variant.`);
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
+  console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);

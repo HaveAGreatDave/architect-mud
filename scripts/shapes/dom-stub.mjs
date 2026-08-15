@@ -48,10 +48,23 @@ function makeEl(tag) {
   };
 }
 
+// Elements a test wants findable BY ID. `getElementById` answers null for everything else, as it
+// did before — paintWindshield's first two lines are `getElementById` and a clientWidth/Height
+// check, so a view smoke needs one real, sized canvas on the other end of that lookup and nothing
+// else does. Registered through `stubCanvas` below rather than by making every id resolve, because
+// a stub that answers every lookup hides the "this element isn't there" bugs.
+const STUB_ELS = new Map();
+export function stubCanvas(id, w = 640, h = 360) {
+  const el = makeEl('canvas');
+  el.clientWidth = w; el.clientHeight = h; el.width = w; el.height = h;
+  STUB_ELS.set(id, el);
+  return el;
+}
+
 globalThis.document = {
   createElement: (t) => makeEl(t), createElementNS: (ns, t) => makeEl(t),
   body: makeEl('body'), head: makeEl('head'), documentElement: makeEl('html'),
-  getElementById: () => null, querySelector: () => null, querySelectorAll: () => [],
+  getElementById: (id) => STUB_ELS.get(id) || null, querySelector: () => null, querySelectorAll: () => [],
   addEventListener() {}, removeEventListener() {}, createTextNode: () => ({}),
 };
 globalThis.window = {

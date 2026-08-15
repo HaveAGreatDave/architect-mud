@@ -7453,6 +7453,64 @@ export function shapeRenderSmoke() {
   return out;
 }
 
+// VIEW smoke — paintWindshield itself, once per view SHAPE the game actually mounts.
+//
+// Why this exists, and why it is not covered by the three smokes above. Every one of those enters
+// BELOW paintWindshield (drawTypeModel, drawCabInterior, groundObstructionAt), so the renderer's
+// own entry function — its ~120 lines of view unpacking, camera solve and pass ordering, which run
+// before any model does — had no coverage at all. On 2026-08-15 a `resFloor` read landed 24 lines
+// ABOVE the `const v = view || {}` it reads, and every call threw
+// `ReferenceError: Cannot access 'v' before initialization` on line one of the paint. Black glass in
+// the truck cab, in both cockpits and in the helm view, and shapes:smoke stayed green throughout
+// because none of its entry points is this one.
+//
+// The cases are the view SHAPES, not the callers: forward vs. framed (side window / porthole) vs.
+// external chase, ground vs. air, and the truck cab's `height: 0, resFloor: 1` — which is its own
+// case precisely because that pair is what the regression rode in on.
+//
+// Same bar as the rest of this file's smokes: it proves the renderer RUNS, not that it looks right.
+//
+// `ID` must already resolve through document.getElementById to a sized canvas — the caller owns the
+// DOM, since this file must not import anything out of scripts/.
+export function viewRenderSmoke(ID) {
+  const out = [];
+  out.ran = 0;
+  // A small world window — the shape mapWindow returns (odd-sized rows of derived surface cells),
+  // with a road, a couple of buildings and some water, so the ground/building/water passes all have
+  // something to do rather than early-returning on an empty map.
+  const R = 8, N = R * 2 + 1;
+  const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
+    x === R ? { kind: 'land', biome: 'citycore', road: 'ns', flr: 0 }
+    : x === R + 3 && y % 4 === 0 ? { kind: 'land', biome: 'citycore', bt: 'office', ent: 'south', flr: 6 }
+    : x === R - 3 && y % 5 === 0 ? { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'east', flr: 2 }
+    : y === 0 ? { kind: 'water', biome: 'coast' }
+    : { kind: 'land', biome: 'citycore', flr: 0 }
+  )));
+  const base = { map, heading: 45, speed: 0.4, hour: 13, weather: 'clear' };
+  const cases = [
+    // The cab. `height: 0` and `resFloor: 1` are the pair that caught fire — keep them together.
+    ['cab',            { ...base, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    ['cab:ext',        { ...base, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid+t', external: true, extYaw: 0.6, extPitch: 0.3, extZoom: 1.15 }],
+    ['cockpit:air',    { ...base, cls: 'prop', phase: 'cruise', height: 0.5 }],
+    ['cockpit:ground', { ...base, cls: 'prop', phase: 'ground', height: 0 }],
+    ['cockpit:ext',    { ...base, cls: 'gunship', phase: 'cruise', height: 0.4, external: true, extYaw: 1.2, extPitch: -0.2, armed: true }],
+    ['cockpit:look',   { ...base, cls: 'heli', phase: 'cruise', height: 0.3, viewYaw: 90 }],
+    ['passenger',      { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, side: true }],
+    ['framed',         { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, windowClass: 'heavy' }],
+    ['helm',           { ...base, cls: 'boat', phase: 'ground', worldBlend: 0, height: 0 }],
+  ];
+  // Night as well as day, and weather on as well as off: the sky/cast/on-glass branches are a
+  // meaningful slice of the entry function and half of them are unreachable at noon in clear air.
+  for (const [key, view] of cases) {
+    for (const hour of [3, 13]) for (const weather of ['clear', 'rain']) {
+      out.ran++;
+      try { paintWindshield(ID, { ...view, hour, weather }); }
+      catch (e) { out.push({ key, hour, weather, err: e.message }); }
+    }
+  }
+  return out;
+}
+
 // Shared adornment primitives for the dedicated models (all project through the same camera).
 function blinkLight(ctx, cam, dx, dy, wz, rgb, now, seed, alpha, r = 1.6) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment
