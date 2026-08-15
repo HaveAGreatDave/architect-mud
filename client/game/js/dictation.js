@@ -31,7 +31,7 @@ import { normalizeDictation } from '/shared/dictation.js';
 import { loadSettings } from '/shared/settings.js';
 import { appendMsg } from './render.js';
 import { submitCommand } from './input.js';
-import { getEquipInventory } from './panels/inventory-state.js';
+import { liveNouns } from './vocabulary.js';
 
 const SR = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
@@ -50,30 +50,9 @@ let btn = null;
 let holdTimer = 0;
 let heldLongEnough = false;
 
-// ── The live vocabulary ─────────────────────────────────────────────────────
-//
-// What the noun matcher gets to choose from. Assembled at each recognition, not
-// cached, because the whole point is that it reflects the room you are standing
-// in right now.
-//
-// Every source here is already on the page: the room pane and smartbar render
-// literal commands into `data-cmd` attributes, and the inventory cache mirrors
-// the last `inventory` payload. Nothing new is fetched and no round trip is
-// added — a hot path in all but name, since this runs on every utterance.
-function liveNouns() {
-  const out = new Set();
-  try {
-    for (const el of document.querySelectorAll('[data-cmd]')) {
-      const cmd = el.getAttribute('data-cmd') || '';
-      const rest = cmd.split(/\s+/).slice(1).join(' ');
-      if (rest) out.add(rest);
-      const label = (el.textContent || '').trim();
-      if (label && label.length < 40) out.add(label);
-    }
-  } catch { /* no DOM yet — the inventory half still works */ }
-  for (const item of getEquipInventory() || []) if (item?.name) out.add(item.name);
-  return [...out];
-}
+// The live noun vocabulary the matcher chooses from now lives in vocabulary.js —
+// Tab completion reads the same list, and a second reader is where a helper stops
+// belonging to one feature.
 
 function setBtnState(on) {
   if (!btn) return;

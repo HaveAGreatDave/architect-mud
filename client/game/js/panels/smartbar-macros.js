@@ -31,13 +31,16 @@
 // `echo <text>` prints locally (never sent to the server). Blocks may nest.
 // validateMacro() checks the structure for the editor's Test button; the Guide
 // window surfaces the client-known values / furniture / item actions / commands.
-import { sendCmd } from '../net.js';
+import { sendCmd, sendRaw } from '../net.js';
 import { appendMsg, appendHtml } from '../render.js';
 import { state } from '../state.js';
 import { getTabletInventory } from './tablet-os.js';
 import { refreshInventory, getEquipInventory } from './inventory-state.js';
 import { handleClientCommand } from '../input.js';
 import { renderSmartBar } from './smartbar.js';
+import { getVar, setVar, unsetVar, allVars } from '../variables.js';
+import { evalBool, evalValue, isWellFormed, FUNC_NAMES } from '../expr.js';
+import { applyCaptures } from '../automation-guards.js';
 
 const KEY = 'architect_smartbar_macros';
 const DEFAULT_STAGGER_MS = 350;
@@ -57,14 +60,89 @@ function stockSwatchColors() {
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
-// Shape: [{ id, label, cmds, color }] — cmds is the raw ";"-separated string,
-// color is a hex string or null (= use the .smart-btn-macro CSS default).
+// Shape: [{ id, label, cmds, color, key }] — cmds is the raw ";"-separated
+// string, color is a hex string or null (= use the .smart-btn-macro CSS default),
+// key is a bound `e.code` or ''.
+//
+// localStorage is still the working copy: it is synchronous, it is what every
+// call site here already reads, and it means the bar renders instantly on load
+// and keeps working with no connection. The server is a BACKING STORE that makes
+// the list follow the account (see the sync block below) — never the thing the
+// UI waits on.
 export function loadMacros() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
 }
 
-function saveMacros(list) {
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {}
+// `stamp` is passed only when adopting the server's list, where the right stamp
+// is the SERVER's — stamping an adoption with `now` would make every login look
+// like a local edit and let a stale device win the next comparison.
+function saveMacros(list, { push = true, stamp = null } = {}) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(list));
+    // Written on every local save, and compared against the server's stamp at
+    // login. This is what makes the sync last-writer-wins rather than
+    // server-always-wins, so an edit made on a machine that was offline is not
+    // quietly thrown away by the next login somewhere else.
+    localStorage.setItem(STAMP_KEY, String(stamp ?? Math.floor(Date.now() / 1000)));
+  } catch { /* quota or private mode — the in-page list still works this session */ }
+  if (push) pushMacros(list);
+}
+
+// ── Following the account ────────────────────────────────────────────────────
+//
+// Pull once at login, push on every edit. Three states on arrival, and the third
+// is the one worth being careful about:
+//
+//   • server has macros, local doesn't  → adopt. The new-device case.
+//   • local has macros, server doesn't  → push. The MIGRATION case: everybody
+//     already using macros today has them only in a browser, and they must not
+//     have to re-enter them for the account to start carrying them.
+//   • both have macros                  → newer stamp wins, whole list.
+//
+// Whole-list and not per-macro: the client has always treated this as a list
+// (reorderable, macros call each other by label), and merging two lists item by
+// item would have to invent an answer for "deleted here, edited there" that
+// nobody asked for.
+//
+// ⚠ Last-writer-wins means two browsers open at once will clobber each other on
+// the next edit. That is a deliberate ceiling, not an oversight: the alternative
+// is a merge UI for a feature whose whole point is that you press a button.
+const STAMP_KEY = 'architect_smartbar_macros_at';
+let _pushTimer = 0;
+
+function localStamp() {
+  return Number(localStorage.getItem(STAMP_KEY) || 0);
+}
+
+// Debounced: the manager saves on every field commit, and a player renaming a
+// macro should not be a write per keystroke.
+function pushMacros(list) {
+  clearTimeout(_pushTimer);
+  _pushTimer = setTimeout(() => { sendRaw({ type: 'macros_push', macros: list }); }, 800);
+}
+
+// Called from dispatch.js on the `macros` reply.
+export function receiveMacros({ macros, updatedAt }) {
+  const remote = Array.isArray(macros) ? macros : [];
+  const stamp = Number(updatedAt) || 0;
+  const local = loadMacros();
+  // ⚠ The test is the STAMP, never `remote.length`. An empty list from a server
+  // that HAS a row is a real state — somebody deleted their macros on another
+  // device — and treating empty as "nothing up there yet" would push the local
+  // copy back and resurrect every macro they just got rid of, on every login,
+  // forever. Only stamp 0 means the account has never been synced.
+  if (!stamp) {
+    // The migration case: everyone using macros today has them in a browser only,
+    // and must not have to re-enter them for the account to start carrying them.
+    if (local.length) pushMacros(local);
+    return;
+  }
+  if (localStamp() > stamp) { pushMacros(local); return; }   // local edit is newer
+  // Adopt — including adopting an empty list, which is a deletion arriving.
+  // Without re-pushing: this list IS the server's, and echoing it back would move
+  // the stamp forward for no reason and make every login look like an edit.
+  saveMacros(remote, { push: false, stamp });
+  renderSmartBar();
 }
 
 function genId() {
@@ -167,7 +245,6 @@ const COMMAND_REF = [
 ];
 
 // value ± $-prefix, then a comparison operator and a number.
-const CMP_RE = /^\$?(\w+)\s*(<=|>=|==|!=|<>|<|>|=)\s*(-?\d+(?:\.\d+)?)$/;
 const HAS_RE = /^(has|lacks)\s+(.+)$/i;
 const IN_RE = /^(in|notin|!in)\s+(.+)$/i;
 
@@ -198,11 +275,58 @@ function parseCond(text) {
     if (token === 'home') return { type: 'home', negate };
     return { type: 'zone', token, negate };
   }
-  m = t.match(CMP_RE);
-  if (!m) return null;
-  const varFn = VARS[m[1].toLowerCase()];
-  if (!varFn || !OPS[m[2]]) return null;
-  return { type: 'cmp', varFn, op: m[2], rhs: Number(m[3]) };
+  // Everything else is an EXPRESSION (expr.js). This replaced `CMP_RE`, a single
+  // regex matching exactly one shape — `<name> <op> <number>` — which is where
+  // every limit of the old grammar came from: no boolean operators at all, and a
+  // NUMBER on the right, so no trigger capture could ever be branched on because
+  // every capture is a string.
+  //
+  // ⚠ The four prefix forms above are matched FIRST and deliberately kept. Their
+  // arguments are unquoted and may contain spaces (`has field bandage`), which an
+  // expression grammar cannot read unambiguously. Inside an expression the same
+  // operators exist but take one bare word or a quoted string. Nothing already
+  // written changes meaning.
+  //
+  // Nothing is pre-resolved into the returned object: the resolver reads live at
+  // eval time, because a condition re-tested at the top of every `while` pass has
+  // to see what the body just wrote or the loop never ends.
+  return { type: 'expr', src: t };
+}
+
+// The world, as the evaluator sees it. Assembled per evaluation and never cached
+// — every one of these is a live read, which is the point.
+function exprResolver() {
+  const p = state.player || {};
+  return {
+    lookup: (name) => {
+      const key = String(name).toLowerCase();
+      if (key === 'zone') return zoneName();
+      if (key === 'zone_id') return String(state.currentZone || '');
+      if (key === 'home') return homeName();
+      if (key === 'home_id') return String(p.home_zone || '');
+      if (key === 'result') return lastResult();
+      const fn = VARS[key];
+      // Built-ins win name collisions — `$hp` must always mean your hit points,
+      // or a macro written a year ago quietly starts reading a variable set last
+      // night. Same precedence as interpolate().
+      if (fn) {
+        const v = fn(p);
+        return (v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
+      }
+      return getVar(key);
+    },
+    has: (token) => inventoryHas(String(token).trim().toLowerCase()),
+    inZone: (token) => {
+      const t = String(token).trim().toLowerCase();
+      if (t === 'home') {
+        const home = String(p.home_zone || '').toLowerCase();
+        return !!home && String(state.currentZone || '').toLowerCase() === home;
+      }
+      const id = String(state.currentZone || '').toLowerCase();
+      const name = zoneName().toLowerCase();
+      return id === t || (!!name && name.includes(t));
+    },
+  };
 }
 
 // Freshest inventory the client holds: the silently-refreshed equip snapshot if
@@ -220,11 +344,16 @@ function inventoryHas(token) {
     String(it.item_id || '').toLowerCase() === token || String(it.name || '').toLowerCase().includes(token));
 }
 
-// Does this macro read inventory (a `has`/`lacks` condition anywhere)?
+// Does this macro read inventory (a `has`/`lacks` test anywhere)? Now that those
+// words can also appear inside an expression, the check is textual rather than
+// structural — deliberately over-eager: the cost of a false positive is one silent
+// inventory refresh, and the cost of a false negative is `has` answering off a
+// stale snapshot, which is a wrong branch nobody can see.
 function usesInventory(segs) {
   return segs.some((s) => {
     const c = classify(s);
-    return (c.kind === 'if' || c.kind === 'elseif') && parseCond(c.cond)?.type === 'has';
+    if (c.kind !== 'if' && c.kind !== 'elseif' && c.kind !== 'while') return false;
+    return /\b(has|lacks)\b/i.test(c.cond || '');
   });
 }
 
@@ -246,11 +375,11 @@ function evalCond(cond) {
     const hit = !!home && String(state.currentZone || '').toLowerCase() === home;
     return cond.negate ? !hit : hit;
   }
-  const p = state.player;
-  if (!p) return false;
-  const left = cond.varFn(p);
-  if (left === undefined || left === null || Number.isNaN(Number(left))) return false;
-  return OPS[cond.op](Number(left), cond.rhs);
+  // Anything else is an expression. A malformed one is FALSE — never an error and
+  // never true — which is exactly what the old parseCond did by returning null for
+  // whatever it could not read, and that behaviour is load-bearing for every macro
+  // already written.
+  return evalBool(cond.src, exprResolver());
 }
 
 // Replace $value tokens in command/echo text with the current live value. Numeric
@@ -265,7 +394,15 @@ function interpolate(text) {
     if (key === 'home') return homeName() || whole;              // friendly home label
     if (key === 'home_id') return String(p.home_zone || '') || whole; // raw home zone id
     const fn = VARS[key];
-    if (!fn) return whole;
+    // A user variable resolves only where no built-in claims the name. The
+    // precedence is that way round deliberately: `$hp` must always mean your hit
+    // points, or a macro somebody wrote a year ago quietly starts reading a
+    // variable they set last night. User names lose collisions, and the `set`
+    // handler warns when one is shadowed rather than letting it fail silently.
+    if (!fn) {
+      const user = getVar(key);
+      return user === null ? whole : user;
+    }
     const v = fn(p);
     return (v === undefined || v === null || Number.isNaN(Number(v))) ? whole : String(Math.round(Number(v)));
   });
@@ -277,14 +414,33 @@ function classify(seg) {
   if (lower === 'endif') return { kind: 'endif' };
   if (lower === 'else') return { kind: 'else' };
   if (lower === 'endwhile') return { kind: 'endwhile' };
+  if (lower === 'break') return { kind: 'break' };
+  if (lower === 'continue') return { kind: 'continue' };
   let m = seg.match(/^if\s+(.+)$/i);
   if (m) return { kind: 'if', cond: m[1].trim() };
   m = seg.match(/^elseif\s+(.+)$/i);
   if (m) return { kind: 'elseif', cond: m[1].trim() };
   m = seg.match(/^while\s+(.+)$/i);
   if (m) return { kind: 'while', cond: m[1].trim() };
+  // `set <name> <value>` / `unset <name>` — the write half of $values. Classified
+  // here rather than handled as a command so it never reaches the server: `set`
+  // is not a verb the game has, and letting it through would answer "Unknown
+  // command" for something the macro language does understand.
+  m = seg.match(/^set\s+([a-z_][a-z0-9_]*)\s+(.+)$/i);
+  if (m) return { kind: 'set', name: m[1].toLowerCase(), value: m[2].trim() };
+  m = seg.match(/^unset\s+([a-z_][a-z0-9_]*)$/i);
+  if (m) return { kind: 'unset', name: m[1].toLowerCase() };
+  m = seg.match(/^return\b\s*(.*)$/i);
+  if (m) return { kind: 'return', value: m[1].trim() };
   return { kind: 'cmd', text: seg };
 }
+
+// The value of the last `return`. Module-level rather than threaded through the
+// run context because a macro calls another and then reads $result on the NEXT
+// segment — there is no expression in which two results are live at once, and a
+// stack here would be ceremony around a single slot.
+let _lastResult = '';
+export function lastResult() { return _lastResult; }
 
 // Index of the `endwhile` that closes the `while` at `from` (depth-matched, so
 // nested loops are skipped correctly). Returns segs.length if unclosed — the
@@ -344,6 +500,22 @@ export function autoFix(cmds) {
   return { text: lines.join('\n'), fixes };
 }
 
+// Is this condition writable at all? The four legacy prefix forms are always
+// fine (their arguments are free text); anything else has to parse as an
+// expression.
+//
+// ⚠ This is what stops the Check button going soft. `parseCond` now returns an
+// expression node for everything it doesn't recognise as a prefix form, so
+// checking that it returned *something* stopped meaning anything — a typo'd
+// condition would pass Check and then silently never fire, which is the worst
+// thing a validator can do.
+function condOk(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  if (HAS_RE.test(t) || IN_RE.test(t)) return true;
+  return isWellFormed(t);
+}
+
 // ── Static validation (drives the editor's Check button) ──────────────────────
 // Returns { ok:true } or { ok:false, error, line } (1-based segment index).
 export function validateMacro(cmds) {
@@ -356,15 +528,15 @@ export function validateMacro(cmds) {
     const c = classify(segs[i]);
     const ln = i + 1;
     if (c.kind === 'if') {
-      if (!parseCond(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
+      if (!condOk(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
       stack.push({ kind: 'if', seenElse: false });
     } else if (c.kind === 'while') {
-      if (!parseCond(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
+      if (!condOk(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
       stack.push({ kind: 'while' });
     } else if (c.kind === 'elseif') {
       if (top()?.kind !== 'if') return { ok: false, error: '"elseif" without an open "if".', line: ln };
       if (top().seenElse) return { ok: false, error: '"elseif" after "else".', line: ln };
-      if (!parseCond(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
+      if (!condOk(c.cond)) return { ok: false, error: `Bad condition: "${c.cond}"`, line: ln };
     } else if (c.kind === 'else') {
       if (top()?.kind !== 'if') return { ok: false, error: '"else" without an open "if".', line: ln };
       if (top().seenElse) return { ok: false, error: 'Duplicate "else".', line: ln };
@@ -474,6 +646,19 @@ export function abortMacros() {
 }
 
 // Entry point for typing `macro <name>` (input.js) or the smartbar button.
+// Fire whatever is bound to a key (`e.code` — 'F3', 'Numpad7'). Returns true if
+// something ran, so the caller only swallows the keypress when it did: an unbound
+// F-key must still do whatever the browser does with it.
+export function runMacroByKey(code) {
+  const macro = loadMacros().find(m => m.key === code);
+  if (!macro) return false;
+  const shared = { steps: 0, invRefreshed: false, aborted: false };
+  beginRun(shared);
+  runMacro(macro.cmds, { depth: 0, stack: [macro.id], label: macro.label, color: macro.color, shared })
+    .finally(() => endRun(shared));
+  return true;
+}
+
 export function runMacroByName(name) {
   const macro = findMacroByName(name);
   if (!macro) { appendMsg(`No macro named "${String(name).trim()}".`, 'system'); return Promise.resolve(); }
@@ -545,12 +730,46 @@ export async function runMacro(cmds, ctx) {
         if (!f.sawDelay) { await sleep(MIN_LOOP_INTERVAL_MS); markLoopsPaced(stack); }
         i = f.startIdx - 1;                // jump back to re-test the condition
       }
+    } else if (c.kind === 'break' || c.kind === 'continue') {
+      if (!branchActive(stack)) continue;
+      // Find the innermost `while` and either leave it or restart it. Both jump
+      // to the matching `endwhile`; `break` closes the frame on the way past,
+      // `continue` leaves it open so the endwhile re-tests as usual. Outside a
+      // loop both are no-ops rather than errors — a `break` in a macro somebody
+      // is halfway through writing should not abort the run.
+      const depth = stack.map(f => f.kind).lastIndexOf('while');
+      if (depth === -1) continue;
+      const end = matchEndwhile(segs, stack[depth].startIdx);
+      if (c.kind === 'break') { stack.length = depth; i = end; }
+      else { i = end - 1; }
     } else {
       if (!branchActive(stack)) continue;      // skip commands in a dead branch
       // Global step budget guards against runaway expansion / loops.
       if (++ctx.shared.steps > MAX_STEPS) {
         ctx.shared.aborted = true;
         appendMsg('Macro stopped — too many steps (possible loop).', 'system');
+        break;
+      }
+      // ⚠ set/unset run WITHOUT the inter-command stagger below and without
+      // touching the network — they are bookkeeping, not actions. Paying 350ms
+      // for `set count $count + 1` would make a counting loop three times slower
+      // than the thing it is counting.
+      if (c.kind === 'set') {
+        // The value is an EXPRESSION, so `set count $count + 1`, `set who
+        // lower($1)` and `set name Marsh` are all the same statement. A malformed
+        // expression stores its own text, which is what makes the third one work
+        // — most `set` values are prose, not arithmetic.
+        const value = evalValue(c.value, exprResolver());
+        if (!setVar(c.name, value)) appendMsg(`Not a usable variable name: ${c.name}`, 'system');
+        continue;
+      }
+      if (c.kind === 'unset') { unsetVar(c.name); continue; }
+      // `return` ends this macro and leaves its value in $result for the caller.
+      // Deliberately NOT a user variable: it is per-call, and persisting it to
+      // localStorage would make the result of a macro survive a browser restart,
+      // which is nobody's mental model of a return value.
+      if (c.kind === 'return') {
+        _lastResult = c.value ? evalValue(c.value, exprResolver()) : '';
         break;
       }
       const d = seg.match(/^delay\s+(\d+)$/i);
@@ -571,8 +790,33 @@ export async function runMacro(cmds, ctx) {
 }
 
 // Run a macro invoked from inside another macro, with cycle + depth guards.
-async function runNestedMacro(name, ctx) {
+// ── Calling a macro with arguments ──────────────────────────────────────────
+//
+// `macro heal 40` binds `$1` inside the callee — the same `$1`–`$9` a trigger
+// capture binds, through the same `applyCaptures`, because a macro taking an
+// argument and a trigger handing one over are the same act and would be baffling
+// to have to write two ways.
+//
+// ⚠ Arguments are substituted into the callee's SCRIPT TEXT before it runs, not
+// pushed as a scope. Same reasoning as trigger captures: runs are async and
+// interleave, and a module-level "current arguments" that a second call made
+// during a `delay` could overwrite is a bug that shows up as one macro acting on
+// another's arguments — rare, wrong, and impossible to reproduce from a report.
+//
+// The macro NAME is matched greedily from the left, so a macro called "go home"
+// is still callable; whatever is left over becomes the arguments.
+function splitCall(rest) {
+  const words = String(rest).trim().split(/\s+/);
+  for (let n = words.length; n > 0; n--) {
+    const name = words.slice(0, n).join(' ');
+    if (findMacroByName(name)) return { name, args: words.slice(n) };
+  }
+  return { name: String(rest).trim(), args: [] };
+}
+
+async function runNestedMacro(rest, ctx) {
   if (ctx.shared.aborted) return;
+  const { name, args } = splitCall(rest);
   const macro = findMacroByName(name);
   if (!macro) { appendMsg(`Macro "${name}" not found.`, 'system'); return; }
   if (ctx.stack.includes(macro.id)) {
@@ -585,7 +829,12 @@ async function runNestedMacro(name, ctx) {
     appendMsg('Macro nesting too deep — stopped.', 'system');
     return;
   }
-  await runMacro(macro.cmds, { depth: ctx.depth + 1, stack: [...ctx.stack, macro.id], shared: ctx.shared });
+  // $0 is every argument as one string, matching the trigger convention where $0
+  // is the whole match.
+  const body = args.length
+    ? applyCaptures(macro.cmds, [args.join(' '), ...args])
+    : macro.cmds;
+  await runMacro(body, { depth: ctx.depth + 1, stack: [...ctx.stack, macro.id], shared: ctx.shared });
 }
 
 // ── Node builder (consumed by renderSmartBar) ───────────────────────────────
@@ -597,6 +846,9 @@ export function buildMacroNodes() {
     color: m.color || null,
     macro: true,
     macroId: m.id,
+    // The bound key on hover. A binding nobody can see is a binding nobody uses,
+    // and the bar button is where they already look.
+    title: m.key ? `${m.label}  (${m.key.replace('Numpad', 'Numpad ')})` : null,
     onFire: () => {
       const shared = { steps: 0, invRefreshed: false, aborted: false };
       beginRun(shared);
@@ -763,6 +1015,37 @@ function renderGuideTab(name, content, cmdsInput) {
     content.appendChild(guideRow('$home', `home name  ·  now: ${homeName() || '—'}`, () => insertLine(cmdsInput, '$home')));
     content.appendChild(guideRow('$home_id', `home zone id  ·  now: ${state.player?.home_zone || '—'}`, () => insertLine(cmdsInput, '$home_id')));
     content.appendChild(guideRow('in home', 'condition · true when at your bound home', () => insertLine(cmdsInput, 'in home')));
+    // The WRITE half. Everything above is a live read of the player; these are
+    // the only entries in this panel that put something somewhere, which is worth
+    // seeing next to the reads rather than in a section of their own.
+    const userVars = allVars();
+    content.appendChild(guideRow('set <name> <value>', 'store a value · e.g. set count 0', () => insertLine(cmdsInput, 'set count 0')));
+    content.appendChild(guideRow('set <name> $<name> + 1', 'the one bit of arithmetic (+ - * /)', () => insertLine(cmdsInput, 'set count $count + 1')));
+    content.appendChild(guideRow('unset <name>', 'forget it again', () => insertLine(cmdsInput, 'unset ')));
+    for (const n of Object.keys(userVars).sort()) {
+      content.appendChild(guideRow(`$${n}`, `yours  ·  now: ${userVars[n]}`, () => insertLine(cmdsInput, `$${n}`)));
+    }
+    // Operators and functions. Listed because a language nobody can see the
+    // vocabulary of is a language nobody writes in — and until this panel names
+    // them, `and` and `contains` are invisible.
+    content.appendChild(guideNote('Conditions are expressions: combine them with and / or / not, '
+      + 'compare text as well as numbers, and use ( ) to group.'));
+    for (const [tok, desc] of [
+      ['and', 'both must hold  ·  if $hp_pct < 30 and has bandage'],
+      ['or', 'either will do'],
+      ['not', 'negate what follows'],
+      ['contains', 'text test  ·  if $zone contains bishops'],
+      ['starts', 'text begins with'],
+      ['ends', 'text ends with'],
+      ['break', 'leave the innermost while'],
+      ['continue', 'skip to the next pass'],
+      ['return <value>', 'end this macro, leaving $result for the caller'],
+      ['$result', 'what the last called macro returned'],
+      ['$1 … $9', "a called macro's arguments (macro heal 40), or a trigger's captures"],
+    ]) content.appendChild(guideRow(tok, desc, () => insertLine(cmdsInput, tok.split(' ')[0])));
+    for (const fn of FUNC_NAMES) {
+      content.appendChild(guideRow(`${fn}()`, 'function', () => insertLine(cmdsInput, `${fn}(`)));
+    }
   } else if (name === 'Furniture') {
     content.appendChild(guideNote('Actions on furniture in your current room (updates as you move).'));
     const area = document.getElementById('area-content');
@@ -916,7 +1199,12 @@ function renderManager(editing) {
       del.className = 'smart-macro-del';
       del.textContent = '✕';
       del.addEventListener('click', () => { removeMacro(m.id); renderSmartBar(); renderManager(null); });
-      row.append(name, del);
+      // The bound key, where the list of macros already is. Unbound macros get no
+      // chip at all rather than an empty one — a column of blanks reads as broken.
+      const keyChip = document.createElement('span');
+      keyChip.className = 'smart-macro-key';
+      keyChip.textContent = m.key ? m.key.replace('Numpad', 'Num ') : '';
+      row.append(name, keyChip, del);
       list.appendChild(row);
     }
     body.appendChild(list);
@@ -1005,6 +1293,42 @@ function renderManager(editing) {
   }
   form.appendChild(colorWrap);
 
+  // ── Key binding ───────────────────────────────────────────────────────────
+  //
+  // A combat macro you have to move a mouse to click is not a combat macro. The
+  // offered keys are F1–F9 and the numpad, which is what every client in this
+  // genre has bound since the nineties.
+  //
+  // ⚠ F10/F11/F12 are deliberately absent. The browser owns them (menu,
+  // fullscreen, devtools) and preventDefault does not reliably win, so binding
+  // one produces a macro that fires *sometimes* — worse than a key that isn't
+  // offered. F5 is out for the same reason and is not an F-key we list anyway.
+  let chosenKey = (editing && editing.key) || '';
+  const keyWrap = document.createElement('label');
+  keyWrap.className = 'smart-macro-field';
+  keyWrap.innerHTML = '<span class="smart-macro-label">Key</span>';
+  const keySelect = document.createElement('select');
+  keySelect.className = 'smart-macro-input';
+  const taken = new Map(loadMacros()
+    .filter(m => m.key && (!editing || m.id !== editing.id))
+    .map(m => [m.key, m.label]));
+  const opts = [['', '— none —'],
+    ...Array.from({ length: 9 }, (_, i) => [`F${i + 1}`, `F${i + 1}`]),
+    ...Array.from({ length: 10 }, (_, i) => [`Numpad${i}`, `Numpad ${i}`])];
+  for (const [value, text] of opts) {
+    const o = document.createElement('option');
+    o.value = value;
+    // A key already spoken for says WHO has it rather than vanishing from the
+    // list — a missing option reads as a bug, and rebinding is a normal thing to
+    // want. Picking it moves the key; the old macro keeps everything but the key.
+    o.textContent = taken.has(value) ? `${text}  (${taken.get(value)})` : text;
+    if (value === chosenKey) o.selected = true;
+    keySelect.appendChild(o);
+  }
+  keySelect.addEventListener('change', () => { chosenKey = keySelect.value; });
+  keyWrap.appendChild(keySelect);
+  form.appendChild(keyWrap);
+
   body.appendChild(form);
 
   // Check row — must pass before the macro can be added; any edit invalidates it.
@@ -1044,8 +1368,15 @@ function renderManager(editing) {
     const label = labelInput.value.trim();
     const cmds = cmdsInput.value.trim();
     if (!label || !cmds) { labelInput.focus(); return; }
-    if (editing) updateMacro(editing.id, { label, cmds, color: chosenColor });
-    else addMacro({ id: genId(), label, cmds, color: chosenColor });
+    // One key, one macro. Claiming a bound key releases it from whoever had it,
+    // rather than leaving two macros on F3 and letting load order decide.
+    if (chosenKey) {
+      for (const m of loadMacros()) {
+        if (m.key === chosenKey && (!editing || m.id !== editing.id)) updateMacro(m.id, { key: '' });
+      }
+    }
+    if (editing) updateMacro(editing.id, { label, cmds, color: chosenColor, key: chosenKey });
+    else addMacro({ id: genId(), label, cmds, color: chosenColor, key: chosenKey });
     renderSmartBar();
     renderManager(null);
   });

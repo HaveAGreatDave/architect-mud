@@ -1213,6 +1213,31 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- ── Smartbar macros, following the account (docs/systems-macros.md) ────────
+  -- Macros were localStorage-only and per-browser, so logging in on a phone or a
+  -- second machine lost the whole bar. One row per player holding the WHOLE list,
+  -- not one row per macro: the client has always treated it as a list (it is
+  -- reorderable, and a macro can call another by label), and per-macro rows would
+  -- buy per-macro conflict resolution nobody asked for at the price of syncing
+  -- deletes and order.
+  --
+  -- NOT player_flags, deliberately. Flags are hydrated into an in-memory map at
+  -- login that condition evaluation and hot paths read; a few KB of macro script
+  -- per player is noise in there, and flag_value is TEXT with no shape.
+  --
+  -- updated_at is load-bearing rather than bookkeeping: it is the whole conflict
+  -- story (last writer wins, compared against the client's own stamp), so a device
+  -- that has been offline with newer macros pushes rather than being overwritten.
+  --
+  -- The FK is load-bearing too, same as player_achievements: it makes a write for
+  -- a non-existent player a hard failure instead of an orphan row, which keeps the
+  -- regress harness's fake player from accumulating junk on every run.
+  CREATE TABLE IF NOT EXISTS player_macros (
+    player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+    macros JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- ── Player↔NPC relationships (server/engine/relations.js) ─────────────────
   -- One row per (player, NPC) the player has actually MET — rows are created on
   -- first contact, never pre-seeded, so the row count is bounded by who you've

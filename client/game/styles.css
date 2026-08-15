@@ -453,6 +453,189 @@ html[data-density="compact"] #auth-title {
 	margin-right: 4px;
 }
 
+/* "N new lines ↓" — shown only while the reader has scrolled back and the log is
+   holding still for them. Tapping it snaps to the tail and resumes following.
+   Pinned to the bottom of the room pane, opposite the sky banner. */
+#scroll-resume {
+	position: absolute;
+	bottom: 10px;
+	left: 50%;
+	transform: translate(-50%, 160%);
+	z-index: 20;
+	padding: 4px 12px;
+	border: 1px solid var(--accent);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--bg) 82%, var(--accent) 18%);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 10px var(--accent-dim);
+	color: var(--text);
+	font: inherit;
+	font-size: 0.75rem;
+	line-height: 1.4;
+	white-space: nowrap;
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+}
+#scroll-resume.show {
+	transform: translate(-50%, 0);
+	opacity: 1;
+	pointer-events: auto;
+}
+#scroll-resume:hover {
+	background: color-mix(in srgb, var(--bg) 68%, var(--accent) 32%);
+}
+
+/* ─── LOG HIGHLIGHTS & FIND ─── */
+
+/* A player-set highlight. The colour is the TEXT, on a faint wash of itself —
+   never a solid block behind dark text, which is what breaks in the light theme
+   and what makes a highlighted word in a wall of prose read as a UI element
+   rather than as emphasis. */
+.log-hl {
+	color: var(--hl-color, #ffd166);
+	background: color-mix(in srgb, transparent 82%, var(--hl-color, #ffd166) 18%);
+	border-radius: 2px;
+	padding: 0 2px;
+	font-weight: 600;
+}
+
+/* A find-bar match. Deliberately a different look from .log-hl — a search result
+   is transient and a highlight is a standing rule, and confusing the two means
+   closing the bar looks like it deleted your highlights. */
+.log-find {
+	background: color-mix(in srgb, transparent 70%, var(--accent) 30%);
+	border-radius: 2px;
+}
+.log-find.current {
+	background: var(--accent);
+	color: var(--bg);
+}
+
+.log-find-bar {
+	position: absolute;
+	top: 6px;
+	right: 10px;
+	z-index: 21;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 8px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--bg2);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.log-find-input {
+	width: 160px;
+	padding: 3px 6px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	color: var(--text);
+	font: inherit;
+	font-size: 0.8125rem;
+}
+.log-find-count {
+	min-width: 44px;
+	text-align: center;
+	color: var(--text-dim);
+	font-size: 0.75rem;
+}
+.log-find-btn {
+	padding: 2px 7px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	color: var(--text);
+	font: inherit;
+	font-size: 0.8125rem;
+	cursor: pointer;
+}
+.log-find-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+/* The highlight manager's own bits. The overlay/box/head/body/list/row around
+   them are the `smart-macro-*` classes — generic, and nothing in them is about
+   macros, so reusing them beats a byte-identical second block. */
+.log-hl-blurb {
+	margin: 0 0 10px;
+	color: var(--text-dim);
+	font-size: 0.8125rem;
+	line-height: 1.5;
+}
+.log-hl-note {
+	margin-left: auto;
+	color: var(--text-dim);
+	font-size: 0.75rem;
+}
+.log-hl-form {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--border);
+	flex-wrap: wrap;
+}
+.log-hl-word {
+	flex: 1 1 140px;
+	padding: 5px 8px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	color: var(--text);
+	font: inherit;
+	font-size: 0.8125rem;
+}
+.log-hl-color {
+	width: 34px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--bg);
+	cursor: pointer;
+}
+.log-hl-ping {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--text-dim);
+	font-size: 0.8125rem;
+	white-space: nowrap;
+	cursor: pointer;
+}
+.log-hl-add {
+	padding: 5px 12px;
+	border: 1px solid var(--accent);
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--bg) 80%, var(--accent) 20%);
+	color: var(--text);
+	font: inherit;
+	font-size: 0.8125rem;
+	cursor: pointer;
+}
+/* The key a macro is bound to, in the manager's list. */
+.smart-macro-key {
+	margin-left: auto;
+	padding: 1px 6px;
+	color: var(--text-dim);
+	font-size: 0.6875rem;
+	letter-spacing: 0.04em;
+	white-space: nowrap;
+}
+.smart-macro-key:not(:empty) {
+	border: 1px solid var(--border);
+	border-radius: 3px;
+}
+
+.log-hl-add:hover {
+	background: color-mix(in srgb, var(--bg) 62%, var(--accent) 38%);
+}
+
 #area-pane {
 	flex: 0 0 auto;
 	max-height: 65%;

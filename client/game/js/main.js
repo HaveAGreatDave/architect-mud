@@ -14,7 +14,9 @@ import {
 	listenForSettingsChanges,
 	SETTINGS_KEY,
 } from "/shared/settings.js";
-import { appendMsg, initVitalsReorder } from "./render.js";
+import { appendMsg, initVitalsReorder, initScrollLock } from "./render.js";
+import { initLogTools } from "./logtools.js";
+import { initAutomation } from "./automation.js";
 import {
 	initNet,
 	setWhoModalHandler,
@@ -309,6 +311,9 @@ initThemeEditorOverlay();
 mountCustomPanels(); // inject custom sections before the layout engine lays out
 initSidebarOrder();
 initVitalsReorder();
+initScrollLock();
+initLogTools();   // Ctrl+F over the log
+initAutomation(); // triggers/timers/aliases — also registers the line observer
 initCustomPanelButton();
 
 // Net / WebSocket

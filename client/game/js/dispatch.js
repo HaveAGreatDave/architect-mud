@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, setPaneSilent, showSkyBanner, pointAtRoomTarget, setRoomBeacon, clearRoomBeacons, isAreaPaneVisible } from './render.js';
-import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
+import { sendCmd, sendCmdSilent, sendRaw, closeConnection, attemptAutoReauth, showVerifyScreen, rememberDisplayRung } from './net.js';
+import { setVerbs } from './complete.js';
 import { renderMinimap, setGpsRoute, setRunState, startAutoWalk, resumeAutoWalkIfArmed, setAutoWalkPersist, isAutoWalking, isManualAutoWalkInProgress, cancelAutoWalk, autoWalkBlocked, resolveAutoWalkPicker, armAutoWalkPrompt, notifyElevatorDoors } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut, isFxIndoors, setEnvUnreal } from './panels/environment.js';
 import { setWeatherEventFx, setFireworksGlow, launchFirework } from './panels/weather-fx.js';
@@ -49,7 +50,7 @@ import { openSignalHijack } from './panels/signalhijack.js';
 import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { openPsychometry } from './panels/psychometry.js';
-import { abortMacros } from './panels/smartbar-macros.js';
+import { abortMacros, receiveMacros } from './panels/smartbar-macros.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
@@ -226,6 +227,39 @@ function playWelcomeVoice(handle, player) {
 // softening in poker-sfx.js.)
 const GAME_SFX_GAIN = 0.6;
 
+// ── A cadence, scheduled here rather than sent as N messages ─────────────────
+//
+// The server describes a series (`{count, interval, key}`) and the client lays it
+// out in time. Two things make this worth its own function:
+//
+//   THE FEET ALTERNATE. `foot` flips per footfall, which is the difference between
+//   a walk and a repeated sample — the generator's own comment is explicit that
+//   random jitter reads as noise while an alternating pair reads as WALKING, so an
+//   unvaried repeat would undo the thing the parameter exists for.
+//
+//   A NEW SERIES REPLACES THE OLD, keyed by `key`. This is the load-bearing half.
+//   Steps are sent per room transition and a series deliberately outlasts one
+//   crossing, so without cancellation a walking player accumulates overlapping
+//   cadences and ends up sounding like a crowd. With it, walking is one unbroken
+//   cadence, and the leftover footfalls only ever play when you actually stopped —
+//   which is what makes them read as arriving somewhere rather than as an echo.
+const _series = new Map();   // key -> pending timer id
+function playSeries({ count = 1, interval = 300, key }, params, play) {
+  if (key && _series.has(key)) { clearTimeout(_series.get(key)); _series.delete(key); }
+  let n = 0;
+  const step = () => {
+    // A distinct seed per footfall, DERIVED rather than random, so the copy the
+    // room hears is the same performance the walker hears — both sides were sent
+    // the same base seed and run the same derivation.
+    play({ ...params, foot: ((params.foot ?? 0) + n) & 1,
+           seed: Number.isFinite(params.seed) ? (params.seed + n * 0x9e3779b1) >>> 0 : undefined });
+    if (++n >= count) { if (key) _series.delete(key); return; }
+    const t = setTimeout(step, interval);
+    if (key) _series.set(key, t);
+  };
+  step();
+}
+
 // The sleep bar: a label plus the wake button, shown only while asleep. Driven
 // solely by the server's sleep_state (see handlers below) so it can never get
 // stuck on after a wake path the client didn't recognise.
@@ -340,7 +374,25 @@ const handlers = {
     // flag, but the Settings toggle is local, so re-assert it each login.
     sendCmdSilent(`lorealways ${(loadSettings().extraLore || 'off') === 'on' ? 'on' : 'off'}`);
     syncPanels(); // request data + cam catalog for any custom panels
+    // Tab completion's verb half. Asked for once per session because it describes
+    // the BUILD, not the player — nothing in it changes while they play.
+    sendRaw({ type: 'verbs' });
+    // …and the macro bar, which follows the account rather than the browser.
+    sendRaw({ type: 'macros_pull' });
   },
+
+  // The account's macros. See receiveMacros() for the three arrival states and
+  // why adopting is not unconditional.
+  macros: (msg) => receiveMacros(msg),
+  // The server acknowledging a push. Nothing to do with it — the local copy is
+  // already the truth this client is rendering — but a handler has to exist or
+  // the unknown-message path logs a warning on every macro edit.
+  macros_saved: () => {},
+
+  // The verb vocabulary for Tab completion (see complete.js). Deliberately does
+  // nothing else: an unknown verb here is not an error, it is a verb this client
+  // will not complete, and every one of them still works when typed in full.
+  verbs: (msg) => setVerbs(msg.verbs),
 
   auth_fail: (msg) => {
     clearTimeout(state.authTimeout);
@@ -1479,8 +1531,12 @@ const handlers = {
     const detail = sfxDetail(loadSettings(), state.player?.displayRung);
     if (detail === 'off') return;
     if (msg.tier === 'full' && detail !== 'full') return;
-    const def = window.ProceduralSFX?.buildCookingCue(msg.params || {});
-    if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
+    const play = p => {
+      const def = window.ProceduralSFX?.buildCookingCue(p);
+      if (def) window.AudioEngine?.playSfx(def, (msg.gain ?? 1) * GAME_SFX_GAIN);
+    };
+    if (msg.series) { playSeries(msg.series, msg.params || {}, play); return; }
+    play(msg.params || {});
   },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },

@@ -24,12 +24,15 @@ import {
 	describeZone,
 	describeVoidTeleport,
 	recomputeEquipped,
+	builtinCommandNames,
 } from "./engine/commands/index.js";
+import { getAliasList } from "./engine/commands/aliases.js";
+import { getRegisteredSpecializedActions } from "./engine/specializedActions.js";
 import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { zoneAudience } from "./engine/delivery.js";
 import { modulePreloadTags } from "./modulegraph.js";
-import { loadPlugins, fireHook } from "./engine/plugins.js";
+import { loadPlugins, fireHook, getRegisteredCommands } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
 import { getNetXp, maxHpForEndurance, maxStaminaForEndurance } from "./engine/ip.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
@@ -601,6 +604,71 @@ wss.on("connection", (ws) => {
 		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
 			if (session.playerId)
 				emit("panel.watch", { playerId: session.playerId, feeds: msg.type === "panel_watch" ? (msg.feeds || []) : [] });
+			return;
+		}
+		// The client's tab-completion vocabulary. Asked for ONCE per session, after
+		// auth, and cached in the browser for the rest of it — this is a description
+		// of the build, not of the player, so nothing here changes while they play.
+		//
+		// Assembled from the live registries rather than a list, for the same reason
+		// dictation scrapes its nouns off the room pane instead of shipping one: a
+		// second copy of the verb table is a second copy that goes stale, and the
+		// symptom (Tab silently not completing a verb that works fine when typed) is
+		// invisible to every test we have. Plugin verbs beat builtins at dispatch, so
+		// a verb appearing twice here is correct and the Set collapses it.
+		if (msg.type === "verbs") {
+			if (!session.playerId) return;
+			const verbs = new Set([
+				...builtinCommandNames(),
+				...getRegisteredCommands(),
+				...Object.keys(getRegisteredSpecializedActions()),
+				...getAliasList().map((a) => a.alias),
+			]);
+			ws.send(JSON.stringify({ type: "verbs", verbs: [...verbs].sort() }));
+			return;
+		}
+		// ── Smartbar macros, following the account ────────────────────────────
+		//
+		// Pull at login, push on every edit. The server is a STORE here and not an
+		// authority: it never parses a macro, never runs one, and nothing on this
+		// side cares what the strings say — a macro is only ever the same commands
+		// the player could type, fired by their own client.
+		//
+		// Conflict resolution is last-writer-wins on the WHOLE list, arbitrated by
+		// the client against the two `updatedAt` stamps (see smartbar-macros.js).
+		// The alternative — server always wins — silently destroys work done on a
+		// machine that happened to be offline, which is a worse failure than the
+		// one this feature exists to fix.
+		if (msg.type === "macros_pull") {
+			if (!session.playerId) return;
+			const r = await query(
+				`SELECT macros, updated_at FROM player_macros WHERE player_id = $1`,
+				[session.playerId],
+			);
+			ws.send(JSON.stringify({
+				type: "macros",
+				macros: r.rows[0]?.macros || [],
+				updatedAt: Number(r.rows[0]?.updated_at) || 0,
+			}));
+			return;
+		}
+		if (msg.type === "macros_push") {
+			if (!session.playerId) return;
+			// Bounded so a bug in the client (or somebody with a console) can't turn
+			// this into free per-player blob storage. Rejected silently rather than
+			// with an error the player can do nothing about — their local copy is
+			// intact and still works; only the sync is refused.
+			const list = Array.isArray(msg.macros) ? msg.macros : null;
+			if (!list || list.length > 100) return;
+			if (JSON.stringify(list).length > 64000) return;
+			const stamp = Math.floor(Date.now() / 1000);
+			await query(
+				`INSERT INTO player_macros (player_id, macros, updated_at)
+				 VALUES ($1, $2::jsonb, $3)
+				 ON CONFLICT (player_id) DO UPDATE SET macros = $2::jsonb, updated_at = $3`,
+				[session.playerId, JSON.stringify(list), stamp],
+			);
+			ws.send(JSON.stringify({ type: "macros_saved", updatedAt: stamp }));
 			return;
 		}
 		if (msg.type === "panel_catalog") {

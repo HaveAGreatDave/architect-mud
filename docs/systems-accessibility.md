@@ -315,9 +315,108 @@ Related, same pass: `hangar-bay.js`'s `tbtn()` now marks its icon `aria-hidden`,
 `a11y:focus` covers all four judgements, including the two that would do harm: an authored title is
 never overwritten, and a wrapper holding the glyph is never named in the button's place.
 
-## 8. Not in scope
+## 8. The command box: Tab completion and scroll lock *(built 2026-08-15)*
 
-No server-side verb registry sync for dictation (the client has no verb list, and building a synced
-one is its own feature). No per-player persistence — localStorage, like everything else in the table.
+Two staples the client had never had. Both are keyboard-first, which is why they live here.
+
+**Tab completion** — `client/game/js/complete.js`, wired into the one keydown handler in
+`input.js`. Two vocabularies, picked by where the caret is: the **first token** completes against
+**verbs**, anything after it against the **live nouns of the room** (`vocabulary.js` — the same list
+voice input matches against, moved out of `dictation.js` when completion became its second reader).
+
+The verb list is **sent by the server**, once per session, over a `verbs` ws route requested on
+`auth_success`. It is assembled there from the live registries — `builtinCommandNames()`,
+`getRegisteredCommands()`, `getRegisteredSpecializedActions()`, `getAliasList()` — and never written
+down in the client, for the same reason dictation scrapes its nouns off `data-cmd` rather than
+shipping a list: a second copy of the verb table goes stale silently, and the symptom is Tab quietly
+declining to complete a verb that works perfectly when typed out. It describes the build, not the
+player, so nothing in it changes mid-session and one fetch is enough.
+
+Three rules, and the first two are dictation's:
+
+- **Never invent.** No match means nothing happens — no beep, no guess, no nearest thing.
+- **Common prefix first, then cycle.** The first Tab extends as far as every candidate agrees; only
+  when there is nothing left to agree on does further tabbing walk them one at a time (Shift+Tab
+  walks back). Candidates sort **shortest first**, so `take` is reachable before `takeoff`.
+- **The cycle dies the moment the line changes.** Any edit or caret move throws the candidate list
+  away, or you end up replacing a finished word with a completion of the word before it.
+
+⚠ **`preventDefault` only fires when something was completed.** An empty box, or a word nothing
+matches, lets Tab move focus out. This box sits in front of every other control on the page; a Tab
+that is swallowed unconditionally is a keyboard trap.
+
+**Scroll lock** — `#output` used to jam itself to the bottom on every appended line
+(`scrollOutput()`), so scrolling up to re-read what an NPC just said was impossible during a fight:
+the next combat tick yanked you back down mid-sentence. Reading back is not an edge case in a game
+that says everything in prose, and it is the whole interaction for anyone who reads slower than the
+game talks. The rule is the terminal one — follow the tail only if the reader was **already** at the
+tail — plus an "N new lines ↓" chip (`#scroll-resume`) that both returns you to the bottom and tells
+you the game has not gone quiet. `submitCommand` releases the lock: acting says you are done reading
+back, the same reasoning that already makes acting stop the Read Aloud queue.
+
+Two traps, both of which make the fix look like the bug:
+
+- ⚠ **The tail is measured in the SCROLL EVENT, never at append time.** By the time an append helper
+  calls `scrollOutput()` the node is already in the document and `scrollHeight` has grown by its
+  height, so a reader who was at the tail measures one long room description away from it and the
+  lock engages on its own.
+- ⚠ **`#output` is `scroll-behavior: smooth`**, so setting `scrollTop` *animates* and fires a run of
+  scroll events on the way down, every one of them short of the tail. The `_auto` flag ignores the
+  reader's position until a programmatic snap lands.
+
+The lock is deliberately **not** reset by new lines, room changes or panels. A reader who has
+scrolled up has said what they want, and the only thing worse than a log that will not hold still is
+one that holds still until something interesting happens.
+
+## 9. The log as a surface: highlights, find, transcript *(built 2026-08-15)*
+
+`highlights.js` (store + painter) and `logtools.js` (panel, find bar, export). Split along that line
+because `render.js` imports the painter on the append path and `logtools.js` imports `render.js` for
+its own output — one file would be a cycle. All of it is client-only `localStorage`, the storage
+model macros use; nothing reaches the server, and nothing here can change what the game does.
+
+**Highlights** are not a cosmetic. The game says everything in prose, in one column, and during a
+fight it says a lot of it per second — there was no way to make one line matter more than another.
+That is a readability problem for everyone and an accessibility problem for anyone who cannot scan a
+fast scroll. `highlight <word>` toggles one in the default colour (what you want mid-fight); bare
+`highlight` / `hl` opens the manager for colours and pings; `highlight clear` drops the lot.
+
+- **Plain substring, never a regex.** A regex box is a footgun in a text field with no error
+  surface: one unbalanced bracket throws on every line appended thereafter.
+- **Longest rule first**, so `reactor core` wins where `core` is also set.
+- **One ping per LINE, never per match** — a rule matching six words in a room description must not
+  fire six times — and muted by the game's own sound settings, because a notification you cannot
+  turn off is worse than no notification.
+- ⚠ **`<pre>` is skipped entirely.** Those are the glyph-art blocks (a poster, a card, a chess
+  board), where a coloured span in the middle of a border character is a hole in the picture.
+- **A rule change repaints the log that is already on screen** (`repaintHighlights()`, `silent:
+  true`). Without it, setting a highlight does nothing until the game next speaks — which for a word
+  you set *because* you are waiting for it looks exactly like the feature not working.
+
+**Find** — `Ctrl+F`, or `find <text>`. Matches are marked in place, stepped with Enter /
+Shift+Enter. Note the verb: **`search` was not free** (the strays plugin owns it), and `highlight`,
+`hl` and `find` are bare client verbs, which shadow any server verb of that name **forever** — a
+client verb never reaches dispatch. All three were checked against the live registries first.
+⚠ Stepping scrolls the log, which is the thing §8's lock exists to prevent happening *on its own* —
+here the reader asked, so the lock is left engaged, and closing the bar deliberately does **not**
+snap them to the tail.
+
+**Transcript** — `.savelog` writes the log to a `.txt`, dot-prefixed like `.markup`/`.status`
+because it is client-only meta with no in-world meaning. `textContent`, not markup: a transcript is
+for reading back or pasting into a bug report, and neither is helped by spans. It reads a **20,000
+line session buffer in `render.js`**, not the DOM — reading the document meant the file began
+wherever the scrollback cap had trimmed to, which is precisely the part you saved it to read. Its
+limits are printed in its own header. See [systems-automation.md](systems-automation.md#the-transcript).
+
+**The scrollback cap** (`MAX_LINES` in `render.js`) is what makes the other two affordable. Nothing
+used to remove a log line, ever — and it was never only memory, since Read Aloud's observer, the find
+bar and the export all walk that list. ⚠ It **only trims while following**: removing nodes above the
+viewport shifts what the reader is looking at, which is indistinguishable from the log scrolling
+itself while they read. A reader who has scrolled back gets an uncapped log until they come down.
+
+## 10. Not in scope
+
+Dictation still does not use the synced verb list — it normalizes against nouns only, and widening it
+to verbs is its own change with its own mishearing risk. No per-player persistence — localStorage, like everything else in the table.
 No heteronym disambiguation in the synth: `read`/`live`/`lead` still take one fixed pronunciation
 each, because choosing between them needs part-of-speech tagging that nothing here has.

@@ -536,6 +536,7 @@ export function renderSmartBar() {
       if (node.color) btn.style.setProperty('--macro-color', node.color);
     } else btn.className = node.accent ? 'smart-btn smart-btn-accent' : 'smart-btn';
     btn.dataset.key = nodeKey(node);
+    if (node.title) btn.title = node.title;
     btn.textContent = opts && opts.length > 1 ? `${node.label} (${opts.length})` : node.label;
     btn.addEventListener('click', () => runNode(node));
     bar.appendChild(btn);

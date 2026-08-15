@@ -4,6 +4,40 @@ import { refreshCustomPanels } from './panels/custom/manager.js';
 import { registerList, mountScopeToggle, hiddenKeys } from './panels/list-reorder.js';
 import { renderSmartBar } from './panels/smartbar.js';
 import { burnBehind } from './flame.js';
+import { paintHighlights } from './highlights.js';
+
+// ── The line observer ───────────────────────────────────────────────────────
+//
+// Triggers (automation.js) need every line the client prints. They arrive by
+// REGISTRATION rather than by import, because automation.js needs appendMsg and
+// the macro runner, and the macro runner needs appendMsg — importing it from here
+// would put render at the bottom of a cycle with two modules that are much bigger
+// than it is. Render should not know automation exists; it just says what it
+// printed, to whoever asked.
+// The observer may return true to SUPPRESS the line — a trigger's gag. It is
+// consulted BEFORE the node is mounted, never after, so a gagged line was never in
+// the document at all: the find bar, the transcript, Read Aloud and the scrollback
+// cap all agree without any of them being told about gagging. Removing a mounted
+// node instead would leave four readers each holding a different idea of what the
+// log contains, and Read Aloud would have already queued the line it can no longer
+// see.
+let _lineObserver = null;
+export function setLineObserver(fn) { _lineObserver = fn; }
+
+// ⚠ msg-system is NEVER gaggable, whatever a pattern says. That class is the
+// client talking to the player — including the message that says all their
+// triggers just got switched off for looping. A pattern broad enough to hide the
+// game's own explanation of what went wrong is a pattern that makes the client
+// unsupportable.
+function suppressed(text, cls) {
+  if (!_lineObserver) return false;
+  if (cls === 'system') return false;
+  // ⚠ Never let an observer throw on the append path. A bad pattern taking the
+  // whole log down — every line, until a reload — is the failure this catch
+  // exists for, and it is a failure a player can cause by typing.
+  try { return _lineObserver(text) === true; }
+  catch { return false; }   // an observer's problem is not the log's
+}
 
 // Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
 // the section's rows into a .sidebar-section-body (the real row container).
@@ -101,7 +135,13 @@ export function appendMsg(text, cls = '') {
   const el = document.createElement('div');
   el.className = `msg msg-${cls}`;
   el.textContent = text;
+  // The transcript is recorded even when the line is gagged: gagging is about not
+  // wanting to READ something, and a log you saved to work out what happened
+  // should not have holes in it where your own filters were.
+  recordLine(text);
+  if (suppressed(text, cls)) return el;    // never mounted — see suppressed()
   paintSpeech(el);
+  paintHighlights(el);
   document.getElementById('output').appendChild(el);
   scrollOutput();
   return el;
@@ -111,12 +151,20 @@ export function appendHtml(html, cls = '') {
   const el = document.createElement('div');
   el.className = `msg msg-${cls}`;
   el.innerHTML = html;
+  // Triggers and the transcript see the TEXT of a rich line, never its markup — a
+  // pattern should match what the player read, not the span soup it arrived in.
+  recordLine(el.textContent);
+  if (suppressed(el.textContent, cls)) return el;
   paintSpeech(el);
+  paintHighlights(el);
   document.getElementById('output').appendChild(el);
   // Hero-poster mural reveal: the CSS burns the glyphs, this puts real fire
   // behind them. Mounted after the node is in the document so it can be measured.
   el.querySelectorAll('.mural-word').forEach(w => burnBehind(w));
   scrollOutput();
+  // Triggers see the TEXT of a rich line, never its markup — a pattern should
+  // match what the player read, not the span soup it happened to arrive in.
+  feedTriggerLine(el.textContent);
   return el;
 }
 
@@ -146,6 +194,10 @@ export function appendPre(text, cls = '') {
   const el = document.createElement('pre');
   el.className = `msg msg-${cls}`;
   el.textContent = text;
+  // Recorded, but deliberately NOT offered to triggers or gagging. A <pre> is a
+  // glyph-art block — a poster, a card, a chess board — and matching a pattern
+  // against box-drawing characters is not a thing anyone means to do.
+  recordLine(text);
   document.getElementById('output').appendChild(el);
   scrollOutput();
 }
@@ -364,9 +416,159 @@ export function clearRoomBeacons() {
   document.getElementById('area-content')?.querySelectorAll('.point-beacon').forEach(n => n.classList.remove('point-beacon'));
 }
 
+// ── Scroll lock ─────────────────────────────────────────────────────────────
+//
+// The log used to jam itself to the bottom on EVERY appended line, so scrolling
+// up to re-read what an NPC just said was impossible during a fight: the next
+// combat tick yanked you back down mid-sentence. Reading back is not an edge
+// case in a game that says everything in prose.
+//
+// The rule is the one every terminal uses: follow the tail only if the reader
+// was ALREADY at the tail. Scroll up and the log holds still until you come
+// back — either by scrolling down yourself, or by tapping the chip below, which
+// is also what tells you the game hasn't stopped talking.
+//
+// Deliberately NOT reset on new lines, room changes or panels: a reader who has
+// scrolled up has said what they want, and the one thing worse than a log that
+// won't hold still is one that holds still only until something interesting
+// happens. `submitCommand` releases it (input.js) — acting says you are done
+// reading, the same reasoning that makes acting stop the read-aloud queue.
+const TAIL_SLACK = 48;   // px from the bottom still counted as "at the tail"
+
+function atTail(out) {
+  return out.scrollHeight - out.scrollTop - out.clientHeight <= TAIL_SLACK;
+}
+
+// ⚠ `_following` is sampled from the SCROLL EVENT, never measured at append
+// time. By the time an append helper calls scrollOutput() the node is already in
+// the document, so scrollHeight has already grown by its height — measuring
+// there reads a reader who was at the tail as being one long room description
+// away from it, and the lock engages on its own. The scroll event is the only
+// moment the measurement means what it says.
+let _following = true;
+let _held = 0;           // lines appended while the reader was scrolled up
+
+// ⚠ #output is `scroll-behavior: smooth`, so setting scrollTop ANIMATES and
+// fires a run of scroll events on the way down — every one of them measuring
+// short of the tail. Without this flag the log locks itself the instant it
+// scrolls, which looks exactly like the bug this whole thing fixes. While a
+// programmatic snap is in flight we ignore what the reader's position says and
+// only clear the flag when it lands.
+let _auto = false;
+
+function snap(out) {
+  _auto = true;
+  out.scrollTop = out.scrollHeight;
+}
+
+function chip() {
+  const host = document.getElementById('output-container');
+  if (!host) return null;
+  let el = document.getElementById('scroll-resume');
+  if (!el) {
+    el = document.createElement('button');
+    el.id = 'scroll-resume';
+    el.type = 'button';
+    el.addEventListener('click', () => releaseScrollLock());
+    host.appendChild(el);
+  }
+  return el;
+}
+
+function paintChip() {
+  const el = chip();
+  if (!el) return;
+  if (_held > 0) {
+    el.textContent = `${_held} new line${_held === 1 ? '' : 's'} ↓`;
+    el.classList.add('show');
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+// Snap to the bottom and start following again. Called by the chip and by every
+// submitted command.
+export function releaseScrollLock() {
+  const out = document.getElementById('output');
+  if (out) snap(out);
+  _following = true;
+  _held = 0;
+  paintChip();
+}
+
+export function initScrollLock() {
+  const out = document.getElementById('output');
+  if (!out) return;
+  // Scrolling back down by hand resumes following without needing the chip.
+  out.addEventListener('scroll', () => {
+    const tail = atTail(out);
+    if (_auto) { if (tail) _auto = false; return; }
+    _following = tail;
+    if (_following && _held) { _held = 0; paintChip(); }
+  }, { passive: true });
+}
+
+// ── Scrollback cap ──────────────────────────────────────────────────────────
+//
+// Nothing used to remove a log line, ever. A long session is a DOM that grows
+// without bound, and it isn't only memory: Read Aloud's observer, the find bar
+// and the transcript export all walk this list, so every one of them gets slower
+// for as long as somebody stays logged in — the exact shape of bug that never
+// reproduces in a ten-minute test.
+//
+// ⚠ Only ever trims while FOLLOWING. Removing nodes above the viewport shifts
+// everything the reader is looking at up by the height of what went, which is
+// indistinguishable from the log scrolling itself while they read. A reader who
+// has scrolled back gets an uncapped log until they come down, which is the
+// right trade: they asked for the backlog.
+const MAX_LINES = 1500;
+
+// ── The session transcript ──────────────────────────────────────────────────
+//
+// Every line the client prints, kept independently of the DOM. `.savelog` used to
+// read the log out of the document, which meant the transcript silently began
+// wherever the scrollback cap happened to have trimmed to — so the one thing you
+// save a log FOR (working out what happened earlier) was the one thing it could
+// not tell you.
+//
+// Held in memory rather than streamed to disk: writing continuously needs the
+// File System Access API, which is Chromium-only and asks for a folder
+// permission the first time. A buffer this size covers a long session, and what
+// it cannot do is survive a refresh — which is stated plainly in the saved file's
+// own header rather than left to be discovered.
+//
+// Gagged lines ARE recorded (see appendMsg). Trimmed lines are not recoverable
+// once past the cap, which is the same honest limit, one order of magnitude out.
+const TRANSCRIPT_MAX = 20000;
+const _transcript = [];
+let _transcriptLost = 0;      // dropped off the front — the file says how many
+
+function recordLine(text) {
+  _transcript.push(String(text ?? ''));
+  if (_transcript.length > TRANSCRIPT_MAX) {
+    const over = _transcript.length - TRANSCRIPT_MAX;
+    _transcript.splice(0, over);
+    _transcriptLost += over;
+  }
+}
+
+export function getTranscript() {
+  return { lines: [..._transcript], lost: _transcriptLost, cap: TRANSCRIPT_MAX };
+}
+
+function trimScrollback(out) {
+  if (!_following) return;
+  let over = out.childElementCount - MAX_LINES;
+  while (over-- > 0 && out.firstElementChild) out.removeChild(out.firstElementChild);
+}
+
 export function scrollOutput() {
   const out = document.getElementById('output');
-  out.scrollTop = out.scrollHeight;
+  if (!out) return;
+  trimScrollback(out);
+  if (_following) { snap(out); return; }
+  _held++;
+  paintChip();
 }
 
 export function updateVitals(p) {
