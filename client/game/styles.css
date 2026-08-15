@@ -2467,12 +2467,16 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 /* The members, once shown. Indented under their group and dimmed a shade, so
    the line still reads as one entry with its contents rather than as several
-   more pieces of furniture that happen to be adjacent. */
-.furn-members {
+   more pieces of furniture that happen to be adjacent.
+
+   ⚠ SCOPED TO :not([hidden]). A bare `display: inline` here is an author rule and
+   beats the UA sheet's `[hidden] { display: none }`, so the list shipped open on
+   every look and the toggle flipped an attribute nothing was reading. */
+.furn-members:not([hidden]) {
 	display: inline;
 	opacity: 0.92;
 }
-.furn-members::before {
+.furn-members:not([hidden])::before {
 	content: " — ";
 	opacity: 0.55;
 }
