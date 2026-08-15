@@ -800,6 +800,36 @@ tachometer, and the right-hand cluster plate was still being stretched to the wi
 instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
 cheap truck. The plate hugs what is actually mounted on it.
 
+**The fleet hovers, and now it actually leaves the ground** *(2026-08-15)*. The trucks have been hover
+hardware since they were modelled — lifter pods with shrouds, a cyan emitter band, a lit patch of
+road under each, all already gated on the rig not being parked — but the model never rose, so all of
+it read as decoration on a vehicle sitting in the road. `hoverLift` adds the ride height, and the
+restraint is the point: **a rig that leaps into the air is a hovercraft, and this is a truck that
+happens to float.** About a third of a pod's height, so you can see road under the shrouds and
+nowhere near enough to look like flight. It **spools** over ~1.5s off the engine (not the throttle —
+an idling rig is up on its air, which is what the lit emitter band already said), so pulling away
+sets it up and a dry tank settles it. And it **breathes** on two sines at unrelated periods (2.9s,
+4.3s) so the float never lands on a beat you can count. The light pool is drawn on the road *before*
+the model — it is the contact shadow's **replacement**, not an addition: a vehicle that is not
+touching the road does not cast a hard shadow, it casts a lit patch.
+
+⚠ **A lamp's glow must never be a second opinion about where the lamp is** *(2026-08-15)*. The first
+`vehicleLamps` re-derived the stations by eye and got all three wrong in the same direction — the
+headlamps 0.028 too far back and 14% too narrow — which at an oblique camera reads as glows floating
+off the front of the truck. `truckLampGeom` is now the single derivation and `buildTruck` builds the
+lenses from it, so a headlamp that moves takes its glow with it.
+
+⚠ **A held control belongs to the finger that pressed it** *(2026-08-15)*. `hold()` bound its release
+to `pointerup` on the *window* with no idea which pointer it was hearing about, so holding the
+throttle with one thumb and lifting the other off the wheel released the throttle — **any second
+finger anywhere on the glass ended the first one's press**, which is exactly "I cannot accelerate and
+steer at the same time". The press now records its pointer id and claims it with `setPointerCapture`.
+
+**Touch controls come back in the chase view** *(2026-08-15)*, on every device. Out there the wheel is
+not on screen to drag, the painted dash is behind the camera, and a pointer drag means orbit — so a
+desktop driver has no pointer route to steering at all. **The controls a cockpit made redundant stop
+being redundant the moment you leave the cockpit.**
+
 **Pictograms, not glyphs** *(2026-08-14)*. The text characters the keys carried were standing in for
 meanings they do not have — an arrow is not a wiper, and several of these controls have no character
 in Unicode at all. `ICON` is line art on a 24×24 grid, stroke-only in `currentColor` at one weight,

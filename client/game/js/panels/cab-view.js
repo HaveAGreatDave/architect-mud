@@ -87,7 +87,7 @@ const CONTROLS = [
   ['Lever', 'The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you are actually in.'],
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
-  ['Z / BRAKE', 'Service brakes. They heat, and hot brakes fade.'],
+  ['Z or SPACE', 'Service brakes. They heat, and hot brakes fade.'],
   ['X / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine.'],
   ['C / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
   ['. and ,', 'Shift up / down. Gear 0 is neutral.'],
@@ -451,19 +451,40 @@ export function openCab(ctx = {}) {
       container.querySelector(sel)?.classList.toggle('on', (st.input[key] || 0) > 0);
     }
   };
+  // ⚠ A HELD CONTROL BELONGS TO THE FINGER THAT PRESSED IT, and that is the whole of why you could
+  // not accelerate and steer at the same time on a touch screen. The release was bound to
+  // `pointerup` on the WINDOW with no idea which pointer it was hearing about — so holding the
+  // throttle with a thumb and then lifting the other thumb off the wheel released the throttle. Any
+  // second finger anywhere on the glass ended the first one's press.
+  //
+  // Now the press records its pointer id and claims the pointer (`setPointerCapture`), so events
+  // for that finger keep coming to this element even when it slides off, and every other finger is
+  // ignored by it entirely. Two hands work, which on a phone is the difference between driving and
+  // stabbing at a picture of a truck.
   const hold = (sel, key) => {
     const el = container.querySelector(sel);
-    const on = (e) => { st.input[key] = 1; el.classList.add('on'); e.preventDefault(); };
-    const off = () => { if (!st) return; st.input[key] = 0; el.classList.remove('on'); };
+    if (!el) return;
+    let pid = null;
+    const on = (e) => {
+      pid = e.pointerId != null ? e.pointerId : 'kb';
+      st.input[key] = 1; el.classList.add('on');
+      if (e.pointerId != null) el.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    };
+    const off = (e) => {
+      if (!st) return;
+      // Not our finger: leave the control held. A keyboard release (no pointerId) always ends it.
+      if (e && e.pointerId != null && pid !== null && pid !== 'kb' && e.pointerId !== pid) return;
+      pid = null; st.input[key] = 0; el.classList.remove('on');
+    };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
-    el.addEventListener('pointerleave', off);
     el.addEventListener('pointercancel', off);
     el.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
     el.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
-    el.addEventListener('blur', off);                 // tabbed away mid-press — nothing else releases it
+    el.addEventListener('blur', () => off());          // tabbed away mid-press — nothing else releases it
     addEventListener('pointerup', off);
-    winOff.push(off);
+    winOff.push(() => off());
   };
   hold('.cab-throttle', 'throttle');
   hold('.cab-brake', 'brake');
@@ -820,7 +841,11 @@ export function openCab(ctx = {}) {
     const k = e.key.toLowerCase();
     const down = e.type === 'keydown';
     if (k === 'a') st.input.throttle = down ? 1 : 0;
-    else if (k === 'z') st.input.brake = down ? 1 : 0;
+    // Z is the flight sim's throttle-DOWN key and the brake here, which is the same gesture in a
+    // vehicle with no reverse thrust. SPACE is an alias for it because it is the key every hand
+    // reaches for to stop a moving thing, and a truck has no guns for it to conflict with (the
+    // flight sim's Space is the trigger). Its default is a page scroll, so it must be eaten.
+    else if (k === 'z' || k === ' ') st.input.brake = down ? 1 : 0;
     // The clutch and the Jake are HELD, like the pedals they are. The shifts are EDGES, and
     // `e.repeat` is filtered — holding the comma must not walk the box down to neutral.
     else if (k === 'x') st.input.clutch = down ? 1 : 0;
@@ -1490,6 +1515,10 @@ function frame(now) {
       steer: st.wheel?.getLock?.() ?? 0,
       gearLabel: r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : '')),
       stalled: r.stalled,
+      // WHAT HOLDS THE TRUCK OFF THE ROAD. The lifters run off the engine, so a dry tank or a
+      // broken rig settles onto its shrouds — which is the same fact the audio and the pedal
+      // already use, reported once more to the renderer rather than inferred there from speed.
+      engineOn: !st.dry && !st.broken,
       fuel: st.dry ? 0 : (st.fuel ?? 1),
       legFrac: st.L ? Math.max(0, Math.min(1, st.s / st.L)) : 0,
       // The GPS screen. 'aim' is the route destKey the server sent; the distance left is derived
@@ -1941,6 +1970,11 @@ function ensureCabStyles() {
      ⚠ HIDDEN, NOT DELETED, and hidden by POINTER rather than by width — a small window on a
      desktop still has a keyboard, and a tablet in landscape still does not. */
   @media (hover:hover) and (pointer:fine){ .cab-touch{display:none !important} }
+  /* ⚠ EXCEPT IN THE CHASE VIEW, where they are the only way in. Out there the wheel is not on
+     screen to drag, the painted dash is behind the camera, and a pointer drag means ORBIT — so a
+     desktop driver in the external view has no pointer route to steering at all. The controls a
+     cockpit made redundant stop being redundant the moment you leave the cockpit. */
+  body .cab-wrap.cab-ext .cab-touch{display:flex !important}
 
   /* ── THE GLASS CHROME ──────────────────────────────────────────────────────
      Deliberately the flight sim's chrome, moved: same corner, same glyphs, same

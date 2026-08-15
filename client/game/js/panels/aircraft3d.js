@@ -1990,23 +1990,46 @@ export function wingtipStation(cls) {
 //
 // Read the variant with the same grammar the mesh does — a trailer or a parked marker must not
 // change which shape's lamps you get.
+// ⚠ EVERY NUMBER HERE IS SHARED WITH THE MESH — see `truckLampGeom`, which `buildTruck` builds the
+// actual lenses from and this reads to say where they ended up. The first cut of this function
+// re-derived them by eye and got all three wrong in the same direction: the headlamps came out
+// 0.028 too far back and 14% too narrow, which at an oblique camera reads as glows floating off the
+// front of the truck rather than sitting in its lamps. A glow whose position is a SECOND OPINION
+// about where a lamp is will always eventually disagree with the lamp.
 export function vehicleLamps(cls, variant = '') {
   if (cls !== 'truck') return null;
   const typeId = String(variant).replace(/~.*$/, '').split('+')[0];
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
-  const nose1 = 0.40, cab1 = nose1 - S.nose, cab0 = cab1 - S.cab, frame0 = cab0 - 0.10;
+  const L = truckLampGeom(S);
   return {
-    // Headlamps: low in the bumper, outboard, at the very front of the bonnet.
-    head: [[nose1 - 0.008, -S.w * 0.74, 0.072], [nose1 - 0.008, S.w * 0.74, 0.072]],
+    // Headlamps: the stacked pair in the chromed pod, so the glow sits between the two lenses.
+    head: [[L.lampF + 0.004, -L.lampG, L.lampMidZ], [L.lampF + 0.004, L.lampG, L.lampMidZ]],
     // Tail lamps: the back of the frame, where a bobtail's are. With a box on the hitch these are
     // inside the trailer and the depth test drops them, which is correct — you cannot see your own
     // tractor's tail lamps through a forty-foot trailer either.
-    tail: [[frame0 + 0.004, -S.w * 0.66, 0.085], [frame0 + 0.004, S.w * 0.66, 0.085]],
-    // The five roof markers, only on the trucks that carry them (the same `S.lamps` gate the mesh
-    // uses for the visor row, so a lamp never glows where no lamp was built).
+    tail: [[L.frame0 + 0.004, -S.w * 0.66, 0.085], [L.frame0 + 0.004, S.w * 0.66, 0.085]],
+    // The five roof markers, on the same station and spacing the visor row is built at, and only on
+    // the trucks that carry one — so a lamp never glows where no lamp was built.
     marker: S.lamps > 0.2
-      ? [-2, -1, 0, 1, 2].map((i) => [cab1 + 0.026, i * S.w * 0.34, S.hi * 0.985 + 0.006])
+      ? [-2, -1, 0, 1, 2].map((i) => [L.markF, i * S.w * 0.34, L.markZ])
       : [],
+  };
+}
+
+// The lamp stations, derived once from a truck's shape. `buildTruck` lays its lenses out from this
+// and `vehicleLamps` lights them from it, so the two cannot drift apart.
+function truckLampGeom(S) {
+  const nose1 = 0.40, nose0 = nose1 - S.nose, cab1 = nose0, cab0 = cab1 - S.cab;
+  const BUMP_TOP = 0.058, BUMP_F = nose1 + 0.012;
+  const lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
+  const scrF1 = nose0 + 0.038, scrHi = S.hi * 0.985;
+  return {
+    nose1, nose0, cab1, cab0, frame0: cab0 - 0.10,
+    BUMP_TOP, BUMP_F, lampF, lampZ, lampG: S.w * 0.86,
+    // Between the upper lens (lampZ+0.020..+0.038) and the lower (lampZ..+0.017): one glow for a
+    // stacked pair reads as one lamp unit, which is what a quad-lamp pod looks like lit.
+    lampMidZ: lampZ + 0.019,
+    markF: scrF1 + 0.026, markZ: scrHi + 0.005,
   };
 }
 
@@ -2299,8 +2322,11 @@ function buildTruck(variant = 'hauler', detail = 1) {
   //
   // The look is a stacked pair in a chromed pod — quad lamps under a hooded brow, which is the
   // atomic-age face — rather than one pale square.
-  const BUMP_TOP = 0.058, BUMP_F = nose1 + 0.012;
-  const lampG = S.w * 0.86, lampF = BUMP_F + 0.004, lampZ = BUMP_TOP + 0.010;
+  // ⚠ Shared with `vehicleLamps` — the renderer lights these lenses off the same numbers, so a
+  // headlamp that moves takes its glow with it.
+  const LG = truckLampGeom(S);
+  const BUMP_TOP = LG.BUMP_TOP, BUMP_F = LG.BUMP_F;
+  const lampG = LG.lampG, lampF = LG.lampF, lampZ = LG.lampZ;
   for (const g of [-1, 1]) {
     box(lampF - 0.016, lampF, 0.030, lampZ - 0.006, lampZ + 0.042, 'strut', null, g * lampG);           // the pod
     // The brow overhangs the LENSES and starts at the pod's own front plane — it used to begin

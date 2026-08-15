@@ -1169,6 +1169,38 @@ export function paintWindshield(id, view) {
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
       pBegin('aircraft');
+      // ── WHAT IT IS FLOATING ON ─────────────────────────────────────────────
+      //
+      // Drawn BEFORE the model and on the ground plane, so the rig sits IN its light instead of on
+      // a decal — and it is the shadow's replacement, not an addition to it: a vehicle that is not
+      // touching the road does not cast a hard contact shadow, it casts a lit patch.
+      //
+      // The restraint that keeps it from looking like a nightclub: it is one soft pool, it scales
+      // with the LIFT rather than being on or off (so it swells as the truck comes up on its air
+      // and dies as it settles), and its brightness is capped well below the headlamps. The lifters
+      // are the thing holding a forty-tonne truck off the ground; they are not the thing you are
+      // meant to be looking at.
+      const hv = hoverLift('own', v, now);
+      if (hv > 0.0006) {
+        const lit = clamp(hv / HOVER_H, 0, 1);
+        const gp = cam.proj(0, 0, 0);
+        if (gp && gp.f > 0.05) {
+          const rad = Math.max(6, (CONTACT_SIZE[v.cls] || 0.03) * ownExtMul(v.cls) * 26 / Math.max(0.12, gp.f));
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const pool = ctx.createRadialGradient(gp.sx, gp.sy, 0, gp.sx, gp.sy, rad);
+          pool.addColorStop(0, `rgba(96,214,232,${0.20 * lit})`);
+          pool.addColorStop(0.45, `rgba(60,150,180,${0.085 * lit})`);
+          pool.addColorStop(1, 'rgba(30,92,104,0)');
+          ctx.fillStyle = pool;
+          ctx.beginPath();
+          // Flattened hard against the road: a circle would read as a sphere of light hanging under
+          // the truck rather than as light LANDING on tarmac.
+          ctx.ellipse(gp.sx, gp.sy, rad, rad * 0.34, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
       // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d) and nothing else reads it — but
       // it has to reach the OWN ship as well as a contact, or the one vehicle you are actually
       // driving is the one drawn as a default hauler with a box permanently on the back.
@@ -1834,13 +1866,29 @@ function drawCabInterior(ctx, W, H, v) {
   const rightPlateL = twoDials ? speedX - bigR * 1.22 : rightX - smallR * 1.5;
   plate(rightPlateL, outY - bigR * 1.30, rightX + smallGap + smallR * 1.5, outY + bigR * 1.34);
 
+  // The tachometer reads 0-100% of the band rather than in thousands: this engine's redline is a
+  // fraction the gearbox model works in, and inventing an rpm figure to print would be a number
+  // nothing else in the game agrees with.
   if (twoDials) drawCabDial(ctx, tachX, outY, bigR, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM',
-    String(Math.round((v?.rpmFrac ?? 0) * 100)), v?.inBand, T);
+    String(Math.round((v?.rpmFrac ?? 0) * 100)), v?.inBand, T, null, 100);
   drawCabDial(ctx, twoDials ? speedX : tachX, outY, bigR,
     Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH',
-    String(Math.round(Math.abs(v?.speed || 0))), false, T);
+    String(Math.round(Math.abs(v?.speed || 0))), false, T, null, v?.topSpeed || 68);
   for (const row of cluster) {
     drawCabDial(ctx, row[0], outY, smallR, row[2], null, row[1], row[3], false, T, row[4]);
+  }
+  // E and F on the fuel gauge, at the ends of its sweep. Every driver on earth can read those two
+  // letters at a glance and no percentage competes with them — it is the one small instrument whose
+  // scale is worth the ink, and it gets letters rather than numbers for exactly that reason.
+  if (smallR > 11) {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(6, smallR * 0.30) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.fillStyle = hexA(T.needle, 0.72);
+    const A0f = Math.PI * 0.75, A1f = Math.PI * 2.25;
+    ctx.fillText('E', leftX + Math.cos(A0f) * smallR * 0.52, outY + Math.sin(A0f) * smallR * 0.52);
+    ctx.fillText('F', leftX + Math.cos(A1f) * smallR * 0.52, outY + Math.sin(A1f) * smallR * 0.52);
+    ctx.restore();
   }
 
   // ── THE GEAR ───────────────────────────────────────────────────────────────
@@ -2074,7 +2122,7 @@ function cabDashTex() {
 // `warn` (optional) is the one thing a small gauge needs that a big one does not: a colour for the
 // needle and the number when the value is the reason you looked. Left null it behaves exactly as it
 // always did, so the two big dials are untouched by the four small ones existing.
-function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[1], warn = null) {
+function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[1], warn = null, scale = 0) {
   const A0 = Math.PI * 0.75, A1 = Math.PI * 2.25;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -2115,6 +2163,26 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
     ctx.moveTo(cx + Math.cos(a) * r * (major ? 0.64 : 0.72), cy + Math.sin(a) * r * (major ? 0.64 : 0.72));
     ctx.lineTo(cx + Math.cos(a) * r * 0.88, cy + Math.sin(a) * r * 0.88);
     ctx.stroke();
+  }
+  // ── THE NUMERALS ───────────────────────────────────────────────────────────
+  // Printed round the face at the major graduations, which is what turns a needle into a READING.
+  // Without them a dial says "about two thirds" and you have to already know two thirds of what —
+  // the digital echo under the pivot was carrying the entire quantitative load on its own.
+  //
+  // `scale` is the value at full sweep, so the caller states the instrument's range once and the
+  // numbers fall out of it. A dial with no scale (the trailer angle, the brake temperature — things
+  // read as a proportion rather than a figure) prints none, and is still a legible gauge.
+  if (scale && r > 16) {
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(6, r * 0.20) | 0}px 'DejaVu Sans Mono',monospace`;
+    ctx.fillStyle = hexA(T.needle, 0.78);
+    for (let i = 0; i <= 4; i++) {
+      const ta = A0 + (A1 - A0) * (i / 4);
+      const tv = Math.round((scale * i) / 4);
+      ctx.fillText(String(tv), cx + Math.cos(ta) * r * 0.50, cy + Math.sin(ta) * r * 0.50);
+    }
+    ctx.restore();
   }
   const a = A0 + (A1 - A0) * Math.max(0, Math.min(1, frac));        // the needle
   ctx.strokeStyle = warn || (lit ? '#8fe0a0' : T.needle);
@@ -5732,11 +5800,52 @@ function deckLift(cam, v) {
   const c = v.map?.[cam.R]?.[cam.R];
   return c && c.mark === 'yacht' ? YACHT_DECK_Z : 0;
 }
+// ── THE HOVER ────────────────────────────────────────────────────────────────
+//
+// The fleet has been hover hardware since it was modelled — lifter pods with shrouds, a cyan
+// emitter band, and a patch of lit road under each, all of which `buildTruck` already gates on the
+// rig NOT being parked. The one thing missing was that the truck never actually left the ground, so
+// all that hardware read as decoration on a vehicle sitting in the road.
+//
+// Three parts, and the restraint is the point — a rig that leaps into the air is a hovercraft, and
+// this is a truck that happens to float:
+//
+//  • RIDE HEIGHT is small and honest. About a third of a lifter pod's own height, which is enough
+//    that you can see road under the shrouds and nowhere near enough to look like flight.
+//  • IT SPOOLS. Lift follows the engine rather than the throttle, over about a second and a half,
+//    so pulling away sets the rig down-then-up on its air and stopping settles it. An instant jump
+//    to full height on the first frame of movement is the tell that this is a boolean.
+//  • IT BREATHES. Two slow sines at unrelated periods (2.9s and 4.3s) so the float never repeats
+//    on a beat you can count — the thing that separates "suspended on air" from "animating".
+//    Amplitude is a fraction of the ride height, because a truck bobbing visibly is a boat.
+const HOVER_H = 0.020;          // ride height in world-z at full lift — a third of a pod, no more
+const HOVER_TAU = 1.5;          // seconds to spool the lift up or down
+// Per-scene lift state. Keyed by canvas id like everything else here, so two cabs on one page (the
+// sim and a card preview) cannot share a spool.
+const _hover = new Map();
+function hoverLift(id, v, now) {
+  if (v.cls !== 'truck') return 0;
+  // WHAT LIFTS IT IS THE ENGINE, NOT THE WHEELS. A rig idling at a stop is up on its air — that is
+  // what the emitter band being lit at idle already says — so a stalled or dead engine is the only
+  // thing that puts it down. `engineOn === false` is the master cut; `stalled` is the driver's own
+  // fault; a parked rig is on its lifters and never reaches here.
+  const want = (v.engineOn === false || v.stalled) ? 0 : 1;
+  const st = _hover.get(id) || { lift: want, t: now };
+  const dt = Math.max(0, Math.min(0.25, (now - st.t) / 1000));
+  st.lift += (want - st.lift) * (1 - Math.exp(-dt / HOVER_TAU));
+  st.t = now;
+  _hover.set(id, st);
+  const breathe = (Math.sin(now / 2900 * Math.PI * 2) * 0.6 + Math.sin(now / 4300 * Math.PI * 2) * 0.4) * 0.18;
+  return HOVER_H * st.lift * (1 + breathe);
+}
+
 function ownShipBaseWz(cam, v) {
   const S = (CONTACT_SIZE[v.cls] || 0.11) * ownExtMul(v.cls) * CONTACT_VS;
   const natural = modelGroundDrop(v.cls, !!v.armed) + (cam.EHbase - RENDER_TUNE.eh) - RENDER_TUNE.chaseSink;   // chase anchor: level gear on deck + climb
   const floor = S * (-modelLowestH(v.cls, v.pitch, v.bank, v.gearAnim ?? 1, !!v.armed)) - RENDER_TUNE.chaseSink;   // lowest actual vertex on z=0 (minus the seam trim)
-  return Math.max(natural, floor) + deckLift(cam, v);   // + the Echelon's pad height when we're sitting on her deck
+  // The hover rides ON TOP of the ground solve rather than replacing it: the floor still refuses to
+  // let any vertex through the road, and the truck floats above whatever that resolves to.
+  return Math.max(natural, floor) + deckLift(cam, v) + hoverLift(v._id || 'own', v, performance.now());
 }
 // Per-contact roll history → inferred aileron. We never get a bogey's stick input, but its
 // bank angle telegraphs it: a craft changing bank is holding aileron into the roll. We track the
