@@ -1852,7 +1852,13 @@ on('player.login', async ({ id }) => {
   const player = getLivePlayer(id);
   if (player) await restoreDrivingState(player, { mountOnCrossing }).catch(() => {});
 });
-on('player.death', ({ id }) => { if (rigs.has(id)) { rigs.delete(id); sendToPlayer(id, { type: 'truck_sim_close' }); } });
+// `player.death` emits `{ player, killer, cause, ... }` — NOT `{ id }` like the two handlers above.
+// Destructuring `id` here silently made this a no-op on every death path, which left the cab mounted
+// over a player who had already been moved to their respawn zone: a black windshield you cannot leave.
+on('player.death', ({ player }) => {
+  const id = player?.id;
+  if (id && rigs.has(id)) { rigs.delete(id); sendToPlayer(id, { type: 'truck_sim_close' }); }
+});
 
 // ── The fifth wheel ──────────────────────────────────────────────────────────
 // `hitch` and `unhitch` are the only two verbs in this plugin that ask the PHYSICS whether they are

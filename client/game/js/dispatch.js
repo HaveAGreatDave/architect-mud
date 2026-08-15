@@ -445,13 +445,14 @@ const handlers = {
   player_death: (msg) => {
     appendHtml(msg.message, 'death');
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
-    // Death can land while any sticky area-pane app is open (flight cockpit, hangar
-    // bay) or a modal overlay is up (dialogue/shop, trade, ATM, loot) — none of these
+    // Death can land while any sticky area-pane app is open (flight cockpit, truck cab,
+    // hangar bay) or a modal overlay is up (dialogue/shop, trade, ATM, loot) — none of these
     // tear themselves down on their own for a death from an unrelated cause (combat,
     // radiation, seppuku, ...), and the flight/hangar panes explicitly block the
     // room `look` below from repainting over them. Force them all closed so death
     // always hands the screen back to the room.
     closeCockpit();
+    closeCab();
     closeHangarBay();
     closeDialogue();
     closeTrade();
