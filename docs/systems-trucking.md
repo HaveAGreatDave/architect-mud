@@ -763,6 +763,19 @@ they have to fill** rather than a multiple of their own width — "bunched up" w
 on a 600px stretch of empty vinyl — and the tell-tale wall is solved *before* the right-hand bars,
 so two independently laid-out instruments can never overlap.
 
+**The controls are switches, and the legends are printed on them** *(2026-08-14)*. They were dialog
+buttons carrying a glyph and a `title`, which is the least discoverable arrangement available: a
+native tooltip needs a hover a touch device does not have and a second's wait a driver does not
+have either. So each one is a moulded control with its legend **silkscreened on** — a rocker is a
+bezel screwed to the dash with a paddle that pivots in it (upper half lit and lower half shadowed
+when off, inverted when on) and a tell-tale drilled into the *bezel*, not the moving part; a push
+switch is domed, sinks when pressed, and carries a glyph over an engraved word (`UP`, `DN`, `SPLIT`,
+`REV`, `PORT`, `STBD`, `BACK`). Both children live **inside** the `<button>`, so the accessible name
+is untouched and no legend is a caption floating beside a control. ⚠ **A rocker is also a `.cab-btn`**
+— `.cab-btn:active` and `.cab-btn.on` tie with `.cab-btn.cab-rocker` on specificity and come later
+in the sheet, so the rocker rules restate the bezel or a press hands it a push-button gradient and
+loses the pivot.
+
 **Every control's appearance is derived from `st.input`, never from the thing that moved it**
 *(2026-08-14)*. The `on` class was added by the pointer handler and by nothing else, so a driver
 using `A`/`Z`/`X`/`C` — which is nearly all of them, since the keys are the fast way to drive —

@@ -191,8 +191,8 @@ export function openCab(ctx = {}) {
              helm-wheel state, which is still the only place a steering angle exists. -->
         <div class="cab-col cab-col-wheel">
           <div class="cab-steer" role="group" aria-label="Steering">
-            <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)">◀</button>
-            <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)">▶</button>
+            <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)"><b>◀</b><em>STEER</em></button>
+            <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)"><b>▶</b><em>STEER</em></button>
           </div>
         </div>
 
@@ -242,10 +242,10 @@ export function openCab(ctx = {}) {
                lever. -->
           <button class="cab-btn cab-range" aria-label="Range" title="Range — LO is gears 1-4, HI is 5-8">LO</button>
           <div class="cab-box" role="group" aria-label="Gearbox">
-            <button class="cab-btn cab-up" aria-label="Shift up" title="Shift up (.)">▲</button>
-            <button class="cab-btn cab-down" aria-label="Shift down" title="Shift down (,)">▼</button>
-            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter (/)">½</button>
-            <button class="cab-btn cab-rev" aria-label="Reverse" title="Reverse (R) — only at a stop">R</button>
+            <button class="cab-btn cab-up" aria-label="Shift up" title="Shift up (.)"><b>▲</b><em>UP</em></button>
+            <button class="cab-btn cab-down" aria-label="Shift down" title="Shift down (,)"><b>▼</b><em>DN</em></button>
+            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter (/)"><b>½</b><em>SPLIT</em></button>
+            <button class="cab-btn cab-rev" aria-label="Reverse" title="Reverse (R) — only at a stop"><b>R</b><em>REV</em></button>
           </div>
         </div>
 
@@ -257,22 +257,22 @@ export function openCab(ctx = {}) {
           <div class="cab-rockers" role="group" aria-label="Dash switches">
             <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
                  a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
-            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Engine brake (C) — held"><i></i><span>JAKE</span></button>
+            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (C) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
             <!-- THE STALK. One control cycling off → intermittent → low → high, because that is
                  how the stalk on the column works. The label IS the state. -->
-            <button class="cab-btn cab-rocker cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high"><i></i><span>WIPE</span></button>
+            <button class="cab-btn cab-rocker cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high"><i></i><u><span>WIPE</span></u></button>
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you are not the room. -->
-            <button class="cab-btn cab-rocker cab-horn" aria-label="Air horn" title="Air horn (H)"><i></i><span>HORN</span></button>
+            <button class="cab-btn cab-rocker cab-horn" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
           </div>
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
                truck has exactly the same problem an aircraft does (you cannot see behind you) and a
                player who has flown already has the habit. HELD, not toggled, for the reason a
                shoulder-check is held — you look, you come back. -->
           <div class="cab-look" role="group" aria-label="Look">
-            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)">↖</button>
-            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)">↗</button>
-            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)">↺</button>
+            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>↖</b><em>PORT</em></button>
+            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>↗</b><em>STBD</em></button>
+            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>↺</b><em>BACK</em></button>
           </div>
         </div>
 
@@ -1552,16 +1552,34 @@ function ensureCabStyles() {
   /* ── THE ROCKERS ───────────────────────────────────────────────────────────
      A switch that rocks, with a tell-tale above it. Still a <button>: the whole of the change is
      what it looks like and where the 'on' class lands. */
-  .cab-rockers{display:flex;gap:5px}
-  .cab-rocker{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:42px;
-    padding:4px 5px 5px;background:linear-gradient(#20252b,#12161a);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
-  .cab-rocker i{display:block;width:7px;height:7px;border-radius:50%;background:#252b32;
-    box-shadow:inset 0 0 3px #000}
-  .cab-rocker span{font:700 8px/1 inherit;letter-spacing:.08em;color:#8b95a2}
-  .cab-rocker.on{background:linear-gradient(#12161a,#20252b)}   /* it rocks the other way */
-  .cab-rocker.on i{background:var(--cab-glow,#e8c07a);box-shadow:0 0 8px var(--cab-glow,#e8c07a)}
-  .cab-rocker.on span{color:#fff}
+  /* A SWITCH IS A BEZEL WITH A PADDLE IN IT, and the paddle is a separate element because it has
+     to move independently of the housing — the bezel is screwed to the dash, the paddle pivots.
+     The tell-tale is the third piece and it is drilled into the BEZEL, above the paddle, the way a
+     lamp is on a real switch panel rather than printed on the thing that moves. */
+  .cab-rockers{display:flex;gap:6px}
+  .cab-btn.cab-rocker{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px;
+    padding:4px 4px 5px;border-radius:4px;
+    background:linear-gradient(#171b20,#0e1216);
+    border:1px solid #2b333c;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 -2px 3px rgba(0,0,0,.5)}
+  .cab-btn.cab-rocker i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
+    box-shadow:inset 0 0 3px #000, 0 1px 0 rgba(255,255,255,.05)}
+  /* THE PADDLE. Hinged at the top: the upper half catches the light and the lower half falls into
+     shadow, which is the whole read of a rocker that is currently OFF. Pressed, that gradient
+     inverts and the legend sinks — the switch is standing proud at the bottom instead of the top. */
+  .cab-btn.cab-rocker u{display:block;width:100%;padding:5px 3px 6px;border-radius:2px;text-decoration:none;
+    background:linear-gradient(#39424d 0%,#2a323b 46%,#1b2128 47%,#141a20 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.5);
+    transition:background .07s ease-out, box-shadow .07s ease-out}
+  /* THE LEGEND IS SILKSCREENED ON, not a caption underneath. Bone-white ink, tight and
+     letterspaced the way a legend printed on a switch actually is, with a dark shadow under it so
+     it sits IN the plastic rather than floating over it. */
+  .cab-btn.cab-rocker span{display:block;font:700 8px/1 inherit;letter-spacing:.12em;color:#c9d2dc;
+    text-shadow:0 1px 0 rgba(0,0,0,.85), 0 -1px 0 rgba(255,255,255,.06)}
+  .cab-btn.cab-rocker.on u{background:linear-gradient(#12161a 0%,#1a2027 53%,#2f3841 54%,#3d4751 100%);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.10)}
+  .cab-btn.cab-rocker.on span{color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  .cab-btn.cab-rocker.on i{background:var(--cab-glow,#e8c07a);box-shadow:0 0 8px var(--cab-glow,#e8c07a)}
   .cab-jake.on i{background:#4e9ab0;box-shadow:0 0 8px #4e9ab0}
   .cab-horn:active i{background:#e0b45a;box-shadow:0 0 10px #e0b45a}
 
@@ -1610,9 +1628,38 @@ function ensureCabStyles() {
   /* The look tag over the glass. It has to be loud: a driver whose pointer slipped off a
      shoulder-check needs to know instantly why the road is going sideways. */
   .ws-label-look{color:#0a0c0f !important;background:var(--cab-glow,#e8c07a);padding:1px 6px;border-radius:3px}
-  .cab-btn{min-width:34px;min-height:34px;padding:6px 8px;font:600 13px/1 inherit;color:#c8d2de;
-    background:#191d22;border:1px solid #333a43;border-radius:4px;cursor:pointer;touch-action:none;user-select:none}
-  .cab-btn:active,.cab-btn.on{background:#2b3138;border-color:#5c6672;color:#fff}
+  /* A DASH SWITCH, not a dialog button. Domed rather than flat (a radial highlight off the top
+     left is what reads as moulded plastic), a lip of shadow underneath so it stands off the panel,
+     and it goes DOWN when pressed instead of merely changing colour.
+     Two children: the glyph, which is what you aim at, and the engraved legend, which is what
+     tells you what it does without a tooltip. Both are inside the button, so the accessible name
+     is unchanged and nothing here is a caption floating next to a control. */
+  .cab-btn{position:relative;display:inline-flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:1px;min-width:38px;min-height:36px;padding:4px 6px 3px;
+    font:600 13px/1 inherit;color:#c8d2de;cursor:pointer;touch-action:none;user-select:none;
+    border:1px solid #2f3843;border-radius:4px;
+    background:radial-gradient(120% 100% at 30% 8%,#39424d,#242b33 55%,#171c22);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.13), 0 2px 3px -1px rgba(0,0,0,.6);
+    transition:transform .05s ease-out, box-shadow .07s, background .07s}
+  .cab-btn b{display:block;font-weight:700;line-height:1;
+    text-shadow:0 1px 1px rgba(0,0,0,.7)}
+  /* The engraved legend. Deliberately smaller and dimmer than the glyph — it is a label on a panel,
+     read once and then never again, and a legend as loud as the control is a busy dash. */
+  .cab-btn em{display:block;font:700 6.5px/1 inherit;font-style:normal;letter-spacing:.10em;
+    color:#7d8794;text-shadow:0 1px 0 rgba(0,0,0,.8)}
+  /* The housing is screwed to the dash: pressing the switch must not repaint or move it. Both
+     of these restate the bezel because .cab-btn:active and .cab-btn.on tie on specificity with
+     .cab-btn.cab-rocker and come later in the sheet, so without them a press would hand the
+     rocker a push-button gradient and lose the pivot entirely. */
+  .cab-btn.cab-rocker:active,
+  .cab-btn.cab-rocker.on{transform:none;background:linear-gradient(#171b20,#0e1216);
+    border-color:#2b333c;box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 -2px 3px rgba(0,0,0,.5)}
+  .cab-btn:active{transform:translateY(1px);
+    background:radial-gradient(120% 100% at 30% 8%,#2b333c,#1b2129 55%,#121820);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.55)}
+  .cab-btn.on{background:radial-gradient(120% 100% at 30% 8%,#3d4854,#2a323b 55%,#1a2027);
+    border-color:#5c6672;color:#fff;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+  .cab-btn.on em{color:#aeb9c6}
   .cab-horn:active{border-color:#e0b45a;box-shadow:0 0 10px rgba(224,180,90,.45)}
   .cab-wipe.on{border-color:#4e7a9a}
   /* Rain on the glass and the stalk still off: the button asks once, rather than a line of prose
