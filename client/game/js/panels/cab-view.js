@@ -126,6 +126,22 @@ const DMG_PARTS = [
 // where it RESTS and where ⟲ puts it back.
 const EXT_REST_PITCH = 0.26;
 
+// ── THE GATE ─────────────────────────────────────────────────────────────────
+// Positions in the plate's own 0..1 space, and a SLOT NUMBER (1-4) rather than a gear — the gear is
+// 'slot + range*4', which is the one line that makes an eight-speed four positions your hand can
+// learn instead of eight it cannot. Reverse and neutral carry an explicit gear instead.
+//
+// It is at module scope because the markup is generated from it: every slot is a real <button>, and
+// a table that the DOM and the hit-test both read cannot put a legend where there is no target.
+const CAB_GATE = [
+  { x: 0.24, y: 0.15, slot: 1 },
+  { x: 0.24, y: 0.85, slot: 2 },
+  { x: 0.52, y: 0.15, slot: 3 },
+  { x: 0.52, y: 0.85, slot: 4 },
+  { x: 0.80, y: 0.85, gear: -1, label: 'R' },     // reverse, on its own dogleg, down and away
+  { x: 0.38, y: 0.50, gear: 0, label: 'N' },      // neutral — the crossgate everything passes through
+];
+
 let st = null;
 
 export function isCabActive() { return !!st; }
@@ -190,7 +206,7 @@ export function openCab(ctx = {}) {
              dragging the road, or by these arrows, or with the arrow keys; all three wind the same
              helm-wheel state, which is still the only place a steering angle exists. -->
         <div class="cab-col cab-col-wheel">
-          <div class="cab-steer" role="group" aria-label="Steering">
+          <div class="cab-steer cab-touch" role="group" aria-label="Steering">
             <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)"><b>◀</b><em>STEER</em></button>
             <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)"><b>▶</b><em>STEER</em></button>
           </div>
@@ -225,27 +241,27 @@ export function openCab(ctx = {}) {
              nothing about where you were. A gate is also a DISPLAY — the knob sits in the slot you
              are in, which is most of what a gearstick is for.
              Reverse has its own dogleg, as it does on the real thing, and neutral is the crossgate
-             everything passes through. The ▲▼ buttons stay: a lever you can only work by dragging
-             is a lever a keyboard user does not have. -->
+             everything passes through.
+             ⚠ EVERY SLOT IS A REAL BUTTON, and that is what let the ▲▼ pair go. They existed only
+             because a lever you can work solely by dragging is a lever a keyboard user does not
+             have — so the answer was never a second control beside it, it was making the lever
+             itself operable. Tab to a slot and press it and you are in that gear; the drag is now
+             the shortcut rather than the only way in. -->
         <div class="cab-col cab-col-gate">
           <div class="cab-gate" role="group" aria-label="Gear lever">
             <i class="cab-gate-rail cab-rail-l"></i>
             <i class="cab-gate-rail cab-rail-r"></i>
             <i class="cab-gate-rail cab-rail-x"></i>
             <i class="cab-gate-rail cab-rail-rev"></i>
-            <div class="cab-gate-marks"></div>
-            <div class="cab-lever" title="Drag the lever into a slot. LO/HI doubles the four slots into eight gears."><b class="cab-knob"></b></div>
+            ${CAB_GATE.map((g, i) => `<button class="cab-slot" data-gi="${i}" style="left:${g.x * 100}%;top:${g.y * 100}%"></button>`).join('')}
+            <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears."><b class="cab-knob"></b></div>
           </div>
-          <!-- THE RANGE. One switch, and it is the whole reason four slots are eight gears. It is a
-               button rather than a fifth gate position because that is what it is in the cab: a
-               splitter collar on the knob you flick with a thumb, never somewhere you put the
-               lever. -->
-          <button class="cab-btn cab-range" aria-label="Range" title="Range — LO is gears 1-4, HI is 5-8">LO</button>
-          <div class="cab-box" role="group" aria-label="Gearbox">
-            <button class="cab-btn cab-up" aria-label="Shift up" title="Shift up (.)"><b>▲</b><em>UP</em></button>
-            <button class="cab-btn cab-down" aria-label="Shift down" title="Shift down (,)"><b>▼</b><em>DN</em></button>
-            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter (/)"><b>½</b><em>SPLIT</em></button>
-            <button class="cab-btn cab-rev" aria-label="Reverse" title="Reverse (R) — only at a stop"><b>R</b><em>REV</em></button>
+          <!-- THE KNOB COLLARS. On a real range-change box both of these live ON the shift knob
+               under your thumb, never as a position you put the lever in — so they are two small
+               switches beside the gate rather than two more keys in a row of keys. -->
+          <div class="cab-collars" role="group" aria-label="Gearbox collars">
+            <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><b>LO</b><em>RANGE</em></button>
+            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>½</b><em>SPLIT</em></button>
           </div>
         </div>
 
@@ -263,13 +279,13 @@ export function openCab(ctx = {}) {
             <button class="cab-btn cab-rocker cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high"><i></i><u><span>WIPE</span></u></button>
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you are not the room. -->
-            <button class="cab-btn cab-rocker cab-horn" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
+            <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
           </div>
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
                truck has exactly the same problem an aircraft does (you cannot see behind you) and a
                player who has flown already has the habit. HELD, not toggled, for the reason a
                shoulder-check is held — you look, you come back. -->
-          <div class="cab-look" role="group" aria-label="Look">
+          <div class="cab-look cab-touch" role="group" aria-label="Look">
             <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>↖</b><em>PORT</em></button>
             <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>↗</b><em>STBD</em></button>
             <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>↺</b><em>BACK</em></button>
@@ -577,14 +593,7 @@ export function openCab(ctx = {}) {
   // be any size on any screen, and `slot` is the position IN THE RANGE (1-4) rather than a gear —
   // the gear is `slot + range*4`, which is the one line that makes this a tree instead of eight
   // hard-coded holes and is why adding a nine-speed later is a number, not a layout.
-  const GATE = [
-    { x: 0.24, y: 0.16, slot: 1 },
-    { x: 0.24, y: 0.84, slot: 2 },
-    { x: 0.52, y: 0.16, slot: 3 },
-    { x: 0.52, y: 0.84, slot: 4 },
-    { x: 0.80, y: 0.84, gear: -1 },     // reverse, on its own dogleg, down and away
-    { x: 0.38, y: 0.50, gear: 0 },      // neutral — the crossgate everything passes through
-  ];
+  const GATE = CAB_GATE;
   const gearOfSlot = (s) => (s.gear != null ? s.gear : s.slot + (st.range ? 4 : 0));
   // Where the knob SITS when nobody is holding it: the slot the box is actually in. A gate that did
   // not do this would be a control that forgets what it did, which is the one thing a gearstick is
@@ -601,7 +610,22 @@ export function openCab(ctx = {}) {
     };
     // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
     // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
+    // THE SLOTS ARE LABELLED FROM THE RANGE, every frame — a plate reading 1 2 3 4 while the
+    // collar says HI is a plate lying about four of its six positions.
+    const slots = [...container.querySelectorAll('.cab-slot')];
+    const paintSlots = () => {
+      for (const el of slots) {
+        const g = GATE[+el.dataset.gi];
+        if (!g) continue;
+        const gear = gearOfSlot(g);
+        const label = g.label || String(gear);
+        el.textContent = label;
+        el.setAttribute('aria-label', gear > 0 ? `Gear ${gear}` : gear < 0 ? 'Reverse' : 'Neutral');
+        el.classList.toggle('on', st.sim.gear === gear);
+      }
+    };
     st.paintGate = () => {
+      paintSlots();
       if (drag) return;
       // THE RANGE IS DERIVED, NEVER REMEMBERED SEPARATELY. `,` and `.` and the ▲▼ buttons all walk
       // the box sequentially and know nothing about a gate, so if the lever's range were its own
@@ -666,12 +690,19 @@ export function openCab(ctx = {}) {
       const s = snap((e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height);
       if (s) { selectGear(gearOfSlot(s)); st.paintGate?.(); }
     });
+    for (const el of slots) {
+      el.addEventListener('click', (e) => {
+        const g = GATE[+el.dataset.gi];
+        if (g) { selectGear(gearOfSlot(g)); st.paintGate?.(); }
+        e.preventDefault(); e.stopPropagation();
+      });
+    }
     rangeBtn.addEventListener('click', (e) => {
       // THE RANGE MOVES THE GEAR WITH IT, and that is the point of a range change rather than a
       // display toggle: the lever has not moved, so you are in the same SLOT — one range up is four
       // ratios up. Flicking it in neutral changes nothing but which four gears the gate offers.
       st.range = !st.range;
-      rangeBtn.textContent = st.range ? 'HI' : 'LO';
+      const rl = rangeBtn.querySelector('b'); if (rl) rl.textContent = st.range ? 'HI' : 'LO';
       rangeBtn.classList.toggle('on', st.range);
       const cur = slotOfGear(st.sim.gear);
       if (st.sim.gear > 0 && cur && cur.slot) selectGear(cur.slot + (st.range ? 4 : 0));
@@ -695,7 +726,7 @@ export function openCab(ctx = {}) {
   function syncRange() {
     const rb = container.querySelector('.cab-range');
     if (!rb) return;
-    rb.textContent = st.range ? 'HI' : 'LO';
+    const rl = rb.querySelector('b'); if (rl) rl.textContent = st.range ? 'HI' : 'LO';
     rb.classList.toggle('on', !!st.range);
   }
   const gearLabelOf = (g) => (g < 0 ? 'R' : g === 0 ? 'N' : String(g));
@@ -707,10 +738,10 @@ export function openCab(ctx = {}) {
     const el = container.querySelector(sel);
     el.addEventListener('click', (e) => { fn(); e.preventDefault(); });
   };
-  tap('.cab-up', () => truckShift(st.sim, P, 1));
-  tap('.cab-down', () => truckShift(st.sim, P, -1));
+  // ▲▼ and the R key are gone from the shelf: every gear including reverse is a slot on the gate
+  // now, and the gate's slots are real buttons. The KEYS are untouched — ',' '.' 'r' still work,
+  // and so does the splitter collar.
   tap('.cab-splitbtn', () => truckSplit(st.sim, P));
-  tap('.cab-rev', () => toggleReverse());
   tap('.cab-wipe', () => cycleWipers());
   tap('.cab-horn', () => sendCmdSilent('horn'));
 
@@ -1520,7 +1551,9 @@ function ensureCabStyles() {
      lever is, and a shift from a key moves the knob too.
      Every dimension below is a fraction of '--gw'/'--gh', so the rails, the engraved numbers and the
      knob all track one pair of numbers when the gate resizes for touch. */
-  .cab-gate{--gw:104px;--gh:62px;position:relative;width:var(--gw);height:var(--gh);border-radius:5px;
+  /* The shifter is the biggest thing on the shelf, because it is the biggest thing in the cab —
+     a range-change lever is a foot of steel you move with your whole forearm, not a thumb control. */
+  .cab-gate{--gw:168px;--gh:104px;position:relative;width:var(--gw);height:var(--gh);border-radius:5px;
     background:linear-gradient(#191d22,#0c0f13);border:1px solid #333a43;overflow:hidden;
     touch-action:none;cursor:pointer}
   /* The milled slots. Two vertical rails, the crossgate that joins them, and reverse's dogleg —
@@ -1535,11 +1568,23 @@ function ensureCabStyles() {
   /* 1 3 R over 2 4 — the numbers milled into the plate, which is the only reason a gate is
      learnable at a glance. A pair of pseudo-elements would be two labels for six positions, so this is
      one grid laid over the plate. */
-  .cab-gate-marks{position:absolute;inset:0;pointer-events:none;
-    font:700 8px/1 inherit;color:rgba(150,163,178,.55);letter-spacing:.04em}
-  .cab-gate-marks::before,.cab-gate-marks::after{position:absolute;white-space:pre}
-  .cab-gate-marks::before{content:'1   3   R';left:8%;top:6px}
-  .cab-gate-marks::after{content:'2   4';left:8%;bottom:5px}
+  /* ── THE SLOTS ─────────────────────────────────────────────────────────────
+     Real buttons, positioned from the same table the hit-test reads, which is what makes the plate
+     keyboard-operable and what let the ▲▼ pair go. The number milled into the plate IS the target:
+     there is no separate legend that could end up somewhere the button is not. */
+  .cab-slot{position:absolute;transform:translate(-50%,-50%);width:26px;height:22px;padding:0;
+    background:none;border:0;border-radius:4px;cursor:pointer;
+    font:700 11px/1 inherit;color:rgba(163,176,192,.85);
+    text-shadow:0 1px 0 rgba(0,0,0,.9);
+    transition:color .1s, text-shadow .1s}
+  .cab-slot:hover{color:#e6eef8}
+  .cab-slot.on{color:var(--cab-glow,#e8c07a);
+    text-shadow:0 0 8px var(--cab-glow,#e8c07a), 0 1px 0 rgba(0,0,0,.9)}
+  .cab-slot:focus-visible{outline:2px solid #e8c07a;outline-offset:1px}
+  /* The collars sit beside the gate, small, because on the real box they are thumb switches on the
+     knob rather than controls in their own right. */
+  .cab-collars{display:flex;gap:6px;margin-top:5px;justify-content:center}
+  .cab-collars .cab-btn{min-width:46px;min-height:38px}
   .cab-lever{position:absolute;left:0;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;
     cursor:grab;touch-action:none;
     transform:translate(calc(var(--gx,.38) * var(--gw,104px)),calc(var(--gy,.5) * var(--gh,62px)));
@@ -1755,10 +1800,19 @@ function ensureCabStyles() {
     /* The gate gets BIGGER on touch, not smaller — it is six targets in one plate and on a phone
        it is the only way to shift at all. One pair of variables moves the rails, the marks and the
        knob together, because they are all expressed as fractions of it. */
-    .cab-gate{--gw:132px;--gh:74px}
+    .cab-gate{--gw:186px;--gh:118px}
     .cab-lever{width:26px;height:26px;margin:-13px 0 0 -13px}
   }
   @media (pointer:coarse){ .cab-btn{min-width:44px;min-height:44px} .cab-pedal{min-width:46px} }
+  /* ── TOUCH-ONLY CONTROLS ────────────────────────────────────────────────────
+     Steering, the shoulder-checks and the horn are all things a desktop driver already has a
+     better way to do — drag the wheel or hold an arrow key, Q/E/S, and the horn is the boss in the
+     middle of the wheel you can simply press. On a touch screen none of those exist, so the
+     buttons do. Showing them to everybody is what made the cab look like a game pad bolted to a
+     picture of a truck: eight controls on screen for things two keys already did.
+     ⚠ HIDDEN, NOT DELETED, and hidden by POINTER rather than by width — a small window on a
+     desktop still has a keyboard, and a tablet in landscape still does not. */
+  @media (hover:hover) and (pointer:fine){ .cab-touch{display:none !important} }
 
   /* ── THE GLASS CHROME ──────────────────────────────────────────────────────
      Deliberately the flight sim's chrome, moved: same corner, same glyphs, same

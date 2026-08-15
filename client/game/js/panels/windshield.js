@@ -1475,6 +1475,10 @@ const CAB_POST = 0.014;        // centre screen post, as a fraction of width
 // for dials the size of the word under them. Three points of glass is a cheap price for gauges you
 // can read at a glance, which is the entire job of a dash. Raise it further only with the road in
 // mind: past ~0.36 you are driving through a letterbox.
+// A trim colour at an alpha, for the instrument lighting. Built on the renderer's own hex2rgb so
+// there is not a second colour parser in the file — CAB_TRIM stores plain hex and every lit pass
+// wants the same colour at a different strength.
+const hexA = (hex, a) => { const c = hex2rgb(hex) || [232,192,122]; return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
 const CAB_DASH = 0.33;         // dash height, as a fraction of height
 
 // ── WHAT YOUR MONEY BOUGHT, FROM THE SEAT ────────────────────────────────────
@@ -1692,6 +1696,39 @@ function drawCabInterior(ctx, W, H, v) {
       ctx.fillStyle = pat; ctx.fill();
       ctx.restore();
     }
+  }
+
+  // 4b². THE INSTRUMENT FLOOD.
+  //
+  //      A cab at night is not a black box with some glowing circles in it — the panel lamps spill,
+  //      and what they light is the dash itself. Without this the vinyl stayed at its unlit gradient
+  //      and every instrument read as a bright hole punched in a dark board, which is most of what
+  //      "the dashboard is sooo dark" is describing.
+  //
+  //      Two washes, both in the cab's OWN trim colour so the Orlov's walnut goes warm amber and the
+  //      Drayman's vinyl goes green: a broad one from above the binnacle (the eyebrow lamps), and a
+  //      tighter one low behind the wheel (the glow off the column). Composited with `lighter` so
+  //      they ADD light rather than paint a translucent film over the texture — a film would flatten
+  //      the grain the pass above just laid down.
+  {
+    const G = cabWheelGeom(W, H);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    ctx.moveTo(0, dash + H * 0.02);
+    ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.clip();
+    const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
+    eyebrow.addColorStop(0, hexA(T.glow, 0.20));
+    eyebrow.addColorStop(0.45, hexA(T.glow, 0.075));
+    eyebrow.addColorStop(1, hexA(T.glow, 0));
+    ctx.fillStyle = eyebrow; ctx.fillRect(0, dash - H * 0.05, W, H);
+    const column = ctx.createRadialGradient(G.x, G.top, 0, G.x, G.top, Math.max(W * 0.18, H * 0.16));
+    column.addColorStop(0, hexA(T.glow, 0.14));
+    column.addColorStop(1, hexA(T.glow, 0));
+    ctx.fillStyle = column; ctx.fillRect(0, dash - H * 0.05, W, H);
+    ctx.restore();
   }
 
   // 4c. THE INSTRUMENT PANEL — and this is where the truck's instruments LIVE now, all of them.
@@ -2044,6 +2081,20 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   const fg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r);
   fg.addColorStop(0, T.face[0]); fg.addColorStop(1, T.face[1]);
   ctx.fillStyle = fg; ctx.fill();
+  // ── THE BACKLIGHT ──────────────────────────────────────────────────────────
+  // An instrument is LIT FROM BEHIND, and that is the single thing most missing from a dash that
+  // reads as "sooo dark": a black face with pale marks on it is a diagram, while the same face with
+  // light coming through it is an instrument. The lamp sits low and central the way a real bulb
+  // behind a dial does, in the cab's OWN trim colour, so an Orlov glows warm amber and a Drayman
+  // glows green without either being repainted.
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const bl = ctx.createRadialGradient(cx, cy + r * 0.18, r * 0.05, cx, cy, r * 0.99);
+  bl.addColorStop(0, hexA(T.glow, 0.30));
+  bl.addColorStop(0.55, hexA(T.glow, 0.10));
+  bl.addColorStop(1, hexA(T.glow, 0));
+  ctx.fillStyle = bl; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
   // The bezel is where the money shows: a hairline of steel on the Barrow, brass on the Orlov.
   ctx.strokeStyle = T.ring; ctx.lineWidth = T.dials > 1 && T.lamps >= 5 ? 2.2 : 1.4; ctx.stroke();
   if (band) {                                                       // the torque band, drawn once
@@ -2051,11 +2102,17 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
     ctx.arc(cx, cy, r * 0.80, A0 + (A1 - A0) * band[0], A0 + (A1 - A0) * band[1]);
     ctx.strokeStyle = 'rgba(90,190,110,0.55)'; ctx.lineWidth = Math.max(2, r * 0.14); ctx.stroke();
   }
-  ctx.strokeStyle = T.ring; ctx.lineWidth = 1;                      // ticks
+  // Ticks, painted as LIT MARKS rather than as hairlines of bezel colour — on a real instrument the
+  // graduations are the part the bulb shines through, so they are the brightest thing on the face
+  // after the needle. Every fourth one is long and heavy, which is what gives a dial a scale you can
+  // read at a glance instead of a ring of identical scratches.
   for (let i = 0; i <= 8; i++) {
     const a = A0 + (A1 - A0) * (i / 8);
+    const major = i % 2 === 0;
+    ctx.strokeStyle = major ? hexA(T.needle, 0.92) : hexA(T.needle, 0.45);
+    ctx.lineWidth = major ? Math.max(1.4, r * 0.045) : Math.max(1, r * 0.022);
     ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(a) * r * 0.68, cy + Math.sin(a) * r * 0.68);
+    ctx.moveTo(cx + Math.cos(a) * r * (major ? 0.64 : 0.72), cy + Math.sin(a) * r * (major ? 0.64 : 0.72));
     ctx.lineTo(cx + Math.cos(a) * r * 0.88, cy + Math.sin(a) * r * 0.88);
     ctx.stroke();
   }
@@ -2107,11 +2164,10 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   st2.addColorStop(0.54, 'rgba(255,255,255,0)');
   ctx.fillStyle = st2; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-  // 3. The corner catch — small, high, tight, top-left. The deck's is 80%×55% at 26%/18%.
-  const hl = ctx.createRadialGradient(cx - r * 0.42, cy - r * 0.52, 0, cx - r * 0.42, cy - r * 0.52, r * 0.62);
-  hl.addColorStop(0, `rgba(255,255,255,${0.04 + 0.11 * gloss})`);
-  hl.addColorStop(0.6, 'rgba(255,255,255,0)');
-  ctx.fillStyle = hl; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  // 3. NO SOFT CORNER CATCH. A wide radial bloom was the last blurred thing on the dial and it was
+  //    doing nothing a hard edge does not do better: glass is read from its EDGES — the streak, the
+  //    rim highlight, the shadow under the bezel — and a soft glow over the middle only ever costs
+  //    contrast on the numbers underneath it. Everything here is now a hard stop or a 1px line.
 
   // 4. Crazing, and only on the truck that has earned it: three fine arcs across a forty-year-old
   //    cover. Seeded off the dial's own position so they never crawl between frames, and drawn as

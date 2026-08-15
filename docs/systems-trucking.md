@@ -800,6 +800,33 @@ tachometer, and the right-hand cluster plate was still being stretched to the wi
 instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
 cheap truck. The plate hugs what is actually mounted on it.
 
+**The panel is LIT, not merely coloured** *(2026-08-14)*. An instrument is lit from behind, and that
+is the single thing most missing from a dash that read as *"sooo dark"*: a black face with pale marks
+on it is a diagram; the same face with light coming through it is an instrument. Three additions,
+all in the cab's **own trim colour** so an Orlov glows warm amber and a Drayman green without either
+being repainted — a **backlight** low and central behind each dial where the bulb actually sits, an
+**instrument flood** on the dash itself (a broad eyebrow wash over the binnacle plus a tighter one
+off the column), and **ticks painted as lit marks** rather than hairlines of bezel colour, majors
+long and heavy so the scale reads at a glance. All composited `lighter`, so they ADD light instead of
+laying a translucent film over the vinyl grain and flattening it.
+
+⚠ **The gate's slots are real buttons, which is what let the ▲▼ pair go.** Those two existed only
+because a lever you can work solely by dragging is a lever a keyboard user does not have — and the
+answer to that was never a second control beside it, it was making the lever itself operable. The
+slots are generated from `CAB_GATE` (hoisted to module scope for exactly this), so the number milled
+into the plate **is** the target and no legend can end up where the button is not. Reverse is a slot,
+so the `R` key keeps working and its button is gone too. The splitter and range are **knob collars**
+beside the gate, because on a real range-change box that is where both live — under your thumb, never
+a position you put the lever in.
+
+**Controls a desktop does not need are touch-only** *(2026-08-14)*. Steering, the shoulder-checks and
+the horn all have a better desktop route already — drag the wheel or hold an arrow, `Q`/`E`/`S`, and
+the horn is the boss in the middle of the wheel you can simply press. Showing them to everybody is
+what made the cab read as a gamepad bolted to a picture of a truck: eight on-screen controls for
+things two keys already did. ⚠ **Hidden by POINTER, not by width** — `(hover:hover) and
+(pointer:fine)` — because a small window on a desktop still has a keyboard and a tablet in landscape
+still does not.
+
 **The shelf is spread, not centred** *(2026-08-14)*. `justify-content:center` put every control in
 the middle of the pane — which is exactly where the painted wheel and the binnacle are, so the
 hardware ended up stacked over the one part of the dash that was already busy. The wheel sits at 42%
