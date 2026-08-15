@@ -800,6 +800,24 @@ tachometer, and the right-hand cluster plate was still being stretched to the wi
 instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
 cheap truck. The plate hugs what is actually mounted on it.
 
+**Pictograms, not glyphs** *(2026-08-14)*. The text characters the keys carried were standing in for
+meanings they do not have — an arrow is not a wiper, and several of these controls have no character
+in Unicode at all. `ICON` is line art on a 24×24 grid, stroke-only in `currentColor` at one weight,
+so every pictogram inherits its key's tell-tale colour, hover and dim state with no second copy of
+those rules. A truck's switch panel is pictograms for exactly this reason: you read it in peripheral
+vision, in a language that does not depend on knowing the word. They are `aria-hidden` — the button
+already has a real name and a printed legend, and announcing the icon too would read the label twice.
+Nothing is finer than ~2px at render size; hairline detail is a smudge on a dash you glance at.
+
+**Wipers are a column stalk, because that is what they are** *(2026-08-14)*. Not authenticity for its
+own sake: **a stalk states its position by where it is pointing**, from the corner of your eye,
+without a lamp or a word. A rocker can only say on or off; the wipers have four settings. `--pos`
+steps 0–3 and the arm swings 14° per detent. It is still one control that cycles, so the `V` key,
+the input path and the rain hint are untouched — what changed is that the thing on screen is the
+thing a driver would reach for. The word is printed under it anyway, and rides the `aria-label`
+(*"Wipers — low"*), because *"slightly further round than it was"* is not a judgement to ask of
+anyone, sighted or otherwise.
+
 **The panel is LIT, not merely coloured** *(2026-08-14)*. An instrument is lit from behind, and that
 is the single thing most missing from a dash that read as *"sooo dark"*: a black face with pale marks
 on it is a diagram; the same face with light coming through it is an instrument. Three additions,

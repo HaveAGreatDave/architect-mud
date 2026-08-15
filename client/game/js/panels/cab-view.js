@@ -94,7 +94,7 @@ const CONTROLS = [
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
-  ['V', 'Wipers: off, intermittent, low, high.'],
+  ['V / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
   ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
   // The look keys are the flight sim's Q/E/S exactly, and that parity is worth more than either of
   // the two obvious letters for the chase camera — hence F. See the key handler.
@@ -125,6 +125,51 @@ const DMG_PARTS = [
 // has a side, a screen and a stack. The orbit still runs from under-belly to top-down; this is only
 // where it RESTS and where ⟲ puts it back.
 const EXT_REST_PITCH = 0.26;
+
+// ── THE PICTOGRAMS ───────────────────────────────────────────────────────────
+//
+// Line art on a 24×24 grid, stroked in currentColor at a single weight, so every one of them
+// inherits the key it sits on — the tell-tale colour, the dimming when a control is unavailable,
+// the brightening on hover — without a second copy of any of those rules.
+//
+// They are DRAWN RATHER THAN TYPED because the text glyphs they replace were standing in for
+// meanings they do not have: an arrow is not a wiper, and half of these controls have no character
+// in Unicode at all. A truck's switch panel is pictograms for exactly this reason — you read it at
+// a glance, in your peripheral vision, in a language that does not depend on knowing the word.
+//
+// Everything is stroke, nothing is fill, and nothing is smaller than about 2px at the size these
+// render: a pictogram with hairline detail is a smudge on a dash you glance at.
+const ICON = {
+  // A wiper: the cowl, the arm swung up off its pivot, the blade across it, and the arc it sweeps.
+  wiper: '<path d="M2.5 20h19"/><path d="M6.5 20 14 8.2"/><path d="M12.4 7.1 16.9 9.9"/>'
+    + '<path d="M5.2 15.6a9.5 9.5 0 0 1 13-4.6" stroke-dasharray="2.4 2.2"/>',
+  // The engine brake: a block with two cylinders, and the exhaust being dumped out of it — which is
+  // literally what a Jake does. The down arrow is the retardation.
+  jake: '<rect x="3.5" y="9.5" width="10" height="8" rx="1.4"/><path d="M6.2 9.5V7.2M10.8 9.5V7.2"/>'
+    + '<path d="M18.5 7.5v8.4"/><path d="M15.6 13.2l2.9 3 2.9-3"/>',
+  // An air horn: the trumpet and two waves. Not a speaker — a truck's horn is a horn.
+  horn: '<path d="M3.5 10.2h3l6-4.2v12l-6-4.2h-3z" stroke-linejoin="round"/>'
+    + '<path d="M16 9.2a4.4 4.4 0 0 1 0 5.6"/><path d="M18.8 6.9a8 8 0 0 1 0 10.2"/>',
+  // The splitter: one ratio cut in half. Two stacked steps with the arrow crossing the divider.
+  split: '<path d="M4 8.5h16M4 15.5h16" stroke-dasharray="2.6 2.4"/><path d="M12 5.4v13.2"/>'
+    + '<path d="M9.4 8 12 5.4 14.6 8"/><path d="M9.4 16 12 18.6 14.6 16"/>',
+  // The range collar: a low step and a high one.
+  range: '<path d="M5 18V11"/><path d="M12 18V7"/><path d="M19 18V3.4"/><path d="M3 20.5h18"/>',
+  // A wing mirror, per side: the glass on its arm off the A-pillar.
+  mirrorL: '<rect x="3" y="7.5" width="8" height="6.4" rx="1.2"/><path d="M11 10.7h4.4"/><path d="M15.4 5.5v12"/>',
+  mirrorR: '<rect x="13" y="7.5" width="8" height="6.4" rx="1.2"/><path d="M13 10.7H8.6"/><path d="M8.6 5.5v12"/>',
+  // The interior mirror: wide glass on a stem, which is what you actually use to look behind.
+  mirrorC: '<rect x="3.5" y="8" width="17" height="6" rx="1.6"/><path d="M12 8V4.5"/><path d="M9.6 4.5h4.8"/>',
+  // A wheel with the direction wound on.
+  steerL: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.1"/><path d="M12 4v2.4M5.6 15.6l2-1.2M18.4 15.6l-2-1.2"/><path d="M7.2 7.6 4.6 8.4l.8-2.7"/>',
+  steerR: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.1"/><path d="M12 4v2.4M5.6 15.6l2-1.2M18.4 15.6l-2-1.2"/><path d="M16.8 7.6l2.6.8-.8-2.7"/>',
+};
+// One wrapper, so stroke weight and cap style are stated once. `aria-hidden` because every one of
+// these sits inside a button that already has a real accessible name and a printed legend — a
+// pictogram announced as well would be the label read twice.
+const svgIcon = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"'
+  + ' stroke-width="1.7" stroke-linecap="round">' + (ICON[k] || '') + '</svg>';
+
 
 // ── THE GATE ─────────────────────────────────────────────────────────────────
 // Positions in the plate's own 0..1 space, and a SLOT NUMBER (1-4) rather than a gear — the gear is
@@ -207,8 +252,8 @@ export function openCab(ctx = {}) {
              helm-wheel state, which is still the only place a steering angle exists. -->
         <div class="cab-col cab-col-wheel">
           <div class="cab-steer cab-touch" role="group" aria-label="Steering">
-            <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)"><b>◀</b><em>STEER</em></button>
-            <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)"><b>▶</b><em>STEER</em></button>
+            <button class="cab-btn cab-left" aria-label="Steer left" title="Steer left (←)"><b>${svgIcon('steerL')}</b><em>STEER</em></button>
+            <button class="cab-btn cab-right" aria-label="Steer right" title="Steer right (→)"><b>${svgIcon('steerR')}</b><em>STEER</em></button>
           </div>
         </div>
 
@@ -260,9 +305,27 @@ export function openCab(ctx = {}) {
                under your thumb, never as a position you put the lever in — so they are two small
                switches beside the gate rather than two more keys in a row of keys. -->
           <div class="cab-collars" role="group" aria-label="Gearbox collars">
-            <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><b>LO</b><em>RANGE</em></button>
-            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>½</b><em>SPLIT</em></button>
+            <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
+            <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
           </div>
+        </div>
+
+        <!-- ── THE COLUMN STALK ────────────────────────────────────────────────
+             WIPERS ARE NOT A DASH SWITCH. On every truck ever built they are a stalk on the
+             steering column, and the reason that matters is not authenticity for its own sake — it
+             is that a stalk tells you its state by WHERE IT IS POINTING, from the corner of your
+             eye, without a lamp or a word. A rocker can only say on or off; this has four
+             positions and wears them.
+             It stays one control that cycles, so the input path, the V key and the hint animation
+             are all untouched — what changed is that the thing on screen is now the thing a driver
+             would reach for. -->
+        <div class="cab-col cab-col-stalk">
+          <button class="cab-stalk cab-wipe" aria-label="Wipers"
+            title="Wiper stalk (V) — off / intermittent / low / high">
+            <i class="cab-stalk-mount"></i>
+            <i class="cab-stalk-arm"><b>${svgIcon('wiper')}</b></i>
+            <em class="cab-stalk-pos">OFF</em>
+          </button>
         </div>
 
         <!-- ── THE SWITCH PANEL ────────────────────────────────────────────────
@@ -274,9 +337,7 @@ export function openCab(ctx = {}) {
             <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
                  a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
             <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (C) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
-            <!-- THE STALK. One control cycling off → intermittent → low → high, because that is
-                 how the stalk on the column works. The label IS the state. -->
-            <button class="cab-btn cab-rocker cab-wipe" aria-label="Wipers" title="Wipers (V) — off / intermittent / low / high"><i></i><u><span>WIPE</span></u></button>
+
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you are not the room. -->
             <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
@@ -286,9 +347,9 @@ export function openCab(ctx = {}) {
                player who has flown already has the habit. HELD, not toggled, for the reason a
                shoulder-check is held — you look, you come back. -->
           <div class="cab-look cab-touch" role="group" aria-label="Look">
-            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>↖</b><em>PORT</em></button>
-            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>↗</b><em>STBD</em></button>
-            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>↺</b><em>BACK</em></button>
+            <button class="cab-btn cab-lookl" aria-label="Look left" title="Look left — hold (Q)"><b>${svgIcon('mirrorL')}</b><em>PORT</em></button>
+            <button class="cab-btn cab-lookr" aria-label="Look right" title="Look right — hold (E)"><b>${svgIcon('mirrorR')}</b><em>STBD</em></button>
+            <button class="cab-btn cab-lookb" aria-label="Look behind" title="Look behind — hold (S)"><b>${svgIcon('mirrorC')}</b><em>BACK</em></button>
           </div>
         </div>
 
@@ -585,6 +646,7 @@ export function openCab(ctx = {}) {
   st.paintFocusTag = paintFocusTag;
   addEventListener('focusin', paintFocusTag);
   st.onFocusIn = paintFocusTag;
+  paintWipers();
   grabKeys();
 
   // ── THE GATE ───────────────────────────────────────────────────────────────
@@ -804,8 +866,24 @@ export function openCab(ctx = {}) {
   // Wipers, off → intermittent → low → high → off. Purely a client-side control: the blade is
   // drawn on the glass and clears the drops that are drawn on the glass, and neither of those
   // things is a fact about the world, so nothing is told to the server about it.
+  const WIPE_POS = ['OFF', 'INT', 'LOW', 'HIGH'];
+  function paintWipers() {
+    const w = st.wipers | 0;
+    const stalk = container.querySelector('.cab-stalk');
+    if (stalk) {
+      stalk.style.setProperty('--pos', String(w));
+      stalk.classList.toggle('on', w > 0);
+      const lbl = stalk.querySelector('.cab-stalk-pos');
+      if (lbl) lbl.textContent = WIPE_POS[w] || 'OFF';
+      // The stalk's own detent is the state, so the accessible name carries it too — a screen
+      // reader gets "Wipers, low" rather than a control it has to press to learn anything about.
+      stalk.setAttribute('aria-label', 'Wipers — ' + (WIPE_POS[w] || 'OFF').toLowerCase());
+    }
+  }
+  st.paintWipers = paintWipers;
   function cycleWipers() {
     st.wipers = ((st.wipers | 0) + 1) % 4;
+    paintWipers();
     const el = container.querySelector('.cab-wipe');
     if (el) {
       // The LABEL is the state, so it is the label that changes — and it is the <span>, not the
@@ -1716,6 +1794,17 @@ function ensureCabStyles() {
     box-shadow:inset 0 0 2px #000;transition:background .08s, box-shadow .08s}
   .cab-btn b{display:block;font-weight:700;line-height:1;font-size:15px;
     text-shadow:0 1px 1px rgba(0,0,0,.8)}
+  /* A pictogram sits where the glyph did and inherits the key's colour, so the tell-tale, the hover
+     and the disabled state all reach it with no extra rules. */
+  .cab-btn b svg{width:18px;height:18px;display:block;color:#cbd6e3}
+  .cab-btn.on b svg{color:#fff}
+  /* The range collar shows BOTH — the little ladder says what the control is, the word says which
+     way it is set, because LO and HI are the two states you must never have to guess between. */
+  .cab-rangeic{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:14px;height:14px;
+    color:#7d8794;opacity:.9}
+  .cab-rangeic svg{width:100%;height:100%;display:block}
+  .cab-range{padding-top:22px}
+  .cab-range.on .cab-rangeic{color:var(--cab-glow,#e8c07a)}
   /* The legend. Brighter than the first pass — on the reference these are near-white, because the
      word is what you actually navigate by; the pictogram only confirms it. */
   .cab-btn em{display:block;font:700 7px/1 inherit;font-style:normal;letter-spacing:.11em;
@@ -1739,6 +1828,41 @@ function ensureCabStyles() {
   .cab-btn.cab-rocker{padding:4px 4px 5px;justify-content:center;min-height:44px}
   .cab-jake{--key:#4e9ab0}
   .cab-wipe{--key:#6fa8d0}
+  /* ── THE COLUMN STALK ───────────────────────────────────────────────────────
+     A boss on the column and an arm off it, and the ARM'S ANGLE IS THE STATE: --pos steps 0..3 and
+     the arm swings 14° a detent. That is the whole reason this is a stalk rather than a fourth
+     rocker — a rocker can say on or off, and this says which of four without a lamp or a word,
+     which is exactly how you read one at 60mph without looking at it.
+     The word underneath is there anyway, because "slightly further round than it was" is not
+     something anyone should have to judge on a screen. */
+  .cab-stalk{position:relative;display:flex;flex-direction:column;align-items:center;
+    width:78px;height:56px;padding:0;background:none;border:0;cursor:pointer;
+    touch-action:none;user-select:none;color:#c9d4e1}
+  .cab-stalk-mount{position:absolute;left:50%;top:12px;width:15px;height:15px;margin-left:-7.5px;
+    border-radius:50%;background:radial-gradient(circle at 36% 30%,#4b5763,#1b2129 70%,#0c1015);
+    border:1px solid #05080b;box-shadow:0 2px 4px -1px rgba(0,0,0,.7)}
+  /* The arm. Hinged at the boss, so it sweeps rather than slides. */
+  .cab-stalk-arm{position:absolute;left:50%;top:17px;width:36px;height:7px;margin-left:-3px;
+    transform-origin:4px 4px;
+    transform:rotate(calc(-8deg + var(--pos,0) * 14deg));
+    border-radius:4px;
+    background:linear-gradient(#3d4653,#232a32 55%,#141a20);
+    border:1px solid #05080b;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 2px 3px -1px rgba(0,0,0,.65);
+    transition:transform .13s cubic-bezier(.3,1.4,.5,1)}
+  /* The pictogram rides the tip of the arm, on the collar you actually twist. */
+  .cab-stalk-arm b{position:absolute;right:-7px;top:50%;transform:translateY(-50%);
+    width:17px;height:17px;color:#8f9dad;transition:color .1s}
+  .cab-stalk-arm b svg{width:100%;height:100%;display:block}
+  .cab-stalk.on .cab-stalk-arm b{color:#6fa8d0}
+  .cab-stalk-pos{position:absolute;left:0;right:0;bottom:1px;font:700 8px/1 inherit;
+    font-style:normal;letter-spacing:.12em;color:#8b95a2;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  .cab-stalk.on .cab-stalk-pos{color:#cfe3f2}
+  .cab-stalk:hover .cab-stalk-arm{filter:brightness(1.15)}
+  .cab-stalk:focus-visible{outline:2px solid #e8c07a;outline-offset:2px;border-radius:5px}
+  /* Rain on the glass and the stalk still off: the arm nudges rather than a border flashing. */
+  .cab-stalk.hint .cab-stalk-arm{animation:cab-stalk-hint 1.3s ease-in-out infinite}
+  @keyframes cab-stalk-hint{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(0deg)}}
   .cab-horn{--key:#e0b45a}
   .cab-rev{--key:#d2603f}
   .cab-splitbtn{--key:#8fe0a0}
@@ -1758,11 +1882,8 @@ function ensureCabStyles() {
     border-color:#5c6672;color:#fff;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
   .cab-btn.on em{color:#aeb9c6}
   .cab-horn:active{border-color:#e0b45a;box-shadow:0 0 10px rgba(224,180,90,.45)}
-  .cab-wipe.on{border-color:#4e7a9a}
   /* Rain on the glass and the stalk still off: the button asks once, rather than a line of prose
      in the log telling a driver about a key. It stops the moment they touch it. */
-  .cab-wipe.hint{border-color:#6fa8d0;animation:cab-wipe-hint 1.1s ease-in-out infinite}
-  @keyframes cab-wipe-hint{0%,100%{box-shadow:0 0 0 0 rgba(111,168,208,0)}50%{box-shadow:0 0 0 3px rgba(111,168,208,0.28)}}
   .cab-jake.on{border-color:#4e8a9a}
   .cab-gear{min-width:1.6em;text-align:center}
   .cab-brakes.b-hot{color:#d8a24e}
