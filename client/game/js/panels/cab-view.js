@@ -1451,9 +1451,17 @@ function ensureCabStyles() {
   .cab-controls::before{content:'';position:absolute;left:0;right:0;top:0;height:2px;
     background:linear-gradient(90deg,transparent,var(--cab-glow,#e8c07a),transparent);opacity:.35}
   .cab-col{display:flex;flex-direction:column;justify-content:center;gap:6px;flex:0 0 auto}
-  /* THE SHELF IS CONTROLS ONLY NOW, so it is centred rather than spread — the instruments went up
-     onto the painted dash where a dash is, and what is left is the things your hands do. */
-  .cab-controls{justify-content:center}
+  /* ⚠ SPREAD, NOT CENTRED — and this is the fix for controls sitting on top of the steering wheel.
+     Centring a flex row puts every control in the middle of the pane, which is precisely where the
+     painted wheel and the binnacle are, so the hardware ended up stacked over the one part of the
+     dash that was already busy. The wheel is at 42% of the width (cabWheelGeom), so the shelf now
+     pushes its groups out to the two ends and leaves the middle to the column, the way the real
+     dash does: your hands go out to the sides, the wheel is in front of you. */
+  .cab-controls{justify-content:space-between;align-items:flex-end}
+  /* The gap the wheel lives in. Not a control — a deliberate hole in the row, so nothing can drift
+     back into the middle as groups are added or reordered. */
+  .cab-controls::after{content:'';flex:0 1 16%;min-width:0}
+  .cab-col-wheel{order:-1}
   /* THE RECORD, kept and not shown. The standard visually-hidden clip: it stays in the accessibility
      tree, it is still written by the frame loop, and it takes no space away from the road. */
   .cab-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
@@ -1545,7 +1553,12 @@ function ensureCabStyles() {
     background:radial-gradient(circle at 34% 30%,#4a535e,#191d22 70%,#0b0e12);
     border:1px solid #4b5763;box-shadow:0 3px 7px -3px #000, inset 0 1px 0 rgba(255,255,255,.18)}
   .cab-lever.on b.cab-knob{border-color:var(--cab-glow,#e8c07a);box-shadow:0 0 10px rgba(232,192,122,.35)}
-  .cab-box,.cab-steer,.cab-look{display:flex;gap:5px;flex:0 0 auto;align-items:center}
+  /* THE HOUSINGS. A recessed black panel with the keys sitting in it — on the reference this is
+     most of what separates a control box from a row of buttons, because it gives every group an
+     edge and a shadow of its own. */
+  .cab-box,.cab-steer,.cab-look,.cab-rockers{display:flex;gap:6px;flex:0 0 auto;align-items:center;
+    padding:5px;border-radius:6px;background:linear-gradient(#0b0f13,#070a0d);
+    border:1px solid #1b232b;box-shadow:inset 0 2px 6px rgba(0,0,0,.75)}
   .cab-box{flex-wrap:wrap;max-width:96px;justify-content:center}
   .cab-col-gate{align-items:center}
 
@@ -1634,19 +1647,58 @@ function ensureCabStyles() {
      Two children: the glyph, which is what you aim at, and the engraved legend, which is what
      tells you what it does without a tooltip. Both are inside the button, so the accessible name
      is unchanged and nothing here is a caption floating next to a control. */
+  /* ── A KEY, INDIVIDUALLY HOUSED ─────────────────────────────────────────────
+     Modelled on a real truck control box: every function is its own moulded key in its own bezel,
+     with a TELL-TALE STRIP across the top, a pictogram, and the word underneath. The strip is what
+     makes a panel of these readable at a glance — you are not reading twelve labels, you are
+     looking for the one that is lit — and it is why each key needs its own housing rather than
+     being one cell of a shared strip.
+     'gap' is deliberately generous and the housing deliberately dark: on the reference, what reads
+     as quality is the BLACK BETWEEN the keys as much as the keys themselves. */
   .cab-btn{position:relative;display:inline-flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:1px;min-width:38px;min-height:36px;padding:4px 6px 3px;
-    font:600 13px/1 inherit;color:#c8d2de;cursor:pointer;touch-action:none;user-select:none;
-    border:1px solid #2f3843;border-radius:4px;
-    background:radial-gradient(120% 100% at 30% 8%,#39424d,#242b33 55%,#171c22);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.13), 0 2px 3px -1px rgba(0,0,0,.6);
-    transition:transform .05s ease-out, box-shadow .07s, background .07s}
-  .cab-btn b{display:block;font-weight:700;line-height:1;
-    text-shadow:0 1px 1px rgba(0,0,0,.7)}
-  /* The engraved legend. Deliberately smaller and dimmer than the glyph — it is a label on a panel,
-     read once and then never again, and a legend as loud as the control is a busy dash. */
-  .cab-btn em{display:block;font:700 6.5px/1 inherit;font-style:normal;letter-spacing:.10em;
-    color:#7d8794;text-shadow:0 1px 0 rgba(0,0,0,.8)}
+    justify-content:flex-end;gap:2px;min-width:50px;min-height:44px;padding:9px 6px 5px;
+    font:600 13px/1 inherit;color:#dbe4ef;cursor:pointer;touch-action:none;user-select:none;
+    border:1px solid #05080b;border-radius:5px;
+    background:
+      repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px),
+      linear-gradient(#2c333b 0%,#222931 52%,#171d24 53%,#11161c 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.6),
+      0 2px 0 #06090c, 0 3px 5px -2px rgba(0,0,0,.7);
+    transition:transform .05s ease-out, box-shadow .07s, filter .07s}
+  /* THE TELL-TALE. Dark until the control is doing something; the key's own accent when it is. */
+  .cab-btn::before{content:'';position:absolute;top:3px;left:50%;transform:translateX(-50%);
+    width:56%;height:3px;border-radius:1px;background:#0d1319;
+    box-shadow:inset 0 0 2px #000;transition:background .08s, box-shadow .08s}
+  .cab-btn b{display:block;font-weight:700;line-height:1;font-size:15px;
+    text-shadow:0 1px 1px rgba(0,0,0,.8)}
+  /* The legend. Brighter than the first pass — on the reference these are near-white, because the
+     word is what you actually navigate by; the pictogram only confirms it. */
+  .cab-btn em{display:block;font:700 7px/1 inherit;font-style:normal;letter-spacing:.11em;
+    color:#aab5c2;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  .cab-btn:hover{filter:brightness(1.12)}
+  /* Pressed: the key goes down onto its own shadow, which is what the 0 2px 0 under it is for. */
+  .cab-btn:active{transform:translateY(2px);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.6), 0 0 0 #06090c}
+  .cab-btn.on::before{background:var(--key,#e8c07a);
+    box-shadow:0 0 6px var(--key,#e8c07a), 0 0 2px var(--key,#e8c07a)}
+  .cab-btn.on em{color:#fff}
+  .cab-btn.on{filter:brightness(1.06)}
+  /* Colour-coded by what the control DOES, the way the reference groups engine, view and comfort.
+     The tell-tale carries it; the key face stays the same moulding throughout, because a dash of
+     twelve different coloured plastics is a toy. */
+  /* A ROCKER IS NOT A KEY and keeps being a rocker: a real cab has both, and the ask was that
+     each control look like the thing it actually is rather than like its neighbours. It carries
+     its own tell-tale drilled into the bezel, so it must not also grow the key strip — two lamps
+     on one switch is the tell that a style was applied rather than chosen. */
+  .cab-btn.cab-rocker::before{display:none}
+  .cab-btn.cab-rocker{padding:4px 4px 5px;justify-content:center;min-height:44px}
+  .cab-jake{--key:#4e9ab0}
+  .cab-wipe{--key:#6fa8d0}
+  .cab-horn{--key:#e0b45a}
+  .cab-rev{--key:#d2603f}
+  .cab-splitbtn{--key:#8fe0a0}
+  .cab-lookl,.cab-lookr,.cab-lookb{--key:#8fa4bc}
+  .cab-left,.cab-right{--key:#9fb4c8}
   /* The housing is screwed to the dash: pressing the switch must not repaint or move it. Both
      of these restate the bezel because .cab-btn:active and .cab-btn.on tie on specificity with
      .cab-btn.cab-rocker and come later in the sheet, so without them a press would hand the

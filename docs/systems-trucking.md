@@ -763,7 +763,28 @@ they have to fill** rather than a multiple of their own width — "bunched up" w
 on a 600px stretch of empty vinyl — and the tell-tale wall is solved *before* the right-hand bars,
 so two independently laid-out instruments can never overlap.
 
-**Glass is a rung on the fleet ladder** *(2026-08-14)*. The dials' cover was one flat linear wash,
+⚠ **The dash has its own canvas, at native resolution** *(2026-08-14)*. This is the root cause of a
+dash that read as *blurred*, and it was not a styling problem. The world canvas runs **dynamic
+resolution** — under load its backing store drops to as low as **0.6×** native and CSS scales it
+back up. That is the right trade for what it was built for (clouds, buildings, ground: big soft
+masses, and every pass gets cheaper at once) and the wrong one for an instrument panel, which is 8px
+legends and one-pixel needles a foot from the player's eye. A speedometer rendered at 60% and
+upscaled is not a look, it is a blurry speedometer. `windshieldHTML` now emits a second
+`<canvas class="ws-dash">` and `paintCabDash` draws the interior onto it at full device-pixel ratio,
+outside the scaler entirely. ⚠ **The layer is cleared on every path that is not the cab** — it is
+persistent, so a shoulder-check, the external view and a window seat each leave the forward branch
+by a different door and every one of them must blank it.
+
+**Glass follows the house recipe, and the house recipe is HARD-EDGED** *(2026-08-14)*. The first
+attempt was soft, broad and low-contrast in every particular, which is why it read as smudged. The
+AMP deck and the ATM screen (`.amp-glass-cover` / `.atm-crt-glass` in `styles.css`) had the answer
+already: a **narrow hard-stopped sheen streak** (bright at 47% of a diagonal, gone by 54%), a
+vignette that stays **fully transparent across the readable face** and tightens only at the rim — the
+first version started shading at 62% and reached 0.52 alpha, fogging the outer third where the
+numbers live — a **small tight** corner catch rather than a half-dial ellipse, and crisp 1px edges.
+**Glass is defined by its edges; blur is what you get from trying to define it by its middle.**
+
+**Glass quality is a rung on the fleet ladder** *(2026-08-14)*. The dials' cover was one flat linear wash,
 which reads as a circle that has been *shaded* rather than a circle with a lens on it — what sells a
 cover is the EDGE: light entering the curve, and the bezel throwing a shadow inward onto the face.
 It is four passes now (bezel shade, a tilted elliptical specular, the windscreen's own sweep, and a
@@ -778,6 +799,24 @@ because a scratch in plastic catches light instead of blocking it.
 tachometer, and the right-hand cluster plate was still being stretched to the width of the
 instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
 cheap truck. The plate hugs what is actually mounted on it.
+
+**The shelf is spread, not centred** *(2026-08-14)*. `justify-content:center` put every control in
+the middle of the pane — which is exactly where the painted wheel and the binnacle are, so the
+hardware ended up stacked over the one part of the dash that was already busy. The wheel sits at 42%
+of the width (`cabWheelGeom`), so the groups push out to the two ends and a flex `::after` holds the
+hole in the middle open, which is what stops anything drifting back into it as groups are added.
+Hands out to the sides, wheel in front of you — the arrangement the real thing has.
+
+**Each control is housed as the thing it actually is** *(2026-08-14)*, modelled on a truck control
+box: every function is its own moulded key in its own bezel, with a **tell-tale strip across the
+top**, a pictogram, and the word under it. The strip is what makes a panel of these readable at a
+glance — you are not reading twelve labels, you are looking for the one that is lit — and it is why
+each key needs its own housing rather than being a cell in a shared strip. Groups sit in a recessed
+black panel, because **what reads as quality is the black BETWEEN the keys** as much as the keys.
+The tell-tale carries the colour-coding and the key face never does: a dash of twelve different
+coloured plastics is a toy. ⚠ **A rocker stays a rocker** — a real cab has both, and its tell-tale
+is drilled into its own bezel, so it is excluded from the key strip; two lamps on one switch is the
+tell that a style was applied rather than chosen.
 
 **The controls are switches, and the legends are printed on them** *(2026-08-14)*. They were dialog
 buttons carrying a glyph and a `title`, which is the least discoverable arrangement available: a

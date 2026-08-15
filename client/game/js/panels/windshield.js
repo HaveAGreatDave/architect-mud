@@ -522,6 +522,10 @@ export function ensureWindshieldStyles() {
     .ws-wrap { position:relative; width:100%; height:100%; min-height:70px; overflow:hidden;
       border-radius:8px; background:#04070c; box-shadow:inset 0 0 22px rgba(0,0,0,0.75); }
     .ws-canvas { display:block; width:100%; height:100%; }
+    /* The instrument layer. Full native resolution, never touched by the world canvas's dynamic
+       resolution scaler, and transparent everywhere the cab is not. pointer-events stay off — the
+       glass underneath is the steering surface and the horn hit-test. */
+    .ws-dash { position:absolute; inset:0; display:block; width:100%; height:100%; pointer-events:none; }
     .ws-frame { position:absolute; inset:0; pointer-events:none; }
     .ws-frame::before { content:''; position:absolute; inset:0; border-radius:8px;
       box-shadow:inset 0 0 0 3px rgba(20,28,38,0.9), inset 0 0 40px rgba(0,0,0,0.55); }
@@ -536,7 +540,19 @@ export function ensureWindshieldStyles() {
 }
 
 export function windshieldHTML(id, label = 'FWD VIEW') {
-  return `<div class="ws-wrap"><canvas id="${id}" class="ws-canvas"></canvas><div class="ws-frame"></div><span class="ws-label">${label}</span></div>`;
+  // TWO CANVASES, AND THE SECOND ONE IS WHY THE DASH IS SHARP.
+  //
+  // The world canvas runs DYNAMIC RESOLUTION — under load its backing store drops to as low as
+  // 0.6x native and CSS scales it back up. That is exactly right for what it was built for
+  // (clouds, buildings, ground: big soft masses where nobody can see the difference and every pass
+  // gets cheaper at once) and exactly wrong for an instrument panel, which is 8px legends and
+  // one-pixel needles about a foot from the player's eye. A speedometer rendered at 60% and
+  // upscaled is not a stylistic choice, it is a blurry speedometer.
+  //
+  // So the cab interior gets its own layer at FULL native resolution and never rides the scaler.
+  // It also only redraws when something on it changed (see paintCabDash), which is most of the
+  // cost back: the world repaints every frame because the world moves, and a dash does not.
+  return `<div class="ws-wrap"><canvas id="${id}" class="ws-canvas"></canvas><canvas id="${id}-dash" class="ws-dash" aria-hidden="true"></canvas><div class="ws-frame"></div><span class="ws-label">${label}</span></div>`;
 }
 
 export function disposeWindshield(id) { _scenes.delete(id); }
@@ -1289,8 +1305,16 @@ export function paintWindshield(id, view) {
   // off the nose in a truck is looking out a different piece of glass, and there is no dash behind
   // it. (No `windowClass` here on purpose: that punches a framed porthole through a HULL, which is
   // an aircraft's cabin. A truck's side window is just a window.)
-  if (!v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw) drawCabInterior(ctx, W, H, v);
-  else if (!v.windowClass && !ext) {
+  // The cab is drawn on its OWN canvas at native resolution — see windshieldHTML. Passing the
+  // world's ctx here would put the dash back under the dynamic-resolution scaler.
+  // ⚠ THE LAYER IS CLEARED ON EVERY PATH THAT IS NOT THE CAB, not just on the ones that draw
+  // something else instead. It is a persistent canvas: whatever was last painted on it stays there
+  // until something says otherwise, so an unconditional clear is the only version that survives a
+  // shoulder-check, the external view and a window seat — each of which leaves the forward branch
+  // by a different door.
+  const wantCab = !v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw;
+  if (wantCab) paintCabDash(id, v); else clearCabDash(id);
+  if (!wantCab && !v.windowClass && !ext) {
     drawCanopyCached(ctx, W, H, dpr);   // DA62-style curved windscreen header (forward view)
     drawCowlCached(ctx, W, H, v.cls, dpr);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   }
@@ -1543,6 +1567,37 @@ export const cabWheelGeom = (W, H) => {
 };
 // The horn boss, for the cab's hit-test — derived, never a second copy.
 export const cabWheelHub = (W, H) => { const g = cabWheelGeom(W, H); return { x: g.x, y: g.y, r: g.hubR }; };
+
+// ── The instrument layer ─────────────────────────────────────────────────────
+// Its own canvas, its own device-pixel ratio, and deliberately NOT the world's.
+//
+// The world canvas drops its backing store to as low as 0.6x under load and lets CSS scale it up,
+// which is the right trade for clouds and buildings and the wrong one for a panel of 8px legends
+// and one-pixel needles. This layer is always native, so the dash is as sharp as the display can
+// draw regardless of what the weather is costing.
+function dashCanvas(id) { return document.getElementById(id + '-dash'); }
+function clearCabDash(id) {
+  const c = dashCanvas(id);
+  if (!c || !c._painted || !c.getContext) return;
+  const g = c.getContext('2d');
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, c.width, c.height);
+  c._painted = false;
+}
+function paintCabDash(id, v) {
+  const c = dashCanvas(id);
+  if (!c || !c.getContext) return;
+  const cw = c.clientWidth, ch = c.clientHeight;
+  if (!cw || !ch) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const wantW = Math.round(cw * dpr), wantH = Math.round(ch * dpr);
+  if (c.width !== wantW || c.height !== wantH) { c.width = wantW; c.height = wantH; }
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, cw, ch);
+  drawCabInterior(g, cw, ch, v);
+  c._painted = true;
+}
 
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
@@ -2020,71 +2075,68 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   ctx.fillText(label, cx, cy + r * (read != null ? 0.76 : 0.52));
   // ── THE GLASS ──────────────────────────────────────────────────────────────
   //
-  // Four passes, and the reason it is four rather than the one flat wash it replaces is that a
-  // single linear gradient over a circle reads as a circle that has been shaded, not as a circle
-  // with a lens on it. What sells a cover is the EDGE of it: light entering the curve, and the
-  // bezel throwing a shadow inward onto the face.
+  // ⚠ THIS IS THE HOUSE RECIPE (`.amp-glass-cover` / `.atm-crt-glass` in styles.css), and the first
+  // attempt at it was the opposite of the house recipe in every particular — which is exactly why
+  // it read as blurred rather than as glass.
   //
-  // AND IT IS A RUNG ON THE FLEET LADDER. `gloss` runs 0.22 on the Barrow to 1 on the Orlov, which
-  // is exactly the right axis for it — nobody sells you a faster truck by fitting better glass, so
-  // this can be as luxurious as it likes without touching a number the physics read. A cheap dial
-  // is dull, slightly hazy and finely crazed; an expensive one is deep, clean and wet-looking.
+  // What the AMP deck and the ATM screen do, and what this now does:
+  //   • the sheen is a NARROW HARD-EDGED STREAK — bright at 47%, gone by 60% of a diagonal. A wide
+  //     soft gradient is not a reflection, it is a smudge.
+  //   • the vignette stays FULLY TRANSPARENT to ~62% of the radius and only then darkens. The
+  //     first version started shading at 62% and reached 0.52 alpha at the rim, which fogged the
+  //     entire outer third of the face — the numbers live out there.
+  //   • the corner highlight is SMALL and tight, not a half-dial ellipse.
+  //   • every edge is a crisp 1px line. Glass is defined by its edges; blur is what you get when
+  //     you try to define it by its middle.
   const gloss = T.gloss ?? 0.6;
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
 
-  // 1. THE SHADOW UNDER THE BEZEL. Glass sits down inside a ring, so the ring shades the top of the
-  //    face — the single strongest cue that the cover is BELOW the rim rather than painted on it.
-  const sh = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r);
-  sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, `rgba(0,0,0,${0.30 + 0.22 * gloss})`);
-  ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  // 1. The vignette — transparent across the whole readable face, tightening only at the rim.
+  const vg = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, `rgba(0,0,0,${0.30 + 0.18 * gloss})`);
+  ctx.fillStyle = vg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-  // 2. THE SPECULAR. An elliptical highlight up in the top-left quadrant, rotated off the vertical
-  //    the way a real reflection of a window is — a symmetrical one reads as a drawn shape, and the
-  //    slight tilt is most of what stops it looking like a sticker.
-  ctx.save();
-  ctx.translate(cx - r * 0.30, cy - r * 0.40);
-  ctx.rotate(-0.5);
-  const sp = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.62);
-  sp.addColorStop(0, `rgba(255,255,255,${0.05 + 0.16 * gloss})`);
-  sp.addColorStop(0.55, `rgba(255,255,255,${0.02 + 0.05 * gloss})`);
-  sp.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = sp;
-  ctx.beginPath(); ctx.ellipse(0, 0, r * 0.62, r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  // 2. The streak. Hard stops, 115° like the deck's, and only ~12% of the sweep wide.
+  const st2 = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  st2.addColorStop(0.00, 'rgba(255,255,255,0)');
+  st2.addColorStop(0.40, 'rgba(255,255,255,0)');
+  st2.addColorStop(0.44, `rgba(238,248,255,${0.05 + 0.14 * gloss})`);
+  st2.addColorStop(0.50, `rgba(238,248,255,${0.02 + 0.05 * gloss})`);
+  st2.addColorStop(0.54, 'rgba(255,255,255,0)');
+  ctx.fillStyle = st2; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-  // 3. THE SWEEP. A hard-edged band of light across the upper third — the reflection of the
-  //    windscreen itself, and the part a player will read as "there is glass on that".
-  const sw = ctx.createLinearGradient(cx - r, cy - r * 0.9, cx + r * 0.5, cy + r * 0.25);
-  sw.addColorStop(0, `rgba(255,255,255,${0.03 + 0.10 * gloss})`);
-  sw.addColorStop(0.42, `rgba(255,255,255,${0.01 + 0.05 * gloss})`);
-  sw.addColorStop(0.46, 'rgba(255,255,255,0)');
-  ctx.fillStyle = sw; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  // 3. The corner catch — small, high, tight, top-left. The deck's is 80%×55% at 26%/18%.
+  const hl = ctx.createRadialGradient(cx - r * 0.42, cy - r * 0.52, 0, cx - r * 0.42, cy - r * 0.52, r * 0.62);
+  hl.addColorStop(0, `rgba(255,255,255,${0.04 + 0.11 * gloss})`);
+  hl.addColorStop(0.6, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
 
-  // 4. CRAZING, and only on the truck that has earned it. Three faint arcs across the cover of a
-  //    forty-year-old instrument — deterministic (seeded off the dial's own position, so it does
-  //    not crawl between frames) and drawn as light rather than dark, because a scratch in plastic
-  //    catches the light instead of blocking it.
+  // 4. Crazing, and only on the truck that has earned it: three fine arcs across a forty-year-old
+  //    cover. Seeded off the dial's own position so they never crawl between frames, and drawn as
+  //    LIGHT because a scratch in plastic catches light rather than blocking it.
   if (T.crazed && r > 14) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
-    ctx.lineWidth = Math.max(0.6, r * 0.012);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = Math.max(0.5, r * 0.008);
     for (let i = 0; i < 3; i++) {
       const a0 = ((cx * 7 + cy * 13 + i * 97) % 360) * Math.PI / 180;
       ctx.beginPath();
-      ctx.arc(cx + Math.cos(a0) * r * 0.5, cy + Math.sin(a0) * r * 0.5, r * (0.55 + i * 0.14),
-        a0, a0 + 1.1);
+      ctx.arc(cx + Math.cos(a0) * r * 0.5, cy + Math.sin(a0) * r * 0.5, r * (0.55 + i * 0.14), a0, a0 + 1.1);
       ctx.stroke();
     }
   }
   ctx.restore();
 
-  // 5. THE RIM SPECULAR, OUTSIDE the clip so it rides the bezel itself: a bright quarter-arc at
-  //    ten o'clock. On the Orlov's brass this is the thing that says brass.
-  if (gloss > 0.35) {
-    ctx.strokeStyle = `rgba(255,255,255,${0.10 * gloss})`;
-    ctx.lineWidth = Math.max(1, r * 0.05);
-    ctx.beginPath(); ctx.arc(cx, cy, r * 0.985, Math.PI * 1.05, Math.PI * 1.55); ctx.stroke();
-  }
+  // 5. THE EDGE, outside the clip so it rides the bezel. One crisp bright arc at ten o'clock and a
+  //    dark one opposite: the cheapest possible statement that this is a curved cover set into a
+  //    ring, and on the Orlov's brass it is the thing that says brass.
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = `rgba(255,255,255,${0.06 + 0.16 * gloss})`;
+  ctx.lineWidth = Math.max(1, r * 0.035);
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.97, Math.PI * 1.02, Math.PI * 1.52); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.97, Math.PI * 0.05, Math.PI * 0.5); ctx.stroke();
   ctx.restore();
 }
 
