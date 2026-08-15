@@ -178,6 +178,14 @@ const svgIcon = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" 
 //
 // It is at module scope because the markup is generated from it: every slot is a real <button>, and
 // a table that the DOM and the hit-test both read cannot put a legend where there is no target.
+// The four wiper detents, in order. ⚠ MODULE SCOPE, DELIBERATELY. It lived inside openCab as a
+// const, and `paintWipers` — a hoisted function declaration called early in the mount to set the
+// stalk to its starting position — closed over it. The function hoists; the const does NOT, so the
+// early call landed in its temporal dead zone and threw "Cannot access WIPE_POS before
+// initialization", which aborted openCab entirely: no world, no dash, no wired controls, and
+// nothing on screen to suggest the cause. A static table has no business being per-instance state
+// anyway, and up here the hoisted function is genuinely safe to call from anywhere in the mount.
+const WIPE_POS = ['OFF', 'INT', 'LOW', 'HIGH'];
 const CAB_GATE = [
   { x: 0.24, y: 0.15, slot: 1 },
   { x: 0.24, y: 0.85, slot: 2 },
@@ -866,7 +874,6 @@ export function openCab(ctx = {}) {
   // Wipers, off → intermittent → low → high → off. Purely a client-side control: the blade is
   // drawn on the glass and clears the drops that are drawn on the glass, and neither of those
   // things is a fact about the world, so nothing is told to the server about it.
-  const WIPE_POS = ['OFF', 'INT', 'LOW', 'HIGH'];
   function paintWipers() {
     const w = st.wipers | 0;
     const stalk = container.querySelector('.cab-stalk');
