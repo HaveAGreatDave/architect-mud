@@ -562,6 +562,7 @@ export function paintWindshield(id, view) {
   const cw = cv.clientWidth, ch = cv.clientHeight; if (!cw || !ch) return;
   const ctx = cv.getContext('2d');
   const st = sceneFor(id, cw, ch);
+  const v = view || {};
   const baseDpr = Math.min(2, window.devicePixelRatio || 1);
   // Dynamic resolution scaling: under sustained frame-time load, shrink the backing store below
   // native and let CSS upscale it — the broadest fps lever, since it scales EVERY pass at once
@@ -600,7 +601,6 @@ export function paintWindshield(id, view) {
   // visible deck stays put; the soft budget edge below fades the far tail we still can't afford.
   st.cloudQ = clamp(1 - (st.frameMs - 22) / 26, 0.5, 1);
 
-  const v = view || {};
   // Look direction: Q/E/S swivel the camera off the nose (viewYaw ≠ 0) while the aircraft
   // keeps flying straight ahead — the WORLD renders in the look direction, but the HUD
   // (heading tape, airport tags) always reads true heading. The passenger cabin (side)
