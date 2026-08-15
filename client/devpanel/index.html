@@ -411,6 +411,17 @@
         <button class="dev-settings-opt" data-value="off">Off</button>
       </div>
     </div>
+    <!-- The boot splash is ARMED, not shown (bootSplashArm in js/bootstrap.js): on a warm cache it
+         never paints at all. This is for the case that is not about speed — a panel on a projector,
+         a screenshot, or simply not wanting to be greeted by name fifty times a day. Off means the
+         card is never armed, so it costs nothing rather than being hidden after the fact. -->
+    <div class="settings-group">
+      <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Boot Splash</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-splash">
+        <button class="dev-settings-opt" data-value="on">Show THOMAS</button>
+        <button class="dev-settings-opt" data-value="off">Skip</button>
+      </div>
+    </div>
     <div class="settings-group">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Temperature Units</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-tempunit">

@@ -1939,9 +1939,13 @@ function ensureCabStyles() {
      Materials, and only materials. A tier changes what the shelf is MADE of and
      which instruments are bolted to it (CAB_KIT) — never a number the physics
      read, which all live in effTruckParams on the server. */
-  .cab-t0 .cab-controls{background:linear-gradient(#23241d,#111209);border-top-color:#3a3a2c}  /* flaking olive steel */
-  .cab-t0 .cab-btn,.cab-t0 .cab-gate{background:#1e1f18;border-color:#3d3e30}
-  .cab-t0 .cab-pedal{border-color:#3d3e30}
+  /* Chipped brown enamel over steel — the same board CAB_TRIM[0] paints up on the glass, so the
+     shelf and the fascia are one truck rather than two. Brown, and NOT the Orlov's brown: this one
+     is chalky and desaturated where that one is deep and varnished. */
+  .cab-t0 .cab-controls{background:linear-gradient(#2a211a,#130d08);border-top-color:#493826}
+  .cab-t0 .cab-btn,.cab-t0 .cab-gate{background:#241c15;border-color:#4a3927}
+  .cab-t0 .cab-pedal{border-color:#4a3927}
+  .cab-t0 .cab-readout span{color:#8d7b64}
   .cab-t2 .cab-controls{background:linear-gradient(#182219,#0a100c);border-top-color:#2b3a30}  /* green vinyl */
   .cab-t2 .cab-btn,.cab-t2 .cab-gate{background:#16201a;border-color:#2e4033}
   .cab-t2 .cab-pedal{border-color:#2e4033}

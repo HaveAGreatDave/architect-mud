@@ -7,6 +7,7 @@ import { adjustSanity } from '../../server/engine/condition.js';
 import { getLivePlayer, getAllLivePlayers, getZone, getMinimapData, insertFurniture, updateFurnitureWhere } from '../../server/engine/world.js';
 import { autoResolvePower, recalcZoneLoad, syncZoneLighting, getZonePowerStatus, devTriggerWeatherEvent } from '../../server/engine/environment.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { cmdSoil } from './soil.js';
 
 const OUTFIT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'cyd-outfit.json');
 
@@ -258,6 +259,7 @@ export const commands = {
   heal: cmdHeal,
   lettherebelight: cmdLetThereBeLight,
   makeitrain: cmdMakeItRain,
+  soil: cmdSoil,
   testaccolade: cmdTestAccolade,
   weatherevent: cmdWeatherEvent,
 };

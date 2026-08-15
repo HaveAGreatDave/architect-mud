@@ -109,6 +109,32 @@
     config: { duration, layers: layers.filter(Boolean) },
   });
 
+  // ── The dense tier's level, in ONE place ────────────────────────────────────
+  //
+  // Footsteps, doors and locks were written quiet on purpose — they are the floor
+  // of the mix, not events in it. The transport then applies its own sub-1 gain
+  // for the same reason (OWN_STEP_GAIN, and the door's 0.6, in plugins/audio).
+  // Each was defensible alone; multiplied they put the whole tier 13-20 dB under
+  // cues like `chop`, which is below the noise floor of a rain bed — so the tier
+  // shipped inaudible and read as "footsteps are broken".
+  //
+  // The fix belongs HERE rather than in the transport, because those transport
+  // numbers each say something true (your own feet against someone else's, a
+  // refusal against an open) and raising them past 1 would destroy that reading
+  // to fix a problem in the source material.
+  //
+  // The three constants differ because they exist to CANCEL the three different
+  // transport gains — they are not three opinions about loudness. All three land
+  // the family at ~6 dB under `chop`, which is the level the tier was always
+  // described as having. Retune by changing the 6 dB target, not one family.
+  const STEP_LEVEL = 2.4;   // × 0.55 own-step × 0.6 game-sfx
+  const DOOR_LEVEL = 3.0;   // × 0.6 door × 0.6 game-sfx
+  const LOCK_LEVEL = 5.3;   // as door, from a quieter mechanism
+  const atLevel = (d, k) => {
+    for (const l of d.config.layers) l.gain = (l.gain ?? 1) * k;
+    return d;
+  };
+
   // ── IMPACT ───────────────────────────────────────────────────────────────────
   // Utensils on cookware, a plate set down, a mallet on meat. Heavy things are
   // lower and ring longer; small ones are brighter and shorter.
@@ -701,7 +727,7 @@
     // layer below reads the weather-adjusted values without threading them.
     f = { ...f, wetness, hardness };
 
-    return def('step', 0.5, [
+    return atLevel(def('step', 0.5, [
       { waveform: 'triangle', freq,
         pitchBend: { to: freq * 0.62, time: decay * 0.6 },
         filter: { type: 'lowpass', freq: vary(lerp(500, 3000, f.hardness), 0.15), q: 1.1 },
@@ -737,7 +763,7 @@
         filter: { type: 'bandpass', freq: vary(lerp(180, 420, f.resonance), 0.2), q: lerp(2, 7, f.resonance) },
         adsr: { a: 0.002, d: vary(lerp(0.07, 0.26, f.resonance), 0.22), s: 0, r: 0.10 },
         gain: vary(0.035 * f.resonance * (0.6 + i), 0.18) },
-    ], 3);
+    ], 3), STEP_LEVEL);
   }
 
   // ── DOOR ─────────────────────────────────────────────────────────────────────
@@ -830,7 +856,7 @@
         gain: vary(0.018 * (0.6 + 0.5 * i), 0.15) },
     ];
 
-    return def(closing ? 'door_close' : 'door_open', travel + 0.45, layers, 3);
+    return atLevel(def(closing ? 'door_close' : 'door_open', travel + 0.45, layers, 3), DOOR_LEVEL);
   }
 
   // ── LOCK ─────────────────────────────────────────────────────────────────────
@@ -881,7 +907,7 @@
     const base = vary(lerp(320, 900, L.electronic) * L.pitch, 0.1);
     const end = denied ? base * 0.55 : (opening ? base * 0.78 : base * 1.22);
 
-    return def(`lock_${denied ? 'denied' : opening ? 'unlock' : 'lock'}`, dur + 0.4, [
+    return atLevel(def(`lock_${denied ? 'denied' : opening ? 'unlock' : 'lock'}`, dur + 0.4, [
       // The bolt. Steel sliding and seating.
       L.bolt > 0.1 && { noiseMix: 1,
         filter: { type: 'bandpass', freq: vary(lerp(900, 2600, 1 - L.electronic), 0.2), q: lerp(1.2, 3.0, L.bolt) },
@@ -907,7 +933,7 @@
         tremolo: { rate: vary(26, 0.15), depth: 0.9 },
         adsr: { a: 0.004, d: vary(0.16, 0.2), s: 0, r: 0.06 },
         gain: vary(0.055, 0.15) },
-    ], 3);
+    ], 3), LOCK_LEVEL);
   }
 
   // THE ENTRY POINT. Everything above is deterministic given `rnd`, so seeding

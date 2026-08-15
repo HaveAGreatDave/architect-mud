@@ -121,7 +121,19 @@ function bootSplashPaintBar() {
   if (fill) fill.style.width = `${Math.round(_bootAt * 100)}%`;
 }
 
+// TURNED OFF MEANS NEVER ARMED, not hidden afterwards. The splash is already free on a warm cache
+// (see the arm rule above), so the only honest way to switch it off is to not start the clock —
+// then there is no timer, no interval cycling the jokes, and nothing for bootSplashDone to unwind.
+// Read live off devSettings rather than cached at load: the panel is a long-lived tab and a setting
+// you have to reload to feel is a setting people assume is broken.
+// ⚠ THE DEFAULT IS ON, and it must stay a string compare against 'off' rather than a truthy test —
+// the key is absent for everyone who has never opened Settings, and an absent key is ON.
+function bootSplashEnabled() {
+  try { return (devSettings?.bootSplash || 'on') !== 'off'; } catch { return true; }
+}
+
 function bootSplashArm() {
+  if (!bootSplashEnabled()) return;
   _bootArmTimer = setTimeout(() => {
     _bootArmTimer = null;
     _bootShownAt = Date.now();
@@ -282,6 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#dev-opt-motion .dev-settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {
       devSettings.motion = btn.dataset.value;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  });
+
+  document.querySelectorAll('#dev-opt-splash .dev-settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      devSettings.bootSplash = btn.dataset.value;
       saveDevSettings(devSettings);
       applyDevSettings();
     });

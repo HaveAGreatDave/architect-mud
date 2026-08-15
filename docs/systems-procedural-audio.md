@@ -172,6 +172,50 @@ unmarked cue is untouched. That is what makes `limited` — what everybody who h
 never chosen gets — a *provable* no-op against every cue that shipped before this,
 and it is the property that made the tier safe to turn on for the whole game.
 
+### A crossing is a walk, not a click
+
+A room transition is not an instant. `stepCadenceMs(player)` — the game's one step
+clock, in [plugins/pacing/index.js](../plugins/pacing/index.js), the same number
+the pacing throttle uses and `plugins/pinch`'s walker paces off — says a crossing
+takes 900ms walking, 700 running, 350 sprinting, road-scaled. One 130ms cue across
+that span is a tap, not a footstep, and no amount of gain fixes it.
+
+So `movement.step` sends **one message describing a cadence**, not one footfall:
+`series: {count: 4, interval: cadence/2, key: 'step'}`. The client schedules it
+([dispatch.js](../client/game/js/dispatch.js) — `playSeries`), alternating `foot`
+per footfall and deriving a per-footfall seed from the base one, so the copy the
+room hears is the same performance the walker hears.
+
+One message, not four, for the reason the tier is affordable at all: a step is
+~70 bytes, and quadrupling the message count on the per-move path to say something
+the client can schedule itself gives that back for nothing.
+
+⚠ **The tail is the arrival, and it falls out of cancellation rather than being a
+special case.** Four footfalls at half-cadence span 1.5× a crossing, and a new step
+*replaces* the pending remainder. So walking continuously is one unbroken cadence,
+and the last two footfalls only ever play when you actually **stopped** — which is
+precisely when a listener needs to know they have arrived. Two consequences: the
+server no longer flips `foot` per move (the client advances it within the series,
+so flipping too would land the same foot twice at every room boundary), and any new
+repeating cue must carry a `key` or it will pile up on itself.
+
+### The level, and why it is in the generator
+
+The tier shipped **inaudible**, and the cause was two defensible decisions
+multiplying. The generators write quiet layers because these sounds are the floor
+of the mix; the transport then applies its own sub-1 gain (`OWN_STEP_GAIN`, the
+door's `0.6`) for the same reason. Together they put footsteps 13–20 dB under a cue
+like `chop` — under the noise floor of a rain bed.
+
+The correction is `STEP_LEVEL` / `DOOR_LEVEL` / `LOCK_LEVEL` in
+[procedural-sfx.js](../client/shared/procedural-sfx.js), which put the family at
+**~6 dB under `chop`**. They live in the generator, not the transport, because the
+transport numbers each say something true — your own feet against someone else's, a
+refusal against an open — and raising them past 1 would destroy that reading to fix
+a problem in the source material. **The three constants differ only to cancel three
+different transport gains; they are not three opinions about loudness.** Retune by
+moving the 6 dB target, never one family on its own.
+
 ### Nothing is authored twice
 
 | The sound of | comes from | authored |

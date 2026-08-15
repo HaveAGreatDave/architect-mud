@@ -120,6 +120,9 @@ function applyDevSettings() {
   const density = devSettings.density || 'comfortable';
   const motion = devSettings.motion || 'on';
   const tempUnit = devSettings.tempUnit || 'C';
+  // Absent is ON — the splash predates the switch, and everybody who has never opened this panel
+  // should keep getting the thing they already had.
+  const bootSplash = devSettings.bootSplash || 'on';
 
   const customTheme = (devSettings.customThemes || []).find(t => t.id === themeId);
   document.documentElement.setAttribute('data-theme', customTheme ? 'dark' : themeId);
@@ -140,6 +143,9 @@ function applyDevSettings() {
   });
   document.querySelectorAll('#dev-opt-tempunit .dev-settings-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.value === tempUnit);
+  });
+  document.querySelectorAll('#dev-opt-splash .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === bootSplash);
   });
 
   const contrastLevel = devSettings._contrastPreview != null ? devSettings._contrastPreview : (devSettings.contrast || 0);

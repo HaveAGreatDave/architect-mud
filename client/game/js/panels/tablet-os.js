@@ -1768,10 +1768,12 @@ function ensureStyles() {
        while Discord loads. */
     #tablet-os-overlay .tos-dis { display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px 12px 18px; }
     #tablet-os-overlay .tos-dis-lede { font-size:0.6875rem; color:var(--tos-fg-dim); text-align:center; max-width:300px; line-height:1.6; }
-    #tablet-os-overlay .tos-dis-frame { width:100%; max-width:350px; min-height:420px; height:52vh; border:0; border-radius:8px;
+    /* No max-width, deliberately. Discord's widget ellipsis-clips member names to ITS container,
+       and we cannot restyle a cross-origin iframe — so the only lever on a name reading "a...." is
+       giving the frame the full width of the tablet page. */
+    #tablet-os-overlay .tos-dis-frame { width:100%; min-height:420px; height:52vh; border:0; border-radius:8px;
       background:var(--tos-surface-lo); color-scheme:dark;
       box-shadow:inset 0 1px 0 var(--tos-bevel-hi), 0 2px 8px rgba(0,0,0,.28); }
-    #tablet-os-overlay .tos-dis-fall { font-size:0.625rem; color:var(--tos-fg-dim); text-align:center; max-width:300px; line-height:1.6; opacity:.85; }
     #tablet-os-overlay .tos-dis-open { display:inline-block; cursor:pointer; padding:7px 14px; border-radius:6px; text-decoration:none;
       font-size:0.75rem; letter-spacing:.5px; color:var(--mg-accent);
       border:1px solid color-mix(in srgb, var(--mg-accent) 34%, transparent);
@@ -6387,7 +6389,9 @@ const DISCORD_SERVER_ID = '1537202670451040316';
 // and it renders only while Discord's own server-side widget switch is on; the invite is how a
 // person actually joins, and it works when the widget shows nothing at all — which is the exact
 // case the link beside it exists for.
-const DISCORD_INVITE = 'https://discord.gg/kgPYFpQNQ';
+// Exported because the `discord` verb (client/game/js/input.js) prints the same link, and an invite
+// that lives in two places is an invite that expires in one of them.
+export const DISCORD_INVITE = 'https://discord.gg/kgPYFpQNQ';
 function renderDiscordPage() {
   // The tablet's own theme drives the widget's: a parchment tablet with a black widget bolted into
   // it reads as a bug rather than as a choice. `LIGHT_THEMES` is a list of [value, label] PAIRS,
@@ -6402,8 +6406,6 @@ function renderDiscordPage() {
     <div class="tos-dis-lede">Who is about, right now. The Basin has a bar and this is it.</div>
     <iframe class="tos-dis-frame" src="${esc(src)}" title="Architect on Discord" loading="lazy"
       sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
-    <div class="tos-dis-fall">Nothing there? The widget needs to be switched on in Discord, and
-      some networks block the embed outright.</div>
     <a class="tos-dis-open" href="${esc(DISCORD_INVITE)}" target="_blank" rel="noopener noreferrer">Join the Discord</a>
   </div>`;
 }

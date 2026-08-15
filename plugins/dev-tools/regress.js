@@ -22,6 +22,9 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('weatherevent ion_storm');
   check('weatherevent refused for non-admin', /unknown command/i.test(r?.message || ''), r?.message);
 
+  r = await run('soil nobody');
+  check('soil refused for non-admin', /unknown command/i.test(r?.message || ''), r?.message);
+
   // Admin path is safe to exercise: it only pushes a WS message to the caller
   // (a no-op for the fake player) and writes nothing.
   p.role = 'admin';
@@ -38,6 +41,15 @@ export default async function regress({ run, check, getPlayer }) {
     r?.type === 'error' && /unknown event|not loaded/i.test(r?.message || ''), r?.message);
   r = await run('weatherevent');
   check('weatherevent with no type shows usage', /usage/i.test(r?.message || ''), r?.message);
+
+  // `soil` mutates a real player row, so the suite exercises only the two paths
+  // that write nothing: usage, and a name that resolves to nobody. Both must
+  // refuse BEFORE any stain or broadcast happens.
+  r = await run('soil');
+  check('soil with no target shows usage', /usage/i.test(r?.message || ''), r?.message);
+  r = await run('soil definitely_not_a_person');
+  check('soil rejects an unknown target',
+    r?.type === 'error' && /no player or npc/i.test(r?.message || ''), r?.message);
 
   p.role = savedRole;
 }

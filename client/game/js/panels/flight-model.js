@@ -628,7 +628,34 @@ function stepHeli(state, input, p, dt) {
 // That is deliberate: the drive has to be worth doing before the trailer makes it matter. When the
 // trailer lands it adds ONE scalar (φ, the articulation angle) fed by the same yaw rate computed
 // in §3, and everything below is unchanged.
-const TRUCK_STEER_MAX = 32;      // deg of front-axle lock at full wheel — a semi tractor, not a go-kart
+// ── LOCK, AND WHY IT IS NOT ONE NUMBER ───────────────────────────────────────
+// It was: 32° of front-axle lock at any speed, which made the turning circle a constant — and the
+// constant was the HIGHWAY one, because that is the speed the number was chosen at. A real tractor
+// does not work like that. The stops are a long way out (a modern steer axle goes past 50°), a
+// driver uses all of them in a yard and none of them at seventy, and the reason the truck feels
+// enormous at a junction is that a game only ever gave it a third of its lock.
+//
+// So the lock is now SPEED-SCALED, and the scaling is deliberately one-sided: `HWY` is the old 32°
+// exactly, so nothing about driving down a corridor changed by a degree. Everything added is
+// added below ~32 mph, where a driver is manoeuvring and the yaw rate (∝ v·tan δ) is small enough
+// that more lock buys a tighter circle rather than a spin.
+//
+// AND BOBTAIL GETS MORE STILL. A tractor with nothing on the fifth wheel is a different vehicle to
+// park: there is no trailer to swing, no kingpin scrubbing the drive axles round, and nothing
+// behind you to hit — so a driver uses the stops that a coupled truck cannot. That is the one place
+// in the model where being bobtail is an ADVANTAGE rather than just less mass, and it should be.
+const TRUCK_STEER_HWY  = 32;     // effective lock at road speed — unchanged, on purpose
+const TRUCK_STEER_LOCK = 50;     // at the stops, coupled: a real steer axle, used at a crawl
+const TRUCK_STEER_BOB  = 58;     // …and bobtail, where the whole lock is actually usable
+const STEER_FADE_MPH   = 32;     // by here the extra lock is gone and you are back to HWY
+// The lock available at this speed. Squared-ish falloff rather than linear: the extra lock should
+// belong to the yard and the junction and be gone by the time you are rolling, not taper away
+// across the whole speed range where it would read as vague steering.
+function truckSteerLock(speed, hitched) {
+  const t = clamp((Math.abs(speed) - CRAWL_MPH) / (STEER_FADE_MPH - CRAWL_MPH), 0, 1);
+  const full = hitched ? TRUCK_STEER_LOCK : TRUCK_STEER_BOB;
+  return TRUCK_STEER_HWY + (full - TRUCK_STEER_HWY) * Math.pow(1 - t, 1.6);
+}
 const IDLE = 0.16;               // idle, as a fraction of redline
 const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
 const LAUNCH_MPH = 12;           // below this, ON THE THROTTLE, a driver is feathering the clutch
@@ -932,7 +959,7 @@ function stepTruck(state, input, p, dt) {
   // 3. Bicycle model. Front axle at `steer`, rear axle follows: yaw = v·tan(δ)/L. Everything that
   //    makes a long vehicle feel long is in that L — a semi tractor turns lazily at speed and
   //    swings wide at a crawl, with no special-casing for either.
-  const delta = steer * TRUCK_STEER_MAX * D2R;
+  const delta = steer * truckSteerLock(s.speed, s.hitched) * D2R;
   const tps = s.speed / p.tileMph;                    // tiles per second — the sim's real velocity
   const yaw = Math.abs(tps) > 0.001 ? (tps * Math.tan(delta) / p.wheelbase) * R2D * surf.grip : 0;
   s.heading = wrap360(s.heading + yaw * dt);

@@ -2013,6 +2013,13 @@ export function vehicleLamps(cls, variant = '') {
     marker: S.lamps > 0.2
       ? [-2, -1, 0, 1, 2].map((i) => [L.markF, i * S.w * 0.34, L.markZ])
       : [],
+    // UNDERGLOW, as light rather than as a part. Four stations down the CENTRELINE between the
+    // axles, sitting ON the ground plane (z = 0) rather than on the frame — what you are meant to
+    // see is the road lit up under the truck, not a strip on the chassis. Four rather than two
+    // because a pool has to read as continuous from an oblique camera; the renderer draws them wide
+    // and soft enough that they overlap into one, and it only lights them while the engine is
+    // running. Every rig gets it: this is the one lamp that is about the machine being ALIVE.
+    under: [0.18, 0.02, -0.14, -0.30].map((f) => [L.nose0 + f, 0, 0.004]),
   };
 }
 
@@ -2438,12 +2445,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // this face is what another driver sees for an hour — it was a blank grey wall.
   for (const g of [-1, 1]) box(frame0 - 0.012, frame0 - 0.004, 0.016, 0.052, 0.070, 'window', [196, 66, 54], g * S.w * 0.66);
   if (fine) box(frame0 - 0.011, frame0 - 0.004, S.w * 0.30, 0.074, 0.080, 'window', [230, 210, 140]);
-  // Underglow along the frame rails on the rigs that wear the full lamp kit. It is the beltline
-  // strip's answer underneath, and on a machine held up by light it is the least arbitrary lamp
-  // on the truck.
-  if (fine && S.lamps > 0.7) {
-    for (const g of [-1, 1]) box(frame0 + 0.01, cab1 - 0.05, 0.004, 0.024, 0.030, 'window', [46, 130, 146], g * S.w * 0.66);
-  }
+  // ⚠ THERE IS NO UNDERGLOW GEOMETRY, AND THERE MUST NOT BE. It used to be two emissive boxes along
+  // the frame rails — and a box is a SOLID: it took the shading pass like any other panel, so from
+  // above it read as two flat teal pads bolted under the truck rather than as light. A lamp you can
+  // see the far edge of is a painted panel. The underglow is now a screen-space glow pool at the
+  // lamp layer (`vehicleLamps().under` + its draw in windshield.js), where light belongs and where
+  // it can spill onto the road under the truck instead of ending at its own corners.
   // A beacon on the roof of the rigs with no wind kit — the working trucks' equivalent of the
   // long-hauler's sensor pod, so each end of the ladder has its own thing on top.
   if (fine && S.aero < 0.5) {

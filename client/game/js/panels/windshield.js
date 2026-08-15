@@ -1537,34 +1537,53 @@ const CAB_DASH = 0.33;         // dash height, as a fraction of height
 // `dials` is how many instruments are in the binnacle, `band` whether the tachometer paints the
 // green torque arc, `lamps` the row of marker lights along the header (a cab-roof indulgence
 // nobody needs), `charm` the thing swinging off the mirror arm on a bad road. Everything else is
-// colour, and colour is most of it: sun-bleached steel, grey moulding, green vinyl, walnut.
+// colour, and colour is most of it: chipped brown enamel, grey moulding, green vinyl, walnut.
+//
+// `mat` IS THE OTHER HALF OF THE COLOUR, and it is why four dashes made of the same gradient stopped
+// reading as four materials. One procedural tile per material (cabDashTex) — brushed-and-chipped
+// steel, moulded pebble grain, stitched vinyl, book-matched veneer — laid over that gradient in
+// `overlay`, so the tile carries the SURFACE and the trim keeps owning the COLOUR. Adding a material
+// is a key here and a branch there; nothing else in the cab needs to know.
+//
+// ⚠ TWO BROWNS, AND THEY MUST NEVER CONVERGE. The cheapest cab and the dearest one are both brown
+// now, which is right — a scrapyard truck is brown because the enamel has gone chalky and the steel
+// is coming through it, and an Orlov is brown because somebody chose walnut. What keeps them apart
+// is everything except the hue: the Barrow is desaturated, matt (`gloss` 0.22), chipped, and lit
+// amber-orange; the Orlov is saturated red-brown, varnished (`gloss` 1), grained, and lit gold.
+// If you ever retune one of these, check it against the other in the same light before shipping.
 export const CAB_TRIM = {
-  // KRELL BARROW — painted steel, half of it showing through. One gauge, no band, no indulgences.
-  0: { hdr: ['#20211c', '#2b2c25'], pil: ['#22231d', '#35362c'], post: '#26271f',
-       dash: ['#3a3a2f', '#20211a', '#101109'], lip: 'rgba(210,200,150,0.13)',
-       rim: 'rgba(34,32,26,0.95)', rimHi: 'rgba(190,180,140,0.10)',
-       face: ['#191811', '#0b0a06'], ring: 'rgba(180,165,120,0.24)', needle: '#c98f3c',
-       glow: '#c08a3e', dials: 1, band: false, lamps: 0, charm: true, gloss: 0.22, crazed: true },
+  // KRELL BARROW — brown enamel over pressed steel, chalky where the sun got it and chipped back to
+  // bare metal where forty years of boots got it. One gauge, no band, no indulgences.
+  0: { hdr: ['#241c15', '#33281d'], pil: ['#261d16', '#3b2e22'], post: '#2b2119',
+       dash: ['#6b5540', '#3b2f24', '#191410'], lip: 'rgba(226,200,158,0.14)',
+       rim: 'rgba(40,31,23,0.95)', rimHi: 'rgba(198,170,128,0.10)',
+       face: ['#1c150e', '#0c0805'], ring: 'rgba(186,158,112,0.24)', needle: '#d2833a',
+       glow: '#c07a34', mat: 'steel',
+       dials: 1, band: false, lamps: 0, charm: true, gloss: 0.22, crazed: true },
   // OSTREK COURIER — grey moulded plastic, honest and anonymous. The tachometer arrives here.
   1: { hdr: ['#16181c', '#23262b'], pil: ['#1a1d21', '#2c3037'], post: '#212429',
-       dash: ['#31353c', '#191c20', '#0d0f12'], lip: 'rgba(190,205,225,0.16)',
+       dash: ['#3b414a', '#1e2228', '#0d0f12'], lip: 'rgba(190,205,225,0.16)',
        rim: 'rgba(28,31,36,0.95)', rimHi: 'rgba(150,165,185,0.13)',
        face: ['#171a1f', '#0a0c0f'], ring: 'rgba(150,165,185,0.28)', needle: '#e8c07a',
-       glow: '#9fb4c4', dials: 2, band: false, lamps: 0, charm: false, gloss: 0.5 },
-  // VACHON DRAYMAN — dark green vinyl over a chrome bezel strip. The band appears: the truck
-  // starts telling you where the engine wants to be rather than leaving you to find it.
+       glow: '#9fb4c4', mat: 'plastic',
+       dials: 2, band: false, lamps: 0, charm: false, gloss: 0.5 },
+  // VACHON DRAYMAN — dark green vinyl over a chrome bezel strip, stitched along the lip. The band
+  // appears: the truck starts telling you where the engine wants to be rather than leaving you to
+  // find it.
   2: { hdr: ['#121815', '#1d2721'], pil: ['#151d19', '#26332c'], post: '#1a2320',
-       dash: ['#2b3a33', '#161e1a', '#0a0f0d'], lip: 'rgba(180,225,200,0.20)',
+       dash: ['#33463d', '#18211c', '#0a0f0d'], lip: 'rgba(180,225,200,0.20)',
        rim: 'rgba(24,33,28,0.95)', rimHi: 'rgba(160,210,180,0.15)',
        face: ['#121a16', '#070b09'], ring: 'rgba(150,205,175,0.30)', needle: '#8fe0a0',
-       glow: '#7fc98b', dials: 2, band: true, lamps: 3, charm: false, gloss: 0.75 },
-  // ORLOV CONTINENTAL — walnut fascia, brass bezels, a warm lamp over the bunk and five markers
-  // across the roof. This is somebody's bedroom and it is meant to read as one.
-  3: { hdr: ['#1b1512', '#2e241c'], pil: ['#1e1713', '#3a2d22'], post: '#241b15',
-       dash: ['#5a3f28', '#2a1e14', '#120c08'], lip: 'rgba(255,215,150,0.24)',
-       rim: 'rgba(46,33,22,0.95)', rimHi: 'rgba(232,192,122,0.22)',
-       face: ['#1d1409', '#0c0805'], ring: 'rgba(232,192,122,0.40)', needle: '#ffd489',
-       glow: '#e8c07a', dials: 2, band: true, lamps: 5, charm: false, gloss: 1 },
+       glow: '#7fc98b', mat: 'vinyl',
+       dials: 2, band: true, lamps: 3, charm: false, gloss: 0.75 },
+  // ORLOV CONTINENTAL — walnut fascia under varnish, brass bezels, a warm lamp over the bunk and
+  // five markers across the roof. This is somebody's bedroom and it is meant to read as one.
+  3: { hdr: ['#1b1512', '#33261a'], pil: ['#1e1713', '#3f2f20'], post: '#261b13',
+       dash: ['#7a4a24', '#3a1f0f', '#150a05'], lip: 'rgba(255,215,150,0.26)',
+       rim: 'rgba(52,35,20,0.95)', rimHi: 'rgba(232,192,122,0.22)',
+       face: ['#22150a', '#0d0704'], ring: 'rgba(232,192,122,0.40)', needle: '#ffd489',
+       glow: '#e8c07a', mat: 'wood',
+       dials: 2, band: true, lamps: 5, charm: false, gloss: 1 },
 };
 export const cabTrim = (tier) => CAB_TRIM[tier] ?? CAB_TRIM[1];
 
@@ -1729,20 +1748,58 @@ function drawCabInterior(ctx, W, H, v) {
   //     art assets), and the one surface the player looks at for twenty minutes at a stretch was
   //     the one flat fill in the scene. Same trick, one more key: moulded vinyl with a grain and a
   //     seam, laid over the gradient in `overlay` so it adds surface without shifting the colour.
-  const tex = cabDashTex();
+  //     ONE TILE PER MATERIAL, not one tile for the fleet: `T.mat` picks it, so the Barrow gets
+  //     chipped steel, the Drayman stitched vinyl and the Orlov book-matched veneer, and the four
+  //     dashes stop being the same board in four colours. The alpha is per material too — a mould
+  //     grain wants to be felt and a veneer wants to be SEEN, so wood carries its tile harder.
+  //     The dash path is used three times in a row here (texture, sheen, flood); it is cheap, and a
+  //     shared helper would have to be re-derived at every call site anyway.
+  const dashPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, dash + H * 0.02);
+    ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  };
+  const tex = cabDashTex(T.mat);
   if (tex) {
     const pat = ctx.createPattern(tex, 'repeat');
     if (pat) {
       ctx.save();
       ctx.globalCompositeOperation = 'overlay';
-      ctx.globalAlpha = 0.55;
-      ctx.beginPath();
-      ctx.moveTo(0, dash + H * 0.02);
-      ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
-      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+      ctx.globalAlpha = T.mat === 'wood' ? 0.80 : T.mat === 'steel' ? 0.62 : 0.55;
+      dashPath();
       ctx.fillStyle = pat; ctx.fill();
       ctx.restore();
     }
+  }
+
+  // 4b¹. THE TOP COAT. What actually separates varnished walnut from chalky enamel is not the
+  //      colour and not the grain — it is whether the surface RETURNS the light in the cab. So the
+  //      material's own `gloss` (which the dial glass already reads, so this is one number doing two
+  //      honest jobs) drives a broad sheen laid across the fascia: wide and soft on a matt board so
+  //      it barely registers, tight and bright on a varnished one where it reads as a wet finish.
+  //      At `gloss` 0.22 the Barrow gets almost nothing, which is the whole point of it.
+  {
+    const gl = T.gloss ?? 0.6;
+    ctx.save();
+    dashPath();
+    ctx.clip();
+    const sg = ctx.createLinearGradient(W * 0.10, dash, W * 0.78, H);
+    sg.addColorStop(0.00, 'rgba(255,255,255,0)');
+    sg.addColorStop(Math.max(0.20, 0.42 - gl * 0.14), 'rgba(255,255,255,0)');
+    sg.addColorStop(0.50, `rgba(248,244,236,${0.012 + 0.055 * gl})`);
+    sg.addColorStop(Math.min(0.86, 0.58 + gl * 0.10), 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg; ctx.fillRect(0, dash - H * 0.05, W, H);
+    // And the one thing only a varnished board does: it holds a soft image of the header above it,
+    // a dark band the width of the fascia just under the lip. Below ~0.7 gloss there is no coat to
+    // reflect in and this contributes nothing.
+    if (gl > 0.7) {
+      const rf = ctx.createLinearGradient(0, dash, 0, dash + H * 0.09);
+      rf.addColorStop(0, `rgba(0,0,0,${0.16 * gl})`);
+      rf.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = rf; ctx.fillRect(0, dash, W, H * 0.10);
+    }
+    ctx.restore();
   }
 
   // 4b². THE INSTRUMENT FLOOD.
@@ -1761,10 +1818,7 @@ function drawCabInterior(ctx, W, H, v) {
     const G = cabWheelGeom(W, H);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.beginPath();
-    ctx.moveTo(0, dash + H * 0.02);
-    ctx.quadraticCurveTo(W / 2, dash - H * 0.035, W, dash + H * 0.02);
-    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    dashPath();
     ctx.clip();
     const eyebrow = ctx.createRadialGradient(G.x, dash, 0, G.x, dash, Math.max(W * 0.42, H * 0.30));
     eyebrow.addColorStop(0, hexA(T.glow, 0.20));
@@ -2108,23 +2162,111 @@ const GPS_BIOME = {
 // Moulded dash vinyl: a grain, a mould seam and a faint sun-bleach mottle. Memoised through the
 // same registry every wall in the city uses, so it costs one 32×32 canvas for the whole session and
 // `setObjectTexture('cabdash', png)` swaps it for real art later without touching this file.
-function cabDashTex() {
-  return getTex('cabdash', () => {
-    const S = 32, c = texCanvas(S, S), g = c.getContext('2d');
+// ── THE DASH SURFACE, ONE TILE PER MATERIAL ──────────────────────────────────
+// Every tile is drawn on a NEUTRAL rgb(128,128,128) ground and composited in `overlay`, which is
+// the contract that lets one generator serve four trucks: the tile says light-here/dark-there and
+// the trim's own gradient says what colour that is. A tile that painted its own colour would fight
+// CAB_TRIM and every one of them would have to be re-authored to change a dash from green to brown.
+//
+// Deterministic, always — a dash that shimmers between frames is a dash nobody believes — and
+// memoised per material, so a fleet of four costs four canvases for the life of the tab.
+function cabDashTex(mat) {
+  return getTex('cabdash:' + (mat || 'plastic'), () => {
+    const S = mat === 'wood' ? 64 : 32, HGT = mat === 'wood' ? 48 : S;
+    const c = texCanvas(S, HGT), g = c.getContext('2d');
     if (!g) return c;
-    g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, S, S);      // neutral: overlay no-op
-    // Pebble grain. Deterministic — a dash that shimmers between frames is a dash nobody believes.
+    g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, S, HGT);     // neutral: overlay no-op
     let seed = 0x2f6b;
     const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-    for (let i = 0; i < 340; i++) {
-      const x = rnd() * S, y = rnd() * S, d = rnd();
-      g.fillStyle = d > 0.5 ? `rgba(255,255,255,${0.05 + d * 0.06})` : `rgba(0,0,0,${0.05 + d * 0.08})`;
-      g.fillRect(x | 0, y | 0, 1, 1);
+    const speck = (n, lo, hi) => {
+      for (let i = 0; i < n; i++) {
+        const x = rnd() * S, y = rnd() * HGT, d = rnd();
+        g.fillStyle = d > 0.5 ? `rgba(255,255,255,${lo + d * hi})` : `rgba(0,0,0,${lo + d * (hi + 0.02)})`;
+        g.fillRect(x | 0, y | 0, 1, 1);
+      }
+    };
+
+    if (mat === 'steel') {
+      // PRESSED STEEL UNDER TIRED ENAMEL. Brushed the long way (a panel is rolled, and rolling has a
+      // direction), then CHIPPED: little hard-edged bright flecks, because paint coming off a steel
+      // dash does not fade off it — it leaves a bright edge with metal in the middle. Those chips
+      // are most of what says "cheap truck" without a word of copy anywhere near it.
+      for (let i = 0; i < 90; i++) {
+        const y = rnd() * HGT, a = 0.03 + rnd() * 0.05;
+        g.strokeStyle = rnd() > 0.5 ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a * 1.4})`;
+        g.lineWidth = 1;
+        g.beginPath(); g.moveTo(0, y | 0); g.lineTo(S, y | 0); g.stroke();
+      }
+      speck(120, 0.03, 0.05);
+      for (let i = 0; i < 14; i++) {                                 // the chips
+        const x = rnd() * S, y = rnd() * HGT, w = 1 + rnd() * 2.4, h = 1 + rnd() * 1.6;
+        g.fillStyle = `rgba(0,0,0,${0.16 + rnd() * 0.14})`;
+        g.fillRect(x, y, w + 1, h + 1);
+        g.fillStyle = `rgba(255,255,255,${0.14 + rnd() * 0.16})`;
+        g.fillRect(x, y, w, h);
+      }
+    } else if (mat === 'vinyl') {
+      // STITCHED VINYL. Coarser pebble than the mould grain — a leathercloth is embossed, not
+      // moulded — and a run of stitch dashes along the seam, which is the single detail that reads
+      // as trim rather than as plastic.
+      speck(260, 0.04, 0.07);
+      for (let i = 0; i < 46; i++) {                                 // the emboss
+        const x = rnd() * S, y = rnd() * HGT, r = 0.8 + rnd() * 1.4;
+        g.fillStyle = `rgba(0,0,0,${0.05 + rnd() * 0.05})`;
+        g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+        g.fillStyle = `rgba(255,255,255,${0.05 + rnd() * 0.05})`;
+        g.beginPath(); g.arc(x - 0.4, y - 0.5, r * 0.6, 0, Math.PI * 2); g.fill();
+      }
+      const sy = HGT * 0.5;
+      g.strokeStyle = 'rgba(0,0,0,0.26)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, sy); g.lineTo(S, sy); g.stroke();
+      g.setLineDash([3, 3]);
+      g.strokeStyle = 'rgba(255,255,255,0.16)';
+      g.beginPath(); g.moveTo(0, sy - 1.5); g.lineTo(S, sy - 1.5); g.stroke();
+      g.setLineDash([]);
+    } else if (mat === 'wood') {
+      // BOOK-MATCHED VENEER. Long wavy grain lines running the width of the fascia, denser in
+      // places, plus two knots — and then the whole tile is MIRRORED about its centre line, which is
+      // how a veneered dash is actually made and is the reason real walnut reads as a pattern rather
+      // than as stripes. The tile is wider than tall for the same reason: grain runs across a dash.
+      const half = HGT / 2;
+      for (let i = 0; i < 26; i++) {
+        const y = rnd() * half, amp = 0.6 + rnd() * 1.8, ph = rnd() * 6.28;
+        const dark = rnd() > 0.42;
+        g.strokeStyle = dark ? `rgba(0,0,0,${0.06 + rnd() * 0.12})` : `rgba(255,255,255,${0.04 + rnd() * 0.07})`;
+        g.lineWidth = 0.6 + rnd() * 1.1;
+        g.beginPath();
+        for (let x = 0; x <= S; x += 2) {
+          const yy = y + Math.sin(x / 9 + ph) * amp;
+          if (x === 0) g.moveTo(x, yy); else g.lineTo(x, yy);
+        }
+        g.stroke();
+      }
+      for (let i = 0; i < 2; i++) {                                  // knots
+        const kx = 8 + rnd() * (S - 16), ky = 4 + rnd() * (half - 8);
+        for (let r = 1.4; r < 5; r += 1.1) {
+          g.strokeStyle = `rgba(0,0,0,${0.10 - r * 0.012})`;
+          g.lineWidth = 0.8;
+          g.beginPath(); g.ellipse(kx, ky, r * 1.5, r, 0.4, 0, Math.PI * 2); g.stroke();
+        }
+      }
+      speck(70, 0.02, 0.04);
+      g.save();                                                      // the mirror = the book match
+      g.translate(0, HGT); g.scale(1, -1);
+      g.drawImage(c, 0, 0, S, half, 0, 0, S, half);
+      g.restore();
+      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1;           // the veneer joint
+      g.beginPath(); g.moveTo(0, half); g.lineTo(S, half); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.10)';
+      g.beginPath(); g.moveTo(0, half - 1); g.lineTo(S, half - 1); g.stroke();
+    } else {
+      // MOULDED PLASTIC — the original pebble grain and its mould seam, unchanged.
+      speck(340, 0.05, 0.06);
+      g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, S * 0.5); g.lineTo(S, S * 0.5); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.07)';
+      g.beginPath(); g.moveTo(0, S * 0.5 - 1); g.lineTo(S, S * 0.5 - 1); g.stroke();
     }
-    g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1;            // the mould seam
-    g.beginPath(); g.moveTo(0, S * 0.5); g.lineTo(S, S * 0.5); g.stroke();
-    g.strokeStyle = 'rgba(255,255,255,0.07)';
-    g.beginPath(); g.moveTo(0, S * 0.5 - 1); g.lineTo(S, S * 0.5 - 1); g.stroke();
     return c;
   });
 }
@@ -6205,9 +6347,16 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       const ha = P(vl.head[0]), hb = P(vl.head[1]);
       const track = (ha.f > 0.08 && hb.f > 0.08) ? Math.hypot(ha.sx - hb.sx, ha.sy - hb.sy) : 0;
       if (track > 0.5) {
+        // ⚠ THE HALO HAS A CEILING, and it needs one for the same reason it is measured off the
+        // track in the first place. Track width is the right SCALE, but it grows without bound as
+        // the camera closes, so at chase-camera range the headlamps became two 60px suns hanging in
+        // front of a truck you could see every panel line on — which reads as lights that do not
+        // belong to the model rather than as bright lamps. A real lamp's bloom is a property of the
+        // lamp and the air, not of how near you are standing: past this it stops growing.
+        const HALO_CAP = 26;
         const glow = (lp, col, lit, k) => {
           const q = P(lp); if (q.f <= 0.08 || lit <= 0.02) return;
-          const r = Math.max(1, track * k);
+          const r = Math.max(1, Math.min(track * k, HALO_CAP * (k / 0.40)));
           const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, r);
           rg.addColorStop(0, `rgba(${col},${0.9 * lit})`); rg.addColorStop(0.45, `rgba(${col},${0.30 * lit})`);
           rg.addColorStop(1, `rgba(${col},0)`);
@@ -6215,6 +6364,41 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
           ctx.fillStyle = `rgba(255,255,255,${0.85 * lit})`;
           ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.6, r * 0.16), 0, 7); ctx.fill();
         };
+        // ── THE UNDERGLOW ─────────────────────────────────────────────────────
+        // Drawn FIRST, so every lamp above sits on top of it rather than being washed out by it,
+        // and drawn as SCREEN-SPACE LIGHT rather than as geometry — which is the whole point. The
+        // mesh used to carry two emissive boxes on the frame rails and they read as flat teal pads
+        // from any camera above the beltline, because a box has edges and light does not.
+        //
+        // Four stations on the ground plane, each a wide soft radial, composited with `lighter` so
+        // where they overlap they ADD into one pool under the truck instead of four discs with
+        // seams between them. The pool is sized off the same projected track width the lamps are,
+        // so it is right at any distance and any zoom, and it is anchored to the ground rather than
+        // the chassis so it spills onto the road the way a real underlight does.
+        //
+        // ⚠ IT IS THE ENGINE, NOT THE LIGHTS SWITCH. Headlamps are `c.landing`; this rides `power`,
+        // because what it says is that the thing is RUNNING. A parked truck has no glow under it.
+        if (vl.under && power > 0.02) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const lit = clamp(0.35 + power * 0.65, 0, 1);
+          for (const p of vl.under) {
+            const q = P(p); if (q.f <= 0.08) continue;
+            const r = Math.max(2, track * 1.55);
+            const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, r);
+            rg.addColorStop(0, `rgba(70,170,255,${0.20 * lit})`);
+            rg.addColorStop(0.35, `rgba(46,130,200,${0.10 * lit})`);
+            rg.addColorStop(1, 'rgba(30,90,170,0)');
+            ctx.fillStyle = rg;
+            // Flattened toward the road: a light pool on the ground is an ellipse, and a circle
+            // under a truck reads as a ball of fog it is parked in.
+            ctx.save();
+            ctx.translate(q.sx, q.sy); ctx.scale(1, 0.52); ctx.translate(-q.sx, -q.sy);
+            ctx.beginPath(); ctx.arc(q.sx, q.sy, r, 0, 7); ctx.fill();
+            ctx.restore();
+          }
+          ctx.restore();
+        }
         // Headlamps are the LIGHTS switch; the rest of the set is on whenever the engine is.
         const beam = c.landing ? 1 : 0.20;
         for (const p of vl.head) glow(p, '255,248,224', beam * nb, 0.40);

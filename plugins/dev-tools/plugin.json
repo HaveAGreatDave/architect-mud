@@ -2,5 +2,6 @@
   "name": "dev-tools",
   "version": "1.0.0",
   "description": "Admin-only dev utility commands.",
-  "commands": ["dresscyd", "heal", "lettherebelight", "makeitrain", "testaccolade", "weatherevent"]
+  "commands": ["dresscyd", "heal", "lettherebelight", "makeitrain", "soil", "testaccolade", "weatherevent"],
+  "events": { "emits": ["bodily.sfx"] }
 }

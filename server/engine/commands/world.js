@@ -1391,6 +1391,7 @@ const ADMIN_COMMANDS = [
   { verb:'spawnenemy',      args:'<enemy id> [zone|here]', desc:'Spawn an enemy (default: your current zone).',       roles:['admin','dev'],                        cat:'Spawning' },
   { verb:'kamehameha',      args:'[target]',               desc:'Insta-kill a named enemy, NPC, or player — or every enemy in the room if none named.', roles:['admin'],  cat:'Combat' },
   { verb:'makeitrain',      args:'',                       desc:'The Architect rains ₵100,000 onto your own balance.',  roles:['admin','dev'],                        cat:'World' },
+  { verb:'soil',            args:'<player or npc>',        desc:'Make a target soil themselves. Rolled severity; NPCs react. No lasting stain on an NPC.', roles:['admin','dev'],       cat:'World' },
   { verb:'heal',            args:'',                       desc:'Restore your HP, stamina, sanity, hunger and thirst to full.', roles:['admin','dev'],                cat:'World' },
   { verb:'dresscyd',        args:'[save]',                 desc:'Dress the Cyd NPC from the saved outfit (save = snapshot current).', roles:['admin','dev'],           cat:'Content' },
   { verb:'cooktest',        args:'[difficulty] [hard]',    desc:'Open the cook minigame in test mode (no inventory).', roles:['admin','dev','builder','designer'],   cat:'Content' },

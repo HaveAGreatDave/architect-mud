@@ -11,6 +11,10 @@ import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { propagateAudio, getWeatherLeakGain, getWeatherLeakSource } from '../../server/engine/sounds.js';
 import { getZonePrecip, getWindKph, getZonePowerStatus, activeWeatherEvent, isIndoorZone } from '../../server/engine/environment.js';
+// The game's one step clock. Borrowed, never re-derived — a cadence of our own
+// would drift the moment movement speed is tuned, and the symptom would be feet
+// that no longer match the walk. `plugins/pinch` borrows it for the same reason.
+import { stepCadenceMs } from '../pacing/index.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -861,7 +865,12 @@ on('movement.step', ({ actor, zone, intensity }) => {
   const now = Date.now();
   const g = gait.get(actor.id) || { foot: 0, at: 0 };
   if (now - g.at < MIN_STEP_MS) return;
-  gait.set(actor.id, { foot: g.foot ^ 1, at: now });
+  // The foot deliberately does NOT flip per move any more. A move used to BE one
+  // footfall, so flipping here was the alternation; now the client advances the
+  // foot within the series and a continuously-walking player is cancelled after
+  // an even number of footfalls, so flipping again would land the same foot twice
+  // at every room boundary — the one place the ear is listening hardest.
+  gait.set(actor.id, { foot: g.foot, at: now });
 
   // BLENDING WITH THE WEATHER, and it is not a volume trick. Rain wets the
   // ground, so the step genuinely moves toward the rain's own spectrum — duller
@@ -888,8 +897,31 @@ on('movement.step', ({ actor, zone, intensity }) => {
   // …and it ALSO ducks, because in a downpour a footstep really is masked. The
   // two together are the difference between "quieter" and "in the rain".
   const duck = 1 - 0.45 * precip;
-  sendToPlayer(actor.id, { type: 'audio_sfx_proc', tier: FULL, gain: OWN_STEP_GAIN * duck, params });
-  sendToZone(zone, { type: 'audio_sfx_proc', tier: FULL, gain: OTHERS_STEP_GAIN * duck, params }, actor.id);
+
+  // ── A crossing is a WALK, not a click ───────────────────────────────────────
+  //
+  // One cue per room transition can only ever be a "boomp". A room takes real
+  // time to cross — `stepCadenceMs` is the game's one step clock (900ms walking,
+  // 700 running, 350 sprinting, road-scaled), the same number the pacing plugin
+  // throttles on and `plugins/pinch`'s walker paces off — so the sound of getting
+  // there has to occupy that time or it is not a footstep, it is a tap.
+  //
+  // Sent as ONE message describing a cadence rather than four messages. The whole
+  // reason this tier is affordable is that a step is ~70 bytes; quadrupling the
+  // message count on the per-move path to say something the client can schedule
+  // itself would give that back for nothing.
+  //
+  // THE TAIL IS THE ARRIVAL, and it falls out of cancellation rather than being a
+  // special case. Four footfalls at half-cadence span longer than one crossing,
+  // and a new step REPLACES the pending remainder (see dispatch.js). So walking
+  // continuously is an unbroken cadence, and the moment you stop, the last two
+  // land as the settle of arriving somewhere. Stopping is what makes the tail
+  // audible, which is exactly when a listener needs to know they have arrived.
+  const cadence = stepCadenceMs(actor);
+  const series = { count: 4, interval: Math.max(90, Math.round(cadence / 2)), key: 'step' };
+
+  sendToPlayer(actor.id, { type: 'audio_sfx_proc', tier: FULL, gain: OWN_STEP_GAIN * duck, params, series });
+  sendToZone(zone, { type: 'audio_sfx_proc', tier: FULL, gain: OTHERS_STEP_GAIN * duck, params, series }, actor.id);
 });
 
 // The gait map is per-session and cosmetic; drop it with the session rather than
