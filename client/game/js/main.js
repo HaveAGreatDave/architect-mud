@@ -899,6 +899,25 @@ document.getElementById("area-content")?.addEventListener("click", (e) => {
 const RAW_DIRS = ["north", "south", "east", "west", "up", "down", "in", "out", "exit"];
 
 // Output / area pane: click .action-link nodes to auto-run command
+// Open or close a counted furniture entry ("Seven Dispensers" → the seven, by name).
+//
+// ⚠ IT WALKS TO ITS OWN LIST rather than asking the parent for `.furn-members`. A furniture line
+// routinely holds several counted entries, and a `querySelector` on the shared parent returns the
+// FIRST list on the line — so clicking the third group would open the first one's. The walk stops
+// if it reaches the next group, which cannot happen while every toggle ships with a list, but is
+// the difference between a bug and a no-op if that ever stops being true.
+function toggleFurnGroup(el) {
+	let n = el.nextElementSibling;
+	while (n && !n.classList?.contains("furn-members")) {
+		if (n.classList?.contains("furn-group")) return;
+		n = n.nextElementSibling;
+	}
+	if (!n) return;
+	const open = n.hasAttribute("hidden");
+	n.toggleAttribute("hidden", !open);
+	el.setAttribute("aria-expanded", open ? "true" : "false");
+	el.classList.toggle("furn-open", open);
+}
 function handleActionLinkClick(e) {
 	const el = e.target.closest(".action-link");
 	if (!el) return;
@@ -924,6 +943,14 @@ function handleActionLinkClick(e) {
 	// action+target verb construction below and send the raw text as-is.
 	if (el.dataset.rawCmd) {
 		sendCmd(el.dataset.rawCmd, el.dataset.label);
+		return;
+	}
+	// A COUNTED FURNITURE ENTRY OPENS RATHER THAN ACTING. "Seven Dispensers" is not a thing you can
+	// examine — it is seven things — so the click reveals the list the server already shipped beside
+	// it (hidden) and clicking again puts it away. No round trip: the members were in the pane all
+	// along, which is also why this survives on a pane that is replaced wholesale on every look.
+	if (el.dataset.expand) {
+		toggleFurnGroup(el);
 		return;
 	}
 	const action = el.dataset.action;
@@ -970,6 +997,16 @@ document
 document
 	.getElementById("area-pane")
 	.addEventListener("click", handleActionLinkClick);
+// The expander is a real control, so it takes the keys a control takes. It carries role="button"
+// and tabindex="0" from the server, and without this it would be a thing a keyboard can focus and
+// then not operate — which is worse than not being focusable at all.
+document.getElementById("area-pane").addEventListener("keydown", (e) => {
+	if (e.key !== "Enter" && e.key !== " ") return;
+	const el = e.target?.closest?.("[data-expand]");
+	if (!el) return;
+	toggleFurnGroup(el);
+	e.preventDefault();
+});
 // Minimap mounts: enterable-building tiles render as action-links (go <name>).
 // Delegated on the containers so the constant innerHTML re-renders keep working.
 for (const id of ["minimap-grid", "minimap-grid-mob", "minimap-grid-hud"]) {

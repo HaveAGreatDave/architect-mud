@@ -237,7 +237,14 @@ function collapseByKind(entries) {
 		}
 		if (done.has(k)) continue;
 		done.add(k);
-		out.push({ f: bucket[0].f, qty: total, kind: headNoun(bucket[0].f.name) });
+		out.push({
+			f: bucket[0].f,
+			qty: total,
+			kind: headNoun(bucket[0].f.name),
+			// Flattened across the bucket, so "eight Lockboxes" can list the eight DIFFERENT names it
+			// stands in for. This is the case the expander is really for.
+			members: bucket.flatMap((x) => x.members || [x.f]),
+		});
 	}
 	return out;
 }
@@ -325,8 +332,13 @@ function groupPieces(pieces, soloIds) {
 			? `#${f.id}`
 			: `${(f.name || "").toLowerCase()}|${f.object_type || "furniture"}|${f.light_on ? 1 : 0}`;
 		const g = groups.get(key);
-		if (g) g.qty++;
-		else groups.set(key, { f, qty: 1 });
+		// `members` is what the pane's expander lists. A group has always known how MANY it stands
+		// for and never WHICH, so a counted label could only ever click through to its first piece —
+		// which is the whole of "clicking seven Dispensers examines one Dispenser".
+		if (g) {
+			g.qty++;
+			g.members.push(f);
+		} else groups.set(key, { f, qty: 1, members: [f] });
 	}
 	return [...groups.values()];
 }
@@ -1303,7 +1315,8 @@ export async function describeZone(zone, player, out = {}) {
 			!loggedPanelsSync(player),
 		);
 		const standing = groups.filter((g) => !attachedIds.has(g.f.id));
-		const furnitureLinks = standing.map(({ f, qty, kind }) => {
+		const furnitureLinks = standing.map((group) => {
+			const { f, qty, kind } = group;
 			const stateTag =
 				f.object_type === "light"
 					? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
@@ -1321,11 +1334,14 @@ export async function describeZone(zone, player, out = {}) {
 			// sleeping lion"), so the list label drops the article rather than
 			// printing "A Sleeping Lion". Real furniture never carries one.
 			const listName = String(f.name || "").replace(/^(?:a|an|the)\s+/i, "");
+			// CAPITALISED here and lowercase in the woven-prose variant, and that is the difference
+			// between a list entry and a phrase in a sentence: "Seven Dispensers" is a heading;
+			// "…and seven dispensers along the wall" is not.
 			const label = kind
-				? `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(kind))}`
+				? `${countWord(qty)} ${titleCaseName(pluralName(kind))}`
 				: qty === 1
 					? titleCaseName(listName)
-					: `${countWord(qty).toLowerCase()} ${titleCaseName(pluralName(f.name))}`;
+					: `${countWord(qty)} ${titleCaseName(pluralName(f.name))}`;
 			// data-ftype carries the row's object_type through to CSS so each kind of
 			// thing gets its own tint (see .furniture-link[data-ftype=…] in styles.css).
 			// What it WAS, for the pane's letter-by-letter morph (render.js). Only
@@ -1345,6 +1361,45 @@ export async function describeZone(zone, player, out = {}) {
 			const attached = (attachedMap.get(f.id) || [])
 				.map((c) => attachedSpan(c, player))
 				.join("");
+			// ── THE EXPANDER ─────────────────────────────────────────────────────
+			// A counted entry that stands for several DIFFERENT things opens instead of clicking
+			// through. "Seven Dispensers" examining one dispenser answers a question nobody asked:
+			// the click means "which seven?", so now it says so, in the pane, with no round trip.
+			//
+			// ⚠ ONLY WHEN THE MEMBERS DIFFER. Seven identical pieces would expand into seven
+			// identical links — a longer way of printing the same row, with nothing to choose between
+			// them, since examining any one of them is examining all of them. So the affordance
+			// appears exactly when it has something to say, and an entry that really is seven of one
+			// thing keeps the straight examine it always had.
+			const members = group.members || [f];
+			const distinct = [
+				...new Map(members.map((m) => [String(m.name || "").toLowerCase(), m])).values(),
+			];
+			if (distinct.length > 1) {
+				const rows = distinct
+					.map((m) => {
+						const mc = authoredClick(m) ||
+							lightClick(m, player) || {
+								action: "examine",
+								target: m.name,
+								title: `Examine ${m.name}`,
+							};
+						const mn = titleCaseName(String(m.name || "").replace(/^(?:a|an|the)\s+/i, ""));
+						const n = members.filter(
+							(x) => String(x.name || "").toLowerCase() === String(m.name || "").toLowerCase(),
+						).length;
+						const tail = n > 1 ? ` <span class="furn-count">×${n}</span>` : "";
+						// Each member carries its own affordances, exactly as an uncounted piece does —
+						// the mobile smart bar reads `data-actions` to know which verbs to offer, and a
+						// piece that only became reachable by opening a group would otherwise arrive
+						// with none of them.
+						const mv = furnitureVerbs(m, player);
+						const mActions = mv.length ? ` data-actions="${mv.join(" ")}"` : "";
+						return `<span class="action-link furniture-link" data-ftype="${m.object_type || "furniture"}" data-action="${mc.action}"${cmdAttr(mc)} data-target="${escAttr(mc.target)}"${pieceAttr(m, mc)}${mActions} title="${escAttr(mc.title)}">${mn}</span>${tail}`;
+					})
+					.join(", ");
+				return `<span class="action-link furniture-link furn-group" data-ftype="${f.object_type || "furniture"}" data-expand="1" role="button" tabindex="0" aria-expanded="false" title="Show all ${qty}">${label}</span>${stateTag}<span class="furn-members" hidden>${rows}</span>${attached}`;
+			}
 			return `<span class="action-link furniture-link" data-ftype="${f.object_type || "furniture"}" data-action="${click.action}"${cmdAttr(click)} data-target="${escAttr(click.target)}"${pieceAttr(f, click)}${actionsAttr}${morphAttr} title="${escAttr(click.title)}">${label}</span>${stateTag}${attached}`;
 		});
 		// A busy room sections itself by what the pieces ARE — see sectionFurniture.

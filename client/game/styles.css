@@ -2449,6 +2449,39 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .furniture-link {
 	color: var(--orange);
 }
+/* ── A counted furniture entry that opens ──────────────────────────────────
+   It has to read as a DISCLOSURE rather than as another examine link, because
+   everything either side of it on that line is an examine link and they all
+   look the same. The caret is the whole tell: it points right when the group
+   is shut and down when it is open, which is the one convention a player does
+   not have to be taught. */
+.furn-group::after {
+	content: " \25B8";           /* ▸ */
+	font-size: 0.85em;
+	opacity: 0.75;
+	display: inline-block;
+	transition: transform 0.12s ease-out;
+}
+.furn-group.furn-open::after {
+	content: " \25BE";           /* ▾ */
+}
+/* The members, once shown. Indented under their group and dimmed a shade, so
+   the line still reads as one entry with its contents rather than as several
+   more pieces of furniture that happen to be adjacent. */
+.furn-members {
+	display: inline;
+	opacity: 0.92;
+}
+.furn-members::before {
+	content: " — ";
+	opacity: 0.55;
+}
+/* "×3" beside a name inside an opened group: three of that exact thing. Quiet,
+   because it is a footnote on a name rather than a count anybody clicks. */
+.furn-count {
+	opacity: 0.6;
+	font-size: 0.9em;
+}
 /* Per-kind furniture tints. Every one is DERIVED from the active theme's
    --orange by mixing a little of another theme colour in, so the whole set
    reads as one family and follows a theme swap automatically — never a
