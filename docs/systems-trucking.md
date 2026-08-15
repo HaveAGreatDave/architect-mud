@@ -763,6 +763,22 @@ they have to fill** rather than a multiple of their own width — "bunched up" w
 on a 600px stretch of empty vinyl — and the tell-tale wall is solved *before* the right-hand bars,
 so two independently laid-out instruments can never overlap.
 
+**Glass is a rung on the fleet ladder** *(2026-08-14)*. The dials' cover was one flat linear wash,
+which reads as a circle that has been *shaded* rather than a circle with a lens on it — what sells a
+cover is the EDGE: light entering the curve, and the bezel throwing a shadow inward onto the face.
+It is four passes now (bezel shade, a tilted elliptical specular, the windscreen's own sweep, and a
+rim highlight on the bezel), and `CAB_TRIM.gloss` scales all of them from **0.22 on the Barrow to 1
+on the Orlov**. That is exactly the right axis for a luxury: **nobody sells you a faster truck by
+fitting better glass**, so it can be as indulgent as it likes without touching a number the physics
+read. The Barrow also gets `crazed` — three faint arcs across a forty-year-old cover, seeded off the
+dial's own position so they don't crawl between frames, and drawn as *light* rather than dark
+because a scratch in plastic catches light instead of blocking it.
+
+⚠ **A poor cab must look plainly equipped, never broken.** A Barrow has `dials: 1` and no
+tachometer, and the right-hand cluster plate was still being stretched to the width of the
+instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
+cheap truck. The plate hugs what is actually mounted on it.
+
 **The controls are switches, and the legends are printed on them** *(2026-08-14)*. They were dialog
 buttons carrying a glyph and a `title`, which is the least discoverable arrangement available: a
 native tooltip needs a hover a touch device does not have and a second's wait a driver does not

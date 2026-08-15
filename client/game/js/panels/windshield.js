@@ -1476,27 +1476,27 @@ export const CAB_TRIM = {
        dash: ['#3a3a2f', '#20211a', '#101109'], lip: 'rgba(210,200,150,0.13)',
        rim: 'rgba(34,32,26,0.95)', rimHi: 'rgba(190,180,140,0.10)',
        face: ['#191811', '#0b0a06'], ring: 'rgba(180,165,120,0.24)', needle: '#c98f3c',
-       glow: '#c08a3e', dials: 1, band: false, lamps: 0, charm: true },
+       glow: '#c08a3e', dials: 1, band: false, lamps: 0, charm: true, gloss: 0.22, crazed: true },
   // OSTREK COURIER — grey moulded plastic, honest and anonymous. The tachometer arrives here.
   1: { hdr: ['#16181c', '#23262b'], pil: ['#1a1d21', '#2c3037'], post: '#212429',
        dash: ['#31353c', '#191c20', '#0d0f12'], lip: 'rgba(190,205,225,0.16)',
        rim: 'rgba(28,31,36,0.95)', rimHi: 'rgba(150,165,185,0.13)',
        face: ['#171a1f', '#0a0c0f'], ring: 'rgba(150,165,185,0.28)', needle: '#e8c07a',
-       glow: '#9fb4c4', dials: 2, band: false, lamps: 0, charm: false },
+       glow: '#9fb4c4', dials: 2, band: false, lamps: 0, charm: false, gloss: 0.5 },
   // VACHON DRAYMAN — dark green vinyl over a chrome bezel strip. The band appears: the truck
   // starts telling you where the engine wants to be rather than leaving you to find it.
   2: { hdr: ['#121815', '#1d2721'], pil: ['#151d19', '#26332c'], post: '#1a2320',
        dash: ['#2b3a33', '#161e1a', '#0a0f0d'], lip: 'rgba(180,225,200,0.20)',
        rim: 'rgba(24,33,28,0.95)', rimHi: 'rgba(160,210,180,0.15)',
        face: ['#121a16', '#070b09'], ring: 'rgba(150,205,175,0.30)', needle: '#8fe0a0',
-       glow: '#7fc98b', dials: 2, band: true, lamps: 3, charm: false },
+       glow: '#7fc98b', dials: 2, band: true, lamps: 3, charm: false, gloss: 0.75 },
   // ORLOV CONTINENTAL — walnut fascia, brass bezels, a warm lamp over the bunk and five markers
   // across the roof. This is somebody's bedroom and it is meant to read as one.
   3: { hdr: ['#1b1512', '#2e241c'], pil: ['#1e1713', '#3a2d22'], post: '#241b15',
        dash: ['#5a3f28', '#2a1e14', '#120c08'], lip: 'rgba(255,215,150,0.24)',
        rim: 'rgba(46,33,22,0.95)', rimHi: 'rgba(232,192,122,0.22)',
        face: ['#1d1409', '#0c0805'], ring: 'rgba(232,192,122,0.40)', needle: '#ffd489',
-       glow: '#e8c07a', dials: 2, band: true, lamps: 5, charm: false },
+       glow: '#e8c07a', dials: 2, band: true, lamps: 5, charm: false, gloss: 1 },
 };
 export const cabTrim = (tier) => CAB_TRIM[tier] ?? CAB_TRIM[1];
 
@@ -1735,7 +1735,12 @@ function drawCabInterior(ctx, W, H, v) {
   // One plate under each half of the row — the big dial and its two small neighbours together, so
   // the panel reads as two clusters flanking a wheel rather than six separate stickers.
   plate(leftX - smallR * 1.5, outY - bigR * 1.30, tachX + bigR * 1.22, outY + bigR * 1.34);
-  plate(speedX - bigR * 1.22, outY - bigR * 1.30, rightX + smallGap + smallR * 1.5, outY + bigR * 1.34);
+  // ⚠ THE RIGHT PLATE HUGS WHAT IS ACTUALLY ON IT. A Barrow has no tachometer (CAB_TRIM.dials is 1),
+  // so its single dial takes the driver's side and the right-hand big slot is EMPTY — and a plate
+  // stretched to hold an instrument that was never fitted reads as a missing part rather than as a
+  // cheap truck. A poor cab should look plainly equipped, never broken.
+  const rightPlateL = twoDials ? speedX - bigR * 1.22 : rightX - smallR * 1.5;
+  plate(rightPlateL, outY - bigR * 1.30, rightX + smallGap + smallR * 1.5, outY + bigR * 1.34);
 
   if (twoDials) drawCabDial(ctx, tachX, outY, bigR, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM',
     String(Math.round((v?.rpmFrac ?? 0) * 100)), v?.inBand, T);
@@ -2013,11 +2018,73 @@ function drawCabDial(ctx, cx, cy, r, frac, band, label, read, lit, T = CAB_TRIM[
   ctx.fillStyle = 'rgba(150,165,185,0.55)';
   ctx.font = `${Math.max(6, r * 0.24) | 0}px monospace`;
   ctx.fillText(label, cx, cy + r * (read != null ? 0.76 : 0.52));
-  // The glass. One highlight sweeping the top-left, and it is most of what makes a drawn dial read
-  // as something under a cover rather than as a diagram of one.
-  const gl = ctx.createLinearGradient(cx - r, cy - r, cx + r * 0.3, cy + r * 0.4);
-  gl.addColorStop(0, 'rgba(255,255,255,0.10)'); gl.addColorStop(0.55, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  // ── THE GLASS ──────────────────────────────────────────────────────────────
+  //
+  // Four passes, and the reason it is four rather than the one flat wash it replaces is that a
+  // single linear gradient over a circle reads as a circle that has been shaded, not as a circle
+  // with a lens on it. What sells a cover is the EDGE of it: light entering the curve, and the
+  // bezel throwing a shadow inward onto the face.
+  //
+  // AND IT IS A RUNG ON THE FLEET LADDER. `gloss` runs 0.22 on the Barrow to 1 on the Orlov, which
+  // is exactly the right axis for it — nobody sells you a faster truck by fitting better glass, so
+  // this can be as luxurious as it likes without touching a number the physics read. A cheap dial
+  // is dull, slightly hazy and finely crazed; an expensive one is deep, clean and wet-looking.
+  const gloss = T.gloss ?? 0.6;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+
+  // 1. THE SHADOW UNDER THE BEZEL. Glass sits down inside a ring, so the ring shades the top of the
+  //    face — the single strongest cue that the cover is BELOW the rim rather than painted on it.
+  const sh = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r);
+  sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, `rgba(0,0,0,${0.30 + 0.22 * gloss})`);
+  ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+  // 2. THE SPECULAR. An elliptical highlight up in the top-left quadrant, rotated off the vertical
+  //    the way a real reflection of a window is — a symmetrical one reads as a drawn shape, and the
+  //    slight tilt is most of what stops it looking like a sticker.
+  ctx.save();
+  ctx.translate(cx - r * 0.30, cy - r * 0.40);
+  ctx.rotate(-0.5);
+  const sp = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.62);
+  sp.addColorStop(0, `rgba(255,255,255,${0.05 + 0.16 * gloss})`);
+  sp.addColorStop(0.55, `rgba(255,255,255,${0.02 + 0.05 * gloss})`);
+  sp.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sp;
+  ctx.beginPath(); ctx.ellipse(0, 0, r * 0.62, r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 3. THE SWEEP. A hard-edged band of light across the upper third — the reflection of the
+  //    windscreen itself, and the part a player will read as "there is glass on that".
+  const sw = ctx.createLinearGradient(cx - r, cy - r * 0.9, cx + r * 0.5, cy + r * 0.25);
+  sw.addColorStop(0, `rgba(255,255,255,${0.03 + 0.10 * gloss})`);
+  sw.addColorStop(0.42, `rgba(255,255,255,${0.01 + 0.05 * gloss})`);
+  sw.addColorStop(0.46, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sw; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+  // 4. CRAZING, and only on the truck that has earned it. Three faint arcs across the cover of a
+  //    forty-year-old instrument — deterministic (seeded off the dial's own position, so it does
+  //    not crawl between frames) and drawn as light rather than dark, because a scratch in plastic
+  //    catches the light instead of blocking it.
+  if (T.crazed && r > 14) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+    ctx.lineWidth = Math.max(0.6, r * 0.012);
+    for (let i = 0; i < 3; i++) {
+      const a0 = ((cx * 7 + cy * 13 + i * 97) % 360) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a0) * r * 0.5, cy + Math.sin(a0) * r * 0.5, r * (0.55 + i * 0.14),
+        a0, a0 + 1.1);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // 5. THE RIM SPECULAR, OUTSIDE the clip so it rides the bezel itself: a bright quarter-arc at
+  //    ten o'clock. On the Orlov's brass this is the thing that says brass.
+  if (gloss > 0.35) {
+    ctx.strokeStyle = `rgba(255,255,255,${0.10 * gloss})`;
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.985, Math.PI * 1.05, Math.PI * 1.55); ctx.stroke();
+  }
   ctx.restore();
 }
 
