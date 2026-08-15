@@ -800,6 +800,22 @@ tachometer, and the right-hand cluster plate was still being stretched to the wi
 instrument that was never fitted — an empty recess, which reads as a missing part rather than as a
 cheap truck. The plate hugs what is actually mounted on it.
 
+⚠ **Anything hit-testing the painted cab must measure the DASH canvas** *(2026-08-15)*. The horn boss
+was solved from the world canvas's height while the wheel was drawn from the dash canvas's, and the
+two are not always the same box: `.ws-canvas` is an in-flow block at `height:100%`, which against an
+auto-height flex parent resolves from the parent's CONTENT, while `.ws-dash` is `inset:0` and always
+takes its USED box. In fullscreen they diverge and the horn sat well above the wheel you could see.
+`cabDashCanvas(id)` exists so a hit-test can measure the canvas the thing was actually drawn on —
+which is correct by construction, whatever the two boxes are doing.
+
+**The dynamic-resolution floor is the caller's to set** *(2026-08-15)*. Shrinking the backing store
+under load is the right trade for a flight sim at altitude — big soft masses, and the alternative is
+a stutter — and the wrong one for a cab a metre from painted lane markings where every edge in frame
+is a hard one. It also explains the shape of the complaint: **a fullscreen canvas costs several times
+the pixels, so the scaler engages there and only there**, and the symptom reads as *the fullscreen
+button making the game blurry*. The cab passes `resFloor: 1` and renders at native, taking the frame
+cost instead. Everything else keeps the 0.6 floor it always had.
+
 **The fleet hovers, and now it actually leaves the ground** *(2026-08-15)*. The trucks have been hover
 hardware since they were modelled — lifter pods with shrouds, a cyan emitter band, a lit patch of
 road under each, all already gated on the rig not being parked — but the model never rose, so all of

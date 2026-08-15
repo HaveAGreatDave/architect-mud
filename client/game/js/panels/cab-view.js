@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabGpsRect } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabGpsRect, cabDashCanvas } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -566,7 +566,9 @@ export function openCab(ctx = {}) {
       // geometry (cabWheelHub) rather than a second copy of it, so the horn can never end up an
       // inch off the thing that looks like the horn. Not a grab: the angle delta at the centre of
       // a wheel is noise anyway, so this costs no steering.
-      const cv = document.getElementById(st.id);
+      // The canvas the WHEEL IS DRAWN ON, which is not the one the world is drawn on — see
+      // cabDashCanvas. Measuring the wrong sibling is what put the horn above the wheel.
+      const cv = cabDashCanvas(st.id) || document.getElementById(st.id);
       if (!st.external && cv) {
         const b = cv.getBoundingClientRect();
         const hub = cabWheelHub(b.width, b.height);
@@ -1481,6 +1483,12 @@ function frame(now) {
     // the renderer, so the painted cab suppresses itself the moment the camera leaves it.
     paintWindshield(st.id, {
       cls: 'truck', phase: 'ground', worldBlend: 1,
+      // NEVER DOWNSCALE THE ROAD. The renderer's dynamic resolution defends frame rate by shrinking
+      // the backing store, which is right for a sim looking at clouds and wrong for a cab looking at
+      // lane markings a metre away — and because a fullscreen canvas is where it actually engages,
+      // the symptom was "fullscreen makes it blurry". Rendering at native and taking the frame cost
+      // is the trade this view wants.
+      resFloor: 1,
       // Which of the four, and whether there is a box on the back. The ONE string that decides the
       // shape, and it is the same one the yard hands its turntable.
       variant: TYPE_ID + (r.hitched ? '+t' : ''),

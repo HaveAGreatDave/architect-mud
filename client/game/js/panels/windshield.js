@@ -569,7 +569,15 @@ export function paintWindshield(id, view) {
   // frameMs (persisted on st); eased for a smooth ramp, then QUANTISED to 0.1 steps so the canvas
   // backing store only re-allocates when it crosses a step — a per-frame ±1px resize would thrash
   // the allocator and flicker. Floor 0.6 keeps the view legible under the worst weather load.
-  const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, 0.6, 1);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed
+  // ⚠ THE FLOOR IS THE CALLER'S TO SET. Dropping the backing store under load is the right trade
+  // for a flight sim at altitude — big soft masses, and the alternative is a stutter — but it is the
+  // wrong one for a truck cab, where you are a metre from painted lane markings and every edge in
+  // frame is a hard one. It is also why "everything is sharp until I go fullscreen": a fullscreen
+  // canvas costs several times the pixels, so the scaler engages there and only there, and the
+  // result reads as the fullscreen button making the game blurry.
+  // A caller passing `resFloor: 1` renders at native and accepts the frame cost instead.
+  const resFloor = clamp(v.resFloor != null ? v.resFloor : 0.6, 0.5, 1);
+  const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, resFloor, 1);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed
   st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
   const dpr = baseDpr * (Math.round(st.resScale * 10) / 10);
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
@@ -1612,6 +1620,13 @@ export const cabWheelHub = (W, H) => { const g = cabWheelGeom(W, H); return { x:
 // and one-pixel needles. This layer is always native, so the dash is as sharp as the display can
 // draw regardless of what the weather is costing.
 function dashCanvas(id) { return document.getElementById(id + '-dash'); }
+// ⚠ ANYTHING HIT-TESTING THE PAINTED CAB MUST MEASURE THIS CANVAS, not the world one beside it.
+// They are siblings of the same box and they still do not always agree: `.ws-canvas` is an in-flow
+// block at `height:100%`, which against an auto-height flex parent resolves from the parent's
+// CONTENT, while `.ws-dash` is `inset:0` and always takes the parent's USED box. In fullscreen
+// those differ, so the horn boss — solved from the world canvas's height while the wheel was drawn
+// from the dash canvas's — sat well above the wheel you could see.
+export const cabDashCanvas = (id) => dashCanvas(id);
 function clearCabDash(id) {
   const c = dashCanvas(id);
   if (!c || !c._painted || !c.getContext) return;
