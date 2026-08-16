@@ -21,7 +21,7 @@
     "building_type": "truck_depot",
     "entrance": "south",
     "facade": true,
-    "floors": 1,
+    "floors": 3,
     "is_building": true,
     "lawless": true,
     "radiation": 9,

@@ -21,7 +21,7 @@
     "emp_shadow": true,
     "entrance": "south",
     "facade": true,
-    "floors": 1,
+    "floors": 3,
     "is_building": true,
     "lawless": true,
     "no_spawn": true,

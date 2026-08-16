@@ -25,7 +25,7 @@
     "building_type": "truck_depot",
     "entrance": "south",
     "facade": true,
-    "floors": 1,
+    "floors": 3,
     "is_building": true,
     "region_id": "region_terminus",
     "world_exit_zone": "zone_terminus_1202_940",

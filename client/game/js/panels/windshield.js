@@ -9817,12 +9817,66 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       //                       lit name band over it, and a fuel island and a hardstand out front. The
       //                       read from the air is DOOR SIZE: everything else on the block has a door
       //                       for a person, and this one has a door for a truck.
-      const hw = fh * 1.10, wallTop = h * 0.62;
-      draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                       // ribbed-steel shell
+      // ── ⚠ A SHED IS FOUR WALLS AND A ROOF, NOT A SOLID BOX ──────────────────
+      // This was one `draw3DBoxAt` — correct while a depot was scenery you drove past, and useless
+      // the moment `drive` started putting the player INSIDE it. A solid box seen from within has
+      // every face pointing away from you, so the backface cull removes the entire building and you
+      // are sitting on a bare grey slab with the sky where the roof should be. Nothing was missing
+      // from the model; there was simply no inward-facing surface anywhere in it.
+      //
+      // So it is built as a real shell now: four thin wall slabs and a roof, each of which has an
+      // inside face as well as an outside one. It reads the same from the road and it exists from
+      // the driver's seat, and the clear span between the walls is what makes it a hangar you park
+      // a rig and a trailer in rather than a garage the truck fills.
+      //
+      // ⚠ TALL, AND `floors` IS NOT THE UNIT. A shed is one storey by occupancy and three by
+      // height — that is the whole shape of the building type — so the wall height has a FLOOR
+      // under it rather than being h × a fraction. A 1-floor depot was drawing about half a storey:
+      // an ankle-high kerb you could see over, which is exactly what the screenshot showed.
+      const hw = fh * 1.10, wallTop = Math.max(h * 0.62, FLOOR_Z * 2.6);
+      const wt = fh * 0.10;                              // wall thickness — thin, but it has two sides
+      const doorHW = fh * 0.62, lintel = wallTop * 0.82;
+      // The three blind walls, drawn as slabs. Back first, then the sides, so the far wall is behind
+      // whatever is standing in the shed and the near ones frame it.
+      {
+        const [bx, by] = F(0, -hw + wt);
+        draw3DBoxAt(ctx, cam, bx, by, hw, 0, wallTop, pal, seed + 11, night, alpha, false);           // back wall
+        for (const s of [-1, 1]) {
+          const [sx, sy] = F(s * (hw - wt), 0);
+          draw3DBoxAt(ctx, cam, sx, sy, wt, 0, wallTop, pal, seed + 12 + s, night, alpha, false);     // side walls
+        }
+        // THE FRONT WALL IS TWO PIERS AND A LINTEL, and the gap between them is the doorway. This is
+        // the aperture a truck drives through, so it is left genuinely open rather than covered by a
+        // door-coloured panel: what closes it is the leaf below, and the leaf moves.
+        for (const s of [-1, 1]) {
+          const pierHW = (hw - doorHW) / 2;
+          const [px2, py2] = F(s * (doorHW + pierHW), hw - wt);
+          draw3DBoxAt(ctx, cam, px2, py2, pierHW, 0, wallTop, pal, seed + 14 + s, night, alpha, false);
+        }
+        const [lx2, ly2] = F(0, hw - wt);
+        draw3DBoxAt(ctx, cam, lx2, ly2, doorHW, lintel, wallTop, pal, seed + 16, night, alpha, false);  // over the door
+      }
       drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.94, wallTop, hw * 0.30, 12, alpha, [112, 118, 124]);       // shallow curved roof + gables
       if (frontVis) {
-        const [gx, gy] = F(0, fh * 1.04);
-        draw3DBoxAt(ctx, cam, gx, gy, fh * 0.62, 0, wallTop * 0.82, 'ty_door', seed + 3, night, alpha, false);          // THE door
+        // ── THE DOOR OPENS BECAUSE YOU ARE COMING ─────────────────────────────
+        // A roller door standing permanently open is a hole in a wall, and a permanently shut one is
+        // a building you drive through. It should be shut until somebody wants it, and the only
+        // thing that has ever wanted it is a truck moving toward it — so the leaf rides the distance
+        // from the vehicle to this tile. `dx`/`dy` are already the tile's offset from the camera's
+        // focus, which IS the vehicle, so this needs no new state, no message and no timer: it is
+        // derived from where you are, every frame, and it shuts again behind you for free.
+        // ⚠ CLOSED WHILE CAPTURING. `SHAPE_SINK` bakes this model's geometry for the LOD and the
+        // distance passes, and a door whose height depends on where the player happens to be is not
+        // a function of (footprint, height) — it would poison a cache that must stay affine. The
+        // capture always sees the door shut, which is also the honest resting state.
+        const dist = Math.hypot(dx, dy);
+        const open = SHAPE_SINK ? 0 : clamp((2.2 - dist) / 1.3, 0, 1);
+        if (open < 0.985) {
+          const [gx, gy] = F(0, fh * 1.04);
+          // The leaf rolls UP into the lintel: its bottom edge lifts, so at full open there is
+          // nothing left of it to draw and the doorway is the clear span the piers already framed.
+          draw3DBoxAt(ctx, cam, gx, gy, doorHW, lintel * open, lintel, 'ty_door', seed + 3, night, alpha, false);
+        }
         const [nx, ny] = F(0, fh * 1.06);
         draw3DBoxAt(ctx, cam, nx, ny, fh * 0.74, wallTop * 0.86, wallTop * 0.99, 'ty_garage_bay', seed + 5, night, alpha, false);  // name band over it
         // The fuel island on the apron: a low kerb and a pump, because a depot without diesel is a shed.
