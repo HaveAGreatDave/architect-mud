@@ -30,7 +30,7 @@ import { getZone, getAllZones, getMinimapData, addPlayerToZone, removePlayerFrom
 import { saveDrivingState, restoreDrivingState } from './resume.js';
 // The damage model. `condition` is still the headline number every older reader uses; these four
 // components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
-import { applyDamage, impactSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
+import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
@@ -1886,6 +1886,25 @@ async function cmdTruckEvent(args, raw, player) {
     return say('You drift onto the gravel and let her roll to a stop. Ticking metal, and a lot of sky.');
   }
   if (ev === 'arrive') { await arrive(player, rig); return { type: 'noop' }; }
+
+  // A MISSED SHIFT. Same split of responsibility as the collision below: the CLIENT owns the
+  // gearbox (the whole box is client-side — flight-model.js — and always has been), so it is the
+  // only thing that can know a shift was fluffed; the server owns what it costs. There is nothing
+  // to clamp here because there is no number to lie about — a grind is a grind — so the defence is
+  // a RATE LIMIT instead: a shift takes about a second even done badly, so anything faster than
+  // that is not a driver and is dropped. It never narrates. The bar is the message, and a line in
+  // the log every time somebody fluffs a change would be the most irritating text in the game.
+  if (ev === 'grind') {
+    const now = Date.now();
+    if (rig._lastGrindAt && now - rig._lastGrindAt < 900) return { type: 'noop' };
+    rig._lastGrindAt = now;
+    // Under load it is worse, and that is the one distinction worth drawing: grinding a bobtail
+    // box is careless, grinding one with forty tonnes behind it is expensive. Same arithmetic the
+    // rest of this file uses for weight — the trailer and its load against the tractor's own mass.
+    const laden = 1 + Math.min(2, ((rig.trailer?.kg || 0) + (rig.cargo?.kg || 0)) / 20000);
+    applyDamage(rig, grindSplit(laden));
+    return { type: 'noop' };
+  }
 
   // Building collision. The CLIENT owns the geometry and asserts the hit — exactly the split the
   // flight sim already uses for CFIT (`flightevent crash|clip`), and for the same reason: the

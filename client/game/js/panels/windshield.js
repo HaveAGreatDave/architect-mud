@@ -1170,7 +1170,13 @@ export function paintWindshield(id, view) {
     // 'ground'` is the authoritative weight-on-wheels signal (true from embark): planted ⇒ a soft
     // contact shadow FULL-strength directly beneath her; airborne ⇒ the sun-cast height cue. The
     // two cross-fade over the first bit of climb via `grounded`.
-    if (!framed && !v.hideOwnShip) {
+    // ⚠ NOT FOR A ROAD VEHICLE. Both of these paint `SHADOW_PLANE` — a fuselage, swept WINGS and a
+    // tailplane — and a truck went down the same branch as everything else, so a rig parked on the
+    // tarmac cast the shadow of an aeroplane, wings and all. Its own footprint shadow is already
+    // drawn from the lifter stations in `drawVehicleGround`, which is both correct and the shape of
+    // the thing casting it, so there is nothing to replace here: the aircraft pair simply is not a
+    // truck's.
+    if (!framed && !v.hideOwnShip && v.cls !== 'truck') {
       const grounded = phase === 'ground' ? 1 : clamp(1 - height / 0.06, 0, 1);
       if (grounded > 0.01) drawGroundContactShadow(ctx, cam, v.heading, v.cls, grounded);
       if (sunFx.elev > 0.02 && grounded < 0.99) drawAircraftShadow(ctx, cam, height, sunFx, worldBlend, v.heading, v.cls);
@@ -4536,7 +4542,7 @@ function bldgStyle(cell) {
 // ── ⚠ THE ONE BUILDING WHOSE MASS IS A SHAPE, NOT A STOREY STACK ─────────────
 // The depot bay (drawVehicleBay, below) is drawn at a FIXED height rather than extruded from a
 // floor count, and it has to be: it is the one building with a camera inside it, and its eaves must
-// clear the cab's eye (`eyeH: 0.17`) or the driver is looking over his own roof. A floor count
+// clear the cab's eye (`eyeH: 0.12`) or the driver is looking over his own roof. A floor count
 // cannot promise that — `bldgStretch` is a live dev-panel slider, so somebody dragging "Vert
 // stretch" would put the roof back under the windscreen.
 //
@@ -6631,9 +6637,18 @@ export function sortTruckFaces(faces, c, SIZE) {
   for (const f of faces) {
     const k = f.part == null ? `f${f.i}` : f.part;
     let g = parts.get(k);
-    if (!g) parts.set(k, g = { k, near: Infinity, i: f.i, fs: [] });
+    if (!g) parts.set(k, g = { k, near: Infinity, far: -Infinity, i: f.i, fs: [] });
     g.fs.push(f);
     if (f.nf < g.near) g.near = f.nf;
+    // The part's FAR extent as well as its near one — not to sort by (the nearest vertex is still
+    // the key; see 2 above), but to answer a different question the hysteresis has to ask: do these
+    // two parts occupy the same depths at all? See DISJOINT below.
+    // ⚠ Falls back to the face's MEAN depth when a caller hands over faces with no projected
+    // points. A `far` left at −Infinity would make every pair read as disjoint and switch the
+    // hysteresis off entirely — the failure would be flicker coming back, in whatever harness was
+    // cutting the corner, and nowhere else.
+    if (f.pts && f.pts.length) { for (const q of f.pts) if (q.f > g.far) g.far = q.f; }
+    else if (f.af > g.far) g.far = f.af;
     if (f.i < g.i) g.i = f.i;                       // mesh order: emitted inside-out, chassis first
   }
   const order = [...parts.values()].sort((a, b) => (b.near - a.near) || (a.i - b.i));
@@ -6646,15 +6661,30 @@ export function sortTruckFaces(faces, c, SIZE) {
   // ⚠ DONE AS ADJACENT SWAPS, NOT AS A CLEVER COMPARATOR. A comparator that consults the previous
   // order for near-equal pairs is not transitive, and an intransitive comparator handed to Array#sort
   // is undefined behaviour — it can emit garbage rather than merely an odd order. This cannot.
+  //
+  // ⚠ AND IT MUST NOT HOLD A PAIR THAT IS NOT AMBIGUOUS — the DISJOINT test below, which is what
+  // made parts show through each other. Hysteresis compared two NEAREST vertices, and two parts can
+  // have nearest vertices a hair apart while occupying completely different depths: a chassis rail
+  // runs the length of the truck, so its near end sits beside the near face of everything bolted
+  // along it. Inside EPS the stale order won, and a rail whose whole body is BEHIND a battery box
+  // got painted after it. That is not flicker being suppressed, it is a wrong answer being held —
+  // and held steadily, which is why it read as the truck being see-through rather than as chatter.
+  //
+  // So: if the two parts' depth ranges do not overlap at all, one of them is simply in front of the
+  // other, there is nothing to stabilise, and depth wins outright. Hysteresis now only applies where
+  // it was always meant to — parts that genuinely interpenetrate in depth and whose order is a coin
+  // flip the camera keeps re-tossing.
   const key = c.id || 'own';
   const rank = _truckOrder.get(key);
   if (rank) {
     const EPS = Math.max(1e-5, SIZE * 0.045);
+    const disjoint = (a, b) => a.far < b.near || b.far < a.near;
     for (let pass = 0; pass < 2; pass++) {
       for (let i = 0; i < order.length - 1; i++) {
         const a = order[i], b = order[i + 1];
         const ra = rank.get(a.k), rb = rank.get(b.k);
         if (ra == null || rb == null) continue;     // new part this frame — let depth decide
+        if (disjoint(a, b)) continue;               // unambiguous — never hold a stale order over it
         if (Math.abs(a.near - b.near) < EPS && ra > rb) { order[i] = b; order[i + 1] = a; }
       }
     }
@@ -11715,11 +11745,12 @@ const GATE_H = 1.05;
 //     room you sit in — the floor and the roof both pass under and over the camera — so throwing
 //     the quad away deletes the floor you are parked on. `bayFace` clips each polygon against the
 //     near plane instead of rejecting it, which is the only reason an interior can exist here.
-//  5. AND THE ROOF LIFTS OFF WHEN THE CAMERA IS ABOVE IT. In the external chase the eye sits well
-//     over the eaves, and a roof drawn from up there is a lid between you and your own truck — the
+//  5. AND THE ROOF THINS OUT AS THE CAMERA COMES IN. In the external chase the eye sits well over
+//     the eaves, and a roof drawn from up there is a lid between you and your own truck — the
 //     own-ship is painted after the whole world pass, so it wins that argument and reads as a rig
-//     seen THROUGH a roof. Standing inside the footprint and above the eaves is exactly the
-//     cutaway case, so the roof simply isn't drawn: you look down into a lit shed.
+//     seen THROUGH a roof. So the roof and the near wall are painted at 1 − cut, where cut is how
+//     far the camera has dollied in (BAY_CUT_FAR/NEAR): a solid depot from across the yard, a
+//     ghosted one on the way in, and a lit shed you look straight down into up close.
 const BAY_SENSE_TILES = 2.6;    // approaching from the apron, it starts lifting about a truck's length out
 const BAY_OPEN_TILES = 1.35;    // …and is fully up by the time the bumper is at the threshold
 // From INSIDE, the sensor is the length of the SHED, not the length of the street. `drive` mounts you
@@ -11729,8 +11760,21 @@ const BAY_OPEN_TILES = 1.35;    // …and is fully up by the time the bumper is 
 // inside, it starts shut with the shed around you and comes up as you roll at it.
 const BAY_IN_SENSE = 0.40;   // ⚠ must be < HL, or the door is already lifting on the frame you mount
 const BAY_IN_OPEN = 0.14;
+// ── THE CUTAWAY IS A DIAL, NOT A SWITCH ──────────────────────────────────────
+// The cutaway (note 5) exists so the roof and the near wall stop standing between the chase camera
+// and your own rig — a lid you look through. But it is also a lie about a solid building, and which
+// of those two things it IS depends entirely on how far back the eye has come. Close in, you are
+// looking INTO a shed and the near wall is in the way. Backed off, you are looking AT a depot, and a
+// depot with no roof and one wall missing is not a cutaway, it is a see-through building.
+//
+// So it runs on the distance from the eye to the shed's own walls (0 while inside), and it runs
+// CONTINUOUSLY: opaque out at the far end, thinning through the middle of the dolly, and fully open
+// only down where the chase flattens onto the road beside the truck. The two ends are the two
+// readings, and the ramp between them is what stops a wall blinking out on one notch of the wheel.
+const BAY_CUT_FAR = 1.10;    // beyond this the shed is solid — you are looking at a building
+const BAY_CUT_NEAR = 0.25;   // …and by here it is fully open, which is about where the chase flattens
 // The shed, in tiles and world-z. Two of these are not free numbers:
-//   · WALL must clear the cab camera's eye height (`eyeH: 0.17` in cab-view.js) by enough that the
+//   · WALL must clear the cab camera's eye height (`eyeH: 0.12` in cab-view.js) by enough that the
 //     eaves read as being overhead. The old 0.115 was BELOW the driver's eye, so you sat looking
 //     over your own roof at the gable — the building was an ankle-high kerb with a lid.
 //   · DOOR_H must clear it too, or the way out is a letterbox you cannot see the road through.
@@ -11760,8 +11804,13 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // occludes a truck exactly as well as a roof does.
   const subjLX = -dx * ct - dy * st, subjLY = dx * st - dy * ct;
   const subjectInside = Math.abs(subjLX) < HW && Math.abs(subjLY) < HL;
-  const cutaway = cam.EH > WALL * 0.9 && (inside || subjectInside);
-  const cutRoof = cutaway;
+  // …and HOW MUCH of it happens is the dolly's, not a boolean (see BAY_CUT_FAR/NEAR): `cut` is 0 out
+  // where the whole building is in frame, 1 down where the camera has flattened onto the road, and
+  // the near faces are painted at 1 − cut in between. Inside the shed it is always fully open — you
+  // cannot be asked to look through your own roof at yourself.
+  const eyeOut = Math.hypot(Math.max(0, Math.abs(camLX) - HW), Math.max(0, Math.abs(camLY) - HL));
+  const cut = (cam.EH > WALL * 0.9 && (inside || subjectInside))
+    ? clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1) : 0;
   // Distance from the eye to the DOORWAY rather than to the tile centre, so the sensor means the
   // same thing from the apron and from the back wall. `lateral` is how far off the aperture you are
   // sideways, which is what stops a truck passing down the far side of the yard from opening it.
@@ -11803,7 +11852,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     if (C.length < 3) return;
     const proj = C.map(([lx, ly, z]) => P(lx, ly, z));
     let af = 0; for (const p of proj) af += p.f; af /= proj.length;
-    list.push({ af, layer: o.layer ?? 2, pts: proj, fill, stroke: o.stroke, tex: (C.length === pts.length) ? o.tex : null, vertical: o.vertical });
+    list.push({ af, layer: o.layer ?? 2, pts: proj, fill, stroke: o.stroke, tex: (C.length === pts.length) ? o.tex : null, vertical: o.vertical, cut: !!o.cut });
   };
 
   // ── THE PALETTE ────────────────────────────────────────────────────────────
@@ -11819,7 +11868,10 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // the eye is, which costs nothing and is right every time.
   // A cutaway is a view of the INSIDE from outside, so it shades like one — otherwise the walls you
   // are looking through the top of would be lit as if you were on the street.
-  const interior = inside || cutaway;
+  // …and it flips at the HALFWAY point of the fade rather than the first hint of it: at cut 0.05 the
+  // near wall is still essentially solid, and lighting the whole shed as an interior behind a wall
+  // you cannot see through is how a building comes out lit from the wrong side.
+  const interior = inside || cut > 0.5;
   const two = (r, g, b, kIn, kOut) => (interior ? inn(r, g, b, kIn) : ex(r, g, b, kOut));
   const STEEL = [104, 112, 122];
   const ASPHALT = [58, 60, 66];    // the road's own tarmac (SURFACE_COL.asphalt) — see the floor note
@@ -11951,26 +12003,27 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   }
 
   // ── THE ROOF ───────────────────────────────────────────────────────────────
-  // Skipped entirely in the cutaway case (note 5). Otherwise: two pitches with a small overhang,
-  // and from underneath a run of translucent roof lights down each side of the ridge, which is how
-  // a shed this size is actually daylit.
-  if (!cutRoof) {
+  // Two pitches with a small overhang, and from underneath a run of translucent roof lights down
+  // each side of the ridge, which is how a shed this size is actually daylit. It is the FIRST thing
+  // the cutaway takes off, so every face here is marked as a cut face and painted at 1 − cut: solid
+  // from out in the yard, a ghost of a roof mid-dolly, gone by the time the camera is on the road.
+  {
     const OV = 0.025;
     for (const s of [-1, 1]) {
       bayFace([[s * (HW + OV), -HL - OV, WALL], [s * (HW + OV), HL + OV, WALL], [0, HL + OV, RIDGE], [0, -HL - OV, RIDGE]],
-        interior ? inn(...DARK, 1.15) : ex(...STEEL, s > 0 ? 0.72 : 1.05), { stroke: 'rgba(0,0,0,0.3)' });
+        interior ? inn(...DARK, 1.15) : ex(...STEEL, s > 0 ? 0.72 : 1.05), { stroke: 'rgba(0,0,0,0.3)', cut: true });
       if (interior) for (const y of [-0.24, 0.02, 0.28]) {
         // A roof light is a bright panel from inside on a bright day and a dim one at night — it is
         // the sky, not a lamp, so it must not glow after dark.
         const a = night ? 0.1 : 0.5;
         bayFace([[s * (HW * 0.62), y - 0.08, WALL + (RIDGE - WALL) * 0.38], [s * (HW * 0.62), y + 0.08, WALL + (RIDGE - WALL) * 0.38],
                  [s * (HW * 0.3), y + 0.08, WALL + (RIDGE - WALL) * 0.7], [s * (HW * 0.3), y - 0.08, WALL + (RIDGE - WALL) * 0.7]],
-          `rgba(216,226,238,${a})`, { stroke: null });
+          `rgba(216,226,238,${a})`, { stroke: null, cut: true });
       }
     }
     // The gable over the door, so the front reads as a building rather than as a wall with sky above it.
-    bayFace([[-HW, HL, WALL], [HW, HL, WALL], [0, HL, RIDGE]], ex(...STEEL, 0.98), { stroke: 'rgba(0,0,0,0.3)' });
-    bayFace([[-HW, -HL, WALL], [HW, -HL, WALL], [0, -HL, RIDGE]], two(...STEEL, 0.95, 0.6), { stroke: 'rgba(0,0,0,0.3)' });
+    bayFace([[-HW, HL, WALL], [HW, HL, WALL], [0, HL, RIDGE]], ex(...STEEL, 0.98), { stroke: 'rgba(0,0,0,0.3)', cut: true });
+    bayFace([[-HW, -HL, WALL], [HW, -HL, WALL], [0, -HL, RIDGE]], two(...STEEL, 0.95, 0.6), { stroke: 'rgba(0,0,0,0.3)', cut: true });
   }
 
   // ── FITTINGS ───────────────────────────────────────────────────────────────
@@ -11998,19 +12051,25 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   ctx.globalAlpha = alpha;
   ctx.lineJoin = 'round';
   for (const it of list) {
-    // The cutaway's second half: anything standing between the eye and the middle of the shed goes
-    // with the roof. Ground paint (layers 0/1) is never in the way of anything, so it stays.
-    if (cutaway && it.layer === 2 && it.af < fCentre - 0.03) continue;
+    // The cutaway's second half, and it is a FADE rather than a skip. Anything standing between the
+    // eye and the middle of the shed goes the same way the roof does — at 1 − cut, so backed off in
+    // the yard the near wall is a wall, mid-dolly it is glass you can make out your own trailer
+    // through, and only down at the flattened chase is it fully out of the way. Ground paint
+    // (layers 0/1) is never in the way of anything, so it stays solid throughout.
+    const near = it.cut || (it.layer === 2 && it.af < fCentre - 0.03);
+    const a = near ? alpha * (1 - cut) : alpha;
+    if (a <= 0.012) continue;
+    ctx.globalAlpha = a;
     ctx.beginPath();
     it.pts.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)));
     ctx.closePath();
-    if (it.tex) { ctx.save(); ctx.clip(); drawSurfaceText(ctx, it.pts[0], it.pts[1], it.pts[2], it.pts[3], it.tex, !!it.vertical, alpha); ctx.restore(); }
+    if (it.tex) { ctx.save(); ctx.clip(); drawSurfaceText(ctx, it.pts[0], it.pts[1], it.pts[2], it.pts[3], it.tex, !!it.vertical, a); ctx.restore(); }
     else {
       ctx.fillStyle = it.fill; ctx.fill();
       if (it.stroke) { ctx.strokeStyle = it.stroke; ctx.lineWidth = 1; ctx.stroke(); }
     }
     const fog = fogWeight(it.af);
-    if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); ctx.globalAlpha = alpha; }
+    if (fog > 0.004) { ctx.globalAlpha = a * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); ctx.globalAlpha = a; }
   }
 
   // ── THE LIGHT ──────────────────────────────────────────────────────────────

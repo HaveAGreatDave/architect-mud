@@ -1063,6 +1063,34 @@ Three details that were each wrong once and are load-bearing:
 - **The splitter is written the long way** because the one-liner chained on `truckShift`'s return
   value, which is a GEAR NUMBER — so a split into neutral was falsy and left `split` lying.
 
+### The clutch is not optional, and there is a key in the barrel *(2026-08-16)*
+
+The box is **not synchronised** — nothing in a class 8 is — so **a gear only goes in with the clutch
+in, and trying it without grinds the box into neutral**. Every route into a gear (the H-gate, the
+slot buttons, the range switch, `↑↓`, `,`/`.`, the splitter, `R`) passes one gate, `shiftGate` in
+[cab-view.js](../client/game/js/panels/cab-view.js), so the rule is written once. Two things never
+grind, because they don't in a truck either: **pulling it OUT into neutral**, and a box already in
+neutral.
+
+What this replaced was an **auto-clutch on both shift paths** — taking hold of the lever dipped the
+clutch for you (with a CLUTCH IN plate announcing it) and a sequential key dipped it for 320 ms. The
+effect was that the pedal existed and was never the reason anything worked. It also produced the
+complaint that closed the loop: *"I keep losing acceleration after shifting."* You weren't — the
+shift had put you in neutral and nothing said so.
+
+- **The grind is audible, visible and billed.** A scrape, a red pulse on the plate, and
+  `truckevent grind` → `grindSplit` in [damage.js](../plugins/trucking/damage.js). It lands on the
+  **engine alone** (a gearbox bar would need a label, an item, a price and a HUD row to say what the
+  engine bar already says) and it is deliberately tiny — 0.4% a time, worse under load. One grind is
+  nothing; a leg of them is a bill. Server-side rate limit, and it never narrates.
+- **The clutch pedal LATCHES on a tap.** That is what pays for the rule on a device with one
+  pointer: a hand on the pedal is a hand not on the lever. Same `input.clutch` the pedal and SPACE
+  write — a second latched flag would be a second clutch.
+- **`K` is the ignition**, and off is a real state rather than a pause: it *is* the stall flag, so
+  the audio, the lifter wash, the gear readout and the parked pose all follow without learning a
+  second "not running". Starting routes through the same `input.starter` the stall restart uses,
+  which is why it only catches with the clutch in or the box in neutral.
+
 ### The shifter is an H-gate, because the box is a 4×2 *(2026-08-14)*
 
 Eight forward ratios is not a ladder you climb — it is **four slots in an H with a range lever that

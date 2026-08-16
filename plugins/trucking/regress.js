@@ -20,7 +20,7 @@ import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market
 import { isTextDriving } from './textdrive.js';
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
-import { damageOf, overall, wearSplit, impactSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
+import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
 import { isTerminal, TERMINAL_CONDITION } from './rig.js';   // breakChance is already imported below
 import { displayRung, setDisplayRung } from '../../server/engine/presentation.js';
 import { HELP_GROUPS } from '../../server/engine/commands/world.js';
@@ -30,7 +30,7 @@ import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
-import { effTruckParams, tuneRange, repairCost, wearFor, bandOf, FIELD_CAP,
+import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
 import { resaleValue } from './fleet.js';
 
@@ -1009,6 +1009,17 @@ export default async function regress({ run, check, getPlayer }) {
     check('applying damage re-derives the headline number from the parts',
       Math.abs(rig.condition - overall(rig.dmg)) < 1e-9 && rig.condition < 1);
     check('…and nothing can be driven below zero', applyDamage(rig, { engine: 99, wheels: 99, body: 99 }) === 0);
+
+    // A MISSED SHIFT IS THE DRIVELINE'S BILL AND NOBODY ELSE'S. The gearbox has no bar of its own
+    // (see grindSplit) and it must not quietly become the body's problem: no sheet metal moved.
+    const g = grindSplit(1);
+    check('a grind lands on the engine alone', g.engine > 0 && g.wheels === 0 && g.body === 0);
+    check('…and one of them is a wince, not an incident', g.engine < impactSplit(wearForImpact(30), 'front').body);
+    check('…and a laden box pays more for the same mistake', grindSplit(3).engine > g.engine);
+    // The multiplier is clamped at both ends: a client cannot report itself into a free grind, and
+    // a hitched trailer cannot turn one into a write-off.
+    check('…within bounds, whatever it is handed', grindSplit(1e6).engine === grindSplit(4).engine
+      && grindSplit(0).engine === grindSplit(0.25).engine);
   }
 
   // ── 5. The whole haul, end to end, through the real verbs ──────────────────

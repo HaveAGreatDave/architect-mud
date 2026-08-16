@@ -30,7 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
-import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
+import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -111,6 +111,13 @@ async function main() {
   // all the way round each rig and count how often each pair of parts trades places. This is the
   // only check in the file that can see the FLASHING, because the flashing is not in the geometry —
   // every box is exactly where it should be, and the bug is which order they are painted in.
+  // Right, as well as steady — see truckOcclusionSmoke. A wrong order that never moves does not
+  // flicker, it makes the truck see-through, and the stability sweep scores that as perfect.
+  const occ = truckOcclusionSmoke(ws.sortTruckFaces, ws._resetTruckOrder);
+  for (const o of occ) {
+    if (o.bad) problems.push(`sort   ${o.variant} → ${o.bad} occlusion inversion(s) across ${o.views} views `
+      + `(e.g. ${o.worstView}). A part entirely in front of another is being painted under it.`);
+  }
   const stab = truckSortStabilitySmoke(ws.sortTruckFaces, ws._resetTruckOrder);
   for (const t of stab) {
     if (t.chattering) {
@@ -206,6 +213,7 @@ async function main() {
   console.log(`  Interiors: ${interiors.ran} canopy/cowl/window/cab passes clean (night+day × stopped+rolling).`);
   console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
+  console.log(`  Truck occlusion: ${occ.reduce((n, o) => n + o.views, 0)} views swept across ${occ.length} rigs — nothing is painted under a part that is entirely in front of it.`);
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);

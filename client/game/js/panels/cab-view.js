@@ -90,10 +90,11 @@ const CONTROLS = [
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
   ['Z', 'Service brakes. They heat, and hot brakes fade.'],
-  ['SPACE / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine — and you do not have to reach for it to shift, because taking hold of the lever puts it in for you.'],
+  ['SPACE / CLUTCH', 'Clutch. Held — or TAP the pedal to latch it in, which is how you shift with one hand on a mouse. The box is not synchronised: a gear only goes in with the clutch in, and trying it without grinds the box into neutral. It is also how you restart a stalled engine.'],
   ['J / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
   ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
   ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
+  ['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral — same rule as restarting a stall.'],
   ['G / CRUISE', 'Cruise control. Locks the speed you are doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear.'],
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
@@ -401,6 +402,17 @@ export function openCab(ctx = {}) {
              <button> underneath, so tab, Space and a screen reader are unchanged. -->
         <div class="cab-col cab-col-switch">
           <div class="cab-rockers" role="group" aria-label="Dash switches">
+            <!-- ── THE KEY ────────────────────────────────────────────────────
+                 A truck you cannot switch OFF is a truck that is always on, and every other
+                 system in this cab is built around the engine being a thing with a state:
+                 the lifters' wash says it is running, the stall says it stopped, the depot
+                 lets you sit in it. The only thing missing was the driver's own decision.
+                 It is a KEY BARREL rather than a rocker — the one control on the panel you
+                 turn instead of press — and it routes through the same 'starter' input the
+                 stall restart uses, so there is exactly one way an engine comes back to
+                 life and both of them are it. -->
+            <button class="cab-btn cab-rocker cab-ign" aria-pressed="true" aria-label="Ignition key" title="Ignition (K) — turn the key. Off kills the engine; on cranks it, with the clutch in or the box in neutral."><i></i><u><span>KEY</span></u></button>
+
             <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
                  a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
             <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
@@ -582,6 +594,33 @@ export function openCab(ctx = {}) {
   hold('.cab-brake', 'brake');
   hold('.cab-clutch', 'clutch');
   hold('.cab-jake', 'jake');
+  // ── THE CLUTCH ALSO LATCHES, AND THAT IS WHAT PAYS FOR THE GRIND ────────────
+  // The box refuses a shift with the clutch out (see `shiftTo`), which is the mechanic — and it
+  // would be unusable with one mouse, because a hand on the pedal is a hand not on the lever. So a
+  // TAP on the clutch pedal holds it in until you tap again; a press-and-hold is unchanged. That is
+  // not a concession, it is how the control has to work on a device with one pointer, and it keeps
+  // the rule ("a gear goes in with the clutch in") the same rule for everybody.
+  // ⚠ It writes the SAME `st.input.clutch` and `heldBy` the pedal writes. A second latched flag
+  // would be a second clutch, and the engine, the stall check and the shift gate would each have to
+  // learn about it.
+  {
+    const el = container.querySelector('.cab-clutch');
+    let downAt = 0;
+    el?.addEventListener('pointerdown', () => { downAt = performance.now(); });
+    // ⚠ ON `click`, NOT ON `pointerup`. hold() releases the pedal from a pointerup handler on the
+    // WINDOW, which bubbles after this element's own — so a latch set on pointerup is wiped by it a
+    // microsecond later, every time. `click` fires once the whole pointerup pass is finished.
+    el?.addEventListener('click', () => {
+      // A tap, not a hold: a hold has already done its job and released.
+      if (performance.now() - downAt > 260) return;
+      const latch = !(st.clutchLatched);
+      st.clutchLatched = latch;
+      st.input.clutch = latch ? 1 : 0;
+      st.heldBy = st.heldBy || {}; st.heldBy.clutch = latch ? 1 : 0;
+      el.classList.toggle('latched', latch);
+      st.paintControls?.();
+    });
+  }
   // Cruise is a LATCH, so it is a plain click rather than a hold() — the one switch on this panel
   // that stays where you put it.
   container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
@@ -847,18 +886,6 @@ export function openCab(ctx = {}) {
   {
     const gate = container.querySelector('.cab-gate');
     const lever = container.querySelector('.cab-lever');
-    // Whether the CAB put the clutch in for this shift, so releasing the lever only ever takes back
-    // what it gave. A blind `clutch = 0` on release would stamp on a driver holding the pedal down
-    // themselves — the commonest case being somebody holding X to restart a stalled engine and
-    // nudging the lever into neutral to do it.
-    let autoClutch = false;
-    const releaseClutch = () => {
-      if (!autoClutch) return;
-      autoClutch = false;
-      st.input.clutch = 0;
-      gate.classList.remove('declutch');
-      st.paintControls?.();
-    };
     const rangeBtn = container.querySelector('.cab-range');
     let drag = null;
     // WHERE THE LEVER IS ROOTED. Below the plate and on the left rail's line — the floor of the cab
@@ -957,19 +984,11 @@ export function openCab(ctx = {}) {
       drag = { id: e.pointerId };
       lever.setPointerCapture?.(e.pointerId);
       lever.classList.add('on');
-      // ── THE CLUTCH GOES IN WHEN YOUR HAND GOES ON THE STICK ─────────────────
-      // You cannot hold the throttle, dip the clutch and drag a lever with one mouse. The verb is
-      // shifting, and shifting includes the clutch — so taking hold of the lever declares one, the
-      // way a driver's left foot is already down before their right hand moves. It is not a
-      // shortcut past the mechanic: the pedal, the X key and the stall are all unchanged, and a
-      // keyboard driver still works the clutch themselves. What it removes is an input-device
-      // problem masquerading as a skill.
-      // The plate SAYS so rather than doing it silently — see `.cab-gate.declutch` — because a
-      // control that quietly helps teaches nothing about why the help was needed.
-      autoClutch = true;
-      st.input.clutch = 1;
-      gate.classList.add('declutch');
-      st.paintControls?.();
+      // ⚠ TAKING HOLD OF THE LEVER NO LONGER DIPS THE CLUTCH FOR YOU. It used to, with a CLUTCH IN
+      // plate announcing that it had, and the effect was that the pedal existed and was never the
+      // reason anything worked. The one-mouse problem that was solving is solved on the PEDAL
+      // instead — a tap latches the clutch in — so a single pointer still has both halves of a
+      // shift available without the box doing the difficult half on your behalf.
       e.preventDefault(); e.stopPropagation();
     });
     const move = (e) => {
@@ -986,7 +1005,7 @@ export function openCab(ctx = {}) {
       gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
     };
     const drop = (e) => {
-      if (!drag || !st) { drag = null; releaseClutch(); return; }
+      if (!drag || !st) { drag = null; return; }
       const b = gate.getBoundingClientRect();
       const fx = b.width ? ((e?.clientX ?? 0) - b.left - KNOB_DX) / b.width : 0.38;
       const fy = b.height ? ((e?.clientY ?? 0) - b.top - KNOB_DY) / b.height : 0.50;
@@ -996,10 +1015,6 @@ export function openCab(ctx = {}) {
       lever.classList.remove('on');
       gate.dataset.aim = '';
       if (s) selectGear(gearOfSlot(s));
-      // ⚠ THE CLUTCH COMES BACK OUT AFTER THE GEAR GOES IN, in that order. Reversed, the shift
-      // lands while the clutch is already engaged, which is precisely the crunch the auto-clutch
-      // exists to avoid — and it would be a bug nobody could see, only hear.
-      releaseClutch();
       st.paintGate?.();
     };
     lever.addEventListener('pointermove', move);
@@ -1035,11 +1050,75 @@ export function openCab(ctx = {}) {
     });
     winOff.push(() => { drag = null; });
   }
+  // ── THE CLUTCH IS NOT OPTIONAL, AND THE BOX SAYS SO ─────────────────────────
+  //
+  // This gearbox is not synchronised — nothing in a class 8 is — so a gear goes in when the clutch
+  // is in and grinds when it is not. That used to be papered over: taking hold of the lever dipped
+  // the clutch FOR you and lit a CLUTCH IN plate saying it had, which meant the pedal existed and
+  // was never the reason anything happened. A control that quietly does the hard half teaches the
+  // player that the hard half is not there.
+  //
+  // So: every route into a gear passes through here, and with the clutch out the shift is REFUSED.
+  // What you get is what a real missed shift gives you — the lever comes out of the gear it was in,
+  // you are in NEUTRAL, it makes a noise everybody in the yard can hear, and the truck is now
+  // coasting. That last part is the answer to "why did I lose acceleration after shifting": you
+  // hadn't got a gear, and nothing was telling you.
+  //
+  // TWO THINGS NEVER GRIND, because they don't in a truck either:
+  //   · pulling it OUT of gear into neutral — you can knock a box out of gear with your knuckles
+  //   · a box that is already in neutral, which has nothing to disengage
+  const clutchIn = () => (st.input.clutch || 0) > 0.5;
+  // What a ±1 sequential move would actually LAND on — the same clamp truckShift applies, so the
+  // gate is asked about the gear you are going to get rather than the one you asked for.
+  const gearWithin = (g) => Math.max(-1, Math.min(P.gears.length - 1, g | 0));
+  function grind(target) {
+    // Out of gear, loudly. `truckSelectGear` is the same door the successful shift uses.
+    truckSelectGear(st.sim, P, 0);
+    grindCue();
+    // AND IT COSTS SOMETHING. The gearbox is entirely client-side, so this is the only place that
+    // can know a shift was fluffed — the server owns what it is worth, exactly as it does for a
+    // collision (`truckevent bump|crash`). It rate-limits the event itself; this rate-limits the
+    // sending, because a held key against a refusing box should not become a packet storm.
+    const now = performance.now();
+    if (!st.lastGrindSent || now - st.lastGrindSent > 900) {
+      st.lastGrindSent = now;
+      sendCmdSilent('truckevent grind');
+    }
+    const gate = container.querySelector('.cab-gate');
+    if (gate) {
+      // Restart the flash even on a grind that lands inside the last one — `void offsetWidth` is
+      // what makes the class re-trigger its animation rather than being a no-op.
+      gate.classList.remove('grind'); void gate.offsetWidth; gate.classList.add('grind');
+      // The plate says CLUTCH the first few times and then stops. It is a tell, not a tutorial: a
+      // driver who has understood it does not need telling on every fluffed shift, and this is the
+      // one label in the cab that would otherwise be shouting during the exact moment you are busy.
+      if ((st.grinds = (st.grinds || 0) + 1) <= 3) {
+        gate.dataset.tell = 'CLUTCH';
+        clearTimeout(st.grindTell);
+        st.grindTell = setTimeout(() => { if (gate.dataset) gate.dataset.tell = ''; }, 1800);
+      }
+      setTimeout(() => gate.classList.remove('grind'), 420);
+    }
+    st.paintGate?.();
+    return true;
+  }
+  // Every gear change in the cab funnels through this: the H-gate, the slot buttons, the range
+  // switch, the sequential keys, the splitter and the R key.
+  function shiftGate(target) {
+    if (target === st.sim.gear) return false;                      // not a shift at all
+    if (target === 0 || st.sim.gear === 0) return false;           // out of gear / already out: free
+    if (clutchIn()) return false;
+    grind(target);
+    return true;                                                    // handled — do not put it in gear
+  }
+  st.shiftGate = shiftGate;
+
   // ONE DOOR for every way of choosing a gear, so the reverse rule is written once. The H-gate, the
   // R button and the R key all arrive here.
   function selectGear(g) {
     if (g < 0) { toggleReverse(); return; }
     if (st.sim.gear < 0 && Math.abs(st.sim.speed) >= 2) return;   // rolling backwards: not yet
+    if (shiftGate(g)) return;
     truckSelectGear(st.sim, P, g);
     // Keep the lever's own range honest with the box: shifting to 6 with the ▲ button has to move
     // the gate into HI, or the knob would sit in a slot that means something else.
@@ -1065,7 +1144,8 @@ export function openCab(ctx = {}) {
   // ▲▼ and the R key are gone from the shelf: every gear including reverse is a slot on the gate
   // now, and the gate's slots are real buttons. The KEYS are untouched — ',' '.' 'r' still work,
   // and so does the splitter collar.
-  tap('.cab-splitbtn', () => truckSplit(st.sim, P));
+  tap('.cab-ign', () => toggleIgnition());
+  tap('.cab-splitbtn', () => splitGear());
   tap('.cab-wipe', () => cycleWipers());
   tap('.cab-horn', () => sendCmdSilent('horn'));
 
@@ -1110,17 +1190,19 @@ export function openCab(ctx = {}) {
     // ⚠ NOT W/S, tempting as the WASD read is: S is look-behind and it is the flight sim's key,
     // and that parity is worth more than any convenience this could buy.
     else if (down && !e.repeat && (k === ',' || k === '.' || k === 'arrowup' || k === 'arrowdown')) {
-      truckShift(st.sim, P, (k === '.' || k === 'arrowup') ? 1 : -1);
-      // AUTO-CLUTCH ON A SEQUENTIAL SHIFT. Holding X with one hand while finding the next ratio
-      // with the other is the real thing and it is also two keys for one act — so a shift from a
-      // KEY dips the clutch for you. The gate is deliberately left alone: putting the lever in a
-      // slot by hand is the manual control, and the pedal is part of it.
-      st.autoClutch = performance.now() + 320;
+      // Through the same gate the lever goes through: a sequential shift is a shift, and the box
+      // does not care which control asked for it. (This used to dip the clutch for you for 320ms.
+      // That is the half of shifting the pedal is FOR — see shiftGate.)
+      const want = gearWithin((st.sim.gear ?? 1) + ((k === '.' || k === 'arrowup') ? 1 : -1));
+      if (!st.shiftGate?.(want)) truckShift(st.sim, P, (k === '.' || k === 'arrowup') ? 1 : -1);
     }
     // Cruise. Not a held control and not on a pedal key: it is the switch that means "stop holding
     // the pedal", so it gets its own press.
     else if (down && !e.repeat && k === 'g') toggleCruise();
-    else if (down && !e.repeat && k === '/') truckSplit(st.sim, P);
+    // K for the key. Not a held control — you turn it, it stays turned — so it is an edge like
+    // cruise and reverse rather than a pedal.
+    else if (down && !e.repeat && k === 'k') toggleIgnition();
+    else if (down && !e.repeat && k === '/') splitGear();
     // REVERSE is its own key rather than "shift down past first", because walking a driver through
     // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
     // report. It only takes at a stop, which is where a real box lets you have it too.
@@ -1178,6 +1260,37 @@ export function openCab(ctx = {}) {
   st.setCruise = setCruise;
   // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
   // it — there is no set-point to dial, because dialling one is a menu and this is a truck.
+  // ── THE KEY ─────────────────────────────────────────────────────────────────
+  //
+  // Off is a real state, not a pause: the engine is dead, the drive is gone, and the rig rolls to a
+  // stop on its own rolling resistance exactly as a stall does. It IS the stall flag — there is one
+  // "this engine is not turning" in the model and adding a second would mean every reader (the
+  // audio, the lifter wash, the gear readout, the parked pose) had to learn about both.
+  //
+  // Starting is the model's own rule and is not restated here: `input.starter` only takes with the
+  // clutch in or the box in neutral (flight-model.js), which is why turning the key in gear with
+  // your foot off the pedal does nothing but churn. The cab holds the starter for a moment rather
+  // than setting it for a frame, because a key you turn and release is a key you have to hold.
+  function toggleIgnition() {
+    const el = container.querySelector('.cab-ign');
+    if (!st.sim.stalled) {
+      st.sim.stalled = true;                       // key off — the engine stops, everything downstream follows
+      st.input.throttle = 0;
+      clearTimeout(st.crankT); st.input.starter = 0;
+      keyCue(false);
+    } else {
+      // Cranking. Held for as long as a starter motor runs, and it either catches (the model clears
+      // `stalled` on the next step) or it doesn't, which is the honest answer to turning it in gear.
+      st.input.starter = 1;
+      keyCue(true);
+      clearTimeout(st.crankT);
+      st.crankT = setTimeout(() => { if (st) st.input.starter = 0; }, 900);
+    }
+    el?.setAttribute('aria-pressed', String(!st.sim.stalled));
+    st.paintControls?.();
+  }
+  st.toggleIgnition = toggleIgnition;
+
   function toggleCruise() {
     if (st.cruise != null) return setCruise(null);
     if (st.sim.gear > 0 && st.sim.speed >= 8 && !st.dry && !st.broken) setCruise(st.sim.speed);
@@ -1186,7 +1299,18 @@ export function openCab(ctx = {}) {
 
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
+    // Reverse is a gear like any other, so it grinds like any other. The target is what the shift
+    // below would land on — first out of reverse, reverse out of anything else.
+    if (st.shiftGate?.(st.sim.gear < 0 ? 1 : -1)) return;
     truckShift(st.sim, P, st.sim.gear < 0 ? 2 : -(st.sim.gear + 1));
+  }
+  // THE SPLITTER IS HALF A SHIFT, AND HALF A SHIFT IS STILL A SHIFT. The collar moves dog teeth in
+  // the same box; flicking it under load with the clutch out is the classic way to lose a ratio and
+  // find neutral at speed, which is exactly what shiftGate does to you.
+  function splitGear() {
+    const want = gearWithin((st.sim.gear ?? 1) + (st.sim.split ? -1 : 1));
+    if (st.shiftGate?.(want)) return;
+    truckSplit(st.sim, P);
   }
 
   // Wipers, off → intermittent → low → high → off. Purely a client-side control: the blade is
@@ -1465,78 +1589,24 @@ export function openCab(ctx = {}) {
   helpEl.addEventListener('click', () => toggleHelp(false));
   st.toggleHelp = toggleHelp;
 
-  // THE ROLLER DOOR. Only when you turned the key inside a shed — see below.
-  if (ctx.fromBay) rollUp(container);
 
   st.raf = requestAnimationFrame(frame);
   return st;
 }
 
-// ── OUT THROUGH THE ROLLER DOOR ──────────────────────────────────────────────
+// ── THE SHED BELONGS TO THE WORLD NOW, NOT TO THE GLASS ─────────────────────
 //
-// A haul starts inside a building. The truck cannot: a bay is a building, buildings are solid and
-// carry no grid coordinates, and a rig has to stand on a tile with a surface under it — so the
-// server puts you on the apron a door away and always has (see cmdDrive). What was missing was the
-// door itself, and without it the run did not begin, it was simply already happening: one moment a
-// shop window, the next moment a road.
+// A haul starts inside a building, and for a while the shed around you was four CSS gradients and a
+// slatted panel laid OVER the windscreen, lifted on a 2.4s keyframe with the throttle held dead
+// underneath it. That was the right trick while a depot was one flat box in the render: the overlay
+// was the only shed there was.
 //
-// So THE SHED IS DRAWN IN THE CAB, NOT IN THE WORLD. It is four gradients and a slatted panel over
-// the glass — the real windscreen is live underneath it the entire time, already painting the yard
-// — and the panel goes up. That is the whole trick, and it is why this costs the world model
-// nothing: no interior tile, no second camera, no geometry to collide with, nothing to keep in
-// sync. What you see through the widening gap is the actual road you are about to drive on.
-//
-// The throttle is dead until the door is clear. Not because anything would stop you — there is no
-// door in the physics, there is no door anywhere but here — but because a driver who pulls away
-// through a closed door has been told the picture is a lie, and every frame after that is cheaper
-// for it. Two seconds of idle, which is roughly how long the real thing takes.
-const DOOR_LIFT_MS = 2400;      // the panel's own travel, matching the CSS
-const DOOR_HOLD_MS = 2150;      // throttle released a shade before it is fully home — you creep out under it
-const DOOR_GONE_MS = 3300;      // overlay removed; the walls have faded off the glass by now
-
-function rollUp(container) {
-  const wrap = container.querySelector('.ws-wrap');
-  if (!wrap) return;
-  // A player who has turned motion off has turned THIS off — it is two and a half seconds of a
-  // large object moving across the whole of their view, which is the exact thing that setting is
-  // for. They get the road, immediately, and the log still tells them the door went up.
-  if (document.documentElement.getAttribute('data-motion') === 'off'
-      || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
-  wrap.insertAdjacentHTML('beforeend', `
-    <div class="cab-shed" aria-hidden="true">
-      <div class="cab-shed-spill"></div>
-      <div class="cab-shed-wall l"></div>
-      <div class="cab-shed-wall r"></div>
-      <div class="cab-shed-ceil"><i></i></div>
-      <div class="cab-shed-dust"></div>
-      <div class="cab-shed-door"><span class="cab-shed-seal"></span></div>
-    </div>`);
-  st.doorUntil = performance.now() + DOOR_HOLD_MS;
-  // The rig shakes on its springs while it sits there with the handbrake on and nothing to do.
-  container.querySelector('.cab-wrap')?.classList.add('cab-idling');
-
-  // The voice of it: a long metal scrape for the travel, and a clatter when it hits the top stop.
-  // Built locally rather than pushed from the server — nobody else in the yard needs to hear your
-  // door, and a cue that only one person can hear has no business on the wire.
-  const A = window.AudioEngine, S = window.ProceduralSFX;
-  const cue = (o, gain) => { try { const d = S?.buildActionCue(o); if (d) A?.playSfx(d, gain); } catch { /* audio is never load-bearing */ } };
-  cue({ action: 'scrape', surface: 'metal', intensity: 0.85, seed: 4471 }, 0.5);
-  st.doorT1 = setTimeout(() => cue({ action: 'scrape', surface: 'metal', intensity: 0.7, seed: 991 }, 0.4), 780);
-  st.doorT2 = setTimeout(() => cue({ action: 'impact', surface: 'metal', intensity: 0.6, seed: 233 }, 0.55), DOOR_LIFT_MS - 120);
-  st.doorT3 = setTimeout(() => {
-    if (!st) return;
-    st.container?.querySelector('.cab-shed')?.remove();
-    st.container?.querySelector('.cab-wrap')?.classList.remove('cab-idling');
-  }, DOOR_GONE_MS);
-}
-
-// Nothing here may outlive the cab: a timer holding a removed node is harmless, but one that fires
-// a sound into a player who has already parked is not.
-function clearRollUp() {
-  if (!st) return;
-  clearTimeout(st.doorT1); clearTimeout(st.doorT2); clearTimeout(st.doorT3);
-  st.doorUntil = 0;
-}
+// The depot is a real model now — walls, a roof, an interior you sit in, and a roller door whose
+// leaf rides the distance from your own bumper to the aperture (drawVehicleBay in windshield.js).
+// So the overlay had become a SECOND door in front of the first one, running on its own clock: it
+// opened whether or not the real one had, and it pinned the throttle at exactly the moment the real
+// door needs you to roll at it to lift. Nothing replaces it — you are in the shed, and you drive out
+// of the shed.
 
 // The server's authoritative push. It owns the world window, the odometer and the surface; the
 // client owns everything between frames. Position is NOT snapped from here unless the server has
@@ -1672,6 +1742,41 @@ function shiftCue(half, toNeutral) {
   if (!toNeutral) cue({ action: 'impact', surface: 'rubber', intensity: half ? 0.2 : 0.36, seed: seed + 41 }, half ? 0.12 : 0.22, half ? 90 : 150);
 }
 
+// A MISSED SHIFT, as a sound: dog teeth skating off each other, which is a SCRAPE rather than the
+// impact a clean shift makes. Deliberately the loudest thing the gearbox can do — the whole point
+// of a grind is that it is unmistakeable and slightly awful, and a subtle one would be a mechanic
+// nobody notices they are failing. Two overlapping scrapes at different seeds so it rasps rather
+// than pings, and a dry metal knock under it for the lever hitting the gate.
+function grindCue() {
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  if (!A || !S) return;
+  const cue = (o, gain, delay = 0) => {
+    const fire = () => { try { const d = S.buildActionCue(o); if (d) A.playSfx(d, gain); } catch { /* never load-bearing */ } };
+    if (delay) setTimeout(fire, delay); else fire();
+  };
+  const seed = 7700 + ((performance.now() | 0) % 991);
+  cue({ action: 'scrape', surface: 'metal', intensity: 0.95, seed }, 0.55);
+  cue({ action: 'scrape', surface: 'metal', intensity: 0.7, seed: seed + 37 }, 0.34, 60);
+  cue({ action: 'impact', surface: 'metal', intensity: 0.45, seed: seed + 71 }, 0.22, 30);
+}
+
+// The key, as a sound. Turning it OFF is one soft mechanical click and then the absence of an
+// engine, which the engine audio does for free the moment rpm goes to zero — so there is nothing to
+// play but the switch. Turning it ON is the switch plus the starter, and the starter is deliberately
+// NOT a triumphant noise: it is a big cold motor churning, and whether it catches is the model's
+// business, not this cue's.
+function keyCue(on) {
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  if (!A || !S) return;
+  const cue = (o, gain, delay = 0) => {
+    const fire = () => { try { const d = S.buildActionCue(o); if (d) A.playSfx(d, gain); } catch { /* never load-bearing */ } };
+    if (delay) setTimeout(fire, delay); else fire();
+  };
+  const seed = 5100 + ((performance.now() | 0) % 983);
+  cue({ action: 'impact', surface: 'metal', intensity: 0.22, seed }, 0.18);
+  if (on) cue({ action: 'scrape', surface: 'metal', intensity: 0.5, seed: seed + 19 }, 0.26, 90);
+}
+
 // ── THE RIG, SEEN FROM OUTSIDE ───────────────────────────────────────────────
 // There is nothing here but a caption, and that is the point.
 //
@@ -1734,24 +1839,10 @@ function frame(now) {
     // driver's seat those two situations ARE the same situation, and giving the breakdown its own
     // client-side behaviour would have been a second copy of the same three lines.
     if (st.dry || st.broken) { st.input.throttle = 0; st.sim.rpm = 0; }
-    // Still under the door. The pedal does nothing and the brake is on — see rollUp. The engine is
-    // deliberately NOT silenced the way a dry tank silences it: it is running, you are just not
-    // going anywhere yet, and the idle is half of what makes the wait feel like a truck.
-    // The throttle and the wheel only. The BRAKE is deliberately not forced on: it is the
-    // player's own held control, and stomping it here would release a pedal they are holding the
-    // moment the door cleared. Nothing is pushing the truck at zero mph anyway.
-    if (st.doorUntil && now < st.doorUntil) { st.input.throttle = 0; st.input.steer = 0; }
-    else if (st.doorUntil) st.doorUntil = 0;
-    // The auto-clutch dip a keyboard shift asked for. It writes the same `clutch` input the pedal
-    // does — one clutch, not a second mechanism — so the engine, the launch window and the stall
-    // rule all see exactly what they would see if a hand had done it.
-    if (st.autoClutch) {
-      if (now < st.autoClutch) st.input.clutch = 1;
-      // ⚠ Handing it back to the FOOT, not to zero: `heldBy` is what the pedal and the X key
-      // actually have down right now, so a driver who was already holding the clutch when a shift
-      // dipped it does not have it dropped out from under them when the dip expires.
-      else { st.autoClutch = 0; st.input.clutch = st.heldBy?.clutch ? 1 : 0; }
-    }
+    // (A throttle lock used to live here, holding the pedal dead while the overlay's door lifted.
+    // The door is in the world now and it lifts BECAUSE you drive at it — see "THE SHED BELONGS TO
+    // THE WORLD NOW" above. Nothing may pin the throttle in a shed again: that is the one input the
+    // real door is waiting on.)
     // ── CRUISE ────────────────────────────────────────────────────────────────
     // A held throttle across four hundred tiles of straight corridor is not a skill, it is a
     // finger. So: lock the speed you are at and the pedal is worked for you.
@@ -1837,13 +1928,17 @@ function frame(now) {
     // The controls follow the truck, whatever moved them — a key, a button, a drag.
     st.paintGate?.();
     st.paintControls?.();
+    // The key lamp is the ENGINE, not the switch: a key turned on that did not catch is off, and
+    // saying otherwise would make the one control whose whole job is "is this thing running" lie.
+    const ignEl = q('.cab-ign');
+    if (ignEl) { ignEl.classList.toggle('on', !r.stalled); ignEl.setAttribute('aria-pressed', String(!r.stalled)); }
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
     // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
     // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
     const kit = kitFor(P);
-    q('.cab-gearhint').textContent = r.stalled ? 'STALLED · CLUTCH SPACE'
+    q('.cab-gearhint').textContent = r.stalled ? 'ENGINE OFF · CLUTCH + KEY'
       : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .';
     // THE INSTRUMENTS ARE ON THE DASH, in the scene — see the field block in the paintWindshield
     // call below, and drawCabInterior in windshield.js. Nothing is painted from here.
@@ -1994,12 +2089,17 @@ function frame(now) {
       // `makeCam`). Two numbers put it in a truck instead, and they are only sent for the INTERIOR:
       // the chase camera anchors its model against the shared constants, so overriding them out
       // there would move the rig itself rather than the eye looking at it.
-      //   eyeH   0.24 → 0.17. The aircraft value is lifted so the near ground falls off the bottom
+      //   eyeH   0.24 → 0.12. The aircraft value is lifted so the near ground falls off the bottom
       //          of a bare windscreen; a truck has a dash doing that already, so all the lift did
       //          was seat the driver above where they are sitting.
+      //          ⚠ AND THE UNIT IS THE SHED, NOT THE CITY. The one building with a known real size
+      //          around this camera is the bay (BAY.RIDGE = 2.2 storeys = 26 ft, so 1.0 world-z is
+      //          about 61 ft in here). 0.17 was therefore a 10-ft eye — a cherry picker, not a
+      //          cab — and it read exactly that way from inside: you sat looking DOWN at a roller
+      //          door. 0.12 is ~7.5 ft, which is where a conventional's eyes actually are.
       //   fovMul 0.82 → ~1.0 effective. The stock focal length pulls the world toward the vanishing
       //          point, which is what made everything out of the glass read small and far.
-      ...(st.external ? {} : { eyeH: 0.17, fovMul: 1.22 }),
+      ...(st.external ? {} : { eyeH: 0.12, fovMul: 1.22 }),
       height: 0, speed: r.speed / 68, mph: r.speed,
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
@@ -2195,15 +2295,19 @@ function ensureCabStyles() {
     overflow:visible;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55);
     touch-action:none;cursor:pointer}
-  /* THE CLUTCH IS IN, AND THE PLATE SAYS SO. Lit the moment you take hold of the lever, because the
-     one thing a new driver has to learn about a manual box is that the stick and the clutch are one
-     action — and a control that silently helps teaches nobody that. Doubles as the answer to "why
-     did that shift work": it worked because the clutch went in. */
-  .cab-gate.declutch{box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55),
-    0 0 0 1px rgba(232,192,122,.55), 0 0 12px -2px rgba(232,192,122,.45)}
-  .cab-gate.declutch::after{content:'CLUTCH IN';position:absolute;left:0;right:0;bottom:-14px;
-    text-align:center;font:700 8px/1 inherit;letter-spacing:1.5px;color:var(--cab-glow,#e8c07a);
-    text-shadow:0 1px 0 rgba(0,0,0,.9);pointer-events:none}
+  /* A MISSED SHIFT, ON THE PLATE. The sound is the message — this is the part you catch out of the
+     corner of an eye while you are busy, so it is one hard red pulse and a word, not a panel. The
+     word stops appearing after the third grind (see 'grind'): by then it is not news. */
+  .cab-gate.grind{box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55),
+    0 0 0 1px rgba(226,92,72,.85), 0 0 16px -2px rgba(226,92,72,.6);
+    animation:cab-grind 380ms steps(2) 1}
+  .cab-gate[data-tell]:not([data-tell=""])::after{content:attr(data-tell);position:absolute;
+    left:0;right:0;bottom:-14px;text-align:center;font:700 8px/1 inherit;letter-spacing:1.5px;
+    color:#e25c48;text-shadow:0 1px 0 rgba(0,0,0,.9);pointer-events:none}
+  @keyframes cab-grind{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(1.5px,0,0)}}
+  /* The clutch pedal, LATCHED in with a tap rather than held down — the one pedal that stays where
+     you put it, because a shift needs a hand on the lever as well. */
+  .cab-clutch.latched{border-color:#c8a45e;box-shadow:0 0 10px -2px rgba(232,192,122,.5)}
   /* Four countersunk screws at the corners of the plate — the smallest possible detail that says
      this thing is BOLTED to something. Two elements, four shadows. */
   .cab-gate::before{content:'';position:absolute;left:5px;top:5px;width:5px;height:5px;border-radius:50%;
@@ -2778,75 +2882,12 @@ function ensureCabStyles() {
     60%{transform:translate3d(5px,3px,0) rotate(.25deg)}100%{transform:none}}
   @media (prefers-reduced-motion:reduce){.cab-jolt .ws-wrap,.cab-jolt-hard .ws-wrap{animation:none}}
 
-  /* ── THE SHED, AND THE DOOR GOING UP ──────────────────────────────────────
-     Everything here sits INSIDE .ws-wrap, over a windscreen that is already
-     painting the yard. Nothing is a screenshot and nothing is faked: the gap
-     under the lifting door is the live render, which is why the light spilling
-     in matches the weather and the time of day without being told either. */
-  .cab-shed{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;
-    animation:shed-clear .8s ease 2.5s forwards}
-  /* Walls and ceiling converge toward the mouth — a cheap one-point perspective, and enough of
-     one at this size. The player is looking down the length of a bay, not at a room. */
-  .cab-shed-wall{position:absolute;top:0;bottom:0;width:34%;
-    background:linear-gradient(90deg,#0a0c0f,#191d22 62%,#23282f)}
-  .cab-shed-wall.l{left:0;clip-path:polygon(0 0,100% 20%,100% 84%,0 100%)}
-  .cab-shed-wall.r{right:0;transform:scaleX(-1);clip-path:polygon(0 0,100% 20%,100% 84%,0 100%)}
-  .cab-shed-ceil{position:absolute;left:0;right:0;top:0;height:24%;background:linear-gradient(#0c0e12,#15181d);
-    clip-path:polygon(0 0,100% 0,68% 100%,32% 100%)}
-  /* The strip light. One tube, buzzing, slightly the wrong colour — the light every
-     workshop in the Basin is lit by. */
-  .cab-shed-ceil i{position:absolute;left:38%;right:38%;top:26%;height:5px;border-radius:3px;
-    background:#cfe6ff;box-shadow:0 0 26px 9px rgba(150,200,255,.30);animation:shed-buzz 2.6s steps(1) infinite}
-  /* Daylight coming under the door and then flooding the bay. Anchored at the bottom because
-     that is where the gap is; it grows with the door rather than on its own clock. */
-  .cab-shed-spill{position:absolute;left:-10%;right:-10%;bottom:0;height:70%;
-    background:radial-gradient(120% 100% at 50% 100%,rgba(255,240,205,.55),rgba(255,235,195,.16) 45%,transparent 72%);
-    opacity:.25;animation:shed-spill 2.4s ease-out .3s forwards;mix-blend-mode:screen}
-  .cab-shed-dust{position:absolute;inset:0;opacity:.5;animation:shed-drift 9s linear infinite;
-    background:
-      radial-gradient(1.5px 1.5px at 22% 62%,rgba(255,240,210,.55),transparent),
-      radial-gradient(1.5px 1.5px at 63% 38%,rgba(255,240,210,.42),transparent),
-      radial-gradient(2px 2px at 44% 76%,rgba(255,240,210,.35),transparent),
-      radial-gradient(1.5px 1.5px at 78% 66%,rgba(255,240,210,.45),transparent),
-      radial-gradient(1.5px 1.5px at 34% 30%,rgba(255,240,210,.30),transparent)}
-  /* The door itself: corrugated steel, lit from below by the gap it is opening. The slats are a
-     repeating gradient rather than elements, so a hundred of them cost one paint. */
-  .cab-shed-door{position:absolute;inset:0;
-    background:
-      linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0) 26%,rgba(255,238,205,.10) 96%),
-      repeating-linear-gradient(180deg,#2b3038 0,#343a44 5px,#22262d 10px,#1b1f25 11px),
-      #22262d;
-    box-shadow:inset 0 -22px 40px -18px rgba(255,236,200,.55);
-    animation:shed-lift 2.4s cubic-bezier(.42,.02,.24,1) .35s forwards}
-  /* The rubber seal at the bottom, and the bar of daylight it is holding down. */
-  .cab-shed-seal{position:absolute;left:0;right:0;bottom:0;height:9px;background:#0e1013;
-    box-shadow:0 5px 16px 4px rgba(255,236,200,.55),0 2px 0 0 rgba(255,244,215,.85)}
-  @keyframes shed-lift{
-    0%{transform:translateY(0)}
-    6%{transform:translate(-1px,1%)}      /* it takes up the slack before it takes up anything else */
-    12%{transform:translate(1px,0)}
-    40%{transform:translate(-1px,-34%)}
-    70%{transform:translate(1px,-72%)}
-    100%{transform:translateY(-104%)}
-  }
-  @keyframes shed-spill{0%{opacity:.25}100%{opacity:1}}
-  @keyframes shed-clear{to{opacity:0}}
-  @keyframes shed-buzz{0%,88%,100%{opacity:1}90%{opacity:.45}92%{opacity:1}94%{opacity:.6}}
-  @keyframes shed-drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-6%,-9%,0)}}
-  /* Sitting there with the box in neutral and forty tonnes idling under you. Tiny on purpose:
-     it should read at the edge of the glass, not be something anybody has to look at. */
-  .cab-idling .ws-wrap{animation:cab-idle-shake 260ms ease-in-out infinite}
-  @keyframes cab-idle-shake{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(.6px,-.6px,0)}}
-  @media (prefers-reduced-motion:reduce){
-    .cab-idling .ws-wrap,.cab-shed-dust,.cab-shed-ceil i{animation:none}
-  }
   `;
   document.head.appendChild(s);
 }
 
 export function closeCab() {
   if (!st) return;
-  clearRollUp();
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');

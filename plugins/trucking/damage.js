@@ -91,6 +91,22 @@ export function wearSplit(amount, { surface = 'road' } = {}) {
   };
 }
 
+// ── Where a missed shift goes ────────────────────────────────────────────────
+// A grind is dog teeth being asked to mesh at two different speeds, and what pays for it is the
+// gearbox — which this model does not have as its own bar, and deliberately should not: a fourth
+// component would need its own label, its own item, its own repair price and its own line in the
+// HUD, all to say a thing the ENGINE bar already says legibly ("the driveline is tired, and it is
+// your fault"). So it lands on the engine, whole, and on nothing else. It is not an impact: no
+// sheet metal moved.
+//
+// The amount is deliberately SMALL — a fluffed shift is a wince, not an incident — and the whole
+// mechanic is in the accumulation. One grind is nothing. A driver who grinds every shift for a
+// whole leg arrives with a bill, which is the correct relationship between a bad habit and money.
+const GRIND_WEAR = 0.004;
+export function grindSplit(mult = 1) {
+  return { engine: GRIND_WEAR * Math.max(0.25, Math.min(4, mult)), wheels: 0, body: 0 };
+}
+
 // ── Where a crash goes ───────────────────────────────────────────────────────
 // `area` is what the CLIENT observed about the contact — which end of the truck met the wall — and
 // it is the one fact the server genuinely cannot work out, because the server has no geometry. It

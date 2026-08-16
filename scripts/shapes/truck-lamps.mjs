@@ -180,6 +180,73 @@ export function parkedStanceSmoke() {
   return out;
 }
 
+// ── IS ANYTHING PAINTED OVER A PART THAT IS ENTIRELY IN FRONT OF IT? ─────────
+// The stability sweep below asks whether the order HOLDS; this asks whether it is RIGHT, and they
+// are different failures with different symptoms. A wrong order that holds perfectly still does not
+// flicker — it reads as the truck being see-through, with a rail or a lamp pod showing through the
+// panel that ought to be hiding it, and it stays that way for as long as you sit at that angle.
+//
+// The test is the one painter's-order question with no judgement in it: part A was painted BEFORE
+// part B, they overlap on screen, and every vertex of A is nearer than every vertex of B. There is
+// no depth ambiguity to argue about there — A is simply in front, and painting it first means B is
+// covering something that is closer to the camera than it is.
+//
+// It found the bug it was written for: the hysteresis pass compared two parts' NEAREST vertices, so
+// a chassis rail (whose near end sits alongside everything bolted down the length of it) counted as
+// "within EPS" of parts it was nowhere near in depth, and the stale order was held over a genuine
+// crossing. Hence the disjoint test in sortTruckFaces.
+export function truckOcclusionSmoke(sortTruckFaces, resetOrder, opts = {}) {
+  const STEPS = opts.steps || 72;
+  const MIN_OVERLAP = opts.minOverlap || 0.25;   // of the smaller part's screen box — ignore grazes
+  const SIZE = 0.11, EL = 0.35;                  // a chase camera's own elevation, roughly
+  const out = [];
+  for (const variant of ['scrapper', 'hauler', 'drayman', 'continental', 'continental+t']) {
+    const faces = aircraftFaces('truck', 1, false, variant);
+    resetOrder();
+    let bad = 0, worstView = null;
+    for (let v = 0; v < STEPS; v++) {
+      const th = (v / STEPS) * Math.PI * 2, ct = Math.cos(th), sn = Math.sin(th);
+      const proj = faces.map((f, i) => {
+        let af = 0, nf = Infinity;
+        const pts = [];
+        for (const q of f.p) {
+          const d = 2 + (q[0] * ct + q[1] * sn) * SIZE;
+          const sx = (-q[0] * sn + q[1] * ct) * SIZE * 500;
+          const sy = -q[2] * SIZE * 500 * Math.cos(EL) + (q[0] * ct + q[1] * sn) * SIZE * 500 * Math.sin(EL);
+          pts.push({ sx, sy, f: d });
+          af += d; if (d < nf) nf = d;
+        }
+        return { pts, af: af / f.p.length, nf, part: f.part, i, role: f.role };
+      });
+      sortTruckFaces(proj, { id: `occlusion:${variant}` }, SIZE);
+      // Collapse to parts IN PAINT ORDER, with a screen box and a depth range each.
+      const order = [], seen = new Map();
+      for (const f of proj) {
+        let g = seen.get(f.part);
+        if (!g) { seen.set(f.part, g = { role: f.role, part: f.part, dmin: Infinity, dmax: -Infinity, x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }); order.push(g); }
+        for (const q of f.pts) {
+          if (q.f < g.dmin) g.dmin = q.f; if (q.f > g.dmax) g.dmax = q.f;
+          if (q.sx < g.x0) g.x0 = q.sx; if (q.sx > g.x1) g.x1 = q.sx;
+          if (q.sy < g.y0) g.y0 = q.sy; if (q.sy > g.y1) g.y1 = q.sy;
+        }
+      }
+      for (let a = 0; a < order.length; a++) for (let b = a + 1; b < order.length; b++) {
+        const A = order[a], B = order[b];              // A painted first
+        if (A.dmax >= B.dmin) continue;                // ranges touch — ambiguous, not this test's business
+        const ox = Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0);
+        const oy = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0);
+        if (ox <= 0 || oy <= 0) continue;
+        const small = Math.min((A.x1 - A.x0) * (A.y1 - A.y0), (B.x1 - B.x0) * (B.y1 - B.y0));
+        if (small <= 0 || (ox * oy) / small < MIN_OVERLAP) continue;
+        bad++;
+        if (!worstView) worstView = `${A.role}#${A.part} painted under ${B.role}#${B.part}`;
+      }
+    }
+    out.push({ variant, bad, worstView, views: STEPS });
+  }
+  return out;
+}
+
 // ── DOES THE DRAW ORDER HOLD STILL WHILE THE CAMERA GOES ROUND? ──────────────
 // The complaint this exists for is "parts pop in and out when you rotate around the truck", and it
 // is the one failure in this file that geometry cannot see: every box is exactly where it should
@@ -212,11 +279,19 @@ export function truckSortStabilitySmoke(sortTruckFaces, resetOrder, opts = {}) {
       // Project to depth only. +2 keeps every f positive, as a real camera's would be.
       const proj = faces.map((f, i) => {
         let af = 0, nf = Infinity;
+        // ⚠ THE POINTS ARE REAL DEPTHS, not an empty array. `sortTruckFaces` reads each face's
+        // projected vertices to find the part's FAR extent, which is how it decides whether two
+        // parts overlap in depth at all (the disjoint test that stops hysteresis holding a wrong
+        // order). Handing it `pts: []` made every pair look disjoint here and nowhere else, so this
+        // sweep would have been measuring a sorter the game does not run. Only `f` is used; the
+        // screen coordinates are irrelevant to a depth-order question.
+        const pts = [];
         for (const p of f.p) {
           const d = 2 + (p[0] * ct + p[1] * st) * SIZE;
+          pts.push({ sx: 0, sy: 0, f: d });
           af += d; if (d < nf) nf = d;
         }
-        return { pts: [], af: af / f.p.length, nf, part: f.part, i, role: f.role };
+        return { pts, af: af / f.p.length, nf, part: f.part, i, role: f.role };
       });
       sortTruckFaces(proj, { id: `stability:${variant}` }, SIZE);
       // Rank each PART by where its first face landed.
