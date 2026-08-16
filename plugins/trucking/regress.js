@@ -1389,6 +1389,42 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── SCRATCH, FAULT, FAILURE ───────────────────────────────────────────────
+  // The severity split is what decides whether a repair is a bill or an errand, so the three
+  // things that must stay true are: a scratch is mechanically nothing, a failure needs the real
+  // part, and the engine is the one you cannot carry.
+  {
+    const { severityOf, isBroken, isCosmetic, partEffects, PART_ITEMS, PART_SHARE, COSMETIC_AT, BROKEN_AT }
+      = await import('./damage.js');
+    check('the top of the bar is cosmetic', severityOf(0.95) === 'scratch', severityOf(0.95));
+    check('the middle is a fault you can pay to fix', severityOf(0.5) === 'fault', severityOf(0.5));
+    check('the bottom has failed', isBroken(0.05) && severityOf(0.05) === 'broken', severityOf(0.05));
+    // The load-bearing one: cosmetic damage must not quietly cost you performance, or "you can
+    // live with it" is a lie and every scratch is a stealth nerf.
+    const clean = partEffects({ engine: 1, wheels: 1 });
+    const scuffed = partEffects({ engine: COSMETIC_AT + 0.01, wheels: COSMETIC_AT + 0.01 });
+    check('…and a scratched truck still pulls and stops like a clean one',
+      scuffed.thrustMax > clean.thrustMax * 0.93 && scuffed.brake > clean.brake * 0.93,
+      `${scuffed.thrustMax.toFixed(2)} vs ${clean.thrustMax.toFixed(2)}`);
+    check('an engine cannot be carried, and the other two can',
+      PART_ITEMS.engine.carry === false && PART_ITEMS.wheels.carry && PART_ITEMS.body.carry,
+      JSON.stringify(Object.fromEntries(Object.entries(PART_ITEMS).map(([k, v]) => [k, v.carry]))));
+    // Three targeted repairs must come to one whole one, or there is arbitrage in one direction.
+    const sum = PARTS.reduce((n, p) => n + PART_SHARE[p], 0);
+    check('the part shares sum to one whole truck', Math.abs(sum - 1) < 1e-9, sum.toFixed(4));
+    check('an engine is the dearest of the three', PART_SHARE.engine > PART_SHARE.wheels && PART_SHARE.wheels > PART_SHARE.body,
+      JSON.stringify(PART_SHARE));
+    // Cosmetic damage has to show up SOMEWHERE or it does not exist. Resale is that somewhere.
+    const { resaleValue } = await import('./fleet.js');
+    const t = TYPES.drayman;
+    check('…so scratched panels are worth less at the gate',
+      resaleValue(t, 0, 1, { body: 0.5 }) < resaleValue(t, 0, 1, { body: 1 }),
+      `${resaleValue(t, 0, 1, { body: 0.5 })} vs ${resaleValue(t, 0, 1, { body: 1 })}`);
+    check('…and a truck with no damage bag prices exactly as it always did',
+      resaleValue(t, 0, 1) === resaleValue(t, 0, 1, { body: 1 }),
+      `${resaleValue(t, 0, 1)} vs ${resaleValue(t, 0, 1, { body: 1 })}`);
+  }
+
   // ── A TRAILER IS SOMEWHERE, AND YOU HAVE TO BACK UNDER IT ─────────────────
   // The pose turned hitching from a menu choice into a manoeuvre, and the three tests are the
   // three ways a driver can get it wrong. The one that matters most is the LAST one: a trailer

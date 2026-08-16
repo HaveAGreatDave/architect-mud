@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_frame_spar",
+  "name": "reinforced spar set",
+  "tags": {
+    "description": "Doubled spar caps, new wing-root fittings and a bag of oversize fasteners, packed in oiled paper. Turns a wing that was adequate into one that stops asking questions about what you have put in the back."
+  },
+  "type": "misc",
+  "value": 1600,
+  "weight": 9000
+}

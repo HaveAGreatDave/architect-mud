@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_pylon_light",
+  "name": "light pylon set",
+  "tags": {
+    "description": "Two stub pylons, mounting hardware, and a wiring loom that terminates in a switch nobody has labelled. Fits almost anything with a wing worth the name. The invoice in the box describes them as camera mounts."
+  },
+  "type": "misc",
+  "value": 2800,
+  "weight": 10000
+}

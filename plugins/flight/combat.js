@@ -17,7 +17,7 @@ import {
   GUN_RANGE_GATE, GUN_CONE_GATE, GUN_DMG, GUN_COOLDOWN_MS,
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
-  SWARM_PK_MULT, SWARM_DMG_MULT, SWARM_CONE, SWARM_COOLDOWN_MS, salvoOf,
+  SWARM_PK_MULT, SWARM_DMG_MULT, SWARM_CONE, SWARM_COOLDOWN_MS, salvoOf, effStats, effHardpoints,
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 import { getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
@@ -126,6 +126,12 @@ async function pushAASites(live) {
 // true if the target was killed.
 async function applyAirDamage(targetLive, amount, byPlayer, reason = 'shotdown', message) {
   const t = targetLive.row;
+  // Bolt-on armour soaks INCOMING FIRE ONLY, and it does it here — the one funnel
+  // every ballistic hit (guns, missiles, ground AA) already passes through. It is
+  // deliberately not applied to weather, acid or birds: plate stops rounds, not
+  // chemistry. The airframe's own armour (isArmored) is still the caller's, so a
+  // Reaper with plate is soaked twice, which is exactly what it should be.
+  amount *= 1 - (effStats(targetLive).soak || 0);
   t.damage = Math.min(1, (t.damage || 0) + amount);
   if (t.damage >= 1) { await crash(targetLive, reason, byPlayer); return true; }
   const hullPct = Math.round((1 - t.damage) * 100);
@@ -179,7 +185,7 @@ async function cmdAirFire(args, raw, player) {
   if (weapon === 'missile') return fireMissile(live, args, player);
   if (weapon === 'swarm') return fireSwarm(live, args, player);
   if (weapon !== 'guns') return { type: 'noop' };
-  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   const nowMs = Date.now();
   if (live.lastGun && nowMs - live.lastGun < GUN_COOLDOWN_MS) return { type: 'noop' };   // burst-rate cap
 
@@ -226,7 +232,7 @@ async function cmdAirFire(args, raw, player) {
 // inbound on the TARGET's live object (it resolves there — the defender's state at impact
 // time is what decides the outcome, so flares popped mid-flight actually matter).
 function fireMissile(live, args, player) {
-  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
   const nowMs = Date.now();
   if (live.lastMsl && nowMs - live.lastMsl < MISSILE_COOLDOWN_MS) return { type: 'noop' };
@@ -249,7 +255,7 @@ function fireMissile(live, args, player) {
 // its own inbound at reduced PK + a smaller warhead, resolving independently so flares/notch can
 // still peel some off. The target only gets the inbound shout as they arrive — no prior lock tone.
 function fireSwarm(live, args, player) {
-  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   const salvo = salvoOf(live);
   if (salvo < 2) return fireMissile(live, args, player);   // not a swarm airframe — fall back to the locked shot
   if ((args[1] || '').toLowerCase() === 'ground') return fireSwarmGround(live, player);   // nothing in the air → hit the dirt
@@ -287,7 +293,7 @@ const GROUND_SWARM_HIT = 0.55;                   // per-warhead chance to catch 
 const GROUND_SWARM_DMG = { min: 34, max: 58 };   // vs soft targets — ~2× a cannon rake, and 'explosive'
 
 async function fireSwarmGround(live, player) {
-  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   if (salvoOf(live) < 2) return { type: 'noop' };
   if (mslAmmo(live) < 1) return { type: 'emote', message: '<span class="text-amber">Rails are empty — rearm at a field.</span>' };
   if (live.row.altitude_band === 'high') return { type: 'emote', message: '<span class="text-amber">Too high to pick out a ground target — bring her down.</span>' };
@@ -440,7 +446,7 @@ async function tickMissiles(live) {
     }
     const armor = isArmored(live.type) ? 0.6 : 1;
     const warhead = MISSILE_DMG * armor * (m.dmgMult ?? 1);          // swarm seekers carry a smaller warhead
-    const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + warhead)) * 100);
+    const hullAfter = Math.round((1 - Math.min(1, (live.row.damage || 0) + warhead * (1 - effStats(live).soak))) * 100);
     const killed = await applyAirDamage(live, warhead, shooter, 'shotdown',
       `<span class="text-red">💥 MISSILE IMPACT — the airframe bucks hard and sheds metal. Hull ${hullAfter}%.</span>`);
     if (shooter) {
@@ -564,11 +570,12 @@ export async function tickCombat(live) {
       // wanted griefer can't just tank the fire loitering over new players. Scales 1.6×→2.4×.
       const lethal = 1.6 + Math.min(wantedStars, 5) * 0.16;
       const dmg = s.damage * armor * lethal;
+      const bite = dmg * (1 - effStats(live).soak);   // what the hull-readout line should quote (applyAirDamage soaks it)
       // Reuse the PvP damage path so ground AA gets the same client feedback a gun hit
       // does — red screen flash, hit sound, and an immediate hull-gauge refresh — instead
       // of just a text log line.
       const killed = await applyAirDamage(live, dmg, null, 'shotdown',
-        `<span class="text-red">💥 ${s.name} opens up — rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + dmg)) * 100)}%.</span>`);
+        `<span class="text-red">💥 ${s.name} opens up — rounds walk across the airframe. Hull ${Math.round((1 - Math.min(1, a.damage + bite)) * 100)}%.</span>`);
       emit('flight.aaFired', { zoneId: s.zone_id, siteId: s.id, siteName: s.name, hit: true });
       if (killed) return;
     } else {
@@ -590,7 +597,7 @@ function requirePilot(player) {
 // ── Verbs ─────────────────────────────────────────────────────────────────────
 async function cmdArm(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if ((live.type.hardpoints || 0) < 1) return { type: 'emote', message: `The ${live.type.name} is a civilian airframe — no hardpoints, no guns.` };
+  if (effHardpoints(live) < 1) return { type: 'emote', message: `The ${live.type.name} is a civilian airframe — no hardpoints, no guns.` };
   live.row.weapons_hot = 1; pushHud(live);
   return { type: 'emote', message: '<span class="text-red">Master arm HOT. Weapons live.</span>' };
 }
@@ -613,7 +620,7 @@ async function cmdEvade(args, raw, player) {
 // warns the target's RWR, so a lock is never silent.
 async function cmdAirLock(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
-  if (!live.row.airborne || !live.row.weapons_hot || (live.type.hardpoints || 0) < 1) return { type: 'noop' };
+  if (!live.row.airborne || !live.row.weapons_hot || effHardpoints(live) < 1) return { type: 'noop' };
   const target = args[0] ? liveAircraft.get(args[0]) : null;
   if (!target || target === live || !target.row.airborne || target.row.is_wreck) return { type: 'noop' };
   const a = live.row, b = target.row;

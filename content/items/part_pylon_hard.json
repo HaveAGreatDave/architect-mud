@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_pylon_hard",
+  "name": "military-surplus hardpoints",
+  "tags": {
+    "description": "Stressed mounts off something the army wrote off and then wrote off the paperwork for. Rated for ordnance the airframe underneath was never rated for, which is a problem for the airframe and not for the mounts."
+  },
+  "type": "misc",
+  "value": 6500,
+  "weight": 18000
+}

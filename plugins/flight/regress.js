@@ -11,6 +11,7 @@ import { crashSeverity, collateralBill, isSeverelyImpaired } from './collateral.
 import { sellAircraft, cancelRental, flushAirborne, pushHangarBay } from './hangars.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
+  PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
   isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
   vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldName } from './state.js';
@@ -338,6 +339,53 @@ export default async function regress({ run, check, getPlayer }) {
   check('lean lifts ECON but drops COOL', axLean.economy > 50 && axLean.cool < 50, JSON.stringify(axLean));
   check('every kit in the catalogue has a name + price', Object.values(KITS).every(k => k.name && k.price > 0));
 
+  // ── Parts & slots (pure) ────────────────────────────────────────────────────
+  // The catalogue itself: every part must name a real slot, a price and an item id,
+  // because the item id is the ONLY link between the mechanic and the content row a
+  // player can carry — a typo there is a part that can be bought and never fitted.
+  check('every part names a real slot, a price and an item', Object.entries(PARTS).every(([k, p]) =>
+    PART_SLOTS.some(s2 => s2.id === p.slot) && p.price > 0 && p.item && p.name && p.blurb), Object.keys(PARTS).join(','));
+  check('every part id equals its item id', Object.entries(PARTS).every(([k, p]) => k === p.item));
+  check('installedParts rejects a part in the wrong slot', Object.keys(installedParts({ parts: { engine: 'part_tank_aux', fuel: 'part_tank_aux' } })).join() === 'fuel');
+  check('installedParts survives junk', Object.keys(installedParts({ parts: { engine: 'nope' } })).length === 0 && Object.keys(installedParts({})).length === 0);
+
+  // Slots are DERIVED from the type row — a pylon needs an airframe to hang off, so
+  // an ultralight can never become a gunship by shopping.
+  const light = { max_takeoff_weight: 200, hardpoints: 0 };
+  const heavy = { max_takeoff_weight: PYLON_MIN_TOW, hardpoints: 0 };
+  const armed = { max_takeoff_weight: 200, hardpoints: 2 };
+  check('an ultralight has no pylon slot', !slotsFor(light).some(s2 => s2.id === 'pylon'));
+  check('a big airframe can take pylons', slotsFor(heavy).some(s2 => s2.id === 'pylon'));
+  check('a factory-armed airframe always has the slot', slotsFor(armed).some(s2 => s2.id === 'pylon'));
+  check('the four universal slots are on everything', ['engine', 'avionics', 'fuel', 'frame'].every(id => slotsFor(light).some(s2 => s2.id === id)));
+
+  // The envelope: parts move the numbers the flight model already reads.
+  const dEngine = partDefs({ parts: { engine: 'part_engine_hotsection' } });
+  const dTank = partDefs({ parts: { fuel: 'part_tank_ferry' } });
+  const dPlate = partDefs({ parts: { frame: 'part_frame_plate' } });
+  const dPylon = partDefs({ parts: { pylon: 'part_pylon_light' } });
+  check('a hot section buys cruise and costs heat', computeStats(TT, {}, 0, [], dEngine).cruise > stock.cruise
+    && computeStats(TT, { boost: 1 }, 0, [], dEngine).heatBias > boosted.heatBias);
+  check('a ferry tank is a bigger tank', computeStats(TT, {}, 0, [], dTank).fuelCap > stock.fuelCap);
+  check('fitted hardware eats payload', computeStats(TT, {}, 0, [], dTank).burn > stock.burn);
+  check('armour plate soaks, and soak can never reach 1', computeStats(TT, {}, 0, [], dPlate).soak > 0
+    && partEnvelope([...dPlate, ...dPlate, ...dPlate, ...dPlate]).soak < 1);
+  check('a pylon set arms an unarmed airframe', computeStats(TT, {}, 0, [], dPylon).hardpoints === 1
+    && computeStats(TT, {}, 0, []).hardpoints === 0);
+  check('the airframe keeps its own hardpoints when they beat the part',
+    computeStats({ ...TT, hardpoints: 4 }, {}, 0, [], dPylon).hardpoints === 4);
+  check('no parts is exactly stock (the migration invariant)',
+    JSON.stringify(computeStats(TT, {}, 0, [], [])) === JSON.stringify(computeStats(TT, {}, 0, [])));
+
+  // Per-knob dial travel: a part widens the knob it is ABOUT and nothing else.
+  check('a hot section widens boost travel only', tuneRange(0, [], dEngine, 'boost') > tuneRange(0, [], dEngine, 'cg')
+    && tuneRange(0, [], dEngine, 'cg') === tuneRange(0, [], [], 'cg'));
+  check('a glass panel widens every dial', tuneRange(0, [], partDefs({ parts: { avionics: 'part_avionics_glass' } })) > tuneRange(0, []));
+  check('parts can never push a dial past the hard cap',
+    tuneRange(999, ['kit_precision'], Object.values(PARTS), 'boost') <= TUNE_DIAL_MAX);
+  check('perfAxes still reads 50 on every axis with parts fitted but no tune',
+    Object.values(perfAxes(TT, {}, 0, [], dPlate)).every(v => v === 50), JSON.stringify(perfAxes(TT, {}, 0, [], dPlate)));
+
   // ── Livery / paint signature (pure) ─────────────────────────────────────────
   const darkLv = { base: '#111214', trim: '#111214', pattern: 'splinter', finish: 'matte' };
   const brightLv = { base: '#f2f4f6', trim: '#f2b01e', pattern: 'hazard', finish: 'gloss' };
@@ -455,6 +503,12 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('modify'); check('modify requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
   r = await run('tuneset 0 0 0 0'); check('tuneset requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
   r = await run('installkit x kit_precision'); check('installkit requires an owned aircraft', /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
+  // The parts bench rides the same gate — and every sub-verb has to, or "fit" becomes
+  // a way to bolt hardware onto somebody else's aeroplane from the middle of a field.
+  for (const sub of ['parts', 'fit part_tank_aux', 'pull fuel', 'buy part_tank_aux']) {
+    r = await run(`modify ${sub}`);
+    check(`modify ${sub.split(' ')[0]} requires an owned aircraft`, /own|no aircraft of your own/i.test(r?.message || ''), r?.message);
+  }
   r = await run('paintset nope #111111 #222222 solid matte #333333 standard none'); check('paintset on an unknown craft is refused', /no such aircraft/i.test(r?.message || ''), r?.message);
   r = await run('scheme save fast'); check('scheme with no owned craft is refused', /no aircraft of your own|own/i.test(r?.message || ''), r?.message);
   r = await run('hangaract store x'); check('hangaract off-field reports airfields', /airfield/i.test(r?.message || ''), r?.message);

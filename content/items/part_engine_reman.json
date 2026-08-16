@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_engine_reman",
+  "name": "remanufactured powerplant",
+  "tags": {
+    "description": "A crate-fresh rebuild of somebody else's dead engine: bored out, new bearings, everything that wears replaced and everything that does not scrubbed to bare metal. There is a paper tag wired to the accessory case with a date and a set of initials on it, and whoever they were, they cared. Fits where the old one came out."
+  },
+  "type": "misc",
+  "value": 1400,
+  "weight": 8000
+}

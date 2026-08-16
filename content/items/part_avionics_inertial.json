@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_avionics_inertial",
+  "name": "inertial reference suite",
+  "tags": {
+    "description": "A sealed platform in a machined case that knows exactly where it is and refuses to discuss how. Shielded, hardened, and entirely indifferent to weather, jamming and opinion. The connectors alone cost more than most people's coats."
+  },
+  "type": "misc",
+  "value": 3600,
+  "weight": 6000
+}

@@ -1,0 +1,13 @@
+{
+  "description": "A diesel long-block on a steel pallet, shrink-wrapped and stencilled with a part number in six digits and a warning in two languages. Somebody has chalked a date on the block itself. It weighs what an engine weighs, which is to say you are not carrying it anywhere: it goes where a forklift takes it and it stays there until somebody bolts it into something.",
+  "flags": {},
+  "id": "item_truck_engine",
+  "name": "crated truck engine",
+  "tags": {
+    "description": "A diesel long-block on a steel pallet, shrink-wrapped and stencilled with a part number in six digits and a warning in two languages. Somebody has chalked a date on the block itself. It weighs what an engine weighs, which is to say you are not carrying it anywhere: it goes where a forklift takes it and it stays there until somebody bolts it into something.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 2600,
+  "weight": 620000
+}

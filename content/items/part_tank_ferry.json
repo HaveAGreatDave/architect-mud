@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_tank_ferry",
+  "name": "ferry tank and crossfeed",
+  "tags": {
+    "description": "A proper long-range installation: a rigid tank, a crossfeed manifold, and enough braided line to plumb a small building. Sold to pilots whose destination is not on the map, and priced accordingly."
+  },
+  "type": "misc",
+  "value": 2600,
+  "weight": 11000
+}

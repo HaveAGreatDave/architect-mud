@@ -208,6 +208,19 @@ export function wreckAhead(route, s, within = TILES_PER_ROOM * 2) {
   }
   return best;
 }
+// The nearest wreck you are actually STANDING AT, in either direction — which is a different
+// question from `wreckAhead` and must not be confused with it. That one is a warning and looks
+// forward only; this one is "can I reach that hulk from here", and a hulk twenty yards behind the
+// cab is as reachable as one twenty yards in front.
+export function wreckNear(route, s, within = 4) {
+  let best = null;
+  for (const w of wrecksOn(route)) {
+    const d = Math.abs(w.s - s);
+    if (d > within) continue;
+    if (!best || d < best.d) best = { w, d };
+  }
+  return best?.w || null;
+}
 export const _clearWrecks = () => WRECKS.clear();   // regress only — the road is per-process state
 
 // Terrain for a node, seeded exactly as voidwalking seeds the room's own — so the ground under the

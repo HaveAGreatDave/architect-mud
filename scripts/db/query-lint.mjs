@@ -73,6 +73,14 @@ const RULES = [
     re: new RegExp(`SELECT\\s+\\*\\s+FROM\\s+(${WIDE_TABLES})\\b`, 'i'),
     msg: 'SELECT * on a wide table — carries fat JSONB even for one row.',
     fix: 'Name the columns you need, or read the boot-loaded Map.',
+    // NOT server/api/. The dev panel is cold-path admin traffic from one or two
+    // humans, and — the load-bearing half — a `world.zones` entry is a DECORATED
+    // copy of the row: the Map hangs live players/enemies/npcs Sets off it. An
+    // endpoint that returned the Map entry would serialise those Sets into its
+    // JSON as `{}`, changing the API's contract to save one round trip per
+    // button press. Flagging routes here would train everyone to ignore the
+    // rule, which is the failure mode this whole lint is built to avoid.
+    skip: /^server[\\/]api[\\/]/,
   },
   {
     id: 'cached-table-read',
@@ -132,6 +140,7 @@ export function lintQueries() {
       if (!src.trim()) continue;
       for (const rule of RULES) {
         if (rule.only && !rule.only.test(f)) continue;
+        if (rule.skip && rule.skip.test(f)) continue;
         if (!rule.re.test(src)) continue;
         if (exempt(lines, i)) continue;
         problems.push({ file: rel, line: i + 1, rule, snippet: src.trim().slice(0, 100) });

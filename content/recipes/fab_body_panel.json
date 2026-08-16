@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 7,
+  "base_output": {
+    "item_id": "item_body_panel",
+    "quantity": 1
+  },
+  "category": "goods",
+  "description": "Cut and fold cab panel from flat stock. It will be the wrong colour and nobody will care.",
+  "id": "fab_body_panel",
+  "ingredients": [
+    {
+      "item_id": "item_steel_plate",
+      "quantity": 3
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "quantity": 1
+    }
+  ],
+  "name": "Cut Body Panels",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 1
+  }
+}

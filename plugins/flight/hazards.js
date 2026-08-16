@@ -217,7 +217,8 @@ async function cmdPreflight(args, raw, player) {
   const { live, err } = requirePilot(player); if (err) return err;
   if (live.row.airborne) return { type: 'emote', message: 'A little late for a walkaround.' };
   const chk = await skillCheck(player, 'piloting', 4);
-  const lines = [`<b>${live.type.name}</b> — hull ${Math.round((1 - live.row.damage) * 100)}%, fuel ${Math.round(live.row.fuel)}/${Math.round(live.type.fuel_capacity)} ${live.type.fuel_type}.`];
+  const eff = effStats(live);   // fitted tankage counts — the walkaround reads the tank she HAS
+  const lines = [`<b>${live.type.name}</b> — hull ${Math.round((1 - live.row.damage) * 100)}%, fuel ${Math.round(live.row.fuel)}/${Math.round(eff.fuelCap)} ${live.type.fuel_type}.`];
   if (live.row.damage > 0.3 && chk.success) lines.push('<span class="text-amber">You find fresh damage — cracked skin, a weeping line. She\'ll fly, but she won\'t forgive much.</span>');
   else if (chk.success) lines.push('She looks honest. Controls free, no leaks, tyres up.');
   else lines.push('You give her a once-over. Looks fine — though you\'re not sure you\'d catch it if it wasn\'t.');

@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_engine_hotsection",
+  "name": "hot-section turbine",
+  "tags": {
+    "description": "A turbine core with race-shop internals and a hot section that runs at temperatures the maintenance manual describes, in bold, as a fire. Blades like knives, blued at the roots. It will make an ordinary airframe frightening and it will not thank you for the privilege."
+  },
+  "type": "misc",
+  "value": 4200,
+  "weight": 12000
+}

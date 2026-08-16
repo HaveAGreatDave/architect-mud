@@ -34,6 +34,8 @@ export function deleteItemCache(id) { ITEM_CACHE.delete(id); }
 
 // Re-read one row after an INSERT/UPDATE (row present) or DELETE (row gone).
 export async function reloadItem(id) {
+  // query-lint-ok: the per-row re-loader for the item cache — every writer's
+  // contract is to call this, so it is the one place that must not read cache.
   const { rows } = await query('SELECT * FROM items WHERE id=$1', [id]);
   if (rows.length) ITEM_CACHE.set(id, rows[0]);
   else ITEM_CACHE.delete(id);

@@ -905,7 +905,7 @@ function sendFlightSim(player, live) {
     // Reaper + Leviathan have retractable gear (only the fixed-gear Mayfly stays down);
     // hardpoints arm the weapons; cargo enables jettison.
     gearRetract: ['prop', 'gunship', 'heavy'].includes(live.type.class),
-    hardpoints: live.type.hardpoints || 0,
+    hardpoints: effStats(live).hardpoints,   // pylon set included — a retrofit arms through the same path
     salvo: (live.type.data && live.type.data.salvo) || 0,   // swarm airframe (Viper): >1 → no-lock ripple-fire, not the locked single shot
     sprayer: !!(live.type.data && live.type.data.spray),   // ag-plane crop-duster (Locust): shows the SPRAY control
     cargoCap: live.type.cargo_capacity || 0, cargoKg: ctx.cargo,

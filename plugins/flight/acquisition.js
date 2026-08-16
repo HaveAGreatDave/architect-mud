@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
+import { getZone, liveAircraft, persist, pushHud, sendToPlayer, REFUEL_PRICE_PER_UNIT, effStats, partDefs, partEnvelope, fieldFor as fieldOf, inHangarInterior, rentalOpFee, vtolOnlyField, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { allExits } from '../../server/engine/exits.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
@@ -205,7 +205,9 @@ export async function refuelParked(player, craftId) {
   if (!stocks.length) return { type: 'emote', message: 'No fuel service at this field.' };
   if (!stocks.includes(a.fuel_type))
     return { type: 'emote', message: `This field pumps ${stocks.join('/')}, but the ${a.tname} runs on ${a.fuel_type}. Find it elsewhere.` };
-  const cap = a.fuel_capacity || 1;
+  // A fitted ferry tank IS a bigger tank: price the fill off the same envelope the
+  // gauge and the burn model read, or the pump stops short of full and charges for it.
+  const cap = (a.fuel_capacity || 1) * partEnvelope(partDefs(a.custom_data)).fuelCapMult;
   const need = cap - a.fuel;
   if (need <= 0.5) return { type: 'emote', message: `The ${a.tname}'s tank is already full.` };
   const cost = Math.ceil(need * REFUEL_PRICE_PER_UNIT);

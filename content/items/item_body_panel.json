@@ -1,0 +1,13 @@
+{
+  "description": "Flat sheet in a truck's own gauge, cut to a cab profile and still wearing the mill's blue film. It will be the wrong colour and nobody will care. Bend it, drill it, rivet it, and the hole in your door becomes a door again.",
+  "flags": {},
+  "id": "item_body_panel",
+  "name": "stack of body panels",
+  "tags": {
+    "description": "Flat sheet in a truck's own gauge, cut to a cab profile and still wearing the mill's blue film. It will be the wrong colour and nobody will care. Bend it, drill it, rivet it, and the hole in your door becomes a door again.",
+    "misc": true
+  },
+  "type": "misc",
+  "value": 240,
+  "weight": 22000
+}

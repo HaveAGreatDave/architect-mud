@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_avionics_glass",
+  "name": "glass panel retrofit",
+  "tags": {
+    "description": "One flat display, a mounting tray and a loom, sold to replace six vibrating dials that have been lying to pilots since before the war. The screen has a scratch across the corner and a previous owner's sticker peeled off the bezel."
+  },
+  "type": "misc",
+  "value": 1100,
+  "weight": 4000
+}

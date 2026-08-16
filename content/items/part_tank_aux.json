@@ -1,0 +1,12 @@
+{
+  "description": null,
+  "flags": {},
+  "id": "part_tank_aux",
+  "name": "auxiliary bladder tank",
+  "tags": {
+    "description": "A rubber fuel bladder with webbing straps, designed to fill the space behind the seats that used to be for luggage. It sloshes on the turns and smells permanently of avgas. It has also brought a great many people home."
+  },
+  "type": "misc",
+  "value": 900,
+  "weight": 6000
+}

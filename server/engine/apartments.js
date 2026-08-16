@@ -814,6 +814,25 @@ export async function cmdPickLock(player) {
 }
 
 // Determine whether the player can sleep here right now, and how well.
+// ── SHELTER YOU CARRY WITH YOU ───────────────────────────────────────────────
+// Every rung of the ladder below asks the same question — is this ZONE somewhere you can sleep —
+// and there is one kind of bed that question cannot see, because it is not in a zone at all. A
+// sleeper cab is a bed that moves: it is not a room, it is not owned, the tile under it is a public
+// road, and making that tile sleepable would let anybody who happened to stand there lie down.
+//
+// So a plugin may contribute a bed of its own, keyed on the PLAYER rather than the place. Sync and
+// query-free by the same contract as everything else on this path (it runs from a command handler
+// that must not stall), and it answers with the same `{ canSleep, restore, reason }` shape the zone
+// rungs answer with — so nothing downstream of eligibility learns that portable beds exist.
+//
+// ⚠ IT SITS BELOW THE ZONE RUNGS ON PURPOSE. Your own flat is still your own flat when you have
+// parked the truck in it: a real room with a real door beats a bunk, and a provider that could
+// outrank home would silently downgrade the rest people are getting.
+const shelterProviders = [];
+export function registerShelterProvider(fn) {
+  if (typeof fn === 'function') shelterProviders.push(fn);
+}
+
 export function getSleepEligibility(player, zone) {
 	// Anywhere you OWN is somewhere you can sleep, at home rate — a rented flat is
 	// only the commonest case of that, not the rule. Asked through the same sync,
@@ -858,6 +877,14 @@ export function getSleepEligibility(player, zone) {
 			restore: SLEEP_RESTORE_SAFE_ZONE,
 			reason: "allowed",
 		};
+	}
+	// A bed you brought with you — see registerShelterProvider. Last, so it can never outrank a real
+	// room, and first-answer-wins because two portable beds is not a situation that exists.
+	for (const fn of shelterProviders) {
+		try {
+			const s = fn(player, zone);
+			if (s?.canSleep) return s;
+		} catch { /* a provider that throws contributes nothing; it must never cost you the verb */ }
 	}
 	return { canSleep: false, reason: "unsafe" };
 }

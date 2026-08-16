@@ -29,10 +29,19 @@ export const truckType = (id) => (TYPES[id]?.ground ? TYPES[id] : null);
 // ground is worth what it looks like — which is also the honest reason not to sell instead of
 // repairing: you take the hit either way, and the repair leaves you with a truck.
 export const RESALE = 0.55;
-export function resaleValue(type, odometer = 0, condition = 1) {
+// COSMETIC DAMAGE IS WORTH REAL MONEY, and this is the only place it is. Scratches and dents have
+// no mechanical effect by definition (see severityOf in damage.js) — a battered rig pulls and stops
+// exactly as well as a clean one — so if the bodywork did not show up HERE it would have no
+// consequence at all, and "you can ignore it" would mean "it does not exist". A dealer looks at the
+// thing. `body` is the component that only ever takes impacts, which makes it a history of how you
+// drive, and this is the bill for that history arriving at the end rather than along the way.
+export function resaleValue(type, odometer = 0, condition = 1, dmg = null) {
   const wear = Math.min(0.25, (odometer || 0) / 40000);   // caps at a quarter off
   const cond = 0.55 + 0.45 * Math.max(0, Math.min(1, condition ?? 1));
-  return Math.max(1, Math.round(type.price * (RESALE - wear) * cond));
+  // Up to a further fifth off for panels. Deliberately smaller than the mechanical hit: a dealer
+  // marks a scruffy truck down, they do not refuse it.
+  const looks = dmg?.body == null ? 1 : (0.80 + 0.20 * Math.max(0, Math.min(1, dmg.body)));
+  return Math.max(1, Math.round(type.price * (RESALE - wear) * cond * looks));
 }
 
 export async function fleetOf(playerId) {

@@ -589,11 +589,134 @@ export const KITS = {
     blurb: 'A machined false floor and a lead-lined liner — customs scanners skate right over what rides underneath. Most of the time.' },
 };
 export function installedKits(cd) { return Array.isArray(cd?.kits) ? cd.kits.filter(k => KITS[k]) : []; }
+
+// ── Parts & slots — the discrete half of customisation ────────────────────────
+// A kit is a bolt-on you buy at the bench; a PART is a component that lives in a
+// SLOT, and the slot is the point: an airframe has exactly one powerplant, one
+// avionics tray, one tank, one structural set and (maybe) one pylon set, so fitting
+// a better one means PULLING the old one. Parts set the outer envelope — power,
+// tank size, instrument grade, structure, weapon mounts — and the tuning knobs dial
+// WITHIN it. That split is the whole reason both layers exist: a knob can't buy you
+// a bigger tank and a tank can't fly the aeroplane for you.
+//
+// Unlike a kit, a part is also an ORDINARY INVENTORY ITEM while it is out of the
+// aircraft (`item`, one row per part in content/items/). That is deliberate and it
+// is what buys three things for free: a part can be traded, a part can be looted off
+// a stripped wreck, and a part you pulled is a thing in your hands rather than a
+// number in a menu. Nothing here re-implements inventory — install takes the row,
+// pull puts one back.
+export const PART_SLOTS = [
+  { id: 'engine',   label: 'POWERPLANT' },
+  { id: 'avionics', label: 'AVIONICS' },
+  { id: 'fuel',     label: 'TANKAGE' },
+  { id: 'frame',    label: 'STRUCTURE' },
+  { id: 'pylon',    label: 'HARDPOINTS' },
+];
+
+// Envelope fields, all optional and all NEUTRAL when absent (×1 / +0), so a new part
+// only has to state what it changes. `kg` is the part's own installed mass — it eats
+// payload, which is why an armour plate and a ferry tank both cost you cargo.
+export const PARTS = {
+  // POWERPLANT — power ceiling, paid for in heat and thirst.
+  part_engine_reman: { slot: 'engine', tier: 1, price: 1400, item: 'part_engine_reman',
+    name: 'Remanufactured Powerplant', kg: 8,
+    cruiseMult: 1.06, burnMult: 1.04, heatMult: 1.0, boostRange: 0.25,
+    blurb: 'Somebody else\'s worn-out engine, bored out and put back together properly. A little more urge than the one that came bolted on.' },
+  part_engine_hotsection: { slot: 'engine', tier: 2, price: 4200, item: 'part_engine_hotsection',
+    name: 'Hot-Section Turbine', kg: 12,
+    cruiseMult: 1.15, burnMult: 1.14, heatMult: 1.22, boostRange: 0.5,
+    blurb: 'Race-shop internals and a turbine section that runs at temperatures the manual calls a fire. It is very fast and it is always angry.' },
+
+  // AVIONICS — instrument grade. Buys you precision (dial travel) and a machine
+  // that is harder to lose the picture in.
+  part_avionics_glass: { slot: 'avionics', tier: 1, price: 1100, item: 'part_avionics_glass',
+    name: 'Glass Panel Retrofit', kg: 4, rangeBonus: 0.25, avionics: 1,
+    blurb: 'One flat panel where six shaking dials used to be. You can actually see what she is doing.' },
+  part_avionics_inertial: { slot: 'avionics', tier: 2, price: 3600, item: 'part_avionics_inertial',
+    name: 'Inertial Reference Suite', kg: 6, rangeBonus: 0.5, avionics: 2,
+    blurb: 'A sealed platform that knows where it is without asking anyone. Hardened, shielded, and utterly unbothered by weather.' },
+
+  // TANKAGE — range, paid for in payload.
+  part_tank_aux: { slot: 'fuel', tier: 1, price: 900, item: 'part_tank_aux',
+    name: 'Auxiliary Bladder Tank', kg: 6, fuelCapMult: 1.3,
+    blurb: 'A rubber bladder strapped into the space behind the seats. Inelegant, sloshes on the turns, gets you home.' },
+  part_tank_ferry: { slot: 'fuel', tier: 2, price: 2600, item: 'part_tank_ferry',
+    name: 'Ferry Tank & Crossfeed', kg: 11, fuelCapMult: 1.7,
+    blurb: 'A proper long-range installation with its own crossfeed plumbing. Built for pilots whose destination is off the map.' },
+
+  // STRUCTURE — one of two answers. Spar set buys payload; plate buys survival.
+  part_frame_spar: { slot: 'frame', tier: 1, price: 1600, item: 'part_frame_spar',
+    name: 'Reinforced Spar Set', kg: 9, towMult: 1.25, cgRange: 0.3,
+    blurb: 'Doubled spar caps and new wing-root fittings. She will carry more, and she will not complain about where you put it.' },
+  part_frame_plate: { slot: 'frame', tier: 2, price: 3400, item: 'part_frame_plate',
+    name: 'Bolt-On Armour Plate', kg: 16, soak: 0.35, cruiseMult: 0.94, handling: 1.2,
+    blurb: 'Composite plate over the tub, the tanks and the pilot. Every gram of it is in the wrong place aerodynamically and every gram of it has been earned.' },
+
+  // HARDPOINTS — the mounts themselves. Legality is contextual (the airspace
+  // decides), so owning and fitting these is not in itself a crime.
+  part_pylon_light: { slot: 'pylon', tier: 1, price: 2800, item: 'part_pylon_light',
+    name: 'Light Pylon Set', kg: 10, hardpoints: 1, cruiseMult: 0.97,
+    blurb: 'Two stub pylons and a wiring loom that terminates in a switch nobody labelled. Fits almost anything with a wing worth the name.' },
+  part_pylon_hard: { slot: 'pylon', tier: 2, price: 6500, item: 'part_pylon_hard',
+    name: 'Military-Surplus Hardpoints', kg: 18, hardpoints: 2, cruiseMult: 0.94, handling: 0.6,
+    blurb: 'Stressed mounts off something the army wrote off. Rated for ordnance the airframe underneath was never rated for.' },
+};
+
+// Which slots THIS airframe has — derived from the type row, never authored twice.
+// Four are universal (everything that flies has an engine, a panel, a tank and a
+// structure). A pylon set needs an airframe to hang off: a type that already carries
+// hardpoints obviously qualifies, and so does anything big enough to take the loads —
+// which is what keeps a two-stroke ultralight from becoming a gunship.
+export const PYLON_MIN_TOW = 600;
+export function slotsFor(type) {
+  return PART_SLOTS.filter(s => s.id !== 'pylon'
+    || (type?.hardpoints || 0) >= 1 || (type?.max_takeoff_weight || 0) >= PYLON_MIN_TOW);
+}
+// { slot: partId } → only slots this catalogue still knows about.
+export function installedParts(cd) {
+  const p = cd?.parts;
+  if (!p || typeof p !== 'object') return {};
+  const out = {};
+  for (const [slot, id] of Object.entries(p)) if (PARTS[id]?.slot === slot) out[slot] = id;
+  return out;
+}
+export function partDefs(cd) { return Object.values(installedParts(cd)).map(id => PARTS[id]); }
+
+// Sum a set of part defs into one envelope. Multipliers multiply, bonuses add, and
+// soak is applied as diminishing (1 − Π(1 − soak)) so stacking can never reach 100%.
+export function partEnvelope(parts = []) {
+  const env = { cruiseMult: 1, burnMult: 1, fuelCapMult: 1, towMult: 1, heatMult: 1,
+    kg: 0, handling: 0, hardpoints: 0, rangeBonus: 0, boostRange: 0, cgRange: 0, avionics: 0, soak: 0 };
+  let keep = 1;
+  for (const p of parts) {
+    if (!p) continue;
+    env.cruiseMult *= p.cruiseMult ?? 1;
+    env.burnMult *= p.burnMult ?? 1;
+    env.fuelCapMult *= p.fuelCapMult ?? 1;
+    env.towMult *= p.towMult ?? 1;
+    env.heatMult *= p.heatMult ?? 1;
+    env.kg += p.kg || 0;
+    env.handling += p.handling || 0;
+    env.hardpoints += p.hardpoints || 0;
+    env.rangeBonus += p.rangeBonus || 0;
+    env.boostRange += p.boostRange || 0;
+    env.cgRange += p.cgRange || 0;
+    env.avionics += p.avionics || 0;
+    keep *= 1 - (p.soak || 0);
+  }
+  env.soak = Math.round((1 - keep) * 100) / 100;
+  return env;
+}
+
 // The reachable ± for every knob: a base band, widened smoothly by Fabrication and
-// by any range-widening kits, hard-capped at TUNE_DIAL_MAX.
-export function tuneRange(fabSkill, kits) {
+// by any range-widening kits or parts, hard-capped at TUNE_DIAL_MAX. Some parts widen
+// only the knob they are about — a bigger engine buys you boost travel, not a licence
+// to hang the CG off the tail — so this takes an optional knob id.
+export function tuneRange(fabSkill, kits, parts = [], knob = null) {
   const kitBonus = (kits || []).reduce((s, k) => s + (KITS[k]?.rangeBonus || 0), 0);
-  const r = TUNE_SAFE_BASE + Math.min(0.6, (fabSkill || 0) * 0.045) + kitBonus;
+  const env = partEnvelope(parts);
+  const knobBonus = knob === 'boost' ? env.boostRange : knob === 'cg' ? env.cgRange : 0;
+  const r = TUNE_SAFE_BASE + Math.min(0.6, (fabSkill || 0) * 0.045) + kitBonus + env.rangeBonus + knobBonus;
   return Math.round(Math.min(TUNE_DIAL_MAX, r) * 100) / 100;
 }
 
@@ -603,24 +726,36 @@ export function tuneRange(fabSkill, kits) {
 // another. Signs are internally coherent: lean (+mixture) saves fuel but runs hot
 // and sheds a little power; coarse pitch and boost buy speed; boost also drinks and
 // heats; tail-heavy CG trades stability for agility.
-export function computeStats(type, tune = {}, cargo = 0, kits = []) {
+export function computeStats(type, tune = {}, cargo = 0, kits = [], parts = []) {
   const mix = tune.mixture || 0, pitch = tune.pitch || 0, boost = tune.boost || 0, cg = tune.cg || 0;
-  const maxTOW = type.max_takeoff_weight || 300;
-  const loadFrac = cargo / maxTOW;                                 // 0..1+ (weight & balance)
+  const env = partEnvelope(parts);
+  const maxTOW = (type.max_takeoff_weight || 300) * env.towMult;
+  // Installed hardware is payload you are already carrying: a ferry tank and an
+  // armour plate cost you cargo the same way a crate does, which is what stops
+  // "fit everything" being the answer to every airframe.
+  const loadFrac = (cargo + env.kg) / maxTOW;                      // 0..1+ (weight & balance)
   const coolMult = kits.includes('kit_intercooler') ? KITS.kit_intercooler.coolMult : 1;
   return {
-    burn: type.fuel_burn_base * (1 - mix * 0.12 + boost * 0.06) * (1 + loadFrac * 0.5),   // lean saves fuel; boost drinks; cargo drinks
-    cruise: type.cruise_speed * FLIGHT_PACE * (1 + pitch * 0.12 + boost * 0.10 - mix * 0.03),  // coarse pitch + boost = faster; lean sheds a little power
-    handling: (type.handling || 0) + cg * 0.5 + Math.abs(boost) * 0.2 + loadFrac * 3,    // tail-heavy + boost = twitchier; heavy = harder
-    heatBias: (mix * 13 + Math.abs(boost) * 11) * coolMult,        // lean & boost run hot (intercooler tames it)
+    burn: type.fuel_burn_base * env.burnMult * (1 - mix * 0.12 + boost * 0.06) * (1 + loadFrac * 0.5),   // lean saves fuel; boost drinks; cargo drinks
+    cruise: type.cruise_speed * FLIGHT_PACE * env.cruiseMult * (1 + pitch * 0.12 + boost * 0.10 - mix * 0.03),  // coarse pitch + boost = faster; lean sheds a little power
+    handling: (type.handling || 0) + env.handling + cg * 0.5 + Math.abs(boost) * 0.2 + loadFrac * 3,    // tail-heavy + boost = twitchier; heavy = harder
+    heatBias: (mix * 13 + Math.abs(boost) * 11) * coolMult * env.heatMult,   // lean & boost run hot (intercooler tames it, a hot section stokes it)
     ceiling: Math.min(3, type.altitude_ceiling || 2),
-    fuelCap: type.fuel_capacity || 1,
-    cargo, maxTOW, overweight: cargo > maxTOW,
+    fuelCap: (type.fuel_capacity || 1) * env.fuelCapMult,
+    partKg: env.kg, soak: env.soak, avionics: env.avionics,
+    hardpoints: Math.max(type.hardpoints || 0, env.hardpoints),
+    cargo, maxTOW, overweight: cargo + env.kg > maxTOW,
   };
 }
 export function effStats(live) {
   const cd = live.row.custom_data || {};
-  return computeStats(live.type, cd.tune || {}, cd.cargoWeight || 0, installedKits(cd));
+  return computeStats(live.type, cd.tune || {}, cd.cargoWeight || 0, installedKits(cd), partDefs(cd));
+}
+// Weapon mounts as flown: the airframe's own, or the pylon set somebody bolted on.
+// Every armed path reads this rather than `type.hardpoints`, so a retrofitted craft
+// arms through exactly the code a factory-armed one does.
+export function effHardpoints(live) {
+  return effStats(live).hardpoints;
 }
 
 // Five performance axes for the bench radar/delta-bars, each 0..100 with 50 = stock.
@@ -635,11 +770,11 @@ export const PERF_AXES = [
   { id: 'cool', label: 'COOL' },
   { id: 'agility', label: 'AGILITY' },
 ];
-export function perfAxes(type, tune = {}, cargo = 0, kits = []) {
-  const cur = computeStats(type, tune, cargo, kits), stk = computeStats(type, {}, cargo, kits);
+export function perfAxes(type, tune = {}, cargo = 0, kits = [], parts = []) {
+  const cur = computeStats(type, tune, cargo, kits, parts), stk = computeStats(type, {}, cargo, kits, parts);
   const cl = v => Math.max(2, Math.min(100, Math.round(v)));
   const rangeOf = s => s.cruise / s.burn;
-  const cg = tune.cg || 0, pitch = tune.pitch || 0, loadFrac = cargo / (type.max_takeoff_weight || 300);
+  const cg = tune.cg || 0, pitch = tune.pitch || 0, loadFrac = (cargo + cur.partKg) / cur.maxTOW;
   return {
     speed: cl(50 + (cur.cruise / stk.cruise - 1) * 300),
     economy: cl(50 + (stk.burn / cur.burn - 1) * 300),

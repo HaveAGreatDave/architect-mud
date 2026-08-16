@@ -10,6 +10,7 @@ import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/s
 import { liveAircraft, persist, out, effStats, fieldFor as fieldOf,
   SEAT_KG, isConfigurable, loadoutBudget, effLoadout, sendToPlayer, skyState, inHangarInterior,
   FLIGHT_PACE, tuneRange, installedKits, KITS, perfAxes, parkAt, nearestAirfield, craftIsVtol, getZone,
+  PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope,
   detach, getLivePlayer, resetSurfaces, acquirableTypes, airfieldOf, fieldName } from './state.js';
 import { normalizeLivery, sanitizeLivery, signatureScore, describeExterior,
   paintCost, isPaintable, readSchemes, schemeOf,
@@ -18,6 +19,7 @@ import { fieldStocks } from './acquisition.js';
 import { pilotStatusForField, charterParkedAt } from './charter.js';
 import { isPilotLicensed } from './checkride.js';
 import { prefersTextMinigamesOrDefault } from '../../server/engine/presentation.js';
+import { emit } from '../../server/engine/events.js';
 // `tune` also belongs to broadcast (tune a channel); flight wins it and hands
 // back when you're not tuning an aircraft. `repair` shadows the engine gear-repair
 // builtin — cmdRepair returns undefined out of aircraft context to fall through.
@@ -125,18 +127,21 @@ async function buildCards(player, field) {
     // Full template numbers the performance model reads (state.computeStats/perfAxes).
     const type = { class: r.class, seats: r.seats, cargo_capacity: r.cargo_capacity,
       cruise_speed: r.cruise_speed, fuel_burn_base: r.fuel_burn_base, max_takeoff_weight: r.max_takeoff_weight || 300,
-      handling: r.handling, altitude_ceiling: r.altitude_ceiling, fuel_capacity: cap };
+      handling: r.handling, altitude_ceiling: r.altitude_ceiling, fuel_capacity: cap, hardpoints: r.hardpoints || 0 };
     const configurable = isConfigurable(type);
     const budget = configurable ? loadoutBudget(type) : 0;
     const cur = configurable ? effLoadout({ custom_data: cd }, type) : null;
     const tune = { mixture: 0, pitch: 0, boost: 0, cg: 0, ...(cd.tune || {}) };
     const kits = installedKits(cd), cargoNow = cd.cargoWeight || 0;
+    // Fitted parts move the envelope, so every number on this card has to see them —
+    // the fuel gauge included: a ferry tank means 100% is a bigger 100%.
+    const parts = partDefs(cd), partCap = cap * partEnvelope(parts).fuelCapMult;
     return {
       id: r.id, tail: r.name || r.tname, typeName: r.tname, typeId: r.type_id, class: r.class, seats: r.seats,
-      hardpoints: r.hardpoints || 0,   // >0 on a heli ⇒ the client draws the Viper attack mesh, not the Dragonfly
+      hardpoints: Math.max(r.hardpoints || 0, partEnvelope(parts).hardpoints),   // >0 on a heli ⇒ the client draws the Viper attack mesh, not the Dragonfly
 
       damage: r.damage, hullPct: Math.max(0, Math.round((1 - r.damage) * 100)),
-      fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / cap) * 100))), fuelType: r.fuel_type,
+      fuelPct: Math.max(0, Math.min(100, Math.round((r.fuel / partCap) * 100))), fuelType: r.fuel_type,
       location: r.is_wreck ? 'wreck' : (r.hangar_id ? 'hangar' : 'ramp'),
       rental: !!r.rental, wreck: !!r.is_wreck, paintable: isPaintable(r),
       livery: lv, schemes, signature: signatureScore(lv), paintCost: paintCost({ class: r.class }),
@@ -146,11 +151,15 @@ async function buildCards(player, field) {
       // Tuning: continuous knob values, the reachable ± the dials clamp to, the base
       // numbers the client mirrors for live-drag preview, and the authoritative
       // performance snapshot the graph shows for the committed tune.
-      tune, tuneRange: tuneRange(fab, kits),
+      tune, tuneRange: tuneRange(fab, kits, parts),
       perfBase: { cruise: r.cruise_speed, burn: r.fuel_burn_base, maxTOW: r.max_takeoff_weight || 300, pace: FLIGHT_PACE },
       cargoNow, kitsInstalled: kits,
       kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, name: k.name, price: k.price, blurb: k.blurb, owned: kits.includes(id) })),
-      perfNow: perfAxes(type, tune, cargoNow, kits),
+      perfNow: perfAxes(type, tune, cargoNow, kits, parts),
+      // The discrete layer, for a bench that wants to draw it: which slots this airframe
+      // has, what is in them, and the mass that hardware is already costing her.
+      partSlots: slotsFor(type).map(sl => ({ id: sl.id, label: sl.label, fitted: installedParts(cd)[sl.id] || null })),
+      partsFitted: installedParts(cd), partKg: partEnvelope(parts).kg,
       // Cabin loadout (weight & balance) — only meaningful on configurable haulers.
       configurable, loadoutBudget: budget, maxSeats: configurable ? Math.max(1, Math.floor(budget / SEAT_KG)) : r.seats,
       seatsNow: cur?.seats ?? r.seats, cargoCapNow: cur?.cargoCap ?? 0, cargoLoaded: cd.cargoWeight || 0,
@@ -612,7 +621,22 @@ async function cmdSalvage(args, raw, player) {
   await awardSkillUse(player.id, 'scavenging', chk.margin);
   // Stripping guts the wreck: after it's picked over it can no longer be rebuilt.
   await query("UPDATE aircraft SET custom_data = jsonb_set(COALESCE(custom_data,'{}'), '{stripped}', 'true') WHERE id=$1", [w.id]);
-  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap — <b>${scrap}₵</b> of salvage.</span>`, player_update: { credits: player.credits } };
+  // …and it can hand you a COMPONENT. This is the free source the shelf isn't: a
+  // wreck out in the wastes is the reason to go and look at a wreck out in the
+  // wastes. Only ever tier 1 — the exotic hardware is bought, not scavenged — and
+  // whatever the wreck was carrying stays with the wreck it came off.
+  let found = null;
+  if (chk.success && Math.random() < 0.45) {
+    const pool = Object.keys(PARTS).filter(k => PARTS[k].tier === 1);
+    const key = pool[Math.floor(Math.random() * pool.length)];
+    found = PARTS[key];
+    await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,0.7)',
+      [randomUUID(), player.id, found.item]);
+    emit('inventory.changed', { actor: player });
+  }
+  return { type: 'output', message: `<span class="item-grant">You strip the ${w.name} wreck for parts and scrap — <b>${scrap}₵</b> of salvage.</span>` +
+    (found ? `\n<span class="item-grant">And something worth having: a <b>${found.name}</b>, tired but whole. <span class="text-dim">(<b>modify fit</b> it at a hangar.)</span></span>` : ''),
+    player_update: { credits: player.credits } };
 }
 
 async function cmdRebuild(args, raw, player) {
@@ -662,14 +686,14 @@ function clampTune(val, range) {
 async function setCurve(player, tgt, param, valRaw) {
   const cd = await loadCd(tgt);
   const eff = await effectiveSkill(player, 'fabrication');
-  const range = tuneRange(eff, installedKits(cd));
+  const range = tuneRange(eff, installedKits(cd), partDefs(cd), param);
   const val = clampTune(valRaw, range);
   if (val == null) return { type: 'emote', message: `Set it to what? e.g. <b>modify ${param} 1</b> (−${range}..+${range}).` };
   cd.tune = { ...(cd.tune || {}), [param]: val };
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
   const capped = Math.abs(val) >= range;
-  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${capped ? ' <span class="text-dim">(That\'s as far as your hands and gear will take it — fit a kit to push further.)</span>' : ''}` };
+  return { type: 'output', message: `<span class="item-grant">Set ${param} to ${val > 0 ? '+' : ''}${val}.</span>${capped ? ' <span class="text-dim">(That\'s as far as your hands and gear will take it — fit a kit or a better part to push further.)</span>' : ''}` };
 }
 
 // Commit all four dials at once from the bench panel: tuneset <id> <mixture> <pitch>
@@ -680,11 +704,14 @@ async function cmdTuneset(args, raw, player) {
   const { tgt, err } = await requireOwned(player, id); if (err) return err;
   const cd = await loadCd(tgt);
   const eff = await effectiveSkill(player, 'fabrication');
-  const range = tuneRange(eff, installedKits(cd));
+  const parts = partDefs(cd);
+  // Per-knob, because some parts widen only the knob they are about: a hot section
+  // buys boost travel and a spar set buys CG travel, and neither buys the other.
+  const rangeFor = k => tuneRange(eff, installedKits(cd), parts, k);
   const [m, p, b, c] = a;
   cd.tune = {
-    mixture: clampTune(m, range) ?? 0, pitch: clampTune(p, range) ?? 0,
-    boost: clampTune(b, range) ?? 0, cg: clampTune(c, range) ?? 0,
+    mixture: clampTune(m, rangeFor('mixture')) ?? 0, pitch: clampTune(p, rangeFor('pitch')) ?? 0,
+    boost: clampTune(b, rangeFor('boost')) ?? 0, cg: clampTune(c, rangeFor('cg')) ?? 0,
   };
   await saveCd(tgt, cd);
   await awardSkillUse(player.id, 'fabrication', 0);
@@ -715,6 +742,153 @@ async function cmdInstallKit(args, raw, player) {
   return pushHangarBay(player);
 }
 
+// ── Parts & slots (the discrete layer) ────────────────────────────────────────
+// Every path here goes through `modify` rather than new verbs: `install`/`uninstall`
+// are the doors and augments plugins' and `parts` is trucking's, and a plugin verb
+// silently beats both the engine builtin and the other plugin depending on load
+// order. The customisation sheet was already the surface for this — a part is one
+// more thing on it.
+//
+// The part itself is an inventory ITEM. So fitting CONSUMES a row out of your kit and
+// pulling puts one back, which is what makes a part something you can buy, find on a
+// wreck, carry home and sell to somebody else without any of that being written here.
+
+// The type row a slot check needs (the live craft has it; a parked one doesn't).
+async function craftType(tgt) {
+  if (tgt.live?.type) return tgt.live.type;
+  const { rows } = await query(
+    'SELECT t.* FROM aircraft a JOIN aircraft_types t ON t.id=a.type_id WHERE a.id=$1', [tgt.id]);
+  return rows[0] || {};
+}
+
+// One line per part in the player's hands, for the "what can I fit" half of the sheet.
+async function heldParts(player) {
+  const ids = Object.keys(PARTS).map(k => PARTS[k].item);
+  const { rows } = await query(
+    'SELECT item_id, COUNT(*)::int n FROM player_inventory WHERE player_id=$1 AND item_id = ANY($2) GROUP BY item_id',
+    [player.id, ids]);
+  const byItem = Object.fromEntries(Object.values(PARTS).map(p => [p.item, p]));
+  return rows.map(r => ({ part: byItem[r.item_id], n: r.n })).filter(x => x.part);
+}
+
+// The parts sheet: what she's wearing, what's in your hands, what the shelf sells.
+async function partsSheet(player, tgt) {
+  const cd = await loadCd(tgt), type = await craftType(tgt);
+  const fitted = installedParts(cd), slots = slotsFor(type);
+  const env = partEnvelope(partDefs(cd));
+  const held = await heldParts(player);
+  const lines = slots.map(s => {
+    const p = PARTS[fitted[s.id]];
+    const fit = p
+      ? `<b>${p.name}</b> <span class="text-dim">(tier ${p.tier}, ${p.kg}kg)</span> · <span class="action-link" data-action="cmd" data-cmd="modify pull ${s.id}">pull</span>`
+      : '<span class="text-dim">— empty —</span>';
+    return `· <span class="text-cyan">${s.label.padEnd(11)}</span> ${fit}`;
+  });
+  const canFit = held.filter(h => slots.some(s => s.id === h.part.slot));
+  const hand = canFit.length
+    ? canFit.map(h => `· <b>${h.part.name}</b>${h.n > 1 ? ` ×${h.n}` : ''} <span class="text-dim">(${h.part.slot})</span> · <span class="action-link" data-action="cmd" data-cmd="modify fit ${partKeyOf(h.part)}">fit</span>`).join('\n')
+    : '<span class="text-dim">Nothing in your kit this airframe can take.</span>';
+  const shelf = Object.entries(PARTS)
+    .filter(([, p]) => slots.some(s => s.id === p.slot))
+    .map(([k, p]) => `· <b>${p.name}</b> <span class="text-dim">(${p.slot}, tier ${p.tier})</span> — ${p.price}₵ · <span class="action-link" data-action="cmd" data-cmd="modify buy ${k}">buy</span>\n  <span class="text-dim">${p.blurb}</span>`);
+  const carried = env.kg ? `\n<span class="text-dim">Fitted hardware weighs ${env.kg}kg — payload you are already carrying.</span>` : '';
+  return { type: 'output', message:
+    `<span class="text-cyan">PARTS — ${type.name || 'aircraft'}:</span>\n${lines.join('\n')}${carried}\n` +
+    `<b>IN YOUR KIT:</b>\n${hand}\n<b>THE SHELF:</b>\n${shelf.join('\n')}` };
+}
+const partKeyOf = (part) => Object.keys(PARTS).find(k => PARTS[k] === part);
+
+// Resolve "what part did they mean" from a catalogue key, an item id, or a name
+// fragment — the same forgiving match the rest of the bench uses.
+function findPart(words) {
+  const w = (words || '').toLowerCase().trim();
+  if (!w) return null;
+  if (PARTS[w]) return w;
+  return Object.keys(PARTS).find(k =>
+    PARTS[k].item === w || k.endsWith(w) || PARTS[k].name.toLowerCase().includes(w)) || null;
+}
+
+// Buy a part over the bench: it goes into your HANDS, not into the aircraft. Two acts,
+// deliberately — a part you own and haven't fitted is a tradeable object, and the
+// fitting is a job with a skill check that can go wrong.
+async function cmdBuyPart(player, tgt, words) {
+  const key = findPart(words);
+  if (!key) return { type: 'emote', message: 'No such part on the shelf. <b>modify parts</b> for the list.' };
+  const part = PARTS[key];
+  const type = await craftType(tgt);
+  if (!slotsFor(type).some(s => s.id === part.slot))
+    return { type: 'emote', message: `The ${type.name} has no ${part.slot} slot — nowhere to hang it.` };
+  if ((player.credits || 0) < part.price) return { type: 'emote', message: `The ${part.name} runs ${part.price}₵ — you're short.` };
+  player.credits -= part.price;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
+    [randomUUID(), player.id, part.item]);
+  emit('inventory.changed', { actor: player });
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  return { type: 'output', message: `<span class="item-grant">The counter man drags the ${part.name} out of the back — ${part.price}₵. It's yours; now get it fitted (<b>modify fit ${key}</b>).</span>`,
+    player_update: { credits: player.credits } };
+}
+
+// Fit a part you are carrying. Consumes the item on a Fabrication check; a failure
+// costs you the afternoon, never the part — the bench is where you learn, and a
+// component destroyed by a bad roll would make trying it a gamble nobody takes.
+async function cmdFitPart(player, tgt, words) {
+  const key = findPart(words);
+  if (!key) return { type: 'emote', message: 'Fit what? <b>modify parts</b> lists what you\'re carrying.' };
+  const part = PARTS[key];
+  const type = await craftType(tgt);
+  if (!slotsFor(type).some(s => s.id === part.slot))
+    return { type: 'emote', message: `The ${type.name} has no ${part.slot} slot. That one stays in the crate.` };
+  const { rows } = await query(
+    'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
+    [player.id, part.item]);
+  if (!rows.length) return { type: 'emote', message: `You haven't got a ${part.name} on you.` };
+  const cd = await loadCd(tgt), fitted = installedParts(cd);
+  if (fitted[part.slot] === key) return { type: 'emote', message: `That ${part.name} is already in her.` };
+  if (fitted[part.slot]) return { type: 'emote', message: `The ${part.slot} slot is full — <b>modify pull ${part.slot}</b> first. One airframe, one ${part.slot}.` };
+  const chk = await skillCheck(player, 'fabrication', 4 + part.tier * 3);
+  if (!chk.success) {
+    await awardSkillUse(player.id, 'fabrication', chk.margin);
+    return { type: 'emote', message: `You get the ${part.name} half in and nothing lines up. Shims, swearing, and it comes back out. <span class="text-dim">(Try again.)</span>` };
+  }
+  await query('DELETE FROM player_inventory WHERE id=$1', [rows[0].id]);
+  emit('inventory.changed', { actor: player });
+  cd.parts = { ...(cd.parts || {}), [part.slot]: key };
+  await saveCd(tgt, cd);
+  await awardSkillUse(player.id, 'fabrication', chk.margin);
+  out(player.id, `<span class="item-grant">Fitted: <b>${part.name}</b>. ${part.blurb}</span>`);
+  await pushHangarBay(player).catch(() => {});
+  return { type: 'output', message: '<span class="text-dim">Cowlings back on, panels screwed down. She\'s a different aeroplane.</span>' };
+}
+
+// Pull a fitted part back into your hands. A botch is where a part CAN die: taking
+// something out that is already bolted in and safetied is the job where a slipped
+// spanner ruins the component, and the risk is what makes a swap a decision.
+async function cmdPullPart(player, tgt, words) {
+  const w = (words || '').toLowerCase().trim();
+  const cd = await loadCd(tgt), fitted = installedParts(cd);
+  const slot = PART_SLOTS.find(s => s.id === w)?.id
+    || (findPart(w) && PARTS[findPart(w)].slot)
+    || (Object.keys(fitted).length === 1 ? Object.keys(fitted)[0] : null);
+  if (!slot) return { type: 'emote', message: `Pull what? <b>modify pull &lt;${PART_SLOTS.map(s => s.id).join('|')}&gt;</b>` };
+  const key = fitted[slot];
+  if (!key) return { type: 'emote', message: `There's nothing in the ${slot} slot.` };
+  const part = PARTS[key];
+  const chk = await skillCheck(player, 'fabrication', 5 + part.tier * 3);
+  delete cd.parts[slot];
+  await saveCd(tgt, cd);
+  await awardSkillUse(player.id, 'fabrication', chk.margin);
+  if (!chk.success) {
+    await pushHangarBay(player).catch(() => {});
+    return { type: 'output', message: `<span class="text-amber">It comes out — in pieces. The ${part.name} is scrap, and the slot's empty.</span>` };
+  }
+  await query('INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
+    [randomUUID(), player.id, part.item]);
+  emit('inventory.changed', { actor: player });
+  await pushHangarBay(player).catch(() => {});
+  return { type: 'output', message: `<span class="item-grant">Out it comes, clean — the <b>${part.name}</b> is in your hands and the slot is empty.</span>` };
+}
+
 // Gate every customisation path: must own the craft, at a field, on the ground.
 async function requireOwned(player, id) {
   const tgt = await ownedCraft(player, id);
@@ -735,10 +909,15 @@ async function showSheet(player, tgt) {
     return `· <b>${k}</b> [${v > 0 ? '+' : ''}${v}] — ${d.desc} · <span class="action-link" data-action="cmd" data-cmd="modify ${k} ${next}">cycle</span>`;
   });
   const profs = Object.keys(cd.profiles || {});
+  const fitted = installedParts(cd);
+  const partLine = Object.entries(fitted).length
+    ? Object.entries(fitted).map(([slot, k]) => `${slot}: <b>${PARTS[k].name}</b>`).join(' · ')
+    : '<span class="text-dim">all stock</span>';
   const lv = normalizeLivery(cd);
   return { type: 'output', message:
     `<span class="text-cyan">MODIFY — ${ac.tname} "${clean(ac.name)}" (${ac.class}):</span>\n` +
     `<b>TUNING</b> (−2..+2, wider with Fabrication):\n${curves.join('\n')}\n` +
+    `<b>PARTS:</b> ${partLine}  ·  <span class="action-link" data-action="cmd" data-cmd="modify parts">open the parts bench</span>\n` +
     `<b>PAINT:</b> ${lv.pattern === 'bare' ? 'bare metal' : `${lv.finish} · ${lv.pattern}`}  ·  <span class="action-link" data-action="cmd" data-cmd="hangar">open the paint bay</span>\n` +
     `<b>MARKINGS:</b> ${lv.text ? clean(lv.text) : '<span class="text-dim">none</span>'}  ·  <span class="text-dim">modify livery &lt;text&gt;</span>\n` +
     `<b>TAIL:</b> ${clean(ac.name)}  ·  <span class="text-dim">modify name &lt;text&gt;</span>\n` +
@@ -754,6 +933,13 @@ async function cmdModify(args, raw, player) {
 
   if (!sub) return showSheet(player, tgt);
   if (TUNE_PARAMS[sub]) return setCurve(player, tgt, sub, a[1]);
+
+  // The discrete layer. Deliberately sub-verbs rather than top-level ones — see the
+  // comment over the parts section for which plugins already own install/uninstall/parts.
+  if (sub === 'parts' || sub === 'slots') return partsSheet(player, tgt);
+  if (sub === 'fit') return cmdFitPart(player, tgt, a.slice(1).join(' '));
+  if (sub === 'pull' || sub === 'remove') return cmdPullPart(player, tgt, a.slice(1).join(' '));
+  if (sub === 'buy' || sub === 'order') return cmdBuyPart(player, tgt, a.slice(1).join(' '));
 
   if (sub === 'name' || sub === 'tail') {
     if (!rest) return { type: 'emote', message: 'Re-letter her to what? <b>modify name &lt;text&gt;</b>' };
@@ -783,7 +969,7 @@ async function cmdModify(args, raw, player) {
     cd.tune = { ...p }; await saveCd(tgt, cd);
     return { type: 'output', message: `<span class="item-grant">Loaded tune profile "${pname}" onto the aircraft.</span>` };
   }
-  return { type: 'emote', message: 'modify — <b>&lt;mixture|pitch|boost|cg&gt; &lt;−2..2&gt;</b> · <b>name</b> · <b>livery</b> · <b>save/load &lt;profile&gt;</b>' };
+  return { type: 'emote', message: 'modify — <b>&lt;mixture|pitch|boost|cg&gt; &lt;−2..2&gt;</b> · <b>parts</b> · <b>fit/pull/buy &lt;part&gt;</b> · <b>name</b> · <b>livery</b> · <b>save/load &lt;profile&gt;</b>' };
 }
 
 // `tune` stays as the quick curve shortcut — now owner-gated, still delegating to

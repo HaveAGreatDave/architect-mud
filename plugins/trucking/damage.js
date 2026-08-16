@@ -144,6 +144,58 @@ export function partEffects(dmg) {
   };
 }
 
+// ── SCRATCH, FAULT, FAILURE ──────────────────────────────────────────────────
+// The bands above say how BAD a component is. This says what KIND of bad, which is a different
+// question and the one that decides whether a repair is a bill or an errand.
+//
+//   scratch    the top of the bar. Cosmetic and mechanically NOTHING — `partEffects` is already
+//              flat up here, so this is not a new rule, it is a name for a rule that existed and
+//              had no word. What it costs you is resale and how the truck looks, and choosing to
+//              live with it is a legitimate way to run a truck.
+//   fault      the middle. It works worse. Credits and labour put it right; nothing physical is
+//              needed, because this is wear rather than a part that has let go.
+//   broken     the bottom. The component has FAILED, and no amount of money is a camshaft. A
+//              repair from here needs the actual part — in your hands for the ones a person can
+//              carry, and merely in the same room for the one nobody can.
+//
+// ⚠ BROKEN IS PER COMPONENT, NOT PER TRUCK. Wheels can be finished while the engine is only tired,
+// and the repair path has to be able to say so — a whole-truck gate would make the parts economy
+// fire all at once or never, and both of those are less interesting than the truck telling you
+// exactly which one thing it is waiting for.
+export const BROKEN_AT = 0.15;      // at or below: the part has failed and must be replaced
+export const COSMETIC_AT = 0.85;    // at or above: scratches and dents, no mechanical effect
+
+export function severityOf(v) {
+  const n = clamp01(v);
+  return n >= COSMETIC_AT ? 'scratch' : n > BROKEN_AT ? 'fault' : 'broken';
+}
+export const isBroken = (v) => severityOf(v) === 'broken';
+export const isCosmetic = (v) => severityOf(v) === 'scratch';
+
+// WHAT A FAILED COMPONENT NEEDS, and the one asymmetry in it that carries the whole idea.
+//
+// `carry: false` on the engine is not a weight rule dressed up — it is the design. A wheel set and
+// a body panel are freight you can throw in the cab, so a prepared driver is one who bought spares
+// before they left. An engine is a crate on a pallet: it cannot be in your pockets, so replacing
+// one is a question about WHERE YOU ARE rather than about what you packed. That turns the worst
+// failure in the game from a credits problem into a place problem, which is the interesting one,
+// and it is why a dead engine at the far end of a corridor still ends in a tow.
+export const PART_ITEMS = {
+  engine: { item: 'item_truck_engine', label: 'a replacement engine', carry: false },
+  wheels: { item: 'item_wheel_set',    label: 'a set of wheels',      carry: true },
+  body:   { item: 'item_body_panel',   label: 'body panels',          carry: true },
+};
+
+// What a component costs to put right, as a SHARE of the whole-truck bill. An engine is half the
+// money in a truck and a body panel is not, and pricing all three at a third each (which is what
+// the first cut did) meant the cheapest possible repair and the dearest possible repair were the
+// same price. The three sum to 1, so three targeted repairs still come to one whole one and there
+// is no arbitrage in either direction.
+export const PART_SHARE = { engine: 0.50, wheels: 0.32, body: 0.18 };
+// Cosmetic work is cheap, and deliberately so: a panel beaten out and resprayed is an afternoon,
+// not a rebuild. This multiplies the share above when the damage never got past a scratch.
+export const COSMETIC_MUL = 0.35;
+
 // The words the HUD and the log use. Deliberately the same five bands the truck's overall condition
 // already uses, so a driver reads one vocabulary rather than two.
 export function partBand(v) {

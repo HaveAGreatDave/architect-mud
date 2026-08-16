@@ -1635,6 +1635,8 @@ export function getInterruptLoudness(zoneId) {
 }
 
 export async function reloadZone(zoneId) {
+  // query-lint-ok: this IS the re-loader for world.zones — the read that keeps
+  // the Map honest after a dev-panel write. It cannot read the Map.
   const { rows } = await query('SELECT * FROM zones WHERE id = $1', [zoneId]);
   if (!rows.length) return;
   const zone = rows[0];

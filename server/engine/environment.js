@@ -2839,9 +2839,10 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   markPowerTopologyDirty(); // writes power_zones/generators below
   const { query } = deps;
   if (!zoneId) throw new Error('zoneId is required');
-  const { rows: zoneRows } = await query('SELECT * FROM zones WHERE id=$1', [zoneId]);
-  if (!zoneRows.length) throw new Error(`Zone ${zoneId} does not exist`);
-  const zone = zoneRows[0];
+  // From world.zones, which this module already imports — the install only reads
+  // flags, name and the grid coords, all of which the Map carries verbatim.
+  const zone = world.zones.get(zoneId);
+  if (!zone) throw new Error(`Zone ${zoneId} does not exist`);
 
   // Junction boxes serve building interiors only. Every external/outdoor tile is
   // fed straight from a city power plant (city_grid), so a JB there is meaningless

@@ -78,7 +78,7 @@ text.hi{fill:var(--accent);font-weight:600}
 
 <header>
   <h1><small>THOMAS · Architect MUD</small>Server &amp; Database Efficiency Review</h1>
-  <p class="sub">How a 15,781-room living world with weather, power, traffic, AI and 130 plugins runs on a free Render dyno and a Neon compute that is asleep most of the time — and the seven places it could still get cheaper. <span class="pill">2026-08-15</span></p>
+  <p class="sub">How a 15,781-room living world with weather, power, traffic, AI and 130 plugins runs on a free Render dyno and a Neon compute that is asleep most of the time — what is left to do, and where the ceiling actually is. <span class="pill">updated 2026-08-16</span></p>
 </header>
 
 <h2><span class="num">§ 0</span>The shape of the problem</h2>
@@ -343,66 +343,187 @@ text.hi{fill:var(--accent);font-weight:600}
 
 <hr class="rule">
 
-<h2><span class="num">§ 4</span>Where we could still improve</h2>
-<p class="lede">Seven findings, ordered by return on effort. None is on fire; several are the same class of bug the architecture doc already names, still living in plugin code.</p>
+<h2><span class="num">§ 4</span>What's left</h2>
+<p class="lede">Four open items. The first three are ordinary maintenance; the fourth is structural, and it is what the next section is about.</p>
 
-<div class="card" style="border-color:var(--good)">
-<p style="margin-top:0"><span class="tag t-good">2026-08-16 — acted on</span></p>
-<p><strong>1, 3, 4, 5 and 6 are done.</strong> All eight <code>flags::text LIKE</code> sites now read <code>getZoneFurniture()</code>; cards reads <code>world.npcs</code>; <code>apiGetItems</code> serves the item cache; <code>db.js</code> carries a standing round-trip meter surfaced as <b>DB/min</b> on the World State monitor; and <code>scripts/db/query-lint.mjs</code> gates the rules in <code>pretest:regress</code>. That lint then surfaced a further <strong>28 per-command furniture queries</strong> across bodily, bulletin, bounty, water, fillable, wardrobe, jail, mis, vendor-safe, storefront and posters — every one of them a round trip to ask what was standing in a room the process already had in memory. All converted; the advisory backlog is down from 106 to 78.</p>
-<p style="margin-bottom:0"><strong>Finding 2 turned out to be already fixed.</strong> Re-measured at 1 and 20 synthetic players: <b>46/min and 42/min</b>. The ~6/player/min slope is gone — earlier batching work eliminated it. What remains is a ~40/min <em>world floor</em> that does not scale with players, and the largest single item in it was one table being read by two plugins independently (surveillance's 4 s device snapshot and broadcast's own 15 s query against the same rows); broadcast now asks surveillance. <strong>Finding 7 (the single-instance ceiling) is untouched and still the honest caveat.</strong></p>
+<div class="find">
+<h3><span class="tag t-warn">backlog</span> 1 · 67 advisory lint findings, and the shape of the tail</h3>
+<p><code>npm run db:query-lint -- --all</code> lists them. They are not distributed evenly: <strong>28 sit in <code>broadcast</code></strong>, 7 in <code>zone-validator</code>, 7 in <code>tablet</code>, and the rest is a long thin tail of one or two per plugin.</p>
+<p class="why"><strong>Why it matters, honestly: less than the number suggests.</strong> What remains is dominated by map-derivation sweeps, studio-wiring routes and dev-panel CRUD — cold paths run by an admin, where a round trip is the correct price. <strong>The work is triage, not conversion:</strong> walk the list, fix anything on a player path, and mark the rest <code>query-lint-ok</code> with a reason so the number means something. A backlog nobody has read is indistinguishable from a backlog of bugs.</p>
 </div>
 
 <div class="find">
-<h3><span class="tag t-bad">highest value</span> 1 · Eight <code>flags::text LIKE</code> scans against a table that is already in RAM</h3>
-<p>The architecture doc bans this pattern by name: casting every row's JSONB to text is unindexable, matches keys and values alike, and forces a full scan. It survives in <strong>8 call sites</strong> across <code>broadcast</code> (5), <code>gametable</code>, <code>yacht</code> and a shared <code>TV_FURNITURE_SQL</code> constant — all against <code>furniture</code>, which is a <em>boot-loaded Map indexed by zone</em>.</p>
-<p class="why"><strong>Why it matters:</strong> each of these is a remote round trip <em>plus</em> a scan of 886 furniture rows, to answer a question the process can already answer with a Set lookup — e.g. "is there a TV in this room", which fires on TV interactions and gametable seating. <strong>Fix:</strong> filter <code>world.furniture</code> by key presence (<code>'media_deck' in f.flags</code>), as the doc prescribes. Mechanical, low-risk, and it removes a whole class of query from live gameplay paths.</p>
+<h3><span class="tag t-info">use it</span> 2 · The meter exists; nothing watches it yet</h3>
+<p><b>DB/min</b> ships on the dev-panel World State monitor, coloured by per-player slope. But nobody has looked at it under real concurrent load, and there is no alert, no record, and no baseline written down anywhere but this page.</p>
+<p class="why"><strong>Why it matters:</strong> the point of a standing meter is to make a regression visible without a profiling session — which only pays off if somebody reads it at a moment that matters, i.e. with players online. <strong>Next step:</strong> capture the number at a busy moment, write it beside the ~40/min idle floor as the baseline, and pick the threshold that means "something new is per-player".</p>
 </div>
 
 <div class="find">
-<h3><span class="tag t-warn">high value</span> 2 · The ~6 round trips per player per minute floor</h3>
-<p>Two named offenders were already fixed (<code>clothing-wetness</code>, <code>flashlight</code>), but the slope was measured, not eliminated. Nobody has re-profiled since to see what now owns it.</p>
-<p class="why"><strong>Why it matters:</strong> this is the only number in the system that multiplies by concurrency. At 20 players it is already 120 trips/min — three times the entire world floor. <strong>Fix:</strong> re-run the profiler recipe at 1/5/20, sort by SQL text, and check whether the top offenders can move onto <code>resolveInventoryForPlayers</code>/<code>patchInventoryCustomData</code>. Everything needed to do this is documented; it just needs doing.</p>
+<h3><span class="tag t-warn">unknown</span> 3 · WebSocket behaviour under concurrency has never been tested</h3>
+<p>Rate limiting, backpressure and broadcast fan-out past a handful of simultaneous connections are all untested. The architecture doc has said so since it was written.</p>
+<p class="why"><strong>Why it matters:</strong> every measurement on this page is about the <em>database</em>, and the database is no longer what breaks first. Outbound bytes per zone-event × players in that zone is the number nobody has. <strong>Next step:</strong> the recipe already exists — pass a counting function to <code>startGameLoop()</code> and <code>messaging.setBroadcast()</code>, sum <code>Buffer.byteLength</code> bucketed by payload type.</p>
 </div>
 
 <div class="find">
-<h3><span class="tag t-warn">medium</span> 3 · <code>SELECT * FROM npcs</code> in plugin code</h3>
-<p><code>plugins/cards</code> reads the whole NPC table — including <code>dialogue_tree</code> and <code>behaviour_graph</code> JSONB — when <code>world.npcs</code> is a boot-loaded Map with a hard write funnel.</p>
-<p class="why"><strong>Why it matters:</strong> it's the exact egress pattern that killed the Neon budget once. It's cold-path (striking a card series), so the urgency is low — but it's a straight read from the Map, so the fix is nearly free.</p>
-</div>
-
-<div class="find">
-<h3><span class="tag t-info">medium</span> 4 · No standing observability — every measurement is a throwaway script</h3>
-<p>The profiling recipes are excellent and explicitly say <em>write it, run it, delete it</em>. The consequence is that a regression in round-trip count is invisible until somebody goes looking, and the only numbers we have are from a single sitting.</p>
-<p class="why"><strong>Why it matters:</strong> the coalescing invariants fail <em>silently</em> by design ("no error, just an un-persisted change"), and so does their inverse — a new plugin adding a per-player query costs nothing visible until concurrency arrives. <strong>Fix:</strong> a ~20-line always-on counter in <code>db.js</code> (round trips this minute, top 5 SQL prefixes) surfaced on the existing dev-panel World State Monitor. It's already the one place every query passes through.</p>
-</div>
-
-<div class="find">
-<h3><span class="tag t-info">medium</span> 5 · A regress gate for the round-trip rules</h3>
-<p>The doc's rules — no query in a loop, no <code>flags::text LIKE</code>, no <code>SELECT *</code> on the four fat tables — are prose. Meanwhile <code>docs:lint</code>, <code>content:lint</code>, <code>shapes:smoke</code> and <code>client:smoke</code> all prove that this project is willing to turn a rule into a gate.</p>
-<p class="why"><strong>Why it matters:</strong> finding #1 is eight instances of a rule that has been written down for months. A grep-level lint (~30 lines, in the existing <code>pretest:regress</code> chain) would have caught every one at authoring time — and would stop the 131st plugin from adding a ninth.</p>
-</div>
-
-<div class="find">
-<h3><span class="tag t-info">low</span> 6 · Dev-panel routes use <code>SELECT *</code> on wide tables freely</h3>
-<p><code>api/routes.js</code> pulls whole <code>zones</code> and <code>items</code> rows in a dozen places.</p>
-<p class="why"><strong>Why it matters:</strong> barely at all today — it's admin traffic from one or two humans, not gameplay. Worth a column list only where a route returns <em>many</em> rows (<code>apiGetItems</code> returns all 668 item templates with their JSONB), because that's egress with a fixed cost per panel load.</p>
-</div>
-
-<div class="find">
-<h3><span class="tag t-info">structural</span> 7 · The single-instance ceiling is real, and unmeasured</h3>
-<p>The whole design assumes one Node process owns the world in RAM. That is the right call and is why any of this works — but it means horizontal scaling isn't a config change, it's a redesign (the open question about Redis). Separately, WebSocket rate limiting under real concurrent load has never been tested past a handful of connections.</p>
-<p class="why"><strong>Why it matters:</strong> not today's problem, and not worth pre-solving. But the honest version of the efficiency story is <em>"extremely cheap up to one box, then a rewrite"</em> — and the load-test is the cheap half of finding out where that box's limit actually is.</p>
+<h3><span class="tag t-bad">structural</span> 4 · One process owns the world, and that is the ceiling</h3>
+<p>Everything that makes this cheap — the boot-loaded Maps, RAM-authoritative player state, coalesced flushes — assumes a single Node process is the authority. That is the right call and it is why the hosting bill is what it is. But scaling out is not a config change; it is a decision with a redesign attached.</p>
+<p class="why"><strong>Why it matters:</strong> the honest version of the story is <em>"extremely cheap up to one box, then a decision"</em> — and nobody has established where that box's limit is, so the decision has no trigger.</p>
 </div>
 
 <hr class="rule">
 
-<h2><span class="num">§ 5</span>The story in one paragraph</h2>
-<div class="card">
-<p style="margin-top:0">The world is big because it lives in memory. Postgres is not the game's working set — it's where the game writes down what would hurt to lose, on a timer, in batches, and it is allowed to fall asleep the moment nobody is playing. Every layer above that follows the same instinct: no ORM to generate surprises, no build step to slow the client, no boot migration to make a restart expensive, no tick that runs for an empty room. What keeps it honest isn't discipline in the abstract — it's that each rule is written next to the specific bug that produced it, and increasingly enforced by a gate rather than a memory.</p>
-<p style="margin-bottom:0">The gap between the design and the code is now small and specific: eight banned queries in plugin code, a per-player slope nobody has re-measured, and no standing meter on the one number that decides whether all of the above is still true. All three are a day's work, and the last one is the one that keeps the other two from coming back.</p>
+<h2><span class="num">§ 5</span>How this scales</h2>
+<p class="lede">The database was the bottleneck everyone assumed, and it measurably isn't. So the useful question changes: as players arrive, <em>what actually breaks first?</em></p>
+
+<h3>The four ceilings, and which one you hit</h3>
+<p>Four resources can run out. They don't run out together, and the design has pushed one of them so far away that it is no longer the one to watch.</p>
+
+<figure>
+<svg viewBox="0 0 900 340" role="img" aria-label="Chart: four resource ceilings and roughly where each is reached as concurrent players increase">
+  <line x1="150" y1="290" x2="860" y2="290" stroke="var(--border)"/>
+  <text x="150" y="312" text-anchor="middle">1</text>
+  <text x="290" y="312" text-anchor="middle">20</text>
+  <text x="430" y="312" text-anchor="middle">100</text>
+  <text x="570" y="312" text-anchor="middle">500</text>
+  <text x="710" y="312" text-anchor="middle">2,000</text>
+  <text x="850" y="312" text-anchor="middle">10,000</text>
+  <text x="505" y="332" text-anchor="middle">concurrent players →</text>
+
+  <text class="lbl" x="140" y="42" text-anchor="end">DB round trips</text>
+  <rect x="150" y="28" width="710" height="20" rx="4" fill="var(--bg3)" stroke="var(--border)"/>
+  <rect x="150" y="28" width="645" height="20" rx="4" fill="var(--good)" opacity=".55"/>
+  <text x="805" y="42" font-size="10">pool of 10</text>
+
+  <text class="lbl" x="140" y="82" text-anchor="end">Socket bytes</text>
+  <rect x="150" y="68" width="710" height="20" rx="4" fill="var(--bg3)" stroke="var(--border)"/>
+  <rect x="150" y="68" width="380" height="20" rx="4" fill="var(--warn)" opacity=".7"/>
+  <text x="540" y="82" font-size="10">unmeasured — fan-out is per recipient</text>
+
+  <text class="lbl" x="140" y="122" text-anchor="end">Tick CPU</text>
+  <rect x="150" y="108" width="710" height="20" rx="4" fill="var(--bg3)" stroke="var(--border)"/>
+  <rect x="150" y="108" width="450" height="20" rx="4" fill="var(--warn)" opacity=".7"/>
+  <text x="610" y="122" font-size="10">single-threaded: one core, one event loop</text>
+
+  <text class="lbl" x="140" y="162" text-anchor="end">Process RAM</text>
+  <rect x="150" y="148" width="710" height="20" rx="4" fill="var(--bg3)" stroke="var(--border)"/>
+  <rect x="150" y="148" width="700" height="20" rx="4" fill="var(--good)" opacity=".55"/>
+  <text x="840" y="162" font-size="10" text-anchor="end">world is a fixed cost; a player is a small object</text>
+
+  <line x1="600" y1="20" x2="600" y2="296" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="612" y="198" fill="var(--bad)" font-size="11">the wall is here — and it is the EVENT LOOP</text>
+  <text x="612" y="216" font-size="10">not Postgres, and not memory</text>
+  <text x="612" y="236" font-size="10">one box saturates on CPU and fan-out</text>
+  <text x="612" y="252" font-size="10">long before the DB tier notices</text>
+
+  <text x="150" y="274" font-size="10" class="quiet">green = engineered away · amber = scales with players, untested · dashed = practical limit of one process</text>
+</svg>
+<figcaption>Positions are reasoned, not benchmarked — the actionable part is the <em>ordering</em>. The cheapest next measurement is whichever amber bar sits furthest left.</figcaption>
+</figure>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Resource</th><th>How it scales with players</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td class="kv">DB round trips</td><td><strong>Flat.</strong> Measured 46/min at 1 player and 42/min at 20 — coalesced flushes grow the payload, not the trip count</td><td><span class="tag t-good">engineered away</span></td></tr>
+<tr><td class="kv">Process RAM</td><td><strong>Nearly flat.</strong> The world (15,781 zones + npcs + furniture) is a fixed cost paid once at boot; a live player is a small object</td><td><span class="tag t-good">not the limit</span></td></tr>
+<tr><td class="kv">Tick CPU</td><td><strong>Linear, on ONE core.</strong> Node is single-threaded — the 1 s combat tick and the per-minute sweeps walk live players, and nothing runs in parallel with them</td><td><span class="tag t-warn">untested</span></td></tr>
+<tr><td class="kv">Socket bytes</td><td><strong>Worse than linear in a crowd.</strong> A zone event is serialised per recipient, so N players in one room is N sends of one payload</td><td><span class="tag t-warn">unmeasured</span></td></tr>
+<tr><td class="kv">Pool slots</td><td>Fixed at 10, deliberately. Contention is about tick <em>convoys</em>, not headcount — which is why the scheduler jitters phase and spreads subscribers</td><td><span class="tag t-good">handled</span></td></tr>
+</tbody>
+</table>
 </div>
 
-<p class="quiet" style="margin-top:40px;font-size:.82rem">Sources: <code>docs/architecture.md</code> (persistence tiers, read tiers, measurement recipes, lessons learned), <code>server/engine/scheduler.js</code>, <code>server/models/db.js</code>, <code>server/keepalive.js</code>, <code>server/engine/world.js</code>, plus a repo-wide sweep of <code>query()</code> call sites at 2026-08-15. Counts are live from the tree; the round-trip figures are the measurements recorded in the architecture doc.</p>
+<h3>The crowd problem, which is the interesting one</h3>
+<p>Player count is not really the variable. <strong>Players per zone is.</strong> Two hundred people spread across the Basin cost almost nothing extra; two hundred people in one bar is a different program — every say, every emote, every swing fans out to everyone present, serialised once per recipient.</p>
+
+<figure>
+<svg viewBox="0 0 900 300" role="img" aria-label="Chart: broadcast cost climbs sharply with players gathered in one room, while the same players spread across zones stay linear">
+  <line x1="80" y1="245" x2="850" y2="245" stroke="var(--border)"/>
+  <line x1="80" y1="25" x2="80" y2="245" stroke="var(--border)"/>
+  <text x="70" y="249" text-anchor="end">0</text>
+  <text x="42" y="135" text-anchor="middle" transform="rotate(-90 42 135)">outbound payloads / event</text>
+  <text x="465" y="278" text-anchor="middle">players IN THE SAME ROOM →</text>
+  <text x="80" y="264" text-anchor="middle">0</text>
+  <text x="465" y="264" text-anchor="middle">50</text>
+  <text x="850" y="264" text-anchor="middle">100</text>
+
+  <path d="M80,244 C300,238 500,196 850,40" fill="none" stroke="var(--bad)" stroke-width="2.5"/>
+  <text x="840" y="62" text-anchor="end" fill="var(--bad)">everyone acting in one room — each act × each witness</text>
+
+  <polyline points="80,244 850,207" fill="none" stroke="var(--good)" stroke-width="2.5"/>
+  <text x="840" y="197" text-anchor="end" fill="var(--good)">same players spread across zones — linear, and boring</text>
+
+  <line x1="600" y1="25" x2="600" y2="245" stroke="var(--border)" stroke-dasharray="4 4"/>
+  <text x="590" y="108" text-anchor="end" font-size="10">a launch-night bar is over here</text>
+  <text x="590" y="124" text-anchor="end" font-size="10">and it is the only case worth testing</text>
+</svg>
+<figcaption>The mitigation this design already has is that the world is <em>enormous</em> — 15,781 rooms is a lot of places to not be standing together. The failure mode is anything that deliberately gathers everyone: a broadcast finale, a boss, a launch night.</figcaption>
+</figure>
+
+<h3>What to do at each step, before rewriting anything</h3>
+<div class="scroll">
+<table>
+<thead><tr><th>Scale</th><th>What is true there</th><th>The move</th></tr></thead>
+<tbody>
+<tr><td class="kv">today → ~50</td><td>Comfortably inside every ceiling; the DB is asleep half the day</td><td>Nothing. Read the meter occasionally.</td></tr>
+<tr><td class="kv">~50 → 200</td><td>Tick CPU and fan-out begin to matter. The DB still won't.</td><td><strong>Measure socket bytes per event</strong> and profile one busy tick. Cheap, and it decides everything after it.</td></tr>
+<tr><td class="kv">200 → 1,000</td><td>One event loop is the constraint. Crowds hurt; headcount doesn't.</td><td>Coalesce broadcasts per zone before serialising; a paid tier for a real core. <strong>Still one process.</strong></td></tr>
+<tr><td class="kv">1,000+</td><td>One box can't hold it, and the RAM-authoritative model has to give</td><td>Shard by <em>region</em>, not by player — the design is unusually ready for it.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>The path past one box — shorter than it looks</h3>
+<p>The open architecture question has always been phrased as "should the world cache move to Redis?" That understates how well this design happens to sit for sharding, almost by accident:</p>
+
+<figure>
+<svg viewBox="0 0 900 265" role="img" aria-label="Diagram: sharding the world by region across processes, with Postgres as the shared durable tier">
+  <rect x="30" y="30" width="250" height="98" rx="8" fill="var(--bg3)" stroke="var(--accent)"/>
+  <text class="hi" x="155" y="52" text-anchor="middle" font-size="12">PROCESS A — Coldwater</text>
+  <text x="155" y="74" text-anchor="middle">its zones, its npcs, its ticks</text>
+  <text x="155" y="92" text-anchor="middle">authoritative in RAM</text>
+  <text x="155" y="112" text-anchor="middle">i.e. exactly today's engine</text>
+
+  <rect x="325" y="30" width="250" height="98" rx="8" fill="var(--bg3)" stroke="var(--accent)"/>
+  <text class="hi" x="450" y="52" text-anchor="middle" font-size="12">PROCESS B — Scarletwastes</text>
+  <text x="450" y="74" text-anchor="middle">its zones, its npcs, its ticks</text>
+  <text x="450" y="92" text-anchor="middle">authoritative in RAM</text>
+  <text x="450" y="112" text-anchor="middle">i.e. exactly today's engine</text>
+
+  <rect x="620" y="30" width="250" height="98" rx="8" fill="var(--bg2)" stroke="var(--border)" stroke-dasharray="5 4"/>
+  <text class="lbl" x="745" y="52" text-anchor="middle" font-size="12">PROCESS C — the Reach</text>
+  <text x="745" y="80" text-anchor="middle">…one per region</text>
+  <text x="745" y="102" text-anchor="middle">added without touching A or B</text>
+
+  <line x1="155" y1="128" x2="155" y2="180" stroke="var(--border)" stroke-width="2"/>
+  <line x1="450" y1="128" x2="450" y2="180" stroke="var(--border)" stroke-width="2"/>
+  <line x1="745" y1="128" x2="745" y2="180" stroke="var(--border)" stroke-width="2"/>
+
+  <rect x="30" y="182" width="840" height="48" rx="8" fill="var(--bg3)" stroke="var(--warn)"/>
+  <text x="450" y="202" text-anchor="middle" fill="var(--warn)" font-size="12">Postgres — already the only shared durable truth</text>
+  <text x="450" y="221" text-anchor="middle">players, inventory, credits, corpses: durable write-through TODAY, from any process</text>
+
+  <text x="450" y="252" text-anchor="middle" class="quiet">what's missing is exactly two things — a router that puts a connection on the right process, and a handoff at a region boundary</text>
+</svg>
+<figcaption>Region sharding fits because the world is already partitioned that way in practice, and crossing between regions is already a distinct, explicit, rare event (the <code>movement.edge</code> seam) rather than an ordinary step.</figcaption>
+</figure>
+
+<p>Three things make that shape workable rather than aspirational — and none of them was built for it:</p>
+<ul>
+<li><strong>The durable tier is already shared and already correct.</strong> Money, inventory, deaths and kills write through to Postgres at the mutation site today. Two processes doing that is not a new correctness problem; it is the existing one.</li>
+<li><strong>Cross-region travel is already a seam, not a step.</strong> Void travel made leaving a region an explicit transition with its own code path — a shard handoff has an obvious place to live.</li>
+<li><strong>Plugins are already per-process by construction.</strong> A plugin holds RAM state and registers ticks; nothing in the loader assumes it is the only copy running.</li>
+</ul>
+<p>What would genuinely have to change are the <em>global</em> systems that assume one process sees everyone: broadcast channels, chat/radio, wanted and heat, corp influence, and anything walking <code>world.players</code> expecting the full roster. That list is the real cost of the move, and writing it out properly is the first day's work whenever the day comes.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>The one-line version.</strong> The DB tier has been engineered out of the way and can be left alone. The next constraint is a single event loop and per-recipient broadcast fan-out — neither of which anybody has measured. Measure those two before writing a line of scaling code; and when the day comes, shard by region, because the design has quietly been shaped for it the whole time.</p>
+</div>
+
+
+<hr class="rule">
+
+<p class="quiet" style="margin-top:40px;font-size:.82rem">Sources: <code>docs/architecture.md</code> (persistence tiers, read tiers, measurement recipes, lessons learned), <code>server/engine/scheduler.js</code>, <code>server/models/db.js</code>, <code>server/keepalive.js</code>, <code>server/engine/world.js</code>, plus repo-wide sweeps of <code>query()</code> call sites and round-trip profiling runs at 1 and 20 synthetic players, 2026-08-15/16. Counts are live from the tree; the round-trip figures are the measurements recorded in the architecture doc.</p>
 
 </div>
 </body>
