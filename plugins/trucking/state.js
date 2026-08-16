@@ -231,8 +231,11 @@ export function reconcileTruck(rig, d, now = Date.now()) {
   }
 
   // ── Corridor leg ──
-  // Bogged: past the corridor's half-width is not a collision, it's a law. The rig stalls and the
-  // caller puts it back on the shoulder. Never a wall, never a crash the player can't read.
+  // Bogged: past the OFF-ROAD limit — four times the paved half-width — there is no ground left to
+  // synthesise, the rig stalls, and the caller puts it back on the shoulder. This used to fire at
+  // the edge of the tarmac, which made the verge a wall wearing a penalty's clothes. Now leaving
+  // the road is ordinary driving that is slow and eats tyres (see WHEEL_SURFACE in damage.js), and
+  // this is only the far end of that: somewhere you have to genuinely set out for.
   const hit = corridorLocate(rig.route, rig.x, rig.y);
   const bogged = !hit;
 

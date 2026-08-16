@@ -23,7 +23,7 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
-import { createHelmWheel } from './helm-wheel.js';
+import { createHelmWheel, TRUCK_LOCK_TURNS } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
 
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
@@ -466,7 +466,15 @@ export function openCab(ctx = {}) {
   // glass, since there is no canvas here to press.
   st.wheel = createHelmWheel(null, {
     accent: cabTrim(P.tier).glow, mode: 'absolute', art: 'truck',
-    lock: 1.6, selfCentre: 2.6, keyRate: 2.6,
+    // THREE AND A HALF TURNS LOCK TO LOCK, from the one place that owns it. The keyboard rate goes
+    // up with it or a keyboard driver could never reach the stops — 5.5 rad/s is about two seconds
+    // of held key from centre to full lock, which is a hand working, not a hand waiting.
+    lock: TRUCK_LOCK_TURNS, selfCentre: 2.6, keyRate: 5.5,
+    // The wheel asks the truck how fast it is going, so the self-centring can be the speed-scaled
+    // caster effect a real axle has rather than a constant spring — slack in a yard, firm on the
+    // road. Reading `st.sim` live rather than pushing a number in: the sim is the only owner of
+    // road speed and a copy of it here would be a copy that lags by a frame.
+    getSpeed: () => Math.abs(st?.sim?.speed || 0),
     onSteer: (axle) => { st.input.steer = axle; },
     onHorn: () => sendCmdSilent('horn'),
   });

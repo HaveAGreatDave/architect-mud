@@ -36,10 +36,22 @@
 // the length of every haul.
 export const TILES_PER_ROOM = 90;
 
-// Half-width of the drivable corridor, in tiles. Past this you are not off the road, you are lost
-// (see the bogged law in plugins/trucking/state.js) — it is deliberately generous, because a wall
-// you can't see is worse than a long walk back.
+// Half-width of the PAVED corridor, in tiles. Past this you are off the road — which is a thing you
+// may do (see OFFROAD_R below), not a thing that stops you. It is deliberately generous, because a
+// road you keep falling off is a road nobody enjoys holding.
 export const CORRIDOR_R = 6;
+// HOW FAR OFF THE ROAD YOU CAN ACTUALLY GO, as a multiple of the paved half-width.
+//
+// The corridor used to end at `R`: past six tiles of centreline you were BOGGED, stalled, and put
+// back on the shoulder by the engine. That was a wall wearing a penalty's clothes — the one thing
+// rule 3 at the top of the plugin says the edge of the road must never be.
+//
+// It is a real verge now. Out to `OFFROAD_R` there is ground, and you may drive on it: slowly,
+// badly, and at a cost that lands almost entirely on the tyres, which is what open country does to
+// a truck. Only past THAT is there nothing at all — and there has to be an end, because the
+// corridor is synthesised around a line and beyond some width there is no geometry to stand on.
+// Far enough out that reaching it is a decision rather than a wobble.
+export const OFFROAD_R = CORRIDOR_R * 4;
 
 // ── Seeding (mirrors plugins/voidwalking) ────────────────────────────────────
 function hashSeed(str) {
@@ -127,6 +139,7 @@ export function corridorPos(route, s, t = 0) {
 // The inverse, and the hot one: for a corridor XY, which leg is it on, how far along, how far off?
 // Returns null when the point is on no leg — that is off-corridor, which renders as open air.
 // Legs are few (a handful per route) so a linear scan is cheaper than any index.
+const OFFROAD_MUL = 4;   // must match OFFROAD_R's multiple — one road, one width
 function locate(route, x, y) {
   let best = null;
   for (const leg of route.legs) {
@@ -134,7 +147,11 @@ function locate(route, x, y) {
     if (leg.uy) { d = y - leg.y0; t = x - leg.x0; }        // running in +y, lateral is x
     else { d = (x - leg.x0) * leg.ux; t = y - leg.y0; }    // running in ±x, lateral is y
     if (d < 0 || d > leg.len) continue;
-    if (Math.abs(t) > route.R) continue;
+    // ⚠ THE VERGE IS INSIDE THE GEOMETRY, NOT OUTSIDE IT. Locating out to the off-road limit rather
+    // than to the pavement edge is what makes driving off the road DRIVING rather than a stall: the
+    // odometer still derives, the node still tracks, the cells still render. What changes out here
+    // is the surface under the wheels, and the surface is the punishment.
+    if (Math.abs(t) > route.R * OFFROAD_MUL) continue;
     const cand = { s: leg.s0 + d, t, leg };
     // Near a joint two legs both claim the tile; the paved one (smaller |t|) wins, so the corner
     // gets a road tile rather than a hole where the two runs fail to meet.

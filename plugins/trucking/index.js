@@ -16,9 +16,11 @@
 //     nodes, detours and teardown are TRIGGERED here and implemented nowhere here. A trucker who
 //     breaks down finishes the crossing on foot at a cost of zero extra code.
 //
-//  3. The edge of the road is a law, not a wall. Off the pavement is slow and expensive; past the
-//     corridor you are bogged — stalled, penalised in time, and put back on the shoulder facing
-//     the right way. There is no geometry you can hit.
+//  3. The edge of the road is a law, not a wall. You may drive off it: open country is passable,
+//     slow, and murder on tyres — the reason to stay on the tarmac is the BILL, never a refusal.
+//     Four times the paved half-width out there is no ground left to synthesise, and only there do
+//     you bog: stalled, penalised in time, and put back on the shoulder facing the right way.
+//     There is no geometry you can hit.
 //
 // PHASE 1 IS BOBTAIL. No trailer, no gears, no freight, no yard. The question this phase exists to
 // answer is whether a quarter of an hour of changing country with a city coming out of the haze is

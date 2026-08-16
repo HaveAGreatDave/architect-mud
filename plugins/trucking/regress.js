@@ -10,7 +10,7 @@ import { world, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFr
 import { mapWindow } from '../flight/state.js';
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
-import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R,
+import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R,
   addWreck, wrecksOn, wreckAhead, _clearWrecks } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext } from './state.js';
@@ -90,11 +90,17 @@ export default async function regress({ run, check, getPlayer }) {
     check('driving crosses every room once, in order',
       JSON.stringify(order) === JSON.stringify([...Array(a.nodes).keys()]), order.join(','));
 
-    // The bogged law: past the half-width there is nothing, which is what makes it a law rather
-    // than a wall (there is no geometry to collide with).
+    // THE VERGE IS DRIVABLE AND THE FAR EDGE IS NOT A WALL — two facts, and the pair of them is
+    // the whole "you may drive off the road" rule. Just past the tarmac there is real ground to
+    // roll on (slow, and murder on tyres); four times the half-width out there is nothing at all,
+    // which is what keeps the limit a law rather than something you can collide with.
     const mid = corridorPos(a, a.L / 2, 0);
-    check('past the corridor half-width is open air, not a wall',
-      corridorAt(a, Math.round(mid.x) + CORRIDOR_R + 2, Math.round(mid.y)) === null);
+    check('just off the pavement there is still ground to drive on',
+      corridorAt(a, Math.round(mid.x) + CORRIDOR_R + 2, Math.round(mid.y)) !== null);
+    check('…and it is NOT road, so the surface is the punishment',
+      corridorAt(a, Math.round(mid.x) + CORRIDOR_R + 2, Math.round(mid.y))?.flags.terrain !== 'road');
+    check('past the off-road limit is open air, not a wall',
+      corridorAt(a, Math.round(mid.x) + OFFROAD_R + 2, Math.round(mid.y)) === null);
     check('the shoulder is graded dirt, so drifting off it READS before it costs',
       corridorAt(a, Math.round(mid.x) + 1, Math.round(mid.y))?.flags.terrain === 'dirt_road');
 
@@ -125,11 +131,13 @@ export default async function regress({ run, check, getPlayer }) {
       centre.road === 1 && !!centre.rd, JSON.stringify(centre));
     check('a straight highway renders straight, not as a crossroads',
       centre.rd === 'ns' || centre.rd === 'ew', centre.rd);
-    // Sample beyond the half-width, not at the window corner: at radius 4 the ENTIRE window is
-    // inside a corridor 6 wide, so a corner check would only ever have passed by accident.
-    const wide = mapWindow({ grid_x: Math.round(p.x), grid_y: Math.round(p.y) }, CORRIDOR_R + 3,
+    // Sample beyond the OFF-ROAD limit, not merely beyond the tarmac: the verge is drivable ground
+    // now and renders as ground, so a window that only reached the pavement edge would be asserting
+    // the opposite of the rule. Past the limit there is genuinely nothing, and that is what must
+    // still be true — the road ends in open air, never in a wall.
+    const wide = mapWindow({ grid_x: Math.round(p.x), grid_y: Math.round(p.y) }, OFFROAD_R + 3,
       corridorProvider(route));
-    check('off-corridor renders as open air', wide[0][0].kind === 'air', wide[0][0].kind);
+    check('past the off-road limit the window renders open air', wide[0][0].kind === 'air', wide[0][0].kind);
     check('the cab window is smaller than the cockpit\'s', CAB_RADIUS < 36, CAB_RADIUS);
   }
 

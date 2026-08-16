@@ -34,6 +34,7 @@
 // }
 
 import { isWeatherFxEnabled } from './weather-fx.js';
+import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -2559,7 +2560,10 @@ function drawCabBar(ctx, x, y, w, h, frac, col, label, T = CAB_TRIM[1]) {
 // most of what is drawn is the top arc, the two upper spokes and the hub. The lock ramp on the
 // rim is a real truck's centre mark: the one thing you cannot tell from a wheel that has been
 // spun past a full turn is which way up it started.
-const CAB_WHEEL_LOCK = Math.PI * 1.6;     // rotation from centre to full lock — helm-wheel's own
+// ⚠ IMPORTED, NEVER RESTATED. This is the rotation the rim is drawn at when the axle is on the
+// stops, and it has to be the same number the widget clamps to — a second copy here meant the
+// painted wheel and the wheel you are holding could silently disagree about how far a full lock is.
+const CAB_WHEEL_LOCK = TRUCK_LOCK_RAD;
 function drawCabWheel(ctx, W, H, v, T) {
   const G = cabWheelGeom(W, H);
   const cx = G.x, cy = G.y, R = G.R;

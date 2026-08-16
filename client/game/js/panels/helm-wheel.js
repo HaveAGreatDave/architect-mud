@@ -14,6 +14,17 @@
 // than sitting in a box below it, and two wheels in one cab is one wheel too many. The state has
 // to stay here regardless: it is where the self-centring and the lock clamp live, and a copy of
 // those in the renderer is a copy that drifts.
+// HOW FAR THE TRUCK'S WHEEL TURNS, in half-turns from centre to full lock — so 3.5 is three and a
+// half turns lock to lock, which is a real tractor and a long way from the 1.6 this started at.
+//
+// ⚠ IT IS EXPORTED BECAUSE THE RENDERER NEEDS THE SAME NUMBER. The painted wheel in the scene
+// (drawCabWheel in windshield.js) rotates the rim by this much at full lock, and it used to keep
+// its own copy of it — so changing the travel here would have left the drawn wheel turning a
+// different amount from the wheel you are holding, which is the one bug in a control nobody would
+// think to look for.
+export const TRUCK_LOCK_TURNS = 3.5;
+export const TRUCK_LOCK_RAD = TRUCK_LOCK_TURNS * Math.PI;
+
 export function createHelmWheel(canvas, opts = {}) {
   const ctx = canvas ? canvas.getContext('2d') : null;
   let accent = opts.accent || '#c8a24e';
@@ -97,6 +108,18 @@ export function createHelmWheel(canvas, opts = {}) {
   const LOCK = (opts.lock || 1.6) * Math.PI;   // wheel rotation (rad) from centre to full lock
   const RETURN = opts.selfCentre ?? 5.0;       // how briskly the axle walks back to centre (per s)
   const KEY_RATE = opts.keyRate ?? 3.2;        // radians/s a held arrow key winds the wheel on
+  // How fast a pair of HANDS can wind the rim, radians/s — see `wind` below. ~1.4 turns a second,
+  // which is a hard, deliberate shuffle rather than a leisurely one; the keyboard is deliberately
+  // slower still (KEY_RATE), because a held key is one finger and this is two hands.
+  const HAND_RATE = opts.handRate ?? 9;
+  // The two numbers the speed-scaled self-centring is shaped by (see stepAbsolute). `getSpeed`
+  // returns the vehicle's own road speed — the widget asks rather than being told, so it can never
+  // be holding a stale number from a frame that did not happen. A caller that passes nothing gets
+  // the old constant return exactly, which is the migration invariant: the yacht is untouched.
+  const getSpeed = opts.getSpeed || null;
+  const RETURN_FULL_MPH = opts.centreFullAt ?? 40;   // by here the caster effect has all arrived
+  const RETURN_FLOOR = 0.06;                         // what survives at a dead stop — see the ⚠
+  let lastWind = 0;                            // when the hand last moved the wheel, for the rate limit
   let held = 0;                                // −1 / 0 / +1 from the keyboard
   // A SECOND PAIR OF HANDS ON THE SAME WHEEL. The cab lets you steer by dragging anywhere on the
   // windscreen — which is the control you actually want at speed, and the only one that works when
@@ -121,10 +144,30 @@ export function createHelmWheel(canvas, opts = {}) {
     // self-centring below, so nothing has to remember that a key was ever down.
     if (held && !grabbing && !extGrab) angle = Math.max(-LOCK, Math.min(LOCK, angle + held * KEY_RATE * dt));
     if (!grabbing && !held && !extGrab) {
-      // Self-centring. Exponential toward zero, with a small deadband so it settles rather than
-      // creeping — a wheel that never quite reaches centre steers the truck into the ditch over a
-      // long enough straight.
-      angle -= angle * Math.min(1, RETURN * dt);
+      // ── SELF-CENTRING, AND IT KNOWS HOW FAST YOU ARE GOING ──────────────────
+      // A wheel does not return because of a spring. It returns because the front axle has caster
+      // trail and the tyres make self-aligning torque, and BOTH of those scale with road speed —
+      // which is why a real wheel is firm and eager at seventy and nearly dead when you are
+      // shuffling round a yard, where you have to unwind the lock yourself with your own arms.
+      //
+      // The old constant return was the loudest remaining tell that this was a game: a parked truck
+      // snapped its wheel back to centre exactly as briskly as one at motorway speed. Now the rate
+      // is scaled by speed, and the shape matters more than the numbers — it climbs FAST off the
+      // bottom and then saturates, because that is what caster does: most of the effect has arrived
+      // by walking pace and the rest of the range only firms it up.
+      //
+      // ⚠ AT A STANDSTILL THE WHEEL STAYS WHERE YOU LEFT IT, and that is the point of the whole
+      // change rather than a side effect. Park with lock wound on and it is still wound on when you
+      // pull away — which is a real thing that happens to real drivers, is visible on the painted
+      // wheel and on the lock gauge under the hub, and is the reason a yard manoeuvre now takes
+      // hands rather than patience. The floor is not zero, though: a fraction of the rate survives
+      // so a truck abandoned on full lock eventually finds centre rather than being stuck there
+      // forever with nobody in the seat.
+      // ⚠ NO `getSpeed` MEANS FULL RATE, NOT ZERO RATE. A caller that never opted into this must
+      // behave exactly as it did before — and the failure mode of getting that backwards is a wheel
+      // that never returns at all, in a vehicle whose author has no idea this option exists.
+      const n = getSpeed ? Math.min(1, Math.abs(getSpeed() || 0) / RETURN_FULL_MPH) : 1;
+      angle -= angle * Math.min(1, RETURN * (RETURN_FLOOR + (1 - RETURN_FLOOR) * Math.pow(n, 0.55)) * dt);
       if (Math.abs(angle) < 0.004) angle = 0;
       vel = 0;
     }
@@ -318,8 +361,40 @@ export function createHelmWheel(canvas, opts = {}) {
     // the self-centring for as long as the hand is down, `wind` adds rotation in radians. Both are
     // absolute-mode only: a boat sets a course, and winding a course on from a drag on the horizon
     // is not a thing anybody would mean by it.
-    setDragging(on) { if (ABSOLUTE) { extGrab = !!on; if (extGrab) held = 0; } },
-    wind(dRad) { if (ABSOLUTE) angle = Math.max(-LOCK, Math.min(LOCK, angle + (dRad || 0))); },
+    setDragging(on) { if (ABSOLUTE) { extGrab = !!on; if (extGrab) { held = 0; lastWind = 0; } } },
+    // ── A HAND CAN ONLY TURN A WHEEL SO FAST ─────────────────────────────────
+    // A mouse can cross the screen in one frame, so a flick could put the wheel on the stops in
+    // 16 milliseconds — which is not steering, it is teleporting the axle, and it is the reason a
+    // truck could be thrown into a corner in a way no driver could ever have thrown it.
+    //
+    // So the wheel is RATE LIMITED to what a pair of hands manages: about a turn and a half a
+    // second, which takes it from centre to full lock in roughly half a second of deliberate
+    // winding. Under that limit nothing changes at all — ordinary steering inputs are nowhere near
+    // it — and above it the wheel simply cannot keep up with you.
+    //
+    // ⚠ THE HAND SLIPS ON THE RIM, and that is the correct outcome rather than a compromise. Once
+    // the limit bites, the wheel is no longer exactly under the point you grabbed — which is what
+    // happens when you yank a heavy wheel faster than it will go. Trying to keep the grip point
+    // pinned would mean either ignoring the limit or dragging the pointer around, and the second of
+    // those is a thing no game should do to a cursor.
+    //
+    // Measured against real elapsed time, not per call: pointermove fires far more often on a
+    // 240Hz mouse than on a 60Hz one, and a per-event cap would make the wheel's top speed a
+    // property of the player's hardware.
+    wind(dRad) {
+      if (!ABSOLUTE) return;
+      const now = performance.now();
+      // A FRESH GRAB IS NOT A ZERO-LENGTH ONE. Without this the first move after taking hold gets a
+      // dt of nearly nothing, so the cap is nearly nothing and the wheel refuses the first shove —
+      // which reads as the control being stuck rather than as it being heavy. A gap means a new
+      // grab, and a new grab is allowed one ordinary frame's worth of movement.
+      const gap = now - lastWind;
+      const dt = (!lastWind || gap > 200) ? 1 / 60 : Math.min(0.1, Math.max(0.001, gap / 1000));
+      lastWind = now;
+      const cap = HAND_RATE * dt;
+      const d = Math.max(-cap, Math.min(cap, dRad || 0));
+      angle = Math.max(-LOCK, Math.min(LOCK, angle + d));
+    },
     setEnabled(on) { enabled = on !== false; if (!enabled) { grabbing = false; vel = 0; } if (canvas) canvas.style.cursor = enabled ? 'grab' : 'not-allowed'; },
     getAngle: () => angle,
     // The normalised −1..+1 lock — what the truck is actually steered by, and what the scene draws
