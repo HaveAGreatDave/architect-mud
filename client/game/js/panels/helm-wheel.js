@@ -22,7 +22,15 @@
 // its own copy of it — so changing the travel here would have left the drawn wheel turning a
 // different amount from the wheel you are holding, which is the one bug in a control nobody would
 // think to look for.
-export const TRUCK_LOCK_TURNS = 3.5;
+// ⚠ MEASURED FROM CENTRE, SO THIS IS HALF-TURNS: 2 means ONE FULL REVOLUTION of the rim takes you
+// from straight-ahead to the stops, and two full turns is lock to lock.
+//
+// It was 3.5 (a real tractor's travel) and that number is only honest with real hands on a real
+// rim. With a mouse it meant a player physically could not reach the stops — you run out of screen,
+// or out of patience, long before the axle runs out of travel — so the truck was permanently driven
+// on a fraction of its steering and read as a barge. One turn to full lock is the compromise every
+// driving game makes for the same reason: it is what a hand on a mouse can actually deliver.
+export const TRUCK_LOCK_TURNS = 2.0;
 export const TRUCK_LOCK_RAD = TRUCK_LOCK_TURNS * Math.PI;
 
 export function createHelmWheel(canvas, opts = {}) {

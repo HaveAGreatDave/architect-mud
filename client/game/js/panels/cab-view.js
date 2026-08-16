@@ -836,6 +836,18 @@ export function openCab(ctx = {}) {
   {
     const gate = container.querySelector('.cab-gate');
     const lever = container.querySelector('.cab-lever');
+    // Whether the CAB put the clutch in for this shift, so releasing the lever only ever takes back
+    // what it gave. A blind `clutch = 0` on release would stamp on a driver holding the pedal down
+    // themselves — the commonest case being somebody holding X to restart a stalled engine and
+    // nudging the lever into neutral to do it.
+    let autoClutch = false;
+    const releaseClutch = () => {
+      if (!autoClutch) return;
+      autoClutch = false;
+      st.input.clutch = 0;
+      gate.classList.remove('declutch');
+      st.paintControls?.();
+    };
     const rangeBtn = container.querySelector('.cab-range');
     let drag = null;
     // WHERE THE LEVER IS ROOTED. Below the plate and on the left rail's line — the floor of the cab
@@ -902,10 +914,51 @@ export function openCab(ctx = {}) {
       }
       return best;
     };
+    // ── THE LEVER CANNOT LEAVE THE SLOTS ──────────────────────────────────────
+    // The knob used to follow the pointer anywhere on the plate and only snap to a gear when you
+    // let go, which is a lever floating over a diagram of a gate rather than a lever IN one. A real
+    // gate is a physical constraint you can feel the whole way through the movement — you push
+    // across the crossgate and it stops, you pull down a rail and it will not go sideways — and
+    // that constraint is most of what makes an H-pattern learnable without reading anything.
+    // So the pointer is PROJECTED onto the milled channels every frame. These four segments are the
+    // same rails the plate draws (.cab-rail-l/-r/-x/-rev), in the same fractions.
+    const CHANNELS = [
+      [0.24, 0.15, 0.24, 0.85],   // left rail — 1 over 2
+      [0.52, 0.15, 0.52, 0.85],   // right rail — 3 over 4
+      [0.80, 0.50, 0.80, 0.85],   // reverse's dogleg, off the crossgate
+      [0.24, 0.50, 0.80, 0.50],   // the crossgate everything passes through
+    ];
+    // Nearest point on the channel network. Plain segment projection, four times — the aspect
+    // squash the snap test uses is deliberately NOT applied here: this is a position on screen, not
+    // a question about which gear you meant, and squashing it would slide the knob off the rail.
+    const onChannel = (px, py) => {
+      let bx = px, by = py, bd = Infinity;
+      for (const [x0, y0, x1, y1] of CHANNELS) {
+        const vx = x1 - x0, vy = y1 - y0;
+        const t = Math.max(0, Math.min(1, ((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy || 1)));
+        const cx = x0 + vx * t, cy = y0 + vy * t;
+        const d = (cx - px) ** 2 + (cy - py) ** 2;
+        if (d < bd) { bd = d; bx = cx; by = cy; }
+      }
+      return [bx, by];
+    };
     lever.addEventListener('pointerdown', (e) => {
       drag = { id: e.pointerId };
       lever.setPointerCapture?.(e.pointerId);
       lever.classList.add('on');
+      // ── THE CLUTCH GOES IN WHEN YOUR HAND GOES ON THE STICK ─────────────────
+      // You cannot hold the throttle, dip the clutch and drag a lever with one mouse. The verb is
+      // shifting, and shifting includes the clutch — so taking hold of the lever declares one, the
+      // way a driver's left foot is already down before their right hand moves. It is not a
+      // shortcut past the mechanic: the pedal, the X key and the stall are all unchanged, and a
+      // keyboard driver still works the clutch themselves. What it removes is an input-device
+      // problem masquerading as a skill.
+      // The plate SAYS so rather than doing it silently — see `.cab-gate.declutch` — because a
+      // control that quietly helps teaches nothing about why the help was needed.
+      autoClutch = true;
+      st.input.clutch = 1;
+      gate.classList.add('declutch');
+      st.paintControls?.();
       e.preventDefault(); e.stopPropagation();
     });
     const move = (e) => {
@@ -914,22 +967,28 @@ export function openCab(ctx = {}) {
       if (!b.width) return;
       // Your hand is on the KNOB; what gets positioned is the slot the rod passes through, a stick
       // below it. See KNOB_DX/KNOB_DY.
-      const px = Math.max(0, Math.min(1, (e.clientX - b.left - KNOB_DX) / b.width));
-      const py = Math.max(0, Math.min(1, (e.clientY - b.top - KNOB_DY) / b.height));
+      const fx = (e.clientX - b.left - KNOB_DX) / b.width;
+      const fy = (e.clientY - b.top - KNOB_DY) / b.height;
+      const [px, py] = onChannel(fx, fy);
       put(px, py);
       const s = snap(px, py);
       gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
     };
     const drop = (e) => {
-      if (!drag || !st) { drag = null; return; }
+      if (!drag || !st) { drag = null; releaseClutch(); return; }
       const b = gate.getBoundingClientRect();
-      const px = b.width ? Math.max(0, Math.min(1, ((e?.clientX ?? 0) - b.left - KNOB_DX) / b.width)) : 0.38;
-      const py = b.height ? Math.max(0, Math.min(1, ((e?.clientY ?? 0) - b.top - KNOB_DY) / b.height)) : 0.50;
+      const fx = b.width ? ((e?.clientX ?? 0) - b.left - KNOB_DX) / b.width : 0.38;
+      const fy = b.height ? ((e?.clientY ?? 0) - b.top - KNOB_DY) / b.height : 0.50;
+      const [px, py] = onChannel(fx, fy);
       const s = snap(px, py);
       drag = null;
       lever.classList.remove('on');
       gate.dataset.aim = '';
       if (s) selectGear(gearOfSlot(s));
+      // ⚠ THE CLUTCH COMES BACK OUT AFTER THE GEAR GOES IN, in that order. Reversed, the shift
+      // lands while the clutch is already engaged, which is precisely the crunch the auto-clutch
+      // exists to avoid — and it would be a bug nobody could see, only hear.
+      releaseClutch();
       st.paintGate?.();
     };
     lever.addEventListener('pointermove', move);
@@ -2084,9 +2143,25 @@ function ensureCabStyles() {
       repeating-linear-gradient(90deg,rgba(255,255,255,.030) 0 1px,rgba(0,0,0,.05) 1px 3px),
       linear-gradient(114deg,rgba(255,255,255,.075) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,.04) 62%,rgba(255,255,255,0) 100%),
       linear-gradient(#20252c,#0c0f13);
-    border:1px solid #333a43;overflow:hidden;
+    border:1px solid #333a43;
+    /* ⚠ NOT 'overflow:hidden'. A gear lever STANDS PROUD of its gate — that is what a lever is —
+       and the knob sits a stick above whichever slot it is in, so for the top row (1 and 3) it was
+       being sliced off by the edge of the plate: a half-knob welded to the frame. Clipping the one
+       part of the control you are meant to grab is worse than letting it overhang, and there is
+       nothing else here that needs containing now that the stick no longer runs off the bottom.
+       '.cab-col-gate' reserves the headroom so the overhang lands on the shelf, not on the glass. */
+    overflow:visible;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55);
     touch-action:none;cursor:pointer}
+  /* THE CLUTCH IS IN, AND THE PLATE SAYS SO. Lit the moment you take hold of the lever, because the
+     one thing a new driver has to learn about a manual box is that the stick and the clutch are one
+     action — and a control that silently helps teaches nobody that. Doubles as the answer to "why
+     did that shift work": it worked because the clutch went in. */
+  .cab-gate.declutch{box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55),
+    0 0 0 1px rgba(232,192,122,.55), 0 0 12px -2px rgba(232,192,122,.45)}
+  .cab-gate.declutch::after{content:'CLUTCH IN';position:absolute;left:0;right:0;bottom:-14px;
+    text-align:center;font:700 8px/1 inherit;letter-spacing:1.5px;color:var(--cab-glow,#e8c07a);
+    text-shadow:0 1px 0 rgba(0,0,0,.9);pointer-events:none}
   /* Four countersunk screws at the corners of the plate — the smallest possible detail that says
      this thing is BOLTED to something. Two elements, four shadows. */
   .cab-gate::before{content:'';position:absolute;left:5px;top:5px;width:5px;height:5px;border-radius:50%;
@@ -2192,7 +2267,11 @@ function ensureCabStyles() {
     padding:5px;border-radius:6px;background:linear-gradient(#0b0f13,#070a0d);
     border:1px solid #1b232b;box-shadow:inset 0 2px 6px rgba(0,0,0,.75)}
   .cab-box{flex-wrap:wrap;max-width:96px;justify-content:center}
-  .cab-col-gate{align-items:center}
+  /* Headroom for the lever, which now overhangs the top of its own plate by a stick — and room
+     under it for the CLUTCH IN legend. Reserved on the COLUMN rather than padded onto the gate,
+     because the gate's own box is the coordinate system every slot and rail is a fraction of:
+     padding it would move all six positions and the rails would no longer line up with them. */
+  .cab-col-gate{align-items:center;padding:34px 0 16px}
 
   /* ── THE ROCKERS ───────────────────────────────────────────────────────────
      A switch that rocks, with a tell-tale above it. Still a <button>: the whole of the change is

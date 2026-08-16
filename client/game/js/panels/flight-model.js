@@ -655,8 +655,15 @@ function stepHeli(state, input, p, dt) {
 // with a box on the fifth wheel cannot use the last few degrees without the kingpin scrubbing the
 // drives round and the trailer coming with it, which is a real constraint a real driver works
 // around, and it is the one place being bobtail is an ADVANTAGE rather than just lighter.
+// ⚠ BOBTAIL IS THE SHARP ONE, AND THAT GAP IS THE POINT. A tractor with nothing on the fifth wheel
+// is a short, light, enormously manoeuvrable thing — it turns inside its own length in a yard — and
+// that is the one situation where running empty is an ADVANTAGE rather than just cheaper. Raised
+// 58 → 66 so it reads that way: with the wheel now reaching its stops in a single turn
+// (TRUCK_LOCK_TURNS), the last few degrees are finally somewhere a player can actually get to, and
+// they should be worth arriving at. Coupled stays where it was — a kingpin scrubbing the drives
+// round is a real limit and the reason you plan a yard manoeuvre instead of just cranking it.
 const TRUCK_STEER_LOCK = 50;     // at the stops, coupled: a real steer axle
-const TRUCK_STEER_BOB  = 58;     // …and bobtail, where the whole lock is usable
+const TRUCK_STEER_BOB  = 66;     // …and bobtail, where the whole lock is usable
 function truckSteerLock(speed, hitched) {
   return hitched ? TRUCK_STEER_LOCK : TRUCK_STEER_BOB;
 }

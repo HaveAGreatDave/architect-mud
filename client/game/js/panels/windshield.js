@@ -4659,7 +4659,8 @@ function segContains(s, lx, ly, V) {
   if (s.kind === 'box') {
     if (s.yaw) { const c = Math.cos(-s.yaw), n = Math.sin(-s.yaw); const rx = dx * c - dy * n; dy = dx * n + dy * c; dx = rx; }
     const w = Math.min(V(s.hwRaw), 0.44);        // the same clamp draw3DBoxAt applies internally
-    return Math.abs(dx) <= w && Math.abs(dy) <= w;
+    const d = Math.min(V(s.fdRaw ?? s.hwRaw), 0.44);
+    return Math.abs(dx) <= w && Math.abs(dy) <= d;
   }
   if (s.kind === 'drum') {
     const r = Math.max(V(s.rb), V(s.rt));
@@ -5132,13 +5133,17 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // absolute world constant while everything else in a record is a multiple of fh, so a post-clamp
   // number would only be valid at the one footprint it was captured at. Consumers re-apply
   // min(hwRaw * fhLive, 0.44) instead, and the data stays invariant to the bldgFoot slider.
-  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, wz0, wz1, pal: biome, roof: !!roof, yaw: yaw || 0 }); return; }
+  // fdRaw is recorded beside hwRaw for the same reason hwRaw is raw: a square box records the two
+  // equal and every consumer behaves exactly as it did, while a SHALLOW one (an awning) records a
+  // real half-depth instead of a lie that would put the slab back over the road at LOD range and in
+  // collision. Both are pre-clamp; consumers re-apply min(…, 0.44).
+  if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'box', dx, dy, hwRaw: fh, fdRaw: fd === undefined ? fh : fd, wz0, wz1, pal: biome, roof: !!roof, yaw: yaw || 0 }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   fh = Math.min(fh, 0.44);   // hard cap so even a WIDE model (warehouse/depot fh*1.1+) keeps a setback inside its tile and never bleeds onto the neighbour/road (was 0.48 → capped boxes reached the tile edge)
-  // `fd` (optional half-DEPTH) makes the footprint rectangular instead of square. No model arm
-  // passes it — they are all square, exactly as before — it exists so the LOD renderer can stand in
-  // for a long shed roof without turning a hangar into a cube. Everything below reads `cs`, so a
-  // rectangle needs no other change.
+  // `fd` (optional half-DEPTH) makes the footprint rectangular instead of square. Almost every model
+  // arm is square and passes nothing; the exceptions are the LOD renderer standing in for a long shed
+  // roof, and `awning()` below, which needs a thing that is WIDE across a shopfront and SHALLOW into
+  // the street. Everything below reads `cs`, so a rectangle needs no other change.
   fd = fd === undefined ? fh : Math.min(fd, 0.44);
   // `yaw` (rad, optional) spins the footprint about its centre — buildings never pass it (axis-
   // aligned as before); a heading-aware object like the sailing Echelon passes its heading so the
@@ -8463,6 +8468,24 @@ function facePt(dx, dy, lx, ly, E) {
   return [dx + lx * px + ly * E[0], dy + lx * py + ly * E[1]];
 }
 
+// ── A STREET-FACING AWNING / CANOPY ──────────────────────────────────────────
+// ⚠ NOT a bare draw3DBoxAt, and this is the whole point. That primitive's footprint is SQUARE — one
+// half-extent — so an awning wide enough to span a shopfront necessarily reaches the SAME distance
+// out into the road. Every storefront in the city was drawing one: a dark `ty_door` slab about half a
+// tile deep, hanging over the street at a third of the building's height, on a dozen arms and the
+// `default` one that catches everything else. From the cab it read as a rectangular strip growing out
+// of the wall for no reason — which is exactly what it was.
+//
+// So width and DEPTH are separate here. `half` spans the front, `depth` is how far it reaches out,
+// and the box is anchored so its outer LIP lands at `lip` (measured from the model centre, in the
+// same units the arms already use for the facade) rather than being centred on it. `yaw` turns the
+// footprint to the entrance face, matching facePt's local +x, or a rotated building would get a
+// diamond of an awning.
+function awning(ctx, cam, dx, dy, E, half, lip, z0, z1, pal, seed, night, alpha, depth) {
+  const [ax, ay] = facePt(dx, dy, 0, lip - depth * 0.5, E);
+  draw3DBoxAt(ctx, cam, ax, ay, half, z0, z1, pal, seed, night, alpha, false, Math.atan2(-E[0], E[1]), depth * 0.5);
+}
+
 // A high-poly gothic GARGOYLE / grotesque perched on a cornice, craning outward over the drop.
 // Built in a LOCAL frame anchored at (wx,wy,wz): +f (forward) = the horizontal `outDir` it leans
 // over, +u = up, +r = right (outDir rotated -90°); one `size` scales the whole beast uniformly.
@@ -10344,7 +10367,7 @@ function captureRawPass(m, fh, h, seed, dyOff) {
 // The numeric (geometric) fields of each record kind. Everything else — yaw, palette, facet counts,
 // booleans — is scale-invariant and copied through.
 const SHAPE_NUM_FIELDS = {
-  box:      ['dx', 'dy', 'hwRaw', 'wz0', 'wz1'],
+  box:      ['dx', 'dy', 'hwRaw', 'fdRaw', 'wz0', 'wz1'],
   drum:     ['dx', 'dy', 'wz0', 'wz1', 'rb', 'rt'],
   barrel:   ['dx', 'dy', 'cxL', 'hl', 'hw', 'wz0', 'archH'],
   sawtooth: ['dx', 'dy', 'hx', 'hy', 'wz0', 'rh'],
@@ -10418,7 +10441,7 @@ function solveSegs(raws, dyOff) {
 // (which is what we're computing) and `pal` (texture, not geometry).
 function segKey(s) {
   const r = (v) => (Array.isArray(v) ? v.map(n => Math.round(n * 1e6) / 1e6) : v);
-  return JSON.stringify([s.kind, r(s.cx), r(s.cy), r(s.z0), r(s.z1), r(s.hwRaw), s.yaw, r(s.rb), r(s.rt), s.n, r(s.cxL), r(s.hl), r(s.hw), r(s.hx), r(s.hy), s.teeth]);
+  return JSON.stringify([s.kind, r(s.cx), r(s.cy), r(s.z0), r(s.z1), r(s.hwRaw), r(s.fdRaw), s.yaw, r(s.rb), r(s.rt), s.n, r(s.cxL), r(s.hl), r(s.hw), r(s.hx), r(s.hy), s.teeth]);
 }
 
 // Capture one model, decomposed, with entrance-face mass tagged.
@@ -10577,7 +10600,7 @@ const lodFacets = (n, detail) => Math.max(5, Math.min(n, Math.round(n * (0.4 + 0
 function segBulk(s) {
   const V = (p) => Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2]);   // scale-agnostic magnitude
   const hgt = Math.max(0.001, V(s.z1) - V(s.z0));
-  const w = s.kind === 'box' ? V(s.hwRaw) : s.kind === 'drum' ? Math.max(V(s.rb), V(s.rt))
+  const w = s.kind === 'box' ? (V(s.hwRaw) + V(s.fdRaw ?? s.hwRaw)) / 2 : s.kind === 'drum' ? Math.max(V(s.rb), V(s.rt))
     : s.kind === 'barrel' ? (V(s.hl) + V(s.hw)) / 2 : (V(s.hx) + V(s.hy)) / 2;
   return w * w * hgt;
 }
@@ -10593,7 +10616,7 @@ function lodOrder(segs) {
   // on the bulk of the WHOLE GROUP, which keeps a colonnade alive as long as the mass it fronts.
   const sig = (s) => {
     const q = (p) => (p ? Math.round((Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2])) * 200) : 0);
-    return `${s.kind}|${q(s.hwRaw)}|${q(s.rb)}|${q(s.hl)}|${q(s.z1)}`;
+    return `${s.kind}|${q(s.hwRaw)}|${q(s.fdRaw)}|${q(s.rb)}|${q(s.hl)}|${q(s.z1)}`;
   };
   const groupBulk = new Map(), groupCount = new Map();
   for (const s of segs) {
@@ -10646,7 +10669,7 @@ function drawModelLOD(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, E, detail)
     const wx = dx + lx * ct - ly * st, wy = dy + lx * st + ly * ct;
     const z0 = V(s.z0), z1 = V(s.z1);
     if (s.kind === 'box') {
-      draw3DBoxAt(ctx, cam, wx, wy, V(s.hwRaw), z0, z1, s.pal, seed + r.i, night, a, s.roof, s.yaw + th);
+      draw3DBoxAt(ctx, cam, wx, wy, V(s.hwRaw), z0, z1, s.pal, seed + r.i, night, a, s.roof, s.yaw + th, s.fdRaw ? V(s.fdRaw) : undefined);
     } else if (s.kind === 'drum') {
       const base = WALL_COL[s.pal] || [96, 104, 116];
       const skin = (fc) => { const k = 0.5 + fc.nl * 0.55; return `rgba(${base[0] * k | 0},${base[1] * k | 0},${base[2] * k | 0},0.97)`; };
@@ -10701,7 +10724,7 @@ function drawShapeWire(ctx, cam, dx, dy, fh, h, m, seed, E, coreIdx) {
     // Half-extents along local x/y, then turned into world by the segment's own yaw plus the
     // model's entrance rotation — the same composition the LOD renderer does.
     let hx, hy, yaw = th;
-    if (s.kind === 'box') { hx = hy = Math.min(V(s.hwRaw), 0.44); yaw = s.yaw + th; }
+    if (s.kind === 'box') { hx = Math.min(V(s.hwRaw), 0.44); hy = Math.min(V(s.fdRaw ?? s.hwRaw), 0.44); yaw = s.yaw + th; }
     else if (s.kind === 'drum') { hx = hy = Math.max(V(s.rb), V(s.rt)); }
     else if (s.kind === 'barrel') { hx = V(s.hl); hy = V(s.hw); }
     else { hx = V(s.hx); hy = V(s.hy); }
@@ -10839,7 +10862,7 @@ export function shapeWireList(m, max = 6) {
   }));
   return kept.map(({ s }) => {
     let cx = s.cx, hx, hy;
-    if (s.kind === 'box') { hx = hy = s.hwRaw; }
+    if (s.kind === 'box') { hx = s.hwRaw; hy = s.fdRaw ?? s.hwRaw; }
     else if (s.kind === 'drum') { hx = hy = (Math.abs(s.rb[0]) + Math.abs(s.rb[1]) >= Math.abs(s.rt[0]) + Math.abs(s.rt[1])) ? s.rb : s.rt; }
     else if (s.kind === 'barrel') { cx = add(s.cx, s.cxL); hx = s.hl; hy = s.hw; }
     else { hx = s.hx; hy = s.hy; }
@@ -10894,8 +10917,8 @@ export function shapeFootprint(segs, fh, h, { includeFrontOnly = true } = {}) {
     if (s.frontOnly && !includeFrontOnly) continue;
     const cx = V(s.cx), cy = V(s.cy);
     if (s.kind === 'box') {
-      const w = Math.min(V(s.hwRaw), 0.44), c = Math.cos(s.yaw), sn = Math.sin(s.yaw);
-      for (const [a, b] of [[-w, -w], [w, -w], [w, w], [-w, w]]) pts.push([cx + a * c - b * sn, cy + a * sn + b * c]);
+      const w = Math.min(V(s.hwRaw), 0.44), d = Math.min(V(s.fdRaw ?? s.hwRaw), 0.44), c = Math.cos(s.yaw), sn = Math.sin(s.yaw);
+      for (const [a, b] of [[-w, -d], [w, -d], [w, d], [-w, d]]) pts.push([cx + a * c - b * sn, cy + a * sn + b * c]);
     } else if (s.kind === 'drum') {
       const r = Math.max(V(s.rb), V(s.rt));
       for (let i = 0; i < 8; i++) { const a = i / 8 * 6.2832; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
@@ -11063,7 +11086,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const core = lodOrder(segs).byIndex.find(r => r.at <= 0);
       if (!core) continue;
       const V = (p) => p[0] * ofh + p[1] * oh + p[2];
-      const cw = core.s.kind === 'box' ? Math.min(V(core.s.hwRaw), 0.44)
+      const cw = core.s.kind === 'box' ? Math.min(V(core.s.hwRaw), V(core.s.fdRaw ?? core.s.hwRaw), 0.44)
         : core.s.kind === 'drum' ? Math.max(V(core.s.rb), V(core.s.rt)) * 0.7 : V(core.s.hl || core.s.hx) * 0.7;
       const ccx = V(core.s.cx), ccy = V(core.s.cy), k = cw * (1 - OCC_SHRINK);
       const cc = [[ccx - k, ccy - k], [ccx + k, ccy - k], [ccx + k, ccy + k], [ccx - k, ccy + k]].map(toWorld);
