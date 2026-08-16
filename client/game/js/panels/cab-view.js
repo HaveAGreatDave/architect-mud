@@ -25,7 +25,6 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
-import { appendHtml } from '../render.js';
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
 
@@ -1556,7 +1555,15 @@ export function openCab(ctx = {}) {
         st.grindTell = setTimeout(() => { if (gate.dataset) gate.dataset.tell = ''; }, 1800);
         setTimeout(() => gate.classList.remove('grind'), 420);
       }
-      appendHtml('The starter churns and the engine will not catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.', 'msg-system');
+      // ⚠ LOADED ON DEMAND, NEVER IMPORTED AT THE TOP. A static import of render.js from here
+      // closes a cycle through the boot chain — render.js → smartbar → smartbar-macros → input.js →
+      // this file — and a cycle on the path that mounts the client is not worth one line of text.
+      // ESM would probably have coped, and 'probably' is the wrong word for the module that draws
+      // the room. Loaded here it cannot run before the log exists, because nothing can turn a key
+      // in a cab that has not been drawn yet.
+      import('../render.js').then((r) => r.appendHtml(
+        'The starter churns and the engine will not catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.',
+        'msg-system')).catch(() => { /* the gate plate already said it — the log line is the second surface, not the only one */ });
       // The starter still turns: refusing to crank at all would be a second invisible rule on top
       // of the first, and the churn is the sound that makes the message make sense.
     }
@@ -2348,7 +2355,9 @@ function frame(now) {
     // barrel follows. Reverse can be left by the lever, the gate, the R key or an automatic upshift
     // out of it, and a button holding its own idea of the state would be lit over a truck that is
     // in first. It also goes dim while rolling, because that is when the control refuses.
-    const rev = container.querySelector('.cab-revbtn');
+    // ⚠ `q`, NOT `container` — this function is module scope and does not close over the cab that
+    // owns the markup. Everything around it already went through `q` for that reason.
+    const rev = q('.cab-revbtn');
     if (rev) {
       rev.classList.toggle('on', r.gear < 0);
       rev.setAttribute('aria-pressed', String(r.gear < 0));
