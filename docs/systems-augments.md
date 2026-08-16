@@ -247,6 +247,20 @@ Corruption **must** be skipped whenever the death was **claimed**:
    augment roster with condition, calibration and the botched ceiling intact —
    *not* a clean install, or dying would be the cheapest way to fix a bad one.
 
+⚠ **The snapshot deliberately does NOT carry credits, and the restore never
+writes them.** A balance was the one rolled-back value that could *mint*: back up
+rich, move the money somewhere death does not reach — `bank_credits` is untouched
+by death, and so is another player's pocket — then die and be handed the old
+balance on top of it. It charged the other way for nothing too, deleting a good
+week's earnings because your last Registry visit predated them. The restore
+returns a truthy override, which **skips `spawnPlayerCorpse` entirely**, so
+carried credits are never dropped or zeroed on this path: leaving them untouched
+is both the honest number and the safe one. Old snapshot rows still carry a
+`credits` key; it is ignored rather than migrated. (The inventory half has the
+same theoretical shape — give an item away, die, have it rebuilt — but that one
+*is* the advertised product, and it is bounded by ₵2500 a restore and a trip to
+the Vats.)
+
 ## 8b. Luxury is drawn in what is absent
 
 The Ascendant tier has to *feel* like the best medicine in the Basin, not merely

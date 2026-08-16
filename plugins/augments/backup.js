@@ -57,7 +57,15 @@ export async function cmdBackup(args, raw, player) {
     [player.id]
   );
   const snapshot = {
-    credits: player.credits || 0,
+    // NO CREDITS, DELIBERATELY. A balance is not a thing that was in the tank.
+    // Rolling it back both ways was the one part of the restore that could MINT:
+    // back up rich, move the money somewhere death doesn't reach (the bank is
+    // untouched by death, and so is another player's pocket), then die and have
+    // the old balance handed back on top of it. It also charged the opposite way
+    // for nothing — a good week's earnings deleted because you last stood at the
+    // Registry before you had them. The restore skips the corpse entirely, so
+    // carried credits are never dropped or zeroed on this path: leaving them
+    // alone is both the honest number and the safe one.
     inventory: rows.map(r => ({
       old_id: r.id, item_id: r.item_id, quantity: r.quantity, condition: r.condition,
       is_equipped: r.is_equipped, slot: r.slot, custom_data: r.custom_data || {}, container_id: r.container_id,
@@ -146,8 +154,9 @@ export async function onRespawnZone(player, killer) {
 
   await query('UPDATE player_backups SET restores_remaining = restores_remaining - 1 WHERE player_id=$1', [player.id]);
   const snap = backup.snapshot;
-  await query('UPDATE players SET credits = $1 WHERE id=$2', [snap.credits || 0, player.id]);
-  player.credits = snap.credits || 0;
+  // Credits are deliberately untouched — see the snapshot comment in cmdBackup.
+  // (Old snapshots still carry a `credits` key; it is ignored rather than
+  // migrated, which is the whole fix.)
 
   await query('DELETE FROM player_inventory WHERE player_id=$1', [player.id]);
   const items = Array.isArray(snap.inventory) ? snap.inventory : [];

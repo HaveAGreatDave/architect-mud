@@ -278,14 +278,18 @@ export default async function regress({ run, check, getPlayer }) {
         augments: [{ augment_id: augId, slot: 'torso', condition: 0.66, calibration: 41, install_quality: 'botched', overclock_level: 1, custom_data: {} }],
       })]
     );
-    const syn = { id: rid, handle: 'Restorer', credits: 0 };
+    const syn = { id: rid, handle: 'Restorer', credits: 1234 };
     const res = await _test.onRespawnZone(syn, null);
     check('backup restore lands at a Vats hall (skipOutfit)',
       res?.skipOutfit === true && !!world.zones.get(res?.zone)?.flags?.ascendant_vats,
       JSON.stringify({ zone: res?.zone, skipOutfit: res?.skipOutfit })?.slice(0, 80));
     const inv = await query('SELECT item_id FROM player_inventory WHERE player_id=$1', [rid]);
     check('restore rebuilds inventory from the snapshot', inv.rows.length === 1 && inv.rows[0].item_id === item, inv.rows.length);
-    check('restore rolls credits back to the snapshot', syn.credits === 777, syn.credits);
+    // The snapshot carries credits: 777 from an OLD backup; the restore must
+    // ignore it. Rolling a balance back was mintable (bank it, die, get it back).
+    const credRow = (await query('SELECT credits FROM players WHERE id=$1', [rid])).rows[0];
+    check('restore leaves credits alone (never rolled back)',
+      syn.credits === 1234 && Number(credRow?.credits ?? 1234) !== 777, `${syn.credits}/${credRow?.credits}`);
 
     const back = (await query('SELECT calibration, condition, install_quality FROM player_augments WHERE player_id=$1 AND augment_id=$2', [rid, augId])).rows[0];
     check('restore rebuilds the augment roster', !!back, 'no augment row restored');
