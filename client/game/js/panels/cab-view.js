@@ -127,23 +127,24 @@ const DMG_PARTS = [
 // has a side, a screen and a stack. The orbit still runs from under-belly to top-down; this is only
 // where it RESTS and where ⟲ puts it back.
 const EXT_REST_PITCH = 0.26;
-// ── DOLLYING IN IS ASKING TO DRIVE ───────────────────────────────────────────
-// A turntable is the right control for LOOKING at a rig and the wrong one for driving it: three
-// quarters round and half a metre off the tailgate, the road is off the side of the screen and the
-// thing you are steering is a wall of panel. But that is exactly where a player ends up, because
-// dollying in is what you do when you stop admiring the truck and start wanting to use this view.
+// ── DOLLYING IN DROPS THE CAMERA TO THE ROAD, AND DOES NOTHING ELSE ──────────
+// ⚠ IT MUST NOT TOUCH YAW. A first cut eased the camera round to dead astern as you zoomed in, on
+// the theory that close up you want to drive rather than admire — and it took the turntable away
+// at exactly the distance where a turntable is most useful, which is walking round your own rig
+// looking at it. A 360 close-up is the whole reason to have an external view at all.
 //
-// So the zoom IS the mode switch, with no button to find: inside this band the camera eases round
-// to dead astern and drops to road level, and at the bottom of it the glass drag stops orbiting
-// and steers, which is what the same gesture already means in the cab. Back off the wheel and the
-// orbit you had set comes back — the player's yaw and pitch are never overwritten, only overridden
-// while they are zoomed in past the point where an orbit is any use.
-const CHASE_FROM = 0.62;          // where the camera starts coming round behind
-const CHASE_FULL = 0.34;          // …and where it is fully astern, and the drag is a steering wheel
-const CHASE_PITCH = 0.07;         // road level, looking up the lane rather than down on the roof
+// So the zoom changes ONE thing: how high the camera is. Backed off it hangs above the truck, where
+// you can see the shape of the whole rig; dollied in it settles to road level, which is what puts
+// the road AHEAD of the truck on screen instead of the roof. That is the part that makes the view
+// drivable, and it costs nothing — you can still swing right round to the front at any distance,
+// and the drag never stops meaning "orbit".
+//
+// The player's own pitch is never overwritten, only overridden while they are close; back the wheel
+// off and the camera they set comes back.
+const CHASE_FROM = 0.62;          // where the camera starts coming down
+const CHASE_FULL = 0.34;          // …and where it is flat on the road
+const CHASE_PITCH = 0.07;         // road level, looking along the lane rather than down on the roof
 const chaseAmt = (zoom) => Math.max(0, Math.min(1, (CHASE_FROM - zoom) / (CHASE_FROM - CHASE_FULL)));
-// Shortest way round to zero, so a camera parked at 350° eases 10° right rather than 350° left.
-const easeYawHome = (yaw, k) => { let d = ((yaw + 180) % 360 + 360) % 360 - 180; return (yaw - d * k + 360) % 360; };
 
 // ── THE PICTOGRAMS ───────────────────────────────────────────────────────────
 //
@@ -347,18 +348,24 @@ export function openCab(ctx = {}) {
             <i class="cab-gate-rail cab-rail-rev"></i>
             ${CAB_GATE.map((g, i) => `<button class="cab-slot" data-gi="${i}" style="left:${g.x * 100}%;top:${g.y * 100}%"></button>`).join('')}
             <!-- ── THE STICK ────────────────────────────────────────────────
-                 There was no stick. There was a knob that slid around a plate, which is a plan view
-                 of a gearbox rather than a gear lever — and it is the reason the control read as a
-                 diagram: nothing about it was a foot of steel coming up out of the floor. This is
-                 the shaft, drawn from a pivot BELOW the plate (the boot, at the bottom of the
-                 gate) up to the knob, so pulling the lever through the gate leans it toward you
-                 and away from you and you can see the throw. It is one element and the geometry is
-                 solved where the knob position is already solved ('put'), so there is no second
-                 idea of where the lever is. Purely decorative — it is not a hit target, the knob
-                 and the slots are. -->
-            <i class="cab-boot" aria-hidden="true"></i>
-            <i class="cab-shaft" aria-hidden="true"><s></s></i>
-            <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears."><b class="cab-knob"><s></s></b></div>
+                 ⚠ THE LEVER COMES UP OUT OF THE SLOT IT IS IN, and that is the whole of this
+                 element. The first version drew the shaft from a fixed pivot BELOW the plate up to
+                 the knob, on the theory that a gear lever comes through the floor — true of the
+                 real object, and wrong for this picture, because the picture is not a side view of
+                 a cab. It is a small isometric plate seen from above and in front, so the only
+                 thing that can be "below" it is the edge of the panel: what you actually got was a
+                 rod running off the bottom of the frame that grew and shrank as you moved through
+                 the gate, which reads as a pointer to the knob rather than as the knob's own stem.
+                 Now the base of the stick IS the slot position. The whole assembly — collar, rod,
+                 knob — translates as one object, so the lever passes THROUGH the gate the way a
+                 real one passes through its slot, at a fixed length and a fixed lean. There is no
+                 geometry left to solve: nothing measures a rect, nothing stretches, and the knob
+                 can never disagree with the stick about which gear it is in because it is bolted
+                 to the top of it. -->
+            <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears.">
+              <i class="cab-boot" aria-hidden="true"></i>
+              <i class="cab-shaft" aria-hidden="true"><s></s><b class="cab-knob"><s></s></b></i>
+            </div>
           </div>
           <!-- THE KNOB COLLARS. On a real range-change box both of these live ON the shift knob
                under your thumb, never as a position you put the lever in — so they are two small
@@ -693,10 +700,7 @@ export function openCab(ctx = {}) {
         }
       }
       drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
-      // The chase camera at full dolly steers (see the ⚠ in pointermove), so it needs the axle's
-      // self-centring to stand down for the length of the drag exactly as the cab's does — without
-      // this the spring is pulling the lock back out of your hand while you are winding it on.
-      if (!st.external || chaseAmt(st.extZoom) >= 1) st.wheel?.setDragging(true);
+      if (!st.external) st.wheel?.setDragging(true);
       glass.setPointerCapture?.(e.pointerId);
       glass.classList.add('cab-glass-drag');
       e.preventDefault();
@@ -719,14 +723,12 @@ export function openCab(ctx = {}) {
         st.wheel?.wind(da);
         return;
       }
-      // ⚠ DOLLIED RIGHT IN, THE DRAG IS A STEERING WHEEL. The camera is dead astern at road level
-      // by this point — there is no orbit left to give, and a gesture that silently does nothing is
-      // worse than one that does the obvious thing. So it falls through to the cab's own steering
-      // drag, which means the same hand movement means the same thing in both views and a player
-      // who zooms in to drive can simply drive.
-      if (st.external && chaseAmt(st.extZoom) >= 1) {
-        st.wheel?.wind(dx / Math.max(240, glass.clientWidth) * TRUCK_LOCK_RAD);
-      } else if (st.external) {
+      // ⚠ THE DRAG IN THE EXTERNAL VIEW IS ALWAYS THE TURNTABLE. A version of this handed the
+      // gesture to the steering wheel once you were dollied right in, which quietly removed the
+      // ability to walk round your own truck at exactly the distance you would want to — the close
+      // orbit is the point of the view, not a state to be grown out of. Steering from the glass
+      // stays a CAB gesture, where there is a lane in front of you to hold.
+      if (st.external) {
         // Turntable, in the renderer's own units. The pitch bound is short of the poles for the
         // reason cockpit.js's is: a near-vertical orbit stretches the model into a spindle.
         st.extYaw = (st.extYaw + dx * 0.30 + 360) % 360;
@@ -836,29 +838,27 @@ export function openCab(ctx = {}) {
     const lever = container.querySelector('.cab-lever');
     const rangeBtn = container.querySelector('.cab-range');
     let drag = null;
-    const shaft = container.querySelector('.cab-shaft');
     // WHERE THE LEVER IS ROOTED. Below the plate and on the left rail's line — the floor of the cab
     // is off the bottom of this box, and a stick that pivoted at the middle of the gate would lean
     // the wrong way in the top half. In gate fractions, so it moves with the plate at every size.
-    const PIVOT_X = 0.38, PIVOT_Y = 1.34;
+    // ── HOW FAR THE KNOB IS FROM THE SLOT ─────────────────────────────────────
+    // The rod is a fixed length at a fixed lean, so the knob sits at a constant offset above the
+    // point the lever passes through the gate. These two numbers ARE that offset, and they are the
+    // only reason the drag needs to know the stick exists: your hand is on the knob, and the thing
+    // being positioned is the base. Without the correction the slot snaps up to the pointer and the
+    // lever ends up a stick-length above wherever you meant to put it — which reads as the gate
+    // being mis-aligned rather than as the grab being offset.
+    // ⚠ THE CSS TAKES ITS LENGTH FROM HERE (`--cab-stick`, set on the gate at mount), so there is
+    // one number rather than a constant in a stylesheet and a matching guess in a handler.
+    const STICK_PX = 34, LEAN_DEG = -7;
+    const KNOB_DX = Math.sin(LEAN_DEG * Math.PI / 180) * STICK_PX;
+    const KNOB_DY = -Math.cos(LEAN_DEG * Math.PI / 180) * STICK_PX;
+    gate.style.setProperty('--cab-stick', STICK_PX + 'px');
+    // Nothing but the two fractions now. The stick and the knob are children of this point, so they
+    // come with it — there is no second geometry to keep in step and no rect to measure.
     const put = (x, y) => {
       lever.style.setProperty('--gx', x.toFixed(3));
       lever.style.setProperty('--gy', y.toFixed(3));
-      // The shaft is solved here, from the same two numbers, and never stored: length and lean
-      // between the pivot and the knob. A separate source for either would be a lever whose stick
-      // and knob eventually disagree about which gear you are in.
-      // ⚠ SOLVED IN PIXELS, against the plate's REAL box. The knob sits at a fraction of the gate in
-      // both axes, so the vector from the boot to it is only a straight line on screen if the two
-      // fractions are converted through the gate's actual width and height — a stick whose length
-      // was a fraction of one axis and whose lean was solved in the other is the stick pointing at
-      // nothing. This is also the ONLY reason a rect is read here.
-      if (!shaft) return;
-      const b = gate.getBoundingClientRect();
-      const w = b.width || gate.offsetWidth, h = b.height || gate.offsetHeight;
-      if (!w || !h) return;
-      const dx = (x - PIVOT_X) * w, dy = (PIVOT_Y - y) * h;
-      shaft.style.setProperty('--plen', Math.hypot(dx, dy).toFixed(2) + 'px');
-      shaft.style.setProperty('--pang', (Math.atan2(dx, dy) * 180 / Math.PI).toFixed(2) + 'deg');
     };
     // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
     // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
@@ -912,8 +912,10 @@ export function openCab(ctx = {}) {
       if (!drag || !st) return;
       const b = gate.getBoundingClientRect();
       if (!b.width) return;
-      const px = Math.max(0, Math.min(1, (e.clientX - b.left) / b.width));
-      const py = Math.max(0, Math.min(1, (e.clientY - b.top) / b.height));
+      // Your hand is on the KNOB; what gets positioned is the slot the rod passes through, a stick
+      // below it. See KNOB_DX/KNOB_DY.
+      const px = Math.max(0, Math.min(1, (e.clientX - b.left - KNOB_DX) / b.width));
+      const py = Math.max(0, Math.min(1, (e.clientY - b.top - KNOB_DY) / b.height));
       put(px, py);
       const s = snap(px, py);
       gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
@@ -921,8 +923,8 @@ export function openCab(ctx = {}) {
     const drop = (e) => {
       if (!drag || !st) { drag = null; return; }
       const b = gate.getBoundingClientRect();
-      const px = b.width ? Math.max(0, Math.min(1, ((e?.clientX ?? 0) - b.left) / b.width)) : 0.38;
-      const py = b.height ? Math.max(0, Math.min(1, ((e?.clientY ?? 0) - b.top) / b.height)) : 0.50;
+      const px = b.width ? Math.max(0, Math.min(1, ((e?.clientX ?? 0) - b.left - KNOB_DX) / b.width)) : 0.38;
+      const py = b.height ? Math.max(0, Math.min(1, ((e?.clientY ?? 0) - b.top - KNOB_DY) / b.height)) : 0.50;
       const s = snap(px, py);
       drag = null;
       lever.classList.remove('on');
@@ -1872,12 +1874,12 @@ function frame(now) {
       livery: PAINT || undefined,
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
-      // The orbit the RENDERER gets is the player's, eased toward dead astern by how far they have
-      // dollied in (see chaseAmt). `st.extYaw`/`st.extPitch` are untouched, so backing the wheel
-      // off hands the player their own camera back exactly as they left it.
+      // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height
+      // is overridden, and only while dollied in; `st.extPitch` itself is untouched, so backing the
+      // wheel off hands the camera back exactly as they left it.
       ...(st.external ? {
         external: true,
-        extYaw: easeYawHome(st.extYaw, chaseAmt(st.extZoom)),
+        extYaw: st.extYaw,
         extPitch: st.extPitch + (CHASE_PITCH - st.extPitch) * chaseAmt(st.extZoom),
         extZoom: 1.15 * st.extZoom,
       } : {}),
@@ -2120,53 +2122,49 @@ function ensureCabStyles() {
      fullscreen cab, the touch media query, a flex shrink) the knob was placed against a width the
      plate no longer had: it walked off the left of the gate while the numbered slots stayed put.
      One coordinate system for the plate, or the lever and the gate it lives in disagree. */
+  /* ⚠ THE LEVER IS A POINT, AND THE POINT IS WHERE IT MEETS THE SLOT. Zero-sized on purpose: the
+     collar, the rod and the knob all hang off it, so moving the lever is one translation of one
+     object and there is nothing that can arrive a frame late or a pixel out. Everything visible
+     overflows it, which is why it needs no width — a box here would only be a second opinion about
+     where the knob is. */
   .cab-lever{position:absolute;left:calc(var(--gx,.38) * 100%);top:calc(var(--gy,.5) * 100%);
-    width:22px;height:22px;margin:0;
-    cursor:grab;touch-action:none;
-    transform:translate(-50%,-50%);
+    width:0;height:0;margin:0;
+    cursor:grab;touch-action:none;z-index:3;
     transition:left .14s cubic-bezier(.2,.8,.3,1), top .14s cubic-bezier(.2,.8,.3,1)}
   /* No easing while a hand is on it: a knob that lags the finger is a knob that feels broken. */
   .cab-lever.on{transition:none;cursor:grabbing;z-index:2}
   /* In a gear the gate's own range does not offer — you shifted into 6 with a key while the lever
      was in the LO half. The plate says so rather than the knob lying about where it is. */
   .cab-gate-off .cab-gate-marks{color:rgba(216,162,78,.75)}
-  /* ── THE STICK, THE BOOT AND THE KNOB ───────────────────────────────────────
-     A gear lever is three things and the old control had one of them. The SHAFT is a polished
-     column with a highlight down one side and a shadow down the other, which is the whole reason a
-     cylinder reads as a cylinder; it leans as you pull it through the gate ('put' solves the
-     angle), so the throw is visible instead of implied. The BOOT is the rubber gaiter it comes out
-     of — the piece that says the lever goes THROUGH the floor rather than sitting on the plate, and
-     it is drawn with concentric folds because that is the only thing a gaiter looks like. The KNOB
-     is a turned ball with a real specular hit and a contact shadow under it.
-     ⚠ Draw order is boot → shaft → knob and it matters: the shaft has to emerge from inside the
-     gaiter, and the knob has to sit on top of the shaft's end cap. */
-  .cab-boot{position:absolute;left:38%;bottom:-13%;width:34%;height:30%;margin-left:-17%;
-    border-radius:44% 44% 30% 30%;pointer-events:none;z-index:1;
-    background:
-      repeating-linear-gradient(#000 0 2px,rgba(255,255,255,.055) 2px 4px),
-      radial-gradient(120% 90% at 50% 12%,#2b3038,#14171c 60%,#080a0d);
-    box-shadow:0 -2px 8px rgba(0,0,0,.8), inset 0 3px 6px rgba(255,255,255,.06)}
-  /* ⚠ ANCHORED AT THE PIVOT, NOT AT THE TOP. The stick is bottom-anchored 34% of the plate BELOW the
-     plate (y = 1.34, the boot, where the lever comes through the floor) and grows upward to the
-     knob, so the only thing that can move its top end is its own length and lean. It used to be
-     top-anchored and pushed down by 'translateY(134% - --plen)' — but a transform percentage is a
-     fraction of THE ELEMENT, not of the gate, so the further the lever moved the further the stick's
-     foot slid away from the boot. Height comes from 'put' in PIXELS, solved against the same rect
-     the knob is placed in, which is what makes stick and knob one object. */
-  .cab-shaft{position:absolute;left:38%;top:auto;bottom:-34%;width:9px;margin-left:-4.5px;
-    height:var(--plen,60px);pointer-events:none;z-index:1;
-    transform:rotate(var(--pang,0deg));
-    transform-origin:50% 100%;
-    transition:transform .14s cubic-bezier(.2,.8,.3,1), height .14s cubic-bezier(.2,.8,.3,1)}
-  .cab-lever.on ~ .cab-shaft,.cab-gate .cab-lever.on + .cab-shaft{transition:none}
-  .cab-shaft s{display:block;position:relative;width:100%;height:100%;border-radius:4px 4px 2px 2px;
-    background:linear-gradient(90deg,#0a0d11 0%,#454e59 30%,#9aa7b6 46%,#5b6673 62%,#0d1116 100%);
+  /* ── THE STICK, THE COLLAR AND THE KNOB ─────────────────────────────────────
+     One lever in three pieces, all of them hung off the slot point above. The COLLAR is the ring
+     the rod passes through — a squashed ellipse, because the plate is seen at an angle, and it is
+     what says the lever goes DOWN INTO the gate rather than standing on top of it. The ROD is a
+     polished column with a highlight down one side and a shadow down the other, which is the whole
+     reason a cylinder reads as a cylinder. The KNOB is a turned ball bolted to its top end.
+     ⚠ Draw order is collar → rod → knob and it matters: the rod has to come up out of the collar,
+     and the knob has to sit on the rod's end cap.
+     The rod's LENGTH AND LEAN ARE CONSTANTS. They were solved per-frame from a rect while the stick
+     was a line drawn to an off-plate pivot; with the base riding the slot there is nothing left to
+     solve, and a constant is also the honest answer — a gear lever does not telescope. */
+  .cab-boot{position:absolute;left:-11px;top:-5px;width:22px;height:10px;
+    border-radius:50%;pointer-events:none;z-index:1;
+    background:radial-gradient(60% 70% at 50% 24%,#2b3038,#12151a 62%,#05070a);
+    box-shadow:0 1px 3px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.10)}
+  /* Bottom-anchored AT the point (the parent has no height, so bottom:0 IS the slot) and grown
+     upward — so the foot of the stick is nailed to the gate and only the top can move. */
+  .cab-shaft{position:absolute;left:-4px;bottom:0;width:8px;height:var(--cab-stick,34px);
+    pointer-events:auto;z-index:2;
+    transform:rotate(-7deg);transform-origin:50% 100%}
+  .cab-shaft s{display:block;position:absolute;inset:0;border-radius:3px 3px 1px 1px;
+    background:linear-gradient(90deg,#0a0d11 0%,#454e59 28%,#9aa7b6 46%,#5b6673 64%,#0d1116 100%);
     box-shadow:0 2px 6px -2px #000}
-  /* A collar where the shaft meets the knob — the machined joint, and the thing that stops the
-     stick reading as a stripe that happens to end at a circle. */
-  .cab-shaft s::after{content:'';position:absolute;left:-2px;right:-2px;top:2px;height:5px;
+  /* A machined joint where the rod meets the knob — the thing that stops the stick reading as a
+     stripe that happens to end at a circle. */
+  .cab-shaft s::after{content:'';position:absolute;left:-2px;right:-2px;top:3px;height:4px;
     border-radius:2px;background:linear-gradient(90deg,#161a20,#8e9aa8,#20262d)}
-  .cab-lever b.cab-knob{display:block;width:100%;height:100%;border-radius:50%;position:relative;
+  .cab-lever b.cab-knob{display:block;width:22px;height:22px;border-radius:50%;
+    position:absolute;left:50%;top:0;transform:translate(-50%,-52%);
     background:
       radial-gradient(circle at 50% 118%,rgba(255,255,255,.10),rgba(255,255,255,0) 46%),
       radial-gradient(circle at 34% 28%,#5c6673 0%,#232930 62%,#0b0e12 100%);
