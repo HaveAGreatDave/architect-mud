@@ -8,7 +8,8 @@
 // same as testing it. No DOM, no browser, no network — both modules are pure by
 // construction so that this test can exist.
 import assert from 'node:assert/strict';
-import { makeBudget, applyCaptures, compileRow, splitGag } from '../../client/game/js/automation-guards.js';
+import { makeBudget, applyCaptures, compileRow, splitGag, splitChannel, splitPrefixes } from '../../client/game/js/automation-guards.js';
+import { waitForLine, offerLine, cancelAllWaits, pendingWaits } from '../../client/game/js/linewait.js';
 import { VAR_NAME_RE } from '../../client/game/js/variables.js';
 import { evaluate, evalBool, evalValue } from '../../client/game/js/expr.js';
 
@@ -159,6 +160,128 @@ check('compileRow carries the gag verdict through', () => {
   assert.equal(r.gagOnly, true);
 });
 
+// ── Channel matching ────────────────────────────────────────────────────────
+check('@channel splits off the front of a pattern', () => {
+  assert.deepEqual(splitChannel('@loot a rusted pipe'), { channel: 'loot', rest: 'a rusted pipe' });
+  assert.deepEqual(splitChannel('@combat-incoming'), { channel: 'combat-incoming', rest: '' });
+});
+
+check('a pattern with no @ is left alone', () => {
+  assert.deepEqual(splitChannel('you are bleeding'), { channel: null, rest: 'you are bleeding' });
+});
+
+check('⚠ an @ in the middle is not a channel', () => {
+  // Otherwise a line quoting an address or a handle would be read as scoping.
+  assert.deepEqual(splitChannel('mail from bishop@thorn'), { channel: null, rest: 'mail from bishop@thorn' });
+});
+
+check('a channel restricts what the row matches', () => {
+  const r = compileRow({ pattern: 'pipe', regex: false, channel: 'loot', cmds: 'take pipe' });
+  assert.ok(r.test('a rusted pipe', 'loot'));
+  assert.equal(r.test('a rusted pipe', 'say'), null, 'right text, wrong channel');
+  assert.equal(r.test('nothing here', 'loot'), null, 'right channel, wrong text');
+});
+
+check('a channel with no pattern matches every line on it', () => {
+  const r = compileRow({ pattern: '', regex: false, channel: 'death', cmds: 'say oh' });
+  assert.ok(r.test('anything at all', 'death'));
+  assert.equal(r.test('anything at all', 'loot'), null);
+});
+
+check('no channel means every channel', () => {
+  const r = compileRow({ pattern: 'pipe', regex: false, cmds: 'x' });
+  assert.ok(r.test('a pipe', 'loot'));
+  assert.ok(r.test('a pipe', undefined));
+});
+
+check('#group splits off the front, and combines with @channel either way round', () => {
+  assert.deepEqual(splitPrefixes('#combat you are hit'), { channel: null, group: 'combat', rest: 'you are hit' });
+  assert.deepEqual(splitPrefixes('@say #chat hello'), { channel: 'say', group: 'chat', rest: 'hello' });
+  assert.deepEqual(splitPrefixes('#chat @say hello'), { channel: 'say', group: 'chat', rest: 'hello' });
+  assert.deepEqual(splitPrefixes('plain'), { channel: null, group: null, rest: 'plain' });
+});
+
+check('a multi-line row compiles with dotAll so . spans the joins', () => {
+  // Without it every multi-line pattern would have to be written with [\s\S],
+  // which is how people conclude the feature does not work.
+  const r = compileRow({ pattern: 'opens.+inside', regex: true, lines: 3, cmds: 'x' });
+  assert.ok(r.test('the door opens\nslowly\nsomething inside stirs'));
+});
+
+check('lines is clamped to a sane window', () => {
+  assert.equal(compileRow({ pattern: 'x', regex: false, lines: 999, cmds: 'y' }).lines, 10);
+  assert.equal(compileRow({ pattern: 'x', regex: false, lines: 0, cmds: 'y' }).lines, 1);
+  assert.equal(compileRow({ pattern: 'x', regex: false, cmds: 'y' }).lines, 1);
+});
+
+console.log('\nwait for a line');
+
+{
+  const p = waitForLine((s) => (s.includes('dies') ? [s] : null), 5000);
+  offerLine('the enforcer dies', 'combat');
+  const r = await p;
+  check('a matching line wakes a parked script', () => {
+    assert.equal(r.matched, true);
+    assert.equal(r.line, 'the enforcer dies');
+  });
+}
+
+{
+  const r = await waitForLine(() => null, 20);
+  check('⚠ a wait ALWAYS times out rather than parking forever', () => {
+    // A script parked forever is indistinguishable from the client having hung,
+    // and `stop` cannot reach a runner that is not on a step boundary.
+    assert.equal(r.matched, false);
+  });
+}
+
+{
+  const a = waitForLine((s) => (s.includes('x') ? [s] : null), 5000);
+  const b = waitForLine((s) => (s.includes('x') ? [s] : null), 5000);
+  offerLine('x', null);
+  const [ra, rb] = await Promise.all([a, b]);
+  check('every waiter on a line is woken, not just the first', () => {
+    assert.equal(ra.matched, true);
+    assert.equal(rb.matched, true);
+  });
+}
+
+{
+  // ⚠ The re-entrancy case: a woken waiter's continuation registers a NEW waiter
+  // synchronously. If offerLine walked the live array it would skip the next one.
+  let second = null;
+  const first = waitForLine((s) => (s === 'one' ? [s] : null), 5000).then(() => {
+    second = waitForLine((s) => (s === 'two' ? [s] : null), 5000);
+  });
+  const other = waitForLine((s) => (s === 'one' ? [s] : null), 5000);
+  offerLine('one', null);
+  await first;
+  const r = await other;
+  check('a waiter registered from inside a wake-up does not corrupt the walk', () => {
+    assert.equal(r.matched, true, 'the second waiter on the same line still fired');
+    assert.ok(second, 'and the new waiter was registered');
+  });
+  cancelAllWaits();
+}
+
+{
+  const p = waitForLine(() => null, 5000);
+  const n = cancelAllWaits();
+  const r = await p;
+  check('stop wakes everything with a miss', () => {
+    assert.equal(n, 1);
+    assert.equal(r.matched, false);
+    assert.equal(pendingWaits(), 0);
+  });
+}
+
+check('a throwing test does not take the offer down', () => {
+  const p = waitForLine(() => { throw new Error('bad'); }, 20);
+  assert.doesNotThrow(() => offerLine('anything', null));
+  cancelAllWaits();
+  return p;
+});
+
 console.log('\ncommand stacking');
 
 // Mirrors isStacked() in input.js. Restated rather than imported because input.js
@@ -300,6 +423,87 @@ check('the old numeric-comparison shape still means what it always did', () => {
   assert.equal(evalBool('hp != 42', R), false);
   assert.equal(evalBool('hp <> 41', R), true);
   assert.equal(evalBool('hp = 42', R), true);
+});
+
+console.log('\nconfig sync (the arrival rule)');
+
+// configsync.js reads localStorage for its stamps. Node has none, so stand one up
+// — the module only ever calls getItem/setItem.
+globalThis.localStorage = {
+  _d: new Map(),
+  getItem(k) { return this._d.has(k) ? this._d.get(k) : null; },
+  setItem(k, v) { this._d.set(k, String(v)); },
+  removeItem(k) { this._d.delete(k); },
+};
+
+const cfg = await import('../../client/game/js/configsync.js');
+
+function harness(localValue, localStampSec) {
+  let store = localValue;
+  const sent = [];
+  cfg.setConfigTransport((m) => sent.push(m));
+  cfg.registerConfig('triggers', { load: () => store, replace: (p) => { store = p; } });
+  globalThis.localStorage._d.clear();
+  if (localStampSec) globalThis.localStorage.setItem('architect_cfg_at_triggers', String(localStampSec));
+  return { sent, get store() { return store; } };
+}
+
+check('never synced + local content → PUSH (the migration case)', () => {
+  // Everybody already using triggers has them in a browser only. They must not
+  // have to re-enter them for the account to start carrying them.
+  const h = harness([{ id: 'a' }], 0);
+  cfg.receiveConfig({});
+  assert.deepEqual(h.store, [{ id: 'a' }], 'local is kept');
+});
+
+check('never synced + nothing local → do nothing at all', () => {
+  // A store that has never been touched must not claim the key and stamp it, or a
+  // device that DOES have rules is later told to adopt emptiness.
+  const h = harness([], 0);
+  cfg.receiveConfig({});
+  assert.equal(h.sent.length, 0);
+});
+
+check('server is newer → ADOPT', () => {
+  const h = harness([{ id: 'old' }], 100);
+  cfg.receiveConfig({ triggers: { payload: [{ id: 'new' }], updatedAt: 200 } });
+  assert.deepEqual(h.store, [{ id: 'new' }]);
+});
+
+check('⚠ an EMPTY list from a server with a row is a DELETION, and is adopted', () => {
+  // The whole reason this rule lives in one file. Reading empty as "nothing up
+  // there yet" pushes the local copy back and resurrects every rule the player
+  // just deleted on another device — on every login, forever.
+  const h = harness([{ id: 'a' }, { id: 'b' }], 100);
+  cfg.receiveConfig({ triggers: { payload: [], updatedAt: 200 } });
+  assert.deepEqual(h.store, [], 'the deletion won');
+});
+
+check('local edit is newer → PUSH, not adopt', () => {
+  // An edit made on a machine that was offline is not garbage.
+  const h = harness([{ id: 'mine' }], 300);
+  cfg.receiveConfig({ triggers: { payload: [{ id: 'theirs' }], updatedAt: 200 } });
+  assert.deepEqual(h.store, [{ id: 'mine' }], 'local survives');
+});
+
+check('adopting stamps with the SERVER time, not now', () => {
+  // Stamping an adoption with the current clock makes every login look like a
+  // local edit and lets a stale device win the next comparison.
+  harness([], 0);
+  cfg.receiveConfig({ triggers: { payload: [{ id: 'x' }], updatedAt: 12345 } });
+  assert.equal(globalThis.localStorage.getItem('architect_cfg_at_triggers'), '12345');
+});
+
+check('a throwing provider does not stop the other keys', () => {
+  cfg.setConfigTransport(() => {});
+  cfg.registerConfig('broken', { load: () => [], replace: () => { throw new Error('nope'); } });
+  let ok = null;
+  cfg.registerConfig('fine', { load: () => [], replace: (p) => { ok = p; } });
+  assert.doesNotThrow(() => cfg.receiveConfig({
+    broken: { payload: [1], updatedAt: 5 },
+    fine: { payload: [2], updatedAt: 5 },
+  }));
+  assert.deepEqual(ok, [2]);
 });
 
 console.log('\nmacro variables');

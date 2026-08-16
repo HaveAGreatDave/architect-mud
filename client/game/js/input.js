@@ -21,7 +21,7 @@ import { runAccessibilityCommand } from './a11y-command.js';
 import { shush } from './logreader.js';
 import { completeInput, resetCompletion } from './complete.js';
 import { runHighlightCommand, openFindBar, exportTranscript } from './logtools.js';
-import { runTriggerCommand, runAliasCommand, runTimerCommand, expandAlias, stopAllTimers } from './automation.js';
+import { runTriggerCommand, runAliasCommand, runTimerCommand, runStateCommand, expandAlias, stopAllTimers, cancelWaits } from './automation.js';
 import { runVarsCommand } from './varscommand.js';
 // The verbs whose arguments are a sentence a human wrote. Imported rather than
 // restated: command stacking needs exactly the judgement this list already makes,
@@ -110,6 +110,14 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
     runTimerCommand(cmd.replace(/^\S+\s*/, ''));
     return true;
   }
+  // `on <condition> = <commands>` — a rule that watches your vitals rather than
+  // the text. Its own verb rather than a kind of trigger, because it is fed by
+  // structured state and not by lines, and collapsing the two would mean one
+  // surface with two grammars.
+  if (lower === 'on' || lower.startsWith('on ')) {
+    runStateCommand(cmd.replace(/^\S+\s*/, ''));
+    return true;
+  }
   if (lower === 'vars' || lower.startsWith('vars ')) {
     runVarsCommand(cmd.replace(/^\S+\s*/, ''));
     return true;
@@ -141,9 +149,11 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
     // leaves the thing which RESTARTS the automation running reads as broken —
     // the commands come back three seconds later and nothing explains why.
     const timersStopped = stopAllTimers();
+    const waitsStopped = cancelWaits();
     if (macroStopped) appendMsg('Macros stopped.', 'system');
     if (timersStopped) appendMsg(`${timersStopped} timer(s) stopped.`, 'system');
-    if (walkStopped || macroStopped || timersStopped) return true;
+    if (waitsStopped) appendMsg(`${waitsStopped} script(s) waiting on a line gave up.`, 'system');
+    if (walkStopped || macroStopped || timersStopped || waitsStopped) return true;
   }
   if (lower === '.markup') {
     const whisperShown = appendToWhisperLog(MARKUP_HELP_HTML);

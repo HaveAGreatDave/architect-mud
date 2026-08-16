@@ -15,6 +15,7 @@
 // problem for anyone who cannot scan a fast scroll.
 // See docs/systems-accessibility.md.
 import { loadSettings } from '/shared/settings.js';
+import { markConfigDirty } from './configsync.js';
 
 const STORE = 'architect_log_highlights';
 
@@ -32,6 +33,15 @@ export function loadHighlights() {
 
 export function saveHighlights(list) {
   try { localStorage.setItem(STORE, JSON.stringify(list)); } catch { /* full or blocked */ }
+  compile();
+  markConfigDirty('highlights');
+}
+
+// Adopting the account's copy. Deliberately does NOT go through saveHighlights —
+// that would mark the key dirty and push the server's own list straight back at
+// it, a write on every login for no edit. See configsync.js.
+export function replaceHighlights(list) {
+  try { localStorage.setItem(STORE, JSON.stringify(Array.isArray(list) ? list : [])); } catch { /* quota */ }
   compile();
 }
 

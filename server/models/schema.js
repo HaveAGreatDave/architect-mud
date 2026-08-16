@@ -1238,6 +1238,32 @@ export const SCHEMA_SQL = `
     updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- ── The rest of the client's setup, following the account ─────────────────
+  -- player_macros above shipped first and covers exactly one thing. Everything
+  -- else a player configures in the client — triggers, aliases, timers, state
+  -- rules, highlights, variables — had the same problem and wants the same
+  -- answer, so this is the general version of that table: one row per player per
+  -- CONFIG KEY, each holding a whole JSONB document.
+  --
+  -- Keyed rather than one-row-per-player-with-columns, because the set of things
+  -- a client stores is going to keep growing and a column per feature means a
+  -- schema change every time. Whole-document per key rather than a row per
+  -- trigger, for the reason macros are one row: the client edits these as lists,
+  -- and per-item rows would buy conflict resolution nobody asked for at the price
+  -- of syncing deletes and order.
+  --
+  -- macros are DELIBERATELY NOT moved here. That table is deployed and working;
+  -- migrating it would be churn against live rows for no behaviour a player can
+  -- see. The client's sync layer treats both through one interface, so the split
+  -- stops at this file.
+  CREATE TABLE IF NOT EXISTS player_client_config (
+    player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    config_key TEXT NOT NULL,
+    payload JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, config_key)
+  );
+
   -- ── Player↔NPC relationships (server/engine/relations.js) ─────────────────
   -- One row per (player, NPC) the player has actually MET — rows are created on
   -- first contact, never pre-seeded, so the row count is bounded by who you've

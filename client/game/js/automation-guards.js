@@ -49,20 +49,88 @@ export function applyCaptures(cmds, match) {
 // runs inside the log's append path; an exception here takes the whole log down,
 // on every line, until a reload — and a player writing an unbalanced bracket is
 // not a rare event.
+// `row.channel` restricts a trigger to one message class — `loot`, `say`,
+// `combat-incoming`. This is the local answer to what other clients call a COLOUR
+// trigger: this client has no ANSI and never will, it has ~30 semantic classes,
+// and matching the meaning directly beats matching a colour somebody chose to
+// stand for it. An empty pattern with a channel matches every line on it.
+// `row.lines > 1` makes it a MULTI-LINE row: the text handed to `test` is that
+// many recent lines joined with newlines, and the regex is compiled with the
+// dotAll flag so `.` spans the joins. Without dotAll every multi-line pattern
+// would have to be written with `[\s\S]`, which is the sort of thing that makes
+// people decide the feature does not work.
+//
+// ⚠ The CHANNEL of a multi-line row is tested against the channel of the LAST
+// line in the window — the one that just arrived. Requiring every line in the
+// window to share a channel would make `@say` multi-line patterns impossible the
+// moment anything interleaved, which in a busy room is always.
 export function compileRow(row) {
-  if (!row || !row.pattern) return null;
+  if (!row) return null;
+  const channel = row.channel ? String(row.channel).toLowerCase() : null;
+  if (!row.pattern && !channel) return null;
   const extra = splitGag(row.cmds);
+  const lines = Math.max(1, Math.min(10, Number(row.lines) || 1));
+  const onChannel = (cls) => !channel || String(cls || '').toLowerCase() === channel;
+
+  if (!row.pattern) {
+    return { ...row, ...extra, channel, lines, test: (s, cls) => (onChannel(cls) ? [String(s)] : null) };
+  }
   if (!row.regex) {
     const needle = String(row.pattern).toLowerCase();
     if (!needle) return null;
-    return { ...row, ...extra, test: (s) => (String(s).toLowerCase().includes(needle) ? [String(s)] : null) };
+    return {
+      ...row, ...extra, channel, lines,
+      test: (s, cls) => (onChannel(cls) && String(s).toLowerCase().includes(needle) ? [String(s)] : null),
+    };
   }
   try {
-    const re = new RegExp(row.pattern, 'i');
-    return { ...row, ...extra, test: (s) => String(s).match(re) };
+    const re = new RegExp(row.pattern, lines > 1 ? 'is' : 'i');
+    return { ...row, ...extra, channel, lines, test: (s, cls) => (onChannel(cls) ? String(s).match(re) : null) };
   } catch {
-    return { ...row, ...extra, broken: true, test: () => null };
+    return { ...row, ...extra, channel, lines, broken: true, test: () => null };
   }
+}
+
+// `@loot rest of the pattern` → { channel: 'loot', pattern: 'rest of the pattern' }
+//
+// `@` leads because it is not a regex metacharacter and effectively never starts
+// a line of game prose — unlike `:`, which was the obvious separator and appears
+// in half the room descriptions in the game ("You see: a rusted pipe").
+export function splitChannel(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^@([a-z][a-z0-9-]*)\s*([\s\S]*)$/i);
+  if (!m) return { channel: null, rest: s };
+  return { channel: m[1].toLowerCase(), rest: m[2].trim() };
+}
+
+// `#combat rest of the pattern` → { group: 'combat', rest: '…' }
+//
+// A group is a switch over a SET of rows: `trigger off #combat` disables all of
+// them at once and `trigger on #combat` brings them back. Without it the only
+// units are one row and all rows, and anybody with twenty triggers wants the
+// middle. `#` for the same reason `@` was chosen for channels — not a regex
+// metacharacter, and it does not begin a line of prose.
+//
+// Prefixes may be combined and in either order: `@combat #fight /pattern/`.
+export function splitGroup(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^#([a-z][a-z0-9-]*)\s*([\s\S]*)$/i);
+  if (!m) return { group: null, rest: s };
+  return { group: m[1].toLowerCase(), rest: m[2].trim() };
+}
+
+// Peel both prefixes off, whichever order they were written in.
+export function splitPrefixes(raw) {
+  let rest = String(raw || '').trim();
+  let channel = null, group = null;
+  for (let i = 0; i < 2; i++) {
+    const c = splitChannel(rest);
+    if (c.channel) { channel = c.channel; rest = c.rest; continue; }
+    const g = splitGroup(rest);
+    if (g.group) { group = g.group; rest = g.rest; continue; }
+    break;
+  }
+  return { channel, group, rest };
 }
 
 // `gag` is resolved HERE, at compile, into a boolean plus the script with the gag

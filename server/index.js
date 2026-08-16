@@ -27,6 +27,14 @@ import {
 	builtinCommandNames,
 } from "./engine/commands/index.js";
 import { getAliasList } from "./engine/commands/aliases.js";
+
+// What a client is allowed to store against an account. An allowlist rather than
+// free-form keys: without it this is per-player blob storage anybody with a
+// console can write anything into. Adding a key here is the deliberate act of
+// deciding the server will carry it.
+const CLIENT_CONFIG_KEYS = new Set([
+	"triggers", "aliases", "timers", "state_rules", "highlights", "vars",
+]);
 import { getRegisteredSpecializedActions } from "./engine/specializedActions.js";
 import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
@@ -669,6 +677,44 @@ wss.on("connection", (ws) => {
 				[session.playerId, JSON.stringify(list), stamp],
 			);
 			ws.send(JSON.stringify({ type: "macros_saved", updatedAt: stamp }));
+			return;
+		}
+		// The rest of the client's setup — same contract as macros above, one row
+		// per config key. The server stays a STORE: it never parses a trigger
+		// pattern, never evaluates a condition, and nothing here knows what any of
+		// these keys mean.
+		if (msg.type === "config_pull") {
+			if (!session.playerId) return;
+			const r = await query(
+				`SELECT config_key, payload, updated_at FROM player_client_config WHERE player_id = $1`,
+				[session.playerId],
+			);
+			const config = {};
+			for (const row of r.rows) {
+				config[row.config_key] = { payload: row.payload, updatedAt: Number(row.updated_at) || 0 };
+			}
+			ws.send(JSON.stringify({ type: "config", config }));
+			return;
+		}
+		if (msg.type === "config_push") {
+			if (!session.playerId) return;
+			const key = String(msg.key || "").slice(0, 40);
+			// An allowlist, not free-form. Without it this is per-player blob storage
+			// that anybody with a console can write anything into, under any name.
+			if (!CLIENT_CONFIG_KEYS.has(key)) return;
+			if (msg.payload === undefined || msg.payload === null) return;
+			// Same bound as macros, and refused silently for the same reason: the
+			// player's local copy is intact and still works, only the sync declines.
+			const encoded = JSON.stringify(msg.payload);
+			if (encoded.length > 64000) return;
+			const stamp = Math.floor(Date.now() / 1000);
+			await query(
+				`INSERT INTO player_client_config (player_id, config_key, payload, updated_at)
+				 VALUES ($1, $2, $3::jsonb, $4)
+				 ON CONFLICT (player_id, config_key) DO UPDATE SET payload = $3::jsonb, updated_at = $4`,
+				[session.playerId, key, encoded, stamp],
+			);
+			ws.send(JSON.stringify({ type: "config_saved", key, updatedAt: stamp }));
 			return;
 		}
 		if (msg.type === "panel_catalog") {

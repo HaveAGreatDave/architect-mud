@@ -17,6 +17,9 @@ import {
 import { appendMsg, initVitalsReorder, initScrollLock } from "./render.js";
 import { initLogTools } from "./logtools.js";
 import { initAutomation } from "./automation.js";
+import { registerConfig, setConfigTransport } from "./configsync.js";
+import { loadHighlights, replaceHighlights } from "./highlights.js";
+import { allVars, replaceVars } from "./variables.js";
 import {
 	initNet,
 	setWhoModalHandler,
@@ -314,6 +317,11 @@ initVitalsReorder();
 initScrollLock();
 initLogTools();   // Ctrl+F over the log
 initAutomation(); // triggers/timers/aliases — also registers the line observer
+// The two stores that live outside automation.js, registered here so every
+// config key is claimed before the first `config` reply can arrive.
+setConfigTransport(sendRaw);
+registerConfig('highlights', { load: loadHighlights, replace: replaceHighlights });
+registerConfig('vars', { load: allVars, replace: replaceVars });
 initCustomPanelButton();
 
 // Net / WebSocket

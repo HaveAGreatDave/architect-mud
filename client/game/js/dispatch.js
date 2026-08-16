@@ -51,6 +51,7 @@ import { openPirateConsole, closePirateConsole } from './panels/piratedeck.js';
 import { openFishing, armFishFight } from './panels/fishing.js';
 import { openPsychometry } from './panels/psychometry.js';
 import { abortMacros, receiveMacros } from './panels/smartbar-macros.js';
+import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
@@ -379,6 +380,9 @@ const handlers = {
     sendRaw({ type: 'verbs' });
     // …and the macro bar, which follows the account rather than the browser.
     sendRaw({ type: 'macros_pull' });
+    // …and the rest of the client setup: triggers, aliases, timers, state rules,
+    // highlights, variables. One round trip for the lot.
+    pullConfig();
   },
 
   // The account's macros. See receiveMacros() for the three arrival states and
@@ -388,6 +392,10 @@ const handlers = {
   // already the truth this client is rendering — but a handler has to exist or
   // the unknown-message path logs a warning on every macro edit.
   macros_saved: () => {},
+  // The account's client setup. receiveConfig owns the arrival rule for every
+  // key — see configsync.js for why that lives in one place.
+  config: (msg) => receiveConfig(msg.config),
+  config_saved: () => {},
 
   // The verb vocabulary for Tab completion (see complete.js). Deliberately does
   // nothing else: an unknown verb here is not an error, it is a verb this client

@@ -41,6 +41,7 @@ import { renderSmartBar } from './smartbar.js';
 import { getVar, setVar, unsetVar, allVars } from '../variables.js';
 import { evalBool, evalValue, isWellFormed, FUNC_NAMES } from '../expr.js';
 import { applyCaptures } from '../automation-guards.js';
+import { waitForLine } from '../linewait.js';
 
 const KEY = 'architect_smartbar_macros';
 const DEFAULT_STAGGER_MS = 350;
@@ -432,6 +433,18 @@ function classify(seg) {
   if (m) return { kind: 'unset', name: m[1].toLowerCase() };
   m = seg.match(/^return\b\s*(.*)$/i);
   if (m) return { kind: 'return', value: m[1].trim() };
+  // `wait for <pattern> [timeout]` — park until a line matches. The one primitive
+  // that turns a script into a program: without it a macro can only fire commands
+  // and hope, and cannot say "swing, and when it dies, loot it". A `/regex/`
+  // pattern captures into $1…$9 for the rest of the script.
+  //
+  // Only `wait for …` is claimed. A bare `wait` stays free for the game.
+  m = seg.match(/^wait\s+for\s+(.+?)(?:\s+(\d+)\s*(ms|s)?)?$/i);
+  if (m) {
+    const n = m[2] ? Number(m[2]) : 0;
+    const unit = (m[3] || 's').toLowerCase();
+    return { kind: 'waitfor', pattern: m[1].trim(), timeoutMs: n ? (unit === 'ms' ? n : n * 1000) : 0 };
+  }
   return { kind: 'cmd', text: seg };
 }
 
@@ -609,6 +622,10 @@ function branchActive(stack) {
 }
 
 // Loop/runaway guards for macros that call other macros.
+// `wait for` is always bounded — see the runner. Short default on purpose: a
+// script parked forever reads as the client having hung.
+const WAIT_DEFAULT_MS = 10000;
+const WAIT_MAX_MS = 120000;
 const MAX_DEPTH = 20;   // deepest macro-calls-macro nesting
 const MAX_STEPS = 1000; // total executed actions across one whole run
 // A `while` pass whose body ran no `delay` of its own is forced to pause this
@@ -771,6 +788,51 @@ export async function runMacro(cmds, ctx) {
       if (c.kind === 'return') {
         _lastResult = c.value ? evalValue(c.value, exprResolver()) : '';
         break;
+      }
+      // ── wait for ────────────────────────────────────────────────────────
+      //
+      // ⚠ Counted as a step and PACED like a delay, so a `while` whose body is
+      // one `wait for` cannot spin: it costs a step against MAX_STEPS on every
+      // pass and the loop pacer sees it as a pause it does not need to add.
+      //
+      // ⚠ Always bounded. WAIT_MAX_MS caps whatever was asked for, and the
+      // default is deliberately short — a script parked forever is
+      // indistinguishable from the client having hung, and `stop` cannot reach a
+      // runner that is not on a step boundary.
+      if (c.kind === 'waitfor') {
+        const { pattern, regex } = ((p) => {
+          const mm = String(p).match(/^\/(.+)\/$/);
+          return mm ? { pattern: mm[1], regex: true } : { pattern: p, regex: false };
+        })(interpolate(c.pattern));
+        let test;
+        if (regex) {
+          let re = null;
+          try { re = new RegExp(pattern, 'i'); } catch { re = null; }
+          // A pattern that will not compile fails the wait immediately rather
+          // than parking for the full timeout on something that can never match.
+          test = re ? (s) => String(s).match(re) : null;
+        } else {
+          const needle = pattern.toLowerCase();
+          test = (s) => (String(s).toLowerCase().includes(needle) ? [String(s)] : null);
+        }
+        const ms = Math.min(WAIT_MAX_MS, c.timeoutMs || WAIT_DEFAULT_MS);
+        const res = test ? await waitForLine(test, ms) : { matched: false };
+        markLoopsPaced(stack);
+        lastWasDelay = true;
+        ranAny = true;
+        // A hit substitutes its captures into the REST of the script, exactly as
+        // a trigger does — same helper, same rule that an absent group becomes ''.
+        if (res.matched && res.captures) {
+          const rest = segs.slice(i + 1).join(';');
+          const bound = applyCaptures(rest, res.captures);
+          if (bound !== rest) {
+            segs.length = i + 1;
+            for (const s of bound.split(/[;\n]/).map(x => x.trim()).filter(Boolean)) segs.push(s);
+          }
+        }
+        // A miss sets $result to '' so a script can branch on whether it landed.
+        _lastResult = res.matched ? (res.line || '1') : '';
+        continue;
       }
       const d = seg.match(/^delay\s+(\d+)$/i);
       if (d) { await sleep(Number(d[1])); markLoopsPaced(stack); ranAny = true; lastWasDelay = true; continue; }
@@ -1039,6 +1101,8 @@ function renderGuideTab(name, content, cmdsInput) {
       ['ends', 'text ends with'],
       ['break', 'leave the innermost while'],
       ['continue', 'skip to the next pass'],
+      ['wait for <text>', 'park until the game says it (10s, or "wait for x 30s")'],
+      ['wait for /re/', '…capturing into $1 for the rest of the script'],
       ['return <value>', 'end this macro, leaving $result for the caller'],
       ['$result', 'what the last called macro returned'],
       ['$1 … $9', "a called macro's arguments (macro heal 40), or a trigger's captures"],

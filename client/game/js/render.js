@@ -29,15 +29,31 @@ export function setLineObserver(fn) { _lineObserver = fn; }
 // triggers just got switched off for looping. A pattern broad enough to hide the
 // game's own explanation of what went wrong is a pattern that makes the client
 // unsupportable.
+// The CLASS is handed over with the text. This client has no ANSI colour and
+// never will — it has ~30 semantic classes (`msg-combat-incoming`, `msg-loot`,
+// `msg-say`, `msg-death`), which is the thing colour is a lossy proxy for on a
+// traditional MUD. A trigger that can say "loot lines only" is strictly better
+// than one matching a colour somebody chose, and costs one argument.
 function suppressed(text, cls) {
   if (!_lineObserver) return false;
   if (cls === 'system') return false;
   // ⚠ Never let an observer throw on the append path. A bad pattern taking the
   // whole log down — every line, until a reload — is the failure this catch
   // exists for, and it is a failure a player can cause by typing.
-  try { return _lineObserver(text) === true; }
+  try { return _lineObserver(text, cls) === true; }
   catch { return false; }   // an observer's problem is not the log's
 }
+
+// ── The state observer ──────────────────────────────────────────────────────
+//
+// State triggers ("when my HP drops below 30") fire from here rather than by
+// parsing text. On a traditional MUD this is done by regex-matching a prompt
+// line, because the prompt is all a third-party client gets; here the vitals
+// arrive as structured data and `updateVitals` is the single funnel every
+// `player_update` in dispatch.js goes through. Reading numbers instead of
+// scraping them is the whole advantage of owning both ends.
+let _stateObserver = null;
+export function setStateObserver(fn) { _stateObserver = fn; }
 
 // Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
 // the section's rows into a .sidebar-section-body (the real row container).
@@ -643,6 +659,11 @@ export function updateVitals(p) {
   }
   // Player-bound custom panels track the built-in vitals in lockstep.
   refreshCustomPanels();
+  // ⚠ State triggers fire LAST, after the HUD is fully painted. A trigger can
+  // print a line and run commands, and doing that from the middle of this
+  // function would leave the bars half-updated while it ran. Wrapped, because a
+  // state trigger's expression is player-written and this is the per-update path.
+  try { _stateObserver?.(p); } catch { /* an observer's problem is not the HUD's */ }
 }
 
 function setBar(id, val, max, inverse = false) {
