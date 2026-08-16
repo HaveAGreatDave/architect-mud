@@ -1,0 +1,19 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_37",
+  "interactive": null,
+  "lines": [
+    "{npc} stands very still by the shutters like something has been forgotten, then remembers, and goes."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 37,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

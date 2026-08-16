@@ -1331,8 +1331,25 @@ export default async function regress({ run, check, getPlayer }) {
 
       const savedForMarket = await displayRung(player);
       await setDisplayRung(player, 'log');
-      const exchText = await run('market');
-      check('a log-rung player gets the same numbers as prose, not a panel',
+      // The depot at the log rung is now the generic list dialog, not a prose dump
+      // (docs/audits/log-vs-dialog-audit.md — a price list you ACT on is a control,
+      // and 40–60 lines of it was the biggest uncapped surface in the system). The
+      // NUMBERS are what this case is really about, so they are asserted on the
+      // rows; the prose form is asserted right below, because it still exists.
+      const exchDlg = await run('market');
+      check('a log-rung player gets the depot as a focusable dialog, not a panel',
+        exchDlg?.type === 'list_dialog', exchDlg?.type);
+      const exRows = (exchDlg?.rows || []).filter(r => r.group === 'Exchange');
+      check('…carrying the exchange', exRows.length > 0, `${exRows.length} rows`);
+      check('…including the buy/sell spread', exRows.every(r => /buy \d+₵ · sell \d+₵/.test(r.detail || '')),
+        exRows[0]?.detail);
+      check('…and every row offers a verb the player could have typed',
+        exRows.every(r => (r.commands || []).every(c => /^market (buy|sell) /.test(c.command))));
+
+      // ⚠ Nothing is taken away: `market text` still prints the identical prose at
+      // any rung. If this breaks, the conversion has become a removal.
+      const exchText = await run('market text');
+      check('`market text` still gives the same numbers as prose',
         exchText?.type === 'emote' && /exchange/i.test(exchText?.message || ''), exchText?.type);
       check('…including the buy/sell spread', /buy · /.test(exchText?.message || ''));
       if (savedForMarket) await setDisplayRung(player, savedForMarket);

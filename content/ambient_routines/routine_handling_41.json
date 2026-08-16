@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_41",
+  "interactive": null,
+  "lines": [
+    "{npc} shelters in the doorway until the worst of it passes, hands busy at a coat."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 41,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

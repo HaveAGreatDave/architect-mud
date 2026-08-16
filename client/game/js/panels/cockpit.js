@@ -15,7 +15,7 @@
 import { setAreaPane } from '../render.js';
 import { state } from '../state.js';
 import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
-import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, creak, spoolUp, spoolDown, groundFx, flapWhir, stallHorn, gearFx, visorFx, gunFx, aaWarn, tracerFx, aaGunFx, hitFx, lockTone, mslWarble, missileFx, missileRippleFx, flareFx, spraySfx, diveSiren } from './engine-audio.js';
 import { ensureWindshieldStyles, windshieldHTML, paintWindshield, disposeWindshield, RENDER_TUNE, buildingRoofFtAt, ROOF_CATCH_R, ROOF_CATCH_CEIL_Z, MODEL_MAX_EXTENT, BUILDING_FOOT, climbOutClear, VISIBLE_NEAR_F, VISIBLE_FAR_F, CLIMBOUT_MAX_F, CLIMBOUT_LAT_IN, CLIMBOUT_LAT_OUT, pushLightningStrike, surfaceBreakup, perfBegin, perfEnd, perfTick } from './windshield.js';
 import { suppressWeatherFx } from './weather-fx.js';
 import { createState, step, readout, TYPES } from './flight-model.js';
@@ -71,6 +71,7 @@ const CLASS_THEME = {
   prop:       { acc: '#4fb8e0', chrome: 'analog',     radar: 'md' },
   heavy:      { acc: '#ffb23e', chrome: 'industrial', radar: 'lg' },
   gunship:    { acc: '#ff6b5b', chrome: 'military',    radar: 'lg' },
+  divebomber: { acc: '#ff5cb0', chrome: 'military',    radar: 'md' },   // dive bomber — accent matches the tile crosshair she aims with
   wreck:      { acc: '#9bd06a', chrome: 'degraded',    radar: 'sm' },
 };
 const themeFor = (cls) => CLASS_THEME[cls] || CLASS_THEME.prop;
@@ -1030,7 +1031,10 @@ const FLAP_STYLES = {
   quadrant: { cap: 'FLAPS',      detents: [{ v: 0, l: '0' }, { v: 0.25, l: '1' }, { v: 0.5, l: '2' }, { v: 0.75, l: '3' }, { v: 1, l: 'FULL' }] },
   switch:   { cap: '',           detents: [{ v: 0, l: 'UP' }, { v: 0.5, l: '½' }, { v: 1, l: 'FULL' }] },
 };
-const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, grasshopper: 'johnson', locust: 'johnson' };
+const FLAP_BY_CRAFT = { mayfly: 'johnson', mule: 'johnson', leviathan: 'quadrant', reaper: 'switch', carcass: 'switch', dragonfly: null, viper: null, grasshopper: 'johnson', locust: 'johnson',
+  // The Shrike's flap lever also drives her dive brakes — one handle, two jobs, which is why
+  // it is the quadrant rather than a switch: you set it by feel on the way over the top.
+  shrike: 'quadrant' };
 function flapStyleFor(craftType) {
   const key = craftType in FLAP_BY_CRAFT ? FLAP_BY_CRAFT[craftType] : 'switch';
   return key ? { key, ...FLAP_STYLES[key] } : null;   // null ⇒ no flaps (heli)
@@ -1342,6 +1346,10 @@ const FSIM_SKIN = {
   // (amber dials, racing-red master).
   grasshopper: { id: 'grasshopper', acc: '#9ad46a', rgb: [154, 212, 106] },
   locust: { id: 'locust', acc: '#ffd24a', rgb: [255, 210, 74] },
+  // The Shrike flies a spare bombardier's deck: dark green crackle paint, white-on-black
+  // instruments, and one pink-magenta lamp — the same magenta as the tile crosshair on the
+  // glass, because on this aeroplane the designated tile IS the instrument that matters.
+  shrike: { id: 'shrike', acc: '#ff5cb0', rgb: [255, 92, 176] },
 };
 
 function ensureFlightSimStyles() {
@@ -1463,6 +1471,18 @@ function ensureFlightSimStyles() {
     .fsim-weap-fire{ color:#ff6a3a; border-color:#5a2a10; opacity:.4; pointer-events:none; }
     .fsim-weap-fire.ready{ opacity:1; pointer-events:auto; text-shadow:0 0 6px rgba(255,106,58,.6); }
     .fsim-weap-pips{ font-size:10px; color:#c8b070; letter-spacing:2px; }
+    /* The bombsight strip: dive angle, speed, rack. Sits under the stall lamp, out of the
+       way of the view — you fly the dive by looking outside, and glance at this. */
+    .fsim-dive{ position:absolute; left:50%; top:12%; transform:translateX(-50%); z-index:4; pointer-events:none;
+      display:flex; gap:10px; align-items:baseline; padding:3px 10px; border-radius:3px;
+      font:600 12px/1.2 ui-monospace,monospace; letter-spacing:1px; color:#c8d2cc;
+      background:rgba(6,10,8,.62); border:1px solid rgba(255,92,176,.24); transition:opacity .18s linear; }
+    .fsim-dive.near{ border-color:rgba(255,176,60,.42); }
+    .fsim-dive.ready{ border-color:rgba(255,92,176,.92); box-shadow:0 0 10px rgba(255,92,176,.34); }
+    .fsim-dive .ok{ color:#7fe6a8; }
+    .fsim-dive .fd-rack{ color:#ff5cb0; letter-spacing:2px; }
+    .fsim-dive .fd-cue{ color:#ff5cb0; animation:fd-blink .5s steps(2,end) infinite; }
+    @keyframes fd-blink{ 50%{ opacity:.25; } }
     .fsim-reticle{ position:absolute; left:50%; top:46%; width:34px; height:34px; margin:-17px 0 0 -17px; z-index:4; opacity:0; transition:opacity .15s; pointer-events:none; }
     .fsim-reticle.on{ opacity:.85; }
     /* firing solution up → the pipper flips from amber to a green lock */
@@ -2088,6 +2108,28 @@ function ensureFlightSimStyles() {
     .fsim-theme-locust .fsim-thr-grip{ background:linear-gradient(180deg,#ffd24a 0%,#8a6410 55%,#301c08 100%); }
     .fsim-theme-locust .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#301c08 0 2px,rgba(255,210,74,.32) 2px 4px); }
 
+    /* Shrike — the bombardier's deck. Dark green crackle enamel, heavy black bezels, and the
+       one magenta lamp that matches the tile crosshair on the glass. */
+    .fsim-theme-shrike{ --cy:#ff5cb0; --mg:#ff4a6a; --gr:#7fe6a8; --cy-dim:rgba(255,92,176,.20); }
+    .fsim-theme-shrike .fsim-view{ box-shadow:inset 0 0 0 2px #1e2a22, inset 0 4px 20px rgba(255,92,176,.10), 0 0 14px rgba(0,0,0,.72); }
+    .fsim-theme-shrike .fsim-view::after{ content:''; position:absolute; left:0; right:0; top:0; height:15px; z-index:2; pointer-events:none;
+      background:linear-gradient(180deg,#0d1512 0%,#080d0b 60%,rgba(8,13,11,0) 100%); border-bottom:1px solid rgba(255,92,176,.38); box-shadow:0 1px 9px rgba(255,92,176,.20); }
+    .fsim-theme-shrike .fsim-pfd,.fsim-theme-shrike .fsim-mfd,.fsim-theme-shrike .fsim-gauges{ border-color:#2c3e33; box-shadow:inset 0 0 10px rgba(0,0,0,.80), 0 0 0 1px rgba(255,92,176,.14); }
+    .fsim-theme-shrike .fsim-placard{ border-color:#243329;
+      background:repeating-linear-gradient(94deg, rgba(210,225,214,.045) 0 1px, rgba(0,0,0,.07) 1px 2px),
+        linear-gradient(157deg,#3d5245 0%,#48604f 26%,#2c3d33 52%,#3a4e41 74%,#1f2b24 100%);
+      box-shadow:inset 0 1px 0 rgba(200,220,206,.16), inset 0 -2px 5px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-shrike .fsim-plac-title{ color:#0e1611; text-shadow:0 1px 0 rgba(196,218,202,.28); }
+    .fsim-theme-shrike .fsim-plac-reg{ color:#080e0a; text-shadow:0 1px 0 rgba(196,218,202,.30); }
+    .fsim-theme-shrike .fsim-plac-own{ color:#22302a; text-shadow:0 1px 0 rgba(196,218,202,.20); }
+    .fsim-theme-shrike .fsim-plac-sheen{ background:linear-gradient(133deg, rgba(214,232,220,0) 30%, rgba(214,232,220,.30) 46%, rgba(214,232,220,.05) 52%, rgba(214,232,220,0) 66%); }
+    .fsim-theme-shrike .fsim-xpdr{ border-color:#16201a; background:linear-gradient(180deg,#1c2a22 0%,#121b16 48%,#080d0b 100%); box-shadow:inset 0 1px 0 rgba(255,92,176,.14), inset 0 -2px 6px rgba(0,0,0,.64), 0 2px 5px rgba(0,0,0,.5); }
+    .fsim-theme-shrike .fsim-xpdr-title{ color:#b0708e; }
+    .fsim-theme-shrike .fsim-yoke{ border-color:#2c3e33; background:radial-gradient(circle at 50% 26%,#14201a,#080d0b); }
+    .fsim-theme-shrike .fsim-throttle{ border-color:#2c3e33; background:linear-gradient(180deg,#121b16,#080d0b); }
+    .fsim-theme-shrike .fsim-thr-grip{ background:linear-gradient(180deg,#ff5cb0 0%,#8a2a58 55%,#2a0c1c 100%); }
+    .fsim-theme-shrike .fsim-thr-grip::after{ background:repeating-linear-gradient(90deg,#2a0c1c 0 2px,rgba(255,92,176,.30) 2px 4px); }
+
     /* ══ MOBILE — pare the cockpit to flyable essentials so it fits a phone ══════════
        On a narrow screen the dashboard is too cramped to fly. We drop the pure-flavour
        transponder/COM-NAV radio and the maker's-plate placard, and the nav-map MFD (the
@@ -2373,7 +2415,7 @@ const STICK_LOCUST = `<svg class="fsim-yoke-svg" id="fsim-yoke-svg" viewBox="0 0
 function yokeSvgFor(t) {
   // The light singles each fly their analogue's centre stick: the Grasshopper a Cub bent-tube
   // joystick, the Locust a sport aerobatic stick. Only the Mayfly keeps the skeletal tube-yoke.
-  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
+  return { mayfly: YOKE_MAYFLY, grasshopper: STICK_GRASSHOPPER, locust: STICK_LOCUST, leviathan: YOKE_LEVIATHAN, reaper: STICK_REAPER, shrike: STICK_REAPER, dragonfly: CYCLIC_DRAGONFLY, viper: CYCLIC_VIPER }[t] || YOKE_SVG;
 }
 
 // Cabin-occupancy readout on the aircraft placard: one pip per seat — pilot in the accent,
@@ -2441,6 +2483,8 @@ export function openFlightSim(opts = {}) {
     sprayer: !!opts.sprayer,                          // ag-plane crop-duster (Locust): shows the SPRAY button
     hardpoints: opts.hardpoints || 0, armed: false,  // weapons (gunship): master-arm + fire
     salvo: opts.salvo || 0,                          // swarm airframe (Viper): >1 → MSL fires a no-lock ripple
+    bombs: 0, bombCap: 0,                            // bomb rack (Shrike) — authoritative counts arrive on flight_ctx
+    bursts: [],                                      // live bomb explosions, world-anchored (see pushBurst)
     // An armed heli's gun is a CHIN turret — one light, fast-firing barrel under the nose, where
     // the fixed-wing gunship carries a heavy pair under the wings. Drives the muzzle station, the
     // firing cadence and the report.
@@ -2454,7 +2498,7 @@ export function openFlightSim(opts = {}) {
     engines: Math.max(1, opts.engines || 1), seats: Math.max(1, opts.seats || 1), occupants: opts.occupants || [],
     // Powerplant class → engine-instrument labelling/scales (piston RPM · turboprop TQ/ITT ·
     // turbofan N1/EGT). Mule = twin turboprop; Reaper (A-10/TF34) + Leviathan (An-124) = jets.
-    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', dragonfly: 'heli', viper: 'heli' }[opts.craftType] || 'piston',
+    engStyle: { mule: 'turboprop', reaper: 'turbofan', leviathan: 'turbofan', shrike: 'turboprop', dragonfly: 'heli', viper: 'heli' }[opts.craftType] || 'piston',
     temps: [], rpms: [], engWander: 0,   // per-engine gauge state (twins get 2 RPM + 2 temp dials)
 
     disp: { ias: 0, alt: 0, vs: 0, hdg: s.heading, rpm: 0, pitch: 0, bank: 0 },
@@ -2481,7 +2525,7 @@ export function openFlightSim(opts = {}) {
       <button class="fsim-pedal fsim-pedal-r" id="fsim-pedal-r" title="right rudder / yaw (hold — . or C)" tabindex="-1" aria-label="right rudder"><span class="fsim-pedal-face"><span class="fsim-pedal-lbl">R</span></span></button>
     </div>`;
   const html = `<div id="fsim-root" class="fsim${skin ? ' fsim-theme-' + skin.id : ''}">
-    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
+    <div class="fsim-view">${adminBtn}${windshieldHTML('fsim-ws', 'FWD VIEW · ' + esc((opts.deviceName || P.name).toUpperCase()))}<div class="fsim-lamp" id="fsim-lamp">⚠ STALL</div><div class="fsim-dive" id="fsim-dive" style="opacity:0"></div><div class="fsim-killfeed" id="fsim-killfeed"></div><div class="fsim-toast" id="fsim-toast"></div><div class="fsim-ckride" id="fsim-ckride"></div><div class="fsim-tour" id="fsim-tour"></div><div class="fsim-viewtag" id="fsim-viewtag"></div><div class="fsim-fuel" id="fsim-fuel"><span class="fsim-fuel-ic">⛽</span><span class="fsim-fuel-pct" id="fsim-fuel-pct">--%</span><button class="fsim-refuel" id="fsim-refuel" title="refuel at this field" tabindex="-1">REFUEL</button></div><div class="fsim-reticle" id="fsim-reticle"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="12" fill="none" stroke="#ff6a3a" stroke-width="1"/><line x1="17" y1="1" x2="17" y2="7" stroke="#ff6a3a"/><line x1="17" y1="27" x2="17" y2="33" stroke="#ff6a3a"/><line x1="1" y1="17" x2="7" y2="17" stroke="#ff6a3a"/><line x1="27" y1="17" x2="33" y2="17" stroke="#ff6a3a"/><circle cx="17" cy="17" r="1.5" fill="#ff6a3a"/></svg></div><div class="fsim-weap" id="fsim-weap"><button class="fsim-weap-arm" id="fsim-arm" tabindex="-1">◈ SAFE</button><button class="fsim-weap-arm" id="fsim-wpn" tabindex="-1" title="weapon select — 1 guns / 2 missiles">GUN</button><button class="fsim-weap-fire" id="fsim-fire" tabindex="-1">FIRE</button><span class="fsim-weap-pips" id="fsim-weap-pips"></span><button class="fsim-weap-arm" id="fsim-flarebtn" tabindex="-1" title="countermeasures (X)">FLARE</button></div><div class="fsim-spray-mist" id="fsim-spray"></div><div class="fsim-sprayrig" id="fsim-sprayrig" aria-hidden="true"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid meet"><line class="sr-boom" x1="14" y1="42" x2="186" y2="42"/><g class="sr-noz"><line x1="30" y1="42" x2="30" y2="47"/><line x1="54" y1="42" x2="54" y2="47"/><line x1="78" y1="42" x2="78" y2="47"/><line x1="122" y1="42" x2="122" y2="47"/><line x1="146" y1="42" x2="146" y2="47"/><line x1="170" y1="42" x2="170" y2="47"/></g><rect class="sr-hopper" x="80" y="16" width="40" height="26" rx="3"/><line class="sr-hatch" x1="86" y1="24" x2="114" y2="24"/><rect class="sr-door sr-door-l" x="80" y="42" width="20" height="6" rx="1.5"/><rect class="sr-door sr-door-r" x="100" y="42" width="20" height="6" rx="1.5"/><g class="sr-spray"><line class="sr-drop" x1="30" y1="48" x2="30" y2="58" style="animation-delay:.30s"/><line class="sr-drop" x1="54" y1="48" x2="54" y2="58" style="animation-delay:.42s"/><line class="sr-drop" x1="90" y1="50" x2="90" y2="60" style="animation-delay:.26s"/><line class="sr-drop" x1="100" y1="50" x2="100" y2="60" style="animation-delay:.36s"/><line class="sr-drop" x1="110" y1="50" x2="110" y2="60" style="animation-delay:.30s"/><line class="sr-drop" x1="122" y1="48" x2="122" y2="58" style="animation-delay:.46s"/><line class="sr-drop" x1="146" y1="48" x2="146" y2="58" style="animation-delay:.34s"/><line class="sr-drop" x1="170" y1="48" x2="170" y2="58" style="animation-delay:.40s"/></g></svg><span class="sr-tag">◊ BOOMS OPEN</span></div><button class="fsim-spraybtn" id="fsim-spraybtn" tabindex="-1" title="crop-duster — open the spray booms on a LOW pass" style="display:none">◊ SPRAY</button><button class="fsim-abortbtn" id="fsim-abortbtn" title="abort the flight — a recovery crew tows the aircraft back to a field and bills you">⤫ ABORT</button><button class="fsim-disembarkbtn" id="fsim-disembarkbtn" title="climb out of the aircraft (on the ground only)">⏏ DISEMBARK</button><button class="fsim-fsbtn" id="fsim-fsbtn" title="fullscreen">⛶</button><button class="fsim-viewbtn" id="fsim-viewbtn" title="external / cockpit view (V)">◎ EXT</button><button class="fsim-orbitreset" id="fsim-orbitreset" title="reset orbit camera to behind the craft">⟲</button><button class="fsim-hidebtn" id="fsim-hidebtn" title="hide the text panel — more outside view">⊟</button><button class="fsim-tunebtn" id="fsim-tunebtn" title="render tuning">⚙</button><div class="fsim-tune" id="fsim-tune" style="display:none"></div><div class="fsim-extg" id="fsim-extg"><div class="fsim-extg-row"><span class="fsim-extg-lbl">IAS</span><b id="fsim-extg-ias">0</b><span class="fsim-extg-u">kt</span></div><div class="fsim-extg-row"><span class="fsim-extg-lbl">ALT</span><b id="fsim-extg-alt">0</b><span class="fsim-extg-u">ft</span></div></div>${PEDALS_HTML}</div>
     <div class="fsim-glass">
       <div class="fsim-pfd"><canvas id="fsim-pfd"></canvas></div>
       <div class="fsim-gauges"><canvas id="fsim-gauges"></canvas></div>
@@ -2810,7 +2854,8 @@ export function openFlightSim(opts = {}) {
   // Home waypoint locks onto: airfields, named landmarks (Precinct 9, the Embassy…) AND spatial
   // regions (Coldwater Basin, The Reach…), so you can point the guide at any real place. Keyed
   // by id so the choice survives the list re-sort. ✕ (radio button / \ key) clears it entirely.
-  const targetList = () => [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
+  // The tablet-map tile designation leads the list (it is the one the pilot asked for by hand).
+  const targetList = () => [...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const cycleApTarget = (dir) => {
     const list = targetList();
     if (!list.length) { fsimToast('— NO DESTINATIONS IN RANGE —'); return; }
@@ -2824,6 +2869,9 @@ export function openFlightSim(opts = {}) {
   // cleared state (the per-frame resolve won't auto-snap back to the nearest field) until the
   // pilot picks a new target with [ / ] or the radio ◂/▸.
   const clearApTarget = () => {
+    // Clearing a tile designation has to reach the server, or the next context push puts
+    // the crosshair straight back and the ✕ reads as broken.
+    if (F.apTargetId === 'wp') { F.waypoint = null; F._wpKey = ''; sendCmdSilent('flightwaypoint clear'); }
     F.apTargetId = null; F.apCleared = true;
     const nmEl = document.getElementById('fsim-tgt-name');
     if (nmEl) nmEl.textContent = '—';
@@ -2953,7 +3001,8 @@ export function openFlightSim(opts = {}) {
   // Ammo pips: hardpoint diamonds with guns selected, missiles-remaining darts with MSL.
   const paintPips = () => {
     if (!pipsEl) return;
-    pipsEl.textContent = F.weapon === 'msl' ? (F.msl > 0 ? '▲'.repeat(F.msl) : '—') : '◆'.repeat(F.hardpoints);
+    pipsEl.textContent = F.weapon === 'bomb' ? (F.bombs > 0 ? '●'.repeat(F.bombs) : '—')
+      : F.weapon === 'msl' ? (F.msl > 0 ? '▲'.repeat(F.msl) : '—') : '◆'.repeat(F.hardpoints);
   };
   F.paintPips = paintPips;   // flight_ctx refreshes the rail count → repaint
   if (F.hardpoints > 0) {
@@ -2970,11 +3019,16 @@ export function openFlightSim(opts = {}) {
     setWeapon = (w) => {
       if (w === F.weapon) return;
       F.weapon = w;
-      if (wpnBtn) { wpnBtn.textContent = w === 'msl' ? 'MSL' : 'GUN'; wpnBtn.classList.toggle('hot', w === 'msl'); }
+      if (wpnBtn) { wpnBtn.textContent = w === 'bomb' ? 'BMB' : w === 'msl' ? 'MSL' : 'GUN'; wpnBtn.classList.toggle('hot', w !== 'guns'); }
       paintPips();
-      fsimToast(w === 'msl' ? `▲ MISSILES · ${F.msl} ON THE RAILS` : '◆ GUNS');
+      fsimToast(w === 'bomb' ? `● BOMBS · ${F.bombs} ON THE RACK` : w === 'msl' ? `▲ MISSILES · ${F.msl} ON THE RAILS` : '◆ GUNS');
     };
-    add(wpnBtn, 'click', () => setWeapon(F.weapon === 'msl' ? 'guns' : 'msl'));
+    // The select cycles through whatever this airframe actually carries, so a Shrike steps
+    // GUN → BMB and a Reaper steps GUN → MSL without either learning about the other.
+    add(wpnBtn, 'click', () => {
+      const ring = ['guns', ...(F.bombCap > 0 ? ['bomb'] : []), ...(F.msl > 0 || F.salvo > 1 ? ['msl'] : [])];
+      setWeapon(ring[(ring.indexOf(F.weapon) + 1) % ring.length] || 'guns');
+    });
     add(flareBtn, 'click', () => { if (F.reportedAirborne) sendCmdSilent('flares'); });
     // FIRE is a HELD trigger (touch/mouse): the frame loop squirts bursts while down.
     const holdFire = (on) => (e) => { if (e) e.preventDefault(); F.firing = on; };
@@ -4126,7 +4180,22 @@ function fsimFrame(now) {
   // harder cap + validates the shot); missiles are a single launch per squeeze off a full
   // lock. With no air solution, an armed craft still falls back to the ground-AA strafe pass.
   if (F.firing && F.armed && F.reportedAirborne) {
-    if (F.weapon === 'msl' && F.salvo > 1) {
+    if (F.weapon === 'bomb') {
+      // One bomb per squeeze, and only when the dive is actually set. The client checks the
+      // gate purely so the trigger feels dead in level flight rather than firing a command
+      // that gets refused — the SERVER decides, off its own reconciled telemetry.
+      if (!F.fireHeld && F.bombs > 0 && (!F.lastBombMs || now - F.lastBombMs >= 2500)) {
+        if (diveQuality(s) > 0) {
+          F.lastBombMs = now;
+          F.bombs = Math.max(0, F.bombs - 1);   // optimistic; flight_ctx refreshes the authoritative count
+          sendCmdSilent('bomb');
+          if (F.paintPips) F.paintPips();
+        } else if (!F.bombNagMs || now - F.bombNagMs > 1500) {
+          F.bombNagMs = now;
+          fsimToast('✜ NOSE DOWN — the rack will not release out of a dive');
+        }
+      }
+    } else if (F.weapon === 'msl' && F.salvo > 1) {
       // Swarm: one ripple per squeeze, no lock required. A bogey under the nose takes it;
       // with nothing in the air the salvo goes to the GROUND — the attack heli's real job
       // (a standoff strike on what's ahead, rather than the gun pass's overfly).
@@ -4185,7 +4254,7 @@ function fsimFrame(now) {
   // Destinations = airfields + named landmarks + spatial regions (same shape), so the guide can
   // lock onto any of them. When the pilot has cleared all waypoints (F.apCleared) we resolve
   // nothing and leave the readout blank — no auto-snap back to the nearest field.
-  const fieldList = [...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
+  const fieldList = [...(F.waypoint ? [F.waypoint] : []), ...(Array.isArray(F.fields) ? F.fields : []), ...(Array.isArray(F.landmarks) ? F.landmarks : []), ...(Array.isArray(F.regions) ? F.regions : [])];
   const nmEl = document.getElementById('fsim-tgt-name');
   if (F.apCleared) {
     if (nmEl) nmEl.textContent = '—';
@@ -4194,7 +4263,9 @@ function fsimFrame(now) {
     const tgt = fieldList.find((f) => f.id === F.apTargetId) || fieldList[0];
     if (tgt.gx != null) {
       const adx = tgt.gx - F.pos.x, ady = tgt.gy - F.pos.y;
-      apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)) };
+      // `kind` ('tile' for a map designation, absent for a place) is what picks the
+      // windshield's crosshair over the gold airfield ring, and what the bombsight reads.
+      apTarget = { dx: adx, dy: ady, name: tgt.name, dist: Math.round(Math.hypot(adx, ady)), kind: tgt.kind || 'place', gx: tgt.gx, gy: tgt.gy };
     }
     // Name + live distance-to-run (tiles), matching the windshield field list's "NAME 42".
     if (nmEl) nmEl.textContent = (tgt.name || 'FIELD').slice(0, 8).toUpperCase() + (apTarget ? '  ' + apTarget.dist : '');
@@ -4241,8 +4312,35 @@ function fsimFrame(now) {
 
   perfEnd();   // sim:systems
   perfBegin('sim:paint');
+  // Live bomb bursts, resolved from their world tiles to offsets from the craft each frame —
+  // exactly as the target ring and the checkride gates are — and retired when they burn out.
+  if (F.bursts.length) {
+    const tNow = performance.now();
+    F.bursts = F.bursts.filter((b) => tNow - b.t0 < b.life);
+  }
+  const burstView = F.bursts.length
+    ? F.bursts.map((b) => ({ dx: b.gx - F.pos.x, dy: b.gy - F.pos.y, age: (performance.now() - b.t0) / b.life, scale: b.scale }))
+    : null;
+  // The bombsight, on the SAME tile cmdBomb will read: the designated waypoint if it is ahead
+  // and in reach, otherwise the tile the nose is pointed at. Kept in step with the server's own
+  // BOMB_RANGE/BOMB_REACH/BOMB_CONE — if these drift, the sight lies about where the bomb goes.
+  let bombsight = null;
+  if (F.bombCap > 0 && F.weapon === 'bomb' && F.reportedAirborne) {
+    const th = (s.heading || 0) * Math.PI / 180;
+    let bx = F.pos.x + Math.sin(th) * 1, by = F.pos.y - Math.cos(th) * 1;
+    const wp = F.waypoint;
+    if (wp) {
+      const d = Math.max(Math.abs(wp.gx - F.pos.x), Math.abs(wp.gy - F.pos.y));
+      const off = Math.abs((((Math.atan2(wp.gx - F.pos.x, -(wp.gy - F.pos.y)) * 180 / Math.PI) - (s.heading || 0) + 540) % 360) - 180);
+      if (d <= 3 && off <= 50) { bx = wp.gx; by = wp.gy; }
+    }
+    const q = diveQuality(s);
+    bombsight = { dx: bx - F.pos.x, dy: by - F.pos.y, q, ready: q > 0 && F.bombs > 0 && F.armed };
+  }
   paintWindshield('fsim-ws', {
     gates: gateView,
+    bursts: burstView,
+    bombsight,
     pitch: d.pitch, bank: d.bank,
     // Render height fraction (drives eye-height/compression). Referenced to 3000ft with a
     // sqrt curve so it ramps HARD off the deck — by ~500ft you're visibly above the buildings.
@@ -4397,7 +4495,59 @@ function fsimFrame(now) {
   F.raf = requestAnimationFrame(fsimFrame);
 }
 
+// ── The dive gate (the Shrike) ────────────────────────────────────────────────
+// Kept here as named constants because THREE things read them — the siren, the HUD ladder and
+// the release cue — and the server's cmdBomb holds the same numbers as the authority. The
+// client's copy decides only what you SEE and HEAR; nothing here is trusted for a release.
+const DIVE_MIN_DEG = 35;    // nose-down angle the release needs
+const DIVE_IAS_MIN = 140;   // and the speed it needs with it
+const DIVE_BEST_DEG = 80;   // a dive this steep is as good as it gets
+// One scalar for how well the dive is set, 0..1 — the same shape the server scores accuracy on.
+function diveQuality(s) {
+  if (!s || s.onGround || !s.airborne) return 0;
+  const down = -(s.pitch || 0);
+  const ang = Math.max(0, Math.min(1, (down - DIVE_MIN_DEG) / (DIVE_BEST_DEG - DIVE_MIN_DEG)));
+  const spd = Math.max(0, Math.min(1.3, (s.ias || 0) / DIVE_IAS_MIN));
+  return Math.max(0, Math.min(1, ang * spd));
+}
+// The wail. It is wind-driven off the dive itself, so it starts to sing BEFORE the release gate
+// opens (from about 20° down) and peaks with the dive — the ground hearing it wind up is the
+// warning, and a siren that only sounded once you were legal to drop would arrive too late to
+// be that. Silent on every other airframe: this is hardware in the Shrike's leg fairings.
+function fsimSiren(F) {
+  if (F.craftType !== 'shrike') return;
+  const s = F.s;
+  const down = s && s.airborne && !s.onGround ? -(s.pitch || 0) : 0;
+  const lean = Math.max(0, Math.min(1, (down - 20) / (DIVE_BEST_DEG - 20)));
+  const spd = Math.max(0, Math.min(1, (s?.ias || 0) / DIVE_IAS_MIN));
+  diveSiren(lean * spd);
+}
+
+// The bombsight readout: dive angle, whether the gate is open, and the rack. Only on an
+// airframe that carries bombs — every other cockpit never builds the element at all.
+function fsimDiveLadder(F) {
+  const el = document.getElementById('fsim-dive'); if (!el) return;
+  const s = F.s;
+  if (!F.bombCap || !s || s.onGround || !s.airborne) { el.style.opacity = '0'; return; }
+  const down = -(s.pitch || 0), ias = s.ias || 0;
+  const angOk = down >= DIVE_MIN_DEG, spdOk = ias >= DIVE_IAS_MIN;
+  const ready = angOk && spdOk && F.bombs > 0 && F.armed;
+  el.style.opacity = down > 8 || ready ? '1' : '0.34';
+  el.className = 'fsim-dive' + (ready ? ' ready' : angOk || spdOk ? ' near' : '');
+  // Three facts, in the order you need them going over the top: how steep, how fast, how many.
+  el.innerHTML = `<span class="fd-ang${angOk ? ' ok' : ''}">${down > 0 ? '▼' : '▲'} ${Math.abs(Math.round(down))}°</span>`
+    + `<span class="fd-spd${spdOk ? ' ok' : ''}">${Math.round(ias)} kt</span>`
+    + `<span class="fd-rack">${F.bombs > 0 ? '●'.repeat(F.bombs) : 'EMPTY'}</span>`
+    + (ready ? '<span class="fd-cue">RELEASE</span>' : '');
+  // The cue chimes ONCE per dive, at the moment the gate opens — the pilot is looking at the
+  // ground, not at a readout, so the moment has to be audible.
+  if (ready && !F._diveCue) { F._diveCue = true; try { lockTone(); } catch {} }
+  if (!angOk) F._diveCue = false;
+}
+
 function fsimHorn(F, dt) {
+  fsimSiren(F);
+  fsimDiveLadder(F);
   const lamp = document.getElementById('fsim-lamp'); if (!lamp) return;
   const { s } = F;
   // The lamp + audible horn: continuous in the stall, pulsing on the approach, silent otherwise.
@@ -4814,6 +4964,19 @@ function paintNav(ctx, W, H, F, ox, oy) {
   ctx.strokeStyle = accA(0.18); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.32, 0, 7); ctx.stroke();
 }
 
+// A bomb going off, from the server that resolved it. Anchored to the WORLD TILE it landed on
+// rather than to a screen position, so the fireball stays where the bomb went while you haul
+// off the target and it slides away underneath you — which is the whole reason to draw it in
+// the 3D view instead of flashing the screen. `q` (dive quality) sizes it a little: a
+// well-aimed bomb reads bigger because you are closer to it and looking straight down at it.
+export function flightBurst(msg) {
+  const F = _fsim; if (!F || !msg || !Number.isFinite(msg.gx)) return;
+  const now = performance.now();
+  F.bursts.push({ gx: msg.gx, gy: msg.gy, t0: now, life: 2600, scale: 0.85 + 0.35 * (msg.q || 0) });
+  if (F.bursts.length > 6) F.bursts.shift();   // a hard cap — nothing sensible has six live bombs
+  try { hitFx(); } catch {}
+}
+
 // Server context push (authoritative fuel + the world below).
 export function flightSimContext(msg) {
   const F = _fsim; if (!F || !msg) return;
@@ -4825,6 +4988,20 @@ export function flightSimContext(msg) {
   if (msg.fields) F.fields = msg.fields;
   if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)
   if (msg.regions) F.regions = msg.regions;   // spatial world-map places (Coldwater Basin…) the guide can lock onto (cycled alongside fields/landmarks)
+  // The pilot's own tile designation from the tablet map. Auto-selects, because tapping
+  // 'Target here' is an explicit act of intent and nobody wants to then hunt for it with
+  // the cycle key. Latched on a CHANGE of coords only -- re-selecting it on every 2s push
+  // would make [ / ] unusable, since the guide would snap back a moment after every step.
+  {
+    const wp = msg.waypoint || null;
+    const key = wp ? wp.gx + ',' + wp.gy : '';
+    if (key !== F._wpKey) {
+      F._wpKey = key;
+      if (wp) { F.apTargetId = 'wp'; F.apCleared = false; }
+      else if (F.apTargetId === 'wp') { F.apTargetId = null; }
+    }
+    F.waypoint = wp;
+  }
   if ('onField' in msg) F.onField = !!msg.onField;   // rolled onto a real airfield → auto-park + open the hangar on full stop
   if ('onYacht' in msg) F.onYacht = !!msg.onYacht;   // a VTOL set down alongside the Echelon → auto-land on her helipad
   if (msg.occupants) { F.occupants = msg.occupants; if (msg.seats) F.seats = msg.seats; renderSeats(F); }   // cabin readout keeps pace with boarding
@@ -4836,6 +5013,8 @@ export function flightSimContext(msg) {
   if (typeof msg.hull === 'number') F.hull = msg.hull;   // authoritative hull for the cockpit readout
   if ('surfaces' in msg) F.surfaces = msg.surfaces || null;   // authoritative sheared-surface state → asymmetric physics + live breakup model (null = intact/repaired)
   if (typeof msg.msl === 'number' && msg.msl !== F.msl) { F.msl = msg.msl; if (F.paintPips) F.paintPips(); }   // authoritative rail count
+  if (typeof msg.bombCap === 'number') F.bombCap = msg.bombCap;
+  if (typeof msg.bombs === 'number' && msg.bombs !== F.bombs) { F.bombs = msg.bombs; if (F.paintPips) F.paintPips(); }   // authoritative rack count
   F.warn = msg.warn || null;
   // Guided checkride: store the current instruction + ring gates, and refresh the
   // persistent guidance card + control spotlight. renderCheckride redraws only on a stage

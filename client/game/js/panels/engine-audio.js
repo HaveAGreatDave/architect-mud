@@ -21,6 +21,7 @@ const CLASS_AUDIO = {
   locust:     { idle: [40, 66],  power: [96, 156],  wave: 'sawtooth', nm: 0.6, wind: 1.0, chug: 6 },   // big crop-duster radial: low, lumpy lope
   heavy:      { idle: [36, 68],  power: [110, 215], wave: 'sawtooth', nm: 0.72, wind: 1.35, whine: 1 },
   gunship:    { idle: [58, 116], power: [165, 300], wave: 'square',   nm: 0.8, wind: 1.35, whine: 1 },
+  divebomber: { idle: [34, 62],  power: [86, 148],  wave: 'sawtooth', nm: 0.7, wind: 1.2, whine: 1, chug: 5 },   // one big turbine on a big slow prop: low blade whomp under a turbine edge
   wreck:      { idle: [47, 73],  power: [100, 150], wave: 'sawtooth', nm: 0.6, wind: 1.0, detune: 1 },
 };
 const prof = (cls) => CLASS_AUDIO[cls] || CLASS_AUDIO.prop;
@@ -49,6 +50,13 @@ const FE_VOICE = {
   locust:     { coreB: 28, coreS: 48, wave: 'sawtooth', pulseB: 16, pulseS: 18, pDep: [0.34, 0.40], biteB: 520,  biteS: 300,  biteM: 1.0, subB: 16, subM: 1.6, lpB: 180, lpS: 820,  crk: 1.5,  det: 1.012, mas: 1.1 },   // crop-duster radial: deep round-motor with a slow lumpy blade "lope" + burbling exhaust
   heavy:      { coreB: 20, coreS: 50, wave: 'sawtooth', pulseB: 30, pulseS: 30, pDep: [0.09, 0.14], biteB: 1050, biteS: 1700, biteM: 2.2, subB: 12, subM: 2.8, lpB: 260, lpS: 1700, crk: 0.4,  det: 1.005, mas: 1.3 },   // An-124: 4 D-18T turbofans — deep roar, huge lows, big turbine whine
   gunship:    { coreB: 30, coreS: 70, wave: 'sawtooth', pulseB: 36, pulseS: 40, pDep: [0.10, 0.15], biteB: 900,  biteS: 1400, biteM: 1.4, subB: 14, subM: 2.0, lpB: 300, lpS: 1500, crk: 0.45, det: 1.006, mas: 1.15 },   // A-10: twin TF34 turbofans — deep hum-growl + big lows, not a fighter scream
+  // The Shrike. A single big turbine swinging a huge slow prop, which is a combination almost
+  // nothing else in the fleet has: the BLADE is the sound, not the engine. A very low pulse rate
+  // with a deep modulation index gives that heavy rhythmic whomp you hear coming a long way off,
+  // and a real turbine bite sits on top of it so she does not read as a piston aeroplane. She has
+  // to be recognisable by ear alone before the siren ever starts, because on the ground the noise
+  // arrives first and knowing what it is IS the mechanic.
+  divebomber: { coreB: 26, coreS: 56, wave: 'sawtooth', pulseB: 14, pulseS: 22, pDep: [0.38, 0.44], biteB: 820, biteS: 900, biteM: 1.5, subB: 15, subM: 1.9, lpB: 200, lpS: 1200, crk: 0.8, det: 1.010, mas: 1.15 },
   wreck:      { coreB: 35, coreS: 40, wave: 'sawtooth', pulseB: 18, pulseS: 16, pDep: [0.34, 0.42], biteB: 540,  biteS: 260,  biteM: 0.9, subB: 23, subM: 1.0, lpB: 175, lpS: 680,  crk: 1.4,  det: 1.016, mas: 0.95 },
   // THE LONG HAUL's diesel. The row is the whole port: one line, no new graph, because the twelve
   // layers below were never aircraft-specific — only their numbers were.
@@ -383,10 +391,10 @@ function startLoops(cls, engines) {
 }
 function killLoops(fast) {
   const ae = AE(); if (!ae) return;
-  const ids = ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll', 'flt-stallhorn', 'flt-weather'];
+  const ids = ['flt-eng-idle', 'flt-eng-power', 'flt-wind', 'flt-roll', 'flt-stallhorn', 'flt-weather', ...SIREN_IDS];
   ids.forEach(id => ae.setLoopGain?.(id, 0, fast ? 0.15 : 0.6));
   setTimeout(() => { try { ids.forEach(id => ae.stopLoop(id)); } catch {} }, fast ? 200 : 800);
-  running = false; curClass = null; curWeather = null; _hornOn = false;
+  running = false; curClass = null; curWeather = null; _hornOn = false; _sirenOn = false;
 }
 
 // killLoops also stops the loops that live INDEPENDENTLY of `running` — the stall
@@ -403,7 +411,7 @@ export function updateEngineAudio(s) {
   // (running) OR the independently-started stall horn / weather bed. Broadening past
   // `running` stops a stall horn left ringing after a fixed-wing shutdown on the deck;
   // once its flags clear, subsequent ~4/s ticks skip it, so no churn.
-  if (!s || (!s.airborne && !s.engineOn)) { if (running || _hornOn || curWeather) killLoops(false); stopFlightEngine(false); return; }
+  if (!s || (!s.airborne && !s.engineOn)) { if (running || _hornOn || _sirenOn || curWeather) killLoops(false); stopFlightEngine(false); return; }
 
   // Continuous cockpit (the fixed-wing fleet) → the live parametric FlightEngine synth, voiced
   // per class; deck craft (the heli) → static crossfaded loops.
@@ -476,6 +484,16 @@ const SPOOL_UP = {
     { waveform: 'square', freq: 30, tremolo: { rate: 5.5, depth: 0.9 }, filter: { type: 'lowpass', freq: 300, q: 1 }, adsr: { a: 0.05, d: 1.1, s: 0.2, r: 0.2 }, gain: 0.10 },                              // big cylinders turning over (slow lumpy chug)
     { waveform: 'sawtooth', freq: 34, delay: 1.0, pitchBend: { to: 150, time: 1.4 }, filter: { type: 'lowpass', freq: 620, q: 1 }, adsr: { a: 0.06, d: 1.3, s: 0.5, r: 0.3 }, gain: 0.12 },                 // catch + wind up to a loping idle
     { waveform: 'noise', noiseMix: 1, delay: 1.0, filter: { type: 'bandpass', freq: 240, q: 1 }, tremolo: { rate: 8, depth: 0.5 }, adsr: { a: 0.06, d: 1.2, s: 0.35, r: 0.3 }, gain: 0.07 } ] },            // burbling radial exhaust
+  // Shrike: a big turbine lighting a big prop. Cartridge bang first — she is started by an
+  // explosive charge, which is the one theatrical detail in an otherwise grim aeroplane — then a
+  // long turbine wind-up under a slow, heavy blade chop that accelerates until the individual
+  // blades stop being audible as separate events.
+  divebomber: { duration: 3.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 520, q: 0.7 }, adsr: { a: 0.004, d: 0.30, s: 0, r: 0.12 }, gain: 0.11 },                                                            // the cartridge going off
+    { waveform: 'triangle', freq: 48, pitchBend: { to: 560, time: 2.5 }, filter: { type: 'lowpass', freq: 2400, q: 1.4 }, adsr: { a: 0.18, d: 2.5, s: 0.5, r: 0.4 }, gain: 0.10 },                          // turbine winding up
+    { waveform: 'square', freq: 26, tremolo: { rate: 4.5, depth: 0.92 }, delay: 0.25, filter: { type: 'lowpass', freq: 320, q: 1 }, adsr: { a: 0.10, d: 1.6, s: 0.3, r: 0.3 }, gain: 0.11 },                // the blade chop, slow and heavy at first
+    { waveform: 'sawtooth', freq: 30, delay: 1.1, pitchBend: { to: 138, time: 1.6 }, filter: { type: 'lowpass', freq: 700, q: 1 }, adsr: { a: 0.08, d: 1.5, s: 0.55, r: 0.35 }, gain: 0.12 },               // settling into a loping idle
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 1300, q: 0.7 }, adsr: { a: 0.9, d: 2.0, s: 0.4, r: 0.4 }, gain: 0.04 } ] },                                                         // compressor airflow
   // Salvaged wreck: it doesn't want to start — a couple of dead coughs, then a
   // rough, uneven catch.
   wreck:   { duration: 2.0, layers: [
@@ -874,6 +892,54 @@ export function stallHorn(level) {
     _hornOn = true;
   }
   if (_hornOn) ae.setLoopGain?.('flt-stallhorn', Math.max(0, Math.min(0.6, level)), 0.05);   // pulse/steady via gain (no restart churn)
+}
+
+// ── THE DIVE SIREN (the Shrike) ───────────────────────────────────────────────
+// The wail. It is the aircraft's actual weapon as far as anyone on the ground is concerned,
+// and it is a wind-driven siren in the leg fairings, so it is powered by the dive itself:
+// nose down, speed up, and it climbs. `level` is 0..1 of dive commitment.
+//
+// ⚠ THE LOOP API HAS NO PITCH CONTROL — only setLoopGain. So the rise is built as THREE
+// fixed-pitch layers, each its own loop, cross-faded by gain as the level climbs. That is the
+// same trick the ground-roll bed uses, and it is deliberately not "add a setLoopRate": one
+// rate-changing loop would need every consumer of the loop API to grow a param it has no other
+// use for, to save three rows of a table.
+//
+// ⚠ EVERY ID HERE IS REGISTERED IN killLoops. These start independently of `running` (the
+// continuous fixed-wing path never sets it), and they are on the ambient bus — which survives
+// every mute — so an unregistered one drones forever after the panel closes. That is the exact
+// bug the comment above killLoops was written about.
+const SIREN_IDS = ['flt-siren-lo', 'flt-siren-mid', 'flt-siren-hi'];
+let _sirenOn = false;
+function sirenLayer(id, f0, f1) {
+  return { id, category: 'ambient', config: { gain: 1, layers: [
+    { waveform: 'sawtooth', freq: f0, filter: { type: 'bandpass', freq: f0 * 2.1, q: 5 }, adsr: { a: 0.08, d: 0, s: 1, r: 0.20 }, gain: 0.085 },
+    { waveform: 'sawtooth', freq: f1, filter: { type: 'bandpass', freq: f1 * 1.9, q: 6 }, adsr: { a: 0.08, d: 0, s: 1, r: 0.20 }, gain: 0.055 },
+    // The wind roar the siren is riding on — without it the layers read as three organ notes
+    // rather than as air being forced through something.
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: f0 * 1.4, q: 1.1 }, adsr: { a: 0.12, d: 0, s: 1, r: 0.25 }, gain: 0.030 } ] } };
+}
+export function diveSiren(level) {
+  const ae = AE(); if (!ae) return;
+  const L = Math.max(0, Math.min(1, level || 0));
+  if (L > 0 && !_sirenOn) {
+    try {
+      ae.loopSound(sirenLayer('flt-siren-lo', 300, 452));
+      ae.loopSound(sirenLayer('flt-siren-mid', 470, 706));
+      ae.loopSound(sirenLayer('flt-siren-hi', 720, 1082));
+    } catch { /* no audio */ }
+    _sirenOn = true;
+  }
+  if (!_sirenOn) return;
+  // Triangular cross-fade across the three layers: at L=0 nothing, L=0.5 the middle alone,
+  // L=1 the top alone — with the neighbours bleeding through in between so the climb is
+  // continuous rather than three audible steps. Overall gain also rises with L, because a
+  // siren that is winding up is getting LOUDER as well as higher.
+  const w = (c) => Math.max(0, 1 - Math.abs(L - c) / 0.5);
+  const amp = 0.30 + 0.55 * L;
+  ae.setLoopGain?.('flt-siren-lo', w(0.12) * amp, 0.08);
+  ae.setLoopGain?.('flt-siren-mid', w(0.55) * amp, 0.08);
+  ae.setLoopGain?.('flt-siren-hi', w(1.00) * amp, 0.08);
 }
 
 // ── DAMAGE, AS A SOUND ───────────────────────────────────────────────────────

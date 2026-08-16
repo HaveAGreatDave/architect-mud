@@ -507,6 +507,48 @@ const SFX_FLAK_REPORT = {
   },
 };
 
+// THE DIVE SIREN, HEARD FROM THE GROUND. Not the pilot's loop (that lives in the cockpit's own
+// audio layer, ridden off the dive angle) — this is the one-shot everyone underneath gets as she
+// tips over: a wind-driven siren winding UP, so every layer is a rising pitch bend, over an
+// airframe note that gets louder as it comes. It is deliberately long (2.6 s) — the whole point
+// is that it arrives before the bomb does and you have a moment to do something about it.
+// Propagated rather than sent flat, so it fades through walls and carries down the street.
+const SFX_DIVE_SIREN = {
+  id: 'sfx_dive_siren', name: 'sfx_dive_siren', category: 'sfx', priority: 7,
+  config: {
+    duration: 2.6,
+    layers: [
+      { waveform: 'sawtooth', freq: 300, pitchBend: { to: 1080, time: 2.3 }, filter: { type: 'bandpass', freq: 900, q: 5 }, adsr: { a: 0.25, d: 0, s: 1, r: 0.5 }, gain: 0.34 },   // the siren itself, winding up
+      { waveform: 'sawtooth', freq: 452, pitchBend: { to: 1622, time: 2.3 }, filter: { type: 'bandpass', freq: 1400, q: 6 }, adsr: { a: 0.3, d: 0, s: 1, r: 0.5 }, gain: 0.20 },   // its fifth — what makes it a wail and not a tone
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 620, q: 1.1 }, adsr: { a: 0.4, d: 0, s: 1, r: 0.6 }, gain: 0.16 },                                       // air being forced through it
+      { waveform: 'sawtooth', freq: 44, pitchBend: { to: 92, time: 2.4 }, filter: { type: 'lowpass', freq: 260, q: 1.2 }, tremolo: { rate: 5, depth: 0.5 }, adsr: { a: 0.5, d: 0, s: 1, r: 0.7 }, gain: 0.26 },   // the aeroplane behind it, closing
+    ],
+  },
+};
+on('flight.diveSiren', ({ zoneId }) => {
+  if (zoneId) propagateAudio(zoneId, SFX_DIVE_SIREN, 1.0, sendToZone);
+});
+
+// A bomb going off. The heavy end of the catalogue: a sub-bass punch you feel before you hear,
+// the sharp crack of the detonation on top of it, a shattering debris layer, and a long
+// low-passed rumble rolling out afterwards — that tail is what separates a bomb from a gunshot.
+const SFX_BOMB_IMPACT = {
+  id: 'sfx_bomb_impact', name: 'sfx_bomb_impact', category: 'sfx', priority: 8,
+  config: {
+    duration: 2.4,
+    layers: [
+      { waveform: 'sine', freq: 44, pitchBend: { to: 19, time: 0.30 }, filter: { type: 'lowpass', freq: 80, q: 1 }, adsr: { a: 0.001, d: 0.55, s: 0, r: 0.4 }, gain: 0.75 },        // the punch in your chest
+      { waveform: 'sine', freq: 76, pitchBend: { to: 33, time: 0.22 }, filter: { type: 'lowpass', freq: 180, q: 1.1 }, adsr: { a: 0.001, d: 0.40, s: 0, r: 0.3 }, gain: 0.55 },     // body of the blast
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 780, q: 0.7 }, adsr: { a: 0.0005, d: 0.14, s: 0, r: 0.08 }, gain: 0.46 },                                 // the crack
+      { waveform: 'noise', noiseMix: 1, delay: 0.10, filter: { type: 'highpass', freq: 2200, q: 0.6 }, adsr: { a: 0.01, d: 0.7, s: 0, r: 0.5 }, gain: 0.20 },                       // glass and grit coming down
+      { waveform: 'noise', noiseMix: 1, delay: 0.18, filter: { type: 'lowpass', freq: 300, q: 0.7 }, adsr: { a: 0.04, d: 1.3, s: 0, r: 0.9 }, gain: 0.30 },                         // the rumble rolling out
+    ],
+  },
+};
+on('flight.bombImpact', ({ zoneId }) => {
+  if (zoneId) propagateAudio(zoneId, SFX_BOMB_IMPACT, 1.0, sendToZone);
+});
+
 const _lastFlak = new Map();   // siteId → ms of last ground report (per-site bark throttle)
 on('flight.aaFired', ({ zoneId, siteId }) => {
   if (!zoneId) return;

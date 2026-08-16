@@ -18,6 +18,7 @@ import {
   MISSILE_RANGE_GATE, MISSILE_FLIGHT_MS, MISSILE_PK, MISSILE_DMG, MISSILE_COOLDOWN_MS,
   FLARE_DEFEAT, FLARE_WINDOW_MS, FLARE_COOLDOWN_MS, mslAmmo,
   SWARM_PK_MULT, SWARM_DMG_MULT, SWARM_CONE, SWARM_COOLDOWN_MS, salvoOf, effStats, effHardpoints,
+  bombLoad, bombAmmo,
 } from './state.js';
 import { conspicuousnessMult } from './livery.js';
 import { getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
@@ -355,6 +356,179 @@ async function fireSwarmGround(live, player) {
 
   const where = best ? best.site.name : `${tx},${ty}`;
   return { type: 'emote', message: `<span class="text-cyan">RIFLE — ${n} missiles off the rails onto ${where}.</span>` };
+}
+
+// ── THE DIVE BOMB (the Shrike) ────────────────────────────────────────────────
+// Every other air-to-ground weapon in this file is fired from level flight. This one cannot be:
+// the release gate demands a real dive, at real speed, with the target actually ahead of the
+// nose — and that gate IS the weapon's design. A Shrike that could pickle from cruise would be a
+// worse Reaper with a novelty sound effect.
+//
+// ⚠ THE DIVE IS READ FROM `live.cont`, WHICH IS THE RECONCILED TELEMETRY, never from an argument.
+// The client owns the aeroplane's position and attitude, and `reconcile` is where that gets
+// clamped and sanity-checked; taking a pitch angle off the command line would let a modified
+// client drop from straight and level by typing a number.
+//
+// The tile it lands on is DEVASTATED and the neighbours are spill. That asymmetry is the whole
+// tuning: standing on the aim point is close to fatal, standing next door is a bad day. A bomb
+// that spread its chance evenly over five tiles would reward aiming at nothing in particular.
+const BOMB_COOLDOWN_MS = 2500;
+const BOMB_DIVE_DEG = 35;                   // nose-down angle the release needs
+const BOMB_IAS_MIN = 140;                   // and the speed to go with it
+const BOMB_BEST_DEG = 80;                   // a dive this steep scores full marks
+const BOMB_CONE = 50;                       // forward cone the designated tile must sit in (deg)
+const BOMB_RANGE = 3;                       // tiles — how far ahead a designated tile can be
+const BOMB_REACH = 1;                       // tiles ahead the bomb falls with nothing designated
+const BOMB_DMG = { min: 70, max: 120 };     // on the aim point
+const BOMB_SPILL = 0.5;                     // damage multiplier on the four neighbours
+const BOMB_HIT_SPILL = 0.30;                // and their much lower chance to catch anybody
+
+// How well the dive is set, 0..1. Shared by the release gate's accuracy and the client's HUD
+// ladder, which holds the same three constants for display only.
+export function diveQuality(pitch, ias) {
+  const down = -(pitch || 0);
+  const ang = Math.max(0, Math.min(1, (down - BOMB_DIVE_DEG) / (BOMB_BEST_DEG - BOMB_DIVE_DEG)));
+  const spd = Math.max(0, Math.min(1.3, (ias || 0) / BOMB_IAS_MIN));
+  return Math.max(0, Math.min(1, ang * spd));
+}
+
+async function cmdBomb(args, raw, player) {
+  const { live, err } = requirePilot(player); if (err) return err;
+  // `advise` mirrors cmdStrafe: the continuous cockpit fires this on a button and must stay
+  // quiet on a refusal, but somebody who TYPED `bomb` deserves to be told why not.
+  const advise = (msg) => (raw ? { type: 'emote', message: msg } : { type: 'noop' });
+  const a = live.row, c = live.cont || {};
+  if (!bombLoad(live)) return advise('<span class="text-amber">This aircraft has no bomb rack.</span>');
+  if (!a.airborne) return advise('<span class="text-amber">On the ground. Not from here.</span>');
+  if (!a.weapons_hot) return advise('<span class="text-amber">Weapons are safe — <b>arm</b> first.</span>');
+  if (effHardpoints(live) < 1) return advise('<span class="text-amber">The pylons are shot away.</span>');
+  if (bombAmmo(live) < 1) return advise('<span class="text-amber">Rack is empty — rearm at a field.</span>');
+  const nowMs = Date.now();
+  if (live.lastBomb && nowMs - live.lastBomb < BOMB_COOLDOWN_MS) return { type: 'noop' };
+  if (a.altitude_band === 'high') return advise('<span class="text-amber">Too high to pick out anything on the ground — bring her down.</span>');
+  const down = -(c.pitch || 0);
+  if (down < BOMB_DIVE_DEG) return advise(`<span class="text-amber">The sight will not settle in level flight. Put the nose down — properly, past ${BOMB_DIVE_DEG}°.</span>`);
+  if ((c.airspeed || 0) < BOMB_IAS_MIN) return advise(`<span class="text-amber">Not enough speed in the dive — you need ${BOMB_IAS_MIN} knots on the clock before the rack will let go.</span>`);
+
+  // WHERE IT GOES. The pilot's designated tile wins if it is genuinely ahead and in reach; that
+  // is what the tablet map's crosshair is for. Failing that, the tile the nose is pointed at.
+  // The nose vector is computed exactly as fireSwarmGround does — bearingDeg is atan2(dx, -dy),
+  // hence the inversion, and getting it wrong drops the bomb behind you.
+  const th = toDeg(a.heading) * Math.PI / 180;
+  const fx = Math.sin(th), fy = -Math.cos(th);
+  const wp = player.flightWaypoint;
+  let tx = Math.round(a.grid_x + fx * BOMB_REACH), ty = Math.round(a.grid_y + fy * BOMB_REACH), aimed = false;
+  if (wp) {
+    const d = cheb(a.grid_x, a.grid_y, wp.x, wp.y);
+    const off = Math.abs(((bearingDeg(a.grid_x, a.grid_y, wp.x, wp.y) - toDeg(a.heading) + 540) % 360) - 180);
+    if (d <= BOMB_RANGE && off <= BOMB_CONE) { tx = wp.x; ty = wp.y; aimed = true; }
+  }
+
+  const q = diveQuality(c.pitch, c.airspeed);
+  live.lastBomb = nowMs;
+  live.bombs = bombAmmo(live) - 1;
+  pushContext(live);   // authoritative rack count, now
+
+  // A badly-set dive walks the bomb off the aim point. It still lands, and it still goes off —
+  // it is simply somewhere else, which is the honest failure for an unguided weapon.
+  let ax = tx, ay = ty;
+  if (Math.random() > 0.35 + 0.65 * q) { ax += Math.round((Math.random() - 0.5) * 2.4); ay += Math.round((Math.random() - 0.5) * 2.4); }
+  const zone = surfaceAt(ax, ay);
+
+  if (zone) {
+    emit('flight.bombImpact', { zoneId: zone.id });
+    sendToZone(zone.id, { type: 'zone_event',
+      message: '<span class="text-red">The wail overhead stops. A half-second of nothing — then the world goes white and the ground picks itself up and hits you.</span>' });
+  }
+  // The pilot's own view of it, so the windshield can throw up the burst at the right spot.
+  toOccupants(live, `<span class="text-red">💣 BOMB AWAY — ${bombAmmo(live)} left on the rack.</span>`);
+  sendToPlayer(player.id, { type: 'flight_burst', gx: ax, gy: ay, q: +q.toFixed(2) });
+
+  if (zone) {
+    await bombBlastTile(zone, live, player, 1, 1);
+    // The four neighbours, at half weight and a much lower chance — spill, not a second bomb.
+    for (const [nx, ny] of [[ax + 1, ay], [ax - 1, ay], [ax, ay + 1], [ax, ay - 1]]) {
+      const nz = surfaceAt(nx, ny);
+      if (nz) await bombBlastTile(nz, live, player, BOMB_SPILL, BOMB_HIT_SPILL);
+    }
+  }
+  // An emplacement standing on the aim point is simply gone — this is the weapon for that job.
+  await bombKillAA(ax, ay, zone, player);
+
+  const off = (ax !== tx || ay !== ty);
+  const grade = q > 0.75 ? 'Dead centre.' : q > 0.4 ? 'Close enough.' : 'Ugly, but it is down.';
+  return { type: 'emote', message: off
+    ? `<span class="text-amber">RELEASE — and it goes long. The bomb walks off to ${ax},${ay}.</span>`
+    : `<span class="text-cyan">RELEASE — ${aimed ? 'onto the designated tile' : `onto ${ax},${ay}`}. ${grade}</span>` };
+}
+
+// An AA emplacement on the tile a bomb just landed on. Guarded UPDATE + the same cache
+// invalidation and event the swarm path uses, so nothing downstream has to know a new weapon
+// exists. Skill pays out generously: this is the hardest way in the game to kill one.
+async function bombKillAA(ax, ay, zone, player) {
+  const { rows } = await query(
+    `SELECT s.id, s.name, s.zone_id FROM aa_sites s JOIN zones z ON z.id = s.zone_id
+      WHERE s.active = 1 AND z.grid_x = $1 AND z.grid_y = $2 LIMIT 1`, [ax, ay]);
+  if (!rows.length) return;
+  const site = rows[0];
+  const upd = await query('UPDATE aa_sites SET active=0 WHERE id=$1 AND active=1', [site.id]);
+  if (!upd.rowCount) return;
+  invalidateAASiteCache();
+  emit('flight.aaSilenced', { siteId: site.id, siteName: site.name, zoneId: site.zone_id });
+  await awardSkillUse(player.id, 'piloting', 3);
+  if (zone) sendToZone(zone.id, { type: 'zone_event', message: `${site.name} ceases to exist.`, refresh: true });
+  out(player.id, `<span class="text-green">SPLASH — ${site.name} is a hole in the ground.</span>`);
+}
+
+// The blast. Structurally a copy of swarmBlastTile, and deliberately so: every correctness
+// property that one has — own occupants excluded, players through applyStrikeToPlayer with
+// handlePlayerDeath on a kill, NPCs and enemies through their own kill helpers, and the crime
+// charged in the TARGET tile where the cameras are rather than in the empty sky — has to hold
+// here too, and the way to guarantee that is to keep the shape.
+//
+// `dmgMult`/`hitMult` are what make one tile devastation and the next four spill.
+async function bombBlastTile(zone, live, player, dmgMult, hitMult) {
+  const occ = new Set(live.occupants);
+  const players = getZonePlayers(zone.id).filter(p => p && !occ.has(p.id));
+  const npcs = getZoneNpcs(zone.id).filter(n => n && !n._dead);
+  const enemies = getZoneEnemies(zone.id).filter(e => e && (e.hp ?? 1) > 0);
+  if (!players.length && !npcs.length && !enemies.length) return;
+
+  // On the aim point this is 0.92 — standing where the bomb lands is very nearly fatal and is
+  // meant to be. On a neighbour it drops to a bit over a quarter.
+  const hit = 0.92 * hitMult;
+  const dmg = () => rnd(Math.round(BOMB_DMG.min * dmgMult), Math.round(BOMB_DMG.max * dmgMult));
+
+  let hitPlayer = false, killedPlayer = false;
+  for (const p of players) {
+    if (Math.random() >= hit) {
+      out(p.id, '<span class="text-amber">The blast throws you flat and the air goes out of you — but you are still whole.</span>');
+      continue;
+    }
+    const lo = Math.round(BOMB_DMG.min * dmgMult), hi = Math.round(BOMB_DMG.max * dmgMult);
+    const r = await applyStrikeToPlayer(p, { min: lo, max: hi, damageType: 'explosive' });
+    hitPlayer = true;
+    if (r.killed) {
+      killedPlayer = true;
+      out(p.id, '<span class="text-red">The bomb goes off where you are standing. That is all.</span>');
+      announceKill(player.id, p.handle);
+      await handlePlayerDeath(p, player, { type: 'bomb', label: `Bombed from a dive by ${player.handle}` });
+    } else {
+      out(p.id, `<span class="text-red">The blast tears into your <span class="hit-part">${r.partLabel}</span> for <span class="dmg-taken">${r.damage}</span>.</span>`);
+    }
+  }
+  for (const n of npcs) {
+    if (Math.random() >= hit) continue;
+    n.hp = Math.max(0, (n.hp ?? n.hp_max ?? 20) - dmg());
+    if (n.hp <= 0) { const dead = killNpcInstance(n.id); if (dead) { announceKill(player.id, dead.name); emit('npc.killed', { actor: player, npc: dead }); } }
+  }
+  for (const e of enemies) {
+    if (Math.random() >= hit) continue;
+    e.hp = Math.max(0, (e.hp ?? e.hp_max ?? 20) - dmg());
+    if (e.hp <= 0) { announceKill(player.id, e.name); killEnemyInstance(player, e.instanceId); }
+  }
+  if (hitPlayer) await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'attack_player', zoneId: zone.id } });
+  if (killedPlayer) await dispatchAction({ type: 'CHARGE_CRIME', actor: player, params: { key: 'murder', zoneId: zone.id } });
 }
 
 // Soft targets standing in the blast footprint. Mirrors the strafe rake's shape (own
@@ -805,6 +979,7 @@ export const commands = {
   arm: cmdArm,
   safe: cmdSafe,
   evade: cmdEvade,
+  bomb: cmdBomb,
   strafe: cmdStrafe,
   fire: cmdStrafe,
   strafresolve: cmdStrafeResolve,

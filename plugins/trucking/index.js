@@ -540,7 +540,7 @@ async function cmdYard(args, raw, player) {
   // Fetching one home is the third thing a yard does with a truck, so it sits with buying and selling.
   if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
 
-  return await depotPanel(player, bay, depot, 'fleet');
+  return await depotPanel(player, bay, depot, 'fleet', sub === 'text');
 }
 
 // The depot the player is at, from EITHER side of the roller door. Every depot verb goes through
@@ -601,7 +601,7 @@ function axesFor(typeId, cd, condition) {
 //
 // The verbs survive as entry points, exactly as `hangar` does — walking in is the discovery path,
 // typing is the deliberate one, and both land on the same screen.
-async function depotPanel(player, hereIn, depotIn, tab = 'fleet') {
+async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = false) {
   // WHERE THE PANEL IS OPENED FROM IS NOT WHERE THE MARKET IS. A depot is two zones now — the bay
   // you are standing in and the apron outside its door — and every economic question (which region
   // is this, what is the freight board here) is a question about the PLACE, so it is answered from
@@ -714,8 +714,79 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet') {
     }),
     thereName: other ? regionLabel(other.region) : null,
   };
-  if (await prefersLoggedPanelsOrDefault(player)) return say(textDepot(payload));
+  // `yard text` / `market text` forces the written depot at any rung (the
+  // `shop text` shape). Checked on the caller's behalf via payload.forceText.
+  if (forceText) return say(textDepot(payload));
+  if (await prefersLoggedPanelsOrDefault(player)) return depotDialogPayload(payload);
   return payload;
+}
+
+/**
+ * The depot as a generic list-dialog payload (client/game/js/panels/listdialog.js).
+ *
+ * Four sections of one question — what I own, what is for sale, what needs hauling,
+ * what the exchange pays — which is exactly what the grouped list is for. Reads the
+ * SAME payload `textDepot` does, so the dialog and the prose cannot disagree.
+ *
+ * Every command here is one a player could type, which is what makes the rows
+ * safe to convert: `yard recall`, `yard sell`, `yard buy`, `haul`, `market buy`
+ * are all real verbs and none is invented for the dialog.
+ */
+function depotDialogPayload(p) {
+  const rows = [];
+  for (const t of p.fleet || []) {
+    const cmds = [{ label: `Sell (${t.resale}₵)`, command: `yard sell ${t.id}` }];
+    if (!t.hereNow) cmds.unshift({ label: `Tow home (${t.recall}₵)`, command: `yard recall ${t.id}` });
+    rows.push({
+      group: 'Your fleet',
+      label: `${t.name} (${t.type})`,
+      detail: `${t.kg}kg · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles · ${t.hereNow ? 'here' : `at ${t.whereName}`}`,
+      commands: cmds,
+    });
+  }
+  if (!(p.fleet || []).length) rows.push({ group: 'Your fleet', label: 'You own nothing with wheels on it.' });
+
+  for (const t of p.stock || []) {
+    rows.push({
+      group: 'For sale',
+      label: t.name,
+      detail: `${t.price}₵ · ${t.kg}kg · ${t.tank} tiles a tank · ${t.top}mph${t.afford ? '' : ' · cannot afford'}`,
+      commands: t.afford ? [{ label: 'Buy', command: `yard buy ${t.id}` }] : [],
+    });
+  }
+  for (const b of p.board || []) {
+    rows.push({
+      group: 'Freight board',
+      label: b.name,
+      detail: `${b.kg}kg to ${b.toName} · ${b.pay}₵${b.crosses ? ' · across the waste' : b.local ? ` · in town, ${b.where}` : ''}`,
+      commands: [{ label: 'Haul', command: `haul ${b.i + 1}` }],
+    });
+  }
+  if (!(p.board || []).length) rows.push({ group: 'Freight board', label: 'Nothing on the board today.' });
+
+  for (const q of p.quotes || []) {
+    const there = q.thereBid == null ? '' : ` · ${q.thereBid}₵ in ${p.thereName}`;
+    rows.push({
+      group: 'Exchange',
+      label: q.name,
+      detail: `buy ${q.ask}₵ · sell ${q.bid}₵ · ${q.kg}kg${there}`,
+      commands: [{ label: 'Buy', command: `market buy ${q.name}` },
+        { label: 'Sell', command: `market sell ${q.name}` }],
+    });
+  }
+
+  const hold = p.cargo
+    ? (p.cargo.kind === 'goods'
+        ? `On the deck: ${p.cargo.qty} × ${p.cargo.name} (${p.cargo.kg}kg), cost ${p.cargo.paid}₵/unit`
+        : `On the deck: ${p.cargo.name}, contracted to ${p.cargo.to}`)
+    : null;
+  return {
+    type: 'list_dialog',
+    title: `${p.depot} — yard`,
+    subtitle: `${p.credits}₵`,
+    rows,
+    footer: [hold, 'yard text to read it in the log'].filter(Boolean).join(' · '),
+  };
 }
 
 // The log rung reads the identical facts as prose. The panel is a skin; this is the record.
@@ -1212,7 +1283,7 @@ async function cmdMarket(args, raw, player) {
   // Both verbs land on the SAME depot panel, opened on its own tab. `yard` and `market` are two
   // questions about one place, and answering them on two screens made a player compare panels to
   // decide one thing.
-  return await depotPanel(player, here, depot, 'market');
+  return await depotPanel(player, here, depot, 'market', (args?.[0] || '').toLowerCase() === 'text');
 }
 
 // The board and the exchange, as prose — the log rung's half of the same facts.
@@ -2153,6 +2224,20 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
 // is correct as cleanup and wrong as consequence: a dropped socket in the middle of the waste ended
 // the haul, and the haul is the game. `saveDrivingState` writes ONE record and then deletes the rig
 // itself, so the cleanup still happens on every path. See resume.js for what is and is not stored.
+// A dive bomber winding up overhead, heard from the cab. The flight plugin cannot reach a driver
+// through the room pane — a rig on the city leg is standing in a zone but the driver is looking
+// at a windshield, and on the corridor leg there is no real zone at all — so it announces raw
+// world coords and each vehicle system answers for its own. City leg only: the corridor is a
+// synthetic highway across the void and its coordinates are not world tiles, so a distance
+// comparison there would be comparing two different grids and would fire at random.
+on('vehicle.diveSiren', ({ gx, gy, reach, name }) => {
+  for (const rig of rigs.values()) {
+    if (rig.leg !== 'city') continue;
+    if (Math.max(Math.abs(rig.x - gx), Math.abs(rig.y - gy)) > (reach || 6)) continue;
+    sendToPlayer(rig.playerId, { type: 'emote', message: `<span class="text-amber">⚠ A siren winds up somewhere above the cab — a ${name || 'dive bomber'}, coming down.</span>` });
+  }
+});
+
 on('player.logout', ({ id }) => { saveDrivingState(id).catch(() => rigs.delete(id)); });
 // …and back in. Nothing here can strand a login: every failure inside returns false and leaves the
 // player standing exactly where the ordinary login put them.

@@ -25,6 +25,7 @@
 // room — no target to disambiguate, so no SIFT/Action needed.
 
 import { schedule } from '../../server/engine/scheduler.js';
+import { eligibleNpcs } from '../../server/engine/npc-banter.js';
 import { world, getZonePlayers } from '../../server/engine/world.js';
 import { query } from '../../server/models/db.js';
 import { adjustSanity } from '../../server/engine/condition.js';
@@ -114,11 +115,30 @@ function isStreetZone(zone) {
   return zone && zone.flags?.street_life && !zone.is_interior && !zone.is_building && !zone.is_apartment;
 }
 
+// ── {npc} — a vignette about somebody who is actually here ────────────────────
+//
+// Most routines are the street talking to itself and name nobody. A line carrying
+// `{npc}` is instead ABOUT a person: it needs a real, idle, present NPC to be
+// about, and it is skipped entirely when there isn't one. Same token convention
+// as npc-banter's weather/sports tokens, and the same eligibility predicate, so
+// an NPC asleep in a doorway or on shift behind a counter is never the one
+// described crouching over a bootlace in the road.
+//
+// The name is substituted ONCE per routine and reused across every line of a
+// paced vignette, so a three-line scene stays about the same person.
+const NPC_TOKEN = /\{npc\}/;
+
+// Null-safe on `lines`: loadRoutines() only keeps rows that have them, but
+// matches() is also called directly with hand-built routines, and a gate that
+// throws on a missing field would take the whole tick down with it.
+const needsNpc = (routine) => (routine?.lines || []).some(l => NPC_TOKEN.test(l));
+
 function matches(routine, zone, phase, weather) {
   if (routine.zones.length && !routine.zones.includes(zone.id)) return false;
   if (routine.themes.length && !routine.themes.includes(zone.ambient_theme)) return false;
   if (routine.phases.length && !routine.phases.includes(phase)) return false;
   if (routine.weather.length && !routine.weather.includes(weather)) return false;
+  if (needsNpc(routine) && !eligibleNpcs(zone.id).length) return false;
   return true;
 }
 
@@ -179,7 +199,16 @@ function fireRoutine(zoneId, routine) {
     startCooldown(zoneId);
     return;
   }
-  const lines = routine.lines.slice(0, MAX_LINES);
+  // Resolve {npc} once for the whole routine. `matches()` already refused this
+  // routine if the room had nobody eligible, but the tick and the fire are not
+  // the same instant — an NPC can walk out in between — so a late miss drops the
+  // vignette rather than printing the token at the player.
+  let lines = routine.lines.slice(0, MAX_LINES);
+  if (needsNpc(routine)) {
+    const actor = rand(eligibleNpcs(zoneId));
+    if (!actor) { startCooldown(zoneId); return; }
+    lines = lines.map(l => l.replace(/\{npc\}/g, actor.name));
+  }
   if (lines.length === 1) { emitLine(zoneId, lines[0], routine.loudness); startCooldown(zoneId); return; }
   playVignette(zoneId, lines, routine.loudness);
 }

@@ -1,0 +1,19 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_35",
+  "interactive": null,
+  "lines": [
+    "{npc} opens a panel, looks at it, shuts it, and marks nothing down."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 35,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

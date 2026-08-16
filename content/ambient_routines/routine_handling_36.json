@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_36",
+  "interactive": null,
+  "lines": [
+    "{npc} drops a glove, picks it up, and shakes it out twice before putting it back on."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 36,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

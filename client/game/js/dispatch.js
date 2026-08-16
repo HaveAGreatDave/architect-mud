@@ -57,7 +57,7 @@ import { pullConfig, receiveConfig } from './configsync.js';
 import { setTabletAccess, showTabletOffer } from './panels/smartbar.js';
 import { offerInterfaceTour, startInterfaceTour, startTabletTour, consumeTourHandoff } from './panels/tour.js';
 import { playIntroCinematic } from './panels/intro-cinematic.js';
-import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
+import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, flightSimContext, flightBurst, flightSimContacts, flightSimAASites, flightSimAirHit, flightSimKill, flightSimAaTracer, flightSimAirThreat, flightSimFireworks, flightSimLightning, isFlightSimActive, isCockpitHudActive } from './panels/cockpit.js';
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, isCabActive } from './panels/cab-view.js';
@@ -1432,6 +1432,7 @@ const handlers = {
   // when the cab has taken the pane over, because then you did not walk out, you drove.
   truck_depot_close: () => { closeTruckDepot(); if (!isCabActive()) sendCmdSilent('look'); },
   flight_ctx: (msg) => { flightSimContext(msg); },
+  flight_burst: (msg) => { flightBurst(msg); },        // a bomb going off — world-anchored fireball in the windshield
   flight_contacts: (msg) => { flightSimContacts(msg); },   // air-to-air traffic (Phase A: see other craft)
   flight_aasites: (msg) => { flightSimAASites(msg); },     // active ground AA emplacements → 3D turret models
   air_hit: (msg) => { flightSimAirHit(msg); },             // air-to-air gun hit feedback (Phase B)

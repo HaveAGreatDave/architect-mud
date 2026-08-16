@@ -1197,6 +1197,8 @@ export function paintWindshield(id, view) {
       if (v.fireworks) drawFireworks(ctx, cam, v, now);   // admin fireworks bursting over a world tile
       if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
       if (vw.gates) drawGates(ctx, cam, vw, W, H, now);   // checkride pilot-wings rings
+      if (vw.bursts) drawBursts(ctx, cam, vw, W, H);      // bombs going off on the ground below
+      if (vw.bombsight) drawBombsight(ctx, cam, vw, W, H, now);   // the Shrike's dive sight, on the designated tile
     }
     // External chase view: the OWN ship, projected through the very same chase camera as the
     // world (a real 3rd-person camera, not a sprite pasted on a cockpit view), at the craft's
@@ -1449,7 +1451,7 @@ function roundRectPath(ctx, x, y, w, h, r) { ctx.beginPath(); roundRectSub(ctx, 
 // freighter, gunship matte green, wreck weathered grey.
 const HULL_SKIN = {
   ultralight: [190, 196, 202], heli: [96, 132, 110], prop: [172, 180, 190],
-  heavy: [158, 146, 120], gunship: [92, 100, 92], wreck: [120, 118, 106], default: [168, 176, 186],
+  heavy: [158, 146, 120], gunship: [92, 100, 92], divebomber: [78, 92, 82], wreck: [120, 118, 106], default: [168, 176, 186],
 };
 
 // The passenger/side window: everything OUTSIDE a class-shaped pane is filled with the
@@ -2737,7 +2739,7 @@ function drawWindowFrameCached(ctx, W, H, cls, livery, dpr) {
   if (c) ctx.drawImage(c, 0, 0, W, H); else drawWindowFrame(ctx, W, H, cls, livery);
 }
 
-const COWL_DEPTH = { ultralight: 0.12, heli: 0.14, prop: 0.17, heavy: 0.22, gunship: 0.19, wreck: 0.16, default: 0.17 };
+const COWL_DEPTH = { ultralight: 0.12, heli: 0.14, prop: 0.17, heavy: 0.22, gunship: 0.19, divebomber: 0.20, wreck: 0.16, default: 0.17 };
 function drawCowl(ctx, W, H, cls) {
   const d = (COWL_DEPTH[cls] || COWL_DEPTH.default) * H;
   const yCorner = H - d;               // cowl top at the corners
@@ -5910,6 +5912,13 @@ function drawParkTile(ctx, cam, dx, dy, night, seed, alpha, now, feature) {
 // vanished into the haze — see the "THE BEACH" legibility bug). Also matches the gold Home marker,
 // so on-screen ring and off-screen marker now speak one colour language.
 const WP_ACCENT = '255,199,64';
+// A tile designated by hand off the tablet map gets its own colour and its own glyph — a
+// crosshair, not a ring — because it means something different from "that's the airfield":
+// it is a spot you chose, and on the Shrike it is the spot the bomb goes. Magenta rather
+// than the obvious cyan for the reason WP_ACCENT is amber: cyan is analogous to the sky and
+// dissolves into the haze at range (the "THE BEACH" legibility bug). Kept beside WP_ACCENT
+// so the two waypoint vocabularies cannot drift apart.
+const WP_ACCENT_TILE = '255,92,176';
 // A waypoint label floats over sky, cloud OR ground — any background — so it can't rely on its
 // fill colour alone. This is the legibility "modifier": a dark contrast halo (stroke) under a bright
 // core, the same trick the neon signs use (bakeSignText). Background-independent by construction —
@@ -5926,11 +5935,33 @@ function haloLabel(ctx, text, x, y, font, fill) {
 // `v.apTarget = { dx, dy, name, dist }` — tile offset from the craft.
 function drawAirportTarget(ctx, cam, v, W, H, now) {
   const ap = v.apTarget; if (!ap) return;
+  const tile = ap.kind === 'tile';
+  const ACC = tile ? WP_ACCENT_TILE : WP_ACCENT;
   const t = (now || 0) * 0.004, pulse = 0.6 + 0.4 * Math.sin(t);
   const p = cam.proj(ap.dx, ap.dy, 0);
   const onScreen = p.f > 0.12 && p.sx >= 10 && p.sx <= W - 10 && p.sy >= 10 && p.sy <= H - 10;
   ctx.save();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (tile && onScreen) {
+    // Converging crosshair on the tile: four ticks pointing in at a centre gap, a filled
+    // diamond on the exact spot, and the raw coordinates. Same 46/p.f radius law as the
+    // ring below, so it grows on the approach identically — only the glyph changes.
+    const r = clamp(46 / p.f, 11, 130);
+    ctx.strokeStyle = `rgba(${ACC},${0.62 + 0.38 * pulse})`; ctx.lineWidth = 2;
+    for (let a = 0; a < 4; a++) {
+      const ang = a * Math.PI / 2, cxu = Math.cos(ang), cyu = Math.sin(ang);
+      ctx.beginPath();
+      ctx.moveTo(p.sx + cxu * (r + 8), p.sy + cyu * (r + 8));
+      ctx.lineTo(p.sx + cxu * r * 0.32, p.sy + cyu * r * 0.32);
+      ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(${ACC},${0.75 + 0.25 * pulse})`;
+    ctx.beginPath(); ctx.moveTo(p.sx, p.sy - 4); ctx.lineTo(p.sx + 4, p.sy); ctx.lineTo(p.sx, p.sy + 4); ctx.lineTo(p.sx - 4, p.sy); ctx.closePath(); ctx.fill();
+    haloLabel(ctx, (ap.gx != null ? ap.gx + ',' + ap.gy : 'TARGET'), p.sx, p.sy - r - 11, 'bold 8px monospace', `rgb(${ACC})`);
+    haloLabel(ctx, ap.dist + ' mi', p.sx, p.sy - r - 3, '7px monospace', 'rgba(255,190,224,0.95)');
+    ctx.restore();
+    return;
+  }
   if (onScreen) {
     // Accent ring on the field — grows as you close in, pulses so it's easy to find, with a
     // small inner ring, four edge ticks and the field name + distance above it.
@@ -5952,16 +5983,214 @@ function drawAirportTarget(ctx, cam, v, W, H, now) {
   const rad = Math.min(W, H) * 0.4;
   const ex = clamp(cx + sx * rad, 16, W - 16), ey = clamp(cy + sy * rad, 18, H - 16);
   ctx.translate(ex, ey);
-  ctx.fillStyle = `rgba(255,207,62,${0.72 + 0.28 * pulse})`;
+  ctx.fillStyle = tile ? `rgba(${WP_ACCENT_TILE},${0.72 + 0.28 * pulse})` : `rgba(255,207,62,${0.72 + 0.28 * pulse})`;
   ctx.save(); ctx.rotate(Math.atan2(sy, sx));   // arrow toward the field
   ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(5, -5); ctx.lineTo(5, 5); ctx.closePath(); ctx.fill();
   ctx.restore();
+  if (tile) {
+    // Crosshair glyph — a ring with four ticks through it, the same mark as the on-screen form.
+    ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, 4.4, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7.5, 0); ctx.lineTo(-2, 0); ctx.moveTo(2, 0); ctx.lineTo(7.5, 0);
+    ctx.moveTo(0, -7.5); ctx.lineTo(0, -2); ctx.moveTo(0, 2); ctx.lineTo(0, 7.5); ctx.stroke();
+    haloLabel(ctx, (ap.gx != null ? ap.gx + ',' + ap.gy : 'TARGET'), 0, -12, 'bold 7px monospace', `rgba(${WP_ACCENT_TILE},${0.82 + 0.18 * pulse})`);
+    ctx.restore();
+    return;
+  }
   // Little house glyph.
   ctx.beginPath(); ctx.moveTo(-6, 1); ctx.lineTo(0, -5); ctx.lineTo(6, 1); ctx.closePath(); ctx.fill();   // roof
   ctx.fillRect(-4, 1, 8, 6);                                                                                // body
   ctx.fillStyle = 'rgba(20,16,4,0.9)'; ctx.fillRect(-1.4, 3.5, 2.8, 3.5);                                   // door
   haloLabel(ctx, (ap.name || 'FIELD').slice(0, 8).toUpperCase(), 0, -12, 'bold 7px monospace', `rgba(255,215,110,${0.78 + 0.22 * pulse})`);
   ctx.restore();
+}
+
+// ── THE BOMBSIGHT (the Shrike) ────────────────────────────────────────────────
+// The dive sight, drawn on the tile the bomb will actually go to — which is the SAME tile the
+// tablet-map crosshair marks and the same one the server's `bomb` reads. One designation, three
+// consumers, no second copy of the coordinate anywhere.
+//
+// What it tells you that the crosshair does not: a PREDICTED-DISPERSION ring whose radius
+// shrinks as the dive gets better. That ring is the honest picture of an unguided weapon —
+// wide and amber in a lazy dive, tight and green when you have really committed — and it is
+// the only feedback in the game that rewards holding a dive longer than you want to.
+// `v.bombsight = { dx, dy, q, ready }`.
+function drawBombsight(ctx, cam, v, W, H, now) {
+  const b = v.bombsight; if (!b) return;
+  const p = cam.proj(b.dx, b.dy, 0);
+  if (p.f <= 0.12) return;
+  const q = Math.max(0, Math.min(1, b.q || 0));
+  const t = (now || 0) * 0.006, pulse = 0.6 + 0.4 * Math.sin(t);
+  // Tight when the dive is good, wide when it isn't — the ring IS the accuracy readout.
+  const spread = clamp((78 * (1.25 - q)) / p.f, 7, 210);
+  const col = b.ready ? (q > 0.6 ? '126,230,168' : '255,176,60') : '160,170,180';
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Dispersion ring, dashed — a probability, not a thing you can see on the ground.
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = `rgba(${col},${b.ready ? 0.5 + 0.4 * pulse : 0.34})`;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(p.sx, p.sy, spread, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+  // The sight itself: a small hard cross on the aim point, and the two vertical index bars
+  // that make it read as a bomb sight rather than as another waypoint marker.
+  const r = Math.max(6, spread * 0.22);
+  ctx.strokeStyle = `rgba(${col},0.95)`; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(p.sx - r, p.sy); ctx.lineTo(p.sx - r * 0.3, p.sy);
+  ctx.moveTo(p.sx + r * 0.3, p.sy); ctx.lineTo(p.sx + r, p.sy);
+  ctx.moveTo(p.sx, p.sy - r); ctx.lineTo(p.sx, p.sy - r * 0.3);
+  ctx.moveTo(p.sx, p.sy + r * 0.3); ctx.lineTo(p.sx, p.sy + r);
+  ctx.stroke();
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(p.sx - spread, p.sy - 5); ctx.lineTo(p.sx - spread, p.sy + 5);
+  ctx.moveTo(p.sx + spread, p.sy - 5); ctx.lineTo(p.sx + spread, p.sy + 5);
+  ctx.stroke();
+  if (b.ready) haloLabel(ctx, 'RELEASE', p.sx, p.sy - spread - 10, 'bold 9px monospace', `rgba(${col},${0.7 + 0.3 * pulse})`);
+  ctx.restore();
+}
+
+// ── BOMB BURSTS ───────────────────────────────────────────────────────────────
+// A bomb going off on the ground, seen from the aeroplane that dropped it. Projected through
+// the same Mode-7 camera as everything else, so it is ANCHORED TO ITS TILE: it stays where the
+// bomb went while you haul off the target, growing as you close and sliding away behind you.
+// That is the entire reason it lives here rather than being a white flash over the whole screen.
+//
+// Five layers, in the order they happen — because an explosion is a sequence, not a picture, and
+// drawing them at their own rates is what makes it read as one:
+//   1. FLASH        — the first two frames, a blown-out white core. Gone almost immediately.
+//   2. SHOCKWAVE    — a semi-transparent expanding SPHERE: a filled radial gradient that is
+//                     bright at the RIM and hollow in the middle, which is what makes a flat
+//                     circle read as a ball of compressed air rather than a disc.
+//   3. FIREBALL     — the hot core, a few overlapping blobs so the outline is lumpy rather than
+//                     a perfect circle, riding a white → yellow → orange → dull red ramp as it
+//                     cools. It also RISES and expands, because that is what fire does.
+//   4. SMOKE        — a column of soft rising puffs, slowest of the lot and the last thing left.
+//                     Drawn UNDER the fire early and over it late, as the fire dies back into it.
+//   5. SPARKS       — a deterministic radial shower. Deterministic (seeded off the tile) so the
+//                     same burst looks the same on every frame instead of scintillating: there
+//                     is no per-particle state anywhere here, and it does not need any.
+//
+// `age` is 0..1 across the burst's life. Every layer has its OWN curve over that one number,
+// which is what buys a five-stage animation with no simulation behind it.
+function drawBursts(ctx, cam, v, W, H) {
+  for (const b of v.bursts) {
+    const p = cam.proj(b.dx, b.dy, 0);
+    if (p.f <= 0.12) continue;                                  // behind the wing
+    if (p.sx < -400 || p.sx > W + 400 || p.sy < -400) continue;  // comfortably off-screen
+    const a = Math.max(0, Math.min(1, b.age));
+    // Base radius in screen pixels: the same 1/f perspective law the target ring uses, so a
+    // burst you are diving on fills the glass and one three miles off is a speck.
+    const R = clamp((150 * (b.scale || 1)) / p.f, 6, 520);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';   // fire ADDS light; it does not paint over the world
+
+    // 1. FLASH — the detonation itself, over in the first 6% of the life.
+    if (a < 0.06) {
+      const fa = 1 - a / 0.06;
+      const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, R * 1.5);
+      g.addColorStop(0, `rgba(255,255,255,${0.95 * fa})`);
+      g.addColorStop(0.4, `rgba(255,236,180,${0.6 * fa})`);
+      g.addColorStop(1, 'rgba(255,180,90,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, R * 1.5, 0, 7); ctx.fill();
+    }
+
+    // 2. SHOCKWAVE SPHERE — expands fast and fades out by ~45%. Hollow centre, bright rim.
+    if (a < 0.45) {
+      const sa = a / 0.45;
+      const sr = R * (0.5 + 2.6 * Math.sqrt(sa));       // sqrt: fast at first, then decelerating
+      const alpha = (1 - sa) * (1 - sa) * 0.5;          // squared falloff — it thins as it grows
+      const g = ctx.createRadialGradient(p.sx, p.sy, sr * 0.55, p.sx, p.sy, sr);
+      g.addColorStop(0, 'rgba(180,214,255,0)');
+      g.addColorStop(0.72, `rgba(190,220,255,${alpha * 0.30})`);
+      g.addColorStop(0.93, `rgba(226,240,255,${alpha})`);   // the bright shell
+      g.addColorStop(1, 'rgba(226,240,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, sr, 0, 7); ctx.fill();
+    }
+
+    // 4a. SMOKE, drawn UNDER the fire while the fire is still bright.
+    const smoke = (over) => {
+      if (a < 0.05) return;
+      const sa = (a - 0.05) / 0.95;
+      // Fades in, holds, then goes as the whole burst does.
+      const alpha = Math.min(1, sa * 3) * (1 - sa) * (over ? 0.5 : 0.34);
+      if (alpha <= 0.01) return;
+      ctx.globalCompositeOperation = 'source-over';   // smoke OCCLUDES; only the fire adds light
+      for (let i = 0; i < 7; i++) {
+        const t = i / 6;
+        const rise = R * (0.35 + 2.4 * sa) * t;                       // the column climbing
+        const drift = Math.sin(t * 2.3 + b.dx) * R * 0.32 * sa;       // a lazy lean, stable per burst
+        const rr = R * (0.42 + 0.72 * t) * (0.55 + 0.85 * sa);
+        const shade = 26 + t * 34;
+        const g = ctx.createRadialGradient(p.sx + drift, p.sy - rise, 0, p.sx + drift, p.sy - rise, rr);
+        g.addColorStop(0, `rgba(${shade},${shade - 2},${shade - 6},${alpha * (1 - t * 0.55)})`);
+        g.addColorStop(1, 'rgba(18,17,16,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.sx + drift, p.sy - rise, rr, 0, 7); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'lighter';
+    };
+    smoke(false);
+
+    // 3. FIREBALL — the hot core, cooling and rising. Several offset blobs so the silhouette
+    // is lumpy; a single circle reads as a decal every time.
+    if (a < 0.62) {
+      const fa = a / 0.62;
+      const fr = R * (0.55 + 1.05 * fa);
+      const rise = R * 0.85 * fa * fa;                    // accelerating upward — it is buoyant
+      const alpha = (1 - fa) * (1 - fa * 0.35);
+      // The cooling ramp: white-hot → yellow → orange → a dull failing red.
+      const hot = [255, 255 - fa * 120, 236 - fa * 220];
+      const mid = [255, 190 - fa * 110, 70 - fa * 60];
+      for (let i = 0; i < 4; i++) {
+        const ang = i * 1.9 + b.dy;                       // seeded off the tile — stable per burst
+        const off = fr * 0.34 * (i / 3);
+        const cx2 = p.sx + Math.cos(ang) * off, cy2 = p.sy - rise + Math.sin(ang) * off * 0.6;
+        const rr = fr * (1 - i * 0.16);
+        const g = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, rr);
+        g.addColorStop(0, `rgba(${hot[0]|0},${hot[1]|0},${Math.max(0, hot[2])|0},${alpha * 0.95})`);
+        g.addColorStop(0.45, `rgba(${mid[0]|0},${mid[1]|0},${Math.max(0, mid[2])|0},${alpha * 0.7})`);
+        g.addColorStop(0.8, `rgba(${190 - fa * 60 | 0},${60 - fa * 30 | 0},20,${alpha * 0.34})`);
+        g.addColorStop(1, 'rgba(120,20,8,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx2, cy2, rr, 0, 7); ctx.fill();
+      }
+    }
+
+    // 5. SPARKS — thrown out and falling back. Deterministic per burst (seeded off the tile
+    // coordinates), because a random draw every frame is a shimmer, not a shower.
+    if (a < 0.55) {
+      const sa = a / 0.55;
+      const alpha = (1 - sa) * (1 - sa);
+      ctx.lineWidth = Math.max(0.7, R * 0.012);
+      const seed = Math.abs(b.dx * 73.13 + b.dy * 19.71);
+      for (let i = 0; i < 22; i++) {
+        const h = Math.sin(seed + i * 12.9898) * 43758.5453;
+        const rnd1 = h - Math.floor(h);
+        const h2 = Math.sin(seed + i * 78.233) * 24634.6345;
+        const rnd2 = h2 - Math.floor(h2);
+        const ang = rnd1 * Math.PI * 2;
+        const speed = R * (1.3 + 2.2 * rnd2);
+        const dist = speed * Math.sqrt(sa);                      // decelerating outward
+        const fall = R * 1.5 * sa * sa * (0.4 + rnd1);           // and gravity taking them back down
+        const sx1 = p.sx + Math.cos(ang) * dist;
+        const sy1 = p.sy + Math.sin(ang) * dist * 0.55 + fall;
+        const tail = Math.max(2, R * 0.10);
+        ctx.strokeStyle = `rgba(255,${170 + rnd2 * 70 | 0},${60 + rnd1 * 60 | 0},${alpha * (0.5 + 0.5 * rnd2)})`;
+        ctx.beginPath();
+        ctx.moveTo(sx1, sy1);
+        ctx.lineTo(sx1 - Math.cos(ang) * tail, sy1 - Math.sin(ang) * tail * 0.55 - tail * 0.4);
+        ctx.stroke();
+      }
+    }
+
+    // 4b. SMOKE again, now OVER the dying fire — the fireball collapses back into its own column.
+    if (a > 0.5) smoke(true);
+    ctx.restore();
+  }
 }
 
 // ── Checkride pilot-wings rings ───────────────────────────────────────────────
@@ -6007,7 +6236,7 @@ const CONTACT_VS = 1.6;          // vertical exaggeration so the projected model
 // Sizes anchored to prop = DHC-6 Twin Otter (19.8m span) at 0.11; each class set to its real
 // airframe's span/rotor ratio vs that: Cessna 172 11m (0.56×), A-10/Reaper 17.5m (0.88×),
 // C-130-class Leviathan ~40m (2.0×), Mini 500 rotor 5.8m (0.29×).
-const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10, grasshopper: 0.055, locust: 0.055,
+const CONTACT_SIZE = { ultralight: 0.056, heli: 0.032, prop: 0.11, heavy: 0.21, gunship: 0.115, wreck: 0.10, grasshopper: 0.055, locust: 0.055, divebomber: 0.10,
   // A road vehicle among aircraft: physically small next to anything with wings, which is why a
   // rig read from the air is a detail on the road rather than a second aeroplane. (THE LONG HAUL.)
   truck: 0.030 };

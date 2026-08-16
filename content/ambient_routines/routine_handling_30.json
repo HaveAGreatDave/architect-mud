@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_30",
+  "interactive": null,
+  "lines": [
+    "{npc} stops at the bins, looks in, decides against whatever it was, and carries on."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 30,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

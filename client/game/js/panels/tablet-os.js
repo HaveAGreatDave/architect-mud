@@ -141,6 +141,11 @@ let _tosCorpSel = null; // Corp Territory Map: selected zone id (client-side, no
 let _tosCorpPage = 0; // Corp dashboard: current page (Overview/Operatives/Territory/Diplomacy), client-side
 let _tosIdeoPage = 0; // Ideology reader: current page (Overview / per-order / Field), client-side
 let _tosMapSel = null; // Map app: tapped/destination zone id (client-side, drives the GPS route)
+// Map app: tile id -> absolute world [x,y], filled by the grid builder from its own
+// absAt() so it can never drift from it. renderMapDetail reads this to offer 'Target
+// here' (the flight-sim tile waypoint); a miss means we could not resolve absolute
+// coords for that cell -- interiors, mainly -- and the button is simply omitted.
+const _tosMapAbs = new Map();
 // Map app: label mode — stamp a two-letter code on each building tile instead of
 // its icon. This is NOT its own state: it reads and writes the same `mapOverlay`
 // setting the sidebar minimap runs on, so the two surfaces can never disagree.
@@ -7989,6 +7994,11 @@ function renderMap(d) {
   const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
   const tById = new Map();
   for (const t of tiles) { cell[rowOf(t)][colOf(t)] = t; tById.set(t.id, t); }
+  // Rebuild the tile -> absolute-coord index off the same absAt the bay fill uses.
+  // Cleared every build; stays empty when absAt is null (interior with no district
+  // tile), which is exactly when 'Target here' must not be offered.
+  _tosMapAbs.clear();
+  if (absAt) for (const t of tiles) _tosMapAbs.set(t.id, absAt(colOf(t), rowOf(t)));
 
   let grid = `<div class="tos-map-grid" style="--tos-tile:${tosZoomPx(d)}px;grid-template-columns:repeat(${gCols},var(--tos-tile));grid-template-rows:repeat(${gRows},var(--tos-tile))">`;
   // TOS_TERRAIN_FILL is gone — it was a hand-kept copy of minimap.js's copy of the
@@ -8192,11 +8202,18 @@ function renderMapDetail(d) {
   if (t.buildings?.length) rows.push(`<div class="tos-row"><span>Buildings</span><span>${t.buildings.map(esc).join(', ')}</span></div>`);
   const route = getTracePath() || [];
   const isDest = route.length > 1 && route[route.length - 1] === t.id;
-  let acts;
-  if (t.isCurrent) acts = `<div class="tos-map-note">◉ You are here.</div>`;
-  else if (t.reachable === false) acts = `<div class="tos-map-note">No route to here from where you stand.</div>`;
-  else if (isDest) acts = _mapActBtns([['auto', isAutoWalking() ? '■ Stop Auto-walk' : '🏃 Auto-walk here']]);
-  else acts = _mapActBtns([['route', '🧭 Route here']]);
+  // Walking and targeting are separate questions, so they get separate branches.
+  // A tile you are standing on, or one with no walking route, is still a perfectly
+  // good thing to point an aircraft at -- that is most of the reason to own one.
+  let note = '';
+  const walk = [];
+  if (t.isCurrent) note = `<div class="tos-map-note">◉ You are here.</div>`;
+  else if (t.reachable === false) note = `<div class="tos-map-note">No route to here from where you stand.</div>`;
+  else if (isDest) walk.push(['auto', isAutoWalking() ? '■ Stop Auto-walk' : '🏃 Auto-walk here']);
+  else walk.push(['route', '🧭 Route here']);
+  const wc = _tosMapAbs.get(t.id);
+  if (wc) walk.push(['target', '✜ Target here']);
+  const acts = note + (walk.length ? _mapActBtns(walk) : '');
   return `<div class="tos-detail-name" style="font-size:0.9375rem">${esc(t.name)}</div>${t.description ? `<div class="tos-detail-desc">${esc(t.description)}</div>` : ''}${rows.join('')}${acts}`;
 }
 
@@ -10862,6 +10879,11 @@ function wireMapActs() {
       } else if (a === 'auto') {
         toggleAutoWalk();
         rebuildMap();
+      } else if (a === 'target') {
+        // Designate the tile for the flight sim. Works on the ground with no
+        // aircraft -- the server holds it against the pilot, not the airframe.
+        const wc = _tosMapAbs.get(_tosMapSel);
+        if (wc) sendCmdSilent('flightwaypoint ' + wc[0] + ' ' + wc[1]);
       }
     });
   });

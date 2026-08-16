@@ -1,0 +1,26 @@
+{
+  "altitude_ceiling": 3,
+  "cargo_capacity": 30,
+  "class": "divebomber",
+  "cruise_speed": 2,
+  "data": {
+    "bombs": 4,
+    "feel": "A dive bomber, and only that. Cranked gull wing, legs in permanent fairings, a glasshouse long enough for two. She is slow and honest in level flight and utterly unremarkable until you push the nose over, at which point the airframe finds the one thing it was built for and the siren in the leg fairings starts to sing about it. Nothing about her is subtle. That is the point: half the effect is on the ground, in the ten seconds before anything lands.",
+    "gun_mult": 0.6
+  },
+  "engines": 1,
+  "fuel_burn_base": 1.8,
+  "fuel_capacity": 1500,
+  "fuel_type": "jet",
+  "handling": 2,
+  "hardpoints": 3,
+  "hull_hp": 40,
+  "id": "ac_shrike",
+  "max_takeoff_weight": 340,
+  "name": "Shrike",
+  "noise": 3,
+  "price_buy": 48000,
+  "price_rent_hourly": 800,
+  "seats": 2,
+  "takeoff_mode": "stol"
+}

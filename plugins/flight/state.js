@@ -85,6 +85,14 @@ export const SWARM_CONE = 45;            // forward launch cone (deg off the nos
 export const SWARM_COOLDOWN_MS = 2200;   // ripple reload between swarms
 export function salvoOf(live) { return Math.max(1, live.type?.data?.salvo || 1); }
 
+// ── Bombs (the Shrike's dive ordnance) ────────────────────────────────────────
+// Bombs are counted separately from the missile rails because they are a separate
+// stores question: `data.bombs` is the authored load and an airframe without it can
+// never carry one, whatever its hardpoint count says. In-memory per sortie exactly
+// like mslAmmo (null = a full load), floored at zero so a spent rack reads honestly.
+export function bombLoad(live) { return Math.max(0, live.type?.data?.bombs || 0); }
+export function bombAmmo(live) { return Math.max(0, live.bombs ?? bombLoad(live)); }
+
 // ── Continuous-flight seam (Phase 1 slice) ────────────────────────────────────
 // The overhaul's continuous energy model runs client-side; the server reconciles
 // and owns the consequences. It's gated to ONE airframe (the Mayfly) for the slice
@@ -92,7 +100,7 @@ export function salvoOf(live) { return Math.max(1, live.type?.data?.salvo || 1);
 // Craft flown on the continuous cockpit sim. The whole fleet is here now — the fixed-wing
 // set plus the Dragonfly (VTOL), which flies the client's dedicated hover model (collective
 // + cyclic + pedals) instead of the old modal VTOL-lift deck.
-export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper']);
+export const CONTINUOUS_TYPES = new Set(['ac_mayfly', 'ac_mule', 'ac_leviathan', 'ac_reaper', 'ac_carcass', 'ac_dragonfly', 'ac_grasshopper', 'ac_locust', 'ac_viper', 'ac_shrike']);
 export function isContinuous(live) { return !!live && CONTINUOUS_TYPES.has(live.type?.id); }
 
 // Continuous altitude (ft) → the legacy band the consequence systems still read
@@ -1124,6 +1132,26 @@ function nearbyRegions(x, y) {
   return all.slice(0, REGION_MAX).map(({ _d, ...f }) => f);
 }
 
+// The pilot's own designated tile — set from the tablet map ("✜ Target here"), held in
+// RAM on the PLAYER rather than on the aircraft, because it is a pilot's intent and not a
+// machine's state: you can set one standing on the ground with no aircraft at all, and it
+// travels with you when you swap airframes. Shipped in the SAME {id,name,gx,gy,bearing,dist}
+// shape the three place lists use, so the cockpit cycles it with the same [ / ] control and
+// the windshield draws it through the same code — `kind: 'tile'` is the only discriminator,
+// and it is what swaps the gold airfield ring for the crosshair.
+export function waypointFor(live) {
+  const p = pilotOf(live);
+  const wp = p?.flightWaypoint;
+  if (!wp) return null;
+  const a = live.row;
+  const dist = Math.hypot(wp.x - a.grid_x, wp.y - a.grid_y);
+  return {
+    id: 'wp', name: `TILE ${wp.x},${wp.y}`, gx: wp.x, gy: wp.y,
+    bearing: Math.round(bearingDeg(a.grid_x, a.grid_y, wp.x, wp.y)),
+    dist: Math.round(dist), kind: 'tile',
+  };
+}
+
 export function gaugePayload(live) {
   const a = live.row, t = live.type, eff = effStats(live);
   const cap = eff.fuelCap;
@@ -1366,6 +1394,7 @@ export function contextPayload(live) {
     fields: nearbyFields(a.grid_x, a.grid_y),   // airport bearing tags for the heading tape
     landmarks: nearbyLandmarks(a.grid_x, a.grid_y),   // named buildings you can lock the target guide onto
     regions: nearbyRegions(a.grid_x, a.grid_y),   // spatial world-map places (Coldwater Basin…) you can lock the guide onto
+    waypoint: waypointFor(live),   // the pilot's own tile designation from the tablet map (null = none set)
     onField: !!surfaceAt(a.grid_x, a.grid_y)?.flags?.airfield_id,   // rolled onto a real airfield tile → auto-park + hangar on stop
     onYacht: !!yachtFieldNear(a.grid_x, a.grid_y),   // a VTOL set down alongside the Echelon → auto-land on her helipad
     cargo: a.custom_data?.cargoWeight || 0,     // current hold weight (drives the cockpit jettison bind)
@@ -1375,6 +1404,8 @@ export function contextPayload(live) {
     hull: Math.max(0, Math.round((1 - (a.damage || 0)) * 100)),   // for the cockpit hull readout / battle damage
     surfaces: surfacesWire(a),                  // sheared structural surfaces (null when intact) → live breakup model + asymmetric physics
     msl: mslAmmo(live),                         // missiles left on the rails (ammo pips)
+    bombs: bombLoad(live) ? bombAmmo(live) : 0, // bombs left on the rack (0 = not a bomber)
+    bombCap: bombLoad(live),                    // authored rack size, for the pip row
     checkride: live.checkride?.clientView || null,   // guided-checkride instruction toast + ring gates (null = not on a checkride)
   };
 }

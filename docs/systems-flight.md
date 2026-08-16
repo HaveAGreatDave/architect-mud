@@ -70,8 +70,8 @@ it climbs through. The Solenne's crown carries the marked deck itself: TLOF circ
 perimeter lights — and **no antenna**, because a mast over a touchdown circle is the one thing
 that must never be there (its obstruction light moved to a perimeter post).
 
-Nine aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
-Grasshopper · Locust · **Viper**), three fuel types (avgas/jet/biofuel), four ground AA
+Ten aircraft types (Mayfly · Dragonfly · Mule · Leviathan · Reaper · Carcass ·
+Grasshopper · Locust · Viper · **Shrike**), three fuel types (avgas/jet/biofuel), four ground AA
 sites (Redline SAM / wastes autocannon / Slagworks flak / Clone Vats guardian), a Core
 no-fly cluster, and one downed Carcass to salvage/rebuild. All of it is CODEX content
 (`content/aircraft_types/`, `content/aa_sites/`, `content/zones/`), not a seed script.
@@ -606,6 +606,51 @@ range fire on low/slow overflights (altitude, speed, `evade`, and a piloting jin
 cut the hit chance); a hit walks the hull-damage ladder → breakup → `crash`.
 `arm`/`safe` toggle weapons (hardpoints only); `strafe`/`fire` arms the **targeting-
 reticle deck** (`flight_target` → `strafresolve`) to silence a site.
+
+**The Shrike, and the dive** (`combat.js` → `cmdBomb`). The fleet's fourth armed airframe
+(₵48,000, class `divebomber`) and the only weapon in the game with a *posture* gate rather
+than a range gate. `bomb` is refused unless **every** rung holds, and the ladder is a
+contract — a tuning pass may move the numbers but must not remove a rung:
+
+```
+airborne · weapons_hot · effHardpoints ≥ 1 · data.bombs > 0 · bombs on the rack
+2.5 s since the last release · altitude_band ≠ high
+pitch ≤ −35°          ← THE DIVE GATE
+IAS ≥ 140 kt          ← and the speed to go with it
+the target tile inside a 50° forward cone, within 3 tiles
+```
+
+⚠ **The dive is read from `live.cont`, never from a command argument.** That is the
+reconciled, anti-spoofed telemetry; taking a pitch angle off the command line would let a
+modified client pickle from straight and level by typing a number.
+
+Target selection prefers the pilot's **designated tile** (below), falling back to the tile
+the nose is pointed at. `diveQuality(pitch, ias)` scores the run 0..1 and both scales
+accuracy and decides whether the bomb walks off the aim point. The blast **devastates the
+tile it lands on** (0.92 hit chance, 70–120 explosive) and spills onto the four neighbours
+at half damage and roughly a quarter of the chance — bigger than a swarm by *footprint*,
+not by a bigger number on one tile. Damage runs entirely through the existing seams
+(`applyStrikeToPlayer` / `killNpcInstance` / `killEnemyInstance`, `CHARGE_CRIME` in the
+**target** tile); nothing here invents a damage path.
+
+**The siren** is two separate things that must not be confused. The pilot's own is a client
+loop (`diveSiren()` in `engine-audio.js`), three fixed-pitch layers cross-faded by gain
+because the loop API has no pitch control, ridden off the dive angle. Everyone *underneath*
+gets `checkDiveSiren()` in `index.js`: prose to the ground over a 7-tile sweep, a propagated
+`flight.diveSiren` sound, a line to occupants of other **aircraft**, and a `vehicle.diveSiren`
+event that trucking answers for its own drivers. ⚠ It is **rate-limited three ways** — a
+per-dive latch, an 18 s per-aircraft floor, and a 15 s per-zone cooldown. The latch alone is
+not enough: it re-arms on the pull-up, so a pilot porpoising the nose could carpet a
+neighbourhood in sirens without ever dropping anything.
+
+**Targeting a tile from the map** (any aircraft, not just the Shrike). The tablet Map app's
+**✜ Target here** sends `flightwaypoint <x> <y>`; it is held **in RAM on the player**, not on
+the aircraft, so it works standing on the ground with no airframe and follows the pilot
+across a swap. It rides `contextPayload` as a fourth target kind in the *same shape* as
+fields/landmarks/regions — `kind: 'tile'` is the only discriminator — so the cockpit cycles
+it with the same `[`/`]` and the windshield draws it through the same function, swapping the
+gold airfield ring for a magenta crosshair. **One designation, three consumers**: the HUD
+ring, the bombsight, and the server's bomb gate.
 
 **Air-to-air PvP — fully built and player-attributed** (also `combat.js`; blueprint +
 phase log in [proposals/systems-flight-pvp.md](proposals/systems-flight-pvp.md)). Two

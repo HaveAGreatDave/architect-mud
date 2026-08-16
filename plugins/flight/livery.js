@@ -24,6 +24,7 @@ export const DECALS = [
   { id: 'ace',       label: 'Ace of Spades' },
   { id: 'reaper',    label: 'Grim Reaper' },
   { id: 'flames',    label: 'Nose Flames' },
+  { id: 'shrike',    label: 'Impaled Shrike' },
 ];
 
 // Exterior patterns. `sig` is the signature multiplier the pattern contributes
@@ -209,6 +210,9 @@ const DECAL_CLAUSE = {
   ace:        'An ace of spades is stencilled below the cockpit.',
   reaper:     "A grinning reaper's skull leers off the nose.",
   flames:     'Hot-rod flames lick back from the nose.',
+  // The bird the aeroplane is named after keeps its larder on a thorn bush. Somebody thought
+  // that was worth painting on, and they were not wrong.
+  shrike:     'A small grey bird is painted on the cowl, holding something on a long thorn.',
 };
 export function describeExterior(livery, typeName, tail) {
   const lv = normalizeLivery({ livery });

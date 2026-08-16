@@ -72,6 +72,14 @@ function styles() {
     #list-dialog-panel .ld-row:hover { border-color:var(--accent,#6aa7c4); }
     #list-dialog-panel .ld-row:focus-visible { outline:2px solid var(--accent,#6aa7c4); outline-offset:2px; }
     #list-dialog-panel .ld-detail { opacity:.8; white-space:nowrap; }
+    #list-dialog-panel .ld-multi { padding:.55rem .7rem; margin:.15rem 0;
+      background:var(--bg-input,#1b222b); border:1px solid var(--border,#2a3340); border-radius:4px; }
+    #list-dialog-panel .ld-multi-head { display:flex; justify-content:space-between; gap:1rem; }
+    #list-dialog-panel .ld-multi-acts { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.4rem; }
+    #list-dialog-panel .ld-act { font:inherit; color:inherit; cursor:pointer; padding:.25rem .6rem;
+      background:transparent; border:1px solid var(--border,#2a3340); border-radius:4px; }
+    #list-dialog-panel .ld-act:hover { border-color:var(--accent,#6aa7c4); }
+    #list-dialog-panel .ld-act:focus-visible { outline:2px solid var(--accent,#6aa7c4); outline-offset:2px; }
     #list-dialog-panel .ld-foot { padding:.6rem 1rem; border-top:1px solid var(--border,#2a3340);
       opacity:.85; font-size:.9em; flex:0 0 auto; }
   `;
@@ -122,9 +130,22 @@ export function openListDialog(msg) {
     if (r.group && r.group !== group) { group = r.group; html += `${html ? '</ul>' : ''}<h3>${esc(group)}</h3><ul>`; }
     else if (!html) html += '<ul>';
     const detail = r.detail ? `<span class="ld-detail">${esc(r.detail)}</span>` : '';
-    html += r.command
-      ? `<li><button type="button" class="ld-row" data-ld-cmd="${esc(r.command)}"><span>${esc(r.label)}</span>${detail}</button></li>`
-      : `<li class="ld-row" style="cursor:default">${esc(r.label)}${detail}</li>`;
+    // Three row shapes, in order of how much the row can DO:
+    //   `commands: [{label, command}]` — several actions (the audit's own shape).
+    //   `command`                      — the whole row is one button.
+    //   neither                        — a static line, deliberately not focusable.
+    // The plural form exists because a workspace row is genuinely several verbs
+    // (prepare / cook / put away) and collapsing it to one would silently drop the
+    // rest, which is worse than not converting the surface at all.
+    if (r.commands?.length) {
+      html += `<li class="ld-multi"><div class="ld-multi-head"><span>${esc(r.label)}</span>${detail}</div>`
+        + `<div class="ld-multi-acts">${r.commands.map(c =>
+          `<button type="button" class="ld-act" data-ld-cmd="${esc(c.command)}">${esc(c.label || c.command)}</button>`).join('')}</div></li>`;
+    } else if (r.command) {
+      html += `<li><button type="button" class="ld-row" data-ld-cmd="${esc(r.command)}"><span>${esc(r.label)}</span>${detail}</button></li>`;
+    } else {
+      html += `<li class="ld-row" style="cursor:default">${esc(r.label)}${detail}</li>`;
+    }
   }
   html += html ? '</ul>' : '<p>Nothing here.</p>';
   el.querySelector('#ld-body').innerHTML = html;

@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_32",
+  "interactive": null,
+  "lines": [
+    "{npc} kneels to check a wheel, one hand out of sight under the frame for longer than the wheel wants."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 32,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

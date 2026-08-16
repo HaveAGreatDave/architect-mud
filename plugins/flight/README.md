@@ -29,7 +29,8 @@ startup / takeoff / landing and widens the minigame safe bands.
 - **Flight:** `embark` (primary; `board` is a backup) · `disembark`/`deplane` · `startup` · `shutdown` · `throttle` · `heading` (cardinal or `heading 247`) · `climb` · `dive` · `takeoff` · `land` · `refuel`
 - **Emergencies / utility (Phase B):** `recover` · `extinguish` · `eject`/`bail` · `preflight` · `hover` · `spot`/`scan` · `chart` · `squawk`
 - **Acquisition:** `buy` · `charter`
-- **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire`
+- **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire` · `bomb` (the Shrike — refused outside a real dive; see the gate ladder in [docs/systems-flight.md](../../docs/systems-flight.md))
+- **Navigation:** `flightwaypoint <x> <y>`/`clear` — designate a world tile as the flight target. Fired silently by the tablet Map app's "✜ Target here", and held on the PILOT rather than the aircraft, so it works with no airframe and survives a swap.
 - **Contracts:** `contracts`/`jobs` · `accept` · `manifest`
 - **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune` · `modify` (the customisation sheet — tune curves, tail, livery, profiles, **and the parts bench**)
 - **Parts & slots:** `modify parts` · `modify buy <part>` · `modify fit <part>` · `modify pull <slot>`. Deliberately **sub-verbs, not new verbs** — `install`/`uninstall` are the doors/augments plugins' and `parts` is trucking's, and a plugin verb silently beats both the engine builtin and the other plugin depending on load order. A part is an ordinary inventory ITEM out of the aircraft (so it trades, drops off a stripped wreck, and can be carried), and `state.PARTS`/`PART_SLOTS` is the authored mechanic. See [docs/systems-flight.md](../../docs/systems-flight.md#parts--slots--the-discrete-layer-as-built).

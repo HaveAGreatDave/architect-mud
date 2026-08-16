@@ -13,12 +13,13 @@ import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { computeStats, perfAxes, tuneRange, installedKits, KITS, TUNE_DIAL_MAX,
   PARTS, PART_SLOTS, slotsFor, installedParts, partDefs, partEnvelope, PYLON_MIN_TOW,
   shearRoll, surfacesWire, anyWingLost, resetSurfaces, SURFACE_KEYS,
-  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf,
+  isWalkableCabin, cabinTypeOf, cabinEntryZone, isCabinZone, liveAircraft, getZone, loadAircraft, stalledState, CONTINUOUS_TYPES, listAirfields, nearestAirfield, listRegions, worldTerrainMap, salvoOf, bombLoad, bombAmmo, waypointFor, bounds as flightBounds,
   vtolOnlyField, acquirableTypes, hangarRampFor, HANGAR_REACH, BANDS, airfieldOf, fieldName } from './state.js';
 import { isFreightLicensed, ensureFreightDrops, isAirCargoUnlocked, hasCacheStanding,
   openOrders, placeCacheOrder, rawsCatalogue, trustFor, unitsPerPallet, palletPrice,
   waitingDropAt, FENCE_CACHES } from './contracts.js';
 import { isPilotLicensed, _test as checkrideTest } from './checkride.js';
+import { diveQuality } from './combat.js';
 import { setFlag, clearFlag } from '../../server/engine/flags.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { adjustCredits } from '../../server/engine/economy.js';
@@ -409,6 +410,7 @@ export default async function regress({ run, check, getPlayer }) {
   check('decal is cosmetic — no effect on signature', signatureMult({ base: '#808080', pattern: 'solid', finish: 'satin', decal: 'none' }) === signatureMult({ base: '#808080', pattern: 'solid', finish: 'satin', decal: 'sharkmouth' }));
   check('schemeOf captures the core paint fields', (() => { const s = schemeOf({ base: '#010203', trim: '#040506', pattern: 'hazard', finish: 'gloss', decal: 'sigil', cabin: '#070809', uphol: 'leather' }); return s.base === '#010203' && s.pattern === 'hazard' && s.decal === 'sigil' && !('schemes' in s) && !('text' in s); })());
   check('readSchemes returns saved schemes as a map', Object.keys(readSchemes({ livery: { schemes: { fast: { base: '#111111' } } } })).includes('fast') && Object.keys(readSchemes({})).length === 0);
+  check('the Shrike decal is a real decal and describes itself', /thorn/i.test(describeExterior({ base: '#3d5245', trim: '#222', pattern: 'solid', finish: 'satin', decal: 'shrike' }, 'Shrike')));
   check('sanitizeLivery keeps a valid decal, drops junk', sanitizeLivery({ decal: 'killmarks' }).decal === 'killmarks' && sanitizeLivery({ decal: 'x' }, { decal: 'sigil' }).decal === 'sigil');
 
   // ── Charter lifecycle cores (pure; content-independent state machine) ────────
@@ -470,6 +472,51 @@ export default async function regress({ run, check, getPlayer }) {
   check('bandFromAltitude: 300ft → low', _test.bandFromAltitude(300) === 'low');
   check('bandFromAltitude: 800ft → cruise', _test.bandFromAltitude(800) === 'cruise');
   check('bandFromAltitude: 2000ft → high', _test.bandFromAltitude(2000) === 'high');
+  // ── The Shrike: the dive bomber ─────────────────────────────────────────────
+  check('the Shrike flies the continuous sim', _test.isContinuous({ type: { id: 'ac_shrike' } }) === true);
+  // ⚠ The trap this exists for: the flight model is keyed by craftType, and a missing row
+  // silently falls back to the Mayfly's — a ₵48,000 dive bomber that flies like the trainer
+  // and can never reach the speed its own bomb gate demands. It must be its own aeroplane.
+  check('the Shrike has her own flight-model row', !!FM_TYPES.shrike && FM_TYPES.shrike !== FM_TYPES.mayfly);
+  check('…and can actually reach the dive gate (Vne well past the 140kt release floor)', FM_TYPES.shrike.vne > 200, FM_TYPES.shrike.vne);
+  check('…and stalls through the shared harness like any other airframe', !!fmStall1g(FM_TYPES.shrike));
+  // Bombs are their own stores question: an airframe with no authored rack can never carry one,
+  // whatever its hardpoint count says.
+  check('bombLoad reads the authored rack', bombLoad({ type: { data: { bombs: 4 } } }) === 4);
+  check('…and a frame with no rack carries none, hardpoints or not', bombLoad({ type: { hardpoints: 8, data: {} } }) === 0 && bombLoad({ type: {} }) === 0);
+  check('bombAmmo falls back to the full rack, then tracks the sortie', bombAmmo({ type: { data: { bombs: 4 } } }) === 4 && bombAmmo({ bombs: 1, type: { data: { bombs: 4 } } }) === 1);
+  check('…and floors at zero rather than going negative', bombAmmo({ bombs: -3, type: { data: { bombs: 4 } } }) === 0);
+  // Dive quality. TWO SEPARATE gate cases on purpose: a single combined "bad dive" case can
+  // pass for the wrong reason, and the two halves of the gate fail differently.
+  check('dive quality is zero in level flight, however fast', diveQuality(0, 400) === 0);
+  check('⚠ steep but SLOW scores zero', diveQuality(-70, 0) === 0);
+  check('⚠ fast but SHALLOW scores zero', diveQuality(-10, 400) === 0);
+  check('a full commit — 80° at the release speed — scores 1', diveQuality(-80, 140) === 1);
+  check('dive quality rises monotonically with angle', diveQuality(-45, 200) < diveQuality(-60, 200) && diveQuality(-60, 200) < diveQuality(-75, 200));
+  check('…and is never outside 0..1', diveQuality(-179, 9999) <= 1 && diveQuality(90, 0) >= 0);
+  r = await run('bomb'); check('bomb off an aircraft refuses and mutates nothing', /not aboard/i.test(r?.message || ''), r?.message);
+
+  // ── Tile waypoint (the tablet map's "Target here") ───────────────────────────
+  // The shape must be STABLE: the cockpit reads `waypoint` on every context push, so an
+  // unset one has to be an explicit null rather than a missing key.
+  check('no waypoint set → null, not undefined', waypointFor({ row: { grid_x: 0, grid_y: 0 }, occupants: [], pilotId: null }) === null);
+  // Pick a tile that is genuinely inside the world — the command clamps to bounds(), and
+  // Coldwater does not live near the origin, so an arbitrary small coordinate would be
+  // clamped and the test would be asserting the clamp rather than the storage.
+  const wb = flightBounds();
+  const wpx = Math.round((wb.minx + wb.maxx) / 2), wpy = Math.round((wb.miny + wb.maxy) / 2);
+  r = await run(`flightwaypoint ${wpx} ${wpy}`);
+  check('a waypoint can be set with no aircraft at all', /designated/i.test(r?.message || ''), r?.message);
+  check('…and says it will be waiting', /waiting when you board/i.test(r?.message || ''), r?.message);
+  check('…and is held on the PLAYER, not on an airframe', getPlayer().flightWaypoint?.x === wpx && getPlayer().flightWaypoint?.y === wpy, JSON.stringify(getPlayer().flightWaypoint));
+  r = await run('flightwaypoint clear');
+  check('…and clears', /cleared/i.test(r?.message || '') && !getPlayer().flightWaypoint, r?.message);
+  r = await run('flightwaypoint banana 3');
+  check('a non-numeric tile is refused rather than clamped to 0,0', r?.type === 'error' && !getPlayer().flightWaypoint, r?.message);
+  r = await run('flightwaypoint -99999 -99999');
+  check('an out-of-world tile is clamped into the map, never stored raw', getPlayer().flightWaypoint && getPlayer().flightWaypoint.x > -99999, JSON.stringify(getPlayer().flightWaypoint));
+  await run('flightwaypoint clear');
+
   r = await run('flightsync 0 0 0 0 0 0 0 1 0'); check('flightsync not aboard no-ops', r?.type === 'noop', r?.type);
   r = await run('flightevent takeoff'); check('flightevent not aboard no-ops', r?.type === 'noop', r?.type);
 

@@ -91,7 +91,11 @@ function hasWitness(zoneId) {
   return isZoneWatched(zoneId);
 }
 
-function eligibleNpcs(zoneId) {
+// Exported because "an NPC who is idle in this room right now" is not a banter
+// question — ambient-life asks it too, to pick the person a {npc} vignette line
+// is about. One predicate, so a sleeping or on-shift NPC is never picked to
+// crouch over a bootlace in the street for the same reasons they never banter.
+export function eligibleNpcs(zoneId) {
   const zone = world.zones.get(zoneId);
   if (!zone) return [];
   const out = [];

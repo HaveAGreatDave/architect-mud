@@ -14,7 +14,7 @@ import { effectiveSkill, awardSkillUse, skillCheck } from '../../server/engine/s
 import { grantSkillIp } from '../../server/engine/ip.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
-import { on } from '../../server/engine/events.js';
+import { on, emit } from '../../server/engine/events.js';
 import { getTimeScale } from '../../server/engine/gametime.js';
 import { dispatchAction, registerAction } from '../../server/engine/actions.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -920,6 +920,7 @@ async function cmdFlightSync(args, raw, player) {
   if (n.length < 9 || n.some(Number.isNaN)) return { type: 'noop' };
   reconcile(live, { gx: n[0], gy: n[1], alt: n[2], ias: n[3], hdg: n[4], thr: n[5], vs: n[6], onGround: n[7] === 1, stalled: n[8] === 1, bank: n[9], pitch: n[10] });
   if (live.checkride) evaluateCheckride(live);   // guided-checkride stage progression off the fresh telemetry
+  checkDiveSiren(live);   // a dive bomber tipping over — warn everything underneath (rate-limited; see checkDiveSiren)
   live.lastSync = Date.now();   // the pilot is actively flying — reset the unattended-recovery clock
   // While rolling out on the ground over an airfield, remember it — the shutdown `land`
   // parks here even if the roll drifts a tile off the runway before the engine's cut.
@@ -1161,6 +1162,10 @@ const CLASS_SOUND = {
   prop:       { near: 'drones past low overhead, prop clawing the air',         far: 'the steady drone of a piston aircraft' },
   heavy:      { near: 'thunders past low overhead, the ground trembling',       far: 'a deep, building roar' },
   gunship:    { near: 'screams past low and fast — you feel it in your chest',  far: 'a hard, fast howl closing in' },
+  // The Shrike is meant to be identifiable by ear from a long way off, BEFORE she ever tips
+  // over — the siren is the second act, not the first. So her level-flight line is about the
+  // blade, slow and heavy and unmistakable, which is what makes the wail that follows land.
+  divebomber: { near: 'hammers past low overhead, one big slow blade beating the air',  far: 'a heavy, deliberate thudding somewhere above' },
   wreck:      { near: 'sputters past low overhead trailing a thread of smoke',  far: 'a rough, misfiring engine somewhere aloft' },
 };
 function classSound(cls) { return CLASS_SOUND[cls] || CLASS_SOUND.prop; }
@@ -1236,6 +1241,83 @@ function overflyLow(live) {
       emitSky(live, cell.id, `You hear ${snd.far} to the ${from}${dist >= reach ? ', distant' : ''}.`);
     }
   }
+}
+
+// ── THE DIVE SIREN, HEARD FROM UNDERNEATH ─────────────────────────────────────
+// The pilot's own siren is a client loop and reaches nobody else. This is the other half, and
+// it is the half that matters: the whole point of the noise is that the people it is aimed at
+// hear it coming and have a few seconds to know it.
+//
+// THREE AUDIENCES, because a siren that only reached players standing in a room outdoors would
+// miss most of the people who would actually be under it:
+//   • the GROUND — a tile sweep in the shape overflyLow already uses, so it reaches indoors,
+//     across the street and down the stairs;
+//   • OTHER AIRCRAFT — swept out of liveAircraft here, where no cross-plugin import is needed;
+//   • ANYTHING ELSE WITH A CAB — announced as `flight.diveSiren` carrying raw world coords, so
+//     trucking (and whatever comes next) can answer for its own drivers without this file
+//     learning what a truck is.
+//
+// ⚠ FIRES ONCE PER DIVE, ON THE WAY IN, AND IS RATE-LIMITED THREE WAYS. It is a warning, not an
+// ambience, and the client reports at ~4 Hz, so a per-report broadcast would be a hundred lines
+// per pass. But the per-dive latch ALONE is not enough, because it re-arms on the pull-up: a
+// pilot porpoising the nose over and back — thirty degrees down, twelve up, repeat — would re-arm
+// it every couple of seconds and carpet the neighbourhood in sirens without ever dropping
+// anything. Griefing with prose is still griefing. So:
+//   1. the per-aircraft latch (one line per dive, not per telemetry frame);
+//   2. a per-aircraft FLOOR between announcements, which is what actually kills porpoising;
+//   3. a per-zone cooldown, so a room being fought over by three of them still reads.
+// (3) is deliberately its own map and not `skyReady`: that gate is 45 s and shared with routine
+// overflight, and a genuine second attack run 25 s later is exactly the pass you must not miss.
+const DIVE_ANNOUNCE_DEG = 30;    // she is committed by here, and still has seconds to run
+const DIVE_ANNOUNCE_RESET = 12;  // nose back up past this = the run is over, arm the next one
+const DIVE_SIREN_REACH = 7;      // tiles — deliberately wider than any engine note carries
+const DIVE_CRAFT_FLOOR_MS = 18000;   // (2) one announcement per aircraft per this, whatever the nose does
+const DIVE_ZONE_COOLDOWN_MS = 15000; // (3) one dive line per zone per this, whoever is flying
+const diveLastHeard = new Map();     // zoneId → ms of last dive line
+function diveZoneReady(zoneId) {
+  const now = Date.now();
+  if (now - (diveLastHeard.get(zoneId) || 0) < DIVE_ZONE_COOLDOWN_MS) return false;
+  diveLastHeard.set(zoneId, now);
+  return true;
+}
+export function checkDiveSiren(live) {
+  if (live.type?.class !== 'divebomber') return;
+  const a = live.row, pitch = live.cont?.pitch ?? 0, down = -pitch;
+  if (!a.airborne || live.cont?.onGround) { live.diveAnnounced = false; return; }
+  if (down < DIVE_ANNOUNCE_RESET) { live.diveAnnounced = false; return; }
+  if (down < DIVE_ANNOUNCE_DEG || live.diveAnnounced) return;
+  const now = Date.now();
+  if (now - (live.diveAnnouncedAt || 0) < DIVE_CRAFT_FLOOR_MS) return;   // the anti-porpoise floor
+  live.diveAnnounced = true; live.diveAnnouncedAt = now;
+
+  const name = live.type.name;
+  for (let dx = -DIVE_SIREN_REACH; dx <= DIVE_SIREN_REACH; dx++) for (let dy = -DIVE_SIREN_REACH; dy <= DIVE_SIREN_REACH; dy++) {
+    const dist = Math.max(Math.abs(dx), Math.abs(dy));
+    if (dist > DIVE_SIREN_REACH) continue;
+    const cell = surfaceAt(a.grid_x + dx, a.grid_y + dy);
+    if (!cell) continue;
+    if (!diveZoneReady(cell.id)) continue;   // (3) — see the header
+    const line = dist === 0
+      ? `<span class="text-red">Something up there tips over and starts to <b>scream</b> — a rising mechanical wail, getting louder, coming down at you.</span>`
+      : dist <= 3
+        ? `<span class="text-amber">A wail starts up somewhere above, climbing in pitch — a ${name}, going down after something.</span>`
+        : `A thin rising note somewhere off to the ${degToCardinal(bearingDeg(a.grid_x + dx, a.grid_y + dy, a.grid_x, a.grid_y)).toUpperCase()}, high up. It is getting higher.`;
+    emitSky(live, cell.id, line);
+  }
+  // The sound itself, propagated from the tile she is diving at — so it fades through walls
+  // and doors on the way out rather than arriving at full volume three streets away.
+  const under = surfaceAt(a.grid_x, a.grid_y);
+  if (under) emit('flight.diveSiren', { zoneId: under.id });
+
+  // Other aircraft in earshot: their occupants get it in the log, since a pilot has no room
+  // pane to put a sky banner in.
+  for (const other of liveAircraft.values()) {
+    if (other === live || !other.row.airborne || !other.occupants?.length) continue;
+    if (Math.max(Math.abs(other.row.grid_x - a.grid_x), Math.abs(other.row.grid_y - a.grid_y)) > DIVE_SIREN_REACH) continue;
+    toOccupants(other, `<span class="text-amber">⚠ A siren winds up somewhere off your wing — a ${name} in a dive.</span>`);
+  }
+  // And everybody else with a cab, via the event.
+  emit('vehicle.diveSiren', { gx: a.grid_x, gy: a.grid_y, reach: DIVE_SIREN_REACH, name });
 }
 
 // The sighting text follows the light: by day a shape or a distant speck, at dawn/dusk
@@ -1794,6 +1876,34 @@ async function cmdAirHome(args, raw, player) {
   return { type: 'emote', message: `<span class="text-cyan">⏪ REWIND — ${live.type.name} set back down at ${getZone(dest)?.name || 'the hangar'}.</span>` };
 }
 
+// ── flightwaypoint — designate a world tile as the flight target ───────────────
+// Fired silently by the tablet map's "✜ Target here" button, and typeable by hand
+// (`flightwaypoint 42 17`, `flightwaypoint clear`).
+//
+// Held in RAM on the PLAYER, not on the aircraft: it must work standing on the ground
+// with no airframe at all — setting a target before you walk to the hangar is the
+// obvious way to use it — and it is a pilot's intent, so it should follow the pilot
+// across a swap rather than stay with the machine. It is also emphatically not worth a
+// DB write per UI click; `custom_data` is persisted JSONB (see the persistence tiers in
+// docs/architecture.md), so a waypoint has no business in it.
+async function cmdFlightWaypoint(args, raw, player) {
+  const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
+  if (String(args[0] || '').toLowerCase() === 'clear' || args.length === 0) {
+    player.flightWaypoint = null;
+    if (live && isContinuous(live)) pushContext(live);
+    return { type: 'emote', message: '<span class="text-cyan">◎ Target designation cleared.</span>' };
+  }
+  const x = parseInt(args[0], 10), y = parseInt(args[1], 10);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { type: 'error', message: 'Usage: flightwaypoint <x> <y> | clear' };
+  const b = bounds();
+  const cx = Math.max(b.minx, Math.min(b.maxx, x)), cy = Math.max(b.miny, Math.min(b.maxy, y));
+  player.flightWaypoint = { x: cx, y: cy };
+  if (live && isContinuous(live)) pushContext(live);
+  // No aircraft is a success, not an error — the designation simply waits for one.
+  const tail = live ? '' : ' It will be waiting when you board.';
+  return { type: 'emote', message: `<span class="text-cyan">✜ Target designated — tile ${cx}, ${cy}.</span>${tail}` };
+}
+
 // ── flight / status — a text readout of the aircraft you're aboard ─────────────
 async function cmdFlightStatus(args, raw, player) {
   const live = player.aircraftId ? liveAircraft.get(player.aircraftId) : null;
@@ -2066,6 +2176,7 @@ export const commands = {
   turn: cmdTurnVerb, descend: cmdDive, level: cmdLevelVerb,
   flaps: cmdFlapsVerb, gear: cmdGearVerb, status: cmdStatusVerb,
   flightsync: cmdFlightSync, flightevent: cmdFlightEvent, airhome: cmdAirHome,
+  flightwaypoint: cmdFlightWaypoint,
   checkride: cmdCheckride,
   ...hazardCommands, ...acquisitionCommands, ...combatCommands, ...contractCommands, ...hangarCommands, ...charterCommands,
 };

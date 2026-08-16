@@ -263,10 +263,30 @@ function buildFixedWing(p, detail = 1) {
   // Wings (high/low set + optional dihedral), swept. At full detail they get real
   // thickness (top/bottom skins + leading/trailing/tip edges) instead of a paper quad.
   for (const s of [1, -1]) {
-    pushPanel(faces, 'wing', 0.82, [
-      V(p.wRootF, s * p.fr * 0.7, wH - 0.01), V(p.wTipF, s * p.span, wH + p.dih),
-      V(p.wTipB, s * p.span, wH + p.dih), V(p.wRootB, s * p.fr * 0.7, wH - 0.01)], 0.028, detail);
+    // A gull wing is TWO panels meeting at the knee; anything else is the single quad it has
+    // always been. Both go through wingPt, so the straight case is unchanged to the last digit.
+    const segs = p.gull ? [[0, p.gull.at], [p.gull.at, 1]] : [[0, 1]];
+    for (const [u0, u1] of segs) {
+      pushPanel(faces, 'wing', 0.82, [
+        wingPt(p, wH, s, u0, 'le'), wingPt(p, wH, s, u1, 'le'),
+        wingPt(p, wH, s, u1, 'te'), wingPt(p, wH, s, u0, 'te')], 0.028, detail);
+    }
     if (detail) addWingSurfaces(faces, p, s, wH);   // hinged flap + aileron on the trailing edge (full mesh only)
+  }
+  // DIVE BRAKES (the Shrike): slatted plates under the wing just aft of the leading edge, out
+  // near the knee. They ride the flap channel — `defl: 'flap'`, hinged on their forward edge —
+  // so they swing down on the input the cockpit already streams, and cost no new plumbing at
+  // all. On this airframe they are the reason a 70° dive plateaus instead of running to redline.
+  if (detail && p.diveBrakes) {
+    const db = p.diveBrakes;
+    for (const s of [1, -1]) {
+      const A = wingPt(p, wH, s, db.u0, 'le'), B = wingPt(p, wH, s, db.u1, 'le');
+      const drop = db.drop || 0.05, aft = db.aft || 0.06;
+      const H0 = [A[0] - aft, A[1], A[2] - 0.012], H1 = [B[0] - aft, B[1], B[2] - 0.012];
+      const T0 = [H0[0] - drop, H0[1], H0[2]], T1 = [H1[0] - drop, H1[1], H1[2]];
+      faces.push({ role: 'strut', defl: 'flap', side: s, sh: s > 0 ? 0.58 : 0.44,
+        hinge: [H0, H1], p: s > 0 ? [H0, H1, T1, T0] : [T0, T1, H1, H0] });
+    }
   }
   // Wing LIFT STRUT (Cessna / Twin Otter): a single SLIM streamlined member from the lower
   // fuselage longeron out to ~mid-span under the wing — a thin diagonal, not a wide strap.
@@ -279,12 +299,36 @@ function buildFixedWing(p, detail = 1) {
         V(tx - sw, s * p.span * 0.5, wH - 0.02), V(bx - sw, s * p.fr * 0.95, -p.fv * 0.55)] });
     }
   }
+  // VENTRAL CHIN SCOOP (p.chinScoop) — the deep intake slung under the nose. On the reference
+  // airframe it is the radiator; here it feeds the turbine, and the shape is unchanged because
+  // the shape is what you recognise. A shallow box hung off the belly, tapering aft.
+  if (detail && p.chinScoop) {
+    const C = p.chinScoop, zTop = -p.fv * 0.72, zBot = zTop - C.h;
+    const w0 = C.w, w1 = C.w * 0.72;
+    const A = [V(C.f0, w0, zTop), V(C.f0, -w0, zTop), V(C.f1, -w1, zTop), V(C.f1, w1, zTop)];
+    const B = [V(C.f0, w0, zBot), V(C.f0, -w0, zBot), V(C.f1, -w1, zBot), V(C.f1, w1, zBot)];
+    faces.push({ role: 'nacelle', sh: 0.5, p: B });                                        // underside
+    faces.push({ role: 'gun', sh: 0.3, p: [A[0], A[1], B[1], B[0]] });                      // the dark intake mouth
+    for (const [i, j] of [[1, 2], [2, 3], [3, 0]]) faces.push({ role: 'nacelle', sh: i === 2 ? 0.44 : 0.62, p: [A[i], A[j], B[j], B[i]] });
+  }
   // Horizontal stabiliser (also thickened at full detail).
   for (const s of [1, -1]) {
     pushPanel(faces, 'stab', 0.72, [
       V(p.hF, s * p.fr * 0.5, 0.04), V(p.hTipF, s * p.hSpan, 0.05),
       V(p.hTipB, s * p.hSpan, 0.05), V(p.hB, s * p.fr * 0.5, 0.04)], 0.02, detail);
     if (detail) addStabSurface(faces, p, s);   // hinged elevator on the tailplane (full mesh only)
+  }
+  // BRACED TAILPLANE (p.stabStruts) — a slim strut each side running from out along the
+  // stabiliser up to the fin, per the reference photos. Small, but a braced tail reads as an
+  // older, heavier, more deliberately built machine, which is exactly the note wanted here.
+  if (detail && p.stabStruts) {
+    const sw = 0.016, mid = p.hSpan * 0.62;
+    const fMid = p.hF + (p.hTipF - p.hF) * 0.62;
+    for (const s of [1, -1]) {
+      faces.push({ role: 'strut', sh: 0.6, p: [
+        V(fMid + sw, s * mid, 0.05), V(p.finF0 - 0.06 + sw, s * 0.012, p.finH * 0.52),
+        V(p.finF0 - 0.06 - sw, s * 0.012, p.finH * 0.52), V(fMid - sw, s * mid, 0.05)] });
+    }
   }
   // Vertical fin(s).
   for (const fg of (p.fins || [0])) {
@@ -628,13 +672,40 @@ function pushCtrlSurface(faces, role, side, sh, le0, le1, te0, te1, cf, axis = '
   }
 }
 
+// A point on one wing at spanwise fraction u (0 = root rib, 1 = tip) and chordwise edge
+// ('le' or 'te'), on side `s`. Everything that needs to know where the wing IS goes through
+// here, so a wing whose shape is not a flat quad stays honest for the skin, the flaps and
+// the nav lamps at once.
+//
+// A straight wing interpolates root→tip and is arithmetically identical to the _lerp3 this
+// replaced (f, g and z are each linear in u), so every existing class builds byte-identical
+// geometry. `p.gull` = { at, drop, rise } adds a CRANK at spanwise `at`: the inner panel
+// falls by `drop` (negative — anhedral) and the outer rises by `rise`. That is the inverted
+// gull: a short steep centre section down to the knee, then a long dihedral outer panel, and
+// it is what lets the gear legs be short while the prop still clears the ground.
+function wingPt(p, wH, s, u, edge) {
+  const g0 = p.fr * 0.7, g1 = p.span;
+  const f = edge === 'le' ? p.wRootF + (p.wTipF - p.wRootF) * u : p.wRootB + (p.wTipB - p.wRootB) * u;
+  const z0 = wH - 0.01;
+  let z;
+  if (!p.gull) z = z0 + ((wH + p.dih) - z0) * u;
+  else {
+    const k = p.gull.at, zk = z0 + p.gull.drop;
+    z = u <= k ? z0 + (zk - z0) * (u / k) : zk + p.gull.rise * ((u - k) / (1 - k));
+  }
+  return V(f, s * (g0 + (g1 - g0) * u), z);
+}
+
 // Build the flap (inboard) + aileron (outboard) for one wing (`s` = +1 right, −1 left).
+// On a cranked wing the two surfaces meet AT the knee — the flap owns the inner panel and the
+// aileron the outer — because a surface spanning the crank would be a flat plate hinged across
+// a fold, and would tear out of the wing the moment it deflected.
 function addWingSurfaces(faces, p, s, wH) {
-  const rootLE = V(p.wRootF, s * p.fr * 0.7, wH - 0.01), tipLE = V(p.wTipF, s * p.span, wH + p.dih);
-  const tipTE = V(p.wTipB, s * p.span, wH + p.dih), rootTE = V(p.wRootB, s * p.fr * 0.7, wH - 0.01);
-  const le = (u) => _lerp3(rootLE, tipLE, u), te = (u) => _lerp3(rootTE, tipTE, u);
-  pushCtrlSurface(faces, 'flap', s, 0.8, le(0.06), le(0.46), te(0.06), te(0.46), 0.28);      // inboard flap
-  pushCtrlSurface(faces, 'aileron', s, 0.82, le(0.54), le(0.95), te(0.54), te(0.95), 0.28);  // outboard aileron
+  const le = (u) => wingPt(p, wH, s, u, 'le'), te = (u) => wingPt(p, wH, s, u, 'te');
+  const k = p.gull ? p.gull.at : 0.50;
+  const fl0 = 0.06, fl1 = k - 0.04, ai0 = k + 0.04, ai1 = 0.95;
+  pushCtrlSurface(faces, 'flap', s, 0.8, le(fl0), le(fl1), te(fl0), te(fl1), 0.28);      // inboard flap
+  pushCtrlSurface(faces, 'aileron', s, 0.82, le(ai0), le(ai1), te(ai0), te(ai1), 0.28);  // outboard aileron
 }
 
 // Build the elevator on one tailplane half (both halves move together — a symmetric elevator).
@@ -1312,7 +1383,7 @@ function addMissileBody(faces, fB, fF, g, z) {
 //     the curvature is — over a semi-tapered planform (constant chord inboard, tapered outer
 //     panel, square tips). The lit highlight rolling along the leading edge as she banks is the
 //     single biggest reason she reads as an aeroplane rather than a paper dart.
-//   • THE SECTION IS A TABLE, not a formula. Thirteen authored stations carry the shapes a
+//   • THE SECTION IS A TABLE, not a formula. Fourteen authored stations carry the shapes a
 //     Cessna actually has and a superellipse never will: a small round cowl, the STEP up to the
 //     cabin roof at the windscreen, a slab-sided cabin with a flat floor, and a slim tailcone
 //     that sweeps UP to the fin. That table is exported (cessnaSection) because the nose-art
@@ -1325,7 +1396,7 @@ function addMissileBody(faces, fB, fF, g, z) {
 // Normalised like everything else in this file: nose ≈ +0.90 (spinner), tail ≈ −1.03, tips at
 // g = ±1.12 — so MODEL_SCALE / CONTACT_SIZE / the chase camera all keep working untouched.
 
-// The fuselage, as thirteen cross-sections: [f, half-width, half-height ABOVE the centreline,
+// The fuselage, as fourteen cross-sections: [f, half-width, half-height ABOVE the centreline,
 // half-height BELOW it, centreline height, boxiness]. Split top/bottom because a Cessna's cabin
 // is a domed roof over a flat floor, and one radius can't say that; `cz` climbing aft IS the
 // upswept tailcone. `boxy` runs the section from round (0, the cowl) to slab-sided (0.62, the
@@ -1338,13 +1409,14 @@ const CESSNA_STATIONS = [
   [ 0.46, 0.094, 0.074, 0.068, 0.008, 0.52],   //  3 firewall / windscreen BASE  ── the next bay is the screen
   [ 0.40, 0.100, 0.140, 0.072, 0.004, 0.60],   //  4 windscreen TOP — the step up to the cabin roof
   [ 0.24, 0.106, 0.146, 0.076, 0.002, 0.62],   //  5 front seats / door front
-  [ 0.06, 0.106, 0.144, 0.076, 0.004, 0.62],   //  6 door aft
-  [-0.12, 0.100, 0.134, 0.072, 0.012, 0.58],   //  7 rear seats
-  [-0.28, 0.084, 0.108, 0.062, 0.028, 0.46],   //  8 cabin aft — the glass stops here
-  [-0.46, 0.060, 0.074, 0.048, 0.048, 0.32],   //  9 tailcone
-  [-0.66, 0.044, 0.052, 0.038, 0.064, 0.22],   // 10
-  [-0.86, 0.032, 0.038, 0.030, 0.078, 0.16],   // 11
-  [-1.00, 0.022, 0.026, 0.022, 0.088, 0.10],   // 12 tail end
+  [ 0.06, 0.106, 0.144, 0.076, 0.004, 0.62],   //  6 door aft — the door window STOPS here
+  [ 0.00, 0.104, 0.141, 0.075, 0.007, 0.61],   //  7 the painted post BETWEEN the door window and the rear one
+  [-0.12, 0.100, 0.134, 0.072, 0.012, 0.58],   //  8 rear seats
+  [-0.28, 0.084, 0.108, 0.062, 0.028, 0.46],   //  9 cabin aft — the glass stops here
+  [-0.46, 0.060, 0.074, 0.048, 0.048, 0.32],   // 10 tailcone
+  [-0.66, 0.044, 0.052, 0.038, 0.064, 0.22],   // 11
+  [-0.86, 0.032, 0.038, 0.030, 0.078, 0.16],   // 12
+  [-1.00, 0.022, 0.026, 0.022, 0.088, 0.10],   // 13 tail end
 ];
 // The hull section at ANY station, interpolated from the table the mesh is skinned from. Exported
 // because drawNoseArt has to wrap a decal onto the real flank: the parametric classes reconstruct
@@ -1435,17 +1507,22 @@ function buildCessna(detail = 1) {
   // on, which is why the two tables below are keyed by a station's f rather than by its index:
   // subsampling the hull can never slide a windscreen onto the wrong bay. (Merging two side-window
   // bays into one at distance is exactly right; losing the windscreen would not be.)
-  const KEEP = new Set([0.72, 0.55, 0.46, 0.40, 0.06, -0.28, -0.66, -1.00]);
+  const KEEP = new Set([0.72, 0.55, 0.46, 0.40, 0.06, 0.00, -0.28, -0.66, -1.00]);
   const rows = detail ? CESSNA_STATIONS : CESSNA_STATIONS.filter(r => KEEP.has(r[0]));
   const body = rows.map(ring);
   // Which facets of a bay are GLASS, keyed by the bay's FORWARD station. The windscreen bay glazes
   // the whole upper half, so it wraps over the crown and is split only by the painted centre post —
   // what a Cessna screen does. The bays behind it glaze the upper flank alone (k0/k5): the cabin
   // ROOF is metal.
-  const GLAZE = { 0.46: [0, 1, 2, 3, 4, 5], 0.40: [0, 5], 0.24: [0, 5], 0.06: [0, 5], '-0.12': [0, 5] };
+  //
+  // A light single has TWO side windows a side, not a strip: the door window, then a painted post,
+  // then the smaller rear one. That post is the bay 0.06→0.00, deliberately left OUT of this table
+  // — the separation is a missing entry, not a decoration drawn over continuous glass, so it holds
+  // at every LOD and from every angle. Glazing 0.06 again is what turns her back into a bus.
+  const GLAZE = { 0.46: [0, 1, 2, 3, 4, 5], 0.40: [0, 5], 0.24: [0, 5], 0: [0, 5], '-0.12': [0, 5] };
   // Texture-U at each glazed station: the unwrap runs windscreen→rear quarter light, and the
   // canopy art's frame posts sit on these exact numbers so a mullion always lands on a real seam.
-  const STATION_U = { 0.46: 0.00, 0.40: 0.18, 0.24: 0.42, 0.06: 0.66, '-0.12': 0.86, '-0.28': 1.00 };
+  const STATION_U = { 0.46: 0.00, 0.40: 0.18, 0.24: 0.42, 0.06: 0.66, 0: 0.74, '-0.12': 0.86, '-0.28': 1.00 };
   for (let i = 0; i < body.length - 1; i++) {
     const glz = GLAZE[rows[i][0]], uA = (STATION_U[rows[i][0]] ?? 0) * CP_TW, uB = (STATION_U[rows[i + 1][0]] ?? 0) * CP_TW;
     for (let k = 0; k < SIDES; k++) {
@@ -1621,13 +1698,284 @@ function buildCessna(detail = 1) {
   return faces;
 }
 
+// ── GRASSHOPPER — a PIPER CUB, built to the Mayfly's standard ──────────────────
+// The second promotion off the parametric generator, and for the same reason: a light single is
+// looked at more than anything else in the sim, and a Cub is nothing but the details the generator
+// can't express. What she was — a row of scalars plus a glass BLISTER sunk 0.02 into the crown —
+// could never say the one thing that makes the type: the wing is carried above the fuselage on the
+// cabin frame, and the gap between them IS the greenhouse.
+//
+// What is here that the parametric path could not do:
+//   • THE CABIN IS THE HULL, as on the Mayfly — but the OPPOSITE glazing decision. A Cessna has two
+//     separate side windows a side; a Cub has one continuous run of glass from the windscreen to
+//     the aft cabin bulkhead, plus a SKYLIGHT in the roof. So the side bays glaze unbroken and the
+//     crown facets (k2/k3) glaze too, which is what puts sky above the pilot's head when she banks.
+//     Do not "tidy" this into the Mayfly's split — the two aeroplanes disagree on purpose.
+//   • A FLAT-BOTTOMED SECTION. The Mayfly flies on a NACA 2412; a Cub flies on a USA-35B, whose
+//     underside is very nearly a plank. `cubFoil` is the Mayfly's own foil with the lower surface
+//     flattened, so the two wings share one vocabulary and still read as different aerofoils —
+//     the flat underside is most of why a Cub looks like a kite from below.
+//   • THE STEEL CAGE. A Cub is welded tube under fabric, and everything visible says so: exposed
+//     cylinder heads out of the cowl cheeks, the bungee gear V with its cross-axle, jury struts
+//     halfway up the lift struts, and the split door on the starboard side.
+//   • ROUND TAIL FEATHERS. Every surface on a J-3 is a rounded outline on a bent-tube frame, not
+//     the swept trapezoids the generator draws — including a rudder that hangs BELOW the tailcone,
+//     which is the single most recognisable thing about the type in silhouette.
+//
+// Normalised like everything else: nose ≈ +0.87 (spinner), tail ≈ −1.03, tips at g = ±1.16.
+//
+// Her stations, in the same six columns CESSNA_STATIONS uses. Slimmer and deeper than the Cessna
+// (a Cub is narrow — two people sit in TANDEM, not abreast), a short cowl, and a long slim tailcone
+// whose `cz` climbs hard because the fin is carried high.
+const CUB_STATIONS = [
+  //  f      rg     rvT    rvB    cz     boxy
+  [ 0.80, 0.048, 0.046, 0.038, 0.030, 0.16],   //  0 cowl face — the spinner sits on this ring
+  [ 0.72, 0.064, 0.060, 0.048, 0.026, 0.30],   //  1 cowl — narrow, and the cylinder heads stick out of it
+  [ 0.60, 0.072, 0.068, 0.056, 0.020, 0.54],   //  2 firewall
+  [ 0.52, 0.074, 0.072, 0.060, 0.016, 0.62],   //  3 windscreen BASE ── the next bay is the screen
+  [ 0.44, 0.076, 0.126, 0.062, 0.012, 0.70],   //  4 windscreen TOP — the step up to the cabin frame
+  [ 0.22, 0.078, 0.130, 0.064, 0.010, 0.72],   //  5 front seat / door front
+  [ 0.00, 0.078, 0.128, 0.064, 0.010, 0.72],   //  6 rear seat / door aft
+  [-0.20, 0.070, 0.114, 0.058, 0.016, 0.66],   //  7 cabin aft — the glass stops here
+  [-0.42, 0.052, 0.082, 0.046, 0.030, 0.50],   //  8 tailcone
+  [-0.64, 0.036, 0.056, 0.032, 0.048, 0.36],   //  9
+  [-0.86, 0.024, 0.038, 0.022, 0.066, 0.24],   // 10
+  [-1.03, 0.014, 0.024, 0.014, 0.080, 0.16],   // 11 tail end
+];
+// The Cub's hull section at any station, for the same reason cessnaSection is exported: the
+// nose-art wrap paints onto the real flank, and she has no FW_PARAMS row to reconstruct one from.
+export function cubSection(f) {
+  const S = CUB_STATIONS;
+  if (f >= S[0][0]) return { rg: S[0][1], rvT: S[0][2], rvB: S[0][3], cz: S[0][4], boxy: S[0][5] };
+  const last = S[S.length - 1];
+  if (f <= last[0]) return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
+  for (let i = 0; i < S.length - 1; i++) {
+    const a = S[i], b = S[i + 1];
+    if (f <= a[0] && f >= b[0]) {
+      const t = (a[0] - f) / (a[0] - b[0] || 1), L = (x, y) => x + (y - x) * t;
+      return { rg: L(a[1], b[1]), rvT: L(a[2], b[2]), rvB: L(a[3], b[3]), cz: L(a[4], b[4]), boxy: L(a[5], b[5]) };
+    }
+  }
+  return { rg: last[1], rvT: last[2], rvB: last[3], cz: last[4], boxy: last[5] };
+}
+
+// Wing: CONSTANT chord tip to tip (no taper at all — that is the planform), square-cut, carried
+// well clear of the crown on the cabin frame. CU_WH is the gap that makes the greenhouse read.
+const CU_SPAN = 1.16, CU_WH = 0.212, CU_DIH = 0.022, CU_LE = 0.30, CU_TE = -0.18;
+// USA-35B-ish: the Mayfly's foil with the underside flattened almost to a plank and a touch more
+// camber up top. Flat-bottomed is the whole look of a Cub wing from below.
+function cubFoil(x) {
+  const [u, l] = ceFoil(x);
+  return [u * 1.06, Math.min(0, l * 0.30)];
+}
+function cuPt(g, x, sec) {
+  const a = Math.min(1, Math.abs(g) / CU_SPAN), c = CU_LE - CU_TE, [u, l] = cubFoil(x);
+  const z = CU_WH + CU_DIH * a + (sec === 0.5 ? (u + l) / 2 : sec ? u : l) * c;
+  return V(CU_LE - x * c, g, z);
+}
+
+// Her nose-high three-point sit (deg) — an attitude the renderers apply, never baked into the mesh,
+// exactly as the Viper's is. This used to live in the FW_PARAMS row she no longer has.
+export const CUB_GROUND_PITCH = 11;
+
+function buildCub(detail = 1) {
+  const faces = [];
+  const q = (role, sh, a, b, c, d) => faces.push({ role, sh, p: d ? [a, b, c, d] : [a, b, c] });
+  const GLASS = [96, 132, 158];
+  const SIDES = 12;
+
+  // ── Fuselage ─────────────────────────────────────────────────────────────────
+  const ring = (row) => {
+    const [f, rg, rvT, rvB, cz, boxy] = row, e = 1 - boxy * 0.55, o = [];
+    for (let k = 0; k < SIDES; k++) {
+      const a = k / SIDES * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      const g = Math.sign(ca) * Math.pow(Math.abs(ca), e) * rg;
+      const h = sa >= 0 ? Math.pow(sa, e) * rvT : -Math.pow(-sa, e) * rvB;
+      o.push(V(f, g, cz + h));
+    }
+    return o;
+  };
+  const shFor = (k) => 0.62 + 0.36 * (0.5 + 0.5 * Math.sin((k + 0.5) / SIDES * Math.PI * 2));
+  // Keyed by f, not index, so subsampling can never slide the greenhouse onto the wrong bay.
+  const KEEP = new Set([0.80, 0.60, 0.52, 0.44, 0.00, -0.20, -0.64, -1.03]);
+  const rows = detail ? CUB_STATIONS : CUB_STATIONS.filter(r => KEEP.has(r[0]));
+  const body = rows.map(ring);
+  // The greenhouse. The windscreen bay glazes the whole upper half (it wraps over the crown, split
+  // only by the centre post); every bay behind it glazes the side band AND the crown — side glass
+  // k0/k5, skylight k2/k3 — so the cabin is glass from the sill line right over the top. The two
+  // facets between them (k1/k4) stay painted: that is the cabin frame's own longeron, and it is
+  // what stops the roof reading as one undifferentiated dome.
+  const GLAZE = { 0.52: [0, 1, 2, 3, 4, 5], 0.44: [0, 2, 3, 5], 0.22: [0, 2, 3, 5], 0: [0, 5] };
+  // Texture-U at each glazed station. The 'xcub' canopy art's frame posts sit on these numbers, and
+  // its `sills` at 1/3 and 2/3 are exactly the V-band edges of the crown facets — so the skylight
+  // art lands on the skylight facets with nothing to line up by hand.
+  const STATION_U = { 0.52: 0.00, 0.44: 0.18, 0.22: 0.48, 0: 0.78, '-0.20': 1.00 };
+  for (let i = 0; i < body.length - 1; i++) {
+    const glz = GLAZE[rows[i][0]], uA = (STATION_U[rows[i][0]] ?? 0) * CP_TW, uB = (STATION_U[rows[i + 1][0]] ?? 0) * CP_TW;
+    for (let k = 0; k < SIDES; k++) {
+      const j = (k + 1) % SIDES;
+      const fc = { role: 'body', sh: shFor(k), p: [body[i][k], body[i][j], body[i + 1][j], body[i + 1][k]] };
+      if (glz && glz.includes(k)) {
+        fc.role = 'glass'; fc.tint = GLASS; fc.art = 'xcub';
+        fc.uv = [[uA, k / 6 * CP_TH], [uA, j / 6 * CP_TH], [uB, j / 6 * CP_TH], [uB, k / 6 * CP_TH]];
+      }
+      faces.push(fc);
+    }
+  }
+  faces.push({ role: 'body', sh: 0.92, p: body[0] });
+  faces.push({ role: 'body', sh: 0.5, p: body[body.length - 1].slice().reverse() });
+
+  // ── Cowl: a small round bowl, the exposed CYLINDER HEADS, spinner and exhaust ─────
+  // The heads poking out of the cowl cheeks are the detail that dates her — a modern light single
+  // hides its engine, and this one does not.
+  const SPIN_F = 0.865, SPIN_R = 0.036, spinBase = [];
+  for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; spinBase.push(V(0.80, Math.cos(a) * SPIN_R, 0.030 + Math.sin(a) * SPIN_R)); }
+  for (let k = 0; k < 10; k++) {
+    const j = (k + 1) % 10;
+    q('nacelle', 0.72 + 0.26 * (0.5 + 0.5 * Math.sin((k + 0.5) / 10 * Math.PI * 2)), V(SPIN_F, 0, 0.030), spinBase[k], spinBase[j]);
+  }
+  if (detail) {
+    for (const s of [1, -1]) {   // two cylinder heads a side, out through the cowl cheek
+      for (const ff of [0.735, 0.665]) addTube(faces, V(ff, s * 0.052, 0.014), V(ff, s * 0.084, 0.008), 0.017, 'nacelle', 0.58, 6);
+    }
+    // Exhaust: a long stack down the belly on the left, the way a Cub wears one.
+    addTube(faces, V(0.68, -0.030, -0.026), V(0.50, -0.036, -0.048), 0.010, 'gun', 0.34, 6);
+  }
+
+  // ── WING: constant chord, tip to tip, carried above the cabin ────────────────────
+  const NX = detail ? 11 : 4;
+  const XS = []; for (let i = 0; i < NX; i++) XS.push(0.5 * (1 - Math.cos(Math.PI * i / (NX - 1))));
+  const RIBS = detail ? [-CU_SPAN, -0.86, -0.58, -0.20, 0.20, 0.58, 0.86, CU_SPAN] : [-CU_SPAN, 0, CU_SPAN];
+  for (let r = 0; r < RIBS.length - 1; r++) {
+    const gA = RIBS[r], gB = RIBS[r + 1];
+    for (let i = 0; i < NX - 1; i++) {
+      const x0 = XS[i], x1 = XS[i + 1];
+      const lit = 0.80 + 0.18 * Math.sin(Math.PI * Math.min(1, (x0 + x1) / 2 * 1.6));
+      q('wing', lit, cuPt(gA, x0, 1), cuPt(gB, x0, 1), cuPt(gB, x1, 1), cuPt(gA, x1, 1));
+      q('wing', 0.44, cuPt(gA, x1, 0), cuPt(gB, x1, 0), cuPt(gB, x0, 0), cuPt(gA, x0, 0));   // flat underside, and it stays dark
+    }
+  }
+  for (const s of [1, -1]) {
+    for (let i = 0; i < NX - 1; i++)
+      q('wing', 0.66, cuPt(s * CU_SPAN, XS[i], 1), cuPt(s * CU_SPAN, XS[i + 1], 1), cuPt(s * CU_SPAN, XS[i + 1], 0), cuPt(s * CU_SPAN, XS[i], 0));
+    if (detail) {
+      const lp = cuPt(s * CU_SPAN, 0.10, 0.5);
+      faces.push({ role: 'window', sh: 0.95, tint: s > 0 ? [46, 190, 78] : [200, 52, 48],
+        p: [V(lp[0] - 0.02, s * (CU_SPAN + 0.012), lp[2] + 0.010), V(lp[0] + 0.02, s * (CU_SPAN + 0.012), lp[2] + 0.010),
+            V(lp[0] + 0.02, s * (CU_SPAN + 0.012), lp[2] - 0.010), V(lp[0] - 0.02, s * (CU_SPAN + 0.012), lp[2] - 0.010)] });
+    }
+  }
+  // No flaps — a J-3 has none. Ailerons only, outboard, on the real trailing edge.
+  if (detail) for (const s of [1, -1]) {
+    const le = (g) => cuPt(s * g, 0.66, 0.5), te = (g) => cuPt(s * g, 1, 0.5);
+    pushCtrlSurface(faces, 'aileron', s, 0.82, le(0.60), le(1.12), te(0.60), te(1.12), 0.28, 'z', 0.010);
+  }
+
+  // ── CABIN FRAME + LIFT STRUTS ────────────────────────────────────────────────────
+  // The wing does not touch the fuselage: four short cabane struts carry it off the cabin corners,
+  // and the daylight between them is the top of the greenhouse.
+  for (const s of [1, -1]) {
+    for (const [f0, x] of [[0.44, 0.10], [0.06, 0.86]]) {   // front cabane → wing LE, rear → the aft spar
+      const top = cuPt(s * 0.10, x, 0);
+      addFaired(faces, V(f0, s * 0.066, 0.118), V(top[0], s * 0.096, top[2] - 0.004), 0.024, 0.008, 'strut', 0.60);
+    }
+    // The single lift strut a side, belly longeron out to mid-span — plus the JURY strut, the short
+    // diagonal halfway up that keeps it from oil-canning. On the real thing it is the tell that
+    // you're looking at a Cub and not a Cessna, and it costs two triangles.
+    const wA = cuPt(s * 0.62, 0.34, 0);
+    addFaired(faces, V(0.20, s * 0.070, -0.052), V(wA[0], s * 0.62, wA[2] - 0.004), 0.034, 0.009, 'strut', 0.66);
+    if (detail) {
+      const mid = [(0.20 + wA[0]) / 2, s * 0.345, (-0.052 + wA[2]) / 2];
+      const jw = cuPt(s * 0.34, 0.80, 0);
+      addTube(faces, V(mid[0], mid[1], mid[2]), V(jw[0], s * 0.34, jw[2] - 0.004), 0.006, 'strut', 0.58, 4);
+    }
+  }
+
+  // ── TAIL: rounded outlines on bent tube, and a rudder that hangs BELOW the cone ──
+  const FT = 0.010;
+  // Fin: small, and mostly leading edge. The big rounded shape aft of it is the rudder.
+  const finPlan = [V(-0.62, 0, 0.098), V(-0.84, 0, 0.34), V(-0.92, 0, 0.36), V(-0.94, 0, 0.100)];
+  for (const s of [1, -1]) {
+    const P = finPlan.map(v => V(v[0], s * FT, v[2])), sh = s > 0 ? 0.92 : 0.68;
+    q('fin', sh, P[0], P[1], P[2], P[3]);
+  }
+  for (let i = 0; i < finPlan.length - 1; i++) {
+    const a = finPlan[i], b = finPlan[i + 1];
+    q('fin', i === 0 ? 0.88 : 0.74, V(a[0], FT, a[2]), V(b[0], FT, b[2]), V(b[0], -FT, b[2]), V(a[0], -FT, a[2]));
+  }
+  // Rudder: hinged just aft of the fin, rounded, and carried DOWN past the tailcone to the
+  // tailwheel — the J-3 outline. Two panels a side so the round trailing edge survives the
+  // 3-and-4-point facet limit the panel texture imposes.
+  for (const s of [1, -1]) {
+    const gg = s * (FT + 0.005);
+    const Htop = V(-0.925, gg, 0.352), Hmid = V(-0.945, gg, 0.100), Hbot = V(-0.950, gg, -0.020);
+    const Ttop = V(-0.995, gg, 0.320), Tmid = V(-1.030, gg, 0.110), Tbot = V(-1.010, gg, -0.010);
+    const F = (a, b, c, d, sh) => faces.push({ role: 'rudder', defl: 'rudder', side: 1, sh,
+      hinge: [Htop, Hbot], p: s > 0 ? [a, b, c, d] : [d, c, b, a] });
+    F(Htop, Hmid, Tmid, Ttop, s > 0 ? 0.88 : 0.66);
+    F(Hmid, Hbot, Tbot, Tmid, s > 0 ? 0.84 : 0.63);
+  }
+  // Tailplane: low on the cone, rounded tips, and BRACED — struts below to the fuselage and wires
+  // above to the fin. A Cub's tail is held on by its bracing and looks it.
+  const HZ = 0.070, HSPAN = 0.40;
+  for (const s of [1, -1]) {
+    pushPanel(faces, 'stab', 0.74, [
+      V(-0.66, s * 0.024, HZ), V(-0.72, s * HSPAN, HZ + 0.008),
+      V(-0.86, s * HSPAN, HZ + 0.008), V(-0.88, s * 0.024, HZ)], 0.014, detail);
+    if (detail) {
+      const le = (u) => _lerp3(V(-0.66, s * 0.024, HZ), V(-0.72, s * HSPAN, HZ + 0.008), u);
+      const te = (u) => _lerp3(V(-0.88, s * 0.024, HZ), V(-0.86, s * HSPAN, HZ + 0.008), u);
+      pushCtrlSurface(faces, 'elevator', s, 0.74, le(0.05), le(0.96), te(0.05), te(0.96), 0.38, 'z', 0.008);
+      addTube(faces, V(-0.80, s * 0.020, 0.020), V(-0.78, s * 0.30, HZ), 0.005, 'strut', 0.56, 4);      // brace strut, below
+      addTube(faces, V(-0.86, s * 0.006, 0.245), V(-0.76, s * 0.30, HZ + 0.010), 0.004, 'strut', 0.62, 4);   // bracing wire, above
+    }
+  }
+
+  // ── BUNGEE TAILDRAGGER GEAR, on fat tyres ────────────────────────────────────────
+  // Not a leg with a wheel on the end: a V of tubes off the lower longerons to a cross-axle, with
+  // the shock cord wound round the fuselage fitting. The wheels sit FORWARD of the wing so she
+  // stands nose-high on the tail.
+  const AXF = 0.34, AXG = 0.215, AXZ = -0.235, TYRE = 0.082;
+  for (const s of [1, -1]) {
+    addTube(faces, V(0.46, s * 0.036, -0.052), V(AXF, s * AXG, AXZ), 0.011, 'gear', 0.62, 5);   // front leg
+    addTube(faces, V(0.16, s * 0.036, -0.054), V(AXF, s * AXG, AXZ), 0.010, 'gear', 0.56, 5);   // rear leg
+    addTube(faces, V(AXF, s * 0.030, -0.062), V(AXF, s * AXG, AXZ), 0.008, 'gear', 0.50, 5);    // the shock strut down to the axle
+    pushWheel(faces, AXF, s * AXG, AXZ, TYRE, 0.034, detail ? 12 : 8);
+  }
+  if (detail) addTube(faces, V(AXF, -AXG, AXZ), V(AXF, AXG, AXZ), 0.007, 'gear', 0.48, 5);      // the cross-axle itself
+  // Tailwheel on its leaf spring, under the rudder's heel.
+  addFaired(faces, V(-0.90, 0, -0.006), V(-1.000, 0, -0.052), 0.026, 0.006, 'gear', 0.58);
+  pushWheel(faces, -1.005, 0, -0.072, 0.026, 0.012, detail ? 8 : 6);
+
+  // ── The small things you'd notice if they weren't there ──────────────────────────
+  if (detail) {
+    // THE SPLIT DOOR, starboard side only — the Cub's whole personality is that the top half swings
+    // up under the wing and the bottom half drops, and you fly with it open. Three seams and the
+    // horizontal split line say it without any of it having to move.
+    const gg = 0.0805, sw = 0.0035;
+    const seam = (f0, z0, f1, z1) => q('strut', 0.42, V(f0, gg, z0 + sw), V(f1, gg, z1 + sw), V(f1, gg, z1 - sw), V(f0, gg, z0 - sw));
+    seam(0.24, 0.118, 0.24, -0.048);    // front post
+    seam(-0.02, 0.112, -0.02, -0.050);  // rear post
+    seam(0.24, 0.036, -0.02, 0.034);    // THE SPLIT: the horizontal line the two halves part on
+    q('strut', 0.42, V(0.24, gg, -0.046), V(-0.02, gg, -0.048), V(-0.02, gg, -0.056), V(0.24, gg, -0.054));   // sill
+    // Boarding step under the door, and the pitot on the left lift strut (not the wing — a Cub
+    // hangs it off the strut where you can reach it).
+    q('gear', 0.58, V(0.16, 0.070, -0.086), V(0.16, 0.128, -0.092), V(0.09, 0.128, -0.092), V(0.09, 0.070, -0.086));
+    addTube(faces, V(0.12, -0.34, 0.028), V(0.19, -0.34, 0.022), 0.005, 'gear', 0.55, 4);
+    // Wire aerial from the cabin roof to the fin — pre-war radio, and a line in the sky.
+    addTube(faces, V(-0.16, 0, 0.132), V(-0.86, 0, 0.330), 0.003, 'strut', 0.66, 3);
+  }
+  return faces;
+}
+
 // Where each class's prop discs spin — read by both renderers' engine-effect layers so
 // the translucent blur sits on the actual spinner(s), not a hardcoded nose position.
 export const PROP_STATIONS = {
   ultralight: [[0.775, 0, 0.028]],                      // Cessna: one nose prop, at the spinner (drawRotorFX walks it back 0.06 to the cone root)
   prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
-  grasshopper: [[0.87, 0, 0.02]],                      // L-4: one nose prop (spinner apex = noseF 0.80 + 0.07)
+  grasshopper: [[0.865, 0, 0.030]],                    // Cub: one nose prop, at her own spinner apex (CUB_STATIONS' cowl face + SPIN_R)
   locust: [[1.13, 0, 0.02]],                           // ag turbine: one big nose prop (spinner apex = noseF 1.00 + 0.14·0.9)
+  divebomber: [[1.19, 0, 0.015]],                      // Shrike: one big slow nose prop (spinner apex = noseF 1.06 + 0.14·0.82)
 };
 
 // Real-world RELATIVE size (Twin Otter = 1). The meshes are all normalised to a similar extent,
@@ -1639,7 +1987,7 @@ export const PROP_STATIONS = {
 // `truck` sits between the light singles and a Twin Otter: a rig with a box on it is a big animal
 // on a garage floor, and the shared-camera fit in drawHangarScene reads this to stand back far
 // enough that four of them park in one shot without shoving each other.
-export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, truck: 1.15 };
+export const MODEL_SCALE = { ultralight: 0.52, prop: 1.0, gunship: 1.05, heavy: 1.7, heli: 0.42, wreck: 0.85, grasshopper: 0.42, locust: 0.40, divebomber: 0.72, truck: 1.15 };
 
 // ── Animated prop & rotor blades ────────────────────────────────────────────────
 // The spinning surfaces are an EFFECT LAYER every renderer draws through its OWN
@@ -1913,24 +2261,11 @@ const FW_PARAMS = {
     // The flight-deck HUMP. Peaks at f=0.70, dead centre of the glass band (0.78→0.56), and blends
     // out to nothing well clear of the wing root at 0.34 so it can't crease the wing fairing.
     hump: { f0: 0.42, f1: 0.98, h: 0.055 } },
-  // Grasshopper — a Piper L-4 (per ref): a high-wing, strut-braced TANDEM two-seat TAILDRAGGER
-  // liaison/observation plane. Signatures vs the Cessna: a deeper, SLAB-SIDED slim fuselage; a
-  // long GLAZED "greenhouse" cabin (a row of big observation windows + a raked windscreen); a
-  // near-constant-chord high wing on lift struts; a tall light fin; and conventional (tailwheel)
-  // gear that sits it nose-high. Short-nose / long slim tailcone.
-  grasshopper: { ...FW_DEFAULT, fr: 0.080, fv: 0.115, span: 1.16, noseF: 0.80, tailF: -1.04,
-    // Cub cabin: the wing is carried clear of the fuselage crown on the cabin frame, and the gap
-    // between them IS the greenhouse (side glass + the skylight in the wing root).
-    wingH: 0.168, dih: 0.02, wRootF: 0.30, wRootB: -0.17, wTipF: 0.28, wTipB: -0.17, hSpan: 0.44,
-    hF: -0.74, hB: -0.96, hTipF: -0.78, hTipB: -0.98,
-    finF0: -0.66, finF1: -0.96, finF2: -1.02, finH: 0.52, fins: [0],
-    engines: [], prop: 'nose', struts: true, gear: true, gearStyle: 'taildragger', tundra: true, groundPitch: 11,
-    noseBlunt: 2.2, noseCowl: 0.26, boxy: 0.42, bodyTube: 0.16, tailUp: 0.06,   // slim deep slab-sided fabric fuselage
-    // CABIN UNDER THE WING (per ref: a Carbon Cub). Windscreen up off the cowl, then the long
-    // glazed cabin runs aft beneath the whole wing root (LE 0.30 → TE −0.17) — that band under the
-    // wing is the Cub's defining feature, and the skylight painted on its crown (canopy art 'xcub')
-    // only makes sense once the glass is actually up there against the wing.
-    canopy: { f0: 0.44, f1: -0.14, w: 0.074, h: 0.046, front: 0.30, tail: 0.22, segs: 6, arc: 3, sink: 0.02, art: 'xcub' } },
+  // NOTE: there is no `grasshopper` row either, and for the same reason as the Mayfly's — the Cub
+  // was promoted off this generator to `buildCub`. Her section lives in CUB_STATIONS, her hull
+  // profile is served by cubSection(), her stance by CUB_GROUND_PITCH, and her wing constants by
+  // CU_SPAN/cuPt — which are what the four consumers that used to read this row (wingtipStation,
+  // drawNoseArt, groundPitchFor, aircraftFaces) now call.
   // Locust — a low-wing crop-duster / ag-plane (per ref: Air Tractor / Grumman Ag Cat): a big,
   // BROAD constant-chord SQUARE wing (rectangular planform — no taper, no sweep, square-cut tips);
   // a chunky slab-sided fuselage with a blunt radial cowl; a raised bubble cockpit set high for
@@ -1958,6 +2293,40 @@ const FW_PARAMS = {
     // The spray rig, hung off the trailing edge and reaching almost tip to tip.
     sprayBoom: { f: -0.26, drop: 0.055, reach: 0.94, nozzles: 11 },
     canopy: { f0: 0.52, f1: 0.16, w: 0.082, h: 0.112, front: 0.22, tail: 0.20, segs: 6, arc: 5, sink: 0.015, art: 'locust' } },   // raised ag cockpit, set high and stepped down off the hopper
+  // Shrike — the dive bomber (per ref: a Ju 87, futurised). Four things carry the silhouette,
+  // and they are the four you can name from a hundred yards:
+  //  • THE INVERTED GULL WING — a short steep anhedral centre section down to a knee at ~30%
+  //    span, then a long dihedral outer panel. That is `gull`, and it is the only wing in the
+  //    fleet that is not a flat quad. It exists structurally so the legs can be short while a
+  //    big slow prop still clears the ground, which is why the next item works.
+  //  • TROUSERS — permanently down, deeply spatted, on stout legs. Reusing the ag taildragger
+  //    gear (`gearAg`), whose own comment already describes "long faired legs and big spatted
+  //    wheels": the crop-duster's pants ARE this aeroplane's trousers, and building a second
+  //    set would have been a copy that drifted.
+  //  • THE GLASSHOUSE — one long canopy over two crew in tandem, running most of the way back
+  //    to the fin. Longer than anything else here (f 0.58 → −0.14) and that length is the read.
+  //  • A LONG TAPERED SNOUT with a deep ventral intake under it. On the original that scoop is
+  //    the radiator; futurised it feeds the ducted turbine, so the shape stays and the reason
+  //    changes — which is the whole brief for this airframe.
+  // Plus the braced tailplane (struts up to the fin from the stabiliser, per ref) and the
+  // dive brakes out at the knee. Square-cut tips, deliberately: nothing about her is elegant.
+  divebomber: { ...FW_DEFAULT, fr: 0.098, fv: 0.132, span: 1.06, noseF: 1.06, tailF: -1.00,
+    wingH: 0.028, wRootF: 0.30, wRootB: -0.20, wTipF: 0.26, wTipB: -0.18, hSpan: 0.42,
+    gull: { at: 0.30, drop: -0.088, rise: 0.132 },   // down hard to the knee, then a long lift out to the tip
+    hF: -0.70, hB: -0.90, hTipF: -0.74, hTipB: -0.92,
+    finF0: -0.62, finF1: -0.96, finF2: -1.02, finH: 0.58, fins: [0],
+    engines: [], prop: 'nose', gear: true, gearStyle: 'taildragger', gearAg: true, groundPitch: 9,
+    // The snout: a fat cowl face (a ducted turbine, not a spike) with a big blunt spinner in it,
+    // and the centreline eased down so the nose reads as a long tapering wedge rather than a tube.
+    noseBlunt: 2.4, noseCowl: 0.30, noseZ: -0.035, noseDroopK: 0.6, spinner: 0.82,
+    boxy: 0.46, bodyTube: 0.18, tailUp: 0.05,
+    extraF: [0.92, 0.80, 0.68, 0.56, 0.30],
+    dorsal: -0.28,   // spine fillet forward off the fin
+    exhaust: { f: 0.78, g: 0.88, z: -0.008, at: [0, -0.045, -0.09] },   // a row of stacks down the cowl flank
+    diveBrakes: { u0: 0.22, u1: 0.44, drop: 0.062, aft: 0.05 },
+    stabStruts: true,   // the braced tailplane — a strut each side from the stabiliser up to the fin
+    chinScoop: { f0: 0.76, f1: 0.30, w: 0.052, h: 0.055 },   // the ventral intake under the nose
+    canopy: { f0: 0.58, f1: -0.14, w: 0.076, h: 0.090, front: 0.24, tail: 0.16, segs: 7, arc: 5, sink: 0.014, art: 'shrike' } },
 };
 
 // The starboard (right) wingtip station [f, g, h] in normalised model space — the outboard
@@ -1975,8 +2344,14 @@ export function wingtipStation(cls) {
   // The Cessna's tip comes off her own wing constants, not a FW_PARAMS row she no longer has —
   // mid-chord at the tip rib, so the lamp sits ON the tip the mesh actually built.
   if (cls === 'ultralight') return [(cePt(CE_SPAN, 0, 0.5)[0] + cePt(CE_SPAN, 1, 0.5)[0]) / 2, CE_SPAN, cePt(CE_SPAN, 0.5, 0.5)[2]];
+  // Same again for the Cub, off her own wing constants — she has no FW_PARAMS row either.
+  if (cls === 'grasshopper') return [(cuPt(CU_SPAN, 0, 0.5)[0] + cuPt(CU_SPAN, 1, 0.5)[0]) / 2, CU_SPAN, cuPt(CU_SPAN, 0.5, 0.5)[2]];
   const p = FW_PARAMS[cls] || FW_PARAMS.prop;
-  return [(p.wTipF + p.wTipB) / 2, p.span, (p.wingH || 0) + (p.dih || 0)];
+  // A cranked (gull) wing's tip is NOT wingH+dih — it is the knee height plus the outer
+  // panel's rise. Ask the wing where its own tip is rather than restating the flat-wing sum,
+  // or the nav lamps hang in the air beside a wing that folds away from them.
+  const tip = wingPt(p, p.wingH || 0, 1, 1, 'le'), tipB = wingPt(p, p.wingH || 0, 1, 1, 'te');
+  return [(tip[0] + tipB[0]) / 2, p.span, tip[2]];
 }
 
 // WHERE A ROAD VEHICLE'S LAMPS ARE, in the same [fore, lateral, height] mesh space every other
@@ -2059,6 +2434,10 @@ function truckLampGeom(S) {
 // flies the same stance, and these are the parked renderers' version of it.
 export function groundPitchFor(cls, armed = false) {
   if (cls === 'heli') return armed ? VIPER_GROUND_PITCH : 0;
+  // The Cub's stance came off her FW_PARAMS row until she was promoted to her own builder; hers is
+  // now a named export beside the mesh, the way the Viper's is. Miss this and a taildragger renders
+  // sitting flat on a tailwheel that is no longer touching the ground.
+  if (cls === 'grasshopper') return CUB_GROUND_PITCH;
   return FW_PARAMS[cls]?.groundPitch || 0;
 }
 
@@ -2082,6 +2461,7 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
   const faces = cls === 'truck' ? buildTruck(variant || 'hauler', detail)
     : cls === 'heli' ? (armed ? buildAttackHeli() : buildHeli())
     : cls === 'ultralight' ? buildCessna(detail)
+    : cls === 'grasshopper' ? buildCub(detail)
     : buildFixedWing(FW_PARAMS[cls] || FW_PARAMS.prop, detail);
   _cache[key] = faces;
   return faces;
@@ -2870,9 +3250,10 @@ const CANOPY_ART = {
     spec: { band: [0.0, 1.0], streaks: [[0.06, 30, 0.20], [0.13, 20, 0.13]] },   // sun rake across the windscreen U
     frame: { col: 'rgba(224,226,230,0.92)', lit: 'rgba(255,255,255,0.5)',   // painted white cabin frames, not gunmetal
       // Posts on the mesh's own STATION_U seams: the windscreen base (0), the beefy A-pillar where
-      // the screen meets the cabin (0.18), the door's front and rear posts (0.42/0.66), and the
-      // divider ahead of the rear quarter light (0.86).
-      posts: [[0.00, 7], [0.18, 11], [0.42, 6], [0.66, 6], [0.86, 5], [1.00, 7]],
+      // the screen meets the cabin (0.18), the door's aft post (0.66) and the front edge of the
+      // rear quarter light (0.74). Between those last two the HULL is unglazed, so the frame here
+      // is only the edging on either side of a real painted post — don't widen it into a fake one.
+      posts: [[0.00, 7], [0.18, 11], [0.66, 6], [0.74, 6], [1.00, 7]],
       sills: [[1 / 6, 6], [5 / 6, 6]],   // the window line — a real facet seam (k=1 and k=5 on the ring)
       mid: 5, edge: 11 },   // mid = the windscreen centre post; only the screen glazes the crown, so it shows there alone
   },
@@ -2960,18 +3341,26 @@ const CANOPY_ART = {
   // over the crown (you look up through the wing root), deep curved side glass, a black steel cage
   // with white-painted frames, and TANDEM seating — one behind the other, headsets and shades on,
   // in the high-vis jackets everybody wears out in the bush.
+  //
+  // Since the cabin became the HULL (buildCub's GLAZE/STATION_U) this sheet is read per FACET, as
+  // the Mayfly's and the Mule's are — but a Cub glazes the CROWN as well as the flanks, so unlike
+  // those two the middle of this sheet (V 1/3–2/3, the skylight band) is drawn rather than painted
+  // over. That is why `sills` sit where they do: they are the real facet seams either side of the
+  // roof glass, not a decorative rail.
   xcub: {
     wash: [[0.00, 'rgba(18,28,36,0.66)'], [0.13, 'rgba(30,50,64,0.46)'], [0.30, 'rgba(108,158,186,0.26)'],
            [0.44, 'rgba(206,234,248,0.34)'], [0.56, 'rgba(206,234,248,0.34)'], [0.70, 'rgba(108,158,186,0.26)'],
            [0.87, 'rgba(30,50,64,0.46)'], [1.00, 'rgba(18,28,36,0.66)']],
     // TANDEM: two stations at different U (fore/aft), each showing a head at both side windows.
-    crew: [{ u: 0.26, v: 0.17, sc: 0.9, shades: true, jacket: '206,74,34' }, { u: 0.26, v: 0.83, sc: 0.9, shades: true, jacket: '206,74,34' },
-           { u: 0.56, v: 0.17, sc: 0.9, shades: true, jacket: '32,36,44' }, { u: 0.56, v: 0.83, sc: 0.9, shades: true, jacket: '32,36,44' }],
+    crew: [{ u: 0.30, v: 0.08, sc: 0.9, shades: true, jacket: '206,74,34' }, { u: 0.30, v: 0.92, sc: 0.9, shades: true, jacket: '206,74,34' },
+           { u: 0.62, v: 0.08, sc: 0.9, shades: true, jacket: '32,36,44' }, { u: 0.62, v: 0.92, sc: 0.9, shades: true, jacket: '32,36,44' }],
     glow: { u: [0.06], col: '110,180,210', a: 0.18, r: 52 },
     spec: { band: [0.20, 0.80], streaks: [[0.30, 38, 0.22], [0.74, 20, 0.12]] },
     frame: { col: 'rgba(22,24,28,0.95)', lit: 'rgba(238,240,244,0.75)',   // black cage, white-painted highlight
-      posts: [[0.00, 8], [0.20, 6], [0.44, 9], [0.72, 6], [1.00, 8]],
-      sills: [[1 / 3, 6], [2 / 3, 6]],   // the skylight's edge rails — the arc-3 seam either side of the crown
+      // On buildCub's own STATION_U seams: windscreen base (0), the A-pillar where the screen meets
+      // the cabin frame (0.18), the door's two posts (0.48/0.78), and the aft bulkhead (1).
+      posts: [[0.00, 8], [0.18, 9], [0.48, 6], [0.78, 6], [1.00, 8]],
+      sills: [[1 / 3, 6], [2 / 3, 6]],   // the skylight's edge rails — and exactly the V-band edges of the crown facets (k2/k3)
       mid: 3, edge: 12, extra: 'skylight' },
   },
   // Locust — an ag-plane's office: a small, deep, HEAVILY caged greenhouse sat up on top of the
@@ -2990,6 +3379,27 @@ const CANOPY_ART = {
     frame: { col: 'rgba(34,30,18,0.96)', lit: 'rgba(255,210,74,0.55)',   // yellow-primed steel cage
       posts: [[0.00, 14], [0.16, 9], [0.46, 10], [0.78, 8], [1.00, 10]],   // the bow frame is the heaviest — it's a wire cutter's anchor
       sills: [[0.20, 9], [0.80, 9]], hairs: [0.32, 0.62], mid: 6, edge: 14 },
+  },
+  // Shrike — the glasshouse. A LONG greenhouse over two crew in tandem, and the length is the
+  // whole read, so it gets more frame posts than anything else here: a canopy this long with the
+  // usual three or four bays looks like a bubble that has been stretched, and it needs to look
+  // like a row of panes bolted into a cage. Two crew at opposite ends, facing opposite ways —
+  // the one at the back is the gunner, and putting him at 0.80 is what stops the whole thing
+  // reading as a single-seat fighter with a lot of glass behind the pilot.
+  shrike: {
+    wash: [[0.00, 'rgba(12,16,20,0.84)'], [0.14, 'rgba(20,30,36,0.68)'], [0.32, 'rgba(70,98,110,0.36)'],
+           [0.46, 'rgba(168,200,214,0.30)'], [0.56, 'rgba(168,200,214,0.30)'], [0.70, 'rgba(70,98,110,0.36)'],
+           [0.86, 'rgba(20,30,36,0.68)'], [1.00, 'rgba(12,16,20,0.84)']],
+    crew: [{ u: 0.26, v: 0.34, sc: 0.94, helmet: true, hair: 'rgba(30,32,36,0.92)' },
+           { u: 0.26, v: 0.66, sc: 0.94, helmet: true, hair: 'rgba(30,32,36,0.92)' },
+           { u: 0.80, v: 0.34, sc: 0.88, cap: true, hair: 'rgba(44,38,32,0.92)' },
+           { u: 0.80, v: 0.66, sc: 0.88, cap: true, hair: 'rgba(44,38,32,0.92)' }],
+    glow: { u: [0.09], col: '120,230,190', a: 0.20, r: 46 },   // the sight head, lit, down in the nose
+    spec: { band: [0.18, 0.82], streaks: [[0.22, 34, 0.19], [0.62, 22, 0.12]] },
+    frame: { col: 'rgba(28,34,32,0.96)', lit: 'rgba(150,220,196,0.42)',
+      // Many, evenly spaced: this is a framed greenhouse, not a moulded blister.
+      posts: [[0.00, 13], [0.13, 8], [0.28, 8], [0.42, 7], [0.56, 7], [0.70, 7], [0.86, 8], [1.00, 11]],
+      sills: [[0.22, 8], [0.78, 8]], hairs: [0.34, 0.66], mid: 6, edge: 13 },
   },
   // THE CAB (THE LONG HAUL). A truck windscreen is not a canopy and should not read as one: it is
   // one enormous flat pane, deeply raked, with sky across the top two-thirds and the dark of the
@@ -3285,8 +3695,8 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   // A class whose hull is a TABLE rather than a formula (the Cessna) serves its own section, so the
   // wrap below reads the geometry the mesh was skinned from instead of reconstructing a shape this
   // aeroplane doesn't have. Everything else keeps the parametric reconstruction unchanged.
-  const CS = cls === 'ultralight' ? cessnaSection : null;
-  const noseF = CS ? 0.72 : p.noseF;
+  const CS = cls === 'ultralight' ? cessnaSection : cls === 'grasshopper' ? cubSection : null;
+  const noseF = cls === 'ultralight' ? 0.72 : cls === 'grasshopper' ? 0.80 : p.noseF;
   const reach = id === 'sharkmouth' || id === 'flames';
   const fF = reach ? noseF * 0.9 : 0.64, fR = reach ? 0.06 : 0.18;   // forward-fuselage extent (front = nose)
   const fr = p.fr, fv = p.fv, shapeExp = 1 - (p.boxy || 0) * 0.55;

@@ -101,7 +101,37 @@ has not been checked by hand. Whatever those three settle on becomes the house p
 [list-reorder.js](../../client/game/js/panels/list-reorder.js) are reorder-by-drag with, as far as
 static reading shows, no keyboard alternative at all.
 
-### An open design question, not a bug
+### DECIDED 2026-08-16 — the generic list dialog exists, and four surfaces are on it
+
+The question below was answered rather than left to drift, and the **reasoning is the
+part to keep**: a dialog is *not* silent to a screen reader — moving focus into an
+aria-modal dialog makes it announce its name, role and contents. The log's advantage
+was never that it is read aloud and a dialog isn't; it is that `#output` is a live
+region needing no focus management. That is an argument about **records**. A 63-row
+shop shelf is not a record, it is a **control**: you act on it, and the next thing you
+type means something different because a session is open.
+
+**So: a control becomes a dialog at every rung; a record stays in the log at every
+rung.** [client/game/js/panels/listdialog.js](../../client/game/js/panels/listdialog.js)
+is the one generic listbox this section asked for, driven by
+`{ title, subtitle, rows: [{ label, detail, group, command | commands: [] }], footer }`.
+Converted so far: **`shop`** (63 rows at the worst vendor), **`workspace`/`cook`**,
+**`yard`/`market`**, **`cookbook`**.
+
+Three rules came out of doing it:
+
+- ⚠ **Nothing is taken away.** Every converted surface keeps its prose behind a
+  `text` keyword — `shop text <npc>`, `cookbook text`, `workspace text`, `yard text` —
+  the same escape-hatch shape as `tablet verbs`. The trucking suite asserts the prose
+  form still works, *by name*, so a conversion can never quietly become a removal.
+- ⚠ **The log still gets the record.** `shop` writes a one-line "N things for sale"
+  note to `#output`. A player scrolling back has to be able to see that they went
+  shopping; the dialog is where they act, not where the fact is kept.
+- **`commands` is plural for a reason.** A workspace row is genuinely several verbs
+  (prepare / cook / put away). Collapsing it to one would silently drop the rest,
+  which is worse than not converting the surface at all.
+
+### The original entry, kept for the reasoning
 
 `shop` at the bottom Display Mode rung deliberately drops to `renderShopText()`
 ([commerce/index.js](../../plugins/commerce/index.js)) instead of opening the shop panel — the

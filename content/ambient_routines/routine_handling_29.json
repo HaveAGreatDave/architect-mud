@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_29",
+  "interactive": null,
+  "lines": [
+    "{npc} sets a bag down to work a shoulder, then picks it up again and moves on."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 29,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

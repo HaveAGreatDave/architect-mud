@@ -1,0 +1,19 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_33",
+  "interactive": null,
+  "lines": [
+    "{npc} feeds pigeons off the top of a junction box for a while, stops, and does not hurry away."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 33,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

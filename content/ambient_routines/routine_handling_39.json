@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_39",
+  "interactive": null,
+  "lines": [
+    "{npc} goes through both pockets by the vent grille, finds whatever it was, and keeps walking."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 39,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

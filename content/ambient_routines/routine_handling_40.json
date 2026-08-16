@@ -1,0 +1,19 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_40",
+  "interactive": null,
+  "lines": [
+    "{npc} ties off a bin bag and leaves it among the others, without looking back at it."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 40,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

@@ -152,6 +152,25 @@ export const TYPES = {
     // gets across the map without touching handling/stall/energy (read in the sim's world-translate).
     worldPaceMult: 1.7,
   },
+  // Shrike — the dive bomber. Everything here serves ONE manoeuvre: get the nose down past
+  // 35°, hold it there while the speed builds, put the bomb on the tile, and pull out.
+  //  • SHE MUST BE ABLE TO REACH THE GATE. The bomb refuses below 140 kt in a dive, so vne
+  //    (330) and dragP are set so a 45° dive at part power passes that inside a few seconds.
+  //    A Mayfly-shaped airframe here would make her own weapon unusable.
+  //  • BUT THE DIVE MUST BE HOLDABLE, not a runaway. Big flapDrag and a strong brake give the
+  //    dive brakes something real to bite on, so the speed plateaus instead of climbing to
+  //    redline; that plateau is what makes a long, aimed dive possible.
+  //  • AND THE PULLOUT MUST BE SURVIVABLE — gLimit 6.0, matching the Reaper, because the
+  //    recovery from a committed dive is the moment the airframe is asked for everything.
+  //  • Unremarkable everywhere else, on purpose: a mediocre cruise, ordinary rates, no
+  //    worldPaceMult. She is not a strike platform that also dives; she only dives.
+  shrike: {
+    name: 'Shrike', mass: 2.6, thrustMax: 44, vr: 58, vs0: 42, vne: 330, cruise: 150,
+    pitchRate: 9.5, pitchTau: 0.72, rollRate: 46, rollTau: 0.68, engineLag: 1.5,
+    pitchStable: 0.95, rollStable: 1.05, dragP: 0.00196, flapDrag: 1.15, flapLift: 0.4, flapVs: 0.2,
+    rollFric: 1.5, aoaCrit: 19, liftScale: 1.0, vsMax: 1900, vsGain: 2000, vsTau: 0.9,
+    brake: 7.0, groundSteer: 24, ceiling: 30000, ldMax: 6.8, gLimit: 6.0,
+  },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a
   // hover), but a twitchy, unforgiving handful: weak self-level, thin power margin, and it

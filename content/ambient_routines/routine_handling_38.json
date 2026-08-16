@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_38",
+  "interactive": null,
+  "lines": [
+    "{npc} disappears to the waist under a parked hauler, doing something to the underside of it."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 38,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

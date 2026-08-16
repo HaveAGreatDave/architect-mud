@@ -1,0 +1,20 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_28",
+  "interactive": null,
+  "lines": [
+    "{npc} crouches at the base of the meter housing, retying a boot that did not need it."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk",
+    "night"
+  ],
+  "sort_order": 28,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

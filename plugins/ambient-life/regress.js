@@ -26,6 +26,16 @@ export default async function regress({ run, check }) {
   check('match: zone excludes',    !_test.matches({ ...base, zones: ['zone_other'] }, zone, 'day', 'clear'), null);
   check('match: weather excludes', !_test.matches({ ...base, weather: ['rain'] }, zone, 'day', 'clear'), null);
 
+  // ── {npc}: a vignette ABOUT somebody needs somebody to be about ──
+  // zone_x is not a real world zone, so it has no eligible NPCs — which is
+  // exactly the case that must not print the raw token at a player.
+  check('match: {npc} line excluded with nobody here',
+    !_test.matches({ ...base, lines: ['{npc} ties a bootlace.'] }, zone, 'day', 'clear'), null);
+  check('match: tokenless line unaffected',
+    _test.matches({ ...base, lines: ['A rivet gun stutters overhead.'] }, zone, 'day', 'clear'), null);
+  check('match: a routine with no lines at all does not throw',
+    _test.matches(base, zone, 'day', 'clear'), null);
+
   // ── Street-zone opt-in gate ──
   check('street: opted-in outdoor qualifies', _test.isStreetZone(zone), null);
   check('street: interior excluded', !_test.isStreetZone({ ...zone, is_interior: true }), null);

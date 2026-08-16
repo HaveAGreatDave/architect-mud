@@ -1,0 +1,19 @@
+{
+  "category": "handling",
+  "enabled": true,
+  "id": "routine_handling_31",
+  "interactive": null,
+  "lines": [
+    "{npc} leans into the gap behind the standpipe and comes back out with a cigarette lit."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 31,
+  "themes": [],
+  "weather": [],
+  "weight": 70,
+  "zones": []
+}

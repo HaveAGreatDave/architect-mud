@@ -188,6 +188,62 @@ function renderWorkspaceText(view) {
   return out.join('\n');
 }
 
+/**
+ * The same view as a generic list-dialog payload (client/game/js/panels/listdialog.js).
+ *
+ * Reads the view the provider already built — no second question, so the dialog
+ * and the written HUD cannot disagree. Every row's `commands` are the provider's
+ * own `{ label, command }` action objects, passed through verbatim: this plugin's
+ * rule is that the HUD proposes and the VERB decides, and re-deriving anything
+ * here would be the duplicate implementation the whole layer exists to avoid.
+ */
+function workspaceDialogPayload(view) {
+  const rows = [];
+  const push = (group, list) => {
+    for (const c of list || []) {
+      const bits = [];
+      if (c.state || c.place) bits.push(c.state || c.place);
+      if (c.notes?.length) bits.push(...c.notes);
+      rows.push({
+        group,
+        label: `${c.live ? '▸ ' : ''}${c.name}`,
+        detail: bits.join(' · '),
+        commands: (c.actions || []).map(a => ({ label: a.label, command: a.command })),
+      });
+    }
+  };
+  push('On the surface', view.area);
+  push('Within reach', view.storage);
+  push('Components', view.components);
+  push('Tools', view.tools);
+
+  for (const g of view.assistant?.groups || []) {
+    for (const r of (g.recipes || []).slice(0, 8)) {
+      const short = (r.shortfall || []).length ? r.shortfall.map(s => s.noun).join(', ')
+        : (r.missing || []).join(', ');
+      rows.push({
+        group: g.label,
+        label: r.name,
+        detail: [Number.isFinite(r.pct) ? `${Math.round(r.pct)}%` : null,
+          short ? `short: ${short}` : null,
+          r.equipment?.length ? `needs ${r.equipment.join(', ')}` : null].filter(Boolean).join(' · '),
+        commands: (r.actions || []).map(x => ({ label: x.label || 'prepare', command: x.command })),
+      });
+    }
+  }
+
+  const foot = [view.assistant?.note,
+    view.providers?.length > 1 ? `Also here: ${view.providers.map(p => p.label).join(', ')}` : null,
+    'workspace text to read it in the log'].filter(Boolean).join(' · ');
+  return {
+    type: 'list_dialog',
+    title: view.title || 'Workspace',
+    subtitle: (view.status || []).map(s => `${s.label}: ${s.value}`).join(' · '),
+    rows: rows.length ? rows : [{ label: 'The workspace is bare. Nothing out, nothing stored, nothing on the heat.' }],
+    footer: foot,
+  };
+}
+
 // Exported because a domain verb can BE the way into its own workspace — a bare
 // `cook` at a stove opens the kitchen HUD rather than answering "Cook what?".
 export async function cmdWorkspace(args, raw, player) {
@@ -198,8 +254,16 @@ export async function cmdWorkspace(args, raw, player) {
       message: `There's nothing here to work at. A workspace needs equipment — a stove, a bench, something with a surface.`,
     };
   }
+  // `workspace text` (or `cook text` at a stove) forces the written HUD at any
+  // rung — same escape hatch as `shop text` and `tablet verbs`.
+  if ((args?.[0] || '').toLowerCase() === 'text') return { type: 'output', message: renderWorkspaceText(view) };
   if (await prefersLoggedPanelsOrDefault(player)) {
-    return { type: 'output', message: renderWorkspaceText(view) };
+    // The HUD is the single best fit for the generic dialog in the whole game: this
+    // plugin's founding rule is that every action it offers is a verb string a
+    // player could have typed, so the rows convert to `commands: []` with nothing
+    // invented and nothing lost. It is also reprinted between crafting steps, which
+    // is what made 30–70 lines a real cost rather than a one-off.
+    return workspaceDialogPayload(view);
   }
   if (view.empty) {
     view.mainMsg = `<span class="text-dim">The workspace is bare. Nothing out, nothing stored, nothing on the heat.</span>`;
