@@ -179,3 +179,67 @@ export function parkedStanceSmoke() {
   }
   return out;
 }
+
+// ── DOES THE DRAW ORDER HOLD STILL WHILE THE CAMERA GOES ROUND? ──────────────
+// The complaint this exists for is "parts pop in and out when you rotate around the truck", and it
+// is the one failure in this file that geometry cannot see: every box is exactly where it should
+// be, and the bug is entirely in WHICH ORDER they are painted, frame to frame. The nose-slice check
+// above asks whether a detail is buried from four fixed angles; this asks the temporal question
+// instead — sweep the camera the whole way round and count how often each pair of parts trades
+// places.
+//
+// A rigid body rotating 360° has a legitimate number of swaps: two parts genuinely change which is
+// in front as the view direction crosses the plane containing both, and for a convex-ish pile that
+// is a handful of times at most. Chatter is a pair swapping over and over across a few degrees,
+// which is what the eye reads as flashing. So the assertion is a CEILING on swaps per pair, not
+// zero — demanding zero would forbid the sort from ever being right.
+//
+// No camera and no canvas: depth along a view direction is a dot product, which is all the sort
+// consumes. That keeps this a test of the ORDERING rather than of the projection.
+export function truckSortStabilitySmoke(sortTruckFaces, resetOrder, opts = {}) {
+  const STEPS = opts.steps || 180;              // 2° per step through a full turn
+  const MAX_SWAPS = opts.maxSwaps || 6;         // per pair, over the whole sweep
+  const out = [];
+  for (const variant of ['scrapper', 'hauler', 'drayman', 'continental', 'continental+t']) {
+    const faces = aircraftFaces('truck', 1, false, variant);
+    const SIZE = 0.11;
+    resetOrder();
+    let prevRank = null;
+    const swaps = new Map();                    // "a|b" -> how many times that pair changed places
+    let worst = { pair: null, n: 0 };
+    for (let s = 0; s < STEPS; s++) {
+      const th = (s / STEPS) * Math.PI * 2, ct = Math.cos(th), st = Math.sin(th);
+      // Project to depth only. +2 keeps every f positive, as a real camera's would be.
+      const proj = faces.map((f, i) => {
+        let af = 0, nf = Infinity;
+        for (const p of f.p) {
+          const d = 2 + (p[0] * ct + p[1] * st) * SIZE;
+          af += d; if (d < nf) nf = d;
+        }
+        return { pts: [], af: af / f.p.length, nf, part: f.part, i, role: f.role };
+      });
+      sortTruckFaces(proj, { id: `stability:${variant}` }, SIZE);
+      // Rank each PART by where its first face landed.
+      const rank = new Map();
+      proj.forEach((f, idx) => { if (!rank.has(f.part)) rank.set(f.part, idx); });
+      if (prevRank) {
+        const keys = [...rank.keys()];
+        for (let a = 0; a < keys.length; a++) for (let b = a + 1; b < keys.length; b++) {
+          const ka = keys[a], kb = keys[b];
+          if (!prevRank.has(ka) || !prevRank.has(kb)) continue;
+          const was = prevRank.get(ka) < prevRank.get(kb);
+          const now = rank.get(ka) < rank.get(kb);
+          if (was === now) continue;
+          const id = `${ka}|${kb}`;
+          const n = (swaps.get(id) || 0) + 1;
+          swaps.set(id, n);
+          if (n > worst.n) worst = { pair: id, n };
+        }
+      }
+      prevRank = rank;
+    }
+    const chattering = [...swaps.values()].filter((n) => n > MAX_SWAPS).length;
+    out.push({ variant, parts: prevRank.size, chattering, worst: worst.n, max: MAX_SWAPS });
+  }
+  return out;
+}

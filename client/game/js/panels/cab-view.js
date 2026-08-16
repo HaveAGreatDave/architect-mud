@@ -1866,11 +1866,16 @@ function frame(now) {
       // exact tell the parked pose was written to kill: a machine holding itself up on light it is
       // not making. It is one suffix, and the whole settle comes with it.
       variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : ''),
-      // WHAT THE ROAD UNDER IT IS LIT BY. `drawVehicleGround` defaults to 0.55 when nobody says —
-      // a permanent half-power wash that neither brightened when the rig was working nor went out
-      // when it stopped. It is the engine, so it is the engine's number: dead at a stall, and
-      // rising off idle so pulling away visibly lights the road under the skirts.
-      power: r.stalled ? 0 : Math.max(0, Math.min(1, ((st.sim.rpm || 0) - 0.10) / 0.55)),
+      // WHAT THE ROAD UNDER IT IS LIT BY, in three states you can tell apart at a glance: OFF is
+      // dark, ON is already bright, and MOVING is brighter still.
+      //
+      // The first cut keyed this on rpm alone, which was the wrong instrument. A lifter is not a
+      // rev counter — it is holding the truck up, and it is doing that hardest when it is also
+      // driving the thing forward. Worse, an idling diesel sits at 0.16 of redline, so rpm alone
+      // put a running rig at about a tenth of full wash: switched on and still almost dark, which
+      // is the one state that has to read as ALIVE. So idle is a floor rather than a fraction, and
+      // road speed is what opens it the rest of the way.
+      power: r.stalled ? 0 : Math.min(1, 0.55 + 0.45 * Math.min(1, Math.abs(r.speed || 0) / 40)),
       livery: PAINT || undefined,
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.

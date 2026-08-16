@@ -6310,6 +6310,81 @@ function drawVehicleGround(ctx, P, c, sun) {
   ctx.restore();
 }
 
+// ── THE TRUCK'S DRAW ORDER, AND WHY IT IS NOT A DEPTH SORT ───────────────────
+// The flashing on an orbiting rig is a painter's-algorithm failure, and three separate things had
+// to be fixed before it went away. All of them come from the same fact: a truck is a pile of small
+// convex boxes BOLTED ONTO bigger ones — grille bars, stack shields, mirror arms, steps, the chrome
+// band round a lifter — and painter's algorithm has no answer for nested geometry.
+//
+//  1. IT SORTS PARTS, NOT FACES. A detail's face and the panel it is screwed to are millimetres
+//     apart, so any per-face key makes them cross and re-cross as the camera moves, and every
+//     crossing swaps which is painted last. Faces now carry a `part` id stamped where the geometry
+//     is emitted (aircraft3d.js `box`), so the six quads of one box move through the order together
+//     and can never be split by a detail sitting on them.
+//
+//  2. THE KEY IS THE NEAREST VERTEX, NOT THE MEAN. This is what actually orders a bolt-on: a box
+//     sitting ON a surface protrudes from it, so its nearest point is nearer than the host's while
+//     its MEAN is almost identical to it. Mean depth is why the old sort could not tell a grille bar
+//     from the grille — the two numbers were the same number.
+//
+//  3. QUANTISING MADE IT WORSE, AND THAT IS WHY IT LOOKED LIKE IT ALMOST WORKED. The previous fix
+//     rounded depths into buckets so ties fell back to mesh order. But rounding does not remove an
+//     ordering instability, it MOVES it to the bucket edges — and it converts a smooth crossing into
+//     a discrete jump, which is a visible pop rather than a gradual swap. Hysteresis is the honest
+//     version of what that was reaching for: keep the key continuous, and refuse to reorder a pair
+//     that is within a hair of equal unless it was already in that order last frame.
+//
+// Within a part, faces sort by mean depth and that is exact — a convex box's own faces cannot
+// interpenetrate, so there is nothing to be unstable about.
+const _truckOrder = new Map();     // contact id -> last frame's part order, for the hysteresis pass
+export const _resetTruckOrder = () => _truckOrder.clear();   // smoke only: start a sweep cold
+export function sortTruckFaces(faces, c, SIZE) {
+  // Group into parts. A face with no part id (an older mesh, or a class that never got them) is its
+  // own part, which degrades exactly to the per-face sort rather than to something wrong.
+  const parts = new Map();
+  for (const f of faces) {
+    const k = f.part == null ? `f${f.i}` : f.part;
+    let g = parts.get(k);
+    if (!g) parts.set(k, g = { k, near: Infinity, i: f.i, fs: [] });
+    g.fs.push(f);
+    if (f.nf < g.near) g.near = f.nf;
+    if (f.i < g.i) g.i = f.i;                       // mesh order: emitted inside-out, chassis first
+  }
+  const order = [...parts.values()].sort((a, b) => (b.near - a.near) || (a.i - b.i));
+  // ── HYSTERESIS ────────────────────────────────────────────────────────────
+  // Flicker is by definition a pair alternating near equality, so the cure is to make swapping
+  // near-equal pairs cost something. Two adjacent-swap passes against last frame's order: within
+  // EPS, last frame wins. Beyond EPS the geometry has genuinely moved and the depth sort is obeyed,
+  // so nothing gets stuck in the wrong order when you orbit right round.
+  //
+  // ⚠ DONE AS ADJACENT SWAPS, NOT AS A CLEVER COMPARATOR. A comparator that consults the previous
+  // order for near-equal pairs is not transitive, and an intransitive comparator handed to Array#sort
+  // is undefined behaviour — it can emit garbage rather than merely an odd order. This cannot.
+  const key = c.id || 'own';
+  const rank = _truckOrder.get(key);
+  if (rank) {
+    const EPS = Math.max(1e-5, SIZE * 0.045);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < order.length - 1; i++) {
+        const a = order[i], b = order[i + 1];
+        const ra = rank.get(a.k), rb = rank.get(b.k);
+        if (ra == null || rb == null) continue;     // new part this frame — let depth decide
+        if (Math.abs(a.near - b.near) < EPS && ra > rb) { order[i] = b; order[i + 1] = a; }
+      }
+    }
+  }
+  // Remember it. Capped rather than swept — this is one small Map keyed on contacts that come and
+  // go, and a stale entry costs a lookup miss and nothing else.
+  if (_truckOrder.size > 48) _truckOrder.clear();
+  _truckOrder.set(key, new Map(order.map((g, idx) => [g.k, idx])));
+  // Flatten back, near faces of each part last (exact within a convex box).
+  faces.length = 0;
+  for (const g of order) {
+    g.fs.sort((a, b) => b.af - a.af);
+    for (const f of g.fs) faces.push(f);
+  }
+}
+
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -6393,7 +6468,10 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const dp = bw ? lp : (shed ? lp.map(v => shedVert(v, shed)) : lp);
     const pts = bw ? bw.map(w => cam.proj(w[0], w[1], w[2])) : dp.map(P);
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
-    let af = 0; for (const q of pts) { af += q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
+    // `nf` is the NEAREST vertex, and it is the key the truck's part sort uses — see there for why
+    // a mean cannot order a box bolted onto a panel and a nearest point can.
+    let af = 0, nf = Infinity;
+    for (const q of pts) { af += q.f; if (q.f < nf) nf = q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
     // Sun lighting multiplier: outward face normal (world) · sun. Kept ON TOP of the baked `sh`
     // so the hand-tuned character stays, but the sun now shapes the light across the airframe.
     let lm = 1;
@@ -6412,7 +6490,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
-    faces.push({ pts, af: af / pts.length, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
+    faces.push({ pts, af: af / pts.length, nf, part: face.part, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
   }
   if (!drawn) return null;
   // PAINTER'S ORDER, far face first — and for a ROAD VEHICLE, quantised.
@@ -6432,11 +6510,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // bucket falls back to MESH ORDER — which `buildTruck` emits inside-out (chassis, then cab, then
   // the details bolted to it). Ties therefore resolve to "the thing on top is on top", every frame,
   // regardless of where the camera is. Aircraft keep the exact comparator they always had.
-  if (c.cls === 'truck') {
-    const eps = Math.max(1e-5, SIZE * 0.03);
-    const q = (d) => Math.round(d / eps);
-    faces.sort((a, b) => (q(b.af) - q(a.af)) || (a.i - b.i));
-  } else faces.sort((a, b) => b.af - a.af);
+  if (c.cls === 'truck') sortTruckFaces(faces, c, SIZE);
+  else faces.sort((a, b) => b.af - a.af);
   // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
   const edge = c.designated ? 'rgba(255,90,80,0.95)' : pal.pat === 'hazard' ? shadeRgb(pal.trim, 1.0) : 'rgba(8,10,14,0.7)';
   ctx.lineJoin = 'round';

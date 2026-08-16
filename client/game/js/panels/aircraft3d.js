@@ -2167,6 +2167,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const fine = detail >= 1;
   const faces = [];
   const podAt = [];                        // filled by pod(); published through TRUCK_META below
+  let partSeq = 0;                         // see the ⚠ in `box` — one id per convex sub-object
   const V = (f, g, h) => [f, g, h];
   // A box between two fore stations, as six quads. `sh` is the baked flat shade: top brightest,
   // sides mid, underside dark — the same top-lit convention the airframe skins use.
@@ -2176,7 +2177,17 @@ function buildTruck(variant = 'hauler', detail = 1) {
     const gl = gc - w, gr = gc + w;
     const A = [V(f0, gl, z0), V(f0, gr, z0), V(f0, gr, z1), V(f0, gl, z1)];
     const B = [V(f1, gl, z0), V(f1, gr, z0), V(f1, gr, z1), V(f1, gl, z1)];
-    const quad = (p, sh) => { const q = { role, sh, p }; if (tint) q.tint = tint; faces.push(q); };
+    // ── ⚠ EVERY BOX IS ONE PART, AND THE RENDERER SORTS PARTS RATHER THAN FACES ──
+    // A truck is a pile of small convex boxes bolted onto bigger ones, and painter's algorithm
+    // cannot resolve that per-face: a grille bar's mean depth and the panel it is screwed to differ
+    // by millimetres, so orbiting the camera makes the two cross and re-cross several times a
+    // second and every crossing swaps which is painted last. That is the flashing.
+    // A `part` id is the thing that fixes it, and it can only be assigned HERE, where the geometry
+    // is emitted and it is known which six quads are one object. Faces are cached and shared across
+    // every frame and every contact (`aircraftFaces`), so this costs one integer at build time and
+    // nothing at all per frame.
+    const part = ++partSeq;
+    const quad = (p, sh) => { const q = { role, sh, p, part }; if (tint) q.tint = tint; faces.push(q); };
     quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
     quad([A[0], B[0], B[1], A[1]], 0.42);                    // underside
     quad([A[0], A[3], B[3], B[0]], 0.72);                    // left flank
@@ -2187,8 +2198,10 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // A free polygon, for every surface a box cannot be: the raked screen, the roof fairing's wedge,
   // the chin spoiler. `uv`/`art` ride through to drawCanopyGlass, which is how the windscreen gets
   // a real painted sheet (wipers, dash glow, a driver behind it) instead of a flat blue rectangle.
+  // A free polygon is its own part — one face, so it can never disagree with itself, and the id is
+  // what keeps it in the same ordering scheme as everything around it.
   const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
-    const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])) };
+    const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])), part: ++partSeq };
     if (tint) q.tint = tint;
     if (uv) { q.uv = uv; q.art = art || 'truckcab'; }
     faces.push(q);

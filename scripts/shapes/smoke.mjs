@@ -30,7 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
-import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
+import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -97,6 +97,18 @@ async function main() {
   for (const b of slices) {
     problems.push(`nose   ${b.variant} → a ${b.role} panel at f=${b.plane.toFixed(3)} cuts through a chrome detail `
       + `spanning ${b.detail[0].toFixed(3)}..${b.detail[1].toFixed(3)}. The painter's sort will eat one side of it.`);
+  }
+  // ── SORT STABILITY ──
+  // The temporal half of the question the nose slice asks from four fixed angles: sweep the camera
+  // all the way round each rig and count how often each pair of parts trades places. This is the
+  // only check in the file that can see the FLASHING, because the flashing is not in the geometry —
+  // every box is exactly where it should be, and the bug is which order they are painted in.
+  const stab = truckSortStabilitySmoke(ws.sortTruckFaces, ws._resetTruckOrder);
+  for (const t of stab) {
+    if (t.chattering) {
+      problems.push(`sort   ${t.variant} → ${t.chattering} pair(s) of parts trade places more than ${t.max} times `
+        + `in one 360° sweep (worst ${t.worst}). That is the flicker: the draw order is not settling.`);
+    }
   }
   const stances = parkedStanceSmoke();
   for (const s of stances) {
@@ -187,6 +199,8 @@ async function main() {
   console.log(`  Views: ${views.ran} paintWindshield passes clean (cab/cockpit/chase/porthole/helm × night+day × clear+rain).`);
   console.log(`  Truck lamps: both headlamps visible on all ${lamps.length} rigs (weakest side ${Math.min(...lamps.flatMap(l => [l.left, l.right])).toFixed(0)}px²), and every one settles onto its lifters when parked.`);
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
+  console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
+    + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
