@@ -10,12 +10,14 @@ import { world } from '../../server/engine/world.js';
 import { _test } from './index.js';
 import {
   hydrateAugments, rosterOf, augScale, augmentStatBonus, catalog, loadAugments,
-  BOTCHED_CALIBRATION_CAP,
+  fidelityOf, BOTCHED_CALIBRATION_CAP,
 } from './state.js';
 import { bandFor, INSTALL_BANDS, DESTROY_MARGIN } from './install.js';
-import { onStrain, heatOf, HEAT_COOL_PER_SEC, heatBand, CRITICAL } from './overclock.js';
+import { onStrain, heatOf, HEAT_COOL_PER_SEC, heatBand, CRITICAL, faultHarm } from './overclock.js';
 import { survivalChance } from './death.js';
 import { BOARD_SWING } from './tuning.js';
+import { artifactsFor, allPrintArtifacts } from './artifacts.js';
+import { drawOf, netDrawOf, powerDown, chargeOf, setFull, METABOLIC_TRICKLE } from './power.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -163,6 +165,16 @@ export default async function regress({ run, check, getPlayer }) {
 
   // Knock it off spec first — calibrate refuses a fully-tuned augment before it
   // ever looks for a rig, which is correct behaviour and the wrong thing to test.
+  // ⚠ TOP THE SHARED PLAYER UP BEFORE ANYTHING TOUCHES OVERCLOCK, and read this
+  // before you delete it. The test augment is authored heat_rate 4.0 /
+  // overclock_max 3, and a fault AT the ceiling is deliberately unfloored — it
+  // can kill. The strike is detached (overclock.js), so on a player already
+  // worn down by an earlier suite it lands mid-augments-suite, kills them,
+  // corruption eats the roster, and the next three checks fail with
+  // "You don't have Test Weave installed" — a message that points nowhere near
+  // overclocking. It presents as a flake because it depends on the fault roll.
+  p.hp = p.hp_max ?? 100;
+  p.stamina = p.stamina_max ?? 100;
   rosterOf(p).get(augId).calibration = 40;
   const noRig = await run(`calibrate Test Weave`);
   check('calibrate needs a rig or a bench',
@@ -252,17 +264,31 @@ export default async function regress({ run, check, getPlayer }) {
   const noBk = await _test.onRespawnZone({ id: p.id, handle: p.handle }, null);
   check('no backup → hook yields', noBk === undefined, JSON.stringify(noBk)?.slice(0, 80));
 
+  // A policy with no scan on it restores nothing. The gate is `pattern_at`, not
+  // the presence of a row — `assurance buy` inserts one with no pattern.
   await query(
-    `INSERT INTO player_backups (player_id,snapshot,restores_remaining) VALUES ($1,$2,1)
-       ON CONFLICT (player_id) DO UPDATE SET snapshot=EXCLUDED.snapshot, restores_remaining=1`,
-    [p.id, JSON.stringify({ credits: 0, inventory: [] })]
+    `INSERT INTO player_backups (player_id,restores_remaining,pattern_at) VALUES ($1,1,NULL)
+       ON CONFLICT (player_id) DO UPDATE SET restores_remaining=1, pattern_at=NULL`,
+    [p.id]
   );
+  const noPattern = await _test.onRespawnZone({ id: p.id, handle: p.handle }, null);
+  check('a paid policy with no scan yields (pattern_at is the gate)', noPattern === undefined,
+    JSON.stringify(noPattern)?.slice(0, 80));
+
+  await query('UPDATE player_backups SET pattern_at = EXTRACT(EPOCH FROM NOW()) WHERE player_id=$1', [p.id]);
   await setFlag('player', 'wanted', '3', p);
   const wantedDeath = await _test.onRespawnZone({ id: p.id, handle: p.handle }, null);
   check('wanted death yields to jail even with a paid backup', wantedDeath === undefined,
     JSON.stringify(wantedDeath)?.slice(0, 80));
+  // ⚠ THE BUG THIS EXISTS FOR: the hook used to decrement here, before the
+  // engine had picked a winner, so a death jail went on to claim had already
+  // burned ₵2500 with no rollback anywhere.
+  const afterWanted = await _test.getBackup(p.id);
+  check('a wanted death spends nothing', Number(afterWanted?.restores_remaining) === 1,
+    afterWanted?.restores_remaining);
+  await setFlag('player', 'wanted', '0', p);
 
-  // ── INTERLOCK 2: the restore rebuilds the chrome, tuning and all ───────────
+  // ── INTERLOCK 2: the print rebuilds the chrome, tuning and all ─────────────
   const rid = `augrestore_${p.id}`;
   const item = (await query('SELECT id FROM items LIMIT 1').catch(() => ({ rows: [] }))).rows[0]?.id;
   if (item) {
@@ -270,40 +296,138 @@ export default async function regress({ run, check, getPlayer }) {
     await query('DELETE FROM player_inventory WHERE player_id=$1', [rid]).catch(() => {});
     await query('DELETE FROM player_augments WHERE player_id=$1', [rid]).catch(() => {});
     await query(
-      `INSERT INTO player_backups (player_id,snapshot,restores_remaining) VALUES ($1,$2,2)
-         ON CONFLICT (player_id) DO UPDATE SET snapshot=EXCLUDED.snapshot, restores_remaining=2`,
-      [rid, JSON.stringify({
-        credits: 777,
-        inventory: [{ old_id: 'x', item_id: item, quantity: 1, condition: 1.0, is_equipped: 0, slot: null, custom_data: {}, container_id: null }],
-        augments: [{ augment_id: augId, slot: 'torso', condition: 0.66, calibration: 41, install_quality: 'botched', overclock_level: 1, custom_data: {} }],
-      })]
+      `INSERT INTO player_backups (player_id,restores_remaining,pattern_at,copy_fidelity)
+         VALUES ($1,2,EXTRACT(EPOCH FROM NOW()),100)
+         ON CONFLICT (player_id) DO UPDATE SET restores_remaining=2,
+           pattern_at=EXCLUDED.pattern_at, copy_fidelity=100`,
+      [rid]
     );
+    // A row the print must NOT touch. This is the dupe vector, and the whole
+    // reason the inventory half of the snapshot was deleted.
+    await query(
+      `INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)`,
+      [`auginv_${p.id}`, rid, item]
+    ).catch(() => {});
+
     const syn = { id: rid, handle: 'Restorer', credits: 1234 };
     const res = await _test.onRespawnZone(syn, null);
-    check('backup restore lands at a Vats hall (skipOutfit)',
-      res?.skipOutfit === true && !!world.zones.get(res?.zone)?.flags?.ascendant_vats,
-      JSON.stringify({ zone: res?.zone, skipOutfit: res?.skipOutfit })?.slice(0, 80));
+    check('the hook claims the death and lands at a Vats hall',
+      res?.__ascendantRestore === true && !!world.zones.get(res?.zone)?.flags?.ascendant_vats,
+      JSON.stringify({ zone: res?.zone, claim: res?.__ascendantRestore })?.slice(0, 90));
+    check('…without taking custody (the corpse stays lootable)', res?.custody === false, String(res?.custody));
+    check('…and without skipOutfit (a naked clone gets booked for exposure)',
+      res?.skipOutfit === undefined, String(res?.skipOutfit));
+
+    // The pattern comes from the LIVE roster at death, never from the row.
+    const pattern = [{ augment_id: augId, slot: 'torso', condition: 0.66, calibration: 41, install_quality: 'botched', overclock_level: 1, custom_data: {} }];
+    const printed = await _test.reprintClone(syn, pattern, null);
+    check('the print consumes exactly one restore', printed?.left === 1, printed?.left);
+
     const inv = await query('SELECT item_id FROM player_inventory WHERE player_id=$1', [rid]);
-    check('restore rebuilds inventory from the snapshot', inv.rows.length === 1 && inv.rows[0].item_id === item, inv.rows.length);
-    // The snapshot carries credits: 777 from an OLD backup; the restore must
-    // ignore it. Rolling a balance back was mintable (bank it, die, get it back).
+    check('THE DUPE VECTOR: a print never touches inventory',
+      inv.rows.length === 1 && inv.rows[0].item_id === item, `${inv.rows.length} rows`);
+
     const credRow = (await query('SELECT credits FROM players WHERE id=$1', [rid])).rows[0];
-    check('restore leaves credits alone (never rolled back)',
+    check('print leaves credits alone (never rolled back)',
       syn.credits === 1234 && Number(credRow?.credits ?? 1234) !== 777, `${syn.credits}/${credRow?.credits}`);
 
-    const back = (await query('SELECT calibration, condition, install_quality FROM player_augments WHERE player_id=$1 AND augment_id=$2', [rid, augId])).rows[0];
-    check('restore rebuilds the augment roster', !!back, 'no augment row restored');
+    const back = (await query('SELECT calibration, condition, install_quality, overclock_level FROM player_augments WHERE player_id=$1 AND augment_id=$2', [rid, augId])).rows[0];
+    check('print rebuilds the augment roster', !!back, 'no augment row printed');
     check('…with its calibration, not a fresh one', Number(back?.calibration) === 41, back?.calibration);
     check('…and the botched ceiling still on it', back?.install_quality === 'botched', back?.install_quality);
+    check('…but at spec — a new print is never pre-overclocked', Number(back?.overclock_level) === 0, back?.overclock_level);
     check('…and the roster in RAM agrees', rosterOf(syn).get(augId)?.calibration === 41, rosterOf(syn).get(augId)?.calibration);
+    check('fidelity falls with the print', Number(printed?.fidelity) < 100, printed?.fidelity);
 
-    const bkr = await _test.getBackup(rid);
-    check('restore consumes one restore', bkr?.restores_remaining === 1, bkr?.restores_remaining);
+    // The guarded UPDATE is its own rollback: run it dry and nothing prints.
+    await query('UPDATE player_backups SET restores_remaining=0 WHERE player_id=$1', [rid]);
+    const dry = await _test.reprintClone(syn, pattern, null);
+    check('a print with no restores left is a no-op, not a free clone', dry === null, JSON.stringify(dry)?.slice(0, 60));
 
     await query('DELETE FROM player_inventory WHERE player_id=$1', [rid]).catch(() => {});
     await query('DELETE FROM player_augments WHERE player_id=$1', [rid]).catch(() => {});
     await query('DELETE FROM player_backups WHERE player_id=$1', [rid]).catch(() => {});
     world.zones.delete('zone_test_vats');
+  }
+
+  // ── captureRoster must DEEP-CLONE ──────────────────────────────────────────
+  // corruptOnDeath deletes from the live Map as it goes. Hand it the live
+  // records and the pattern empties out underneath the print, which reads as
+  // "the restore silently didn't fire" rather than as an aliasing bug.
+  {
+    const capP = { id: `augcap_${p.id}` };
+    await hydrateAugments(capP);
+    rosterOf(capP).set(augId, { augment_id: augId, slot: 'torso', condition: 1, calibration: 77, install_quality: 'sound', overclock_level: 0, custom_data: {} });
+    const snap = _test.captureRoster(capP);
+    rosterOf(capP).delete(augId);                    // what corruption does
+    check('captureRoster survives the roster being emptied under it', snap.length === 1, snap.length);
+    check('…and holds its own copy of the record', snap[0]?.calibration === 77, snap[0]?.calibration);
+  }
+
+  // ── Fidelity: a read-time cap, never baked ────────────────────────────────
+  {
+    const fRec = { augment_id: augId, slot: 'torso', condition: 1, calibration: 100, install_quality: 'sound', overclock_level: 0 };
+    check('fidelity 100 changes nothing (the migration invariant)',
+      augScale(fRec, 100) === augScale(fRec), `${augScale(fRec, 100)} vs ${augScale(fRec)}`);
+    check('fidelity caps calibration', augScale(fRec, 50) < augScale(fRec, 100), augScale(fRec, 50));
+    check('…and never writes it down', fRec.calibration === 100, fRec.calibration);
+    check('fidelity above calibration is a no-op',
+      augScale({ ...fRec, calibration: 40 }, 90) === augScale({ ...fRec, calibration: 40 }, 100), 'capped when it should not be');
+    check('fidelityOf defaults to 100 for a player who never died',
+      fidelityOf({ id: 'nobody' }) === 100, fidelityOf({ id: 'nobody' }));
+  }
+
+  // ── Print artifacts: every registered key is reachable ────────────────────
+  {
+    const all = allPrintArtifacts();
+    check('print artifacts are registered', all.length > 0, all.length);
+    check('every artifact has both voices (self + observer)',
+      all.every(a => a.self && a.other), all.filter(a => !a.self || !a.other).map(a => a.key).join(','));
+    const ats = all.map(a => a.at);
+    check('artifact thresholds are strictly descending (no two arrive together)',
+      ats.every((v, i) => i === 0 || v < ats[i - 1]), ats.join(','));
+    check('a full-fidelity body carries no artifacts', artifactsFor(100).length === 0, artifactsFor(100).length);
+    check('every registered artifact is reachable at some fidelity',
+      all.every(a => artifactsFor(a.at - 1).some(x => x.key === a.key)), 'an artifact nothing can surface');
+  }
+
+  // ── Overclock harm: floored inside spec, lethal at the ceiling ────────────
+  {
+    const h0 = faultHarm({ slot: 'torso' }, 0);
+    const h2 = faultHarm({ slot: 'torso' }, 2);
+    check('fault harm scales with overclock level', h2.min > h0.min && h2.max > h0.max, `${h0.max} → ${h2.max}`);
+    check('fault harm is bounded and positive', h0.min > 0 && h0.max > h0.min && h2.max < 40, `${h0.min}-${h2.max}`);
+    check('neural faults dump current, actuation faults tear',
+      faultHarm({ slot: 'neural' }, 0).damageType === 'energy' && h0.damageType === 'kinetic',
+      `${faultHarm({ slot: 'neural' }, 0).damageType}/${h0.damageType}`);
+  }
+
+  // ── Power: lazy decay, no tick, and no brownout for the un-celled ────────
+  {
+    const powP = { id: `augpow_${p.id}` };
+    await hydrateAugments(powP);
+    check('a body with no chrome is never power-down', powerDown(powP) === false, powerDown(powP));
+
+    // The authored draw on the test augment is 0, so give it a real one.
+    rosterOf(powP).set(augId, { augment_id: augId, slot: 'torso', condition: 1, calibration: 100, install_quality: 'sound', overclock_level: 0, custom_data: {} });
+    const base = drawOf(powP);
+    rosterOf(powP).get(augId).overclock_level = 1;
+    check('draw scales with overclock level', drawOf(powP) >= base, `${base} → ${drawOf(powP)}`);
+    rosterOf(powP).get(augId).overclock_level = 0;
+
+    // ⚠ THE DEPLOY-DAY CHECK. Every live character has chrome and none has a
+    // cell. A light rig must run on the body alone, forever, or shipping this
+    // switches off something people already paid for.
+    check('a light rig runs on the metabolic trickle with no cell',
+      netDrawOf(powP) === 0 && powerDown(powP) === false, `${netDrawOf(powP)}`);
+    check('the trickle is real and finite', METABOLIC_TRICKLE > 0 && METABOLIC_TRICKLE < 10, METABOLIC_TRICKLE);
+
+    // Decay is read off a stamp, not a tick — nothing schedules power.
+    setFull(powP);
+    const full = chargeOf(powP);
+    powP._reserveCharge.charge_at = Date.now() - 3_600_000 * 50;
+    check('charge decays lazily from its own timestamp', chargeOf(powP) <= full, `${full} → ${chargeOf(powP)}`);
+    check('…and never below zero', chargeOf(powP) >= 0, chargeOf(powP));
   }
 
   // cleanup
@@ -321,4 +445,15 @@ export default async function regress({ run, check, getPlayer }) {
   await hydrateAugments(p);
   p._chromedEver = false;
   p.chromed = 0;
+  // Same reason, newer fields. A leaked fidelity cap silently halves stat reads
+  // in whichever suite runs next, and a leaked reserve charge can take chrome
+  // offline — both failures land nowhere near the word "augment".
+  p._copyFidelity = 100;
+  delete p._reserveCharge;
+  // The overclock section can land a real strike on the shared player (see the
+  // ⚠ above it). Hand the next suite an unwounded body.
+  p.hp = p.hp_max ?? 100;
+  p.stamina = p.stamina_max ?? 100;
+  p._augHeat?.clear();
+  p._augWearPending?.clear();
 }

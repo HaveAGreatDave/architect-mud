@@ -1515,6 +1515,128 @@ after a restart; what it buys is that every hulk out there is from a haul that h
 to somebody you can still ask about it. Capped at twelve, or a corridor stops reading as "somebody
 died here" and starts reading as a scrapyard.
 
+### The CB is a channel other drivers are on *(2026-08-16)*
+
+Everything above is *our* voice. This is the half where the voice is somebody else's:
+`cb <words>` transmits to every other rig tuned to your channel, anywhere in the world.
+Code: [cb.js](../plugins/trucking/cb.js) (server), [cb-radio.js](../client/game/js/panels/cb-radio.js)
+(client), a knob on the cab's switch panel, and **Deadhead**, a tablet app
+([cb-app.js](../plugins/tablet/cb-app.js)) that is the Chat app pointed at one conversation.
+
+Five decisions, each of them a decision not to build something bigger.
+
+**The set is in the truck, and that is the whole access rule.** A listener is a rig in `rigs` with
+the radio on, tuned to your channel — no membership table, no subscribe, no per-player row, and no
+way to be on the air while standing in a bar. Mounting puts you on it and dismounting takes you off,
+because the state that decides is state the drive already keeps. ⚠ `getPlayerChannels`
+([channels.js](../server/engine/channels.js)) is deliberately **not** touched: that list is computed
+once at login, and a radio you are on for the eleven minutes of a crossing is not a thing to hand
+somebody at login.
+
+**It is RAM-only and nothing is replayed.** A CB is live; what was said while you were off the air
+is gone. No `channel_messages` row, no history query, and no DB write on a path players will
+absolutely spam — the same call [systems-nullcraft.md](systems-nullcraft.md) makes about trace. The
+scrollback in the Deadhead window is the **client's** copy of what it heard this session, which is
+exactly what a radio gives you.
+
+**Channels are 1–40 and everybody starts on 19.** A frequency nobody can guess is a frequency nobody
+is ever on, so the real CB convention does the discovery: 19 is where the traffic is, 9 reads as the
+emergency channel to anyone who has seen a film about trucks, and the other thirty-eight are private
+rooms you have to *tell* somebody about — which is the point, because a channel number is a thing
+you say out loud on 19.
+
+**⚠ Everything that is not one of four control words is speech.** `on`, `off`, `speaker` and a bare
+number are the only reserved forms; everything else transmits, because the commonest thing anybody
+does with a radio is talk into it and a verb whose default action is a settings change would be
+absurd. The cost is that `cb off` can never be said out loud on the air — a fair trade for `cb on`
+meaning what it says, and the four are listed in the bare-`cb` status line so nobody has to guess.
+
+**One event, three sinks, and no sink may be the only one.** A transmission arrives as a single
+`cb_msg` and lands in the log (its own `msg-cb` class, so `trigger @cb …`, routes, gagging and
+highlights all work on the radio without being taught what a radio is), in the Deadhead window, and
+in the **speaker** if it is switched on. Building it as a chat message that also gets logged, or a
+log line a window scrapes, would make one of those three the truth and the other two a copy — and
+the copy is the one that silently stops working. It is deliberately **not** a `channel_msg`, which
+reaches the chat panel and nowhere else: at the `log` rung that would be a radio for some players
+only.
+
+**The speaker is the accessibility feature that is also just what a truck radio does.** It reads
+incoming traffic aloud through [logreader.js](../client/game/js/logreader.js)'s own queue, voice and
+rate — CB traffic only, never the whole log — because the person whose eyes are on the windscreen is
+exactly the person who cannot also be reading a chat window. It never reads **your own** transmission
+back to you: you know what you just said, and a radio that echoes you is a fault.
+
+Two notes for anyone touching it. The knob is a `role="spinbutton"` and **decides nothing** — it
+sends `cb <n>` and moves when the server says it moved, the same contract the hitch button follows;
+a dial that snapped locally and then corrected itself would be worse than one that took 40 ms. And
+the Deadhead conversation is created **on an arriving message as well as on tuning**, because a
+driver at the `textgames`/`log` rung is in [textdrive.js](../plugins/trucking/textdrive.js), which
+pushes no cab context at all — traffic arriving is the event they definitely get.
+
+### The shed you start in
+
+*(2026-08-16.)* `drive` mounts you on the door tile with the engine running, so **the first frame of
+every haul is drawn from inside `drawVehicleBay`** — which makes it the first thing a new driver
+sees and the only model on the map that has to work as a room. It did not. Four things were wrong at
+once and each one has a rule attached now.
+
+**A building's height is measured against the EYE, not against a storey.** The eaves were `0.115`
+world-z and the cab's camera sits at `eyeH: 0.17` (cab-view.js), so the driver's head was *above the
+roof*: you sat looking over your own building at the far gable, and the shed read as an ankle-high
+kerb with a lid. `bldgH × bldgStretch` makes one storey ≈ `0.196` in practice, so the shed is now a
+tall single storey — `WALL 0.30` at the eaves, `RIDGE 0.43` — which is overhead from the cab and
+still shorter than a three-storey neighbour from the air.
+
+**A room near-clips; a thing you look at does not.** Every other model here is external, so a quad
+with any vertex behind the camera can be thrown away whole and nobody sees it. In a room the floor
+and the roof both pass *under and over* the eye, and throwing the quad away deletes the floor you are
+parked on. `bayFace` clips each polygon against the near plane instead (one convex clipper, also used
+to cut the door's hazard hatching to its box — `f` is affine in world x/y, so the crossing point is
+exact). ⚠ **Ground paint stacks, it does not sort.** A floor slab's average depth is the middle of
+the room, so every marking beyond that point sorts *behind* the slab and vanishes under it — hence
+`layer`: floor, then markings, then the world back-to-front.
+
+**The cutaway is keyed on the SUBJECT, not the eye.** In the external chase the camera is 1.6 tiles
+astern and well above the eaves, and the own-ship is painted after the entire world pass — so it wins
+every argument and reads as a truck seen *through* a roof. When your rig is standing in the shed and
+the eye is above its eaves, the roof is not drawn and anything nearer than the tile centre is culled
+with it. ⚠ Both halves are needed: cutting only the roof leaves the back wall, and a wall occludes a
+truck exactly as well as a roof does.
+
+**The door measures the DOORWAY, not the tile.** `open` came off the distance to the tile centre,
+which is ~0 on the frame you mount — so the door was already up and you were already outdoors, in a
+building you never saw. It is the distance to the aperture now, with a tight sensor from inside
+(`BAY_IN_SENSE` < `HL`, or it lifts on frame one) and the generous street-length one from outside.
+It starts shut, comes up as you roll at it, and shuts behind you for free. There is still **no door
+in the physics** — `groundObstructionAt` opens the whole bay tile — and that is deliberate: it is
+fully up well before your bumper reaches it, and a door that can trap a player in a shed is worse
+than one you could theoretically drive through.
+
+What that bought, since the volume had to be rebuilt anyway: the floor is the **road's own asphalt**
+(`SURFACE_COL.asphalt`) carried indoors with an apron tongue out past the threshold, so the tarmac
+runs unbroken from the shed to the street; yellow **markings** — a drive lane straight out of the
+door, two trailer bays down one side, three numbered tractor stalls down the other, and a hatched
+keep-clear under the shutter; **portal frames** with rafters to the ridge, which is what the eye uses
+to read the volume as tall; **high-bay lighting** that barely dims at night, because a depot that went
+black at 8pm is a building you cannot park in; roof lights that are bright by day and dark after it
+(they are sky, not lamps); and a site office with a lit window and a row of drums against the back
+wall.
+
+**And the mass follows the drawing.** ⚠ **The bay is the one building whose height is a SHAPE, not a
+storey stack**, and it has to be: it is the only building with a camera inside it, and a floor count
+cannot promise the eaves clear the driver's eye when `bldgStretch` is a live dev-panel slider. So
+`floorHeight` returns the shed's real ridge for a bay and `floorsOf` returns what that ridge is
+*worth* in storeys (`BAY_FLOORS`) — the first keeps the render, the ground shadow, the occlusion
+pre-pass and `buildingHeightZ` on the same roof, the second lands the feet-frame CFIT altitude on it
+too. Without the pair the shed drew at `0.43` and collided at `0.196`, and an aircraft flew through
+the top two thirds of a building a truck cannot drive through the wall of. Two more things fall out
+of that: **`modelFor` returns null for a bay**, because the tile still carries `bt: 'truck_depot'`
+and every model consumer would otherwise use that arm's captured segments for a tile the arm never
+drew; and `modelTopAt` answers off the gable directly, needing no capture. ⚠ Raise `RIDGE` and you
+must raise `BAY_FLOORS` with it — `shapes:smoke`'s **bay** gate fails if they drift, if the eaves or
+the door head drop back under the driver's eye, or if the truck-sized hole in `groundObstructionAt`
+ever closes.
+
 ---
 
 ## Testing
@@ -1529,6 +1651,10 @@ died here" and starts reading as a scrapyard.
   for the same reason the model gate exists: the only thing that ever runs one of these is somebody
   sitting in that vehicle, so a throw freezes the sim for one player and is invisible to everyone
   else. Verified to catch a deliberate break.
+- Its **VIEW** gate now stands the truck **in a depot bay** (a `mark: 'bay'` tile under the camera)
+  for both cab cases, day and night. Nothing else in that suite enters `drawVehicleBay`, and it is
+  the one model whose faces straddle the camera — a throw in there is a black cab on the first frame
+  of every haul.
 
 **Note for suite authors:** `setLivePlayer(pid, data)` takes two arguments. A one-arg call keys the
 map by the object and stores `undefined`, which every `getAllLivePlayers()` consumer then trips

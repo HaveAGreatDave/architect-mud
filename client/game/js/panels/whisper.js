@@ -279,6 +279,12 @@ export function sendChatMessage(key, text) {
 	if (msg.toLowerCase() === "/leave") { leaveChatConversation(key); return 'left'; }
 	if (key === USERS_TAB || _isSystemOnly(key)) return;
 	const expanded = expandTokens(msg);
+	// A locally-owned conversation (the CB) sends its own verb and is echoed by the
+	// SERVER rather than optimistically here — a radio transmission that appeared in
+	// your window and then failed the server's own checks (set off, keyed down too
+	// soon) would show you saying something nobody heard.
+	const def = _channels.get(key);
+	if (def?.local && typeof def.send === "function") { def.send(expanded); return; }
 	_echoOwnMessage(key, expanded);
 	sendCmdSilent(`whisper ${key} ${expanded}`);
 }
@@ -309,6 +315,53 @@ export function reopenChatTab(key) {
 		return key;
 	}
 	return ensureChatConversation(key); // PM (also emits an update)
+}
+
+// ── Locally-owned conversations ────────────────────────────────────────────
+// A conversation this client creates for itself, rather than one the server hands
+// it at login in `initChannels`. The CB is the first: a radio you are on for the
+// eleven minutes of a crossing is not something to put in the login payload, and
+// the channel you are listening to changes every time you touch the dial.
+//
+// The ONE thing such a conversation needs that a server channel does not is a
+// different send path — everything here sends `whisper <key> <text>`, and a radio
+// has to send its own verb. So the def carries an optional `send(text)` and
+// sendChatMessage prefers it. That keeps the server's parser the only parser:
+// the window can never do something the command line cannot.
+export function registerLocalChannel({ id, label, permanent = false, send = null }) {
+	if (!id) return;
+	_channels.set(id, { id, label, permanent, systemOnly: false, local: true, send });
+	if (!_whisperConvos.has(id))
+		_whisperConvos.set(id, { messages: [], scrollTop: 999999, unread: 0 });
+	if (_whisperPanelVisible) _refreshWhisperTabs();
+	_emitChatUpdate();
+}
+
+// Remove one, and its scrollback with it. A radio conversation must not survive
+// the radio: leaving the cab has to take the window with it, or the player is
+// left looking at a channel they can no longer hear or answer.
+export function dropLocalChannel(id) {
+	if (!_channels.has(id)) return;
+	_channels.delete(id);
+	_whisperConvos.delete(id);
+	_closedChatTabs.delete(id);
+	if (_activeWhisperTab === id) _activeWhisperTab = USERS_TAB;
+	if (_whisperPanelVisible) _refreshWhisperTabs();
+	_updateChatBadge();
+	_emitChatUpdate();
+}
+
+// Your own line, shown as yours. The server echoes a transmission back to the
+// sender (it is a radio — you hear your own set), so this is called from that
+// echo rather than optimistically at send time, and the message shown is always
+// the one that actually went out.
+export function echoLocalChannel(id, message) {
+	const convo = _whisperConvos.get(id);
+	if (!convo) return;
+	convo.messages.push({ from: state.player?.handle || "You", message, isMe: true, ts: Date.now() });
+	if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+	if (_whisperPanelVisible && _activeWhisperTab === id) _renderWhisperLog();
+	_emitChatUpdate();
 }
 
 // Drop every corp channel (#corp:<orgId>) from the chat list — called when the

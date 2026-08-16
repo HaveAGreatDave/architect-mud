@@ -163,6 +163,7 @@ nothing, silently; wire a reader first.
 | `ally_targets` | ally | array of enemy TEMPLATE ids this NPC is willing to attack (`["enemy_sewer_roach", …]`). Absent or empty = anything hostile. Content names the targets; no code does |
 | `ally_withdraw_pct` | ally | HP percentage at which an ally breaks contact and goes home rather than dying (default 30). It narrows the window on getting them killed; it does not close it |
 | `ally_cooldown_mins` | ally | minutes before a withdrawn ally will fight for you again (default 10). This is the cost of the withdraw model — without it they are a renewable meat shield |
+| `animal` | engine (describe/social) | **this is a creature, not somebody you talk to.** Lists in the room's own `Animals here:` row with the name opening `examine` and a `(pet)` affordance beside it, instead of under `NPCs here:` behind a `talk` link that would do nothing (`commands/describe.js`). The same flag also satisfies `pet`'s target test (`commands/social.js`), which is what stops the row promising a verb that then refuses — the older name-keyword heuristic (`cat`, `dog`, `wolf`…) still runs as a fallback for anything unflagged |
 | `essential` | — | **no reader.** Nothing checks it; unkillability is `no_attack` (`combat.js:705`). Setting `essential` protects nobody |
 | `faction_guard` | — | **no reader.** There is no `factions` plugin (reworked into ideologies) and no code consumes this key, though ~5 content NPCs still carry it |
 | `gift_trade` | trade | accepts gifts |

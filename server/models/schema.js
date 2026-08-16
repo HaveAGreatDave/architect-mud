@@ -965,14 +965,27 @@ export const SCHEMA_SQL = `
 
   -- Cortical backups: the Ascendant "death is a billing problem" loop. A player
   -- who owns the Cortical Backup augment buys prepaid restores at Halcyon and
-  -- snapshots inventory+credits+state at the Vats; a non-jailed death with a
-  -- paid restore rolls them back to that snapshot. Runtime state, never authored.
+  -- re-scans their PATTERN at the Vats; a non-jailed death with a paid restore
+  -- prints them a new body. Runtime state, never authored.
+  --
+  -- THE PATTERN IS WHO YOU ARE, NEVER WHAT YOU HAD. 'snapshot' used to hold a
+  -- full inventory roll-back and that was a mint: it remembered items, so it
+  -- could re-create one you had since handed to somebody else. It now holds
+  -- pattern metadata for flavour only, and the roster a restore re-prints is
+  -- captured from the LIVE rows at the moment of death instead.
+  --
+  -- 'pattern_at' is the real gate (a row can exist with restores bought and no
+  -- scan taken); 'copy_fidelity' is how good a copy you still are, falling with
+  -- each restore and bought back by re-scanning. It caps calibration at READ
+  -- time and is never baked into player_augments.calibration.
   CREATE TABLE IF NOT EXISTS player_backups (
     player_id TEXT PRIMARY KEY,
     snapshot JSONB,
     restores_remaining INTEGER DEFAULT 0,
     saved_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+  ALTER TABLE player_backups ADD COLUMN IF NOT EXISTS copy_fidelity SMALLINT NOT NULL DEFAULT 100;
+  ALTER TABLE player_backups ADD COLUMN IF NOT EXISTS pattern_at BIGINT;
 
   CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
   CREATE INDEX IF NOT EXISTS idx_player_inventory_player ON player_inventory(player_id);

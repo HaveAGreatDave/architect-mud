@@ -9,7 +9,7 @@ getting a command in.
 
 ---
 
-## 1. One table, two surfaces
+## 1. One table, three surfaces
 
 `A11Y_OPTIONS` in [client/shared/settings.js](../client/shared/settings.js) is the list. Both the
 tablet's Accessibility page ([tablet-os.js](../client/game/js/panels/tablet-os.js)) and the
@@ -42,6 +42,16 @@ only *through* that interface — the light switch cannot be inside the dark roo
 therefore a plain client-side verb with no tablet gate, exactly like `displaymode`, and
 `accessibility reset` exists so a change that made things worse can be undone without operating the
 surface it just broke. `scripts/a11y/smoke.mjs` asserts this arrangement is still standing.
+
+⚠ **A verb nobody is told about is a verb that does not exist.** This was built correctly and then
+went unmentioned: the log-rung walkthrough taught `displaymode visual` but never `accessibility`, and
+the tablet's Settings app declared only `verbs: ['displaymode']`, so the typed index didn't name it
+either. A blind player therefore reached for the Settings *page* — a graphical panel with no log
+record — and reported, reasonably, that settings did not work at all. Both now name the verb, and
+both are asserted (`plugins/prologue/regress.js`, `plugins/tablet/regress.js`). Note the exemption
+those sweeps need: `accessibility` is intercepted by `handleClientCommand` and never reaches
+dispatch, so it is in **neither** server registry while still being perfectly typeable — a
+`CLIENT_VERBS` allowlist in each, not a loosened check.
 
 Everything in the table is a **localStorage preference** — per-device, never sent to the server,
 never announced to anyone else, and it changes nothing about the game's difficulty. Display Mode is

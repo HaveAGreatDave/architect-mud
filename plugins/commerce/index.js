@@ -10,7 +10,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { getIdeologyDiscount } from '../../server/engine/ideologies.js';
 import { getItem } from '../../server/engine/items-cache.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
-import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor, renderShopText } from '../../server/engine/vendor.js';
+import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor, renderShopText, shopDialogPayload } from '../../server/engine/vendor.js';
 import { prefersLoggedPanelsOrDefault } from '../../server/engine/presentation.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
@@ -41,7 +41,7 @@ function resolveVendor(player, npcs) {
   return npcs.find(n => n.vendor_inventory?.length) || null;
 }
 
-async function openShopFor(npc, player) {
+async function openShopFor(npc, player, forceText = false) {
   if (!npc.vendor_inventory?.length) return { type:'error', message:`${npc.name} isn't a vendor.` };
   if (isVendorClosed(npc)) return { type:'error', message: vendorClosedLine(npc) };
   const grudge = await vendorGrudgeRemaining(player.id, npc.id);
@@ -51,8 +51,21 @@ async function openShopFor(npc, player) {
   openShopSession(player.id, npc.id); // remember this vendor for bare buy/sell; pause its wandering
   // Bottom Display Mode rung: no panel at all, the log IS the shelf. The session
   // is open either way, so `buy`/`sell` behave identically from here.
+  // `shop text <npc>` forces the written shelf at ANY rung — the same escape hatch
+  // shape as `tablet verbs`, and the reason the dialog is allowed to replace the
+  // dump: nothing is taken away, it is just no longer the thing you get by default.
+  if (forceText) return { type: 'output', message: renderShopText(npc, stock, player.credits) };
   if (await prefersLoggedPanelsOrDefault(player)) {
-    return { type: 'output', message: renderShopText(npc, stock, player.credits) };
+    // ⚠ The dialog is the CONTROL; the log still gets the RECORD. A player
+    // scrolling back has to be able to see that they went shopping, and the log
+    // rung's own contract is that a system's record reaches `#output`. What it no
+    // longer gets is 63 priced rows every time the shelf is re-read.
+    sendToPlayer(player.id, {
+      type: 'output',
+      message: `<span class="msg-system">${npc.name}'s shelf is open — ${stock.length} thing${stock.length === 1 ? '' : 's'} for sale. `
+        + `<span class="action-link" data-action="cmd" data-cmd="shop text ${npc.name}">shop text ${npc.name}</span> to read it here instead.</span>`,
+    });
+    return shopDialogPayload(npc, stock, player.credits);
   }
   // Open the GUI shop pane — same payload shape as the click-a-vendor dialogue path
   // (server/index.js sendShopPanel), so the `shop <npc>` command and clicking share one UI.
@@ -67,7 +80,7 @@ async function openShopFor(npc, player) {
   };
 }
 
-async function cmdShop(npcName, player) {
+async function cmdShop(npcName, player, forceText = false) {
   if (!npcName) return { type:'error', message:'Browse whose shop? (shop <npc name>)' };
   const npcs = getZoneNpcs(player.current_zone);
   const r = siftResolve(npcName, npcs);
@@ -76,7 +89,7 @@ async function cmdShop(npcName, player) {
     createSelectionState(player.id, r.candidates, { dispatchType: 'commerce.shop_vendor', dispatchParam: 'target' });
     return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  return openShopFor(r.candidate, player);
+  return openShopFor(r.candidate, player, forceText);
 }
 
 async function buyStockItem(item, vendor, player) {
@@ -576,7 +589,12 @@ on('zone.entered', async ({ actor: player, zone, from }) => {
 });
 
 export const commands = {
-  shop:   (args, raw, player) => cmdShop(args.join(' '), player),
+  // `shop text <npc>` — leading keyword, the `tablet verbs` shape. Stripped here
+  // rather than inside cmdShop so SIFT never sees it as part of the vendor's name.
+  shop:   (args, raw, player) => {
+    const text = (args[0] || '').toLowerCase() === 'text';
+    return cmdShop((text ? args.slice(1) : args).join(' '), player, text);
+  },
   browse:  (args, raw, player) => cmdShop(args.join(' '), player),
   buy:     (args, raw, player) => cmdBuy(args, player),
   sell:    (args, raw, player) => cmdSell(args, player),

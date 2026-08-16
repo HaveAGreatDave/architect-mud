@@ -1350,6 +1350,31 @@ body.rainbow-sky.rainbow-triple .weather-event {
 	color: var(--speech);
 	font-weight: 500;
 }
+/* THE CB. Its own semantic class, which is what makes `trigger @cb …`, a route
+   into its own pane, gagging and a highlight all work on the radio without any
+   of them being taught what a radio is. Deliberately NOT --speech: a voice
+   arriving over a radio from somebody who is not in the room is a different
+   thing from somebody talking next to you, and in a fast log that difference is
+   the one worth being able to see at a glance. */
+.msg-cb {
+	color: var(--speech);
+	font-weight: 500;
+	opacity: 0.92;
+}
+/* The channel flag at the head of the line. Boxed rather than coloured, because
+   a line that opens with a tag reads as a transmission before it is read at
+   all — and it carries the channel NUMBER whenever the traffic is not on the
+   one you are tuned to, which is the only case where the number matters. */
+.cb-tag {
+	display: inline-block;
+	padding: 0 4px;
+	border: 1px solid var(--border, #2b333c);
+	border-radius: 2px;
+	font-size: 0.78em;
+	letter-spacing: 0.1em;
+	color: var(--text-dim);
+	vertical-align: baseline;
+}
 /* An NPC/enemy/player attribution line the server wrote ("Marla says, …"). The
    attribution is narration about a person — the same job an emote does — so it
    wears --emote, and the quotes inside get .speech from the painter. Result:
@@ -6632,6 +6657,37 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	color: var(--text-dim);
 	font-size: 0.6875rem;
 	margin-bottom: 24px;
+}
+
+/* Powered-by-THOMAS badge. Sits below the guide links and is deliberately a
+   step quieter than them — no rule above it, no accent until hover, and dimmer
+   than --text-dim. It is a credit, not a call to action. */
+#thomas-badge {
+	margin-top: 10px;
+	text-align: center;
+	font-size: 0.625rem;
+	letter-spacing: 1px;
+}
+#thomas-badge a {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--text-dim);
+	opacity: 0.55;
+	text-decoration: none;
+	transition:
+		opacity 0.15s,
+		color 0.15s;
+}
+#thomas-badge a:hover,
+#thomas-badge a:focus-visible {
+	opacity: 1;
+	color: var(--cyan);
+}
+#thomas-badge svg {
+	width: 13px;
+	height: 13px;
+	flex: none;
 }
 
 .auth-field {

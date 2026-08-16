@@ -57,6 +57,7 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, wreckNear } from './corridor.js';
+import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';
 import { collideTrucks, narrateCollision } from './collide.js';
 import './bunk.js';   // registers the sleeper cab as a place you can sleep — see the file header
@@ -1518,15 +1519,31 @@ async function cmdTruckSync(args, raw, player) {
   return { type: 'noop' };
 }
 
-// `cb` — the one control the radio has. On by default, because a channel you have to discover is
-// a channel nobody hears, and off in one word for a driver who would rather have the road.
+// `cb` — the radio. On by default, because a channel you have to discover is a channel nobody
+// hears, and off in one word for a driver who would rather have the road.
+//
+// ⚠ THE PARSE ORDER IS THE WHOLE DESIGN OF THIS VERB. Everything that is not one of the four
+// literal controls is TREATED AS SPEECH, because the commonest thing anybody does with a CB is
+// talk into it and a radio whose default action is a settings change would be absurd. The cost is
+// that `cb off` can never be said out loud on the air, which is a fair trade for `cb on` meaning
+// what it says; the four reserved words are listed in the status line so nobody has to guess.
 async function cmdCb(args, raw, player) {
   const rig = rigOf(player);
   if (!rig) return say('You are not driving anything.');
-  rig.cbOff = !rig.cbOff;
-  return say(rig.cbOff
-    ? '<span class="text-dim">You turn the squelch all the way up and the cab goes quiet.</span>'
-    : '<span class="text-dim">You bring the CB back up. Somewhere out in the dark, several people are already mid-argument.</span>');
+  const rest = String(raw || '').replace(/^\S+\s*/, '').trim();
+  if (!rest) return cbStatus(player, rig);
+
+  const first = args[0]?.toLowerCase();
+  if (args.length === 1) {
+    if (first === 'on') return cbPower(player, rig, true);
+    if (first === 'off') return cbPower(player, rig, false);
+    if (first === 'speaker') return cbSpeaker(player, rig);
+    if (/^\d{1,2}$/.test(first)) return cbTune(player, rig, first);
+  }
+  if (args.length === 2 && first === 'speaker' && /^(on|off)$/.test(args[1]?.toLowerCase())) {
+    return cbSpeaker(player, rig, args[1].toLowerCase() === 'on');
+  }
+  return cbTransmit(player, rig, rest);
 }
 
 // ── The air horn ─────────────────────────────────────────────────────────────

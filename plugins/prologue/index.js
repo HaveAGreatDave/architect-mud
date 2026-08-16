@@ -1158,11 +1158,12 @@ const LOG_TOUR = [
   `<b>Moving.</b> Directions are the verbs: <b>north</b>, <b>south</b>, <b>east</b>, <b>west</b>, and <b>n s e w</b> for short. The ways out are on the Exits line of every room, which you get on arrival and again from ${cmdLink('look')}. Buildings are entered by walking at them from the street.`,
   `<b>Your things and your body.</b> ${cmdLink('inventory', 'inventory')} (or <b>i</b>) is what you're carrying, ${cmdLink('gear')} is that plus what you're wearing, and ${cmdLink('score')} is you — health, hunger, thirst, money, the state you're in.`,
   `<b>The tablet.</b> The city issues you one shortly. In text mode it isn't a screen, it's a menu you type at: ${cmdLink('tablet')} lists it, and each app has a verb of its own — <b>map</b>, <b>bank</b>, <b>gear</b>, <b>codex</b>. ${cmdLink('tablet verbs')} prints the whole list any time.`,
+  `<b>Making it read better.</b> ${cmdLink('accessibility')} on its own lists everything you can change about how this game reads — text size, typeface, how much motion there is, how much it beeps, and whether it reads itself aloud to you. Each one tells you exactly what to type to set it. It needs no tablet and works anywhere, which is the point: the switch that fixes the interface must not be inside the interface.`,
   `<b>When you're stuck.</b> ${cmdLink('help')} lists every command. Any verb the game teaches you it will name in the line where you first need it. And you can leave text mode as easily as you entered it — ${cmdLink('displaymode visual', 'displaymode visual')} turns the panels back on.`,
 ];
 
 function speakLogTour(player) {
-  out(player, `<span class="msg-system">— The walkthrough. Seven things, then you're on your own. —</span>`);
+  out(player, `<span class="msg-system">— The walkthrough. Eight things, then you're on your own. —</span>`);
   for (const line of LOG_TOUR) out(player, `<span class="hint">${line}</span>`);
   out(player, `<span class="msg-system">That's it. Type ${cmdLink('tutorial done', 'tutorial done')} when you've finished reading and the room will carry on. `
     + `${cmdLink('tutorial')} replays this whenever you want it.</span>`);

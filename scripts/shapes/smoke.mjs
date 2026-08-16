@@ -80,6 +80,14 @@ async function main() {
   const ground = ws.groundCollisionSmoke();
   for (const f of ground) problems.push(`ground ${f.key} (ent=${f.ent}) → ${f.err}`);
 
+  // ── THE DEPOT BAY'S MASS ──
+  // The shed is the one building drawn at a fixed height instead of extruded from a storey stack
+  // (it has a camera inside it and its eaves must clear the driver's eye), so its draw/collide
+  // contract is two constants agreeing rather than both sides calling one formula. This holds them
+  // together — and holds the one hole in the collision model open, since a truck drives in.
+  const bay = ws.bayMassSmoke();
+  for (const f of bay) problems.push(`bay    ${f}`);
+
   // ── TRUCK LAMPS ──
   // Not a building, but the same failure mode the whole file exists for: the only thing that ever
   // looked at a truck's headlamps was a player looking at a truck, and they were invisible twice.
@@ -202,6 +210,7 @@ async function main() {
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
+  console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

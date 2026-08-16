@@ -13,7 +13,7 @@
 // to floor.
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
-import { drawHangarFloorBay, drawHangarScene } from './aircraft3d.js';
+import { drawHangarFloorBay, drawHangarScene, pickSceneHit } from './aircraft3d.js';
 import { updateHangarAmbience, stopHangarAmbience } from './hangar-ambience.js';
 import { drawWireframe3D, drawKnob, drawPerfRadar, themeColor, rgbTriplet } from './wireframe-plane.js';
 import { showConfirmDialog } from './confirm.js';
@@ -814,11 +814,7 @@ function wire() {
   if (scene) scene.addEventListener('click', (e) => {
     const r = scene.getBoundingClientRect();
     const mx = e.clientX - r.left, my = e.clientY - r.top;
-    let best = null, bestD = Infinity;
-    for (const h of sceneHits) {
-      const dx = mx - h.sx, dy = my - h.sy, d = Math.hypot(dx, dy);
-      if (d <= h.r && d < bestD) { best = h; bestD = d; }
-    }
+    const best = pickSceneHit(sceneHits, mx, my);   // the airframe's own silhouette, not a circle on the floor
     if (!best) return;
     if (best.id === '__charter') {
       // Unrated pilots can't fly anything yet — clicking the charter plane starts the

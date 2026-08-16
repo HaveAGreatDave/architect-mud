@@ -47,6 +47,39 @@ export default async function regress({ run, check, getPlayer }) {
   }
   check('behaviours: every line renders without "undefined"', !badLine, badLine || 'all clean');
 
+  // ── Cuddling up ────────────────────────────────────────────────────────────
+  // She only ever settles against somebody she is neutral or better toward. A
+  // stranger does not get leaned on and a killer certainly does not.
+  const cuddles = BEHAVIOURS.filter((b) => b.key.startsWith('cuddle_'));
+  check('cuddle: there is something to cuddle with', cuddles.length >= 2, String(cuddles.length));
+  const sitter = { handle: 'Tester', posture: 'sitting' };
+  const gatedFor = (mood) => cuddles.filter((b) => {
+    try { return !!b.gate({ ...bare, mood, pets: 12, player: sitter }); } catch { return false; }
+  });
+  check('cuddle: a regular gets cuddled', gatedFor('seek').length > 0);
+  check('cuddle: so does somebody it merely knows', gatedFor('neutral').length > 0);
+  check('cuddle: a stranger does not', gatedFor('wary').length === 0,
+    gatedFor('wary').map((b) => b.key).join(', '));
+  check('cuddle: a killer does not', gatedFor('flee').length === 0,
+    gatedFor('flee').map((b) => b.key).join(', '));
+  check('cuddle: none of them fires with nobody to cuddle',
+    cuddles.every((b) => { try { return !b.gate({ ...bare, mood: 'seek' }); } catch { return false; } }));
+
+  // A behaviour aimed at somebody must render BOTH halves — index.js sends the
+  // second person to them and the third person to the room, and a broken `you`
+  // would silently drop the room line with it.
+  let badYou = null;
+  for (const b of BEHAVIOURS.filter((x) => x.you)) {
+    const ctx = { ...bare, mood: 'seek', pets: 12, player: sitter };
+    try {
+      const s = b.you(ctx);
+      if (typeof s !== 'string' || !s.trim() || s.includes('undefined')) badYou = `${b.key}: ${String(s).slice(0, 60)}`;
+      else if (/\bthey\b|\bTester\b/.test(s)) badYou = `${b.key}: third person in a second-person line`;
+    } catch (e) { badYou = `${b.key}: ${e.message}`; }
+    if (badYou) break;
+  }
+  check('cuddle: every second-person line renders in the second person', !badYou, badYou || 'all clean');
+
   check('behaviours: the plain-cat baseline survives', keys.includes('loaf') && keys.includes('groom'),
     'a table of nothing but paw jokes is a mechanism, not an animal');
   check('behaviours: pickBehaviour returns something for a bare room',
@@ -216,7 +249,14 @@ export default async function regress({ run, check, getPlayer }) {
       // Twice killed: it stops arguing entirely. No warning, no defence, gone.
       await setFlag('player', KILLS_FLAG, '2', P);
       strays.refusalAttempts.delete(P.id);
+      // Live for this one: the kill test left it dead and `surface` refuses on a
+      // corpse, which made "bolting removes it from the room" pass without ever
+      // having put it in a room.
+      const deadForBolt = c._dead;
+      c._dead = false;
       surface(LANE_ZONES[2], 'regress: surfacing for the bolt test');
+      check('ladder: it is actually in the room to bolt from', isSurfaced());
+      c._dead = deadForBolt;
       const hpBeforeBolt = P.hp;
       const r4 = await petAgain();
       check('ladder: a second kill means it just leaves',
@@ -226,7 +266,42 @@ export default async function regress({ run, check, getPlayer }) {
       check('ladder: ...and it never becomes hostile', P.hp === hpBeforeBolt, `${hpBeforeBolt} -> ${P.hp}`);
       check('ladder: bolting actually removes it from the room', !isSurfaced(), String(S.zoneId));
 
+      // ── Walking in on her, having killed her twice ──────────────────────────
+      // The other half of the top rung: nobody reached for her, she was simply
+      // in a room this player is also in. She hisses once and goes.
+      // The kill test above left the cat dead, and `surface` refuses on a corpse.
+      // These cases are about a live animal in a room, so put it back on its feet
+      // for the duration and hand it over dead again afterwards.
+      const wasDead = c._dead;
+      c._dead = false;
+
+      await setFlag('player', KILLS_FLAG, '2', P);
+      surface(LANE_ZONES[3], 'regress: surfacing for the spook test');
+      check('spook: she is out before the killer arrives', isSurfaced());
+      await strays.onZoneEntered({ actor: P, zone: LANE_ZONES[3] });
+      check('spook: a twice-over killer walking in empties the room',
+        !isSurfaced(), String(S.zoneId));
+
+      // One kill is not this rung. She still gets to exist in a room you are
+      // standing in; that is the difference between unforgiven and weather.
       await setFlag('player', KILLS_FLAG, '1', P);
+      surface(LANE_ZONES[3], 'regress: surfacing for the single-kill case');
+      await strays.onZoneEntered({ actor: P, zone: LANE_ZONES[3] });
+      check('spook: one kill does not empty the room', isSurfaced(), String(S.zoneId));
+      despawn('regress: cleanup');
+      c._dead = wasDead;
+
+      check('spook: the threshold is the ladder\'s own top rung, not a new one',
+        strays.REPEAT_KILLS === 2, String(strays.REPEAT_KILLS));
+      // Same silence rule as every other refusal: she may hiss, she may never
+      // say why.
+      const spookLines = [...strays.SPOOK_YOU, ...strays.SPOOK_ROOM];
+      const spookLeaky = spookLines.filter((l) => ACCUSING.test(l));
+      check('spook: no line says what they did',
+        spookLeaky.length === 0, spookLeaky[0]?.slice(0, 80) || `${spookLines.length} lines clean`);
+      check('spook: the room line names who it was about',
+        strays.SPOOK_ROOM.every((l) => l.includes('$who')), 'a bolt nobody can attribute is just a cat leaving');
+
       strays.refusalAttempts.delete(P.id);
 
       // ── Calling her ─────────────────────────────────────────────────────────

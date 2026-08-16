@@ -1509,11 +1509,36 @@ export async function describeZone(zone, player, out = {}) {
 				((Array.isArray(n.vendor_inventory) && n.vendor_inventory.length > 0) ||
 					n.flags?.personality === 'vendor') &&
 				!isVendorClosed(n);
+			// An ANIMAL is not somebody you talk to, and listing one under "NPCs
+			// here:" behind a `talk` link is the room offering the one verb that
+			// will do nothing. So it gets its own row, its name opens `examine`,
+			// and the affordance that actually exists — `pet` — is written next to
+			// it rather than left to be guessed at.
+			//
+			// Flag-driven (`flags.animal`), never a name list: the engine must not
+			// know which creatures a given game has in it. The `pet` command's own
+			// keyword test honours the same flag, so the row can't promise a verb
+			// that then refuses.
+			const isAnimalNpc = (n) => n.flags?.animal === true;
+			const animalLink = (n) => {
+				const target = escAttr(n._realName || n.name);
+				return (
+					`<span class="action-link npc-link" data-action="examine" data-target="${target}" title="Look at ${escAttr(n.name)}">${n.name}</span>` +
+					` <span class="action-link text-dim" data-action="pet" data-target="${target}" title="Pet ${escAttr(n.name)}">(pet)</span>`
+				);
+			};
 			const vendors = npcs.filter(isVendor);
-			const regular = npcs.filter((n) => !isVendor(n));
+			const animals = npcs.filter((n) => !isVendor(n) && isAnimalNpc(n));
+			const regular = npcs.filter((n) => !isVendor(n) && !isAnimalNpc(n));
 			const regularLinks = [...regular.map(npcLink), ...phantomPeople.map(phantomLink)];
 			if (vendors.length) {
 				desc += `\n<span class="vendors-label">Vendors here:</span> ${vendors.map(npcLink).join(", ")}`;
+			}
+			// Shares the `npcs-label` class deliberately: a brief keeps rows by
+			// class (server/engine/room-brief.js VITAL), and an animal in the room
+			// is exactly as much news as a person in it.
+			if (animals.length) {
+				desc += `\n<span class="npcs-label animals-label">Animals here:</span> ${animals.map(animalLink).join(", ")}`;
 			}
 			if (regularLinks.length) {
 				desc += `\n<span class="npcs-label">NPCs here:</span> ${regularLinks.join(", ")}`;

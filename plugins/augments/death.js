@@ -16,10 +16,21 @@
  * looting, and a graded roll solves that just as completely.
  *
  * THE ORDERING TRAP, stated once because it is the thing that will break:
- * corruption MUST be skipped whenever the respawn was claimed by somebody else.
- *   - Jail took custody: the cops confiscate gear, they don't take your spine.
- *   - A cortical restore claimed it: the restore is about to re-create these
- *     exact rows, and corrupting first deletes what it is about to write back.
+ * corruption is skipped ONLY when somebody took literal CUSTODY of the body.
+ * Today that is jail and nothing else — the cops confiscate gear, they don't
+ * take your spine, and there is no corpse left in the room to salvage onto.
+ *
+ * ⚠ IT USED TO BE SKIPPED ON `claimed` TOO, AND THAT INVERTED. A cortical
+ * restore claims the death without taking the body, and it now WANTS this to
+ * run: the Ascendant fiction is that the old chrome dies with the old torso and
+ * the vats print new hardware to the same measurements. If corruption were
+ * skipped here, the restore would be handing back the ORIGINAL pieces, which is
+ * a rollback — and a rollback can put back a thing the player no longer owns.
+ * The wreckage landing on their corpse is what makes the re-print honest: the
+ * originals are provably scrap, in a room, where anyone can go and look.
+ *
+ * Ordering is owned by the single player.death subscriber in index.js, which
+ * captures the roster before calling this and prints from the capture after.
  */
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';

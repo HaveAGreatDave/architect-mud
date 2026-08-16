@@ -93,6 +93,7 @@ import './corp-app.js';
 import './surveillance-app.js';
 import './crime-app.js';
 import './chat-app.js';
+import './cb-app.js';
 import './news-app.js';
 import './map-app.js';
 import './gear-app.js';
@@ -249,6 +250,37 @@ async function cmdTabletNav(args, raw, player) {
 
   const app = findTabletApp(first);
   if (!app) return buildHomePayload(player);
+
+  // Deep links are deliberately NOT rerouted at the log rung — see
+  // docs/systems-display-mode.md: rendering every app's payload as text is a far
+  // bigger job than an index, and swallowing the nav would be worse than a screen
+  // that reads badly. But "reads badly" was optimistic: the panel is the ONLY
+  // thing that happens, so a screen-reader player who typed `codex` or `health`
+  // (both of which land here) gets a fullscreen graphic and not one line in the
+  // log — indistinguishable from the command having done nothing.
+  //
+  // So: still return the screen, and ALSO write a record of what just happened.
+  // Additive, so the documented decision and its regress case both stand.
+  //
+  // ⚠ The wording must NOT claim the screen is unreadable, even though that is the
+  // case this was written for. Which renderer the payload lands in is decided
+  // client-side by `tabletMode`, a localStorage preference the server cannot see —
+  // and at the log rung that preference DERIVES to the accessible tablet, which
+  // renders this perfectly well. Asserting "this won't read here" was therefore
+  // false for the default log-rung player, on the settings gear, which is the one
+  // route that most needed to be trustworthy. Offering the verb is true either way:
+  // useful if the screen didn't read, harmless if it did.
+  if (await prefersLoggedPanelsOrDefault(player)) {
+    const verbs = (app.verbs || []).filter(Boolean);
+    sendToPlayer(player.id, {
+      type: 'system',
+      message: `<span class="hint">${app.name} opened. `
+        + (verbs.length
+          ? `You can also read this in words: type <b>${verbs.join('</b> or <b>')}</b>.`
+          : `This one is a screen with no typed form yet.`)
+        + `</span>`,
+    });
+  }
 
   const params = rest.join(' ');
   try {

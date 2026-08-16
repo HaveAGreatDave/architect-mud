@@ -1836,7 +1836,11 @@ async function emptyVessel(args, raw, player) {
 // A dish you have NOT discovered still shows its name and blurb (you know a
 // stew exists) but not its measures. Working those out is the game.
 async function cmdCookbook(args, raw, player) {
-  const q = args.join(' ').trim().toLowerCase();
+  // `cookbook text` — the same leading-keyword escape hatch as `shop text` and
+  // `tablet verbs`. Stripped before the dish lookup so it can never be mistaken
+  // for a dish name.
+  const forceText = (args[0] || '').toLowerCase() === 'text';
+  const q = (forceText ? args.slice(1) : args).join(' ').trim().toLowerCase();
   const { known } = await cookbookState(player.id);
 
   if (!q) {
@@ -1846,6 +1850,25 @@ async function cmdCookbook(args, raw, player) {
         ? `  · ${t.noun} <span class="text-dim">— best: ${band}</span>`
         : known.has(key) ? `  · ${t.noun}` : `  <span class="text-dim">· ${t.noun} — untried</span>`;
     });
+    // The bare catalogue is a pick-one-of-N — it exists to be read and then acted
+    // on with `cookbook <dish>` — and it grows with CONTENT rather than progress,
+    // so it is one of the few surfaces that gets longer the more the game is
+    // authored. That makes it the generic list dialog's case exactly.
+    // `cookbook text` keeps the written form at any rung.
+    if (!forceText) {
+      return {
+        type: 'list_dialog',
+        title: 'Cookbook',
+        subtitle: `${known.size} of ${Object.keys(DISHES).length} worked out`,
+        rows: Object.entries(DISHES).map(([key, t]) => ({
+          group: known.has(key) ? 'Known' : 'Not yet worked out',
+          label: t.noun,
+          detail: known.get(key) && known.get(key) !== UNTRIED ? `best: ${known.get(key)}` : '',
+          command: `cookbook ${t.noun}`,
+        })).sort((a, b) => (a.group === b.group ? 0 : a.group === 'Known' ? -1 : 1)),
+        footer: 'cookbook <dish> for weights, method and timing · cookbook text to read it in the log',
+      };
+    }
     return { type: 'output', message: [
       `<span class="text-accent">COOKBOOK</span> <span class="text-dim">(${known.size}/${Object.keys(DISHES).length} worked out)</span>`,
       '',

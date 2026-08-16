@@ -442,7 +442,15 @@ async function _initPlayerCountChart(rangeKey = '30d') {
   const minV   = 0;
   const range  = maxV - minV || 1;
 
-  const x = (i) => PAD + (i / (rows.length - 1)) * (W - PAD * 2);
+  // x is TIME, not row index. The server zero-fills every bucket so the two
+  // agree today, but an index axis silently squeezes any missing stretch down
+  // to a single pixel — which is how a server that was empty for three days
+  // drew as an unbroken line that never touched the floor.
+  const ts   = rows.map(r => new Date(r.recorded_at).getTime());
+  const t0   = ts[0];
+  const tSpan = (ts[ts.length - 1] - t0) || 1;
+
+  const x = (i) => PAD + ((ts[i] - t0) / tSpan) * (W - PAD * 2);
   const y = (v) => H - PAD - ((v - minV) / range) * (H - PAD * 2);
 
   const pts = rows.map((r, i) => `${x(i).toFixed(1)},${y(r.count).toFixed(1)}`).join(' ');

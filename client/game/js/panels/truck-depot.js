@@ -39,7 +39,7 @@
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
-import { drawHangarScene, drawHangarFloorBay } from './aircraft3d.js';
+import { drawHangarScene, drawHangarFloorBay, pickSceneHit } from './aircraft3d.js';
 import { suppressWeatherFx } from './weather-fx.js';
 
 let B = null;             // { data, screen, selId, inspect, bench }
@@ -699,11 +699,7 @@ function pickOnFloor(e) {
   if (!cv || !sceneHits.length) return;
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
-  let best = null, bd = 1e9;
-  for (const h of sceneHits) {
-    const d = Math.hypot(x - h.sx, y - h.sy);   // the scene returns screen-space centres (sx/sy) + a radius
-    if (d < (h.r || 40) && d < bd) { bd = d; best = h; }
-  }
+  const best = pickSceneHit(sceneHits, x, y);   // the rig's own silhouette, not a circle on the floor
   if (best && best.id !== B.selId) { B.selId = best.id; B.bench.tune = null; B.bench.paint = null; render(); }
 }
 

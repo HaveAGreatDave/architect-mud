@@ -86,6 +86,27 @@
 <div id="header">
   <button id="nav-toggle" class="mobile-only" onclick="toggleMobileNav()" title="Menu" aria-label="Toggle navigation">☰</button>
   <span class="logo">ARCHITECT <span>// DEV</span></span>
+  <!-- The platform credit, always on — the boot splash says THOMAS loudly but is
+       skippable and switched off in Settings, so without this the panel can run
+       a whole session never naming what it is a panel FOR. Header-quiet on
+       purpose, and hidden on phones where the row already wraps. The mark is the
+       boot logo above at badge weight; both stroke in currentColor.
+
+       Branding only — deliberately NOT a link. The player client sends people to
+       the power-user guide because a player is who that guide is for; an author
+       already in the dev panel is not, and a header link out of the tool is a
+       trapdoor nobody asked for. So the click does the one thing branding can
+       honestly do: it lights up. The animation is restarted by hand (remove the
+       class, force a reflow, add it back) because re-adding a class that is
+       already there does not replay a CSS animation. -->
+  <span class="thomas-badge desktop-only" title="THOMAS — the platform this panel drives"
+        onclick="this.classList.remove('lit'); void this.offsetWidth; this.classList.add('lit')">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round">
+        <path d="M60 8 L112 37 L60 66 L8 37 Z"/>
+        <path d="M38 46 L60 58 L82 46 L82 84 L60 96 L38 84 Z"/>
+      </g>
+    </svg>Powered by THOMAS</span>
   <span class="auth-status" id="auth-badge">NOT AUTHENTICATED</span>
   <div id="header-actions" style="display:flex;gap:6px;align-items:center">
     <button id="ws-toggle" class="mobile-only" onclick="toggleMobileWorldState()" title="Server status" aria-label="Toggle server status">📡</button>

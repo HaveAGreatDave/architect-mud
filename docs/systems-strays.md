@@ -130,7 +130,7 @@ dead-side pocket at `_907` (no east exit) which is where the den hangs off.
 
 ## 5. The behaviours
 
-32 entries in `plugins/strays/behaviours.js`, code rather than content: every one
+37 entries in `plugins/strays/behaviours.js`, code rather than content: every one
 is welded to a predicate over live world state, so there is nothing an author
 could edit without editing the gate beside it.
 
@@ -140,8 +140,23 @@ could edit without editing the gate beside it.
 | weather | 4 | `currentPrecip`, wind |
 | time of day | 4 | `env.hour` |
 | the room | 5 | furniture names, `flags.terrain` |
+| cuddling up | 3 | `mood` ∈ {neutral, seek}, a focus player, posture |
 | what it remembers about you | 6 | `mood`, pet count |
 | just a cat | 8 | always |
+
+A behaviour may carry a second line, `you(ctx)`, alongside `line(ctx)`. When it
+does, the focus player is sent the second-person version and the rest of the room
+the third-person one; without it the single line goes to everybody. That seam
+exists for the cuddles and nothing else so far — **a thing done TO somebody
+should read as done to them, not as a caption about them.** `line` must still
+stand alone, because the focus player can leave between the pick and the send.
+
+> **Why `neutral` cuddles and not just `seek`.** A cat deciding you are furniture
+> is not a reward for loyalty, it is a cat being warm, and `neutral` already
+> means "we have met and it went fine" — one pet. `wary` and `flee` are excluded:
+> a stranger does not get leaned on, and a killer never reaches this table at
+> all. `cuddle_lap` additionally wants you `sitting` or `lying`; standing up is
+> what ends it.
 
 Selection filters by gate, drops anything in a 6-deep recency ring, then picks by
 weight. If recency starves the pool it allows a repeat rather than going silent —
@@ -171,6 +186,22 @@ one fires per pet.
 - Inside the cooldown the pet still *works* and still reads warmly — it just pays
   nothing and doesn't bump the counter. **Never punish a player for petting a
   cat; just don't pay them twice.** So "a regular" means six real days.
+
+### She is in the room pane, and the room pane offers the right verb
+
+An NPC lists under `NPCs here:` behind a `talk` link. For a cat that is the room
+offering the one verb that will do nothing, so an NPC flagged **`flags.animal`**
+gets its own `Animals here:` row instead: the **name opens `examine`**, and
+**`(pet)`** is written beside it rather than left to be guessed at
+(`server/engine/commands/describe.js`).
+
+The flag is the engine's, not this plugin's — the engine must not know which
+creatures a given game has in it — and `cmdPet`'s own target test honours the
+same flag ahead of its older name-keyword heuristic (`cat`, `dog`, `wolf`, …), so
+**the row cannot promise a verb that then refuses.** The row deliberately carries
+the `npcs-label` class as well: `room-brief.js` keeps rows by class, and an
+animal in the room is exactly as much news as a person in it.
+
 ### The refusal ladder
 
 A killer who keeps reaching for her gets a worse answer each time, and **the
@@ -208,6 +239,29 @@ testing it.
 > `cmdPet` builds its candidate pool from **spread copies** (`{ ...n }`), so the
 > `npc` a subscriber receives is not the live NPC. Read its flags freely;
 > re-look-up by id before mutating anything.
+
+### Walking in on a repeat killer
+
+The ladder above is about somebody *reaching* for her. This is the other half:
+her being in a room a twice-over killer is also in, with nobody having done
+anything yet. She **hisses once and goes** — `spookedBy()` in `index.js`, checked
+on every surfaced tick (the catch-all, since `search`, `call` and a follow can
+all put her in a room she never chose) and again on `zone.entered`, so walking in
+on her is answered in the same breath rather than up to 30 seconds later. A room
+holding one is also dropped from the tick's candidate list outright; surfacing
+there only to bolt would burn the whole quiet timer staging her own exit.
+
+**Two kills, not one, and it is the ladder's own top rung rather than a second
+threshold nobody could infer.** One kill already costs you everything: not found,
+not called, not petted. But she still gets to exist in a room you are standing
+in, and that is the difference between *you are not forgiven* and *you are
+weather*.
+
+The hiss is the one exception to that rung's silence, and it is deliberate:
+nobody reached for her here, so a bolt with no sound at all would read as the cat
+wandering off and the room would learn nothing. It still **never says why** —
+`regress.js` runs the same accusation check over these lines as over every other
+refusal, and asserts the room line names who it was about.
 
 ## 7. Killing
 

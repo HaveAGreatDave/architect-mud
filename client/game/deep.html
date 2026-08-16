@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — Part four: the deep end</title>
+<meta name="description" content="The systems that take a while to find: client automation, protection rackets, the chemical trade, trading cards and long-haul trucking.">
+<style>
+  :root{
+    --bg:#070a0e; --panel:#0e1620; --panel2:#131f2c; --edge:#1c2a3a; --edge2:#2a4056;
+    --ink:#ccdae7; --dim:#7089a0; --dimmer:#4b5f74;
+    --cy:#3fd0e0; --cy2:#2a8b96; --or:#e0632a; --or2:#a8441c;
+    --red:#e0564a; --amber:#e0a83a; --grn:#4ec98a; --vio:#a878e0;
+    --mono:"Consolas",ui-monospace,"SF Mono","DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  a{color:var(--cy)}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;min-height:88vh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:70px 22px;overflow:hidden}
+  .hero .bg{position:absolute;inset:0;background-size:cover;background-position:center;
+    filter:saturate(.8) brightness(.62);z-index:0;transform:scale(1.08)}
+  .hero .veil{position:absolute;inset:0;z-index:1;
+    background:radial-gradient(ellipse 900px 600px at 50% 45%, rgba(7,10,14,.35), rgba(7,10,14,.93) 72%),
+      linear-gradient(180deg, rgba(7,10,14,.9), transparent 30%, rgba(7,10,14,.98))}
+  .hero .scan{position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px)}
+  .hero > *{position:relative;z-index:3}
+  .glyph{width:84px;height:84px;margin-bottom:26px;filter:drop-shadow(0 0 18px rgba(63,208,224,.55))}
+  .hero h1{font-family:var(--mono);font-size:clamp(2.6rem,10vw,5.6rem);margin:0;font-weight:700;
+    letter-spacing:.2em;text-indent:.2em;color:var(--or);
+    text-shadow:0 0 40px rgba(224,99,42,.55),0 0 90px rgba(224,99,42,.25)}
+  .hero .kick{font-family:var(--mono);color:var(--cy);letter-spacing:.28em;font-size:.8rem;
+    text-transform:uppercase;margin:18px 0 0}
+  .hero .pitch{max-width:640px;margin:30px auto 0;font-size:1.2rem;color:#dae6f2}
+  .hero .sub{max-width:640px;margin:14px auto 0;color:var(--dim)}
+  .cta{display:inline-flex;gap:14px;margin-top:38px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-block;font-family:var(--mono);letter-spacing:.14em;font-size:.85rem;
+    text-transform:uppercase;text-decoration:none;padding:14px 30px;border-radius:6px;
+    border:1px solid var(--or2);color:#fff;background:linear-gradient(180deg,#c2521f,#8f3a15);
+    box-shadow:0 8px 26px rgba(224,99,42,.3)}
+  .btn.ghost{background:transparent;border-color:var(--edge2);color:var(--cy);box-shadow:none}
+  .free{margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--dimmer);letter-spacing:.1em}
+
+  /* ---------- sections ---------- */
+  section{padding:78px 0;border-top:1px solid var(--edge)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;color:var(--or);
+    text-transform:uppercase;margin:0 0 .7em}
+  h2{font-size:clamp(1.7rem,4vw,2.5rem);margin:0 0 .35em;line-height:1.15;letter-spacing:-.02em;color:#eaf2f9}
+  .stand{font-size:1.12rem;color:var(--dim);max-width:660px;margin:0 0 1.6em}
+  h3{font-size:1.06rem;margin:0 0 .35em;color:var(--cy)}
+  p{margin:.7em 0}
+
+  /* ---------- grids ---------- */
+  .grid{display:grid;gap:16px;margin-top:2em}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:22px 22px 24px;
+    transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--edge2);transform:translateY(-2px)}
+  .card .ic{font-size:1.5rem;display:block;margin-bottom:.5em;line-height:1}
+  .card p{color:var(--dim);font-size:.95rem;margin:.4em 0 0}
+  .card b{color:var(--ink);font-weight:600}
+
+  /* ---------- shots ---------- */
+  figure{margin:0}
+  .shot{border:1px solid var(--edge2);border-radius:11px;overflow:hidden;background:#000;
+    box-shadow:0 18px 50px rgba(0,0,0,.6);display:flex;flex-direction:column}
+  .shot img{width:100%;display:block}
+  /* the captures have different aspect ratios — crop the paired ones to a common
+     frame so the row lines up, and let captions sit flush at the bottom */
+  .shots .shot:not(.wide) img{aspect-ratio:16/8;object-fit:cover}
+  .shot figcaption{margin-top:auto}
+  .shot figcaption{padding:11px 16px;font-family:var(--mono);font-size:.76rem;color:var(--dim);
+    background:var(--panel);border-top:1px solid var(--edge);letter-spacing:.04em}
+  .shot figcaption b{color:var(--cy);font-weight:400}
+  .shots{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:1.8em}
+  .wide{grid-column:1/-1}
+
+  /* ---------- split ---------- */
+  .split{display:grid;gap:34px;grid-template-columns:1fr 1fr;align-items:center}
+  @media(max-width:760px){.split{grid-template-columns:1fr}}
+
+  /* ---------- path table ---------- */
+  .paths{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:1.8em}
+  .path{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:18px;
+    border-top:2px solid var(--c,var(--cy))}
+  .path .nm{font-family:var(--mono);font-size:.74rem;letter-spacing:.2em;color:var(--c,var(--cy));
+    text-transform:uppercase}
+  .path h4{margin:.5em 0 .3em;font-size:1rem;color:#eaf2f9}
+  .path p{font-size:.9rem;color:var(--dim);margin:0}
+  .path .orgs{margin-top:.8em;font-family:var(--mono);font-size:.72rem;color:var(--dimmer);line-height:1.6}
+
+  /* ---------- pull quote ---------- */
+  .pull{border-left:3px solid var(--or);background:linear-gradient(90deg,rgba(224,99,42,.09),transparent);
+    padding:18px 24px;margin:2em 0;border-radius:0 8px 8px 0}
+  .pull p{margin:0;font-size:1.1rem;color:#e6eef6}
+  .pull .who{font-family:var(--mono);font-size:.72rem;color:var(--dimmer);letter-spacing:.12em;
+    margin-top:.6em;text-transform:uppercase}
+
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--edge);border:1px solid var(--edge);border-radius:11px;overflow:hidden;margin-top:2.4em}
+  .stat{background:var(--panel);padding:20px 18px;text-align:center}
+  .stat b{display:block;font-family:var(--mono);font-size:1.7rem;color:var(--cy);line-height:1}
+  .stat span{display:block;font-size:.76rem;color:var(--dim);margin-top:.5em;letter-spacing:.06em}
+
+  /* ---------- list ---------- */
+  .ticks{list-style:none;padding:0;margin:1.4em 0}
+  .ticks li{position:relative;padding:.4em 0 .4em 30px;color:var(--dim)}
+  .ticks li::before{content:"▸";position:absolute;left:6px;top:.4em;color:var(--or)}
+  .ticks b{color:var(--ink)}
+
+  /* ---------- closing ---------- */
+  .close{text-align:center;padding:96px 22px 110px;border-top:1px solid var(--edge);
+    background:radial-gradient(ellipse 700px 400px at 50% 60%, rgba(224,99,42,.09), transparent 70%)}
+  .close h2{margin-bottom:.5em}
+  footer{border-top:1px solid var(--edge);padding:26px 22px;text-align:center;
+    font-family:var(--mono);font-size:.74rem;color:var(--dimmer);letter-spacing:.1em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="bg" style="background-image:url('assets/guide/flight-weather.jpg')"></div>
+  <div class="veil"></div><div class="scan"></div>
+
+  <svg class="glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <g fill="none" stroke="#e0632a" stroke-width="2.4">
+      <path d="M50 6 L62 26 L56 34 M50 6 L38 26 L44 34"/>
+      <path d="M50 94 L62 74 L56 66 M50 94 L38 74 L44 66"/>
+      <path d="M24 34 H34 V66 H24 Z"/><path d="M76 34 H66 V66 H76 Z"/>
+    </g>
+    <path d="M50 32 L58 40 H66 V56 H58 L50 66 L42 56 H34 V40 H42 Z" fill="#3fd0e0" opacity=".92"/>
+  </svg>
+
+  <h1>ARCHITECT</h1>
+  <p class="kick">Part four &nbsp;&middot;&nbsp; The deep end</p>
+
+  <p class="pitch">Parts one to three told you what the game is. This one is about the
+  systems you only find because somebody mentioned them in a bar.</p>
+  <p class="sub">How to program the client until it plays half the game for you. How to
+  take a cut of a shop that never agreed to it. What the trade in chemicals looks like
+  from the inside. Why people collect cards. And what it takes to make a living hauling
+  freight across a hundred kilometres of poisoned country.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="tour.html">&larr; Part two: everything you can do</a>
+  </div>
+  <p class="free">This page assumes you've played a bit. &nbsp;<a href="guide.html"
+    style="color:var(--cy)">Part one is your first hour.</a></p>
+  <p class="free"><a href="deep-text.html" style="color:var(--cy)">Text-only edition of this
+    page</a> &mdash; plain, linear, screen-reader first.</p>
+</header>
+
+<div class="wrap">
+
+<!-- CONTENTS -->
+<section id="contents">
+  <p class="eyebrow">What's in here</p>
+  <h2>Five long answers and a drawer of short ones</h2>
+  <ul class="ticks">
+    <li><b><a href="#thomas">The client is a machine you program</a></b> &mdash; macros, triggers, timers, aliases and the rest of THOMAS.</li>
+    <li><b><a href="#rackets">Protection rackets</a></b> &mdash; holding a street, and what you can take off the people standing on it.</li>
+    <li><b><a href="#chem">The chemical trade</a></b> &mdash; deliberately vague, because finding the door is the first half of it.</li>
+    <li><b><a href="#cards">Trading cards</a></b> &mdash; a frozen snapshot of somebody, in a foil sleeve.</li>
+    <li><b><a href="#haul">The Long Haul</a></b> &mdash; trucking, as an actual career with an actual balance sheet.</li>
+    <li><b><a href="#rest">And the rest</a></b> &mdash; bounties, shops, spy networks, pianos, books, dreams.</li>
+  </ul>
+</section>
+
+<!-- THOMAS -->
+<section id="thomas">
+  <p class="eyebrow">The part nobody tells you about for a month</p>
+  <h2>The client is a machine you can program</h2>
+  <p class="stand">ARCHITECT runs on THOMAS, which is a MUD client that happens to have a
+  game bolted to it. Underneath the room pane and the map sits a full automation layer:
+  scripting, pattern matching, timers, key bindings and output routing. None of it is
+  required. All of it is there from your first login, and it follows your account rather
+  than your browser.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">&#9000;</span><b>Macros</b>
+      <p>A named script of commands, chained with semicolons. It takes arguments, it has
+      if/else, it can call other macros and return a value, and it can be bound to a key or
+      a smartbar button.</p></div>
+    <div class="card"><span class="ic">&#127919;</span><b>Triggers</b>
+      <p>A pattern that watches the log and fires a script when it matches. Match on a
+      regex, on a channel, across several lines at once, or once and never again.</p></div>
+    <div class="card"><span class="ic">&#10084;</span><b>State triggers</b>
+      <p>"on hp_pct &lt; 30 = drink stim". Watches your own vitals rather than the text, and
+      fires on the crossing, not on every update you spend below the line.</p></div>
+    <div class="card"><span class="ic">&#9201;</span><b>Timers</b>
+      <p>Run a script every few seconds, or once after a delay. A one-shot retires itself
+      properly instead of coming back after your next reload.</p></div>
+    <div class="card"><span class="ic">&#128278;</span><b>Aliases</b>
+      <p>Rewrite what you type before it is sent. One expansion pass, so an alias cannot
+      quietly recurse into itself.</p></div>
+    <div class="card"><span class="ic">&#129518;</span><b>Expressions</b>
+      <p>Conditions are real expressions, with booleans and comparisons, over your vitals,
+      your flags, your inventory and anything a trigger just captured.</p></div>
+    <div class="card"><span class="ic">&#128694;</span><b>Speedwalk</b>
+      <p>"3n2e" walks it. It has to contain a digit, deliberately &mdash; otherwise "use" is
+      a speedwalk, and so is "sew".</p></div>
+    <div class="card"><span class="ic">&#129003;</span><b>Routes and panes</b>
+      <p>Send chat to its own window with one rule. Panes exist because a rule names one,
+      and closing a pane hides it rather than deleting your rule.</p></div>
+    <div class="card"><span class="ic">&#128584;</span><b>Gagging, highlights, transcripts</b>
+      <p>Hide the lines you are tired of, colour the ones that matter, search the
+      scrollback, and save the session to a file.</p></div>
+  </div>
+
+  <div class="pull">
+    <p>All three of triggers, timers and aliases end at the same runner, with the same step
+    budget and the same abort flag. A runaway script gets switched off and told you why. It
+    never quietly spams forever.</p>
+    <div class="who">&mdash; why there is exactly one executor</div>
+  </div>
+
+  <p style="margin-top:1.6em">There is also voice input (off by default, and it corrects
+  speech recognition against the verbs actually on your screen rather than guessing), Read
+  Aloud for the log, tab completion, scroll lock, and three display modes that swap
+  graphical panels for written records, so the entire game can be played through the log.</p>
+
+  <div style="margin-top:2.2em;text-align:center">
+    <a class="btn" href="thomas-client-guide.html">The THOMAS power-user guide &rarr;</a>
+    <p class="free" style="margin-top:1.2em;line-height:2">Twenty-two sections, all of them worked
+    examples: &nbsp;<a href="thomas-client-guide.html#triggers" style="color:var(--cy)">triggers</a> &middot;
+    <a href="thomas-client-guide.html#macros" style="color:var(--cy)">the script language</a> &middot;
+    <a href="thomas-client-guide.html#expr" style="color:var(--cy)">expressions</a> &middot;
+    <a href="thomas-client-guide.html#waitfor" style="color:var(--cy)">wait for</a> &middot;
+    <a href="thomas-client-guide.html#keys" style="color:var(--cy)">key bindings</a> &middot;
+    <a href="thomas-client-guide.html#a11y" style="color:var(--cy)">accessibility</a> &middot;
+    <a href="thomas-client-guide.html#wont" style="color:var(--cy)">what it deliberately won't do</a>.</p>
+  </div>
+</section>
+
+<!-- RACKETS -->
+<section id="rackets">
+  <p class="eyebrow">Organised crime, organised properly</p>
+  <h2>Protection rackets</h2>
+  <p class="stand">A corporation that controls a zone can lean on the shopkeepers standing
+  in it, and take a cut of every sale they make. It is some of the best money in the game
+  per hour, and it is the only income in the game that dies if you stop showing up.</p>
+
+  <h3>How it works</h3>
+  <ul class="ticks">
+    <li><b>You need the street first.</b> Rackets ride on corp territory control. Lose the
+    zone to a rival and the book stops paying that day.</li>
+    <li><b>"shakedown" is the verb.</b> It is a skill check against a frightened person, in
+    public, and it costs you your standing with them for a long time.</li>
+    <li><b>Fear is a number, and it decays.</b> Every shop on your book has one, with a
+    half-life of about ten real days &mdash; and nothing tops it up for you. No collection
+    tick, no reminder, no renewal. Somebody has to physically walk back in and lean on them
+    again. That walk is the mechanic.</li>
+    <li><b>The cut follows the band.</b> Terrified, Cowed, Wary, Slipping, Lapsed &mdash;
+    a fifth of every sale at the top, and nothing at all at the bottom.</li>
+    <li><b>The money comes out of the till.</b> It is not minted for you. An over-milked
+    shop with an empty till pays nothing, so greed caps itself without anybody tuning a
+    knob &mdash; and every credit you skim is a credit a rival can no longer crack out of
+    that shop's safe.</li>
+    <li><b>Somebody sees you do it.</b> Extortion is witnessed like any other crime, the
+    law works on evidence, and a shopkeeper who has been leaned on remembers it at the
+    counter for a long time afterwards.</li>
+  </ul>
+
+  <p>"corp racket list" is your book, and how frightened each name on it still is.
+  "corp racket drop" lets one off the hook.</p>
+
+  <div class="pull">
+    <p>Territory income asks nothing of you once the zone is yours. A racket asks
+    constantly. That is the entire reason it pays better.</p>
+    <div class="who">&mdash; the design, in one line</div>
+  </div>
+
+  <p style="margin-top:1.4em;color:var(--dim)">Rackets are one lever of several a corp can
+  pull; the others are territory, legitimate ventures, influence and open war. Corps have
+  members, permissions, a treasury and a war of position with the NPC organisations who
+  already own most of the map. <a href="tour.html">Part two</a> has the overview.</p>
+</section>
+
+<!-- CHEM -->
+<section id="chem">
+  <p class="eyebrow">We are not going to spell this one out</p>
+  <h2>The chemical trade</h2>
+  <p class="stand">There is a manufacturing industry in Coldwater, from raw supply to street
+  sale, and it is the deepest economic system in the game. It is also the one thing in this
+  guide we are being deliberately cagey about, because finding your way in is the first
+  half of it.</p>
+
+  <div class="split">
+    <div>
+      <h3>What we will tell you</h3>
+      <ul class="ticks">
+        <li><b>Everything you can take, somebody makes.</b> The drugs in this game are not
+        vendor stock with a price tag. They have a supply chain, and every link of it is a
+        place a player can stand.</li>
+        <li><b>Synthesis is a real bench.</b> Precursors, glassware, a workspace HUD that
+        tracks what is actually in the vessel, and a step that is a genuine minigame with a
+        genuine failure mode. A bad run wastes stock. A very bad run does worse.</li>
+        <li><b>Quality is a number.</b> What you make has a purity, and purity is what a
+        buyer is paying for. Two people cooking the same thing do not produce the same
+        product.</li>
+        <li><b>Selling is social, not a shop.</b> Moving product means finding people who
+        want it, at a price they will take, somewhere nobody is watching. Some of them
+        haggle. Some of them are police.</li>
+        <li><b>Heat accumulates.</b> There is a city-wide enforcement programme with its own
+        priorities, and it notices patterns rather than incidents. The lab you cannot hide
+        is the lab you lose.</li>
+        <li><b>Concealment is part of the craft.</b> There is furniture whose entire purpose
+        is that a search does not find what is behind it.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>What we won't</h3>
+      <p>Where the doors are. Who opens them. What you have to have done first, what you
+      have to be carrying, and which conversations simply do not happen until somebody has
+      decided you are worth the risk.</p>
+      <p>None of it is behind a quest marker and none of it is on the job board. It is
+      behind people. Drink in the wrong bar, do somebody an unreasonable favour, and be the
+      sort of person who gets offered things.</p>
+      <div class="pull" style="margin-top:1.6em">
+        <p>If a guide could hand you an entire industry in a paragraph, it would not have
+        been worth building one.</p>
+        <div class="who">&mdash; sorry</div>
+      </div>
+      <p style="color:var(--dim)">Worth knowing before you go looking: there is a whole
+      separate layer for <em>taking</em> the stuff &mdash; tolerance, withdrawal, overdose,
+      hallucination, and the dissociatives that open a dreamzone you have to walk back out
+      of. You do not have to be a chemist to end up in that one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CARDS -->
+<section id="cards">
+  <p class="eyebrow">A collectible in a world with no merchandise</p>
+  <h2>Trading cards</h2>
+  <p class="stand">A card is a frozen snapshot of somebody: what they were wearing, what
+  they were carrying, what they had done, and one line they said. Three kinds exist &mdash;
+  players, NPCs and enemies &mdash; printed on one shell. Only players mint themselves, and
+  that asymmetry is the point.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">&#129706;</span><b>Minting yourself</b>
+      <p>Walk to a mint terminal, pay the fee, and the system takes the moment you hand it:
+      gear, condition, standing, and a quote you write. It never follows you around taking
+      snapshots. You choose when you are worth printing, and you cannot do it often.</p></div>
+    <div class="card"><span class="ic">&#128230;</span><b>Packs</b>
+      <p>Foil sleeves come out of powered vending machines. Buying and opening are two
+      separate acts: the sleeve is a real item that holds no result, and the roll happens
+      when you tear it open, not when you bought it.</p></div>
+    <div class="card"><span class="ic">&#10024;</span><b>The pull</b>
+      <p>Opening one is a fullscreen reveal, card by card. Common, uncommon, rare, epic,
+      legendary &mdash; and a sleeve is guaranteed never to be all commons. Some sleeves run
+      hot. A very few are mis-cut long.</p></div>
+    <div class="card"><span class="ic">&#128176;</span><b>They are items</b>
+      <p>Cards trade like anything else: given, sold, stolen off a corpse, or scrapped for a
+      fraction of what a pack cost. That scrap value is the floor under the gamble, and it
+      is deliberately set below the pack price.</p></div>
+    <div class="card"><span class="ic">&#129534;</span><b>The back of the card</b>
+      <p>Text is budgeted, never truncated: a clause that will not fit is dropped whole. And
+      condition is spoken rather than numbered &mdash; a battered coat has "gone thin at the
+      shoulders".</p></div>
+    <div class="card"><span class="ic">&#128193;</span><b>The shelf</b>
+      <p>"cards" is your collection, by rank and by series. NPC and enemy cards are struck
+      from the world itself when a series opens, so a completed checklist is a picture of
+      who was actually in the city that season.</p></div>
+  </div>
+
+  <p style="margin-top:1.6em;color:var(--dim)">There is no card game. You cannot play them
+  against anybody and there is no plan to let you. They are a record of people, in a game
+  where people leave.</p>
+</section>
+
+<!-- TRUCKING -->
+<section id="haul">
+  <p class="eyebrow">A job with a balance sheet</p>
+  <h2>The Long Haul</h2>
+  <p class="stand">The road between regions used to be a hard walk you endured. Now it is a
+  rig, a corridor, and about a quarter of an hour of changing country with a city coming up
+  out of the haze. Trucking is a career: you buy the truck, you fuel it, you wear it out,
+  and the market does not care whether you made money.</p>
+
+  <h3>The fleet</h3>
+  <div class="paths">
+    <div class="path" style="--c:var(--dimmer)">
+      <span class="nm">&#8377;1,300</span>
+      <h4>Krell Barrow</h4>
+      <p>Krell stopped making these long enough ago that nobody agrees which decade. Three
+      of them in a trenchcoat. The heater works, which the previous owner mentioned first
+      and at length.</p>
+    </div>
+    <div class="path" style="--c:var(--cy)">
+      <span class="nm">&#8377;4,200</span>
+      <h4>Ostrek Courier</h4>
+      <p>A stubby rigid box on a short wheelbase. Turns in like something half its age and
+      carries about as much.</p>
+    </div>
+    <div class="path" style="--c:var(--amber)">
+      <span class="nm">&#8377;11,500</span>
+      <h4>Vachon Drayman</h4>
+      <p>The one everybody learns on. Nothing about it is remarkable and nothing about it
+      has ever stopped working.</p>
+    </div>
+    <div class="path" style="--c:var(--or)">
+      <span class="nm">&#8377;31,000</span>
+      <h4>Orlov Continental</h4>
+      <p>A long-nose sleeper built for people who see their own bed twice a month. Slow to
+      wind up, slower to stop, and it will take a whole market with it.</p>
+    </div>
+  </div>
+
+  <div class="split" style="margin-top:2.4em">
+    <div>
+      <h3>Wages, or enterprise</h3>
+      <p><b>Hauling freight is wages.</b> A board at each depot pays a fixed fee to move
+      somebody else's box. It is how you learn the road and how you afford the second
+      truck.</p>
+      <p><b>The commodity market is enterprise.</b> Six goods &mdash; baled alloy, potable
+      water, protein slurry, industrial chems, machine parts, medical stock &mdash; priced
+      by region and by the day, bought with your own money. Medical stock is light and dear,
+      so you can carry a fortune in it; water is heavy and cheap, so a full trailer of it is
+      a lot of diesel for a modest margin. That is exactly why the weight limit is a number
+      you have to think about.</p>
+      <p>The profitable cargo out is never the profitable cargo back. Coldwater makes things
+      and sits on a basin, so parts, chems and water are cheap there and scrap is dear. The
+      Reach is drowning in salvage and has no water at all. Run parts out, bring alloy home.
+      An empty backhaul is a mistake you are allowed to make, not a shape the game forces on
+      you.</p>
+      <p>It is also the only part of the system where you can finish a run poorer than you
+      started it.</p>
+    </div>
+    <div>
+      <h3>Keeping it running</h3>
+      <ul class="ticks">
+        <li><b>Fuel</b> is per truck and per tank, and a heavy right foot is a line item.</li>
+        <li><b>Condition</b> runs Sound, Worked, Tired, Ailing, Derelict. The top two bands
+        cost you nothing, so an honest working truck is never a chore.</li>
+        <li><b>Damage is per component</b>, and the panels are separate from the mechanicals.
+        Dents do nothing to how it drives &mdash; they come off the price when you sell,
+        which is the bill for how you drive arriving late rather than never.</li>
+        <li><b>Breakdowns happen out there.</b> Fix it if you have the spares and the
+        fabrication for it. Call a tow if you do not, and a tow is not cheap.</li>
+        <li><b>Kits and tuning.</b> An aero kit, a long-duration cam, a three-stage Jake
+        brake, an auxiliary saddle tank &mdash; and a workshop instrument set that lets you
+        take every dial past where a hand and an ear can safely go.</li>
+        <li><b>Paint</b>, because it is your truck.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:2em">Out there</h3>
+  <div class="grid g3">
+    <div class="card"><span class="ic">&#128739;</span><b>The verge is a law, not a wall</b>
+      <p>You may leave the road. Open country is passable, slow and murder on tyres: the
+      reason to stay on the tarmac is the bill, never a refusal. Far enough off it and you
+      bog &mdash; stalled, penalised in time, and put back on the shoulder facing the right
+      way. There is no geometry out there to hit.</p></div>
+    <div class="card"><span class="ic">&#127908;</span><b>The CB</b>
+      <p>Voices on the corridor: a man describing his divorce to nobody, two drivers arguing
+      about a diner that closed before either of them was driving. Mostly it is quiet. Then it
+      tells you there is a rig on the shoulder a few miles up, and whose it was.</p></div>
+    <div class="card"><span class="ic">&#128163;</span><b>Hijackers</b>
+      <p>A loaded trailer is worth taking, and it is not a cutscene. They are on the road
+      with you, and the answer is either the throttle or getting out of the cab.</p></div>
+    <div class="card"><span class="ic">&#128694;</span><b>The drive is the crossing</b>
+      <p>You are genuinely out in the waste. Everything that happens to a person crossing it
+      on foot &mdash; encounters, traces, the bad places &mdash; can happen to you in the
+      cab. Break down badly enough and you finish the crossing walking.</p></div>
+    <div class="card"><span class="ic">&#128220;</span><b>Or read it instead</b>
+      <p>The whole drive has a written mode. If you play in the log you get the road as a
+      record you steer with commands, not a windscreen you cannot see.</p></div>
+    <div class="card"><span class="ic">&#127981;</span><b>The yard</b>
+      <p>Your fleet, its condition, what a dealer would give you for it, and the bench. Park
+      a truck somewhere and it is still there tomorrow.</p></div>
+  </div>
+</section>
+
+<!-- THE REST -->
+<section id="rest">
+  <p class="eyebrow">The drawer of short answers</p>
+  <h2>And the rest of it</h2>
+  <p class="stand">Systems that do not need a page each, but that people play for months
+  without ever finding.</p>
+
+  <div class="grid g3">
+    <div class="card"><span class="ic">&#127919;</span><b>Bounties</b>
+      <p>Put money on another player's head out of your own pocket. The head is a physical
+      item in the corpse, so a bounty pays whoever walks up to the board holding it &mdash;
+      not whoever did the killing. The sheet names nobody. The target pays to find out.</p></div>
+    <div class="card"><span class="ic">&#127978;</span><b>Your own shop</b>
+      <p>Buy a deed, stock the shelves, price the wares, hire staff, and empty the till
+      before somebody cracks it. Other players buy from it while you are logged out.</p></div>
+    <div class="card"><span class="ic">&#128373;</span><b>SPECTER</b>
+      <p>Run a spy network: informants, cameras, coverage of the streets you care about. It
+      is also how crime gets witnessed at all &mdash; the law works on evidence, and
+      evidence has a source who can be found and bought.</p></div>
+    <div class="card"><span class="ic">&#128274;</span><b>Jail</b>
+      <p>Go down while wanted and you wake in Holding with your gear in an evidence locker.
+      The cell door is hackable. Serving the time is not the only way out.</p></div>
+    <div class="card"><span class="ic">&#127929;</span><b>Instruments</b>
+      <p>Sit at the piano and play it, key by key, on your own keyboard. No skill roll
+      &mdash; the skill is your hands. The room hears what you actually play.</p></div>
+    <div class="card"><span class="ic">&#128218;</span><b>The library</b>
+      <p>Nine complete public-domain books, read on the tablet, with a tap-to-gloss
+      vocabulary layer over prose that is never rewritten, and a narration mode that
+      highlights the line being spoken aloud.</p></div>
+    <div class="card"><span class="ic">&#127859;</span><b>Cooking</b>
+      <p>Forty-seven authored recipes, plus improvised dishes named from whatever you
+      actually put in the pan. Invent one, name it, save it, teach it, or sell it as a card.
+      A HUD proposes the steps &mdash; every one of them a command you could have typed
+      yourself.</p></div>
+    <div class="card"><span class="ic">&#127864;</span><b>Mixology</b>
+      <p>A finished drink lives on the glass rather than as a new item, because the whole
+      point of a mug is that you keep it. How drunk you get is derived from what actually
+      went in.</p></div>
+    <div class="card"><span class="ic">&#128295;</span><b>Durability and repair</b>
+      <p>Gear wears with use, never with the clock. A masterful hand repair leaves an item
+      tougher than it was, which a workbench can never do. Run it to zero and it is
+      gone.</p></div>
+    <div class="card"><span class="ic">&#129504;</span><b>Being remembered</b>
+      <p>Every NPC tracks how well they know you and how they feel about you, separately.
+      Some conversations only exist near the top of that ladder, and it decays if you stop
+      turning up.</p></div>
+    <div class="card"><span class="ic">&#128703;</span><b>Filth</b>
+      <p>You smell of what you have been doing and other people can tell. A room you own
+      keeps its mess for a full rent cycle. That is why you would carry a mop.</p></div>
+    <div class="card"><span class="ic">&#128164;</span><b>Dreams</b>
+      <p>Sleep and your mind goes somewhere built for that sleep, three or four rooms of it.
+      Your body stays in the room &mdash; lootable, killable, and entirely unaware.</p></div>
+    <div class="card"><span class="ic">&#9822;</span><b>Chess and poker</b>
+      <p>Full legal chess on a neon isometric board, and a poker table with NPC regulars who
+      will take your money and be pleasant about it.</p></div>
+    <div class="card"><span class="ic">&#128008;</span><b>Cathode</b>
+      <p>There is a stray cat with a bionic paw, and she hides. Be patient and kind and she
+      comes when you call her. Hurt her and she never comes back, and nothing in the game
+      ever explains why.</p></div>
+    <div class="card"><span class="ic">&#128269;</span><b>Searching</b>
+      <p>You can search anywhere. Most of the time you find nothing &mdash; and a room with
+      nothing in it looks exactly like a room you were unlucky in.</p></div>
+  </div>
+</section>
+
+</div>
+
+<div class="close">
+  <p class="eyebrow">Coldwater Basin</p>
+  <h2>None of this was on the job board.</h2>
+  <p style="color:var(--dim);max-width:520px;margin:0 auto 2em">
+    Register a character and you are in the vat inside thirty seconds. The rest of it is out
+    there, and most of it is behind somebody.</p>
+  <div class="cta" style="justify-content:center">
+    <a class="btn" href="https://www.architectgame.net">Play ARCHITECT</a>
+    <a class="btn ghost" href="thomas-client-guide.html">THOMAS power guide</a>
+    <a class="btn ghost" href="guide.html">&larr; Part one</a>
+    <a class="btn ghost" href="tour.html">&larr; Part two</a>
+    <a class="btn ghost" href="lore.html">&larr; Part three</a>
+  </div>
+  <p class="free">architectgame.net</p>
+</div>
+
+<footer>THE AI WON &nbsp;&middot;&nbsp; YOU SURVIVED &nbsp;&middot;&nbsp; PROBABLY</footer>
+
+</body>
+</html>

@@ -25,6 +25,8 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
+import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
+import { openTabletToChatTab } from './tablet-os.js';
 
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
 // pipeline, forever, including for a rig sitting in a bay with the handbrake on while its driver
@@ -420,6 +422,13 @@ export function openCab(ctx = {}) {
 
             <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
           </div>
+
+          <!-- THE CB. The set is a VIEW of server state (cb-radio.js) and decides nothing: the
+               dial sends 'cb <n>' and moves when the answer comes back, exactly as the hitch
+               button runs the real verb rather than reaching into the rig. It is here on the
+               switch panel rather than out on the dash because that is where a radio is bolted,
+               and because everything on this panel is already a control with a lamp on it. -->
+          ${cbRadioHTML()}
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
                truck has exactly the same problem an aircraft does (you cannot see behind you) and a
                player who has flown already has the habit. HELD, not toggled, for the reason a
@@ -576,6 +585,9 @@ export function openCab(ctx = {}) {
   // Cruise is a LATCH, so it is a plain click rather than a hold() — the one switch on this panel
   // that stays where you put it.
   container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
+  // The radio wires itself; the cab only tells it what pressing the set should open, because the
+  // tablet is the cab's business and not the radio's.
+  st.cbWidget = wireCbRadio(container, { openDeadhead: (key) => openTabletToChatTab(key) });
   // Hitching is a real verb with real rules; the button is a shortcut to typing it, which is why it
   // sends the command rather than reaching into the rig. Unhitching goes through the same button
   // once you are coupled, because "the thing behind me" is one question with two answers.
@@ -2337,6 +2349,44 @@ function ensureCabStyles() {
   .cab-jake.on i{background:#4e9ab0;box-shadow:0 0 8px #4e9ab0}
   .cab-horn:active i{background:#e0b45a;box-shadow:0 0 10px #e0b45a}
 
+  /* ── THE CB SET ────────────────────────────────────────────────────────────
+     A radio in the same recessed housing as everything else on this panel: a lit channel readout,
+     a knob that turns, and two rockers. The KNOB is the only genuinely new shape in the cab, and
+     the rotation is done with a CSS custom property ('--cb-turn', 0..1) set from the widget, so
+     the pointer's angle is a render of the channel rather than a second number to keep in step. */
+  .cab-cb{display:flex;align-items:center;gap:6px;padding:5px;border-radius:6px;
+    background:linear-gradient(#0b0f13,#070a0d);border:1px solid #1b232b;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.75)}
+  /* THE SET. Pressing it opens the Deadhead window, so it reads as a screen you can touch rather
+     than as another switch — a lit LCD with the channel on it, in the amber the rest of the dash
+     lights in. */
+  .cab-cb-set{display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;
+    min-width:44px;padding:3px 5px 4px;border-radius:3px;border:1px solid #2b333c;
+    background:linear-gradient(#0a1418,#060c0f);box-shadow:inset 0 0 8px rgba(0,0,0,.8)}
+  .cab-cb-band{font:700 7px/1 inherit;letter-spacing:.18em;color:#5d6b78}
+  .cab-cb-chan{font:700 17px/1 ui-monospace,monospace;color:var(--cab-glow,#e8c07a);
+    text-shadow:0 0 9px rgba(232,192,122,.55)}
+  /* OFF IS A DARK SET, not a hidden one. The controls stay exactly where they were and stay
+     operable — the way back on is the same switch, and a panel that vanishes when you turn it off
+     is a panel you cannot turn on. */
+  .cab-cb.off .cab-cb-chan{color:#3a444e;text-shadow:none}
+  .cab-cb.off .cab-cb-pointer{background:#3a444e;box-shadow:none}
+  /* THE KNOB. 300 degrees of travel like a real detented dial, leaving a dead sector at the
+     bottom so the ends of the band are visibly ends rather than wrapping round. */
+  .cab-cb-dial{position:relative;width:30px;height:30px;border-radius:50%;cursor:ns-resize;
+    background:radial-gradient(circle at 38% 32%,#39424d,#161b21 68%,#0c1014);
+    border:1px solid #2b333c;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 2px 5px -2px #000;
+    transform:rotate(calc(-150deg + var(--cb-turn,0) * 300deg));transition:transform .12s ease-out}
+  .cab-cb-dial:focus-visible{outline:2px solid var(--cab-glow,#e8c07a);outline-offset:2px}
+  .cab-cb-pointer{position:absolute;left:50%;top:3px;width:2px;height:9px;margin-left:-1px;
+    border-radius:1px;background:var(--cab-glow,#e8c07a);box-shadow:0 0 6px rgba(232,192,122,.6)}
+  .cab-cb-sw{display:flex;gap:5px}
+  .cab-cb-spk.on i{background:#7fc4a0;box-shadow:0 0 8px #7fc4a0}
+  /* Narrow cabs drop the dial's housing to a column rather than shrinking the knob: a 30px knob
+     is already the smallest thing on this panel anybody is expected to hit. */
+  @media (max-width:900px){ .cab-cb{flex-wrap:wrap;justify-content:center;max-width:104px} }
+
   /* ── THE ROUTE PICKER ──────────────────────────────────────────────────────
      Over the glass, anchored to the right where the screen it belongs to is. It is a panel rather
      than something drawn on the canvas because it is a LIST OF BUTTONS — tab order, focus rings and
@@ -2812,6 +2862,9 @@ export function closeCab() {
   // and a driver who parked and drove again would stack another set on top of the last.
   (st.winOff || []).forEach((off) => removeEventListener('pointerup', off));
   st.wheel?.destroy?.();
+  // The knob deregisters itself from the radio's repaint set; the radio's own state survives,
+  // because a driver at the log rung still has a set even with no cab on screen.
+  st.cbWidget?.dispose?.();
   disposeWindshield(st.id);
   st.container.innerHTML = '';
   st = null;

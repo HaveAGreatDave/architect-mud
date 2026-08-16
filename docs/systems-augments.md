@@ -1,10 +1,11 @@
 # Augments — chrome as a machine you own
 
-**STATUS: BUILT** (2026-08-13). The install/slot/rep half shipped 2026-07-24 with
+**STATUS: BUILT** (2026-08-16). The install/slot/rep half shipped 2026-07-24 with
 [proposals/ascendant-stronghold.md](proposals/ascendant-stronghold.md); the
 maintenance half — hardware items, surgical risk, condition, calibration, heat,
-overclock and death corruption — is this document. Power (an internal cell plus
-spare packs), the unlicensed Promethean path, and the paperdoll UI are **design,
+overclock and death corruption — is this document. **Power shipped 2026-08-16**
+along with the cortical rework (§8), pattern fidelity (§8c) and lethal overclock
+faults. The unlicensed Promethean path and the paperdoll UI remain **design,
 deliberately deferred** (§10).
 
 Owned by [`plugins/augments/`](../plugins/augments/README.md).
@@ -228,12 +229,20 @@ which is looting, and a graded roll solves that just as completely.
 
 ### The ordering trap
 
-Corruption **must** be skipped whenever the death was **claimed**:
-- **Jail** took custody — the cops confiscate gear, not your spine.
-- **A cortical restore** claimed it — the restore is about to write these exact
-  rows back, and corrupting first deletes what it is about to re-create.
+Corruption is skipped **only** when somebody took literal **custody** of the
+body. Today that is jail and nothing else — the cops confiscate gear, not your
+spine, and there is no corpse left in the room to salvage onto.
 
-`player.death` now carries `corpseId` and `claimed` for exactly this.
+⚠ **This inverted on 2026-08-16, and the inversion is the point.** It used to be
+skipped on `claimed` too, which meant a cortical restore kept its chrome. A
+restore that *saves* your hardware is a rollback, and a rollback can put back a
+thing you no longer own. Now the old body's chrome corrupts for real, the
+wreckage lands on the corpse where anyone can go and look at it, and the vats
+print **new** hardware from the pattern (§8a). `player.death` carries `corpseId`,
+`claimed`, `custody` and the winning `override` so a subscriber can tell the
+difference; ordering lives in the single subscriber in
+[`plugins/augments/index.js`](../plugins/augments/index.js), because `emit` is
+fire-and-forget and will not order three of them for you.
 
 ### The two interlocks corruption exposed
 
@@ -241,25 +250,76 @@ Corruption **must** be skipped whenever the death was **claimed**:
    corrupted everything would silently un-chrome you and re-open the flesh path,
    undoing the one irreversible decision in the game. A `chromed_ever` player
    flag is OR'd into the derivation.
-2. **The cortical backup snapshotted inventory and credits only** — it would have
-   restored your coat and not your spine, which is the wrong joke for a faction
-   whose pitch is that death is a billing problem. The snapshot now carries the
-   augment roster with condition, calibration and the botched ceiling intact —
-   *not* a clean install, or dying would be the cheapest way to fix a bad one.
+2. **The cortical backup restored possessions** — see §8a. It is now the only
+   thing in the loop that does *not* touch your possessions.
 
-⚠ **The snapshot deliberately does NOT carry credits, and the restore never
-writes them.** A balance was the one rolled-back value that could *mint*: back up
-rich, move the money somewhere death does not reach — `bank_credits` is untouched
-by death, and so is another player's pocket — then die and be handed the old
-balance on top of it. It charged the other way for nothing too, deleting a good
-week's earnings because your last Registry visit predated them. The restore
-returns a truthy override, which **skips `spawnPlayerCorpse` entirely**, so
-carried credits are never dropped or zeroed on this path: leaving them untouched
-is both the honest number and the safe one. Old snapshot rows still carry a
-`credits` key; it is ignored rather than migrated. (The inventory half has the
-same theoretical shape — give an item away, die, have it rebuilt — but that one
-*is* the advertised product, and it is bounded by ₵2500 a restore and a trip to
-the Vats.)
+## 8a. The pattern is who you are, never what you had
+
+The restore used to snapshot your inventory at the `backup` verb and roll it back
+on death. That was retired on 2026-08-16 for two reasons, one mechanical and one
+worse.
+
+**Mechanical:** a snapshot remembers what you *had*, so it could re-create an
+item you had since given away — back up holding a thing, hand it to an alt, die,
+and the thing exists twice. It also returned a truthy override, which skipped
+`spawnPlayerCorpse` **entirely**, so a paid-up player's killer got nothing and
+carried credits were never converted to a chip. Death, for the insured, did not
+happen.
+
+**Worse:** "you get your bag back" is a logistics convenience. It is not an
+identity, and it is not what this faction sells. It reads as a receipt.
+
+So the loop is now:
+
+| Step | What happens |
+|---|---|
+| `backup` at the Registry | A **re-scan**, ₵900. Registers `pattern_at` and raises `copy_fidelity`. Touches no inventory. |
+| You die | Ordinary death. Corpse on the floor with your bag and credit chip, lootable by anyone. |
+| Capture | The live `player_augments` roster is frozen **before** corruption runs. |
+| Corruption | The old chrome is destroyed; ruined salvage lands on your corpse. |
+| Re-print | The vats manufacture the roster again — condition, calibration and a botched ceiling all carry; `overclock_level` does **not**, because a fresh print is at spec. |
+
+⚠ **The capture is what makes this unexploitable.** The pattern is read from the
+live rows at the moment of death, never from the stored row, so an augment you
+removed to an item and sold last week is simply *not in it*. Nothing is created
+that did not exist a second earlier, and the original is provably scrap in a
+room. Do not "optimise" this by snapshotting the roster at `backup` time — that
+re-opens the exact hole the inventory half was deleted for.
+
+⚠ **The spend is one guarded statement and that is the rollback.** It used to be
+decremented in `player.respawnZone`, which runs *before* the engine picks a
+winning override — so a death jail went on to claim had already burned ₵2500 with
+nothing to undo it. `reprintClone` now owns the only decrement, guarded on
+`restores_remaining >= 1`, and the hook writes nothing at all.
+
+Credits were removed from the snapshot earlier for the same family of reasons
+(back up rich, bank it, die, be handed the old balance) and stay removed.
+
+## 8c. Pattern fidelity, and print artifacts
+
+Every re-print costs `copy_fidelity` (100 down, floored at 35). A re-scan buys it
+back, which is what makes the ritual the recurring product rather than the
+one-time ₵6000 implant.
+
+Fidelity **caps calibration at read time**, in `augScale(rec, fidelity)` — a
+scalar argument, not a player, because `augScale` must not learn whose body it is
+in (§ the note on `getAugments`). ⚠ **It is never baked**: `calibration` on the
+row is untouched, so a re-scan instantly restores tuning the player already paid
+for. Bake it and the re-scan becomes a repair bill. `augScale(rec, 100)` is
+arithmetically identical to the old one-argument call, which preserves the
+migration invariant the suite asserts.
+
+It also surfaces as **print artifacts** — five named, visible rungs (seams at 88,
+mismatched irises at 75, wrong fingerprints at 60, a static voice at 45, a
+half-beat flinch at the floor) rendered through `player.appearanceNotes`, so a
+much-restored Ascendant reads as one on sight with no stat panel involved. Tone
+rule: small and manufacturing-flavoured, never body horror, and **nobody in the
+world ever remarks on one out loud**.
+
+⚠ `player.appearanceNotes` was converted from `fireHook` to `gatherHook` in the
+same change. It had five registrants and last-non-undefined won, so whichever
+plugin loaded last silently ate the others' lines — the same bug `describe.js`
+records having already fixed for `zone.describeRoom`.
 
 ## 8b. Luxury is drawn in what is absent
 
@@ -310,13 +370,65 @@ priced like it.
 | `registerStatContributor` | `condition.js` (**new**) | derived stats. The engine must not import a plugin. |
 | `registerArmorContributor` | `commands/inventory.js` | subdermal soak, now **scaled** by `augScale` — a battered uncalibrated weave genuinely stops less. |
 | `registerStrainContributor` | `strain.js` (**new**) | heat on the combat hot path, sync by contract. |
-| `player.respawnZone` / `player.death` | `gameLoop.js` | the backup restore, and corruption. |
+| `player.respawnZone` / `player.death` | `gameLoop.js` | the restore claim, corruption, and the re-print. |
+| `player.appearanceNotes` | `commands/world.js` | print artifacts. **`gatherHook`**, converted from `fireHook` — see §8c. |
+
+## 11a. Power (built 2026-08-16)
+
+`augments.power_draw` was authored on every augment from the beginning and read
+by nothing for months. [`plugins/augments/power.js`](../plugins/augments/power.js)
+is its reader.
+
+Total draw is `Σ power_draw × (1 + overclock_level)`, so pushing past spec costs
+fuel in the same proportion it costs heat. Charge lives in
+`player_augments.custom_data` on the new `aug_power_cell`, and a flat cell takes
+chrome **inert, not damaged** — registered through `registerAugmentDown`, the one
+funnel `getAugments` already runs, so stats, soak and strain inherit brownout
+without a second implementation. `augment charge` tops up anywhere on mains
+(reading `getZonePowerStatus`, which means a player generator back-feeding a
+junction box already works), an `ascendant_campus` zone does it passively, and a
+**fresh re-print emerges full** — which is the mechanical reason the campus is a
+place you come back to.
+
+⚠ **Charge is persisted; heat is not; do not read the heat rule and apply it to
+charge.** They err in opposite directions. Logout cooling your heat off is
+generous and harmless. Logout *recharging* you would solve the entire logistics
+problem with alt-F4. Charge is checkpoint tier — written when the rate changes or
+on a top-up, decayed lazily from its own timestamp, never on a tick.
+
+⚠ **`METABOLIC_TRICKLE` exists so this could ship without bricking anybody.**
+Every live character already had chrome and none had a cell, because the cell did
+not exist until the day it shipped. A flat reserve against a typical rig is about
+an hour of play and then permanent brownout for people who did nothing wrong. The
+trickle carries a light rig indefinitely and only the excess draws down, so the
+cell buys what it should buy: a big rig, overclocking, and the wastes. If you
+retune it, the deploy-day question is the one to re-ask.
+
+## 11b. Overclock faults now hurt you
+
+A fault used to cost `condition` and nothing else, so overclocking had no failure
+mode a player could feel. It now also strikes the body through
+`applyStrikeToPlayer` — the part roll, typed soak and injury's damage observers
+all apply, because a plugin writing `player.hp` directly skips every one of them.
+
+⚠ **Floored below `overclock_max`, unfloored at it.** Running inside what the
+casting is rated for hurts and cannot kill. Running at the ceiling can — and
+since unlicensed chrome ships `overclock_max: 3` where licensed ships 0–1, that
+is where the faction split acquires a body count, and precisely what the cortical
+policy is for. Their answer to a lethal failure mode is not a safer part; it is a
+second body.
+
+⚠ The strike is **detached** (`onStrain` is sync by contract) and guarded on
+`_dying`/`hp <= 0`, so a fault rolled on the blow that killed you cannot land on
+the corpse or on the clone that replaced it. ⚠ A regress suite that drives a
+max-overclock fault on the **shared** fake player must restore its hp afterwards,
+or three unrelated checks fail with "You don't have Test Weave installed" — a
+message pointing nowhere near overclocking.
 
 ## 10. Deliberately deferred
 
-- **Power** — an internal cell augment plus spare battery packs on the flashlight
-  `custom_data.charge` idiom, recharging off `power_zones` and `plugins/generator/`.
-  `power_draw` is **authored now and inert**, so no content file needs rewriting.
+*(Power moved out of this list on 2026-08-16 — see §11a.)*
+
 - **The Promethean path** — `ideology_prometheans` (redeem·machine·**human**:
   machine without the Architect's leash) as the unlicensed rival. Cheap surgeons,
   real overclock headroom, no credentials. It is content: NPC files with

@@ -50,6 +50,32 @@
   }
   .logo { color: var(--accent); font-size: 14px; letter-spacing: 4px; }
   .logo span { color: var(--accent3); }
+  /* Platform credit. Dimmer than .auth-status so the eye lands on the auth state
+     first — this is a label, not a status. */
+  .thomas-badge { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; user-select: none;
+    color: var(--text-dim); opacity: .5; transition: opacity .15s, color .15s; }
+  .thomas-badge:hover { opacity: 1; color: var(--accent); }
+  .thomas-badge svg { width: 13px; height: 13px; flex: none; }
+  /* The click payoff: the mark takes the accent and burns off. drop-shadow rather
+     than a filter on the whole badge, so the glow hangs off the STROKES of the
+     logo instead of haloing the words next to it. */
+  .thomas-badge.lit svg { animation: thomas-glow 1.1s ease-out; }
+  @keyframes thomas-glow {
+    0%   { color: var(--accent); filter: drop-shadow(0 0 7px var(--accent)); transform: scale(1.18); }
+    35%  { color: var(--accent); filter: drop-shadow(0 0 5px var(--accent)); transform: scale(1); }
+    100% { color: inherit; filter: none; transform: scale(1); }
+  }
+  /* An animation that pulses and scales is exactly what a vestibular or
+     photosensitivity preference is asking us not to do. The click still answers,
+     it just answers in colour. */
+  @media (prefers-reduced-motion: reduce) {
+    .thomas-badge.lit svg { animation: thomas-glow-flat 1.1s ease-out; }
+    @keyframes thomas-glow-flat {
+      0%   { color: var(--accent); }
+      100% { color: inherit; }
+    }
+  }
   .auth-status { font-size: 11px; color: var(--text-dim); }
   .auth-status.ok { color: var(--accent2); }
   #header-actions { margin-left: auto; display: flex; gap: 8px; }
@@ -680,6 +706,9 @@
     html, body { overflow-x: hidden; overscroll-behavior: none; }
 
     .mobile-only { display: inline-flex; align-items: center; justify-content: center; }
+    /* Counterpart to .mobile-only: chrome that is worth a line of a wide header
+       but not a row of a wrapped one. */
+    .desktop-only { display: none; }
 
     /* Header action buttons wrap instead of clipping off the right edge */
     #header { flex-wrap: wrap; row-gap: 6px; gap: 10px; }

@@ -4531,10 +4531,40 @@ function bldgStyle(cell) {
 // TYPE_FLOORS / FLOOR_Z now live in client/shared/skyline-scale.js — the cold
 // open's closing flythrough renders the same skyline as a wireframe and cannot
 // import this file to get them. Same numbers, one home.
-function floorsOf(cell) { return floorsFor(cell && cell.bt, cell && cell.flr); }
+// ── ⚠ THE ONE BUILDING WHOSE MASS IS A SHAPE, NOT A STOREY STACK ─────────────
+// The depot bay (drawVehicleBay, below) is drawn at a FIXED height rather than extruded from a
+// floor count, and it has to be: it is the one building with a camera inside it, and its eaves must
+// clear the cab's eye (`eyeH: 0.17`) or the driver is looking over his own roof. A floor count
+// cannot promise that — `bldgStretch` is a live dev-panel slider, so somebody dragging "Vert
+// stretch" would put the roof back under the windscreen.
+//
+// So the numbers are here, next to the formula they are an exception to, and BOTH sides of the
+// draw/collide contract are keyed off them: `floorHeight` answers with the shed's real ridge (so
+// the render, the ground shadow, the occlusion pre-pass and `buildingHeightZ` all agree), and
+// `floorsOf` answers with the storey count that ridge is WORTH (so the feet-based CFIT altitude
+// lands on the same roof). Without the second half the shed drew at 0.43 and collided at 0.196 —
+// an aircraft flew through the top two thirds of a building a truck cannot drive through the wall
+// of. Change RIDGE and you must change BAY_FLOORS with it; the smoke asserts they stay in step.
+const BAY = {
+  HW: 0.47, HL: 0.47,           // half-width / half-depth — a shed fills its tile, setbacks are for shops
+  WALL: 0.30, RIDGE: 0.43,      // eaves and ridge: a clear-span volume, ~1.8× the driver's eye at the eaves
+  DOOR_W: 0.20, DOOR_H: 0.24,   // the opening: a door for a TRUCK, which is the whole read from the air
+  LANE: 0.15,                   // half-width of the marked drive lane down the middle
+};
+// What the ridge is worth in storeys at the default tune (RIDGE / (FLOOR_Z × bldgH × bldgStretch)
+// ≈ 0.43 / 0.196). A haulage shed as two-and-a-bit tall storeys ≈ 26 ft to the ridge, which is what
+// an aircraft collides with and what `buildingRoofFt` reports.
+const BAY_FLOORS = 2.2;
+// The roof line at a point across the shed, in world-z: a straight gable from eaves to ridge, which
+// is exactly the two pitches drawVehicleBay paints. `lx` is the local cross-shed coordinate.
+const bayTopZ = (lx) => BAY.WALL + (BAY.RIDGE - BAY.WALL) * Math.max(0, 1 - Math.abs(lx) / BAY.HW);
+const isBay = (cell) => cell && cell.mark === 'bay';
+function floorsOf(cell) { return isBay(cell) ? BAY_FLOORS : floorsFor(cell && cell.bt, cell && cell.flr); }
 // Deterministic building height for a cell: floors × per-storey, with a small stable
-// jitter off the seed so same-type neighbours aren't a dead-flat skyline.
+// jitter off the seed so same-type neighbours aren't a dead-flat skyline. A bay takes neither —
+// every shed is the same shed, and a jittered one would collide off its own roofline.
 function floorHeight(cell, seed) {
+  if (isBay(cell)) return BAY.RIDGE;
   return floorsOf(cell) * FLOOR_Z * (0.9 + frac(seed) * 0.2) * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1);
 }
 
@@ -4619,6 +4649,17 @@ export function buildingRoofFtAt(wx, wy, cell, px, py) { return modelTopAt(wx, w
 export function modelTopZAt(wx, wy, cell, px, py) { return modelTopAt(wx, wy, cell, px, py, false); }
 function modelTopAt(wx, wy, cell, px, py, inFeet) {
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
+  // The bay again: `modelFor` would hand back the truck_depot ARM's captured segments, and that arm
+  // is not what is on the glass for this tile — the mark branch in drawWorldObjects took it. So the
+  // shed answers for its own roof, which is a straight gable and needs no capture at all.
+  if (isBay(cell)) {
+    const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+    const ox = px - wx, oy = py - wy;
+    const lx = ox * ct + oy * st, ly = -ox * st + oy * ct;
+    if (Math.abs(lx) > BAY.HW || Math.abs(ly) > BAY.HL) return 0;
+    const z = bayTopZ(lx);
+    return inFeet ? z * (BAY_FLOORS * FT_PER_FLOOR) / BAY.RIDGE : z;
+  }
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   const m = modelFor(cell);
   const floors = floorsOf(cell);
@@ -7780,7 +7821,15 @@ const TYPE_MODEL = {
   asc_vats:   { type: 'asc_vats',   pal: 'ty_asc_vats' },
   asc_shrine: { type: 'asc_shrine', pal: 'ty_asc_shrine' },
 };
-function modelFor(cell) { return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null; }
+// ⚠ A BAY HAS NO MODEL, and saying so here is what keeps the rest honest. Its tile still carries
+// `bt: 'truck_depot'`, so without this every consumer of a model — the ground shadow, the occlusion
+// pre-pass, the distance LOD — would silently use the truck_depot ARM's captured segments for a
+// tile that arm never drew (drawWorldObjects took the `mark` branch instead). Null puts all of them
+// on the plain-box path, which is what a shed actually is, at the height floorHeight now reports.
+function modelFor(cell) {
+  if (isBay(cell)) return null;
+  return (cell.bn && namedModel(cell.bn)) || (cell.bt && TYPE_MODEL[cell.bt]) || null;
+}
 
 // Every model the world can resolve, as {key, m} — the key space the shape bake enumerates and the
 // shape lint checks for coverage. Named models are prefixed so a building called "Hangar" can never
@@ -7874,6 +7923,38 @@ export function groundCollisionSmoke(clearZ = 0.010) {
   return out;
 }
 
+// ── THE DEPOT BAY'S MASS ─────────────────────────────────────────────────────
+// The shed is the one building drawn at a fixed height rather than extruded from a storey stack
+// (see the ⚠ note at `floorsOf`), so it is also the one place the draw/collide contract is held
+// together by two constants agreeing rather than by both sides calling one formula. This asserts
+// they still agree, and that the three probes answer the roof that is actually painted:
+//   · what an aeroplane hits (buildingHeightZ / modelTopZAt) is the gable drawVehicleBay draws
+//   · what the altimeter-frame CFIT hits (buildingRoofFtAt) is that same roof in feet
+//   · and a TRUCK still drives straight in, which is the one hole in the whole collision model
+export function bayMassSmoke() {
+  const out = [];
+  const wx = 910, wy = 940;
+  const cell = { kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay' };
+  const near = (a, b, tol, what) => { if (!(Math.abs(a - b) <= tol)) out.push(`${what}: ${a.toFixed(4)} vs ${b.toFixed(4)}`); };
+  // The two constants, in step. If somebody raises the ridge and forgets the floors, the aircraft
+  // collides with a roof that is not where the roof is — the exact bug this pair exists to prevent.
+  const worth = BAY.RIDGE / (FLOOR_Z * RENDER_TUNE.bldgH * (RENDER_TUNE.bldgStretch || 1));
+  if (Math.abs(worth - BAY_FLOORS) > BAY_FLOORS * 0.06) {
+    out.push(`BAY_FLOORS is ${BAY_FLOORS} but RIDGE ${BAY.RIDGE} is worth ${worth.toFixed(2)} storeys — raise them together`);
+  }
+  // The eaves must clear the cab camera's eye, or the driver is looking over his own roof again.
+  if (!(BAY.WALL > 0.17 * 1.4)) out.push(`eaves ${BAY.WALL} do not clear the cab eye height (0.17) by enough`);
+  if (!(BAY.DOOR_H > 0.17)) out.push(`the door head ${BAY.DOOR_H} is below the driver's eye — the way out is a letterbox`);
+  near(floorHeight(cell, 1), BAY.RIDGE, 1e-9, 'floorHeight is not the drawn ridge');
+  near(buildingHeightZ(wx, wy, cell), BAY.RIDGE, 1e-9, 'buildingHeightZ is not the drawn ridge');
+  near(modelTopZAt(wx, wy, cell, wx, wy), BAY.RIDGE, 1e-9, 'the probe over the ridge is not the ridge');
+  near(modelTopZAt(wx, wy, cell, wx + BAY.HW - 0.005, wy), BAY.WALL, 0.005, 'the probe at the eaves is not the eaves');
+  near(buildingRoofFtAt(wx, wy, cell, wx, wy), BAY_FLOORS * FT_PER_FLOOR, 1e-6, 'the ridge in feet');
+  if (modelTopZAt(wx, wy, cell, wx + 0.49, wy + 0.49) !== 0) out.push('the probe found mass outside the shed footprint');
+  if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
+  return out;
+}
+
 export function shapeRenderSmoke() {
   const out = [];
   for (const { key, m } of shapeModelRegistry()) {
@@ -7957,10 +8038,16 @@ export function viewRenderSmoke(ID) {
     : { kind: 'land', biome: 'citycore', flr: 0 }
   )));
   const base = { map, heading: 45, speed: 0.4, hour: 13, weather: 'clear' };
+  // THE SAME WORLD WITH THE TRUCK STANDING IN A DEPOT BAY. `drive` mounts you on the door tile, so
+  // the first frame of every run is drawn from INSIDE drawVehicleBay — the one model on this map
+  // whose faces straddle the camera, and therefore the one that near-clips rather than rejecting a
+  // quad whole. Nothing else in this smoke ever enters it, and a throw in there is a black cab.
+  const bayMap = map.map((row) => row.slice());
+  bayMap[R][R] = { kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay', bn: 'TEST DEPOT' };
   const cases = [
     // The cab. `height: 0` and `resFloor: 1` are the pair that caught fire — keep them together.
-    ['cab',            { ...base, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
-    ['cab:ext',        { ...base, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid+t', external: true, extYaw: 0.6, extPitch: 0.3, extZoom: 1.15 }],
+    ['cab',            { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    ['cab:ext',        { ...base, map: bayMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid+t', external: true, extYaw: 0.6, extPitch: 0.3, extZoom: 1.15 }],
     ['cockpit:air',    { ...base, cls: 'prop', phase: 'cruise', height: 0.5 }],
     ['cockpit:ground', { ...base, cls: 'prop', phase: 'ground', height: 0 }],
     ['cockpit:ext',    { ...base, cls: 'gunship', phase: 'cruise', height: 0.4, external: true, extYaw: 1.2, extPitch: -0.2, armed: true }],
@@ -11393,90 +11480,360 @@ const GATE_H = 1.05;
 //  3. THE DOOR SENSES THE TRUCK. `openness` is derived from the camera's own distance to the tile
 //     rather than from any state anybody has to remember to set — near, it is up; away, it comes
 //     down. A door driven by a flag is a door somebody eventually leaves open forever.
-const BAY_SENSE_TILES = 2.6;    // it starts lifting about a truck's length out
+//  4. IT IS DRAWN FROM INSIDE, WHICH IS WHY IT NEAR-CLIPS. Every other model on this map is a
+//     thing you look AT: no face of it ever straddles the camera, so a quad with any vertex
+//     behind the eye can be thrown away whole and nobody ever sees the difference. This one is a
+//     room you sit in — the floor and the roof both pass under and over the camera — so throwing
+//     the quad away deletes the floor you are parked on. `bayFace` clips each polygon against the
+//     near plane instead of rejecting it, which is the only reason an interior can exist here.
+//  5. AND THE ROOF LIFTS OFF WHEN THE CAMERA IS ABOVE IT. In the external chase the eye sits well
+//     over the eaves, and a roof drawn from up there is a lid between you and your own truck — the
+//     own-ship is painted after the whole world pass, so it wins that argument and reads as a rig
+//     seen THROUGH a roof. Standing inside the footprint and above the eaves is exactly the
+//     cutaway case, so the roof simply isn't drawn: you look down into a lit shed.
+const BAY_SENSE_TILES = 2.6;    // approaching from the apron, it starts lifting about a truck's length out
 const BAY_OPEN_TILES = 1.35;    // …and is fully up by the time the bumper is at the threshold
+// From INSIDE, the sensor is the length of the SHED, not the length of the street. `drive` mounts you
+// on the door tile with the engine running (plugins/trucking), so the tile-centre distance the two
+// constants above measure is ~0 the moment the first frame is drawn — which had the door already up
+// and the player already outdoors, in a building they never saw close. Measured to the DOORWAY, from
+// inside, it starts shut with the shed around you and comes up as you roll at it.
+const BAY_IN_SENSE = 0.40;   // ⚠ must be < HL, or the door is already lifting on the frame you mount
+const BAY_IN_OPEN = 0.14;
+// The shed, in tiles and world-z. Two of these are not free numbers:
+//   · WALL must clear the cab camera's eye height (`eyeH: 0.17` in cab-view.js) by enough that the
+//     eaves read as being overhead. The old 0.115 was BELOW the driver's eye, so you sat looking
+//     over your own roof at the gable — the building was an ankle-high kerb with a lid.
+//   · DOOR_H must clear it too, or the way out is a letterbox you cannot see the road through.
+// `BAY` (the shed's dimensions) and `bayTopZ` live up with the height formulas — see the
+// ⚠ note there on why this one building's mass is a fixed shape rather than a storey stack.
 function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   if (MASS_OFF) return;
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
   // Local (right, forward) → world. Forward is OUT THROUGH THE DOOR.
   const F = (lx, ly) => [dx + lx * ct - ly * st, dy + lx * st + ly * ct];
   const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
-  const HW = 0.46, HL = 0.46;                   // the shed's half-width and half-depth, in tiles
-  const WALL = 0.115, RIDGE = 0.145;            // eaves and ridge height, in world z
-  const DOOR_W = 0.34, DOOR_H = 0.088;          // the opening: wide and low, like a real roller door
-  // How far the camera is from this tile, in tiles — the sensor.
-  const d = Math.hypot(dx, dy);
-  const open = clamp((BAY_SENSE_TILES - d) / Math.max(0.01, BAY_SENSE_TILES - BAY_OPEN_TILES), 0, 1);
+  const { HW, HL, WALL, RIDGE, DOOR_W, DOOR_H, LANE } = BAY;
 
-  const list = [];
-  const add = (pts, fill, stroke = 'rgba(0,0,0,0.35)') => {
-    if (pts.some((p) => !p || p.f <= 0.08)) return;
-    list.push({ af: pts.reduce((s, p) => s + p.f, 0) / pts.length, pts, fill, stroke });
+  // ── WHERE THE CAMERA IS, IN THE SHED'S OWN FRAME ───────────────────────────
+  // The eye sits `back` tiles astern of the focus (makeCam), so in the chase view it is NOT at the
+  // origin. Everything this model decides — is the door open, is the roof in the way, which side of
+  // a wall am I looking at — is decided from this one pair of numbers.
+  const back = cam.back || 0;
+  const camWX = -back * cam.sinh - dx, camWY = back * cam.cosh - dy;      // eye → tile centre, world axes
+  const camLX = camWX * ct + camWY * st, camLY = -camWX * st + camWY * ct; // …and in the shed's frame
+  const inside = Math.abs(camLX) < HW && Math.abs(camLY) < HL;
+  // …and where the SUBJECT is. In the external chase the eye is 1.6 tiles astern — out on the apron,
+  // or through the back wall — while the truck it is framing is standing in the middle of the shed.
+  // So the cutaway is keyed on the thing being looked at, not on where the eye happens to be: my
+  // rig is in this building and I am above its eaves ⇒ take the lid off and cull whatever stands
+  // between us. Without the second half of that, the roof went and the back wall stayed, and a wall
+  // occludes a truck exactly as well as a roof does.
+  const subjLX = -dx * ct - dy * st, subjLY = dx * st - dy * ct;
+  const subjectInside = Math.abs(subjLX) < HW && Math.abs(subjLY) < HL;
+  const cutaway = cam.EH > WALL * 0.9 && (inside || subjectInside);
+  const cutRoof = cutaway;
+  // Distance from the eye to the DOORWAY rather than to the tile centre, so the sensor means the
+  // same thing from the apron and from the back wall. `lateral` is how far off the aperture you are
+  // sideways, which is what stops a truck passing down the far side of the yard from opening it.
+  const lateral = Math.max(0, Math.abs(camLX) - DOOR_W);
+  const dDoor = Math.hypot(lateral, camLY - HL);
+  const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
+  const open = clamp((s0 - dDoor) / Math.max(0.01, s0 - s1), 0, 1);
+
+  // ── ONE CLIPPER, USED FOR TWO JOBS ─────────────────────────────────────────
+  // Convex clip of a local-space polygon against a linear half-space. `g` returns a signed value
+  // per point and is affine in (lx, ly), so interpolating the crossing point linearly is EXACT —
+  // which is true both for the camera depth `f` (affine in world x/y, and z doesn't enter it) and
+  // for a floor-rectangle edge. Points are [lx, ly, z] triples throughout.
+  const clipTo = (pts, g) => {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const A = pts[i], B = pts[(i + 1) % pts.length], ga = g(A), gb = g(B);
+      if (ga >= 0) out.push(A);
+      if ((ga >= 0) !== (gb >= 0)) {
+        const t = ga / (ga - gb);
+        out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]);
+      }
+    }
+    return out;
   };
-  const lit = night ? 0.62 : 1;
-  const sh = (r, g, b, k = 1) => `rgb(${(r * k * lit) | 0},${(g * k * lit) | 0},${(b * k * lit) | 0})`;
-  const STEEL = [104, 112, 122];
+  const FMIN = 0.09;
+  const depthOf = (lx, ly) => { const [wx, wy] = F(lx, ly); return (wx + back * cam.sinh) * cam.sinh - (wy - back * cam.cosh) * cam.cosh; };
+  const nearG = (p) => depthOf(p[0], p[1]) - FMIN;
+  const fCentre = depthOf(0, 0);   // the tile centre's camera depth — the cutaway's near/far dividing line
 
-  // The floor slab, drawn first and always — it is what makes the inside read as a room you are
-  // standing in rather than as ground with a roof over it.
-  add([P(-HW, -HL, 0.002), P(HW, -HL, 0.002), P(HW, HL, 0.002), P(-HW, HL, 0.002)], sh(46, 48, 52), 'rgba(0,0,0,0.5)');
-  // Three solid walls: back, and one each side. Ribbed by a single darker stripe pair rather than
-  // by real geometry, which at this size is the difference nobody can see and every frame can feel.
-  add([P(-HW, -HL, 0), P(HW, -HL, 0), P(HW, -HL, WALL), P(-HW, -HL, WALL)], sh(...STEEL, 0.62));
-  for (const s of [-1, 1]) {
-    add([P(s * HW, -HL, 0), P(s * HW, HL, 0), P(s * HW, HL, WALL), P(s * HW, -HL, WALL)], sh(...STEEL, s > 0 ? 0.78 : 0.68));
+  // ── THE FACE QUEUE ─────────────────────────────────────────────────────────
+  // `layer` runs before depth, and only for the two flat ground layers. A painter's sort cannot
+  // order a big floor slab against the paint ON it — the slab's average depth is the middle of the
+  // room, so every marking beyond that point sorts BEHIND the floor and disappears under it. Ground
+  // paint is not a depth problem, it is a stacking one: floor, then markings, then the world.
+  const list = [];
+  const bayFace = (pts, fill, o = {}) => {
+    const C = clipTo(pts, nearG);
+    if (C.length < 3) return;
+    const proj = C.map(([lx, ly, z]) => P(lx, ly, z));
+    let af = 0; for (const p of proj) af += p.f; af /= proj.length;
+    list.push({ af, layer: o.layer ?? 2, pts: proj, fill, stroke: o.stroke, tex: (C.length === pts.length) ? o.tex : null, vertical: o.vertical });
+  };
+
+  // ── THE PALETTE ────────────────────────────────────────────────────────────
+  // A workplace is LIT, so the inside barely darkens at night — the shed's own high-bays are doing
+  // the work, and a depot that went black at 8pm would be a building you cannot park in. The
+  // outside takes the ordinary night knock-down, which is also what makes the doorway read as a
+  // hole full of light from the road.
+  const outLit = night ? 0.60 : 1, inLit = night ? 0.86 : 1;
+  const warm = night ? [1.06, 1.0, 0.9] : [1, 1, 1];   // the sodium cast of the high-bays, at night only
+  const ex = (r, g, b, k = 1) => `rgb(${(r * k * outLit) | 0},${(g * k * outLit) | 0},${(b * k * outLit) | 0})`;
+  const inn = (r, g, b, k = 1) => `rgb(${(r * k * inLit * warm[0]) | 0},${(g * k * inLit * warm[1]) | 0},${(b * k * inLit * warm[2]) | 0})`;
+  // A face with no thickness has one quad and two sides; which shade it takes is decided by where
+  // the eye is, which costs nothing and is right every time.
+  // A cutaway is a view of the INSIDE from outside, so it shades like one — otherwise the walls you
+  // are looking through the top of would be lit as if you were on the street.
+  const interior = inside || cutaway;
+  const two = (r, g, b, kIn, kOut) => (interior ? inn(r, g, b, kIn) : ex(r, g, b, kOut));
+  const STEEL = [104, 112, 122];
+  const ASPHALT = [58, 60, 66];    // the road's own tarmac (SURFACE_COL.asphalt) — see the floor note
+  const YELLOW = night ? 'rgb(196,164,54)' : 'rgb(222,186,58)';
+  const YELLOW_DIM = night ? 'rgba(196,164,54,0.55)' : 'rgba(222,186,58,0.6)';
+
+  // ── THE FLOOR IS ROAD ──────────────────────────────────────────────────────
+  // Not a concrete slab: a haulage shed's floor is the yard's own tarmac carried indoors, and the
+  // truck drives from one onto the other without a lip. So it is painted in the asphalt the ground
+  // pass paints the road in, and the apron tongue runs it out past the threshold to the tile edge —
+  // which is what welds the inside to the street instead of ending the building at a doorstep.
+  const FZ = 0.0015, MZ = 0.003;   // slab, then paint a hair above it (they never z-fight — see `layer`)
+  bayFace([[-HW, -HL, FZ], [HW, -HL, FZ], [HW, HL, FZ], [-HW, HL, FZ]],
+    interior ? inn(...ASPHALT, 1.18) : ex(...ASPHALT, 1.1), { layer: 0 });
+  bayFace([[-DOOR_W - 0.03, HL, FZ], [DOOR_W + 0.03, HL, FZ], [DOOR_W + 0.03, 0.5, FZ], [-DOOR_W - 0.03, 0.5, FZ]],
+    ex(...ASPHALT, 1.02), { layer: 0 });
+  // Oil. A floor nobody has ever dropped anything on is a rendering, not a workshop — three stains
+  // seeded off the tile so they stay put frame to frame.
+  for (let i = 0; i < 3; i++) {
+    const sx2 = -0.26 + i * 0.27, sy2 = -0.22 + ((i * 7) % 3) * 0.2, rr = 0.045 + (i % 2) * 0.02;
+    bayFace([[sx2 - rr, sy2 - rr * 1.4, MZ], [sx2 + rr, sy2 - rr, MZ], [sx2 + rr * 0.8, sy2 + rr * 1.3, MZ], [sx2 - rr * 1.2, sy2 + rr, MZ]],
+      'rgba(14,14,18,0.5)', { layer: 1 });
   }
-  // The front: a header above the opening and a jamb each side. The gap between them is the door.
-  add([P(-HW, HL, DOOR_H), P(HW, HL, DOOR_H), P(HW, HL, WALL), P(-HW, HL, WALL)], sh(...STEEL, 0.9));
-  for (const s of [-1, 1]) {
-    const inner = s * DOOR_W, outer = s * HW;
-    add([P(inner, HL, 0), P(outer, HL, 0), P(outer, HL, DOOR_H), P(inner, HL, DOOR_H)], sh(...STEEL, 0.86));
-  }
-  // THE DOOR ITSELF, hanging in the opening and retracting UP. At `open` 1 it is a slat's worth of
-  // shadow under the header, which is what a rolled-up door actually looks like from underneath.
-  const doorBottom = DOOR_H * open;
-  if (doorBottom < DOOR_H - 0.001) {
-    add([P(-DOOR_W, HL - 0.01, doorBottom), P(DOOR_W, HL - 0.01, doorBottom),
-         P(DOOR_W, HL - 0.01, DOOR_H), P(-DOOR_W, HL - 0.01, DOOR_H)], sh(126, 134, 142, 0.95), 'rgba(0,0,0,0.55)');
-    // Slats. Four lines, because a flat panel reads as a sheet of card and a roller door is the one
-    // object in a yard everybody has looked at closely.
-    for (let i = 1; i < 5; i++) {
-      const z = doorBottom + (DOOR_H - doorBottom) * (i / 5);
-      add([P(-DOOR_W, HL - 0.011, z), P(DOOR_W, HL - 0.011, z), P(DOOR_W, HL - 0.011, z + 0.001), P(-DOOR_W, HL - 0.011, z + 0.001)],
-        sh(70, 76, 84), 'rgba(0,0,0,0)');
+
+  // ── THE MARKINGS ───────────────────────────────────────────────────────────
+  // This is the bit that makes a big empty volume read as a place with a way to use it: a drive
+  // lane straight out of the door, trailer bays down one side, tractor bays down the other, and a
+  // hatched keep-clear inside the threshold that says the door comes down here.
+  const stripe = (x0, x1, y0, y1, col = YELLOW) => bayFace([[x0, y0, MZ], [x1, y0, MZ], [x1, y1, MZ], [x0, y1, MZ]], col, { layer: 1 });
+  const LINE = 0.008;
+  // The lane, both edges, running the full depth and out through the door.
+  for (const s of [-1, 1]) stripe(s * LANE - LINE, s * LANE + LINE, -HL + 0.02, HL);
+  // Its dashed centreline — the aiming mark you drive out on.
+  for (let y = -HL + 0.05; y < HL - 0.04; y += 0.13) stripe(-LINE * 0.7, LINE * 0.7, y, y + 0.07, YELLOW_DIM);
+  // Trailer bays: two deep drive-in bays down the left, long enough to back a box into.
+  for (const y of [-HL + 0.02, 0, HL - 0.02]) stripe(-HW + 0.015, -LANE, y - LINE, y + LINE);
+  // Tractor bays: three shallower stalls down the right.
+  for (let i = 0; i <= 3; i++) { const y = -HL + 0.02 + i * ((2 * HL - 0.04) / 3); stripe(LANE, HW - 0.015, y - LINE, y + LINE); }
+  // Keep-clear under the door: real diagonals, clipped to the box by the same clipper the near
+  // plane uses. A zebra of upright bars would have read as a threshold strip; this reads as paint
+  // that means DON'T STAND HERE, which is what it is for.
+  {
+    const x0 = -DOOR_W - 0.02, x1 = DOOR_W + 0.02, y0 = HL - 0.13, y1 = HL - 0.015, slant = y1 - y0;
+    const box = [(p) => p[0] - x0, (p) => x1 - p[0], (p) => p[1] - y0, (p) => y1 - p[1]];
+    for (let a = x0 - slant; a < x1; a += 0.052) {
+      let poly = [[a, y0, MZ], [a + 0.02, y0, MZ], [a + 0.02 + slant, y1, MZ], [a + slant, y1, MZ]];
+      for (const g of box) { poly = clipTo(poly, g); if (poly.length < 3) break; }
+      if (poly.length >= 3) bayFace(poly, YELLOW_DIM, { layer: 1 });
     }
   }
-  // A shallow gable, so the thing has a roofline rather than a lid.
-  add([P(-HW, -HL, WALL), P(HW, -HL, WALL), P(HW, HL, WALL), P(-HW, HL, WALL)], sh(...STEEL, 0.5));
-  add([P(-HW, -HL, WALL), P(-HW, HL, WALL), P(0, HL, RIDGE), P(0, -HL, RIDGE)], sh(...STEEL, 1.05));
-  add([P(HW, -HL, WALL), P(HW, HL, WALL), P(0, HL, RIDGE), P(0, -HL, RIDGE)], sh(...STEEL, 0.72));
+  // Stencilled bay legends. Small, and the only text on the floor — a driver reads them coming IN,
+  // so they are laid out for somebody facing the back wall (top of the letters deeper into the shed).
+  const floorText = (label, cx, cy, halfW, halfL, colour) => {
+    const tex = bakeSignText(label, colour, 0, false);
+    if (!tex) return;
+    bayFace([[cx + halfW, cy - halfL, MZ], [cx - halfW, cy - halfL, MZ], [cx - halfW, cy + halfL, MZ], [cx + halfW, cy + halfL, MZ]],
+      null, { layer: 1, tex });
+  };
+  floorText('TRAILER', -0.31, -0.24, 0.13, 0.026, '#d8ba3a');
+  floorText('TRAILER', -0.31, 0.23, 0.13, 0.026, '#d8ba3a');
+  for (let i = 0; i < 3; i++) floorText(String(i + 1), 0.31, -HL + 0.02 + (i + 0.5) * ((2 * HL - 0.04) / 3), 0.028, 0.03, '#d8ba3a');
 
-  list.sort((a, b) => b.af - a.af);
+  // ── THE SHELL ──────────────────────────────────────────────────────────────
+  // Each wall is a skirt and an upper panel rather than one quad: the dark impact skirt around the
+  // bottom of a steel shed is most of what stops the inside reading as four sheets of grey paper.
+  const SKIRT = WALL * 0.28;
+  const wall = (pts0, kIn, kOut) => {
+    const [a, b] = pts0;   // [lx,ly] of the two ends
+    bayFace([[a[0], a[1], 0], [b[0], b[1], 0], [b[0], b[1], SKIRT], [a[0], a[1], SKIRT]], two(48, 52, 58, kIn, kOut), { stroke: 'rgba(0,0,0,0.3)' });
+    bayFace([[a[0], a[1], SKIRT], [b[0], b[1], SKIRT], [b[0], b[1], WALL], [a[0], a[1], WALL]], two(...STEEL, kIn, kOut), { stroke: 'rgba(0,0,0,0.3)' });
+  };
+  wall([[-HW, -HL], [HW, -HL]], 1.02, 0.62);                       // the back wall
+  for (const s of [-1, 1]) wall([[s * HW, -HL], [s * HW, HL]], s > 0 ? 0.95 : 0.88, s > 0 ? 0.78 : 0.68);
+  // Wall ribs — a trapezoidal steel panel is a corrugation every metre, and at this range that is
+  // one darker line every so often. Cheap, and it gives the eye something to judge depth by while
+  // you are driving down the shed.
+  for (let y = -HL + 0.08; y < HL - 0.02; y += 0.115) {
+    for (const s of [-1, 1]) bayFace([[s * (HW - 0.001), y, SKIRT], [s * (HW - 0.001), y + 0.006, SKIRT], [s * (HW - 0.001), y + 0.006, WALL], [s * (HW - 0.001), y, WALL]],
+      'rgba(0,0,0,0.16)', { stroke: null });
+  }
+  // The front: a header over the opening and a jamb each side. The gap between them is the door,
+  // and it is a real absence — never a rectangle painted on a wall.
+  bayFace([[-HW, HL, DOOR_H], [HW, HL, DOOR_H], [HW, HL, WALL], [-HW, HL, WALL]], two(...STEEL, 0.8, 0.92), { stroke: 'rgba(0,0,0,0.3)' });
+  for (const s of [-1, 1]) {
+    const inner = s * DOOR_W, outer = s * HW;
+    bayFace([[inner, HL, 0], [outer, HL, 0], [outer, HL, DOOR_H], [inner, HL, DOOR_H]], two(...STEEL, 0.86, 0.86), { stroke: 'rgba(0,0,0,0.3)' });
+    // Hazard diagonals up the jamb, because the one thing a driver hits in a shed is the doorway.
+    for (let z = 0.01; z < DOOR_H - 0.02; z += 0.036) {
+      bayFace([[inner, HL - 0.002, z], [inner + s * 0.035, HL - 0.002, z + 0.018],
+               [inner + s * 0.035, HL - 0.002, z + 0.036], [inner, HL - 0.002, z + 0.018]], YELLOW_DIM, { stroke: null });
+    }
+  }
+
+  // ── STRUCTURE ──────────────────────────────────────────────────────────────
+  // Four portal frames: a column each side and a rafter pair up to the ridge. This is the whole
+  // difference between a clear-span shed and a box with a lid on it, and it is what the eye uses to
+  // read the volume as tall when you are sitting under it.
+  const DARK = [46, 50, 56];
+  for (const y of [-0.34, -0.11, 0.12, 0.35]) {
+    for (const s of [-1, 1]) {
+      const x = s * (HW - 0.012);
+      bayFace([[x, y - 0.012, 0], [x, y + 0.012, 0], [x, y + 0.012, WALL], [x, y - 0.012, WALL]], inn(...DARK, 1.25), { stroke: null });
+      bayFace([[x, y - 0.01, WALL], [x, y + 0.01, WALL], [0, y + 0.01, RIDGE], [0, y - 0.01, RIDGE]], inn(...DARK, 1.05), { stroke: null });
+    }
+    bayFace([[-HW + 0.02, y - 0.008, WALL], [HW - 0.02, y - 0.008, WALL], [HW - 0.02, y + 0.008, WALL], [-HW + 0.02, y + 0.008, WALL]], inn(...DARK, 1.35), { stroke: null });   // tie beam
+  }
+
+  // ── THE DOOR ITSELF ────────────────────────────────────────────────────────
+  // Hanging in the opening and retracting UP. At `open` 1 it is a slat's worth of shadow under the
+  // header, which is what a rolled-up door actually looks like from underneath.
+  const doorBottom = DOOR_H * open;
+  for (const s of [-1, 1]) {   // the guide rails it runs in — they are there whether it is up or down
+    bayFace([[s * (DOOR_W + 0.012), HL - 0.012, 0], [s * DOOR_W, HL - 0.012, 0], [s * DOOR_W, HL - 0.012, DOOR_H], [s * (DOOR_W + 0.012), HL - 0.012, DOOR_H]],
+      two(...DARK, 1.3, 0.9), { stroke: null });
+  }
+  if (doorBottom < DOOR_H - 0.001) {
+    bayFace([[-DOOR_W, HL - 0.008, doorBottom], [DOOR_W, HL - 0.008, doorBottom],
+             [DOOR_W, HL - 0.008, DOOR_H], [-DOOR_W, HL - 0.008, DOOR_H]], two(126, 134, 142, 0.82, 0.95), { stroke: 'rgba(0,0,0,0.55)' });
+    // Slats. A flat panel reads as a sheet of card, and a roller door is the one object in a yard
+    // everybody has looked at closely.
+    for (let i = 1; i < 9; i++) {
+      const z = doorBottom + (DOOR_H - doorBottom) * (i / 9);
+      bayFace([[-DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z], [DOOR_W, HL - 0.009, z + 0.0022], [-DOOR_W, HL - 0.009, z + 0.0022]],
+        'rgba(0,0,0,0.35)', { stroke: null });
+    }
+    // The bottom rail: the heavy rubber-shod edge, darker than the leaf.
+    bayFace([[-DOOR_W, HL - 0.0075, doorBottom], [DOOR_W, HL - 0.0075, doorBottom], [DOOR_W, HL - 0.0075, doorBottom + 0.006], [-DOOR_W, HL - 0.0075, doorBottom + 0.006]],
+      two(...DARK, 1.2, 0.8), { stroke: null });
+  }
+
+  // ── THE ROOF ───────────────────────────────────────────────────────────────
+  // Skipped entirely in the cutaway case (note 5). Otherwise: two pitches with a small overhang,
+  // and from underneath a run of translucent roof lights down each side of the ridge, which is how
+  // a shed this size is actually daylit.
+  if (!cutRoof) {
+    const OV = 0.025;
+    for (const s of [-1, 1]) {
+      bayFace([[s * (HW + OV), -HL - OV, WALL], [s * (HW + OV), HL + OV, WALL], [0, HL + OV, RIDGE], [0, -HL - OV, RIDGE]],
+        interior ? inn(...DARK, 1.15) : ex(...STEEL, s > 0 ? 0.72 : 1.05), { stroke: 'rgba(0,0,0,0.3)' });
+      if (interior) for (const y of [-0.24, 0.02, 0.28]) {
+        // A roof light is a bright panel from inside on a bright day and a dim one at night — it is
+        // the sky, not a lamp, so it must not glow after dark.
+        const a = night ? 0.1 : 0.5;
+        bayFace([[s * (HW * 0.62), y - 0.08, WALL + (RIDGE - WALL) * 0.38], [s * (HW * 0.62), y + 0.08, WALL + (RIDGE - WALL) * 0.38],
+                 [s * (HW * 0.3), y + 0.08, WALL + (RIDGE - WALL) * 0.7], [s * (HW * 0.3), y - 0.08, WALL + (RIDGE - WALL) * 0.7]],
+          `rgba(216,226,238,${a})`, { stroke: null });
+      }
+    }
+    // The gable over the door, so the front reads as a building rather than as a wall with sky above it.
+    bayFace([[-HW, HL, WALL], [HW, HL, WALL], [0, HL, RIDGE]], ex(...STEEL, 0.98), { stroke: 'rgba(0,0,0,0.3)' });
+    bayFace([[-HW, -HL, WALL], [HW, -HL, WALL], [0, -HL, RIDGE]], two(...STEEL, 0.95, 0.6), { stroke: 'rgba(0,0,0,0.3)' });
+  }
+
+  // ── FITTINGS ───────────────────────────────────────────────────────────────
+  // A site office in the back corner with a lit window, and a row of drums against the back wall.
+  // Two objects, and between them the shed stops being empty: there is somewhere the paperwork
+  // happens and somewhere the oil lives.
+  const box = (x0, x1, y0, y1, z0, z1, k) => {
+    bayFace([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k), { stroke: 'rgba(0,0,0,0.35)' });          // face toward the door
+    bayFace([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], inn(...STEEL, k * 0.86), { stroke: 'rgba(0,0,0,0.35)' });   // +x side
+    bayFace([[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], inn(...STEEL, k * 0.78), { stroke: 'rgba(0,0,0,0.35)' });   // -x side
+    bayFace([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k * 1.1), { stroke: 'rgba(0,0,0,0.35)' });    // top
+  };
+  box(-HW + 0.02, -HW + 0.19, -HL + 0.02, -HL + 0.16, 0, 0.11, 0.9);
+  bayFace([[-HW + 0.05, -HL + 0.162, 0.05], [-HW + 0.16, -HL + 0.162, 0.05], [-HW + 0.16, -HL + 0.162, 0.09], [-HW + 0.05, -HL + 0.162, 0.09]],
+    night ? 'rgba(255,214,150,0.92)' : 'rgba(176,198,214,0.85)', { stroke: 'rgba(0,0,0,0.4)' });   // the office window, lit late
+  for (let i = 0; i < 4; i++) {
+    const x = 0.16 + i * 0.062;
+    box(x, x + 0.045, -HL + 0.02, -HL + 0.065, 0, 0.048, i % 2 ? 0.72 : 0.62);
+  }
+
+  // ── PAINT ──────────────────────────────────────────────────────────────────
+  // Ground layers first (they stack, they do not sort), then the world back→front.
+  list.sort((a, b) => (a.layer - b.layer) || (b.af - a.af));
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.lineJoin = 'round';
   for (const it of list) {
+    // The cutaway's second half: anything standing between the eye and the middle of the shed goes
+    // with the roof. Ground paint (layers 0/1) is never in the way of anything, so it stays.
+    if (cutaway && it.layer === 2 && it.af < fCentre - 0.03) continue;
     ctx.beginPath();
     it.pts.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)));
     ctx.closePath();
-    ctx.fillStyle = it.fill; ctx.fill();
-    if (it.stroke !== 'rgba(0,0,0,0)') { ctx.strokeStyle = it.stroke; ctx.lineWidth = 1; ctx.stroke(); }
+    if (it.tex) { ctx.save(); ctx.clip(); drawSurfaceText(ctx, it.pts[0], it.pts[1], it.pts[2], it.pts[3], it.tex, !!it.vertical, alpha); ctx.restore(); }
+    else {
+      ctx.fillStyle = it.fill; ctx.fill();
+      if (it.stroke) { ctx.strokeStyle = it.stroke; ctx.lineWidth = 1; ctx.stroke(); }
+    }
     const fog = fogWeight(it.af);
     if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); ctx.globalAlpha = alpha; }
   }
-  // The light inside. A bay is always lit — it is a workplace — and the spill out of the opening is
-  // most of what sells the door being open at all.
-  if (open > 0.02) {
+
+  // ── THE LIGHT ──────────────────────────────────────────────────────────────
+  // High-bays down the ridge. A bay is always lit — it is a workplace — and the pool each one lays
+  // on the tarmac is what makes the floor read as a surface rather than as a flat fill.
+  for (const y of [-0.3, -0.02, 0.26]) {
+    const lampZ = RIDGE - 0.055;
+    const lamp = P(0, y, lampZ), pool = P(0, y, 0.006);
+    if (lamp.f > 0.12) {
+      const rr = Math.max(3, 26 / Math.max(0.3, lamp.f));
+      const g = ctx.createRadialGradient(lamp.sx, lamp.sy, 0, lamp.sx, lamp.sy, rr);
+      g.addColorStop(0, `rgba(255,244,214,${0.85 * alpha})`); g.addColorStop(0.35, `rgba(255,232,180,${0.32 * alpha})`); g.addColorStop(1, 'rgba(255,232,180,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lamp.sx, lamp.sy, rr, 0, 7); ctx.fill();
+    }
+    if (pool.f > 0.12) {
+      const rr = Math.max(6, 150 / Math.max(0.3, pool.f));
+      const g = ctx.createRadialGradient(pool.sx, pool.sy, 0, pool.sx, pool.sy, rr);
+      g.addColorStop(0, `rgba(255,232,180,${(night ? 0.22 : 0.13) * alpha})`); g.addColorStop(1, 'rgba(255,232,180,0)');
+      ctx.save(); ctx.translate(pool.sx, pool.sy); ctx.scale(1, 0.4); ctx.translate(-pool.sx, -pool.sy);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pool.sx, pool.sy, rr, 0, 7); ctx.fill(); ctx.restore();
+    }
+  }
+  // The spill out of the opening — most of what sells the door being open at all, from the road.
+  if (open > 0.02 && !inside) {
     const m = P(0, HL + 0.02, 0.004);
     if (m.f > 0.08) {
       const r = Math.max(6, 90 / Math.max(0.3, m.f));
       const g = ctx.createRadialGradient(m.sx, m.sy, 0, m.sx, m.sy, r);
-      g.addColorStop(0, `rgba(255,226,164,${0.20 * open * alpha})`);
+      g.addColorStop(0, `rgba(255,226,164,${0.22 * open * alpha})`);
       g.addColorStop(1, 'rgba(255,226,164,0)');
       ctx.fillStyle = g;
       ctx.save(); ctx.translate(m.sx, m.sy); ctx.scale(1, 0.45); ctx.translate(-m.sx, -m.sy);
       ctx.beginPath(); ctx.arc(m.sx, m.sy, r, 0, 7); ctx.fill(); ctx.restore();
     }
+  }
+  // The name over the door, and a lamp each side of it. Only from outside — this is the sign that
+  // tells you which yard you are looking at from the road.
+  if (!inside) {
+    const label = String(cell.bn || 'DEPOT').toUpperCase().slice(0, 18);
+    const tex = bakeSignText(label, '#ffca6a', night ? 1 : 0, false);
+    if (tex) {
+      const q = [P(-DOOR_W, HL + 0.004, WALL - 0.012), P(DOOR_W, HL + 0.004, WALL - 0.012),
+                 P(DOOR_W, HL + 0.004, DOOR_H + 0.012), P(-DOOR_W, HL + 0.004, DOOR_H + 0.012)];
+      if (q.every((p) => p.f > 0.12)) {
+        ctx.save(); ctx.globalAlpha = alpha;
+        ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy))); ctx.closePath();
+        ctx.fillStyle = ex(28, 30, 36); ctx.fill();
+        drawSurfaceText(ctx, q[0], q[1], q[2], q[3], tex, false, alpha);
+        ctx.restore();
+      }
+    }
+    if (night) for (const s of [-1, 1]) glowPool(ctx, cam, ...F(s * (DOOR_W + 0.06), HL + 0.01), WALL * 0.8, '255,206,140', 9, alpha * 0.5);
   }
   ctx.restore();
 }

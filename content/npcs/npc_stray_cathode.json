@@ -6,6 +6,7 @@
   "dialogue_tree": {},
   "faction": null,
   "flags": {
+    "animal": true,
     "no_banter": true,
     "posted": true,
     "stray_cat": true

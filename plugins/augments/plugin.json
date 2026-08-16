@@ -1,11 +1,11 @@
 {
   "name": "augments",
-  "version": "2.0.0",
-  "description": "Chrome as a machine you own — installed from an item by a surgeon who can botch it, tuned on a calibration board, pushed past spec until it comes apart, repaired, and corrupted by death so nobody farms it off corpses. Plus the Ascendant cortical-backup loop.",
+  "version": "3.0.0",
+  "description": "Chrome as a machine you own — installed from an item by a surgeon who can botch it, tuned on a calibration board, fed from a cell, pushed past spec until it comes apart and takes a piece of you with it, repaired, and corrupted by death so nobody farms it off corpses. Plus the Ascendant cortical loop: your pattern is re-scanned, never your pockets, and the vats print you a new body with the chrome cut fresh to the old measurements.",
   "commands": ["augment", "augments", "calibrate", "calibrateresolve", "backup", "assurance"],
-  "hooks": ["player.respawnZone", "tech.targets"],
+  "hooks": ["player.respawnZone", "player.appearanceNotes", "tech.targets"],
   "events": {
-    "consumes": ["player.login", "player.death"]
+    "consumes": ["player.login", "player.death", "zone.entered"]
   },
   "actions": {
     "registers": []

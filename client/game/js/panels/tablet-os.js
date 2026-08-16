@@ -546,6 +546,14 @@ function ensureStyles() {
     /* App grid (home) — raised tile: light-accent gradient + bevel edge, lifts
        on hover, presses in on click (pseudo-3D, not a flat grey fill). */
     #tablet-os-overlay .tos-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+    /* Tiles and option pills are <button> now (see renderTile / the a11y rows) —
+       these resets are the whole cost: a button brings its own font and colour and
+       shrink-wraps its box. The focus rings are the point of the change. */
+    #tablet-os-overlay button.tos-tile, #tablet-os-overlay button.tos-opt {
+      font:inherit; color:inherit; -webkit-appearance:none; appearance:none; }
+    #tablet-os-overlay button.tos-tile { width:100%; display:block; }
+    #tablet-os-overlay .tos-tile:focus-visible, #tablet-os-overlay .tos-opt:focus-visible {
+      outline:2px solid var(--mg-accent); outline-offset:2px; }
     #tablet-os-overlay .tos-tile { position:relative; cursor:pointer; text-align:center; padding:9px 5px; border-radius:7px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 32%, transparent);
@@ -1044,6 +1052,11 @@ function ensureStyles() {
       box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 40%, transparent), inset 0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent); }
 
     /* List view — same raised-bevel treatment as tiles, just row-shaped. */
+    /* A navigating row is a <button> (see renderList) — these four declarations are
+       the whole cost of that: a button brings its own font, centres its text, and
+       shrink-wraps. Without them the list looks like a row of OS buttons. */
+    #tablet-os-overlay button.tos-list-item { font:inherit; color:inherit; text-align:left; width:100%; -webkit-appearance:none; appearance:none; }
+    #tablet-os-overlay .tos-list-item:focus-visible { outline:2px solid var(--mg-accent); outline-offset:2px; }
     #tablet-os-overlay .tos-list-item { display:flex; flex-direction:column; gap:3px; cursor:pointer; padding:9px 11px; border-radius:6px;
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
       border:1px solid color-mix(in srgb, var(--mg-accent) 26%, transparent); margin-bottom:7px;
@@ -1802,6 +1815,13 @@ function ensureStyles() {
     #tablet-os-overlay .tos-about-bmc:hover { filter:brightness(1.15); box-shadow:0 0 12px color-mix(in srgb, var(--mg-accent) 38%, transparent), inset 0 1px 0 var(--tos-bevel-hi); }
     #tablet-os-overlay .tos-about-bmc:active { transform:translateY(1px); }
     #tablet-os-overlay .tos-about-bmc .tos-about-cup { font-size:1rem; line-height:1; }
+    /* The platform credit. Flat text, no bevel and no fill — it must not read as
+       a second button competing with Support Us directly above it. */
+    #tablet-os-overlay .tos-about-thomas { display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+      font-size:0.625rem; letter-spacing:1.2px; text-transform:uppercase; color:var(--tos-fg-dim); opacity:.6;
+      transition:opacity .12s, color .12s; }
+    #tablet-os-overlay .tos-about-thomas:hover { opacity:1; color:var(--mg-accent); }
+    #tablet-os-overlay .tos-about-thomas svg { width:13px; height:13px; flex:none; }
     #tablet-os-overlay input.tos-color { width:34px; height:26px; padding:0; border:1px solid color-mix(in srgb, var(--mg-accent) 30%, transparent); border-radius:4px; background:none; cursor:pointer; vertical-align:middle; }
     /* Smaller secondary buttons (Full Theme Editor…, Tablet Theme…) so they sit
        under a section without the full accent-fill weight of a .tos-btn. */
@@ -4463,9 +4483,17 @@ function homeTile(a, stashed, extra) {
   const badge = n > 0 ? `<span class="tos-tile-badge">${n > 9 ? '9+' : n}</span>` : '';
   const glow = (a.id === 'frontier' && isOnCrossing()) ? ' tos-tile-glow' : '';
   const attr = stashed ? `data-search-restore="${esc(a.id)}"` : `data-nav-app="${esc(a.id)}"`;
-  return `<div class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
-    + `${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
-    + `${badge}<span class="tos-icon">${icon}</span><span class="tos-name">${esc(a.name)}</span></div>`;
+  // A tile is a <button>. It was a div, which meant the tablet's HOME SCREEN — the
+  // way into every app — could not be reached by keyboard at all: you could Tab
+  // through a screen's contents but never open one. Dragging is unaffected because
+  // rearranging is hand-rolled on pointer events (see the pointerdown handlers
+  // below) rather than HTML5 `draggable`, and a button fires those identically.
+  // The badge is a count the icon already implies visually, so it is folded into
+  // the accessible name instead of being read as a loose number after it.
+  const aria = n > 0 ? ` aria-label="${esc(a.name)}, ${n} waiting"` : '';
+  return `<button type="button" class="tos-tile${glow}${stashed ? ' tos-tile-stashed' : ''}${extra ? ' ' + extra : ''}" ${attr}`
+    + `${aria}${stashed ? ' title="Stashed — tap to put it back"' : ''}>`
+    + `${badge}<span class="tos-icon" aria-hidden="true">${icon}</span><span class="tos-name">${esc(a.name)}</span></button>`;
 }
 
 function renderHomeApps(apps) {
@@ -5819,10 +5847,29 @@ function renderList(items) {
   // is one of several COMPONENTS of the line above it — you buy all of them, so
   // it keeps its checkbox and its badge. Same shape on screen, opposite meaning;
   // the OR and the boxes are what tell them apart.
-  return items.map(it => { const oid = it.id == null ? '' : String(it.id); return `<div class="tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${it.part ? ' tos-li-part' : ''}${oid ? '' : ' tos-li-static'}"${oid ? ` data-open-item="${esc(oid)}"` : ''}>
-    <div class="tos-li-label"><span>${it.or ? '<span class="tos-li-or">or</span>' : ''}${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
-    ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}
-  </div>`; }).join('');
+  // A row that NAVIGATES is a <button>; a row that doesn't stays a <div>.
+  //
+  // This was divs throughout, which made the primary navigation element of the
+  // entire tablet unreachable by keyboard and unannounced as a control — you could
+  // Tab to every action button on a screen and to none of the things the screen was
+  // actually a list of. `data-open-item` is exactly the "this does something" test,
+  // so the split costs nothing: headings, `or` alternatives and summary lines are
+  // not controls and must NOT become tab stops, or a long list turns into forty
+  // stops that mostly do nothing.
+  //
+  // `type="button"` is not optional even though this file has no <form> today —
+  // a default-type button inside one submits it, and that would be a very confusing
+  // bug to trace back to here. The click path is unchanged: the delegated handler
+  // matches `closest('[data-open-item]')`, which a button satisfies identically.
+  return items.map(it => {
+    const oid = it.id == null ? '' : String(it.id);
+    const cls = `tos-list-item${it.group ? ' tos-li-group' : ''}${it.child ? ' tos-li-child' : ''}${it.option ? ' tos-li-option' : ''}${it.part ? ' tos-li-part' : ''}${oid ? '' : ' tos-li-static'}`;
+    const inner = `<div class="tos-li-label"><span>${it.or ? '<span class="tos-li-or">or</span>' : ''}${esc(it.label)}</span>${it.badge && !it.option ? `<span class="tos-badge ${esc(it.badge)}">${esc(it.badgeLabel || it.badge)}</span>` : ''}</div>
+    ${it.sub ? `<div class="tos-li-sub">${esc(it.sub)}</div>` : ''}`;
+    return oid
+      ? `<button type="button" class="${cls}" data-open-item="${esc(oid)}">${inner}</button>`
+      : `<div class="${cls}">${inner}</div>`;
+  }).join('');
 }
 
 // Month-grid calendar (Calendar app). A 7-column grid — weekday header row then the
@@ -6309,9 +6356,16 @@ function renderTabletSettings(d) {
   const a11yCtx = { displayRung: rungNow };
   const a11yRows = A11Y_OPTIONS.map(o => {
     const eff = String(effectiveOptionValue(o, s, a11yCtx));
-    return `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
-      <div class="tos-opts">${o.opts.map(v =>
-      `<div class="tos-opt${eff === String(v.v) ? ' selected' : ''}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</div>`).join('')}</div></div>`;
+    // Pills are <button aria-pressed>, in a labelled group. They were divs — which
+    // meant the accessibility page itself could not be operated by keyboard, so the
+    // one screen a player goes to when the interface is unusable was the screen
+    // least able to be used. `aria-pressed` rather than role="radio" deliberately:
+    // radio semantics oblige arrow-key navigation within the group, and Tab through
+    // real buttons works today with no keyboard code. The group carries the option's
+    // name so each pill announces what it belongs to, not just "Off".
+    return `<div class="tos-set-row tos-a11y-row"><span class="tos-set-label" id="tos-a11y-lbl-${esc(o.key)}">${esc(o.label)}<span class="tos-set-val">${esc(o.why)}</span></span>
+      <div class="tos-opts" role="group" aria-labelledby="tos-a11y-lbl-${esc(o.key)}">${o.opts.map(v =>
+      `<button type="button" class="tos-opt${eff === String(v.v) ? ' selected' : ''}" aria-pressed="${eff === String(v.v) ? 'true' : 'false'}" data-set-key="${esc(o.key)}" data-set-val="${esc(String(v.v))}" title="${esc(v.t)}">${esc(v.t)}</button>`).join('')}</div></div>`;
   }).join('');
 
   const pages = {
@@ -6410,6 +6464,12 @@ function renderDiscordPage() {
   </div>`;
 }
 
+// About. The THOMAS credit sits LAST and below the support button, because the
+// order of this page is game, then people, then platform — Architect is one game
+// built on THOMAS, and a player who wants to know what that means gets the
+// power-user guide, the only page that documents the client rather than the
+// world. The mark is the dev panel boot logo (client/devpanel/index.html) at
+// badge weight, stroked in currentColor so the tablet theme colours it.
 function renderAboutPage() {
   return `<div class="tos-about">
     <div class="tos-about-mark">Architect</div>
@@ -6420,6 +6480,15 @@ function renderAboutPage() {
     <div class="tos-about-tag">We build this because we want to. The servers just insist on being paid. Chip in if you feel like it — thanks either way.</div>
     <a class="tos-about-bmc" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Support Us">
       <span class="tos-about-cup">☕</span><span>Support Us</span>
+    </a>
+    <div class="tos-about-rule"></div>
+    <a class="tos-about-thomas" href="/thomas-client-guide.html" target="_blank" rel="noopener noreferrer" title="THOMAS Client — Power User Guide">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round">
+          <path d="M60 8 L112 37 L60 66 L8 37 Z"/>
+          <path d="M38 46 L60 58 L82 46 L82 84 L60 96 L38 84 Z"/>
+        </g>
+      </svg><span>Powered by THOMAS</span>
     </a>
   </div>`;
 }
@@ -11498,6 +11567,15 @@ export function refreshTabletGearIfOpen() {
 export function openTabletToChat() {
   _skipBoot = true;
   sendCmdSilent('tabletnav chat');
+}
+
+// Open Chat already on one conversation. The CB's set uses this: pressing it in the cab has to
+// land you on the channel you are TUNED to, not on whichever tab was last selected — a radio that
+// opened somebody else's conversation would be a fault. `_chatTab` is set before the nav because
+// renderChat picks its own default only when the selection is missing or stale.
+export function openTabletToChatTab(key) {
+  if (key) _chatTab = key;
+  openTabletToChat();
 }
 
 // ── SPECTER entry points (replace the retired surveillancehub.js / datachipreplay.js

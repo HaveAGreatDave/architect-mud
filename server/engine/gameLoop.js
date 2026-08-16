@@ -730,8 +730,18 @@ export async function handlePlayerDeath(player, killer, cause = null) {
     ? ` Killed by: ${killer.name}.`
     : (resolvedCause.type !== 'unknown' && resolvedCause.label ? ` Cause of death: ${resolvedCause.label}.` : '');
 
-  // No corpse when a plugin took custody of the body (the cops bagged your gear).
-  const { corpseId, corpseName } = respawnOverride
+  // No corpse ONLY when a plugin took literal custody of the body — the cops
+  // bagged your gear, so there is nothing left in the room to loot.
+  //
+  // ⚠ THIS KEYS ON `custody`, NOT ON "an override exists", AND THE DIFFERENCE IS
+  // LOAD-BEARING. It used to be `respawnOverride ? no corpse : ...`, which meant
+  // the Ascendant cortical restore — an override, but not an arrest — silently
+  // suppressed the corpse too. That gave a paid-up player's killer nothing, and
+  // it skipped spawnPlayerCorpse's credit-chip conversion below, so carried
+  // credits survived death for free. An Ascendant now dies like anybody else and
+  // leaves a body; what they pay for is the CLONE, not the bag. Any future hook
+  // that genuinely takes the body away must opt in by returning `custody: true`.
+  const { corpseId, corpseName } = respawnOverride?.custody
     ? { corpseId: null, corpseName: null }
     : await spawnPlayerCorpse(player, deathZone);
 
@@ -781,8 +791,10 @@ export async function handlePlayerDeath(player, killer, cause = null) {
 
   emit('player.respawn', { player });
 
-  // Notify others in the death zone that a corpse has appeared (skipped when a
-  // plugin took custody of the body — there's no corpse to loot).
+  // Notify others in the death zone that a corpse has appeared (skipped only
+  // when a plugin took custody of the body — there's no corpse to loot). This
+  // fires on the Ascendant restore path too, and is meant to: their killer gets
+  // the same lootable body anyone else leaves.
   if (corpseId) {
     const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(corpseName)}" title="Loot ${escAttr(corpseName)}">${corpseName}</span>`;
     broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
@@ -801,23 +813,38 @@ export async function handlePlayerDeath(player, killer, cause = null) {
   // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn.
   // On a jail override the body is already in custody, so dress it immediately;
   // on the normal vat path the dressing robot does it on a timed beat, along
-  // with the assimilation narration and the cloning bill. An override may set
-  // skipOutfit (the cortical-backup restore already re-hydrated the player's own
-  // wardrobe from the snapshot — don't dress them in starter kit on top of it).
+  // with the assimilation narration and the cloning bill. An override may still
+  // set skipOutfit if it dresses the player itself — nothing does today (the
+  // cortical restore used to, back when it rebuilt your wardrobe from a
+  // snapshot; it no longer touches inventory at all, so it takes the starter
+  // kit like everyone else rather than emerging naked).
   if (respawnOverride && !respawnOverride.skipOutfit) equipStarterOutfit(player.id, player.biological_sex || 'male');
   else if (!respawnOverride) scheduleVatEmergence(player);
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});
-  // `corpseId` and `claimed` ride along because a subscriber that wants to put
-  // something ON the body needs to know there IS one, and a subscriber that
-  // destroys state on death must not fire when somebody else took custody of the
-  // death — jail confiscating gear, or a cortical restore that is about to write
-  // the very rows back. Both are null/false on an ordinary death.
+  // `corpseId` rides along because a subscriber that wants to put something ON
+  // the body needs to know there IS one.
+  //
+  // The other three are about who owns this death. `custody` is the narrow one —
+  // somebody physically took the body, so state-destroying subscribers must not
+  // fire (jail confiscates gear; nothing is left to wreck). `claimed` is the
+  // broad one: ANY plugin returned a respawn override. They are deliberately
+  // different, because a cortical restore claims the death without taking the
+  // body, and it now WANTS corruption to run — the old chrome is destroyed for
+  // real and the vats re-print it from the pattern, which is what stops a
+  // restore conjuring an augment the player had already sold.
+  //
+  // `override` is the winning object itself, so a subscriber can tell whether it
+  // was the one that won. That matters because fireHook keeps only the LAST
+  // non-undefined return: a plugin whose hook ran can still have been overruled,
+  // and must not spend anything until it knows it wasn't.
   emit('player.death', {
     player, killer, cause: resolvedCause, deathZone,
     corpseId: corpseId || null,
     claimed: !!respawnOverride,
+    custody: !!respawnOverride?.custody,
+    override: respawnOverride || null,
   });
 
   player._dying = false; // respawn complete — a future death may process again

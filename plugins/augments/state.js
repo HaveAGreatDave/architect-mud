@@ -165,15 +165,42 @@ export function markDirty(player, augmentId) {
  *   overclock   — what you chose to risk. Output above spec, paid for in heat.
  *   condition   — how beaten up it is, in the SAME currency as a coat, reusing
  *     durability's own band penalty so "Battered" reads identically everywhere.
+ *
+ * `fidelity` is the fourth and it is not a property of the hardware — it is how
+ * good a COPY the body around it is, falling every time the Ascendant vats
+ * print you again (see reprint.js). It caps calibration rather than scaling it,
+ * so a degraded clone can still tune its chrome, just never to the top.
+ *
+ * ⚠ IT IS A SCALAR ARGUMENT, NOT A PLAYER. The comment on getAugments below
+ * explains why augScale must not learn whose body it is in, and that reasoning
+ * is unchanged — this passes the one number instead. It defaults to 100, which
+ * makes every existing call site arithmetically identical and preserves the
+ * migration invariant the suite asserts.
+ *
+ * ⚠ NEVER BAKED. player_augments.calibration is untouched, so re-scanning at
+ * the Registry restores the tuning the player already paid for, instantly. Bake
+ * the cap in and a re-scan becomes a repair bill instead of a product.
  */
-export function augScale(rec) {
+export function augScale(rec, fidelity = 100) {
   if (!rec) return 0;
   const cond = Math.max(0, Math.min(1, Number(rec.condition ?? 1)));
   if (cond <= 0) return 0;                       // dead: installed, inert, repairable
-  const cal = Math.max(0, Math.min(100, Number(rec.calibration ?? 100)));
+  const fid = Math.max(0, Math.min(100, Number(fidelity ?? 100)));
+  const cal = Math.min(Math.max(0, Math.min(100, Number(rec.calibration ?? 100))), fid);
   const oc = Math.max(0, Number(rec.overclock_level) || 0);
   const band = conditionBand(cond);
   return (0.5 + 0.5 * (cal / 100)) * (1 + 0.25 * oc) * (band?.penalty ?? 1);
+}
+
+/**
+ * How good a copy this body is, 0-100. Sync by contract and RAM-only — the
+ * player_backups column is just its backing store, hydrated at login and after
+ * every print. An unrestored player (and anyone who never bought in) is 100,
+ * which is the no-op.
+ */
+export function fidelityOf(player) {
+  const f = Number(player?._copyFidelity);
+  return Number.isFinite(f) ? Math.max(0, Math.min(100, f)) : 100;
 }
 
 /** True while an EMP has chrome knocked out. Memory-only, set by the weather plugin. */
@@ -196,7 +223,23 @@ export function chromeDown(player) {
  *
  * Sync by contract: nullAugmentDown reads RAM timestamps, never the database.
  */
+/**
+ * Whole-body reasons every piece of chrome is offline at once.
+ *
+ * A REGISTRY rather than an import, purely to keep the dependency arrow
+ * pointing one way: power.js needs rosterOf and catalogSync from this file, so
+ * this file importing power.js back would be a cycle. index.js wires them
+ * together, which is what it is for.
+ */
+const downPredicates = [];
+export function registerAugmentDown(fn) { if (typeof fn === 'function') downPredicates.push(fn); }
+function anyDown(player) {
+  for (const fn of downPredicates) { try { if (fn(player)) return true; } catch { /* never break a sync read */ } }
+  return false;
+}
+
 export function getAugments(player) {
+  if (anyDown(player)) return [];      // flat cell, and every derived read agrees
   const cache = catalogSync();
   const out = [];
   for (const rec of rosterOf(player).values()) {
@@ -226,7 +269,7 @@ export function augmentStatBonus(player, stat) {
   for (const { rec, aug } of getAugments(player)) {
     const mod = Number(aug.stat_modifiers?.[stat]);
     if (!mod) continue;
-    total += mod * augScale(rec);
+    total += mod * augScale(rec, fidelityOf(player));
   }
   return Math.round(total);
 }

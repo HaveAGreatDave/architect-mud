@@ -1,0 +1,19 @@
+{
+  "cost": 2200,
+  "description": "A sealed isotope cell that sits under the sternum and does nothing you can feel. Without one, chrome runs on whatever the body can spare, which is not much and was never meant to be. With one, you stop thinking about it — until the day you do.",
+  "failure_messages": {},
+  "heat_rate": 0.2,
+  "id": "aug_power_cell",
+  "install_difficulty": 7,
+  "item_id": "item_aug_power_cell",
+  "licensed": 1,
+  "name": "Sternal Power Cell",
+  "overclock_max": 0,
+  "power_draw": 0,
+  "salvage_item_id": "item_ruined_power_cell",
+  "slot": "torso",
+  "soak": {},
+  "stat_modifiers": {},
+  "tier": 2,
+  "visible": 0
+}

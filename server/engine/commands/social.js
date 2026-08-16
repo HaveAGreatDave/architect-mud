@@ -280,8 +280,13 @@ async function cmdWho() {
 
 const ANIMAL_KEYWORDS = ['cat', 'dog', 'kitten', 'puppy', 'hound', 'feline', 'canine', 'wolf', 'fox', 'rabbit', 'rat', 'bird', 'parrot', 'snake', 'lizard'];
 
-function isAnimal(name) {
-  const lower = name.toLowerCase();
+// `flags.animal` is the authored answer and beats the keyword list — the list is
+// a heuristic over names and cannot be right about a creature nobody called a
+// dog. It is also what the room pane's "Animals here:" row keys off (describe.js),
+// so a listed animal and a pettable one are the same set by construction.
+function isAnimal(entity) {
+  if (entity?.flags?.animal === true) return true;
+  const lower = String(entity?.name || '').toLowerCase();
   return ANIMAL_KEYWORDS.some(k => lower.includes(k));
 }
 
@@ -290,7 +295,7 @@ async function cmdPet(targetStr, player, broadcast) {
 
   const npcs    = getZoneNpcs(player.current_zone).map(n => ({ ...n, _kind: 'npc' }));
   const enemies = getZoneEnemies(player.current_zone).map(e => ({ ...e, _kind: 'enemy' }));
-  const animals = [...npcs, ...enemies].filter(e => isAnimal(e.name));
+  const animals = [...npcs, ...enemies].filter(isAnimal);
 
   if (!animals.length) return { type: 'error', message: "There's nothing here worth petting." };
 

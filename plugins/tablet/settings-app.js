@@ -28,6 +28,11 @@ async function buildScreen(player) {
 
 registerTabletApp({
   id: 'settings', name: 'Settings', icon: '⚙', category: 'System',
-  verbs: ['displaymode'],
+  // `accessibility` is a CLIENT verb (client/game/js/a11y-command.js), not one this
+  // plugin registers — but the text index lists things a player can type, and this
+  // is the one that matters most to the player reading it. A log-rung player who
+  // only ever sees `displaymode` here is told how to leave text mode and never told
+  // how to make text mode work.
+  verbs: ['accessibility', 'displaymode'],
   buildScreen,
 });

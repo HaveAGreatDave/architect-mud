@@ -441,9 +441,15 @@ export default async function regress({ run, check, getPlayer }) {
     // A renamed or removed command otherwise leaves the index quietly lying, and
     // the index is the only surface a log-rung player has.
     const known = new Set([...builtinCommandNames(), ...getRegisteredCommands()]);
+    // …with the exception of verbs the CLIENT answers and the server never sees.
+    // `handleClientCommand` (client/game/js/input.js) intercepts these before
+    // dispatch, so they are real things a player can type and have happen — they
+    // are simply absent from both server registries by construction. Covered
+    // instead by scripts/a11y/verb-smoke.mjs, which runs the real module.
+    const CLIENT_VERBS = new Set(['accessibility']);
     const declared = getTabletApps().flatMap(a => (a.verbs || []).map(v => ({ app: a.id, v })));
     check('apps declare verbs at all', declared.length > 20, String(declared.length));
-    const bogus = declared.filter(d => !known.has(d.v));
+    const bogus = declared.filter(d => !known.has(d.v) && !CLIENT_VERBS.has(d.v));
     check('every verb a tablet app advertises is registered',
       bogus.length === 0, bogus.map(d => `${d.app}:${d.v}`).join(', '));
 

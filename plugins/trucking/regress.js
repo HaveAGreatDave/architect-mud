@@ -1579,4 +1579,81 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── THE CB ─────────────────────────────────────────────────────────────────
+  // Three things have to hold, and all three are about the PARSE rather than the delivery: the
+  // radio's default action is talking (a set whose bare verb changed a setting would be absurd),
+  // the four control words are the only exceptions, and a channel is clamped to the band no matter
+  // what arrives. The fourth check is the one that would silently rot — every listener must be a
+  // rig that is actually on the air, so a set switched off can never be handed a transmission.
+  {
+    const savedRig = rigs.get(player.id);
+    const savedInCab = player._inCab;
+    try {
+      const { mountRig } = await import('./state.js');
+      const { cbTune, cbPower, cbSpeaker, cbStatus, cbTransmit, cbAudience, clampChan, CB_DEFAULT }
+        = await import('./cb.js');
+
+      mountRig(player, { x: 5, y: 5 });
+      const rig = rigs.get(player.id);
+
+      check('a fresh rig is on the channel everybody else starts on', rig.cbChan === CB_DEFAULT, String(rig.cbChan));
+      check('…with the set live and the speaker off', !rig.cbOff && !rig.cbSpeaker, `${rig.cbOff}/${rig.cbSpeaker}`);
+
+      check('the dial clamps below the band', clampChan(0) === 1, String(clampChan(0)));
+      check('…and above it', clampChan(999) === 40, String(clampChan(999)));
+      check('…and on nonsense falls back to 19', clampChan('banana') === CB_DEFAULT, String(clampChan('banana')));
+
+      cbTune(player, rig, 21);
+      check('tuning moves the set', rig.cbChan === 21, String(rig.cbChan));
+      check('…and tuning a dead set brings it back up', (cbPower(player, rig, false), cbTune(player, rig, 22), !rig.cbOff), 'still off');
+
+      cbSpeaker(player, rig, true);
+      check('the speaker latches on', rig.cbSpeaker === true, String(rig.cbSpeaker));
+      cbSpeaker(player, rig);
+      check('…and the bare switch toggles it back', rig.cbSpeaker === false, String(rig.cbSpeaker));
+
+      // Nobody else is on the air in a one-player test, so the audience is the honest zero — and
+      // that is exactly the case that must not throw, since it is every first drive ever made.
+      check('an empty channel counts nobody', cbAudience(rig) === 0, String(cbAudience(rig)));
+      // The set itself is never an audience member for its own transmission.
+      rig.cbChan = 19;
+      check('…and your own set is never in your own audience', cbAudience(rig) === 0, String(cbAudience(rig)));
+
+      // A set that is OFF is not a listener, which is the check that stops the radio quietly
+      // becoming a broadcast to everybody who ever mounted a truck.
+      rig.cbOff = true;
+      check('a set that is off hears nothing', cbAudience(rig) === 0, String(cbAudience(rig)));
+      const refused = cbTransmit(player, rig, 'anybody out there');
+      check('…and cannot transmit either', refused?.type === 'error', String(refused?.type));
+      rig.cbOff = false;
+
+      // The limiter is a real gate, not a decoration: two lines back to back must not both go.
+      rig.cbSentAt = 0;
+      const first = cbTransmit(player, rig, 'first');
+      const second = cbTransmit(player, rig, 'second');
+      check('a transmission goes out', first?.type === 'noop', String(first?.type));
+      check('…and the mic will not key twice in a second', second?.type === 'error', String(second?.type));
+
+      // HTML in a player's mouth stays in the player's mouth. This is the only place the radio
+      // takes arbitrary text and puts it on somebody else's screen.
+      rig.cbSentAt = 0;
+      const sent = [];
+      const savedBc4 = getBroadcast();
+      setBroadcast((_zone, m) => { if (m?.type === 'cb_msg') sent.push(m); });
+      cbTransmit(player, rig, '<img src=x onerror=alert(1)>');
+      setBroadcast(savedBc4);
+      check('a transmission cannot carry markup',
+        sent.length === 1 && !/<img/.test(sent[0].message) && /&lt;img/.test(sent[0].message),
+        JSON.stringify(sent[0]?.message));
+      check('…and the sender hears their own set', sent[0]?.self === true, String(sent[0]?.self));
+
+      const status = cbStatus(player, rig);
+      check('the status line names the channel it is on', /channel <b>19<\/b>/.test(status.message), status.message);
+      check('…and carries the state the cab paints from', status.cb?.chan === 19 && status.cb?.on === true, JSON.stringify(status.cb));
+    } finally {
+      if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
+      player._inCab = savedInCab;
+    }
+  }
+
 }

@@ -98,6 +98,11 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
     // checkbox on the depot panel.
     trailer: null,
     lastSync: Date.now(), started: Date.now(), bogged: false, blocked: 0,
+    // THE RADIO. It lives on the rig and nowhere else (see cb.js) — mounting puts you on the air
+    // and dismounting takes you off, with no membership state anywhere to fall out of step with
+    // where you actually are. 19 because that is where everybody else starts, which is the only
+    // reason a channel number is ever the right default.
+    cbChan: 19, cbSpeaker: false,
     // corridor half — filled in by joinCorridor when the rig leaves the map
     route: null, chain: null, instanceId: null, destKey: null, dest: null, s: 0, t: 0, node: 0,
   };
@@ -517,6 +522,10 @@ export function cabContext(rig, extra = {}) {
     // The cab clamps its own throttle on both of these for the feel; the server clamps the speed
     // for the truth. Same split as `dry`, which is the shape this followed deliberately.
     broken: rig.broken ? rig.broken.kind : null,
+    // The radio's three switches, so the cab's knob is a VIEW of the set rather than a second copy
+    // of it: every path that changes the radio (the verb, the knob, mounting a different truck)
+    // ends up here, and the panel paints whatever arrives.
+    cb: { on: !rig.cbOff, chan: rig.cbChan ?? 19, spk: !!rig.cbSpeaker },
     paint: rig.cd?.paint || null,
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at

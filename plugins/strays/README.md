@@ -99,7 +99,7 @@ add an answer, the stray stops being a stray and becomes a quest.
 
 **She is not cute at the player.** She is busy, and you are allowed to watch.
 
-**Eight of the 32 behaviours are just a cat being a cat.** They are not filler.
+**Eight of the 37 behaviours are just a cat being a cat.** They are not filler.
 Without them every appearance is A Bionic Paw Moment and the animal reads as a
 mechanism with fur on it. Do not trim them to make room for cleverer ones —
 `regress.js` asserts `loaf` and `groom` survive.

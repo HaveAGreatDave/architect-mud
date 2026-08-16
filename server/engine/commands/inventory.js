@@ -20,7 +20,7 @@ import { sendToPlayer } from '../messaging.js';
 import { sectionize, facetOf, AXIS_ORDER, storageFacet } from '../classify.js';
 import { runEquipGates } from '../equip-gates.js';
 import { loggedPanelsSync } from '../presentation.js';
-import { conditionBand, wears } from '../durability.js';
+import { conditionBand, effectiveCondition, wears } from '../durability.js';
 import { adjustSanity } from '../condition.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
@@ -306,6 +306,57 @@ async function cmdGear(player) {
   }
   const weight = await computeCarriedWeight(player);
   return { type:'gear', items:rows, soak:player.soak||{}, effects, weight, capacity:carryCapacity(player), credits:player.credits||0 };
+}
+
+// ⚠ The log-rung branch is on the VERB, never in cmdGear itself. `cmdGear` is a
+// DATA function with a second caller — plugins/tablet/gear-app.js reads `.items`,
+// `.soak` and `.effects` off it — so returning a `{type:'output', message}` from
+// inside it silently breaks the tablet's Gear app for exactly the players this
+// change is for. Text forms belong at the edge; the thing that computes the data
+// keeps computing the data.
+export function gearReply(view, player) {
+  if (!view || view.type !== 'gear' || !loggedPanelsSync(player)) return view;
+  return { type: 'output', message: renderGearText(view) };
+}
+
+// `gear` at the log rung returned a payload with no `message`, so the verb was
+// SILENT — see the note on renderSkillsText in commands/world.js; same breach of
+// the same contract, and this one is a verb the log-mode tutorial actively
+// teaches, so a player was being told to type something that did nothing.
+//
+// Worn items are listed before carried ones because that is the order the question
+// is usually asked in ("what have I got on"), and each keeps its condition band —
+// the band is the whole of durability's player-facing surface, and a list that
+// dropped it would be the one place gear is read without it.
+function renderGearText(view) {
+  const worn = view.items.filter(i => i.is_equipped);
+  const held = view.items.filter(i => !i.is_equipped);
+  const line = (i) => {
+    const bits = [];
+    if (i.slot) bits.push(String(i.slot));
+    // Derived, not stored — `condition` is the real column and the band comes from
+    // `effectiveCondition` (server/engine/durability.js), which is what accounts for
+    // a reinforced repair. A `condition_band` field does not exist; reading one
+    // would silently render nothing forever. `conditionBand` returns the band
+    // OBJECT, so the label has to be taken off it.
+    //
+    // The top two bands are mechanically free (penalty 1.00), so they are omitted:
+    // printing "Pristine" beside every item is noise that buries the one line that
+    // matters, which is the coat reading Failing.
+    const band = conditionBand(effectiveCondition(i, null));
+    if (band && band.penalty < 1) bits.push(band.label);
+    if (i.quantity > 1) bits.push(`×${i.quantity}`);
+    return `  ${String(i.name)}${bits.length ? ` <span class="text-dim">(${bits.join(', ')})</span>` : ''}`;
+  };
+  const out = ['<span class="help-header">GEAR</span>'];
+  out.push(`<span class="text-dim">${formatWeight(view.weight)} of ${formatWeight(view.capacity)} carried · ₵${view.credits}</span>`);
+  out.push(`\n<span class="help-category">WORN</span>`);
+  out.push(worn.length ? worn.map(line).join('\n') : '  <span class="text-dim">Nothing.</span>');
+  out.push(`\n<span class="help-category">CARRIED</span>`);
+  out.push(held.length ? held.map(line).join('\n') : '  <span class="text-dim">Nothing.</span>');
+  const soak = Object.entries(view.soak || {}).filter(([, v]) => Number(v) > 0);
+  if (soak.length) out.push(`\n<span class="help-category">PROTECTION</span>\n  ${soak.map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  return out.join('\n');
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }
@@ -1999,7 +2050,7 @@ function splitOn(str, sep) {
 
 export const handlers = {
   inventory: (args, raw, player) => cmdInventory(player),
-  gear: (args, raw, player) => cmdGear(player),
+  gear: async (args, raw, player) => gearReply(await cmdGear(player), player),
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),

@@ -79,6 +79,19 @@ export const A11Y_OPTIONS = [
     opts: [{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }],
   },
   {
+    // ⚠ NO `def` — TRI-STATE, for the same reason sfxDetail is (see below), and it
+    // is worth spelling out because the failure mode here is nastier. Give this a
+    // default and `accessibility reset` writes 'visual', which throws a screen-reader
+    // player out of the readable tablet and back into the simulated one — using the
+    // escape hatch that exists for when you have just made things unusable. The
+    // derived answer follows the rung instead, so log mode gets the document tablet
+    // with nothing configured, and reset leaves that intact.
+    key: 'tabletMode', label: 'Tablet Style', verb: 'tablet',
+    resolve: (settings, ctx) => tabletStyle(settings, ctx?.displayRung),
+    why: 'Screen is the simulated device — tiles, pages, animation. Document replaces it with a plain dialog you move through with Tab, with real headings, lists and buttons: the same tablet, built to be read rather than looked at. Document is the default if you play in log mode. Neither is required — every tablet app also has a verb you can simply type, and `tablet verbs` lists them.',
+    opts: [{ v: 'visual', t: 'Screen' }, { v: 'accessible', t: 'Document' }],
+  },
+  {
     // ⚠ NO `def`. This option is deliberately TRI-STATE — see sfxDetail() below.
     // Giving it a default would store a value for everybody and destroy the
     // never-chosen state the derived default depends on.
@@ -111,6 +124,17 @@ export const A11Y_OPTIONS = [
 // forever after, at every rung. `accessibility reset` must DELETE the key rather
 // than write 'limited', or a log-rung player who resets is quietly demoted off the
 // tier the reset was supposed to restore.
+// Tablet Style: chosen wins, never-chosen is DERIVED — the same tri-state as
+// sfxDetail below, and for the same reason. A player at the `log` rung cannot use
+// a simulated touchscreen, so the readable tablet is what they should get without
+// having to find a setting; everybody else gets today's tablet, unchanged. Storing
+// that at login would be a WRITE, and a write cannot be told apart from a choice.
+export function tabletStyle(settings, displayRung) {
+  const v = settings?.tabletMode;
+  if (v === 'visual' || v === 'accessible') return v;
+  return displayRung === 'log' ? 'accessible' : 'visual';
+}
+
 export function sfxDetail(settings, displayRung) {
   const v = settings?.sfxDetail;
   if (v === 'off' || v === 'limited' || v === 'full') return v;

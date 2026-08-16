@@ -61,6 +61,29 @@
   #header .logo { color: var(--accent); font-size: 14px; letter-spacing: 4px; }
   #header .logo span { color: var(--orange); }
   #header .sub { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
+  /* Platform credit. It takes the margin-left:auto so it and the theme picker
+     sit together on the right; dimmer than .sub, since the subtitle says what
+     this tool does and this only says what it is built on. */
+  #header .thomas-badge { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    cursor: pointer; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    user-select: none; color: var(--text-dim); opacity: .5; transition: opacity .15s, color .15s; }
+  #header .thomas-badge:hover { opacity: 1; color: var(--accent); }
+  #header .thomas-badge svg { width: 13px; height: 13px; flex: none; }
+  /* Click payoff, same as the dev panel's: the mark takes the accent and burns
+     off. drop-shadow so the glow hangs off the logo strokes, not the words. */
+  #header .thomas-badge.lit svg { animation: thomas-glow 1.1s ease-out; }
+  @keyframes thomas-glow {
+    0%   { color: var(--accent); filter: drop-shadow(0 0 7px var(--accent)); transform: scale(1.18); }
+    35%  { color: var(--accent); filter: drop-shadow(0 0 5px var(--accent)); transform: scale(1); }
+    100% { color: inherit; filter: none; transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #header .thomas-badge.lit svg { animation: thomas-glow-flat 1.1s ease-out; }
+    @keyframes thomas-glow-flat { 0% { color: var(--accent); } 100% { color: inherit; } }
+  }
+  /* #themepick carries its own margin-left:auto; leaving both would SPLIT the
+     free space and strand the badge mid-header instead of beside the picker. */
+  #header .thomas-badge ~ #themepick { margin-left: 0; }
   aside, section { overflow-y: auto; }
   aside { background: var(--bg2); border-right: 1px solid var(--border); padding: 10px; overflow-x: hidden; }
   section#inspector { background: var(--bg2); border-left: 1px solid var(--border); padding: 10px; }
@@ -280,6 +303,19 @@
 <div id="header">
   <div class="logo">ARCHITECT <span>STUDIO</span></div>
   <div class="sub">map authoring — files, not database</div>
+  <!-- Platform credit, matching the dev panel's exactly — same mark, same click
+       glow, same deliberate absence of a link (see the note in
+       client/devpanel/index.html). The Studio edits content/ for a THOMAS world,
+       so it names the platform rather than the game. Pushed to the right of the
+       header, ahead of the theme picker, so it reads as chrome. -->
+  <span class="thomas-badge" title="THOMAS — the platform this world runs on"
+        onclick="this.classList.remove('lit'); void this.offsetWidth; this.classList.add('lit')">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round">
+        <path d="M60 8 L112 37 L60 66 L8 37 Z"/>
+        <path d="M38 46 L60 58 L82 46 L82 84 L60 96 L38 84 Z"/>
+      </g>
+    </svg>Powered by THOMAS</span>
   <div id="themepick"><label for="theme">Theme</label><select id="theme"></select></div>
 </div>
 <aside>

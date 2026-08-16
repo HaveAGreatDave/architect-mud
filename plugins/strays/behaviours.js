@@ -20,6 +20,12 @@
 // minimal ctx (regress calls every gate with an empty-ish one), and a `line`
 // that returns a full sentence with no leading name — the tick broadcasts the
 // string exactly as returned.
+//
+// A behaviour may ALSO carry `you(ctx)`, a second-person line for `ctx.player`.
+// When it does, index.js sends that to the focus player and broadcasts `line` to
+// everybody else, so a thing done TO somebody reads as done to them rather than
+// as a caption about them. `line` must still stand alone: the focus player can
+// leave between the pick and the send, and then only the room line goes out.
 
 // ctx = { cat, zone, zoneId, players, player, env, furniture, mood, tier, name }
 
@@ -135,6 +141,31 @@ export const BEHAVIOURS = [
   {
     key: 'seek_gift', weight: 10, gate: (c) => c.mood === 'seek' && (c.pets || 0) >= 10,
     line: (c) => `${c.name} carries a bottle cap over in the steel paw, sets it down in front of ${handleOf(c)} with some ceremony, and steps back to watch them receive it.`,
+  },
+  // ── Cuddling up ───────────────────────────────────────────────────────────
+  // The one thing it does that is unambiguously affection, and the only reason
+  // it is not restricted to regulars is that a cat deciding you are furniture is
+  // not a reward, it is a cat being warm. `neutral` is "we have met and it went
+  // fine", which is exactly the bar. `wary` and `flee` are excluded: a stranger
+  // does not get leaned on, and a killer is handled long before this table.
+  {
+    key: 'cuddle_lean', weight: 18,
+    gate: (c) => (c.mood === 'neutral' || c.mood === 'seek') && !!c.player,
+    line: (c) => `${c.name} crosses to ${handleOf(c)}, turns twice, and settles hard against their leg with its whole weight behind it.`,
+    you: (c) => `${c.name} crosses to you, turns twice, and settles against your leg with its whole weight behind it. The steel paw ends up flat on your boot, warm from being walked on.`,
+  },
+  {
+    key: 'cuddle_lap', weight: 12,
+    gate: (c) => (c.mood === 'neutral' || c.mood === 'seek') && !!c.player &&
+      (c.player.posture === 'sitting' || c.player.posture === 'lying'),
+    line: (c) => `${c.name} steps up onto ${handleOf(c)} without asking, kneads once, and folds itself down into a shape that clearly intends to stay there.`,
+    you: (c) => `${c.name} steps up onto you without asking, kneads once — push, push, thump — and folds down into your lap, purring, entirely committed.`,
+  },
+  {
+    key: 'cuddle_headbutt', weight: 10,
+    gate: (c) => c.mood === 'seek' && !!c.player,
+    line: (c) => `${c.name} winds a full circle around ${handleOf(c)}'s ankles, pressing the length of itself along them, and comes back round for a second lap.`,
+    you: (c) => `${c.name} winds around your ankles, pressing the whole length of itself along your shins, and comes back round for a second lap in case you missed it.`,
   },
   {
     key: 'neutral_recognise', weight: 16, gate: (c) => c.mood === 'neutral',

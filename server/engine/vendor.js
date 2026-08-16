@@ -281,6 +281,36 @@ export async function getVendorStock(npc, playerId, shelfKey = null) {
 //
 // It lists BUYING only. Selling has always been a verb (`sell <item>`) against
 // your own inventory, which the log rung can already read.
+/**
+ * The same shelf as a generic list-dialog payload (client/game/js/panels/listdialog.js).
+ *
+ * This replaces the 68-line log dump at the bottom rung — a shelf is a CONTROL, not
+ * a record: you act on it, and the next thing you type means something different
+ * because a shop session is open. See the decision recorded in listdialog.js.
+ *
+ * It reads the SAME `getVendorStock` result renderShopText does, and keeps its
+ * grouping, so the written shelf, the dialog and the panel cannot disagree about
+ * what is for sale.
+ */
+export function shopDialogPayload(npc, stock, credits) {
+  return {
+    type: 'list_dialog',
+    title: npc.name,
+    subtitle: `₵${credits || 0} on you`,
+    rows: stock.map(e => ({
+      group: e.group || null,
+      label: e.name,
+      detail: [
+        e.discounted ? `${e.price}₵ (was ${e.base_price}₵)` : `${e.price}₵`,
+        e.stock < 99 ? `${e.stock} left` : null,
+        e.wanted ? 'on your list' : null,
+      ].filter(Boolean).join(' · '),
+      command: `buy ${e.name}`,
+    })),
+    footer: `buy <item> · sell <item> · shop ${npc.name} to re-open`,
+  };
+}
+
 export function renderShopText(npc, stock, credits) {
   const lines = [`<b>${npc.name}</b> — <span class="text-dim">${(credits || 0)}₵ on you</span>`];
   if (!stock.length) return `${lines[0]}\nNothing on the shelf right now.`;

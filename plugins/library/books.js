@@ -220,12 +220,44 @@ export function comicPlain(text) {
 //
 // Split on blank lines and fill up to PAGE_CHARS, never breaking a paragraph:
 // prose is not a fixed-width medium and a page that ends mid-sentence reads as a
-// bug. A single paragraph longer than the budget is its own page rather than
-// being cut — better one long page than a sentence sawn in half.
+// bug.
+//
+// ⚠ "A long paragraph is its own page" USED TO BE THE WHOLE RULE, and it had no
+// ceiling — which quietly made this function's own stated purpose untrue. Some
+// prose is one unbroken paragraph for pages at a time: `book_machine_stops`
+// chapter 1 is a single paragraph, so the typed reader served **24,992 characters
+// in one push**, into a live region, which is precisely the "unstoppable wall"
+// described above. 33 pages across the shelf were over 3,000 characters.
+//
+// So the paragraph rule now has a floor under it: past HARD_CHARS a paragraph is
+// split at SENTENCE boundaries. The original intent survives intact — a page
+// still never ends mid-sentence, and a paragraph short enough to hold together
+// still does. Only prose that would otherwise be unreadable is touched, and a
+// single sentence longer than the budget is still served whole, because there is
+// no honest place left to cut.
 export const PAGE_CHARS = 1400;
+export const HARD_CHARS = 3000;
+
+// Sentence ends: ., ! or ? followed by a closing quote/bracket and whitespace.
+// Kept deliberately conservative — a false split mid-sentence is the one outcome
+// worse than a long page, so an abbreviation that fools it costs nothing but an
+// early break.
+function splitLongParagraph(p) {
+  if (p.length <= HARD_CHARS) return [p];
+  const sentences = p.match(/[^.!?]+[.!?]+["'”’)\]]*\s*/g) || [p];
+  const out = [];
+  let cur = '';
+  for (const s of sentences) {
+    if (cur && cur.length + s.length > PAGE_CHARS) { out.push(cur.trim()); cur = ''; }
+    cur += s;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out.length ? out : [p];
+}
 
 export function paginate(text) {
-  const paras = String(text || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  const paras = String(text || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .flatMap(splitLongParagraph);
   const pages = [];
   let cur = [];
   let len = 0;

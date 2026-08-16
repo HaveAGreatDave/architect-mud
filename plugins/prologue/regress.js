@@ -271,9 +271,18 @@ export default async function regress({ check }) {
   const { getRegisteredCommands } = await import('../../server/engine/plugins.js');
   const { builtinCommandNames } = await import('../../server/engine/commands/index.js');
   const verbs = new Set([...getRegisteredCommands(), ...builtinCommandNames()]);
+  // Client verbs (client/game/js/input.js `handleClientCommand`) never reach
+  // dispatch and so appear in neither registry, but are typeable and do something.
+  const CLIENT_VERBS = new Set(['accessibility']);
   const offered = [...tourText.matchAll(/data-cmd="([^"]+)"/g)].map(m => m[1].split(' ')[0]);
-  const dead = offered.filter(v => !verbs.has(v));
+  const dead = offered.filter(v => !verbs.has(v) && !CLIENT_VERBS.has(v));
   check('every verb the spoken tour offers is registered', dead.length === 0, dead.join(', '));
+
+  // The settings surface is the reason this rung is usable at all, and it was
+  // absent from the tour for months: the player was told how to LEAVE text mode
+  // and never how to make text mode work. That omission read to a blind player as
+  // "settings doesn't work at all", so its presence is now an assertion.
+  check('the spoken tour names the accessibility verb', /data-cmd="accessibility"/.test(tourText));
 
   // At the bottom rung the tour is OURS to speak: `tutorial` must not hand off to
   // a client walkthrough that spotlights panels this player never receives.

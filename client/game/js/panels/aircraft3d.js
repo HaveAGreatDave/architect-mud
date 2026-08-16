@@ -4503,6 +4503,27 @@ export function drawHangarFloorBay(ctx, opts) {
 // thumbnails. `entries = [{ id, cls, livery, wreck, tint, label }]`. Returns the
 // screen-space hit circle for each entry so the caller can do click-to-select on
 // the one canvas (there's no per-plane DOM element to attach a listener to).
+// Resolve a click on a floor canvas to one of drawHangarScene's hit records. Silhouette boxes win
+// over the footprint circles, and the NEAREST box wins when two overlap — a rig parked behind
+// another is exactly the case where the one in front is what you meant. The circle is only reached
+// when nothing was drawn for that machine, so a click near a bay is never simply ignored.
+export function pickSceneHit(hits, x, y) {
+  let best = null, bestZ = Infinity;
+  for (const h of hits) {
+    if (h.x0 === undefined) continue;
+    if (x < h.x0 || x > h.x1 || y < h.y0 || y > h.y1) continue;
+    const z = h.z ?? 0;
+    if (z < bestZ) { bestZ = z; best = h; }
+  }
+  if (best) return best;
+  let bd = Infinity;
+  for (const h of hits) {
+    const d = Math.hypot(x - h.sx, y - h.sy);
+    if (d <= (h.r || 40) && d < bd) { bd = d; best = h; }
+  }
+  return best;
+}
+
 export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }) {
   ctx.clearRect(0, 0, w, h);
   const n = entries.length;
@@ -4629,7 +4650,20 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // The click target is the machine's own on-screen size — a fixed fraction of the focal made
     // every truck's circle overlap its neighbours', since a rig is a quarter of an airframe wide.
     const bb = bounds[i], half = Math.max(bb.hi[0] - bb.lo[0], bb.hi[1] - bb.lo[1]) * 0.25;
-    hits.push({ id: e.id, sx: origin.sx, sy: origin.sy, r: Math.max(26, focal / origin.z * half) });
+    // Two click targets, not one. The circle is centred on the machine's FOOTPRINT at floor level and
+    // sized off a quarter of its longest axis — fine as a fallback, wrong as the whole answer for
+    // anything longer than it is wide: on a rig it covers the middle of the chassis and misses both
+    // the cab you were actually aiming at and the body standing well above H=0. So the real target is
+    // the silhouette's own screen-space box, taken from the faces that were just projected — it is
+    // exactly the pixels the player can see, at no extra projection cost.
+    let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
+    for (const rec of drawn) for (const q of rec.P) {
+      if (q.sx < bx0) bx0 = q.sx; if (q.sx > bx1) bx1 = q.sx;
+      if (q.sy < by0) by0 = q.sy; if (q.sy > by1) by1 = q.sy;
+    }
+    const hit = { id: e.id, sx: origin.sx, sy: origin.sy, z: origin.z, r: Math.max(26, focal / origin.z * half) };
+    if (bx0 < bx1) { hit.x0 = bx0; hit.y0 = by0; hit.x1 = bx1; hit.y1 = by1; }
+    hits.push(hit);
     return { entry: e, faces: drawn.filter(Boolean), avgZ: proj(0, laneG, 0).z, laneG, origin, selected, sc, jazzImg, tilt };
   });
 

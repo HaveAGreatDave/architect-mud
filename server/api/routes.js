@@ -2472,25 +2472,38 @@ async function apiGetActivityLog() {
   const {rows} = await query(`SELECT event_type, handle, admin_handle, occurred_at FROM server_activity_log ORDER BY occurred_at DESC LIMIT 50`);
   return {status:200, body:{rows}};
 }
+const PCL_RANGES = {
+  '7d':  { bucket: '5 minutes',  days: 7  },
+  '30d': { bucket: '15 minutes', days: 30 },
+  'all': { bucket: '1 hour',     days: null },
+};
 async function apiGetPlayerCountLog(fullUrl) {
-  const range = new URL('http://x' + (fullUrl||'')).searchParams.get('range') || '7d';
-  // For long ranges the 1-minute samples are too dense to chart raw, so bucket
-  // them server-side (max concurrent per bucket keeps peaks visible).
-  if (range === 'all' || range === '30d') {
-    const window = range === 'all' ? null : `NOW() - INTERVAL '30 days'`;
-    const bucket = range === 'all' ? '1 hour' : '15 minutes';
-    const {rows} = await query(
-      `SELECT date_bin($1, recorded_at, TIMESTAMPTZ 'epoch') AS recorded_at, MAX(count)::int AS count
-         FROM player_count_log
-         ${window ? `WHERE recorded_at >= ${window}` : ''}
-        GROUP BY 1 ORDER BY 1 ASC`,
-      [bucket]
-    );
-    return {status:200, body:{rows}};
-  }
+  const key = new URL('http://x' + (fullUrl||'')).searchParams.get('range') || '7d';
+  const { bucket, days } = PCL_RANGES[key] || PCL_RANGES['7d'];
+  // '-infinity' for 'all' keeps one query shape: GREATEST() then just picks the
+  // oldest sample we actually have.
+  const since = days === null ? '-infinity'
+    : new Date(Date.now() - days * 86400000).toISOString();
+  // The sampler is idle-gated (scheduler.js), so it writes NO row while the
+  // world is empty — an absent bucket IS zero, and reading only the rows that
+  // exist made the chart look like it never dropped below one player. So walk
+  // a complete series of buckets and left-join the samples onto it: gaps come
+  // back as real zeroes rather than being silently closed up.
+  // MAX per bucket, not AVG — a peak-concurrent chart must keep its peaks.
   const {rows} = await query(
-    `SELECT recorded_at, count FROM player_count_log
-      WHERE recorded_at >= NOW() - INTERVAL '7 days' ORDER BY recorded_at ASC`
+    `WITH bounds AS (
+       SELECT date_bin($1, GREATEST(MIN(recorded_at), $2::timestamptz), TIMESTAMPTZ 'epoch') AS lo,
+              date_bin($1, NOW(), TIMESTAMPTZ 'epoch') AS hi
+         FROM player_count_log
+     ),
+     series AS (SELECT generate_series(lo, hi, $1::interval) AS b FROM bounds),
+     samples AS (
+       SELECT date_bin($1, recorded_at, TIMESTAMPTZ 'epoch') AS b, MAX(count)::int AS count
+         FROM player_count_log WHERE recorded_at >= $2::timestamptz GROUP BY 1
+     )
+     SELECT s.b AS recorded_at, COALESCE(x.count, 0) AS count
+       FROM series s LEFT JOIN samples x USING (b) ORDER BY 1 ASC`,
+    [bucket, since]
   );
   return {status:200, body:{rows}};
 }

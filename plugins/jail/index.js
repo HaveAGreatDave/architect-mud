@@ -369,7 +369,12 @@ async function onRespawnZone(player, killer) {
   if (getZone(player.current_zone)?.flags?.lawless) return undefined;
   const r = await bookIntoCell(player, { teleport: false });
   if (!r.booked) return undefined;   // clean death → normal clone-vat respawn
-  return { zone: r.zone, message: r.message };
+  // `custody: true` is what suppresses the lootable corpse in handlePlayerDeath.
+  // It is an explicit opt-in rather than a side effect of returning an override,
+  // because the OTHER override in the game (the Ascendant cortical restore)
+  // deliberately leaves a body. We took the gear off them ourselves, upstairs in
+  // bookIntoCell, so there is genuinely nothing on the floor here.
+  return { zone: r.zone, message: r.message, custody: true };
 }
 
 // ── Conceal: hide contraband from a search ────────────────────────────────────

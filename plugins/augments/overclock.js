@@ -26,7 +26,9 @@
  *      any overclockable augment that leans on it.
  */
 import { sendToPlayer } from '../../server/engine/messaging.js';
+import { applyStrikeToPlayer } from '../../server/engine/combat.js';
 import { rosterOf, catalogSync, markDirty, persistRec, chromeDown, recordOf } from './state.js';
+import { restamp } from './power.js';
 
 // What each kind of exertion costs a piece of chrome at overclock 0. Scaled by
 // the augment's authored heat_rate, so a neural co-processor barely notices a
@@ -129,14 +131,43 @@ export function onStrain(player, event) {
 }
 
 /**
- * A fault. Damages the hardware, drops it out of overclock, and says what
- * happened IN THE HARDWARE'S OWN WORDS. The condition hit is real and immediate
- * rather than pending, because the player is being told about it right now and
- * the number they check next must agree with the sentence they just read.
+ * How hard a fault hits the BODY, not the hardware.
+ *
+ * Exported so the suite can assert the bounds without mocking combat — the
+ * strike itself runs a part roll and typed soak, which is exactly the machinery
+ * we don't want a test standing in for.
+ *
+ * Damage type comes off the augment's existing slot rather than a new authored
+ * field: a neural or optic failure dumps current, an actuation failure is a
+ * mechanism tearing. Nothing needed re-authoring for this.
+ */
+export function faultHarm(aug, overclockLevel) {
+  const oc = Math.max(0, Number(overclockLevel) || 0);
+  const slot = String(aug?.slot || '');
+  const damageType = (slot === 'neural' || slot === 'optic' || slot === 'sensory') ? 'energy' : 'kinetic';
+  return { min: 3 + 2 * oc, max: 7 + 4 * oc, damageType };
+}
+
+/**
+ * A fault. Damages the hardware, drops it out of overclock, HURTS YOU, and says
+ * what happened IN THE HARDWARE'S OWN WORDS. The condition hit is real and
+ * immediate rather than pending, because the player is being told about it right
+ * now and the number they check next must agree with the sentence they just read.
+ *
+ * ⚠ THE HARM IS FLOORED BELOW THE CEILING AND UNFLOORED AT IT, AND THAT IS THE
+ * WHOLE FACTION ARGUMENT. Running inside what the hardware was rated for hurts
+ * but cannot kill you. Running at `overclock_max` — the top of what the casting
+ * will take — can, and for back-alley chrome (which ships a ceiling of 3 where
+ * licensed ships 0-1) that is a genuinely dangerous place to live. It is also
+ * precisely what the Ascendant cortical policy is FOR: their answer to a lethal
+ * failure mode is not a safer part, it is a second body. Take the floor off the
+ * lower levels and overclocking becomes a coin flip nobody sane accepts; leave
+ * it on at the top and the restore has nothing to insure against.
  */
 export function fireFault(player, rec, aug) {
   const before = Number(rec.condition ?? 1);
-  const hit = 0.08 + Math.random() * 0.12 + 0.03 * (Number(rec.overclock_level) || 0);
+  const ocWas = Number(rec.overclock_level) || 0;
+  const hit = 0.08 + Math.random() * 0.12 + 0.03 * ocWas;
   rec.condition = Math.max(0, before - hit);
   rec.overclock_level = 0;                 // it drops out of spec-breaking on its own
   markDirty(player, rec.augment_id);
@@ -154,7 +185,44 @@ export function fireFault(player, rec, aug) {
     sendToPlayer(player.id, { type: 'output', message:
       `<span class="outcast-warning">Your ${aug.name} is dead weight now. It is still in you; it is just not doing anything. A surgeon can bring it back.</span>` });
   }
-  return { key, condition: rec.condition };
+
+  // And it takes it out of you. Routed through applyStrikeToPlayer rather than
+  // written onto player.hp, so the part roll, typed soak and the damage
+  // observers injury hangs its wounds off all happen — a plugin writing hp
+  // directly skips every one of them (see the note on applyStrikeToEnemy).
+  //
+  // ⚠ THIS IS THE ONE AWAIT-SHAPED THING ON A SYNC PATH. onStrain is sync by
+  // contract (rule 2 at the top of this file) and calls us per swing, so the
+  // strike is deliberately DETACHED rather than awaited. Nothing downstream
+  // reads its result, and lethality is routed here because combat.js leaves
+  // player deaths for the caller to own.
+  const capped = Math.max(0, Number(aug?.overclock_max) || 0);
+  const floored = ocWas < capped;      // inside spec: it can hurt, never kill
+  const hpBefore = player.hp ?? player.hp_max ?? 100;
+
+  // ⚠ NOTHING STRIKES A BODY THAT IS ALREADY GONE. The strike is detached, so
+  // it resolves some time after the swing that caused it — and a fault rolled
+  // on the blow that killed you would otherwise land on a corpse mid-respawn,
+  // or on the fresh clone that replaced it. `_dying` is the engine's own
+  // re-entrancy flag for exactly this window.
+  if (player._dying || hpBefore <= 0) return { key, condition: rec.condition, harm: null, floored };
+
+  applyStrikeToPlayer(player, faultHarm(aug, ocWas)).then(async (r) => {
+    if (!r) return;
+    if (floored && player.hp <= 0) {
+      player.hp = Math.min(1, hpBefore);   // a body already at 0 is not resurrected
+      player._resDirty = true;
+      return;
+    }
+    if (player.hp > 0) return;
+    const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
+    await handlePlayerDeath(player, null, {
+      type: 'augment_fault',
+      label: `Killed by their own ${aug.name}`,
+    });
+  }).catch(e => console.warn('[augments] fault harm failed', e.message));
+
+  return { key, condition: rec.condition, harm: faultHarm(aug, ocWas), floored };
 }
 
 /**
@@ -208,6 +276,10 @@ export async function cmdOverclock(args, raw, player) {
   }
 
   const prev = rec.overclock_level || 0;
+  // Bank the charge burned at the OLD rate before the new one applies —
+  // otherwise the hours since the last stamp are billed at whichever level the
+  // player happens to be sitting at now. See the restamp note in power.js.
+  restamp(player);
   rec.overclock_level = level;
   await persistRec(player, aug.id);   // deliberate act; written through, not queued
 

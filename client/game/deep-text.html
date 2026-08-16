@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — Part four: the deep end (text edition)</title>
+<meta name="description" content="A plain-text, screen-reader-first edition of part four: client automation, protection rackets, the chemical trade, trading cards and long-haul trucking.">
+<style>
+  :root{ color-scheme:light dark; --bg:#fff; --ink:#14181d; --dim:#4a545f; --rule:#c8d0d8; --link:#0b5fa5; --code:#f0f3f6; }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0e12; --ink:#e6edf3; --dim:#a4b1bd; --rule:#2b343d; --link:#7cc4ff; --code:#161c23; }
+  }
+  body{ background:var(--bg); color:var(--ink); margin:0 auto; max-width:44rem; padding:1.5rem 1.25rem 5rem;
+        font:1.05rem/1.65 Georgia,"Times New Roman",serif; }
+  h1,h2,h3{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.25; }
+  h1{ font-size:1.7rem; margin:0 0 .3em; }
+  h2{ font-size:1.3rem; margin:2.4em 0 .4em; padding-top:.5em; border-top:1px solid var(--rule); }
+  h3{ font-size:1.08rem; margin:1.8em 0 .3em; }
+  p,li{ max-width:38rem; }
+  a{ color:var(--link); }
+  code{ background:var(--code); padding:.1em .35em; border-radius:3px; font-size:.94em; }
+  table{ border-collapse:collapse; margin:1.2em 0; width:100%; }
+  caption{ text-align:left; font-style:italic; color:var(--dim); padding-bottom:.4em; }
+  th,td{ border:1px solid var(--rule); padding:.4em .6em; text-align:left; vertical-align:top; font-size:.97rem; }
+  th{ font-family:system-ui,sans-serif; }
+  .aside{ border-left:4px solid var(--rule); padding:.2em 0 .2em 1em; margin:1.4em 0; color:var(--dim); }
+  .aside strong{ color:var(--ink); }
+  .skip{ position:absolute; left:-9999px; }
+  .skip:focus{ position:static; display:inline-block; margin-bottom:1rem; }
+  nav ul{ padding-left:1.2em; }
+  footer{ margin-top:3rem; border-top:1px solid var(--rule); padding-top:1rem; color:var(--dim); font-size:.95rem; }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to part four</a>
+
+<header>
+  <p><a href="deep.html">Illustrated version of this page</a> · <a href="guide-text.html">Part one (text)</a> · <a href="tour-text.html">Part two (text)</a> · <a href="lore-text.html">Part three (text)</a></p>
+  <h1>ARCHITECT — Part four: the deep end</h1>
+  <p>This is the text edition of part four: the same words as the illustrated page, laid out
+  linearly, with nothing on the page that is only decoration.</p>
+  <p>Parts one to three told you what the game is. This one is about the systems you only
+  find because somebody mentioned them in a bar: how to program the client until it plays
+  half the game for you, how to take a cut of a shop that never agreed to it, what the trade
+  in chemicals looks like from the inside, why people collect cards, and what it takes to
+  make a living hauling freight across a hundred kilometres of poisoned country.</p>
+  <p>It assumes you have played a bit. <a href="guide-text.html">Part one walks you through
+  your first hour.</a> <a href="https://www.architectgame.net">Play ARCHITECT</a>.</p>
+</header>
+
+<nav aria-label="Contents">
+  <h2 id="contents">Contents</h2>
+  <ul>
+    <li><a href="#thomas">The client is a machine you can program</a></li>
+    <li><a href="#rackets">Protection rackets</a></li>
+    <li><a href="#chem">The chemical trade</a></li>
+    <li><a href="#cards">Trading cards</a></li>
+    <li><a href="#haul">The Long Haul: trucking</a></li>
+    <li><a href="#rest">And the rest of it</a></li>
+    <li><a href="#next">Keep reading</a></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+<h2 id="thomas">The client is a machine you can program</h2>
+
+<p>ARCHITECT runs on THOMAS, which is a MUD client that happens to have a game bolted to it.
+Underneath the room pane and the map sits a full automation layer: scripting, pattern
+matching, timers, key bindings and output routing. None of it is required. All of it is there
+from your first login, and it follows your account rather than your browser.</p>
+
+<h3>What is in it</h3>
+<ul>
+  <li><strong>Macros.</strong> A named script of commands, chained with semicolons. It takes
+  arguments, it has <code>if</code>/<code>else</code>, it can call other macros and
+  <code>return</code> a value, and it can be bound to a key or a smartbar button.</li>
+  <li><strong>Triggers.</strong> A pattern that watches the log and runs a script when it
+  matches: a regular expression, a channel such as <code>@loot</code> or <code>@say</code>,
+  several lines at once, or once and never again.</li>
+  <li><strong>State triggers.</strong> <code>on hp_pct &lt; 30 = drink stim</code> watches
+  your own vitals rather than the text, and fires on the crossing rather than on every
+  update you spend below the line.</li>
+  <li><strong>Timers.</strong> Run a script every few seconds, or once after a delay. A
+  one-shot retires itself properly instead of coming back after your next reload.</li>
+  <li><strong>Aliases.</strong> Rewrite what you type before it is sent. One expansion pass,
+  so an alias cannot quietly recurse into itself.</li>
+  <li><strong>Expressions.</strong> Conditions are real expressions, with booleans and
+  comparisons, over your vitals, your flags, your inventory and anything a trigger just
+  captured.</li>
+  <li><strong>Speedwalk.</strong> <code>3n2e</code> walks it. A speedwalk has to contain a
+  digit, deliberately, because otherwise <code>use</code> is a speedwalk and so is
+  <code>sew</code>.</li>
+  <li><strong>Routes and panes.</strong> <code>route @say = Chat</code> sends chat to its own
+  window. Panes exist because a rule names one, and closing a pane hides it rather than
+  deleting the rule.</li>
+  <li><strong>Gagging, highlights and transcripts.</strong> Hide the lines you are tired of,
+  colour the ones that matter, search the scrollback, and save the session to a file.</li>
+</ul>
+
+<div class="aside">
+  <p>All three of triggers, timers and aliases end at the same runner, with the same step
+  budget and the same abort flag. A runaway script gets switched off and told you why. It
+  never quietly spams forever. <strong>That is why there is exactly one executor.</strong></p>
+</div>
+
+<p>There is also voice input, which is off by default and which corrects speech recognition
+against the verbs actually on your screen rather than guessing; Read Aloud for the log; tab
+completion; scroll lock; and three display modes that swap graphical panels for written
+records, so the entire game can be played through the log.</p>
+
+<h3>The power guide</h3>
+<p>All of the above has its own manual: <a href="thomas-client-guide.html">the THOMAS
+power-user guide</a>. Twenty-two sections, all of them worked examples —
+<a href="thomas-client-guide.html#triggers">triggers</a>,
+<a href="thomas-client-guide.html#gag">gagging</a>,
+<a href="thomas-client-guide.html#state">state triggers</a>,
+<a href="thomas-client-guide.html#timers">timers</a>,
+<a href="thomas-client-guide.html#aliases">aliases</a>,
+<a href="thomas-client-guide.html#vars">variables</a>,
+<a href="thomas-client-guide.html#macros">the script language</a>,
+<a href="thomas-client-guide.html#expr">expressions</a>,
+<a href="thomas-client-guide.html#waitfor"><code>wait for</code></a>,
+<a href="thomas-client-guide.html#keys">key bindings</a>,
+<a href="thomas-client-guide.html#speedwalk">speedwalk</a>,
+<a href="thomas-client-guide.html#routes">routes and split panes</a>,
+<a href="thomas-client-guide.html#voice">voice input</a>,
+<a href="thomas-client-guide.html#read">Read Aloud</a>,
+<a href="thomas-client-guide.html#a11y">accessibility options</a>,
+<a href="thomas-client-guide.html#sync">setup that follows your account</a>, and
+<a href="thomas-client-guide.html#wont">what THOMAS deliberately will not do</a>.</p>
+
+<h2 id="rackets">Protection rackets</h2>
+
+<p>A corporation that controls a zone can lean on the shopkeepers standing in it, and take a
+cut of every sale they make. It is some of the best money in the game per hour, and it is the
+only income in the game that dies if you stop showing up.</p>
+
+<h3>How it works</h3>
+<ul>
+  <li><strong>You need the street first.</strong> Rackets ride on corp territory control.
+  Lose the zone to a rival and the book stops paying that day.</li>
+  <li><strong><code>shakedown</code> is the verb.</strong> It is a skill check against a
+  frightened person, in public, and it costs you your standing with them for a long
+  time.</li>
+  <li><strong>Fear is a number, and it decays.</strong> Every shop on your book has one, with
+  a half-life of about ten real days — and nothing tops it up for you. No collection tick, no
+  reminder, no renewal. Somebody has to physically walk back in and lean on them again. That
+  walk is the mechanic.</li>
+  <li><strong>The cut follows the band.</strong> Terrified, Cowed, Wary, Slipping, Lapsed: a
+  fifth of every sale at the top, and nothing at all at the bottom.</li>
+  <li><strong>The money comes out of the till.</strong> It is not minted for you. An
+  over-milked shop with an empty till pays nothing, so greed caps itself without anybody
+  tuning a knob — and every credit you skim is a credit a rival can no longer crack out of
+  that shop's safe.</li>
+  <li><strong>Somebody sees you do it.</strong> Extortion is witnessed like any other crime,
+  the law works on evidence, and a shopkeeper who has been leaned on remembers it at the
+  counter for a long time afterwards.</li>
+</ul>
+
+<p><code>corp racket list</code> is your book, and how frightened each name on it still is.
+<code>corp racket drop &lt;shop&gt;</code> lets one off the hook.</p>
+
+<div class="aside">
+  <p>Territory income asks nothing of you once the zone is yours. A racket asks constantly.
+  <strong>That is the entire reason it pays better.</strong></p>
+</div>
+
+<p>Rackets are one lever of several a corp can pull; the others are territory, legitimate
+ventures, influence and open war. Corps have members, permissions, a treasury and a war of
+position with the NPC organisations who already own most of the map.
+<a href="tour-text.html">Part two has the overview.</a></p>
+
+<h2 id="chem">The chemical trade</h2>
+
+<p>There is a manufacturing industry in Coldwater, from raw supply to street sale, and it is
+the deepest economic system in the game. It is also the one thing in this guide we are being
+deliberately cagey about, because finding your way in is the first half of it.</p>
+
+<h3>What we will tell you</h3>
+<ul>
+  <li><strong>Everything you can take, somebody makes.</strong> The drugs in this game are
+  not vendor stock with a price tag. They have a supply chain, and every link of it is a
+  place a player can stand.</li>
+  <li><strong>Synthesis is a real bench.</strong> Precursors, glassware, a workspace display
+  that tracks what is actually in the vessel, and a step that is a genuine minigame with a
+  genuine failure mode. A bad run wastes stock. A very bad run does worse.</li>
+  <li><strong>Quality is a number.</strong> What you make has a purity, and purity is what a
+  buyer is paying for. Two people cooking the same thing do not produce the same
+  product.</li>
+  <li><strong>Selling is social, not a shop.</strong> Moving product means finding people who
+  want it, at a price they will take, somewhere nobody is watching. Some of them haggle. Some
+  of them are police.</li>
+  <li><strong>Heat accumulates.</strong> There is a city-wide enforcement programme with its
+  own priorities, and it notices patterns rather than incidents. The lab you cannot hide is
+  the lab you lose.</li>
+  <li><strong>Concealment is part of the craft.</strong> There is furniture whose entire
+  purpose is that a search does not find what is behind it.</li>
+</ul>
+
+<h3>What we won't</h3>
+<p>Where the doors are. Who opens them. What you have to have done first, what you have to be
+carrying, and which conversations simply do not happen until somebody has decided you are
+worth the risk.</p>
+<p>None of it is behind a quest marker and none of it is on the job board. It is behind
+people. Drink in the wrong bar, do somebody an unreasonable favour, and be the sort of person
+who gets offered things.</p>
+
+<div class="aside">
+  <p>If a guide could hand you an entire industry in a paragraph, it would not have been worth
+  building one. Sorry.</p>
+</div>
+
+<p>Worth knowing before you go looking: there is a whole separate layer for <em>taking</em>
+the stuff — tolerance, withdrawal, overdose, hallucination, and the dissociatives that open a
+dreamzone you have to walk back out of. You do not have to be a chemist to end up in that
+one.</p>
+
+<h2 id="cards">Trading cards</h2>
+
+<p>A card is a frozen snapshot of somebody: what they were wearing, what they were carrying,
+what they had done, and one line they said. Three kinds exist — players, NPCs and enemies —
+printed on one shell. Only players mint themselves, and that asymmetry is the point: the
+system deliberately does not follow anybody around, so a player has to walk somewhere and
+hand it the moment.</p>
+
+<ul>
+  <li><strong>Minting yourself.</strong> Walk to a mint terminal, pay the fee, and the card
+  takes what you handed it: gear, condition, standing, and a quote you write. You choose when
+  you are worth printing, and you cannot do it often.</li>
+  <li><strong>Packs.</strong> Foil sleeves come out of powered vending machines. Buying and
+  opening are two separate acts: the sleeve is a real item that holds no result, and the roll
+  happens when you tear it open, not when you bought it.</li>
+  <li><strong>The pull.</strong> Opening one is a card-by-card reveal. Common, uncommon,
+  rare, epic, legendary — and a sleeve is guaranteed never to be all commons. Some sleeves
+  run hot. A very few are mis-cut long.</li>
+  <li><strong>They are items.</strong> Cards can be given, sold, stolen off a corpse, or
+  scrapped for a fraction of what a pack cost. That scrap value is the floor under the
+  gamble, and it is deliberately set below the pack price.</li>
+  <li><strong>The back of the card.</strong> Text is budgeted, never truncated: a clause that
+  will not fit is dropped whole. Condition is spoken rather than numbered — a battered coat
+  has "gone thin at the shoulders".</li>
+  <li><strong>The shelf.</strong> <code>cards</code> is your collection, by rank and by
+  series. NPC and enemy cards are struck from the world itself when a series opens, so a
+  completed checklist is a picture of who was actually in the city that season.</li>
+</ul>
+
+<p>There is no card game. You cannot play them against anybody and there is no plan to let
+you. They are a record of people, in a game where people leave.</p>
+
+<h2 id="haul">The Long Haul: trucking</h2>
+
+<p>The road between regions used to be a hard walk you endured. Now it is a rig, a corridor,
+and about a quarter of an hour of changing country with a city coming up out of the haze.
+Trucking is a career: you buy the truck, you fuel it, you wear it out, and the market does
+not care whether you made money.</p>
+
+<h3>The fleet</h3>
+<table>
+  <caption>The four trucks, cheapest first. Prices are list, before anything you do to
+  them.</caption>
+  <thead>
+    <tr><th scope="col">Truck</th><th scope="col">Price</th><th scope="col">What it is</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Krell Barrow</th><td>₵1,300</td><td>Krell stopped making these long
+    enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater
+    works, which the previous owner mentioned first and at length.</td></tr>
+    <tr><th scope="row">Ostrek Courier</th><td>₵4,200</td><td>A stubby rigid box on a short
+    wheelbase. Turns in like something half its age and carries about as much.</td></tr>
+    <tr><th scope="row">Vachon Drayman</th><td>₵11,500</td><td>The one everybody learns on.
+    Nothing about it is remarkable and nothing about it has ever stopped working.</td></tr>
+    <tr><th scope="row">Orlov Continental</th><td>₵31,000</td><td>A long-nose sleeper built
+    for people who see their own bed twice a month. Slow to wind up, slower to stop, and it
+    will take a whole market with it.</td></tr>
+  </tbody>
+</table>
+
+<h3>Wages, or enterprise</h3>
+<p><strong>Hauling freight is wages.</strong> A board at each depot pays a fixed fee to move
+somebody else's box. It is how you learn the road and how you afford the second truck.</p>
+<p><strong>The commodity market is enterprise.</strong> Six goods — baled alloy, potable
+water, protein slurry, industrial chems, machine parts and medical stock — priced by region
+and by the day, bought with your own money. Medical stock is light and dear, so you can carry
+a fortune in it; water is heavy and cheap, so a full trailer of it is a lot of diesel for a
+modest margin. That is exactly why the weight limit is a number you have to think about.</p>
+<p>The profitable cargo out is never the profitable cargo back. Coldwater makes things and
+sits on a basin, so parts, chems and water are cheap there and scrap is dear. The Reach is
+drowning in salvage and has no water at all. Run parts out, bring alloy home. An empty
+backhaul is a mistake you are allowed to make, not a shape the game forces on you.</p>
+<p>It is also the only part of the system where you can finish a run poorer than you started
+it.</p>
+
+<h3>Keeping it running</h3>
+<ul>
+  <li><strong>Fuel</strong> is per truck and per tank, and a heavy right foot is a line
+  item.</li>
+  <li><strong>Condition</strong> runs Sound, Worked, Tired, Ailing, Derelict. The top two
+  bands cost you nothing, so an honest working truck is never a chore.</li>
+  <li><strong>Damage is per component</strong>, and the panels are separate from the
+  mechanicals. Dents do nothing to how it drives — they come off the price when you sell,
+  which is the bill for how you drive arriving late rather than never.</li>
+  <li><strong>Breakdowns happen out there.</strong> Fix it if you have the spares and the
+  fabrication for it; call a tow if you do not, and a tow is not cheap.</li>
+  <li><strong>Kits and tuning.</strong> An aero kit, a long-duration cam, a three-stage Jake
+  brake, an auxiliary saddle tank — and a workshop instrument set that lets you take every
+  dial past where a hand and an ear can safely go.</li>
+  <li><strong>Paint</strong>, because it is your truck.</li>
+</ul>
+
+<h3>Out there</h3>
+<ul>
+  <li><strong>The verge is a law, not a wall.</strong> You may leave the road. Open country is
+  passable, slow and murder on tyres: the reason to stay on the tarmac is the bill, never a
+  refusal. Far enough off it and you bog — stalled, penalised in time, and put back on the
+  shoulder facing the right way. There is no geometry out there to hit.</li>
+  <li><strong>The CB.</strong> Voices on the corridor: a man describing his divorce to nobody,
+  two drivers arguing about a diner that closed before either of them was driving. Mostly it is
+  quiet. Then it tells you there is a rig on the shoulder a few miles up, and whose it was —
+  because a wreck out there is a tile where a real driver stopped, and it remembers who.</li>
+  <li><strong>Hijackers.</strong> A loaded trailer is worth taking, and it is not a cutscene.
+  They are on the road with you, and the answer is either the throttle or getting out of the
+  cab.</li>
+  <li><strong>The drive is the crossing.</strong> You are genuinely out in the waste, so
+  everything that happens to a person crossing it on foot can happen to you in the cab. Break
+  down badly enough and you finish the crossing walking.</li>
+  <li><strong>Or read it instead.</strong> The whole drive has a written mode. If you play in
+  the log you get the road as a record you steer with commands, not a windscreen you cannot
+  see.</li>
+  <li><strong>The yard.</strong> Your fleet, its condition, what a dealer would give you for
+  it, and the bench. Park a truck somewhere and it is still there tomorrow.</li>
+</ul>
+
+<h2 id="rest">And the rest of it</h2>
+
+<p>Systems that do not need a page each, but that people play for months without ever
+finding.</p>
+
+<ul>
+  <li><strong>Bounties.</strong> Put money on another player's head out of your own pocket.
+  The head is a physical item in the corpse, so a bounty pays whoever walks up to the board
+  holding it, not whoever did the killing. The sheet names nobody; the target pays to find
+  out.</li>
+  <li><strong>Your own shop.</strong> Buy a deed, stock the shelves, price the wares, hire
+  staff, and empty the till before somebody cracks it. Other players buy from it while you
+  are logged out.</li>
+  <li><strong>SPECTER.</strong> Run a spy network: informants, cameras, coverage of the
+  streets you care about. It is also how crime gets witnessed at all — the law works on
+  evidence, and evidence has a source who can be found and bought.</li>
+  <li><strong>Jail.</strong> Go down while wanted and you wake in Holding with your gear in
+  an evidence locker. The cell door is hackable. Serving the time is not the only way
+  out.</li>
+  <li><strong>Instruments.</strong> Sit at the piano and play it, key by key, on your own
+  keyboard. There is no skill roll — the skill is your hands — and the room hears what you
+  actually play.</li>
+  <li><strong>The library.</strong> Nine complete public-domain books, read on the tablet,
+  with a tap-to-gloss vocabulary layer over prose that is never rewritten, and a narration
+  mode that highlights the line being spoken aloud.</li>
+  <li><strong>Cooking.</strong> Forty-seven authored recipes, plus improvised dishes named
+  from whatever you actually put in the pan. Invent one, name it, save it, teach it, or sell
+  it as a card. A heads-up display proposes the steps, every one of them a command you could
+  have typed yourself.</li>
+  <li><strong>Mixology.</strong> A finished drink lives on the glass rather than as a new
+  item, because the whole point of a mug is that you keep it. How drunk you get is derived
+  from what actually went in.</li>
+  <li><strong>Durability and repair.</strong> Gear wears with use, never with the clock. A
+  masterful hand repair leaves an item tougher than it was, which a workbench can never do.
+  Run it to zero and it is gone.</li>
+  <li><strong>Being remembered.</strong> Every NPC tracks how well they know you and how they
+  feel about you, separately. Some conversations only exist near the top of that ladder, and
+  it decays if you stop turning up.</li>
+  <li><strong>Filth.</strong> You smell of what you have been doing and other people can
+  tell. A room you own keeps its mess for a full rent cycle. That is why you would carry a
+  mop.</li>
+  <li><strong>Dreams.</strong> Sleep and your mind goes somewhere built for that sleep, three
+  or four rooms of it. Your body stays in the room — lootable, killable, and entirely
+  unaware.</li>
+  <li><strong>Chess and poker.</strong> Full legal chess on a two-seat table, and a poker
+  table with NPC regulars who will take your money and be pleasant about it.</li>
+  <li><strong>Cathode.</strong> There is a stray cat with a bionic paw, and she hides. Be
+  patient and kind and she comes when you call her. Hurt her and she never comes back, and
+  nothing in the game ever explains why.</li>
+  <li><strong>Searching.</strong> You can search anywhere. Most of the time you find nothing
+  — and a room with nothing in it looks exactly like a room you were unlucky in.</li>
+</ul>
+
+</main>
+
+<footer>
+  <h2 id="next">Keep reading</h2>
+  <ul>
+    <li><a href="thomas-client-guide.html">The THOMAS power-user guide</a> — the full manual
+    for the client half of this page.</li>
+    <li><a href="guide-text.html">Part one, text edition: your first hour</a>.</li>
+    <li><a href="tour-text.html">Part two, text edition: everything you can do</a>.</li>
+    <li><a href="lore-text.html">Part three, text edition: the two questions and the nine
+    orders</a>.</li>
+    <li><a href="deep.html">The illustrated version of this page</a>.</li>
+    <li><a href="https://www.architectgame.net">Play ARCHITECT</a> — register a character and
+    you are in the vat inside thirty seconds.</li>
+  </ul>
+  <p>The AI won. You survived. Probably.</p>
+</footer>
+
+</body>
+</html>

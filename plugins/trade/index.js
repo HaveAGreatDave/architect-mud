@@ -126,10 +126,19 @@ function offerLines(session, viewerId) {
   ].join('\n');
 }
 
-// `trade status` and every state change print this. Deliberately the same text
-// both ways, so what you re-read on demand is exactly what you were told.
-function statusBlock(session, viewerId, headline) {
-  return `${headline ? `${headline}\n` : ''}${offerLines(session, viewerId)}\n`
+// `trade status` and every state change print this.
+//
+// The RECORD — the headline and the offer lines — is identical both ways, so what
+// you re-read on demand is exactly what you were told. What differs is the footer
+// of available verbs: it prints when you ASK for the board, and not on each state
+// change. It is four lines of unchanging boilerplate that was being pushed to both
+// players on every offer, retraction and ready toggle, which in a busy trade is
+// most of what the log contains. Nothing is lost — `trade status` is itself listed
+// in that footer, and a player who wants the verbs back asks for them.
+function statusBlock(session, viewerId, headline, withVerbs = true) {
+  const board = `${headline ? `${headline}\n` : ''}${offerLines(session, viewerId)}`;
+  if (!withVerbs) return board;
+  return `${board}\n`
     + `<span class="text-dim">tradeoffer &lt;item&gt; · tradeoffer credits &lt;n&gt; · traderetract &lt;item&gt; · `
     + `<span class="action-link" data-action="cmd" data-cmd="trade status">trade status</span> · `
     + `<span class="action-link" data-action="cmd" data-cmd="tradeready">tradeready</span> · `
@@ -148,7 +157,8 @@ async function pushBoth(session, sysMsg, headlineFor) {
       sendToPlayer(pid, { type: 'trade_update', html });
     }
     const headline = typeof headlineFor === 'function' ? headlineFor(pid) : null;
-    if (headline) sendToPlayer(pid, { type: 'output', message: statusBlock(session, pid, headline) });
+    // withVerbs:false — this is a state change, not a request for the board.
+    if (headline) sendToPlayer(pid, { type: 'output', message: statusBlock(session, pid, headline, false) });
     if (sysMsg) sendToPlayer(pid, { type: 'output', message: sysMsg });
   }
 }

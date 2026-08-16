@@ -84,10 +84,32 @@ function renderMorphexText(player, toast) {
   const mis = isMisActive(player);
   const chargen = !!player._morphexChargen;
   const L = [];
+  const sexLine = `Sex: <b>${player.biological_sex || 'male'}</b> · Height: <b>${player.height_cm || 170}cm</b> · Weight: <b>${player.weight_kg || 70}kg</b>`;
+  const hairLine = `Hair: <b>${player.hair_color || 'brown'}</b>, <b>${player.hair_length || 'short'}</b>, <b>${player.hair_style || 'short'}</b> · Eyes: <b>${player.eye_color || 'brown'}</b>`;
+
+  // A CHANGE is not a request to read the terminal again. This whole sheet — the
+  // full option catalogue, every value, every price — was the return value of
+  // every sub-command, so setting five things printed it five times and buried
+  // whatever else the player needed to hear. Same rule as `doneLine` on the
+  // container view (server/engine/commands/inventory.js): opening it prints in
+  // full, acting on it says what happened. The closing line already tells the
+  // player `morphex` reads it back, so nothing is lost.
+  //
+  // Chargen is exempt: there the menu IS the interface, a first-time player has
+  // nothing memorised, and there is no surrounding log to bury.
+  if (toast && !chargen) {
+    return {
+      type: 'system',
+      message: [`<span class="msg-system">${toast}</span>`, sexLine, hairLine,
+        `<span class="hint">Type <b>morphex</b> for the full list of what you can change.</span>`].join('<br>'),
+      player_update: { credits: player.credits },
+    };
+  }
+
   L.push(`<b>MORPHEX 9000 — BioSculpt</b>`);
   if (toast) L.push(`<span class="msg-system">${toast}</span>`);
-  L.push(`Sex: <b>${player.biological_sex || 'male'}</b> · Height: <b>${player.height_cm || 170}cm</b> · Weight: <b>${player.weight_kg || 70}kg</b>`);
-  L.push(`Hair: <b>${player.hair_color || 'brown'}</b>, <b>${player.hair_length || 'short'}</b>, <b>${player.hair_style || 'short'}</b> · Eyes: <b>${player.eye_color || 'brown'}</b>`);
+  L.push(sexLine);
+  L.push(hairLine);
   if (mis) {
     if ((player.biological_sex || 'male') === 'female') L.push(`Breasts: <b>${app.breast_size || 'medium'}</b> · Ass: <b>${app.ass_size || 'average'}</b>`);
     else L.push(`Penis: <b>${app.penis_length_cm || 12}cm</b> · Testicles: <b>${app.testicle_size || 'average'}</b> · Ass: <b>${app.ass_size || 'average'}</b>`);

@@ -659,11 +659,13 @@ other line, with no panel and no focus to manage. `accessibility reset` is the
 escape hatch: somebody who has just turned on something that made things *worse*
 needs one word, not a tour.
 
-### One table, two surfaces
+### One table, THREE surfaces *(built 2026-08-16)*
 
 `A11Y_OPTIONS` in [client/shared/settings.js](../client/shared/settings.js) is the
 list. The Tablet's Accessibility page renders from it; the verb lists and sets from
-it. **Neither owns it**, so adding an option is one entry and it appears in both,
+it; and the **accessible tablet**
+([client/game/js/panels/tablet-a11y.js](../client/game/js/panels/tablet-a11y.js))
+renders it a third time as native radio groups. **None owns it**, so adding an option is one entry and it appears in all three,
 spelled and explained the same way. `a11y:smoke` fails if either surface starts
 keeping its own copy, and if the Layout page stops excluding the keys Accessibility
 owns — the same control on two pages with two states is worse than it being in
@@ -671,8 +673,68 @@ neither.
 
 The `why` field is written for a player and is what the verb prints. Display Mode is
 deliberately *not* in the table (it is server-side state, not a preference) but is
-named first on both surfaces anyway, because it is the most consequential thing on
+named first on every surface anyway, because it is the most consequential thing on
 the list.
+
+### The accessible tablet — a document, not a screen *(built 2026-08-16)*
+
+The third surface, and the answer to a gap the typed index does not close: the index
+tells you what to **type**, but a player may reasonably want the tablet to still be a
+thing you *open, move around inside, and close*. A screen reader's virtual cursor can
+walk a dialog at its own pace — backwards, by heading, by list, by control. It cannot
+do any of that with a log line three combat messages up the transcript.
+
+`tabletMode` (verb: `accessibility tablet screen|document`) picks between them, and
+**one payload feeds both** — `tablet_panel` is routed in
+[dispatch.js](../client/game/js/dispatch.js) to whichever renderer is selected, so an
+app that works in one works in the other and a new app needs nothing written for it.
+
+Four decisions carry it, and the file's header comment is the long form:
+
+1. **The panel id `#tablet-a11y-panel` is load-bearing.** `a11y-focus.js` matches
+   `[id$="-panel"]` and supplies `role="dialog"`, `aria-modal`, the focus trap,
+   Escape-to-close and focus restoration. ⚠ **None of that is implemented in the
+   panel** — rename it and you lose all six silently. The smoke asserts both the id
+   and the *absence* of a hand-rolled `role`/`aria-modal`.
+2. **Settings is native `<input type="radio">` in a `<fieldset>`.** Grouping,
+   arrow-key navigation, "3 of 6" position and the group name on entry all come from
+   the browser, identically everywhere, with no keyboard code in the file.
+3. **A row that navigates is a `<button>`; a row that doesn't stays a `<div>`.**
+4. **A view that cannot be rendered generically NAMES THE VERB.** ~25 of the tablet's
+   views are bespoke renderers with no structured payload. The fallback is not a
+   blank dialog and not an apology — it is the verb that does the same job at the
+   prompt. An honest dead end that hands you the way through.
+
+⚠ **`tabletMode` is TRI-STATE and must stay that way** — the same pattern as Sound
+Detail, and a nastier failure if broken. Give it a `def` and `accessibility reset`
+writes `visual`, which throws a screen-reader player out of the readable tablet using
+the escape hatch that exists for when they have just made things unusable. Derived
+instead: log rung ⇒ `accessible`, everyone else ⇒ `visual`, explicit choice wins in
+both directions. So **a log-mode player gets this surface with nothing configured.**
+
+Verified by [scripts/a11y/tablet-smoke.mjs](../scripts/a11y/tablet-smoke.mjs) against
+a stub DOM, in `pretest:regress` and `a11y:smoke`.
+
+### The graphical tablet's list rows are buttons too *(fixed 2026-08-16)*
+
+Separate from the above and worth its own note: `renderList` in
+[tablet-os.js](../client/game/js/panels/tablet-os.js) emitted every row as
+`<div data-open-item>`, which made **the primary navigation element of the entire
+tablet unfocusable**. You could Tab to every action button on a screen and to none of
+the things the screen was a list of. Rows carrying `data-open-item` are now
+`<button type="button">`; rows without one — headings, `or` alternatives, summary
+lines — stay divs, because they navigate nowhere and forty tab stops that mostly do
+nothing is its own failure. `type="button"` is deliberate even though this file has
+no `<form>` today. The delegated click path is unchanged (`closest('[data-open-item]')`
+matches a button identically); the CSS cost is four declarations plus a
+`:focus-visible` ring.
+
+**Roving tabindex was considered and deliberately not built.** Plain Tab order through
+a list is standard, correct, and needs no state; a roving implementation adds a keydown
+handler and a focus-index per list, and this file already runs local arrow handlers
+(the reel grid's `tos-al-cell`) that it would have to not collide with. Worth revisiting
+only if long lists prove tedious in practice — it is an optimisation over something that
+already works, not a fix for something that doesn't.
 
 ### What each one actually does
 
@@ -1408,6 +1470,24 @@ it being invisible.
 **Deep links are deliberately not rerouted.** `tabletnav bank` at the log rung still
 returns the bank screen. Rendering every app's payload as text is a far bigger job
 than an index, and swallowing the nav would be worse than a screen that reads badly.
+
+⚠ **But they do leave a record.** "Reads badly" was optimistic: the panel was the only
+thing that happened, so a screen-reader player who typed `codex` or `health` — both of
+which route through `cmdTabletNav` — got a fullscreen graphic and *not one line in the
+log*, which is indistinguishable from the verb having done nothing. At the log rung the
+nav now also sends a `system` line naming the app and the verbs that read it in words.
+Additive: the screen is still returned, so the decision above and its regress case
+both stand.
+
+⚠ **That line must never claim the screen is unreadable**, even though that is the
+case it was written for. Which renderer a payload lands in is decided client-side by
+`tabletMode`, which the server cannot see — and at the log rung it *derives to the
+accessible tablet*, which reads the screen fine. The first wording asserted "this
+won't read here" and was therefore false for the default log-rung player, on the
+settings gear, the one route that most needed to be trustworthy. Offer the verb;
+don't diagnose the surface. **Anything else that opens a panel
+without writing to `#output` has this same bug** — the test is not "does it look bad",
+it is "if the player's eyes are shut, did anything happen at all".
 
 ## What still has no text form
 

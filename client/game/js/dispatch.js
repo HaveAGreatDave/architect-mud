@@ -27,6 +27,8 @@ import { openCardMintPanel, cardMintStruck } from './panels/cardmint.js';
 import { openInsurancePanel, updateInsurancePanel } from './panels/insurance.js';
 import { openWantedPoster } from './panels/wantedposter.js';
 import { openCorpConsole, updateCorpConsole } from './panels/corp-console.js';
+import { isA11yTablet, renderA11yTablet, close as closeA11yTablet, initA11yTablet } from './panels/tablet-a11y.js';
+import { openListDialog, closeListDialog, initListDialog } from './panels/listdialog.js';
 import { openTabletPanel, closeTabletPanel, tabletQuestUpdate, noteQuestLog, openTabletToSpecter, openTabletToReel, openTabletSpecterInstall, refreshTabletGearIfOpen, openTabletToMap, refreshTabletMapIfOpen, openTabletTvPanel } from './panels/tablet-os.js';
 import { openCorpMap } from './panels/corp-map.js';
 import { openVoidwalkStaging, appendVoidwalkChat } from './panels/voidwalk-staging.js';
@@ -59,6 +61,7 @@ import { updateCockpit, closeCockpit, cabinAudio, openTargeting, openFlightSim, 
 import { openTextCockpit, updateTextCockpit, closeTextCockpit, isTextCockpitActive } from './panels/textcockpit.js';
 import { openHelm, closeHelm, isHelmActive, helmSetSky, helmSetWorld, helmSetContacts, helmEndTransit, helmBeginTransit } from './panels/helm-mode.js';
 import { openCab, closeCab, cabContext, isCabActive } from './panels/cab-view.js';
+import { receiveCbMsg, applyCbContext, clearCbContext } from './panels/cb-radio.js';
 import { airHorn } from './panels/engine-audio.js';
 import { openTruckDepot, closeTruckDepot, isTruckDepotActive } from './panels/truck-depot.js';
 import { setYachtAmbience, yachtUnderway, yachtSettled } from './panels/yacht-ambience.js';
@@ -367,6 +370,13 @@ const handlers = {
     // machine next visit. Undefined (never chosen) clears the local pref, which
     // is what keeps an untouched account untouched.
     rememberDisplayRung(state.player.displayRung);
+    // The accessible tablet needs a way to send nav/actions back. Injected rather
+    // than imported so that module pulls in nothing from the socket layer and can
+    // be exercised headlessly (scripts/a11y/tablet-smoke.mjs).
+    initA11yTablet(sendCmdSilent, state.player.displayRung);
+    // The generic list dialog sends real verbs (`buy X`), not silent ones — the
+    // player should see what their click did, exactly as if they had typed it.
+    initListDialog(sendCmd);
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
@@ -785,10 +795,17 @@ const handlers = {
 
   // Architect Tablet OS — one shared shell for Quests/Skills/Bank/Weather/
   // Vehicles/Properties/Settings (+ a pass-through tile to Corporation below).
-  tablet_panel: (msg) => { openTabletPanel(msg); },
+  // One inbound message, two possible surfaces. The accessible tablet is a real
+  // dialog rendered from the SAME payload rather than a parallel feature — so
+  // every app that works in one works in the other, and a new app needs nothing
+  // written here. See client/game/js/panels/tablet-a11y.js.
+  tablet_panel: (msg) => { isA11yTablet() ? renderA11yTablet(msg) : openTabletPanel(msg); },
   // An app handed off to another UI (e.g. quests-app.js "Turn In" opening the
   // turn-in NPC's dialogue) — close the shell instead of re-rendering it.
-  tablet_close: () => { closeTabletPanel(); },
+  tablet_close: () => { closeTabletPanel(); closeA11yTablet(); },
+  // The generic pick-one-of-N dialog (docs/audits/log-vs-dialog-audit.md).
+  list_dialog: (msg) => { openListDialog(msg); },
+  list_dialog_close: () => { closeListDialog(); },
   // Voidwalk staging (voidwalking) — the pre-crossing muster overlay.
   voidwalk_staging: (msg) => { openVoidwalkStaging(msg); },
   // A live line in the muster's private party comms — append without rebuilding
@@ -1390,11 +1407,17 @@ const handlers = {
   // under it while `isTruckDepotActive()` still answered true — and that flag is now what tells a
   // room description to keep its hands off the pane, so the room would never have painted again.
   truck_sim: (msg) => { closeTruckDepot(); openCab(msg); },
-  truck_ctx: (msg) => { cabContext(msg); },
+  truck_ctx: (msg) => { cabContext(msg); applyCbContext(msg.cb); },
+  // THE CB. Handled here rather than inside the cab panel because the radio has to work at every
+  // rung of Display Mode: a driver reading the text run has the same set, on the same channel, and
+  // hears the same people. The panel is one of three sinks (see cb-radio.js), never the owner.
+  cb_msg: (msg) => { receiveCbMsg(msg); },
   // The air horn. Pushed to everyone in the zone (plugins/trucking cmdHorn), so you hear somebody
   // else's rig go off in the yard as well as your own — which is the only reason a horn is a verb.
   truck_horn: (msg) => { airHorn(msg.typeId); },
-  truck_sim_close: () => { closeCab(); },
+  // Dismounting takes the set with it — the Deadhead window closes because the radio is gone,
+  // not because anybody pressed anything on it.
+  truck_sim_close: () => { closeCab(); clearCbContext(); },
   // The depot: fleet, dealer, freight board and exchange on one screen. Opens when you walk into
   // a yard and closes when you leave, exactly as the hangar bay does.
   // ⚠ NEVER OVER THE CAB. `drive` mounts the cab and, a beat later, the yard's own auto-open (or a

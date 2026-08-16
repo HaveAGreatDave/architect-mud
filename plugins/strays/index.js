@@ -146,7 +146,7 @@ function surface(zoneId, line) {
   return true;
 }
 
-function despawn(line) {
+function despawn(line, excludePlayerId) {
   const from = S.zoneId;
   S.zoneId = null;
   S.surfacedUntil = 0;
@@ -156,7 +156,7 @@ function despawn(line) {
   if (!c) return;
   moveNpcToZone(CAT_ID, DEN_ZONE);
   if (from) {
-    sendToZone(from, { type: 'zone_event', message: line || pick(DEPARTURES), refresh: true });
+    sendToZone(from, { type: 'zone_event', message: line || pick(DEPARTURES), refresh: true }, excludePlayerId);
   }
 }
 
@@ -193,9 +193,73 @@ async function behave() {
   if (!b) return;
   S.recent.push(b.key);
   if (S.recent.length > RECENT_RING) S.recent.shift();
-  let line;
-  try { line = b.line(ctx); } catch { return; }
-  if (line) sendToZone(S.zoneId, { type: 'zone_event', message: line });
+  let line, you;
+  try {
+    line = b.line(ctx);
+    // A behaviour aimed at somebody says it to them in the second person and to
+    // the room in the third. `you` is optional and its absence is the normal
+    // case; a throw in either half drops the whole beat rather than sending a
+    // half of it, which would read as the room and the player disagreeing.
+    if (b.you && ctx.player) you = b.you(ctx);
+  } catch { return; }
+  if (!line) return;
+  if (you && ctx.player) {
+    sendToPlayer(ctx.player.id, { type: 'output', message: you });
+    sendToZone(S.zoneId, { type: 'zone_event', message: line }, ctx.player.id);
+    return;
+  }
+  sendToZone(S.zoneId, { type: 'zone_event', message: line });
+}
+
+// ─── Walking in on a repeat killer ─────────────────────────────────────────
+//
+// The refusal ladder above is about somebody REACHING for her. This is the other
+// half: her being in a room that a twice-over killer is also in, without anybody
+// having done anything yet. She hisses once and goes.
+//
+// Why TWO kills and not one. One kill already costs you everything the ladder
+// costs — she will not be found by you, will not come when called, will not be
+// petted. But she still gets to exist in a room you are standing in, which is
+// the difference between "you are not forgiven" and "you are weather". Twice is
+// where she stops sharing air with you, and it matches the ladder's own top rung
+// (`pet` at kills >= 2 bolts without a warning) rather than inventing a second
+// threshold nobody could infer.
+//
+// The hiss is the exception to that rung's silence and it is deliberate: nobody
+// reached for her here, so a bolt with no sound at all would read as the cat
+// wandering off, and the room would learn nothing. It still never says WHY —
+// same rule as every other refusal.
+
+const REPEAT_KILLS = 2;
+
+const SPOOK_YOU = [
+  'She comes up off the ground the instant she registers you — sideways, hackles up, one long hiss — and then there is nothing in the lane but the noise of her leaving.',
+  'The hiss starts before she has finished turning round. She holds it for exactly as long as it takes to get her feet under her, and then she is gone.',
+  'She sees you. Whatever she was doing stops. She hisses, once, flat and ugly, and runs.',
+];
+
+const SPOOK_ROOM = [
+  'The cat comes up hissing at $who, sideways and bristling, and bolts.',
+  'The cat spots $who, makes a sound nothing in the lane wants to hear twice, and is gone.',
+  'Something small goes past your ankles at speed, hissing. $who is standing where it was looking.',
+];
+
+async function repeatKillerIn(zoneId) {
+  for (const p of getZonePlayers(zoneId) || []) {
+    if ((await killsBy(p)) >= REPEAT_KILLS) return p;
+  }
+  return null;
+}
+
+/**
+ * Hiss and go. The offender gets the second-person line WITH a refresh (their
+ * room pane must stop listing her); everybody else gets the third person one on
+ * the ordinary departure path, which refreshes them too.
+ */
+function spookedBy(player) {
+  if (!isSurfaced()) return;
+  sendToPlayer(player.id, { type: 'zone_event', message: pick(SPOOK_YOU), refresh: true });
+  despawn(pick(SPOOK_ROOM).replace('$who', player.handle), player.id);
 }
 
 // ─── The tick ──────────────────────────────────────────────────────────────
@@ -213,6 +277,14 @@ async function strayTick() {
   }
 
   if (isSurfaced()) {
+    // Checked before anything else, and on every beat rather than only on
+    // arrival: `search`, `call` and a follow can all put her in a room she never
+    // chose, and a twice-over killer can walk in at any point. This is the one
+    // catch-all — the zone.entered handler below is the same rule fired early so
+    // it doesn't take up to 30 seconds to notice.
+    const spooker = await repeatKillerIn(S.zoneId);
+    if (spooker) return spookedBy(spooker);
+
     const stillWatched = (getZonePlayers(S.zoneId) || []).length > 0;
     if (!stillWatched || Date.now() > S.surfacedUntil) return despawn();
     if (Math.random() < BEHAVE_CHANCE) await behave();
@@ -227,10 +299,14 @@ async function strayTick() {
   // be seen by. A room containing only people who have killed it is not a
   // candidate at all — surfacing there just to bolt would burn the whole quiet
   // timer on a non-event.
+  // A room holding somebody she has already bolted from twice is not a candidate
+  // at all — she would surface and immediately hiss and run, burning the quiet
+  // timer to stage her own exit.
   const candidates = [];
   for (const zoneId of LANE_ZONES) {
     const players = getZonePlayers(zoneId) || [];
     if (!players.length) continue;
+    if (await repeatKillerIn(zoneId)) continue;
     let willing = false;
     for (const p of players) {
       if (await moodToward(p, CAT_ID) !== 'flee') { willing = true; break; }
@@ -603,8 +679,14 @@ async function onCalled(args, raw, player, broadcast) {
 // ─── Following a regular ───────────────────────────────────────────────────
 
 async function onZoneEntered({ actor, zone }) {
-  if (!isSurfaced() || S.followedThisWindow) return;
-  if (!actor || !LANE_SET.has(zone)) return;
+  if (!isSurfaced() || !actor) return;
+
+  // Walked in on her. Fired here as well as on the tick so the answer lands in
+  // the same breath as the arrival rather than up to 30 seconds later.
+  if (zone === S.zoneId && (await killsBy(actor)) >= REPEAT_KILLS) return spookedBy(actor);
+
+  if (S.followedThisWindow) return;
+  if (!LANE_SET.has(zone)) return;
   if (zone === S.zoneId) return;
   if (await moodToward(actor, CAT_ID) !== 'seek') return;
 
@@ -637,6 +719,7 @@ export const _test = {
   hiddenUntil, setHiddenUntil, isSurfaced,
   BEHAVIOURS, pickBehaviour,
   HISS_LINES, BITE_LINES, BOLT_LINES, refusalAttempts,
+  repeatKillerIn, spookedBy, REPEAT_KILLS, SPOOK_YOU, SPOOK_ROOM,
   onCalled, CALL_RE, CALL_MISSES, CALL_HITS, CALL_CHANCE, CALL_COOLDOWN_MS,
   CALL_ANSWERED_MS, lastCall, lastAnswered, inTheCity,
   HIDE_MS, HIDDEN_FLAG, PET_SANITY, KILL_SANITY, WITNESS_SANITY, WITNESS_WARMTH,

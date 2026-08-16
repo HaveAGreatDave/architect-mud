@@ -1,0 +1,12 @@
+{
+  "description": "A flat grey wafer the size of a coaster, heavier than it looks and faintly, permanently warm. The certification plate on the back is stamped in four languages, none of which promise anything.",
+  "flags": {},
+  "id": "item_aug_power_cell",
+  "name": "a sternal power cell",
+  "tags": {
+    "augment_hardware": "aug_power_cell"
+  },
+  "type": "misc",
+  "value": 2200,
+  "weight": 400
+}

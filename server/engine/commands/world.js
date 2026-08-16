@@ -6,6 +6,7 @@ import { isApartmentZone, getBuildingName, releaseApartment, findNearestVacantAp
 import { sendToPlayer } from '../messaging.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, syncZoneLighting, getGeneratorLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
+import { loggedPanelsSync } from '../presentation.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone, removeLivePlayer, resolveLanding } from '../world.js';
 import { allExits, exitTargets } from '../exits.js';
@@ -233,7 +234,40 @@ export async function cmdSkills(player) {
     }),
   }));
 
+  // Safe to branch in here, unlike cmdGear: `skills` has exactly one caller (the
+  // verb below) and the tablet's Skills app builds its own screen rather than
+  // reusing this. ⚠ If anything ever DOES start reading `.groups` off this, move
+  // the branch out to the verb the way gearReply in commands/inventory.js does —
+  // a data function that sometimes returns prose breaks its other caller silently.
+  if (loggedPanelsSync(player)) return { type: 'output', message: renderSkillsText(groups) };
   return { type:'skills', groups };
+}
+
+// `skills` at the log rung used to return a payload with no `message` at all, so
+// the command produced SILENCE — worse than any amount of log spam, and a direct
+// breach of the ARIA contract in docs/systems-display-mode.md ("if a system's
+// record doesn't reach the log, that rung isn't done for it"). Every sibling sheet
+// — stats, mutations, augments, mastery — had a text form; these did not.
+//
+// Skills with no investment and no bonus are omitted. A skill list is read to
+// answer "what am I good at", and forty rows of zero answer it worse than the
+// dozen that are actually true of you; `skills all` is not offered because the
+// full catalogue is what the tablet page is for.
+function renderSkillsText(groups) {
+  const out = ['<span class="help-header">SKILLS</span>'];
+  for (const g of groups) {
+    const rows = g.skills.filter(s => s.ip > 0 || s.final > 0);
+    if (!rows.length) continue;
+    out.push(`\n<span class="help-category">${String(g.category).toUpperCase()}</span>`);
+    for (const s of rows) {
+      const bits = [`level ${s.level}`];
+      if (s.statBonus) bits.push(`${s.statBonus >= 0 ? '+' : ''}${s.statBonus} from stats`);
+      if (s.buff) bits.push(`${s.buff >= 0 ? '+' : ''}${s.buff} buff`);
+      out.push(`  ${String(s.name).padEnd(18)}${String(s.final).padStart(3)}  <span class="text-dim">(${bits.join(', ')})</span>`);
+    }
+  }
+  if (out.length === 1) out.push('\n<span class="text-dim">Nothing practised yet. Skills rise by using them.</span>');
+  return out.join('\n');
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
@@ -409,10 +443,19 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 
-  // Transient appearance notes from plugins (e.g. cannabis red eyes). Mirrors the
-  // player.appearanceMisNotes hook below; plugin returns a line or undefined.
-  const notes = await fireHook('player.appearanceNotes', { target, viewer, isSelf });
-  if (notes) msg += `${notes}\n`;
+  // Transient appearance notes from plugins (e.g. cannabis red eyes, a wound,
+  // a clone's print artifacts). Each contributor returns a line or undefined.
+  //
+  // ⚠ THIS IS A gatherHook, NOT A fireHook, AND IT HAS TO BE. A body can be
+  // stoned AND bleeding AND wrong at the same time; there is no sense in which
+  // one of those overwrites the others. It WAS a fireHook — last non-undefined
+  // wins — with five registrants (cannabis, consume, drugs, injury, augments),
+  // so whichever plugin happened to load last silently ate the rest, and which
+  // one that was depended on directory order. Same bug describe.js documents
+  // having already fixed for zone.describeRoom. Contributors are unchanged:
+  // gatherHook drops undefined for you.
+  const notes = (await gatherHook('player.appearanceNotes', { target, viewer, isSelf })).filter(Boolean);
+  if (notes.length) msg += `${notes.join('\n')}\n`;
 
   // MIS gate — used for ejaculate stains and MIS-gated body details below
   const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));

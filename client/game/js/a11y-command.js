@@ -57,7 +57,7 @@ function optionBlock(opt, settings, ctx) {
       : `<a href="#" data-cmd="${esc(cmd)}">${esc(o.t)}</a>`;
   }).join(' · ');
   return `<div style="margin:0.5em 0">`
-    + `<b>${esc(opt.label)}</b> — currently <b>${esc(currentLabel(opt, settings))}</b><br>`
+    + `<b>${esc(opt.label)}</b> — currently <b>${esc(currentLabel(opt, settings, ctx))}</b><br>`
     + `<span style="color:var(--text-dim)">${esc(opt.why)}</span><br>`
     + `${pills}<br>`
     + `<span style="color:var(--text-dim)">accessibility ${esc(opt.verb)} &lt;option&gt;</span>`
