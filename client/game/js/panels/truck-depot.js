@@ -80,7 +80,7 @@ export function openTruckDepot(msg) {
   // #area-pane, not over the room — so with the depot mounted it rained *inside the garage*, over
   // a 3D scene that already draws its own lighting. Same hard override the cockpit takes when it
   // owns the pane (weather-fx.js `suppressed`), released in closeTruckDepot.
-  suppressWeatherFx(true);
+  suppressWeatherFx(true, 'depot');
   // Snap the top pane back to its default auto size so the whole depot fits, whatever manual drag
   // height was left on the previous room look. The hangar does exactly this on a fresh open.
   if (first) document.getElementById('area-pane')?.dispatchEvent(new CustomEvent('lookpaneauto'));
@@ -102,7 +102,7 @@ export function openTruckDepot(msg) {
 }
 
 export function closeTruckDepot() {
-  suppressWeatherFx(false);
+  suppressWeatherFx(false, 'depot');
   if (raf) cancelAnimationFrame(raf);
   raf = null; sceneHits = []; walkKeys.clear();
   document.removeEventListener('keydown', onKey);

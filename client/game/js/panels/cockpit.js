@@ -2395,7 +2395,7 @@ export function openFlightSim(opts = {}) {
   closeFlightSim();          // clear any prior
   closeCockpit();            // stop the glass HUD loop; the continuous cockpit owns the pane
   window.dispatchEvent(new Event('flightsim:open'));   // let the WASD walk-mode owner disarm — those keys are flight controls now
-  suppressWeatherFx(true);   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
+  suppressWeatherFx(true, 'cockpit');   // kill the outdoor overlay immediately so rain never flashes over the cockpit on embark
   ensureWindshieldStyles(); ensureFlightSimStyles(); refreshAccent();
   const skin = FSIM_SKIN[opts.craftType] || null;   // per-craft flightdeck theme
   if (skin) { ACCENT = skin.acc; ACCENT_RGB = skin.rgb; }   // retint the canvas instruments to match the CSS chrome
@@ -5024,7 +5024,7 @@ export function closeFlightSim() {
   document.body.classList.remove('fsim-fullscreen');   // drop the immersive layout if it was on
   document.body.classList.remove('fsim-hidepanel');    // …and the lighter hide-panel layout
   document.body.classList.remove('fsim-external');     // …and the external chase-cam layout
-  suppressWeatherFx(false);   // back to the room view — let the outdoor overlay resume
+  suppressWeatherFx(false, 'cockpit');   // back to the room view — let the outdoor overlay resume
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

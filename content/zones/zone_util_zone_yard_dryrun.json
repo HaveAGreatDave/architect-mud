@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade room, bare concrete and sweating pipes, and the generator taking up most of it. It runs on its own and it runs on nothing clever. Somebody has chalked a column of hours on the wall and has kept adding to it.",
+  "exits": {
+    "up": "zone_yard_dryrun"
+  },
+  "flags": {
+    "floor": "concrete",
+    "is_interior": true,
+    "region_id": "region_deadwater",
+    "world_exit_zone": "zone_dw_812_954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_yard_dryrun",
+  "map_id": "map_int_yard_dryrun",
+  "name": "The Dry Run — Generator Room",
+  "parent_zone": "zone_dw_812_954"
+}

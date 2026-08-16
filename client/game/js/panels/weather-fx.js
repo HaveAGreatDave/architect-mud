@@ -12,7 +12,16 @@ let canvas = null;
 let ctx = null;
 let running = false;
 let enabled = false;             // Settings gate (weatherFx on + motion on); default off until settings apply
-let suppressed = false;          // hard override — on while the flight cockpit owns the pane (it draws its own windshield weather); prevents the outdoor overlay flashing over the cockpit on embark
+let suppressed = false;          // hard override — on while a panel that draws its OWN weather owns the pane; derived from `suppressors` below, never written directly
+// ⚠ SUPPRESSION IS HELD BY NAME, NOT BY A BOOLEAN, and the bug that forced it is worth keeping.
+// This was one flag, so the LAST caller won — and the panels that use it hand over to each other:
+// the truck depot opens the cab and then closes itself, so its `suppressWeatherFx(false)` landed
+// after the cab's `true` and switched the outdoor overlay back on underneath a driver who now had
+// a windscreen of his own. What that looks like is rain falling INSIDE the cab, over the dash, the
+// gauges and the mirrors, immune to the wipers — because it is not on the glass, it is on a canvas
+// over the whole window. A release now only releases the owner's own claim, so a handover in
+// either order ends with the overlay off, which is the only answer that is right both ways round.
+const suppressors = new Set();
 
 // Current *target* effect descriptor: { effect, intensity, windKph }. `effect` is
 // one of 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
@@ -626,8 +635,11 @@ export function isWeatherFxEnabled() {
 // Public: hard-suppress the outdoor overlay while the flight cockpit owns the pane
 // (it renders its own windshield weather). Stops it immediately on embark so rain never
 // flashes over the cockpit, and lets it resume for the room view on exit.
-export function suppressWeatherFx(on) {
-  suppressed = !!on;
+// `owner` names the panel making the claim — see `suppressors`. It defaults so an unaware caller
+// behaves exactly as the old single flag did among its own calls.
+export function suppressWeatherFx(on, owner = 'default') {
+  if (on) suppressors.add(owner); else suppressors.delete(owner);
+  suppressed = suppressors.size > 0;
   if (suppressed) stopLoop();
   else startLoop();
 }

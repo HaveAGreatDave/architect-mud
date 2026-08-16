@@ -36,7 +36,19 @@ const TANK_TILES = 1050;
 // The window radius pushed to the cab. Flight uses 36 because a plane at altitude sees a long way;
 // a truck's eye height is a metre and a half and the fog closes at ~15 tiles, so a smaller window
 // carries everything the renderer can draw and cuts the payload to about a fifth.
-export const CAB_RADIUS = 16;
+// How far the cab can see, as a window radius. 16 → 22, and the ceiling on it is BANDWIDTH rather
+// than anything visual: this is a square, so the cost is (2r+1)² cells of JSON — 1,089 at 16, 2,025
+// at 22, and 4,761 if it were raised to match the renderer's own 34-tile draw limit. `pushCab` only
+// sends on a centre-tile change or once a second, and a truck at 68 mph crosses a tile slightly
+// slower than that, so this is about one payload a second either way; nearly doubling it is worth a
+// visibly longer road, quadrupling it is not.
+//
+// ⚠ THE RENDERER NOW DERIVES ITS FAR LIMIT FROM THIS, so the number is free to move without
+// anything popping (windshield.js, drawWorldObjects). That was NOT true before: the draw limit was
+// a constant 34 while this was 16, so every building crossed into view at the window's edge at full
+// opacity, eighteen tiles inside where the haze fade lives. Raising this is now a view-distance
+// decision and only that.
+export const CAB_RADIUS = 22;
 
 // Telemetry cadence guard. The client reports ~4×/s; anything faster is either a broken client or
 // somebody trying to buy odometer with request volume, and either way the clamp below handles it.

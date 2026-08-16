@@ -48,6 +48,33 @@ export default async function regress({ run, check, getPlayer }) {
   const player = getPlayer();
   const savedZone = player.current_zone;
 
+  // ── 0a. EVERY DEPOT IS A BUILDING WITH A YARD ──────────────────────────────
+  // `depotAt` used to accept two looser shapes — a bare string, and an object with no `yard` — and
+  // what that bought was not flexibility, it was a second depot design nobody had decided to have.
+  // Two of the five shipped depots were authored that way and had NO BUILDING ON THE MAP AT ALL:
+  // the renderer extrudes a tile carrying a `building_type`, and a flag on open hardstand gives it
+  // nothing to extrude, so a player stood in a yard, typed `drive`, and pulled out of bare ground.
+  //
+  // The reader is strict now, which means an author who writes the old shape gets a depot that does
+  // not exist rather than one that half works. These three checks are what turn that into a build
+  // failure with a name on it. `yard` is the one fact a bay cannot derive — a building tile is
+  // solid and has no road under it — so a yard that is missing, absent from the world, or itself a
+  // building is each a truck mounted somewhere a truck cannot be.
+  {
+    const depots = [...world.zones.values()].filter(z => z.flags?.truck_depot);
+    check(`every depot is authored as a building (${depots.length})`,
+      depots.length >= 5 && depots.every(z => z.flags.building_type && z.flags.is_building),
+      depots.filter(z => !z.flags.building_type).map(z => z.id).join(', '));
+    const yards = depots.map(z => ({ id: z.id, y: world.zones.get(z.flags.truck_depot?.yard) }));
+    check('…and every one of them names a yard that exists',
+      yards.every(v => !!v.y), yards.filter(v => !v.y).map(v => v.id).join(', '));
+    // The yard is where the rig is mounted, so it has to be a real piece of road: grid coordinates
+    // to stand on, and not itself a solid building.
+    check('…which is a drivable tile, not another building',
+      yards.every(v => v.y && v.y.grid_x != null && !v.y.flags?.is_building),
+      yards.filter(v => v.y && (v.y.grid_x == null || v.y.flags?.is_building)).map(v => v.id).join(', '));
+  }
+
   // ── 0. The air horn ────────────────────────────────────────────────────────
   // A horn is only a horn if the ROOM hears it, so the thing worth pinning is not that the verb
   // answers — it is that it refuses honestly when there is no truck within reach, and that both
@@ -381,7 +408,7 @@ export default async function regress({ run, check, getPlayer }) {
   {
     const T = 'zone_regress_trailerdrop';
     const prevT = world.zones.get(T);
-    world.zones.set(T, mkZone(T, 'Drop Yard', { map_id: 'map_world', grid_x: 3100, grid_y: 3100, flags: { truck_depot: { name: 'Drop Yard' } } }));
+    world.zones.set(T, mkZone(T, 'Drop Yard', { map_id: 'map_world', grid_x: 3100, grid_y: 3100, flags: { truck_depot: { name: 'Drop Yard', yard: T } } }));
     try {
       const made = await buyTrailer(player.id, 'box', T);
       check('a bought trailer stands in the yard it was bought in', made?.parkedZone === T, made?.parkedZone);
@@ -945,11 +972,17 @@ export default async function regress({ run, check, getPlayer }) {
     const prev = new Map([[GATE, world.zones.get(GATE)], [DEST, world.zones.get(DEST)]]);
     // GATE is a depot AND a rim tile (so the city leg is one tile long and this case stays fast),
     // with one real neighbour east so the move-gate path has a resolvable target to be blocked on.
+    // ⚠ THESE FIXTURES NAME THEMSELVES AS THEIR OWN YARD, and they have to say it out loud. They are
+    // road tiles rather than buildings — deliberately, because this case is about the CROSSING and a
+    // shed either end would buy it nothing but two more rooms to walk through — and `yardIdOf` no
+    // longer falls back to the depot's own id when `yard` is missing. That fallback was the legacy
+    // depot shape, and on real content it silently mounted a truck inside a building; here the same
+    // arrangement is what the case wants, so it is authored rather than inherited.
     const NEXT = 'zone_regress_trucknext';
     prev.set(NEXT, world.zones.get(NEXT));
     world.zones.set(GATE, mkZone(GATE, 'Truck Gate', {
       map_id: 'map_world', grid_x: 2000, grid_y: 2000, exits: { east: NEXT },
-      flags: { region_id: VOIDKEY, terrain: 'road', truck_depot: { name: 'Test Yard' } },
+      flags: { region_id: VOIDKEY, terrain: 'road', truck_depot: { name: 'Test Yard', yard: GATE } },
     }));
     world.zones.set(NEXT, mkZone(NEXT, 'Kessler Street', {
       map_id: 'map_world', grid_x: 2001, grid_y: 2000, exits: { west: GATE },
@@ -957,7 +990,7 @@ export default async function regress({ run, check, getPlayer }) {
     }));
     world.zones.set(DEST, mkZone(DEST, 'The Reach', {
       map_id: 'map_world', grid_x: 2000, grid_y: 2630,
-      flags: { region_id: 'region_the_reach', terrain: 'dirt_road', truck_depot: { name: 'The Last Load' } },
+      flags: { region_id: 'region_the_reach', terrain: 'dirt_road', truck_depot: { name: 'The Last Load', yard: DEST } },
     }));
     voidTest.invalidateRimIndex();
 

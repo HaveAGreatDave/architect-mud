@@ -25,16 +25,14 @@
     "lawless": true,
     "region_id": "region_deadwater",
     "terrain": "dirt_road",
-    "truck_depot": {
-      "name": "The Roadhead"
-    },
-    "truck_fuel": true
+    "truck_fuel": true,
+    "truck_yard": "The Dry Run"
   },
   "grid_x": 812,
   "grid_y": 955,
   "grid_z": 0,
   "id": "zone_dw_812_955",
   "map_id": "map_world",
-  "name": "The Roadhead",
+  "name": "The Dry Run",
   "parent_zone": null
 }

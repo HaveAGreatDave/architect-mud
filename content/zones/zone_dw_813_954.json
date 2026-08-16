@@ -14,8 +14,7 @@
   "exits": {
     "east": "zone_dw_814_954",
     "north": "zone_dw_813_953",
-    "south": "zone_dw_813_955",
-    "west": "zone_dw_812_954"
+    "south": "zone_dw_813_955"
   },
   "flags": {
     "emp_shadow": true,

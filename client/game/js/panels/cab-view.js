@@ -23,7 +23,7 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
-import { createHelmWheel, TRUCK_LOCK_TURNS } from './helm-wheel.js';
+import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
 
 // TELEMETRY CADENCE. This was a flat 250ms — four commands a second through the full dispatch
@@ -127,6 +127,23 @@ const DMG_PARTS = [
 // has a side, a screen and a stack. The orbit still runs from under-belly to top-down; this is only
 // where it RESTS and where ⟲ puts it back.
 const EXT_REST_PITCH = 0.26;
+// ── DOLLYING IN IS ASKING TO DRIVE ───────────────────────────────────────────
+// A turntable is the right control for LOOKING at a rig and the wrong one for driving it: three
+// quarters round and half a metre off the tailgate, the road is off the side of the screen and the
+// thing you are steering is a wall of panel. But that is exactly where a player ends up, because
+// dollying in is what you do when you stop admiring the truck and start wanting to use this view.
+//
+// So the zoom IS the mode switch, with no button to find: inside this band the camera eases round
+// to dead astern and drops to road level, and at the bottom of it the glass drag stops orbiting
+// and steers, which is what the same gesture already means in the cab. Back off the wheel and the
+// orbit you had set comes back — the player's yaw and pitch are never overwritten, only overridden
+// while they are zoomed in past the point where an orbit is any use.
+const CHASE_FROM = 0.62;          // where the camera starts coming round behind
+const CHASE_FULL = 0.34;          // …and where it is fully astern, and the drag is a steering wheel
+const CHASE_PITCH = 0.07;         // road level, looking up the lane rather than down on the roof
+const chaseAmt = (zoom) => Math.max(0, Math.min(1, (CHASE_FROM - zoom) / (CHASE_FROM - CHASE_FULL)));
+// Shortest way round to zero, so a camera parked at 350° eases 10° right rather than 350° left.
+const easeYawHome = (yaw, k) => { let d = ((yaw + 180) % 360 + 360) % 360 - 180; return (yaw - d * k + 360) % 360; };
 
 // ── THE PICTOGRAMS ───────────────────────────────────────────────────────────
 //
@@ -206,7 +223,7 @@ export function openCab(ctx = {}) {
   const container = ctx.mount || document.getElementById('area-content');
   if (!container) return null;
   closeCab();
-  suppressWeatherFx(true);
+  suppressWeatherFx(true, 'cab');
   ensureWindshieldStyles();
   ensureCabStyles();
   const id = 'cab';
@@ -469,7 +486,12 @@ export function openCab(ctx = {}) {
     // THREE AND A HALF TURNS LOCK TO LOCK, from the one place that owns it. The keyboard rate goes
     // up with it or a keyboard driver could never reach the stops — 5.5 rad/s is about two seconds
     // of held key from centre to full lock, which is a hand working, not a hand waiting.
-    lock: TRUCK_LOCK_TURNS, selfCentre: 2.6, keyRate: 5.5,
+    // `handRate` goes with the travel for the same reason the drag gain does: the limiter is there
+    // to stop a mouse flick teleporting the axle, and at the 9 rad/s default a driver winding on
+    // three and a half turns of lock hit the limiter during ORDINARY steering rather than during
+    // an impossible one. 14 rad/s is a hard two-and-a-bit turns a second — a pair of hands
+    // working, still nothing like a flick, and the cap does its job on the flick unchanged.
+    lock: TRUCK_LOCK_TURNS, selfCentre: 2.6, keyRate: 5.5, handRate: 14,
     // The wheel asks the truck how fast it is going, so the self-centring can be the speed-scaled
     // caster effect a real axle has rather than a constant spring — slack in a yard, firm on the
     // road. Reading `st.sim` live rather than pushing a number in: the sim is the only owner of
@@ -671,7 +693,10 @@ export function openCab(ctx = {}) {
         }
       }
       drag = { x: e.clientX, y: e.clientY, id: e.pointerId };
-      if (!st.external) st.wheel?.setDragging(true);
+      // The chase camera at full dolly steers (see the ⚠ in pointermove), so it needs the axle's
+      // self-centring to stand down for the length of the drag exactly as the cab's does — without
+      // this the spring is pulling the lock back out of your hand while you are winding it on.
+      if (!st.external || chaseAmt(st.extZoom) >= 1) st.wheel?.setDragging(true);
       glass.setPointerCapture?.(e.pointerId);
       glass.classList.add('cab-glass-drag');
       e.preventDefault();
@@ -694,7 +719,14 @@ export function openCab(ctx = {}) {
         st.wheel?.wind(da);
         return;
       }
-      if (st.external) {
+      // ⚠ DOLLIED RIGHT IN, THE DRAG IS A STEERING WHEEL. The camera is dead astern at road level
+      // by this point — there is no orbit left to give, and a gesture that silently does nothing is
+      // worse than one that does the obvious thing. So it falls through to the cab's own steering
+      // drag, which means the same hand movement means the same thing in both views and a player
+      // who zooms in to drive can simply drive.
+      if (st.external && chaseAmt(st.extZoom) >= 1) {
+        st.wheel?.wind(dx / Math.max(240, glass.clientWidth) * TRUCK_LOCK_RAD);
+      } else if (st.external) {
         // Turntable, in the renderer's own units. The pitch bound is short of the poles for the
         // reason cockpit.js's is: a near-vertical orbit stretches the model into a spindle.
         st.extYaw = (st.extYaw + dx * 0.30 + 360) % 360;
@@ -710,7 +742,15 @@ export function openCab(ctx = {}) {
         // Screen-width-relative, so the same physical gesture means the same lock at any window
         // size — a fixed radians-per-pixel would make a fullscreen drag four times gentler than a
         // panelled one, which is the opposite of what a bigger picture should do.
-        st.wheel?.wind(dx / Math.max(240, glass.clientWidth) * 5.4);
+        //
+        // ⚠ THE GAIN IS THE LOCK, NOT A CONSTANT, and that is the whole of "it still won't come
+        // round". The wheel went to three and a half turns lock to lock — 11 radians from centre —
+        // while this stayed at the 5.4 it was tuned to when the wheel was 1.6 turns. So a drag
+        // across the ENTIRE screen bought half a lock, and the truck was being driven on half its
+        // steering by anybody using the control the fullscreen view is built around. The axle it
+        // can reach now falls out of the wheel's own travel, so retuning `TRUCK_LOCK_TURNS` can
+        // never again leave the gesture behind: one screen width is one lock, at any travel.
+        st.wheel?.wind(dx / Math.max(240, glass.clientWidth) * TRUCK_LOCK_RAD);
       }
     });
     const endDrag = () => {
@@ -807,11 +847,18 @@ export function openCab(ctx = {}) {
       // The shaft is solved here, from the same two numbers, and never stored: length and lean
       // between the pivot and the knob. A separate source for either would be a lever whose stick
       // and knob eventually disagree about which gear you are in.
+      // ⚠ SOLVED IN PIXELS, against the plate's REAL box. The knob sits at a fraction of the gate in
+      // both axes, so the vector from the boot to it is only a straight line on screen if the two
+      // fractions are converted through the gate's actual width and height — a stick whose length
+      // was a fraction of one axis and whose lean was solved in the other is the stick pointing at
+      // nothing. This is also the ONLY reason a rect is read here.
       if (!shaft) return;
-      const dx = x - PIVOT_X, dy = PIVOT_Y - y;
-      const len = Math.hypot(dx, dy * 0.72);          // dy squashed: the plate is a raked view, not a plan
-      shaft.style.setProperty('--plen', (len * 100).toFixed(2) + '%');
-      shaft.style.setProperty('--pang', (Math.atan2(dx, dy * 0.72) * 180 / Math.PI).toFixed(2) + 'deg');
+      const b = gate.getBoundingClientRect();
+      const w = b.width || gate.offsetWidth, h = b.height || gate.offsetHeight;
+      if (!w || !h) return;
+      const dx = (x - PIVOT_X) * w, dy = (PIVOT_Y - y) * h;
+      shaft.style.setProperty('--plen', Math.hypot(dx, dy).toFixed(2) + 'px');
+      shaft.style.setProperty('--pang', (Math.atan2(dx, dy) * 180 / Math.PI).toFixed(2) + 'deg');
     };
     // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
     // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
@@ -1809,11 +1856,31 @@ function frame(now) {
       superSample: 2,
       // Which of the four, and whether there is a box on the back. The ONE string that decides the
       // shape, and it is the same one the yard hands its turntable.
-      variant: TYPE_ID + (r.hitched ? '+t' : ''),
+      //
+      // ⚠ `~p` IS THE SHUT-DOWN POSE, AND THE ROAD NEVER ASKED FOR IT. The mesh has had a parked
+      // pose since the lifters were built — a stalled rig settles onto its skirts and the emitter
+      // bands stop being drawn — but the only caller passing `~p` was the depot panel's turntable.
+      // So out here a truck with a dead engine went on hovering with its bands lit, which is the
+      // exact tell the parked pose was written to kill: a machine holding itself up on light it is
+      // not making. It is one suffix, and the whole settle comes with it.
+      variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : ''),
+      // WHAT THE ROAD UNDER IT IS LIT BY. `drawVehicleGround` defaults to 0.55 when nobody says —
+      // a permanent half-power wash that neither brightened when the rig was working nor went out
+      // when it stopped. It is the engine, so it is the engine's number: dead at a stall, and
+      // rising off idle so pulling away visibly lights the road under the skirts.
+      power: r.stalled ? 0 : Math.max(0, Math.min(1, ((st.sim.rpm || 0) - 0.10) / 0.55)),
       livery: PAINT || undefined,
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
-      ...(st.external ? { external: true, extYaw: st.extYaw, extPitch: st.extPitch, extZoom: 1.15 * st.extZoom } : {}),
+      // The orbit the RENDERER gets is the player's, eased toward dead astern by how far they have
+      // dollied in (see chaseAmt). `st.extYaw`/`st.extPitch` are untouched, so backing the wheel
+      // off hands the player their own camera back exactly as they left it.
+      ...(st.external ? {
+        external: true,
+        extYaw: easeYawHome(st.extYaw, chaseAmt(st.extZoom)),
+        extPitch: st.extPitch + (CHASE_PITCH - st.extPitch) * chaseAmt(st.extZoom),
+        extZoom: 1.15 * st.extZoom,
+      } : {}),
       // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
       // are for — and yawing a third-person view off the vehicle it is following is just lost.
       viewYaw: st.external ? 0 : (st.viewYaw || 0),
@@ -2047,10 +2114,17 @@ function ensureCabStyles() {
      knob rather than controls in their own right. */
   .cab-collars{display:flex;gap:6px;margin-top:5px;justify-content:center}
   .cab-collars .cab-btn{min-width:46px;min-height:38px}
-  .cab-lever{position:absolute;left:0;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;
+  /* ⚠ THE KNOB IS POSITIONED IN THE SAME UNITS AS EVERYTHING ELSE ON THE PLATE — percentages of the
+     gate, exactly like .cab-slot and the rails. It used to translate by '--gx * --gw', i.e. the
+     gate's DECLARED pixel width, and the moment the plate was laid out at any other size (the
+     fullscreen cab, the touch media query, a flex shrink) the knob was placed against a width the
+     plate no longer had: it walked off the left of the gate while the numbered slots stayed put.
+     One coordinate system for the plate, or the lever and the gate it lives in disagree. */
+  .cab-lever{position:absolute;left:calc(var(--gx,.38) * 100%);top:calc(var(--gy,.5) * 100%);
+    width:22px;height:22px;margin:0;
     cursor:grab;touch-action:none;
-    transform:translate(calc(var(--gx,.38) * var(--gw,104px)),calc(var(--gy,.5) * var(--gh,62px)));
-    transition:transform .14s cubic-bezier(.2,.8,.3,1)}
+    transform:translate(-50%,-50%);
+    transition:left .14s cubic-bezier(.2,.8,.3,1), top .14s cubic-bezier(.2,.8,.3,1)}
   /* No easing while a hand is on it: a knob that lags the finger is a knob that feels broken. */
   .cab-lever.on{transition:none;cursor:grabbing;z-index:2}
   /* In a gear the gate's own range does not offer — you shifted into 6 with a key while the lever
@@ -2072,9 +2146,16 @@ function ensureCabStyles() {
       repeating-linear-gradient(#000 0 2px,rgba(255,255,255,.055) 2px 4px),
       radial-gradient(120% 90% at 50% 12%,#2b3038,#14171c 60%,#080a0d);
     box-shadow:0 -2px 8px rgba(0,0,0,.8), inset 0 3px 6px rgba(255,255,255,.06)}
-  .cab-shaft{position:absolute;left:38%;top:0;width:9px;margin-left:-4.5px;
-    height:var(--plen,60%);pointer-events:none;z-index:1;
-    transform:translateY(calc(134% - var(--plen,60%))) rotate(var(--pang,0deg));
+  /* ⚠ ANCHORED AT THE PIVOT, NOT AT THE TOP. The stick is bottom-anchored 34% of the plate BELOW the
+     plate (y = 1.34, the boot, where the lever comes through the floor) and grows upward to the
+     knob, so the only thing that can move its top end is its own length and lean. It used to be
+     top-anchored and pushed down by 'translateY(134% - --plen)' — but a transform percentage is a
+     fraction of THE ELEMENT, not of the gate, so the further the lever moved the further the stick's
+     foot slid away from the boot. Height comes from 'put' in PIXELS, solved against the same rect
+     the knob is placed in, which is what makes stick and knob one object. */
+  .cab-shaft{position:absolute;left:38%;top:auto;bottom:-34%;width:9px;margin-left:-4.5px;
+    height:var(--plen,60px);pointer-events:none;z-index:1;
+    transform:rotate(var(--pang,0deg));
     transform-origin:50% 100%;
     transition:transform .14s cubic-bezier(.2,.8,.3,1), height .14s cubic-bezier(.2,.8,.3,1)}
   .cab-lever.on ~ .cab-shaft,.cab-gate .cab-lever.on + .cab-shaft{transition:none}
@@ -2442,11 +2523,26 @@ function ensureCabStyles() {
      now the whole viewport genuinely shows more world in every direction.
      Nothing moves, nothing is hidden, and every control is exactly where it was. */
   body.cab-fullscreen .cab-wrap > .ws-wrap{position:absolute;inset:0;height:100%;border-radius:0}
+  /* ⚠ NO BACKDROP BLUR. There was one, and it was the whole of "the fullscreen gauges are fuzzy":
+     the HUD sits over the bottom of the glass, and the bottom of the glass is where the PAINTED
+     INSTRUMENTS are — the dial faces, their needles, the numerals and the wheel are all on the dash
+     canvas underneath this strip. A backdrop-filter blurs what is behind it, so the scrim meant to
+     separate the shelf from the road was softening the only things on screen you have to read a
+     number off. The gradient alone does the separating; it always did. */
   body.cab-fullscreen .cab-controls{position:absolute;left:0;right:0;bottom:0;z-index:4;
     border-top:none;padding-top:26px;
-    background:linear-gradient(to top,rgba(6,8,11,.94) 0%,rgba(6,8,11,.86) 55%,rgba(6,8,11,0) 100%);
-    backdrop-filter:blur(2px)}
+    background:linear-gradient(to top,rgba(6,8,11,.94) 0%,rgba(6,8,11,.86) 55%,rgba(6,8,11,0) 100%)}
   body.cab-fullscreen .cab-controls::before{opacity:0}
+  /* ⚠ THE HUD IS A PICTURE, THE CONTROLS IN IT ARE THE TARGETS. Absolutely positioned over the
+     glass, this strip was a full-width sheet of hit-testable nothing lying across the bottom of the
+     scene — and the bottom of the scene is where the PAINTED WHEEL is. So the half of the wheel
+     nearest you, the part with the most leverage and the part a hand reaches for first, could not
+     be grabbed at all: the pointer landed on the scrim. Every miss looked like a bad hit-test in
+     the 'drawCabWheel' geometry, and the geometry was right the whole time.
+     The strip itself takes no pointer, its actual control groups take theirs back, and the gaps
+     between them are glass again — which is what they look like. */
+  body.cab-fullscreen .cab-controls{pointer-events:none}
+  body.cab-fullscreen .cab-controls > *{pointer-events:auto}
   /* The instruments earn the extra room the shelf gave up. */
   body.cab-fullscreen .cab-focustag{bottom:auto;top:44px}
   body.cab-fullscreen .cab-dmg{bottom:auto;top:44px;left:8px}
@@ -2588,7 +2684,7 @@ export function closeCab() {
   // The immersive layouts are the PAGE's, not the pane's — nothing else takes them down, and a
   // driver who parked in fullscreen would be left with no log and no command box.
   document.body.classList.remove('cab-fullscreen', 'cab-hidepanel');
-  suppressWeatherFx(false);
+  suppressWeatherFx(false, 'cab');
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room
   stopDamageBed();                                   // …and neither does the rattle it was making

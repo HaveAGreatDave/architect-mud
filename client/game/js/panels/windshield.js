@@ -6274,7 +6274,11 @@ function drawVehicleGround(ctx, P, c, sun) {
   // under it and the mesh's own emitter bands are already dark in that pose.
   const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
   if (c.lights !== false && power > 0.02) {
-    const lit = clamp(0.35 + power * 0.65, 0, 1);
+    // ⚠ THE FLOOR IS LOW AND THE TOP IS BRIGHT, and it used to be neither: `0.35 + power * 0.65`
+    // put a third of full wash on the road at zero power, so an idling rig and a working one looked
+    // the same and a stalled one still glowed. The lifters are the one system on this vehicle whose
+    // whole job is to say IT IS RUNNING, so the number has to move with the engine and reach zero.
+    const lit = clamp(0.10 + power * 1.35, 0, 1.45);
     ctx.globalCompositeOperation = 'lighter';
     // The pods, plus the centreline stations between the axles — without those the wash is four
     // bright corners with a dark aisle down the middle, which reads as four lamps rather than as a
@@ -6284,11 +6288,17 @@ function drawVehicleGround(ctx, P, c, sun) {
       const q = P(p); if (q.f <= 0.08) continue;
       // Sized off the pod's own half-length as it PROJECTS, so it is right at any zoom.
       const e = P([p[0] + r, p[1], 0.0005]);
-      const rad = Math.max(3, Math.hypot(e.sx - q.sx, e.sy - q.sy) * 3.4);
+      const rad = Math.max(3, Math.hypot(e.sx - q.sx, e.sy - q.sy) * 3.9);
       const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, rad);
-      rg.addColorStop(0, `rgba(104,214,232,${0.26 * lit})`);
-      rg.addColorStop(0.4, `rgba(52,150,190,${0.12 * lit})`);
-      rg.addColorStop(1, 'rgba(30,90,170,0)');
+      // A HOT WHITE-BLUE CORE, then blue, then out. Three stops rather than a flat teal, because
+      // that is the only thing that reads as an EMITTER rather than as coloured paint on the road:
+      // a real light source blows out to near-white where it is strongest and keeps its colour in
+      // the falloff. The old ramp started at the band's own teal and lost saturation outward, which
+      // is a decal's gradient, and at a quarter alpha it never got near the tarmac's own value.
+      rg.addColorStop(0, `rgba(190,240,255,${0.52 * lit})`);
+      rg.addColorStop(0.22, `rgba(96,196,255,${0.40 * lit})`);
+      rg.addColorStop(0.55, `rgba(40,120,235,${0.17 * lit})`);
+      rg.addColorStop(1, 'rgba(24,70,190,0)');
       ctx.fillStyle = rg;
       ctx.save();
       // A pool on the ground is an ellipse; a circle reads as a ball of fog the truck is parked in.
@@ -10795,7 +10805,21 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (SHAPE_SINK) { SHAPE_SINK = null; console.error('[windshield] SHAPE_SINK leaked into a render pass — capture did not restore'); }
   pBegin('world:build');
   const map = v.map; if (!map || !map.length) { pEnd(); return; } const R = cam.R, night = sky.night;
-  const FAR = VISIBLE_FAR_F, wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
+  // ── THE DRAW DISTANCE IS THE DATA YOU HAVE, NOT A CONSTANT THAT HOPES ──────
+  // `VISIBLE_FAR_F` is 34 and the fade only covers the last handful of tiles, which is exactly
+  // right when the window is bigger than the view: an aircraft asks for radius 36 and the horizon
+  // dissolves into haze. The truck asks for 16. So for the whole of THE LONG HAUL every building
+  // arrived at the edge of the window — eighteen tiles inside where the haze lives — at full
+  // opacity, one row at a time, which is the pop-in you cannot tune your way out of because the
+  // fade was never reached.
+  //
+  // Deriving it from the window kills the entire class: the far limit is now whatever was actually
+  // sent, so the dissolve always happens at the data's own edge and a caller can pick any radius it
+  // can afford without ever discovering this by looking at it. Windows larger than the view are
+  // unaffected — the min keeps the aircraft's 34 exactly as it was.
+  const winR = (map.length - 1) / 2;
+  const FAR = Math.min(VISIBLE_FAR_F, Math.max(6, winR - 1));
+  const wcx = v.mapCenter ? v.mapCenter.x : 0, wcy = v.mapCenter ? v.mapCenter.y : 0;
   const items = [], wildF = v._wildFill;
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
     const c = map[ry][rx]; if (!c) continue;

@@ -13,23 +13,29 @@
   "ambient_theme": "wasteland",
   "description": "Chest-high brush, tough as wire, with runs beaten through it at knee height by something that lives here and goes the same way every day. The wind through it makes a dry sound with no rest in it at all.",
   "exits": {
-    "east": "zone_scw_1025_956",
-    "north": "zone_scw_1024_955",
-    "south": "zone_scw_1024_957",
-    "west": "zone_scw_1023_956"
+    "north": "zone_yard_deadleg",
+    "south": "zone_scw_1024_957"
   },
   "flags": {
+    "building_name": "The Deadleg",
+    "building_type": "truck_depot",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "lawless": true,
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "scrub"
+    "world_exit_zone": "zone_scw_1024_957",
+    "vehicle_bay": true
   },
   "grid_x": 1024,
   "grid_y": 956,
   "grid_z": 0,
   "id": "zone_scw_1024_956",
   "map_id": "map_world",
-  "name": "Scrub Bench",
+  "marker": "DE",
+  "name": "The Deadleg",
   "parent_zone": null
 }

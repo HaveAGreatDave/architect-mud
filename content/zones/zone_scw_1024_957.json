@@ -26,16 +26,14 @@
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
     "terrain": "redrock",
-    "truck_depot": {
-      "name": "The Roadhead"
-    },
-    "truck_fuel": true
+    "truck_fuel": true,
+    "truck_yard": "The Deadleg"
   },
   "grid_x": 1024,
   "grid_y": 957,
   "grid_z": 0,
   "id": "zone_scw_1024_957",
   "map_id": "map_world",
-  "name": "The Roadhead",
+  "name": "The Deadleg",
   "parent_zone": null
 }

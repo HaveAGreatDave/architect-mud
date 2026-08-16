@@ -89,17 +89,38 @@ async function cmdDrive(args, raw, player) {
   // who walked out and thought better of it shouldn't have to walk back for a truck.
   if (player._crossing) return mountOnCrossing(player);
 
-  // ROLL OUT THROUGH THE DOOR. You are standing in a garage bay, and a garage bay has no road in
-  // it — the tile is a building and buildings are solid. So the truck is mounted on the APRON: the
-  // hardstand the bay names as its yard, one door away, which is where the rig has been standing
-  // all along. `driveToZone` walks the player out with it, so the room you are in when the
-  // windscreen appears is the road, exactly as it would be if you had opened the door and climbed
-  // up. Mounting inside the shed instead was the alternative, and it would have put a forty-tonne
-  // truck in a room with no grid coordinates and no surface under it.
+  // ── YOU START INSIDE THE SHED, AND YOU DRIVE OUT OF IT ─────────────────────
+  // This used to mount on the APRON and walk you out, and the reasoning was sound as far as it
+  // went: a bay is a room at grid 0,0 with no surface under it, and a building is solid, so there
+  // was nowhere inside to put a forty-tonne truck. What that bought was a rig that teleported
+  // through its own wall — the door was a sentence in the log and the first frame was already on
+  // the road.
+  //
+  // Both halves of the objection turn out to be answered by things that already exist:
+  //
+  //   • the bay has no coordinates, but its FACADE does. The building's own tile is a real piece of
+  //     world you can stand a truck on; standing on it IS standing inside the shed, and the drawing
+  //     pass already excuses a tile carrying `bt` from the own-tile skip (windshield.js), so the
+  //     shed is drawn around you rather than vanishing because you are on it.
+  //   • buildings are solid, but `groundObstructionAt` has always had exactly one hole in it: a
+  //     tile marked `bay` is not solid to a truck. That mark is derived from `flags.vehicle_bay`
+  //     and, until now, NOT ONE ZONE IN THE WORLD AUTHORED IT — the mechanism for driving into a
+  //     shed was built, commented, and never given any content. The five depot facades carry it now.
+  //
+  // So the whole change is: mount on the door tile, face the way out, and let the player drive.
+  // Nothing is exempted from collision — the walls either side of you are as solid as they ever
+  // were, and the bay tile is open because it is authored open. Aim badly and you hit the shed.
   const stood = getZone(player.current_zone);
   const bay = depotAt(stood);
   const yardId = bay ? yardIdOf(stood, bay) : null;
-  const here = bay ? (getZone(yardId) || stood) : stood;
+  // THE DOOR TILE — the shed as the WORLD has it, which is the building you are standing inside.
+  // The bay itself is a room at grid 0,0 with no surface under it, so it can never be the thing a
+  // truck sits on; its `world_exit_zone` is the facade, and the facade is a real tile with real
+  // coordinates that happens to have a building on it. That tile is where the rig has been parked
+  // all along, and it is now where you get into it.
+  const doorId = bay ? (stood.flags?.world_exit_zone || null) : null;
+  const door = doorId ? getZone(doorId) : null;
+  const here = (door && door.grid_x != null) ? door : (bay ? (getZone(yardId) || stood) : stood);
   const depot = bay || depotAt(here) || bayForYard(stood?.id)?.depot;
   if (!depot) {
     return say("There's nothing to drive here. Rigs run out of the freight yards — find a depot with a truck in it.");
@@ -138,7 +159,21 @@ async function cmdDrive(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>' });
   }
 
-  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: 180, depot: here.id });
+  // FACING THE WAY OUT. The heading was a hardcoded 180 — south — which was harmless while the rig
+  // was mounted on open hardstand and is nonsense the moment it is standing in a shed: three of the
+  // five depots would have you nose-first into the back wall. The facade already states which way
+  // its door faces (`flags.entrance`, the same field that decides where the world exit is), so the
+  // truck simply points at it. Falls back to south for a rig mounted anywhere that is not a door.
+  const OUT_HEADING = { north: 0, east: 90, south: 180, west: 270 };
+  const facing = (here === door && OUT_HEADING[here.flags?.entrance] != null)
+    ? OUT_HEADING[here.flags.entrance] : 180;
+  // ⚠ WHERE IT STANDS AND WHERE IT LIVES ARE TWO DIFFERENT ANSWERS, and only the first one moved.
+  // `x`/`y` are the door tile now, because that is where the truck physically is. `depot` is the
+  // bookkeeping — which yard this rig belongs to, what `park` writes and what every ownership
+  // lookup matches on — and it stays the YARD exactly as before. Passing the door tile here would
+  // have quietly re-homed the truck to a zone no `depotZonesOf` pair contains, and the symptom
+  // would have been "you don't own a truck here" while sitting in it.
+  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: facing, depot: yardId || here.id });
   rig.zoneId = here.id;
   await refreshStanding(here.id);   // whatever is standing on this apron, so it is drawn from the first frame
   rig.truckId = owned.id;
@@ -157,14 +192,19 @@ async function cmdDrive(args, raw, player) {
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
   setPosture(player, 'driving');
-  // Out of the shed and onto the apron, and the room description that comes with it. Done AFTER
-  // the rig exists so the move gate sees a driver rather than a pedestrian walking out of a door.
-  // ⚠ `bay` IS NOT "YOU WERE INDOORS". It only means the tile you are standing on carries the
-  // depot flag, and the legacy shape puts that flag straight on a piece of hardstand — so a yard
-  // with no shed at all satisfies it. What the roller door needs to know is whether the truck had
-  // to be walked OUT of somewhere, which is exactly this move happening.
-  const fromShed = !!(bay && yardId && yardId !== player.current_zone);
-  if (fromShed) driveToZone(player, rig, yardId);
+  // ⚠ THIS MOVES YOU INTO THE SHED, NOT OUT OF IT, and that inversion is the whole feature. It used
+  // to walk the player to the apron so the first frame was already on the road; now it puts them on
+  // the door tile — inside the building, engine running, nose pointed at the daylight — and the
+  // drive out is something the player does with the throttle. `driveToZone` is still the mover for
+  // the same reason it always was: it runs AFTER the rig exists, so the move gate sees a driver
+  // rather than a pedestrian walking out of a door.
+  //
+  // `fromShed` still means "the truck had to be got out of somewhere", which is what the roller
+  // door narrates; it is just that now the door is in front of you rather than behind you. A driver
+  // who left the rig on the apron and typed `drive` from there is already outside and gets no door.
+  const fromShed = !!(bay && here === door && door.id !== player.current_zone);
+  if (fromShed) driveToZone(player, rig, door.id);
+  else if (bay && yardId && yardId !== player.current_zone) driveToZone(player, rig, yardId);
 
   // THE MINIGAME AXIS (docs/systems-display-mode.md). Delete the cab and the player is not reading
   // less, they are STUCK — they cannot make the run at all — so this is `prefersTextMinigames`,
@@ -217,10 +257,21 @@ function defaultRunTarget(here) {
 }
 
 // A depot is any zone carrying `flags.truck_depot`. Content decides which; this only reads it.
+//
+// ⚠ THE FLAG IS AN OBJECT WITH A `yard`, AND NOTHING ELSE IS A DEPOT. There used to be two more
+// shapes accepted here — a bare STRING, and an object with no `yard` — and between them they meant
+// a depot could be a flag sitting on an open piece of hardstand with no building anywhere near it.
+// That is not a lenient reader, it is a second depot design, and it shipped: two of the five depots
+// were built that way and drew NO BUILDING AT ALL, because the renderer only extrudes a tile with a
+// `building_type` and there was no tile to give one to. You stood in a yard, typed `drive`, and
+// pulled out of bare ground.
+//
+// Both are gone, and the regress suite now asserts every authored depot resolves a real yard tile
+// with grid coordinates — so the shape is a build failure rather than a silent second world.
 function depotAt(zone) {
   const f = zone?.flags?.truck_depot;
-  if (!f) return null;
-  return typeof f === 'object' ? f : { name: zone.name };
+  if (!f || typeof f !== 'object' || !f.yard) return null;
+  return f;
 }
 
 // ── A DEPOT IS A BUILDING YOU WALK INTO ──────────────────────────────────────
@@ -241,7 +292,12 @@ function depotAt(zone) {
 // Everything downstream reads these two helpers rather than a zone id, which is what let the
 // change stay small: a truck parked in the bay and a truck parked on the apron are one truck at
 // one depot, and every lookup asks for the PAIR.
-const yardIdOf = (zone, depot) => depot?.yard || zone?.id || null;
+// ⚠ NO FALLBACK TO THE ZONE'S OWN ID. It used to read `depot?.yard || zone?.id`, which is what made
+// the legacy shape work at all: a depot with no yard quietly became its own yard. On a real bay that
+// silently mounts a forty-tonne truck inside a building — a tile with no grid coordinates and no
+// surface under it — and the failure surfaces somewhere far away as a rig that cannot move. `yard`
+// is the one fact a bay genuinely cannot derive, so a depot without one is unauthored, not flexible.
+const yardIdOf = (zone, depot) => depot?.yard || null;
 const depotZonesOf = (zone, depot) => [zone?.id, depot?.yard].filter(Boolean);
 // The bay a yard tile belongs to — the reverse lookup, for prose on the apron and for `park`.
 // MEMOISED, because the caller is `zone.describeRoom`: this answers a question asked every time

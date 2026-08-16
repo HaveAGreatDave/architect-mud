@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_yard_dryrun",
+  "id": "map_int_yard_dryrun",
+  "name": "The Dry Run",
+  "parent_zone_id": "zone_dw_812_954"
+}

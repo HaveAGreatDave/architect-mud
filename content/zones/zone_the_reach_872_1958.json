@@ -26,7 +26,8 @@
     "is_building": true,
     "lawless": true,
     "region_id": "region_the_reach",
-    "world_exit_zone": "zone_the_reach_871_1958"
+    "world_exit_zone": "zone_the_reach_871_1958",
+    "vehicle_bay": true
   },
   "grid_x": 912,
   "grid_y": 1042,

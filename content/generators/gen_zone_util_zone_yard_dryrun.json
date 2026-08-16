@@ -1,0 +1,14 @@
+{
+  "capacity_kw": 5000,
+  "city_generator_id": null,
+  "connection_range": 0,
+  "flags": {},
+  "fuel_burn_rate": 0,
+  "fuel_remaining": 400,
+  "fuel_type": "fuel",
+  "generator_type": "building",
+  "id": "gen_zone_util_zone_yard_dryrun",
+  "name": "The Dry Run — Generator",
+  "owner_id": null,
+  "zone_id": "zone_util_zone_yard_dryrun"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1024_956",
+  "b": "zone_yard_deadleg",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_scw_1024_956_north_deadleg",
+  "lockable": true,
+  "one_way": false
+}

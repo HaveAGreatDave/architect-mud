@@ -17,7 +17,6 @@
   "exits": {
     "east": "zone_scw_1025_955",
     "north": "zone_scw_1024_954",
-    "south": "zone_scw_1024_956",
     "west": "zone_scw_1023_955"
   },
   "flags": {

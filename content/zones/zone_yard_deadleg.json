@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Grit ticks against the roof sheets in a long gust and then stops.",
+    "Somebody walks the length of the shed, unhurried, and does not come back.",
+    "The water butt by the racking gets a dipper run through it and put back on its hook.",
+    "A new rate goes up on the board in the same careful hand as the rest of them.",
+    "Out on the redrock, a truck starts, idles for a while, and shuts down again."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#22242a",
+  "color": "#c9a86a",
+  "description": "The shed floor, high enough to stand a trailer in and long enough to stand two. Diesel, hot iron, and the red grit that gets into everything out here. Trucks nose-in along one wall under a strip light; along the other, racking, a water butt, and a board with the day's rates chalked on it in a careful, patient hand. The door stands open on the redrock south.",
+  "exits": {
+    "down": "zone_util_zone_yard_deadleg",
+    "south": "zone_scw_1024_956"
+  },
+  "flags": {
+    "building_name": "The Deadleg",
+    "building_type": "truck_depot",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "truck_depot": {
+      "name": "The Deadleg",
+      "yard": "zone_scw_1024_957"
+    },
+    "world_exit_zone": "zone_scw_1024_956"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_deadleg",
+  "map_id": "map_int_yard_deadleg",
+  "name": "The Deadleg — the shed",
+  "parent_zone": "zone_scw_1024_956"
+}

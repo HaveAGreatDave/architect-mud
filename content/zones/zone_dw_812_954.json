@@ -12,23 +12,29 @@
   "ambient_theme": "wasteland",
   "description": "The front of the old flow, where it stopped: a wall of black rock standing clear of the ash, rubbly at the top and sheer in the middle, undercut at the foot where the weather has been at the softer bed under it. There is no way up it here. It runs off in both directions along the same line.",
   "exits": {
-    "east": "zone_dw_813_954",
-    "north": "zone_dw_812_953",
-    "south": "zone_dw_812_955",
-    "west": "zone_dw_811_954"
+    "north": "zone_yard_dryrun",
+    "south": "zone_dw_812_955"
   },
   "flags": {
+    "building_name": "The Dry Run",
+    "building_type": "truck_depot",
     "emp_shadow": true,
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "lawless": true,
     "no_spawn": true,
     "region_id": "region_deadwater",
-    "terrain": "cliff"
+    "world_exit_zone": "zone_dw_812_955",
+    "vehicle_bay": true
   },
   "grid_x": 812,
   "grid_y": 954,
   "grid_z": 0,
   "id": "zone_dw_812_954",
   "map_id": "map_world",
-  "name": "Stopline",
+  "marker": "DR",
+  "name": "The Dry Run",
   "parent_zone": null
 }

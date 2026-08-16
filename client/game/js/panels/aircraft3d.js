@@ -2114,11 +2114,32 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 //  lamps    — 0..1 how much LIGHT the thing wears: marker rows, a bar on the bumper, beltline strip
 //  rig      — what a BOBTAIL carries on its bare deck ('cage' scrap hauler, 'rack' strapped load,
 //             null for the long-haul tractors, which run clean because they are built to pull)
+// ── ⚠ `hi` IS THE THING THAT WAS WRONG, AND IT WAS WRONG BY A FACTOR ─────────
+// A truck reads as a truck because it is TALL. A tractor unit is about 2.5 m across the mirrors'
+// mounts and about 4 m to the top of the stack — half again taller than it is wide — and that
+// proportion is most of why one fills a lane the way a van does not.
+//
+// These were the other way round. `hi` is the cab top and `w` is the HALF-width, so the full width
+// is `2w`: the Continental stood 0.240 tall in a body 0.356 across, a ratio of 0.67, and every
+// other type was within a few points of it. Nothing in the mesh could rescue that — the stacks, the
+// screen rake, the sleeper and the roof fairing all derive from `hi`, so the whole rig was drawn
+// correctly to a squashed skeleton and the result reads as a wide flat slab with a truck's details
+// printed on it. That is the "feels too flat", and it is one column of this table.
+//
+// Raised to a ratio just under 1 (still short of the real 1.5, because these bodies are stubbier
+// fore-aft than a real tractor and matching height exactly would make them read as pillars). The
+// trailer moved with it — see `tTop`, which used to be a hardcoded 0.135 and is now derived from
+// `hi`, so a box is about as tall as it is wide instead of a third of it.
+//
+// ⚠ COLLISION IS UNAFFECTED AND MUST STAY THAT WAY. The CFIT sweep probes at its own `clearZ`
+// (windshield.js `groundCollisionSmoke`), not off this mesh, so raising the model does not change
+// which awnings you can drive under. If those two are ever tied together, this table stops being a
+// free visual dial and starts being a gameplay one.
 const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.185, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, rig: 'cage' },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.200, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, rig: 'rack' },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.215, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  rig: null },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.240, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    rig: null },
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.250, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, rig: 'cage' },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.275, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, rig: 'rack' },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.300, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  rig: null },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.335, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    rig: null },
 };
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
@@ -2182,7 +2203,11 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // and it HANGS OFF AN ARM with daylight above it — a machine holding itself up, not resting on
   // something. `len` stretches a pod fore-aft, which is why the drive groups no longer draw a
   // doubled pair: dual rims are an artefact of a tyre's contact patch and this has none.
-  const GLOW = [104, 214, 232];
+  // The emitter band's own colour. Pushed off teal and up toward a hot blue-white so the band reads
+  // as the SOURCE of the wash on the road under it rather than as a differently-coloured stripe
+  // near it — the two are drawn by different passes (this is mesh, the pool is the lamp layer) and
+  // the one thing that makes them one object is agreeing about what colour the light is.
+  const GLOW = [128, 226, 255];
   const CHROME = [226, 232, 240];        // bright plate — `window` role so it takes the specular pass
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
   const pod = (f, g, r = 0.048, len = 1) => {
@@ -2499,7 +2524,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // and it is also the seam where a future articulated draw hangs its angle, since the two
     // halves are already two groups of faces rather than one welded box.
     const t1 = frame0 - 0.02, t0 = t1 - S.deck;
-    const tTop = deckTop + 0.135;
+    // THE FLATTEST PANEL ON THE RIG, and it was flat because this was a constant. At 0.135 over a
+    // deck the box stood 0.175 tall in a body 0.36 across — a shipping container half the height it
+    // should be, and the single biggest surface the eye lands on. Derived from the cab now, so the
+    // two are one vehicle: a box comes out fractionally above the tractor's roof fairing, which is
+    // where a real one sits, and it tracks any future change to `hi` instead of drifting from it.
+    const tTop = deckTop + S.hi * 0.95;
     box(t0, t1, S.w * 1.02, 0.075, tTop, 'body');                  // the box
     box(t0 + 0.01, t1 - 0.01, S.w * 0.99, tTop, tTop + 0.010, 'body');  // roof cap
     // RIBS. A trailer flank is a corrugated wall, and a bare quad is the flattest surface in the

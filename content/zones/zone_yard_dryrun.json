@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "The generator changes note for a moment, finds it again, and carries on.",
+    "Wind comes off the flats and puts a fine grey dust over everything at ankle height.",
+    "Somebody cranks something at the far end of the shed, swears, and cranks it again.",
+    "The chalked column of hours on the wall gets one more mark. Nobody watches it go up.",
+    "A truck out on the hardstand ticks as it cools."
+  ],
+  "ambient_theme": "indoors",
+  "bg_color": "#22242a",
+  "color": "#c9a86a",
+  "description": "The shed floor, high enough to stand a trailer in and long enough to stand two. Diesel, cold iron, and the flat mineral smell the flats push in under the door. Trucks nose-in along one wall; along the other, drums, a bench, and a bulb on a flex burning steady in a region where nothing electric is supposed to work at all. Nobody here remarks on that. The door stands open on the flats south.",
+  "exits": {
+    "down": "zone_util_zone_yard_dryrun",
+    "south": "zone_dw_812_954"
+  },
+  "flags": {
+    "building_name": "The Dry Run",
+    "building_type": "truck_depot",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_deadwater",
+    "truck_depot": {
+      "name": "The Dry Run",
+      "yard": "zone_dw_812_955"
+    },
+    "world_exit_zone": "zone_dw_812_954"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_yard_dryrun",
+  "map_id": "map_int_yard_dryrun",
+  "name": "The Dry Run — the shed",
+  "parent_zone": "zone_dw_812_954"
+}

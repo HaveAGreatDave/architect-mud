@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_dryrun",
+  "b": "zone_yard_dryrun",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_dryrun_up",
+  "lockable": false,
+  "one_way": true
+}

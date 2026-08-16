@@ -1,0 +1,9 @@
+{
+  "a": "zone_dw_812_954",
+  "b": "zone_yard_dryrun",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_dw_812_954_north_dryrun",
+  "lockable": true,
+  "one_way": false
+}

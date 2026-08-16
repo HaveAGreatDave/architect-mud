@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel box with a lever on the side of it and a sticker nobody has read. The feed comes in off the Warren, which means somebody in there decided this place was worth the copper.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_yard_deadleg"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_util_zone_yard_deadleg",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_util_zone_yard_deadleg"
+}

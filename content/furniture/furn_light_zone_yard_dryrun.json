@@ -1,0 +1,14 @@
+{
+  "description": "One bulb on a length of flex slung over a roof tie, burning steady and yellow. It is the only lit thing for a long way in any direction.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_yard_dryrun",
+  "light_type": "overhead",
+  "lumen_output": 900,
+  "name": "a bulb on a flex",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_yard_dryrun"
+}

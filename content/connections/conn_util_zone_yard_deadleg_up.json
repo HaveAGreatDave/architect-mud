@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_yard_deadleg",
+  "b": "zone_yard_deadleg",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_util_zone_yard_deadleg_up",
+  "lockable": false,
+  "one_way": true
+}
