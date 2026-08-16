@@ -118,9 +118,11 @@ async function cmdDrive(args, raw, player) {
   // truck sits on; its `world_exit_zone` is the facade, and the facade is a real tile with real
   // coordinates that happens to have a building on it. That tile is where the rig has been parked
   // all along, and it is now where you get into it.
-  const doorId = bay ? (stood.flags?.world_exit_zone || null) : null;
-  const door = doorId ? getZone(doorId) : null;
-  const here = (door && door.grid_x != null) ? door : (bay ? (getZone(yardId) || stood) : stood);
+  // `mountSpot` is the whole decision, and it lives up by the depot helpers so regress can hold it
+  // to account without buying a truck first.
+  const spot = mountSpot(stood);
+  const door = spot?.fromShed ? spot.zone : null;
+  const here = spot ? spot.zone : stood;
   const depot = bay || depotAt(here) || bayForYard(stood?.id)?.depot;
   if (!depot) {
     return say("There's nothing to drive here. Rigs run out of the freight yards — find a depot with a truck in it.");
@@ -159,21 +161,13 @@ async function cmdDrive(args, raw, player) {
     sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>' });
   }
 
-  // FACING THE WAY OUT. The heading was a hardcoded 180 — south — which was harmless while the rig
-  // was mounted on open hardstand and is nonsense the moment it is standing in a shed: three of the
-  // five depots would have you nose-first into the back wall. The facade already states which way
-  // its door faces (`flags.entrance`, the same field that decides where the world exit is), so the
-  // truck simply points at it. Falls back to south for a rig mounted anywhere that is not a door.
-  const OUT_HEADING = { north: 0, east: 90, south: 180, west: 270 };
-  const facing = (here === door && OUT_HEADING[here.flags?.entrance] != null)
-    ? OUT_HEADING[here.flags.entrance] : 180;
   // ⚠ WHERE IT STANDS AND WHERE IT LIVES ARE TWO DIFFERENT ANSWERS, and only the first one moved.
   // `x`/`y` are the door tile now, because that is where the truck physically is. `depot` is the
   // bookkeeping — which yard this rig belongs to, what `park` writes and what every ownership
   // lookup matches on — and it stays the YARD exactly as before. Passing the door tile here would
   // have quietly re-homed the truck to a zone no `depotZonesOf` pair contains, and the symptom
   // would have been "you don't own a truck here" while sitting in it.
-  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: facing, depot: yardId || here.id });
+  const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot.heading, depot: yardId || here.id });
   rig.zoneId = here.id;
   await refreshStanding(here.id);   // whatever is standing on this apron, so it is drawn from the first frame
   rig.truckId = owned.id;
@@ -298,6 +292,27 @@ function depotAt(zone) {
 // surface under it — and the failure surfaces somewhere far away as a rig that cannot move. `yard`
 // is the one fact a bay genuinely cannot derive, so a depot without one is unauthored, not flexible.
 const yardIdOf = (zone, depot) => depot?.yard || null;
+// ── WHERE A RIG IS STANDING WHEN YOU CLIMB INTO IT ───────────────────────────
+// Pulled out of `cmdDrive` so it can be ASSERTED rather than trusted. It was four lines inline,
+// which meant the one thing worth pinning — that you start inside the shed facing the way out, and
+// not back on the apron — was reachable only by buying a truck and driving it, and so was pinned
+// nowhere. A refactor could have quietly put the player back outside and nothing would have gone
+// red. Pure: takes the zone you are standing in, returns the tile to mount on, which way to point,
+// and whether a roller door is in front of you.
+const OUT_HEADING = { north: 0, east: 90, south: 180, west: 270 };
+export function mountSpot(stood) {
+  const depot = depotAt(stood);
+  if (!depot) return null;
+  const door = stood.flags?.world_exit_zone ? getZone(stood.flags.world_exit_zone) : null;
+  // A bay with a facade puts you INSIDE it. Anything else — a depot authored straight onto a road
+  // tile, which is what the test fixtures are — mounts where it always did.
+  if (door && door.grid_x != null) {
+    const heading = OUT_HEADING[door.flags?.entrance];
+    return { zone: door, heading: heading != null ? heading : 180, fromShed: true, depot };
+  }
+  const yard = getZone(yardIdOf(stood, depot));
+  return { zone: (yard && yard.grid_x != null) ? yard : stood, heading: 180, fromShed: false, depot };
+}
 const depotZonesOf = (zone, depot) => [zone?.id, depot?.yard].filter(Boolean);
 // The bay a yard tile belongs to — the reverse lookup, for prose on the apron and for `park`.
 // MEMOISED, because the caller is `zone.describeRoom`: this answers a question asked every time
@@ -2415,6 +2430,6 @@ export const hooks = {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
+export const _test = { boardFor, allDepots, mountSpot, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
 
 console.log('[trucking] Plugin loaded.');

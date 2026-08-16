@@ -645,6 +645,33 @@ export default async function regress({ run, check, getPlayer }) {
       !yard?.flags?.building_type, yard?.flags?.building_type);
     check('…and the street outside says the depot is through the door',
       /roller door/i.test(await truckTest.describeDepot(yard) || ''), (await truckTest.describeDepot(yard) || '').slice(0, 48));
+    // ── YOU START INSIDE THE SHED, FACING THE WAY OUT ────────────────────────
+    // The mount used to be on the apron, so the roller door was a line in the log and the first
+    // frame was already on the road. It is the door TILE now, and these are the three things that
+    // have to hold for that to be a drive rather than a truck buried in a wall. `mountSpot` exists
+    // as a function precisely so this can be asserted without buying a rig first (see its note).
+    for (const bayId of ['zone_yard_bonded', 'zone_yard_roadhead', 'zone_yard_lastload',
+                         'zone_yard_dryrun', 'zone_yard_deadleg']) {
+      const bay = world.zones.get(bayId);
+      const spot = truckTest.mountSpot(bay);
+      const yard = world.zones.get(bay?.flags?.truck_depot?.yard);
+      check(`${bayId}: drive mounts you INSIDE the shed, not out on the apron`,
+        !!spot?.fromShed && spot.zone?.id === bay?.flags?.world_exit_zone && spot.zone.id !== yard?.id,
+        `${spot?.zone?.id} (fromShed=${spot?.fromShed})`);
+      // Without this the truck spawns in solid mass and cannot move a foot in any direction —
+      // `groundObstructionAt`'s only hole is a tile marked `bay`, and it is derived from this flag.
+      check('…on a tile authored drive-through, or it is parked inside a wall',
+        spot?.zone?.flags?.vehicle_bay === true, spot?.zone?.flags?.vehicle_bay);
+      // FACING THE YARD, not merely "some direction". The heading is derived from the facade's
+      // `entrance`, so this proves the two agree: point the truck that way and it reaches the
+      // hardstand rather than the back wall.
+      const step = { 0: [0, -1], 90: [1, 0], 180: [0, 1], 270: [-1, 0] }[spot?.heading];
+      check('…pointed at the yard, so pulling away takes you out of the door',
+        !!step && !!yard && spot.zone.grid_x + step[0] === yard.grid_x
+                         && spot.zone.grid_y + step[1] === yard.grid_y,
+        `heading ${spot?.heading} from ${spot?.zone?.grid_x},${spot?.zone?.grid_y} → yard ${yard?.grid_x},${yard?.grid_y}`);
+    }
+
     // Every depot resolves to somewhere a truck can actually stand — the one invariant that stops a
     // freight board offering a run to a room with no road in it.
     check('every depot resolves to a drivable yard',
