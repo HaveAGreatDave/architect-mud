@@ -325,12 +325,38 @@ function yardIndex() {
   _yardIndex = new Map();
   for (const z of getAllZones()) {
     const d = depotAt(z);
-    if (d?.yard) _yardIndex.set(d.yard, { zone: z, depot: d });
+    if (!d?.yard) continue;
+    _yardIndex.set(d.yard, { zone: z, depot: d });
+    // ⚠ THE DOOR TILE IS A PLACE PLAYERS STAND NOW, so it has to resolve to its depot like the
+    // apron does. `drive` mounts the rig on the facade, inside the shed — and every depot verb
+    // (`hitch`, `haul`, `market`, `yard`) reaches its depot through this index, so without the
+    // facade in it a driver sitting in the bay with the engine running was, as far as all of them
+    // were concerned, nowhere near a depot at all. One more key, same object: the shed, its door
+    // and its hardstand are three tiles and one place.
+    if (z.flags?.world_exit_zone) _yardIndex.set(z.flags.world_exit_zone, { zone: z, depot: d });
   }
   return _yardIndex;
 }
 export const resetDepotIndex = () => { _yardIndex = null; };
 const bayForYard = (zoneId) => (zoneId ? yardIndex().get(zoneId) || null : null);
+// The depot reachable from a zone id, from ANY of its three tiles — the same answer `depotHere`
+// gives a player, without needing one. Exported through _test so the reachability can be asserted.
+function depotFrom(zoneId) {
+  const z = getZone(zoneId);
+  const direct = depotAt(z);
+  if (direct) return { bay: z, depot: direct, yard: getZone(yardIdOf(z, direct)) || z };
+  const via = bayForYard(zoneId);
+  if (via) return { bay: via.zone, depot: via.depot, yard: getZone(via.depot.yard) || z };
+  return null;
+}
+// EVERY PILE OF BOXES ONE DEPOT OWNS. A trailer sits in exactly one zone and a truck can only stand
+// in two of the three, so `hitch` has to search the set rather than the tile — see the ⚠ in cmdHitch
+// for what that cost. Factored out so the verb and the regress case cannot drift apart.
+function hitchZones(zoneId) {
+  const ctx = depotFrom(zoneId);
+  if (!ctx) return [zoneId].filter(Boolean);
+  return [...new Set([zoneId, ctx.bay?.id, ctx.yard?.id, ctx.bay?.flags?.world_exit_zone].filter(Boolean))];
+}
 
 // The legacy path: mount on a crossing you are already walking. Unchanged behaviour, moved aside so
 // `drive` reads as the depot verb it now is.
@@ -2141,8 +2167,24 @@ async function cmdHitch(args, raw, player) {
   if (!rig) return say('You would need to be in a truck. <b>drive</b>.');
   if (rig.trailer) return say(`Already hitched: ${rig.trailer.name}.`);
   if (Math.abs(rig.speed) > HITCH_MPH) return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
+  // ⚠ A DEPOT IS THREE ZONES AND A TRAILER ONLY EVER SITS IN ONE OF THEM. This read the single tile
+  // under your wheels, and that made a bought trailer unreachable on every real depot in the game:
+  // `yard buy` parks it in the BAY (with the trucks, under the roof — see yardBuyTrailer), while a
+  // truck can only ever be standing on the DOOR tile or the apron, because you cannot drive in a
+  // room with no road in it. Bay ≠ door ≠ yard, so `hitch` answered "nothing standing here" from
+  // the only positions it is possible to ask from.
+  //
+  // It survived because the regress fixture is a single road tile that is its own bay AND its own
+  // yard, which collapses all three and makes the case pass — the same fixture-shaped blind spot
+  // that hid the legacy depot shape. The suite now buys and hitches at a REAL depot too.
+  //
+  // Widened to the depot's own zone set, which is the rule `drive` and the ownership lookups have
+  // always used: the shed and the hardstand outside it are one place. This is deliberately NOT a
+  // relaxation of where you have to BE — `hitchReach` still runs, so a POSED trailer (one somebody
+  // dropped) still has to be under the fifth wheel to half a tile. All this changes is which pile
+  // of boxes the verb is allowed to look at.
   const here = getZone(player.current_zone);
-  const standing = await trailersAt(here?.id);
+  const standing = (await Promise.all(hitchZones(here?.id).map(z => trailersAt(z)))).flat();
   if (!standing.length) return say('Nothing standing here to back under. Trailers are bought and left at yards — see the <b>yard</b>.');
 
   const want = args.length
@@ -2167,7 +2209,13 @@ async function cmdHitch(args, raw, player) {
     return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
   }
 
-  const got = await hitchTrailer(want.id, rig.truckId, here.id);
+  // ⚠ THE GUARD IS THE TRAILER'S OWN ZONE, NOT THE ONE UNDER YOUR WHEELS. `hitchTrailer` writes
+  // `WHERE parked_zone = $3`, which is what makes two drivers going for the same box a race the
+  // database settles rather than the server. It was handed `here.id` — fine while the only findable
+  // trailers were on the tile you stood on, and a silent no-op the moment the search widened to the
+  // bay: the row would match nothing, and the honest "somebody pulled out from under you" line
+  // would fire every single time for a box standing in the shed with nobody near it.
+  const got = await hitchTrailer(want.id, rig.truckId, want.parkedZone);
   if (!got) return say('You line up on it and somebody else pulls out from under you. Gone.');
   rig.trailer = got;
   if (got.cargo) rig.cargo = got.cargo;     // what was on it is still on it
@@ -2430,6 +2478,6 @@ export const hooks = {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, mountSpot, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
+export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
 
 console.log('[trucking] Plugin loaded.');

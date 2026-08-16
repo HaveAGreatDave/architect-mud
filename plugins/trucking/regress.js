@@ -672,6 +672,30 @@ export default async function regress({ run, check, getPlayer }) {
         `heading ${spot?.heading} from ${spot?.zone?.grid_x},${spot?.zone?.grid_y} → yard ${yard?.grid_x},${yard?.grid_y}`);
     }
 
+    // ── A BOUGHT TRAILER HAS TO BE REACHABLE FROM THE TRUCK ──────────────────
+    // `yard buy` parks a trailer in the BAY, with the trucks and under the roof. A truck can only
+    // ever be standing on the door tile or the apron, because a bay has no road in it. So for every
+    // real depot in the game a freshly bought box sat in a room the verb could not see into, and
+    // `hitch` answered "nothing standing here" from the only positions it is possible to ask from.
+    // The synthetic depot used by the haul case below is one tile that is its own bay AND its own
+    // yard, which collapses the three and passes — so this asserts against SHIPPED content instead.
+    for (const bayId of ['zone_yard_bonded', 'zone_yard_roadhead', 'zone_yard_dryrun']) {
+      const bay = world.zones.get(bayId);
+      const door = world.zones.get(bay?.flags?.world_exit_zone);
+      const yard = world.zones.get(bay?.flags?.truck_depot?.yard);
+      // The depot has to be findable from the two tiles a driver can actually be sitting on. The
+      // door tile is the new one and the one that was missing: `drive` puts you there.
+      for (const [label, z] of [['the door tile', door], ['the apron', yard]]) {
+        check(`${bayId}: the depot is findable from ${label}, where a driver actually sits`,
+          truckTest.depotFrom(z?.id)?.bay?.id === bayId, truckTest.depotFrom(z?.id)?.bay?.id);
+      }
+      // …and the set `hitch` searches has to contain the bay, or the box you just paid for is in a
+      // room nothing can look into.
+      check('…and the trailer search from the cab reaches into the bay',
+        (truckTest.hitchZones(door?.id) || []).includes(bayId),
+        (truckTest.hitchZones(door?.id) || []).join(' '));
+    }
+
     // Every depot resolves to somewhere a truck can actually stand — the one invariant that stops a
     // freight board offering a run to a room with no road in it.
     check('every depot resolves to a drivable yard',
