@@ -4918,11 +4918,22 @@ function drawTexQuadP(ctx, img, P0, P1, P2, P3, fL, fR, smooth) {
 // craft's own tail, so the whole world renders from behind the aircraft, not the cockpit.
 function makeCam(W, horizonY, depth, v, chase) {
   const R = v.map ? (v.map.length - 1) / 2 : 0;
-  const EHbase = Math.max(0.05, RENDER_TUNE.eh + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
+  // ── ⚠ A SEAT IS NOT A TUNING CONSTANT ──────────────────────────────────────
+  // `RENDER_TUNE.eh` and `.fov` are the GROUND camera for an aeroplane: an eye height picked so the
+  // near foreground drops off the bottom of an unobstructed windscreen, and a focal length tuned
+  // for a runway. The cab inherited both because it renders through this function with `height: 0`
+  // — which was the right way to build it and the wrong place to leave it. A truck already has a
+  // dash across the bottom third doing the job the raised eye was there for, so the lift only ever
+  // reads as sitting too high; and at fov 0.82 the world is pulled toward the vanishing point, so
+  // everything out of the screen is smaller than a driver three metres up would see it.
+  // Two optional overrides, defaulted to exactly what was there before — an aircraft passes
+  // neither and is bit-identical.
+  const eh0 = v.eyeH != null ? v.eyeH : RENDER_TUNE.eh;
+  const EHbase = Math.max(0.05, eh0 + (v.height || 0) * RENDER_TUNE.climbLift);   // additive + floor: altitude adds real eye-height so you climb above buildings; floor keeps the runway/ground from collapsing at eh→0
   const back = chase ? chase.back : 0, EH = Math.max(0.05, EHbase + (chase ? chase.up : 0));   // floor the summed eye-height so a low vertical orbit never drops the camera below the terrain
   const hd = (v.heading || 0) * Math.PI / 180, sinh = Math.sin(hd), cosh = Math.cos(hd);
   const off = v.mapOffset, ox = off ? off.x : 0, oy = off ? off.y : 0;
-  const cx = W / 2, FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1);   // fov<1 compresses the world laterally into a tighter tunnel
+  const cx = W / 2, FL = (W / 2) / 1.15 * (RENDER_TUNE.fov || 1) * (v.fovMul || 1);   // fov<1 compresses the world laterally into a tighter tunnel; fovMul is the per-seat override
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
   const proj = (dx, dy, wz) => { const bx = dx + back * sinh, by = dy - back * cosh; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };

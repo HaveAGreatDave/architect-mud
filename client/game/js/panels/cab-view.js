@@ -1977,6 +1977,17 @@ function frame(now) {
       // 68 mph) because that is what the world renderer wants — it drives motion blur, road rush,
       // wind noise, none of which are in mph. `mph` is the real figure, and it exists because the
       // speedometer was reading the normalised one: at sixty miles an hour the dial printed "1".
+      // ── WHERE THE DRIVER'S EYES ARE ────────────────────────────────────────
+      // The cab used to take the renderer's aircraft-on-the-tarmac camera whole (see the ⚠ in
+      // `makeCam`). Two numbers put it in a truck instead, and they are only sent for the INTERIOR:
+      // the chase camera anchors its model against the shared constants, so overriding them out
+      // there would move the rig itself rather than the eye looking at it.
+      //   eyeH   0.24 → 0.17. The aircraft value is lifted so the near ground falls off the bottom
+      //          of a bare windscreen; a truck has a dash doing that already, so all the lift did
+      //          was seat the driver above where they are sitting.
+      //   fovMul 0.82 → ~1.0 effective. The stock focal length pulls the world toward the vanishing
+      //          point, which is what made everything out of the glass read small and far.
+      ...(st.external ? {} : { eyeH: 0.17, fovMul: 1.22 }),
       height: 0, speed: r.speed / 68, mph: r.speed,
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
