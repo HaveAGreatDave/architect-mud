@@ -5,8 +5,10 @@
 // in tests/regress.js; this guards the verbs this plugin owns.)
 import { getRegisteredMoveGates } from '../../server/engine/movement-gates.js';
 import { getStance, swingInterval, STANCES, isDodging } from '../../server/engine/stance.js';
-import { setCooldown, isOnCooldown, getCooldownRemaining, hasPowerQueued, toughestAttacker } from '../../server/engine/combat.js';
+import { setCooldown, isOnCooldown, getCooldownRemaining, hasPowerQueued, toughestAttacker, applyStrikeToEnemy } from '../../server/engine/combat.js';
+import { applyEffect, tickMobEffects, mobStatusLabels, mobSupportsEffect } from '../../server/engine/effects.js';
 import { world, removeEnemyInstance, getZone } from '../../server/engine/world.js';
+import { query } from '../../server/models/db.js';
 
 export default async function regress({ run, check, getPlayer }) {
   // Typed with the `@` admin sigil (stripped by the dispatcher). Non-admins get
@@ -154,5 +156,125 @@ export default async function regress({ run, check, getPlayer }) {
     p._fleeIntent = null;
     p.combat_stance = 'normal';
     clearCd('attack'); clearCd('combat_move'); clearCd('stance');
+  }
+
+  // ── Status effects on a mob ────────────────────────────────────────────────
+  // A weapon's `status_chance` reached players only until now: `burning` on a
+  // rust hound sat in its status list doing nothing. These guard the seam that
+  // opened it — the registry's opt-in, the intent shape, and the fact that a mob
+  // still refuses every player-only effect.
+  {
+    const mobId = `regress_burn_${process.pid}`;
+    let mobPlanted = false;
+    try {
+      // Only two effects have declared themselves mob-capable. Anything else must
+      // stay refused, or we are back to statuses that count down and do nothing.
+      check('burning is mob-capable', mobSupportsEffect('burning'));
+      check('bleeding is mob-capable', mobSupportsEffect('bleeding'));
+      check('food_poisoning is NOT mob-capable', !mobSupportsEffect('food_poisoning'));
+      check('rested is NOT mob-capable', !mobSupportsEffect('rested'));
+
+      world.enemies.set(mobId, {
+        instanceId: mobId,
+        templateId: 'regress_burn_mob',
+        name: 'a smouldering dummy',
+        zoneId: p.current_zone,
+        hp: 40, hp_max: 40, hit: 3, dodge: 1,
+        body_parts: [], loot_table: [],
+        statuses: [],
+        behavior: 'passive',
+      });
+      world.zones.get(p.current_zone)?.enemies.add(mobId);
+      mobPlanted = true;
+      const mob = world.enemies.get(mobId);
+
+      applyEffect(mob, 'burning', 5, { source: p.id });
+      check('an enemy carries the effect', mob.statuses.some(s => s.name === 'burning'), JSON.stringify(mob.statuses));
+      check('…and remembers who lit it', mob.statuses[0].source === p.id, mob.statuses[0].source);
+      check('…and says so on the Hostiles line', mobStatusLabels(mob).includes('Burning'), JSON.stringify(mobStatusLabels(mob)));
+
+      // The tick returns an INTENT and applies nothing itself — the whole reason
+      // the split exists is that only applyStrikeToEnemy may move a mob's HP.
+      const hpBefore = mob.hp;
+      const [intent] = tickMobEffects(mob);
+      check('the tick yields an intent', intent?.effect === 'burning', JSON.stringify(intent));
+      check('…typed as fire, so soak applies', intent.damageType === 'fire', intent.damageType);
+      check('…and applies no damage by itself', mob.hp === hpBefore, `${hpBefore} -> ${mob.hp}`);
+      check('…the first beat is spoken', intent.speak === true);
+      check('…and the duration burned down', mob.statuses[0].duration === 4, mob.statuses[0].duration);
+
+      // Second beat is silent — the anti-spam cadence, which is the only thing
+      // standing between a 20-second burn and 20 identical lines.
+      const [second] = tickMobEffects(mob);
+      check('the second beat is not spoken', second.speak === false);
+
+      // …and the strike path is what actually hurts it.
+      const struck = await applyStrikeToEnemy(p, mob, intent);
+      check('the intent routed through the strike path lands', struck?.damage >= 1, JSON.stringify(struck));
+      check('…and the mob is down that much HP', mob.hp === hpBefore - struck.damage, `${hpBefore} -> ${mob.hp}`);
+
+      // A player-only effect must not stick to a mob even if something hands it
+      // over directly — the guard lives in rollWeaponStatus, but the label pass
+      // is the backstop that stops it ever being ADVERTISED.
+      applyEffect(mob, 'food_poisoning', 5);
+      check('a player-only effect is never shown on a mob', !mobStatusLabels(mob).includes('Food poisoning'), JSON.stringify(mobStatusLabels(mob)));
+      check('…and is not ticked either', tickMobEffects(mob).every(i => i.effect !== 'food_poisoning'));
+
+      // Expiry: an effect that has run out leaves the list rather than lingering.
+      mob.statuses = [];
+      applyEffect(mob, 'bleeding', 1);
+      tickMobEffects(mob);
+      check('an expired effect clears itself', !mob.statuses.some(s => s.name === 'bleeding'), JSON.stringify(mob.statuses));
+    } finally {
+      if (mobPlanted) removeEnemyInstance(mobId);
+    }
+  }
+
+  // ── Ammunition & arc chain, as authored ────────────────────────────────────
+  // Both are content-driven: the mechanism is generic and the only thing that
+  // makes a weapon spend rounds or throw an arc is what the item file says. So
+  // what is worth guarding is that the authored numbers are SANE — a typo here
+  // is a weapon that fires forever, or one that arcs forever.
+  {
+    const { rows } = await query(
+      `SELECT id, name, tags FROM items
+        WHERE jsonb_exists(tags,'ammo_capacity') OR jsonb_exists(tags,'arc_chain') OR jsonb_exists(tags,'ammo_load')`);
+
+    const guns = rows.filter(r => r.tags?.ammo_capacity != null);
+    const loads = rows.filter(r => r.tags?.ammo_load != null);
+    check('at least one weapon takes ammunition', guns.length > 0, `${rows.length} rows`);
+
+    for (const g of guns) {
+      const t = g.tags;
+      check(`${g.id}: capacity is a positive number`, Number(t.ammo_capacity) > 0, t.ammo_capacity);
+      // The live count is per-unit instance state, so two of them in one stack
+      // would share a magazine and one would be silently refilled or emptied.
+      check(`${g.id}: is unique, or two of them share a magazine`, t.unique === true, JSON.stringify(t.unique));
+      // A weapon with no ammo_type can be fired dry and never refilled. That is a
+      // legitimate choice for something disposable — but nothing authored today
+      // means it, so an absent type is far likelier to be an omission.
+      check(`${g.id}: declares what it eats`, typeof t.ammo_type === 'string' && t.ammo_type.length > 0, t.ammo_type);
+      // …and something in the world must actually fit it, or the weapon is a
+      // one-magazine weapon that reads like a reloadable one.
+      check(`${g.id}: something in the world fits it`,
+        loads.some(l => l.tags.ammo_load?.type === t.ammo_type),
+        `${t.ammo_type} vs ${loads.map(l => l.tags.ammo_load?.type).join(',')}`);
+    }
+
+    for (const l of loads) {
+      check(`${l.id}: load declares a type`, typeof l.tags.ammo_load?.type === 'string', JSON.stringify(l.tags.ammo_load));
+      check(`${l.id}: load carries a positive number of units`, Number(l.tags.ammo_load?.units) > 0, JSON.stringify(l.tags.ammo_load));
+    }
+
+    for (const a of rows.filter(r => r.tags?.arc_chain != null)) {
+      const arc = a.tags.arc_chain;
+      check(`${a.id}: arc declares jumps`, Number(arc?.jumps) >= 1, JSON.stringify(arc));
+      // Below 1 or the chain amplifies — every jump at least as hard as the last,
+      // which is a room-clearing weapon rather than an arc. The engine clamps it
+      // anyway; this catches the authoring mistake where it was clamped.
+      check(`${a.id}: arc falls off rather than amplifying`, Number(arc?.falloff) > 0 && Number(arc?.falloff) < 1, JSON.stringify(arc));
+      // An arc carrying status_chance would stun a whole room off one swing.
+      check(`${a.id}: an arc weapon does not also apply statuses`, a.tags.status_chance == null, JSON.stringify(a.tags.status_chance));
+    }
   }
 }

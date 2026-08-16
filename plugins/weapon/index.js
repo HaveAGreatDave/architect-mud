@@ -27,7 +27,7 @@ import { allExits } from '../../server/engine/exits.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { findNpcTransformByName } from '../../server/engine/phantoms.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
-import { getEquippedWeapon } from '../../server/engine/inventory.js';
+import { getEquippedWeapon, resolveInventoryItem, patchInventoryCustomData } from '../../server/engine/inventory.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
@@ -75,6 +75,44 @@ async function spawnEnemyCorpse(where, targetName, result) {
 	return `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${escAttr(targetName)}'s corpse" title="Loot ${escAttr(targetName)}'s corpse">${targetName}'s corpse</span>`;
 }
 
+// ── Ammunition ───────────────────────────────────────────────────────────────
+//
+// The first consumable a weapon spends. Deliberately generic rather than owned
+// by the one weapon that needed it: a magazine, a fuel tank and a battery pack
+// are the same mechanism wearing three nouns, and the moment a second weapon
+// wanted one, a bespoke implementation would have had to be written twice.
+//
+// Three rules.
+//
+// AN UNWRITTEN MAGAZINE IS A FULL ONE. `custom_data.ammo` is absent until the
+// first shot, so a weapon that reaches a player by any route — bought, looted,
+// granted — arrives loaded. The alternative is a weapon that appears broken.
+//
+// THE CHECK IS BEFORE THE SWING, THE SPEND IS AFTER IT LANDS OR MISSES. A dry
+// weapon refuses without consuming the attack cooldown, so being empty costs you
+// the shot rather than the shot and the next two seconds; a swing that HAPPENED
+// costs a round whether or not it hit, because that is what a trigger pull is.
+//
+// ONLY `ammo_capacity` OPTS IN. Every weapon in the game predates this and none
+// of them carries the tag, so all of them keep firing forever — the seam is
+// provably a no-op against everything already authored.
+const ammoOf = (row, cap) => {
+	const raw = Number(row?.custom_data?.ammo);
+	return Number.isFinite(raw) ? Math.max(0, Math.min(cap, raw)) : cap;
+};
+const ammoCapacity = (item) => {
+	const cap = Number(tagValue(item, 'ammo_capacity'));
+	return Number.isFinite(cap) && cap > 0 ? cap : 0;
+};
+
+// A ten-segment bar, because a bare number reads as inventory and a bar reads as
+// a magazine. Same width whatever the capacity, so a 12-round revolver and a
+// 40-unit tank are read the same way.
+function ammoGauge(left, cap) {
+	const filled = cap > 0 ? Math.round((left / cap) * 10) : 0;
+	return `<span class="ammo-gauge">[${'█'.repeat(filled)}${'░'.repeat(10 - filled)}] ${left}/${cap}</span>`;
+}
+
 export async function resolveAttack(player, target, broadcast) {
 	const equipped = await getEquippedWeapon(player);
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
@@ -96,6 +134,10 @@ export async function resolveAttack(player, target, broadcast) {
 				min_skill: tagValue(equipped, "min_skill"),
 				waterproof: tagValue(equipped, "waterproof"),
 				water_shock: tagValue(equipped, "water_shock"),
+				// A discharge weapon whose hit JUMPS to other things in the room.
+				// Resolved inside the swing (see the ARC CHAIN note in combat.js) —
+				// the same blow spreading, not a second attack.
+				arc_chain: tagValue(equipped, "arc_chain"),
 			}
 		: // Bare hands, which for a mutated body are not necessarily bare. Returns
 			// null for anyone who has grown nothing, so the literal below is what an
@@ -106,12 +148,34 @@ export async function resolveAttack(player, target, broadcast) {
 				weapon_skill: "fists",
 				damage_type: "kinetic",
 			};
+	// Dry weapons refuse here, BEFORE the swing — so being empty costs the shot,
+	// not the shot and the cooldown behind it.
+	const cap = equipped ? ammoCapacity(equipped) : 0;
+	const rounds = cap ? ammoOf(equipped, cap) : 0;
+	if (cap && rounds <= 0)
+		return { type: "error", message: `The ${equipped.name} is empty. ${tagValue(equipped, 'dry_message') || 'It clicks, and nothing happens.'} ${ammoGauge(0, cap)}` };
+
 	const result = await playerAttackEnemy(
 		player,
 		target.instanceId,
 		weaponStats,
 	);
 	if (!result.success) return { type: "error", message: result.message };
+
+	// The swing happened, so the round is gone — hit or miss. One write per shot
+	// is a real cost on a path that already awaits two; it is affordable because
+	// only ammo-bearing weapons reach it at all, and coalescing it into
+	// flushDirtyResources is the obvious next move if that stops being true.
+	if (cap) {
+		const left = Math.max(0, rounds - 1);
+		// ⚠ getEquippedWeapon CACHES this row on the player for a few seconds, so
+		// the database write alone is not enough: the next swing inside the TTL
+		// would re-read the old count and the magazine would never empty. `equipped`
+		// IS the cached object, so writing through it keeps both in step.
+		equipped.custom_data = { ...(equipped.custom_data || {}), ammo: left };
+		await patchInventoryCustomData([[equipped.inv_id, { ammo: left }]]);
+		result.message += ` ${ammoGauge(left, cap)}`;
+	}
 
 	// The weapon_skill tag is the skill id directly (fists/blades/clubs/firearms/
 	// science). Train it on every swing — hit or miss — the closer the roll, the
@@ -123,6 +187,19 @@ export async function resolveAttack(player, target, broadcast) {
 	// gameLoop.js. Quest objective tracking hangs off enemy.killed/enemy.attacked.
 	if (result.killed) emit("enemy.killed", { actor: player, enemy: target });
 	else emit("enemy.attacked", { actor: player, enemy: target, critical: result.critical });
+
+	// An arc-chain weapon can kill things it was never aimed at. Those bodies are
+	// made here, on the same path and by the same function as the primary's — the
+	// engine returns loot and never a corpse, so anything it fells and this does
+	// not bury would drop its loot into nowhere.
+	for (const felled of result.arcKills || []) {
+		const link = await spawnEnemyCorpse(player, felled.name, felled);
+		broadcast(player.current_zone, {
+			type: "zone_event",
+			message: `${felled.name} goes down with the arc still on it. ${link}`,
+			refresh: true,
+		});
+	}
 
 	if (result.killed) {
 		player.combatTargetId = null;
@@ -722,10 +799,47 @@ async function attack(args, raw, player, broadcast) {
 	return dispatchAction({ type: 'ATTACK', actor: player, params: { targetStr }, context: { broadcast } });
 }
 
+// RELOAD — shared with the flashlight's battery swap. `fireSpecializedAction`
+// runs every handler for a verb and takes the first non-undefined answer, so this
+// returns undefined whenever the equipped weapon takes no ammunition, and the
+// torch keeps the verb. Neither plugin knows the other exists.
+//
+// A magazine goes in WHOLE: topping up a half-full one throws the difference
+// away. That is the small piece of discipline that makes ammunition matter — you
+// reload when you are nearly dry, not whenever you have a spare hand.
+async function reloadWeapon(args, raw, player) {
+	const equipped = await getEquippedWeapon(player);
+	const cap = equipped ? ammoCapacity(equipped) : 0;
+	if (!cap) return undefined;
+
+	const type = tagValue(equipped, 'ammo_type');
+	if (!type) return undefined;
+	const have = ammoOf(equipped, cap);
+	if (have >= cap) return { type: 'error', message: `The ${equipped.name} is already full. ${ammoGauge(cap, cap)}` };
+
+	// Matched by TYPE, never by item id, so a second weapon can be authored
+	// against the same ammunition without either one being edited.
+	const mag = await resolveInventoryItem(player, { tag: 'ammo_load' });
+	const pool = mag && tagValue(mag, 'ammo_load')?.type === type ? mag : null;
+	if (!pool) return { type: 'error', message: `You have nothing that fits the ${equipped.name}.` };
+
+	if (pool.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [pool.inv_id]);
+	else await query('DELETE FROM player_inventory WHERE id=$1', [pool.inv_id]);
+
+	const filled = Math.min(cap, have + (Number(tagValue(pool, 'ammo_load')?.units) || cap));
+	equipped.custom_data = { ...(equipped.custom_data || {}), ammo: filled };
+	await patchInventoryCustomData([[equipped.inv_id, { ammo: filled }]]);
+	return {
+		type: 'use',
+		message: `${tagValue(equipped, 'reload_message') || `You reload the ${equipped.name}.`} ${ammoGauge(filled, cap)}`,
+	};
+}
+
 export const specializedActions = [
 	{ verb: 'attack', handler: attack },
 	{ verb: 'kill',   handler: attack },
 	{ verb: 'k',      handler: attack },
+	{ verb: 'reload', requiredTag: 'ammo_capacity', handler: reloadWeapon },
 ];
 
 export const commands = {

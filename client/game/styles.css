@@ -1461,6 +1461,28 @@ body.rainbow-sky.rainbow-triple .weather-event {
 .enemies-label {
 	color: var(--orange);
 }
+/* A weapon's magazine, printed after every shot. Monospace so the ten segments
+   line up between one shot and the next — a gauge that jitters column to column
+   reads as noise rather than as a level going down. */
+.ammo-gauge {
+	font-family: var(--font-mono, monospace);
+	color: var(--orange);
+	white-space: nowrap;
+}
+/* Where an arc-chain weapon's discharge went after the target it was aimed at.
+   One sentence, dimmer than the swing it belongs to — the chain is part of that
+   blow, not a second attack, and it should not read as loudly. */
+.arc-chain {
+	color: var(--cyan, var(--accent));
+	opacity: 0.85;
+}
+/* A mob's live afflictions on the Hostiles line — burning, bleeding. Dimmer than
+   the name so the room still reads as a list of things to hit. */
+.enemy-status {
+	color: var(--orange);
+	opacity: 0.75;
+	font-style: italic;
+}
 .inv-header,
 .stats-header,
 .skills-header,

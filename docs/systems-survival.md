@@ -654,16 +654,26 @@ Indoors, or when precipitation stops, items **dry** instead.
 ## Status effects
 
 [effects.js](../server/engine/effects.js) is a data-driven registry that ticks every second.
-`registerStatusEffect({ name, label, onTick })` is the extensibility seam — the engine ships
-`bleeding` / `burning` / `irradiated` / `choking`, and plugins add their own (`refreshed`, `sick` in
-bodily; `exhausted` in weightbench; `drowning` in swimming). `applyEffect(player, name, ticks)`
-applies or refreshes one; the per-second tick persists and broadcasts hp/stamina whenever an effect
-changes them.
+`registerStatusEffect({ name, label, onTick, acuity, stats, mob })` is the extensibility seam — the
+engine ships `bleeding` / `burning` / `irradiated` / `corroding` / `choking` / `food_poisoning` /
+`stunned` / `rested` / `sense_overload`, and plugins add their own (`refreshed`, `sick` in bodily;
+`exhausted` in weightbench; `drowning` in swimming; `frostnip`/`frostbite`/`deep_frostbite` in
+frostbite; `envenomed` in mutations; `psi_backlash`/`psi_seizure` in psionics). `applyEffect(player,
+name, ticks, { source })` applies or refreshes one; the per-second tick persists and broadcasts
+hp/stamina whenever an effect changes them.
 
 Live callers: `resourceTick` applies `choking` to unmasked players outdoors during `ash` weather (see
 [systems-weather-extreme.md](systems-weather-extreme.md) §4) — it drains stamina (−4/s), then HP
-(−2/s) once winded — plus the plugin effects above. Nothing applies `irradiated`; weapon
-`status_chance` and drug overdose are still unwired.
+(−2/s) once winded — acid rain applies `corroding`, the cooking food-safety rules apply
+`food_poisoning`, and `rollWeaponStatus` applies whatever a weapon's authored `status_chance` rolls,
+on every landed hit in PvE and PvP alike.
+
+**Effects also land on enemies**, but only the ones that opt in with a `mob` handler — today
+`burning` and `bleeding`. A mob's effect ticks through `applyStrikeToEnemy` rather than writing HP
+directly, so soak, injury and loot-on-death all still apply. The rules and the reasoning are in
+[combat.md § Status effects](combat.md#status-effects). The first weapon to make use of it is the
+PYRE-3 flame projector, which is ordinary content — a `weapon` with a `fire` damage type and a
+`status_chance` of `burning` — plus the ammunition seam described there.
 
 ## Reading it back — the Vitals app
 

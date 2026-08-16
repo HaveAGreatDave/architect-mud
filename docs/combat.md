@@ -458,12 +458,61 @@ otherwise reduce by `max(other values) × soak_mismatch_factor` (0.25). Enemies 
 ([inventory.js](../server/engine/commands/inventory.js)), so armour changes take combat effect
 immediately.
 
+## One swing, more than one thing
+
+Three tags make a single blow land on more than one target, and all three are
+resolved **inside** `playerAttackEnemy` rather than in a plugin. That is the same
+decision each time: they are the same blow spreading, not a second attack — no
+extra cooldown, no second to-hit roll, and no ordering problem with the kill (a
+plugin reacting to `enemy.attacked` would resolve after the primary's corpse had
+already been made, which is visibly wrong when the spread is what ended the fight).
+
+| tag | shape | what it does |
+| --- | --- | --- |
+| `spread` | number | buckshot: the blast lands as N separate impacts on the SAME target, each rolling its own body part and soaked separately |
+| `water_shock` | flag | fired in water, the charge earths through everyone present including you |
+| `arc_chain` | `{jumps, falloff}` | the hit JUMPS to other hostiles in the room, carrying `falloff` of the previous link each time |
+
+**`arc_chain`** ([combat.js](../server/engine/combat.js), the ARC CHAIN block).
+Each jump goes through `applyStrikeToEnemy`, so every link rolls its own body
+part and is soaked by whatever armour covers it — an arc into a plated thing
+fizzles exactly as any energy hit on it would. Note that `water_shock` above it
+writes `other.hp` by hand and therefore leaves anything it kills sitting in the
+room at zero HP; **do not copy that** — it is the bug `applyStrikeToEnemy` exists
+to prevent. Arc kills come back as `result.arcKills` and are buried by the weapon
+plugin, because the engine returns loot and never a body.
+
+Two limits are deliberate. It reaches **enemies only** — jumping to a person is
+an assault nobody aimed, and charging that honestly means the surveillance system,
+not this function. And it does **not** carry `status_chance`: a chain weapon that
+stunned everything it touched would be a crowd-control button wearing a weapon's
+clothes. `jumps` is clamped to 6 and `falloff` below 1, so an authored typo can
+neither arc forever nor amplify.
+
+First weapon: the Kolvig ARC-7 discharge lance (`item_arc_lance`), 2 jumps at
+0.55 — and `water_shock` as well, because an arc weapon fired while standing in
+water, earthing through the idiot holding it, is the joke writing itself.
+
+## Ammunition
+
+Owned by the weapon plugin, not the engine — see
+[plugins.md](plugins.md). Three rules: an **unwritten magazine is a full one**
+(so a weapon that arrives by any route is loaded); the **check is before the
+swing and the spend is after it**, so being dry costs the shot rather than the
+shot and the cooldown, while a swing that happened costs a round whether or not
+it hit; and only `ammo_capacity` opts in, so every weapon authored before the tag
+existed still fires forever. `ammo_type` ↔ `ammo_load.type` is matched by **type,
+never item id**, so two weapons can share ammunition with neither one edited.
+
 ## Weapons
 
 `resolveAttack()` ([plugins/weapon/index.js](../plugins/weapon/index.js)) reads the one equipped
 item tagged `weapon` and pulls `damage` (`{min,max}`), `weapon_skill`, `damage_type`, `status_chance`
-from its tags. Unarmed default: 2–4 kinetic, `fists`. `status_chance` is read but **never used**
-(no code applies a weapon-triggered status effect — see the effects note below). Monsters carry
+from its tags. Unarmed default: 2–4 kinetic, `fists`. `status_chance` **is** applied on every landed
+hit — see [§`status_chance`](#status_chance--the-tag-that-finally-does-something) above. (This
+paragraph claimed it was "read but never used" until 2026-08-15; it had been live for some time, and
+the correction is here rather than a deletion because two audits believed the stale sentence.)
+Monsters carry
 their own `weapon` instead: a JSONB list of `{type, min, max}` damage components edited in the
 dev panel; if empty, the fallback is a fixed `1–3` strike typed by `flags.damage_type` (default
 `kinetic`) — the legacy `damage_min/damage_max` columns are not read.
@@ -696,11 +745,45 @@ trains you nearly as well as barely-winning.
 ## Status effects
 
 [effects.js](../server/engine/effects.js) defines `bleeding` (−2 HP/tick), `burning` (−5 HP/tick),
-`irradiated` (+2 RAD/tick), and `choking` (−4 STA/tick, then −2 HP/tick once winded), and
-`tickEffects()` runs every second from the game loop. The only live caller of `applyEffect()` today
-is the ashfall hazard (`gameLoop.js` applies `choking` outdoors in ash weather — see
-[systems-weather-extreme.md](systems-weather-extreme.md)). Nothing in combat, weapons, or drugs
-starts an effect yet — weapon `status_chance` remains read-but-unused.
+`irradiated` (+2 RAD/tick), `corroding`, `choking` (−4 STA/tick, then −2 HP/tick once winded),
+`food_poisoning`, `stunned`, `rested` and `sense_overload`; plugins register their own. `tickEffects()`
+runs every second from the game loop. Live callers include the ashfall hazard, acid rain, the cooking
+food-safety rules, and — through `rollWeaponStatus` — any weapon with an authored `status_chance`.
+
+### …on an enemy
+
+An effect reaches a mob only if its registration declares a **`mob` handler**:
+
+```js
+registerStatusEffect({
+  name: 'burning', label: 'Burning',
+  onTick(player) { … },                                    // the player half
+  mob: (e) => ({ min: 3, max: 6, damageType: 'fire',       // the mob half
+                 message: `${e.name} is burning.` }),
+});
+```
+
+Three things about that split are load-bearing.
+
+**`mob` is a separate function, not `onTick` duck-typed.** Most `onTick` bodies write player-shaped
+fields — stamina, radiation, `_foodPoisonHp`, an episode handler that puts vomit on your clothes —
+and a mob has none of them. Running `onTick` against an enemy instance would half-work, silently.
+
+**`mob` returns an INTENT and applies nothing.** Writing `enemy.hp` by hand skips the part roll, the
+typed soak, the damage observers injury hangs off, and the loot/removal path on death. So the
+handler describes the damage and `gameLoop`'s enemy pass routes it through `applyStrikeToEnemy` — the
+one function allowed to hurt a mob. That also keeps `effects.js` free of any import from combat.
+
+**No `mob` handler means the effect does not exist for enemies**, and `rollWeaponStatus` refuses to
+apply it rather than parking it in the mob's status list to count down and do nothing. That precise
+bug is what `food_poisoning` shipped with for months.
+
+Today `burning` and `bleeding` are the two mob-capable effects. State lives in the same `statuses`
+array every enemy instance has always carried; the room's Hostiles line shows the labels
+continuously, while the tick's own line is throttled to the first beat and every fourth after it.
+Attribution rides on the status (`applyEffect(…, { source: playerId })`), so a mob that burns to
+death credits the kill, spawns the corpse and emits `enemy.killed` exactly as a swing would — and the
+source is resolved fresh each tick, because whoever lit it may have logged out since.
 
 ## Player death
 

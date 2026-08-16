@@ -12,7 +12,7 @@ import { strain } from './strain.js';
 import { fireDamageToPlayer, fireDamageToEnemy, dominantDamageType } from './damage-events.js';
 import { BASE_ATTACK_MS, hitBonus, defenseBonus, swingInterval, consumeDodge, swingVerb, missLine } from './stance.js';
 import { knockOut, isOut } from './unconscious.js';
-import { applyEffect } from './effects.js';
+import { applyEffect, mobSupportsEffect } from './effects.js';
 import { sendToPlayer } from './messaging.js';
 import { PART_TO_SLOT, DEFAULT_BODY_PART_WEIGHTS, partLabelOf, hitWeightsForPlayer } from './body-parts.js';
 import { mutationFlag } from './mutations.js';
@@ -268,20 +268,38 @@ export function isStunned(entity) {
  * copied it into a variable nobody consumed — so the taser's 30% stun has never
  * once fired. This is that reader.
  */
-function rollWeaponStatus(weaponStats, target) {
+function rollWeaponStatus(weaponStats, target, attacker = null) {
   const table = weaponStats?.status_chance;
   if (!table || typeof table !== 'object') return null;
   for (const [effect, chance] of Object.entries(table)) {
     const p = Number(chance);
     if (!(p > 0) || Math.random() >= p) continue;
     if (effect === 'stunned') return applyStun(target) ? 'stunned' : null;
-    // Anything else only lands on something with a status list — a mob has none.
-    if (target?.hp_max != null && !target.instanceId) {
-      applyEffect(target, effect, 20);
+    // A mob only takes effects that have declared themselves mob-capable (a `mob`
+    // handler in the registry). Every other effect stays player-only — applying
+    // `food_poisoning` to a rust hound would sit in its status list counting down
+    // and doing nothing, which is the exact bug food_poisoning already had once.
+    if (target?.instanceId) {
+      if (!mobSupportsEffect(effect)) continue;
+      applyEffect(target, effect, 20, { source: attacker?.id || null });
+      return effect;
+    }
+    if (target?.hp_max != null) {
+      applyEffect(target, effect, 20, { source: attacker?.id || null });
       return effect;
     }
   }
   return null;
+}
+
+// The arc's path, written as one sentence rather than a line per jump — the
+// chain is a single event and reading it as three separate hits makes a weapon
+// that fires once look like a weapon that fires three times.
+function arcLine(links) {
+  if (!links?.length) return '';
+  const parts = links.map((l, i) =>
+    `${i === 0 ? 'The arc leaps from it to' : 'and from there to'} ${l.name} (<span class="dmg-dealt">${l.damage}</span>)${l.killed ? ', which drops' : ''}`);
+  return ` <span class="arc-chain">${parts.join(', ')}, and gutters out.</span>`;
 }
 
 export function mobFleeRoll(entity, attackerHit) {
@@ -1117,9 +1135,63 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     player._resDirty = true;
   }
 
+  // ── ARC CHAIN ──────────────────────────────────────────────────────────────
+  //
+  // A discharge weapon whose hit JUMPS to other things in the room, losing a
+  // fixed fraction of its force at every jump until it gutters out.
+  //
+  // This lives in the engine, next to `water_shock` and for the same stated
+  // reason: it is the SAME BLOW spreading, not a second attack. No extra
+  // cooldown, no second to-hit roll, and no ordering problem with the kill below
+  // — a plugin reacting to `enemy.attacked` would resolve the arc after the
+  // primary target's corpse had already been made, which is visibly wrong when
+  // the arc is what finished the fight. `spread` (buckshot) is the third member
+  // of this family: how ONE swing lands on more than one thing is a law of the
+  // swing, and the engine owns all three.
+  //
+  // Two deliberate limits. The arc reaches ENEMIES only — never other players,
+  // never NPCs — because jumping to a person is an assault nobody aimed, and
+  // charging that honestly means the surveillance system, not this function. And
+  // it does NOT carry `status_chance`: a chain weapon that stunned everything it
+  // touched would be a crowd-control button wearing a weapon's clothes.
+  const arcKills = [];
+  const arcLinks = [];
+  const arc = weaponStats?.arc_chain;
+  if (arc && damage > 0) {
+    // Clamped so an authored typo cannot arc forever or amplify: a falloff at or
+    // above 1 would make every jump at least as hard as the last.
+    const jumps = Math.max(0, Math.min(6, Math.floor(Number(arc.jumps) || 0)));
+    const falloff = Math.min(0.9, Math.max(0.1, Number(arc.falloff) || 0.5));
+    // Nearest-first is meaningless on a single tile, so the path is simply the
+    // order the zone holds them — but the primary is never a link in its own
+    // chain, and nothing is struck twice.
+    const pool = (getZoneEnemies(player.current_zone) || []).filter(e => e.instanceId !== enemy.instanceId);
+    let carried = damage;
+    for (let i = 0; i < jumps && i < pool.length; i++) {
+      carried = Math.round(carried * falloff);
+      if (carried < 1) break;
+      const link = pool[i];
+      // Through the ordinary strike path, so each jump rolls its own body part
+      // and is soaked by whatever armour covers it — an arc into a plated thing
+      // fizzles, exactly as any energy hit on it would. `water_shock` above
+      // writes `other.hp` by hand and therefore leaves anything it kills sitting
+      // in the room at zero HP; do not copy that.
+      const hitResult = await applyStrikeToEnemy(player, link, {
+        min: Math.max(1, Math.round(carried * 0.85)),
+        max: Math.max(1, Math.round(carried * 1.15)),
+        damageType,
+      });
+      if (!hitResult) continue;
+      arcLinks.push({ name: link.name, damage: hitResult.damage, killed: hitResult.killed });
+      // The caller makes corpses; this only reports. Same division of labour as
+      // the primary kill below, which returns `loot` rather than a body.
+      if (hitResult.killed) arcKills.push({ name: link.name, ...hitResult });
+    }
+  }
+
   // The weapon's authored status_chance, finally read. A taser that stuns is the
   // whole reason that tag was ever written down.
-  let statusHit = rollWeaponStatus(weaponStats, enemy);
+  let statusHit = rollWeaponStatus(weaponStats, enemy, player);
 
   // HEAD CRIT → STUN, as the consolation for a crit that landed on the skull by
   // luck rather than design. Deliberately gated to an UNAIMED crit: a called
@@ -1149,8 +1221,9 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       damage,
       margin,
       power,
-      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}. ${enemy.death_message}${swingLines(swing)}`,
+      message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}. ${enemy.death_message}${arcLine(arcLinks)}${swingLines(swing)}`,
       loot,
+      arcKills,
       enemyId: enemyInstanceId,
       butcher_table: enemy.butcher_table || [],
       butcher_difficulty: enemy.butcher_difficulty ?? 5,
@@ -1165,7 +1238,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     power,
-    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}${swingLines(swing)}`,
+    message: `${playerHitLine(player, enemy.name, partLabel, damage, damageType, critical, power, execution)}${critical ? '!' : '.'}${statusHit === 'stunned' ? (enemy.flags?.flies ? ' <span class="crit-tag">GROUNDED</span>' : ' <span class="crit-tag">STUNNED</span>') : ''}${enemyHpTag(enemy)}${arcLine(arcLinks)}${swingLines(swing)}`,
+    arcKills,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -1606,7 +1680,7 @@ export async function pvpSwing(attacker, defender) {
   }
   // Same roll against a player. A stun here locks their attack cooldown, which
   // every path already respects — so it works in PvP with no new guard.
-  rollWeaponStatus({ status_chance: equipped?.tags?.status_chance }, defender);
+  rollWeaponStatus({ status_chance: equipped?.tags?.status_chance }, defender, attacker);
   wearHeldWeapon(attacker);
 
   const defHpBefore = defender.hp ?? defender.hp_max ?? 100;

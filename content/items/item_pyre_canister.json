@@ -1,0 +1,24 @@
+{
+  "description": "A squat orange cylinder with a bayonet collar and a shipping label nobody has ever peeled off. Thickened distillate, the kind that sticks to what it lands on. The safety text runs to four paragraphs and the last line of it is the only one anyone reads: DOES NOT GO OUT.",
+  "flags": {},
+  "id": "item_pyre_canister",
+  "name": "PYRE thickened-fuel canister",
+  "tags": {
+    "__own": {
+      "ammo_load": {
+        "type": "pyre_fuel",
+        "units": 40
+      },
+      "description": "A squat orange cylinder with a bayonet collar and a shipping label nobody has ever peeled off. Thickened distillate, the kind that sticks to what it lands on. The safety text runs to four paragraphs and the last line of it is the only one anyone reads: DOES NOT GO OUT."
+    },
+    "__super": [],
+    "ammo_load": {
+      "type": "pyre_fuel",
+      "units": 40
+    },
+    "description": "A squat orange cylinder with a bayonet collar and a shipping label nobody has ever peeled off. Thickened distillate, the kind that sticks to what it lands on. The safety text runs to four paragraphs and the last line of it is the only one anyone reads: DOES NOT GO OUT."
+  },
+  "type": "misc",
+  "value": 180,
+  "weight": 2200
+}

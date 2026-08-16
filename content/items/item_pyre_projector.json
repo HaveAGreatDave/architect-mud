@@ -1,0 +1,53 @@
+{
+  "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+  "flags": {},
+  "id": "item_pyre_projector",
+  "name": "Vulcan Ordnance PYRE-3 incineration projector",
+  "tags": {
+    "__own": {
+      "ammo_capacity": 40,
+      "ammo_type": "pyre_fuel",
+      "damage": {
+        "max": 11,
+        "min": 5
+      },
+      "damage_type": "fire",
+      "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+      "dry_message": "The igniter cracks on nothing and the nozzle coughs a thin unlit mist across the floor.",
+      "min_skill": {
+        "firearms": 5
+      },
+      "reload_message": "You crack the spent canister out of the tank, seat a fresh one on the bayonet collar, and wait for the pressure light. It goes green.",
+      "status_chance": {
+        "burning": 0.6
+      },
+      "unique": true
+    },
+    "__super": [
+      "weapon_firearms"
+    ],
+    "ammo_capacity": 40,
+    "ammo_type": "pyre_fuel",
+    "damage": {
+      "max": 11,
+      "min": 5
+    },
+    "damage_type": "fire",
+    "description": "A shoulder tank in unpainted steel, a braided feed line, and a nozzle assembly that is mostly heat shielding. The pressure gauge is analogue, because a needle can be read through smoke and a display cannot. Stencilled down the tank in the manufacturer's flat civic typeface: VULCAN ORDNANCE - PYRE-3 INCINERATION PROJECTOR - LICENSED CLEARANCE WORK ONLY. Under that, in a different hand, scratched into the paint: IT DOES NOT KNOW WHAT YOU MEANT.",
+    "dry_message": "The igniter cracks on nothing and the nozzle coughs a thin unlit mist across the floor.",
+    "min_skill": {
+      "firearms": 5
+    },
+    "reload_message": "You crack the spent canister out of the tank, seat a fresh one on the bayonet collar, and wait for the pressure light. It goes green.",
+    "slot": "weapon_hand",
+    "status_chance": {
+      "burning": 0.6
+    },
+    "unique": true,
+    "weapon": true,
+    "weapon_skill": "firearms"
+  },
+  "type": "weapon",
+  "value": 2400,
+  "weight": 11000
+}

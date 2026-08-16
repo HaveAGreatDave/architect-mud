@@ -19,10 +19,32 @@ const registry = new Map();
 // `stats` is optional: `{ stat_brains: 1 }`. Status effects are where BONUSES
 // live — condition.js only ever subtracts, by design — so anything that raises a
 // stat registers here and is netted in `effectiveStat`.
-export function registerStatusEffect({ name, label, onTick, acuity = null, stats = null }) {
+// `mob` is optional and is what makes an effect land on an ENEMY as well as a
+// player. It is a SEPARATE function from `onTick`, deliberately, for two reasons.
+//
+// First, most `onTick` bodies write player-shaped fields — stamina, radiation,
+// `_foodPoisonHp`, an episode handler that puts vomit on your clothes — and a mob
+// has none of those. Duck-typing `onTick` onto an enemy instance would half-work,
+// silently, which is worse than not working.
+//
+// Second, an effect must never write `enemy.hp` itself (see applyStrikeToEnemy in
+// combat.js: doing it by hand skips the part roll, the typed soak, the damage
+// observers injury hangs off, and the loot/removal path on death). So `mob` does
+// not APPLY anything — it returns an INTENT, `{ min, max, damageType, message }`,
+// and the caller routes it through the one function allowed to hurt a mob. That
+// also keeps this file free of any import from combat.js.
+//
+// No `mob` means the effect simply does not exist for enemies. That's the same
+// call `applyStun` already made for NPCs: better absent than pretend.
+export function registerStatusEffect({ name, label, onTick, acuity = null, stats = null, mob = null }) {
   if (!name || typeof onTick !== 'function') throw new Error('registerStatusEffect: name and onTick required');
-  registry.set(name, { label, onTick, acuity, stats });
+  if (mob != null && typeof mob !== 'function') throw new Error(`registerStatusEffect(${name}): mob must be a function`);
+  registry.set(name, { label, onTick, acuity, stats, mob });
 }
+
+// Can this effect be carried by an enemy instance? The gate `rollWeaponStatus`
+// checks before applying a weapon's authored `status_chance` to a mob.
+export function mobSupportsEffect(name) { return typeof registry.get(name)?.mob === 'function'; }
 
 // Summed stat bonus for one stat across every status a player currently has.
 export function effectStatBonus(player, stat) {
@@ -79,6 +101,9 @@ registerStatusEffect({
     player.hp = Math.max(0, player.hp - 2);
     return 'You are bleeding. (-2 HP)';
   },
+  // Kinetic, so a mob's armour soaks it the way armour soaks anything else — a
+  // plated thing bleeds less because there was less of it to open.
+  mob: (e) => ({ min: 1, max: 3, damageType: 'kinetic', message: `${e.name} is bleeding badly.` }),
 });
 
 registerStatusEffect({
@@ -88,6 +113,18 @@ registerStatusEffect({
     player.hp = Math.max(0, player.hp - 5);
     return 'You are on fire. (-5 HP)';
   },
+  // `fire` typed, which is the whole point of routing this through the strike
+  // path: a thing with fire soak on a part shrugs some of it off, and a thing
+  // without one does not.
+  //
+  // Deliberately SMALL, and much smaller than the player figure above. A weapon
+  // that applies this does so on a per-swing roll, and `applyEffect` refreshes
+  // rather than stacks — so against anything you are actually fighting the burn
+  // is effectively permanent for the length of the fight. At 3-6 a tick that was
+  // roughly five times a pistol's sustained damage for free. At 1-3 the flame is
+  // what a flame should be: it does not win the fight for you, it means the thing
+  // you already hit keeps losing while you deal with something else.
+  mob: (e) => ({ min: 1, max: 3, damageType: 'fire', message: `${e.name} is burning.` }),
 });
 
 registerStatusEffect({
@@ -224,17 +261,25 @@ registerStatusEffect({
 let onEpisode = null;
 export function setEpisodeHandler(fn) { onEpisode = fn; }
 
-// Apply (or refresh) a timed status effect on a player.
-export function applyEffect(player, name, duration) {
+// Apply (or refresh) a timed status effect on a player — or on an enemy instance,
+// which carries the same `statuses` array and has since it was first spawned.
+//
+// `source` is the player id to credit if this effect is what finally kills the
+// thing. It is stored, not resolved: the player may log out, walk away or die
+// before the fire finishes, and the tick looks them up fresh each time. Refreshing
+// an existing effect RE-STAMPS the source — the last person to set you alight owns
+// the kill, which is the reading everyone at the table will expect.
+export function applyEffect(player, name, duration, { source = null } = {}) {
   if (!player.statuses) player.statuses = [];
   const existing = player.statuses.find(s => s.name === name);
   if (existing) {
     existing.duration = Math.max(existing.duration, duration);
+    if (source) existing.source = source;
   } else {
     // A fresh bout starts its own budget — the HP cap is per illness, not per
     // lifetime, and the episode clock restarts so the first one isn't instant.
     if (name === 'food_poisoning') { player._foodPoisonHp = 0; player._foodPoisonTick = 0; }
-    player.statuses.push({ name, duration });
+    player.statuses.push({ name, duration, source, elapsed: 0 });
   }
 }
 
@@ -251,6 +296,54 @@ export function clearEffect(player, name) {
 // Display labels for a player's active effects (for the `stats` status line).
 export function statusLabels(player) {
   return (player.statuses || []).map(s => registry.get(s.name)?.label).filter(Boolean);
+}
+
+// The same, for an enemy instance — but only the effects that MEAN something on a
+// mob. An enemy that somehow acquired a player-only status must not advertise it
+// on the Hostiles line, because nothing would ever come of it.
+export function mobStatusLabels(entity) {
+  return (entity?.statuses || [])
+    .map(s => registry.get(s.name))
+    .filter(def => def && typeof def.mob === 'function')
+    .map(def => def.label)
+    .filter(Boolean);
+}
+
+// Tick an enemy instance's effects. Returns INTENTS — `{ effect, min, max,
+// damageType, message, source, speak }` — and applies nothing itself; the caller
+// routes each through applyStrikeToEnemy, the one function allowed to move a mob's
+// HP. See the note on `mob` in registerStatusEffect for why the split exists.
+//
+// `speak` is the anti-spam rule, and it lives here rather than in each effect so
+// there is one cadence for all of them. Twenty seconds of "The rust hound burns."
+// once a second is twenty lines nobody reads; the first tick and every fourth
+// after it reads as a thing that is on fire and stays on fire. The Hostiles line
+// carries the label continuously, so the state is never only in the scrollback.
+const MOB_SPEAK_EVERY = 4;
+
+export function tickMobEffects(entity) {
+  const intents = [];
+  if (!entity?.statuses?.length) return intents;
+
+  entity.statuses = entity.statuses.filter(s => {
+    const def = registry.get(s.name);
+    if (def && typeof def.mob === 'function') {
+      const intent = def.mob(entity);
+      if (intent) {
+        s.elapsed = (s.elapsed || 0) + 1;
+        intents.push({
+          effect: s.name,
+          source: s.source || null,
+          speak: s.elapsed === 1 || s.elapsed % MOB_SPEAK_EVERY === 0,
+          ...intent,
+        });
+      }
+    }
+    s.duration--;
+    return s.duration > 0;
+  });
+
+  return intents;
 }
 
 // Tick all active effects. Returns an array of message strings for broadcast.

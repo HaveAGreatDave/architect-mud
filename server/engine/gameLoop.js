@@ -6,13 +6,13 @@ import { tickPanic } from './panic.js';
 import { getZoneRadiation } from './zone-tags.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackNpc, npcAttackPlayer, isOnCooldown, clearCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackNpc, npcAttackPlayer, isOnCooldown, clearCooldown, pvpSwing, formatBattleCry, getPlayerCombat, flushDirtyResources, applyStrikeToEnemy } from './combat.js';
 import { setStance, DEFAULT_STANCE } from './stance.js';
 import { setFlag } from './flags.js';
 import { tickEntityAI, moveEntity, ensureBehaviourGraph } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
-import { tickEffects, applyEffect } from './effects.js';
+import { tickEffects, applyEffect, tickMobEffects } from './effects.js';
 import { impairmentOf } from './impairment.js';
 import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
 import { isDeepCleanDay, isOwnedZone, filthCount } from './zone-filth.js';
@@ -426,6 +426,49 @@ async function tick() {
         broadcastFn(null, { type: 'combat_miss', message: result.message }, null, target.id);
       }
     }).catch(() => {});
+  }
+
+  // Status effects on ENEMIES — a mob that is on fire or bleeding out.
+  //
+  // Separate from the player pass below because the two resolve differently: a
+  // player's effect writes hp directly, while a mob's must go through
+  // applyStrikeToEnemy so the part roll, the typed soak, the injury observers and
+  // the loot/removal path all still happen. tickMobEffects returns intents and
+  // applies nothing — see the note on `mob` in effects.js.
+  //
+  // The list is SNAPSHOT before anything is applied: a lethal tick calls
+  // removeEnemyInstance, which deletes from the very Map we would be iterating.
+  // Almost always empty, so the filter is the whole cost on a normal second.
+  const afflicted = [...world.enemies.values()].filter(e => e.statuses?.length);
+  for (const enemy of afflicted) {
+    const zoneId = enemy.zoneId;
+    for (const intent of tickMobEffects(enemy)) {
+      // Resolved fresh every tick: whoever lit this thing up may have logged out,
+      // died or walked away since, and a stale object would credit a ghost.
+      const killer = intent.source ? getLivePlayer(intent.source) : null;
+      const result = await applyStrikeToEnemy(killer, enemy, intent).catch(() => null);
+      if (!result) break;   // already dead — the rest of its statuses are moot
+      // `refresh` rides the spoken beat rather than every tick: the Hostiles line
+      // is where the HP bar and the (Burning) label live, and re-rendering the
+      // room once a second for the whole twenty is not worth the accuracy.
+      if (intent.speak) broadcastFn(zoneId, { type: 'zone_event', message: intent.message, refresh: true });
+      if (result.killed) {
+        // The kill is announced and looted exactly as a swing's would be. Corpse
+        // creation lives in the weapon plugin (registerPlayerCombat) — the engine
+        // reaches it through the provider rather than importing it.
+        if (killer) { killer.combatTargetId = null; emit('enemy.killed', { actor: killer, enemy }); }
+        const combat = getPlayerCombat();
+        const corpseLink = combat?.spawnEnemyCorpse
+          ? await combat.spawnEnemyCorpse(zoneId, enemy.name, result).catch(() => null)
+          : null;
+        broadcastFn(zoneId, {
+          type: 'zone_event',
+          message: `${enemy.name} ${intent.effect === 'burning' ? 'stops moving, still burning' : 'bleeds out and falls'}.${corpseLink ? ` ${corpseLink}` : ''}`,
+          refresh: true,
+        });
+        break;
+      }
+    }
   }
 
   // Status effects + phased drug effects

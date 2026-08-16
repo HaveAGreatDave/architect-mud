@@ -39,6 +39,7 @@ import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
+import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
 import { isVendorClosed } from "../ai-behaviour.js";
@@ -1520,9 +1521,15 @@ export async function describeZone(zone, player, out = {}) {
 		}
 	}
 	if (enemies.length || phantomBeasts.length) {
+		// A burning or bleeding mob says so here, continuously — the tick's own line
+		// is throttled, so without this the state would live only in the scrollback
+		// and a player who walked in mid-fire would never know.
 		const enemyLinks = enemies.map(
-			(e) =>
-				`<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(e.name)}" data-instance-id="${e.instanceId}" title="Attack ${escAttr(e.name)}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`,
+			(e) => {
+				const afflictions = mobStatusLabels(e);
+				const tail = afflictions.length ? ` <span class="enemy-status">(${afflictions.join(", ").toLowerCase()})</span>` : "";
+				return `<span class="action-link enemy-link" data-action="attack" data-target="${escAttr(e.name)}" data-instance-id="${e.instanceId}" title="Attack ${escAttr(e.name)}">${e.name}</span> (${e.hp}/${e.hp_max}HP)${tail}`;
+			},
 		);
 		const phantomBeastLinks = phantomBeasts.map(
 			(p) =>

@@ -1,0 +1,57 @@
+{
+  "description": "A metre of insulated spine ending in a forked emitter, with a capacitor bank clamped along the shaft in four fat segments that whine up the scale as they charge. Kolvig built it for cutting rebar out of drowned foundations, which is why the grip is a full hand's width of rubber and the warning plate is riveted rather than printed. It smells like a storm about to happen.",
+  "flags": {},
+  "id": "item_arc_lance",
+  "name": "Kolvig ARC-7 discharge lance",
+  "tags": {
+    "__own": {
+      "ammo_capacity": 12,
+      "ammo_type": "arc_cell",
+      "arc_chain": {
+        "falloff": 0.55,
+        "jumps": 2
+      },
+      "damage": {
+        "max": 14,
+        "min": 7
+      },
+      "damage_type": "energy",
+      "description": "A metre of insulated spine ending in a forked emitter, with a capacitor bank clamped along the shaft in four fat segments that whine up the scale as they charge. Kolvig built it for cutting rebar out of drowned foundations, which is why the grip is a full hand's width of rubber and the warning plate is riveted rather than printed. It smells like a storm about to happen.",
+      "dry_message": "The capacitors whine, find nothing to spend, and settle back down.",
+      "min_skill": {
+        "science": 6
+      },
+      "reload_message": "You thumb the spent cell out of the housing and press a charged one home until the bank starts whining again.",
+      "unique": true,
+      "water_shock": true
+    },
+    "__super": [
+      "weapon_science"
+    ],
+    "ammo_capacity": 12,
+    "ammo_type": "arc_cell",
+    "arc_chain": {
+      "falloff": 0.55,
+      "jumps": 2
+    },
+    "damage": {
+      "max": 14,
+      "min": 7
+    },
+    "damage_type": "energy",
+    "description": "A metre of insulated spine ending in a forked emitter, with a capacitor bank clamped along the shaft in four fat segments that whine up the scale as they charge. Kolvig built it for cutting rebar out of drowned foundations, which is why the grip is a full hand's width of rubber and the warning plate is riveted rather than printed. It smells like a storm about to happen.",
+    "dry_message": "The capacitors whine, find nothing to spend, and settle back down.",
+    "min_skill": {
+      "science": 6
+    },
+    "reload_message": "You thumb the spent cell out of the housing and press a charged one home until the bank starts whining again.",
+    "slot": "weapon_hand",
+    "unique": true,
+    "water_shock": true,
+    "weapon": true,
+    "weapon_skill": "science"
+  },
+  "type": "weapon",
+  "value": 3100,
+  "weight": 4800
+}
