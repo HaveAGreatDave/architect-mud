@@ -1013,7 +1013,20 @@ function stepTruck(state, input, p, dt) {
   // the brakes and the engine brake are fixed forces fighting a bigger number, so they are, and
   // that is why a loaded truck takes so much longer to STOP. Getting this backwards is what makes a
   // load feel like a debuff instead of like weight.
-  const roll = p.rollFric * surf.drag;
+  // ── DEAD ENGINE MEANS DEAD LIFTERS, AND THE RIG IS SITTING ON ITS SHROUDS ───
+  // This truck does not have wheels. The lifters hold it off the road and they run off the engine
+  // — which the mesh has always said (a parked rig settles, `HOVER` is given up) and the audio has
+  // always said (the wash dies with the motor), while the PHYSICS went on rolling it along as if
+  // nothing had changed. Shut down at fifty and you coasted for a quarter of a mile, steering.
+  //
+  // So the two things the pods were doing stop when they stop:
+  //   · the ground bites — a shroud dragging on tarmac is not a bearing (`SETTLED_DRAG`)
+  //   · and NOTHING TURNS. See the yaw term below.
+  // It is not a handbrake. You still roll, you still have the service brakes, and you can still be
+  // pushed — you simply cannot point it any more, which is the honest consequence of switching off
+  // the things that were pointing it.
+  const SETTLED_DRAG = 5.5;
+  const roll = p.rollFric * surf.drag * (s.stalled ? SETTLED_DRAG : 1);
   const forces = p.dragP * s.speed * s.speed + brake * p.brake * fade + engBrake;
   const before = s.speed;
   s.speed += (power * dir / mass - (roll + forces / mass) * moving) * dt;
@@ -1029,7 +1042,18 @@ function stepTruck(state, input, p, dt) {
   //    swings wide at a crawl, with no special-casing for either.
   const delta = steer * truckSteerLock(s.speed, s.hitched) * D2R;
   const tps = s.speed / p.tileMph;                    // tiles per second — the sim's real velocity
-  const yaw = Math.abs(tps) > 0.001 ? (tps * Math.tan(delta) / p.wheelbase) * R2D * surf.grip : 0;
+  // ⚠ GRIP IS AN UNDERSTEER TERM, NOT A STEERING-RATIO TERM. It used to multiply the yaw rate flat,
+  // which is wrong at exactly the speed a driver notices: a truck creeping across a dirt yard with
+  // the wheels on the stops is not sliding, it is TRACKING, and geometry alone says it comes round
+  // in L/tan δ whatever it is standing on. Scaling by 0.42 there meant the depot — the one place in
+  // the game the surface is not tarmac and the one place full lock is for — was where a cranked
+  // wheel did the least, which reads exactly like the steering being broken. Grip is what a tyre
+  // runs out of when you ask for lateral acceleration, so it now fades IN with speed and the crawl
+  // is pure kinematics. On the road (grip 1) this changes nothing at all.
+  const gripAuth = surf.grip + (1 - surf.grip) * (1 - Math.min(1, Math.abs(s.speed) / 22));
+  // …and with the engine off there is no steer axle to speak of — see SETTLED_DRAG. A rig on its
+  // shrouds slides where it was already pointed.
+  const yaw = (!s.stalled && Math.abs(tps) > 0.001) ? (tps * Math.tan(delta) / p.wheelbase) * R2D * gripAuth : 0;
   s.heading = wrap360(s.heading + yaw * dt);
   s.yawRate = yaw;
 

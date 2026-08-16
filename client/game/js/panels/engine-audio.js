@@ -590,30 +590,56 @@ const HORN = {
   drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.165, air: 1.0 },
   continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.180, air: 1.2 },   // the one you hear before you see it
 };
-export function airHorn(typeId) {
-  const ae = AE(); const h = HORN[typeId] || HORN.drayman;
+// `secs` is how long the driver held the cord, so the yard hears a toot or a long lean on it rather
+// than the same stock blast either way. Absent (an older sender, or any non-cab caller) is the
+// horn's own authored length exactly as before.
+export function airHorn(typeId, secs = null) {
+  const ae = AE(); const h0 = HORN[typeId] || HORN.drayman;
+  const h = secs ? { ...h0, dur: Math.max(0.18, Math.min(4, secs)) } : h0;
+  // ⚠ The voices are `hornVoices`, shared with the held horn below — see the note there. (The
+  // centre of the bandpass sits just ABOVE the fundamental, not three octaves up it, with a wider Q
+  // so the skirt keeps the upper harmonics that make it a trumpet rather than a hum.)
+  const d = { duration: h.dur + 0.35, layers: hornVoices(h, false) };
+  try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {}
+}
+// ── THE HORN IS HELD, NOT PRESSED ────────────────────────────────────────────
+// A cord you pull is open for as long as you pull it, and the fixed-length blast this used to be
+// was the single most button-like thing in a cab full of controls that are not buttons. So there
+// are two ways in now and they share every number: the ONE-SHOT above, which is what the room
+// hears (and now takes the length the driver actually held it), and this SUSTAINED pair.
+//
+// ⚠ IT IS A LOOP ON THE SFX BUS, not on the ambience bed — see loopSound. And it is deliberately
+// built from `hornVoices` rather than a second set of oscillators: the horn you hold and the horn
+// the yard hears must be the same instrument, or holding the cord changes the truck.
+const HORN_LOOP_ID = 'truck-horn-held';
+function hornVoices(h, sustain) {
   const voice = (freq, gain) => ([
-    // ⚠ The centre sits just ABOVE the fundamental, not three octaves up it — see the note on
-    // HORN. A wider Q with it, so the skirt keeps the upper harmonics that make it a trumpet
-    // rather than a hum; the shape is the same, it just no longer discards the loudest part of
-    // its own waveform on the way to the bus.
     { waveform: 'sawtooth', freq, pitchBend: { to: freq * 1.006, time: 0.08 },
       filter: { type: 'bandpass', freq: freq * 1.8, q: 0.9 },
-      adsr: { a: 0.035, d: h.dur * 0.35, s: 0.72, r: h.dur * 0.45 }, gain },
-    // The second harmonic, a touch late — the trumpet's bell taking a moment to load up.
+      adsr: sustain ? { a: 0.035, d: 0.12, s: 0.92, r: 0.18 } : { a: 0.035, d: h.dur * 0.35, s: 0.72, r: h.dur * 0.45 }, gain },
     { waveform: 'square', freq: freq * 2, delay: 0.02,
       filter: { type: 'lowpass', freq: freq * 5, q: 0.8 },
-      adsr: { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.4 },
+      adsr: sustain ? { a: 0.05, d: 0.15, s: 0.5, r: 0.2 } : { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.4 },
   ]);
-  const d = { duration: h.dur + 0.35, layers: [
+  return [
     ...voice(h.base, h.gain),
     ...voice(h.base * h.ratio, h.gain * 0.86),
     // Air leaking past the diaphragms for as long as the valve is open. Cheap, and it is the
     // difference between a chord and a horn.
     { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.7 },
-      adsr: { a: 0.02, d: 0.3, s: 0.22, r: 0.3 }, gain: 0.02 * h.air },
-  ] };
-  try { ae?.init?.(); ae?.playSfx?.({ config: d }); } catch {}
+      adsr: sustain ? { a: 0.02, d: 0.2, s: 0.3, r: 0.25 } : { a: 0.02, d: 0.3, s: 0.22, r: 0.3 }, gain: 0.02 * h.air },
+  ];
+}
+export function airHornOn(typeId) {
+  const ae = AE(); const h = HORN[typeId] || HORN.drayman;
+  try {
+    ae?.init?.();
+    ae?.stopLoop?.(HORN_LOOP_ID);      // a second pull while one is open is one horn, not two
+    ae?.loopSound?.({ id: HORN_LOOP_ID, category: 'sfx', priority: 2, config: { layers: hornVoices(h, true) } });
+  } catch { /* never load-bearing */ }
+}
+export function airHornOff() {
+  try { AE()?.stopLoop?.(HORN_LOOP_ID); } catch { /* never load-bearing */ }
 }
 export function hoverSpool(typeId) {
   const ae = AE(); const d = HOVER_SPOOL[typeId] || HOVER_SPOOL.drayman;

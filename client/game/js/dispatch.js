@@ -1414,7 +1414,7 @@ const handlers = {
   cb_msg: (msg) => { receiveCbMsg(msg); },
   // The air horn. Pushed to everyone in the zone (plugins/trucking cmdHorn), so you hear somebody
   // else's rig go off in the yard as well as your own — which is the only reason a horn is a verb.
-  truck_horn: (msg) => { airHorn(msg.typeId); },
+  truck_horn: (msg) => { airHorn(msg.typeId, msg.secs ?? null); },
   // Dismounting takes the set with it — the Deadhead window closes because the radio is gone,
   // not because anybody pressed anything on it.
   truck_sim_close: () => { closeCab(); clearCbContext(); },

@@ -186,6 +186,10 @@ async function cmdDrive(args, raw, player) {
   rig.burnMul = burnMul(rig.cd);           // a hard turbo drinks; the aux tank is on `params.tank`
   rig.fuel = owned.fuel ?? 1;
   rig.travelled = 0;
+  // UNLOCKED BY GETTING IN, because you have the key — a lock the owner has to spend a verb on is a
+  // lock that is only ever an obstacle to the person it belongs to. `park` sets it again on the way
+  // out, so the stored state is simply "is anybody in it".
+  rig.locked = false;
   setPosture(player, 'driving');
   // ⚠ THIS MOVES YOU INTO THE SHED, NOT OUT OF IT, and that inversion is the whole feature. It used
   // to walk the player to the apron so the first frame was already on the road; now it puts them on
@@ -1417,9 +1421,29 @@ function nearRoadsideFuel(rig) {
 // ── park ─────────────────────────────────────────────────────────────────────
 // Get out, wherever you are. Legal on the corridor and slightly reckless — the rig is still there
 // when you come back, unless something found it first.
-async function cmdPark(args, raw, player) {
+// ⚠ THIS VERB HAS A SECOND CALLER AND IT IS THE ROAD ITSELF. Arrival, a finished crossing and a
+// destination with nowhere to put you all call `cmdPark` to get the player out of the cab, and none
+// of those is a driver deciding anything — so the engine gate below belongs to the TYPED path only.
+// `forcedPark` is that path: same landing, no refusal, and nothing can strand a player in a sim
+// whose road has ended because their key happened to be on.
+export async function forcedPark(player) { return parkRig(player, true); }
+async function cmdPark(args, raw, player) { return parkRig(player, false); }
+async function parkRig(player, forced) {
   const rig = rigOf(player);
   if (!rig) return say('You are not driving anything.');
+  // YOU DO NOT WALK AWAY FROM A RUNNING TRUCK. Parking is a sequence — brake, key, door — and the
+  // prose said all three while the mechanic checked none of them, so a driver could climb down with
+  // it idling and the cab would report an engine running in an empty seat. The key is one press
+  // (K, or the barrel on the dash), so this is a beat rather than an obstacle.
+  // ⚠ …AND ONLY WHERE THERE IS A KEY TO TURN. A text-rung driver has `boot`/`coast`/`brake`/`revs`
+  // and no ignition — they never send a sync packet at all, so `engineOn` is the value it was born
+  // with and would refuse them forever. That is precisely the rung-locked-out failure
+  // systems-display-mode.md exists to prevent: the gate is a beat in the cab and a line of prose
+  // here, never a wall. (Do not "fix" this by having the text tick report an ignition it has no
+  // control for — that is a second engine state to keep in step with nothing.)
+  if (!forced && rig.engineOn && !isTextDriving(player.id)) {
+    return say('Not with it running. Shut it down first — <b>key</b> off, and let the air bleed out of the lines.');
+  }
   dismountRig(player.id);
   // The text tick self-heals (it drops any run whose rig has gone), but stopping it here means the
   // road doesn't narrate one more line after you've already climbed down.
@@ -1454,13 +1478,21 @@ async function cmdPark(args, raw, player) {
       `<span class="text-amber">You leave it on the shoulder with the flashers going and start walking. Somebody will come out for it eventually.</span>\n`
       + `<span class="text-dim">Recovery to ${depotNameOf(rig.fromDepot) || 'the yard'}: <b>${fee}₵</b>, payable when you next go to drive it.</span>` });
   }
+  // AND YOU LOCK IT. The last thing in the sequence, and the state that says this truck was LEFT
+  // rather than merely stopped — persisted in the same flush below, so it is still locked tomorrow.
+  // Every park locks, including a forced one: nobody walks away from a rig on the shoulder and
+  // leaves the door swinging, and the abandonment line above is already about a truck you would
+  // very much like to still be there.
+  rig.locked = true;
   await persistTruck(rig);
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
   const zone = getZone(player.current_zone);
+  // The prose finally matches the mechanic: the brake is set and the engine is already off, because
+  // this verb refused to run until it was. Only the door is left to do.
   return {
     type: 'emote',
-    message: `<span class="text-amber">You set the brake, kill the engine, and drop down onto the dirt. The silence out here is enormous.</span>${zone ? `\n\n${await describeZone(zone, player)}` : ''}`,
+    message: `<span class="text-amber">You set the brake, drop down onto the dirt and lock her up behind you. The silence out here is enormous.</span>${zone ? `\n\n${await describeZone(zone, player)}` : ''}`,
   };
 }
 
@@ -1547,7 +1579,7 @@ async function cmdTruckSync(args, raw, player) {
 
   if (r.moved) {
     const zone = await crossToNode(player, rig, r.node);
-    if (!zone) { await cmdPark([], '', player); return { type: 'noop' }; }
+    if (!zone) { await forcedPark(player); return { type: 'noop' }; }
     // SOMEBODY ON THE SHOULDER. Announced on the node crossing, because a hitchhiker you were never
     // told about is a verb nobody types. Same reason the scale announces itself: this whole phase is
     // decisions taken in advance, and you cannot decide about a thing you did not see.
@@ -1630,7 +1662,14 @@ async function cmdCb(args, raw, player) {
 // IT WORKS IN BOTH PLACES A TRUCK EXISTS. Behind the wheel it is the rig you are driving; standing
 // in a yard it is the one parked there, because reaching up into an open cab and pulling the cord
 // is a thing people do, and because the walkaround now puts you at arm's length from the door.
+// `horn [seconds]` — how long the driver held the cord, so the yard hears a toot or a long lean on
+// it. ⚠ CLAMPED HERE, not trusted from the client: the cab is the only thing that sends a number and
+// a client is not the authority on how long a noise everybody else has to listen to goes on for.
+// An argument-less `horn` (any other caller, an older client, somebody typing it) is unchanged.
+const HORN_MAX = 4;
 async function cmdHorn(args, raw, player) {
+  const held = Number(args?.[0]);
+  const secs = Number.isFinite(held) ? Math.max(0.15, Math.min(HORN_MAX, held)) : null;
   const rig = rigOf(player);
   let typeId = rig?.typeId || null;
   let name = null;
@@ -1644,10 +1683,14 @@ async function cmdHorn(args, raw, player) {
   }
   // Everyone else in the room, including the sound. Excluding the player is deliberate: their own
   // copy rides back on the emote below, so nobody hears it twice.
-  sendToZone(player.current_zone, { type: 'truck_horn', typeId }, player.id);
+  sendToZone(player.current_zone, { type: 'truck_horn', typeId, secs }, player.id);
   sendToZone(player.current_zone, { type: 'emote', message:
-    `<span class="text-amber">An air horn goes off somewhere very close to you.</span>` }, player.id);
-  sendToPlayer(player.id, { type: 'truck_horn', typeId });
+    `<span class="text-amber">An air horn goes off somewhere very close to you${secs && secs > 1.6 ? ', and goes on going off' : ''}.</span>` }, player.id);
+  // ⚠ NOT to the driver when they held it themselves: the cab has been sounding its own horn since
+  // the moment the cord moved (see hornDown), and a second copy arriving on the way back is the
+  // same blast twice, a few hundred milliseconds apart. An argument-less `horn` — anybody who typed
+  // it, any other caller — still gets its sound from here, because nothing local played one.
+  if (secs == null) sendToPlayer(player.id, { type: 'truck_horn', typeId });
   return say(rig
     ? '<span class="text-amber">You pull the cord. Two notes, a long way apart, and the sound of them goes out across everything.</span>'
     : `<span class="text-amber">You reach up into the cab of ${name ? `<b>${name}</b>` : 'it'} and pull the cord. The yard rings with it.</span>`);
@@ -2003,7 +2046,7 @@ async function leaveTheMap(player, rig, broadcast) {
   await flushZone(player, rig);                 // the drive through town is committed here, once
   const res = await launchCrossing(player, gate, broadcast, null);
   const info = player._crossing && crossingInfo(player._crossing.instanceId);
-  if (!info) { await cmdPark([], '', player); return res || { type: 'noop' }; }
+  if (!info) { await forcedPark(player); return res || { type: 'noop' }; }
 
   // WHICH WAY. This used to be `dests[0]` — the first row of the table, forever — which quietly
   // made half the map unreachable by road: Terminus is designed as a truck destination (it is
@@ -2013,7 +2056,7 @@ async function leaveTheMap(player, rig, broadcast) {
   // whatever the driver set with `route`; then, only if neither exists, the first limb.
   const destKey = aimedDest(info, rig)?.key || info.dests?.[0]?.key;
   const chain = destKey ? crossingChain(player._crossing.instanceId, destKey) : [];
-  if (!chain.length) { await cmdPark([], '', player); return res || { type: 'noop' }; }
+  if (!chain.length) { await forcedPark(player); return res || { type: 'noop' }; }
 
   joinCorridor(rig, { instanceId: player._crossing.instanceId, destKey, voidKey: info.voidKey,
     window: info.window, chain, dest: crossingDest(player._crossing.instanceId, destKey),
@@ -2097,7 +2140,7 @@ async function cmdRoute(args, raw, player) {
 // when the rig is standing in the depot that ordered it.
 async function arrive(player, rig) {
   const dest = rig.dest && getZone(rig.dest);
-  if (!dest || dest.grid_x == null) { await cmdPark([], '', player); return; }
+  if (!dest || dest.grid_x == null) { await forcedPark(player); return; }
 
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, dest.id);

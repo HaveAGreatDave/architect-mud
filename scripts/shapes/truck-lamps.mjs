@@ -107,9 +107,29 @@ export function truckLampSmoke(drawHangarScene, variants = ['scrapper', 'hauler'
   return out;
 }
 
-// A lamp smaller than this on screen is a smudge, not a headlight. Sized off what the four
-// currently produce (the weakest is ~250 px² at this camera) with room to spare underneath.
-export const LAMP_MIN_AREA = 60;
+// A lamp smaller than this on screen is a smudge, not a headlight.
+//
+// ⚠ THIS NUMBER WAS CALIBRATED AGAINST A BUG, AND THAT IS WHY IT MOVED. It was 60, sized off "what
+// the four currently produce" at a time when the depot sorted the mesh PER FACE — so a lens was
+// painted over the bumper standing in front of it, and the areas it was measuring were areas no
+// correct renderer would ever produce. When the depot was given the part sort the windscreen had
+// always used (aircraft3d's sortTruckFaces), the bumper started correctly covering the bottom of
+// each lens, the far one lost more than the near one because it is smaller on screen, and three of
+// the four rigs "failed" a gate for finally drawing them right.
+//
+// So the gate now tests what it was always FOR — a lamp being EATEN, which is what shipped twice —
+// rather than a lamp being partly behind the bumper it is mounted beside, which is what a truck
+// looks like. Two assertions, and the second is the one with the teeth:
+//   · a floor, well above nothing, that says a lens is on screen at all;
+//   · and SYMMETRY. A mesh symmetric about its centreline that draws asymmetrically is exactly the
+//     signature of a sort error (it is why the reports were always "one lamp" and never "no
+//     lamps"), and unlike a fixed area it cannot be invalidated by a camera, a zoom or an honest
+//     occlusion — both sides get the same treatment from any angle, so their RATIO is the invariant.
+export const LAMP_MIN_AREA = 18;
+// How far apart the two sides may be before it is a sort error rather than perspective. The far
+// lamp at this camera is legitimately about half the near one; 4× is comfortably past anything
+// foreshortening can do and comfortably short of one lamp being gone.
+export const LAMP_MAX_RATIO = 4;
 
 // ── The rule the front of a truck keeps breaking ──────────────────────────────
 // NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE WITH THE PANEL BEHIND IT.

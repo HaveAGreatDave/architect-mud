@@ -712,7 +712,11 @@
     // category (e.g. an audio_ambient row tagged "environment") — 'tv' is the
     // one deliberate override, so CRT hum/static answer to the TV Audio toggle
     // instead of the generic Ambient slider.
-    const sound = buildSound(def.config || {}, busFor(def.category === 'tv' ? 'tv' : 'ambient'), time, null);
+    // Loops default to the AMBIENT bus because nearly every one of them is a bed. Two deliberate
+    // overrides: 'tv' (CRT hum/static answer to the TV Audio toggle) and 'sfx' — a held control
+    // that happens to be implemented as a loop is still an EFFECT, and a truck's air horn following
+    // the ambience slider would be a horn that gets quieter when you turn the wind down.
+    const sound = buildSound(def.config || {}, busFor(def.category === 'tv' ? 'tv' : def.category === 'sfx' ? 'sfx' : 'ambient'), time, null);
     const baseGain = def.config?.gain ?? 1;
     // Optional randomized decoration (beeps/clunks/chirps) riding over the bed.
     const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length

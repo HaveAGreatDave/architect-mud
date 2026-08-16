@@ -98,6 +98,9 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
     // checkbox on the depot panel.
     trailer: null,
     lastSync: Date.now(), started: Date.now(), bogged: false, blocked: 0,
+    // You got in and turned the key: mounting a truck starts it, which is what `drive` has always
+    // narrated. The cab corrects this four times a second from the real sim state.
+    engineOn: true,
     // THE RADIO. It lives on the rig and nowhere else (see cb.js) — mounting puts you on the air
     // and dismounting takes you off, with no membership state anywhere to fall out of step with
     // where you actually are. 19 because that is where everybody else starts, which is the only
@@ -174,6 +177,13 @@ export function rigOf(player) { return rigs.get(player?.id) || null; }
 // ── Reconcile: the one place a client number becomes a server fact ───────────
 // `d` is the unpacked telemetry frame. Returns { moved, node, bogged } for the caller to act on.
 export function reconcileTruck(rig, d, now = Date.now()) {
+  // ⚠ THE IGNITION IS READ BEFORE THE THROTTLE GATE, and everything else after it. The gate exists
+  // to stop a burst of packets integrating fuel and distance several times over a few milliseconds
+  // — that is about MOTION, which is a rate. The ignition is a STATE BIT: dropping it because the
+  // last packet was recent means the server can believe an engine is running for up to a sync
+  // window after the key came out, and `park` refuses on exactly that belief. Turning the key and
+  // being told the truck is still running is a bug the player cannot even diagnose.
+  if (Number.isFinite(d.t)) rig.engineOn = d.t > 0.5;
   const dtMs = Math.max(1, now - rig.lastSync);
   if (dtMs < MIN_SYNC_MS) return { moved: false, node: rig.node, bogged: rig.bogged };
   rig.lastSync = now;

@@ -1404,8 +1404,27 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and clears the deck', !rigOf(player).cargo);
       player.credits = before;                          // hand the stake back
 
+      // ── PARK IS A SEQUENCE, AND THE KEY COMES FIRST ──
+      // The refusal is tested through the REAL WIRE rather than by poking `engineOn`, because the
+      // whole mechanic rests on one bit travelling in a slot of the sync packet that used to be a
+      // literal 0. Setting the flag by hand would pass while the packet quietly stopped carrying it.
+      const rg = rigOf(player);
+      // ⚠ THE IGNITION GOES IN THROUGH `reconcileTruck`, NOT THROUGH THE `trucksync` VERB. A real
+      // packet is a position as well as a state bit, and this rig is sitting on a corridor leg — so
+      // any sync here crosses a node, which MOVES THE PLAYER into a void room, and the text-rung
+      // block below then gets answered by `drive`'s roadhead branch and fails in four places for
+      // reasons that have nothing to do with an ignition. `now` is pinned inside the throttle window
+      // on purpose: it proves the bit is read BEFORE that gate (see the ⚠ in reconcileTruck), which
+      // is the whole reason turning the key is felt immediately rather than up to a sync later.
+      const ignition = (on) => reconcileTruck(rg, { t: on ? 1 : 0 }, rg.lastSync + 1);
+      ignition(true);
+      const refused = await run('park');
+      check('you cannot walk away from a running truck', rigs.has(player.id), refused?.message?.slice(0, 40));
+      check('…and it says which control to use', /key/i.test(refused?.message || ''), refused?.message);
+      ignition(false);
       const out = await run('park');
-      check('park drops you out of the cab', !rigs.has(player.id), out?.message?.slice(0, 30));
+      check('park drops you out of the cab once the key is off', !rigs.has(player.id), out?.message?.slice(0, 30));
+      check('…and it locks the door behind you', rg.locked === true);
 
       // ── The text rung ──
       // The cab is a surface you ACT through, so a player at the textgames/log rung must be able to

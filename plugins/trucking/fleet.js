@@ -106,15 +106,21 @@ export async function persistTruck(rig) {
   // that was committed at a bench while the rig was out. `condition` stays the DERIVED headline
   // (damage.js `overall`) and stays a real column, so resale, the bands and the breakdown roll all
   // keep reading the thing they always read.
+  // THE DOOR LOCK RIDES IT TOO, and for the same reason it is a key in `custom_data` rather than a
+  // seventh column: it is one more thing about a truck that is YOURS, which is what that bag is for.
+  // Nested jsonb_set, not two statements — a lock written separately from the flush is a lock that
+  // can disagree with where the truck is parked.
   const dmg = rig.dmg || null;
   await query(
     `UPDATE trucks SET fuel = $1, odometer = odometer + $2, depot_zone = $3, condition = $4,
-       custom_data = CASE WHEN $6::jsonb IS NULL THEN custom_data
-                          ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $6::jsonb, true) END
+       custom_data = jsonb_set(
+         CASE WHEN $6::jsonb IS NULL THEN COALESCE(custom_data,'{}'::jsonb)
+              ELSE jsonb_set(COALESCE(custom_data,'{}'::jsonb), '{dmg}', $6::jsonb, true) END,
+         '{locked}', to_jsonb($7::boolean), true)
      WHERE id = $5`,
     [Math.max(0, Math.min(1, rig.fuel)), Math.max(0, rig.travelled || 0), rig.zoneId || null,
       Math.max(0, Math.min(1, rig.condition ?? 1)), rig.truckId,
-      dmg ? JSON.stringify(dmg) : null]
+      dmg ? JSON.stringify(dmg) : null, !!rig.locked]
   ).catch(() => {});
   rig.travelled = 0;
 }

@@ -30,7 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
-import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA } from './truck-lamps.mjs';
+import { truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -95,9 +95,15 @@ async function main() {
   const a3d = await import('../../client/game/js/panels/aircraft3d.js');
   const lamps = truckLampSmoke(a3d.drawHangarScene);
   for (const L of lamps) {
-    if (L.left < LAMP_MIN_AREA || L.right < LAMP_MIN_AREA) {
+    const lo = Math.min(L.left, L.right), hi = Math.max(L.left, L.right);
+    if (lo < LAMP_MIN_AREA) {
       problems.push(`lamps  ${L.variant} → one-eyed: ${L.left.toFixed(0)}px² visible on the left, `
         + `${L.right.toFixed(0)}px² on the right (min ${LAMP_MIN_AREA}). Something is drawn over a headlamp.`);
+    } else if (hi > lo * LAMP_MAX_RATIO) {
+      // The symmetry half — see LAMP_MAX_RATIO. A symmetric mesh drawn this lopsidedly is a sort
+      // error, whatever the absolute numbers are.
+      problems.push(`lamps  ${L.variant} → lopsided: ${L.left.toFixed(0)}px² left vs ${L.right.toFixed(0)}px² right `
+        + `(>${LAMP_MAX_RATIO}×). A symmetric mesh drawn asymmetrically is the painter's sort eating one side.`);
     }
   }
   // The same square foot of geometry, one rung more general — see truckNoseSliceSmoke.

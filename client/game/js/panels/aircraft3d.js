@@ -2441,6 +2441,120 @@ export function groundPitchFor(cls, armed = false) {
   return FW_PARAMS[cls]?.groundPitch || 0;
 }
 
+// ── THE TRUCK'S DRAW ORDER, AND WHY IT IS NOT A DEPTH SORT ───────────────────
+// The flashing on an orbiting rig is a painter's-algorithm failure, and three separate things had
+// to be fixed before it went away. All of them come from the same fact: a truck is a pile of small
+// convex boxes BOLTED ONTO bigger ones — grille bars, stack shields, mirror arms, steps, the chrome
+// band round a lifter — and painter's algorithm has no answer for nested geometry.
+//
+//  1. IT SORTS PARTS, NOT FACES. A detail's face and the panel it is screwed to are millimetres
+//     apart, so any per-face key makes them cross and re-cross as the camera moves, and every
+//     crossing swaps which is painted last. Faces carry a `part` id stamped where the geometry is
+//     emitted (`box`, below), so the six quads of one box move through the order together and can
+//     never be split by a detail sitting on them.
+//
+//  2. THE KEY IS THE NEAREST VERTEX, NOT THE MEAN. This is what actually orders a bolt-on: a box
+//     sitting ON a surface protrudes from it, so its nearest point is nearer than the host's while
+//     its MEAN is almost identical to it. Mean depth is why the old sort could not tell a grille bar
+//     from the grille — the two numbers were the same number.
+//
+//  3. QUANTISING MADE IT WORSE, AND THAT IS WHY IT LOOKED LIKE IT ALMOST WORKED. An earlier fix
+//     rounded depths into buckets so ties fell back to mesh order. But rounding does not remove an
+//     ordering instability, it MOVES it to the bucket edges — and it converts a smooth crossing into
+//     a discrete jump, which is a visible pop rather than a gradual swap. Hysteresis is the honest
+//     version of what that was reaching for: keep the key continuous, and refuse to reorder a pair
+//     that is within a hair of equal unless it was already in that order last frame.
+//
+// Within a part, faces sort by mean depth and that is exact — a convex box's own faces cannot
+// interpenetrate, so there is nothing to be unstable about.
+//
+// ⚠ IT LIVES HERE, NOT IN THE WINDSCREEN, AND THAT IS THE WHOLE LESSON OF THE SECOND ROUND OF THIS
+// BUG. All of the above was written for and applied by ONE renderer, and the truck mesh has four:
+// the windscreen's contacts and own ship, the depot's lot, and the depot's walkaround. The other
+// three went on sorting per face, so the same rig that was solid out the windscreen was still
+// see-through on the forecourt you buy it from — reported, reasonably, as a new bug. A sort that
+// only one caller of a shared mesh performs is a sort that will be forgotten by the next caller, so
+// it now sits beside the geometry whose `part` ids it reads, and every renderer of that geometry
+// reaches for the same function.
+const _truckOrder = new Map();     // model id -> last frame's part order, for the hysteresis pass
+export const _resetTruckOrder = () => _truckOrder.clear();   // smoke only: start a sweep cold
+// `faces` are DRAW RECORDS, not mesh faces, and the three fields this reads are the caller's to
+// supply: `nf` (nearest vertex depth), `af` (mean depth), `i` (mesh order). The far extent comes
+// from `xf` when the caller has it to hand, else from the projected points, else from `af` — see
+// the ⚠ on `far` below. Depth may be any monotonic camera distance: the windscreen's `f` and the
+// depot's `z` both qualify, which is why the two can share this.
+export function sortTruckFaces(faces, c, SIZE) {
+  // Group into parts. A face with no part id (an older mesh, or a class that never got them) is its
+  // own part, which degrades exactly to the per-face sort rather than to something wrong.
+  const parts = new Map();
+  for (const f of faces) {
+    const k = f.part == null ? `f${f.i}` : f.part;
+    let g = parts.get(k);
+    if (!g) parts.set(k, g = { k, near: Infinity, far: -Infinity, i: f.i, fs: [] });
+    g.fs.push(f);
+    if (f.nf < g.near) g.near = f.nf;
+    // The part's FAR extent as well as its near one — not to sort by (the nearest vertex is still
+    // the key; see 2 above), but to answer a different question the hysteresis has to ask: do these
+    // two parts occupy the same depths at all? See DISJOINT below.
+    // ⚠ Falls back to the face's MEAN depth when a caller hands over faces with no projected
+    // points. A `far` left at −Infinity would make every pair read as disjoint and switch the
+    // hysteresis off entirely — the failure would be flicker coming back, in whatever harness was
+    // cutting the corner, and nowhere else.
+    if (f.xf != null) { if (f.xf > g.far) g.far = f.xf; }
+    else if (f.pts && f.pts.length) { for (const q of f.pts) if (q.f > g.far) g.far = q.f; }
+    else if (f.af > g.far) g.far = f.af;
+    if (f.i < g.i) g.i = f.i;                       // mesh order: emitted inside-out, chassis first
+  }
+  const order = [...parts.values()].sort((a, b) => (b.near - a.near) || (a.i - b.i));
+  // ── HYSTERESIS ────────────────────────────────────────────────────────────
+  // Flicker is by definition a pair alternating near equality, so the cure is to make swapping
+  // near-equal pairs cost something. Two adjacent-swap passes against last frame's order: within
+  // EPS, last frame wins. Beyond EPS the geometry has genuinely moved and the depth sort is obeyed,
+  // so nothing gets stuck in the wrong order when you orbit right round.
+  //
+  // ⚠ DONE AS ADJACENT SWAPS, NOT AS A CLEVER COMPARATOR. A comparator that consults the previous
+  // order for near-equal pairs is not transitive, and an intransitive comparator handed to Array#sort
+  // is undefined behaviour — it can emit garbage rather than merely an odd order. This cannot.
+  //
+  // ⚠ AND IT MUST NOT HOLD A PAIR THAT IS NOT AMBIGUOUS — the DISJOINT test below, which is what
+  // made parts show through each other. Hysteresis compared two NEAREST vertices, and two parts can
+  // have nearest vertices a hair apart while occupying completely different depths: a chassis rail
+  // runs the length of the truck, so its near end sits beside the near face of everything bolted
+  // along it. Inside EPS the stale order won, and a rail whose whole body is BEHIND a battery box
+  // got painted after it. That is not flicker being suppressed, it is a wrong answer being held —
+  // and held steadily, which is why it read as the truck being see-through rather than as chatter.
+  //
+  // So: if the two parts' depth ranges do not overlap at all, one of them is simply in front of the
+  // other, there is nothing to stabilise, and depth wins outright. Hysteresis now only applies where
+  // it was always meant to — parts that genuinely interpenetrate in depth and whose order is a coin
+  // flip the camera keeps re-tossing.
+  const key = c.id || 'own';
+  const rank = _truckOrder.get(key);
+  if (rank) {
+    const EPS = Math.max(1e-5, SIZE * 0.045);
+    const disjoint = (a, b) => a.far < b.near || b.far < a.near;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < order.length - 1; i++) {
+        const a = order[i], b = order[i + 1];
+        const ra = rank.get(a.k), rb = rank.get(b.k);
+        if (ra == null || rb == null) continue;     // new part this frame — let depth decide
+        if (disjoint(a, b)) continue;               // unambiguous — never hold a stale order over it
+        if (Math.abs(a.near - b.near) < EPS && ra > rb) { order[i] = b; order[i + 1] = a; }
+      }
+    }
+  }
+  // Remember it. Capped rather than swept — this is one small Map keyed on models that come and
+  // go, and a stale entry costs a lookup miss and nothing else.
+  if (_truckOrder.size > 48) _truckOrder.clear();
+  _truckOrder.set(key, new Map(order.map((g, idx) => [g.k, idx])));
+  // Flatten back, near faces of each part last (exact within a convex box).
+  faces.length = 0;
+  for (const g of order) {
+    g.fs.sort((a, b) => b.af - a.af);
+    for (const f of g.fs) faces.push(f);
+  }
+}
+
 // Faces for a class at a detail level (memoised per cls+detail — geometry is static).
 // detail 1 = the full-resolution mesh (hero/turntable/chase/near contacts); detail 0 = the
 // coarse LOD for distant contacts, where the extra facets would be sub-pixel anyway. The
@@ -2845,7 +2959,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(BUMP_F + 0.006, BUMP_F + 0.010, 0.004, 0.030, 0.044, 'strut', null, g * S.w * 0.62);
   }
   // The plate, low and off-centre the way one actually hangs.
-  if (fine) box(BUMP_F + 0.001, BUMP_F + 0.004, 0.024, 0.036, 0.052, 'window', [206, 200, 176], -S.w * 0.16);
+  // ⚠ NOT AN OFF-WHITE. A plate at [206,200,176] is within tolerance of the headlamp lens tints,
+  // and `truckLampSmoke` recognises a lens BY COLOUR (deliberately — it tests what reached the
+  // canvas). A cream plate therefore registered as a third, mostly-hidden lamp and failed the gate
+  // on every bonneted rig. Anything new on the front of this truck that is pale needs to be visibly
+  // a different colour from a headlamp, which is also true of it as a thing to look at.
+  if (fine) box(BUMP_F + 0.001, BUMP_F + 0.004, 0.024, 0.036, 0.052, 'window', [158, 168, 152], -S.w * 0.16);
   // A bar of driving lights across the bumper on the rigs that wear one.
   if (fine && S.lamps > 0.7) {
     for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.030, 0.042, 'window', [220, 226, 236], i * S.w * 0.20);
@@ -4546,12 +4665,37 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // the near side; these surfaces wrap a body centred on the origin, so a normal oriented
     // outward-from-origin that faces AWAY from the eye is the hidden back and can be dropped.
     // Appendages (wings/stabs/fins/nacelles/gear) are thin or off-axis, so they stay two-sided.
-    if (CULL_ROLE.has(face.role)) {
+    // ⚠ A BOX IS CULLED AGAINST ITS OWN CENTRE, NOT THE MODEL'S. `face.cen` is stamped where the
+    // geometry is emitted and is the only point that knows which six quads bound one convex solid;
+    // measured from the model origin instead, every box forward of the axle has its normal flipped
+    // and its hidden back face is kept — which is half the mesh painting from the inside out. That
+    // is most of "you can see parts through other parts" on a truck, and it is why an airframe never
+    // showed it: an airframe is one hull centred on the origin, so the model centre WAS its centre.
+    let culled = false;
+    if (face.cen) {
+      const t = modelV(face.cen);
+      let cx = 0, cy = 0, cz = 0; for (const q of P) { cx += q.wx; cy += q.wy; cz += q.wz; }
+      const n = P.length; cx /= n; cy /= n; cz /= n;
+      // Outward = away from the BOX's centre, projected into the same space the vertices live in.
+      const tp = proj(t[0], t[1], t[2]);
+      const dx = cx - tp.wx, dy = cy - tp.wy, dz = cz - tp.wz;
+      // ⚠ A BOX CAN BE A SHEET, and then it has no outward. Several of the mesh's boxes are
+      // deliberately flat in one axis — a lens, a chrome band, a step plate — and on those the two
+      // opposing faces sit ON the centre, so `cx-tp.wx` is numerical noise and its SIGN is a coin
+      // flip. Cull on that and the coin decides whether a headlamp has a lens this frame, which is
+      // how this pass first took an eye off the Continental. No confident outward, no cull: the
+      // sheet is two-sided, exactly as it was before any of this.
+      if (Math.hypot(dx, dy, dz) > 1e-4) {
+        const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;
+        if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy) + nz * (eyeW[2] - cz)) <= 0) culled = true;
+      }
+    } else if (CULL_ROLE.has(face.role)) {
       let cx = 0, cy = 0, cz = 0; for (const q of P) { cx += q.wx; cy += q.wy; cz += q.wz; }
       const n = P.length; cx /= n; cy /= n; cz /= n;
       const out = (nx * cx + ny * cy + nz * cz) < 0 ? -1 : 1;   // flip normal to point away from the model centre
       if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy) + nz * (eyeW[2] - cz)) <= 0) continue;   // faces away from the eye → hidden back
     }
+    if (culled) continue;
     const light = 0.52 + 0.48 * Math.abs((nx * lx + ny * ly + nz * lz) / nl);
     let rgb = faceBaseRgb(face, pal);
     if (wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
@@ -4561,12 +4705,20 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // hull goes see-through when you walk under/into her (otherwise the near fuselage fills the
     // frame and hides the BOARD prompt). Ghost floor keeps a faint outline rather than nothing.
     const alpha = cam ? clampN((avgZ - 0.25) / 0.9, 0.08, 1) : 1;
-    const rec = { P, role: face.role, avgZ, alpha, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
+    // The three keys the part sort reads, plus the far extent it uses to tell a genuine ambiguity
+    // from a rail that is simply behind a box. `z` here is the depot camera's depth, which is the
+    // same monotonic quantity the windscreen calls `f` — see sortTruckFaces.
+    let nf = Infinity, xf = -Infinity;
+    for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; }
+    const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, af: avgZ, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
     if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }        // canopy art: UVs + style authored on the mesh, not derived
     drawn.push(rec);
   }
-  drawn.sort((a, b) => b.avgZ - a.avgZ);
+  // A truck is nested convex boxes and cannot be ordered per face — see sortTruckFaces. Everything
+  // with wings still takes the plain mean-depth sort it always had.
+  if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
+  else drawn.sort((a, b) => b.avgZ - a.avgZ);
   ctx.lineJoin = 'round';
   for (const fc of drawn) {
     if (fc.alpha < 1) ctx.globalAlpha = fc.alpha;
@@ -5193,6 +5345,13 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const roll = e.wreck ? -0.22 : 0, cro = Math.cos(roll), sro = Math.sin(roll);
     const selected = e.id === selId;
     const cen = proj(0, laneG, 0);   // this plane's own centre in normal-space (its lane, not the origin) — for backface culling
+    // A model-space point through exactly the transform its vertices take. Written once so a box's
+    // own centre cannot be projected through a slightly different chain than the box it belongs to.
+    const projModelPoint = (v0) => {
+      const v = tilt ? tilt(v0) : v0;
+      const vy = v[1] * sc, vz = v[2] * sc;
+      return proj(v[0] * sc, laneG + vy * cro - vz * sro, vy * sro + vz * cro);
+    };
     const drawn = [];
     for (const face of faces) {
       if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
@@ -5215,18 +5374,31 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       const nl = Math.hypot(nx, ny, nz) || 1;
       // Backface cull the closed-hull roles so a far-side facet can't bleed through the near side
       // (painter's sort alone lets it win in places). Outward is measured from THIS plane's centre.
-      if (CULL_ROLE.has(face.role)) {
+      // ⚠ A BOX IS CULLED AGAINST ITS OWN CENTRE — see the same note in paintTurntable. `face.cen`
+      // bounds one convex solid; the lane centre bounds the whole machine, and for a rig that is a
+      // different point for every one of the dozens of boxes bolted along it.
+      const solidCen = face.cen ? projModelPoint(face.cen) : null;
+      if (solidCen || CULL_ROLE.has(face.role)) {
         let cx = 0, cy2 = 0, cz2 = 0; for (const q of P) { cx += q.wx; cy2 += q.wy; cz2 += q.wz; }
         const m = P.length; cx /= m; cy2 /= m; cz2 /= m;
-        const dx = cx - cen.wx, dy = cy2 - cen.wy, dz = cz2 - cen.wz;
-        const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;   // flip normal to point away from the plane centre
-        if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy2) + nz * (eyeW[2] - cz2)) <= 0) continue;
+        const ref = solidCen || cen;
+        const dx = cx - ref.wx, dy = cy2 - ref.wy, dz = cz2 - ref.wz;
+        // ⚠ A flat box is a SHEET and has no outward — see the same guard in paintTurntable. It is
+        // what keeps a headlamp lens two-sided instead of letting rounding decide it is a back face.
+        if (solidCen && Math.hypot(dx, dy, dz) <= 1e-4) { /* two-sided: no confident outward */ }
+        else {
+          const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;   // flip normal to point away from that centre
+          if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy2) + nz * (eyeW[2] - cz2)) <= 0) continue;
+        }
       }
       const light = 0.62 + 0.5 * Math.abs((nx * lx + ny * ly + nz * lz) / nl);
       let rgb = faceBaseRgb(face, pal);
       if (e.wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
       let z = 0; for (const q of P) z += q.z;
-      const rec = { P, role: face.role, avgZ: z / P.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
+      let nf = Infinity, xf = -Infinity;
+      for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; }
+      const avgZf = z / P.length;
+      const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, af: avgZf, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
       if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
       if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }      // canopy art: UVs + style authored on the mesh
       drawn.push(rec);
@@ -5266,7 +5438,16 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ring.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},0.4)`); ring.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
       ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(grp.origin.sx, grp.origin.sy + 8, spotR, 0, 7); ctx.fill();
     }
-    const faces = grp.faces.sort((a, b) => b.avgZ - a.avgZ);
+    // Nested convex boxes cannot be ordered per face — see sortTruckFaces. The lot keys its
+    // hysteresis per ENTRY, so two rigs parked side by side never share a part order.
+    // ⚠ AND PER MESH. Part ids come from one build-time counter, so the same integer means a
+    // different box in a different variant — key on the entry alone and a lot that swaps a hauler
+    // for a drayman under the same id hands the new mesh the old mesh's part order, steadily and
+    // wrongly. The lamp smoke found exactly that: three of the four rigs lost a headlamp behind a
+    // panel that had been in front of it on the model before.
+    const faces = grp.faces;
+    if (grp.entry.cls === 'truck') sortTruckFaces(faces, { id: `lot:${grp.entry.id}:${grp.entry.variant || ''}` }, 1);
+    else faces.sort((a, b) => b.avgZ - a.avgZ);
     for (const fc of faces) {
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
       for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);

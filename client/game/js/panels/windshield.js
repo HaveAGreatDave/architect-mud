@@ -35,7 +35,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 
@@ -1227,6 +1227,11 @@ export function paintWindshield(id, view) {
     // sits at the map-window centre renders as the framed subject instead.
     if (ext && !v.hideOwnShip) {
       pBegin('aircraft');
+      // Depth-mask the own ship against the buildings that were just painted — see
+      // beginOcclusionClip. Wraps the lifter wash as well as the model, because a pool of light on
+      // the road behind a shed is the same lie in a softer form.
+      const ownP = cam.proj(0, 0, 0);
+      const clipped = ownP && ownP.f > 0.05 ? beginOcclusionClip(ctx, ownP.f) : false;
       // ── WHAT IT IS FLOATING ON ─────────────────────────────────────────────
       //
       // Drawn BEFORE the model and on the ground plane, so the rig sits IN its light instead of on
@@ -1262,8 +1267,12 @@ export function paintWindshield(id, view) {
       // `variant` is the truck grammar (`<typeId>[+t]`, aircraft3d) and nothing else reads it — but
       // it has to reach the OWN ship as well as a contact, or the one vehicle you are actually
       // driving is the one drawn as a default hauler with a box permanently on the back.
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      // `steer` rides over for the lifter jets alone (drawVehicleGround): a vehicle with no steer
+      // axle corners by pushing sideways, and the cones are where that becomes visible. Aircraft
+      // ignore it, and a contact that never sends one simply has none.
+      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, steer: v.steer, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
+      if (clipped) ctx.restore();
       pEnd();
     }
     if (ext && v.reticle) drawGunReticle(ctx, cam, v, W, H, horizonY);   // two-part gunsight over the chase model
@@ -6572,7 +6581,7 @@ function shedVert(v, part) {
 // makes it turn with the truck, stretch when the camera drops, and stay under the wheels of a
 // bobtail and a full rig alike without either being a special case. A radial blob would sit still
 // while the truck turned, which is the tell that a shadow is a decal.
-function drawVehicleGround(ctx, P, c, sun) {
+function drawVehicleGround(ctx, P, c, sun, now = 0) {
   const vl = vehicleLamps(c.cls, c.variant);
   if (!vl) return;
   const pods = vl.podGlow || [];
@@ -6646,108 +6655,67 @@ function drawVehicleGround(ctx, P, c, sun) {
       ctx.beginPath(); ctx.arc(q.sx, q.sy, rad, 0, 7); ctx.fill();
       ctx.restore();
     }
+    // ── 3) THE THRUST ITSELF ──────────────────────────────────────────────────
+    //
+    // Until now the lifters were inferred: a pool of light on the road, and you took it on trust
+    // that something was holding forty tonnes up. The cones are the mechanism, drawn — a column of
+    // blue standing between each pod and the tarmac, which is the difference between a truck that
+    // is lit underneath and a truck that is being HELD there.
+    //
+    // ⚠ AND THEY ANSWER THE WHEEL, WHICH IS THE WHOLE REASON THEY EARN THEIR PIXELS. A vehicle with
+    // no steer axle turns by pushing sideways, so a pod on the OUTSIDE of the turn fires across as
+    // well as down — steer left and the RIGHT flank lights up, because that is the side doing the
+    // pushing. It is not a decoration that happens to correlate with the wheel: it is the only
+    // visible statement of how this thing corners, and reading it backwards would teach the wrong
+    // mechanism. (`steer` is the same normalised −1..+1 axle the cab's own gauge shows.)
+    const steer = clamp(c.steer || 0, -1, 1);
+    const side = Math.abs(steer) > 0.06 ? -Math.sign(steer) : 0;   // fires from the side OPPOSITE the turn
+    // A cone is three points: the pod's own emitter, and two on the ground under it — so it widens
+    // as it goes, exactly as a jet of anything does, and it stays in the mesh's coordinates so it
+    // turns and leans with the truck for free.
+    const cone = (a, b, d, alpha, k) => {
+      const A = P(a), B = P(b), D = P(d);
+      if (A.f <= 0.08 || B.f <= 0.08 || D.f <= 0.08) return;
+      const g = ctx.createLinearGradient(A.sx, A.sy, (B.sx + D.sx) / 2, (B.sy + D.sy) / 2);
+      // Hot and near-white at the throat, blue through the body, gone at the tip — an emitter's
+      // ramp, the same one the pools use, so the two read as one light rather than as two effects.
+      g.addColorStop(0, `rgba(214,246,255,${0.62 * alpha * k})`);
+      g.addColorStop(0.35, `rgba(104,200,255,${0.34 * alpha * k})`);
+      g.addColorStop(1, 'rgba(32,96,220,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
+    };
+    // Flicker, because a jet is not a lamp. Small, fast and PER POD (seeded off the station's own
+    // position) so the four never pulse in unison, which would read as the whole truck dimming.
+    const t = now / 1000;
+    for (const { p, r } of pods) {
+      const z0 = 0.012, w = r * 0.55;
+      const jit = 0.86 + 0.14 * Math.sin(t * 21 + p[0] * 30 + p[1] * 17);
+      // DOWN: the column holding it up. Always on, and it is the one that scales with the engine.
+      cone([p[0], p[1], z0], [p[0] - w, p[1] - w * 0.7, 0.0006], [p[0] + w, p[1] + w * 0.7, 0.0006], lit, jit);
+      if (!side) continue;
+      // ACROSS: only the flank doing the pushing, and only as hard as the wheel is asking. It fires
+      // from the pod's own side rather than from under it, so the jet reads as coming out of the
+      // housing you can see rather than out of the road.
+      const mag = Math.abs(steer);
+      const gs = p[1] + side * r * 0.5;                         // the side of the housing it leaves from
+      const out = side * (r * 1.5 + r * 2.2 * mag);             // …and how far it throws
+      cone([p[0], gs, z0 * 1.6], [p[0] - w * 0.7, gs + out, z0 * 0.7], [p[0] + w * 0.7, gs + out, z0 * 2.4],
+        lit * (0.45 + mag * 0.75), jit);
+    }
   }
   ctx.restore();
 }
 
-// ── THE TRUCK'S DRAW ORDER, AND WHY IT IS NOT A DEPTH SORT ───────────────────
-// The flashing on an orbiting rig is a painter's-algorithm failure, and three separate things had
-// to be fixed before it went away. All of them come from the same fact: a truck is a pile of small
-// convex boxes BOLTED ONTO bigger ones — grille bars, stack shields, mirror arms, steps, the chrome
-// band round a lifter — and painter's algorithm has no answer for nested geometry.
-//
-//  1. IT SORTS PARTS, NOT FACES. A detail's face and the panel it is screwed to are millimetres
-//     apart, so any per-face key makes them cross and re-cross as the camera moves, and every
-//     crossing swaps which is painted last. Faces now carry a `part` id stamped where the geometry
-//     is emitted (aircraft3d.js `box`), so the six quads of one box move through the order together
-//     and can never be split by a detail sitting on them.
-//
-//  2. THE KEY IS THE NEAREST VERTEX, NOT THE MEAN. This is what actually orders a bolt-on: a box
-//     sitting ON a surface protrudes from it, so its nearest point is nearer than the host's while
-//     its MEAN is almost identical to it. Mean depth is why the old sort could not tell a grille bar
-//     from the grille — the two numbers were the same number.
-//
-//  3. QUANTISING MADE IT WORSE, AND THAT IS WHY IT LOOKED LIKE IT ALMOST WORKED. The previous fix
-//     rounded depths into buckets so ties fell back to mesh order. But rounding does not remove an
-//     ordering instability, it MOVES it to the bucket edges — and it converts a smooth crossing into
-//     a discrete jump, which is a visible pop rather than a gradual swap. Hysteresis is the honest
-//     version of what that was reaching for: keep the key continuous, and refuse to reorder a pair
-//     that is within a hair of equal unless it was already in that order last frame.
-//
-// Within a part, faces sort by mean depth and that is exact — a convex box's own faces cannot
-// interpenetrate, so there is nothing to be unstable about.
-const _truckOrder = new Map();     // contact id -> last frame's part order, for the hysteresis pass
-export const _resetTruckOrder = () => _truckOrder.clear();   // smoke only: start a sweep cold
-export function sortTruckFaces(faces, c, SIZE) {
-  // Group into parts. A face with no part id (an older mesh, or a class that never got them) is its
-  // own part, which degrades exactly to the per-face sort rather than to something wrong.
-  const parts = new Map();
-  for (const f of faces) {
-    const k = f.part == null ? `f${f.i}` : f.part;
-    let g = parts.get(k);
-    if (!g) parts.set(k, g = { k, near: Infinity, far: -Infinity, i: f.i, fs: [] });
-    g.fs.push(f);
-    if (f.nf < g.near) g.near = f.nf;
-    // The part's FAR extent as well as its near one — not to sort by (the nearest vertex is still
-    // the key; see 2 above), but to answer a different question the hysteresis has to ask: do these
-    // two parts occupy the same depths at all? See DISJOINT below.
-    // ⚠ Falls back to the face's MEAN depth when a caller hands over faces with no projected
-    // points. A `far` left at −Infinity would make every pair read as disjoint and switch the
-    // hysteresis off entirely — the failure would be flicker coming back, in whatever harness was
-    // cutting the corner, and nowhere else.
-    if (f.pts && f.pts.length) { for (const q of f.pts) if (q.f > g.far) g.far = q.f; }
-    else if (f.af > g.far) g.far = f.af;
-    if (f.i < g.i) g.i = f.i;                       // mesh order: emitted inside-out, chassis first
-  }
-  const order = [...parts.values()].sort((a, b) => (b.near - a.near) || (a.i - b.i));
-  // ── HYSTERESIS ────────────────────────────────────────────────────────────
-  // Flicker is by definition a pair alternating near equality, so the cure is to make swapping
-  // near-equal pairs cost something. Two adjacent-swap passes against last frame's order: within
-  // EPS, last frame wins. Beyond EPS the geometry has genuinely moved and the depth sort is obeyed,
-  // so nothing gets stuck in the wrong order when you orbit right round.
-  //
-  // ⚠ DONE AS ADJACENT SWAPS, NOT AS A CLEVER COMPARATOR. A comparator that consults the previous
-  // order for near-equal pairs is not transitive, and an intransitive comparator handed to Array#sort
-  // is undefined behaviour — it can emit garbage rather than merely an odd order. This cannot.
-  //
-  // ⚠ AND IT MUST NOT HOLD A PAIR THAT IS NOT AMBIGUOUS — the DISJOINT test below, which is what
-  // made parts show through each other. Hysteresis compared two NEAREST vertices, and two parts can
-  // have nearest vertices a hair apart while occupying completely different depths: a chassis rail
-  // runs the length of the truck, so its near end sits beside the near face of everything bolted
-  // along it. Inside EPS the stale order won, and a rail whose whole body is BEHIND a battery box
-  // got painted after it. That is not flicker being suppressed, it is a wrong answer being held —
-  // and held steadily, which is why it read as the truck being see-through rather than as chatter.
-  //
-  // So: if the two parts' depth ranges do not overlap at all, one of them is simply in front of the
-  // other, there is nothing to stabilise, and depth wins outright. Hysteresis now only applies where
-  // it was always meant to — parts that genuinely interpenetrate in depth and whose order is a coin
-  // flip the camera keeps re-tossing.
-  const key = c.id || 'own';
-  const rank = _truckOrder.get(key);
-  if (rank) {
-    const EPS = Math.max(1e-5, SIZE * 0.045);
-    const disjoint = (a, b) => a.far < b.near || b.far < a.near;
-    for (let pass = 0; pass < 2; pass++) {
-      for (let i = 0; i < order.length - 1; i++) {
-        const a = order[i], b = order[i + 1];
-        const ra = rank.get(a.k), rb = rank.get(b.k);
-        if (ra == null || rb == null) continue;     // new part this frame — let depth decide
-        if (disjoint(a, b)) continue;               // unambiguous — never hold a stale order over it
-        if (Math.abs(a.near - b.near) < EPS && ra > rb) { order[i] = b; order[i + 1] = a; }
-      }
-    }
-  }
-  // Remember it. Capped rather than swept — this is one small Map keyed on contacts that come and
-  // go, and a stale entry costs a lookup miss and nothing else.
-  if (_truckOrder.size > 48) _truckOrder.clear();
-  _truckOrder.set(key, new Map(order.map((g, idx) => [g.k, idx])));
-  // Flatten back, near faces of each part last (exact within a convex box).
-  faces.length = 0;
-  for (const g of order) {
-    g.fs.sort((a, b) => b.af - a.af);
-    for (const f of g.fs) faces.push(f);
-  }
-}
+// ⚠ THE TRUCK'S DRAW ORDER NOW LIVES IN aircraft3d.js, AND IT MOVED FOR A REASON. This file solved
+// the flashing for the windscreen, and the depot never got the fix — same mesh, same nested boxes,
+// same painter's-algorithm failure, three renderers deep in the OTHER file. The sort belongs beside
+// the geometry that stamps the `part` ids it sorts on, so a renderer cannot use one without the
+// other. Re-exported here because that is the name the shape smoke already imports, and moving a
+// function is not a reason to make a passing test fail.
+// (Imported at the top of this file with the rest of the mesh API — re-exported, not re-declared,
+// so there is exactly one implementation and one hysteresis Map behind both spellings of the name.)
+export { sortTruckFaces, _resetTruckOrder };
 
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
@@ -6929,7 +6897,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // truck, and an underglow painted after it is a pool of light shining through the chassis. So the
   // two things that belong to the ground go here, and the model then covers whatever of them it
   // should cover for free — no depth buffer, no per-lamp occlusion test, just paint order.
-  if (c.cls === 'truck') drawVehicleGround(ctx, P, c, sun);
+  if (c.cls === 'truck') drawVehicleGround(ctx, P, c, sun, now);
   for (const fc of faces) {
     ctx.globalAlpha = fc.alpha ?? 1;                                // gear fades as it retracts (alpha < 1)
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
@@ -11035,6 +11003,45 @@ function occludedByBuilding(sx, syTop, f, pad = 0) {
     if (!(F.covTop[c] < syTop)) return false;    // this column is open above it → visible
     if (!(f > F.covF[c] + 0.35)) return false;   // …or the cover is BEHIND it, which hides nothing
   }
+  return true;
+}
+
+// ── …AND THE SAME BUFFER HIDES THE OWN SHIP ──────────────────────────────────
+// A contact behind a building gets `occludedByBuilding` and is dropped whole, which is right for a
+// rig the size of a thumbnail across a yard. The OWN vehicle in the external/chase view could not
+// use that answer for two reasons: it fills a third of the screen, so all-or-nothing hiding would
+// blink the thing you are driving in and out; and it is the one model that is routinely HALF behind
+// something — pulling past a shed, sat in a depot doorway. Drawn after the world pass with no depth
+// test at all, it simply painted over every building between it and the eye. That is the "truck
+// showing through the building".
+//
+// So instead of a boolean this clips: the span buffer already knows, per column, the screen line a
+// solid slab covers downward from and how far off that slab is, and that is exactly a coarse depth
+// mask. Each column contributes the band ABOVE its cover line when the cover is nearer than we are,
+// and its whole height when it is not. At 96 columns the silhouette edge is a few pixels wide — the
+// building's own painted edge sits right on it, which is what hides the stepping.
+//
+// Conservative in the same direction as everything else here: no field (occlusion tuned off, or a
+// frame with no world pass) means no clip and the old behaviour exactly. Returns whether it clipped,
+// and the caller restores.
+function beginOcclusionClip(ctx, f) {
+  const F = OCC_FIELD; if (!F) return false;
+  const H = (ctx.canvas && ctx.canvas.height) || 720;
+  const cw = F.W / OCC_BUCKETS;
+  let covered = false;
+  ctx.save();
+  ctx.beginPath();
+  for (let c = 0; c < OCC_BUCKETS; c++) {
+    // `+ 0.35` is the same bias `occludedByBuilding` uses: a slab at our own depth hides nothing.
+    const hides = F.covF[c] + 0.35 < f;
+    const y1 = hides ? Math.min(H, F.covTop[c]) : H;
+    if (hides) covered = true;
+    if (y1 <= -H) continue;                        // this column is covered to the top of the canvas
+    // One pixel of overlap between columns, so the mask never shows a seam through the model.
+    ctx.rect(c * cw, -H, cw + 1, y1 + H);
+  }
+  if (!covered) { ctx.restore(); return false; }   // nothing in front of us — don't pay for a clip
+  ctx.clip();
   return true;
 }
 

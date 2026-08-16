@@ -18,8 +18,8 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
-import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
-import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed } from './engine-audio.js';
+import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
+import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
@@ -95,6 +95,7 @@ const CONTROLS = [
   ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
   ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
   ['K / KEY', 'The ignition. Off stops the engine; on cranks it, and it only catches with the clutch in or the box in neutral — same rule as restarting a stall.'],
+  ['M / AUTO', 'Automatic shifting. It works the clutch and the lever for you and you can watch it do it — the stick goes out through neutral and into the slot, the pedal goes in and comes up. It never chooses reverse, and it has no authority you do not: it can lug the engine and it can be fluffed, because it is a hand on the same controls.'],
   ['G / CRUISE', 'Cruise control. Locks the speed you are doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear.'],
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
@@ -411,7 +412,22 @@ export function openCab(ctx = {}) {
                  turn instead of press — and it routes through the same 'starter' input the
                  stall restart uses, so there is exactly one way an engine comes back to
                  life and both of them are it. -->
-            <button class="cab-btn cab-rocker cab-ign" aria-pressed="true" aria-label="Ignition key" title="Ignition (K) — turn the key. Off kills the engine; on cranks it, with the clutch in or the box in neutral."><i></i><u><span>KEY</span></u></button>
+            <!-- ⚠ THE ONE CONTROL IN THE CAB THAT IS NOT A SWITCH, and it is worth the extra
+                 markup. Everything on this panel is a rocker with a lamp, which is right for a
+                 Jake or a set of wipers and wrong for the ignition: a key is the only thing here
+                 you TURN, it is the first thing you touch and the last, and as a rocker it read as
+                 one more toggle in a row of toggles. So it is a barrel with a blade in it, and it
+                 rotates — OFF, ON, and held round to START against a spring, exactly like the
+                 thing it is a picture of. Held is not decoration either: the starter runs for as
+                 long as you hold it (see startCrank), so a rig that does not catch first time is
+                 cranked until it does, which is what the model's 'input.starter' always wanted and
+                 the 900ms timer was standing in for. (⚠ SINGLE QUOTES: this comment is inside a
+                 template literal, and a backtick here ends the string mid-sentence — see the
+                 client:smoke note in CLAUDE.md, which exists because of exactly this file.) -->
+            <div class="cab-key" role="group" aria-label="Ignition">
+              <button class="cab-keybarrel" aria-label="Ignition key" aria-pressed="true" title="Ignition (K) — turn and HOLD to crank. Off kills the engine; it only catches with the clutch in or the box in neutral."><s></s><b></b></button>
+              <u><span>KEY</span></u>
+            </div>
 
             <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
                  a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
@@ -441,6 +457,22 @@ export function openCab(ctx = {}) {
             <button class="cab-btn cab-hitchbtn" hidden aria-label="Trailer air supply" title="Back under the trailer and couple (hitch)"><i></i><b class="cab-knobface"><s></s><em>PUSH</em></b><u><span>TRAILER AIR</span></u></button>
 
             <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
+
+            <!-- AUTO. Not an automatic gearbox — there is no such truck in this fleet. It is a
+                 hand on the same lever and the same pedal, and you can watch it work: the stick
+                 goes through neutral, the clutch goes in, the gear goes home. Which is the point
+                 of showing it rather than swapping the number silently — a driver who leaves it on
+                 for a leg learns the pattern, and the day they switch it off they already know
+                 where second is. -->
+            <!-- THE PARK BRAKE, and it is a KNOB because that is what it is on a truck: a big
+                 yellow diamond you pull out and push in, next to the trailer's red one. It is
+                 shaped like the trailer air valve above for exactly that reason — a hand finds
+                 both of them without looking, and they are the same gesture. Spring brakes hold
+                 the rig with no air and no engine, which is why this is the one control that still
+                 does something with the key off. -->
+            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
+
+            <button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M) — works the clutch and the lever for you. Watch the stick: it shifts the way you would."><i></i><u><span>AUTO</span></u></button>
           </div>
 
           <!-- THE CB. The set is a VIEW of server state (cb-radio.js) and decides nothing: the
@@ -481,6 +513,9 @@ export function openCab(ctx = {}) {
     id, container, sim,
     input: { throttle: 0, brake: 0, steer: 0, clutch: 0, jake: 0, surface: ctx.surface || 'road' },
     steerKey: 0,
+    auto: false,        // automatic shifting — a hand on the lever, never a different gearbox
+    shiftSeq: null,     // the beat of a shift in progress (autoShift)
+    shiftCool: 0,
     map: ctx.map, mapX: ctx.mapX, mapY: ctx.mapY,
     s: ctx.s || 0, L: ctx.L || 1, node: ctx.node || 0, nodes: ctx.nodes || 1,
     hour: ctx.hour ?? 12, weather: ctx.weather || 'clear', wipers: 0,
@@ -632,6 +667,8 @@ export function openCab(ctx = {}) {
   // Cruise is a LATCH, so it is a plain click rather than a hold() — the one switch on this panel
   // that stays where you put it.
   container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
+  container.querySelector('.cab-auto')?.addEventListener('click', () => st.setAuto?.(!st.auto));
+  container.querySelector('.cab-parkbtn')?.addEventListener('click', () => st.setPark?.(!st.park));
   // The radio wires itself; the cab only tells it what pressing the set should open, because the
   // tablet is the cab's business and not the radio's.
   st.cbWidget = wireCbRadio(container, { openDeadhead: (key) => openTabletToChatTab(key) });
@@ -726,7 +763,12 @@ export function openCab(ctx = {}) {
         const wx = e.clientX - b.left - hub.x, wy = e.clientY - b.top - hub.y;
         const wr = Math.hypot(wx, wy);
         if (wr < hub.r) {
-          sendCmdSilent('horn'); e.preventDefault(); return;
+          // The boss is the cord too, and it holds like the rest of them — the release is parked on
+          // the window because a hand that presses the hub and drags off it has still let go.
+          st.hornDown?.();
+          const up = () => { st.hornUp?.(); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+          window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+          e.preventDefault(); return;
         }
         // ── PUTTING A HAND ON THE WHEEL ITSELF ────────────────────────────────
         // Anywhere on the wheel — rim, spoke, the gap between them — is a grab, and it turns the
@@ -918,6 +960,33 @@ export function openCab(ctx = {}) {
       lever.style.setProperty('--gx', x.toFixed(3));
       lever.style.setProperty('--gy', y.toFixed(3));
     };
+    // ── THE LEVER MOVES, IT DOES NOT TELEPORT ─────────────────────────────────
+    // Every shift used to write the new slot straight onto the element, which is right for a hand
+    // (yours was already there) and wrong for the automatic, whose whole justification is that you
+    // can watch it work. So the knob is eased toward wherever it is supposed to be, and because it
+    // eases toward the SLOT rather than along an authored path, an auto shift crosses the gate the
+    // way the gate is shaped: out through neutral, then over, because the sequence parks it in
+    // neutral for a beat on the way (see autoShift).
+    //
+    // ⚠ NEVER WHILE A HAND IS ON IT. A drag writes the position every pointermove, and easing that
+    // would put the knob a frame behind the pointer — the one place a lag is unmistakable.
+    // ⚠ AND IT SNAPS ON THE FIRST PAINT, or the lever slides in from the corner of the plate every
+    // time the cab is mounted, which reads as the truck arriving with the stick in the wrong place.
+    let at = null, lastPut = 0;
+    const glide = (x, y) => {
+      const now = performance.now();
+      const dt = at ? Math.min(0.1, (now - lastPut) / 1000) : 0;
+      lastPut = now;
+      if (!at) { at = { x, y }; put(x, y); return; }
+      // Exponential ease — frame-rate independent, and quick enough that a manual shift still feels
+      // like the gear went in when you pressed the key rather than a moment afterwards.
+      const k = 1 - Math.exp(-16 * dt);
+      at.x += (x - at.x) * k; at.y += (y - at.y) * k;
+      if (Math.abs(x - at.x) < 0.002 && Math.abs(y - at.y) < 0.002) { at.x = x; at.y = y; }
+      put(at.x, at.y);
+    };
+    // A drag has the knob under the pointer; when it ends, the ease resumes from where it was left.
+    const dropGlide = (x, y) => { at = { x, y }; lastPut = performance.now(); };
     // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
     // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
     // THE SLOTS ARE LABELLED FROM THE RANGE, every frame — a plate reading 1 2 3 4 while the
@@ -947,7 +1016,7 @@ export function openCab(ctx = {}) {
       // A gear with no slot is one the OTHER range owns (you are in 6 with the lever showing LO).
       // The knob goes to neutral and the range button is the thing that is wrong, which is exactly
       // what it looks like in the cab.
-      put(s ? s.x : 0.38, s ? s.y : 0.50);
+      glide(s ? s.x : 0.38, s ? s.y : 0.50);
       gate.classList.toggle('cab-gate-off', !s && st.sim.gear !== 0);
     };
     // NEAREST LEGAL SLOT, never "wherever you let go". A gate is a physical constraint and the
@@ -1008,7 +1077,8 @@ export function openCab(ctx = {}) {
       const fx = (e.clientX - b.left - KNOB_DX) / b.width;
       const fy = (e.clientY - b.top - KNOB_DY) / b.height;
       const [px, py] = onChannel(fx, fy);
-      put(px, py);
+      put(px, py);            // ⚠ NOT `glide` — the knob is under the pointer; see the note on glide
+      dropGlide(px, py);      // …and the ease picks up from here when the hand lets go
       const s = snap(px, py);
       gate.dataset.aim = s ? String(gearLabelOf(gearOfSlot(s))) : '';
     };
@@ -1152,10 +1222,63 @@ export function openCab(ctx = {}) {
   // ▲▼ and the R key are gone from the shelf: every gear including reverse is a slot on the gate
   // now, and the gate's slots are real buttons. The KEYS are untouched — ',' '.' 'r' still work,
   // and so does the splitter collar.
-  tap('.cab-ign', () => toggleIgnition());
+  // THE KEY IS A HOLD, so it is wired like the pedals rather than like the rockers: press turns it
+  // (off instantly, or round to START), release lets it spring back off START. `pointercancel` and
+  // a window-level release are both covered, or dragging off the barrel leaves the starter running
+  // with nothing on screen turned.
+  {
+    const barrel = container.querySelector('.cab-keybarrel');
+    if (barrel) {
+      const press = (e) => {
+        e.preventDefault();
+        barrel.setPointerCapture?.(e.pointerId);
+        if (!st.sim.stalled) ignitionOff(); else startCrank();
+      };
+      const release = () => stopCrank();
+      barrel.addEventListener('pointerdown', press);
+      barrel.addEventListener('pointerup', release);
+      barrel.addEventListener('pointercancel', release);
+      barrel.addEventListener('pointerleave', release);
+      // Keyboard operation of the button itself (Space/Enter on a focused control fires `click`,
+      // which no hold can be built from) — one press cranks, and it stops on its own timer.
+      barrel.addEventListener('click', (e) => { if (e.detail === 0) toggleIgnition(); });
+    }
+  }
   tap('.cab-splitbtn', () => splitGear());
   tap('.cab-wipe', () => cycleWipers());
-  tap('.cab-horn', () => sendCmdSilent('horn'));
+  // ── THE CORD IS OPEN FOR AS LONG AS YOU PULL IT ─────────────────────────────
+  //
+  // ⚠ YOUR OWN HORN NEVER WAITS FOR THE SERVER — the instruments' rule (systems-procedural-audio),
+  // and for the same reason: a round trip between pulling the cord and hearing the trumpets is the
+  // difference between a horn and a website. So the sustained voice starts locally on press and
+  // stops locally on release, and the VERB is sent once, on release, carrying how long it was held.
+  // The room then hears a blast of the length the driver actually gave it, from one packet, rather
+  // than a fixed toot — or a packet a frame for as long as somebody leans on it.
+  function hornDown() {
+    if (st.hornAt) return;                       // already open; a second finger is not a second horn
+    st.hornAt = performance.now();
+    airHornOn(TYPE_ID);
+  }
+  function hornUp() {
+    if (!st.hornAt) return;
+    const secs = Math.min(4, (performance.now() - st.hornAt) / 1000);
+    st.hornAt = 0;
+    airHornOff();
+    // Rounded to hundredths: the wire does not need a float with fourteen digits on it, and the
+    // server clamps it again anyway (a client is not trusted with how long a noise lasts).
+    sendCmdSilent(`horn ${Math.max(0.15, secs).toFixed(2)}`);
+  }
+  st.hornDown = hornDown; st.hornUp = hornUp;
+  {
+    const hb = container.querySelector('.cab-horn');
+    if (hb) {
+      hb.addEventListener('pointerdown', (e) => { e.preventDefault(); hb.setPointerCapture?.(e.pointerId); hornDown(); });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) hb.addEventListener(ev, hornUp);
+      // Keyboard operation of the button (Space/Enter fire `click` with no pointer): a short toot,
+      // because there is no hold to read.
+      hb.addEventListener('click', (e) => { if (e.detail === 0) { hornDown(); setTimeout(hornUp, 350); } });
+    }
+  }
 
   st.onKey = (e) => {
     if (/^(INPUT|TEXTAREA)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
@@ -1209,13 +1332,19 @@ export function openCab(ctx = {}) {
     else if (down && !e.repeat && k === 'g') toggleCruise();
     // K for the key. Not a held control — you turn it, it stays turned — so it is an edge like
     // cruise and reverse rather than a pedal.
-    else if (down && !e.repeat && k === 'k') toggleIgnition();
+    // K is the key, and it HOLDS like the key does: press to turn it (off, or round to crank),
+    // release to let it spring back. `e.repeat` filtered so autorepeat is not a second turn.
+    else if (k === 'k') { if (down && !e.repeat) toggleIgnition(); else if (!down) st.stopCrank?.(); }
     else if (down && !e.repeat && k === '/') splitGear();
     // REVERSE is its own key rather than "shift down past first", because walking a driver through
     // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
     // report. It only takes at a stop, which is where a real box lets you have it too.
     else if (down && !e.repeat && k === 'r') toggleReverse();
     else if (down && !e.repeat && k === 'w') cycleWipers();
+    else if (down && !e.repeat && k === 'p') st.setPark?.(!st.park);
+    // M — automatic shifting. Not on the gearbox cluster (↑↓ , .) deliberately: those are the box,
+    // and a key that switches the box off does not belong among the keys that work it.
+    else if (down && !e.repeat && k === 'm') st.setAuto?.(!st.auto);
     // V, the cockpit's own chase key — see the sync note above. F is kept as a silent alias so
     // nobody who learned the cab's old key finds it dead.
     else if (down && !e.repeat && (k === 'v' || k === 'f')) st.setExternal?.(!st.external);
@@ -1223,8 +1352,9 @@ export function openCab(ctx = {}) {
     else if (down && !e.repeat && k === '?') st.toggleHelp?.();
     else if (down && !e.repeat && k === 'd') container.querySelector('.cab-dmg-strip')?.click();
     else if (down && k === 'escape' && !container.querySelector('.cab-help')?.hidden) st.toggleHelp?.(false);
-    // Held would be a stuck horn and a round trip per frame; one pull per press, `e.repeat` filtered.
-    else if (down && !e.repeat && k === 'h') sendCmdSilent('horn');
+    // H is the cord and it HOLDS: down opens it, up closes it and sends the length. (`e.repeat`
+    // filtered so autorepeat is not a stream of pulls.)
+    else if (k === 'h') { if (down && !e.repeat) st.hornDown?.(); else if (!down) st.hornUp?.(); }
     // STEERING BY KEYBOARD. Until this existed a keyboard driver could accelerate, brake and shift
     // — and could not turn, which is not a harder way to drive, it is not driving. It goes through
     // the wheel widget so the wheel on screen turns with it.
@@ -1266,6 +1396,56 @@ export function openCab(ctx = {}) {
     }
   }
   st.setCruise = setCruise;
+  // ── AUTOMATIC SHIFTING ──────────────────────────────────────────────────────
+  //
+  // ⚠ IT IS A HAND, NOT A GEARBOX. Exactly the rule cruise control keeps two paragraphs up, and for
+  // the same reason: this writes `st.input.clutch` and calls `selectGear` — the same pedal and the
+  // same door the H-gate, the arrow keys and the splitter go through — so the shift gate, the
+  // grind, the stall check, the torque curve and the load all still decide what happens. A version
+  // that wrote `st.sim.gear` would be a different truck wearing this one's dashboard, and it would
+  // be the only route into a gear in the cab that could not fluff a shift.
+  //
+  // AND THAT IS WHY THE LEVER MOVES. The whole visible cost of a shift in this cab is the second
+  // your hands are busy, and a switch that skipped it would be teaching the box is optional. So it
+  // takes the time a shift takes, in the order a shift happens — dip, out through neutral, into the
+  // slot, let it up — and the stick on the dash does it in front of you.
+  function setAuto(on) {
+    st.auto = !!on;
+    // Never leave the clutch pinned in by a driver that has just been switched off mid-shift: the
+    // truck would coast, silently, with no pedal down and nothing to explain it.
+    if (!on && st.shiftSeq) { st.shiftSeq = null; if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0; }
+    const el = container.querySelector('.cab-auto');
+    if (el) { el.classList.toggle('on', st.auto); el.setAttribute('aria-pressed', st.auto ? 'true' : 'false'); }
+  }
+  st.setAuto = setAuto;
+  // ── THE PARK BRAKE ──────────────────────────────────────────────────────────
+  //
+  // ⚠ IT IS THE BRAKE PEDAL, NOT A NEW FORCE. Same rule as cruise and the automatic: it writes
+  // `st.input.brake`, so the retardation, the fade model, the surface and the load all still apply
+  // and there is nothing new for the model to learn. What makes it a PARK brake rather than a very
+  // patient foot is that it is a latch and that it survives the engine — spring brakes are held ON
+  // by springs and released by air, which is precisely why a truck with no air pressure is a truck
+  // you cannot move, and why this is the one control that still means something with the key off.
+  //
+  // It refuses to come off above a walking pace. Not a safety rail — a real valve will pop out at
+  // any speed and it is a genuinely frightening thing to do — but because the only reason to reach
+  // for it while rolling is a misclick, and the cab is not the place to model that particular way
+  // of destroying a rig.
+  function setPark(on) {
+    if (on && Math.abs(st.sim.speed) > 3) return;      // it is a park brake; you are not parked
+    st.park = !!on;
+    if (st.park) { st.setCruise?.(null); st.setAuto?.(false); }
+    const el = container.querySelector('.cab-parkbtn');
+    if (el) {
+      el.classList.toggle('on', st.park);
+      el.setAttribute('aria-pressed', String(st.park));
+      // The word on the knob is what your hand does NEXT — the same convention the trailer air
+      // valve uses, and the reason its legend reads PUSH/PULL rather than ON/OFF.
+      const w = el.querySelector('em');
+      if (w) w.textContent = st.park ? 'PUSH' : 'PULL';
+    }
+  }
+  st.setPark = setPark;
   // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
   // it — there is no set-point to dial, because dialling one is a menu and this is a truck.
   // ── THE KEY ─────────────────────────────────────────────────────────────────
@@ -1279,23 +1459,58 @@ export function openCab(ctx = {}) {
   // clutch in or the box in neutral (flight-model.js), which is why turning the key in gear with
   // your foot off the pedal does nothing but churn. The cab holds the starter for a moment rather
   // than setting it for a frame, because a key you turn and release is a key you have to hold.
-  function toggleIgnition() {
-    const el = container.querySelector('.cab-ign');
-    if (!st.sim.stalled) {
-      st.sim.stalled = true;                       // key off — the engine stops, everything downstream follows
-      st.input.throttle = 0;
-      clearTimeout(st.crankT); st.input.starter = 0;
-      keyCue(false);
-    } else {
-      // Cranking. Held for as long as a starter motor runs, and it either catches (the model clears
-      // `stalled` on the next step) or it doesn't, which is the honest answer to turning it in gear.
-      st.input.starter = 1;
-      keyCue(true);
-      clearTimeout(st.crankT);
-      st.crankT = setTimeout(() => { if (st) st.input.starter = 0; }, 900);
-    }
-    el?.setAttribute('aria-pressed', String(!st.sim.stalled));
+  // ⚠ THE BARREL'S ANGLE IS THE ENGINE, NOT THE POINTER. Three positions, and which one it is
+  // sitting at is derived from the truck rather than remembered here: OFF when the motor is dead,
+  // ON when it is running, and START only while a hand is actually holding it round. A key that
+  // remembered its own angle would sit at ON over an engine that had stalled underneath it, which
+  // is the exact lie the lamp comment two paragraphs down was already written to avoid.
+  const KEY_DEG = { off: 0, on: 38, start: 74 };
+  function paintKey() {
+    const el = container.querySelector('.cab-keybarrel');
+    if (!el) return;
+    const pos = st.cranking ? 'start' : st.sim.stalled ? 'off' : 'on';
+    el.style.setProperty('--keyrot', KEY_DEG[pos] + 'deg');
+    el.classList.toggle('on', !st.sim.stalled);
+    el.classList.toggle('cranking', !!st.cranking);
+    el.setAttribute('aria-pressed', String(!st.sim.stalled));
+  }
+  st.paintKey = paintKey;
+  // TURNING IT OFF is instant and needs no hold — a key going anticlockwise has nothing to fight.
+  function ignitionOff() {
+    if (st.sim.stalled) return;
+    st.sim.stalled = true;                       // the engine stops, everything downstream follows
+    st.input.throttle = 0;
+    st.setCruise?.(null);                        // a dead engine is not holding a speed
+    stopCrank();
+    keyCue(false);
+    paintKey();
     st.paintControls?.();
+  }
+  // …and HOLDING IT ROUND cranks for as long as you hold it. The old version turned the starter on
+  // for a fixed 900ms and let go for you, which meant a rig that needed a second turn had to be
+  // clicked again rather than simply held — and it is the only control in the cab that behaved like
+  // a keypress when the real thing is unambiguously a hold.
+  function startCrank() {
+    if (!st.sim.stalled || st.cranking) return;
+    st.cranking = true;
+    st.input.starter = 1;
+    keyCue(true);
+    paintKey();
+    // A starter motor is not infinite and a held key must not become one: it gives up after a few
+    // seconds the way a real one does rather than churning for as long as somebody leans on it.
+    clearTimeout(st.crankT);
+    st.crankT = setTimeout(() => stopCrank(), 4000);
+  }
+  function stopCrank() {
+    clearTimeout(st.crankT);
+    if (st) { st.cranking = false; st.input.starter = 0; }
+    paintKey();
+  }
+  st.startCrank = startCrank; st.stopCrank = stopCrank; st.ignitionOff = ignitionOff;
+  // The one-press form the K key and a tap still use: off if it is running, crank if it is not.
+  function toggleIgnition() {
+    if (!st.sim.stalled) ignitionOff();
+    else startCrank();
   }
   st.toggleIgnition = toggleIgnition;
 
@@ -1841,6 +2056,79 @@ function drawRigOverlay(st, r) {
   g.restore();
 }
 
+// ── THE AUTOMATIC'S HAND ─────────────────────────────────────────────────────
+//
+// A shift is four beats and it takes about as long as it takes a person: dip the clutch, pull it
+// out through neutral, push it into the slot, let the clutch up. Every beat writes the controls a
+// player writes — see setAuto for why that is not negotiable — so the box can still be fluffed, the
+// engine can still be lugged, and the readouts have nothing new to learn.
+//
+// ⚠ WHILE IT IS MID-SHIFT THE DRIVER OWNS THE CLUTCH, and it must therefore not fight the pedal:
+// a player who stamps on the clutch during an auto shift is doing the same thing the driver is, and
+// a player who latches it is entitled to. So the release beat only lets the pedal up if nothing
+// human is holding it down.
+const SHIFT_DIP = 0.16;      // s — the pedal going in before the lever moves at all
+const SHIFT_OUT = 0.20;      // s — out of the old gear, sat in neutral (the pause you can SEE)
+const SHIFT_IN = 0.22;       // s — across the gate and into the new slot
+const SHIFT_COOL = 0.45;     // s — how soon after one shift it will consider another
+function autoShift(dt) {
+  const seq = st.shiftSeq;
+  if (seq) {
+    seq.t += dt;
+    if (seq.phase === 'dip') {
+      st.input.clutch = 1;                       // the pedal, not a flag: the model reads this one
+      if (seq.t >= SHIFT_DIP) { seq.phase = 'out'; seq.t = 0; st.selectGear?.(0); }
+    } else if (seq.phase === 'out') {
+      st.input.clutch = 1;
+      if (seq.t >= SHIFT_OUT) { seq.phase = 'in'; seq.t = 0; st.selectGear?.(seq.to); }
+    } else if (seq.phase === 'in') {
+      st.input.clutch = 1;
+      if (seq.t >= SHIFT_IN) { seq.phase = 'up'; seq.t = 0; }
+    } else {
+      // Let it up — unless a hand is on it (see the ⚠ above).
+      if (!st.heldBy?.clutch && !st.clutchLatched) st.input.clutch = 0;
+      st.shiftSeq = null;
+      st.shiftCool = SHIFT_COOL;
+    }
+    return;
+  }
+  if (st.shiftCool > 0) st.shiftCool -= dt;
+  if (!st.auto || !P) return;
+  // Nothing to drive: dead engine, no drive, or the driver reversing/parked. Reverse is deliberately
+  // never chosen FOR you — which way a truck is pointed when it moves is the one decision that must
+  // stay with the person who can see out of the window.
+  if (st.dry || st.broken || st.sim.stalled || st.sim.gear < 0) return;
+  if (st.shiftCool > 0) return;
+  // ⚠ WHICH GEAR IT WANTS IS `bestGear`, NOT A SECOND OPINION. That function already exists and the
+  // cab already prints its answer as the suggested gear on the dash — so the automatic obeying it
+  // means the light telling you what to do and the hand doing it can never disagree, which they
+  // would within a week if this had its own table of ratios.
+  const want = bestGear(st.sim.speed, P);
+  // PULLING AWAY. Out of gear on the throttle is a driver who wants a gear, and at a standstill
+  // that is first whatever the ratios say.
+  if (st.sim.gear === 0) {
+    if ((st.input.throttle || 0) > 0.05) beginShift(Math.abs(st.sim.speed) < 4 ? 1 : want);
+    return;
+  }
+  if (want === st.sim.gear) return;
+  // ONE GEAR AT A TIME, even when the suggestion is three away. Skipping is a thing an experienced
+  // driver does and this is not a shortcut — it is the process, shown. Two beats of it in a row is
+  // also how a downshift into a hill reads: busy, which it is.
+  const step1 = want > st.sim.gear ? st.sim.gear + 1 : st.sim.gear - 1;
+  if (step1 < 1) return;
+  // …and only once the revs agree, or it hunts at every boundary where the ratio maths is a hair
+  // either side. `band` is the pair the dash lights IN BAND from, so this is the same instrument.
+  const [lo, hi] = P.band || [0.55, 0.8];
+  const rpm = st.sim.rpm || 0;                    // a fraction of redline — see truckReadout, which is what multiplies it by 100
+  if (step1 > st.sim.gear) { if (rpm > hi) beginShift(step1); return; }
+  // Not on the overrun: lifting off drops the revs, and a box that downshifted every time you came
+  // off the throttle would work its way down the gears the whole way down a hill.
+  if (rpm < lo && (st.input.throttle || 0) > 0.15) beginShift(step1);
+}
+function beginShift(to) {
+  st.shiftSeq = { to, phase: 'dip', t: 0 };
+}
+
 function frame(now) {
   if (!st) return;
   const dt = Math.max(0, Math.min(0.1, (now - st.last) / 1000));
@@ -1881,6 +2169,12 @@ function frame(now) {
         st.input.throttle = Math.max(0, Math.min(1, (st.cruise - st.sim.speed) * 0.18));
       }
     }
+    autoShift(dt);
+    // THE SPRING BRAKES, applied where a foot would be — see setPark. Written AFTER cruise (which
+    // it cancels on the way on) and after the automatic, and before `step`, so it is the last word
+    // on the pedal for this frame: pulling the knob out while somebody is on the throttle holds the
+    // truck, which is what a park brake is for and what makes forgetting it a real mistake.
+    if (st.park) st.input.brake = 1;
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
 
@@ -1941,10 +2235,10 @@ function frame(now) {
     // The controls follow the truck, whatever moved them — a key, a button, a drag.
     st.paintGate?.();
     st.paintControls?.();
-    // The key lamp is the ENGINE, not the switch: a key turned on that did not catch is off, and
-    // saying otherwise would make the one control whose whole job is "is this thing running" lie.
-    const ignEl = q('.cab-ign');
-    if (ignEl) { ignEl.classList.toggle('on', !r.stalled); ignEl.setAttribute('aria-pressed', String(!r.stalled)); }
+    // The key's ANGLE is the ENGINE, not the switch: a key turned on that did not catch springs
+    // back to OFF, and saying otherwise would make the one control whose whole job is "is this
+    // thing running" lie. (See paintKey — the barrel derives all three positions from the truck.)
+    st.paintKey?.();
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
@@ -2010,8 +2304,25 @@ function frame(now) {
       // about it. Cheap enough for the frame loop: it sets one loop gain and returns.
       damageBed(st.dmg && Object.fromEntries(DMG_PARTS.map((p) => [p.key, st.dmg[p.key]?.v ?? 1])),
         !st.dry && !st.broken);
+      // ── A DEAD ENGINE IS A SILENT ONE, ONCE IT IS DOWN ────────────────────
+      // `engineOn` was `!st.dry` and nothing else, so switching the key off left the whole bed
+      // running — the lifter wash, the idle, all of it — over a truck whose rev counter read zero
+      // and whose mesh had already settled. Every other reader of "is this engine turning" is the
+      // stall flag; this was the one that had its own idea.
+      //
+      // ⚠ NOT INSTANT, THOUGH. The pods take a moment to sink onto their shrouds and the sound has
+      // to come down WITH the truck, not before it — cutting the wash the frame the key turns is
+      // the same wrongness in the other direction, and it is what makes a shutdown read as a bug
+      // rather than as a machine settling. So the bed plays on for the length of the settle and
+      // then stops, which is the same window the renderer's own `hoverLift` takes to give up.
+      const dead = st.sim.stalled || st.dry || st.broken;
+      if (dead && !st.deadAt) st.deadAt = performance.now();
+      else if (!dead && st.deadAt) st.deadAt = 0;
+      const SETTLE_MS = 1300;
       updateEngineAudio({
-        continuous: true, class: 'truck', engineOn: !st.dry, airborne: false, onGround: true,
+        continuous: true, class: 'truck',
+        engineOn: !st.dry && (!dead || performance.now() - st.deadAt < SETTLE_MS),
+        airborne: false, onGround: true,
         rpm: Math.max(0, st.sim.rpm - (st.rpmDip || 0)), throttle: r.pedal * 100, spd: r.speed,
         groundSpeed: r.speed, surface: st.input.surface || 'road',
         cabin: !st.external, weather: st.weather,
@@ -2179,7 +2490,13 @@ function frame(now) {
       // slots are kept in the frame as a fallback for a bogged rig, whose position is off-road and
       // therefore locates nowhere. Sending a self-reported distance would let a client weave and
       // be paid for the extra tarmac.
-      sendCmdSilent(`trucksync ${st.s.toFixed(2)} 0 ${Math.round(st.sim.heading)} ${Math.round(st.sim.speed)} ${st.sim.x.toFixed(3)} ${st.sim.y.toFixed(3)}`);
+      // ⚠ THE SECOND SLOT WAS A LITERAL 0 AND IS NOW THE IGNITION. The server had no idea whether
+      // the engine was running — it reads position, heading and speed, and a stopped truck and a
+      // shut-down one are the same thing to all three. `park` needs to know (you cannot set the
+      // brake and walk away from a running truck), so rather than open a second channel for one
+      // bit, it rides the dead field that was already in the packet at the same four-a-second
+      // cadence. 1 = running, 0 = key off.
+      sendCmdSilent(`trucksync ${st.s.toFixed(2)} ${st.sim.stalled ? 0 : 1} ${Math.round(st.sim.heading)} ${Math.round(st.sim.speed)} ${st.sim.x.toFixed(3)} ${st.sim.y.toFixed(3)}`);
     }
   } catch (e) {
     // Same discipline as helm-view: the renderer has no internal try/catch, so one bad frame must
@@ -2514,6 +2831,80 @@ function ensureCabStyles() {
   .cab-btn.cab-hitchbtn:active b.cab-knobface{transform:translateY(2px);
     box-shadow:inset 0 3px 6px rgba(0,0,0,.7)}
   .cab-btn.cab-hitchbtn:active{transform:none}         /* the KNOB travels, not the housing */
+
+  /* ── THE PARK BRAKE ────────────────────────────────────────────────────────
+     The trailer valve's twin, in the other regulation colour: red is the trailer, YELLOW is the
+     tractor's own spring brakes, and a driver who has seen one dashboard knows which is which
+     without a legend. Every rule of the red one is inherited by selector rather than restated —
+     the octagon, the moulded highlight, the stamped word, the travel — so the pair can never drift
+     apart, and only the colour and the OUT state's meaning are written here. */
+  .cab-btn.cab-parkbtn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px}
+  .cab-btn.cab-parkbtn b.cab-knobface{position:relative;display:flex;align-items:center;
+    justify-content:center;width:30px;height:30px;
+    clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+    background:
+      repeating-conic-gradient(from 22.5deg,rgba(0,0,0,.20) 0deg 6deg,rgba(255,255,255,.06) 6deg 45deg),
+      radial-gradient(120% 120% at 32% 24%,rgba(255,238,170,.30),rgba(0,0,0,.35));
+    background-color:#8a6a16;
+    transform:translateY(1px);
+    box-shadow:inset 0 3px 5px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.08);
+    transition:transform .09s ease-out, box-shadow .09s ease-out, background-color .09s}
+  .cab-btn.cab-parkbtn b.cab-knobface s{position:absolute;left:14%;top:10%;width:46%;height:32%;
+    border-radius:50%;text-decoration:none;
+    background:linear-gradient(160deg,rgba(255,255,255,.42),rgba(255,255,255,0));filter:blur(.6px)}
+  .cab-btn.cab-parkbtn b.cab-knobface em{position:relative;font:700 8px/1 inherit;font-style:normal;
+    letter-spacing:.09em;color:#f6ecc8;text-shadow:0 1px 0 rgba(0,0,0,.65), 0 -1px 0 rgba(255,255,255,.10)}
+  .cab-btn.cab-parkbtn u{display:block;text-decoration:none;font:700 7px/1 inherit;letter-spacing:.1em;
+    color:#7f8b98;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  .cab-btn.cab-parkbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
+  /* SET: standing proud of the dash with the brakes on — the state you want visible from the far
+     side of the cab, because pulling away against it is the mistake this control exists to make
+     possible. */
+  .cab-btn.cab-parkbtn.on b.cab-knobface{background-color:#d8a41e;transform:translateY(-2px);
+    box-shadow:0 4px 6px -2px rgba(0,0,0,.85), inset 0 -2px 4px rgba(0,0,0,.35),
+      0 0 10px rgba(216,164,30,.45)}
+  .cab-btn.cab-parkbtn.on i{background:#f0c23a;box-shadow:0 0 8px #f0c23a}
+  .cab-btn.cab-parkbtn.on u{color:#c9d2dc}
+  .cab-btn.cab-parkbtn:active b.cab-knobface{transform:translateY(2px);
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.7)}
+  .cab-btn.cab-parkbtn:active{transform:none}
+
+  /* ── THE IGNITION BARREL ───────────────────────────────────────────────────
+     A lock barrel with a blade in it, and the blade ROTATES: '--keyrot' is written by paintKey and
+     is the only thing that moves. Three stops, and the barrel's own face carries the ticks, so the
+     angle is readable as a POSITION rather than as an amount of tilt.
+     ⚠ The blade turns; the housing does not. That is the whole illusion, and putting the transform
+     on the button instead would rotate the collar with it and read as the dash coming loose. */
+  .cab-key{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:46px}
+  .cab-keybarrel{position:relative;width:30px;height:30px;padding:0;border-radius:50%;
+    background:radial-gradient(120% 120% at 34% 26%,#39414c,#1b2027 62%,#0c1015);
+    border:1px solid #454e5a;cursor:pointer;touch-action:none;
+    box-shadow:0 3px 7px -3px #000, inset 0 1px 0 rgba(255,255,255,.12)}
+  /* The escutcheon's tick marks — OFF, ON, START, at the three angles KEY_DEG names. Drawn as one
+     conic gradient rather than three elements: they are paint on a plate, not parts. */
+  .cab-keybarrel::before{content:'';position:absolute;inset:-4px;border-radius:50%;pointer-events:none;
+    background:conic-gradient(from -4deg,rgba(190,204,220,.55) 0deg 3deg,transparent 3deg 34deg,
+      rgba(190,204,220,.55) 34deg 37deg,transparent 37deg 70deg,
+      rgba(224,160,90,.65) 70deg 73deg,transparent 73deg 360deg);
+    -webkit-mask:radial-gradient(circle,transparent 62%,#000 64%);
+            mask:radial-gradient(circle,transparent 62%,#000 64%)}
+  /* THE BLADE. A flat steel wafer standing up out of the barrel, plus the bow you hold. */
+  .cab-keybarrel s,.cab-keybarrel b{position:absolute;left:50%;top:50%;text-decoration:none;
+    transform-origin:50% 50%;
+    transform:translate(-50%,-50%) rotate(var(--keyrot,0deg));
+    transition:transform .16s cubic-bezier(.34,1.3,.64,1)}
+  .cab-keybarrel s{width:4px;height:22px;border-radius:1px;
+    background:linear-gradient(90deg,#5d6874,#c3cdd9 45%,#7c8794);
+    box-shadow:0 0 3px rgba(0,0,0,.8)}
+  /* The bow, offset down the blade's own axis so it rides round with it. */
+  .cab-keybarrel b{width:12px;height:9px;border-radius:2px 2px 5px 5px;margin-top:9px;
+    background:linear-gradient(#8e9aa8,#454e5a);box-shadow:0 1px 2px rgba(0,0,0,.7)}
+  .cab-keybarrel.on{border-color:#4e9a5c;box-shadow:0 3px 7px -3px #000, 0 0 8px rgba(78,154,92,.35), inset 0 1px 0 rgba(255,255,255,.12)}
+  /* CRANKING is the one state with a colour, because it is the one state that is temporary and that
+     you are actively holding — the dash's way of saying the starter is turning. */
+  .cab-keybarrel.cranking{border-color:#e0a05a;box-shadow:0 0 12px rgba(224,160,90,.55)}
+  .cab-keybarrel:focus-visible{outline:2px solid #e8c07a;outline-offset:2px}
 
   /* ── THE CB SET ────────────────────────────────────────────────────────────
      A radio in the same recessed housing as everything else on this panel: a lit channel readout,
