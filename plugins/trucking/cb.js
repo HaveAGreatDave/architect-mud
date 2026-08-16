@@ -45,7 +45,14 @@ export const CB_EMERGENCY = 9;     // said, never enforced — see below
 const SEND_GAP_MS = 1200;
 const MAX_LEN = 240;
 
-export const clampChan = (n) => Math.max(CB_MIN, Math.min(CB_MAX, Math.round(Number(n) || CB_DEFAULT)));
+// ⚠ THE FALLBACK IS TESTED WITH `isFinite`, NEVER WITH `||`. `Number(0) || CB_DEFAULT` is 19,
+// because 0 is falsy — so `cb 0` would silently tune you to nineteen instead of clamping to the
+// bottom of the band, which is the one input a player typing a channel number is most likely to
+// get wrong. Regress asserts the bottom clamp for exactly this reason.
+export const clampChan = (n) => {
+  const v = Math.round(Number(n));
+  return Number.isFinite(v) ? Math.max(CB_MIN, Math.min(CB_MAX, v)) : CB_DEFAULT;
+};
 
 // The set's state, all of it, derived from the rig it is bolted into. `cbOff` is the field that
 // already existed (the squelch), and it keeps its polarity so nothing that reads it changes.
