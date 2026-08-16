@@ -301,12 +301,37 @@ export const TYPES = {
   // barrow is the humblest cart there is). Deliberately a different family from the aircraft, which
   // are animals and insects — Mayfly, Locust, Dragonfly, Mule. An early cut called this one the
   // "Kestrel Mule" and collided with `ac_mule` on both halves at once.
+  // ── THE WHOLE FLEET WAS SLOWED BY 0.7, AND IT IS ONE SCALING RATHER THAN FOUR OPINIONS ──────
+  // The rigs got fast too quickly and the numbers on the speedo were a car's, not a truck's. The
+  // trap in fixing that is knocking `topSpeed` down on its own: a lower ceiling with the same
+  // engine behind it arrives SOONER, so the truck feels twitchier at the exact moment it is meant
+  // to feel heavier — the complaint was never the ceiling, it was how quickly the low gears got to
+  // it. So this is a uniform scaling of the whole speed dimension, k = 0.7, applied to every knob
+  // that carries one:
+  //
+  //   topSpeed, tileMph, thrustMax, rollFric, brake   × k        (speeds and accelerations)
+  //   dragP                                           ÷ k        (it multiplies v², so it needs the
+  //                                                               inverse to stay the same force)
+  //   mass, wheelbase, engineLag, the gear ladder, the band      UNTOUCHED
+  //
+  // Three things fall out for free, and each is a reason not to hand-tune this instead:
+  //
+  //  · THE VERGE INVARIANT SURVIVES BY CONSTRUCTION. `thrustMax × drive > rollFric × drag` has both
+  //    sides scaled by k, so the ratio is exactly what it was — the check that once caught an
+  //    un-drivable heavy cannot be broken by this edit at any k.
+  //  · JOURNEYS TAKE THE SAME TIME. `tileMph` is the speed at which one corridor tile passes per
+  //    second, so scaling it with the speeds leaves tiles-per-second at cruise unchanged. The Reach
+  //    is still about sixteen minutes; only the number under the needle moved. Scaling topSpeed
+  //    WITHOUT tileMph is the version of this change that quietly adds 40% to every haul.
+  //  · AND THE GEARBOX RE-SCALES ITSELF. Redline in a gear is `tileMph / ratio`, so every gear's
+  //    speed came down by k with nothing touched in the ladder — the shift points, the spread and
+  //    the crawler's relationship to 2nd are all preserved exactly.
   hauler: {
     name: 'Ostrek Courier', ground: true, tier: 1,
     mass: 2.4,
-    thrustMax: 11.0,      // mph/s of acceleration authority at full throttle — light and willing
-    topSpeed: 74,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
-    tileMph: 80,          // road speed (mph) that covers one corridor tile per second — see above
+    thrustMax: 7.7,       // mph/s of acceleration authority at full throttle — light and willing
+    topSpeed: 52,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
+    tileMph: 56,          // road speed (mph) that covers one corridor tile per second — see above
     // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in.
     // ⚠ HALVED (with `trailerLen`/`hitchOffset`, across the whole fleet) because the first cut was
     // not a wheelbase, it was a scale error: a tile is ~36 m at tileMph 80, so 0.48 tiles was a
@@ -317,9 +342,9 @@ export const TYPES = {
     // same angle, it just gets there twice as fast) and doubles the yaw rate everywhere.
     wheelbase: 0.24,
     engineLag: 1.4,       // throttle→rpm time constant (s)
-    rollFric: 1.7,        // rolling resistance (mph/s) at idle
-    dragP: 0.0014,        // aero drag (∝ speed²)
-    brake: 8.2,           // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
+    rollFric: 1.19,       // rolling resistance (mph/s) at idle
+    dragP: 0.0020,        // aero drag (∝ speed²)
+    brake: 5.75,          // service-brake deceleration (mph/s) at full pedal. Phase 2 gives these
                           // a TEMPERATURE, which is what makes holding a gear down a grade matter.
     kg: 1800, tank: 1100, price: 4200,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
@@ -337,8 +362,8 @@ export const TYPES = {
   },
   drayman: {
     name: 'Vachon Drayman', ground: true, tier: 2,
-    mass: 3.2, thrustMax: 9.0, topSpeed: 68, tileMph: 80, wheelbase: 0.31,
-    engineLag: 1.9, rollFric: 2.1, dragP: 0.0016, brake: 7.5,
+    mass: 3.2, thrustMax: 6.3, topSpeed: 48, tileMph: 56, wheelbase: 0.31,
+    engineLag: 1.9, rollFric: 1.47, dragP: 0.0023, brake: 5.25,
     kg: 3500, tank: 1400, price: 11500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 5.30, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
@@ -353,8 +378,8 @@ export const TYPES = {
   // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
-    mass: 4.6, thrustMax: 9.2, topSpeed: 63, tileMph: 80, wheelbase: 0.41,
-    engineLag: 2.6, rollFric: 2.3, dragP: 0.0016, brake: 6.4,
+    mass: 4.6, thrustMax: 6.44, topSpeed: 44, tileMph: 56, wheelbase: 0.41,
+    engineLag: 2.6, rollFric: 1.61, dragP: 0.0023, brake: 4.5,
     kg: 6200, tank: 2100, price: 31000,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 5.70, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
@@ -366,8 +391,8 @@ export const TYPES = {
   // actually reach, rather than a wall between them and the entire system.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
-    mass: 2.8, thrustMax: 8.4, topSpeed: 58, tileMph: 80, wheelbase: 0.28,
-    engineLag: 2.4, rollFric: 2.2, dragP: 0.0019, brake: 6.0,
+    mass: 2.8, thrustMax: 5.88, topSpeed: 41, tileMph: 56, wheelbase: 0.28,
+    engineLag: 2.4, rollFric: 1.54, dragP: 0.0027, brake: 4.2,
     kg: 1200, tank: 850, price: 1300,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 6.20, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
@@ -726,8 +751,15 @@ function truckSteerLock(speed, hitched) {
 // number. A copy in the panel would be a second idle speed that drifts the first time this moves.
 export const IDLE = 0.16;        // idle, as a fraction of redline
 const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
-const LAUNCH_MPH = 12;           // below this, ON THE THROTTLE, a driver is feathering the clutch
-const CRAWL_MPH  = 4;            // below this the clutch is always in — parking must not stall you
+// ⚠ THESE TWO ARE PART OF THE 0.7 FLEET RESCALE (see the note above `hauler` in TYPES), and they
+// are the half of it that is easy to miss: they are absolute MPH, so leaving them alone while every
+// speed in the fleet came down by 0.7 widened both windows by 43% in the only terms that matter.
+// The consequence was not subtle — the protected launch window reached far enough up the new speed
+// range that a truck could feather its way past the stall speed IN TOP GEAR, which the regress case
+// for exactly that ("pulling away in top gear STALLS the engine") caught. Every mph constant in the
+// truck model scales with the fleet or the gearbox stops having opinions.
+const LAUNCH_MPH = 8.4;          // below this, ON THE THROTTLE, a driver is feathering the clutch
+const CRAWL_MPH  = 2.8;          // below this the clutch is always in — parking must not stall you
 const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, strongest gear there is
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
@@ -1006,7 +1038,17 @@ function stepTruck(state, input, p, dt) {
   const dir = gear < 0 ? -1 : 1;
   // Rolling + aero resistance, the brakes, and the engine holding it back. All of it opposes the
   // direction of travel rather than being subtracted blindly, or reversing would accelerate you.
-  const moving = Math.sign(s.speed) || dir;
+  // ⚠ A STATIONARY TRUCK HAS NOTHING FOR RESISTANCE TO OPPOSE, and the `|| dir` fallback quietly
+  // said otherwise: at a dead stop `Math.sign(0)` is 0, so every resisting force — rolling, aero,
+  // the brakes, the settled shrouds — was applied FORWARD, which pushed the truck BACKWARDS out of
+  // a standstill. It then oscillated about a small negative speed forever, because at −0.2 the
+  // sign flips and the same forces shove it the other way. That is the constant drift, and it is
+  // also why the brake could not hold it: the brake was the strongest thing doing the pushing.
+  //
+  // The fallback is kept for the one case it was written for — pulling away, where the resistance
+  // has to oppose the direction you are ASKING for or a truck at rest would accelerate as if the
+  // road were ice. Off the throttle it is zero, which is the honest answer: nothing is happening.
+  const moving = Math.sign(s.speed) || (power > 0 ? dir : 0);
   // Mass is applied WHERE IT PHYSICALLY BELONGS, which is not everywhere. Rolling resistance grows
   // with weight in step with the weight it is slowing, so it stays a constant deceleration and is
   // NOT divided — that is why a loaded truck rolls to a stop about as readily as an empty one. Aero,
@@ -1033,6 +1075,11 @@ function stepTruck(state, input, p, dt) {
   // Resistance stops you; it never drags you backwards through zero. (Without this a stationary
   // truck with the brake on oscillates about zero and the roll noise chatters.)
   if (before !== 0 && Math.sign(s.speed) !== Math.sign(before) && power === 0) s.speed = 0;
+  // …and a dead stop is a STOP. Without this the last fraction of a mile an hour never resolves:
+  // the integrator halves it every tick and the truck creeps for ever at a speed too small to see
+  // on the gauge and large enough to walk it out of a parking bay. Only off the throttle, so it can
+  // never eat a genuine pull-away.
+  if (power === 0 && Math.abs(s.speed) < 0.05) s.speed = 0;
   const cap = p.topSpeed * surf.cap;
   s.speed = clamp(s.speed, -cap * REVERSE_CAP, cap);
   s.inBand = torque > 0.85 && !s.stalled;             // the cab lights this; you learn to drive on it

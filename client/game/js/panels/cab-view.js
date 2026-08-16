@@ -25,6 +25,7 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { sendCmdSilent } from '../net.js';
+import { appendHtml } from '../render.js';
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
 
@@ -376,6 +377,29 @@ export function openCab(ctx = {}) {
           <div class="cab-collars" role="group" aria-label="Gearbox collars">
             <button class="cab-btn cab-range" aria-label="Range" title="Range collar — LO is gears 1-4, HI is 5-8"><i class="cab-rangeic">${svgIcon('range')}</i><b>LO</b><em>RANGE</em></button>
             <button class="cab-btn cab-splitbtn" aria-label="Splitter" title="Splitter collar (/) — half a gear"><b>${svgIcon('split')}</b><em>SPLIT</em></button>
+            <!-- AUTO. Not an automatic gearbox — there is no such truck in this fleet. It is a
+                 hand on the same lever and the same pedal, and you can watch it work: the stick
+                 goes through neutral, the clutch goes in, the gear goes home. Which is the point
+                 of showing it rather than swapping the number silently — a driver who leaves it on
+                 for a leg learns the pattern, and the day they switch it off they already know
+                 where second is.
+                 ⚠ IT SITS WITH THE GEARBOX, NOT ON THE DASH. It began life among the rockers with
+                 the horn and the wipers, which is where a switch goes on a real truck and exactly
+                 the wrong place here: everything else that decides which gear you are in — the
+                 gate, the range collar, the splitter — is in this group, and the one control that
+                 does all three of those jobs for you was across the cab from them. The class is
+                 unchanged, so the M key, the click handler and the lamp painter all still find it. -->
+            <button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M) — works the clutch and the lever for you. Watch the stick: it shifts the way you would."><i></i><u><span>AUTO</span></u></button>
+            <!-- REVERSE, AND IT EXISTS BECAUSE OF THE BUTTON NEXT TO IT. The automatic deliberately
+                 never chooses reverse for you (which way a truck is pointed when it moves is the
+                 one decision that stays with the person who can see out of the window), so a driver
+                 who has left AUTO on has no hand on the lever and no way into it. The R key always
+                 worked; a key is not a control you can find with a mouse.
+                 It runs the SAME shift sequence the automatic uses, which is what makes it neutral
+                 first and reverse second rather than a gear change nobody watched happen: the
+                 clutch goes in, the stick comes out to neutral, there is a pause you can see, and
+                 then it goes across. Pressing it again brings it back to neutral. -->
+            <button class="cab-btn cab-rocker cab-revbtn" aria-pressed="false" aria-label="Reverse" title="Reverse (R) — clutch in, through neutral, into reverse. Only at a standstill. Press again for neutral."><i></i><u><span>REV</span></u></button>
           </div>
         </div>
 
@@ -458,12 +482,6 @@ export function openCab(ctx = {}) {
 
             <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
 
-            <!-- AUTO. Not an automatic gearbox — there is no such truck in this fleet. It is a
-                 hand on the same lever and the same pedal, and you can watch it work: the stick
-                 goes through neutral, the clutch goes in, the gear goes home. Which is the point
-                 of showing it rather than swapping the number silently — a driver who leaves it on
-                 for a leg learns the pattern, and the day they switch it off they already know
-                 where second is. -->
             <!-- THE PARK BRAKE, and it is a KNOB because that is what it is on a truck: a big
                  yellow diamond you pull out and push in, next to the trailer's red one. It is
                  shaped like the trailer air valve above for exactly that reason — a hand finds
@@ -472,7 +490,6 @@ export function openCab(ctx = {}) {
                  does something with the key off. -->
             <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
 
-            <button class="cab-btn cab-rocker cab-auto" aria-pressed="false" aria-label="Automatic shifting" title="Automatic shifting (M) — works the clutch and the lever for you. Watch the stick: it shifts the way you would."><i></i><u><span>AUTO</span></u></button>
           </div>
 
           <!-- THE CB. The set is a VIEW of server state (cb-radio.js) and decides nothing: the
@@ -561,7 +578,14 @@ export function openCab(ctx = {}) {
     // three and a half turns of lock hit the limiter during ORDINARY steering rather than during
     // an impossible one. 14 rad/s is a hard two-and-a-bit turns a second — a pair of hands
     // working, still nothing like a flick, and the cap does its job on the flick unchanged.
-    lock: TRUCK_LOCK_TURNS, selfCentre: 2.6, keyRate: 5.5, handRate: 14,
+    // ⚠ AND `keyRate` HAD TO COME DOWN WITH THE TRAVEL, which is the trap in retuning the lock: it
+    // is radians per second, so it does not scale with the wheel — shortening the travel to 0.75
+    // turns without touching it would have taken a held arrow key from a bit over a second to reach
+    // the stops down to four tenths, and the keyboard would have become the twitchiest control in
+    // the cab as a side effect of a change made for the mouse. 2.1 restores the same time to lock.
+    // `handRate` is deliberately NOT scaled: it is a cap on a flick, not a rate anybody drives at,
+    // and lowering it would rate-limit the single swoop the shorter travel exists to allow.
+    lock: TRUCK_LOCK_TURNS, selfCentre: 2.6, keyRate: 2.1, handRate: 14,
     // The wheel asks the truck how fast it is going, so the self-centring can be the speed-scaled
     // caster effect a real axle has rather than a constant spring — slack in a yard, firm on the
     // road. Reading `st.sim` live rather than pushing a number in: the sim is the only owner of
@@ -668,6 +692,7 @@ export function openCab(ctx = {}) {
   // that stays where you put it.
   container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
   container.querySelector('.cab-auto')?.addEventListener('click', () => st.setAuto?.(!st.auto));
+  container.querySelector('.cab-revbtn')?.addEventListener('click', () => st.engageReverse?.());
   container.querySelector('.cab-parkbtn')?.addEventListener('click', () => st.setPark?.(!st.park));
   // The radio wires itself; the cab only tells it what pressing the set should open, because the
   // tablet is the cab's business and not the radio's.
@@ -1118,11 +1143,19 @@ export function openCab(ctx = {}) {
       // THE RANGE MOVES THE GEAR WITH IT, and that is the point of a range change rather than a
       // display toggle: the lever has not moved, so you are in the same SLOT — one range up is four
       // ratios up. Flicking it in neutral changes nothing but which four gears the gate offers.
+      // ⚠ WHICH SLOT YOU ARE IN IS ASKED BEFORE THE COLLAR MOVES, and getting that order wrong is
+      // why the collar did nothing at all. `slotOfGear` resolves through `gearOfSlot`, which reads
+      // `st.range` — so asking it AFTER the flip searched the range you had just left: in 6th,
+      // dropping to LO looked for a slot numbered 6 among four slots numbered 1–4, found nothing,
+      // and the gear was silently never changed. The collar's label moved, the box did not, and the
+      // truck was in a gear the gate said it could not be in. It failed in both directions for the
+      // same reason; HI→LO is simply the one you notice, because that is the one you reach for when
+      // something needs pulling.
+      const cur = slotOfGear(st.sim.gear);
       st.range = !st.range;
       const rl = rangeBtn.querySelector('b'); if (rl) rl.textContent = st.range ? 'HI' : 'LO';
       rangeBtn.classList.toggle('on', st.range);
-      const cur = slotOfGear(st.sim.gear);
-      if (st.sim.gear > 0 && cur && cur.slot) selectGear(cur.slot + (st.range ? 4 : 0));
+      if (st.sim.gear > 0 && cur && cur.slot != null) selectGear(cur.slot + (st.range ? 4 : 0));
       st.paintGate?.();
       e.preventDefault();
     });
@@ -1481,6 +1514,12 @@ export function openCab(ctx = {}) {
     st.sim.stalled = true;                       // the engine stops, everything downstream follows
     st.input.throttle = 0;
     st.setCruise?.(null);                        // a dead engine is not holding a speed
+    // ⚠ A KEY-OFF IS A DECISION TO STOP, AND A STALL IS NOT. The flag is what separates them, and
+    // it has to exist: the frame loop below brings a shut-down rig to a standstill and holds it
+    // there, and doing that off `sim.stalled` alone would slam the brakes on the moment a driver
+    // lugged it to death at forty — punishing a mistake with a handbrake turn. Only the key sets
+    // this; cranking clears it, so the truck is free again the instant somebody asks for it.
+    st.shutdown = true;
     stopCrank();
     keyCue(false);
     paintKey();
@@ -1492,6 +1531,35 @@ export function openCab(ctx = {}) {
   // a keypress when the real thing is unambiguously a hold.
   function startCrank() {
     if (!st.sim.stalled || st.cranking) return;
+    // Asking for the engine releases the settle — see ignitionOff. The brake goes back to whatever
+    // a foot is actually doing rather than being left where the settle put it, or the rig would
+    // start up with the pedal on the floor and nothing on screen to say why.
+    st.shutdown = false;
+    if (!st.heldBy?.brake) st.input.brake = 0;
+    // ⚠ THE ONE REFUSAL IN THIS CAB THAT HAS TO SAY ITS NAME. The model will not restart an engine
+    // that is coupled to the road (flight-model.js: `clutch > 0.5 || ratio === 0`), which is the
+    // correct rule and completely invisible: you turn the key, the starter churns, nothing happens,
+    // and every readable signal in the cab — fuel, air, the lamp — says the truck is fine. It read
+    // as a broken button, and it was reported as one. So the cab says what the gearbox is doing
+    // BEFORE it spends four seconds proving it. The line names the fix, not the fault, because a
+    // driver who has just been told "clutch or neutral" can act on it without a manual.
+    if (!(st.input.clutch > 0.5 || st.sim.gear === 0)) {
+      // TWO SURFACES, because they answer two different people. The gate plate flashes its CLUTCH
+      // tell — the same one a fluffed shift raises, in the same place your eye already is — and the
+      // line goes to the log, which is where the record lives for anyone driving at the bottom rung
+      // of Display Mode (see systems-display-mode). Neither is a new channel.
+      const gate = container.querySelector('.cab-gate');
+      if (gate) {
+        gate.classList.remove('grind'); void gate.offsetWidth; gate.classList.add('grind');
+        gate.dataset.tell = 'CLUTCH';
+        clearTimeout(st.grindTell);
+        st.grindTell = setTimeout(() => { if (gate.dataset) gate.dataset.tell = ''; }, 1800);
+        setTimeout(() => gate.classList.remove('grind'), 420);
+      }
+      appendHtml('The starter churns and the engine will not catch — the box is still in gear. <b>Clutch in</b>, or find <b>neutral</b>, and turn the key again.', 'msg-system');
+      // The starter still turns: refusing to crank at all would be a second invisible rule on top
+      // of the first, and the churn is the sound that makes the message make sense.
+    }
     st.cranking = true;
     st.input.starter = 1;
     keyCue(true);
@@ -1516,10 +1584,22 @@ export function openCab(ctx = {}) {
 
   function toggleCruise() {
     if (st.cruise != null) return setCruise(null);
-    if (st.sim.gear > 0 && st.sim.speed >= 8 && !st.dry && !st.broken) setCruise(st.sim.speed);
+    if (st.sim.gear > 0 && st.sim.speed >= 5.5 && !st.dry && !st.broken) setCruise(st.sim.speed);
   }
 
 
+  // The REV button's door, and it is deliberately not `toggleReverse`. That one throws the lever
+  // straight across, which is the right thing for the R key (a hand on a stick) and the wrong thing
+  // for a button pressed by somebody who has the automatic on and both hands off — they would see
+  // the gear number change and nothing else. This goes through `beginShift`, the automatic's own
+  // sequence, so the clutch dips, the stick comes out to neutral, it sits there for a beat and then
+  // goes across. Same machinery, so there is no second idea about how this box is shifted.
+  function engageReverse() {
+    if (Math.abs(st.sim.speed) >= 2) return;      // the same standstill rule the lever has
+    if (st.shiftSeq) return;                      // one shift at a time
+    beginShift(st.sim.gear < 0 ? 0 : -1);         // in reverse → back to neutral; otherwise into it
+  }
+  st.engageReverse = engageReverse;
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
     // Reverse is a gear like any other, so it grinds like any other. The target is what the shift
@@ -2107,7 +2187,7 @@ function autoShift(dt) {
   // PULLING AWAY. Out of gear on the throttle is a driver who wants a gear, and at a standstill
   // that is first whatever the ratios say.
   if (st.sim.gear === 0) {
-    if ((st.input.throttle || 0) > 0.05) beginShift(Math.abs(st.sim.speed) < 4 ? 1 : want);
+    if ((st.input.throttle || 0) > 0.05) beginShift(Math.abs(st.sim.speed) < 2.8 ? 1 : want);
     return;
   }
   if (want === st.sim.gear) return;
@@ -2140,6 +2220,28 @@ function frame(now) {
     // driver's seat those two situations ARE the same situation, and giving the breakdown its own
     // client-side behaviour would have been a second copy of the same three lines.
     if (st.dry || st.broken) { st.input.throttle = 0; st.sim.rpm = 0; }
+    // ── KEY OFF MEANS STOPPED ──────────────────────────────────────────────────
+    // A truck whose driver has switched it off should come to rest and STAY there, and it did not:
+    // the model has no reason to stop a rolling body, so a shut-down rig kept its momentum, kept
+    // its yaw rate, and the trailer went on swinging behind it — a dead machine drifting down the
+    // road with its lifters down. The fix is the driver's own foot, not a new rule in the physics:
+    // the settle applies the brake through `st.input`, which is the same number the pedal writes,
+    // so the load, the surface and the trailer all still decide how long it takes to stop.
+    //
+    // ⚠ IT IS THE KEY, NOT THE STALL — see `st.shutdown` in ignitionOff. And once it is actually
+    // stopped, the residual rates are zeroed rather than left to decay: below walking pace the
+    // sway is all that is left of them, and a parked truck that is still rocking is exactly the
+    // thing the parked pose was built to stop. Steering is dropped too, so a wheel left over from
+    // the last corner cannot walk the nose round while the rig settles.
+    if (st.shutdown) {
+      st.input.throttle = 0;
+      st.input.brake = 1;
+      st.input.steer = 0;
+      // The trailer is deliberately NOT touched: a tractor that is not moving cannot swing it, so
+      // zeroing the tractor's rates settles the box for free. Writing its heading here would be a
+      // second opinion about an angle the model already owns.
+      if (Math.abs(st.sim.speed) < 0.4) { st.sim.speed = 0; st.sim.yawRate = 0; st.sim.slip = 0; }
+    }
     // (A throttle lock used to live here, holding the pedal dead while the overlay's door lifted.
     // The door is in the world now and it lifts BECAUSE you drive at it — see "THE SHED BELONGS TO
     // THE WORLD NOW" above. Nothing may pin the throttle in a shed again: that is the one input the
@@ -2163,7 +2265,7 @@ function frame(now) {
         // ⚠ Through `st.setCruise`, not a bare call: this loop is a module-level function and the
         // switch's own writer closes over the cab that owns the lamp. Cancelling without going
         // through it would leave the rocker lit over a truck that is no longer on cruise.
-        || st.sim.gear <= 0 || Math.abs(st.sim.speed) < 8) st.setCruise?.(null);
+        || st.sim.gear <= 0 || Math.abs(st.sim.speed) < 5.5) st.setCruise?.(null);
       else {
         // Proportional, and gentle: a truck's mass means a hard correction reads as surging.
         st.input.throttle = Math.max(0, Math.min(1, (st.cruise - st.sim.speed) * 0.18));
@@ -2242,6 +2344,16 @@ function frame(now) {
     const gearEl = q('.cab-gear');
     gearEl.textContent = r.stalled ? '—' : r.reversing ? 'R' : (r.gear === 0 ? 'N' : r.gear + (st.sim.split ? '½' : ''));
     gearEl.className = 'cab-gear' + (r.stalled ? ' g-stall' : r.inBand ? ' g-band' : '');
+    // The REV lamp is DERIVED FROM THE BOX, never remembered by the button — the same rule the key
+    // barrel follows. Reverse can be left by the lever, the gate, the R key or an automatic upshift
+    // out of it, and a button holding its own idea of the state would be lit over a truck that is
+    // in first. It also goes dim while rolling, because that is when the control refuses.
+    const rev = container.querySelector('.cab-revbtn');
+    if (rev) {
+      rev.classList.toggle('on', r.gear < 0);
+      rev.setAttribute('aria-pressed', String(r.gear < 0));
+      rev.disabled = Math.abs(st.sim.speed) >= 2;
+    }
     // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
     // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
     const kit = kitFor(P);
@@ -3112,7 +3224,9 @@ function ensureCabStyles() {
   .cab-stalk.hint .cab-stalk-arm{animation:cab-stalk-hint 1.3s ease-in-out infinite}
   @keyframes cab-stalk-hint{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(0deg)}}
   .cab-horn{--key:#e0b45a}
-  .cab-rev{--key:#d2603f}
+  .cab-rev,.cab-revbtn{--key:#d2603f}
+  /* Refusing is a STATE, not a silence: rolling, the button dims rather than doing nothing. */
+  .cab-revbtn[disabled]{opacity:.42;cursor:default}
   .cab-splitbtn{--key:#8fe0a0}
   .cab-lookl,.cab-lookr,.cab-lookb{--key:#8fa4bc}
   .cab-left,.cab-right{--key:#9fb4c8}

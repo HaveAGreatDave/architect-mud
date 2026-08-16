@@ -30,7 +30,19 @@
 // or out of patience, long before the axle runs out of travel — so the truck was permanently driven
 // on a fraction of its steering and read as a barge. One turn to full lock is the compromise every
 // driving game makes for the same reason: it is what a hand on a mouse can actually deliver.
-export const TRUCK_LOCK_TURNS = 2.0;
+//
+// …AND ONE TURN WAS STILL TOO MANY, for a reason the 3.5 → 2.0 move did not go far enough to fix.
+// A hand on a rim can wind indefinitely; a hand on a mouse gets ONE ARC before the pointer leaves
+// the wheel and has to be re-grabbed, and that arc is about half a revolution at best. At 2.0 that
+// is one grab, a re-grab, and a second arc to reach the stops — so full lock was never a thing you
+// did in the middle of a manoeuvre, it was a thing you set up for. 0.75 puts the stops at 135° from
+// centre: comfortably inside a single swoop, in either direction, without lifting the hand.
+//
+// It is deliberately NOT lower. Below about half a turn lock-to-lock the wheel stops being a wheel
+// and becomes a slider you happen to drag in a circle — the spokes barely move, the thumb grips
+// never change hands, and there is no longer any reason for the lock gauge or the full-lock legend
+// to exist. This is the shallowest travel that still reads as winding something on.
+export const TRUCK_LOCK_TURNS = 0.75;
 export const TRUCK_LOCK_RAD = TRUCK_LOCK_TURNS * Math.PI;
 
 export function createHelmWheel(canvas, opts = {}) {
@@ -268,6 +280,36 @@ export function createHelmWheel(canvas, opts = {}) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('HORN', 0, 0);
     ctx.restore();
+
+    // ── ON THE STOPS ──────────────────────────────────────────────────────────
+    // A truck's steering runs out, and until now the only thing that said so was the pip on the
+    // lock gauge going red at the end of its arc — a two-pixel colour change at the bottom of the
+    // wheel, while your eye is on the road and your hand is still winding. So full lock gets a
+    // legend of its own, and three decisions make it readable:
+    //
+    //  · IT DOES NOT ROTATE. At full lock the rim has been through a whole revolution, so anything
+    //    painted ON it is wherever the winding left it. This is bolted to the column beside the
+    //    boss, at twelve o'clock, which is the one place on a wheel your eye is already using.
+    //  · IT SAYS WHICH WAY. Two chevrons pointing the way the wheel is wound — at the stops the rim
+    //    itself is symmetric and the spokes have long since stopped telling you anything.
+    //  · AND IT IS THE GAUGE'S OWN RED, not a new colour. The pip and this are the same fact said
+    //    twice at two distances, and two different reds would read as two different faults.
+    if (Math.abs(lock) > 0.995) {
+      const s = Math.sign(lock), red = '#d2603f', y = -(rimI + hubR) / 2;
+      ctx.save(); ctx.translate(cx, cy);
+      ctx.globalAlpha *= 0.9 + 0.1 * Math.sin(performance.now() / 260);   // a slow breath: present, never a strobe
+      ctx.strokeStyle = red; ctx.lineWidth = Math.max(1.6, R * 0.022); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.shadowColor = red; ctx.shadowBlur = 6;
+      for (let i = 0; i < 2; i++) {
+        const x = s * (R * 0.10 + i * R * 0.075), w = R * 0.05, hh = R * 0.055;
+        ctx.beginPath(); ctx.moveTo(x - s * w, y - hh); ctx.lineTo(x, y); ctx.lineTo(x - s * w, y + hh); ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = red; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `700 ${Math.max(7, R * 0.085)}px 'DejaVu Sans Mono',monospace`;
+      ctx.fillText('LOCK', 0, y);
+      ctx.restore();
+    }
   }
 
   function draw() {

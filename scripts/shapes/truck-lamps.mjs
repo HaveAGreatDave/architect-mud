@@ -126,10 +126,21 @@ export function truckLampSmoke(drawHangarScene, variants = ['scrapper', 'hauler'
 //     lamps"), and unlike a fixed area it cannot be invalidated by a camera, a zoom or an honest
 //     occlusion — both sides get the same treatment from any angle, so their RATIO is the invariant.
 export const LAMP_MIN_AREA = 18;
-// How far apart the two sides may be before it is a sort error rather than perspective. The far
-// lamp at this camera is legitimately about half the near one; 4× is comfortably past anything
-// foreshortening can do and comfortably short of one lamp being gone.
-export const LAMP_MAX_RATIO = 4;
+// How far apart the two sides may be before it is a sort error rather than perspective.
+//
+// ⚠ AND THIS IS THE SECOND TIME IT HAS MOVED FOR THE SAME REASON — it keeps being calibrated
+// against a renderer that is wrong, and then reading as a failure when the renderer is fixed. It
+// was 4×, sized when the NEAR lamp was itself being eaten by the cab (the sort keyed on a camera
+// depth that carried the camera's own elevation, so a tall box beat a low one in front of it). With
+// that fixed the near lamp is fully visible for the first time, the far one is still legitimately
+// part-hidden behind the near front pod at this three-quarter camera, and the honest ratio between
+// them is about five.
+//
+// The teeth are in the FLOOR, not here. `LAMP_MIN_AREA` is the assertion that a lamp exists on
+// screen at all, and that is the failure that has actually shipped twice. This one only has to be
+// tight enough to catch a lamp being swallowed WHOLE while its twin is fine, which is what a sort
+// error looks like — so it sits well above real foreshortening and well below "one of them is gone".
+export const LAMP_MAX_RATIO = 8;
 
 // ── The rule the front of a truck keeps breaking ──────────────────────────────
 // NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE WITH THE PANEL BEHIND IT.

@@ -2492,7 +2492,28 @@ export function sortTruckFaces(faces, c, SIZE) {
     let g = parts.get(k);
     if (!g) parts.set(k, g = { k, near: Infinity, far: -Infinity, i: f.i, fs: [] });
     g.fs.push(f);
-    if (f.nf < g.near) g.near = f.nf;
+    // ── ⚠ THE KEY IS THE NEAREST VERTEX ON THE GROUND PLANE, NOT IN THE CAMERA ──
+    // `hf` is the same nearest-vertex depth with the camera's ELEVATION taken out of it, and every
+    // renderer of this mesh supplies it. It exists because a chase camera looks DOWN, so a camera
+    // depth carries a height term — and that term lets a TALL part beat a LOW one that is a third
+    // of a truck further forward. The cab's top front corner is nearer to a raised eye than a
+    // headlamp is, so the cab sorted last and painted over both headlamps, from a shed you park in
+    // every session. It had been doing it for months behind a second bug: the broken box centres
+    // were culling that face on one side, which is why the report was always ONE lamp.
+    //
+    // Height is exactly the wrong thing to break the tie with here, because a truck is a chain of
+    // boxes along the ground and nothing on it is in front of anything else BY BEING TALLER. Drop
+    // the height term and a lamp beats a cab from every angle, a bumper beats a chassis rail, and
+    // the stack behind the cab stops reaching over the roof. Where two parts are genuinely stacked
+    // (a roof fairing over a sleeper) the ground-plane key ties, and the tie falls back to mesh
+    // order — which `buildTruck` emits inside-out, so the thing bolted on top is drawn on top. That
+    // is the same fallback the quantised sort was reaching for before any of this.
+    //
+    // ⚠ A caller that does not supply `hf` gets `nf`, which is exactly the old behaviour. That is
+    // the migration invariant, and it is what lets the harnesses that project depth alone go on
+    // measuring the sort they were written against.
+    const key = f.hf != null ? f.hf : f.nf;
+    if (key < g.near) g.near = key;
     // The part's FAR extent as well as its near one — not to sort by (the nearest vertex is still
     // the key; see 2 above), but to answer a different question the hysteresis has to ask: do these
     // two parts occupy the same depths at all? See DISJOINT below.
@@ -2822,6 +2843,21 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // A-pillars down each side of it, and the header rail across the top — dark structure against
   // bright glass is what makes a windscreen look set into something.
   for (const g of [-1, 1]) poly('strut', 0.78, [[scrF0, g * scrW, scrLo], [scrF0, g * S.w, scrLo], [scrF1, g * S.w, scrHi], [scrF1, g * scrW, scrHi]]);
+  // ⚠ THE SCREEN LEANS OUT PAST THE CAB, AND SOMETHING HAS TO CLOSE THE WEDGE BEHIND IT. The rake
+  // is the whole reason the truck does not read as a shoebox — the top edge stands 0.038 FORWARD of
+  // the cab's own front face — but that means the glass and the cab meet nowhere except at the
+  // bottom, and above the crossing there was simply nothing there. From any camera looking down at
+  // the roofline you saw daylight between the top of the windscreen and the front of the cab, which
+  // is a hole in the model rather than a sort or a cull problem: no face was ever emitted for it.
+  //
+  // Three quads close it exactly, and every number is derived from the screen's own stations so a
+  // wider or taller rig closes its own wedge with nothing to re-tune. `scrT` is where the raked
+  // plane crosses the cab's front face, which is the lowest point the wedge exists at.
+  // They carry no `cen`, so they are two-sided sheets and the cull never touches them — correct
+  // here, because the underside of a header is visible from inside the cab.
+  const scrT = (cab1 - scrF0) / (scrF1 - scrF0), scrZc = scrLo + (scrHi - scrLo) * scrT;
+  poly('body', 0.90, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [cab1, S.w, S.hi], [cab1, -S.w, S.hi]]);   // the header roof, glass top back to the roof lip
+  for (const g of [-1, 1]) poly('body', 0.70, [[scrF1, g * S.w, scrHi], [cab1, g * S.w, S.hi], [cab1, g * S.w, scrZc]]);   // and the gusset that shuts each end of it
   // The sun visor, cantilevered forward off the header. Half of a truck's face is this shadow.
   poly('body', 0.96, [[scrF1, -S.w, scrHi], [scrF1, S.w, scrHi], [scrF1 + 0.030, S.w * 0.94, scrHi + 0.004], [scrF1 + 0.030, -S.w * 0.94, scrHi + 0.004]]);
   // Marker lamps in a row along the visor's leading edge. Five of them, `window` role so they take
@@ -3265,8 +3301,30 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // to a solo box put its landing legs through the road. So solo is fitted to the ground below,
   // from its own lowest point, and needs no constant at all.
   const settle = parked;
+  // ⚠ AND THE BOX CENTRES MOVE WITH THE VERTICES. This is the bug behind every "part shows through
+  // another part" report on this mesh, and it is one line long. `box()` stamps each face with its
+  // own solid's centre so the backface cull and the sun normal know which way is OUT — and then this
+  // block slid every VERTEX back by `shift` and left every centre where it was authored. So the cull
+  // measured outward from a point a fifth of a truck away from the box it belongs to: faces whose
+  // normal lies along x got a confidently WRONG answer (a lifter pad culled from one side and drawn
+  // from the other, which is why the reports were always "the back-left one" and never "all four"),
+  // and faces whose normal is perpendicular to x got a dot product of zero and a coin flip.
+  //
+  // The lamp block below already knew this — it re-derives its stations through `TRUCK_META.shift`
+  // for exactly the same reason, and its own comment calls the symptom "floating headlights". The
+  // mesh had the identical problem somewhere nobody could see it, because a wrong cull does not look
+  // like geometry in the wrong place, it looks like a renderer that flickers.
+  //
+  // Through the SAME `seen` set as the vertices, and that is not tidiness: the six faces of a box
+  // share one centre array, so subtracting per face would move it six times.
   if (shift || settle) {
     const seen = new Set();
+    for (const f of faces) {
+      if (!f.cen || seen.has(f.cen)) continue;
+      seen.add(f.cen);
+      f.cen[0] -= shift;
+      if (settle) f.cen[2] -= HOVER;
+    }
     for (const f of faces) for (const p of f.p) {
       if (seen.has(p)) continue;
       seen.add(p);
@@ -4622,7 +4680,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
       const dF = f - cam.x, dG = g1 - cam.y, dU = h1 - cam.z;
       const xf = dF * cyw + dG * syw, xr = -dF * syw + dG * cyw;         // along look / to the right
       const depth = xf * cpi + dU * spi, up = -xf * spi + dU * cpi;      // into screen / screen-up
-      return { sx: ox + xr * focal / depth, sy: oy - up * focal / depth, z: depth, wx: f, wy: g1, wz: h1 };
+      return { sx: ox + xr * focal / depth, sy: oy - up * focal / depth, z: depth, gz: xf * cpi, wx: f, wy: g1, wz: h1 };
     };
     eyeW = [cam.x, cam.y, cam.z];   // the free-walk eye, already in model/world (f,g1,h1) space
   } else {
@@ -4635,7 +4693,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
       const fx = f * cy - g1 * sy, gy = f * sy + g1 * cy, hz = h1;       // yaw about up
       const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;  // ¾ camera tilt
       const z = camDist - camZ;
-      return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, wx: fx, wy: gy, wz: hz };
+      return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, gz: camDist - fx * cosE, wx: fx, wy: gy, wz: hz };
     };
     eyeW = [camDist * cosE, 0, camDist * sinE];   // orbit eye in (fx,gy,hz) space: solves camZ = camDist, camY = 0
   }
@@ -4685,7 +4743,18 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
       // flip. Cull on that and the coin decides whether a headlamp has a lens this frame, which is
       // how this pass first took an eye off the Continental. No confident outward, no cull: the
       // sheet is two-sided, exactly as it was before any of this.
-      if (Math.hypot(dx, dy, dz) > 1e-4) {
+      // ⚠ AND THE TEST IS THE OFFSET ALONG THE NORMAL, NOT THE LENGTH OF THE OFFSET. This is the
+      // second half of the same bug and it is the one that survived: `cen` is the anchor the box was
+      // laid out from, which for several of them is nowhere near the middle of the face it stamps —
+      // a deck plate at z 0.098 carrying a `cen` at (0.075, 0, 0.098). Its offset is LONG (a fifth
+      // of a truck, in x) so the magnitude guard passed it happily, but every bit of that length is
+      // SIDEWAYS to a face whose normal is straight up: the projection onto the normal is zero, and
+      // the sign of zero is the coin flip all over again — this time on a face big enough to see.
+      // Two faces on a hauler flipped on ~150 of 360 orbit steps, which is the flashing on the
+      // truck's flanks. So: no confident outward ALONG THE NORMAL, no cull. `nl` is Newell's length
+      // (twice the area), so dividing by it makes this a distance in world units rather than
+      // something that scales with how big the face happens to be.
+      if (Math.abs(nx * dx + ny * dy + nz * dz) / nl > 1e-4) {
         const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;
         if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy) + nz * (eyeW[2] - cz)) <= 0) culled = true;
       }
@@ -4708,9 +4777,9 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // The three keys the part sort reads, plus the far extent it uses to tell a genuine ambiguity
     // from a rail that is simply behind a box. `z` here is the depot camera's depth, which is the
     // same monotonic quantity the windscreen calls `f` — see sortTruckFaces.
-    let nf = Infinity, xf = -Infinity;
-    for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; }
-    const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, af: avgZ, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
+    let nf = Infinity, xf = -Infinity, hf = Infinity;
+    for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
+    const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZ, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
     if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }        // canopy art: UVs + style authored on the mesh, not derived
     drawn.push(rec);
@@ -5326,7 +5395,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const fx = F * cy - G * sy, gy = F * sy + G * cy, hz = H;
     const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;
     const z = camDist - camZ;
-    return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, wx: fx, wy: gy, wz: hz };
+    //  is the same depth with the camera ELEVATION taken out — the ground-plane distance the
+    // truck part sort keys on. See the ⚠ on  in sortTruckFaces: height must not decide which of
+    // two boxes on a chassis is in front. Costs one multiply and is ignored by everything else.
+    return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z, gz: camDist - fx * cosE, wx: fx, wy: gy, wz: hz };
   };
   const eyeW = [camDist * cosE, 0, camDist * sinE];   // the shared camera in (fx,gy,hz) space, for backface culling
 
@@ -5385,7 +5457,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
         const dx = cx - ref.wx, dy = cy2 - ref.wy, dz = cz2 - ref.wz;
         // ⚠ A flat box is a SHEET and has no outward — see the same guard in paintTurntable. It is
         // what keeps a headlamp lens two-sided instead of letting rounding decide it is a back face.
-        if (solidCen && Math.hypot(dx, dy, dz) <= 1e-4) { /* two-sided: no confident outward */ }
+        // ⚠ ALONG THE NORMAL, not the length of the offset — the third copy of this test and the
+        // same correction. A long offset that is entirely SIDEWAYS to the face says nothing about
+        // which side of it is out, and the sign of that zero is what flickered.
+        if (solidCen && Math.abs(nx * dx + ny * dy + nz * dz) / nl <= 1e-4) { /* two-sided: no confident outward */ }
         else {
           const out = (nx * dx + ny * dy + nz * dz) < 0 ? -1 : 1;   // flip normal to point away from that centre
           if (out * (nx * (eyeW[0] - cx) + ny * (eyeW[1] - cy2) + nz * (eyeW[2] - cz2)) <= 0) continue;
@@ -5395,10 +5470,10 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       let rgb = faceBaseRgb(face, pal);
       if (e.wreck) rgb = mix3(rgb, [74, 72, 66], 0.55);
       let z = 0; for (const q of P) z += q.z;
-      let nf = Infinity, xf = -Infinity;
-      for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; }
+      let nf = Infinity, xf = -Infinity, hf = Infinity;
+      for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
       const avgZf = z / P.length;
-      const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, af: avgZf, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
+      const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZf, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
       if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
       if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }      // canopy art: UVs + style authored on the mesh
       drawn.push(rec);

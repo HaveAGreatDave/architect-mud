@@ -564,6 +564,10 @@ export function paintWindshield(id, view) {
   const ctx = cv.getContext('2d');
   const st = sceneFor(id, cw, ch);
   const v = view || {};
+  // Who is standing near a depot door this frame — collected ONCE, here, before the world pass
+  // that draws the sheds, so the picture and the collision sweep both read the same list. See
+  // setBayVehicles: a door is opened by trucks, never by the eye.
+  setBayVehicles(v);
   const baseDpr = Math.min(2, window.devicePixelRatio || 1);
   // Dynamic resolution scaling: under sustained frame-time load, shrink the backing store below
   // native and let CSS upscale it — the broadest fps lever, since it scales EVERY pass at once
@@ -4786,7 +4790,23 @@ export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
   // inches is a door players will hate), and it must never become a general "buildings with doors
   // are passable" rule. A truck is the only thing this matters for; a pedestrian was always able
   // to walk in, because walking in is what an exit is.
-  if (cell?.mark === 'bay') return 0;
+  // ⚠ …AND THE HOLE HAS A DOOR IN IT NOW. The tile is still open ground — the walls of this shed
+  // have never blocked anything and making them do so is a separate job — but the aperture itself
+  // is only a hole while the door is UP. Shut, it is a physical object you stop at, from either
+  // side, which is what makes it a door rather than a texture that animates when you get close.
+  //
+  // Only the threshold plane blocks, not the whole tile: a rig parked at the back of a shed whose
+  // door has come down must be able to sit there rather than be trapped inside solid ground. The
+  // band is generous (±0.1 tile) because a sweep samples discretely and a door you can tunnel
+  // through at fifty is worse than no door at all.
+  if (cell?.mark === 'bay') {
+    if (bayDoorOpen(wx, wy, cell) > 0.5) return 0;
+    const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+    const rx = px - wx, ry = py - wy;
+    const lx = rx * ct + ry * st, ly = -rx * st + ry * ct;
+    if (Math.abs(lx) <= BAY.DOOR_W + 0.02 && Math.abs(ly - BAY.HL) < 0.10) return BAY.DOOR_H;
+    return 0;
+  }
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   const m = modelFor(cell);
@@ -6679,8 +6699,16 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
       const g = ctx.createLinearGradient(A.sx, A.sy, (B.sx + D.sx) / 2, (B.sy + D.sy) / 2);
       // Hot and near-white at the throat, blue through the body, gone at the tip — an emitter's
       // ramp, the same one the pools use, so the two read as one light rather than as two effects.
-      g.addColorStop(0, `rgba(214,246,255,${0.62 * alpha * k})`);
-      g.addColorStop(0.35, `rgba(104,200,255,${0.34 * alpha * k})`);
+      // ⚠ THE CONES ARE BRIGHTER THAN THE POOLS, DELIBERATELY, and only the cones were raised here.
+      // The pool on the road is reflected light and the cone is the source, so a jet that is dimmer
+      // than the patch it casts reads as a decal rather than as thrust. The throat is nearly white
+      // and the body holds its blue further down the cone before falling away, which is the shape
+      // of a real emitter: it blows out where it is hottest and keeps its colour in the falloff.
+      // Additive, so these numbers stack where the four cones overlap — pushed harder than they
+      // look on paper for that reason, and the tip is still a clean zero so nothing squares off.
+      g.addColorStop(0, `rgba(228,250,255,${0.92 * alpha * k})`);
+      g.addColorStop(0.18, `rgba(150,224,255,${0.66 * alpha * k})`);
+      g.addColorStop(0.45, `rgba(104,200,255,${0.40 * alpha * k})`);
       g.addColorStop(1, 'rgba(32,96,220,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
@@ -6820,7 +6848,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // outward-facing when it is the INSIDE of the box.
     // Faces carrying `cen` (every `box` in aircraft3d) get their own solid's centre; everything else
     // — free polys, the whole aircraft mesh — keeps the model origin and behaves exactly as before.
-    let nx = 0, ny = 0, nz = 0, cx3 = 0, cy3 = 0, cz3 = 0, haveN = false;
+    let nx = 0, ny = 0, nz = 0, cx3 = 0, cy3 = 0, cz3 = 0, haveN = false, trustOut = false;
     if (dp.length >= 3) {
       const w0 = bw ? bw[0] : Wp(dp[0]), w1 = bw ? bw[1] : Wp(dp[1]), w2 = bw ? bw[2] : Wp(dp[2]);
       const ax = w1[0] - w0[0], ay = w1[1] - w0[1], az = w1[2] - w0[2];
@@ -6833,7 +6861,18 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       // be. Ballistic debris tumbles about a centroid this transform does not know, so it opts out
       // (below) rather than being culled against a stale point.
       const ref = (face.cen && !bw) ? Wp(face.cen) : [c.dx, c.dy, baseWz];
-      if (nx * (cx3 - ref[0]) + ny * (cy3 - ref[1]) + nz * (cz3 - ref[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      const outD = nx * (cx3 - ref[0]) + ny * (cy3 - ref[1]) + nz * (cz3 - ref[2]);
+      if (outD < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      // ⚠ WHICH WAY IS OUT IS ONLY KNOWN IF THE OFFSET HAS A COMPONENT ALONG THE NORMAL. `cen` is
+      // the anchor a box was laid out from, and on several of the truck's boxes that anchor is a
+      // long way from the middle of the face it stamps — a deck plate at z 0.098 whose `cen` sits a
+      // fifth of a truck away in x. All of that offset is SIDEWAYS to a face pointing straight up,
+      // so `outD` is zero and its sign is rounding noise: the normal flips at random as the camera
+      // moves, and the cull below then drops the face on about half the frames. That is the
+      // flashing on the truck's flanks. When there is no component along the normal there is no
+      // outward, so the face is treated as a sheet and never culled — see the same rule in
+      // aircraft3d's paintTurntable, which had the magnitude guard but measured the wrong thing.
+      trustOut = Math.abs(outD) / (Math.hypot(nx, ny, nz) || 1) > 1e-4;
       haveN = true;
     }
     // ── BACKFACE CULLING ───────────────────────────────────────────────────────
@@ -6852,7 +6891,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // ⚠ ONLY FACES THAT BOUND A SOLID. A face with no `cen` is a free polygon — a raked screen, a
     // fin blade, a sheet with nothing behind it — and a sheet is visible from both sides. Culling
     // one is not an optimisation, it is a hole in the model.
-    if (face.cen && haveN && !bw && cullBackfaces) {
+    if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
       const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh, ez = cam.EH;
       if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
     }
@@ -8270,6 +8309,35 @@ export function bayMassSmoke() {
   near(buildingRoofFtAt(wx, wy, cell, wx, wy), BAY_FLOORS * FT_PER_FLOOR, 1e-6, 'the ridge in feet');
   if (modelTopZAt(wx, wy, cell, wx + 0.49, wy + 0.49) !== 0) out.push('the probe found mass outside the shed footprint');
   if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
+  // ── THE DOOR IS A PHYSICAL OBJECT, AND BOTH OF ITS STATES ARE ASSERTED ─────
+  // Two probes at the threshold, with nothing changed between them but whether a truck is standing
+  // outside. Shut, the aperture stops you; with a rig on the apron it lifts and lets you through.
+  // Without both halves this is untested in the only place it matters: the tile-centre probe above
+  // sits in the middle of the shed and never touches the door plane, so it passed unchanged on the
+  // day the door became solid — a new physical object with no coverage at all.
+  //
+  // ⚠ The occupant list is global and every other caller shares it, so it is saved and restored.
+  const savedBay = _bayVehicles.slice();
+  try {
+    const ent = faceVec(cell.ent), th2 = Math.atan2(-ent[0], ent[1]);
+    const thrX = wx + Math.sin(th2) * BAY.HL, thrY = wy + Math.cos(th2) * BAY.HL;   // the doorway, in world
+    setBayVehicles(null);
+    if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) === 0) out.push('the roller door does not stop anything when it is shut');
+    // A truck one tile out on the apron. `_bayVehicles` is relative to the own ship, and the tile
+    // sits at (wx, wy) in that same frame, so the rig goes just beyond the threshold.
+    _bayVehicles.length = 0;
+    _bayVehicles.push([thrX + Math.sin(th2) * 0.5, thrY + Math.cos(th2) * 0.5]);
+    if (bayDoorOpen(wx, wy, cell) <= 0.5) out.push('a truck at the threshold does not open the door');
+    if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) !== 0) out.push('the door is up and the aperture still blocks');
+    // …and a rig on the far side of the yard must NOT open it, or the sensor is a tile flag with
+    // extra steps.
+    _bayVehicles.length = 0;
+    _bayVehicles.push([wx + 6, wy + 6]);
+    if (bayDoorOpen(wx, wy, cell) !== 0) out.push('a truck across the yard opens the door');
+  } finally {
+    _bayVehicles.length = 0;
+    for (const p of savedBay) _bayVehicles.push(p);
+  }
   return out;
 }
 
@@ -11891,6 +11959,50 @@ const BAY_OPEN_TILES = 1.35;    // …and is fully up by the time the bumper is 
 // inside, it starts shut with the shed around you and comes up as you roll at it.
 const BAY_IN_SENSE = 0.40;   // ⚠ must be < HL, or the door is already lifting on the frame you mount
 const BAY_IN_OPEN = 0.14;
+// ── WHO OPENS A DEPOT DOOR: A TRUCK, NOT A CAMERA ────────────────────────────
+// The sensor used to measure to the EYE, which is a different thing from the vehicle in every view
+// this game has: the chase camera sits 1.6 tiles astern, so the door began lifting while the truck
+// was still well back, and — worse — orbiting the camera around a parked rig walked the door up and
+// down with it. A roller door is a fact about the building, so it has to be driven by facts about
+// the world rather than by where somebody happens to be looking from.
+//
+// So the occupants are collected once a frame, and they are VEHICLES: the own ship, plus every
+// truck contact the server has told us about. That is what makes the door honest for other people —
+// somebody else's rig rolling up to the threshold opens it in YOUR window, from across the yard,
+// and a door with nobody near it is shut no matter who is watching or from where.
+//
+// ⚠ AND IT IS THE ONE DEFINITION, SHARED WITH THE COLLISION. `groundObstructionAt` asks this same
+// function whether the aperture is passable, so the door you can see and the door that stops you
+// are the same door. A second copy of these four constants in the physics is a building whose
+// picture and behaviour disagree, which is the worst of the three possible bugs here.
+const _bayVehicles = [];   // [dx, dy] per vehicle, in the own-ship-relative world frame this file uses
+export function setBayVehicles(v) {
+  _bayVehicles.length = 0;
+  if (!v) return;
+  if (v.cls === 'truck') _bayVehicles.push([0, 0]);                 // the own ship is the origin of this frame
+  if (v.contacts) for (const c of v.contacts) if (c.cls === 'truck') _bayVehicles.push([c.dx, c.dy]);
+}
+// How far up the door on the tile at (dx, dy) is: 0 shut, 1 fully up. Pure, and cheap enough to
+// call from a collision sweep — the occupant list is at most a handful of rigs.
+export function bayDoorOpen(dx, dy, cell) {
+  if (!_bayVehicles.length || !cell) return 0;
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const { HW, HL, DOOR_W } = BAY;
+  let best = 0;
+  for (const [vx, vy] of _bayVehicles) {
+    const wx = vx - dx, wy = vy - dy;                                  // vehicle → tile centre, world axes
+    const lx = wx * ct + wy * st, ly = -wx * st + wy * ct;             // …and in the shed's own frame
+    const inside = Math.abs(lx) < HW && Math.abs(ly) < HL;
+    // Measured to the DOORWAY, not the tile centre, so the sensor means the same thing from the
+    // apron and from the back wall; `lateral` is what stops a rig passing down the far side of the
+    // yard from opening it.
+    const d = Math.hypot(Math.max(0, Math.abs(lx) - DOOR_W), ly - HL);
+    const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
+    const o = clamp((s0 - d) / Math.max(0.01, s0 - s1), 0, 1);
+    if (o > best) best = o;
+  }
+  return best;
+}
 // ── THE CUTAWAY IS A DIAL, NOT A SWITCH ──────────────────────────────────────
 // The cutaway (note 5) exists so the roof and the near wall stop standing between the chase camera
 // and your own rig — a lid you look through. But it is also a lie about a solid building, and which
@@ -11945,10 +12057,10 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // Distance from the eye to the DOORWAY rather than to the tile centre, so the sensor means the
   // same thing from the apron and from the back wall. `lateral` is how far off the aperture you are
   // sideways, which is what stops a truck passing down the far side of the yard from opening it.
-  const lateral = Math.max(0, Math.abs(camLX) - DOOR_W);
-  const dDoor = Math.hypot(lateral, camLY - HL);
-  const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
-  const open = clamp((s0 - dDoor) / Math.max(0.01, s0 - s1), 0, 1);
+  // The door is the world's, not the camera's — see `bayDoorOpen`. Everything the eye still decides
+  // (the cutaway, which side of a wall you are on) stays keyed on `camLX/camLY` above, because those
+  // ARE questions about where you are looking from.
+  const open = bayDoorOpen(dx, dy, cell);
 
   // ── ONE CLIPPER, USED FOR TWO JOBS ─────────────────────────────────────────
   // Convex clip of a local-space polygon against a linear half-space. `g` returns a signed value
@@ -11983,7 +12095,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     if (C.length < 3) return;
     const proj = C.map(([lx, ly, z]) => P(lx, ly, z));
     let af = 0; for (const p of proj) af += p.f; af /= proj.length;
-    list.push({ af, layer: o.layer ?? 2, pts: proj, fill, stroke: o.stroke, tex: (C.length === pts.length) ? o.tex : null, vertical: o.vertical, cut: !!o.cut });
+    list.push({ af, layer: o.layer ?? 2, pts: proj, fill, stroke: o.stroke, tex: (C.length === pts.length) ? o.tex : null, vertical: o.vertical, cut: !!o.cut, keep: !!o.keep });
   };
 
   // ── THE PALETTE ────────────────────────────────────────────────────────────
@@ -12161,15 +12273,17 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // A site office in the back corner with a lit window, and a row of drums against the back wall.
   // Two objects, and between them the shed stops being empty: there is somewhere the paperwork
   // happens and somewhere the oil lives.
+  // ⚠ EVERY FACE HERE IS `keep` — see the cutaway note in the paint loop. This helper builds only
+  // fittings (the office, the drums), which are the shed's CONTENTS and must never fade with it.
   const box = (x0, x1, y0, y1, z0, z1, k) => {
-    bayFace([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k), { stroke: 'rgba(0,0,0,0.35)' });          // face toward the door
-    bayFace([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], inn(...STEEL, k * 0.86), { stroke: 'rgba(0,0,0,0.35)' });   // +x side
-    bayFace([[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], inn(...STEEL, k * 0.78), { stroke: 'rgba(0,0,0,0.35)' });   // -x side
-    bayFace([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k * 1.1), { stroke: 'rgba(0,0,0,0.35)' });    // top
+    bayFace([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k), { stroke: 'rgba(0,0,0,0.35)', keep: true });          // face toward the door
+    bayFace([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], inn(...STEEL, k * 0.86), { stroke: 'rgba(0,0,0,0.35)', keep: true });   // +x side
+    bayFace([[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], inn(...STEEL, k * 0.78), { stroke: 'rgba(0,0,0,0.35)', keep: true });   // -x side
+    bayFace([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], inn(...STEEL, k * 1.1), { stroke: 'rgba(0,0,0,0.35)', keep: true });    // top
   };
   box(-HW + 0.02, -HW + 0.19, -HL + 0.02, -HL + 0.16, 0, 0.11, 0.9);
   bayFace([[-HW + 0.05, -HL + 0.162, 0.05], [-HW + 0.16, -HL + 0.162, 0.05], [-HW + 0.16, -HL + 0.162, 0.09], [-HW + 0.05, -HL + 0.162, 0.09]],
-    night ? 'rgba(255,214,150,0.92)' : 'rgba(176,198,214,0.85)', { stroke: 'rgba(0,0,0,0.4)' });   // the office window, lit late
+    night ? 'rgba(255,214,150,0.92)' : 'rgba(176,198,214,0.85)', { stroke: 'rgba(0,0,0,0.4)', keep: true });   // the office window, lit late
   for (let i = 0; i < 4; i++) {
     const x = 0.16 + i * 0.062;
     box(x, x + 0.045, -HL + 0.02, -HL + 0.065, 0, 0.048, i % 2 ? 0.72 : 0.62);
@@ -12187,8 +12301,22 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     // the yard the near wall is a wall, mid-dolly it is glass you can make out your own trailer
     // through, and only down at the flattened chase is it fully out of the way. Ground paint
     // (layers 0/1) is never in the way of anything, so it stays solid throughout.
-    const near = it.cut || (it.layer === 2 && it.af < fCentre - 0.03);
-    const a = near ? alpha * (1 - cut) : alpha;
+    // ⚠ IT IS A RAMP, NOT A THRESHOLD, AND THAT IS WHAT STOPPED THE OFFICE FLICKERING. The test
+    // used to be `af < fCentre - 0.03` — a hard step on a face's MEAN depth — and a step on a
+    // continuous quantity is a pop by construction. The site office is four faces at four slightly
+    // different means, so they crossed that line one at a time as the camera moved and the box came
+    // apart a side at a time; sit near the line and the smallest movement blinked it in and out.
+    // Fading over a band instead means a face crossing the middle of the shed does it gradually,
+    // and no camera movement can produce a jump. Nothing about the cutaway's intent changed: backed
+    // off in the yard the near wall is a wall, mid-dolly it is glass, flat on the chase it is gone.
+    //
+    // …AND FITTINGS ARE EXEMPT ENTIRELY (`keep`). The office and the oil drums are CONTENTS of the
+    // shed, not things standing between you and them, and a cutaway that hides the contents is a
+    // cutaway working against its own purpose. They are solid from every angle.
+    const nearAmt = it.cut ? 1
+      : (it.layer === 2 && !it.keep) ? clamp(((fCentre - 0.03) - it.af) / 0.12, 0, 1)
+      : 0;
+    const a = alpha * (1 - cut * nearAmt);
     if (a <= 0.012) continue;
     ctx.globalAlpha = a;
     ctx.beginPath();
