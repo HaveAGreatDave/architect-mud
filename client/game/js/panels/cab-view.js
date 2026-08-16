@@ -19,7 +19,7 @@
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
-import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
+import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
@@ -245,7 +245,27 @@ export function openCab(ctx = {}) {
       <div class="cab-help" hidden></div>
       <!-- THE ROUTE PICKER. Opened by tapping the GPS screen on the dash; every row sends the
            ordinary 'route &lt;key&gt;' verb, which is what actually decides. -->
-      <div class="cab-routes" hidden></div>
+      <!-- ── THE GPS, WHICH IS A LITTLE TABLET ────────────────────────────────
+           It was one screen that did one thing: tap the dash unit, get a route picker. But a
+           screen in a dash is a screen, and a driver who wants to know what the truck's condition
+           is should not have to leave the windscreen to find out — the damage was already a payload
+           the cab receives and a panel the cab renders, so it is an APP on this thing rather than a
+           second surface with its own way in.
+           And it POPS OUT. A 5-inch unit painted into the dash is the right size when you are
+           driving and the wrong size when you are reading it, so the same panel detaches into a
+           floating window you can put where you like and drag around. Same DOM, same renderers,
+           one class — a second copy for the popped-out state is a second copy to keep in step. -->
+      <div class="cab-routes" hidden>
+        <div class="cab-gps-hd">
+          <b class="cab-gps-tabs">
+            <button class="cab-gps-tab on" data-app="route">ROUTE</button>
+            <button class="cab-gps-tab" data-app="damage">RIG</button>
+          </b>
+          <button class="cab-gps-pop" title="Pop out into its own window" aria-label="Pop out">&#9082;</button>
+          <button class="cab-gps-x" title="Close" aria-label="Close">&times;</button>
+        </div>
+        <div class="cab-gps-body"></div>
+      </div>
       <!-- WHERE THE KEYS ARE GOING. The cab reads A/Z/X/C/,/./R off the WINDOW, and the command
            bar is an ordinary text input sitting three inches below it — so a driver who had ever
            clicked the log was driving a truck and typing "aaazzzx" into the chat box at the same
@@ -1107,12 +1127,36 @@ export function openCab(ctx = {}) {
       thin: ['r-thin', 'past your tank, one way'],
       far: ['r-far', 'well past your range'],
     };
+    const body = () => box?.querySelector('.cab-gps-body');
+    // WHICH APP IS UP is one variable and the tabs are the only writer. The renderers below are
+    // otherwise unchanged — they paint the body, and the body does not care whether it is currently
+    // sitting in the dash or in a floating window.
+    st.gpsApp = 'route';
+    function renderGps() { return st.gpsApp === 'damage' ? renderDamageApp() : renderRoutePicker(); }
+    st.renderGps = renderGps;
+    // The rig's condition, as a GPS page. Deliberately the SAME rows the damage card draws — it
+    // reads `st.dmg`, the payload the server already pushes — because two renderings of one set of
+    // numbers is how two renderings end up disagreeing.
+    function renderDamageApp() {
+      const el = body(); if (!el) return;
+      const d = st.dmg;
+      if (!d) { el.innerHTML = '<div class="cab-routes-none">No read on the truck yet.</div>'; return; }
+      const parts = DMG_PARTS.filter((p) => d[p.key]);
+      el.innerHTML = parts.map((p) => {
+        const v = d[p.key];
+        return `<div class="cab-dmg-row"><span class="cab-dmg-lbl">${p.label}</span>`
+          + `<span class="cab-dmg-bar b-${v.band}"><i style="width:${Math.round(v.v * 100)}%"></i></span>`
+          + `<b>${Math.round(v.v * 100)}%</b><span class="cab-dmg-note">${p.note}</span></div>`;
+      }).join('')
+        + '<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time. '
+        + 'A component that has FAILED needs the part itself — <b>rig parts</b>.</p>';
+    }
     function renderRoutePicker() {
-      if (!box || box.hidden) return;
+      if (!box || box.hidden || st.gpsApp !== 'route') return;
+      const el = body(); if (!el) return;
       const R = st.routes;
       if (!R || !R.dests?.length) {
-        box.innerHTML = '<div class="cab-routes-hd">ROUTE</div>'
-          + '<div class="cab-routes-none">One road out of here, and you are on it.</div>';
+        el.innerHTML = '<div class="cab-routes-none">One road out of here, and you are on it.</div>';
         return;
       }
       const rows = R.dests.map((d) => {
@@ -1127,13 +1171,13 @@ export function openCab(ctx = {}) {
       const foot = R.forkAhead
         ? '<div class="cab-routes-ft">The fork is still ahead.</div>'
         : '<div class="cab-routes-ft warn">The fork is behind you — this is the road you are on.</div>';
-      box.innerHTML = `<div class="cab-routes-hd">ROUTE${R.origin ? ' &middot; out of ' + esc(R.origin) : ''}</div>${rows}${foot}`;
+      el.innerHTML = `${R.origin ? `<div class="cab-routes-hd">out of ${esc(R.origin)}</div>` : ''}${rows}${foot}`;
     }
     st.renderRoutePicker = renderRoutePicker;
     st.toggleRoutePicker = (on) => {
       if (!box) return;
       box.hidden = on === undefined ? !box.hidden : !on;
-      renderRoutePicker();
+      renderGps();
       // NOTHING IS REQUESTED ON OPEN. The tempting move is to ask the server for a fresh list, and
       // the only channel to hand is `trucksync` — which is TELEMETRY, clamped against wall-clock to
       // defend the odometer. Sending a synthetic one to provoke a reply would be feeding the
@@ -1142,6 +1186,55 @@ export function openCab(ctx = {}) {
       // old, and the verb re-checks everything anyway.
       grabKeys();
     };
+    // Tabs, close, and the pop-out. All three are one delegated listener on the header, because
+    // the header is one control strip and three listeners on three buttons is three chances for one
+    // of them to be bound to an element that a re-render has since replaced.
+    box?.querySelector('.cab-gps-hd')?.addEventListener('click', (e) => {
+      const tab = e.target.closest?.('.cab-gps-tab');
+      if (tab) {
+        st.gpsApp = tab.dataset.app;
+        for (const t of box.querySelectorAll('.cab-gps-tab')) t.classList.toggle('on', t === tab);
+        renderGps();
+        grabKeys();                       // tapping the screen must not cost you the wheel
+        e.preventDefault(); return;
+      }
+      if (e.target.closest?.('.cab-gps-x')) { st.toggleRoutePicker(false); e.preventDefault(); return; }
+      if (e.target.closest?.('.cab-gps-pop')) {
+        // POPPING OUT IS A CLASS, NOT A NEW WINDOW. The panel keeps its DOM, its listeners and its
+        // renderers; all that changes is where it is positioned and that it now has a title bar you
+        // can drag. Cloning it into a real dialog would have meant two of everything.
+        const out = box.classList.toggle('cab-gps-out');
+        if (out && !box.style.left) { box.style.left = '18vw'; box.style.top = '16vh'; }
+        renderGps();
+        grabKeys();
+        e.preventDefault(); return;
+      }
+    });
+    // Dragging the popped-out unit by its header. Pointer capture, so it keeps following the finger
+    // when the cursor outruns the box — the same reason every held control in this cab claims its
+    // pointer.
+    {
+      const hd = box?.querySelector('.cab-gps-hd');
+      let drag = null;
+      hd?.addEventListener('pointerdown', (e) => {
+        if (!box.classList.contains('cab-gps-out')) return;
+        if (e.target.closest('.cab-gps-tab,.cab-gps-pop,.cab-gps-x')) return;   // buttons are buttons first
+        const r = box.getBoundingClientRect();
+        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        hd.setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+      });
+      hd?.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        // Clamped to the window, or a panel dragged off the edge is a panel you cannot get back.
+        box.style.left = Math.max(0, Math.min(innerWidth - 80, e.clientX - drag.dx)) + 'px';
+        box.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - drag.dy)) + 'px';
+      });
+      const end = () => { drag = null; };
+      hd?.addEventListener('pointerup', end);
+      hd?.addEventListener('pointercancel', end);
+    }
+
     box?.addEventListener('click', (e) => {
       const btn = e.target.closest?.('.cab-route');
       if (!btn) return;
@@ -1171,6 +1264,23 @@ export function openCab(ctx = {}) {
   });
   st.renderDamage = (d) => {
     if (!d) return;
+    // ── YOU HEAR IT BEFORE YOU READ IT ────────────────────────────────────────
+    // A component crossing into a worse band is an EVENT, and the sound is how a driver finds out
+    // about it with their eyes on the road. Fired from the band the server already computed rather
+    // than from a threshold this file keeps its own copy of — the pip, the bar, the log line and
+    // the noise then all change at exactly the same moment, which is the only version of this that
+    // does not eventually read as a bug.
+    //
+    // ⚠ ONLY ON THE WAY DOWN. A repair also changes the band, and a bearing knock celebrating a
+    // successful bench visit would be an odd thing to sit through.
+    const prev = st.dmg;
+    if (prev) {
+      for (const part of DMG_PARTS) {
+        const now = d[part.key], was = prev[part.key];
+        if (!now || !was) continue;
+        if (now.v < was.v && now.band !== was.band) damageCue(part.key, now.band);
+      }
+    }
     st.dmg = d;
     // The strip: one pip per component, and the WORST one drives whether the whole strip is
     // shouting. A driver should not have to read four pips to find out that one of them is red.
@@ -1189,6 +1299,9 @@ export function openCab(ctx = {}) {
     }).join('')
       + `<p class="cab-dmg-foot">A bench is <b>rig repair shop</b> at a depot, or one part at a time — `
       + `<b>rig repair shop engine</b>. Out here, <b>fix</b> needs a box of spares.</p>`;
+    // …and if the GPS is showing the rig page, it is showing THESE numbers, so it repaints here
+    // rather than on a timer of its own.
+    if (st.gpsApp === 'damage') st.renderGps?.();
   };
 
   // The controls card. Built from ONE table so the legend cannot drift from the buttons — every row
@@ -1637,6 +1750,11 @@ function frame(now) {
     // which is most of what makes a big diesel sound heavy.
     if (now - st.lastAudio >= 220) {
       st.lastAudio = now;
+      // What continuing to drive on it sounds like. Scaled off the worst component and driven from
+      // the same payload the gauges read, so the sound IS the gauge rather than a second opinion
+      // about it. Cheap enough for the frame loop: it sets one loop gain and returns.
+      damageBed(st.dmg && Object.fromEntries(DMG_PARTS.map((p) => [p.key, st.dmg[p.key]?.v ?? 1])),
+        !st.dry && !st.broken);
       updateEngineAudio({
         continuous: true, class: 'truck', engineOn: !st.dry, airborne: false, onGround: true,
         rpm: Math.max(0, st.sim.rpm - (st.rpmDip || 0)), throttle: r.pedal * 100, spd: r.speed,
@@ -2024,6 +2142,29 @@ function ensureCabStyles() {
     box-shadow:0 10px 26px -10px #000;backdrop-filter:blur(3px)}
   .cab-routes-hd{font:700 9px/1 inherit;letter-spacing:.14em;color:var(--cab-glow,#e8c07a);
     padding:2px 3px 6px}
+  /* ── THE GPS UNIT'S CHROME ────────────────────────────────────────────────
+     A dash screen is a bezel with a strip of buttons along the top, so that is what this is: tabs
+     on the left, the two window controls on the right, and a body under it that each app paints.
+     The header doubles as the drag handle once the unit is popped out — which is why it is a real
+     bar with padding rather than a row of floating buttons. */
+  .cab-gps-hd{display:flex;align-items:center;gap:6px;margin:-2px -2px 6px;padding:3px 3px 5px;
+    border-bottom:1px solid #29323c}
+  .cab-gps-tabs{display:flex;gap:3px;flex:1 1 auto;min-width:0}
+  .cab-gps-tab{padding:3px 8px;cursor:pointer;border-radius:3px;border:1px solid transparent;
+    background:none;color:#8b97a6;font:700 9px/1 inherit;letter-spacing:.12em}
+  .cab-gps-tab:hover{color:#cfd9e5}
+  .cab-gps-tab.on{color:var(--cab-glow,#e8c07a);border-color:#3c4753;background:#131a21}
+  .cab-gps-pop,.cab-gps-x{background:none;border:0;cursor:pointer;color:#8b97a6;font:700 12px/1 inherit;padding:2px 4px}
+  .cab-gps-pop:hover,.cab-gps-x:hover{color:#eaf1f8}
+  .cab-gps-body{max-height:min(52vh,420px);overflow:auto}
+  /* POPPED OUT. Fixed rather than absolute, so it is free of the windscreen's box and can be put
+     anywhere on the page; wider, because the whole reason to pop it out is that you are reading it
+     rather than glancing at it. The drag handle gets the cursor that says so. */
+  .cab-routes.cab-gps-out{position:fixed;right:auto;bottom:auto;min-width:340px;max-width:min(560px,92vw);
+    z-index:60;box-shadow:0 22px 60px -18px #000,0 0 0 1px #46525f}
+  .cab-routes.cab-gps-out .cab-gps-hd{cursor:grab}
+  .cab-routes.cab-gps-out .cab-gps-hd:active{cursor:grabbing}
+  .cab-routes.cab-gps-out .cab-gps-body{max-height:min(70vh,620px)}
   .cab-route{display:block;width:100%;text-align:left;margin:0 0 4px;padding:6px 8px;cursor:pointer;
     background:#141a20;border:1px solid #2f3944;border-radius:4px;color:#cfd9e5;font:600 12px/1.25 inherit}
   .cab-route:hover{background:#1d252d;border-color:#5c6672}
@@ -2442,6 +2583,7 @@ export function closeCab() {
   suppressWeatherFx(false);
   cancelAnimationFrame(st.raf);
   stopEngineAudio();                                 // the diesel does not idle on in an empty room
+  stopDamageBed();                                   // …and neither does the rattle it was making
   removeEventListener('keydown', st.onKey);
   removeEventListener('keyup', st.onKey);
   if (st.onFocusIn) removeEventListener('focusin', st.onFocusIn);

@@ -29,8 +29,7 @@
     "fuel",
     "trucksync",
     "truckevent",
-    "rig",
-    "strip"
+    "rig"
   ],
   "hooks": [
     "zone.describeRoom",

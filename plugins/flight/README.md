@@ -31,7 +31,8 @@ startup / takeoff / landing and widens the minigame safe bands.
 - **Acquisition:** `buy` · `charter`
 - **Combat:** `arm` · `safe` · `evade` · `strafe`/`fire`
 - **Contracts:** `contracts`/`jobs` · `accept` · `manifest`
-- **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune`
+- **Ownership:** `hangar` · `repair` · `salvage` · `rebuild` · `tune` · `modify` (the customisation sheet — tune curves, tail, livery, profiles, **and the parts bench**)
+- **Parts & slots:** `modify parts` · `modify buy <part>` · `modify fit <part>` · `modify pull <slot>`. Deliberately **sub-verbs, not new verbs** — `install`/`uninstall` are the doors/augments plugins' and `parts` is trucking's, and a plugin verb silently beats both the engine builtin and the other plugin depending on load order. A part is an ordinary inventory ITEM out of the aircraft (so it trades, drops off a stripped wreck, and can be carried), and `state.PARTS`/`PART_SLOTS` is the authored mechanic. See [docs/systems-flight.md](../../docs/systems-flight.md#parts--slots--the-discrete-layer-as-built).
 - **Silent resolvers:** `strafresolve` · `flightsync` · `flightevent`
 
 Bare compass verbs (`n`/`north`/…) are intercepted by an **input matcher** only while
@@ -67,6 +68,9 @@ Routed in `client/game/js/dispatch.js` (`cockpit_update` / `cockpit_close` /
 
 ## Follow-on
 
-Full PvP air-to-air, authored storm-cell/offshore special-airspace content, comms/ATC
-flavor, corp aircraft + insurance, and discrete parts-as-items slots (the continuous
-tune curves are in). See the as-built doc for the boundary.
+Authored storm-cell/offshore special-airspace content, **comms/ATC** (a flight-comms
+channel, `request clearance`, CTAF, mayday → the rescue/medevac contract hook — the
+one designed sub-system with no implementation at all), crew seats (gunner/nav),
+`drone_ops` as the unmanned scout, and the news/spy chopper camera feed. PvP
+air-to-air and the parts-as-items slot layer are both in. See the as-built doc for
+the boundary.

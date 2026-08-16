@@ -875,3 +875,86 @@ export function stallHorn(level) {
   }
   if (_hornOn) ae.setLoopGain?.('flt-stallhorn', Math.max(0, Math.min(0.6, level)), 0.05);   // pulse/steady via gain (no restart churn)
 }
+
+// ── DAMAGE, AS A SOUND ───────────────────────────────────────────────────────
+// A truck that is coming apart should be audible from the driver's seat before it is legible on a
+// gauge, because that is the order it happens in real life: you hear it, then you look.
+//
+// TWO HALVES, and they answer different questions.
+//
+//   `damageCue(part, band)`  — a ONE-SHOT at the moment a component crosses into a worse band.
+//                              This is the event. It is per PART because a wheel letting go and an
+//                              engine starting to knock are not the same noise and a driver has to
+//                              be able to tell them apart with their eyes on the road.
+//   `damageBed(dmg)`         — a CONTINUOUS layer for living with it. Scales with how bad the
+//                              worst component is, so the sound is the gauge.
+//
+// ⚠ THE SCALE IS THE CONDITION NUMBER, NOT A SECOND ONE. Everything in this system reads 1 = sound
+// and 0 = failed (the bands, the HUD, the resale price, the repair bill), so this does too and the
+// gain runs on `1 - condition`. Saying it once, backwards, in the audio layer is exactly how a
+// system ends up with two vocabularies and a driver who trusts neither.
+const DMG_CUES = {
+  // The engine: a knock arriving. A hard low rap with a metallic ring after it, because what you
+  // are hearing is a bearing that has stopped being round.
+  engine: { config: { duration: 0.9, layers: [
+    { waveform: 'square', freq: 84, pitchBend: { to: 52, time: 0.06 }, filter: { type: 'lowpass', freq: 420, q: 2.4 }, adsr: { a: 0.002, d: 0.10, s: 0, r: 0.06 }, gain: 0.13 },
+    { waveform: 'triangle', freq: 210, filter: { type: 'bandpass', freq: 900, q: 4 }, adsr: { a: 0.004, d: 0.30, s: 0, r: 0.2 }, gain: 0.06 },
+    { waveform: 'noise', noiseMix: 1, delay: 0.03, filter: { type: 'bandpass', freq: 1600, q: 1.2 }, adsr: { a: 0.01, d: 0.22, s: 0, r: 0.15 }, gain: 0.05 } ] } },
+  // The lifters: an emitter face going out of phase. A wobble rather than an impact — the note is
+  // wrong before it is loud, which is what a failing hover pod actually does.
+  wheels: { config: { duration: 1.2, layers: [
+    { waveform: 'sawtooth', freq: 120, pitchBend: { to: 96, time: 0.5 }, vibrato: { rate: 11, depth: 22 }, filter: { type: 'bandpass', freq: 700, q: 2 }, adsr: { a: 0.03, d: 0.7, s: 0.2, r: 0.3 }, gain: 0.09 },
+    { waveform: 'sine', freq: 47, tremolo: { rate: 13, depth: 0.7 }, adsr: { a: 0.04, d: 0.8, s: 0.2, r: 0.3 }, gain: 0.07 } ] } },
+  // The body: sheet metal letting go somewhere behind you. A tearing scrape with a panel boom.
+  body: { config: { duration: 1.0, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2400, q: 0.8 }, adsr: { a: 0.01, d: 0.5, s: 0.1, r: 0.3 }, gain: 0.10 },
+    { waveform: 'triangle', freq: 62, pitchBend: { to: 40, time: 0.3 }, filter: { type: 'lowpass', freq: 300, q: 1.4 }, adsr: { a: 0.006, d: 0.45, s: 0, r: 0.25 }, gain: 0.09 } ] } },
+  // The box behind you, which you hear through the mirror more than through the frame.
+  trailer: { config: { duration: 1.1, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 0.7 }, adsr: { a: 0.02, d: 0.6, s: 0.1, r: 0.35 }, gain: 0.08 },
+    { waveform: 'square', freq: 54, tremolo: { rate: 6, depth: 0.6 }, filter: { type: 'lowpass', freq: 260, q: 1.2 }, adsr: { a: 0.01, d: 0.7, s: 0.1, r: 0.3 }, gain: 0.07 } ] } },
+};
+// A worse band gets a louder, harder version of the SAME cue rather than a different sound. The
+// part is the identity; the band is the volume of the news.
+const BAND_GAIN = { worked: 0.55, tired: 0.75, ailing: 1.0, derelict: 1.25 };
+export function damageCue(part, band = 'tired') {
+  const ae = AE(); const def = DMG_CUES[part]; if (!def) return;
+  const g = BAND_GAIN[band] ?? 0.8;
+  try {
+    ae?.init?.();
+    ae?.playSfx?.({ config: { ...def.config, layers: def.config.layers.map((l) => ({ ...l, gain: (l.gain || 0.1) * g })) } });
+  } catch { /* no audio */ }
+}
+
+// The fault bed: what continuing to drive on it sounds like. One loop, gain and character driven by
+// the WORST component, so a truck with one dying part sounds like a truck with a dying part — which
+// is the same rule `overall` follows for the headline number, and for the same reason.
+let _dmgBed = false;
+export function damageBed(dmg, engineOn = true) {
+  const ae = AE(); if (!ae) return;
+  const worst = Math.min(1, Math.max(0, Math.min(
+    dmg?.engine ?? 1, dmg?.wheels ?? 1, dmg?.body ?? 1)));
+  const hurt = 1 - worst;
+  // Nothing under a fifth gone is worth a noise: a truck with a scratch on it is a quiet truck, and
+  // a bed that fades in at 99% condition would just be tinnitus with a changelog.
+  if (!engineOn || hurt < 0.20) {
+    if (_dmgBed) { try { ae.setLoopGain?.('trk-damage', 0, 0.8); } catch {} _dmgBed = false; }
+    return;
+  }
+  if (!_dmgBed) {
+    try {
+      ae.init?.();
+      ae.loopSound({ id: 'trk-damage', category: 'ambient', config: { gain: 1, layers: [
+        // A rattle that gets less regular as it gets worse: the tremolo rate is the tell.
+        { waveform: 'square', freq: 58, tremolo: { rate: 7, depth: 0.8 }, filter: { type: 'lowpass', freq: 320, q: 1.6 }, gain: 0.05 },
+        // And a dry grind underneath it.
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 0.8 }, tremolo: { rate: 3.5, depth: 0.5 }, gain: 0.04 },
+      ] } });
+      _dmgBed = true;
+    } catch { return; }
+  }
+  // Quadratic, so the last quarter of the bar is where it really starts shouting — the same shape
+  // the condition bands use, where the bottom two are much worse than the top three are good.
+  try { ae.setLoopGain?.('trk-damage', Math.min(0.9, hurt * hurt * 1.6), 0.5); } catch {}
+}
+export function stopDamageBed() { const ae = AE(); if (_dmgBed) { try { ae?.stopLoop?.('trk-damage'); } catch {} _dmgBed = false; } }

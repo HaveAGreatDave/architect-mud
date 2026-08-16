@@ -746,6 +746,60 @@ Oil Cooler** (`coolMult` — halves the heat cost of lean/boost). New kits are o
 entry in the map (`rangeBonus` to widen the dials, or a coefficient read in
 `computeStats` to bend the physics).
 
+### Parts & slots — the discrete layer *(as built)*
+
+**Parts set the envelope; the knobs dial within it.** That sentence is the whole
+reason both layers exist: a knob can't buy you a bigger tank, and a tank can't fly
+the aeroplane for you. A part lives in a **slot** (`state.PART_SLOTS`) and the slot
+is the point — an airframe has one powerplant, one avionics tray, one tank, one
+structural set and (maybe) one pylon set, so fitting a better one means **pulling the
+old one**. Stored on `custom_data.parts` as `{ slot: partId }`; `state.PARTS` is the
+authored catalogue, same shape of decision as `KITS` (a mechanic, not DB content).
+
+**A part is an ordinary inventory item while it is out of the aircraft.** Each entry
+carries an `item` id with a real row under `content/items/`, and that is what buys
+three things for nothing: a part can be **traded**, a part can be **stripped off a
+wreck**, and a part you pulled is a thing in your hands rather than a number in a
+menu. Nothing in `hangars.js` re-implements inventory — fitting deletes the row,
+pulling inserts one. `salvage` on a wreck now rolls a **tier-1** part 45% of the time
+on a successful strip, which is the only free source: the exotic hardware is bought.
+
+**Slots are DERIVED from the type row, never authored twice.** Four are universal.
+The fifth — `pylon` — exists only where `hardpoints >= 1` (already armed) or
+`max_takeoff_weight >= PYLON_MIN_TOW` (big enough to take the loads), which is what
+stops a two-stroke ultralight becoming a gunship by shopping. A fitted pylon set is
+read through **`effHardpoints`/`effStats(live).hardpoints`**, which every armed path
+now uses instead of `type.hardpoints`, so a retrofitted craft arms through exactly
+the code a factory-armed one does. Legality stays contextual — the airspace decides,
+owning the mounts is not itself a crime.
+
+⚠ **Envelope effects go in `computeStats`, never in a caller.** Parts multiply the
+same base numbers the knobs bend (`cruiseMult`/`burnMult`/`fuelCapMult`/`towMult`/
+`heatMult`), so the tick loop, the HUD, the refuel price and the bench graph all
+inherit them from the one function. Two derived numbers are new: `soak` (ballistic
+armour) and `hardpoints`. **`soak` is applied in `applyAirDamage` only** — the one
+funnel guns, missiles and ground AA already share — and deliberately *not* to
+weather, acid or bird strikes: plate stops rounds, not chemistry. Stacked soak is
+`1 − Π(1 − soak)`, so it can never reach 1.
+
+**Installed hardware is payload.** Every part carries a `kg` that counts against
+max takeoff weight exactly as cargo does, which is what stops "fit everything" being
+the answer to every airframe. Some parts widen only the knob they are about (a hot
+section buys `boost` travel, a spar set buys `cg` travel), which is why `tuneRange`
+takes an optional knob id — the bench asks per-knob, and the hard `TUNE_DIAL_MAX`
+cap still wins.
+
+**No new verbs, on purpose.** `install`/`uninstall` belong to the doors and augments
+plugins and `parts` belongs to trucking — and a plugin verb silently beats both the
+engine builtin and the other plugin depending on load order. So the whole layer is
+sub-verbs on the customisation sheet that already existed: **`modify parts`** (the
+bench), **`modify buy <part>`** (into your hands, not into the aircraft),
+**`modify fit <part>`**, **`modify pull <slot>`**. Buying and fitting are two acts,
+the same split the card packs make. A failed **fit** costs you the afternoon and
+never the part (the bench is where you learn); a failed **pull** *is* where a part
+can die, because getting something out that is bolted in and safetied is the job a
+slipped spanner ruins — which is what makes a swap a decision.
+
 **The maintenance bench (client).** The hangar-bay's TUNING tab is a live tuning
 rig, not a stack of cycle buttons: four **rotary drag knobs** (mixture / pitch /
 boost / CG) feed a **performance graph** — the bench stage becomes a five-axis

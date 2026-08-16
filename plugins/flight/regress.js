@@ -383,8 +383,13 @@ export default async function regress({ run, check, getPlayer }) {
   check('a glass panel widens every dial', tuneRange(0, [], partDefs({ parts: { avionics: 'part_avionics_glass' } })) > tuneRange(0, []));
   check('parts can never push a dial past the hard cap',
     tuneRange(999, ['kit_precision'], Object.values(PARTS), 'boost') <= TUNE_DIAL_MAX);
-  check('perfAxes still reads 50 on every axis with parts fitted but no tune',
-    Object.values(perfAxes(TT, {}, 0, [], dPlate)).every(v => v === 50), JSON.stringify(perfAxes(TT, {}, 0, [], dPlate)));
+  // The graph measures the TUNE against a same-parts stock ghost, so fitting hardware
+  // must not move the axes that are pure ratios — but AGILITY is absolute (it reads the
+  // knobs and the load directly), and 16kg of armour plate is load. It is supposed to
+  // drop. That asymmetry is the same one cargo already has.
+  const axPlate = perfAxes(TT, {}, 0, [], dPlate);
+  check('fitting parts leaves the ratio axes at stock', ['speed', 'economy', 'range', 'cool'].every(k => axPlate[k] === 50), JSON.stringify(axPlate));
+  check('bolted-on mass shows up as lost agility', axPlate.agility < 50, String(axPlate.agility));
 
   // ── Livery / paint signature (pure) ─────────────────────────────────────────
   const darkLv = { base: '#111214', trim: '#111214', pattern: 'splinter', finish: 'matte' };

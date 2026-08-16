@@ -778,6 +778,7 @@ async function cmdRig(args, raw, player) {
   if (rigOf(player)?.truckId === truck.id) return say('Climb down first — nobody works on a truck they are sitting in.');
   const cd = truck.custom_data || {};
 
+  if (sub === 'strip') return await rigStrip(player);
   if (sub === 'parts') return await rigParts(player, rest[0]);
   if (sub === 'repair') return await rigRepair(player, truck, cd, rest[0], rest[1] || (PARTS.includes((rest[0]||'').toLowerCase()) ? rest[0] : null));
   if (sub === 'tune') return await rigTune(player, truck, cd, rest);
@@ -785,7 +786,7 @@ async function cmdRig(args, raw, player) {
   if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -1524,7 +1525,11 @@ async function cmdFix(args, raw, player) {
     + `<span class="text-dim">It will hold for a while. It is not repaired — that is a bench and a bill, and the bar on it has not moved.</span>`);
 }
 
-// ── STRIP — the road as a supply line ────────────────────────────────────────
+// ── `rig strip` — the road as a supply line ──────────────────────────────────
+// ⚠ IT IS A `rig` SUBCOMMAND, NOT A VERB, and that is not a style choice: `strip` belongs to the
+// mis plugin (taking your clothes off), plugin verbs are first-come, and registering a second one
+// would have silently shadowed a consent-gated verb with a truck command. The regress caught it.
+// Every other bench-and-counter job is already `rig <something>`, so this is where it belonged.
 // A dead truck by the roadside is somebody's whole evening, and until now it was scenery with a
 // name on it. Stripping one is the second way parts enter the world (the yard counter is the
 // first, fabrication the third), and it is the only one that costs no credits at all — what it
@@ -1549,7 +1554,7 @@ const STRIP_YIELD = [
   { item: 'item_body_panel', label: 'enough sound panel to patch a cab', diff: 4 },
   { item: 'item_scrap_metal', label: 'an armful of scrap', diff: 0, qty: 3 },
 ];
-async function cmdStrip(args, raw, player) {
+async function rigStrip(player) {
   const rig = rigOf(player);
   if (!rig) return say('You would need to be out here in a truck.');
   if (Math.abs(rig.speed) > HITCH_MPH) return say('Not at this speed. Stop alongside it first.');
@@ -2322,7 +2327,6 @@ export const commands = {
   horn: cmdHorn,
   honk: cmdHorn,   // both, because half the people who want this will type the other one
   route: cmdRoute,
-  strip: cmdStrip,
   haul: cmdHaul,
   market: cmdMarket,
   yard: cmdYard,
