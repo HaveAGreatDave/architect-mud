@@ -2515,11 +2515,23 @@ export function aircraftFaces(cls, detail = 1, armed = false, variant = '') {
 // (windshield.js `groundCollisionSmoke`), not off this mesh, so raising the model does not change
 // which awnings you can drive under. If those two are ever tied together, this table stops being a
 // free visual dial and starts being a gameplay one.
+// ⚠ `trim` IS THE PRICE TAG, AND IT IS WHY THE DETAIL PASS DOES NOT FLATTEN THE FLEET. Every
+// ornament on this model used to be gated on `fine` alone, which is a LOD channel and says nothing
+// about the vehicle — so the scrap hauler wore the flagship's chrome spear, its tail fins and its
+// whip aerial, and the four trucks differed only in size. Adding geometry on that footing makes
+// them MORE alike, not less: detail with no ladder behind it is noise.
+//
+// So there are now two independent questions and they are asked separately:
+//   fine  — is this worth drawing AT ALL from here? (distance; the same channel the airframes use)
+//   trim  — did somebody spend money on this truck? (identity; never changes with the camera)
+// Brightwork rides `trim`. Structure — hinges, hoses, mudflaps, the things every working vehicle
+// has whatever it cost — rides `fine`, so the cheap rigs get most of the new triangles too and
+// gain them as WEAR AND HARDWARE rather than as jewellery.
 const TRUCK_SHAPES = {
-  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.250, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, rig: 'cage' },
-  hauler:      { cab: 0.24, nose: 0.04, hi: 0.275, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, rig: 'rack' },
-  drayman:     { cab: 0.24, nose: 0.06, hi: 0.300, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  rig: null },
-  continental: { cab: 0.26, nose: 0.10, hi: 0.335, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    rig: null },
+  scrapper:    { cab: 0.22, nose: 0.00, hi: 0.250, sleeper: 0,     axles: 1, stacks: 0, w: 0.140, deck: 0.30, aero: 0,    skirt: 0, lamps: 0.25, trim: 0.05, rig: 'cage' },
+  hauler:      { cab: 0.24, nose: 0.04, hi: 0.275, sleeper: 0,     axles: 1, stacks: 1, w: 0.150, deck: 0.34, aero: 0.35, skirt: 0, lamps: 0.55, trim: 0.40, rig: 'rack' },
+  drayman:     { cab: 0.24, nose: 0.06, hi: 0.300, sleeper: 0.040, axles: 2, stacks: 2, w: 0.165, deck: 0.46, aero: 0.75, skirt: 1, lamps: 0.8,  trim: 0.75, rig: null },
+  continental: { cab: 0.26, nose: 0.10, hi: 0.335, sleeper: 0.055, axles: 2, stacks: 2, w: 0.178, deck: 0.60, aero: 1,    skirt: 1, lamps: 1,    trim: 1.00, rig: null },
 };
 // `variant` is `<typeId>` or `<typeId>+t` for a rig with a trailer on the back. BOBTAIL IS A REAL
 // SILHOUETTE and has to look like one — a tractor with nothing behind it is short, stubby and
@@ -2545,6 +2557,11 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
   const fine = detail >= 1;
+  // "Was there enough money on this truck for that?" — see the note on TRUCK_SHAPES.trim. Reads as
+  // a sentence at every callsite (rich(0.7) = a well-kept rig and up), which is the point: a bare
+  // number comparison in forty places is where a ladder quietly stops being one.
+  const TRIM = S.trim ?? 0.5;
+  const rich = (n) => fine && TRIM >= n;
   const faces = [];
   const podAt = [];                        // filled by pod(); published through TRUCK_META below
   let partSeq = 0;                         // see the ⚠ in `box` — one id per convex sub-object
@@ -2567,7 +2584,21 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // every frame and every contact (`aircraftFaces`), so this costs one integer at build time and
     // nothing at all per frame.
     const part = ++partSeq;
-    const quad = (p, sh) => { const q = { role, sh, p, part }; if (tint) q.tint = tint; faces.push(q); };
+    // ── ⚠ AND THE BOX'S OWN CENTRE RIDES WITH EVERY FACE ───────────────────────
+    // `cen` is what makes a face TWO-SIDED-AWARE, and it can only be known here for the same reason
+    // `part` can: this is the one place that knows which six quads bound one convex solid.
+    // Two passes downstream need it, and BOTH were previously reaching for the model origin instead,
+    // which is the wrong point for anything that is not the chassis:
+    //   • BACKFACE CULLING — a box's far three faces are always hidden by its own near three, so
+    //     painting them is not merely wasted, it is the thing that makes order errors VISIBLE. Half
+    //     the faces in the mesh are interior surfaces that can only ever show through a mistake.
+    //   • THE SUN NORMAL — the outward direction of a grille bar's face is outward FROM THE GRILLE
+    //     BAR. Measured from the truck's centre instead, every box forward of the axle got its
+    //     normal flipped the wrong way and was lit as if the sun were behind it.
+    // A box is convex, so "away from `cen`" is exactly "outward" — no winding convention to keep,
+    // and nothing to get backwards when a model is authored back-to-front.
+    const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
+    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) q.tint = tint; faces.push(q); };
     quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
     quad([A[0], B[0], B[1], A[1]], 0.42);                    // underside
     quad([A[0], A[3], B[3], B[0]], 0.72);                    // left flank
@@ -2741,14 +2772,34 @@ function buildTruck(variant = 'hauler', detail = 1) {
     }
     if (fine) bullet(nose1 + 0.001, 0.030, 0, 0.030, 0.090);        // the nose cone in the grille's mouth, ahead of it for the same reason
   }
-  // A cab-over has no bonnet, so its face was the screen and a blank wall under it — the two
-  // cheapest trucks were the only ones with nothing to look at. Give it a radiator panel and vents.
+  // A cab-over has no bonnet, so its face is the screen and the wall under it — and that wall is
+  // the whole front of the two cheapest trucks, seen head-on every time one is stood in a depot.
+  // It had a radiator panel and three vent bars, and NEITHER of them was visible:
+  //   • the bars began at nose1 + 0.004, which is the panel's own front plane — the exact thing the
+  //     written rule on the bonneted grille forbids (NOTHING ON THE FACE MAY SHARE A FORE-AFT SLICE
+  //     WITH THE PANEL BEHIND IT). One depth per face in the painter's sort, so the panel lands
+  //     among them and paints over them.
+  //   • and all four pieces were role 'strut', so even where they did survive it was dark grey on
+  //     dark grey. A grille is a grille because it CATCHES LIGHT.
+  // So the cab-over gets the same face the bonneted trucks get, at its own scale: a recessed
+  // radiator, a comb of upright chrome teeth standing clear of it, and a bullet in the mouth.
   if (S.nose <= 0.001) {
-    box(nose1 - 0.002, nose1 + 0.004, S.w * 0.80, 0.070, scrLo - 0.012, 'strut');
-    for (let i = 0; fine && i < 3; i++) {
-      const z = 0.078 + i * 0.015;
-      box(nose1 + 0.004, nose1 + 0.008, S.w * 0.74, z, z + 0.007, 'strut');
+    const gz0 = 0.070, gz1 = scrLo - 0.012;             // the aperture, floor to the screen's sill
+    box(nose1 - 0.002, nose1 + 0.004, S.w * 0.80, gz0, gz1, 'strut');            // the recess, dark and behind everything
+    // The surround: a chrome frame round the hole, which is what turns a dark rectangle into an
+    // opening. Two uprights and a lintel, all ahead of the recess by the rule above.
+    if (fine) {
+      for (const g of [-1, 1]) box(nose1 + 0.005, nose1 + 0.010, 0.007, gz0, gz1, 'window', CHROME, g * S.w * 0.80);
+      box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz1 - 0.008, gz1, 'window', CHROME);
+      box(nose1 + 0.005, nose1 + 0.010, S.w * 0.81, gz0, gz0 + 0.007, 'window', CHROME);
     }
+    // THE TEETH. Vertical, not horizontal, for the reason written on the bonneted grille: a stack
+    // of bars is a 1990s truck and a comb of upright chrome is a 1957 idea of a truck in 2100.
+    for (let i = -3; fine && i <= 3; i++) {
+      box(nose1 + 0.006, nose1 + 0.011, 0.006, gz0 + 0.008, gz1 - 0.009, 'window', CHROME, i * S.w * 0.19);
+    }
+    // …and the bullet in the middle of it, standing furthest forward of the lot.
+    if (fine) bullet(nose1 + 0.006, 0.026, 0, 0.026, (gz0 + gz1) / 2);
   }
   // Bumper, wider than the cab, with a chin spoiler raked under it.
   box(nose1 - 0.006, nose1 + 0.012, S.w * 1.02, 0.030, 0.058, 'strut');
@@ -2785,7 +2836,16 @@ function buildTruck(variant = 'hauler', detail = 1) {
   }
   // DAGMARS. Two chrome bullets standing off the bumper — the most 1955 object it is possible to
   // bolt to a vehicle, and the reason the front of this thing now reads as a face.
-  if (fine) for (const g of [-1, 1]) bullet(BUMP_F - 0.004, 0.026, g * S.w * 0.44, 0.013, 0.044);
+  // …on the trucks somebody bought them for. A scrapper's bumper is a length of channel iron.
+  if (rich(0.4)) for (const g of [-1, 1]) bullet(BUMP_F - 0.004, 0.026, g * S.w * 0.44, 0.013, 0.044);
+  // TOW HOOKS, which every truck has and no truck chose — the counterpart to the dagmars, and the
+  // reason the cheap rigs' bumpers are not left bare by the line above.
+  if (fine) for (const g of [-1, 1]) {
+    box(BUMP_F - 0.002, BUMP_F + 0.008, 0.010, 0.034, 0.040, 'strut', null, g * S.w * 0.62);
+    box(BUMP_F + 0.006, BUMP_F + 0.010, 0.004, 0.030, 0.044, 'strut', null, g * S.w * 0.62);
+  }
+  // The plate, low and off-centre the way one actually hangs.
+  if (fine) box(BUMP_F + 0.001, BUMP_F + 0.004, 0.024, 0.036, 0.052, 'window', [206, 200, 176], -S.w * 0.16);
   // A bar of driving lights across the bumper on the rigs that wear one.
   if (fine && S.lamps > 0.7) {
     for (let i = -1; i <= 1; i++) box(nose1 + 0.006, nose1 + 0.013, 0.013, 0.030, 0.042, 'window', [220, 226, 236], i * S.w * 0.20);
@@ -2845,7 +2905,9 @@ function buildTruck(variant = 'hauler', detail = 1) {
       const gg = g * (S.w * 0.92);
       for (let i = 0; i < 2; i++) {
         const z = 0.030 + i * 0.026;
-        box(cab1 - 0.070, cab1 - 0.022, 0.014, z, z + 0.005, 'window', CHROME, gg);
+        // Chromed on a truck that was bought new, bare steel on one that was not — the rungs are
+        // there either way, because getting in is not an optional extra.
+        box(cab1 - 0.070, cab1 - 0.022, 0.014, z, z + 0.005, rich(0.7) ? 'window' : 'strut', rich(0.7) ? CHROME : null, gg);
         box(cab1 - 0.068, cab1 - 0.064, 0.003, z + 0.005, z + 0.028, 'strut', null, gg);   // the hanger up to the sill
       }
     }
@@ -2863,12 +2925,20 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // A SPEAR DOWN THE FLANK, tail fins off the back of the cab, and a whip aerial. These three are
   // the whole retro-future pass on the body: streamline-moderne brightwork, an atomic-age fin, and
   // the aerial every car in that decade wore whether or not anything was receiving.
-  if (fine) {
+  // ⚠ ALL OF THIS IS `rich`, NOT `fine`. It is the money on the truck, and a scrap hauler wearing
+  // a chrome spear and tail fins was the single loudest reason the four rigs read as one rig at
+  // four sizes. The scrapper now carries none of it and is the plainer for it — which is the whole
+  // job the cheapest vehicle in a fleet has to do.
+  if (rich(0.4)) {
     for (const g of [-1, 1]) {
       // The spear tapers as it runs aft — two segments, because a constant-width strip reads as
       // masking tape and a tapered one reads as pressed metal.
       box(cab1 - 0.020, cab0 + 0.010, 0.004, S.hi * 0.36, S.hi * 0.40, 'window', CHROME, g * (S.w + 0.002));
       box(cab0 + 0.010, frame0 + 0.02, 0.004, S.hi * 0.33, S.hi * 0.355, 'window', CHROME, g * (S.w * 0.92));
+    }
+  }
+  if (rich(0.7)) {
+    for (const g of [-1, 1]) {
       // Fins off the back corners of the cab (or the sleeper, when there is one), with a tail lens
       // in each — the taller the truck, the more fin it can carry.
       const fTop = S.hi + S.sleeper;
@@ -2878,6 +2948,77 @@ function buildTruck(variant = 'hauler', detail = 1) {
     const aTop = S.hi + S.sleeper + 0.085;
     box(cab1 - 0.030, cab1 - 0.026, 0.003, S.hi * 0.9, aTop, 'strut', null, -(S.w + 0.020));
     bullet(cab1 - 0.032, 0.012, -(S.w + 0.020), 0.006, aTop);
+  }
+
+  // ── THE HARDWARE EVERY TRUCK HAS ───────────────────────────────────────────
+  // The other half of the detail pass, and deliberately on `fine` rather than `rich`: none of it is
+  // an ornament. A scrapper has hinges and hoses and mudflaps for exactly the same reason the
+  // flagship does, so the cheap end of the fleet gains most of its new geometry HERE — which is
+  // what stops "plainer" turning into "unfinished" once the brightwork above is taken off it.
+  if (fine) {
+    for (const g of [-1, 1]) {
+      const gw = g * S.w;
+      // THE DOOR, as a cut line rather than as a decal: a shut line down each edge, a hinge pair on
+      // the forward one and a handle on the aft. This is the biggest flat panel on the tractor and
+      // it had nothing on it at all.
+      for (const f of [cab1 - 0.112, cab1 - 0.008]) box(f - 0.002, f + 0.002, 0.003, S.hi * 0.14, S.hi * 0.90, 'strut', null, gw + g * 0.001);
+      for (const z of [S.hi * 0.28, S.hi * 0.74]) box(cab1 - 0.116, cab1 - 0.106, 0.004, z, z + 0.014, 'strut', null, gw + g * 0.003);   // hinges
+      box(cab1 - 0.030, cab1 - 0.014, 0.004, S.hi * 0.44, S.hi * 0.48, 'strut', null, gw + g * 0.004);                                    // handle
+      // MUDFLAPS behind the drive group. A truck without them throws its own road up the box.
+      const flapF = frame0 + 0.055 + (S.axles - 1) * 0.105 + 0.075;
+      // ⚠ ITS BOTTOM EDGE CLEARS THE LIFTERS. A parked rig settles by HOVER onto its pods, so
+      // anything hanging lower than the pod shroud goes through the floor of the shed when it sits
+      // down — the same rule the chin spoiler is placed by, and shapes:smoke fails on it.
+      box(flapF, flapF + 0.004, 0.030, 0.018, 0.052, 'strut', null, g * (S.w * 1.02));
+      // Fuel filler, on top of the saddle tank where a hand can reach it off the step.
+      box(cab0 - 0.040, cab0 - 0.030, 0.008, 0.088, 0.093, 'strut', null, g * S.w * 0.88);
+    }
+    // WIPERS, parked across the bottom of the screen. Two arms on a raked plane, and the one piece
+    // of hardware that is impossible not to notice the absence of once the glass got a UV sheet.
+    for (const g of [-1, 1]) {
+      const wg = g * S.w * 0.40;
+      poly('strut', 0.62, [[scrF0 + 0.004, wg - 0.030, scrLo + 0.006], [scrF0 + 0.004, wg + 0.030, scrLo + 0.006],
+                           [scrF0 + 0.010, wg + 0.030, scrLo + 0.020], [scrF0 + 0.010, wg - 0.030, scrLo + 0.020]]);
+    }
+    // AIR AND ELECTRICAL LINES off the back of the cab, arcing down to the deck — the umbilical
+    // that says this vehicle is meant to have something else attached to it. Three short segments
+    // rather than a curve: at this scale that IS a curve, and it costs three boxes.
+    for (const g of [-1, 1]) {
+      const gg = g * S.w * 0.30;
+      for (let i = 0; i < 3; i++) {
+        const f0 = frame0 + 0.004 + i * 0.016;
+        box(f0, f0 + 0.016, 0.004, 0.086 - i * 0.010, 0.092 - i * 0.010, 'strut', null, gg);
+      }
+    }
+    // CATWALK GRATING on the deck plate between the rails — the surface you actually stand on to
+    // reach those lines, and the deck was the largest untouched panel left on a coupled rig.
+    for (let i = 0; i < 4; i++) {
+      const f = frame0 + 0.016 + i * 0.018;
+      box(f, f + 0.006, S.w * 0.74, 0.070, 0.073, 'strut');
+    }
+    // Deck-corner marker lamps, which is where a driver's own light comes from when they are back
+    // there in the dark coupling something up.
+    for (const g of [-1, 1]) box(frame0 + 0.004, frame0 + 0.012, 0.006, 0.072, 0.078, 'window', [236, 176, 96], g * S.w * 0.78);
+  }
+  // ── AND THE HARDWARE ONLY THE EXPENSIVE ONES HAVE ──────────────────────────
+  if (rich(0.7)) {
+    for (const g of [-1, 1]) {
+      const gw = g * S.w;
+      // A second chrome strap on the tank, and a polished cap on the filler — the visible sign of a
+      // truck that gets washed.
+      box(cab0 - 0.082, cab0 - 0.012, 0.024, 0.072, 0.078, 'window', CHROME, g * S.w * 0.88);
+      box(cab0 - 0.041, cab0 - 0.029, 0.009, 0.093, 0.096, 'window', CHROME, g * S.w * 0.88);
+      // Chromed mirror-arm braces, doubling the arm back to the A-pillar.
+      box(cab1 - 0.030, cab1 - 0.022, 0.020, S.hi * 0.58, S.hi * 0.60, 'window', CHROME, g * (S.w + 0.012));
+      // A window visor over the door glass — the little peaked awning, pure 1950s, pure money.
+      poly('body', 0.90, [[cab1 - 0.108, gw, S.hi * 0.90], [cab1 - 0.012, gw, S.hi * 0.90],
+                          [cab1 - 0.016, gw + g * 0.016, S.hi * 0.93], [cab1 - 0.104, gw + g * 0.016, S.hi * 0.93]]);
+    }
+    // A chrome band round the base of each stack, where the heat shield meets the pipe.
+    for (let i = 0; i < S.stacks; i++) {
+      const g = (S.stacks === 1 ? 0 : (i ? 1 : -1)) * S.w * 0.94;
+      box(cab0 - 0.017, cab0 + 0.017, 0.016, 0.138, 0.146, 'window', CHROME, g);
+    }
   }
 
   // THE BACK OF THE TRACTOR. Bobtail is a real way to drive, and running empty is the one time
@@ -2945,6 +3086,34 @@ function buildTruck(variant = 'hauler', detail = 1) {
     }
     if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
+    // THE BACK OF THE BOX, which is the face you look at for an entire crossing behind somebody
+    // else's rig and the one a dropped trailer shows the yard. It had doors, lock bars and lamps
+    // and nothing else. None of this is trim — a hinge is not a luxury — so it rides `fine` and
+    // every trailer gets it, which matters twice over now that a solo box stands on its own pin.
+    if (fine) {
+      // Hinge straps down the outer edge of each door leaf, three a side.
+      for (const g of [-1, 1]) for (let i = 0; i < 3; i++) {
+        const z = 0.092 + i * (tTop - 0.115) / 2;
+        box(t0 - 0.003, t0 + 0.004, 0.010, z, z + 0.012, 'strut', null, g * S.w * 0.92);
+      }
+      // The DOT bar under the doors — the steel underrun guard, on its two drops.
+      box(t0 - 0.010, t0 - 0.002, S.w * 0.92, 0.048, 0.058, 'strut');
+      for (const g of [-1, 1]) box(t0 - 0.008, t0 - 0.004, 0.006, 0.058, 0.075, 'strut', null, g * S.w * 0.60);
+      // A placard on the right-hand leaf, and the reflective chevron strip across the sill.
+      box(t0 - 0.001, t0 + 0.002, 0.020, tTop * 0.62, tTop * 0.62 + 0.026, 'window', [210, 198, 160], S.w * 0.42);
+      box(t0 - 0.002, t0 + 0.001, S.w * 0.86, 0.078, 0.086, 'window', [222, 154, 62]);
+      // Handrail and a step by the doors: what a driver uses to get up into the box.
+      box(t0 + 0.002, t0 + 0.006, 0.004, 0.086, tTop * 0.55, 'strut', null, -S.w * 0.86);
+      box(t0 + 0.004, t0 + 0.020, 0.012, 0.046, 0.051, 'strut', null, -S.w * 0.78);
+      // Roof bows, read from outside as the shallow ridges across the cap.
+      for (let i = 0; i < 5; i++) {
+        const f = t0 + 0.05 + i * (S.deck - 0.10) / 4;
+        box(f - 0.003, f + 0.003, S.w * 0.98, tTop + 0.010, tTop + 0.013, 'body');
+      }
+      // Air-line couplings and the electrical socket on the nose of the box, which is the half of
+      // the umbilical the tractor's own hoses reach for.
+      for (const g of [-1, 1]) box(t1 - 0.004, t1 + 0.004, 0.007, 0.088, 0.098, 'strut', null, g * S.w * 0.28);
+    }
   }
 
   // THROW THE TRACTOR AWAY, if this was only ever meant to be the box. Everything from
@@ -2960,7 +3129,13 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // dealer's turntable. Eight variants, eight different lengths; centring is derived, never typed.
   let lo = Infinity, hi = -Infinity;
   for (const f of faces) for (const p of f.p) { if (p[0] < lo) lo = p[0]; if (p[0] > hi) hi = p[0]; }
-  const shift = (lo + hi) / 2;
+  // ⚠ A DROPPED BOX HANGS OFF ITS PIN, NOT OFF ITS MIDDLE. Centring is right for a vehicle, whose
+  // position is its own centre — and wrong for a solo trailer, because the point the server stores
+  // for one is the COUPLING POINT (trailers.js: the tractor's pose at the moment the pin came out).
+  // Centred, the box was drawn half its own length too far forward, so the picture invited you to
+  // drive into the middle of it and the rule then refused you at the flank. Anchoring on the front
+  // station puts the pin on the origin and the box behind it, which is where it is standing.
+  const shift = solo ? hi : (lo + hi) / 2;
   // Through a SET, because `box()` shares each corner vertex between the three quads that meet at
   // it — walking `faces` and subtracting per reference moves the same corner up to three times and
   // shears the model apart. (It did: the first cut put every truck further off-centre than it

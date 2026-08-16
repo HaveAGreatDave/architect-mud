@@ -219,7 +219,7 @@ let displayRungTouched = false;
 
 // THE WAY IN HAS TO MATCH THE RUNG THEY JUST PICKED.
 //
-// The three guide links under the form point at the illustrated pages, which is
+// The guide link under the form points at the illustrated contents page, which is
 // right for almost everybody. But a player who has just ticked `log` has said,
 // in the plainest terms available on this screen, that they are reading with a
 // screen reader — and the very next thing offered to them was the edition built

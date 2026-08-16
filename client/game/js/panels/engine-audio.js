@@ -570,22 +570,40 @@ export const hoverSpoolSeconds = (typeId) => (HOVER_SPOOL[typeId] || HOVER_SPOOL
 // Each voice is a sawtooth (a trumpet is all odd harmonics and then some) through a bandpass that
 // opens as the diaphragm gets going, with a fast attack and a tail that falls away rather than
 // stopping — a horn runs on stored air, so the end of the note is the tank giving up, not a switch.
+// ⚠ WHY THIS IS LOUDER THAN IT LOOKS IT SHOULD BE, AND WHY IT WAS INAUDIBLE.
+// A nominal `gain` is not a loudness — it is a loudness BEFORE the filter, and this was the only
+// cue in the file whose voices run through a BANDPASS rather than a lowpass. A bandpass is 0 dB at
+// its centre and attenuates everything else, and the centre was 3.2× the fundamental: for the
+// Drayman that is 560 Hz against a 175 Hz sawtooth, so the loudest thing in the waveform — the
+// fundamental, and most of its energy — was sitting most of two octaves down the skirt and being
+// thrown away. What reached the bus was the 3rd and 4th harmonics of a horn at a third of the gain
+// it claimed. The cue was never dropped, never mis-shaped and never starved of a voice; it was
+// filtered into nothing, which is why it read as "seems inaudible" rather than as silence.
+//
+// The centre now sits just above the fundamental, which is also where a real air horn's energy
+// actually peaks, so the trumpet character survives and the note arrives at the level the number
+// says. Gains roughly doubled on top of that — a horn is the loudest thing in a yard and this is
+// the one cue in the game where that is the whole point of it existing.
 const HORN = {
-  scrapper:    { base: 196, ratio: 1.19, dur: 1.05, gain: 0.085, air: 1.5 },   // one working trumpet and a lot of rust
-  hauler:      { base: 262, ratio: 1.34, dur: 0.95, gain: 0.080, air: 0.9 },   // short pipes: brighter, wider, over quickly
-  drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.095, air: 1.0 },
-  continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.105, air: 1.2 },   // the one you hear before you see it
+  scrapper:    { base: 196, ratio: 1.19, dur: 1.05, gain: 0.150, air: 1.5 },   // one working trumpet and a lot of rust
+  hauler:      { base: 262, ratio: 1.34, dur: 0.95, gain: 0.145, air: 0.9 },   // short pipes: brighter, wider, over quickly
+  drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.165, air: 1.0 },
+  continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.180, air: 1.2 },   // the one you hear before you see it
 };
 export function airHorn(typeId) {
   const ae = AE(); const h = HORN[typeId] || HORN.drayman;
   const voice = (freq, gain) => ([
+    // ⚠ The centre sits just ABOVE the fundamental, not three octaves up it — see the note on
+    // HORN. A wider Q with it, so the skirt keeps the upper harmonics that make it a trumpet
+    // rather than a hum; the shape is the same, it just no longer discards the loudest part of
+    // its own waveform on the way to the bus.
     { waveform: 'sawtooth', freq, pitchBend: { to: freq * 1.006, time: 0.08 },
-      filter: { type: 'bandpass', freq: freq * 3.2, q: 1.1 },
+      filter: { type: 'bandpass', freq: freq * 1.8, q: 0.9 },
       adsr: { a: 0.035, d: h.dur * 0.35, s: 0.72, r: h.dur * 0.45 }, gain },
     // The second harmonic, a touch late — the trumpet's bell taking a moment to load up.
     { waveform: 'square', freq: freq * 2, delay: 0.02,
       filter: { type: 'lowpass', freq: freq * 5, q: 0.8 },
-      adsr: { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.34 },
+      adsr: { a: 0.05, d: h.dur * 0.4, s: 0.4, r: h.dur * 0.4 }, gain: gain * 0.4 },
   ]);
   const d = { duration: h.dur + 0.35, layers: [
     ...voice(h.base, h.gain),
@@ -606,7 +624,12 @@ export function spoolDown(cls) {
   const d = { duration: 1.2, layers: [
     { waveform: p.wave, freq: p.idle[1], pitchBend: { to: 22, time: 1.1 }, filter: { type: 'lowpass', freq: 500, q: 1 }, adsr: { a: 0.02, d: 1.0, s: 0.2, r: 0.2 }, gain: 0.11 },
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 300, q: 0.7 }, adsr: { a: 0.02, d: 1.0, s: 0.1, r: 0.2 }, gain: 0.05 } ] };
-  try { ae?.playSfx?.(d); } catch {}
+  // ⚠ `{ config: d }`, not `d`. playSfx takes a DEF and reads `def.config` — a bare
+  // {duration, layers} fails its `!def?.config` guard and returns having played nothing,
+  // silently and forever. Every def in this file that is written out as a constant carries
+  // its own `config` wrapper (CREAKS, SPRAY_FX, GEAR_FX…), so only the ones BUILT AT THE
+  // CALL SITE can get this wrong — spoolUp, hoverSpool and airHorn all wrap; this one did not.
+  try { ae?.playSfx?.({ config: d }); } catch {}
 }
 
 // ── One-shot airframe reactions ───────────────────────────────────────────────

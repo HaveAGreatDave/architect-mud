@@ -1082,7 +1082,20 @@ export function paintWindshield(id, view) {
   if (worldBlend > 0.02) {
     ctx.save(); ctx.globalAlpha = worldBlend;
     pBegin('ground');
-    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase, hazeCeil(wx), st);
+    // How far either side of centre the Mode-7 raster actually has to reach. Everything in this
+    // block is drawn under rotate(-bankRad) into an oversized (3W) local rect, because at bank the
+    // corners of the SCREEN swing outside the screen's own x-range. For a flat fill that overscan
+    // is free; for the ground it is a per-texel software raster, and at wings-level two thirds of
+    // it was being rasterised off-screen every frame in every view that uses this renderer.
+    //
+    // The exact bound: canvas→local is local = R(bank)·(p − c − s) + c, so the largest |local.x −
+    // W/2| over the four screen corners is |cos|·(W/2+|shX|) + |sin|·(H/2+|shY|). The shudder is
+    // folded in because it translates the same rect. At bank 0 that is exactly W/2 (the screen and
+    // nothing more); it grows to (W+H)/2 at 45°, and is still capped at the old 3W/2 so this can
+    // never rasterise MORE than it does today.
+    const _cb = Math.abs(Math.cos(bankRad)), _sb = Math.abs(Math.sin(bankRad));
+    const groundExt = Math.min(1.5 * W, _cb * (W / 2 + Math.abs(shX)) + _sb * (H / 2 + Math.abs(shY)) + 8);
+    drawMode7Floor(ctx, W, H, horizonY, focal, vw, sky, gTop, now, sunFx, chase, hazeCeil(wx), st, groundExt);
     pEnd();
     ctx.restore();
   }
@@ -3523,10 +3536,18 @@ function m7buf(w, h) {
   return _m7;
 }
 
+// Tile-seam sharpener for the Mode-7 bilinear blend: smoothstep over ±EB either side of the
+// boundary, so biome COLOUR crossfades in a narrow band and each patch reads as a crisp tile.
+// Module scope, not inside the texel loop it serves — it closes over nothing but the constant, and
+// down there it was a fresh closure per ground texel (millions a frame, straight into the nursery).
+const M7_SEAM_EB = 0.1;
+function seam(u) { const t = clamp((u - 0.5 + M7_SEAM_EB) / (2 * M7_SEAM_EB), 0, 1); return t * t * (3 - 2 * t); }
+
 // Smooth 2-D value noise in world-tile space (deterministic; reuses the `frac` hash). 0..1.
+const _vn2h = (a, b) => frac(a * 157.31 + b * 113.7);   // hoisted: vnoise2 is called per ground texel on dry land and near water
 function vnoise2(x, y) {
   const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-  const h = (a, b) => frac(a * 157.31 + b * 113.7);
+  const h = _vn2h;
   const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
   const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
@@ -3721,7 +3742,9 @@ function groundLUT(map, mh, R, wcx, wcy, litX, litY, gTop, st) {
   });
 }
 
-function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32, st = null) {
+// `xExt` — half-width, in local px either side of screen centre, that the caller needs covered.
+// Defaults to the old unconditional 1.5*W so any other caller behaves exactly as before.
+function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chase, hazeMax = 0.32, st = null, xExt = 1.5 * W) {
   v._wildFill = null;   // per-tile gap classification (sea|scrub|redrock) for drawWorldObjects; set once the LUT is built
   if (depth <= 2) return;
   // AUTHENTIC Mode 7: sample the ground PER PIXEL into a low-res buffer, then blit it
@@ -3730,9 +3753,20 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
   // biome ahead from the map window + a world-space terrain texture + distance haze.
   // Eye height grows with altitude → the ground spreads and falls away as you climb.
   const DS = Math.max(1, Math.round(RENDER_TUNE.pixel || 4) + PERF_DS);   // downscale = pixel chunkiness (+PERF_DS = adaptive load-shed on this fixed-cost software raster)
-  const X0 = -W, spanX = 3 * W;
-  const bw = Math.max(2, Math.ceil(spanX / DS)), bhMax = Math.max(2, Math.ceil(H / DS));
-  const buf = m7buf(bw, bhMax), data = buf.img.data;
+  // Horizontal extent, snapped to the ORIGINAL texel lattice (-W + k·DS). The snap is load-bearing:
+  // X0 sets the sampling phase of the whole floor, so letting it slide by sub-texel amounts as the
+  // bank angle changes would make the ground crawl and shimmer during a roll. Snapping keeps every
+  // texel on the same world-to-screen grid it has always been on — the raster gets narrower, never
+  // re-phased, so a wings-level frame is pixel-identical to before.
+  const X0 = -W + Math.floor((W / 2 - xExt + W) / DS) * DS;
+  const bw = Math.max(2, Math.min(Math.ceil((3 * W) / DS), Math.ceil((W / 2 + xExt - X0) / DS)));
+  const spanX = bw * DS;
+  // The BUFFER is always allocated at the full-bank worst case and only `bw` columns of it are used.
+  // Sizing it to `bw` would throw away the canvas + ImageData and build new ones on every frame in
+  // which the bank angle moved — i.e. throughout every turn, which is exactly when the frame is
+  // already busiest. Rows are therefore strided by the buffer's own width, not by bw.
+  const bhMax = Math.max(2, Math.ceil(H / DS));
+  const buf = m7buf(Math.max(2, Math.ceil((3 * W) / DS)), bhMax), data = buf.img.data, stride = buf.w * 4;
   // Top of the ON-SCREEN ground. In a steep look-DOWN chase the horizon sits ABOVE the canvas
   // (horizonY < 0); starting the buffer at the real horizon then burns all its rows on the
   // off-screen slab above y=0, and the fixed-height buffer runs out before the screen bottom —
@@ -3823,7 +3857,7 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
     const detail = clamp(1.15 - d * 0.7, 0.15, 1);
     const haze = clamp(1 - p * hz, 0, hazeMax), ih = 1 - haze;
     const hr = hor[0] * haze, hg = hor[1] * haze, hb = hor[2] * haze;
-    let idx = by * bw * 4;
+    let idx = by * stride;
     for (let bx = 0; bx < bw; bx++) {
       const l = ((X0 + bx * DS - cx) / halfW) * d * LAT;
       const wx = ax + d * sinh + l * cosh, wy = ay - d * cosh + l * sinh;
@@ -3855,7 +3889,6 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
       // Biome COLOUR blends only in a narrow band right at the tile seam, so each patch of
       // terrain reads as a crisp tile instead of a long cross-fade. Sharpen the fractional
       // position around the boundary (smoothstep over ±EB) before weighting the colours.
-      const EB = 0.1, seam = (u) => { const t = clamp((u - 0.5 + EB) / (2 * EB), 0, 1); return t * t * (3 - 2 * t); };
       const cxr = seam(fxr), cyr = seam(fyr);
       const cw00 = (1 - cxr) * (1 - cyr), cw10 = cxr * (1 - cyr), cw01 = (1 - cxr) * cyr, cw11 = cxr * cyr;
       let br = s00[0] * cw00 + s10[0] * cw10 + s01[0] * cw01 + s11[0] * cw11;
@@ -4044,8 +4077,11 @@ function drawMode7Floor(ctx, W, H, horizonY, depth, v, sky, gTop, now, sun, chas
 
 // One big, defined fluffy cumulus (Pilotwings look): a flat shaded base, rounded lit top
 // lobes — solid, not wispy — so it reads as a proper cloud you fly past.
+// Read-only, and rebuilt on every puff before this moved out — five nested arrays per cloud lobe
+// group, and a sky full of cumulus draws a lot of them.
+const PUFF_LOBES = [[-0.72, 0.14, 0.6], [-0.16, -0.16, 0.82], [0.5, 0.02, 0.68], [0.06, -0.42, 0.52], [1.02, 0.22, 0.46]];
 function drawPuff(ctx, cx, cy, s, lit, base, alpha) {
-  const lobes = [[-0.72, 0.14, 0.6], [-0.16, -0.16, 0.82], [0.5, 0.02, 0.68], [0.06, -0.42, 0.52], [1.02, 0.22, 0.46]];
+  const lobes = PUFF_LOBES;
   ctx.fillStyle = rgb(mix(base, [86, 96, 112], 0.42), alpha * 0.9);
   ctx.beginPath(); ctx.ellipse(cx + s * 0.15, cy + s * 0.3, s * 1.2, s * 0.34, 0, 0, 7); ctx.fill();   // shaded flat base
   for (const [lx, ly, lr] of lobes) { ctx.fillStyle = rgb(base, alpha * 0.96); ctx.beginPath(); ctx.arc(cx + lx * s, cy + ly * s, lr * s, 0, 7); ctx.fill(); }
@@ -6453,6 +6489,18 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
     const pc = cam.proj(c.dx, c.dy, baseWz);
     const onScreen = pc.f > 0.12 && pc.sx >= -40 && pc.sx <= W + 40 && pc.sy >= -40 && pc.sy <= H + 40;
     if (!onScreen) { drawContactChevron(ctx, c, f, l, W, H); continue; }
+    // BEHIND A BUILDING IS BEHIND A BUILDING. Ground contacts only: something in the air is very
+    // often legitimately above a roofline the span buffer has no opinion about, and the failure this
+    // fixes — a rig standing in a shed, painted over the shed — is a ground one. The tested point is
+    // the model's own TOP (its screen height scales with the projection, so this is derived rather
+    // than a tuned pixel count), padded sideways by the same half-width so a wide truck is not
+    // judged on its centreline.
+    // The chevron is deliberately still drawn for an occluded contact by the branch above only when
+    // it is off screen; a hidden one is hidden, which is the point.
+    if (c.onGround || c.band === 'ground') {
+      const sz = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
+      if (occludedByBuilding(pc.sx, pc.sy - sz * CONTACT_VS, pc.f, sz)) continue;
+    }
     ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
     const bb = drawAircraftModel(ctx, cam, c, baseWz, sun, now);
     ctx.globalAlpha = 1;
@@ -6751,6 +6799,10 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // (the same Memphis paint the hangar draws — without this the sim shows only the bone undercoat).
   const jazzImg = pal.pat === 'jazz' ? jazzTex(lv.base, lv.trim, lv.accent, lv.ground) : null;
   // Project every face; depth-sort by average forward distance (far first).
+  // The eye position the backface test needs is derived from the camera rig, so a caller that hands
+  // over a projector-only adapter (a hangar turntable, a smoke harness) simply keeps every face and
+  // renders exactly as it did before rather than culling against an eye it never supplied.
+  const cullBackfaces = !!cam && cam.back != null && cam.sinh != null && cam.cosh != null && cam.EH != null;
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
   // LOD: the big own-ship chase model + near contacts get the full mesh; distant contacts
@@ -6790,15 +6842,54 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     for (const q of pts) { af += q.f; if (q.f < nf) nf = q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
     // Sun lighting multiplier: outward face normal (world) · sun. Kept ON TOP of the baked `sh`
     // so the hand-tuned character stays, but the sun now shapes the light across the airframe.
-    let lm = 1;
-    if (toSun && dp.length >= 3) {
+    // ── THE OUTWARD NORMAL, AND WHAT IT IS MEASURED FROM ───────────────────────
+    // One normal, two consumers: the backface cull immediately below and the sun term after it.
+    // The reference point is the whole trick. A face's outward direction is outward from the SOLID
+    // IT BOUNDS, and for a truck that solid is a grille bar or a battery box — never the truck. The
+    // model origin was standing in for it, which is correct only for geometry wrapped around the
+    // origin (an airframe, and that is why it was never noticed) and wrong for every box bolted on
+    // somewhere else: forward of the model centre the test flips, and the face is then declared
+    // outward-facing when it is the INSIDE of the box.
+    // Faces carrying `cen` (every `box` in aircraft3d) get their own solid's centre; everything else
+    // — free polys, the whole aircraft mesh — keeps the model origin and behaves exactly as before.
+    let nx = 0, ny = 0, nz = 0, cx3 = 0, cy3 = 0, cz3 = 0, haveN = false;
+    if (dp.length >= 3) {
       const w0 = bw ? bw[0] : Wp(dp[0]), w1 = bw ? bw[1] : Wp(dp[1]), w2 = bw ? bw[2] : Wp(dp[2]);
       const ax = w1[0] - w0[0], ay = w1[1] - w0[1], az = w1[2] - w0[2];
       const bx = w2[0] - w0[0], by = w2[1] - w0[1], bz = w2[2] - w0[2];
-      let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      nx = ay * bz - az * by; ny = az * bx - ax * bz; nz = ax * by - ay * bx;
       const nm = Math.hypot(nx, ny, nz) || 1; nx /= nm; ny /= nm; nz /= nm;
-      const ox = (w0[0] + w1[0] + w2[0]) / 3 - c.dx, oy = (w0[1] + w1[1] + w2[1]) / 3 - c.dy, oz = (w0[2] + w1[2] + w2[2]) / 3 - baseWz;
-      if (nx * ox + ny * oy + nz * oz < 0) { nx = -nx; ny = -ny; nz = -nz; }   // outward-facing
+      cx3 = (w0[0] + w1[0] + w2[0]) / 3; cy3 = (w0[1] + w1[1] + w2[1]) / 3; cz3 = (w0[2] + w1[2] + w2[2]) / 3;
+      // ⚠ The reference is the UNDEFLECTED centre put through the SAME transform as the vertices, so
+      // a hinged or shed part is compared against its own moved centre rather than where it used to
+      // be. Ballistic debris tumbles about a centroid this transform does not know, so it opts out
+      // (below) rather than being culled against a stale point.
+      const ref = (face.cen && !bw) ? Wp(face.cen) : [c.dx, c.dy, baseWz];
+      if (nx * (cx3 - ref[0]) + ny * (cy3 - ref[1]) + nz * (cz3 - ref[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      haveN = true;
+    }
+    // ── BACKFACE CULLING ───────────────────────────────────────────────────────
+    // The half of the mesh that is mathematically unable to be seen, removed before it can be
+    // mis-ordered. This is the structural half of the flicker fix and it is not a tuning knob: a
+    // convex box's rear three quads are occluded by its own front three from EVERY camera, so the
+    // only thing painting them can do is show through a sort mistake — which is exactly the report,
+    // a grille and a headlamp swallowed by the panel they are bolted to. Removing them also drops
+    // the number of pairs the part sort can get wrong by about half, so what survives is a smaller
+    // and much better-conditioned ordering problem.
+    //
+    // Exact, not heuristic: cull when the outward normal points along the eye→face ray. `cam` gives
+    // the eye directly — the chase rig sits `back` tiles along the reverse heading at eye height EH,
+    // which is the point `proj` measures its forward depth from.
+    //
+    // ⚠ ONLY FACES THAT BOUND A SOLID. A face with no `cen` is a free polygon — a raked screen, a
+    // fin blade, a sheet with nothing behind it — and a sheet is visible from both sides. Culling
+    // one is not an optimisation, it is a hole in the model.
+    if (face.cen && haveN && !bw && cullBackfaces) {
+      const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh, ez = cam.EH;
+      if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
+    }
+    let lm = 1;
+    if (toSun && haveN) {
       const nl = Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]);
       lm = 0.82 + 0.5 * nl * sunStr;
     }
@@ -10918,6 +11009,35 @@ const OCC_SHRINK = 0.14;     // occluder box inset (fraction of its own size)
 const OCC_GROW = 0.22;       // occludee box outset — covers adornments that overhang the mass
 const OCC_OPAQUE = 0.98;     // below this alpha a building is still fading in and can't occlude
 
+// ── AND THE SAME BUFFER HIDES WHAT IS BEHIND A BUILDING ──────────────────────
+// Contacts (traffic, parked rigs, a truck standing in a depot) are painted AFTER the whole world
+// pass and never interacted with it at all: there is no z-buffer here, so a truck inside a shed was
+// simply drawn on top of the shed, from every angle, at every distance. That is the "you can see
+// the truck through the building".
+//
+// The fix is not another mechanism — the world pass already builds a span buffer of guaranteed-solid
+// building slabs to cull hidden BUILDINGS with, and a contact is just another thing that can be
+// behind one. Publishing it costs nothing and makes the two answers consistent by construction.
+//
+// ⚠ THE DEPTH IS NOT OPTIONAL. covTop alone says "something opaque covers this column", not what or
+// how far away — cull on that and every contact NEARER than the building vanishes as it drives in
+// front of it. So each column also remembers the f of the occluder that set its line, and a contact
+// is only hidden where it is genuinely further away than the thing covering it.
+// Conservative in the same direction as the building cull: any doubt and it draws.
+let OCC_FIELD = null;         // { covTop: Float32Array, covF: Float32Array, W } for THIS frame
+// Is this ground-anchored point hidden behind a nearer building? `pad` widens the tested column
+// span so a wide model isn't judged on its centreline alone.
+function occludedByBuilding(sx, syTop, f, pad = 0) {
+  const F = OCC_FIELD; if (!F) return false;
+  const col = (x) => clamp(Math.floor(x / F.W * OCC_BUCKETS), 0, OCC_BUCKETS - 1);
+  const c0 = col(sx - pad), c1 = col(sx + pad);
+  for (let c = c0; c <= c1; c++) {
+    if (!(F.covTop[c] < syTop)) return false;    // this column is open above it → visible
+    if (!(f > F.covF[c] + 0.35)) return false;   // …or the cover is BEHIND it, which hides nothing
+  }
+  return true;
+}
+
 // Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
 function screenBox(cam, corners, z0, z1) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -11419,6 +11539,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   if (RENDER_TUNE.occlude) {
     const W = (ctx.canvas && ctx.canvas.width) || 1280;
     const covTop = new Float32Array(OCC_BUCKETS).fill(Infinity);
+    const covF = new Float32Array(OCC_BUCKETS).fill(Infinity);   // …and how far off the thing covering it is
     const col = (x) => clamp(Math.floor(x / W * OCC_BUCKETS), 0, OCC_BUCKETS - 1);
     occluded = new Set();
     for (let i = items.length - 1; i >= 0; i--) {
@@ -11451,9 +11572,12 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const cc = [[ccx - k, ccy - k], [ccx + k, ccy - k], [ccx + k, ccy + k], [ccx - k, ccy + k]].map(toWorld);
       const cbox = screenBox(cam, cc, 0, V(core.s.z1) * (1 - OCC_SHRINK));
       if (!cbox) continue;
-      for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) covTop[c] = cbox.y0;
+      for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) { covTop[c] = cbox.y0; covF[c] = it.f; }
     }
+    OCC_FIELD = { covTop, covF, W };     // see occludedByBuilding — contacts are tested against it
   }
+  // With the pre-pass off there is no field, and every contact draws exactly as it always did.
+  if (!RENDER_TUNE.occlude) OCC_FIELD = null;
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {

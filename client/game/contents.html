@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT — The Guide</title>
+<style>
+  /* Shared design tokens — identical to guide/tour/lore/deep so the whole set
+     reads as one publication. This page is deliberately SMALL: it is a front
+     door, and a front door that needs its own design language is a wall. */
+  :root{
+    --bg:#070a0e; --bg2:#0c1119; --panel:#0e1620; --panel2:#131f2c;
+    --edge:#1c2a3a; --edge2:#2a4056;
+    --ink:#ccdae7; --dim:#7089a0; --dimmer:#4b5f74;
+    --cy:#3fd0e0; --cy-dim:#2a8b96; --cy2:#2a8b96;
+    --or:#e0632a; --or-dim:#a8441c; --or2:#a8441c;
+    --red:#e0564a; --amber:#e0a83a; --grn:#4ec98a; --vio:#a878e0;
+    --mono:"Consolas",ui-monospace,"SF Mono","DejaVu Sans Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 -apple-system,"Segoe UI",Roboto,sans-serif;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 50% -80px, rgba(63,208,224,.09), transparent 70%),
+      radial-gradient(ellipse 700px 400px at 90% 40%, rgba(224,99,42,.05), transparent 70%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 10px}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;text-align:center;padding:88px 0 56px;margin-bottom:26px;
+    border-bottom:1px solid var(--edge);overflow:hidden;
+  }
+  .hero::after{ /* scanlines */
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);
+  }
+  .glyph{width:96px;height:96px;margin:0 auto 22px;display:block;
+    filter:drop-shadow(0 0 14px rgba(63,208,224,.45))}
+  .hero h1{
+    font-family:var(--mono);font-size:clamp(2.4rem,8vw,4rem);margin:0;
+    letter-spacing:.22em;text-indent:.22em;color:var(--or);font-weight:700;
+    text-shadow:0 0 26px rgba(224,99,42,.5);
+  }
+  .tag{font-family:var(--mono);color:var(--cy);font-size:.82rem;letter-spacing:.2em;
+    margin:14px 0 0;text-transform:uppercase}
+  .lede{max-width:600px;margin:26px auto 0;color:var(--dim);font-size:1.08rem}
+  .cta{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;justify-content:center}
+  .btn{display:inline-block;font-family:var(--mono);letter-spacing:.14em;font-size:.85rem;
+    text-transform:uppercase;text-decoration:none;padding:14px 30px;border-radius:6px;
+    border:1px solid var(--or2);color:#fff;background:linear-gradient(180deg,#c2521f,#8f3a15);
+    box-shadow:0 8px 26px rgba(224,99,42,.3)}
+  .btn.ghost{background:transparent;border-color:var(--edge2);color:var(--cy);box-shadow:none}
+  .free{margin-top:16px;font-family:var(--mono);font-size:.74rem;color:var(--dimmer);
+    letter-spacing:.1em;text-align:center}
+
+  /* ---------- welcome ---------- */
+  .welcome{max-width:660px;margin:0 auto}
+  .welcome p{color:var(--ink);font-size:1.06rem}
+  .welcome p + p{margin-top:1.2em}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.24em;color:var(--or);
+    text-transform:uppercase;margin:0 0 .7em}
+
+  /* ---------- the contents list ---------- */
+  /* Same card as the "next part" card the other pages end on, so arriving at a
+     part from here and arriving at it from the part before it look the same. */
+  .parts{margin:2.6em 0 0}
+  .nextcard{display:block;text-decoration:none;background:var(--panel);
+    border:1px solid var(--edge2);border-radius:11px;padding:22px 24px;margin:1.4em 0 0;
+    transition:border-color .15s,transform .15s}
+  .nextcard:hover{border-color:var(--cy2);transform:translateY(-2px)}
+  .nextcard .lbl2{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;color:var(--or);
+    text-transform:uppercase}
+  .nextcard h4{margin:.5em 0 .3em;font-size:1.15rem;color:#eaf2f9}
+  .nextcard p{margin:0;color:var(--dim);font-size:.95rem}
+  .nextcard .go{display:inline-block;margin-top:.7em;font-family:var(--mono);
+    font-size:.78rem;color:var(--cy);letter-spacing:.08em}
+
+  hr{border:0;border-top:1px solid var(--edge);margin:3.4em 0 2em}
+  .foot{color:var(--dimmer);font-family:var(--mono);font-size:.85rem;text-align:center;
+    letter-spacing:.08em}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <g fill="none" stroke="#e0632a" stroke-width="2.4">
+      <path d="M50 6 L62 26 L56 34 M50 6 L38 26 L44 34"/>
+      <path d="M50 94 L62 74 L56 66 M50 94 L38 74 L44 66"/>
+      <path d="M24 34 H34 V66 H24 Z"/><path d="M76 34 H66 V66 H76 Z"/>
+    </g>
+    <path d="M50 32 L58 40 H66 V56 H58 L50 66 L42 56 H34 V40 H42 Z"
+          fill="#3fd0e0" opacity=".9"/>
+  </svg>
+  <h1>ARCHITECT</h1>
+  <p class="tag">The Guide &nbsp;·&nbsp; Contents</p>
+  <p class="lede">Everything written down about Coldwater Basin, in the order it
+  is worth reading.</p>
+
+  <div class="cta">
+    <a class="btn" href="https://www.architectgame.net">Play now</a>
+    <a class="btn ghost" href="/guide.html">Start at part one →</a>
+  </div>
+  <p class="free">No install &nbsp;·&nbsp; No download &nbsp;·&nbsp; Open a tab and you're in</p>
+  <p class="free"><a href="/contents-text.html" style="color:var(--cy)">Text-only edition of
+    this guide</a> — plain, linear, screen-reader first, with every diagram written out.</p>
+</header>
+
+<div class="wrap">
+
+<div class="welcome">
+  <p class="eyebrow">Welcome</p>
+  <p>Thank you for playing ARCHITECT. Genuinely — it is a text game in a year
+  that does not make many of them, and somebody deciding to sit down and read a
+  city is the whole reason it exists.</p>
+
+  <p>What you will find on the surface is simple. You read where you are, you
+  type what you want to do, and the city answers. That surface is deliberate,
+  and you can play a long time on it alone.</p>
+
+  <p>Underneath it there is a great deal more, and none of it is going to jump
+  out and introduce itself. There are trades nobody will tell you about,
+  arguments between factions you can take a side in without ever choosing from
+  a menu, weather that will kill you, a whole aircraft under a tarpaulin, and
+  verbs that work perfectly well despite appearing in no menu anywhere. That
+  depth is yours to discover, at whatever pace you like. This guide is here for
+  the parts you would rather not discover the hard way — and it stops well short
+  of spoiling the rest.</p>
+
+  <p>You do not have to read any of it to start. Part one is the only one that
+  assumes you have never typed a command in your life.</p>
+</div>
+
+<hr>
+
+<p class="eyebrow">The parts</p>
+
+<div class="parts">
+
+  <a class="nextcard" href="/guide.html">
+    <span class="lbl2">Part one</span>
+    <h4>Your first hour</h4>
+    <p>What you are looking at, what to type, and what will kill you. The screen,
+    the verbs that matter, food and water and warmth, your first fight, and the
+    handful of mistakes that end a new character early.</p>
+    <span class="go">Read part one →</span>
+  </a>
+
+  <a class="nextcard" href="/tour.html">
+    <span class="lbl2">Part two</span>
+    <h4>Everything you can do in Coldwater Basin</h4>
+    <p>The nine competing orders and the argument they're having. Mutation versus
+    chrome. The flight simulator. Chess, poker and the card machine. Running a shop,
+    or a corporation with a protection racket. The chemistry trade. Weather that
+    kills. Television with a cast that has to turn up to work.</p>
+    <span class="go">Read part two →</span>
+  </a>
+
+  <a class="nextcard" href="/lore.html">
+    <span class="lbl2">Part three</span>
+    <h4>The two questions and the nine orders</h4>
+    <p>Keep this city or leave it, and what humanity should turn into next. All nine
+    orders and what each one actually wants, where they're stationed, how you end up
+    siding with one without ever picking from a menu, and what that does to your
+    prices, your doors and your body.</p>
+    <span class="go">Read part three →</span>
+  </a>
+
+  <a class="nextcard" href="/deep.html">
+    <span class="lbl2">Part four</span>
+    <h4>The deep end</h4>
+    <p>The systems you only find because somebody mentioned them in a bar. Programming
+    the client until it plays half the game for you, protection rackets, the chemical
+    trade, trading cards, and making a living hauling freight across the waste.</p>
+    <span class="go">Read part four →</span>
+  </a>
+
+  <a class="nextcard" href="/thomas-client-guide.html">
+    <span class="lbl2">Appendix</span>
+    <h4>The client itself</h4>
+    <p>THOMAS is the client and engine ARCHITECT is built on, and this is the only
+    page that documents it rather than the world: panels, keyboard, macros,
+    triggers, aliases and accessibility. Read it when you want the tool rather
+    than the city.</p>
+    <span class="go">Read the client guide →</span>
+  </a>
+
+</div>
+
+</div>
+
+<p class="foot" style="padding:3.5em 22px 60px">COLDWATER BASIN RUNS WHETHER YOU'RE
+WATCHING OR NOT. TAKE A COAT.</p>
+
+</body>
+</html>

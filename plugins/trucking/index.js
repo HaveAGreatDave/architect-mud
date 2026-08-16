@@ -2327,6 +2327,9 @@ async function cmdHitch(args, raw, player) {
   if (!reach.ok) {
     if (reach.why === 'far') return say(`${cap(want.name)} is standing ${reach.d < 1.2 ? 'just' : ''} too far off to couple. Line the truck up on it and back under.`);
     if (reach.why === 'angle') return say(`You are across it, not under it. Straighten up on ${want.name} and try again.`);
+    // The flank. A separate answer from 'far' because the driver is not far away at all — they are
+    // beside the box, which looks close and is the one place the pin can never be.
+    if (reach.why === 'across') return say(`You are alongside ${want.name}, not on its pin. The fifth wheel has to come up its centreline — pull round and back onto the nose.`);
     return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
   }
 

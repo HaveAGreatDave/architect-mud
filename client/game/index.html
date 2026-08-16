@@ -369,49 +369,28 @@
 						color: var(--text-dim);
 					">
 					New here?
-					<!-- The href is rewritten to the -text edition when the Log rung is
+					<!-- ONE LINK, AND IT GOES TO THE CONTENTS PAGE.
+					     This was four links — one per part — which put the guide's
+					     table of contents on the login screen. That does not survive
+					     the guide growing: a fifth part is a fifth link competing with
+					     the username field, and the login screen is not where anyone
+					     should be choosing between chapters. The contents page is the
+					     one door, it opens with a welcome, and every part is listed
+					     behind it, so adding a part is now an edit to ONE page that
+					     this screen never hears about.
+					     The href is rewritten to the -text edition when the Log rung is
 					     chosen above (syncGuideLinkRung in net.js). The illustrated
-					     pages are the default because they are what most players want;
+					     page is the default because it is what most players want;
 					     a player who has just said "I use a screen reader" should not
 					     then be handed the version built around pictures. -->
 					<a
-						href="/guide.html"
+						href="/contents.html"
 						id="guide-link-guide"
-						data-guide-visual="/guide.html"
-						data-guide-log="/guide-text.html"
+						data-guide-visual="/contents.html"
+						data-guide-log="/contents-text.html"
 						target="_blank"
 						rel="noopener"
-						>Read the first-hour guide</a
-					>
-					&nbsp;·&nbsp;
-					<a
-						href="/tour.html"
-						id="guide-link-tour"
-						data-guide-visual="/tour.html"
-						data-guide-log="/tour-text.html"
-						target="_blank"
-						rel="noopener"
-						>See what's in it</a
-					>
-					&nbsp;·&nbsp;
-					<a
-						href="/lore.html"
-						id="guide-link-lore"
-						data-guide-visual="/lore.html"
-						data-guide-log="/lore-text.html"
-						target="_blank"
-						rel="noopener"
-						>The story &amp; the orders</a
-					>
-					&nbsp;·&nbsp;
-					<a
-						href="/deep.html"
-						id="guide-link-deep"
-						data-guide-visual="/deep.html"
-						data-guide-log="/deep-text.html"
-						target="_blank"
-						rel="noopener"
-						>The deep end</a
+						>Read the guide</a
 					>
 				</div>
 				<!-- Powered by THOMAS. Architect is one game on the platform, so the

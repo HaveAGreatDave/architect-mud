@@ -323,7 +323,14 @@ export const TYPES = {
                           // a TEMPERATURE, which is what makes holding a gear down a grade matter.
     kg: 1800, tank: 1100, price: 4200,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 3.86, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
+    // ⚠ FIRST IS A CRAWLER AND IS DELIBERATELY OFF THE GEOMETRIC LADDER. 2nd→8th stay in
+    // step with each other; only 1st is deepened (~25%). The redline speed in a gear is
+    // `tileMph / ratio`, so the old 3.86 ran first to twenty miles an hour and asked to be
+    // shifted at thirteen — which is not a truck's first gear, it is a car's. The big step
+    // down to 2nd is not a flaw in the ladder, it is what a deep low gear FEELS like, and it
+    // is why a driver skips it once rolling. Reverse borrows this ratio (× REVERSE_RATIO), so
+    // it gets slower and stronger in the same edit, which is the right direction for both.
+    gears: [0, 4.85, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
     engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.17, hitchOffset: 0.055, trailerKg: 1400,   // kingpin geometry, and the empty box itself
     blurb: 'A stubby rigid box on a short wheelbase. Turns in like something half its age and carries about as much.',
@@ -334,7 +341,7 @@ export const TYPES = {
     engineLag: 1.9, rollFric: 2.1, dragP: 0.0016, brake: 7.5,
     kg: 3500, tank: 1400, price: 11500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 4.21, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],
+    gears: [0, 5.30, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
     blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
@@ -350,7 +357,7 @@ export const TYPES = {
     engineLag: 2.6, rollFric: 2.3, dragP: 0.0016, brake: 6.4,
     kg: 6200, tank: 2100, price: 31000,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 4.54, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],
+    gears: [0, 5.70, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
     blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
@@ -363,7 +370,7 @@ export const TYPES = {
     engineLag: 2.4, rollFric: 2.2, dragP: 0.0019, brake: 6.0,
     kg: 1200, tank: 850, price: 1300,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
-    gears: [0, 4.93, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],
+    gears: [0, 6.20, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],   // 1st is the crawler — see the ⚠ on the Courier
     engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
     trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
@@ -665,10 +672,12 @@ function stepHeli(state, input, p, dt) {
 // gave a different axle angle depending on how fast you were going, so nothing a driver learned in
 // a yard transferred to the road and no amount of practice built a feel for a quarter turn.
 //
-// The fade is gone, and the spin it was preventing is prevented honestly instead: the wheel is now
-// THREE AND A HALF TURNS LOCK TO LOCK (helm-wheel.js's TRUCK_LOCK_TURNS) rather than one and a
-// half, so a given movement of the hand is a much smaller movement of the axle and you physically
-// cannot flick it into a slide at speed. Same protection, no lie in the control.
+// The fade is gone, and the spin it was preventing is prevented honestly instead: the wheel has
+// real TRAVEL (helm-wheel.js's TRUCK_LOCK_TURNS — one full revolution of the rim from centre to
+// the stops, two lock to lock), so a given movement of the hand is a much smaller movement of the
+// axle and you physically cannot flick it into a slide at speed. Same protection, no lie in the
+// control. ⚠ That constant was 3.5 turns — a real tractor's travel — and was cut because a mouse
+// cannot deliver it; this comment claimed the old figure long after. Read the number, not this.
 //
 // The coupled/bobtail split STAYS, and it is not a speed rule — it is a trailer rule. A tractor
 // with a box on the fifth wheel cannot use the last few degrees without the kingpin scrubbing the
@@ -681,10 +690,36 @@ function stepHeli(state, input, p, dt) {
 // (TRUCK_LOCK_TURNS), the last few degrees are finally somewhere a player can actually get to, and
 // they should be worth arriving at. Coupled stays where it was — a kingpin scrubbing the drives
 // round is a real limit and the reason you plan a yard manoeuvre instead of just cranking it.
+// ⚠ THE RADIUS IS `L / tan(δ)`, AND tan IS THE REASON THIS IS NOT A LINEAR KNOB. Between 66° and
+// 70° the tangent goes 2.25 → 2.75, so four degrees takes ~20% off the circle; the same four
+// degrees from 80° to 84° nearly halves it. Bobtail is deliberately parked in the part of the
+// curve where a nudge is still a nudge — anything much past 70 and the truck pivots on the spot,
+// which is not tight, it is weightless, and it would take the yard manoeuvre out of the game
+// entirely. Coupled is untouched at 50: the trailer complicating the turn is the whole point of
+// the split, and it is what makes dropping the box before shuffling worth doing.
 const TRUCK_STEER_LOCK = 50;     // at the stops, coupled: a real steer axle
-const TRUCK_STEER_BOB  = 66;     // …and bobtail, where the whole lock is usable
+// …and bobtail, where the whole lock is usable (66 → 70 → 78). The paragraph above worried that
+// past 70 a bobtail "pivots on the spot", and that is now a DELIBERATE choice rather than an
+// overrun: the yard is where trucks and dropped trailers share a few tiles, and a tractor that
+// cannot get round inside one is not weighty, it is unusable. The tan curve is what makes this
+// safe to do — δ enters as tan δ, so the extra lock is nearly all in the last of the travel: half
+// a turn of the wheel is barely changed, and the transformation is at the stops, where a driver
+// only ever goes when they are shuffling.
+const TRUCK_STEER_BOB  = 78;
+// ⚠ AND REVERSE GETS MORE, WHICH IS NOT A CONTRADICTION OF THE PARAGRAPH ABOVE. The reason 70 is
+// the forward ceiling is that past it the truck pivots on the spot and reads as WEIGHTLESS — but
+// that objection is about driving, at road speed, with momentum you are supposed to feel. Backing
+// is the opposite job: you are at a walking pace with the wheel on the stops, and the manoeuvre
+// people know from a real yard is the tail coming round hard. Per the tan curve in the note above,
+// 78 → 85 is not a nudge — it takes the circle from L/4.7 to L/11.4, so a rig backs round in a
+// third of the space and is very close to swinging about its own drives, which is exactly the
+// manoeuvre a depot full of parked boxes asks for. All of it only ever applies bobtail.
+// Coupled is untouched at 50 in both directions: a kingpin scrubbing the drives round is the real
+// limit, and it is what makes dropping the trailer before shuffling worth doing.
+const TRUCK_STEER_BACK = 85;
 function truckSteerLock(speed, hitched) {
-  return hitched ? TRUCK_STEER_LOCK : TRUCK_STEER_BOB;
+  if (hitched) return TRUCK_STEER_LOCK;
+  return (speed || 0) < -0.01 ? TRUCK_STEER_BACK : TRUCK_STEER_BOB;
 }
 // Exported because the CAB lights the road off it: the lifter wash has to be at its "running"
 // brightness the moment the engine is idling, and the only honest definition of idling is this

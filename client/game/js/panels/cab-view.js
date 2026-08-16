@@ -429,8 +429,16 @@ export function openCab(ctx = {}) {
                  rest of the time. A permanently visible button that answers "not here" is a button
                  you learn to ignore; one that only exists when it will work is an instrument.
                  ⚠ It is a HINT, never an authority — pressing it runs the ordinary 'hitch' verb,
-                 which re-checks distance, angle and speed for itself. -->
-            <button class="cab-btn cab-rocker cab-hitchbtn" hidden aria-label="Hitch trailer" title="Back under the trailer and couple (hitch)"><i></i><u><span>HITCH</span></u></button>
+                 which re-checks distance, angle and speed for itself.
+
+                 IT IS NOT A ROCKER, because the thing a driver actually operates to take or drop a
+                 box is not a switch: it is the RED OCTAGONAL TRAILER AIR SUPPLY KNOB, the one
+                 push-pull control on a truck dash that is shaped differently from everything around
+                 it so a hand finds it without looking. Push it in and the trailer has air and is
+                 yours; pull it out and the box stays where it is. So the knob's own state is the
+                 rig's state, and the word stamped on it is what your hand does next — which is why
+                 the legend reads PUSH and PULL rather than HITCH and DROP. -->
+            <button class="cab-btn cab-hitchbtn" hidden aria-label="Trailer air supply" title="Back under the trailer and couple (hitch)"><i></i><b class="cab-knobface"><s></s><em>PUSH</em></b><u><span>TRAILER AIR</span></u></button>
 
             <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
           </div>
@@ -1804,12 +1812,17 @@ function paintHitchBtn(st) {
   const show = coupled || !!target;
   el.hidden = !show;
   if (!show) return;
-  const w = el.querySelector('u span');
-  if (w) w.textContent = coupled ? 'DROP' : 'HITCH';
-  el.classList.toggle('on', !coupled);
+  // COUPLED IS THE KNOB PUSHED IN. The 'out' class is the knob standing proud of its collar with the
+  // lamp lit, which is a bobtail with something in reach; without it the knob is home and flush.
+  // The stamped word is the ACTION, not the state — a hand on a push-pull knob wants to be told
+  // which way to move it, and the lamp above already says whether anything is connected.
+  const w = el.querySelector('.cab-knobface em');
+  if (w) w.textContent = coupled ? 'PULL' : 'PUSH';
+  el.classList.toggle('out', !coupled);
+  el.setAttribute('aria-label', coupled ? 'Trailer air supply — pull to release' : 'Trailer air supply — push to couple');
   el.setAttribute('title', coupled
-    ? 'Drop the trailer here (unhitch)'
-    : `Couple to ${target?.name || 'the trailer'} (hitch)`);
+    ? 'Pull the air supply and drop the trailer here (unhitch)'
+    : `Push the air supply in and couple to ${target?.name || 'the trailer'} (hitch)`);
 }
 
 function drawRigOverlay(st, r) {
@@ -2452,6 +2465,55 @@ function ensureCabStyles() {
   .cab-btn.cab-rocker.on i{background:var(--cab-glow,#e8c07a);box-shadow:0 0 8px var(--cab-glow,#e8c07a)}
   .cab-jake.on i{background:#4e9ab0;box-shadow:0 0 8px #4e9ab0}
   .cab-horn:active i{background:#e0b45a;box-shadow:0 0 10px #e0b45a}
+
+  /* ── THE TRAILER AIR SUPPLY KNOB ───────────────────────────────────────────
+     The only round, red, EIGHT-SIDED thing on the panel, and every one of those three is doing a
+     job: a truck dash is a field of grey rectangles, and the two air valves are deliberately shaped
+     and coloured so a hand finds them at night without the eyes leaving the road. Copying that is
+     most of why this reads as a cab control rather than a web button.
+     It is built as a KNOB ON A COLLAR rather than a flat octagon: the collar is the bezel screwed to
+     the dash, the octagon is the part that travels, and the whole read of the control is how far the
+     octagon is standing out of the collar. Pushed home it is flush and dark; pulled out it stands
+     proud on a lit stem with a shadow under it. */
+  .cab-btn.cab-hitchbtn{gap:3px;min-width:52px;padding:4px 4px 5px;border-radius:4px;
+    background:linear-gradient(#171b20,#0e1216);border:1px solid #2b333c;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), inset 0 -2px 3px rgba(0,0,0,.5)}
+  .cab-btn.cab-hitchbtn::before{display:none}          /* it has its own lamp; no tell-tale strip */
+  .cab-btn.cab-hitchbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
+    box-shadow:inset 0 0 3px #000, 0 1px 0 rgba(255,255,255,.05)}
+  /* THE COLLAR AND THE KNOB. The octagon is a clip-path so the silhouette is honest at any size, and
+     the knurl is a repeating conic gradient — eight flats catch the light unevenly, which is what
+     stops a red octagon reading as a sticker. */
+  .cab-btn.cab-hitchbtn b.cab-knobface{position:relative;display:flex;align-items:center;
+    justify-content:center;width:30px;height:30px;
+    clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);
+    background:
+      repeating-conic-gradient(from 22.5deg,rgba(0,0,0,.20) 0deg 6deg,rgba(255,255,255,.06) 6deg 45deg),
+      radial-gradient(120% 120% at 32% 24%,rgba(255,180,170,.28),rgba(0,0,0,.35));
+    background-color:#8e2a24;
+    transition:transform .09s ease-out, box-shadow .09s ease-out, background-color .09s}
+  /* The moulded highlight, up and to the left, the way every one of these is lit in a real cab by
+     the windscreen behind it. */
+  .cab-btn.cab-hitchbtn b.cab-knobface s{position:absolute;left:14%;top:10%;width:46%;height:32%;
+    border-radius:50%;text-decoration:none;
+    background:linear-gradient(160deg,rgba(255,255,255,.42),rgba(255,255,255,0));filter:blur(.6px)}
+  /* THE STAMPED WORD. Sunk into the plastic, not printed over it. */
+  .cab-btn.cab-hitchbtn b.cab-knobface em{position:relative;font:700 8px/1 inherit;font-style:normal;
+    letter-spacing:.09em;color:#f4d9d4;text-shadow:0 1px 0 rgba(0,0,0,.65), 0 -1px 0 rgba(255,255,255,.10)}
+  .cab-btn.cab-hitchbtn u{display:block;text-decoration:none;font:700 7px/1 inherit;letter-spacing:.1em;
+    color:#7f8b98;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  /* PULLED OUT: standing off the dash, lit, with air in it. */
+  .cab-btn.cab-hitchbtn.out b.cab-knobface{background-color:#c23b30;transform:translateY(-2px);
+    box-shadow:0 4px 6px -2px rgba(0,0,0,.85), inset 0 -2px 4px rgba(0,0,0,.35),
+      0 0 10px rgba(194,59,48,.45)}
+  .cab-btn.cab-hitchbtn.out i{background:#e05348;box-shadow:0 0 8px #e05348}
+  .cab-btn.cab-hitchbtn.out u{color:#c9d2dc}
+  /* PUSHED HOME: sunk into its collar, the shadow now falling ON it rather than under it. */
+  .cab-btn.cab-hitchbtn:not(.out) b.cab-knobface{transform:translateY(1px);
+    box-shadow:inset 0 3px 5px rgba(0,0,0,.6), inset 0 -1px 0 rgba(255,255,255,.08)}
+  .cab-btn.cab-hitchbtn:active b.cab-knobface{transform:translateY(2px);
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.7)}
+  .cab-btn.cab-hitchbtn:active{transform:none}         /* the KNOB travels, not the housing */
 
   /* ── THE CB SET ────────────────────────────────────────────────────────────
      A radio in the same recessed housing as everything else on this panel: a lit channel readout,

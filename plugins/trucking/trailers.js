@@ -197,15 +197,44 @@ export function trailersNear(zoneId, x, y, range = 26) {
 export const HITCH_TILES = 0.5;
 export const HITCH_MPH = 6;
 export const HITCH_DEG = 30;
+// ⚠ YOU COUPLE TO THE PIN, NOT TO THE TRAILER. A round half-tile around the trailer's pose is a
+// DISC, and a disc has no front: it says yes to a truck alongside the box, and to one that has
+// driven up the trailer's own flank until it happens to be near the middle of it. The pin is one
+// point on one end of a forty-foot object, so the tolerance has to be shaped like the manoeuvre —
+// a narrow lane on the trailer's centreline, running FORWARD from the pin, which is the only place
+// a tractor can physically be when its fifth wheel is under one.
+//
+// The pose IS the coupling point: `unhitch` stores the tractor's own x/y at the moment the pin came
+// out, so the point in the row is where the fifth wheel was standing. Nothing here has to guess at
+// a trailer's length, and the picture agrees for free (see the nose anchoring in aircraft3d.js).
+//
+//   ACROSS   how far off its centreline you are. Tight — this is the one that refuses the flank.
+//   ALONG    how far forward of the pin, plus a little slack BEHIND it for the overlap a fifth
+//            wheel actually has. Longer than ACROSS, because the length of a tractor is the thing
+//            you are judging by eye out of a mirror and the width is not.
+export const HITCH_ACROSS = 0.22;
+export const HITCH_ALONG = 0.55;
+export const HITCH_BEHIND = 0.15;
 export function hitchReach(rig, t) {
   if (!rig) return { ok: false, why: 'nodrive' };
   if (Math.abs(rig.speed || 0) > HITCH_MPH) return { ok: false, why: 'fast' };
   if (!posed(t)) return { ok: true, why: null };
-  const d = Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y);
-  if (d > HITCH_TILES) return { ok: false, why: 'far', d };
+  const dx = (rig.x ?? 0) - t.x, dy = (rig.y ?? 0) - t.y;
+  const d = Math.hypot(dx, dy);
+  // The trailer's own axes. Heading 0 is north, so forward is (sin, -cos) — the same convention the
+  // sim integrates position in (flight-model.js), and the reason this is derived from it rather
+  // than typed out is that a second copy of that convention is a sign error waiting to happen.
+  const h = (t.heading ?? 0) * Math.PI / 180;
+  const fx = Math.sin(h), fy = -Math.cos(h);
+  const along = dx * fx + dy * fy;          // + is ahead of the pin, where a tractor belongs
+  const across = Math.abs(dx * -fy + dy * fx);
+  // ANGLE FIRST. A truck lying across the pin is not a truck that is nearly right, and telling it
+  // it is 'too far off to couple' when it is inches away and sideways is the confusing answer.
   const off = Math.abs(((((rig.heading ?? 0) - t.heading + 540) % 360) - 180));
   if (off > HITCH_DEG) return { ok: false, why: 'angle', off };
-  return { ok: true, why: null, d, off };
+  if (across > HITCH_ACROSS) return { ok: false, why: 'across', across, d };
+  if (along > HITCH_ALONG || along < -HITCH_BEHIND) return { ok: false, why: 'far', d, along };
+  return { ok: true, why: null, d, off, along, across };
 }
 
 // The load, written back as one statement. `cargo` is the DECLARED load and `stash` is what is not

@@ -1551,7 +1551,7 @@ export default async function regress({ run, check, getPlayer }) {
   // with no pose (yard stock, or any row written before this existed) must still be hitchable, or
   // the feature silently strands every box already in the world.
   {
-    const { hitchReach, posed, HITCH_TILES, HITCH_DEG } = await import('./trailers.js');
+    const { hitchReach, posed, HITCH_ALONG, HITCH_ACROSS, HITCH_DEG } = await import('./trailers.js');
     const box = { id: 't1', name: 'a dry box', x: 10, y: 10, heading: 90, ratedKg: 3600 };
     const at = (x, y, heading, speed = 0) => ({ x, y, heading, speed });
 
@@ -1561,7 +1561,18 @@ export default async function regress({ run, check, getPlayer }) {
       !hitchReach(at(10, 10, 90 + HITCH_DEG + 15), box).ok, 'coupled across the box');
     check('…nor does hitting it at speed', !hitchReach(at(10, 10, 90, 40), box).ok, 'coupled at 40mph');
     check('a hair inside the reach still couples',
-      hitchReach(at(10 + HITCH_TILES * 0.9, 10, 90), box).ok, 'refused inside its own tolerance');
+      hitchReach(at(10 + HITCH_ALONG * 0.9, 10, 90), box).ok, 'refused inside its own tolerance');
+
+    // ⚠ THE FLANK. The whole reason the tolerance is a lane and not a disc: this truck is CLOSER to
+    // the pose than the one on the last line, is pointing the same way as the box, and must still be
+    // refused — it is beside the trailer, which is the one place a fifth wheel can never be under a
+    // pin. A round tolerance says yes to it, and that is what this case exists to catch.
+    const flank = hitchReach(at(10, 10 + HITCH_ACROSS * 2, 90), box);
+    check('…but standing alongside it does not, however close', !flank.ok, 'coupled from the flank');
+    check('…and it is refused for being off the centreline, not for distance',
+      flank.why === 'across', flank.why);
+    check('…nor can you couple from behind the pin, inside the box',
+      !hitchReach(at(9.4, 10, 90), box).ok, 'coupled from inside the trailer');
 
     const unplaced = { id: 't2', name: 'yard stock', x: null, y: null, heading: null, ratedKg: 2200 };
     check('a trailer with no pose is not drawable', !posed(unplaced), 'claimed a position it has not got');
