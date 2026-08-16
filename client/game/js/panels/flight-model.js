@@ -660,7 +660,10 @@ const TRUCK_STEER_BOB  = 58;     // …and bobtail, where the whole lock is usab
 function truckSteerLock(speed, hitched) {
   return hitched ? TRUCK_STEER_LOCK : TRUCK_STEER_BOB;
 }
-const IDLE = 0.16;               // idle, as a fraction of redline
+// Exported because the CAB lights the road off it: the lifter wash has to be at its "running"
+// brightness the moment the engine is idling, and the only honest definition of idling is this
+// number. A copy in the panel would be a second idle speed that drifts the first time this moves.
+export const IDLE = 0.16;        // idle, as a fraction of redline
 const STALL_RPM = 0.11;          // below this in gear, clutch out, it dies
 const LAUNCH_MPH = 12;           // below this, ON THE THROTTLE, a driver is feathering the clutch
 const CRAWL_MPH  = 4;            // below this the clutch is always in — parking must not stall you

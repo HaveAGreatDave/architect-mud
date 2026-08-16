@@ -18,7 +18,7 @@
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
   groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
-import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
+import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
@@ -1866,16 +1866,20 @@ function frame(now) {
       // exact tell the parked pose was written to kill: a machine holding itself up on light it is
       // not making. It is one suffix, and the whole settle comes with it.
       variant: TYPE_ID + (r.hitched ? '+t' : '') + (r.stalled ? '~p' : ''),
-      // WHAT THE ROAD UNDER IT IS LIT BY, in three states you can tell apart at a glance: OFF is
-      // dark, ON is already bright, and MOVING is brighter still.
+      // WHAT THE ROAD UNDER IT IS LIT BY. The engine drives the lifters, so RPM is the right
+      // instrument — what was wrong was the SCALE, not the signal.
       //
-      // The first cut keyed this on rpm alone, which was the wrong instrument. A lifter is not a
-      // rev counter — it is holding the truck up, and it is doing that hardest when it is also
-      // driving the thing forward. Worse, an idling diesel sits at 0.16 of redline, so rpm alone
-      // put a running rig at about a tenth of full wash: switched on and still almost dark, which
-      // is the one state that has to read as ALIVE. So idle is a floor rather than a fraction, and
-      // road speed is what opens it the rest of the way.
-      power: r.stalled ? 0 : Math.min(1, 0.55 + 0.45 * Math.min(1, Math.abs(r.speed || 0) / 40)),
+      // A diesel idles at 0.16 of redline, so reading rpm as a straight fraction put a running,
+      // idling rig at about a tenth of full wash: switched on and still nearly dark, which is the
+      // one state that has to read as alive. The curve is anchored at idle instead. Below it —
+      // cranking, or dying — the wash comes up from nothing, so a start is visible as the lifters
+      // catching; AT idle it is already bright; and the top of the rev range takes it the rest of
+      // the way, so working the engine visibly lights the road under the skirts.
+      // ⚠ `IDLE` is imported from the model rather than written here. A second copy of the idle
+      // speed is a number that silently disagrees with the engine the first time the engine moves.
+      power: r.stalled ? 0
+        : (st.sim.rpm || 0) <= IDLE ? 0.55 * ((st.sim.rpm || 0) / IDLE)
+        : 0.55 + 0.45 * Math.min(1, ((st.sim.rpm || 0) - IDLE) / (1 - IDLE)),
       livery: PAINT || undefined,
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
