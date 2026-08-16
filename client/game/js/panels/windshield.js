@@ -9002,7 +9002,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     }
     case 'grocery': {   // Ration Nine: neighbourhood store + a long front awning, stacked crates, and a lit sign
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.12, 0, h * 0.6, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.06, h * 0.14, h * 0.28, 'ty_door', seed + 1, night, alpha, false); }   // full-width awning
+      awning(ctx, cam, dx, dy, E, fh * 1.06, fh * 1.05, h * 0.14, h * 0.28, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // full-width awning
       for (const s of [-0.7, 0.7]) { const [cx, cy] = F(s * fh * 0.7, fh * 0.82); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.22, 0, h * 0.14, 'ty_door', seed + 9 + s * 3, night, alpha, true); }   // crates out front
       neonBlade(ctx, cam, dx, dy, h * 0.55, h * 0.85, m.neon || '#ffcf3e', night, alpha);
       if (night) glowPool(ctx, cam, dx, dy, h * 0.26, '255,214,140', 12, alpha * 0.22);                 // lit aisles through the glass
@@ -9011,7 +9011,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'butcher': {   // Meat Your Maker: a squat oxblood shopfront under a striped awning, and the smokehouse flue that gives it away from the air
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.14, 0, h * 0.62, pal, seed, night, alpha, true);              // single-storey shop
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.2, h * 0.62, h * 0.7, pal, seed + 1, night, alpha, false);    // flat roof with a lipped parapet
-      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.02, h * 0.16, h * 0.3, 'ty_door', seed + 2, night, alpha, false); }   // awning over the window
+      awning(ctx, cam, dx, dy, E, fh * 1.02, fh * 1.05, h * 0.16, h * 0.3, 'ty_door', seed + 2, night, alpha, fh * 0.30);   // awning over the window
       // THE SIGNATURE. Everything above is a low shop and reads like fifty other
       // low shops; the flue is the one thing that says what is happening inside.
       { const [sx, sy] = F(-fh * 0.55, -fh * 0.5); draw3DBoxAt(ctx, cam, sx, sy, fh * 0.16, h * 0.62, h * 1.24, pal, seed + 3, night, alpha, false); }   // smokehouse flue
@@ -9265,7 +9265,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       { const [fx, fy] = F(0, fh * 0.16); draw3DBoxAt(ctx, cam, fx, fy, fh * 0.86, 0, frontTop, 'ty_reach_saloon_dk', seed + 1, night, alpha, true); }
       // 3) PORCH — a shed awning over the boardwalk on three posts, along the front.
       { const canZ0 = bodyTop * 0.5, canZ1 = bodyTop * 0.58, [cx, cy] = F(0, fh * 1.18);
-        draw3DBoxAt(ctx, cam, cx, cy, fh * 0.94, canZ0, canZ1, 'ty_reach_board', seed + 2, night, alpha, true);   // awning
+        awning(ctx, cam, dx, dy, E, fh * 0.94, fh * 1.50, canZ0, canZ1, 'ty_reach_board', seed + 2, night, alpha, fh * 1.05);   // awning, reaching out over the boardwalk to the posts
         for (const s of [-0.82, 0, 0.82]) { const [px, py] = F(fh * s, fh * 1.42); draw3DBoxAt(ctx, cam, px, py, fh * 0.03, 0, canZ0, 'ty_reach_saloon_dk', seed + 8 + s, night, alpha, false); }   // posts
       }
       // boardwalk plank strip on the ground in front
@@ -9633,7 +9633,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     }
     case 'bar': {   // narrow street-corner bar — a taller slim box, a lit door awning + a neon blade
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.82, 0, h * 0.95, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.82); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.78, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, false); }   // door awning
+      awning(ctx, cam, dx, dy, E, fh * 0.78, fh * 0.92, h * 0.22, h * 0.34, 'ty_door', seed + 1, night, alpha, fh * 0.26);   // door awning
       { const [nx, ny] = F(fh * 0.5, fh * 0.4); neonBlade(ctx, cam, nx, ny, h * 0.34, h * 1.2, m.neon || '#5fd0ff', night, alpha); }
       if (night) glowPool(ctx, cam, dx, dy, h * 0.24, '120,220,255', 9, alpha * 0.2);
       break;
@@ -9649,7 +9649,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const hw = fh * 1.12, wallTop = h * 0.52, archH = hw * 0.34;
       draw3DBoxAt(ctx, cam, dx, dy, hw, 0, wallTop, pal, seed, night, alpha, false);                                    // diner body (roof left open for the barrel)
       drawBarrelRoof(ctx, cam, F, 0, hw, hw * 0.9, wallTop, archH, 12, alpha, [150, 150, 156]);                         // curved streamline stainless roof
-      { const [ax, ay] = F(0, fh * 0.95); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.06, wallTop * 0.42, wallTop * 0.64, 'ty_door', seed + 1, night, alpha, false); }   // counter awning faces the street
+      awning(ctx, cam, dx, dy, E, fh * 1.06, fh * 1.05, wallTop * 0.42, wallTop * 0.64, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // counter awning faces the street
       neonBlade(ctx, cam, dx, dy, wallTop + archH, wallTop + archH + h * 0.42, m.neon || '#ffcf3e', night, alpha);      // rooftop neon sign
       if (night) { const [wx, wy] = F(0, fh * 0.92); glowPool(ctx, cam, wx, wy, wallTop * 0.5, '255,200,120', 13, alpha * 0.26); }   // warm window band
       break;
@@ -9996,13 +9996,13 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'freight_office': {   // a small two-storey site office with a lit sign band and a service canopy
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.95, 0, h * 0.85, pal, seed, night, alpha, true);                // office block
       if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh, h * 0.9, m.neon || '#ffb43a', night, alpha);      // sign band
-      { const [cx, cy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.7, h * 0.16, h * 0.26, 'ty_door', seed + 1, night, alpha, false); }   // service canopy
+      awning(ctx, cam, dx, dy, E, fh * 0.7, fh * 1.02, h * 0.16, h * 0.26, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // service canopy
       if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,200,120', 9, alpha * 0.2);
       break;
     }
     case 'freight_forwarder': {   // a forwarding depot with a loading-dock canopy and truck bays facing the apron
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, h * 0.6, pal, seed, night, alpha, true);                 // depot shed
-      { const [cx, cy] = F(0, fh * 1.05); draw3DBoxAt(ctx, cam, cx, cy, fh * 1.02, h * 0.42, h * 0.5, 'ty_door', seed + 1, night, alpha, false); }   // loading-dock canopy
+      awning(ctx, cam, dx, dy, E, fh * 1.02, fh * 1.22, h * 0.42, h * 0.5, 'ty_door', seed + 1, night, alpha, fh * 0.40);   // loading-dock canopy — a truck backs under this one, so it keeps real depth
       if (frontVis) for (const s of [-0.6, 0, 0.6]) { const [bx, by] = F(s * fh, fh * 1.02); draw3DBoxAt(ctx, cam, bx, by, fh * 0.28, 0, h * 0.34, 'ty_door', seed + 4 + s * 3, night, alpha, false); }   // truck bays
       if (night) glowPool(ctx, cam, dx, dy, h * 0.3, '255,196,120', 12, alpha * 0.18);
       break;
@@ -10113,7 +10113,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const roastSkin = (f) => { const s = 0.5 + f.nl * 0.55; return `rgba(${roast[0] * s | 0},${roast[1] * s | 0},${roast[2] * s | 0},0.97)`; };
       drawFacetDrum(ctx, cam, dx, dy, wallTop, wallTop + h * 0.30, fh * 0.30, fh * 0.26, 10, alpha, roastSkin, night ? 'rgba(36,32,28,0.97)' : 'rgba(96,88,78,0.97)');
       drawSmoke(ctx, cam, dx, dy, wallTop + h * 0.30, '160,140,120', alpha * 0.5, now, seed + 2);
-      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.00, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }   // awning over the pavement tables
+      awning(ctx, cam, dx, dy, E, fh * 1.00, fh * 1.08, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, fh * 0.34);   // awning over the pavement tables
       if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.90, wallTop * 0.80, m.neon || '#5fd0ff', night, alpha, 'BATTERY ACID');
       if (night) { const [wx, wy] = F(0, fh * 0.94); glowPool(ctx, cam, wx, wy, h * 0.24, '255,205,150', 12, alpha * 0.30); }
       break;
@@ -10185,7 +10185,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'hardware': {   // Nuts to That — a low shop under a deep awning with its stock stacked out on the pavement
       const wallTop = h * 0.86;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.08, 0, wallTop, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 1.02); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.18, wallTop * 0.66, wallTop * 0.74, 'ty_door', seed + 1, night, alpha, false); }   // the deep awning
+      awning(ctx, cam, dx, dy, E, fh * 1.18, fh * 1.14, wallTop * 0.66, wallTop * 0.74, 'ty_door', seed + 1, night, alpha, fh * 0.44);   // the deep awning — depth is this shop's whole tell, so it keeps the most of any of them
       for (let i = 0; i < 3; i++) {   // rope coils, the rebar barrel, a pallet of grey buckets
         const [sx, sy] = F((-0.7 + i * 0.7) * fh * 0.80, fh * 1.16);
         draw3DBoxAt(ctx, cam, sx, sy, fh * 0.22, 0, h * (0.16 + 0.06 * (i & 1)), 'ty_door', seed + 5 + i, night, alpha, true);
@@ -10213,7 +10213,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'noodlebar': {   // Oyelaran's — one storey, front wall folded open, a steam hood dumping the entire advertising budget into the street
       const wallTop = h * 0.74;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.02, wallTop * 0.52, wallTop * 0.62, 'ty_door', seed + 1, night, alpha, false); }   // the counter awning over the open front
+      awning(ctx, cam, dx, dy, E, fh * 1.02, fh * 1.08, wallTop * 0.52, wallTop * 0.62, 'ty_door', seed + 1, night, alpha, fh * 0.34);   // the counter awning over the open front
       { const [hx, hy] = F(0, -fh * 0.10);
         draw3DBoxAt(ctx, cam, hx, hy, fh * 0.30, wallTop, wallTop + h * 0.20, 'ty_door', seed + 2, night, alpha, true);
         drawSmoke(ctx, cam, hx, hy, wallTop + h * 0.20, '225,215,200', alpha * 0.60, now, seed + 3); }   // the steam hood
@@ -10233,7 +10233,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'outfitter': {   // Layers — a narrow workwear shopfront with boots strung up under the awning by their laces
       const wallTop = h * 0.94;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, 0, wallTop, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.98); draw3DBoxAt(ctx, cam, ax, ay, fh * 1.04, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, false); }
+      awning(ctx, cam, dx, dy, E, fh * 1.04, fh * 1.06, wallTop * 0.60, wallTop * 0.68, 'ty_door', seed + 1, night, alpha, fh * 0.30);
       for (let i = 0; i < 4; i++) {   // the hanging boots
         const [bx, by] = F((-0.75 + i * 0.50) * fh * 0.90, fh * 1.02);
         draw3DBoxAt(ctx, cam, bx, by, fh * 0.05, wallTop * 0.44, wallTop * 0.58, 'ty_door', seed + 6 + i, night, alpha, false);
@@ -10249,8 +10249,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     case 'bodega': {   // Bodega Vu — a tiny corner shop with awnings on BOTH streets, one warm window and a padlocked cooler outside
       const wallTop = h * 0.82;
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, 0, wallTop, pal, seed, night, alpha, true);
-      { const [ax, ay] = F(0, fh * 0.96); draw3DBoxAt(ctx, cam, ax, ay, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 1, night, alpha, false); }
-      { const [bx, by] = F(fh * 0.96, 0); draw3DBoxAt(ctx, cam, bx, by, fh * 0.98, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 2, night, alpha, false); }   // it turns the corner — that's the whole building
+      awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.00, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 1, night, alpha, fh * 0.28);
+      // It turns the corner — that's the whole building. The side awning is the same call against E
+      // rotated a quarter turn, which is what keeps the two of them identical rather than nearly so.
+      awning(ctx, cam, dx, dy, [E[1], -E[0]], fh * 0.98, fh * 1.00, wallTop * 0.58, wallTop * 0.66, 'ty_door', seed + 2, night, alpha, fh * 0.28);
       { const [cx, cy] = F(-fh * 0.60, fh * 1.00); draw3DBoxAt(ctx, cam, cx, cy, fh * 0.14, 0, h * 0.24, 'ty_door', seed + 3, night, alpha, true); }              // the chained cooler
       for (let i = 0; i < 2; i++) {   // produce crates out on the pavement, stacked two high
         const [kx, ky] = F((0.30 + i * 0.34) * fh, fh * 1.06);
@@ -10286,7 +10288,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
     default: {   // small mixed-use storefront: a glazed lit ground floor + residential floors above + awning + sign
       draw3DBoxAt(ctx, cam, dx, dy, fh * 1.0, 0, h * 0.4, 'ty_office', seed, night, alpha, true);      // glazed ground-floor retail (glass tone)
       draw3DBoxAt(ctx, cam, dx, dy, fh * 0.94, h * 0.4, h * 1.0, pal, seed + 2, night, alpha, true);    // residential floors above
-      { const [gx, gy] = F(0, fh * 0.92); draw3DBoxAt(ctx, cam, gx, gy, fh * 0.98, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, false); }   // awning over the storefront
+      awning(ctx, cam, dx, dy, E, fh * 0.98, fh * 1.06, h * 0.32, h * 0.44, 'ty_door', seed + 1, night, alpha, fh * 0.30);   // awning over the storefront
       { const [nx, ny] = F(fh * 0.55, fh * 0.55); neonBlade(ctx, cam, nx, ny, h * 0.44, h * 1.12, m.neon || '#5fd0ff', night, alpha); }   // projecting sign on the storefront corner (over the awning, cresting the roofline) — not a stub planted in the roof centre
       if (night) { const [wx, wy] = F(0, fh * 0.9); glowPool(ctx, cam, wx, wy, h * 0.2, '150,220,255', 10, alpha * 0.24); }   // lit storefront glow
       break;

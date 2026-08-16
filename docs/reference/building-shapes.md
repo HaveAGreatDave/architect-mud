@@ -54,7 +54,7 @@ Every geometric scalar is an **affine triple `[a, b, c]` meaning `a·fh + b·h +
 
 ```js
 { kind: 'box'|'drum'|'barrel'|'sawtooth', cx, cy, z0, z1, pal, frontOnly,
-  hwRaw, yaw, roof,     // box — hwRaw is PRE-clamp
+  hwRaw, fdRaw, yaw, roof,     // box — both PRE-clamp; fdRaw === hwRaw for a square one
   rb, rt, n, cap,       // drum
   cxL, hl, hw, archH, nf, base,          // barrel
   hx, hy, rh, teeth, roofc, glassc, edge // sawtooth
@@ -67,6 +67,15 @@ Three things here are load-bearing and easy to get wrong:
   while everything else is a multiple of `fh`. A post-clamp number would only be valid at the one
   footprint it was captured at. **Consumers re-apply `min(hwRaw·fh, 0.44)`**, and the data stays
   invariant to the `bldgFoot` / `bldgH` / `bldgStretch` sliders.
+- **A box has TWO half-extents, and the second one is why.** `fdRaw` is the half-*depth*; for the
+  ~500 square boxes it equals `hwRaw` and nothing behaves differently. It exists because
+  `draw3DBoxAt`'s footprint used to be square only, which meant an **awning wide enough to span a
+  shopfront necessarily reached the same distance out into the road** — a dark half-tile slab hanging
+  over the street off every storefront in Coldwater, at one height, plainly visible from the cab three
+  blocks away. Awnings go through the `awning()` helper now (wide across the front, shallow into the
+  street, anchored by its outer *lip* rather than its centre), and `fdRaw` is what carries that
+  through capture so the distance LOD, the ground shadow, the footprint hull and the CFIT/truck
+  obstruction probe all agree with what you can see. Consumers re-apply the same `0.44` clamp to it.
 - **The basis is solved, not assumed.** "Widths scale with `fh`, heights with `h`" is *wrong* — nine
   models derive a vertical from the footprint (a barrel roof's rise is proportional to its span).
   Capture solves `a`, `b`, `c` from three passes at different scales and verifies against a fourth.

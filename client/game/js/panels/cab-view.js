@@ -81,26 +81,25 @@ const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 // that adding a control without telling anybody about it takes a deliberate omission.
 const CONTROLS = [
   ['Drag the wheel', 'Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
-  ['← →', 'Steer, for a keyboard or a thumb. The same wheel, wound on at the pace a wrist manages.'],
+  ['X / C or ← →', 'Steer. X and C are the flight sim rudder keys, so the hand that flies already knows them; the arrows do the same thing. One full turn of the wheel is full lock.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
   ['GPS screen', 'Tap it. The map is the road you are actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would.'],
   ['Lever', 'The gear lever, in an H-gate. Drag the knob into a slot — or just click the slot. The knob sits in whatever gear you are actually in.'],
   ['LO / HI', 'Range. The box is a four-by-two: the same four slots are gears 1-4 in LO and 5-8 in HI, and changing range in gear takes four ratios with it.'],
   ['A / THROTTLE', 'Throttle. Held. The engine takes a moment to come up on boost, and longer in a low gear.'],
-  ['Z or SPACE', 'Service brakes. They heat, and hot brakes fade.'],
-  ['X / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine.'],
-  ['C / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
+  ['Z', 'Service brakes. They heat, and hot brakes fade.'],
+  ['SPACE / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine — and you do not have to reach for it to shift, because taking hold of the lever puts it in for you.'],
+  ['J / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
   ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
   ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
   ['G / CRUISE', 'Cruise control. Locks the speed you are doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear.'],
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
-  ['V / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
+  ['W / the stalk', 'Wipers. The stalk is on the column beside the wheel and it wears its own setting — off, intermittent, low, high.'],
   ['Q / E / S', 'Look left, right, and over your shoulder. Held — you look, then you come back. There is no dash behind the side glass, so the view out of it is clear.'],
-  // The look keys are the flight sim's Q/E/S exactly, and that parity is worth more than either of
-  // the two obvious letters for the chase camera — hence F. See the key handler.
-  ['F', 'External view — a chase camera behind the rig. The cab is where the instruments are; this is where the trailer is.'],
+  // The whole map is the flight sim's now — see the sync note in the key handler.
+  ['V', 'External view — a chase camera behind the rig, on the same key the cockpit uses. Dolly right in and it settles flat to the road so you can see ahead of you; you can still orbit right round at any distance. (F still works.)'],
   ['D', 'Damage. Four bars — engine, wheels, body, and the trailer if you have one. The strip in the corner is always there; this opens it out.'],
   ['⛶ / ⊟', 'Fullscreen, or hide the text panel for more road.'],
 ];
@@ -387,7 +386,7 @@ export function openCab(ctx = {}) {
              would reach for. -->
         <div class="cab-col cab-col-stalk">
           <button class="cab-stalk cab-wipe" aria-label="Wipers"
-            title="Wiper stalk (V) — off / intermittent / low / high">
+            title="Wiper stalk (W) — off / intermittent / low / high">
             <i class="cab-stalk-mount"></i>
             <i class="cab-stalk-arm"><b>${svgIcon('wiper')}</b></i>
             <em class="cab-stalk-pos">OFF</em>
@@ -402,7 +401,7 @@ export function openCab(ctx = {}) {
           <div class="cab-rockers" role="group" aria-label="Dash switches">
             <!-- THE JAKE is a rocker rather than a pedal, because that is what it is in the cab:
                  a switch on the dash you flick on for a descent. It is still HELD (see hold()). -->
-            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (C) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
+            <button class="cab-btn cab-rocker cab-jake" aria-label="Jake brake" title="Jacobs engine brake (J) — held. Holds you back on a descent so the service brakes stay cold."><i></i><u><span>JAKE</span></u></button>
 
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you are not the room. -->
@@ -1067,11 +1066,30 @@ export function openCab(ctx = {}) {
     // vehicle with no reverse thrust. SPACE is an alias for it because it is the key every hand
     // reaches for to stop a moving thing, and a truck has no guns for it to conflict with (the
     // flight sim's Space is the trigger). Its default is a page scroll, so it must be eaten.
-    else if (k === 'z' || k === ' ') st.input.brake = down ? 1 : 0;
-    // The clutch and the Jake are HELD, like the pedals they are. The shifts are EDGES, and
-    // `e.repeat` is filtered — holding the comma must not walk the box down to neutral.
-    else if (k === 'x') { st.input.clutch = down ? 1 : 0; st.heldBy = st.heldBy || {}; st.heldBy.clutch = down ? 1 : 0; }
-    else if (k === 'c') st.input.jake = down ? 1 : 0;
+    else if (k === 'z') st.input.brake = down ? 1 : 0;
+    // ── ⚠ THE CAB AND THE COCKPIT SHARE A KEYBOARD ────────────────────────────
+    // These four moved so that a player who flies and drives is not learning two contradictory
+    // maps for the same hand. The flight sim is the elder system and the one with more keys, so it
+    // wins every collision:
+    //
+    //   X / C   steer left / right     — the cockpit's rudder. Was clutch / Jake.
+    //   V       external view          — the cockpit's chase key. Was wipers, and F.
+    //   SPACE   clutch                 — freed by moving the brake to Z alone, and unbound in the
+    //                                    cockpit, so it costs nothing there. It is also the right
+    //                                    key for it: a big held control for the hand that is not
+    //                                    on the stick, which is what makes a mouse shift possible.
+    //   J       Jake brake             — mnemonic, and unbound in the cab.
+    //   W       wipers                 — mnemonic, and the cab never bound it (there is no
+    //                                    look-forward key here; forward is where you are looking).
+    //
+    // ⚠ `,` AND `.` ARE THE ONE DELIBERATE EXCEPTION and stay on the gearbox. They are the
+    // cockpit's SECONDARY rudder binding — the alternate for keyboards that make X/C awkward — so
+    // the primary is synced and only the fallback differs. Moving them would cost the dash hint and
+    // every hand that already knows them to buy parity on a key most pilots never press.
+    // F is kept as a silent alias for the external view: it costs one line and it means nobody who
+    // learned the old key finds it dead.
+    else if (k === ' ') { st.input.clutch = down ? 1 : 0; st.heldBy = st.heldBy || {}; st.heldBy.clutch = down ? 1 : 0; }
+    else if (k === 'j') st.input.jake = down ? 1 : 0;
     // SHIFTING WITHOUT HUNTING FOR THE PUNCTUATION KEYS. `,` and `.` stay — they are what the dash
     // has always hinted and what any existing muscle memory has — but they are two of the worst
     // keys on the board to find with a hand that is also holding A and Z, and shifting is the thing
@@ -1095,10 +1113,10 @@ export function openCab(ctx = {}) {
     // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
     // report. It only takes at a stop, which is where a real box lets you have it too.
     else if (down && !e.repeat && k === 'r') toggleReverse();
-    else if (down && !e.repeat && k === 'v') cycleWipers();
-    // F, not E and not V. E is the flight sim's look-right and that parity is worth more than this
-    // key is; V is the wiper stalk, which is the control a driver grabs in a hurry.
-    else if (down && !e.repeat && k === 'f') st.setExternal?.(!st.external);
+    else if (down && !e.repeat && k === 'w') cycleWipers();
+    // V, the cockpit's own chase key — see the sync note above. F is kept as a silent alias so
+    // nobody who learned the cab's old key finds it dead.
+    else if (down && !e.repeat && (k === 'v' || k === 'f')) st.setExternal?.(!st.external);
     // Shift+/ arrives as '?', so the splitter's own '/' branch above never sees it.
     else if (down && !e.repeat && k === '?') st.toggleHelp?.();
     else if (down && !e.repeat && k === 'd') container.querySelector('.cab-dmg-strip')?.click();
@@ -1116,8 +1134,9 @@ export function openCab(ctx = {}) {
       if (down) { st.viewYaw = yaw; st.showViewTag?.(yaw); }
       else if (st.viewYaw === yaw) { st.viewYaw = 0; st.showViewTag?.(0); }
     }
-    else if (k === 'arrowleft' || k === 'arrowright') {
-      const dir = k === 'arrowleft' ? -1 : 1;
+    // X / C are the cockpit's rudder keys and steer here for the same reason — see the sync note.
+    else if (k === 'arrowleft' || k === 'arrowright' || k === 'x' || k === 'c') {
+      const dir = (k === 'arrowleft' || k === 'x') ? -1 : 1;
       if (down) st.steerKey = dir;
       else if (st.steerKey === dir) st.steerKey = 0;
       st.wheel?.setHeld(st.steerKey);
@@ -1812,7 +1831,7 @@ function frame(now) {
     // `BEST` is the shift indicator, and it is a fleet privilege — see CAB_KIT. In a Barrow or a
     // Courier the hint reverts to the keys, which is all a cheap dash has ever told anybody.
     const kit = kitFor(P);
-    q('.cab-gearhint').textContent = r.stalled ? 'STALLED · CLUTCH X'
+    q('.cab-gearhint').textContent = r.stalled ? 'STALLED · CLUTCH SPACE'
       : kit.best ? `GEAR · BEST ${r.best}` : 'GEAR · , .';
     // THE INSTRUMENTS ARE ON THE DASH, in the scene — see the field block in the paintWindshield
     // call below, and drawCabInterior in windshield.js. Nothing is painted from here.
