@@ -21,6 +21,7 @@ import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { applyThirst } from '../../server/engine/bodily.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { registerFluidResolver } from '../../server/engine/topical.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 
 // Thirst restored per fluid unit, keyed by fluid type. Only water exists today.
 const FLUID_RATES = { water: 1 };
@@ -93,12 +94,11 @@ async function fill(args, raw, player) {
   // A zone can carry either kind of tap. A fuel pump dispenses 'fuel', a sink /
   // fountain dispenses 'water' — the fluid a fill produces is the source's, not
   // the container's.
-  const { rows: fuelSrc } = await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'fuel_source') LIMIT 1`,
-    [player.current_zone]);
-  const { rows: waterSrc } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
-    [player.current_zone]);
+  // Both taps come off the in-memory room furniture — this was two round trips
+  // on every `fill`, to ask what is standing in a room the process already knows.
+  const here = getZoneFurniture(player.current_zone);
+  const fuelSrc = here.filter(f => f.flags && 'fuel_source' in f.flags).slice(0, 1);
+  const waterSrc = here.filter(f => f.flags && 'water_source' in f.flags).slice(0, 1);
   if (!fuelSrc.length && !waterSrc.length)
     return { type:'error', message:`There's nothing here to fill the ${c.name} from.` };
 

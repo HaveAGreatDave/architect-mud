@@ -22,7 +22,7 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache } from '../../server/engine/world.js';
+import { world, getZone, getLivePlayer, getMinimapData, getDoorById, getZoneDoors, setDoorCache, getZoneFurniture } from '../../server/engine/world.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { getFlag, setFlag, setFlagById } from '../../server/engine/flags.js';
@@ -662,10 +662,12 @@ async function cmdSentence(args, raw, player) {
 // to whatever else owns `read` when the thing you named isn't a charge sheet.
 async function readChargeSheet(args, raw, player) {
   const target = args.join(' ').replace(/^(the)\s+/i, '').trim();
-  const { rows } = target
-    ? await query('SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1', [player.current_zone, `%${target}%`])
-    : await query(`SELECT * FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'charge_sheet') LIMIT 1`, [player.current_zone]);
-  const furn = rows[0];
+  // Off the in-memory room furniture, not a round trip per `read`.
+  const here = getZoneFurniture(player.current_zone);
+  const needle = target.toLowerCase();
+  const furn = target
+    ? here.find(f => (f.name || '').toLowerCase().includes(needle))
+    : here.find(f => f.flags && 'charge_sheet' in f.flags);
   if (!furn || !hasTag(furn, 'charge_sheet')) return undefined;   // fall through
   const rec = await prisonerRow(player.id);
   if (!rec) return { type: 'output', message: 'The form clipped to the bars is blank. Nobody has filled one out in your name — yet.' };

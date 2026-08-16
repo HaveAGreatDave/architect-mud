@@ -3080,18 +3080,21 @@ async function ensureBackstageZone() {
 const _watchedZones = new Set();
 async function refreshWatchedZones() {
   const next = new Set();
-  // Player-planted devices stay a live read: security_devices is deliberately
-  // read-tier 'fresh' (its writers — plant/retrieve/smash/drone-move/battery —
-  // are uncoordinated), so there's no funnel to hang an invalidation event off.
-  // A missed event here wouldn't error; the talkshow guest would just start
-  // materialising on camera, which is exactly the silent-staleness trade the
-  // cache-safety rule exists to refuse. One query per cycle buys that away.
+  // Player-planted devices come from surveillance's own 4 s device snapshot,
+  // NOT a second query against the same table. security_devices is read-tier
+  // 'fresh' with uncoordinated writers, so there is no invalidation event to
+  // hang this off — but surveillance already re-reads the whole table on a
+  // short TTL for its own tick, and asking it costs nothing. That kills the
+  // duplicate: the two reads of this one table were the largest and third
+  // largest items in the measured idle round-trip floor.
+  //
+  // Lazily imported so plugin load order stays irrelevant — a missing/late
+  // surveillance module just means device zones are left out this cycle, which
+  // is exactly what the old catch did.
   try {
-    const { rows } = await query(
-      `SELECT DISTINCT zone_id FROM security_devices WHERE device_kind IN ('sticky_cam','drone') AND COALESCE(is_damaged,0)=0`
-    );
-    for (const r of rows) if (r.zone_id) next.add(r.zone_id);
-  } catch { /* table may not exist in a bare test DB — leave device zones out */ }
+    const { watchedZones } = await import('../surveillance/index.js');
+    for (const z of await watchedZones()) next.add(z);
+  } catch { /* surveillance absent, or table missing in a bare test DB */ }
   // Studio/PD cameras: cameraZoneStatus already answers "has a working (powered,
   // undamaged) camera" per zone — the same predicate this used to re-query for.
   // It's rebuilt by loadChannelRuntimes at boot and after every media_cameras

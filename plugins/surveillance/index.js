@@ -315,6 +315,23 @@ async function allDevices(force = false) {
 // read to see the change (placing a camera, then immediately looking at it).
 function invalidateDeviceCache() { _devCache = { ts: 0, rows: _devCache.rows }; }
 
+// Zones a player-planted camera is watching, off the snapshot above.
+//
+// This exists for ONE outside caller: the broadcast plugin's talkshow guest must
+// never materialise on camera, so it kept its own 15s
+// `SELECT DISTINCT zone_id FROM security_devices …` — the same table this file
+// re-reads every 4 s, measured as the two largest items in the idle round-trip
+// floor. Exporting the answer instead of the table keeps the ownership right:
+// broadcast learns nothing about device kinds, damage or powering, and if the
+// predicate for "watched" ever changes it changes here, once.
+export async function watchedZones() {
+  const out = new Set();
+  for (const d of await allDevices()) {
+    if (CAM_KINDS.has(d.device_kind) && !d.is_damaged && d.zone_id) out.add(d.zone_id);
+  }
+  return out;
+}
+
 async function getInterferenceZones() {
   const now = Date.now();
   if (now - _fxCache.ts < 4000) return _fxCache;

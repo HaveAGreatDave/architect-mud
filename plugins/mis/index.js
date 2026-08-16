@@ -23,7 +23,7 @@ import {
   SERVICE_EVENTS, SERVICE_CLIMAX_ZONE, SERVICE_CLIMAX_ACTOR, triggerServiceClimax,
   NPC_AROUSAL_MSGS, NPC_CLIMAX_MSGS, THREESOME_JOIN_MSGS, THREESOME_CLIMAX_MSGS,
 } from './mis-system.js';
-import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
+import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { stainZone, stainClothing } from '../../server/engine/bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
@@ -1745,13 +1745,12 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   const onMatch = str.match(/^on\s+(?:the\s+)?(.+)$/i);
   const furnitureName = onMatch ? onMatch[1].trim() : str;
 
-  const { rows } = await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${furnitureName}%`]
-  );
+  const needle = String(furnitureName).toLowerCase();
+  const furn = getZoneFurniture(player.current_zone)
+    .find(f => (f.name || '').toLowerCase().includes(needle));
 
-  if (rows.length) {
-    const fname = rows[0].name;
+  if (furn) {
+    const fname = furn.name;
     player.horniness = 0;
     player.erect = 0;
     adjustSanity(player, 10, 'mis');
@@ -1885,12 +1884,15 @@ async function useSoap(player) {
   return true;
 }
 
+// Anything you can wash at: a sink, or authored `water_source` furniture (a
+// shower, a fountain, a standpipe). The same predicate the SQL used to spell out.
+const isWaterSourceFurn = (f) => f.object_type === 'sink' || !!f.flags?.water_source;
+
 async function cmdWashHands(player) {
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return { type:'error', message:`There's no water source here.` };
+  // In-memory room furniture — this was a round trip per `wash`.
+  if (!getZoneFurniture(player.current_zone).some(isWaterSourceFurn)) {
+    return { type:'error', message:`There's no water source here.` };
+  }
 
   let msg = `You wash your hands at the sink.`;
   // Shit on your hands is the one thing WASH HANDS obviously ought to fix, and
@@ -1910,11 +1912,7 @@ async function cmdWashHands(player) {
 async function cmdWash(args, raw, player) {
   if (args[0] === 'hands') return cmdWashHands(player);
 
-  const { rows: sinkRows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
-    [player.current_zone]
-  );
-  const hasSink = sinkRows.length > 0;
+  const hasSink = getZoneFurniture(player.current_zone).some(isWaterSourceFurn);
 
   // Falling rain is a free open-air water source. Acid rain is caustic — it
   // won't clean you (and would only make things worse), so reject it.

@@ -14,19 +14,18 @@
  */
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 
 async function readBulletin(args, raw, player) {
   const target = args.join(' ').replace(/^(the)\s+/i, '').trim();
 
-  const { rows } = target
-    ? await query(
-        `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-        [player.current_zone, `%${target}%`])
-    : await query(
-        `SELECT * FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'bulletin') LIMIT 1`,
-        [player.current_zone]);
-
-  const furniture = rows[0];
+  // Off the world.furniture Map — the room's furniture is already in memory, and
+  // this ran a round trip on every `read` to find out what is standing here.
+  const here = getZoneFurniture(player.current_zone);
+  const needle = target.toLowerCase();
+  const furniture = target
+    ? here.find(f => (f.name || '').toLowerCase().includes(needle))
+    : here.find(f => f.flags && 'bulletin' in f.flags);
   if (!furniture || !hasTag(furniture, 'bulletin')) return undefined; // fall through
 
   const { rows: leaders } = await query(

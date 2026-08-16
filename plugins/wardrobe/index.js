@@ -25,6 +25,7 @@ import {
   BODY_SLOTS, recomputeEquipped, cmdEquipById, cmdUnequipById, buildContainerView,
   cmdUndress, containerCapacity, containerContentsWeight, loadContainerById,
 } from '../../server/engine/commands/inventory.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 
 // What an outfit captures. Body slots plus accessories — a look includes the
 // rings and the shades. The wielded weapon is deliberately excluded: that's
@@ -38,13 +39,17 @@ const MAX_NAME = 24;
 
 // The wardrobe the player is standing at. With a name given, match it; without,
 // take the only one in the room (a room with two wardrobes wants a name).
+// Off the world.furniture Map — a wardrobe is a thing in the room, and the room
+// is already in memory; this was a round trip on every wardrobe verb.
+const isWardrobe = (f) =>
+  f.object_type === 'container' && String(f.flags?.wardrobe) === 'true';
+
 async function resolveWardrobe(player, nameStr) {
-  const like = nameStr ? `%${nameStr}%` : null;
-  const { rows } = await query(
-    `SELECT id, name FROM furniture
-      WHERE zone_id=$1 AND object_type='container' AND flags->>'wardrobe'='true'
-        AND ($2::text IS NULL OR name ILIKE $2 OR flags->>'aliases' ILIKE $2)`,
-    [player.current_zone, like]
+  const needle = nameStr ? nameStr.toLowerCase() : null;
+  const rows = getZoneFurniture(player.current_zone).filter(f =>
+    isWardrobe(f) && (!needle
+      || (f.name || '').toLowerCase().includes(needle)
+      || String(f.flags?.aliases || '').toLowerCase().includes(needle))
   );
   if (!rows.length) return null;
   return rows.length === 1 ? rows[0] : 'ambiguous';
@@ -53,12 +58,8 @@ async function resolveWardrobe(player, nameStr) {
 // Confirm an id really is a wardrobe in this room before acting on it — the
 // panel's by-id verbs are client-supplied and must not be trusted.
 async function loadWardrobeById(player, furnId) {
-  const { rows } = await query(
-    `SELECT id, name FROM furniture
-      WHERE id=$1 AND zone_id=$2 AND object_type='container' AND flags->>'wardrobe'='true'`,
-    [furnId, player.current_zone]
-  );
-  return rows[0] || null;
+  return getZoneFurniture(player.current_zone)
+    .find(f => f.id === furnId && isWardrobe(f)) || null;
 }
 
 // --- Outfit storage ---------------------------------------------------------

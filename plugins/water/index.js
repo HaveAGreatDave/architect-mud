@@ -16,21 +16,20 @@ import { hasTag, tagValue } from '../../server/engine/tags.js';
 import { applyThirst } from '../../server/engine/bodily.js';
 import { slakeLine, portionLine } from '../../server/engine/appetite.js';
 import { dispatchAction } from '../../server/engine/actions.js';
+import { getZoneFurniture } from '../../server/engine/world.js';
 
 const DEFAULT_RESTORE = 50;
 
 async function drinkFrom(args, raw, player) {
   const target = args.join(' ').replace(/^(from|at)\s+/i, '').trim();
 
-  const { rows } = target
-    ? await query(
-        `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-        [player.current_zone, `%${target}%`])
-    : await query(
-        `SELECT * FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
-        [player.current_zone]);
-
-  const furniture = rows[0];
+  // The room's furniture is already in memory (world.furniture, write-funneled),
+  // so finding the tap costs nothing rather than a round trip per `drink`.
+  const here = getZoneFurniture(player.current_zone);
+  const needle = target.toLowerCase();
+  const furniture = target
+    ? here.find(f => (f.name || '').toLowerCase().includes(needle))
+    : here.find(f => f.flags && 'water_source' in f.flags);
   if (!furniture || !hasTag(furniture, 'water_source')) return undefined; // fall through
 
   const amount = tagValue(furniture, 'restore_thirst', DEFAULT_RESTORE);

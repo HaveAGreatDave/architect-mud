@@ -346,6 +346,12 @@ text.hi{fill:var(--accent);font-weight:600}
 <h2><span class="num">§ 4</span>Where we could still improve</h2>
 <p class="lede">Seven findings, ordered by return on effort. None is on fire; several are the same class of bug the architecture doc already names, still living in plugin code.</p>
 
+<div class="card" style="border-color:var(--good)">
+<p style="margin-top:0"><span class="tag t-good">2026-08-16 — acted on</span></p>
+<p><strong>1, 3, 4, 5 and 6 are done.</strong> All eight <code>flags::text LIKE</code> sites now read <code>getZoneFurniture()</code>; cards reads <code>world.npcs</code>; <code>apiGetItems</code> serves the item cache; <code>db.js</code> carries a standing round-trip meter surfaced as <b>DB/min</b> on the World State monitor; and <code>scripts/db/query-lint.mjs</code> gates the rules in <code>pretest:regress</code>. That lint then surfaced a further <strong>28 per-command furniture queries</strong> across bodily, bulletin, bounty, water, fillable, wardrobe, jail, mis, vendor-safe, storefront and posters — every one of them a round trip to ask what was standing in a room the process already had in memory. All converted; the advisory backlog is down from 106 to 78.</p>
+<p style="margin-bottom:0"><strong>Finding 2 turned out to be already fixed.</strong> Re-measured at 1 and 20 synthetic players: <b>46/min and 42/min</b>. The ~6/player/min slope is gone — earlier batching work eliminated it. What remains is a ~40/min <em>world floor</em> that does not scale with players, and the largest single item in it was one table being read by two plugins independently (surveillance's 4 s device snapshot and broadcast's own 15 s query against the same rows); broadcast now asks surveillance. <strong>Finding 7 (the single-instance ceiling) is untouched and still the honest caveat.</strong></p>
+</div>
+
 <div class="find">
 <h3><span class="tag t-bad">highest value</span> 1 · Eight <code>flags::text LIKE</code> scans against a table that is already in RAM</h3>
 <p>The architecture doc bans this pattern by name: casting every row's JSONB to text is unindexable, matches keys and values alike, and forces a full scan. It survives in <strong>8 call sites</strong> across <code>broadcast</code> (5), <code>gametable</code>, <code>yacht</code> and a shared <code>TV_FURNITURE_SQL</code> constant — all against <code>furniture</code>, which is a <em>boot-loaded Map indexed by zone</em>.</p>

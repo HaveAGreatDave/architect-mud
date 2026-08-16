@@ -14,7 +14,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { textRender } from '../../server/engine/minigame.js';
-import { getZone, getZoneNpcs, world, updateNpc } from '../../server/engine/world.js';
+import { getZone, getZoneNpcs, world, updateNpc, getZoneFurniture } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { emit } from '../../server/engine/events.js';
@@ -73,21 +73,19 @@ const LOCKOUT_MS = 5 * 60 * 1000;
 const _pending = new Map();
 const PENDING_TTL_MS = 180 * 1000;
 
-async function findSafeInZone(zoneId, nameHint) {
-  let sql = `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags @> '{"vendor_safe":true}'`;
-  const params = [zoneId];
-  if (nameHint) { sql += ` AND name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ' LIMIT 1';
-  const { rows } = await query(sql, params);
-  return rows[0] || null;
+// Both off the in-memory room furniture — a safe is a thing standing in a room,
+// and the room is already loaded. These ran a round trip per safe verb.
+const isSafe = (f) => f.flags?.vendor_safe === true;
+
+function findSafeInZone(zoneId, nameHint) {
+  const needle = nameHint ? String(nameHint).toLowerCase() : null;
+  return getZoneFurniture(zoneId).find(f =>
+    isSafe(f) && (!needle || (f.name || '').toLowerCase().includes(needle))
+  ) || null;
 }
 
-async function findSafeById(safeId, zoneId) {
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture WHERE id=$1 AND zone_id=$2 AND flags @> '{"vendor_safe":true}' LIMIT 1`,
-    [safeId, zoneId]
-  );
-  return rows[0] || null;
+function findSafeById(safeId, zoneId) {
+  return getZoneFurniture(zoneId).find(f => f.id === safeId && isSafe(f)) || null;
 }
 
 async function cmdHack(args, raw, player, broadcast) {
@@ -95,7 +93,7 @@ async function cmdHack(args, raw, player, broadcast) {
   if (!zone) return { type: 'error', message: "You're nowhere." };
 
   const nameHint = args.join(' ') || null;
-  const safe = await findSafeInZone(player.current_zone, nameHint);
+  const safe = findSafeInZone(player.current_zone, nameHint);
 
   // No safe here — fall through so other `hack` targets (e.g. a hackable
   // hololock door, the doors plugin's `hack` action) get a chance to claim it.
@@ -178,7 +176,7 @@ async function cmdSafeCrackResolve(args, raw, player) {
   _pending.delete(player.id);
   if (!pending || pending.safeId !== safeId || Date.now() > pending.expires) return { type: 'noop' };
 
-  const safe = await findSafeById(safeId, player.current_zone);
+  const safe = findSafeById(safeId, player.current_zone);
   if (!safe) return { type: 'noop' };
   const npcId = (safe.flags || {}).vendor_npc_id;
   if (!npcId) return { type: 'noop' };

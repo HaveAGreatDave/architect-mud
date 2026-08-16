@@ -54,7 +54,7 @@ import { adjustCredits } from '../../server/engine/economy.js';
 import { on } from '../../server/engine/events.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer, teachVerb } from '../../server/engine/messaging.js';
-import { getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { escAttr } from '../../server/engine/text.js';
@@ -110,13 +110,14 @@ export async function loadBounties() {
 loadBounties().catch(() => {});
 
 // ── boards ────────────────────────────────────────────────────────────────────
-// A board is furniture, and finding one is a query — but only ever on a verb a
-// player typed, never on a tick.
-async function boardHere(zoneId, name = '') {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 ${name ? 'AND name ILIKE $2' : ''}`,
-    name ? [zoneId, `%${name}%`] : [zoneId]);
-  return rows.find(f => BOARD_TAGS.some(t => hasTag(f, t))) || null;
+// A board is furniture, and the room's furniture is already in memory — this was
+// a round trip on every bounty verb to ask what is standing in the room.
+function boardHere(zoneId, name = '') {
+  const needle = name.toLowerCase();
+  return getZoneFurniture(zoneId).find(f =>
+    (!needle || (f.name || '').toLowerCase().includes(needle)) &&
+    BOARD_TAGS.some(t => hasTag(f, t))
+  ) || null;
 }
 // A clickable link for a bounty SUBCOMMAND. teachVerb builds its label as
 // `${verb} ${target}`, which for a subcommand would read "bounty cancel cancel" —
@@ -149,7 +150,7 @@ async function resolveTarget(name) {
 }
 
 async function postBounty(player, targetName, amount, note, broadcast) {
-  const board = await boardHere(player.current_zone);
+  const board = boardHere(player.current_zone);
   if (!board) return { type: 'error', message: NO_BOARD };
 
   if (!Number.isFinite(amount) || amount < MIN_BOUNTY)
@@ -272,7 +273,7 @@ async function mintHead(victim, killer) {
 
 // ── redeeming ─────────────────────────────────────────────────────────────────
 async function cmdRedeem(args, raw, player, broadcast) {
-  const board = await boardHere(player.current_zone);
+  const board = boardHere(player.current_zone);
   if (!board) return { type: 'error', message: NO_BOARD };
 
   const { rows: heads } = await query(
@@ -544,7 +545,7 @@ export const specializedActions = [{
   verb: 'read', requiredTag: 'wanted_board',
   handler: async (args, raw, player) => {
     const name = args.join(' ').replace(/^(the)\s+/i, '').trim();
-    const board = await boardHere(player.current_zone, name);
+    const board = boardHere(player.current_zone, name);
     if (!board) return undefined;                       // not a board → fall through
     return { type: 'output', message: listing(player, openList()) };
   },

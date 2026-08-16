@@ -35,17 +35,25 @@ import { adjustRelation } from '../../server/engine/relations.js';
 // or 'fixture' with neither — so relief, flush, and the fouled/peed describe line
 // all silently missed them. Recognise a toilet by name too, so any furniture
 // named "…toilet…" just works whether or not the dev remembered to tag it.
-// SQL-side callers use TOILET_SQL to match the same three ways.
+//
+// ⚠ ONE definition, in JS, and every caller reads the world.furniture Map
+// through getZoneFurniture(). There used to be a second copy as a SQL fragment
+// (TOILET_SQL / SHOWER_SQL) used by six per-command queries — a second source of
+// truth for the predicate AND a remote round trip to answer "is there a toilet
+// in this room", which the process already knows. Both are gone. If you widen
+// what counts as a toilet, you widen it here and nowhere else.
 export const isToilet = (f) =>
   f?.object_type === 'toilet' || !!f?.flags?.toilet || /\btoilet\b/i.test(f?.name || '');
-const TOILET_SQL = `(object_type='toilet' OR jsonb_exists(flags,'toilet') OR name ILIKE '%toilet%')`;
 
 // What counts as a shower — the same three-way match as a toilet (object_type,
 // a flags.shower key, or the word in the name), so a fixture named "…shower…"
 // just works whether or not the dev remembered to type it.
 export const isShower = (f) =>
   f?.object_type === 'shower' || !!f?.flags?.shower || /\bshower\b/i.test(f?.name || '');
-const SHOWER_SQL = `(object_type='shower' OR jsonb_exists(flags,'shower') OR name ILIKE '%shower%')`;
+
+// Anything you can get clean under: a shower, a sink, or an authored water source.
+const isWaterSource = (f) =>
+  isShower(f) || f?.object_type === 'sink' || !!f?.flags?.water_source;
 
 // Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
 // toiletSessions guards against starting a toilet routine twice at once.
@@ -446,12 +454,8 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
 // does anything land. What changes per target is purely where it goes — a
 // toilet, the ground, a piece of furniture, or a hapless creature. No MIS gate.
 
-async function getToilet(zoneId) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL} LIMIT 1`,
-    [zoneId]
-  );
-  return rows[0] || null;
+function getToilet(zoneId) {
+  return getZoneFurniture(zoneId).find(isToilet) || null;
 }
 
 // Poop needs a lying victim: a player who's lying/sleeping, or a sleeping-at-home
@@ -795,7 +799,7 @@ function creatureTarget(being, part = null) {
 }
 
 async function defaultTarget(player) {
-  const toilet = await getToilet(player.current_zone);
+  const toilet = getToilet(player.current_zone);
   return toilet ? { kind: 'toilet', furniture: toilet } : { kind: 'ground' };
 }
 
@@ -841,14 +845,11 @@ async function resolveBodilyTarget(args, player, dispatchType) {
   if (sleepers.length) return creatureTarget({ ...sleepers[0], name: sleepers[0].handle, _bkind: 'player' }, part);
 
   // Furniture — a toilet gets the fouled/flush treatment; anything else is fair game.
-  const { rows: furniture } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${str}%`]
-  );
-  if (furniture.length) {
-    const f = furniture[0];
-    return { kind: isToilet(f) ? 'toilet' : 'furniture', furniture: f };
-  }
+  // Substring match off the Map, exactly what `name ILIKE '%str%'` did.
+  const needle = String(str).toLowerCase();
+  const f = getZoneFurniture(player.current_zone)
+    .find(x => (x.name || '').toLowerCase().includes(needle));
+  if (f) return { kind: isToilet(f) ? 'toilet' : 'furniture', furniture: f };
 
   return { kind: 'notfound', str };
 }
@@ -868,10 +869,7 @@ const cmdPee  = (args, player, broadcast) => cmdRelief('pee',  args, player, bro
 const cmdPoop = (args, player, broadcast) => cmdRelief('poop', args, player, broadcast);
 
 async function cmdFlush(args, player) {
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL}`,
-    [player.current_zone]
-  );
+  const rows = getZoneFurniture(player.current_zone).filter(isToilet);
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
   // Was any toilet here actually fouled? Clear every toilet in the room so none
   // is left dirty — this wipes the pee, the poo, and thus the water contamination.
@@ -1111,11 +1109,7 @@ function showerStage(player, session, fn) {
 }
 
 async function cmdShower(player) {
-  const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND ${SHOWER_SQL} LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return { type:'error', message:`There's no shower here.` };
+  if (!getZoneFurniture(player.current_zone).some(isShower)) return { type:'error', message:`There's no shower here.` };
   if (showerSessions.has(player.id)) return { type:'error', message:`You're already under the water.` };
 
   const session = { zoneId: player.current_zone, timers: [] };
@@ -1299,13 +1293,9 @@ registerAction({
 // nothing ever called it. Wired here as a self-gated `use` specialized action.)
 
 async function cmdUseToilet(player) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND ${TOILET_SQL} LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return undefined;
+  const t = getToilet(player.current_zone);
+  if (!t) return undefined;
 
-  const t = rows[0];
   const peeLink   = `<span class="action-link" data-action="pee" data-target="">pee</span>`;
   const poopLink  = `<span class="action-link" data-action="poop" data-target="">poop</span>`;
   const flushLink = `<span class="action-link" data-action="flush" data-target="">flush</span>`;
@@ -1327,13 +1317,10 @@ async function cmdUseToilet(player) {
 }
 
 async function cmdUseSink(player) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return undefined;
+  const s = getZoneFurniture(player.current_zone)
+    .find(f => f.object_type === 'sink' || !!f.flags?.water_source);
+  if (!s) return undefined;
 
-  const s = rows[0];
   const washHandsLink = `<span class="action-link" data-action="wash" data-target="hands">wash hands</span>`;
   const washLink      = `<span class="action-link" data-action="wash" data-target="">wash</span>`;
 
@@ -1348,13 +1335,9 @@ async function cmdUseSink(player) {
 }
 
 async function cmdUseShower(player) {
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND ${SHOWER_SQL} LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return undefined;
+  const s = getZoneFurniture(player.current_zone).find(isShower);
+  if (!s) return undefined;
 
-  const s = rows[0];
   const showerLink = `<span class="action-link" data-action="shower" data-target="">shower</span>`;
 
   let msg = `${s.name}\n${s.description}`;
@@ -1636,11 +1619,9 @@ async function cmdSoap(args, raw, player, broadcast) {
   const nameStr = args.filter(a => !['up', 'down', 'off'].includes(a)).join(' ')
     .replace(/^(the|my)\s+/i, '').trim();
 
-  const { rows: water } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (${SHOWER_SQL} OR object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!water.length) return { type: 'error', message: `You need running water for that.` };
+  if (!getZoneFurniture(player.current_zone).some(isWaterSource)) {
+    return { type: 'error', message: `You need running water for that.` };
+  }
 
   // No target (or yourself) → wash yourself, which is what SOAP plainly means.
   // (It used to fall through here on the assumption mis owned a bare `soap`; mis

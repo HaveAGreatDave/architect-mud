@@ -24,7 +24,7 @@
  */
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getApartment, insertFurniture, deleteFurniture } from '../../server/engine/world.js';
+import { getApartment, insertFurniture, deleteFurniture, getZoneFurniture } from '../../server/engine/world.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
 import { escAttr } from '../../server/engine/text.js';
 
@@ -138,22 +138,21 @@ function placementLine(key, present) {
 }
 
 // Hero posters hanging on the wall of a zone, optionally name-filtered.
-async function findPosters(target, zone) {
-  const { rows } = await query(
-    `SELECT * FROM furniture
-      WHERE zone_id=$1 AND object_type='decoration' AND flags->>'hero_poster'='true'
-      ${target ? 'AND name ILIKE $2' : ''}`,
-    target ? [zone, `%${target}%`] : [zone]
-  );
-  return rows;
+// Off the in-memory room furniture — a hung poster is furniture in a room.
+const isHeroPoster = (f) =>
+  f.object_type === 'decoration' && String(f.flags?.hero_poster) === 'true';
+
+function findPosters(target, zone) {
+  const needle = target ? String(target).toLowerCase() : null;
+  return getZoneFurniture(zone).filter(f =>
+    isHeroPoster(f) && (!needle || (f.name || '').toLowerCase().includes(needle)));
 }
 
 // Set of poster keys currently hanging in a zone. One round trip, not seven.
-async function hangingKeys(zone) {
-  const { rows } = await query(
-    `SELECT flags->>'poster_key' AS k FROM furniture
-      WHERE zone_id=$1 AND flags->>'hero_poster'='true'`, [zone]);
-  return new Set(rows.map(r => r.k).filter(Boolean));
+function hangingKeys(zone) {
+  return new Set(getZoneFurniture(zone)
+    .filter(f => String(f.flags?.hero_poster) === 'true')
+    .map(f => f.flags?.poster_key).filter(Boolean));
 }
 
 // Peel one resolved poster furniture row off the wall into a carried rolled item.
@@ -177,7 +176,7 @@ async function peelPoster(f, player, broadcast) {
 // ── takedown <poster> — peel a hero poster off the wall into a rolled item ────
 async function cmdTakedown(args, raw, player, broadcast) {
   const target = args.join(' ').replace(/^(the|down)\s+/i, '').trim();
-  const rows = await findPosters(target, player.current_zone);
+  const rows = findPosters(target, player.current_zone);
   if (!rows.length)
     return { type: 'error', message: target
       ? `There's no "${target}" poster on the wall here.`
@@ -195,7 +194,7 @@ async function cmdTake(args, raw, player, broadcast) {
   // No target, "all", or "take X from Y" are the engine's job — let them fall through.
   if (!target || target === 'all' || target.includes(' from ')) return undefined;
 
-  const rows = await findPosters(target, player.current_zone);
+  const rows = findPosters(target, player.current_zone);
   if (!rows.length) return undefined;               // not a poster → engine take
   if (rows.length > 1)
     return { type: 'error', message: `Which one? ${rows.map(r => `"${shortName(r.name)}"`).join(', ')}. Try \`take <name>\`.` };
@@ -249,7 +248,7 @@ async function cmdPutup(args, raw, player, broadcast) {
 
   // Placement report — where this sheet falls in the run, and which torn edges
   // it just answered. The wall tells you it's assembling long before it says why.
-  const extra = placementLine(key, await hangingKeys(player.current_zone));
+  const extra = placementLine(key, hangingKeys(player.current_zone));
   return { type: 'take', message: `You unroll ${cd.name} and smooth it onto the wall.${extra}` };
 }
 
@@ -267,16 +266,14 @@ export const hooks = {
 
     // The whole run hanging together supersedes the pair hint — GRU is one of
     // the seven seams the full reveal walks you along.
-    const present = await hangingKeys(f.zone_id);
+    const present = hangingKeys(f.zone_id);
     if (MURAL.every(k => present.has(k))) return `${out}\n${muralReveal()}`;
 
     const partner = SECRET_PAIR[f.flags.poster_key];
     if (partner && present.has(partner)) {
-      const { rows } = await query(
-        `SELECT name FROM furniture WHERE zone_id=$1 AND flags->>'hero_poster'='true' AND flags->>'poster_key'=$2 LIMIT 1`,
-        [f.zone_id, partner]
-      );
-      if (rows.length) out += `\n${seamReveal(rows[0].name)}`;
+      const other = getZoneFurniture(f.zone_id).find(x =>
+        String(x.flags?.hero_poster) === 'true' && x.flags?.poster_key === partner);
+      if (other) out += `\n${seamReveal(other.name)}`;
     }
     return out;
   },

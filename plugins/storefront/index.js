@@ -216,9 +216,8 @@ async function cmdDeed(player) {
     lines.push(`<span class="text-dim">Shutter:</span> ${deed.shutters_closed ? 'down — shut' : 'up — open'} (SHUTTERS to work it)`);
     // Cameras are the surveillance plugin's, not ours, and they already charge
     // anyone who cracks the vault. Say so here, because otherwise nobody finds out.
-    const { rows: cams } = await query(
-      `SELECT 1 FROM furniture WHERE zone_id=$1 AND flags @> '{"security_device":true}' LIMIT 1`, [zone.id]);
-    lines.push(`<span class="text-dim">Cameras:</span> ${cams.length
+    const hasCam = getZoneFurniture(zone.id).some(f => f.flags?.security_device === true);
+    lines.push(`<span class="text-dim">Cameras:</span> ${hasCam
       ? 'covered.'
       : 'none. <span class="text-dim">A planted camera makes a break-in chargeable — PLANT one.</span>'}`);
   }
@@ -606,19 +605,18 @@ async function describeRoom(zone) {
 const _vaultLockout = new Map();
 const _vaultPending = new Map();
 
-async function findVault(zoneId, nameHint) {
-  let sql = `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags @> '{"shop_vault":true}'`;
-  const params = [zoneId];
-  if (nameHint) { sql += ` AND name ILIKE $2`; params.push(`%${nameHint}%`); }
-  sql += ' LIMIT 1';
-  const { rows } = await query(sql, params);
-  return rows[0] || null;
+// In-memory room furniture, not a round trip per vault verb.
+function findVault(zoneId, nameHint) {
+  const needle = nameHint ? String(nameHint).toLowerCase() : null;
+  return getZoneFurniture(zoneId).find(f =>
+    f.flags?.shop_vault === true && (!needle || (f.name || '').toLowerCase().includes(needle))
+  ) || null;
 }
 
 async function cmdHackVault(args, raw, player, broadcast) {
   await loadDeeds();
   const zone = getZone(player.current_zone);
-  const vault = await findVault(player.current_zone, args.join(' ') || null);
+  const vault = findVault(player.current_zone, args.join(' ') || null);
   // No shop vault here — fall through so `hack` still reaches a vendor safe, a
   // hololock door or an ATM in the same room.
   if (!vault) return undefined;
@@ -690,7 +688,7 @@ async function cmdTillCrackResolve(args, raw, player) {
   _vaultPending.delete(player.id);
   if (!pending || pending.vaultId !== vaultId || Date.now() > pending.expires) return { type: 'noop' };
 
-  const vault = await findVault(player.current_zone);
+  const vault = findVault(player.current_zone);
   if (!vault || vault.id !== vaultId) return { type: 'noop' };
   if (!win) {
     _vaultLockout.set(player.id, Date.now() + VAULT_LOCKOUT_MS);
