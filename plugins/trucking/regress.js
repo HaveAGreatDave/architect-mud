@@ -1389,4 +1389,66 @@ export default async function regress({ run, check, getPlayer }) {
     }
   }
 
+  // ── A TRAILER IS SOMEWHERE, AND YOU HAVE TO BACK UNDER IT ─────────────────
+  // The pose turned hitching from a menu choice into a manoeuvre, and the three tests are the
+  // three ways a driver can get it wrong. The one that matters most is the LAST one: a trailer
+  // with no pose (yard stock, or any row written before this existed) must still be hitchable, or
+  // the feature silently strands every box already in the world.
+  {
+    const { hitchReach, posed, HITCH_TILES, HITCH_DEG } = await import('./trailers.js');
+    const box = { id: 't1', name: 'a dry box', x: 10, y: 10, heading: 90, ratedKg: 3600 };
+    const at = (x, y, heading, speed = 0) => ({ x, y, heading, speed });
+
+    check('square, close and stopped couples', hitchReach(at(10, 10, 90), box).ok, 'refused');
+    check('…a truck length away does not', !hitchReach(at(11.5, 10, 90), box).ok, 'coupled from a distance');
+    check('…nor does driving at it sideways',
+      !hitchReach(at(10, 10, 90 + HITCH_DEG + 15), box).ok, 'coupled across the box');
+    check('…nor does hitting it at speed', !hitchReach(at(10, 10, 90, 40), box).ok, 'coupled at 40mph');
+    check('a hair inside the reach still couples',
+      hitchReach(at(10 + HITCH_TILES * 0.9, 10, 90), box).ok, 'refused inside its own tolerance');
+
+    const unplaced = { id: 't2', name: 'yard stock', x: null, y: null, heading: null, ratedKg: 2200 };
+    check('a trailer with no pose is not drawable', !posed(unplaced), 'claimed a position it has not got');
+    check('…but is still hitchable, so nothing already in the world is stranded',
+      hitchReach(at(999, 999, 0), unplaced).ok, 'an existing trailer became unreachable');
+  }
+
+  // ── THE CAB IS A BOX, AND HIJACK IS ITS ONLY DOOR ─────────────────────────
+  //
+  // Three things, and they are the three that would each silently break the whole design:
+  // the flag the ENGINE reads must go up on mount and down on dismount (a stale one leaves a
+  // player permanently unattackable, and nothing downstream would ever say so); a MOVING truck
+  // must be unreachable (driving on is the answer to every threat in this file, and it stops
+  // being one the moment a roll can land on a rolling rig); and a drag-out must actually end the
+  // protection rather than merely narrating that it did.
+  {
+    const savedRig = rigs.get(player.id);
+    const savedInCab = player._inCab;
+    try {
+      const { mountRig, dismountRig } = await import('./state.js');
+      const { cabIsOpenTo, dragOut, STOPPED_MPH, _setOdds } = await import('./hijack.js');
+
+      mountRig(player, { x: 5, y: 5 });
+      check('mounting a rig raises the flag combat reads', player._inCab === true, String(player._inCab));
+      const rig = rigs.get(player.id);
+
+      rig.speed = 0;
+      check('a stopped cab is reachable', !!cabIsOpenTo(player), 'null');
+      rig.speed = STOPPED_MPH + 20;
+      check('…and a rolling one is not, at any odds', cabIsOpenTo(player) === null, 'reachable while moving');
+
+      rig.speed = 0;
+      const savedBc3 = getBroadcast();
+      setBroadcast(() => {});
+      const out = dragOut(player, null, { attackerName: 'a test' });
+      setBroadcast(savedBc3);
+      check('a drag-out takes the driver out of the rig', out === true && !rigOf(player), String(out));
+      check('…and clears the flag, so the fight can actually happen', !player._inCab, String(player._inCab));
+      _setOdds({ breakChance: 0.16, attemptMs: 4200 });   // leave the live odds where the file set them
+    } finally {
+      if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
+      player._inCab = savedInCab;
+    }
+  }
+
 }

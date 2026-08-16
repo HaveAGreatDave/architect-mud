@@ -227,6 +227,21 @@ textarea {
 	white-space: nowrap;
 }
 
+/* Equipped weapon, beside the credits chip. The name is the only
+   variable-length thing up here, so it ellipsises rather than pushing the
+   header buttons off the end. */
+#header .weapon-display {
+	color: var(--text-dim);
+	font-size: 0.75rem;
+	padding: 2px 8px;
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	max-width: 16ch;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 /* ─── MAIN LAYOUT ─── */
 #main {
 	display: grid;
@@ -315,10 +330,16 @@ html[data-density="compact"] #header .handle-display {
 	white-space: nowrap;
 	margin-left: auto;
 }
-html[data-density="compact"] #header .credits-display {
+html[data-density="compact"] #header .credits-display,
+html[data-density="compact"] #header .weapon-display {
 	font-size: 0.6875rem;
 	padding: 1px 5px;
 	flex-shrink: 0;
+}
+/* Compact/mobile already carries the weapon in the vitals strip. */
+html[data-density="compact"] #header .weapon-display { display: none; }
+@media (max-width: 720px) {
+	#header .weapon-display { display: none; }
 }
 html[data-density="compact"] #settings-btn,
 html[data-density="compact"] #signout-btn {
@@ -2209,7 +2230,11 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	flex: none;
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	/* The unlocked header holds lock + 3 mode buttons + "panels ▾" + "＋ panel",
+	   and the sidebar is a fixed width that never scrolls — so the row wraps
+	   rather than clipping the last control off the edge. */
+	flex-wrap: wrap;
+	gap: 4px;
 	padding: 4px 6px;
 	background: var(--bg2);
 	border-bottom: 1px solid var(--border);
@@ -2253,8 +2278,8 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	gap: 4px;
 }
 .sidebar-mode-btn {
-	width: 2em;
-	height: 2.154em;
+	width: 28px;
+	height: 28px;
 	box-sizing: border-box;
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -2281,9 +2306,10 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	position: relative;
 }
 .sidebar-restore-btn {
-	height: 2.545em;
+	height: 28px;
 	box-sizing: border-box;
-	padding: 0 8px;
+	white-space: nowrap;
+	padding: 0 6px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
@@ -15030,9 +15056,9 @@ body.insane #output { animation: sanity-shudder 5.5s steps(1) infinite; }
 
 /* "＋ panel" add button — mirrors the restore control: only shown while the
    sidebar is unlocked (drag-mode / resize-mode set by sidebar-order.js). */
-.sidebar-add-panel { display: none; align-items: center; height: 2.8em; box-sizing: border-box;
-	background: none; border: 1px solid var(--border);
-	color: var(--text-dim); font-size: 0.625rem; padding: 0 8px; border-radius: 3px; cursor: pointer; }
+.sidebar-add-panel { display: none; align-items: center; height: 28px; box-sizing: border-box;
+	background: none; border: 1px solid var(--border); white-space: nowrap;
+	color: var(--text-dim); font-size: 0.625rem; padding: 0 6px; border-radius: 3px; cursor: pointer; }
 .sidebar-add-panel:hover { color: var(--accent); border-color: var(--accent); }
 #sidebar.drag-mode .sidebar-add-panel, #sidebar.resize-mode .sidebar-add-panel { display: inline-flex; }
 

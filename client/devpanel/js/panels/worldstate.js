@@ -154,6 +154,32 @@ function updateEspDot(data) {
   lbl.title = title;
 }
 
+// DB round trips in the last complete minute, plus the per-player slope — the
+// only number that multiplies by concurrency (docs/architecture.md → Read Tiers
+// measured ~6/player/min on a ~40/min world floor). The tooltip carries the
+// heaviest statements so a regression names its own cause.
+function renderDbMeter(meter, playerCount) {
+  const el = document.getElementById('ws-db-rate');
+  if (!el || !meter) return;
+  const rate = meter.lastMinute || 0;
+  el.textContent = rate;
+  // Colour off the SLOPE, not the total: a big number with nobody online is a
+  // rogue tick, and the same number across twenty players is expected.
+  const perPlayer = playerCount ? (rate / playerCount) : rate;
+  el.style.color = rate === 0 ? 'var(--text-dim)'
+    : (playerCount === 0 || perPlayer > 20) ? 'var(--danger, #e06c75)'
+    : perPlayer > 10 ? 'var(--warn, #e5c07b)' : '';
+  const top = (meter.top || []).slice(0, 8)
+    .map(t => `${String(t.count).padStart(7)}  ${t.sql}`).join('\n');
+  document.getElementById('ws-db-item').title =
+    `DB round trips in the last complete minute: ${rate}\n` +
+    `${playerCount} online → ${perPlayer.toFixed(1)} per player/min\n` +
+    `(a rate with nobody online means a tick is not idle-gated)\n\n` +
+    `Heaviest statements since boot (${meter.total} total)` +
+    (meter.keysCapped ? ' — key table full, list may be partial' : '') +
+    `:\n${top}`;
+}
+
 function startWorldStatePolling() {
   // Fetch initial ESP state immediately on load
   directAPI('/emergency/state').then(d => updateEspDot(d)).catch(() => {});
@@ -171,6 +197,7 @@ function startWorldStatePolling() {
         : '<div class="ws-player" style="color:var(--text-dim)">None</div>';
       document.getElementById('ws-enemies').textContent = data.value.live_enemies || 0;
       document.getElementById('ws-corpses').textContent = data.value.live_corpses || 0;
+      renderDbMeter(data.value.db_meter, players.length);
     }
     if (esp.status === 'fulfilled') updateEspDot(esp.value);
   }, 10000);

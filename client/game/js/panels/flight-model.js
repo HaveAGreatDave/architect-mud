@@ -288,7 +288,15 @@ export const TYPES = {
     thrustMax: 11.0,      // mph/s of acceleration authority at full throttle — light and willing
     topSpeed: 74,         // mph on good asphalt; SURFACES.cap takes it down off the paved centreline
     tileMph: 80,          // road speed (mph) that covers one corridor tile per second — see above
-    wheelbase: 0.48,      // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in
+    // TILES between axles. Drives the bicycle model's yaw: bigger = lazier turn-in.
+    // ⚠ HALVED (with `trailerLen`/`hitchOffset`, across the whole fleet) because the first cut was
+    // not a wheelbase, it was a scale error: a tile is ~36 m at tileMph 80, so 0.48 tiles was a
+    // 17-metre wheelbase — nearly three times a real tractor's — and it is the ONE number the yaw
+    // rate divides by. The truck could not make a right-angle turn out of a depot with the lock on
+    // the stops. Halving all three keeps the vehicle SELF-SIMILAR (the articulation equilibrium φ
+    // is unchanged — φ̇'s two terms both scale with 1/L — so a steady turn sits the trailer at the
+    // same angle, it just gets there twice as fast) and doubles the yaw rate everywhere.
+    wheelbase: 0.24,
     engineLag: 1.4,       // throttle→rpm time constant (s)
     rollFric: 1.7,        // rolling resistance (mph/s) at idle
     dragP: 0.0014,        // aero drag (∝ speed²)
@@ -298,18 +306,18 @@ export const TYPES = {
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 3.86, 2.96, 2.26, 1.73, 1.33, 1.02, 0.78, 0.59], band: [0.42, 0.68],
     engBrake: 1, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
-    trailerLen: 0.34, hitchOffset: 0.11, trailerKg: 1400,   // kingpin geometry, and the empty box itself
+    trailerLen: 0.17, hitchOffset: 0.055, trailerKg: 1400,   // kingpin geometry, and the empty box itself
     blurb: 'A stubby rigid box on a short wheelbase. Turns in like something half its age and carries about as much.',
   },
   drayman: {
     name: 'Vachon Drayman', ground: true, tier: 2,
-    mass: 3.2, thrustMax: 9.0, topSpeed: 68, tileMph: 80, wheelbase: 0.62,
+    mass: 3.2, thrustMax: 9.0, topSpeed: 68, tileMph: 80, wheelbase: 0.31,
     engineLag: 1.9, rollFric: 2.1, dragP: 0.0016, brake: 7.5,
     kg: 3500, tank: 1400, price: 11500,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 4.21, 3.22, 2.46, 1.89, 1.44, 1.10, 0.85, 0.65], band: [0.42, 0.68],
     engBrake: 1.25, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
-    trailerLen: 0.58, hitchOffset: 0.16, trailerKg: 3200,   // kingpin geometry, and the empty box itself
+    trailerLen: 0.29, hitchOffset: 0.08, trailerKg: 3200,   // kingpin geometry, and the empty box itself
     blurb: 'The one everybody learns on. Nothing about it is remarkable and nothing about it has ever stopped working.',
   },
   // A HEAVY TRUCK IS SLOW TO WIND UP, NOT INCAPABLE. `thrustMax` is the whole engine, and it has to
@@ -319,26 +327,26 @@ export const TYPES = {
   // a rolling resistance of 2.6 and the regress invariant caught it as un-drivable on the verge.
   continental: {
     name: 'Orlov Continental', ground: true, tier: 3,
-    mass: 4.6, thrustMax: 9.2, topSpeed: 63, tileMph: 80, wheelbase: 0.82,
+    mass: 4.6, thrustMax: 9.2, topSpeed: 63, tileMph: 80, wheelbase: 0.41,
     engineLag: 2.6, rollFric: 2.3, dragP: 0.0016, brake: 6.4,
     kg: 6200, tank: 2100, price: 31000,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 4.54, 3.47, 2.66, 2.04, 1.56, 1.19, 0.91, 0.70], band: [0.42, 0.68],
     engBrake: 1.5, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
-    trailerLen: 0.74, hitchOffset: 0.2, trailerKg: 5200,   // kingpin geometry, and the empty box itself
+    trailerLen: 0.37, hitchOffset: 0.10, trailerKg: 5200,   // kingpin geometry, and the empty box itself
     blurb: 'A long-nose sleeper built for people who see their own bed twice a month. Slow to wind up, slower to stop, and it will take a whole market with it.',
   },
   // The bottom rung exists so the first truck is a REAL decision at a price a new player can
   // actually reach, rather than a wall between them and the entire system.
   scrapper: {
     name: 'Krell Barrow', ground: true, tier: 0,
-    mass: 2.8, thrustMax: 8.4, topSpeed: 58, tileMph: 80, wheelbase: 0.55,
+    mass: 2.8, thrustMax: 8.4, topSpeed: 58, tileMph: 80, wheelbase: 0.28,
     engineLag: 2.4, rollFric: 2.2, dragP: 0.0019, brake: 6.0,
     kg: 1200, tank: 850, price: 1300,
     // Eight forward gears (0 is neutral), geometric, top holding the band at top speed.
     gears: [0, 4.93, 3.77, 2.89, 2.21, 1.69, 1.30, 0.99, 0.76], band: [0.42, 0.68],
     engBrake: 1.05, jake: 1.4,   // retarding force per unit ratio; the Jake multiplies it
-    trailerLen: 0.3, hitchOffset: 0.1, trailerKg: 900,   // kingpin geometry, and the empty box itself
+    trailerLen: 0.15, hitchOffset: 0.05, trailerKg: 900,   // kingpin geometry, and the empty box itself
     blurb: 'Krell stopped making these long enough ago that nobody agrees which decade. Three of them in a trenchcoat. The heater works, which the previous owner mentioned first and at length.',
   },
 };

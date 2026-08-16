@@ -2866,6 +2866,16 @@ export const SCHEMA_SQL = `
   -- at all: a trailer outlives the tractor that towed it, gets dropped in yards, and is routinely
   -- somebody else's problem. Damage that followed the truck would heal every time you swapped boxes.
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS condition REAL NOT NULL DEFAULT 1.0;
+  -- WHERE IT IS STANDING, to the tile and the degree. A trailer used to be parked in a ZONE, which
+  -- is the right resolution for a room you walk into and the wrong one for a yard: every box in the
+  -- lot was at the same place, so hitching was a menu rather than a manoeuvre, and there was nothing
+  -- for the renderer to draw. With a pose, a dropped trailer stands exactly where the driver left it,
+  -- is drawn there, and has to be BACKED UNDER. parked_zone stays and stays authoritative for which
+  -- room owns it; these three say where in it. Null on an old row means "wherever the yard puts it",
+  -- so nothing that already exists is stranded.
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_x REAL;
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_y REAL;
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_heading REAL;
   CREATE INDEX IF NOT EXISTS idx_trailers_owner ON trailers(owner_id);
   CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;

@@ -1,4 +1,4 @@
-import { query, logActivity } from '../models/db.js';
+import { query, logActivity, getQueryMeter } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
@@ -15,7 +15,7 @@ import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
 import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
 import { loadMutations } from '../engine/mutations.js';
-import { reloadItem, deleteItemCache } from '../engine/items-cache.js';
+import { reloadItem, deleteItemCache, getItemCache } from '../engine/items-cache.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -1955,7 +1955,11 @@ export async function apiDeleteEnemy(id) {
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); return {status:200,body:rows}; }
+// Served from the boot-loaded item cache, not `SELECT * FROM items`: every
+// writer already funnels through reloadItem/deleteItemCache, so the Map is the
+// same 668 rows without pulling their effects/stat_modifiers JSONB over the wire
+// on every dev-panel Items tab open.
+async function apiGetItems() { return {status:200,body:[...getItemCache().values()]}; }
 // Strip any legacy supertag bookkeeping keys before storing. Supertags are a
 // dev-panel-only template now (see server/engine/supertags.js) — the client
 // sends flat authored tags, this just guards against stray leftovers.
@@ -2675,7 +2679,16 @@ async function apiGetDevContributions() {
 
 async function apiWorldState() {
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
-  return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};
+  // db_meter: round trips/min + the heaviest statements. The number that matters
+  // is per-player SLOPE, so it ships alongside the online count deliberately —
+  // read them together (see docs/architecture.md → Read Tiers).
+  return {status:200,body:{
+    zones:getAllZones(),
+    online_players:players,
+    live_enemies:world.enemies.size,
+    live_corpses:world.corpses.size,
+    db_meter:getQueryMeter(10),
+  }};
 }
 async function apiReloadZone(body) {
   if (!body?.zone_id) return {status:400,body:{error:'zone_id required'}};

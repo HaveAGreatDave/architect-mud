@@ -54,12 +54,15 @@ import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveT
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
   announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM } from './corridor.js';
+import { tickHijackers, playerHijack } from './hijack.js';
+import { schedule } from '../../server/engine/scheduler.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
-  buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition } from './trailers.js';
+  buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
+  hitchReach, posed, refreshStanding } from './trailers.js';
 
 const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -132,6 +135,7 @@ async function cmdDrive(args, raw, player) {
 
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: 180, depot: here.id });
   rig.zoneId = here.id;
+  await refreshStanding(here.id);   // whatever is standing on this apron, so it is drawn from the first frame
   rig.truckId = owned.id;
   rig.typeId = owned.type_id;
   // WHAT YOU BOUGHT IS WHAT YOU DRIVE. `rig.params` is the tuned, kitted, worn parameter set from
@@ -1890,10 +1894,23 @@ async function cmdHitch(args, raw, player) {
   // would make the whole "leave it and come back" loop a coin-flip rather than a plan.
   if (want.ownerId && want.ownerId !== player.id) return say(`${cap(want.name)} is not yours. The pin is locked and the plate has somebody else's number on it.`);
 
+  // ── YOU HAVE TO BACK UNDER IT ─────────────────────────────────────────────
+  // A trailer now stands at a POSE rather than merely in a room, so hitching stopped being a menu
+  // choice and became a manoeuvre: get the fifth wheel under the pin, square-ish, at a crawl. The
+  // rule lives in trailers.js so the cab's HITCH button can light itself off the same test the verb
+  // enforces — a button that offers something the verb then refuses is worse than no button.
+  const reach = hitchReach(rig, want);
+  if (!reach.ok) {
+    if (reach.why === 'far') return say(`${cap(want.name)} is standing ${reach.d < 1.2 ? 'just' : ''} too far off to couple. Line the truck up on it and back under.`);
+    if (reach.why === 'angle') return say(`You are across it, not under it. Straighten up on ${want.name} and try again.`);
+    return say('Not at this speed. Stop first — the pin will not find the plate with the truck rolling.');
+  }
+
   const got = await hitchTrailer(want.id, rig.truckId, here.id);
   if (!got) return say('You line up on it and somebody else pulls out from under you. Gone.');
   rig.trailer = got;
   if (got.cargo) rig.cargo = got.cargo;     // what was on it is still on it
+  await refreshStanding(here.id);           // it is no longer standing there, so it stops being drawn there
   pushCab(rig);
   return say(`<span class="item-grant">You back the fifth wheel under the pin and it takes with a bang you feel in your teeth. Air lines on, legs up. ${cap(got.name)} is behind you.${got.cargo ? ` Still loaded: ${got.cargo.name}.` : ''}</span>`);
 }
@@ -1912,8 +1929,11 @@ async function cmdUnhitch(args, raw, player) {
   const t = rig.trailer, hadLoad = !!rig.cargo;
   // The load STAYS ON IT — that is the point of a trailer being a thing rather than a state.
   await saveLoad(t.id, rig.cargo || null, t.stash || null);
-  await dropTrailer(t.id, here.id);
+  // WHERE YOU LEFT IT: the tractor's own pose at the moment the pin came out, so the box stands
+  // exactly where it was dropped and the next driver has to line up on it.
+  await dropTrailer(t.id, here.id, { x: rig.x, y: rig.y, heading: rig.heading });
   rig.trailer = null; rig.cargo = null;
+  await refreshStanding(here.id);           // …and now it IS standing there, at the pose above
   pushCab(rig);
   return say(`Legs down, pin out, air lines off. You pull forward and ${t.name} stands there without you${hadLoad ? ', load and all' : ''}. The truck feels like a different animal.`);
 }
@@ -2133,7 +2153,21 @@ export const hooks = {
   // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
   // the dependency stays one-way — flight has never heard of trucking and does not need to.
   'vehicle.contacts': (x, y, range) => truckContactsNear(x, y, range),
+  // ONE VERB, TWO SYSTEMS. `hijack` belongs to surveillance (breaching a camera) and plugin verbs
+  // are first-come, so trucking cannot register it and must not try. Surveillance instead gathers
+  // this hook when the name you typed is not a device it can find, and whoever claims the target
+  // runs the attempt — so "break into the thing you named" keeps meaning one thing, nobody learns
+  // a second word for it, and neither plugin imports the other. Returning null is a real answer:
+  // it means "not mine", and the verb goes back to its own error.
+  'hijack.target': (player, nameHint) => playerHijack(player, nameHint),
 };
+
+// Hijackers try the door of any STOPPED cab they are standing next to. Scheduled rather than run
+// off a movement event because the thing it watches for is a truck that is NOT moving — there is no
+// event for "still here", and the whole mechanic is about time passing while you sit. Idle-gated by
+// default (schedule's own behaviour) and it returns immediately when nobody is in a rig, which on
+// this server is almost always.
+schedule('5s', () => tickHijackers());
 
 export const _test = { boardFor, allDepots, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
 

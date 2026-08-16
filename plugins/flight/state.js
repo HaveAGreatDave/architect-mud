@@ -795,7 +795,13 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // Bespoke landmarks the windshield raises instead of bare ground, carried on the
   // `mark` channel: a `statue-*` map icon → the town-square statue+fountain; the
   // Echelon's exterior tile (flags.yacht) → a sleek black yacht with a lit helipad.
-  const mark = cell.flags?.yacht ? 'yacht'
+  // A TILE YOU CAN DRIVE INTO. A depot bay is a shed with a roller door, and it is the one
+  // building on the map whose ground floor is not solid — so it is drawn by its own mark rather
+  // than by a building archetype (an archetype is a closed box, and a closed box is exactly what
+  // this must not be), and `groundObstructionAt` opens a hole at its door. Everything else about
+  // the tile is unchanged: it still carries its name, its lights and its zone.
+  const mark = cell.flags?.vehicle_bay ? 'bay'
+    : cell.flags?.yacht ? 'yacht'
     : cell.flags?.perimeter_gate ? 'gate'
     : (/^statue/.test(cell.flags?.icon || '') ? 'statue' : undefined);
   // A yacht that's recently sailed streams a decaying wake to every pilot in view.

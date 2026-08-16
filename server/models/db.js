@@ -69,8 +69,75 @@ pool.on('connect', (client) => {
   client.query('SET search_path TO public').catch(() => { /* surfaces on the caller's own query */ });
 });
 
+// ── Round-trip meter ─────────────────────────────────────────────────────────
+//
+// The one number that decides whether the read/write tiers in docs/architecture.md
+// are still true is DB round trips per minute — and specifically its SLOPE against
+// player count (measured once at ~6/player/min on top of a ~40/min world floor).
+// Until now that was only ever measurable with a throwaway profiler script, so a
+// new plugin adding a per-player query cost nothing VISIBLE until concurrency
+// arrived. Every query in the process already passes through here, so the meter
+// lives here and costs a counter increment.
+//
+// Deliberately memory-only and unbounded-free: a 60-slot ring of minute buckets
+// (one hour of history) and a Map keyed by a short SQL PREFIX, not the full text
+// — parameterised SQL means the prefix identifies the statement, and capping the
+// key space is what stops a meter from becoming the leak it was added to find.
+const METER_MINUTES = 60;
+const METER_KEYS_MAX = 200;
+const meterBuckets = new Array(METER_MINUTES).fill(0);
+const meterByKey = new Map();  // sql prefix -> count (lifetime of the process)
+let meterTotal = 0;
+let meterSlot = Math.floor(Date.now() / 60_000) % METER_MINUTES;
+let meterSlotStamp = Math.floor(Date.now() / 60_000);
+
+function meterKey(text) {
+  // First 60 chars, whitespace-collapsed. Enough to tell "UPDATE players SET
+  // current_zone" from "UPDATE players SET credits" without keying on params.
+  return String(text || '?').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+function meterRecord(text) {
+  const nowMin = Math.floor(Date.now() / 60_000);
+  if (nowMin !== meterSlotStamp) {
+    // Zero every bucket we skipped, so an idle hour reads as zeros rather than
+    // as stale counts from an hour ago wearing this minute's label.
+    const gap = Math.min(nowMin - meterSlotStamp, METER_MINUTES);
+    for (let i = 1; i <= gap; i++) meterBuckets[(meterSlot + i) % METER_MINUTES] = 0;
+    meterSlot = nowMin % METER_MINUTES;
+    meterSlotStamp = nowMin;
+  }
+  meterBuckets[meterSlot]++;
+  meterTotal++;
+  const k = meterKey(text);
+  if (meterByKey.has(k)) meterByKey.set(k, meterByKey.get(k) + 1);
+  else if (meterByKey.size < METER_KEYS_MAX) meterByKey.set(k, 1);
+}
+
+// { total, lastMinute, perMinute[], top[] } — read by the dev panel's World State
+// monitor. `lastMinute` is the previous COMPLETE minute; the current one is still
+// filling and would always read low.
+export function getQueryMeter(topN = 10) {
+  const nowMin = Math.floor(Date.now() / 60_000);
+  const fresh = nowMin === meterSlotStamp;
+  const prev = meterBuckets[((fresh ? meterSlot : nowMin % METER_MINUTES) - 1 + METER_MINUTES) % METER_MINUTES];
+  return {
+    total: meterTotal,
+    current: fresh ? meterBuckets[meterSlot] : 0,
+    lastMinute: prev,
+    perMinute: Array.from({ length: METER_MINUTES }, (_, i) =>
+      meterBuckets[(meterSlot - (METER_MINUTES - 1) + i + METER_MINUTES * 2) % METER_MINUTES]),
+    top: [...meterByKey.entries()]
+      .sort((a, b) => b[1] - a[1]).slice(0, topN)
+      .map(([sql, count]) => ({ sql, count })),
+    keysTracked: meterByKey.size,
+    keysCapped: meterByKey.size >= METER_KEYS_MAX,
+  };
+}
+
 // Run a query. Automatically acquires + releases a connection.
 export async function query(text, params) {
+  meterRecord(text);
   const client = await pool.connect();
   try {
     const res = await client.query(text, params);
@@ -121,7 +188,10 @@ export async function getClient() {
 // happened" result) commits normally.
 export async function withTransaction(fn) {
   const client = await pool.connect();
-  const q = (text, params) => client.query(text, params);
+  // Metered like any other statement — a transaction body is still N round trips
+  // to the same remote Postgres, and leaving it out would understate exactly the
+  // paths (trade, banking, settlement) that batch the most.
+  const q = (text, params) => { meterRecord(text); return client.query(text, params); };
   try {
     await client.query('BEGIN');
     const result = await fn(q);

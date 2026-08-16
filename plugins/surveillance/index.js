@@ -8,6 +8,7 @@
 // `sweep` is how anyone locates hidden gear.
 
 import { randomUUID } from 'crypto';
+import { gatherHook } from '../../server/engine/plugins.js';
 import { escAttr } from '../../server/engine/text.js';
 import { loggedPanelsSync } from '../../server/engine/presentation.js';
 import { textRender } from '../../server/engine/minigame.js';
@@ -1189,6 +1190,21 @@ async function cmdHijack(args, raw, player) {
     [player.current_zone, `%${nameHint}%`]
   );
   const dev = rows[0];
+  // ── NOT A DEVICE? ASK WHO ELSE OWNS A WAY IN ──────────────────────────────
+  // `hijack` means "break into the thing you named", and a camera is not the only thing in this
+  // world worth breaking into. Rather than a second verb for every system that grows one (and a
+  // player having to remember which word goes with which target), the miss is offered to anyone
+  // who registered `hijack.target` — trucking claims a stopped truck with a driver in it. A
+  // contributor that does not recognise the name returns null and we fall through to the error
+  // below, which is still the useful one for a mistyped camera.
+  //
+  // ⚠ Deliberately AFTER the device lookup, never before: this verb's first meaning is the one it
+  // shipped with, and a contributor must never be able to shadow a real device standing here.
+  if (!dev) {
+    for (const claim of await gatherHook('hijack.target', player, nameHint)) {
+      if (claim) return claim;
+    }
+  }
   if (!dev) return { type: 'error', message: `There's no "${nameHint}" here. Try "sweep" first.` };
   if (dev.owner_id === player.id) return { type: 'error', message: `You already control the ${dev.name}.` };
   // Same rule as every other breach in the game: no deck, no hack. A camera is a

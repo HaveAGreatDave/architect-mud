@@ -33,6 +33,7 @@
   ],
   "hooks": [
     "zone.describeRoom",
-    "vehicle.contacts"
+    "vehicle.contacts",
+    "hijack.target"
   ]
 }

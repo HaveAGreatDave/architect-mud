@@ -15,7 +15,7 @@
 // re-deriving `s` from the room you woke up in is both cheap and correct. The persistence-tier
 // rules in docs/architecture.md are explicit that per-tick state does not go near the DB.
 
-import { getZone, addPlayerToZone, removePlayerFromZone } from '../../server/engine/world.js';
+import { getZone, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
@@ -25,6 +25,7 @@ import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider,
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
+import { trailersNear, standingIn, hitchReach, posed, refreshStanding } from './trailers.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -89,6 +90,12 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
     route: null, chain: null, instanceId: null, destKey: null, dest: null, s: 0, t: 0, node: 0,
   };
   rigs.set(player.id, rig);
+  // THE ONE FLAG THE ENGINE READS. `enemyAttackPlayer` refuses a swing at a player in a cab (see
+  // its ⚠), and it must not have to know this plugin exists to do it — so mounting sets a RAM flag
+  // on the live player and dismounting clears it. It is written HERE rather than at the four call
+  // sites for the obvious reason: a rig you can get into by a path that forgets the flag is a rig
+  // that is not a safe box, and nothing downstream would ever tell you which path it was.
+  player._inCab = true;
   return rig;
 }
 
@@ -137,7 +144,14 @@ export function leaveCorridor(rig, x, y, heading = 180) {
   rig.route = null; rig.chain = null; rig.s = 0; rig.t = 0; rig.node = 0;
   return rig;
 }
-export function dismountRig(playerId) { rigs.get(playerId)?.playerId && rigs.delete(playerId); }
+export function dismountRig(playerId) {
+  rigs.get(playerId)?.playerId && rigs.delete(playerId);
+  // Out of the cab, out of the box — see mountRig. Cleared unconditionally rather than only when a
+  // rig was found, because the failure this guards against is a stale flag making somebody
+  // permanently unattackable, and that is far worse than clearing a flag that was already false.
+  const p = getLivePlayer(playerId);
+  if (p) p._inCab = false;
+}
 export function rigOf(player) { return rigs.get(player?.id) || null; }
 
 // ── Reconcile: the one place a client number becomes a server fact ───────────
@@ -339,6 +353,11 @@ export function driveToZone(player, rig, zoneId) {
   player.current_zone = zoneId;
   rig.zoneId = zoneId;
   rig.zoneDirty = true;
+  // The new tile's standing trailers, into the RAM cache the cab draws from. Fire-and-forget: this
+  // is the one place a DB read touches the drive and it must never block it, so the boxes appear a
+  // beat after you roll in rather than holding the move up for a round trip. (A yard you have just
+  // entered at 30 mph is a yard you cannot couple in yet anyway.)
+  refreshStanding(zoneId).catch(() => {});
   announcePassing(player, rig, from, zoneId);
   // `from` matters: listeners that care about what you LEFT (the depot panel closing itself when a
   // rig rolls off its apron) are dead without it, and it cost nothing to carry.
@@ -433,6 +452,20 @@ export function truckContactsNear(x, y, range = 26) {
   return out;
 }
 
+// WHICH BOX THE FIFTH WHEEL COULD TAKE RIGHT NOW. Nearest first, so a driver reversing between two
+// parked trailers gets the one they are actually under. Returns null rather than a list because the
+// cab's HITCH button is one button: it is either lit, with a name on it, or it is not there.
+function hitchableFor(rig) {
+  if (!rig || rig.leg !== 'city' || rig.trailer) return null;
+  let best = null, bd = Infinity;
+  for (const t of standingIn(rig.zoneId)) {
+    if (!hitchReach(rig, t).ok) continue;
+    const d = posed(t) ? Math.hypot(rig.x - t.x, rig.y - t.y) : 99;
+    if (d < bd) { bd = d; best = t; }
+  }
+  return best ? { id: best.id, name: best.name } : null;
+}
+
 export function cabContext(rig, extra = {}) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y);
   const city = rig.leg === 'city';
@@ -497,6 +530,15 @@ export function cabContext(rig, extra = {}) {
     // the yacht helm, so a driver's sky costs one call and no new channel. City leg only — nothing
     // flies over the corridor, which is off the map entirely.
     contacts: city ? aircraftNearCoord(cx, cy, 22) : [],
+    // THE BOXES STANDING IN THIS YARD, as world objects rather than as a list in a menu. Same
+    // contact shape as the aircraft above, so the cab draws a dropped trailer with the renderer it
+    // already has; served from the per-zone RAM cache (trailers.js) because this runs on the drive
+    // and the drive does not get to touch the database.
+    trailers: city ? trailersNear(rig.zoneId, cx, cy, 22) : [],
+    // Which one, if any, the fifth wheel could take right now — the HITCH button in the cab lights
+    // off this and nothing else, so the button and the verb can never disagree about whether you
+    // are under it. (The verb still re-checks: a button is a hint, never an authority.)
+    hitchable: hitchableFor(rig),
     ...extra,
   };
 }

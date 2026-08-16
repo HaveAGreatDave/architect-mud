@@ -2001,25 +2001,36 @@ export function vehicleLamps(cls, variant = '') {
   const typeId = String(variant).replace(/~.*$/, '').split('+')[0];
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
   const L = truckLampGeom(S);
+  // INTO THE MESH'S OWN FRAME. Build (or hit the cache for) the variant so its centring is known,
+  // then move every station by the same shift and settle the whole set is drawn in — see the ⚠ at
+  // the end of buildTruck. Without this each lamp is placed in the coordinates the geometry was
+  // AUTHORED in rather than the ones it is DRAWN in, and the difference is a sixth of a truck.
+  aircraftFaces('truck', 1, false, variant || 'hauler');
+  const meta = TRUCK_META.get(String(variant || 'hauler') + ':1') || { shift: 0, drop: 0, pods: [] };
+  const at = (f, g, h) => [f - meta.shift, g, h - meta.drop];
   return {
     // Headlamps: the stacked pair in the chromed pod, so the glow sits between the two lenses.
-    head: [[L.lampF + 0.004, -L.lampG, L.lampMidZ], [L.lampF + 0.004, L.lampG, L.lampMidZ]],
+    head: [at(L.lampF + 0.004, -L.lampG, L.lampMidZ), at(L.lampF + 0.004, L.lampG, L.lampMidZ)],
     // Tail lamps: the back of the frame, where a bobtail's are. With a box on the hitch these are
     // inside the trailer and the depth test drops them, which is correct — you cannot see your own
     // tractor's tail lamps through a forty-foot trailer either.
-    tail: [[L.frame0 + 0.004, -S.w * 0.66, 0.085], [L.frame0 + 0.004, S.w * 0.66, 0.085]],
+    tail: [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
     // The five roof markers, on the same station and spacing the visor row is built at, and only on
     // the trucks that carry one — so a lamp never glows where no lamp was built.
     marker: S.lamps > 0.2
-      ? [-2, -1, 0, 1, 2].map((i) => [L.markF, i * S.w * 0.34, L.markZ])
+      ? [-2, -1, 0, 1, 2].map((i) => at(L.markF, i * S.w * 0.34, L.markZ))
       : [],
-    // UNDERGLOW, as light rather than as a part. Four stations down the CENTRELINE between the
-    // axles, sitting ON the ground plane (z = 0) rather than on the frame — what you are meant to
-    // see is the road lit up under the truck, not a strip on the chassis. Four rather than two
-    // because a pool has to read as continuous from an oblique camera; the renderer draws them wide
-    // and soft enough that they overlap into one, and it only lights them while the engine is
-    // running. Every rig gets it: this is the one lamp that is about the machine being ALIVE.
-    under: [0.18, 0.02, -0.14, -0.30].map((f) => [L.nose0 + f, 0, 0.004]),
+    // THE LIFTERS' OWN LIGHT, one station per pod, on the ground directly under it and carrying the
+    // pod's half-length so the renderer can size the pool to the machine rather than to a constant.
+    // This replaces the flat teal ground boxes the mesh used to draw under each pod (⚠ in `pod()`):
+    // same intent, drawn as light, so it spills instead of ending at a corner.
+    podGlow: (meta.pods || []).map(([f, g, halfLen]) => ({ p: at(f, g, 0.002), r: halfLen })),
+    // UNDERGLOW, as light rather than as a part: stations down the CENTRELINE between the axles,
+    // sitting ON the ground plane rather than on the frame — what you are meant to see is the road
+    // lit up under the truck, not a strip on the chassis. The renderer pools these together with
+    // `podGlow` above, and only while the engine is running: this is the one lamp on the vehicle
+    // that is about the machine being ALIVE rather than about being seen.
+    under: [0.18, 0.02, -0.14, -0.30].map((f) => at(L.nose0 + f, 0, 0.004)),
   };
 }
 
@@ -2123,11 +2134,18 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // sits on the ground, and the emitter bands and the road-glow under them go out. Standing next
   // to one that was still hovering with the engine cold was the tell that the hover was decoration.
   const parked = str.includes('~p');
+  // SOLO — the box on its own legs, no tractor. What a dropped trailer standing in a yard looks
+  // like, and it is built by building the whole rig and then throwing the tractor away (see the
+  // splice below the trailer block). That is deliberately not the same as writing a second mesh:
+  // a trailer drawn by its own function is a trailer that drifts from the one you tow, and the two
+  // are the same object seen five minutes apart.
+  const solo = str.includes('~s');
   const [typeId, tail] = str.replace(/~.*$/, '').split('+');
   const S = TRUCK_SHAPES[typeId] || TRUCK_SHAPES.hauler;
-  const hitched = tail === 't';
+  const hitched = tail === 't' || solo;   // solo IS a trailer: the box gets built, the tractor is spliced off after
   const fine = detail >= 1;
   const faces = [];
+  const podAt = [];                        // filled by pod(); published through TRUCK_META below
   const V = (f, g, h) => [f, g, h];
   // A box between two fore stations, as six quads. `sh` is the baked flat shade: top brightest,
   // sides mid, underside dark — the same top-lit convention the airframe skins use.
@@ -2169,6 +2187,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
   const pod = (f, g, r = 0.048, len = 1) => {
     const s = Math.sign(g || 1), L = r * len;
+    podAt.push([f, g, r * len]);            // where a lifter ended up — the lamp layer pools light under each one
     const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
     box(f - L * 0.20, f + L * 0.20, 0.009, z1 - 0.006, 0.066, 'strut', null, g - s * 0.013);    // swing arm up into the frame
     box(f - L, f + L, 0.024, z0 + r * 0.34, z1, 'gear', null, g);                               // housing
@@ -2179,10 +2198,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(f - L * 0.86, f + L * 0.86, 0.0255, z0 + r * 0.72, z0 + r * 0.92, 'window', CHROME, g);
     if (!parked) box(f - L * 0.80, f + L * 0.80, 0.025, z0 + r * 0.26, z0 + r * 0.38, 'window', GLOW, g);   // the emitter band
     box(f - L * 0.62, f + L * 0.62, 0.026, z0 + r * 0.50, z0 + r * 0.64, 'strut', null, g);     // intake louvre on the flank
-    // The patch of road it stands on. Wider than the pod on purpose, so the light spills out from
-    // under it — from any angle above the beltline this is the only part of the lift you can see.
-    // A parked rig is resting ON that patch, so there is nothing to spill.
-    if (!parked) box(f - L * 1.5, f + L * 1.5, 0.034, 0.001, 0.004, 'window', [30, 92, 104], g);
+    // ⚠ NO GROUND PATCH HERE, and for exactly the reason the frame-rail underglow was deleted
+    // (see the ⚠ further down): a lit patch of road under a pod was a BOX, and a box takes the
+    // shading pass and has edges, so from any camera above the beltline the four of them read as
+    // flat teal pads bolted to the tarmac — the rig looked like it was standing on paving slabs.
+    // The light under a lifter belongs at the lamp layer with the rest of the light: `vehicleLamps`
+    // now returns a per-pod `podGlow` station and windshield.js pools them onto the road.
   };
   // ── Retro-future ornament ──────────────────────────────────────────────────
   // A chrome bullet: three shrinking boxes on an axis, which at this scale reads as a turned cone.
@@ -2471,6 +2492,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
     if (fine) for (const f of [frame0 + 0.052, frame0 + 0.088]) box(f - 0.003, f + 0.003, S.w * 0.68, 0.112, 0.116, 'strut');   // ratchet straps
   }
 
+  const tractorFaces = faces.length;   // the split point: everything before here is the tractor
   if (hitched) {
     // The trailer. It is a SEPARATE body drawn straight behind the tractor, which is honest for
     // every view this mesh is used in (a passing aircraft, a contact in the window, the yard) —
@@ -2502,6 +2524,12 @@ function buildTruck(variant = 'hauler', detail = 1) {
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps
   }
 
+  // THROW THE TRACTOR AWAY, if this was only ever meant to be the box. Everything from
+  // `tractorFaces` on is the trailer, so a dropped box is the SAME geometry you tow — same ribs,
+  // same doors, same tape, same lamps — rather than a second model that would need keeping in step
+  // with this one and wouldn't be. It happens before the centring below, which is what puts a
+  // standing trailer on its own middle instead of on the middle of a truck that is not there.
+  if (solo) faces.splice(0, tractorFaces);
   // CENTRE IT. The tractor is laid out forward from a nose anchor, so a bobtail Barrow ended up
   // sitting entirely in the front half of the normalised box — and every consumer of this mesh
   // (contacts in the window, the schematic, the wireframe) places it by its ORIGIN, so it would
@@ -2514,7 +2542,13 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // it — walking `faces` and subtracting per reference moves the same corner up to three times and
   // shears the model apart. (It did: the first cut put every truck further off-centre than it
   // started, and the regress case caught it.)
-  if (shift || parked) {
+  // A SHUT-DOWN RIG SETTLES BY ITS RIDE HEIGHT; A DROPPED BOX SETTLES ONTO ITS LEGS, and those are
+  // two different numbers. HOVER is what a lifter holds the chassis up by, which is the right drop
+  // for a truck switching off and the wrong one for a trailer that was never hovering — applying it
+  // to a solo box put its landing legs through the road. So solo is fitted to the ground below,
+  // from its own lowest point, and needs no constant at all.
+  const settle = parked;
+  if (shift || settle) {
     const seen = new Set();
     for (const f of faces) for (const p of f.p) {
       if (seen.has(p)) continue;
@@ -2524,11 +2558,34 @@ function buildTruck(variant = 'hauler', detail = 1) {
       // lifters end up on the ground and everything above them keeps its own proportions — which
       // is what a vehicle sitting down looks like, and what raising only the pods would not have
       // been (that leaves the chassis floating over a gap).
-      if (parked) p[2] -= HOVER;
+      if (settle) p[2] -= HOVER;
     }
   }
+  // ⚠ PUBLISH THE CENTRING, because the lamps are placed in the coordinates this function laid the
+  // mesh out in and the mesh does not stay in them. `truckLampGeom` anchors everything to the 0.40
+  // nose station; the block above then slides the whole model back by `shift` (~0.165) to centre it
+  // on its origin — so a headlamp glow drawn at the geometry's own number sits a sixth of a truck
+  // length AHEAD of the bumper, hanging in the road. That is the "floating headlights" bug, and it
+  // is not a tuning error: it is one transform applied to the mesh and not to the lights. Anything
+  // that wants to put light on this model reads its stations through here.
+  // GROUND-FIT A SOLO BOX. Its lowest point becomes z = 0, so the legs stand ON the road whatever
+  // the trailer's own geometry happens to be — derived, never a tuned constant, and therefore still
+  // right the day somebody changes the landing legs.
+  let drop = settle ? HOVER : 0;
+  if (solo) {
+    let zmin = Infinity;
+    for (const f of faces) for (const p of f.p) if (p[2] < zmin) zmin = p[2];
+    if (zmin !== 0 && Number.isFinite(zmin)) {
+      const seen = new Set();
+      for (const f of faces) for (const p of f.p) { if (seen.has(p)) continue; seen.add(p); p[2] -= zmin; }
+      drop = zmin;
+    }
+  }
+  TRUCK_META.set(str + ':' + detail, { shift, drop, pods: podAt });
   return faces;
 }
+// variant+detail → { shift, drop, pods }. See the ⚠ at the end of buildTruck.
+const TRUCK_META = new Map();
 // A wreck: a generic hull minus its right wing, both fins, canopy, and windows — a
 // stripped carcass. Built off the plain default (no gear/struts/prop) so it stays neutral.
 function buildWreck() {

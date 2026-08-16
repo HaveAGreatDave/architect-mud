@@ -44,7 +44,7 @@ export const TRAILER_TYPES = [
 ];
 export const trailerType = (id) => TRAILER_TYPES.find(t => t.id === id) || null;
 
-const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash, condition';
+const SELECT = 'id, name, owner_id, kg, rated_kg, parked_zone, towed_by, cargo, stash, condition, park_x, park_y, park_heading';
 
 const shape = (r) => r && ({
   id: r.id, name: r.name, ownerId: r.owner_id,
@@ -55,7 +55,16 @@ const shape = (r) => r && ({
   // truck's bag because a trailer outlives the tractor that towed it — damage that followed the
   // truck would heal itself every time somebody swapped boxes in a yard.
   condition: r.condition == null ? 1 : Number(r.condition),
+  // WHERE IT IS STANDING, to the tile. Null on a row written before trailers had a pose (or on one
+  // the yard put out as stock), which every reader treats as "the yard will place it" rather than
+  // as an error — see `posed`.
+  x: r.park_x == null ? null : Number(r.park_x),
+  y: r.park_y == null ? null : Number(r.park_y),
+  heading: r.park_heading == null ? null : Number(r.park_heading),
 });
+// Has this box got a real place in the world, or is it just somewhere in the room? One predicate,
+// because "is it drawable" and "can I back under it" are the same question and must never drift.
+export const posed = (t) => t && t.x != null && t.y != null;
 
 // The trailer's half of the damage writer. Deliberately not guarded on ownership: a trailer you are
 // towing is a trailer you are damaging, and the hitch is what already proved you were allowed to be
@@ -101,17 +110,102 @@ export async function buyTrailer(playerId, typeId, zoneId) {
 // they are told somebody beat them to it, which is a better outcome than two trucks towing one
 // trailer. Returns the row, or null if it was taken.
 export async function hitchTrailer(trailerId, truckId, fromZone) {
+  // The pose is cleared on the way onto the fifth wheel, and that is not tidiness: while it is
+  // being towed the trailer's position IS the truck's, derived every frame from the articulation
+  // angle. A stale park_x sitting in the row would be a second, wrong answer to "where is it",
+  // and the renderer would eventually find it.
   const { rowCount } = await query(
-    'UPDATE trailers SET towed_by = $1, parked_zone = NULL WHERE id = $2 AND parked_zone = $3 AND towed_by IS NULL',
+    `UPDATE trailers SET towed_by = $1, parked_zone = NULL, park_x = NULL, park_y = NULL, park_heading = NULL
+      WHERE id = $2 AND parked_zone = $3 AND towed_by IS NULL`,
     [truckId, trailerId, fromZone]
   ).catch(() => ({ rowCount: 0 }));
   return rowCount ? getTrailer(trailerId) : null;
 }
 
-// DROP. The zone has to be one that still exists tomorrow — see rule 2 at the top.
-export async function dropTrailer(trailerId, zoneId) {
-  await query('UPDATE trailers SET towed_by = NULL, parked_zone = $1 WHERE id = $2', [zoneId, trailerId]);
+// DROP. The zone has to be one that still exists tomorrow — see rule 2 at the top. `pose` is where
+// in that zone: the tractor's own position and heading at the moment the pin was pulled, so a box
+// is left where you left it, nose the way you were pointing. Optional, because a yard dropping
+// stock has no truck to take a pose from.
+export async function dropTrailer(trailerId, zoneId, pose = null) {
+  await query(
+    `UPDATE trailers SET towed_by = NULL, parked_zone = $1,
+            park_x = $3, park_y = $4, park_heading = $5 WHERE id = $2`,
+    [zoneId, trailerId, pose?.x ?? null, pose?.y ?? null, pose?.heading ?? null]);
   return getTrailer(trailerId);
+}
+
+// ── WHAT IS STANDING IN THIS YARD, IN RAM ────────────────────────────────────
+// A parked trailer has to be DRAWN, and the cab pushes its world several times a second. Reading
+// the table on that path would put a remote round trip on the drive — the exact thing the read
+// tiers exist to forbid (docs/architecture.md) — so the zone's standing boxes are cached, and the
+// cache is refreshed at the four moments the answer can change: mounting a truck, arriving in a
+// zone, hitching, dropping. Nothing else writes `parked_zone`, so nothing else can invalidate it.
+//
+// ⚠ THE CACHE IS PER ZONE AND DELIBERATELY NOT GLOBAL. A yard nobody is standing in does not need
+// to be in memory, and a stale row for a zone with no driver in it can hurt nobody.
+// WHICH BOX TO DRAW. The mesh's trailer length is a property of the TRUCK SHAPE it was authored
+// against (`deck` in TRUCK_SHAPES), and a trailer row carries no shape of its own — so the drawn
+// length is derived from the one number that already says how big the thing is, its rated capacity.
+// A flatbed is short, a tanker is long, and nobody had to author a second table to say so.
+const meshShapeFor = (t) => {
+  const r = t?.ratedKg || 0;
+  return r >= 5000 ? 'continental' : r >= 3200 ? 'drayman' : r >= 2000 ? 'hauler' : 'scrapper';
+};
+
+const standing = new Map();   // zoneId -> { at, list }
+export async function refreshStanding(zoneId) {
+  if (!zoneId) return [];
+  const list = await trailersAt(zoneId);
+  standing.set(zoneId, { at: Date.now(), list });
+  return list;
+}
+export function standingIn(zoneId) { return standing.get(zoneId)?.list || []; }
+export function forgetStanding(zoneId) { standing.delete(zoneId); }
+// The drawable set: standing boxes near a point, in the contact shape the cab already renders
+// aircraft and other rigs in — so a trailer in the yard costs the client no new channel and no new
+// code path. `~s` is the solo mesh: the same box you tow, with the tractor thrown away.
+export function trailersNear(zoneId, x, y, range = 26) {
+  const out = [];
+  for (const t of standingIn(zoneId)) {
+    if (!posed(t)) continue;                       // no pose, nothing to draw — the yard lists it instead
+    if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > range) continue;
+    out.push({
+      id: `trailer_${t.id}`, cls: 'truck', variant: `${meshShapeFor(t)}+t~s`,
+      x: t.x, y: t.y, hdg: t.heading ?? 0,
+      ias: 0, alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
+      bank: 0, pitch: 0, vs: 0, hullPct: Math.round((t.condition ?? 1) * 100),
+      power: 0, lights: false,                     // nothing is running: no underglow, no lamps
+      reg: t.name, trailerId: t.id,
+    });
+  }
+  return out;
+}
+
+// ── BACKING UNDER ────────────────────────────────────────────────────────────
+// Whether this truck, where it is standing right now, could take this box. Three tests, and each
+// one is a thing a driver would actually have to get right:
+//
+//   NEAR      the kingpin has to be under the fifth wheel, not in the next bay. Half a tile.
+//   SLOW      you couple at a walking pace. Hitting a parked trailer at speed is a collision, and
+//             the collision system already has opinions about that.
+//   SQUARE    you back UNDER a trailer along its own line. Thirty degrees of slop is generous for a
+//             game and still refuses the case this exists to refuse: driving at the side of a box
+//             and having it snap onto the pin.
+//
+// A trailer with no pose (yard stock, or a row written before trailers had a place) passes NEAR and
+// SQUARE for free — it has no position to be wrong about, so the only test left is the sensible one.
+export const HITCH_TILES = 0.5;
+export const HITCH_MPH = 6;
+export const HITCH_DEG = 30;
+export function hitchReach(rig, t) {
+  if (!rig) return { ok: false, why: 'nodrive' };
+  if (Math.abs(rig.speed || 0) > HITCH_MPH) return { ok: false, why: 'fast' };
+  if (!posed(t)) return { ok: true, why: null };
+  const d = Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y);
+  if (d > HITCH_TILES) return { ok: false, why: 'far', d };
+  const off = Math.abs(((((rig.heading ?? 0) - t.heading + 540) % 360) - 180));
+  if (off > HITCH_DEG) return { ok: false, why: 'angle', off };
+  return { ok: true, why: null, d, off };
 }
 
 // The load, written back as one statement. `cargo` is the DECLARED load and `stash` is what is not

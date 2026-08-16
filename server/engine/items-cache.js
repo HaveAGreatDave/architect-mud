@@ -19,6 +19,8 @@ import { query } from '../models/db.js';
 let ITEM_CACHE = new Map();
 
 export async function loadItems() {
+  // query-lint-ok: this IS the loader that fills the item cache — the one
+  // full-table read that lets every other reader skip the DB entirely.
   const { rows } = await query('SELECT * FROM items');
   const cache = new Map();
   for (const it of rows) cache.set(it.id, it);

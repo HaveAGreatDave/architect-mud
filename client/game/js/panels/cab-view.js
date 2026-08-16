@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabGpsRect, cabDashCanvas } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
 import { TYPES, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -80,7 +80,7 @@ const kitFor = (p) => CAB_KIT[p?.tier] || CAB_KIT[1];
 // two keys out of eleven. This table is the legend the ? card renders, and it is written as data so
 // that adding a control without telling anybody about it takes a deliberate omission.
 const CONTROLS = [
-  ['Drag the wheel', 'Steer. The wheel is the one on the dash in front of you — put a hand anywhere on the glass and drag, and it winds on. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
+  ['Drag the wheel', 'Steer. Take hold of the wheel on the dash anywhere on it and turn it, or put a hand anywhere else on the glass and drag sideways. It walks back to centre when you let go. In the chase view the same drag orbits the camera instead, and the scroll wheel dollies it.'],
   ['← →', 'Steer, for a keyboard or a thumb. The same wheel, wound on at the pace a wrist manages.'],
   ['Centre boss', 'The horn. Press the middle of the wheel.'],
   ['GPS screen', 'Tap it. The map is the road you are actually on; tapping opens the fork, with the distance and whether your tank reaches. Picking one runs the ordinary route command, so it obeys the same rules typing it would.'],
@@ -90,7 +90,9 @@ const CONTROLS = [
   ['Z or SPACE', 'Service brakes. They heat, and hot brakes fade.'],
   ['X / CLUTCH', 'Clutch. Held. Also how you restart a stalled engine.'],
   ['C / JAKE', 'Engine brake. Held. Free retardation on a descent — it does not heat the drums.'],
-  ['. and ,', 'Shift up / down. Gear 0 is neutral.'],
+  ['↑ ↓', 'Shift up / down, on the same cluster the wheel is on: ← → steers, ↑ ↓ works the box.'],
+  ['. and ,', 'Shift up / down, the other way round. Gear 0 is neutral.'],
+  ['G / CRUISE', 'Cruise control. Locks the speed you are doing — the brake, the clutch or dropping out of gear cancels it. It works the throttle and nothing else, so a hill still beats you in the wrong gear.'],
   ['/', 'Splitter — half a gear.'],
   ['R', 'Reverse. Only from a standstill.'],
   ['H', 'Air horn. The room hears it.'],
@@ -307,7 +309,19 @@ export function openCab(ctx = {}) {
             <i class="cab-gate-rail cab-rail-x"></i>
             <i class="cab-gate-rail cab-rail-rev"></i>
             ${CAB_GATE.map((g, i) => `<button class="cab-slot" data-gi="${i}" style="left:${g.x * 100}%;top:${g.y * 100}%"></button>`).join('')}
-            <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears."><b class="cab-knob"></b></div>
+            <!-- ── THE STICK ────────────────────────────────────────────────
+                 There was no stick. There was a knob that slid around a plate, which is a plan view
+                 of a gearbox rather than a gear lever — and it is the reason the control read as a
+                 diagram: nothing about it was a foot of steel coming up out of the floor. This is
+                 the shaft, drawn from a pivot BELOW the plate (the boot, at the bottom of the
+                 gate) up to the knob, so pulling the lever through the gate leans it toward you
+                 and away from you and you can see the throw. It is one element and the geometry is
+                 solved where the knob position is already solved ('put'), so there is no second
+                 idea of where the lever is. Purely decorative — it is not a hit target, the knob
+                 and the slots are. -->
+            <i class="cab-boot" aria-hidden="true"></i>
+            <i class="cab-shaft" aria-hidden="true"><s></s></i>
+            <div class="cab-lever" title="Throw the lever into a slot, or press one. The collar doubles the four slots into eight gears."><b class="cab-knob"><s></s></b></div>
           </div>
           <!-- THE KNOB COLLARS. On a real range-change box both of these live ON the shift knob
                under your thumb, never as a position you put the lever in — so they are two small
@@ -349,6 +363,19 @@ export function openCab(ctx = {}) {
             <!-- THE HORN. A VERB ('horn', plugins/trucking) rather than a local sound, because the
                  whole point of a horn is that the room hears it and you are not the room. -->
             <button class="cab-btn cab-rocker cab-horn cab-touch" aria-label="Air horn" title="Air horn (H) — the room hears it"><i></i><u><span>HORN</span></u></button>
+
+            <!-- CRUISE. A LATCHING switch, not a held one, and the only rocker on this panel whose
+                 label is a NUMBER when it is on: what a driver wants back off cruise control is
+                 confirmation of the speed it took, and the lamp alone cannot say that. -->
+            <!-- HITCH. The one control in this cab that is not always there: it appears when the fifth
+                 wheel is actually under a pin and names the box it would take, and it is gone the
+                 rest of the time. A permanently visible button that answers "not here" is a button
+                 you learn to ignore; one that only exists when it will work is an instrument.
+                 ⚠ It is a HINT, never an authority — pressing it runs the ordinary 'hitch' verb,
+                 which re-checks distance, angle and speed for itself. -->
+            <button class="cab-btn cab-rocker cab-hitchbtn" hidden aria-label="Hitch trailer" title="Back under the trailer and couple (hitch)"><i></i><u><span>HITCH</span></u></button>
+
+            <button class="cab-btn cab-rocker cab-cruise" aria-pressed="false" aria-label="Cruise control" title="Cruise control (G) — locks the speed you are doing. The brake, the clutch or dropping out of gear cancels it."><i></i><u><span>CRUISE</span></u></button>
           </div>
           <!-- LOOKING OFF THE NOSE. The flight sim's Q/E/S, and deliberately the same three keys: a
                truck has exactly the same problem an aircraft does (you cannot see behind you) and a
@@ -467,7 +494,7 @@ export function openCab(ctx = {}) {
     let pid = null;
     const on = (e) => {
       pid = e.pointerId != null ? e.pointerId : 'kb';
-      st.input[key] = 1; el.classList.add('on');
+      st.input[key] = 1; st.heldBy = st.heldBy || {}; st.heldBy[key] = 1; el.classList.add("on");
       if (e.pointerId != null) el.setPointerCapture?.(e.pointerId);
       e.preventDefault();
     };
@@ -475,7 +502,7 @@ export function openCab(ctx = {}) {
       if (!st) return;
       // Not our finger: leave the control held. A keyboard release (no pointerId) always ends it.
       if (e && e.pointerId != null && pid !== null && pid !== 'kb' && e.pointerId !== pid) return;
-      pid = null; st.input[key] = 0; el.classList.remove('on');
+      pid = null; st.input[key] = 0; if (st.heldBy) st.heldBy[key] = 0; el.classList.remove("on");
     };
     el.addEventListener('pointerdown', on);
     el.addEventListener('pointerup', off);
@@ -490,6 +517,15 @@ export function openCab(ctx = {}) {
   hold('.cab-brake', 'brake');
   hold('.cab-clutch', 'clutch');
   hold('.cab-jake', 'jake');
+  // Cruise is a LATCH, so it is a plain click rather than a hold() — the one switch on this panel
+  // that stays where you put it.
+  container.querySelector('.cab-cruise')?.addEventListener('click', () => toggleCruise());
+  // Hitching is a real verb with real rules; the button is a shortcut to typing it, which is why it
+  // sends the command rather than reaching into the rig. Unhitching goes through the same button
+  // once you are coupled, because "the thing behind me" is one question with two answers.
+  container.querySelector('.cab-hitchbtn')?.addEventListener('click', () => {
+    sendCmdSilent(st.sim?.hitched ? 'unhitch' : 'hitch');
+  });
 
   // Held STEERING buttons, for a touch device with no keyboard and no room to drag a wheel. They
   // drive the wheel widget's own `setHeld`, not a private angle — one wheel, three ways to turn it,
@@ -572,8 +608,29 @@ export function openCab(ctx = {}) {
       if (!st.external && cv) {
         const b = cv.getBoundingClientRect();
         const hub = cabWheelHub(b.width, b.height);
-        if (Math.hypot(e.clientX - b.left - hub.x, e.clientY - b.top - hub.y) < hub.r) {
+        const wx = e.clientX - b.left - hub.x, wy = e.clientY - b.top - hub.y;
+        const wr = Math.hypot(wx, wy);
+        if (wr < hub.r) {
           sendCmdSilent('horn'); e.preventDefault(); return;
+        }
+        // ── PUTTING A HAND ON THE WHEEL ITSELF ────────────────────────────────
+        // Anywhere on the wheel — rim, spoke, the gap between them — is a grab, and it turns the
+        // wheel the way a hand turns a wheel: you take hold of a point on it and it follows your
+        // hand round. The horizontal-drag-anywhere control below is deliberately kept (it is the
+        // one that works at speed and the one that scales with the window), but it is the wrong
+        // gesture for the wheel you are looking at: dragging sideways across a wheel is not how
+        // anybody has ever turned one, and the wheel is the biggest object on the dash.
+        //
+        // The target is the whole DISC out to the rim, not an annulus over the drawn ring. A hit
+        // test you have to aim at is the problem being fixed; the only part of the disc that is
+        // not the wheel is the boss, and that is tested first, above.
+        const wg = cabWheelGeom(b.width, b.height);
+        if (wr < wg.R * 1.04) {
+          drag = { x: e.clientX, y: e.clientY, id: e.pointerId, wheel: true, a: Math.atan2(wy, wx) };
+          st.wheel?.setDragging(true);
+          glass.setPointerCapture?.(e.pointerId);
+          glass.classList.add('cab-glass-drag');
+          e.preventDefault(); return;
         }
         // THE GPS IS A BUTTON, tested against the rectangle the renderer says it drew rather than
         // against a second copy of the dash layout. Same rule as the horn boss above, and the same
@@ -595,6 +652,20 @@ export function openCab(ctx = {}) {
       if (!drag || !st) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       drag.x = e.clientX; drag.y = e.clientY;
+      if (drag.wheel) {
+        // 1:1 with the hand, unwrapped at the ±π branch cut so crossing the bottom of the wheel
+        // does not snap the lock to the opposite stop. Same maths the helm widget's own grab uses,
+        // because it is the same gesture — this one is just measured against the painted wheel.
+        const cv2 = cabDashCanvas(st.id) || document.getElementById(st.id);
+        const b2 = cv2?.getBoundingClientRect(); if (!b2) return;
+        const hub2 = cabWheelHub(b2.width, b2.height);
+        const a = Math.atan2(e.clientY - b2.top - hub2.y, e.clientX - b2.left - hub2.x);
+        let da = a - drag.a;
+        if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI;
+        drag.a = a;
+        st.wheel?.wind(da);
+        return;
+      }
       if (st.external) {
         // Turntable, in the renderer's own units. The pitch bound is short of the poles for the
         // reason cockpit.js's is: a near-vertical orbit stretches the model into a spindle.
@@ -697,9 +768,22 @@ export function openCab(ctx = {}) {
     const lever = container.querySelector('.cab-lever');
     const rangeBtn = container.querySelector('.cab-range');
     let drag = null;
+    const shaft = container.querySelector('.cab-shaft');
+    // WHERE THE LEVER IS ROOTED. Below the plate and on the left rail's line — the floor of the cab
+    // is off the bottom of this box, and a stick that pivoted at the middle of the gate would lean
+    // the wrong way in the top half. In gate fractions, so it moves with the plate at every size.
+    const PIVOT_X = 0.38, PIVOT_Y = 1.34;
     const put = (x, y) => {
       lever.style.setProperty('--gx', x.toFixed(3));
       lever.style.setProperty('--gy', y.toFixed(3));
+      // The shaft is solved here, from the same two numbers, and never stored: length and lean
+      // between the pivot and the knob. A separate source for either would be a lever whose stick
+      // and knob eventually disagree about which gear you are in.
+      if (!shaft) return;
+      const dx = x - PIVOT_X, dy = PIVOT_Y - y;
+      const len = Math.hypot(dx, dy * 0.72);          // dy squashed: the plate is a raked view, not a plan
+      shaft.style.setProperty('--plen', (len * 100).toFixed(2) + '%');
+      shaft.style.setProperty('--pang', (Math.atan2(dx, dy * 0.72) * 180 / Math.PI).toFixed(2) + 'deg');
     };
     // Rest the knob wherever the box is. Called on every frame's readout paint (see paintGate) so a
     // shift from ANY source — the keys, the ▲▼ buttons, the splitter — moves the lever too.
@@ -850,9 +934,26 @@ export function openCab(ctx = {}) {
     else if (k === 'z' || k === ' ') st.input.brake = down ? 1 : 0;
     // The clutch and the Jake are HELD, like the pedals they are. The shifts are EDGES, and
     // `e.repeat` is filtered — holding the comma must not walk the box down to neutral.
-    else if (k === 'x') st.input.clutch = down ? 1 : 0;
+    else if (k === 'x') { st.input.clutch = down ? 1 : 0; st.heldBy = st.heldBy || {}; st.heldBy.clutch = down ? 1 : 0; }
     else if (k === 'c') st.input.jake = down ? 1 : 0;
-    else if (down && !e.repeat && (k === ',' || k === '.')) truckShift(st.sim, P, k === '.' ? 1 : -1);
+    // SHIFTING WITHOUT HUNTING FOR THE PUNCTUATION KEYS. `,` and `.` stay — they are what the dash
+    // has always hinted and what any existing muscle memory has — but they are two of the worst
+    // keys on the board to find with a hand that is also holding A and Z, and shifting is the thing
+    // this gearbox asks you to do most. So ↑/↓ shift up and down, which puts the whole gearbox on
+    // the arrow cluster the other hand is already steering with: ← → is the wheel, ↑ ↓ is the box.
+    // ⚠ NOT W/S, tempting as the WASD read is: S is look-behind and it is the flight sim's key,
+    // and that parity is worth more than any convenience this could buy.
+    else if (down && !e.repeat && (k === ',' || k === '.' || k === 'arrowup' || k === 'arrowdown')) {
+      truckShift(st.sim, P, (k === '.' || k === 'arrowup') ? 1 : -1);
+      // AUTO-CLUTCH ON A SEQUENTIAL SHIFT. Holding X with one hand while finding the next ratio
+      // with the other is the real thing and it is also two keys for one act — so a shift from a
+      // KEY dips the clutch for you. The gate is deliberately left alone: putting the lever in a
+      // slot by hand is the manual control, and the pedal is part of it.
+      st.autoClutch = performance.now() + 320;
+    }
+    // Cruise. Not a held control and not on a pedal key: it is the switch that means "stop holding
+    // the pedal", so it gets its own press.
+    else if (down && !e.repeat && k === 'g') toggleCruise();
     else if (down && !e.repeat && k === '/') truckSplit(st.sim, P);
     // REVERSE is its own key rather than "shift down past first", because walking a driver through
     // neutral into reverse by accident at twenty miles an hour is not a skill test, it is a bug
@@ -893,6 +994,29 @@ export function openCab(ctx = {}) {
 
   // Reverse lives in ONE place, because it is reached from a key and from a button and the rule
   // (only at a stop) must not end up written twice and drift.
+  // Cruise lives in ONE place for the same reason reverse does: it is reached from a key, from a
+  // rocker on the dash and from the frame loop's own cancel conditions, and three copies of "what
+  // does the lamp say now" is three chances for the lamp to lie about the state of the truck.
+  // `null` is off; a number is the demanded mph.
+  function setCruise(v) {
+    st.cruise = v;
+    const el = container.querySelector('.cab-cruise');
+    if (el) {
+      el.classList.toggle('on', v != null);
+      el.setAttribute('aria-pressed', v == null ? 'false' : 'true');
+      const w = el.querySelector('u span');
+      if (w) w.textContent = v == null ? 'CRUISE' : `${Math.round(v)} MPH`;
+    }
+  }
+  st.setCruise = setCruise;
+  // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
+  // it — there is no set-point to dial, because dialling one is a menu and this is a truck.
+  function toggleCruise() {
+    if (st.cruise != null) return setCruise(null);
+    if (st.sim.gear > 0 && st.sim.speed >= 8 && !st.dry && !st.broken) setCruise(st.sim.speed);
+  }
+
+
   function toggleReverse() {
     if (Math.abs(st.sim.speed) >= 2) return;
     truckShift(st.sim, P, st.sim.gear < 0 ? 2 : -(st.sim.gear + 1));
@@ -1173,6 +1297,11 @@ export function cabContext(ctx) {
   st.node = ctx.node ?? st.node; st.nodes = ctx.nodes ?? st.nodes;
   if (ctx.surface) st.input.surface = ctx.surface;
   if (ctx.contacts) st.contacts = ctx.contacts;
+  // THE BOXES STANDING IN THE YARD. They arrive in the same contact shape the aircraft do (see
+  // trailers.js trailersNear), so they need no renderer of their own — they are concatenated into
+  // the contact list below and drawn by the same code that draws another player's rig.
+  if (ctx.trailers) st.trailers = ctx.trailers;
+  if (ctx.hitchable !== undefined) { st.hitchable = ctx.hitchable; paintHitchBtn(st); }
   // Out of diesel: the server says so and the pedal stops meaning anything. It clamps the speed
   // its own side too — this is the feel, not the enforcement.
   if (ctx.dry != null) st.dry = !!ctx.dry;
@@ -1298,6 +1427,26 @@ function shiftCue(half, toNeutral) {
 // What could NOT come from there is this: the renderer knows what a truck looks like and nothing
 // about what it is doing. Jackknifing is a fact about the drive, said on the picture because this
 // is the view you would see it happening in.
+// THE HITCH BUTTON'S WHOLE BEHAVIOUR, in one place: it is present when there is something to do
+// with the fifth wheel and absent otherwise, and the label says WHICH box. Driven off the server's
+// own `hitchable` (state.js), never from a client-side guess at distance — the cab does not own the
+// rule and must not appear to.
+function paintHitchBtn(st) {
+  const el = st?.container?.querySelector('.cab-hitchbtn');
+  if (!el) return;
+  const coupled = !!st.sim?.hitched;
+  const target = st.hitchable;
+  const show = coupled || !!target;
+  el.hidden = !show;
+  if (!show) return;
+  const w = el.querySelector('u span');
+  if (w) w.textContent = coupled ? 'DROP' : 'HITCH';
+  el.classList.toggle('on', !coupled);
+  el.setAttribute('title', coupled
+    ? 'Drop the trailer here (unhitch)'
+    : `Couple to ${target?.name || 'the trailer'} (hitch)`);
+}
+
 function drawRigOverlay(st, r) {
   if (!(r.hitched && r.folding)) return;
   const cv = document.getElementById(st.id);
@@ -1333,6 +1482,41 @@ function frame(now) {
     // moment the door cleared. Nothing is pushing the truck at zero mph anyway.
     if (st.doorUntil && now < st.doorUntil) { st.input.throttle = 0; st.input.steer = 0; }
     else if (st.doorUntil) st.doorUntil = 0;
+    // The auto-clutch dip a keyboard shift asked for. It writes the same `clutch` input the pedal
+    // does — one clutch, not a second mechanism — so the engine, the launch window and the stall
+    // rule all see exactly what they would see if a hand had done it.
+    if (st.autoClutch) {
+      if (now < st.autoClutch) st.input.clutch = 1;
+      // ⚠ Handing it back to the FOOT, not to zero: `heldBy` is what the pedal and the X key
+      // actually have down right now, so a driver who was already holding the clutch when a shift
+      // dipped it does not have it dropped out from under them when the dip expires.
+      else { st.autoClutch = 0; st.input.clutch = st.heldBy?.clutch ? 1 : 0; }
+    }
+    // ── CRUISE ────────────────────────────────────────────────────────────────
+    // A held throttle across four hundred tiles of straight corridor is not a skill, it is a
+    // finger. So: lock the speed you are at and the pedal is worked for you.
+    //
+    // ⚠ IT IS A DRIVER, NOT A CHEAT VALVE. It writes `st.input.throttle` — the SAME number the
+    // pedal and the A key write — and nothing else, so the gearbox, the torque curve, the surface,
+    // the load and the hill all still decide what that throttle actually buys. Set it on a climb
+    // in too high a gear and you will lug and slow down exactly as you would with your foot flat,
+    // because it has no authority the pedal does not have. A version that wrote `speed` would be a
+    // teleport with a lamp on it.
+    //
+    // It cancels the way cruise control cancels on every vehicle that has ever had it: the brake,
+    // the clutch, a stall, or losing the drive. Deliberately NOT cancelled by steering — holding a
+    // long bend at a set speed is most of what it is for.
+    if (st.cruise != null) {
+      if (st.input.brake > 0 || st.input.clutch > 0 || st.dry || st.broken || st.sim.stalled
+        // ⚠ Through `st.setCruise`, not a bare call: this loop is a module-level function and the
+        // switch's own writer closes over the cab that owns the lamp. Cancelling without going
+        // through it would leave the rocker lit over a truck that is no longer on cruise.
+        || st.sim.gear <= 0 || Math.abs(st.sim.speed) < 8) st.setCruise?.(null);
+      else {
+        // Proportional, and gentle: a truck's mass means a hard correction reads as surging.
+        st.input.throttle = Math.max(0, Math.min(1, (st.cruise - st.sim.speed) * 0.18));
+      }
+    }
     step(st.sim, st.input, P, dt);
     const r = truckReadout(st.sim, P);
 
@@ -1489,6 +1673,14 @@ function frame(now) {
       // the symptom was "fullscreen makes it blurry". Rendering at native and taking the frame cost
       // is the trade this view wants.
       resFloor: 1,
+      // …AND GO THE OTHER WAY WHEN THERE IS ROOM. Native is the floor, not the goal: at 1:1 on an
+      // ordinary monitor every hard edge in this view — lane markings, the panel lines on the rig
+      // in front, the aerial — is drawn with no antialiasing at all, and fullscreen is where that
+      // is most obvious because the edges get bigger, not softer. So the scene is rendered at up to
+      // twice the linear resolution and scaled down into the box, which is the one place a picture
+      // gets sharper by being made larger first. It backs off on its own if the frames cost too
+      // much (see the supersample note in paintWindshield) — no setting, no cliff.
+      superSample: 2,
       // Which of the four, and whether there is a box on the back. The ONE string that decides the
       // shape, and it is the same one the yard hands its turntable.
       variant: TYPE_ID + (r.hitched ? '+t' : ''),
@@ -1499,7 +1691,11 @@ function frame(now) {
       // Shoulder-checks are suppressed in the chase camera, which is already showing you what they
       // are for — and yawing a third-person view off the vehicle it is following is just lost.
       viewYaw: st.external ? 0 : (st.viewYaw || 0),
-      height: 0, speed: r.speed / 68,
+      // ⚠ TWO SPEEDS, AND THEY ARE NOT THE SAME NUMBER. `speed` is NORMALISED (0..1 of a nominal
+      // 68 mph) because that is what the world renderer wants — it drives motion blur, road rush,
+      // wind noise, none of which are in mph. `mph` is the real figure, and it exists because the
+      // speedometer was reading the normalised one: at sixty miles an hour the dial printed "1".
+      height: 0, speed: r.speed / 68, mph: r.speed,
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
       // and the renderer only throws the beam when the seeing is bad enough to want it (night OR
@@ -1545,7 +1741,7 @@ function frame(now) {
       // Aircraft passing over. The cab used to be deliberately blind to traffic; it is not any
       // more, because a world where a pilot can see a truck but a driver cannot see a plane is
       // half a world. Same channel, same renderer, no new code on either side.
-      contacts: st.contacts || [],
+      contacts: (st.contacts || []).concat(st.trailers || []),
       map: st.map, mapCenter: { x: st.mapX, y: st.mapY },
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
       acX: st.sim.x, acY: st.sim.y,
@@ -1675,9 +1871,27 @@ function ensureCabStyles() {
      knob all track one pair of numbers when the gate resizes for touch. */
   /* The shifter is the biggest thing on the shelf, because it is the biggest thing in the cab —
      a range-change lever is a foot of steel you move with your whole forearm, not a thumb control. */
+  /* THE PLATE IS BRUSHED METAL, not a dark rectangle. Three cheap layers do it: fine vertical
+     striations (the brush), a broad diagonal sheen (the light coming in the windscreen), and the
+     base tone underneath. Nothing here is an image and nothing animates — it is the difference
+     between a control drawn on a panel and a control MADE of something, which is the whole ask. */
   .cab-gate{--gw:168px;--gh:104px;position:relative;width:var(--gw);height:var(--gh);border-radius:5px;
-    background:linear-gradient(#191d22,#0c0f13);border:1px solid #333a43;overflow:hidden;
+    background:
+      repeating-linear-gradient(90deg,rgba(255,255,255,.030) 0 1px,rgba(0,0,0,.05) 1px 3px),
+      linear-gradient(114deg,rgba(255,255,255,.075) 0%,rgba(255,255,255,0) 34%,rgba(255,255,255,.04) 62%,rgba(255,255,255,0) 100%),
+      linear-gradient(#20252c,#0c0f13);
+    border:1px solid #333a43;overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -6px 12px rgba(0,0,0,.55);
     touch-action:none;cursor:pointer}
+  /* Four countersunk screws at the corners of the plate — the smallest possible detail that says
+     this thing is BOLTED to something. Two elements, four shadows. */
+  .cab-gate::before{content:'';position:absolute;left:5px;top:5px;width:5px;height:5px;border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#79838f,#2a3038 70%,#0a0d10);
+    /* The other three screws are copies of this one — a box-shadow is the cheapest way to repeat a
+       drawn object, and four pseudo-elements is not a thing CSS has. */
+    box-shadow:calc(var(--gw) - 20px) 0 0 0 #2a3038, 0 calc(var(--gh) - 20px) 0 0 #2a3038,
+      calc(var(--gw) - 20px) calc(var(--gh) - 20px) 0 0 #2a3038;
+    pointer-events:none}
   /* The milled slots. Two vertical rails, the crossgate that joins them, and reverse's dogleg —
      drawn as recessed channels rather than painted lines, because the whole read of an H-gate is
      that the lever is DOWN IN something. Percentages, so they track the GATE table above: rails at
@@ -1716,10 +1930,47 @@ function ensureCabStyles() {
   /* In a gear the gate's own range does not offer — you shifted into 6 with a key while the lever
      was in the LO half. The plate says so rather than the knob lying about where it is. */
   .cab-gate-off .cab-gate-marks{color:rgba(216,162,78,.75)}
-  .cab-lever b.cab-knob{display:block;width:100%;height:100%;border-radius:50%;
-    background:radial-gradient(circle at 34% 30%,#4a535e,#191d22 70%,#0b0e12);
-    border:1px solid #4b5763;box-shadow:0 3px 7px -3px #000, inset 0 1px 0 rgba(255,255,255,.18)}
-  .cab-lever.on b.cab-knob{border-color:var(--cab-glow,#e8c07a);box-shadow:0 0 10px rgba(232,192,122,.35)}
+  /* ── THE STICK, THE BOOT AND THE KNOB ───────────────────────────────────────
+     A gear lever is three things and the old control had one of them. The SHAFT is a polished
+     column with a highlight down one side and a shadow down the other, which is the whole reason a
+     cylinder reads as a cylinder; it leans as you pull it through the gate ('put' solves the
+     angle), so the throw is visible instead of implied. The BOOT is the rubber gaiter it comes out
+     of — the piece that says the lever goes THROUGH the floor rather than sitting on the plate, and
+     it is drawn with concentric folds because that is the only thing a gaiter looks like. The KNOB
+     is a turned ball with a real specular hit and a contact shadow under it.
+     ⚠ Draw order is boot → shaft → knob and it matters: the shaft has to emerge from inside the
+     gaiter, and the knob has to sit on top of the shaft's end cap. */
+  .cab-boot{position:absolute;left:38%;bottom:-13%;width:34%;height:30%;margin-left:-17%;
+    border-radius:44% 44% 30% 30%;pointer-events:none;z-index:1;
+    background:
+      repeating-linear-gradient(#000 0 2px,rgba(255,255,255,.055) 2px 4px),
+      radial-gradient(120% 90% at 50% 12%,#2b3038,#14171c 60%,#080a0d);
+    box-shadow:0 -2px 8px rgba(0,0,0,.8), inset 0 3px 6px rgba(255,255,255,.06)}
+  .cab-shaft{position:absolute;left:38%;top:0;width:9px;margin-left:-4.5px;
+    height:var(--plen,60%);pointer-events:none;z-index:1;
+    transform:translateY(calc(134% - var(--plen,60%))) rotate(var(--pang,0deg));
+    transform-origin:50% 100%;
+    transition:transform .14s cubic-bezier(.2,.8,.3,1), height .14s cubic-bezier(.2,.8,.3,1)}
+  .cab-lever.on ~ .cab-shaft,.cab-gate .cab-lever.on + .cab-shaft{transition:none}
+  .cab-shaft s{display:block;position:relative;width:100%;height:100%;border-radius:4px 4px 2px 2px;
+    background:linear-gradient(90deg,#0a0d11 0%,#454e59 30%,#9aa7b6 46%,#5b6673 62%,#0d1116 100%);
+    box-shadow:0 2px 6px -2px #000}
+  /* A collar where the shaft meets the knob — the machined joint, and the thing that stops the
+     stick reading as a stripe that happens to end at a circle. */
+  .cab-shaft s::after{content:'';position:absolute;left:-2px;right:-2px;top:2px;height:5px;
+    border-radius:2px;background:linear-gradient(90deg,#161a20,#8e9aa8,#20262d)}
+  .cab-lever b.cab-knob{display:block;width:100%;height:100%;border-radius:50%;position:relative;
+    background:
+      radial-gradient(circle at 50% 118%,rgba(255,255,255,.10),rgba(255,255,255,0) 46%),
+      radial-gradient(circle at 34% 28%,#5c6673 0%,#232930 62%,#0b0e12 100%);
+    border:1px solid #4b5763;
+    box-shadow:0 4px 9px -3px #000, inset 0 1px 0 rgba(255,255,255,.22), inset 0 -3px 6px rgba(0,0,0,.55)}
+  /* The specular hit. A separate element rather than another gradient stop, because a highlight
+     that is part of the fill scales with the ball and a real one does not. */
+  .cab-lever b.cab-knob s{position:absolute;left:22%;top:16%;width:34%;height:26%;border-radius:50%;
+    background:linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,0));
+    filter:blur(.4px)}
+  .cab-lever.on b.cab-knob{border-color:var(--cab-glow,#e8c07a);box-shadow:0 0 10px rgba(232,192,122,.35), 0 4px 9px -3px #000}
   /* THE HOUSINGS. A recessed black panel with the keys sitting in it — on the reference this is
      most of what separates a control box from a row of buttons, because it gives every group an
      edge and a shadow of its own. */

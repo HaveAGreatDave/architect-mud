@@ -25,7 +25,7 @@
 
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData, zoneTerrain } from '../../server/engine/world.js';
+import { getZone, getLivePlayer, world, addExitOverride, removeExitOverride, registerMinimapNodeFilter, getMinimapData, zoneTerrain, getZoneFurniture } from '../../server/engine/world.js';
 import { sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { on } from '../../server/engine/events.js';
@@ -700,12 +700,12 @@ const CLOSET_MUNDANE = [
 ];
 
 async function doUseTeleporter(args, raw, player, broadcast) {
-  const { rows } = await query(
-    `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"teleporter"%' LIMIT 1`,
-    [player.current_zone]
-  ).catch(() => ({ rows: [] }));
-  if (!rows[0]) return undefined; // no teleporter here — fall through to normal `use`
-  const flags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+  // Key presence off the write-funneled world.furniture Map — the old
+  // `flags::text LIKE '%"teleporter"%'` cast every furniture row's JSONB to text
+  // (unindexable) on a `use` path, to answer something already in RAM.
+  const teleporter = getZoneFurniture(player.current_zone).find(f => f.flags && 'teleporter' in f.flags);
+  if (!teleporter) return undefined; // no teleporter here — fall through to normal `use`
+  const flags = teleporter.flags || {};
 
   // Not approved → it's just a closet. Never reveal the mechanism.
   if (!(await isInvited(player))) {

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THOMAS / Architect — Server &amp; Database Efficiency Review</title>
+<style>
+:root{
+  --bg:#0d0f13; --bg2:#14181f; --bg3:#1b212a; --border:#2a323e;
+  --text:#d8dee9; --dim:#8b97a8; --accent:#5ad1c8; --accent2:#c792ea;
+  --good:#7ed491; --warn:#e5c07b; --bad:#e06c75; --cyan:#56b6c2; --yellow:#e5c07b;
+  --mono:"SF Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f7f8fa; --bg2:#fff; --bg3:#eef1f5; --border:#d6dbe3;
+    --text:#20262f; --dim:#5d6773; --accent:#0f8b82; --accent2:#7c4dbd;
+    --good:#2f8f4e; --warn:#a5730a; --bad:#c0392b; --cyan:#0f7b8a; --yellow:#a5730a;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:0 20px 80px}
+.wrap{max-width:980px;margin:0 auto}
+header{padding:52px 0 28px;border-bottom:1px solid var(--border);margin-bottom:36px}
+h1{font-size:1.9rem;margin:0 0 8px;letter-spacing:-.4px}
+h1 small{display:block;font-size:.8rem;letter-spacing:2.5px;color:var(--accent);
+  text-transform:uppercase;font-weight:600;margin-bottom:10px}
+.sub{color:var(--dim);font-size:.95rem;margin:0}
+h2{font-size:1.3rem;margin:48px 0 6px;padding-top:8px;letter-spacing:-.2px}
+h2 .num{color:var(--accent);font-family:var(--mono);font-size:.85rem;
+  display:block;margin-bottom:4px;letter-spacing:1px}
+h3{font-size:1rem;margin:28px 0 8px;color:var(--accent2)}
+p{margin:12px 0}
+code{font-family:var(--mono);font-size:.85em;background:var(--bg3);
+  padding:1px 5px;border-radius:3px;border:1px solid var(--border)}
+.lede{color:var(--dim);margin-bottom:20px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:20px 22px;margin:20px 0}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:22px 0}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.stat .n{font-family:var(--mono);font-size:1.5rem;color:var(--accent);font-weight:600;line-height:1.2}
+.stat .l{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.88rem}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--accent);font-size:.72rem;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+tbody tr:hover{background:var(--bg2)}
+.scroll{overflow-x:auto}
+figure{margin:26px 0;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:18px}
+figure svg{display:block;width:100%;height:auto;overflow:visible}
+figcaption{color:var(--dim);font-size:.8rem;margin-top:12px;padding-top:10px;
+  border-top:1px solid var(--border)}
+.tag{display:inline-block;font-family:var(--mono);font-size:.68rem;padding:2px 7px;
+  border-radius:99px;border:1px solid;letter-spacing:.5px;vertical-align:middle}
+.t-good{color:var(--good);border-color:var(--good)}
+.t-warn{color:var(--warn);border-color:var(--warn)}
+.t-bad{color:var(--bad);border-color:var(--bad)}
+.t-info{color:var(--cyan);border-color:var(--cyan)}
+.find{border-left:3px solid var(--warn);padding-left:16px;margin:26px 0}
+.find h3{margin-top:0;color:var(--text)}
+.find .why{color:var(--dim);font-size:.9rem}
+ul{padding-left:20px}li{margin:5px 0}
+.kv{font-family:var(--mono);font-size:.82rem}
+.quiet{color:var(--dim)}
+.rule{border:0;border-top:1px solid var(--border);margin:44px 0}
+.pill{font-family:var(--mono);font-size:.7rem;color:var(--dim)}
+.two{display:grid;gap:18px;grid-template-columns:1fr 1fr}
+@media(max-width:700px){.two{grid-template-columns:1fr}}
+text{font-family:var(--mono);font-size:11px;fill:var(--dim)}
+text.lbl{fill:var(--text)}
+text.hi{fill:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><small>THOMAS · Architect MUD</small>Server &amp; Database Efficiency Review</h1>
+  <p class="sub">How a 15,781-room living world with weather, power, traffic, AI and 130 plugins runs on a free Render dyno and a Neon compute that is asleep most of the time — and the seven places it could still get cheaper. <span class="pill">2026-08-15</span></p>
+</header>
+
+<h2><span class="num">§ 0</span>The shape of the problem</h2>
+<p class="lede">Everything below follows from one fact, so it is worth stating before any of the cleverness.</p>
+
+<div class="card">
+<p style="margin-top:0"><strong>Prod Postgres is somewhere else.</strong> Neon is a remote managed database, so every <code>query()</code> is a pool checkout plus a network round trip — tens of milliseconds, whether it reads one row or a thousand. The bill and the lag are both driven by <em>round-trip count</em>, not query cost.</p>
+<p style="margin-bottom:0">That single observation reframes the whole design. The question stops being <em>"is this query fast?"</em> and becomes <em>"does this need to be a query at all?"</em> — and the answer, on almost every hot path in the game, turns out to be no.</p>
+</div>
+
+<div class="grid">
+  <div class="stat"><div class="n">15,781</div><div class="l">zones in content</div></div>
+  <div class="stat"><div class="n">130</div><div class="l">plugins</div></div>
+  <div class="stat"><div class="n">149</div><div class="l">tables · 91 indexes</div></div>
+  <div class="stat"><div class="n">2,922</div><div class="l">query() callsites</div></div>
+  <div class="stat"><div class="n">37,184</div><div class="l">content files in git</div></div>
+  <div class="stat"><div class="n">10</div><div class="l">max pool connections</div></div>
+</div>
+
+<figure>
+<svg viewBox="0 0 900 250" role="img" aria-label="Diagram: player action loop stays entirely in RAM; Postgres sits behind a coalescing flush">
+  <rect x="10" y="60" width="150" height="120" rx="8" fill="var(--bg3)" stroke="var(--border)"/>
+  <text class="lbl" x="85" y="105" text-anchor="middle" font-size="13">Browser</text>
+  <text x="85" y="124" text-anchor="middle">vanilla JS</text>
+  <text x="85" y="140" text-anchor="middle">no build step</text>
+
+  <line x1="160" y1="120" x2="215" y2="120" stroke="var(--accent)" stroke-width="2" marker-end="url(#a)"/>
+  <text class="hi" x="187" y="108" text-anchor="middle">ws</text>
+
+  <rect x="220" y="30" width="330" height="190" rx="8" fill="var(--bg3)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text class="hi" x="385" y="52" text-anchor="middle" font-size="12">NODE PROCESS — the authority</text>
+  <rect x="240" y="66" width="140" height="42" rx="5" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="310" y="86" text-anchor="middle">world.zones</text>
+  <text x="310" y="100" text-anchor="middle">15,781 · Map</text>
+  <rect x="392" y="66" width="140" height="42" rx="5" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="462" y="86" text-anchor="middle">npcs · furniture</text>
+  <text x="462" y="100" text-anchor="middle">doors · orgs</text>
+  <rect x="240" y="118" width="140" height="42" rx="5" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="310" y="138" text-anchor="middle">world.players</text>
+  <text x="310" y="152" text-anchor="middle">hp · pos · stam</text>
+  <rect x="392" y="118" width="140" height="42" rx="5" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="462" y="138" text-anchor="middle">environment</text>
+  <text x="462" y="152" text-anchor="middle">clock · weather · grid</text>
+  <text x="385" y="188" text-anchor="middle">a move, a swing, a look — all resolved here, zero round trips</text>
+  <text x="385" y="205" text-anchor="middle">↺ dirty flags accumulate</text>
+
+  <line x1="550" y1="120" x2="640" y2="120" stroke="var(--warn)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#b)"/>
+  <text x="595" y="108" text-anchor="middle" fill="var(--warn)">batched</text>
+  <text x="595" y="140" text-anchor="middle" fill="var(--warn)">1/min</text>
+
+  <rect x="645" y="60" width="150" height="120" rx="8" fill="var(--bg3)" stroke="var(--border)"/>
+  <text class="lbl" x="720" y="100" text-anchor="middle" font-size="13">Neon Postgres</text>
+  <text x="720" y="120" text-anchor="middle">durable truth</text>
+  <text x="720" y="136" text-anchor="middle">asleep when</text>
+  <text x="720" y="150" text-anchor="middle">nobody's online</text>
+
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"/></marker>
+    <marker id="b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--warn)"/></marker>
+  </defs>
+</svg>
+<figcaption>The whole architecture in one picture. The database is not in the gameplay loop — it is a durable log the loop drains into on a timer.</figcaption>
+</figure>
+
+<hr class="rule">
+
+<h2><span class="num">§ 1</span>What we do well</h2>
+<p class="lede">Five decisions carry essentially all of the efficiency. Each is a rule with teeth, not a habit.</p>
+
+<h3>1 · RAM is the world; the DB is the log</h3>
+<p>Boot reads the world once — zones, NPCs, furniture, doors, orgs, apartments, connections, regions, maps — into <code>Map</code>s in <code>world.js</code>. After that a room render is a <code>Set</code> lookup, not a query. Describing a room in a 15,781-zone world costs the same as describing one in a ten-room world.</p>
+<p>The rule that makes this safe is written down and enforced: <strong>a cache is only as safe as its write funnel.</strong> <code>furniture</code> and <code>npcs</code> each had to earn their funnel first — roughly 40 scattered furniture writers were routed through <code>insertFurniture</code>/<code>updateFurniture</code>/<code>deleteFurniture</code> before the per-move furniture read could move off the DB, and bulk writers hand their SQL to <code>updateFurnitureWhere</code>, which appends <code>RETURNING</code> and re-caches exactly the rows Postgres says it touched — rather than re-implementing the <code>WHERE</code> clause in JS, which would be a second source of truth for the predicate.</p>
+
+<h3>2 · Every value has a declared read tier</h3>
+<p>Not "cache it if it feels slow" — a five-rung ladder, and every content table's tier is machine-readable in <code>content-registry.js</code>, with regress failing a table that hasn't declared one.</p>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Tier</th><th>What lives there</th><th>Why it's allowed to</th></tr></thead>
+<tbody>
+<tr><td class="kv">boot Map</td><td>zones, npcs, doors, furniture, orgs</td><td>every writer funnels through one helper that updates Map + DB together</td></tr>
+<tr><td class="kv">write-through</td><td>item templates, world flags, skill IP</td><td>all writers live inside the one module that owns the cache</td></tr>
+<tr><td class="kv">event-bust + TTL</td><td>carried weight, equipped weapon</td><td>main paths emit a bust; a 5 s TTL covers the rest; staleness is benign</td></tr>
+<tr><td class="kv">TTL content</td><td>quest definitions (30 s)</td><td>authored, static at runtime; dev CRUD invalidates</td></tr>
+<tr><td class="kv">query fresh</td><td>wanted/heat, security devices, generators</td><td>uncoordinated writers — a stale answer would be worse than a round trip</td></tr>
+</tbody>
+</table>
+</div>
+<p class="quiet">The bottom rung is the interesting one. Choosing <em>not</em> to cache is a documented decision here, with a reason attached, which is why the caches that do exist can be trusted.</p>
+
+<h3>3 · Coalesced writes — the round-trip count stops tracking the player count</h3>
+<p>The three highest-frequency writes in any MUD are position (per step), combat HP (per swing) and survival resources (per tick). None of them issues a round trip at the mutation site. The mutation sets a dirty flag; a low-frequency flush persists <em>every</em> dirty player in one <code>UPDATE … FROM (VALUES …)</code>.</p>
+
+<figure>
+<svg viewBox="0 0 900 300" role="img" aria-label="Chart: naive per-action writes scale linearly with player count while batched flush stays flat">
+  <line x1="70" y1="250" x2="850" y2="250" stroke="var(--border)"/>
+  <line x1="70" y1="30" x2="70" y2="250" stroke="var(--border)"/>
+  <text x="60" y="254" text-anchor="end">0</text>
+  <text x="60" y="180" text-anchor="end">1k</text>
+  <text x="60" y="110" text-anchor="end">2k</text>
+  <text x="60" y="40" text-anchor="end">3k</text>
+  <text x="70" y="278" text-anchor="middle">1</text>
+  <text x="265" y="278" text-anchor="middle">10</text>
+  <text x="460" y="278" text-anchor="middle">50</text>
+  <text x="655" y="278" text-anchor="middle">100</text>
+  <text x="850" y="278" text-anchor="middle">200</text>
+  <text x="460" y="296" text-anchor="middle">concurrent players →</text>
+  <text x="18" y="140" text-anchor="middle" transform="rotate(-90 18 140)">DB round trips / min</text>
+
+  <polyline points="70,248 265,232 460,180 655,110 850,35" fill="none" stroke="var(--bad)" stroke-width="2.5"/>
+  <circle cx="850" cy="35" r="4" fill="var(--bad)"/>
+  <text x="838" y="26" text-anchor="end" fill="var(--bad)">naive: write at the mutation site</text>
+
+  <polyline points="70,247 265,245 460,243 655,241 850,239" fill="none" stroke="var(--good)" stroke-width="2.5"/>
+  <circle cx="850" cy="239" r="4" fill="var(--good)"/>
+  <text x="838" y="232" text-anchor="end" fill="var(--good)">as built: dirty flag + batched flush — payload grows, trip count doesn't</text>
+</svg>
+<figcaption>Illustrative shape, not a benchmark. The point is the <em>gradient</em>: a busy zone of 200 players costs the same handful of writes per interval as a quiet one.</figcaption>
+</figure>
+
+<p>The cost of the pattern is discipline, and a violation fails <em>silently</em> — no error, just an un-persisted change. So the invariants are written into the architecture doc as numbered rules: set the flag at every mutation site; never mutate a coalesced field after its flush in the same tick; write through and clear the flag on death and logout; drop a mid-loop write-through from that cycle's batch; offline players are DB rows and keep direct writes.</p>
+<p>There is deliberately <strong>no generic dirty-flag framework and no shutdown flush</strong>. Instead every checkpoint field must be <em>crash-benign by construction</em> — restored slightly stale in a direction that doesn't reward crashing. Money, inventory, deaths and kills stay durable write-through, so none of the interesting state carries crash exposure.</p>
+
+<h3>4 · Nothing ticks on an empty world</h3>
+<p>This is the one that turns architecture into money. Neon suspends an idle compute after ~5 minutes and stops billing. A single recurring tick that awaits a query inside that idle window keeps a connection alive and pins the compute awake — the server then bills 24/7 for nobody.</p>
+<p>So <code>scheduler.js</code> idle-gates <em>by default</em>: every registered callback simply doesn't fire when <code>hasActivePlayers()</code> is false, and running-while-empty is the deliberate opt-in. That inverts the old convention where an author had to remember the guard — and one forgotten guard (a surveillance camera refresh) is exactly what pinned the compute once.</p>
+<p>The keepalive ping follows the same logic from the other side: it hits <code>/health</code>, which is memory-only, so it holds <em>Render</em> awake without ever waking <em>Neon</em> — and it is itself idle-gated, because ungated it spent ~730 of the workspace's 750 monthly instance-hours holding up a process that had nothing to do.</p>
+
+<figure>
+<svg viewBox="0 0 900 210" role="img" aria-label="Chart: a day of billed compute, ungated versus idle-gated">
+  <text class="lbl" x="70" y="34">ungated</text>
+  <rect x="150" y="20" width="700" height="26" rx="4" fill="var(--bad)" opacity=".75"/>
+  <text x="500" y="38" text-anchor="middle" fill="#fff" font-size="11">compute awake · 24 h billed</text>
+
+  <text class="lbl" x="70" y="94">idle-gated</text>
+  <rect x="150" y="80" width="700" height="26" rx="4" fill="var(--bg3)" stroke="var(--border)"/>
+  <rect x="278" y="80" width="105" height="26" rx="4" fill="var(--good)" opacity=".8"/>
+  <rect x="452" y="80" width="58" height="26" rx="4" fill="var(--good)" opacity=".8"/>
+  <rect x="598" y="80" width="152" height="26" rx="4" fill="var(--good)" opacity=".8"/>
+  <text x="500" y="128" text-anchor="middle">awake only while somebody is playing (+ a short tail)</text>
+
+  <line x1="150" y1="152" x2="850" y2="152" stroke="var(--border)"/>
+  <text x="150" y="170" text-anchor="middle">00:00</text>
+  <text x="500" y="170" text-anchor="middle">12:00</text>
+  <text x="850" y="170" text-anchor="middle">24:00</text>
+  <text x="500" y="196" text-anchor="middle" class="quiet">the free tier isn't a constraint we work around — it's a budget the design spends on purpose</text>
+</svg>
+<figcaption>Scheduler cadences also get a random phase and same-cadence subscribers are spread apart, so a minute boundary can't produce a tick convoy that holds every pool slot while a player's move waits on <code>pool.connect()</code>.</figcaption>
+</figure>
+
+<h3>5 · The batching rules are specific enough to follow</h3>
+<p>Generic advice ("avoid N+1") doesn't survive contact with 130 plugins. These do, because each names the actual bug that produced it:</p>
+<ul>
+<li><strong>Never query inside a loop — including looping over players.</strong> A per-minute tick calling a single-player helper for each live player costs one round trip per player per tick whether or not that player owns anything relevant. Two engine helpers exist so nobody hand-rolls it: <code>resolveInventoryForPlayers(ids)</code> and <code>patchInventoryCustomData([...])</code>. Measured: <code>clothing-wetness</code> and <code>flashlight</code> were ~6 round trips per player per minute between them — and the former sits inside the awaited <code>tick.minute</code> hook, so at 50 players those serial waits stalled radiation and drug decay behind them while holding a pool slot.</li>
+<li><strong>Resolve a shared value once per tick, not once per player.</strong> <code>resourceTick</code> called <code>getEnvironmentState()</code> per player to read one string — and that spreads <code>getPowerMap()</code>, which allocates an object per power-model zone. A 50-player world rebuilt a thousands-of-zones map fifty times a minute for one field.</li>
+<li><strong>A write that changes nothing is still a round trip.</strong> Diff-gate recurring bulk updates (<code>IS DISTINCT FROM</code>, or a last-saved stamp) so a stable world writes nothing — but keep the comparison to state you own, which is why player-flag writes are deliberately <em>not</em> coalesced.</li>
+<li><strong>Narrow the column list on wide tables.</strong> <code>items</code>/<code>npcs</code>/<code>zones</code> carry fat JSONB and <code>audio_samples.data</code> is base64 audio. Repeated <code>SELECT *</code> here is how the Neon egress budget died once already.</li>
+<li><strong>Independent reads issue together</strong> (<code>Promise.all</code> — describeZone's 4-way batch), <strong>same-row writes coalesce</strong> into one UPDATE.</li>
+</ul>
+
+<h3>Bonus: the parts that could have been expensive and aren't</h3>
+<ul>
+<li><strong>No build step, no framework.</strong> 215 client JS files ship as-is; the only gate is a ~2 s parse smoke that catches the backtick-in-a-template-literal bug that once killed the entire client boot on prod.</li>
+<li><strong>No ORM.</strong> 2,922 call sites, one <code>query()</code> helper, plain parameterized SQL. There is no query builder generating something surprising at 3am.</li>
+<li><strong>No startup migrations.</strong> Boot touches neither schema nor content, so a restart costs a read of the world and nothing else.</li>
+<li><strong>The loose <code>setInterval</code>s are session-scoped, not clock ticks.</strong> The trip transform, MIS event loop, card-table shuffle SFX and dreamscape beat all bypass the scheduler — correctly: they exist only while a specific player is doing a specific thing, they self-cancel, and several defensively self-cancel again if the player vanishes. None of them can run on an empty world.</li>
+<li><strong>Content is git, not a live editing surface.</strong> 37,184 JSON files deploy through CI, so prod content changes cost a push — not a migration, not a boot-time rewrite.</li>
+</ul>
+
+<hr class="rule">
+
+<h2><span class="num">§ 2</span>A player command, end to end</h2>
+<p class="lede">The clearest way to see the design pay off: follow a single <code>north</code>.</p>
+
+<figure>
+<svg viewBox="0 0 900 400" role="img" aria-label="Flowchart of a movement command showing zero database reads on the hot path">
+  <rect x="330" y="10" width="240" height="34" rx="6" fill="var(--bg3)" stroke="var(--accent)"/>
+  <text class="hi" x="450" y="32" text-anchor="middle">player types “north”</text>
+  <line x1="450" y1="44" x2="450" y2="66" stroke="var(--border)" stroke-width="2" marker-end="url(#c)"/>
+
+  <rect x="330" y="70" width="240" height="34" rx="6" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="450" y="92" text-anchor="middle">dispatch: SIFT → matchers → plugins</text>
+  <line x1="450" y1="104" x2="450" y2="126" stroke="var(--border)" stroke-width="2" marker-end="url(#c)"/>
+
+  <rect x="330" y="130" width="240" height="34" rx="6" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="450" y="152" text-anchor="middle">move-gate chain (veto laws)</text>
+  <line x1="450" y1="164" x2="450" y2="186" stroke="var(--border)" stroke-width="2" marker-end="url(#c)"/>
+
+  <rect x="330" y="190" width="240" height="34" rx="6" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="450" y="212" text-anchor="middle">describeZone + render</text>
+  <line x1="450" y1="224" x2="450" y2="246" stroke="var(--border)" stroke-width="2" marker-end="url(#c)"/>
+
+  <rect x="330" y="250" width="240" height="34" rx="6" fill="var(--bg2)" stroke="var(--border)"/>
+  <text class="lbl" x="450" y="272" text-anchor="middle">set _posDirty · reply over ws</text>
+
+  <rect x="600" y="70" width="270" height="154" rx="8" fill="none" stroke="var(--good)" stroke-dasharray="4 4"/>
+  <text x="735" y="92" text-anchor="middle" fill="var(--good)">served entirely from RAM</text>
+  <text x="735" y="112" text-anchor="middle">world.zones · world.doors</text>
+  <text x="735" y="130" text-anchor="middle">world.furniture (by zone)</text>
+  <text x="735" y="148" text-anchor="middle">world.npcs · world.apartments</text>
+  <text x="735" y="166" text-anchor="middle">environment.state (light, weather)</text>
+  <text x="735" y="190" text-anchor="middle" fill="var(--good)" font-size="12">0 round trips</text>
+  <text x="735" y="208" text-anchor="middle">at any player count</text>
+
+  <line x1="450" y1="284" x2="450" y2="316" stroke="var(--warn)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#d)"/>
+  <text x="466" y="304" fill="var(--warn)">…up to 60 s later</text>
+
+  <rect x="290" y="320" width="320" height="40" rx="6" fill="var(--bg3)" stroke="var(--warn)"/>
+  <text x="450" y="337" text-anchor="middle" fill="var(--warn)">flushDirtyPositions — ONE UPDATE …</text>
+  <text x="450" y="352" text-anchor="middle" fill="var(--warn)">FROM (VALUES …) for every moved player</text>
+  <text x="450" y="382" text-anchor="middle" class="quiet">crash exposure: your position rewinds ≤1 min · thresholds write through immediately</text>
+
+  <defs>
+    <marker id="c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--border)"/></marker>
+    <marker id="d" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="var(--warn)"/></marker>
+  </defs>
+</svg>
+<figcaption>Walking across the city is free. That is the entire trick — and it's why the world can be 15,781 rooms deep without the hosting bill noticing.</figcaption>
+</figure>
+
+<hr class="rule">
+
+<h2><span class="num">§ 3</span>Where the cost actually is</h2>
+<p class="lede">Idle traffic measured 45 → 112 → 163 round trips/min at 1 / 5 / 20 synthetic players. The number that matters is the slope, not the total: <strong>~6 round trips per player per minute</strong>, on top of a ~40/min world floor.</p>
+
+<figure>
+<svg viewBox="0 0 900 280" role="img" aria-label="Chart: measured idle round trips per minute at 1, 5 and 20 players, split into floor and per-player slope">
+  <line x1="90" y1="230" x2="860" y2="230" stroke="var(--border)"/>
+  <line x1="90" y1="20" x2="90" y2="230" stroke="var(--border)"/>
+  <text x="80" y="234" text-anchor="end">0</text>
+  <text x="80" y="178" text-anchor="end">50</text>
+  <text x="80" y="126" text-anchor="end">100</text>
+  <text x="80" y="74" text-anchor="end">150</text>
+  <text x="30" y="125" text-anchor="middle" transform="rotate(-90 30 125)">round trips / min</text>
+
+  <rect x="180" y="184" width="90" height="46" fill="var(--cyan)" opacity=".55"/>
+  <rect x="180" y="178" width="90" height="6" fill="var(--accent2)"/>
+  <text class="lbl" x="225" y="250" text-anchor="middle">1 player</text>
+  <text class="hi" x="225" y="170" text-anchor="middle">45</text>
+
+  <rect x="420" y="184" width="90" height="46" fill="var(--cyan)" opacity=".55"/>
+  <rect x="420" y="145" width="90" height="39" fill="var(--accent2)"/>
+  <text class="lbl" x="465" y="250" text-anchor="middle">5 players</text>
+  <text class="hi" x="465" y="137" text-anchor="middle">112</text>
+
+  <rect x="660" y="184" width="90" height="46" fill="var(--cyan)" opacity=".55"/>
+  <rect x="660" y="94" width="90" height="90" fill="var(--accent2)"/>
+  <text class="lbl" x="705" y="250" text-anchor="middle">20 players</text>
+  <text class="hi" x="705" y="86" text-anchor="middle">163</text>
+
+  <rect x="700" y="20" width="14" height="10" fill="var(--cyan)" opacity=".55"/>
+  <text x="722" y="29">world floor (~40/min: clock, weather, grid, spawns)</text>
+  <rect x="700" y="38" width="14" height="10" fill="var(--accent2)"/>
+  <text x="722" y="47">per-player (~6/min each) ← the slope worth attacking</text>
+</svg>
+<figcaption>Measured with a throwaway <code>pg.Client.prototype.query</code> patch. Sample at 1, 5 and 20 and compare the gradient — batching changes the slope, not the intercept, so a single-player measurement can never confirm it.</figcaption>
+</figure>
+
+<hr class="rule">
+
+<h2><span class="num">§ 4</span>Where we could still improve</h2>
+<p class="lede">Seven findings, ordered by return on effort. None is on fire; several are the same class of bug the architecture doc already names, still living in plugin code.</p>
+
+<div class="find">
+<h3><span class="tag t-bad">highest value</span> 1 · Eight <code>flags::text LIKE</code> scans against a table that is already in RAM</h3>
+<p>The architecture doc bans this pattern by name: casting every row's JSONB to text is unindexable, matches keys and values alike, and forces a full scan. It survives in <strong>8 call sites</strong> across <code>broadcast</code> (5), <code>gametable</code>, <code>yacht</code> and a shared <code>TV_FURNITURE_SQL</code> constant — all against <code>furniture</code>, which is a <em>boot-loaded Map indexed by zone</em>.</p>
+<p class="why"><strong>Why it matters:</strong> each of these is a remote round trip <em>plus</em> a scan of 886 furniture rows, to answer a question the process can already answer with a Set lookup — e.g. "is there a TV in this room", which fires on TV interactions and gametable seating. <strong>Fix:</strong> filter <code>world.furniture</code> by key presence (<code>'media_deck' in f.flags</code>), as the doc prescribes. Mechanical, low-risk, and it removes a whole class of query from live gameplay paths.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-warn">high value</span> 2 · The ~6 round trips per player per minute floor</h3>
+<p>Two named offenders were already fixed (<code>clothing-wetness</code>, <code>flashlight</code>), but the slope was measured, not eliminated. Nobody has re-profiled since to see what now owns it.</p>
+<p class="why"><strong>Why it matters:</strong> this is the only number in the system that multiplies by concurrency. At 20 players it is already 120 trips/min — three times the entire world floor. <strong>Fix:</strong> re-run the profiler recipe at 1/5/20, sort by SQL text, and check whether the top offenders can move onto <code>resolveInventoryForPlayers</code>/<code>patchInventoryCustomData</code>. Everything needed to do this is documented; it just needs doing.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-warn">medium</span> 3 · <code>SELECT * FROM npcs</code> in plugin code</h3>
+<p><code>plugins/cards</code> reads the whole NPC table — including <code>dialogue_tree</code> and <code>behaviour_graph</code> JSONB — when <code>world.npcs</code> is a boot-loaded Map with a hard write funnel.</p>
+<p class="why"><strong>Why it matters:</strong> it's the exact egress pattern that killed the Neon budget once. It's cold-path (striking a card series), so the urgency is low — but it's a straight read from the Map, so the fix is nearly free.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-info">medium</span> 4 · No standing observability — every measurement is a throwaway script</h3>
+<p>The profiling recipes are excellent and explicitly say <em>write it, run it, delete it</em>. The consequence is that a regression in round-trip count is invisible until somebody goes looking, and the only numbers we have are from a single sitting.</p>
+<p class="why"><strong>Why it matters:</strong> the coalescing invariants fail <em>silently</em> by design ("no error, just an un-persisted change"), and so does their inverse — a new plugin adding a per-player query costs nothing visible until concurrency arrives. <strong>Fix:</strong> a ~20-line always-on counter in <code>db.js</code> (round trips this minute, top 5 SQL prefixes) surfaced on the existing dev-panel World State Monitor. It's already the one place every query passes through.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-info">medium</span> 5 · A regress gate for the round-trip rules</h3>
+<p>The doc's rules — no query in a loop, no <code>flags::text LIKE</code>, no <code>SELECT *</code> on the four fat tables — are prose. Meanwhile <code>docs:lint</code>, <code>content:lint</code>, <code>shapes:smoke</code> and <code>client:smoke</code> all prove that this project is willing to turn a rule into a gate.</p>
+<p class="why"><strong>Why it matters:</strong> finding #1 is eight instances of a rule that has been written down for months. A grep-level lint (~30 lines, in the existing <code>pretest:regress</code> chain) would have caught every one at authoring time — and would stop the 131st plugin from adding a ninth.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-info">low</span> 6 · Dev-panel routes use <code>SELECT *</code> on wide tables freely</h3>
+<p><code>api/routes.js</code> pulls whole <code>zones</code> and <code>items</code> rows in a dozen places.</p>
+<p class="why"><strong>Why it matters:</strong> barely at all today — it's admin traffic from one or two humans, not gameplay. Worth a column list only where a route returns <em>many</em> rows (<code>apiGetItems</code> returns all 668 item templates with their JSONB), because that's egress with a fixed cost per panel load.</p>
+</div>
+
+<div class="find">
+<h3><span class="tag t-info">structural</span> 7 · The single-instance ceiling is real, and unmeasured</h3>
+<p>The whole design assumes one Node process owns the world in RAM. That is the right call and is why any of this works — but it means horizontal scaling isn't a config change, it's a redesign (the open question about Redis). Separately, WebSocket rate limiting under real concurrent load has never been tested past a handful of connections.</p>
+<p class="why"><strong>Why it matters:</strong> not today's problem, and not worth pre-solving. But the honest version of the efficiency story is <em>"extremely cheap up to one box, then a rewrite"</em> — and the load-test is the cheap half of finding out where that box's limit actually is.</p>
+</div>
+
+<hr class="rule">
+
+<h2><span class="num">§ 5</span>The story in one paragraph</h2>
+<div class="card">
+<p style="margin-top:0">The world is big because it lives in memory. Postgres is not the game's working set — it's where the game writes down what would hurt to lose, on a timer, in batches, and it is allowed to fall asleep the moment nobody is playing. Every layer above that follows the same instinct: no ORM to generate surprises, no build step to slow the client, no boot migration to make a restart expensive, no tick that runs for an empty room. What keeps it honest isn't discipline in the abstract — it's that each rule is written next to the specific bug that produced it, and increasingly enforced by a gate rather than a memory.</p>
+<p style="margin-bottom:0">The gap between the design and the code is now small and specific: eight banned queries in plugin code, a per-player slope nobody has re-measured, and no standing meter on the one number that decides whether all of the above is still true. All three are a day's work, and the last one is the one that keeps the other two from coming back.</p>
+</div>
+
+<p class="quiet" style="margin-top:40px;font-size:.82rem">Sources: <code>docs/architecture.md</code> (persistence tiers, read tiers, measurement recipes, lessons learned), <code>server/engine/scheduler.js</code>, <code>server/models/db.js</code>, <code>server/keepalive.js</code>, <code>server/engine/world.js</code>, plus a repo-wide sweep of <code>query()</code> call sites at 2026-08-15. Counts are live from the tree; the round-trip figures are the measurements recorded in the architecture doc.</p>
+
+</div>
+</body>
+</html>

@@ -679,6 +679,15 @@
 				title="Credits carried"
 				>₵ <span id="header-credits-val">0</span></span
 			>
+			<!-- Desktop twin of the mobile #mob-weapon chip: same cache, same
+			     repaint (inventory-state.js). The mobile strip is hidden on
+			     desktop, so without this the readout was mobile-only. -->
+			<span
+				class="weapon-display"
+				id="header-weapon"
+				title="Equipped weapon"
+				>⚔ fists</span
+			>
 			<button
 				id="settings-btn"
 				title="Settings"

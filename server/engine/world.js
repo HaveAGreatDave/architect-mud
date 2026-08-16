@@ -570,6 +570,7 @@ export async function clearNpcHomeOverride(npcId) {
 }
 
 async function loadZones() {
+  // query-lint-ok: boot loader for world.zones — read once so nothing else has to.
   const { rows } = await query('SELECT * FROM zones');
   for (const zone of rows) {
     world.zones.set(zone.id, {
@@ -588,6 +589,7 @@ async function loadZones() {
 
 async function loadNpcs() {
   const [{ rows }, homeOverrides] = await Promise.all([
+    // query-lint-ok: boot loader for world.npcs (write-funneled via updateNpc/syncNpc).
     query('SELECT * FROM npcs'),
     loadNpcHomeOverrides(),
   ]);

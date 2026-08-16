@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THOMAS Client — Power User Guide</title>
+<style>
+:root{
+  --bg:#0b0e13; --panel:#12171f; --panel2:#161d27; --line:#243040;
+  --ink:#d7e2ee; --dim:#8fa2b7; --accent:#2ee6ff; --accent2:#ffb648;
+  --warn:#ff6b6b; --ok:#5ee08a; --code:#0e1319;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f6f8fb; --panel:#fff; --panel2:#eef2f7; --line:#d6dee8;
+    --ink:#16202c; --dim:#5a6b7e; --accent:#0079a8; --accent2:#a35c00;
+    --warn:#b3261e; --ok:#1f7a45; --code:#eef2f7; }
+}
+*{box-sizing:border-box}
+html{font-size:16px}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:1rem/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:60rem;margin:0 auto;padding:2rem 1.25rem 6rem}
+header.hero{border-bottom:1px solid var(--line);padding-bottom:1.5rem;margin-bottom:2rem}
+h1{font-size:clamp(1.8rem,5vw,2.6rem);margin:0 0 .3rem;letter-spacing:-.02em}
+h1 small{display:block;font-size:.9rem;font-weight:400;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.5rem}
+.lede{color:var(--dim);max-width:46rem;margin:0}
+h2{margin:3rem 0 .75rem;font-size:1.4rem;letter-spacing:-.01em;
+  border-left:3px solid var(--accent);padding-left:.6rem}
+h3{margin:2rem 0 .5rem;font-size:1.06rem;color:var(--accent)}
+h4{margin:1.25rem 0 .4rem;font-size:.95rem;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+p{margin:.6rem 0}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.9em;background:var(--code);
+  border:1px solid var(--line);border-radius:4px;padding:.08em .35em}
+pre{background:var(--code);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:6px;padding:.85rem 1rem;overflow-x:auto;margin:.75rem 0}
+pre code{background:none;border:0;padding:0;font-size:.86rem;line-height:1.55}
+.cm{color:var(--dim)}
+table{width:100%;border-collapse:collapse;margin:.75rem 0;font-size:.92rem;display:block;overflow-x:auto}
+th,td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+td code{white-space:nowrap}
+.note{border:1px solid var(--line);border-left:3px solid var(--accent2);background:var(--panel);
+  border-radius:6px;padding:.7rem .9rem;margin:.85rem 0;font-size:.93rem}
+.note.warn{border-left-color:var(--warn)}
+.note.ok{border-left-color:var(--ok)}
+.note b{color:var(--accent2)}
+.note.warn b{color:var(--warn)}
+.note.ok b{color:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.8rem;margin:1rem 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.85rem 1rem}
+.card h4{margin-top:0}
+nav.toc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1rem 1.25rem;margin:2rem 0}
+nav.toc ol{margin:.4rem 0 0;padding-left:1.2rem;columns:2;column-gap:2rem}
+@media (max-width:36rem){nav.toc ol{columns:1}}
+nav.toc li{margin:.15rem 0;break-inside:avoid}
+nav.toc a{text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+.kbd{font-family:var(--mono);font-size:.82em;border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:4px;padding:.1em .4em;background:var(--panel2)}
+footer{margin-top:4rem;padding-top:1.5rem;border-top:1px solid var(--line);color:var(--dim);font-size:.88rem}
+hr{border:0;border-top:1px solid var(--line);margin:2.5rem 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+<h1><small>THOMAS &mdash; The Hypermedia Online Multiplayer Adventure System</small>Power User Guide</h1>
+<p class="lede">Everything Mudlet, TinTin++ and MUSHclient give you &mdash; triggers, aliases, timers, scripting,
+speedwalk, split windows, logging &mdash; built into the browser, with nothing to install and nothing to
+configure. Your setup follows your account, not your machine. This page is the complete surface, with the
+exact syntax and the traps worth knowing.</p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+<b>Contents</b>
+<ol>
+<li><a href="#triggers">Triggers</a></li>
+<li><a href="#gag">Gagging lines</a></li>
+<li><a href="#state">State triggers (vitals)</a></li>
+<li><a href="#timers">Timers</a></li>
+<li><a href="#aliases">Aliases</a></li>
+<li><a href="#vars">Variables</a></li>
+<li><a href="#macros">Macros &amp; the script language</a></li>
+<li><a href="#expr">Expressions</a></li>
+<li><a href="#waitfor">wait for</a></li>
+<li><a href="#stop">Stopping everything</a></li>
+<li><a href="#keys">Key bindings &amp; the smartbar</a></li>
+<li><a href="#speedwalk">Speedwalk</a></li>
+<li><a href="#stacking">Command stacking</a></li>
+<li><a href="#routes">Routes &amp; split panes</a></li>
+<li><a href="#log">Highlights, find, transcript</a></li>
+<li><a href="#tab">Tab completion &amp; scroll lock</a></li>
+<li><a href="#voice">Voice input</a></li>
+<li><a href="#read">Read Aloud</a></li>
+<li><a href="#a11y">Accessibility options</a></li>
+<li><a href="#display">Display modes</a></li>
+<li><a href="#sync">Account sync</a></li>
+<li><a href="#wont">What THOMAS deliberately won't do</a></li>
+</ol>
+</nav>
+
+<div class="note ok"><b>One runner.</b> Triggers, timers, aliases, state rules, speedwalk and command
+stacking all end at the same macro runner. That means every one of them accepts the same script
+language &mdash; conditionals, loops, variables, calls &mdash; and there is exactly one place a runaway
+loop can live, with one <code>stop</code> that reaches all of it.</div>
+
+<hr>
+
+<h2 id="triggers">1. Triggers</h2>
+<p>Fire commands when a line of game text matches. Type <code>trigger</code> alone to list what you have.</p>
+
+<pre><code>trigger [@channel] [#group] [once] [Nln] &lt;pattern&gt; = &lt;commands&gt;
+trigger off &lt;pattern&gt;        <span class="cm">remove that one</span>
+trigger on &lt;pattern&gt;         <span class="cm">re-enable a disabled one</span>
+trigger on|off #group         <span class="cm">disable/enable a whole group (never deletes)</span>
+trigger on|off all</code></pre>
+
+<h4>Worked examples</h4>
+<pre><code>trigger you are bleeding = bandage
+trigger /^(\w+) hits you/ = flee
+trigger @loot pipe = take pipe
+trigger #combat you are hit = flee
+trigger off #combat
+trigger once /the safe clicks/ = open safe
+trigger 3ln /the door opens.+inside/ = look
+trigger you are bleeding = gag;say I saw that</code></pre>
+
+<table>
+<tr><th>Piece</th><th>Meaning</th></tr>
+<tr><td><code>/&hellip;/</code></td><td>Regex. Anything not wrapped in slashes is a <b>case-insensitive substring</b> &mdash; the default you cannot write wrongly.</td></tr>
+<tr><td><code>$1</code>&ndash;<code>$9</code></td><td>Regex captures, substituted into the command text. An absent group becomes empty, never the literal <code>$3</code>.</td></tr>
+<tr><td><code>@channel</code></td><td>Scope to a semantic message class &mdash; <code>@say</code>, <code>@loot</code>, <code>@combat</code>, <code>@death</code>&hellip; (~30 of them). An empty pattern plus a channel matches every line on it.</td></tr>
+<tr><td><code>#group</code></td><td>A label you can switch on and off as a set. Not part of the rule's identity, so regrouping moves a rule rather than duplicating it.</td></tr>
+<tr><td><code>once</code></td><td>Fires, then retires itself from storage &mdash; it will not come back after a reload.</td></tr>
+<tr><td><code>Nln</code></td><td>Multi-line, 1&ndash;10. Joins the last N lines and matches across them; regexes compile dot-all so <code>.</code> spans the join. Fires once per window, not once per line.</td></tr>
+</table>
+
+<div class="note"><b>Why <code>@</code> and not colour.</b> Other clients let you trigger on ANSI colour.
+THOMAS has no ANSI &mdash; it has ~30 semantic classes on every line, which is the thing colour was
+always a lossy proxy for. <code>@combat</code> is what "trigger on red text" was trying to be.
+Colour triggers are deliberately never coming.</div>
+
+<div class="note warn"><b>Three guards you will eventually meet.</b> A trigger fires a command, the
+command prints a line, that line fires a trigger &mdash; a loop with the server in the middle, and the
+first trigger most people write is on a combat message. So: lines printed <i>during</i> a trigger chain
+fire nothing; each trigger has a 400&nbsp;ms cooldown; and if more than 25 fires happen inside a sliding
+10&nbsp;second window, <b>every trigger is switched off</b> and you are told so. It disables rather than
+throttles, because a throttled runaway still spams forever with nothing to explain it. Turn them back on
+with <code>trigger on all</code> once the pattern is fixed.</div>
+
+<div class="note warn"><b>A broken regex never throws.</b> The row is marked broken and skipped.
+This code runs inside the log's append path &mdash; an exception there would kill the log on every
+line until a reload.</div>
+
+<h2 id="gag">2. Gagging lines</h2>
+<p>A trigger whose action is <code>gag</code> hides the matching line.</p>
+<pre><code>trigger you are bleeding = gag
+trigger @say Vex = gag;say heard you</code></pre>
+<p>Gagging is resolved when the trigger is <i>compiled</i>, not while the script runs, and the line is
+suppressed <b>before it is mounted</b> rather than removed afterwards. That is what makes the find bar,
+the scrollback cap and Read Aloud all agree without any of them knowing gagging exists.</p>
+<div class="note warn"><b>System messages can never be gagged</b> &mdash; that class carries the
+"all triggers switched off" notice. And gagged lines are still written to <code>.savelog</code>.</div>
+
+<h2 id="state">3. State triggers &mdash; on your own vitals</h2>
+<p>The half text triggers can't reach: rules on your HP, thirst, sanity and the rest.</p>
+<pre><code>on                          <span class="cm">list state rules</span>
+on hp_pct &lt; 30 = drink stim
+on thirst &lt; 20 = drink water
+on clear                    <span class="cm">(also: on off)</span></code></pre>
+<p>The condition is a full expression (see <a href="#expr">&sect;8</a>) and is checked whenever your vitals update.</p>
+<div class="note warn"><b>Edge-triggered, never level-triggered.</b> It fires on the transition into
+the condition and will not fire again until the condition has gone false in between. Level-triggering
+would fire on every vitals update for as long as you were hurt &mdash; which in a fight means drinking
+your entire inventory.</div>
+
+<h2 id="timers">4. Timers</h2>
+<pre><code>timer                            <span class="cm">list</span>
+timer 30s = look                 <span class="cm">repeating</span>
+timer 500ms = look
+timer 5m = say still here
+timer after 90s = say I have to go   <span class="cm">ONE-SHOT</span>
+timer off                        <span class="cm">stop them all, and stay off</span>
+timer clear                      <span class="cm">delete them all</span></code></pre>
+<p>Bare numbers mean seconds. The floor is <b>1s</b> &mdash; anything faster is a command every tick,
+forever. A one-shot retires itself from storage when it fires, so it does not return on the next reload
+and go off half an hour later with nothing to explain it.</p>
+
+<h2 id="aliases">5. Aliases</h2>
+<pre><code>alias                            <span class="cm">list</span>
+alias hb = say hello there
+alias /^k (.+)$/ = attack $1
+alias off k
+alias on|off all</code></pre>
+<p>Same grammar as triggers. An alias may expand into a <code>;</code>-chained script, and into client
+verbs &mdash; <code>alias f = macro fight</code> works, because expansion feeds the macro runner.</p>
+<div class="note warn"><b>One pass only.</b> An alias whose output matches another alias does not
+re-expand. Also: your command history remembers <b>what you typed</b>, not what it expanded to.</div>
+<p>Order of processing on submit: <code>alias &rarr; speedwalk &rarr; stacking &rarr; client verb &rarr; server</code>.</p>
+
+<h2 id="vars">6. Variables</h2>
+<pre><code>vars                 <span class="cm">list all as  $name = value</span>
+vars count           <span class="cm">read one</span>
+vars count 0         <span class="cm">set (the value is an expression)</span>
+vars clear</code></pre>
+<p>Inside a script, use the segments <code>set &lt;name&gt; &lt;expr&gt;</code> and <code>unset &lt;name&gt;</code>.
+Setting a variable skips the inter-command pacing and touches no network.</p>
+<div class="note warn">Built-in values win name collisions &mdash; <code>$hp</code> always means hit points.
+An <b>unset variable fails every comparison</b> rather than reading as zero.</div>
+
+<h2 id="macros">7. Macros &amp; the script language</h2>
+<p>Press <span class="kbd">+</span> on the smartbar to open the macro manager. A macro is a named script;
+segments are split on newlines or <code>;</code> and run top to bottom with a 350&nbsp;ms stagger between
+real commands.</p>
+
+<table>
+<tr><th>Segment</th><th>Does</th></tr>
+<tr><td><code>&lt;command&gt;</code></td><td>Any real command, routed exactly as if typed &mdash; including client-only verbs.</td></tr>
+<tr><td><code>delay &lt;ms&gt;</code></td><td>Pause.</td></tr>
+<tr><td><code>echo &lt;text&gt;</code></td><td>A local-only line in your log.</td></tr>
+<tr><td><code>$value</code></td><td>Live player values, interpolated.</td></tr>
+<tr><td><code>if / elseif / else / endif</code></td><td>Nestable. <code>endif</code> required.</td></tr>
+<tr><td><code>while / endwhile</code></td><td>Nestable. <code>break</code> and <code>continue</code> hit the innermost loop.</td></tr>
+<tr><td><code>macro &lt;name&gt; [args&hellip;]</code></td><td>Call another macro. Args bind <code>$1</code>&ndash;<code>$9</code>; <code>$0</code> is all of them joined.</td></tr>
+<tr><td><code>set</code> / <code>unset</code></td><td>Variables.</td></tr>
+<tr><td><code>return [expr]</code></td><td>Ends this macro; the value lands in <code>$result</code> for the caller.</td></tr>
+<tr><td><code>wait for &lt;pattern&gt; [timeout]</code></td><td>Park until a line matches. See <a href="#waitfor">&sect;9</a>.</td></tr>
+</table>
+
+<h4>Walk somewhere, wait to arrive, act</h4>
+<pre><code>gps clone facility
+delay 500
+auto on
+while notin clone facility
+  delay 1500
+endwhile
+drink sink</code></pre>
+
+<h4>Kill something, then loot whoever fell</h4>
+<pre><code>attack enforcer
+wait for /^(\w+) collapses/ 30s
+loot $1</code></pre>
+
+<h4>Available <code>$values</code></h4>
+<p><code>$hp $hp_max $hp_pct $stamina $sta $stamina_pct $sanity $sanity_pct $hunger $thirst
+$radiation $rad $credits $horniness $body_temp $zone $zone_id $home $home_id</code></p>
+<div class="note"><b>In a macro, write <code>auto on</code> or <code>auto off</code> &mdash; never bare
+<code>auto</code>.</b> Bare <code>auto</code> is a toggle, so its effect depends on state you can't see
+from inside the script. And <code>$home</code> is a <i>label</i>, not a destination: use the
+<code>home</code> verb, since <code>gps</code> matches names rather than ids.</div>
+
+<h4>Guards</h4>
+<p>1000 steps per run &middot; 20 levels of nesting &middot; cycle detection on macro calls &middot; a
+1&nbsp;second floor on any <code>while</code> pass that ran no <code>delay</code> of its own &middot; and
+a server-side token bucket that aborts your macros rather than disconnecting you.</p>
+
+<h4>The editor</h4>
+<p><b>Check &amp; Fix</b> normalises the script (one segment per line, lowercase keywords,
+<code>else if</code>&rarr;<code>elseif</code>, <code>=&lt;</code>&rarr;<code>&lt;=</code>, appends a
+missing <code>endif</code>, re-indents) and then validates &mdash; it must pass before Save unlocks.
+A <code>while</code> with no <code>delay</code> in its body gets a non-blocking amber advisory.
+The <b>&#128214; Guide</b> tab lists your live values, the room's furniture actions, your items and the
+verb list; clicking a row inserts it.</p>
+
+<h2 id="expr">8. Expressions</h2>
+<p>Conditions and <code>set</code> values are real expressions, not a fixed comparison shape.</p>
+<pre><code>if $hp_pct &lt; 30 and has bandage
+if $zone == bishops
+if lower($1) contains enforcer
+set trips $trips + 1</code></pre>
+<p>Precedence, loosest first: <code>or</code> &middot; <code>and</code> &middot; <code>not</code> &middot;
+comparisons (<code>&lt; &lt;= &gt; &gt;= == != contains starts ends</code>) &middot; <code>+ -</code>
+&middot; <code>* /</code> &middot; unary minus &middot; <code>has lacks in notin</code> &middot;
+parentheses. Functions: <code>lower upper trim len word num round abs min max</code>.</p>
+<p>A bare word is a variable if one exists, otherwise its own text. Comparison is numeric when both
+sides look numeric and case-insensitive string otherwise; <code>+</code> concatenates when either side
+isn't a number.</p>
+<div class="note warn"><b>A malformed expression is false, never an error.</b> Which is why the Check
+button validates well-formedness rather than "did it parse to something" &mdash; otherwise a typo'd
+condition would pass Check and then silently never fire.</div>
+<div class="note">Four older prefix forms still work and are matched first, because their arguments are
+unquoted and may contain spaces: <code>has field bandage</code>, <code>lacks &hellip;</code>,
+<code>in &lt;zone&gt;</code>, <code>notin &lt;zone&gt;</code>. Nothing already written changed meaning.</div>
+
+<h2 id="waitfor">9. <code>wait for</code> &mdash; what makes a script a program</h2>
+<pre><code>wait for the door opens
+wait for /^(\w+) collapses/ 30s
+wait for /you are dead/ 500ms</code></pre>
+<p>Captures bind into the rest of the script, exactly as trigger captures do. A miss leaves
+<code>$result</code> empty, so a script can branch on whether it actually landed. Parked scripts are
+woken before triggers are considered, and every matching waiter wakes, not just the first.</p>
+<div class="note warn"><b>Always bounded.</b> Default 10s, maximum 120s, and there is no unbounded
+form. A script parked forever is indistinguishable from a hung client, and <code>stop</code> cannot
+reach a runner that is not on a step boundary.</div>
+<p>Only <code>wait for &hellip;</code> is claimed &mdash; a bare <code>wait</code> still belongs to the game.</p>
+
+<h2 id="stop">10. Stopping everything</h2>
+<p>A red <b>&#9632; Stop</b> chip pins itself to the left of the smartbar whenever anything is running.
+Or type:</p>
+<pre><code>stop</code></pre>
+<p>In order: cancels auto-walk, aborts macros, switches timers <b>off and persisted</b>, and gives up
+every parked <code>wait for</code>. If none of those were active it falls through to the game's own
+<code>stop</code>. Timers are persisted off deliberately &mdash; a <code>stop</code> that leaves the
+thing which restarts the automation running reads as broken.</p>
+
+<h2 id="keys">11. Key bindings &amp; the smartbar</h2>
+<p>Each macro can claim one key: <span class="kbd">F1</span>&ndash;<span class="kbd">F9</span> or a
+numpad digit. It fires while your caret is in the command box, and is suppressed while a panel owns the
+keyboard (flight sim, cockpit, hangar, cab, piano) or at the login screen. One key, one macro &mdash;
+claiming releases the previous holder, and the manager shows you who that was.</p>
+<div class="note">F10&ndash;F12 are deliberately not offered: the browser owns them and intercepting
+them does not reliably win.</div>
+<p>The smartbar reads <code>[+] [Tablet] [Inv]</code> then your macro buttons then the room's context
+verbs. Long-press ~350&nbsp;ms to lift a button and drag it; the order is remembered per browser.</p>
+
+<h2 id="speedwalk">12. Speedwalk</h2>
+<pre><code>3n2e     <span class="cm">north north north east east</span>
+3ne      <span class="cm">northeast x3</span>
+2s1w</code></pre>
+<p>Expanded after aliases and run through the macro runner, so it paces itself room by room.</p>
+<div class="note warn"><b>It must contain at least one digit.</b> The obvious "only direction letters"
+test matches <code>use</code> &mdash; u, s and e are all directions, as are <code>sew</code>,
+<code>wed</code> and <code>dune</code>. So <code>3n</code> walks and <code>nnn</code> does not, and a
+verb people type constantly is left alone. Cap is 40 steps; a zero count is refused.</div>
+
+<h2 id="stacking">13. Command stacking</h2>
+<pre><code>n;n;e                                  <span class="cm">three commands</span>
+say meet me at the bar; I'll be late   <span class="cm">NOT split</span>
+emote waves;; then bows                <span class="cm">NOT split; sends one ;</span></code></pre>
+<p>Free-text verbs (<code>say</code>, <code>tell</code>, <code>whisper</code>, <code>emote</code>) are
+never split &mdash; the alternative is eating half of somebody's chat message. <code>;;</code> anywhere
+on the line escapes the whole line, and each <code>;;</code> collapses to one <code>;</code>.</p>
+
+<h2 id="routes">14. Routes &amp; split panes</h2>
+<p>Send matching lines to their own floating window. This is the "split windows" feature, and a route is
+just a trigger whose action is "put it over there" &mdash; so it reuses that grammar exactly.</p>
+<pre><code>route                       <span class="cm">list</span>
+route @say = Chat           <span class="cm">a COPY; the line stays in the log</span>
+route @say = Chat only      <span class="cm">MOVES it out of the log</span>
+route /incoming/ = Combat
+route off @say
+route clear</code></pre>
+<p>Panes are draggable by the title bar, natively resizable, remember their position, hold 400 lines and
+follow their own tail.</p>
+<div class="note"><b>Panes are derived, never authored.</b> There is no "create a pane" command &mdash;
+a pane exists because a rule names it. Closing a pane <b>hides</b> it; the rule survives. Use
+<code>route off &lt;pattern&gt;</code> to actually stop routing.</div>
+<div class="note">The routed copy is written <b>even when the line is gagged</b> &mdash; "send chat to
+its own window and keep it out of here" is the commonest reason to want this at all.</div>
+<p>The other half of split windows &mdash; an input area that stays put while output scrolls &mdash; was
+never a gap here. The command box does not scroll.</p>
+
+<h2 id="log">15. Highlights, find, transcript</h2>
+<pre><code>highlight reactor core     <span class="cm">toggle one, default colour</span>
+hl reactor core            <span class="cm">same verb, shorter</span>
+highlight                  <span class="cm">manager: colours and audible pings</span>
+highlight clear
+find enforcer              <span class="cm">(or Ctrl+F)</span>
+.savelog                   <span class="cm">write the transcript to a .txt</span></code></pre>
+<p>Highlights are plain substrings, never regex &mdash; a regex box in a field with no error surface
+throws on every line appended. Longest rule wins, one ping per <i>line</i> rather than per match, glyph
+art is skipped, and changing a rule repaints the log already on your screen. Find marks matches in place;
+step them with <span class="kbd">Enter</span> / <span class="kbd">Shift+Enter</span>.</p>
+<div class="note"><b><code>.savelog</code> reads a 20,000-line session buffer, not the screen.</b>
+The on-screen scrollback is trimmed as you play, so reading the document would start your transcript
+wherever trimming had got to &mdash; which is exactly the part you saved it to read. The saved file's own
+header states the limits and how many lines fell off the front. Gagged lines are included.</div>
+
+<h2 id="tab">16. Tab completion &amp; scroll lock</h2>
+<p><span class="kbd">Tab</span> completes the first token against the live verb list (sent by the server
+once per session from its real registries &mdash; never a stale hand-written list) and anything after it
+against the nouns actually in the room. It fills the common prefix first, then cycles;
+<span class="kbd">Shift+Tab</span> walks back; candidates are sorted shortest-first so <code>take</code>
+is reachable before <code>takeoff</code>. No match does nothing at all &mdash; it never invents a word,
+and it never traps your Tab key.</p>
+<p>Scroll back and the log stops following; an <b>"N new lines &darr;"</b> chip takes you to the bottom.
+Entering a command also releases the lock. New lines, room changes and panels do not.</p>
+
+<h2 id="voice">17. Voice input</h2>
+<pre><code>accessibility voice off
+accessibility voice review        <span class="cm">fills the box, you press Enter</span>
+accessibility voice auto-send</code></pre>
+<p>Off by default &mdash; a player who never asks for a microphone is never asked for one. Tap the mic
+button, hold it to talk, or press <span class="kbd">Ctrl/Cmd+Shift+M</span> from anywhere including
+inside the command box. (A chord, because the flight sim, the piano and WASD own the bare letter rows.)
+Firefox has no speech recognition and the button simply does not appear there.</p>
+<p>The feature is not the speech API &mdash; it's the normalizer. General speech recognition is trained
+on prose and this game's input is jargon, so "wield rusty pipe" comes back "field rusty pipe" and a bare
+<code>n</code> comes back "in". Three rules: <b>aggressive on one token, cautious on many</b> (a lone
+"in" becomes <code>n</code>; the same word inside "put the coat in the locker" is untouched); <b>the
+vocabulary is live</b>, scraped from what the room and your inventory are actually showing; and <b>never
+invent</b> &mdash; unmatched speech passes through so the server answers <code>Unknown command</code>,
+because a guess that lands on a real verb <i>runs</i> it.</p>
+<div class="note warn"><code>drop</code>, <code>give</code>, <code>sell</code>, <code>buy</code>,
+<code>pay</code>, <code>attack</code>, <code>quit</code> and the consumables are <b>never auto-sent</b>,
+whatever the mode says.</div>
+
+<h2 id="read">18. Read Aloud</h2>
+<pre><code>accessibility read off
+accessibility read natural        <span class="cm">the browser's own voice - recommended</span>
+accessibility read in-world       <span class="cm">the game's formant synth</span>
+accessibility speed slow|normal|brisk</code></pre>
+<p>Off by default, and that default is load-bearing: the log is a live region, so a screen reader is
+<i>already</i> reading it &mdash; on by default would speak every line twice in two voices. Natural is
+recommended over the in-world synth, which fits the fiction but is harder work to listen to for an hour.</p>
+<p>It rides the UI audio channel, so muting the television does not stop the game being read to you
+(the master Sound switch still does). Its queue is capped and drops the <b>oldest</b> &mdash; a voice
+minutes behind the game is describing a fight that already finished. Glyph art is never read. Entering a
+command interrupts it; <span class="kbd">Escape</span> stops it dead.</p>
+
+<h2 id="a11y">19. Accessibility options</h2>
+<pre><code>accessibility               <span class="cm">list everything with current values</span>
+access                      <span class="cm">alias</span>
+a11y                        <span class="cm">alias</span>
+accessibility text large    <span class="cm">by label</span>
+accessibility text 19       <span class="cm">by value</span>
+accessibility font read     <span class="cm">a unique prefix works</span>
+accessibility reset</code></pre>
+<table>
+<tr><th>Verb</th><th>Setting</th><th>Options</th></tr>
+<tr><td><code>text</code></td><td>Text Size</td><td>Small / Medium / Large / X-Large &hellip; up to 200%</td></tr>
+<tr><td><code>font</code></td><td>Typeface</td><td>Monospace / Sans / Readable</td></tr>
+<tr><td><code>motion</code></td><td>Motion</td><td>On / Off</td></tr>
+<tr><td><code>marks</code></td><td>Status Marks</td><td>Off / On</td></tr>
+<tr><td><code>read</code></td><td>Read Aloud</td><td>Off / Natural / In-world</td></tr>
+<tr><td><code>speed</code></td><td>Reading Speed</td><td>Slow / Normal / Brisk &hellip;</td></tr>
+<tr><td><code>voice</code></td><td>Voice Input</td><td>Off / Review / Auto-send</td></tr>
+<tr><td><code>mono</code></td><td>Mono Audio</td><td>Off / On</td></tr>
+<tr><td><code>sfx</code></td><td>Sound Detail</td><td>Off / Limited / Full</td></tr>
+</table>
+<p>The tablet's Accessibility page and this verb render from the same table; neither owns it. The verb
+exists as a verb on purpose &mdash; the light switch cannot be inside the dark room, so it needs no
+tablet and prints straight into the log.</p>
+<div class="note"><b>None of these change the game's difficulty.</b> A reaction-time option was built
+and reverted the same day. The rule left behind: an accessibility option may move the interface freely,
+but it may not move the odds on a contested outcome.</div>
+
+<h2 id="display">20. Display modes</h2>
+<pre><code>displaymode visual
+displaymode textgames
+displaymode log</code></pre>
+<p>Also settable before you log in, from the "Playing with a screen reader?" panel on the auth screen.
+Unlike everything above, this is <b>server-side</b> and follows your character.</p>
+<table>
+<tr><th>Rung</th><th>Minigames</th><th>Info panels</th><th>For</th></tr>
+<tr><td><code>visual</code></td><td>graphical</td><td>graphical</td><td>the default</td></tr>
+<tr><td><code>textgames</code></td><td>character-drawn, real-time, reflex intact</td><td>still graphical</td><td>wants text, keeps the games</td></tr>
+<tr><td><code>log</code></td><td>resolved by dice, not rendered</td><td>written into the scrolling log</td><td>screen readers</td></tr>
+</table>
+<p>At the <code>log</code> rung the area pane goes away, room descriptions reach the log, and arrivals
+are abbreviated &mdash; but the classic MUD contract holds: <b>nothing is ever lost, only deferred by one
+keystroke</b>. An explicit <code>look</code> is always the full description.</p>
+
+<h2 id="sync">21. Your setup follows your account</h2>
+<p>Macros, triggers, aliases, timers, state rules, highlights, variables and routes are all stored
+server-side against your character. Log in on another machine and they are there. There is nothing to
+export and no config file to copy.</p>
+<div class="note warn"><b>Two browsers open at once will clobber each other on the next edit.</b>
+Conflicts resolve last-writer-wins, which is a deliberate ceiling rather than an oversight.</div>
+<p>Not synced, on purpose: the smartbar drag order, and every device-level preference &mdash; volume,
+theme, text size, and therefore all the accessibility options. A phone and a desktop should not have to
+agree about volume.</p>
+
+<h2 id="wont">22. What THOMAS deliberately won't do</h2>
+<div class="grid">
+<div class="card"><h4>Colour triggers</h4>There is no ANSI. <code>@channel</code> is the semantic thing colour was standing in for, and a worse duplicate would be the mistake.</div>
+<div class="card"><h4>Server-side automation</h4>Nothing here reaches the server except commands you could have typed. There is no scripting privilege to grant or revoke.</div>
+<div class="card"><h4>Unbounded waiting</h4>Every <code>wait for</code> has a timeout. A parked script is indistinguishable from a hung client.</div>
+<div class="card"><h4>Continuous logging to disk</h4><code>.savelog</code> writes a session buffer on demand. Streaming needs a Chromium-only API.</div>
+<div class="card"><h4>Trigger set sharing</h4>No import/export of somebody else's rules.</div>
+<div class="card"><h4>Arbitrary window management</h4>Panes exist because a route named one. That's the whole model.</div>
+</div>
+
+<footer>
+<p>THOMAS is the client and engine. <b>Architect</b> is one game built on it.
+Everything on this page is part of THOMAS and would come with any other game built on the same platform.</p>
+<p>Source of record: <code>docs/systems-automation.md</code>, <code>docs/systems-macros.md</code>,
+<code>docs/systems-accessibility.md</code>, <code>docs/systems-display-mode.md</code>.</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -217,6 +217,13 @@
     <div class="ws-item">Enemies <span id="ws-enemies">—</span></div>
     <div class="ws-item">Corpses <span id="ws-corpses">—</span></div>
     <div class="ws-item">Zones <span id="ws-zones">—</span></div>
+    <!-- DB round trips in the last COMPLETE minute. Read it against the Online
+         count above: the total matters less than the per-player slope, which is
+         what a new per-player query silently changes. Hover for the heaviest
+         statements this process has run. -->
+    <div class="ws-item" id="ws-db-item" title="DB round trips / min">
+      DB/min <span id="ws-db-rate">—</span>
+    </div>
     <div class="ws-item" style="margin-top:8px">
       ESP
       <label class="toggle-switch toggle-switch--esp" style="margin-left:auto;cursor:pointer" onclick="showPanel('emergency')" title="Emergency Security Protocol">

@@ -8032,6 +8032,16 @@ schedule('30s', () => mediaDeckSyncTick().catch(e => console.error('[broadcast] 
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
+// The receiver in a room, from the write-funneled world.furniture Map rather
+// than a `flags::text LIKE '%broadcast_receiver%'` query. That LIKE cast every
+// furniture row's JSONB to text (unindexable, and it matched keys AND values
+// alike) on a per-command path; `broadcast_receiver` is only ever written
+// `true`, so a truthy flag read is the same test the SQL was making — and it is
+// the same read describe.js and _isTvOn already do.
+function _zoneReceiver(zoneId) {
+  return getZoneFurniture(zoneId).find(f => f.flags?.broadcast_receiver) || null;
+}
+
 async function cmdTune(args, raw, player, broadcast) {
   if (!player) return { type: 'error', message: 'No character.' };
   // `0` is the tape deck, not the off switch — the power button owns off (tap to
@@ -8041,12 +8051,8 @@ async function cmdTune(args, raw, player, broadcast) {
   if (isNaN(channelNumber)) return { type: 'output', message: 'Usage: tune <channel number> — 0 is the tape deck. Hold the power button to switch the set off.' };
 
   // Find a broadcast_receiver furniture in the player's current zone
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%broadcast_receiver%' LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return { type: 'output', message: 'There is no broadcast-capable device here.' };
-  const device = rows[0];
+  const device = _zoneReceiver(player.current_zone);
+  if (!device) return { type: 'output', message: 'There is no broadcast-capable device here.' };
 
   const result = await _applyTuning(device, channelNumber, player.current_zone);
   if (result.status === 'off') {
@@ -8233,14 +8239,19 @@ function _tvNameHint(args) {
 // (what the tuner actually keys off), the `tv` tag (what the action registry
 // gates on), or simply something named like a set. Kept in one place so the
 // `tv`, `watch` and `use` paths can never disagree about what counts.
-const TV_FURNITURE_SQL = `(flags::text LIKE '%broadcast_receiver%' OR flags::text LIKE '%"tv"%' OR name ILIKE '%television%')`;
+// Read from the world.furniture Map, not SQL: this was three `flags::text LIKE`
+// clauses OR'd together, which cast every row's JSONB to text on a per-command
+// path. `tv` is a tag (tags live in the same flags bag) and `broadcast_receiver`
+// is a flag, so both are plain key reads here.
+function _isTvFurniture(f) {
+  return !!(f.flags?.broadcast_receiver || f.flags?.tv || /television/i.test(f.name || ''));
+}
 
-async function _findTvFurniture(zoneId, nameHint) {
-  const { rows } = await query(
-    `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND ${TV_FURNITURE_SQL}${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
-    nameHint ? [zoneId, `%${nameHint}%`] : [zoneId]
-  );
-  return rows[0] || null;
+function _findTvFurniture(zoneId, nameHint) {
+  const hint = nameHint ? String(nameHint).toLowerCase() : null;
+  return getZoneFurniture(zoneId).find(f =>
+    _isTvFurniture(f) && (!hint || (f.name || '').toLowerCase().includes(hint))
+  ) || null;
 }
 
 // Specialized action: use <tv-furniture>
@@ -8248,7 +8259,7 @@ async function doUseTv(args, raw, player) {
   if (!player) return undefined;
   const nameHint = _tvNameHint(args);
 
-  const row = await _findTvFurniture(player.current_zone, nameHint);
+  const row = _findTvFurniture(player.current_zone, nameHint);
   const rows = row ? [row] : [];
   if (!rows.length) return undefined;
 
@@ -8295,7 +8306,7 @@ async function cmdTv(args, raw, player) {
   }
 
   // No tuned TV — check for any TV furniture in the zone (TV exists but is off).
-  const row = await _findTvFurniture(player.current_zone, '');
+  const row = _findTvFurniture(player.current_zone, '');
   if (row) {
     const flags = typeof row.flags === 'object' ? row.flags : JSON.parse(row.flags || '{}');
     return buildTvOffPanel(player, flags.tv_skin || 'crt');
@@ -8339,12 +8350,8 @@ async function cmdTvFreq(args, raw, player) {
   if (!player) return null;
   const freq = parseFloat(args[0]);
   if (!isFinite(freq) || freq < 0) return null;
-  const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%broadcast_receiver%' LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!rows.length) return null;
-  const device = rows[0];
+  const device = _zoneReceiver(player.current_zone);
+  if (!device) return null;
   const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
   flags.tv_dial_freq = freq;
   await updateFurniture(device.id, { flags: JSON.stringify(flags) });
@@ -8394,12 +8401,11 @@ export function getZoneNowPlaying(zoneId) {
 // ── Emergency broadcast verbs (the Echelon's special MediaDeck) ────────────────
 async function cmdAirEmergency(args, raw, player, broadcast) {
   if (!_isDeckAdmin(player)) return { type: 'error', message: 'Only station administrators can seize the airwaves.' };
-  const { rows } = await query(
-    `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"emergency_deck"%' LIMIT 1`,
-    [player.current_zone]
-  ).catch(() => ({ rows: [] }));
-  if (!rows[0]) return { type: 'error', message: 'There is no emergency broadcast deck here. This can only be done from the Echelon.' };
-  const dflags = typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}');
+  // Key presence off the world.furniture Map, exactly what the old
+  // `flags::text LIKE '%"emergency_deck"%'` scan tested.
+  const deckFurn = getZoneFurniture(player.current_zone).find(f => f.flags && 'emergency_deck' in f.flags);
+  if (!deckFurn) return { type: 'error', message: 'There is no emergency broadcast deck here. This can only be done from the Echelon.' };
+  const dflags = deckFurn.flags || {};
   const broadcastId = args?.[0] || dflags.deck_active || dflags.emergency_broadcast_id;
   if (!broadcastId) return { type: 'error', message: 'Load an emergency bulletin into the deck first, or name one: airemergency <broadcast id>.' };
   const r = await startEmergency(broadcastId);

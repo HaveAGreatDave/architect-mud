@@ -334,6 +334,11 @@ const VOID_FOE_IDS = [
   'enemy_ash_crawler', 'enemy_bloated_mutant', 'enemy_rad_mutant', 'enemy_feral_dog',
   'enemy_wire_jackal', 'enemy_gutter_hound', 'enemy_scav', 'enemy_scrap_picker',
   'enemy_sprawl_ganger', 'enemy_slag_wretch', 'enemy_slag_wight',
+  // The one foe out here that has something to do with a truck. `flags.hijacker` is what makes it
+  // work the door of a stopped cab (plugins/trucking/hijack.js); to a walker it is an ordinary
+  // roadside thug and reads as one, which is the point — the road does not grow a second bestiary
+  // for drivers, it grows one enemy who noticed that trucks stop.
+  'enemy_prybar_nomad',
 ];
 // The deep-waste menaces — a clear tier above the normal roster (100–130 HP vs a
 // 65-HP top-end rad mutant). A hard node fields one of these on top of its pack.

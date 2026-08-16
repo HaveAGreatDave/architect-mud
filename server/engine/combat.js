@@ -1256,6 +1256,21 @@ export async function enemyAttackPlayer(enemy, player) {
   // A quantum forcefield shields its zone from all hostile touch — the same law
   // that stops a player's swing (getZoneProtection) stops an enemy's. The claws
   // wash off the blue field, harmless. No cooldown burn: it's as if no swing landed.
+  // ── THE CAB IS A BOX ──────────────────────────────────────────────────────
+  // A player sitting in a truck cannot be clawed by something standing in the road. This used to
+  // be true by accident — a rig crosses a void room and is gone again before the pack's first
+  // swing lands — and an accident is not a rule: stop for fuel and the same pack could reach
+  // through the door.
+  //
+  // ⚠ IT IS NOT INVULNERABILITY, IT IS A DOOR. The way in is `hijack` (plugins/trucking): a
+  // hijacker breaks the cab open, drags the driver out, and from that moment this guard is not
+  // true any more because they are not in the truck. So the box has one entrance and everything
+  // that wants a driver has to come through it, which is exactly one place to reason about.
+  //
+  // Read as a RAM flag on the live player rather than by importing the trucking plugin — the
+  // engine must not know a haulage system exists, and `_inCab` is written in the two places a rig
+  // is mounted and dismounted. A logout drops it with the object, which is correct.
+  if (player?._inCab) return null;
   if (getZoneProtection(player.current_zone)) return null;
   const now = Date.now();
   await ensureTunables();

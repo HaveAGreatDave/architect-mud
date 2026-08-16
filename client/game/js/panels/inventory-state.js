@@ -22,7 +22,7 @@ export function updateInventoryCache(items, weight, capacity) {
   renderWeaponChip();
 }
 
-// ── The mobile weapon chip ───────────────────────────────────────────────────
+// ── The weapon chip ──────────────────────────────────────────────────────────
 //
 // Lives here rather than in render.js because it is a view of THIS cache and
 // nothing else — every path that can change what you're holding ends up in
@@ -33,16 +33,27 @@ export function updateInventoryCache(items, weight, capacity) {
 // inventory. That's a real round trip, so it's gated on the chip being ON SCREEN
 // (mobile/compact only — `offsetParent` is null when the strip is display:none)
 // and coalesced, so a five-item looting spree costs one query, not five.
+//
+// There are two chips — `#mob-weapon` in the mobile vitals strip and
+// `#header-weapon` beside the desktop credits display — and exactly one of them
+// is on screen at a time (each is display:none in the other layout). Both are
+// painted unconditionally; the visibility test lives in refreshWeaponChip,
+// which is the only part that costs anything.
+const CHIP_IDS = ['mob-weapon', 'header-weapon'];
+
 function renderWeaponChip() {
-  const el = document.getElementById('mob-weapon');
-  if (!el) return;
-  el.textContent = `⚔ ${getEquippedWeaponName() || 'fists'}`;
+  const text = `⚔ ${getEquippedWeaponName() || 'fists'}`;
+  for (const id of CHIP_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
 }
 
 let _chipTimer = 0;
 export function refreshWeaponChip() {
-  const el = document.getElementById('mob-weapon');
-  if (!el || !el.offsetParent) return;   // desktop layout — pay nothing
+  // `offsetParent` is null for a hidden chip, so this asks the server only when
+  // whichever layout is live actually has the readout on screen.
+  if (!CHIP_IDS.some(id => document.getElementById(id)?.offsetParent)) return;
   if (_chipTimer) return;
   _chipTimer = setTimeout(() => { _chipTimer = 0; refreshInventory(); }, 600);
 }

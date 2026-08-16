@@ -4,7 +4,7 @@
 import { query } from '../../server/models/db.js';
 import { schedule } from '../../server/engine/scheduler.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers } from '../../server/engine/world.js';
+import { getLivePlayer, setLivePlayer, getZone, world, hasActivePlayers, getZoneFurniture } from '../../server/engine/world.js';
 import { GameTable, MAX_SEATS } from './game-table.js';
 import { ChessTable } from './chess-table.js';
 import { activeTables, loadAllTables } from './tables.js';
@@ -259,12 +259,12 @@ async function cmdWatch(args, raw, player) {
 const TV_WORDS    = ['tv', 'television', 'monitor', 'screen', 'tele', 'telly'];
 const POKER_WORDS = ['poker', 'table', 'cards', 'game', 'felt'];
 
-async function zoneHasTV(zoneId) {
-  const { rows } = await query(
-    "SELECT 1 FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%broadcast_receiver%' LIMIT 1",
-    [zoneId]
-  );
-  return rows.length > 0;
+// From the write-funneled world.furniture Map, not a `flags::text LIKE` scan:
+// that cast every furniture row's JSONB to text (unindexable) to answer a
+// question the process already holds in RAM. `broadcast_receiver` is only ever
+// written `true`, so the truthy read is the same test.
+function zoneHasTV(zoneId) {
+  return getZoneFurniture(zoneId).some(f => f.flags?.broadcast_receiver);
 }
 
 async function watchTV(args, raw, player, broadcast) {
@@ -290,7 +290,7 @@ async function watchFurniture(args, raw, player, broadcast) {
 async function cmdWatchRouter(args, raw, player, broadcast) {
   const table = tableInZone(player.current_zone);
   if (!table) {
-    if (await zoneHasTV(player.current_zone)) return watchTV(args, raw, player, broadcast);
+    if (zoneHasTV(player.current_zone)) return watchTV(args, raw, player, broadcast);
     return watchFurniture(args, raw, player, broadcast);
   }
 
@@ -298,7 +298,7 @@ async function cmdWatchRouter(args, raw, player, broadcast) {
   if (POKER_WORDS.includes(first)) return cmdWatch([], raw, player);
   if (TV_WORDS.includes(first))    return watchTV(args, raw, player, broadcast);
 
-  if (!(await zoneHasTV(player.current_zone))) return cmdWatch([], raw, player); // only the table
+  if (!zoneHasTV(player.current_zone)) return cmdWatch([], raw, player); // only the table
 
   // Both a TV and a game table are here — ask which. Name the table, not the
   // game: a chess salon must not offer you a felt that isn't in the room.

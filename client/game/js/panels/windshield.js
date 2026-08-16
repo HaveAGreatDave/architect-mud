@@ -578,7 +578,26 @@ export function paintWindshield(id, view) {
   // result reads as the fullscreen button making the game blurry.
   // A caller passing `resFloor: 1` renders at native and accepts the frame cost instead.
   const resFloor = clamp(v.resFloor != null ? v.resFloor : 0.6, 0.5, 1);
-  const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, resFloor, 1);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed
+  // ── AND THE OTHER DIRECTION: SUPERSAMPLING ─────────────────────────────────
+  // `superSample` is the TOTAL backing pixels per CSS pixel a caller would like when the frames
+  // are there to pay for it — 2 means render the scene at twice the linear resolution and let the
+  // browser resample it down into the canvas's CSS box.
+  //
+  // This is the fix for "fullscreen looks worse", and it is worth being precise about why, because
+  // the intuition is backwards. On an ordinary 1× monitor a fullscreen canvas is already 1:1 with
+  // the display — it cannot be made sharper by giving it more pixels to fill, and it is drawing
+  // hard edges (lane markings, panel lines, a wire-thin aerial) with no antialiasing anywhere in
+  // the pipeline, so every one of them crawls and stairsteps. Rendering ABOVE the display and
+  // scaling DOWN is the only thing that fixes that, and the downscale is free — it is the one
+  // filter the compositor does in hardware.
+  //
+  // It rides the same frame-time dial as the reduction below, so it is genuinely opportunistic: a
+  // machine with headroom gets a 2× image, a machine without one is never made to stutter for it,
+  // and the same number falls back through 1.0 to the floor without a second mechanism. It is also
+  // capped against the device ratio — a 2× phone screen is already supersampling by another name.
+  const superTo = clamp(v.superSample != null ? v.superSample : 1, 1, 2);
+  const resCeil = Math.max(1, superTo / baseDpr);
+  const resTarget = clamp(1 - ((st.frameMs || 16) - 20) / 44, resFloor, resCeil);   // full res ≤20ms (50fps); ramps to the 0.6 floor by ~46ms — engages EARLIER so it defends a 60fps target before the frame time has already collapsed. Above 1 only where a caller asked for supersampling AND the frames are cheap.
   st.resScale = st.resScale ? st.resScale + (resTarget - st.resScale) * 0.08 : resTarget;
   const dpr = baseDpr * (Math.round(st.resScale * 10) / 10);
   if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) { cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); }
@@ -674,7 +693,16 @@ export function paintWindshield(id, view) {
   // farther out (up to ~2.4×) — that widens the framing and flattens the perspective. The resting
   // behind-and-above pose (topFrac 0) and the whole under-belly swing are untouched.
   const topFrac = clamp((extPitch - restPitch) / (1.15 - restPitch), 0, 1);
-  const orbRcam = orbR * (1 + topFrac * 1.4);
+  // …AND THE SAME TRADE ON THE WAY DOWN, which is the shot a ROAD vehicle actually wants: level
+  // with the road, directly astern, looking down the lane past the rig. Flattening the orbit alone
+  // does not give you that — it gives you the back of a trailer filling the frame, because at a
+  // constant radius the vehicle's own height eats the horizon as the camera comes down to it. So
+  // dropping toward level pulls the camera BACK, up to half as far again, and you get the whole rig
+  // in frame with the road ahead of it visible over the cab. Costs the flying classes nothing:
+  // their resting pitch is already shallow, so `lowFrac` is ~0 for them unless a player deliberately
+  // swings the camera down onto the deck, where the same reasoning applies anyway.
+  const lowFrac = clamp((restPitch - extPitch) / Math.max(0.05, restPitch - groundPitch), 0, 1);
+  const orbRcam = orbR * (1 + topFrac * 1.4 + lowFrac * 0.5);
   const chase = ext ? { back: orbRcam * Math.cos(extPitch), up: orbRcam * Math.sin(extPitch) } : null;   // camera on the arc: tiles behind / world-z above the craft
   // On the deck (ground/takeoff/landing) we paint a real, terrain-themed airport.
   const onDeck = phase === 'ground' || phase === 'takeoff' || phase === 'landing';
@@ -1334,7 +1362,11 @@ export function paintWindshield(id, view) {
   // acid rain is rain (beads, streaks, a glass that stays clean of bugs), an ion
   // storm is a storm (the lightning branch). The badge below keeps the real name.
   pBegin('glass');
-  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.wipers | 0);
+  // ⚠ WIPERS ONLY SWEEP THE WINDSCREEN. They are a forward-view object — the blades are parked on
+  // the bottom of the screen you are looking through — so a shoulder-check that carried them was
+  // wiping the side window with a blade that is not on it. The rain, the beading and the frost all
+  // stay: those are on every pane in the vehicle.
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.viewYaw ? 0 : (v.wipers | 0));
   pEnd();
   // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
   // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
@@ -1354,7 +1386,17 @@ export function paintWindshield(id, view) {
   // by a different door.
   const wantCab = !v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw;
   if (wantCab) paintCabDash(id, v); else clearCabDash(id);
-  if (!wantCab && !v.windowClass && !ext) {
+  // A TRUCK LOOKING OFF THE NOSE GETS TRUCK GLASS. Without this branch a shoulder-check fell
+  // through to the aircraft canopy header and the nose cowl below — a curved DA62 windscreen arch
+  // and an engine cowling, in a truck, over the side window. Each of the three views is its own
+  // piece of glass and they are deliberately not the same drawing:
+  //   ±90  the door window — a header, the door line low, and the A-pillar on the side you turned
+  //        away from. This is the view you take a mirror check and a junction in.
+  //   180  the rear light, and it is drawn as bare as it can be: a thin surround and NOTHING else.
+  //        The whole job of looking behind you is seeing who is there, so anything painted over it
+  //        is a decoration that costs you the only reason to look.
+  if (v.cls === 'truck' && !ext && !v.windowClass && v.viewYaw) drawCabSideGlass(ctx, W, H, v);
+  else if (!wantCab && !v.windowClass && !ext) {
     drawCanopyCached(ctx, W, H, dpr);   // DA62-style curved windscreen header (forward view)
     drawCowlCached(ctx, W, H, v.cls, dpr);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   }
@@ -1659,7 +1701,13 @@ function paintCabDash(id, v) {
   if (!c || !c.getContext) return;
   const cw = c.clientWidth, ch = c.clientHeight;
   if (!cw || !ch) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // ALWAYS AT LEAST 2×, AND IT COSTS ALMOST NOTHING. This layer only repaints when a value on it
+  // changes (`_painted`), so its resolution is not a per-frame cost the way the road's is — and it
+  // is the layer made of hair-thin needles, 8px legends and the wheel's own rim. On a 1× monitor
+  // the old `min(2, dpr)` resolved to 1 and every one of those edges was aliased; supersampling it
+  // and letting the browser scale down is the whole difference between a drawn dial and a printed
+  // one. (Capped at 3 so a high-DPI phone doesn't allocate a buffer nobody can see.)
+  const dpr = clamp(Math.max(2, window.devicePixelRatio || 1), 2, 3);
   const wantW = Math.round(cw * dpr), wantH = Math.round(ch * dpr);
   if (c.width !== wantW || c.height !== wantH) { c.width = wantW; c.height = wantH; }
   const g = c.getContext('2d');
@@ -1667,6 +1715,54 @@ function paintCabDash(id, v) {
   g.clearRect(0, 0, cw, ch);
   drawCabInterior(g, cw, ch, v);
   c._painted = true;
+}
+
+// The two panes that are not the windscreen. Painted straight onto the world canvas (they are thin
+// surrounds, not an instrument layer — nothing here needs the dash canvas's resolution), and kept
+// deliberately spare: their whole purpose is to say WHICH window you are looking out of without
+// taking any of it away from you.
+function drawCabSideGlass(ctx, W, H, v) {
+  const T = cabTrim(v?.tier);
+  const rear = Math.abs(v.viewYaw) === 180;
+  ctx.save();
+  if (rear) {
+    // The rear light. A shallow header and two narrow posts — a frame, and then get out of the way.
+    const hdr = H * 0.055;
+    const g = ctx.createLinearGradient(0, 0, 0, hdr);
+    g.addColorStop(0, T.hdr[0]); g.addColorStop(1, T.hdr[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, hdr);
+    ctx.fillStyle = T.dash[1];
+    ctx.fillRect(0, 0, W * 0.045, H); ctx.fillRect(W * 0.955, 0, W * 0.045, H);
+    // The sill, low enough that a car sitting on your bumper is still in frame.
+    ctx.fillStyle = T.dash[2]; ctx.fillRect(0, H * 0.93, W, H * 0.07);
+    ctx.strokeStyle = T.lip; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H * 0.93); ctx.lineTo(W, H * 0.93); ctx.stroke();
+  } else {
+    // A door window. The A-pillar is on the side you turned AWAY from — look left and the pillar is
+    // on your right, because it is the one between you and the windscreen.
+    const left = v.viewYaw < 0;
+    const hdr = H * 0.10;
+    const g = ctx.createLinearGradient(0, 0, 0, hdr);
+    g.addColorStop(0, T.hdr[0]); g.addColorStop(1, T.hdr[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, hdr);
+    const px = left ? W * 0.90 : 0, pw = W * 0.10;
+    const pg = ctx.createLinearGradient(px, 0, px + pw, 0);
+    pg.addColorStop(0, T.dash[0]); pg.addColorStop(1, T.dash[2]);
+    ctx.fillStyle = pg; ctx.fillRect(px, 0, pw, H);
+    // The door: its top edge rakes down toward the mirror, and the card below it is the one solid
+    // thing in this view — which is what makes it read as a door rather than as a cropped screen.
+    ctx.beginPath();
+    ctx.moveTo(0, H * 0.62); ctx.lineTo(W, H * 0.70); ctx.lineTo(W, H); ctx.lineTo(0, H);
+    ctx.closePath();
+    const dg = ctx.createLinearGradient(0, H * 0.62, 0, H);
+    dg.addColorStop(0, T.dash[1]); dg.addColorStop(1, T.dash[2]);
+    ctx.fillStyle = dg; ctx.fill();
+    ctx.strokeStyle = T.lip; ctx.lineWidth = 1.2; ctx.stroke();
+    // The window winder's chrome pull, on the card. One detail, so the door has a scale.
+    ctx.fillStyle = T.ring;
+    ctx.fillRect(W * (left ? 0.14 : 0.68), H * 0.80, W * 0.18, Math.max(2, H * 0.012));
+  }
+  ctx.restore();
 }
 
 function drawCabInterior(ctx, W, H, v) {
@@ -1940,9 +2036,16 @@ function drawCabInterior(ctx, W, H, v) {
   // nothing else in the game agrees with.
   if (twoDials) drawCabDial(ctx, tachX, outY, bigR, v?.rpmFrac ?? 0, T.band ? v?.band : null, 'RPM',
     String(Math.round((v?.rpmFrac ?? 0) * 100)), v?.inBand, T, null, 100);
+  // ⚠ `v.mph`, NOT `v.speed`. `speed` reaches this renderer NORMALISED (0..1 of a nominal top) —
+  // that is what every motion effect in the scene wants and it is the one field the cab has always
+  // passed. The speedometer is the one instrument that needs the actual figure, so it reads its own
+  // field: without it the dial printed "1" at sixty and sat pinned at the top of its sweep, which
+  // is the sort of wrong that looks like a broken gauge rather than a wrong unit. The fallback
+  // rescales the normalised value so an older caller still gets a plausible needle.
+  const mph = Math.abs(v?.mph != null ? v.mph : (v?.speed || 0) * 68);
   drawCabDial(ctx, twoDials ? speedX : tachX, outY, bigR,
-    Math.min(1, Math.abs(v?.speed || 0) / (v?.topSpeed || 68)), null, 'MPH',
-    String(Math.round(Math.abs(v?.speed || 0))), false, T, null, v?.topSpeed || 68);
+    Math.min(1, mph / (v?.topSpeed || 68)), null, 'MPH',
+    String(Math.round(mph)), false, T, null, v?.topSpeed || 68);
   for (const row of cluster) {
     drawCabDial(ctx, row[0], outY, smallR, row[2], null, row[1], row[3], false, T, row[4]);
   }
@@ -4577,6 +4680,14 @@ function segContains(s, lx, ly, V) {
 // `clearZ` is the vehicle's height in render world-z. FLOOR_Z is one storey, so a semi tractor at
 // roughly a third of a storey is about 0.009.
 export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
+  // ⚠ THE ONE HOLE IN A BUILDING, and it is named rather than general: a depot bay is a shed you
+  // drive into, so at ground level it is open. Everything about this is deliberately narrow — it
+  // is keyed on a mark the world derivation only puts on a tile authored `flags.vehicle_bay`, it
+  // applies to the whole tile rather than to a doorway rectangle (a door you can miss by four
+  // inches is a door players will hate), and it must never become a general "buildings with doors
+  // are passable" rule. A truck is the only thing this matters for; a pedestrian was always able
+  // to walk in, because walking in is what an exit is.
+  if (cell?.mark === 'bay') return 0;
   if (buildingHeightZ(wx, wy, cell) <= 0) return 0;
   const seed = (wx + 512) * 73 + (wy + 512) * 149;
   const m = modelFor(cell);
@@ -6107,6 +6218,84 @@ function shedVert(v, part) {
 // accents). The per-class model + livery shading come from the shared aircraft3d
 // module — the same geometry the hangar spins on its turntable. Returns the screen
 // bbox for the designator.
+// ── The road under a road vehicle: a contact shadow, and the light the machine puts on it ────
+// Called from drawAircraftModel BEFORE the model is painted (see the note at the call site), with
+// that function's own model-space projector, so everything here is placed in the mesh's coordinates
+// and cannot drift from the truck it belongs to.
+//
+// The shadow is drawn from the mesh's own FOOTPRINT rather than as a blob under the origin: the
+// four corners of the vehicle's plan, projected onto z=0 and filled as a soft quad. That is what
+// makes it turn with the truck, stretch when the camera drops, and stay under the wheels of a
+// bobtail and a full rig alike without either being a special case. A radial blob would sit still
+// while the truck turned, which is the tell that a shadow is a decal.
+function drawVehicleGround(ctx, P, c, sun) {
+  const vl = vehicleLamps(c.cls, c.variant);
+  if (!vl) return;
+  const pods = vl.podGlow || [];
+  if (!pods.length) return;
+  // The footprint, from the lifter stations — they are the corners of the contact patch by
+  // definition, so nothing here needs to know a truck's dimensions.
+  let f0 = Infinity, f1 = -Infinity, g0 = Infinity, g1 = -Infinity, span = 0;
+  for (const { p, r } of pods) {
+    f0 = Math.min(f0, p[0] - r); f1 = Math.max(f1, p[0] + r);
+    g0 = Math.min(g0, p[1]); g1 = Math.max(g1, p[1]); span = Math.max(span, r);
+  }
+  const gw = Math.max(0.01, (g1 - g0) / 2 + span * 0.6);
+  const gc = (g0 + g1) / 2;
+  const corners = [[f1 + span * 0.5, gc - gw], [f1 + span * 0.5, gc + gw],
+                   [f0 - span * 0.5, gc + gw], [f0 - span * 0.5, gc - gw]].map(([f, g]) => P([f, g, 0.0005]));
+  if (corners.some((q) => q.f <= 0.08)) return;
+  const track = Math.hypot(corners[0].sx - corners[1].sx, corners[0].sy - corners[1].sy);
+  ctx.save();
+  // 1) THE SHADOW. Two passes: a broad soft one for the ambient occlusion the whole body casts,
+  // and a tighter darker one, so the truck reads as touching the road rather than hovering over a
+  // grey rectangle. Softened with a blur where the canvas has one — this is the one place a real
+  // blur is worth its cost, because a hard-edged shadow is worse than none.
+  const dark = 0.42 * (1 - (sun?.night || 0) * 0.45);
+  const poly = (k, a) => {
+    ctx.beginPath();
+    const mx = (corners[0].sx + corners[2].sx) / 2, my = (corners[0].sy + corners[2].sy) / 2;
+    ctx.moveTo(mx + (corners[0].sx - mx) * k, my + (corners[0].sy - my) * k);
+    for (let i = 1; i < 4; i++) ctx.lineTo(mx + (corners[i].sx - mx) * k, my + (corners[i].sy - my) * k);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(4,7,12,${a})`; ctx.fill();
+  };
+  ctx.filter = `blur(${Math.max(2, track * 0.10).toFixed(1)}px)`;
+  poly(1.18, dark * 0.45);
+  poly(0.92, dark);
+  ctx.filter = 'none';
+  // 2) THE LIGHT. Each lifter pools onto the road under itself, composited additively so the four
+  // overlap into one continuous wash rather than four discs with seams. ⚠ IT IS THE ENGINE, NOT
+  // THE LIGHTS SWITCH — what this says is that the machine is RUNNING, so a parked rig has nothing
+  // under it and the mesh's own emitter bands are already dark in that pose.
+  const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
+  if (c.lights !== false && power > 0.02) {
+    const lit = clamp(0.35 + power * 0.65, 0, 1);
+    ctx.globalCompositeOperation = 'lighter';
+    // The pods, plus the centreline stations between the axles — without those the wash is four
+    // bright corners with a dark aisle down the middle, which reads as four lamps rather than as a
+    // truck that is lit underneath.
+    const wash = pods.concat((vl.under || []).map((p) => ({ p, r: span * 0.9 })));
+    for (const { p, r } of wash) {
+      const q = P(p); if (q.f <= 0.08) continue;
+      // Sized off the pod's own half-length as it PROJECTS, so it is right at any zoom.
+      const e = P([p[0] + r, p[1], 0.0005]);
+      const rad = Math.max(3, Math.hypot(e.sx - q.sx, e.sy - q.sy) * 3.4);
+      const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, rad);
+      rg.addColorStop(0, `rgba(104,214,232,${0.26 * lit})`);
+      rg.addColorStop(0.4, `rgba(52,150,190,${0.12 * lit})`);
+      rg.addColorStop(1, 'rgba(30,90,170,0)');
+      ctx.fillStyle = rg;
+      ctx.save();
+      // A pool on the ground is an ellipse; a circle reads as a ball of fog the truck is parked in.
+      ctx.translate(q.sx, q.sy); ctx.scale(1, 0.5); ctx.translate(-q.sx, -q.sy);
+      ctx.beginPath(); ctx.arc(q.sx, q.sy, rad, 0, 7); ctx.fill();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -6237,6 +6426,14 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
   const edge = c.designated ? 'rgba(255,90,80,0.95)' : pal.pat === 'hazard' ? shadeRgb(pal.trim, 1.0) : 'rgba(8,10,14,0.7)';
   ctx.lineJoin = 'round';
+  // ── WHAT IS UNDER A ROAD VEHICLE, drawn BEFORE it ──────────────────────────
+  // Ordering is the whole trick here. The lamp block at the bottom of this function runs after the
+  // model is painted, which is right for a lamp on the outside of the bodywork and wrong for
+  // anything that lives on the ROAD: a shadow painted after the truck is a shadow on top of the
+  // truck, and an underglow painted after it is a pool of light shining through the chassis. So the
+  // two things that belong to the ground go here, and the model then covers whatever of them it
+  // should cover for free — no depth buffer, no per-lamp occlusion test, just paint order.
+  if (c.cls === 'truck') drawVehicleGround(ctx, P, c, sun);
   for (const fc of faces) {
     ctx.globalAlpha = fc.alpha ?? 1;                                // gear fades as it retracts (alpha < 1)
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
@@ -6364,46 +6561,30 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
           ctx.fillStyle = `rgba(255,255,255,${0.85 * lit})`;
           ctx.beginPath(); ctx.arc(q.sx, q.sy, Math.max(0.6, r * 0.16), 0, 7); ctx.fill();
         };
-        // ── THE UNDERGLOW ─────────────────────────────────────────────────────
-        // Drawn FIRST, so every lamp above sits on top of it rather than being washed out by it,
-        // and drawn as SCREEN-SPACE LIGHT rather than as geometry — which is the whole point. The
-        // mesh used to carry two emissive boxes on the frame rails and they read as flat teal pads
-        // from any camera above the beltline, because a box has edges and light does not.
+        // (The underglow and the ground shadow are drawn BEFORE the model now — see
+        // drawVehicleGround. Light that lives on the road has to be painted under the thing
+        // standing on it, or the truck is transparent from the waist down.)
         //
-        // Four stations on the ground plane, each a wide soft radial, composited with `lighter` so
-        // where they overlap they ADD into one pool under the truck instead of four discs with
-        // seams between them. The pool is sized off the same projected track width the lamps are,
-        // so it is right at any distance and any zoom, and it is anchored to the ground rather than
-        // the chassis so it spills onto the road the way a real underlight does.
-        //
-        // ⚠ IT IS THE ENGINE, NOT THE LIGHTS SWITCH. Headlamps are `c.landing`; this rides `power`,
-        // because what it says is that the thing is RUNNING. A parked truck has no glow under it.
-        if (vl.under && power > 0.02) {
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          const lit = clamp(0.35 + power * 0.65, 0, 1);
-          for (const p of vl.under) {
-            const q = P(p); if (q.f <= 0.08) continue;
-            const r = Math.max(2, track * 1.55);
-            const rg = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, r);
-            rg.addColorStop(0, `rgba(70,170,255,${0.20 * lit})`);
-            rg.addColorStop(0.35, `rgba(46,130,200,${0.10 * lit})`);
-            rg.addColorStop(1, 'rgba(30,90,170,0)');
-            ctx.fillStyle = rg;
-            // Flattened toward the road: a light pool on the ground is an ellipse, and a circle
-            // under a truck reads as a ball of fog it is parked in.
-            ctx.save();
-            ctx.translate(q.sx, q.sy); ctx.scale(1, 0.52); ctx.translate(-q.sx, -q.sy);
-            ctx.beginPath(); ctx.arc(q.sx, q.sy, r, 0, 7); ctx.fill();
-            ctx.restore();
-          }
-          ctx.restore();
-        }
+        // ── A LAMP ON THE FAR SIDE IS NOT VISIBLE ─────────────────────────────
+        // These glows are painted after the model and this canvas has no depth buffer, so until
+        // now the headlamps burned through the back of the trailer and the tail lamps burned
+        // through the windscreen — two red embers floating in the middle of the box, which is the
+        // screenshot that started this. The test is one projection, not a mesh trace: step a short
+        // way along the direction the lamp FACES and ask whether that took it toward the camera.
+        // If it did, the lamp is on the near side and you can see it; if it didn't, the bodywork
+        // is between you and it. This is exact for a convex hull, and a truck is one.
+        const facing = (lp, n) => {
+          const a = P(lp), b = P([lp[0] + n[0] * 0.05, lp[1] + n[1] * 0.05, lp[2] + n[2] * 0.05]);
+          return a.f > 0.08 && b.f < a.f;
+        };
+        const FWD = [1, 0, 0], AFT = [-1, 0, 0];
         // Headlamps are the LIGHTS switch; the rest of the set is on whenever the engine is.
         const beam = c.landing ? 1 : 0.20;
-        for (const p of vl.head) glow(p, '255,248,224', beam * nb, 0.40);
-        for (const p of vl.tail) glow(p, '255,70,52', 0.85 * nb, 0.26);
-        for (const p of vl.marker) glow(p, '255,196,110', 0.75 * nb, 0.13);
+        for (const p of vl.head) if (facing(p, FWD)) glow(p, '255,248,224', beam * nb, 0.40);
+        for (const p of vl.tail) if (facing(p, AFT)) glow(p, '255,70,52', 0.85 * nb, 0.26);
+        // Roof markers sit on the front edge of the visor and shine forward, same as the lamps
+        // under them — from behind, the cab roof is in the way.
+        for (const p of vl.marker) if (facing(p, FWD)) glow(p, '255,196,110', 0.75 * nb, 0.13);
       }
     } else if (tip) {
       const [tf, tg, th] = tip;
@@ -10782,6 +10963,9 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.back || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
+    // The depot bay: a shed with a roller door you drive through. Drawn from the same list as every
+    // other building, so it fogs, sorts and occludes like one; it is only the SHAPE that is special.
+    if (it.c.mark === 'bay') { emitFace(od, () => drawVehicleBay(ctx, cam, it.dx, it.dy, it.c, night, alpha, now)); continue; }
     if (it.c.mark === 'yacht') {
       // Normally she's drawn on her own tile (with a sub-tile glide while under way). While we're
       // PARKED on her deck (our own tile AND on the ground) we pin her AFT HELIPAD (yacht-local
@@ -11000,6 +11184,110 @@ function drawStatue(ctx, cam, dx, dy, fh, seed, night, alpha, now) {
 // road passes through the perpendicular gap. Rises above CURTAIN_H so the gate reads as the
 // tallest, most deliberate thing on the whole perimeter.
 const GATE_H = 1.05;
+// ── THE DEPOT BAY ────────────────────────────────────────────────────────────
+// A shed you drive into, and the first building on this map whose ground floor is a hole. Three
+// decisions worth knowing before you touch it:
+//
+//  1. IT IS BUILT AROUND ITS DOOR. The tile's entrance face (`cell.ent`, the same field every
+//     other building angles its frontage by) decides which way the opening points, so a bay put
+//     down facing the street faces the street with nothing configured. The whole model is laid out
+//     in that local frame and the four walls are drawn from it, which is why the door can never end
+//     up on a different side from the one the collision hole is on.
+//  2. THE FRONT WALL IS A HEADER AND TWO JAMBS, never a face with a rectangle painted on it. A
+//     painted door is a door you cannot drive through, and this one has to be a real absence: the
+//     hole is what the truck goes through, the CSS overlay that used to fake this is gone, and
+//     what you see through the opening is the yard you are about to be standing in.
+//  3. THE DOOR SENSES THE TRUCK. `openness` is derived from the camera's own distance to the tile
+//     rather than from any state anybody has to remember to set — near, it is up; away, it comes
+//     down. A door driven by a flag is a door somebody eventually leaves open forever.
+const BAY_SENSE_TILES = 2.6;    // it starts lifting about a truck's length out
+const BAY_OPEN_TILES = 1.35;    // …and is fully up by the time the bumper is at the threshold
+function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
+  if (MASS_OFF) return;
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  // Local (right, forward) → world. Forward is OUT THROUGH THE DOOR.
+  const F = (lx, ly) => [dx + lx * ct - ly * st, dy + lx * st + ly * ct];
+  const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
+  const HW = 0.46, HL = 0.46;                   // the shed's half-width and half-depth, in tiles
+  const WALL = 0.115, RIDGE = 0.145;            // eaves and ridge height, in world z
+  const DOOR_W = 0.34, DOOR_H = 0.088;          // the opening: wide and low, like a real roller door
+  // How far the camera is from this tile, in tiles — the sensor.
+  const d = Math.hypot(dx, dy);
+  const open = clamp((BAY_SENSE_TILES - d) / Math.max(0.01, BAY_SENSE_TILES - BAY_OPEN_TILES), 0, 1);
+
+  const list = [];
+  const add = (pts, fill, stroke = 'rgba(0,0,0,0.35)') => {
+    if (pts.some((p) => !p || p.f <= 0.08)) return;
+    list.push({ af: pts.reduce((s, p) => s + p.f, 0) / pts.length, pts, fill, stroke });
+  };
+  const lit = night ? 0.62 : 1;
+  const sh = (r, g, b, k = 1) => `rgb(${(r * k * lit) | 0},${(g * k * lit) | 0},${(b * k * lit) | 0})`;
+  const STEEL = [104, 112, 122];
+
+  // The floor slab, drawn first and always — it is what makes the inside read as a room you are
+  // standing in rather than as ground with a roof over it.
+  add([P(-HW, -HL, 0.002), P(HW, -HL, 0.002), P(HW, HL, 0.002), P(-HW, HL, 0.002)], sh(46, 48, 52), 'rgba(0,0,0,0.5)');
+  // Three solid walls: back, and one each side. Ribbed by a single darker stripe pair rather than
+  // by real geometry, which at this size is the difference nobody can see and every frame can feel.
+  add([P(-HW, -HL, 0), P(HW, -HL, 0), P(HW, -HL, WALL), P(-HW, -HL, WALL)], sh(...STEEL, 0.62));
+  for (const s of [-1, 1]) {
+    add([P(s * HW, -HL, 0), P(s * HW, HL, 0), P(s * HW, HL, WALL), P(s * HW, -HL, WALL)], sh(...STEEL, s > 0 ? 0.78 : 0.68));
+  }
+  // The front: a header above the opening and a jamb each side. The gap between them is the door.
+  add([P(-HW, HL, DOOR_H), P(HW, HL, DOOR_H), P(HW, HL, WALL), P(-HW, HL, WALL)], sh(...STEEL, 0.9));
+  for (const s of [-1, 1]) {
+    const inner = s * DOOR_W, outer = s * HW;
+    add([P(inner, HL, 0), P(outer, HL, 0), P(outer, HL, DOOR_H), P(inner, HL, DOOR_H)], sh(...STEEL, 0.86));
+  }
+  // THE DOOR ITSELF, hanging in the opening and retracting UP. At `open` 1 it is a slat's worth of
+  // shadow under the header, which is what a rolled-up door actually looks like from underneath.
+  const doorBottom = DOOR_H * open;
+  if (doorBottom < DOOR_H - 0.001) {
+    add([P(-DOOR_W, HL - 0.01, doorBottom), P(DOOR_W, HL - 0.01, doorBottom),
+         P(DOOR_W, HL - 0.01, DOOR_H), P(-DOOR_W, HL - 0.01, DOOR_H)], sh(126, 134, 142, 0.95), 'rgba(0,0,0,0.55)');
+    // Slats. Four lines, because a flat panel reads as a sheet of card and a roller door is the one
+    // object in a yard everybody has looked at closely.
+    for (let i = 1; i < 5; i++) {
+      const z = doorBottom + (DOOR_H - doorBottom) * (i / 5);
+      add([P(-DOOR_W, HL - 0.011, z), P(DOOR_W, HL - 0.011, z), P(DOOR_W, HL - 0.011, z + 0.001), P(-DOOR_W, HL - 0.011, z + 0.001)],
+        sh(70, 76, 84), 'rgba(0,0,0,0)');
+    }
+  }
+  // A shallow gable, so the thing has a roofline rather than a lid.
+  add([P(-HW, -HL, WALL), P(HW, -HL, WALL), P(HW, HL, WALL), P(-HW, HL, WALL)], sh(...STEEL, 0.5));
+  add([P(-HW, -HL, WALL), P(-HW, HL, WALL), P(0, HL, RIDGE), P(0, -HL, RIDGE)], sh(...STEEL, 1.05));
+  add([P(HW, -HL, WALL), P(HW, HL, WALL), P(0, HL, RIDGE), P(0, -HL, RIDGE)], sh(...STEEL, 0.72));
+
+  list.sort((a, b) => b.af - a.af);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.lineJoin = 'round';
+  for (const it of list) {
+    ctx.beginPath();
+    it.pts.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)));
+    ctx.closePath();
+    ctx.fillStyle = it.fill; ctx.fill();
+    if (it.stroke !== 'rgba(0,0,0,0)') { ctx.strokeStyle = it.stroke; ctx.lineWidth = 1; ctx.stroke(); }
+    const fog = fogWeight(it.af);
+    if (fog > 0.004) { ctx.globalAlpha = alpha * fog; ctx.fillStyle = FOG_STATE.css; ctx.fill(); ctx.globalAlpha = alpha; }
+  }
+  // The light inside. A bay is always lit — it is a workplace — and the spill out of the opening is
+  // most of what sells the door being open at all.
+  if (open > 0.02) {
+    const m = P(0, HL + 0.02, 0.004);
+    if (m.f > 0.08) {
+      const r = Math.max(6, 90 / Math.max(0.3, m.f));
+      const g = ctx.createRadialGradient(m.sx, m.sy, 0, m.sx, m.sy, r);
+      g.addColorStop(0, `rgba(255,226,164,${0.20 * open * alpha})`);
+      g.addColorStop(1, 'rgba(255,226,164,0)');
+      ctx.fillStyle = g;
+      ctx.save(); ctx.translate(m.sx, m.sy); ctx.scale(1, 0.45); ctx.translate(-m.sx, -m.sy);
+      ctx.beginPath(); ctx.arc(m.sx, m.sy, r, 0, 7); ctx.fill(); ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
 function drawSouthGate(ctx, cam, dx, dy, foot, axis, seed, night, alpha, now) {
   const ew = axis.indexOf('e') >= 0 || axis.indexOf('w') >= 0;
   const wx = ew ? 1 : 0, wy = ew ? 0 : 1;          // unit along the wall (where the pylons sit)

@@ -12,7 +12,7 @@
 import { randomUUID } from 'crypto';
 import { logRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
-import { getZoneFurniture, getZone } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone, world } from '../../server/engine/world.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import {
@@ -622,8 +622,11 @@ async function cmdScrap(args, raw, player) {
 // pool is full on day one. Idempotent: a subject already carded in this series is
 // skipped, so it is safe to re-run after adding content.
 export async function strikeSeries(series = 1) {
-  const [{ rows: npcs }, { rows: enemies }, { rows: spawns }, { rows: existing }] = await Promise.all([
-    query('SELECT * FROM npcs'),
+  // NPCs come from the boot-loaded, write-funneled world.npcs Map rather than
+  // `SELECT * FROM npcs` — that pulled every row's dialogue_tree and
+  // behaviour_graph JSONB across the wire to read a name and a description.
+  const npcs = [...world.npcs.values()];
+  const [{ rows: enemies }, { rows: spawns }, { rows: existing }] = await Promise.all([
     query('SELECT * FROM enemies'),
     query('SELECT enemy_id, SUM(max_count) AS max_count, MIN(spawn_weight) AS spawn_weight, COUNT(*) AS zones FROM zone_spawns GROUP BY enemy_id'),
     query('SELECT subject_type, subject_ref FROM cards WHERE series=$1', [series]),
@@ -775,8 +778,8 @@ export async function routeHandler(path, method, body, auth) {
     const c = rows[0];
     let rebuilt = null;
     if (c.subject_type === 'npc') {
-      const r = await query('SELECT * FROM npcs WHERE id=$1', [c.subject_ref]);
-      if (r.rows.length) rebuilt = buildNpcCard(r.rows[0]);
+      const npc = world.npcs.get(c.subject_ref);
+      if (npc) rebuilt = buildNpcCard(npc);
     } else if (c.subject_type === 'enemy') {
       const [r, s] = await Promise.all([
         query('SELECT * FROM enemies WHERE id=$1', [c.subject_ref]),
