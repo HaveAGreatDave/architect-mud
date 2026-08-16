@@ -33,8 +33,33 @@ import { getAliasList } from "./engine/commands/aliases.js";
 // console can write anything into. Adding a key here is the deliberate act of
 // deciding the server will carry it.
 const CLIENT_CONFIG_KEYS = new Set([
-	"triggers", "aliases", "timers", "state_rules", "highlights", "vars",
+	"triggers", "aliases", "timers", "state_rules", "highlights", "vars", "routes",
 ]);
+
+// The floor between two pushes of the SAME store, per session. The sync routes
+// return long before handleGameCommand's token bucket, so until this they were
+// bounded by payload size and nothing else — a console can drive an unbounded
+// stream of remote UPSERTs, and the pool connection is held for each one, so it
+// is pool pressure as much as write volume.
+//
+// PER KEY, deliberately, not per session. The migration case pushes every store
+// at once on first login (see configsync.js: "never synced → push what is
+// local"), and a single session-wide gate would drop all but the first of those
+// — and a dropped push does not retry, so those stores would stay unsynced until
+// the player happened to edit them again.
+//
+// 500ms sits under the client's own 800ms debounce, so a legitimate push never
+// trips it and only a loop does. Refused SILENTLY, the same contract both routes
+// already document: the local copy is intact and still works, only the sync
+// declines.
+const SYNC_PUSH_MIN_MS = 500;
+function syncPushAllowed(session, key) {
+	const now = Date.now();
+	const seen = (session.syncPushAt ||= new Map());
+	if (now - (seen.get(key) || 0) < SYNC_PUSH_MIN_MS) return false;
+	seen.set(key, now);
+	return true;
+}
 import { getRegisteredSpecializedActions } from "./engine/specializedActions.js";
 import { takePendingSelection } from "./engine/sift.js";
 import { startGameLoop } from "./engine/gameLoop.js";
@@ -666,6 +691,7 @@ wss.on("connection", (ws) => {
 			// this into free per-player blob storage. Rejected silently rather than
 			// with an error the player can do nothing about — their local copy is
 			// intact and still works; only the sync is refused.
+			if (!syncPushAllowed(session, "macros")) return;
 			const list = Array.isArray(msg.macros) ? msg.macros : null;
 			if (!list || list.length > 100) return;
 			if (JSON.stringify(list).length > 64000) return;
@@ -702,6 +728,7 @@ wss.on("connection", (ws) => {
 			// An allowlist, not free-form. Without it this is per-player blob storage
 			// that anybody with a console can write anything into, under any name.
 			if (!CLIENT_CONFIG_KEYS.has(key)) return;
+			if (!syncPushAllowed(session, `cfg:${key}`)) return;
 			if (msg.payload === undefined || msg.payload === null) return;
 			// Same bound as macros, and refused silently for the same reason: the
 			// player's local copy is intact and still works, only the sync declines.

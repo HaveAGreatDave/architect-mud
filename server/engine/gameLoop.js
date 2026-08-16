@@ -438,8 +438,11 @@ async function tick() {
   //
   // The list is SNAPSHOT before anything is applied: a lethal tick calls
   // removeEnemyInstance, which deletes from the very Map we would be iterating.
-  // Almost always empty, so the filter is the whole cost on a normal second.
-  const afflicted = [...world.enemies.values()].filter(e => e.statuses?.length);
+  // Almost always empty, so the walk is the whole cost on a normal second — and it
+  // collects only the afflicted rather than spreading every live enemy into an array
+  // first, so an empty second allocates nothing at all.
+  const afflicted = [];
+  for (const e of world.enemies.values()) if (e.statuses?.length) afflicted.push(e);
   for (const enemy of afflicted) {
     const zoneId = enemy.zoneId;
     for (const intent of tickMobEffects(enemy)) {
