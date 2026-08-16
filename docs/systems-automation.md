@@ -10,11 +10,15 @@ here reaches the server except the same commands the player could have typed.
 | `alias` | the player typed something matching a pattern → rewrite it |
 | `timer` | an interval elapsed → run a script (repeating, or `after` for once) |
 | `on` | a **vitals condition** became true → run a script |
+| `route` | a line matched → copy or move it into its own small window |
 | `vars` | read/write the variables a script stores |
 
-Plus `wait for <pattern>` inside a macro script — see below.
+Plus `wait for <pattern>` inside a macro script, and **speedwalk** (`3n2e`) at the
+command box — both below.
 
 Files: [automation.js](../client/game/js/automation.js) (stores, verbs, wiring),
+[panes.js](../client/game/js/panes.js), [speedwalk.js](../client/game/js/speedwalk.js),
+[linewait.js](../client/game/js/linewait.js), [configsync.js](../client/game/js/configsync.js),
 [automation-guards.js](../client/game/js/automation-guards.js) (the dangerous
 half, pure and tested), [variables.js](../client/game/js/variables.js),
 [varscommand.js](../client/game/js/varscommand.js). Coverage is
@@ -63,7 +67,7 @@ Macros got this first (`player_macros`); everything else the client stores had t
 same problem — set up your triggers, log in on a laptop, and they are all gone.
 `player_client_config` is the general version: one row per player per **config
 key**, each holding a whole JSONB document. Keys today: `triggers`, `aliases`,
-`timers`, `state_rules`, `highlights`, `vars`.
+`timers`, `state_rules`, `highlights`, `vars`, `routes`.
 
 Keyed rather than a column per feature, because the set of things a client stores
 keeps growing and a column each means a schema change every time. Whole-document
@@ -103,6 +107,13 @@ Server-side the keys are an **allowlist** (`CLIENT_CONFIG_KEYS` in
 console can write anything into. Pushes over 64 KB are refused silently — the
 local copy still works, only the sync declines.
 
+⚠ Both push routes return **before** `handleGameCommand`, so the command token
+bucket never sees them — they carry their own floor instead (`syncPushAllowed`,
+500 ms). It is **per store, not per session**: the migration case pushes every
+key at once on first login, a session-wide gate would drop all but the first of
+those, and a dropped push does not retry. 500 ms sits under the client's own
+800 ms debounce, so only a loop trips it.
+
 **Not synced, deliberately**: the smartbar's drag order (a layout preference for
 one screen, covering buttons that are not macros) and everything in
 `client/shared/settings.js` (volume, theme, density — a phone and a desktop should
@@ -112,6 +123,80 @@ not agree about volume).
 a counter should stay per-machine. That is reversed here on purpose, and the file
 says why: under last-writer-wins nobody "fights", the loser is a counter reset,
 and half a player's setup following them is the confusing outcome.*
+
+## Output routing — the useful half of split windows
+
+```
+route @say = Chat          a copy; the line stays in the log
+route @say = Chat only     moves it — out of the log entirely
+route off @say             stop routing
+```
+
+A **pane** is a small floating window ([panes.js](../client/game/js/panes.js)):
+draggable by its title bar, natively resizable, position remembered, capped at 400
+lines of its own.
+
+Routing reuses the trigger grammar exactly — `@channel`, `#group`, `/regex/` —
+because **a route is a trigger whose action is "put it over there"**. The only
+difference is that the right-hand side is a pane *name* rather than a script, and
+that is why it has its own store instead of being a flag on a trigger row: one rule
+that both fired commands and moved a line would need two grammars on one side of
+the `=`.
+
+**The other half of "split windows" was never a gap here.** Other clients also give
+you a fixed input area so incoming text does not shove what you are typing off the
+screen. That is a terminal problem; `#cmd-input` is a DOM element that does not
+scroll. Only the routing half is built, and the chart row says ◐ rather than ●
+because arbitrary multi-window management still isn't there.
+
+- ⚠ **Panes are DERIVED, never authored.** There is no "create a pane" command — a
+  pane exists because a rule names it and is removed when none does
+  (`reconcilePanes`). A separate lifecycle would be two things to keep in step and
+  a way to have an empty pane nobody can explain.
+- ⚠ **The routed copy is written even when the line is gagged.** "Send chat to its
+  own window and keep it out of here" is the commonest reason to want routing at
+  all, so the copy happens before the gag check returns.
+- ⚠ **Closing a pane hides it; it does not delete the rule.** An ✕ that silently
+  unpicked a routing rule is a destructive shortcut nobody expects from an ✕.
+  `route off <pattern>` is how you stop routing.
+- ⚠ **A dragged pane is clamped on-screen.** One dragged out of view but still
+  receiving lines is indistinguishable from routing being broken, and there is no
+  menu to recover it from.
+- The observer contract grew from `boolean` to `{gag, panes}`. **`true` still means
+  gag**, so nothing that already returned it changed meaning.
+
+Panes always follow their own tail — the scroll lock exists for the main log, which
+is the one you read back through; a pane is glanceable furniture.
+
+## Speedwalk
+
+`3n2e` → `north;north;north;east;east`, expanded at the command box
+([speedwalk.js](../client/game/js/speedwalk.js)) and handed to the macro runner, so
+it paces room-by-room instead of firing five moves at once.
+
+It expands **after** aliases (so an alias may produce one) and **before** the
+stacking test (because what it produces is a stack).
+
+⚠ **THE OBVIOUS TEST MATCHES `use`.** The natural rule is "the whole line is only
+direction letters and digits". The direction letters are `n s e w u d` — and `use`
+is spelled entirely from that set, as are `sew`, `wed`, `dune`, `sun`, `dens`. A
+naive expander silently turns `use` into up-south-east and the player has no idea
+why their command stopped working.
+
+So **a speedwalk must contain at least one digit.** `3n` walks, `nnn` does not, and
+`use` is untouched. Losing the digitless form is a real cost and the right trade:
+`nnn` is three keystrokes either way, and `use` is a verb people type constantly.
+The smoke asserts the trap by name.
+
+Also: two-letter directions are matched before one-letter ones (or `ne` reads as
+`n` plus a stranded `e`), a zero count is refused, and an expansion over 40 steps
+is refused rather than walked — `99n` is a typo far more often than an intention,
+and the honest answer to a typo is to do nothing and let the server say so.
+
+**This is a much smaller feature here than in a client without a map.** Architect
+has GPS routing, a minimap and auto-walk, which answer "get me there" properly and
+without your knowing the route. Speedwalk only covers a route you already know and
+would rather type.
 
 ## Multi-line triggers
 
@@ -404,6 +489,6 @@ No server-side awareness of any of it — the server cannot tell a triggered com
 from a typed one, and nothing here proposes it should. No trigger on anything but
 a printed line (no "on HP below X", which is what a timer plus a condition already
 is — and `on` now covers the vitals half properly). No sharing or export of trigger
-sets. **No colour triggers, ever** — see Channel matching:
+sets. No arbitrary multi-window management (routing covers the half that matters — see Output routing). **No colour triggers, ever** — see Channel matching:
 we have the thing colour approximates, and a worse duplicate of it would be the
 mistake. No continuous logging to disk (see The transcript for why).

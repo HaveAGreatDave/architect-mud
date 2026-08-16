@@ -14,34 +14,52 @@ import { paintHighlights } from './highlights.js';
 // would put render at the bottom of a cycle with two modules that are much bigger
 // than it is. Render should not know automation exists; it just says what it
 // printed, to whoever asked.
-// The observer may return true to SUPPRESS the line — a trigger's gag. It is
-// consulted BEFORE the node is mounted, never after, so a gagged line was never in
-// the document at all: the find bar, the transcript, Read Aloud and the scrollback
-// cap all agree without any of them being told about gagging. Removing a mounted
-// node instead would leave four readers each holding a different idea of what the
-// log contains, and Read Aloud would have already queued the line it can no longer
-// see.
+// The observer is asked about every line BEFORE the node is mounted, never after.
+// So a gagged line was never in the document at all, and the find bar, the
+// transcript, Read Aloud and the scrollback cap all agree without any of them
+// being told that gagging exists. Removing a mounted node instead would leave
+// four readers with four ideas of what the log contains, and Read Aloud would
+// already have queued the line it can no longer see.
+//
+// The CLASS goes over with the text. This client has no ANSI colour and never
+// will — it has ~30 semantic classes (`msg-combat-incoming`, `msg-loot`,
+// `msg-say`, `msg-death`), which is the thing colour is a lossy proxy for on a
+// traditional MUD. A rule that can say "loot lines only" beats one matching a
+// colour somebody chose to stand for it, and costs one argument.
 let _lineObserver = null;
 export function setLineObserver(fn) { _lineObserver = fn; }
 
+// The verdict: `gag` hides the line, `panes` names windows to copy it into.
+//
+// `true` is still accepted and still means gag — that is what the contract was
+// before routing existed, and nothing gains by breaking it.
+//
 // ⚠ msg-system is NEVER gaggable, whatever a pattern says. That class is the
-// client talking to the player — including the message that says all their
-// triggers just got switched off for looping. A pattern broad enough to hide the
-// game's own explanation of what went wrong is a pattern that makes the client
-// unsupportable.
-// The CLASS is handed over with the text. This client has no ANSI colour and
-// never will — it has ~30 semantic classes (`msg-combat-incoming`, `msg-loot`,
-// `msg-say`, `msg-death`), which is the thing colour is a lossy proxy for on a
-// traditional MUD. A trigger that can say "loot lines only" is strictly better
-// than one matching a colour somebody chose, and costs one argument.
-function suppressed(text, cls) {
-  if (!_lineObserver) return false;
-  if (cls === 'system') return false;
+// client talking to the player — including the message saying all their triggers
+// just got switched off for looping. A pattern broad enough to hide the game's own
+// explanation of what went wrong makes the client unsupportable.
+function verdict(text, cls) {
+  if (!_lineObserver) return { gag: false, panes: null };
+  if (cls === 'system') return { gag: false, panes: null };
   // ⚠ Never let an observer throw on the append path. A bad pattern taking the
   // whole log down — every line, until a reload — is the failure this catch
   // exists for, and it is a failure a player can cause by typing.
-  try { return _lineObserver(text, cls) === true; }
-  catch { return false; }   // an observer's problem is not the log's
+  let v;
+  try { v = _lineObserver(text, cls); }
+  catch { return { gag: false, panes: null }; }   // an observer's problem is not the log's
+  if (v === true) return { gag: true, panes: null };
+  if (v && typeof v === 'object') return { gag: !!v.gag, panes: v.panes || null };
+  return { gag: false, panes: null };
+}
+
+// Where a routed copy goes. Registered rather than imported, same reasoning as
+// the observer: panes.js is UI and render.js should not know it exists.
+let _paneWriter = null;
+export function setPaneWriter(fn) { _paneWriter = fn; }
+
+function routeCopy(panes, text, cls) {
+  if (!panes || !_paneWriter) return;
+  try { _paneWriter(panes, text, cls); } catch { /* a pane's problem is not the log's */ }
 }
 
 // ── The state observer ──────────────────────────────────────────────────────
@@ -155,7 +173,12 @@ export function appendMsg(text, cls = '') {
   // wanting to READ something, and a log you saved to work out what happened
   // should not have holes in it where your own filters were.
   recordLine(text);
-  if (suppressed(text, cls)) return el;    // never mounted — see suppressed()
+  const v = verdict(text, cls);
+  // A routed copy is written even when the line is gagged from the main log —
+  // that combination ("send chat to its own window and keep it out of here") is
+  // the single commonest thing anybody wants routing FOR.
+  routeCopy(v.panes, text, cls);
+  if (v.gag) return el;                    // never mounted — see verdict()
   paintSpeech(el);
   paintHighlights(el);
   document.getElementById('output').appendChild(el);
@@ -170,7 +193,9 @@ export function appendHtml(html, cls = '') {
   // Triggers and the transcript see the TEXT of a rich line, never its markup — a
   // pattern should match what the player read, not the span soup it arrived in.
   recordLine(el.textContent);
-  if (suppressed(el.textContent, cls)) return el;
+  const v = verdict(el.textContent, cls);
+  routeCopy(v.panes, el.textContent, cls);
+  if (v.gag) return el;
   paintSpeech(el);
   paintHighlights(el);
   document.getElementById('output').appendChild(el);
@@ -178,9 +203,6 @@ export function appendHtml(html, cls = '') {
   // behind them. Mounted after the node is in the document so it can be measured.
   el.querySelectorAll('.mural-word').forEach(w => burnBehind(w));
   scrollOutput();
-  // Triggers see the TEXT of a rich line, never its markup — a pattern should
-  // match what the player read, not the span soup it happened to arrive in.
-  feedTriggerLine(el.textContent);
   return el;
 }
 

@@ -12,6 +12,7 @@ import { makeBudget, applyCaptures, compileRow, splitGag, splitChannel, splitPre
 import { waitForLine, offerLine, cancelAllWaits, pendingWaits } from '../../client/game/js/linewait.js';
 import { VAR_NAME_RE } from '../../client/game/js/variables.js';
 import { evaluate, evalBool, evalValue } from '../../client/game/js/expr.js';
+import { expandSpeedwalk } from '../../client/game/js/speedwalk.js';
 
 let passed = 0;
 function check(name, fn) {
@@ -423,6 +424,58 @@ check('the old numeric-comparison shape still means what it always did', () => {
   assert.equal(evalBool('hp != 42', R), false);
   assert.equal(evalBool('hp <> 41', R), true);
   assert.equal(evalBool('hp = 42', R), true);
+});
+
+console.log('\nspeedwalk');
+
+check('a count expands', () => {
+  assert.equal(expandSpeedwalk('3n'), 'north;north;north');
+  assert.equal(expandSpeedwalk('3n2e'), 'north;north;north;east;east');
+});
+
+check('an implied count of one works between counted runs', () => {
+  assert.equal(expandSpeedwalk('2nw'), 'northwest;northwest');
+  assert.equal(expandSpeedwalk('2n e'), null, 'a space means it is not a speedwalk');
+  assert.equal(expandSpeedwalk('2ne'), 'northeast;northeast');
+});
+
+check('two-letter directions beat one-letter ones', () => {
+  // Otherwise `ne` reads as `n` followed by a stranded `e`.
+  assert.equal(expandSpeedwalk('1ne'), 'northeast');
+  assert.equal(expandSpeedwalk('1n1e'), 'north;east');
+});
+
+check('⚠ `use` IS NOT A SPEEDWALK — the trap the digit rule exists for', () => {
+  // u-s-e are all direction letters. The naive "only direction letters" test
+  // turns a verb people type constantly into up-south-east.
+  assert.equal(expandSpeedwalk('use'), null);
+  assert.equal(expandSpeedwalk('sew'), null);
+  assert.equal(expandSpeedwalk('wed'), null);
+  assert.equal(expandSpeedwalk('dune'), null);
+  assert.equal(expandSpeedwalk('sun'), null);
+});
+
+check('a bare direction is left to the server alias', () => {
+  assert.equal(expandSpeedwalk('n'), null);
+  assert.equal(expandSpeedwalk('nnn'), null, 'digitless, so not a speedwalk');
+});
+
+check('anything with a non-direction character is not one', () => {
+  assert.equal(expandSpeedwalk('2n orc'), null);
+  assert.equal(expandSpeedwalk('get all'), null);
+  assert.equal(expandSpeedwalk('3x'), null);
+  assert.equal(expandSpeedwalk('look'), null);
+});
+
+check('a runaway count is refused rather than walked', () => {
+  // 99n is a typo far more often than an intention, and the honest answer to a
+  // typo is to do nothing — it falls through and the server says so.
+  assert.equal(expandSpeedwalk('99n'), null);
+  assert.equal(expandSpeedwalk('0n'), null);
+});
+
+check('a trailing digit with no direction is refused', () => {
+  assert.equal(expandSpeedwalk('3n2'), null);
 });
 
 console.log('\nconfig sync (the arrival rule)');

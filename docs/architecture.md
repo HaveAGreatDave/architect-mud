@@ -4,6 +4,19 @@
 
 **No one touches code to create content.** World builders, writers, and designers work entirely through the dev panel — a browser-based world editor. The codebase is the engine. The content (zones, items, enemies, NPCs) is data living in Postgres. These two things stay separate: publishing a zone edit never requires a deploy.
 
+### The two names
+
+The separation above has names on both sides of it.
+
+| | Name | What it is | Where it lives |
+|---|---|---|---|
+| Platform | **THOMAS** | The Hypermedia Online Multiplayer Adventure System — the client and engine | `client/`, `server/engine/`, the dev panel, the plugin loader, the CODEX pipeline |
+| Game | **Architect** (Architect MUD) | One game built on THOMAS | Postgres + `content/` — Coldwater, the Basin, the orders, the prose |
+
+THOMAS is a **platform**, not this game's front end: with modification — through the dev panel, which is the surface built for it — somebody could stand up a **different MUD** on the same engine and client. That possibility is the reason the guiding principle is a rule rather than a preference. Every piece of Coldwater that ends up hardcoded in an engine or client file is a thing a second game would have to unpick, so "engine vs. content are separate" is not tidiness — it is what keeps THOMAS reusable.
+
+⚠ The name appears nowhere in the codebase except the dev panel's boot splash, so a grep suggests it names the dev panel. It names the platform the splash is booting.
+
 ---
 
 ## Stack Overview (As Built)

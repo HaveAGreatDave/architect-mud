@@ -32,11 +32,12 @@
 // Guard 3 disables rather than throttles on purpose. A throttled runaway is still
 // a runaway — it just spams the server slowly and forever, and the player has no
 // idea why the game is behaving strangely.
-import { appendMsg, setLineObserver, setStateObserver } from './render.js';
+import { appendMsg, setLineObserver, setStateObserver, setPaneWriter } from './render.js';
 import { runMacro } from './panels/smartbar-macros.js';
 import { state } from './state.js';
 import { makeBudget, applyCaptures, compileRow, splitPrefixes } from './automation-guards.js';
 import { offerLine, cancelAllWaits } from './linewait.js';
+import { writeToPanes, reconcilePanes } from './panes.js';
 import { evalBool, isWellFormed } from './expr.js';
 import { registerConfig, markConfigDirty } from './configsync.js';
 
@@ -150,9 +151,10 @@ export function feedTriggerLine(text, cls) {
   _seq++;
   _recent.push({ text: line, cls, seq: _seq });
   if (_recent.length > WINDOW) _recent.shift();
-  if (!_triggers.length) return false;
+  const routed = routeFor(line, cls);
+  if (!_triggers.length) return routed ? { gag: routed.gag, panes: routed.panes } : false;
   const now = Date.now();
-  let gag = false;
+  let gag = routed ? routed.gag : false;
   for (const t of _triggers) {
     if (t.broken) continue;
     // A gag-only trigger runs no commands, so it cannot loop: it is exempt from
@@ -183,7 +185,7 @@ export function feedTriggerLine(text, cls) {
     if (inert) continue;                       // nothing to run
     const cool = Number(t.cooldownMs) || DEFAULT_COOLDOWN_MS;
     if (now - (_lastFire.get(t.id) || 0) < cool) continue;
-    if (!_budget.allow()) { disableAllTriggers('too many fired at once (a loop)'); return gag; }
+    if (!_budget.allow()) { disableAllTriggers('too many fired at once (a loop)'); return { gag, panes: routed ? routed.panes : null }; }
     _lastFire.set(t.id, now);
     fire(applyCaptures(t.cmds, m), `trigger:${t.pattern}`);
     // A one-shot retires from the STORE, not just from this pass — same rule as
@@ -191,7 +193,7 @@ export function feedTriggerLine(text, cls) {
     // fire on a line nobody connected to it.
     if (t.once) saveTriggers(loadTriggers().filter(x => x.id !== t.id));
   }
-  return gag;
+  return (routed || gag) ? { gag, panes: routed ? routed.panes : null } : false;
 }
 
 // The one place every automation path ends up, so the re-entrancy depth is
@@ -203,6 +205,105 @@ function fire(cmds, label) {
   Promise.resolve(runMacro(cmds, { depth: 0, stack: [label], shared }))
     .catch(() => {})
     .finally(() => { _depth = Math.max(0, _depth - 1); });
+}
+
+// ── Output routing ──────────────────────────────────────────────────────────
+//
+// `route @say = Chat` copies every `say` line into a pane called Chat.
+// `route @say = Chat only` moves it there instead — out of the main log.
+//
+// Reuses the trigger grammar exactly (pattern on the left, `@channel`/`#group`
+// prefixes, `/regex/`), because a route is a trigger whose action is "put it over
+// there". The right-hand side is a pane NAME rather than a script, which is the
+// only difference and is why it gets its own store rather than a flag on a
+// trigger row: a rule that both fires commands and moves a line would need two
+// grammars on one side of the `=`.
+const R_KEY = 'architect_routes';
+export function loadRoutes() { return loadJson(R_KEY); }
+function saveRoutes(list) {
+  saveJson(R_KEY, list);
+  compileRoutes();
+  markConfigDirty('routes');
+  reconcilePanes(loadRoutes().map(r => r.pane));
+}
+
+let _routes = [];
+function compileRoutes() {
+  _routes = loadRoutes().filter(r => r.enabled !== false).map(compileRow).filter(Boolean);
+}
+compileRoutes();
+
+// Returns { panes, gag } for one line. Cheap and never throws — same path as
+// triggers, same rules.
+function routeFor(line, cls) {
+  if (!_routes.length) return null;
+  let panes = null, gag = false;
+  for (const r of _routes) {
+    if (r.broken) continue;
+    let m = null;
+    try { m = r.test(line, cls); } catch { continue; }
+    if (!m) continue;
+    (panes ||= []).push(r.pane);
+    if (r.only) gag = true;
+  }
+  return panes ? { panes, gag } : null;
+}
+
+export function runRouteCommand(rest) {
+  const arg = String(rest || '').trim();
+  const list = loadRoutes();
+  if (!arg) {
+    if (!list.length) {
+      appendMsg('No routes. These copy matching lines into their own small window:\n'
+        + '  route @say = Chat          · a copy, the line stays in the log\n'
+        + '  route @say = Chat only     · moves it, out of the log\n'
+        + '  route off @say             · stop routing', 'system');
+      return;
+    }
+    appendMsg(`${list.length} route(s):\n` + list.map(r =>
+      `  ${r.channel ? '@' + r.channel + ' ' : ''}${r.pattern || '(any line)'}`
+      + `${r.enabled === false ? ' (off)' : ''}  →  ${r.pane}${r.only ? ' only' : ''}`).join('\n'), 'system');
+    return;
+  }
+  if (/^(off|clear)\s+all$/i.test(arg) || /^clear$/i.test(arg)) {
+    saveRoutes([]);
+    appendMsg(list.length ? `Removed ${list.length} route(s).` : 'There were none.', 'system');
+    return;
+  }
+  let m = arg.match(/^off\s+(.+)$/i);
+  if (m) {
+    const { pattern, channel } = parsePattern(m[1]);
+    const row = list.find(r => (r.pattern || '').toLowerCase() === pattern.toLowerCase()
+      && (!channel || (r.channel || null) === channel));
+    if (!row) { appendMsg(`No route matching "${pattern}".`, 'system'); return; }
+    saveRoutes(list.filter(r => r.id !== row.id));
+    appendMsg(`Route removed: ${row.pane}`, 'system');
+    return;
+  }
+  const eq = arg.indexOf('=');
+  if (eq === -1) {
+    appendMsg('Usage: route [@channel] <pattern> = <Pane> [only]   ·   route off <pattern>   ·   route clear', 'system');
+    return;
+  }
+  const { pattern, regex, channel } = parsePattern(arg.slice(0, eq));
+  let dest = arg.slice(eq + 1).trim();
+  const only = /\bonly$/i.test(dest);
+  if (only) dest = dest.replace(/\s*only$/i, '').trim();
+  if ((!pattern && !channel) || !dest) { appendMsg('A pattern and a pane name are needed.', 'system'); return; }
+  // A pane name is a label on a window, so it stays short and printable rather
+  // than being an identifier — it is read, never typed at a command.
+  if (dest.length > 24) { appendMsg('That pane name is too long (24 characters).', 'system'); return; }
+  if (regex) {
+    try { new RegExp(pattern, 'i'); }
+    catch (e) { appendMsg(`That regex doesn't compile: ${e.message}`, 'system'); return; }
+  }
+  const same = (r) => (r.pattern || '').toLowerCase() === pattern.toLowerCase()
+    && (r.channel || null) === (channel || null);
+  const without = list.filter(r => !same(r));
+  without.push({ id: genId('r'), pattern, regex, channel, pane: dest, only, enabled: true });
+  saveRoutes(without);
+  appendMsg(`Routing ${channel ? '@' + channel + ' ' : ''}${pattern || '(any line)'} → ${dest}`
+    + `${only ? ' (moved out of the log)' : ' (copied)'}`, 'system');
 }
 
 // ── State triggers ──────────────────────────────────────────────────────────
@@ -369,6 +470,8 @@ export function initAutomation() {
   // Register rather than let render.js import this file — see setLineObserver().
   setLineObserver(feedTriggerLine);
   setStateObserver(feedPlayerState);
+  setPaneWriter(writeToPanes);
+  reconcilePanes(loadRoutes().map(r => r.pane));
 
   // ⚠ `replace` writes the raw store WITHOUT going through the save helpers,
   // then does the same side effects by hand. Calling saveTriggers() here would
@@ -385,6 +488,10 @@ export function initAutomation() {
   registerConfig('timers', {
     load: loadTimers,
     replace: (p) => { saveJson(M_KEY, Array.isArray(p) ? p : []); syncTimers(); },
+  });
+  registerConfig('routes', {
+    load: loadRoutes,
+    replace: (p) => { saveJson(R_KEY, Array.isArray(p) ? p : []); compileRoutes(); reconcilePanes(loadRoutes().map(r => r.pane)); },
   });
   registerConfig('state_rules', {
     load: loadStateTriggers,

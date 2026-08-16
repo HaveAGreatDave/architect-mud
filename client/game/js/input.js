@@ -21,7 +21,8 @@ import { runAccessibilityCommand } from './a11y-command.js';
 import { shush } from './logreader.js';
 import { completeInput, resetCompletion } from './complete.js';
 import { runHighlightCommand, openFindBar, exportTranscript } from './logtools.js';
-import { runTriggerCommand, runAliasCommand, runTimerCommand, runStateCommand, expandAlias, stopAllTimers, cancelWaits } from './automation.js';
+import { runTriggerCommand, runAliasCommand, runTimerCommand, runStateCommand, runRouteCommand, expandAlias, stopAllTimers, cancelWaits } from './automation.js';
+import { expandSpeedwalk } from './speedwalk.js';
 import { runVarsCommand } from './varscommand.js';
 // The verbs whose arguments are a sentence a human wrote. Imported rather than
 // restated: command stacking needs exactly the judgement this list already makes,
@@ -116,6 +117,11 @@ export function handleClientCommand(cmd, { saveOrigin, notify } = {}) {
   // surface with two grammars.
   if (lower === 'on' || lower.startsWith('on ')) {
     runStateCommand(cmd.replace(/^\S+\s*/, ''));
+    return true;
+  }
+  if (lower === 'route' || lower.startsWith('route ') ||
+      lower === 'routes' || lower.startsWith('routes ')) {
+    runRouteCommand(cmd.replace(/^\S+\s*/, ''));
     return true;
   }
   if (lower === 'vars' || lower.startsWith('vars ')) {
@@ -219,7 +225,14 @@ export function submitCommand(cmd) {
   // script, and routing both through one path means an alias and a macro cannot
   // drift apart in what they support.
   const aliased = expandAlias(line);
-  const effective = aliased === null ? line : aliased;
+  let effective = aliased === null ? line : aliased;
+  // Speedwalk expands AFTER aliases, so an alias may produce one, and BEFORE the
+  // stacking test, because what it produces is a stack. `3n2e` → `north;north;
+  // north;east;east`, which then walks through the ordinary runner with its
+  // ordinary pacing — the same path a macro takes, so movement resolves
+  // room-by-room rather than being fired at the server all at once.
+  const walked = expandSpeedwalk(effective);
+  if (walked) effective = walked;
   if (isStacked(effective)) { runMacro(effective, null); return; }
   const single = effective.replace(/;;/g, ';');
   if (handleClientCommand(single, _submitOpts)) return;
