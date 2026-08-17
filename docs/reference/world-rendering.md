@@ -269,6 +269,115 @@ model or you'll get two.
    a separate building tile or, as with the airport, folded into the `hangar` model that already
    sits on the field.
 
+## Street actors — the people on the pavement (as built)
+
+The world pass draws a figure for every person actually standing on that tile. **1:1, and
+deliberately so** — there is no procedural crowd and there must never be one. A filler figure is a
+person you cannot walk up to, and the worth of the layer is that everything you can see is a thing
+you could go and talk to. An empty street is drawn as an empty street; the fix for a quiet city is
+more NPCs, not more sprites.
+
+**Path.** `streetActors()` ([server/engine/street-actors.js](../../server/engine/street-actors.js))
+→ `actors: [{ t, x, y }]` on `flight_ctx` ([contextPayload](../../plugins/flight/state.js)) and
+`truck_ctx` ([cabContext](../../plugins/trucking/state.js)) → `F.actors` / `st.actors` → `v.actors`
+→ `drawStreetActors` in [windshield.js](../../client/game/js/panels/windshield.js), run after the
+tile loop and **before `flushFaces`** so each figure queues at its own depth and a building between
+you and somebody hides them.
+
+Four things worth knowing before touching it.
+
+**Indoors is ABSENCE, not a flag.** An interior is its own map (`maps.parent_zone_id`) with
+interior-local coordinates, so somebody inside a shop has no overworld tile and falls out of the
+filter with nothing written to handle it. Two consequences: "went inside" needed no special case
+anywhere, and we never ship a count of who is in a building — which would be a free occupancy read
+on any premises in the city, from a street away, and is SPECTER's job
+([systems-surveillance.md](../systems-surveillance.md)).
+
+**⚠ The token is a correlator, not an identity.** NPCs move on a 15 s tick, one whole tile per
+step, so the raw feed teleports; the client interpolates that into a walk, and to do it at all it
+must know the figure at A is the figure at B. Ship the npc id and you have instead built a live
+position tracker on every named NPC in the city, readable with no camera and no skill check. `t` is
+a truncated hash under a boot-minted salt — stable within a session, meaningless across a restart,
+and it never resolves back to a name. Regress asserts no token is ever an entity id.
+
+**⚠ A pedestrian is drawn and is never geometry.** Nothing in this layer reaches
+`groundObstructionAt`, the CFIT sweep or `SHAPE_SINK`, and it must stay that way: the trucking model
+deliberately has *no* ground collision (the verge is slow, past the half-width you are bogged, never
+blocked — see [systems-trucking.md](../systems-trucking.md)), so a collidable pedestrian would put a
+wall into the one system whose whole design is that there isn't one. You drive through them. Kerb
+placement comes from the cell's own `rd` connector letters, with the side held per-figure off the
+token so nobody hops kerbs mid-block.
+
+**The figure is an abstraction, not a small human.** A head on a body, no limbs. At the size this
+draws, legs are a pixel wide and read as jitter; motion is carried entirely by the bob. Height-gated
+(`v.height < 0.22`), so it really lives in the truck cab and on low passes.
+
+**Going 1:1 made `zone.npcs` drift visible, and that is what finally got it swept.** The set had no
+reconciler for years because drift in it showed as *nothing* — `getZoneNpcs` filters ids it cannot
+hydrate. Drawing a figure per occupant turned the same drift into the same person on two street
+corners, so `reconcileNpcMembership()` ([world.js](../../server/engine/world.js)) now rides the same
+30 s tick as the player sweep and repairs **both** directions: stale memberships (the half that
+duplicates somebody on screen) as well as missing ones. ⚠ It believes `npc.zone_id`, so it fixes a
+drifted set and is blind to a wrongly-written field — `moveNpcToZone` is still the only funnel (see
+[systems-strays.md](../systems-strays.md)).
+
+Coverage: `shapes:smoke`'s view sweep cycles four actor frames (arrive → walk → vanish beside a
+building → appear), and the flight regress suite asserts the 1:1 count, the opaque token, the square
+window, the empty-is-a-real-answer case and the indoors exclusion.
+
+## Street furniture — pavement, crossings, lamps, signals (as built)
+
+All four are **derived from data the tile already carries**. Nothing was authored for any of it.
+
+**Pavement and crossings** are painted in `drawGroundSurfaces` off the cell's `rd` connector letters
+— the same field the lane markings read. ⚠ The band sits at **`VERGE`, the one constant the street
+actors also stand on**; they must never become two numbers that agree by luck, or the figures walk
+in the gutter and neither change looks like the cause. A junction is a *hole* in the pavement (arms
+run corner-inward and stop short) so the box stays clear and the zebra ladders have somewhere to
+sit. Curved (`rdeg`) and dust roads get neither, matching the existing kerb-stroke suppression.
+
+**Street lamps** are the real thing: `sl` on the cell is a live `light_type:'streetlight'` furniture
+row, lit or unlit by `environment.js` against ambient darkness **and** grid power. Nothing in the
+renderer decides whether a lamp is on — it draws the answer the light system already published, so
+a blackout darkens the street out the windscreen at the same instant it darkens the rooms, with no
+second rule to keep in step. ⚠ `sl` is **three states** (1 lit / 0 dark / absent) because an unlit
+post is still street furniture; collapsing "off" into "absent" would pop every lamp in the city out
+of existence at dawn.
+
+**Traffic signals** stand at each arm of a junction. Two things to know:
+
+- ⚠ **The phase lives in [client/shared/traffic.js](../../client/shared/traffic.js), not here**,
+  because the text game prints a sentence about the same junction ([describe.js](../../server/engine/commands/describe.js)).
+  A driver who reads "green north-south" and then sees red has been lied to by whichever copy
+  drifted. It is derived from the wall clock plus a per-junction offset, so two players agree with
+  no server state and no table.
+- ⚠ **The text side derives junctions from EXITS, not from the `road_*` icon.** Exactly **one** tile
+  in the whole world has an authored junction icon — every other junction is auto-tiled — so an
+  icon-based test ships a feature that passes and is invisible forever. The engine's own exit graph
+  is used instead (a road tile with ≥3 road neighbours), which also keeps the flight plugin's
+  coordinate index out of the engine.
+
+**A signal is set dressing and the code says so in both files.** Nothing obeys it: no verb reads it,
+the truck is not stopped by one, NPCs do not cross roads. It is deliberately never given a stop
+line, a camera or a ticket, and it goes **dark** rather than flashing amber in a blackout — a
+flashing signal is a real-world instruction to treat the junction as a stop, and this system
+enforces nothing.
+
+⚠ **Two sizing traps, both of which shipped silently in a first pass.** `drawSignalHead`/
+`drawStreetLamp` scale off `s = K / p.f`, and **`p.f` is projection space, not tile distance** — a
+junction two tiles ahead measures `s ≈ 2.5`, not `4.5`. A halo gated at `s > 3` therefore never drew
+at any distance, which looked like "the lights aren't very bright" rather than a dead branch. And
+calibrate `K` against the billboards already in the world (`drawTreeBB` 34, `drawActorFigure` 11)
+rather than picking a number: a first pass used 9 for a signal head and it came out the size of a
+pedestrian's head — plausible at a glance, and half what it should have been.
+
+Coverage: the `shapes:smoke` view sweep includes a **`cab:blackout`** case (`pw: 0`) so the
+power-cut branch is executed, and its map carries a crossroads placed **off the centre tile** — the
+centre is the camera's own position and near-clips, so a junction at `(R,R)` exercises none of the
+signal code while appearing to. The regress suite asserts the phase invariants (the two axes are
+never both green, opposite arms agree, a full cycle shows all three) and that the **real world map
+contains junctions by the exit rule**.
+
 ## Gotchas
 
 - **No cache-busting on assets.** Scripts load as ES modules; asset URLs never change. `server/index.js`

@@ -38,6 +38,7 @@ import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
 
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
@@ -6077,6 +6078,362 @@ const WP_ACCENT_TILE = '255,92,176';
 // A waypoint label floats over sky, cloud OR ground — any background — so it can't rely on its
 // fill colour alone. This is the legibility "modifier": a dark contrast halo (stroke) under a bright
 // core, the same trick the neon signs use (bakeSignText). Background-independent by construction —
+// ── STREET ACTORS: the people, 1:1 ────────────────────────────────────────────────────────────
+//
+// Every figure on the pavement is a real occupant of that tile — an NPC or another player the
+// server put there. There is no procedural crowd and there must never be one: a filler figure is
+// a person you cannot walk up to, and the entire worth of this layer is that everything you can
+// see is a thing you could go and talk to. An empty street is drawn as an empty street.
+//
+// The server ships 'actors: [{ t, x, y }]' alongside the map window, in absolute tile coords,
+// where 't' is an opaque correlator (see server/engine/street-actors.js). Anyone indoors is
+// simply absent from the list — an interior is its own map with no overworld coordinates — so
+// 'went inside' needs no flag and no special case anywhere in here.
+//
+// THE ONE INVENTED THING IS TIME. NPCs move on a 15-second tick, one whole tile per step, so the
+// raw feed teleports. Everything below exists to turn that into a walk: hold the last known
+// position per token, and when the token's tile changes, walk it there over WALK_MS. That is the
+// only fiction in the layer and it is a fiction about pacing, never about who is present.
+const ACTORS = new Map();   // token -> { ax, ay, bx, by, t0, side, born, gone }
+let _actorSrc = null;       // identity of the last payload array — see syncStreetActors
+const WALK_MS = 3400;       // a tile-crossing. Under the 15 s NPC tick on purpose: the pause that
+                            // leaves reads as somebody stopping at a window, which is what people
+                            // on a pavement do. Interpolating over the full 15 s instead would need
+                            // the runner to lag a whole tick behind to know where it was going.
+const FADE_MS = 900;        // a doorway swallowing somebody, or a figure reaching the window edge
+const VERGE = 0.38;         // how far off the tile centre the kerb is. Under half a tile, so a
+                            // figure is always inside its own tile and never straddles the lane.
+
+// A stable 0..1 from a token. Every per-figure constant — which side of the street they walk, their
+// gait phase, their build — comes from this rather than from Math.random, so a figure keeps its
+// identity across frames and across a map recentre, exactly as building seeds do.
+function actorHash(t, k) {
+  let h = 0x811c9dc5 ^ k;
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return (h >>> 8) / 0x1000000;
+}
+
+// Ingest one server payload. Called per frame but does real work only when the array IDENTITY
+// changes, which is once per push — a fresh array arrives from JSON every time, so this is a
+// reliable edge without a sequence number to keep in step.
+function syncStreetActors(list, now) {
+  if (!list || list === _actorSrc) return;
+  _actorSrc = list;
+  const seen = new Set();
+  for (const a of list) {
+    if (!a || !a.t) continue;
+    seen.add(a.t);
+    const held = ACTORS.get(a.t);
+    if (!held) {
+      // Somebody new in view: walked in from beyond the window, stepped out of a doorway, or the
+      // whole window just recentred onto them. Fade in where they stand rather than sliding them
+      // from an origin we would have to invent.
+      ACTORS.set(a.t, { ax: a.x, ay: a.y, bx: a.x, by: a.y, t0: now - WALK_MS, side: actorHash(a.t, 1) < 0.5 ? -1 : 1, born: now, gone: 0 });
+      continue;
+    }
+    held.gone = 0;                                   // reappeared before their fade-out finished
+    if (held.bx === a.x && held.by === a.y) continue;  // same tile: standing about
+    // A step. Start the new leg from where they are RIGHT NOW, not from the tile they were last
+    // reported on — mid-walk those differ, and using the reported tile would snap them backward
+    // before setting off again.
+    const p = actorPos(held, now);
+    held.ax = p.x; held.ay = p.y; held.bx = a.x; held.by = a.y; held.t0 = now;
+  }
+  // Anybody held but no longer sent has left the surface grid: through a door, off the window edge,
+  // or dead. Start their fade; the draw pass walks them at a doorway if there is one to walk to.
+  for (const [t, h] of ACTORS) {
+    if (seen.has(t)) continue;
+    if (!h.gone) h.gone = now;
+    else if (now - h.gone > FADE_MS + WALK_MS) ACTORS.delete(t);
+  }
+}
+
+// Where a figure is this instant, in absolute tile coords. Eased rather than linear so a step has
+// a push-off and a settle instead of the constant-velocity slide that reads as a chess piece.
+function actorPos(h, now) {
+  const t = clamp((now - h.t0) / WALK_MS, 0, 1), e = smoothstep(t);
+  return { x: h.ax + (h.bx - h.ax) * e, y: h.ay + (h.by - h.ay) * e, moving: t < 1 };
+}
+
+// THE KERB. A figure is never in the carriageway — you drive down the middle of these streets.
+// The cell's own road-connector letters give the axis (the same 'rd' the lane markings are painted
+// from), so a N-S street pushes people out along x and an E-W street along y. Which side is held
+// for the figure's lifetime off its token, so nobody hops kerbs mid-block. A junction carries both
+// axes and would otherwise pick per-frame, so it falls back to the figure's own side bit.
+//
+// This is placement only. A pedestrian is DRAWN and is never geometry — nothing here reaches
+// groundObstructionAt, the CFIT sweep or SHAPE_SINK, and it must stay that way: the trucking model
+// deliberately has no ground collision at all (the verge is slow, past the half-width you are
+// bogged, never blocked), so a collidable pedestrian would put a wall into the one system whose
+// whole design is that there isn't one. You drive through them.
+function vergeOffset(cell, h, t) {
+  const rd = cell && cell.rd || '';
+  const ns = rd.includes('n') || rd.includes('s'), ew = rd.includes('e') || rd.includes('w');
+  if (ns && !ew) return { ox: VERGE * h.side, oy: (actorHash(t, 2) - 0.5) * 0.5 };
+  if (ew && !ns) return { ox: (actorHash(t, 2) - 0.5) * 0.5, oy: VERGE * h.side };
+  if (ns && ew) return { ox: VERGE * h.side, oy: VERGE * (actorHash(t, 3) < 0.5 ? -1 : 1) };   // junction: corner, not crossing
+  // Off-road tile (a yard, a forecourt, open ground): no kerb to hug, so just a stable nudge off
+  // dead centre. Never zero, or two people on one tile would occupy the same pixel column.
+  return { ox: (actorHash(t, 2) - 0.5) * 0.6, oy: (actorHash(t, 3) - 0.5) * 0.6 };
+}
+
+// The nearest neighbouring building to a tile, as a unit direction, or null. This is the doorway
+// beat: a figure who leaves the feed beside a shop walks INTO the shop rather than evaporating on
+// the pavement. Adjacency is exactly right rather than an approximation — isEnterableFacade
+// auto-forwards a mover into the interior, so an NPC's last standing tile is always the one BESIDE
+// the door, never the door tile itself.
+function doorwayDir(map, R, wcx, wcy, x, y) {
+  const rx = Math.round(x - wcx) + R, ry = Math.round(y - wcy) + R;
+  for (const [ddx, ddy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+    const row = map[ry + ddy]; const c = row && row[rx + ddx];
+    if (c && c.bt) return { dx: ddx, dy: ddy };
+  }
+  return null;
+}
+
+// One person: a head on a body, and nothing else. No limbs at all.
+//
+// This is an ABSTRACTION rather than a small model of a human, and the restraint is the whole
+// point. At the size this actually draws — a handful of pixels at the near end of a street — legs
+// are a pixel wide and read as jitter rather than as walking, so they buy noise and cost the
+// silhouette. A rounded body under a round head reads as A PERSON at four pixels, which is the bar,
+// and it never starts making promises about detail the layer cannot keep at forty.
+//
+// Motion is carried entirely by the BOB. A body that rises and falls is walking; a body that holds
+// still is standing. That one number does the job the legs were there to do, and does it at any
+// size.
+function drawActorFigure(ctx, cam, dx, dy, alpha, t, phase, moving, night) {
+  const p = cam.proj(dx, dy, 0);
+  if (!p || p.f <= 0.12) return;
+  const s = clamp(11 / p.f, 1.1, 26);            // whole-figure height in px
+  if (s < 1.3) return;                            // sub-pixel: nothing legible to draw
+  const nm = night ? 0.62 : 1;
+  const warm = actorHash(t, 4);
+  const coat = fogTint([(46 + warm * 60) * nm, (48 + warm * 34) * nm, (58 + warm * 26) * nm], p.f);
+  const skin = fogTint([(122 + warm * 60) * nm, (96 + warm * 46) * nm, (84 + warm * 40) * nm], p.f);
+  const bob = moving ? Math.abs(Math.sin(phase)) * s * 0.06 : 0;
+  const x = p.sx, base = p.sy - bob;
+  const hr = Math.max(0.7, s * 0.16);             // head radius
+  const bw = Math.max(1, s * 0.34), bh = s * 0.62;   // body: a little taller than it is wide
+  ctx.globalAlpha = alpha;
+  // The body. An ellipse rather than a box, so the shoulders round off and the shape stops reading
+  // as a fence post at the sizes where it is only a few pixels across.
+  ctx.fillStyle = rgb(coat);
+  ctx.beginPath(); ctx.ellipse(x, base - bh * 0.5, bw * 0.5, bh * 0.5, 0, 0, 7); ctx.fill();
+  // The head, sitting just proud of the body so the two read as two shapes and not one blob.
+  ctx.fillStyle = rgb(skin);
+  ctx.beginPath(); ctx.arc(x, base - bh - hr * 0.62, hr, 0, 7); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+// The whole street-actor pass, run once after the tile loop and BEFORE flushFaces, so each figure
+// queues at its own depth into the shared face sink and a building between you and somebody
+// correctly hides them. Driven off the actor list rather than the tile list, because a figure
+// mid-step is at a fractional position between two tiles and belongs to neither.
+function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
+  syncStreetActors(v.actors, now);
+  if (!ACTORS.size || !map) return;
+  for (const [t, h] of ACTORS) {
+    const p = actorPos(h, now);
+    let px = p.x, py = p.y, fade = 1;
+    // Fading out. If there is a building next door, walk them into its wall over the fade and let
+    // them vanish there; that IS what happened. With nothing to walk into (they left the window,
+    // or died) they simply fade where they stood — inventing a door would be a lie about a beat
+    // the player can check by driving round the block.
+    if (h.gone) {
+      const gt = clamp((now - h.gone) / FADE_MS, 0, 1);
+      fade = 1 - gt;
+      if (fade <= 0.02) continue;
+      const d = doorwayDir(map, R, wcx, wcy, h.bx, h.by);
+      if (d) { px += d.dx * 0.5 * gt; py += d.dy * 0.5 * gt; }
+    } else if (now - h.born < FADE_MS) {
+      fade = clamp((now - h.born) / FADE_MS, 0, 1);
+    }
+    const rx = Math.round(px - wcx) + R, ry = Math.round(py - wcy) + R;
+    const row = map[ry]; const cell = row && row[rx];
+    if (!cell || cell.kind === 'air') continue;       // off the edge of the window the client holds
+    const { ox, oy } = vergeOffset(cell, h, t);
+    const dx = (px + ox - wcx) - cam.ox, dy = (py + oy - wcy) - cam.oy;
+    const f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    // Same thin far-edge dissolve the buildings use, so a figure ghosts up out of the haze with
+    // the street it is standing in rather than popping in crisp against a fogged block.
+    const a = fade * smoothstep((FAR - f) / 5) * (v.worldBlend ?? 1);
+    if (a <= 0.03) continue;
+    // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
+    const phase = now * 0.011 + actorHash(t, 5) * 7;
+    emitFace(f + (cam.back || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night));
+  }
+}
+
+// ── TRAFFIC SIGNALS ───────────────────────────────────────────────────────────────────────────
+//
+// A signal head on a post at each arm of a junction, cycling green → amber → red.
+//
+// The phase itself lives in client/shared/traffic.js, imported at the top of this file, because
+// the TEXT game prints a sentence about the same junction and the two must never disagree — a
+// driver who reads "the signals show green" and then sees red has been lied to by whichever copy
+// drifted. See that file for why the phase is derived from the clock and why the light is
+// deliberately set dressing that nothing enforces.
+const SIGNAL_COL = { g: [86, 214, 108], a: [232, 178, 52], r: [226, 66, 58] };
+
+// One head: a short dark post with three stacked lamps, the live one lit and haloed. Drawn at the
+// junction corner on the near side of its arm, facing the traffic it governs.
+function drawSignalHead(ctx, cam, dx, dy, lamp, alpha, night) {
+  const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.2);
+  if (base.f <= 0.1 || top.f <= 0.1) return;
+  // Scale is calibrated against the billboards that already sit in this world rather than picked
+  // out of the air: drawTreeBB uses 34/f for a tree, drawActorFigure 11/f for a person. A signal
+  // head on its post is about half a tree, so 18. A first pass used 9 and the heads came out at
+  // roughly the size of a pedestrian's head — visible, plausible at a glance, and quietly half the
+  // size of the thing they were meant to be.
+  const s = clamp(18 / top.f, 1.2, 30);
+  if (s < 1.6) return;                       // too far to resolve three lamps: drawing one is a lie
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = 'rgba(38,42,50,0.9)'; ctx.lineWidth = Math.max(0.8, s * 0.12);
+  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();   // post
+  const r = Math.max(0.6, s * 0.16), hx = top.sx, hy = top.sy;
+  ctx.fillStyle = 'rgba(26,29,35,0.92)';
+  ctx.fillRect(hx - r * 1.5, hy - r * 5.4, r * 3, r * 6.4);                                   // the housing
+  for (let i = 0; i < 3; i++) {
+    const key = i === 0 ? 'r' : i === 1 ? 'a' : 'g', on = lamp === key, col = SIGNAL_COL[key];
+    const ly = hy - r * 4.2 + i * r * 2;
+    // A dark lamp is the housing colour with a hint of its own, not a dimmed bright one — an unlit
+    // red that still reads red makes all three look lit at the sizes this actually draws at.
+    ctx.fillStyle = on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`;
+    ctx.beginPath(); ctx.arc(hx, ly, r * 0.72, 0, 7); ctx.fill();
+    // A halo, and only when there are pixels to spend on one. ⚠ The threshold is in `s` (the head's
+    // on-screen size), NOT in tiles — and `p.f` is projection-space, not tile distance, so it runs
+    // well ahead of the tile count: a junction two tiles up measures s≈2.5, not 4.5. A first pass
+    // gated this at 3 and the halo therefore never drew at any distance at all, which looked exactly
+    // like "the lights just aren't very bright" rather than like a dead branch.
+    if (on && s > 2) {
+      const g = ctx.createRadialGradient(hx, ly, 0, hx, ly, r * 2.6);
+      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${0.32 + night * 0.34})`);
+      g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, ly, r * 2.6, 0, 7); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── STREET LAMPS ──────────────────────────────────────────────────────────────────────────────
+//
+// A lamp post standing on the pavement, with a head cantilevered out over the carriageway.
+//
+// These are NOT invented: `sl` on the cell is a real `light_type:'streetlight'` furniture row that
+// has been in the world all along, lit or unlit by environment.js against ambient darkness AND
+// grid power. Nothing here decides whether a lamp is on — it draws the answer the light system
+// already published, which is why a blackout puts the street into the dark out the windscreen at
+// exactly the moment it puts the rooms into the dark, with no second rule to keep in step.
+//
+// The post is drawn whether the lamp is lit or not, because an unlit post is still street
+// furniture you can see. Collapsing "off" into "absent" would make every lamp in the city pop out
+// of existence at dawn.
+function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
+  const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.34);
+  if (base.f <= 0.1 || top.f <= 0.1) return;
+  // Calibrated against the same billboards the signal heads are: a lamp standard is taller than a
+  // signal and about two-thirds of a tree. See drawSignalHead for why this is measured in `s`.
+  const s = clamp(24 / top.f, 1.2, 34);
+  if (s < 1.4) return;
+  // The head reaches OUT over the road. `inward` is the unit vector from the kerb toward the
+  // centreline, so a lamp lights the carriageway it is standing beside rather than the wall behind
+  // it — which is the whole visual difference between a streetlight and a fence post.
+  const armEnd = cam.proj(dx + inward[0] * 0.16, dy + inward[1] * 0.16, 0.33);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = 'rgba(52,57,66,0.92)'; ctx.lineWidth = Math.max(0.8, s * 0.07); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy);          // the column
+  ctx.lineTo(armEnd.sx, armEnd.sy); ctx.stroke();                                      // the cantilever
+  const r = Math.max(0.7, s * 0.1);
+  if (lit) {
+    // Sodium orange, and a pool of it on the road below. The pool is what actually reads at
+    // distance — the lamp itself is two pixels, and a city at night is legible by the ground it
+    // lights, not by the fittings doing the lighting.
+    const g = ctx.createRadialGradient(armEnd.sx, armEnd.sy, 0, armEnd.sx, armEnd.sy, r * 5);
+    g.addColorStop(0, `rgba(255,206,132,${0.42 + night * 0.4})`);
+    g.addColorStop(1, 'rgba(255,206,132,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(armEnd.sx, armEnd.sy, r * 5, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(255,232,190,${0.75 + night * 0.25})`;
+    ctx.beginPath(); ctx.ellipse(armEnd.sx, armEnd.sy, r * 1.25, r * 0.62, 0, 0, 7); ctx.fill();
+    if (night > 0.2) glowPool(ctx, cam, dx + inward[0] * 0.16, dy + inward[1] * 0.16, 0.01, '255,198,120', 9, alpha * night * 0.55);
+  } else {
+    ctx.fillStyle = 'rgba(44,48,56,0.92)';
+    ctx.beginPath(); ctx.ellipse(armEnd.sx, armEnd.sy, r * 1.25, r * 0.62, 0, 0, 7); ctx.fill();   // the dark fitting
+  }
+  ctx.globalAlpha = 1;
+}
+
+// The lamp pass. Road tiles carrying a streetlight row get one post on the kerb; which side is a
+// stable per-tile choice so a run of lamps down a street alternates believably instead of marching
+// in a single perfect file.
+function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
+  const DIRV = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx];
+    if (!c || c.sl == null || c.bt || c.mark) continue;
+    const wx = Math.round((rx - R) + wcx), wy = Math.round((ry - R) + wcy);
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
+    if (alpha <= 0.03) continue;
+    // Stand it on the pavement: perpendicular to the road's own axis, at VERGE — the same one
+    // number the paint and the pedestrians use, so the lamp is on the kerb rather than near it.
+    const dirs = c.rd || '';
+    const along = dirs.includes('n') || dirs.includes('s') ? DIRV.n : DIRV.e;
+    const side = frac((wx + 512) * 5.17 + (wy + 512) * 9.31) < 0.5 ? -1 : 1;
+    const px = along[1] * VERGE * side, py = -along[0] * VERGE * side;
+    const inward = [-Math.sign(px) || 0, -Math.sign(py) || 0];   // from the kerb back toward the road
+    drawStreetLampQueued(ctx, cam, dx + px, dy + py, inward, c.sl === 1, alpha, night, (wx * 73 + wy * 149));
+  }
+}
+// Queued at the lamp's own position, not its tile centre — and through emitFace, or it paints
+// under every building in the flush that follows (see the same note on the signal heads).
+function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
+  const f = dx * cam.sinh - dy * cam.cosh;
+  emitFace(f + (cam.back || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed));
+}
+
+// The signal pass: one head per arm of every junction in view. Queued into the shared face sink
+// like everything else in the world pass, so a building in front of a junction hides its lights
+// instead of them glowing through it.
+function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
+  const DIRV = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+  for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
+    const c = map[ry][rx];
+    // Junctions only, and never on a curve or a dirt track — the same two exclusions the crossings
+    // take, for the same reasons (a bend has no arms to govern; a graded track has no signals).
+    if (!c || !c.road || c.bt || c.ft === 'dust' || c.rdeg != null) continue;
+    const dirs = c.rd || '';
+    if (!isJunction(dirs)) continue;
+    const dx = (rx - R) - cam.ox, dy = (ry - R) - cam.oy, f = dx * cam.sinh - dy * cam.cosh;
+    if (f <= VISIBLE_NEAR_F || f > FAR) continue;
+    const alpha = clamp((FAR - f) / 5, 0, 1) * (v.worldBlend ?? 1);
+    if (alpha <= 0.03) continue;
+    const off = junctionOffset(Math.round((rx - R) + wcx), Math.round((ry - R) + wcy));
+    // A DEAD JUNCTION IS DARK. `pw` is the tile's grid power, straight off the same power sim the
+    // room lights and the ATMs read — so when the plant drops, the signals drop with everything
+    // else rather than cheerfully cycling over a blacked-out city. Deliberately dark rather than
+    // flashing amber: a flashing signal is a real-world instruction ("treat as a stop"), and this
+    // system enforces nothing, so it must not appear to be telling anybody to do anything.
+    const dead = c.pw === 0;
+    for (const d of dirs) {
+      const A = DIRV[d]; if (!A) continue;
+      const lamp = dead ? null : signalLamp(d, now, off);
+      // On the corner: out along the arm to the kerb line, and across to the pavement beside it.
+      const Px = A[1], Py = -A[0];
+      const hx = dx + A[0] * 0.44 + Px * VERGE, hy = dy + A[1] * 0.44 + Py * VERGE;
+      // Queued at the HEAD's own depth, not the tile centre — a signal sits most of a tile off
+      // centre and the arms of one junction are a tile apart, so a tile-centre depth would sort the
+      // far head in front of the near one. And it must go through emitFace at all: the sink is open
+      // during this pass, so anything painting straight to ctx here is painted OVER by every
+      // building in the flush that follows.
+      const hf = hx * cam.sinh - hy * cam.cosh;
+      emitFace(hf + (cam.back || 0), () => drawSignalHead(ctx, cam, hx, hy, lamp, alpha, night));
+    }
+  }
+}
+
 // the halo carries the contrast even when the fill sits close to the colour behind it.
 function haloLabel(ctx, text, x, y, font, fill) {
   ctx.font = font; ctx.lineJoin = 'round'; ctx.lineWidth = 3;
@@ -7832,10 +8189,31 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     ctx.strokeStyle = dust ? 'rgba(150,124,74,0.55)' : surf === 'field' ? 'rgba(224,228,234,0.8)' : 'rgba(198,203,209,0.7)';
     ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
     const edge = (a, b) => { ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); };
-    if (!nN) edge(P0, P1); if (!nE) edge(P1, P2); if (!nS) edge(P3, P2); if (!nW) edge(P0, P3);
+    // A road running at an angle to the grid gets NO kerb. The test above asks "is my neighbour the
+    // same surface", which on a diagonal band answers no along a staircase of tile edges — and a
+    // stroked staircase is the single most obvious way to make a curve look like a mistake. Out
+    // there the shoulder's dirt band is what reads as the edge of the road.
+    const offAxis = c.rdeg != null && Math.abs(Math.sin(2 * c.rdeg * Math.PI / 180)) > 0.12;
+    if (!offAxis) { if (!nN) edge(P0, P1); if (!nE) edge(P1, P2); if (!nS) edge(P3, P2); if (!nW) edge(P0, P3); }
     // Markings. A world-space stripe from aLo→aHi along axis A at lateral offset `off`.
     const nsN = nN || nS, ewN = nW || nE;
     const DIRV = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+    // A CURVED road ships its own heading (`rdeg`, degrees, 0 = north) instead of relying on which
+    // tile edges it connects to. The marking helpers below have always taken an arbitrary axis
+    // vector — they were only ever handed [1,0] or [0,1] — so this needs no new drawing machinery,
+    // just the vector. `RSPAN` widens the along-tile run of every stripe past the tile's own half
+    // width: on a diagonal the tile's extent along the road is up to √2 tiles, so paint drawn only
+    // to ±0.5 stops short and the lane markings come out as a dotted line with a gap at every tile
+    // boundary. Overdrawing into the neighbour is harmless — it is the same paint, in the same
+    // place, from the same centreline.
+    const RA = c.rdeg != null ? [Math.sin(c.rdeg * Math.PI / 180), -Math.cos(c.rdeg * Math.PI / 180)] : null;
+    const RSPAN = RA ? 0.75 : 0.5;
+    // Shift every marking back onto the real centreline (see `road_t` in plugins/trucking/
+    // corridor.js) and scale the lane spacing to the band's actual width, which the authoring side
+    // ships rather than the renderer assuming. `RK` is 1 for a one-tile-wide road, so nothing that
+    // does not send these three fields changes at all.
+    const ROFF = RA ? -(c.rt || 0) : 0;
+    const RK = RA ? (c.rw || 0.5) / 0.5 : 1;
     const stripeA = (A, off, hw, aLo, aHi, style) => {
       const Px = A[1], Py = -A[0];
       const q = (a, o) => cam.proj(dx + A[0] * a + Px * o, dy + A[1] * a + Py * o, 0);
@@ -7850,10 +8228,10 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       // along the run and a patchy centre drag. Reads as beaten dirt, not paved. A frontier
       // airfield STRIP (surf 'field') also stands a windsock at each open end so wind is readable;
       // a plain dirt_road lane (surf 'road') skips those — it's a track, not a runway.
-      const A = (ewN && !nsN) ? [1, 0] : [0, 1];
+      const A = RA || ((ewN && !nsN) ? [1, 0] : [0, 1]);
       const RUT = 'rgba(54,42,24,0.42)', SCUFF = 'rgba(150,132,86,0.32)';
-      stripeA(A, -0.13, 0.03, -0.5, 0.5, RUT); stripeA(A, 0.13, 0.03, -0.5, 0.5, RUT);      // twin wheel ruts
-      dashedA(A, 0, 0.05, -0.5, 0.5, 0.4, 0.16, SCUFF);                                       // patchy centre drag
+      stripeA(A, ROFF - 0.13 * RK, 0.03, -RSPAN, RSPAN, RUT); stripeA(A, ROFF + 0.13 * RK, 0.03, -RSPAN, RSPAN, RUT);   // twin wheel ruts
+      dashedA(A, ROFF, 0.05, -RSPAN, RSPAN, 0.4, 0.16, SCUFF);                                    // patchy centre drag
       if (surf === 'field') for (const [open, end] of [[A[0] ? nW : nN, -1], [A[0] ? nE : nS, 1]]) {
         if (open) continue;
         drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite);
@@ -7881,15 +8259,49 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       // same-surface neighbours when a tile has no icon (a bare artery).
       const LANE = 'rgba(232,234,238,0.8)', YEL = 'rgba(230,200,74,0.9)';
       const dirs = c.rd || (nsN && ewN ? 'nesw' : (ewN && !nsN) ? 'ew' : 'ns');
-      if (dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
-        const A = dirs === 'ew' ? [1, 0] : [0, 1];
-        dashedA(A, -0.23, 0.014, -0.5, 0.5, 0.34, 0.2, LANE); dashedA(A, 0.23, 0.014, -0.5, 0.5, 0.34, 0.2, LANE);
-        stripeA(A, -0.045, 0.014, -0.5, 0.5, YEL); stripeA(A, 0.045, 0.014, -0.5, 0.5, YEL);
+      // A tile with its own heading is always a through-lane, whatever its fallback icon says: a
+      // curve is a straight road that happens to be pointing somewhere between two compass letters,
+      // never a junction. Taking this branch first is what stops a bend being drawn as an elbow.
+      // THE PAVEMENT. A pale band up each side of the carriageway, and it exists for a reason
+      // beyond looking right: the street-actor pass stands people at ±VERGE, and until there was
+      // something drawn there they were standing on tarmac at the edge of the road. VERGE is the
+      // ONE number both read — the paint and the people who stand on it must never be two
+      // constants that agree by luck, because the day they drift the figures walk in the gutter
+      // and nothing about either change will look like the cause.
+      //
+      // Off-axis (curved) roads get none. The kerb stroke is already suppressed out there because
+      // a stroked staircase reads as a mistake, and a staircase of pavement bands would read as a
+      // worse one. Dust roads have no pavement either — a graded dirt track has a verge, not a kerb.
+      const WALK = 'rgba(126,131,140,0.55)', KERB = 'rgba(178,184,192,0.5)';
+      const WALK_HW = 0.085;   // half-width of the band, so it spans VERGE ± this
+      const pavement = (A, aLo, aHi) => {
+        for (const s of [-1, 1]) {
+          stripeA(A, ROFF + s * VERGE * RK, WALK_HW * RK, aLo, aHi, WALK);
+          stripeA(A, ROFF + s * (VERGE - WALK_HW) * RK, 0.012, aLo, aHi, KERB);   // the kerb face, road side
+        }
+      };
+      if (RA || dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
+        const A = RA || (dirs === 'ew' ? [1, 0] : [0, 1]);
+        if (!offAxis) pavement(A, -RSPAN, RSPAN);
+        dashedA(A, ROFF - 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE); dashedA(A, ROFF + 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE);
+        stripeA(A, ROFF - 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL); stripeA(A, ROFF + 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL);
       } else {   // stub / turn / T / crossroads: mark each connected arm from the centre out to its edge
+        // A JUNCTION IS A HOLE IN THE PAVEMENT, not a crossing of it. Each arm's bands run from
+        // the corner outward and stop short of the middle, which is what leaves the box clear for
+        // the carriageway and gives the crossings somewhere to sit. Running them through would
+        // pave straight over the road.
+        const junction = dirs.length >= 3;
         for (const d of dirs) {
           const A = DIRV[d]; if (!A) continue;
+          pavement(A, 0.42, 0.5);
           stripeA(A, -0.045, 0.014, 0, 0.5, YEL); stripeA(A, 0.045, 0.014, 0, 0.5, YEL);              // yellow centre arm
           dashedA(A, -0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE); dashedA(A, 0.23, 0.014, 0.12, 0.5, 0.24, 0.13, LANE);   // lane dashes, clear of the junction box
+          // THE CROSSING. A zebra ladder laid across this arm, just outside the junction box and
+          // inside the pavement it joins — so it reads as connecting the two kerbs rather than
+          // floating in the road. Junctions only (a T or a crossroads): a bend or a dead-end stub
+          // with a crossing painted on it is a crossing to nowhere.
+          if (!junction) continue;
+          for (let k = -3; k <= 3; k++) stripeA(A, k * 0.082, 0.028, 0.30, 0.42, LANE);
         }
       }
     }
@@ -8549,13 +8961,27 @@ export function viewRenderSmoke(ID) {
   // with a road, a couple of buildings and some water, so the ground/building/water passes all have
   // something to do rather than early-returning on an empty map.
   const R = 8, N = R * 2 + 1;
+  // `rd` carries the road-connector letters, and it is what the pavement, the crossings and the
+  // traffic signals all key off — a road column with no `rd` exercises the lane paint and none of
+  // the street furniture. Row R is a CROSSROADS (`nesw`), which is the only shape that draws a
+  // zebra ladder and four signal heads, so both live here rather than only in a player's browser.
+  // `pw` (grid power) and `sl` (streetlight: 1 lit, 0 dark, absent = no lamp) drive the signals and
+  // the lamp posts. Both states of `sl` appear, and the junction is placed OFF the centre tile —
+  // the centre is the camera's own position and near-clips, so a crossroads at (R,R) exercises
+  // exactly none of the signal code while looking like it does.
   const map = Array.from({ length: N }, (_, y) => Array.from({ length: N }, (_, x) => (
-    x === R ? { kind: 'land', biome: 'citycore', road: 'ns', flr: 0 }
+    x === R && y === R - 3 ? { kind: 'land', biome: 'citycore', road: 1, rd: 'nesw', flr: 0, pw: 1 }
+    : x === R ? { kind: 'land', biome: 'citycore', road: 1, rd: 'ns', flr: 0, pw: 1, sl: y % 3 === 0 ? 1 : y % 3 === 1 ? 0 : undefined }
+    : y === R - 3 ? { kind: 'land', biome: 'citycore', road: 1, rd: 'ew', flr: 0, pw: 1, sl: x % 2 ? 1 : 0 }
     : x === R + 3 && y % 4 === 0 ? { kind: 'land', biome: 'citycore', bt: 'office', ent: 'south', flr: 6 }
     : x === R - 3 && y % 5 === 0 ? { kind: 'land', biome: 'citycore', bt: 'shop', ent: 'east', flr: 2 }
     : y === 0 ? { kind: 'water', biome: 'coast' }
     : { kind: 'land', biome: 'citycore', flr: 0 }
   )));
+  // THE BLACKOUT. The same world with the grid down: signals dark, lamps dark. This is its own map
+  // because the power branch is the one a plant failure takes, and nothing else in the suite ever
+  // sets pw to 0 — an untested dark path is exactly how the roaster bug this file exists for got in.
+  const darkMap = map.map((row) => row.map((c) => (c.pw != null ? { ...c, pw: 0, sl: c.sl != null ? 0 : undefined } : c)));
   const base = { map, heading: 45, speed: 0.4, hour: 13, weather: 'clear' };
   // THE SAME WORLD WITH THE TRUCK STANDING IN A DEPOT BAY. `drive` mounts you on the door tile, so
   // the first frame of every run is drawn from INSIDE drawVehicleBay — the one model on this map
@@ -8574,13 +9000,29 @@ export function viewRenderSmoke(ID) {
     ['passenger',      { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, side: true }],
     ['framed',         { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, windowClass: 'heavy' }],
     ['helm',           { ...base, cls: 'boat', phase: 'ground', worldBlend: 0, height: 0 }],
+    ['cab:blackout',   { ...base, map: darkMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+  ];
+  // THE PEOPLE, cycled so every branch of the actor pass is entered rather than just the standing
+  // one. Each frame is a FRESH array, because syncStreetActors keys off payload identity — reusing
+  // one would ingest once and then draw a static crowd forever, which is the one arrangement that
+  // proves nothing. The four frames in order: two arrive, one walks a tile, one vanishes BESIDE A
+  // BUILDING (the doorway fade), and one appears on a building tile. Coordinates are picked against
+  // the map above — column wx=0 is the road, wx=3/wy%4 and wx=-3/wy%5 carry the buildings — so the
+  // door-adjacency lookup has something real to find.
+  const actorFrames = [
+    () => [{ t: 'a', x: 0, y: 2 }, { t: 'b', x: 2, y: 0 }],
+    () => [{ t: 'a', x: 0, y: 1 }, { t: 'b', x: 2, y: 0 }],
+    () => [{ t: 'a', x: 0, y: 1 }],
+    () => [{ t: 'a', x: 0, y: 1 }, { t: 'c', x: -3, y: 0 }],
   ];
   // Night as well as day, and weather on as well as off: the sky/cast/on-glass branches are a
   // meaningful slice of the entry function and half of them are unreachable at noon in clear air.
+  let frame = 0;
   for (const [key, view] of cases) {
     for (const hour of [3, 13]) for (const weather of ['clear', 'rain']) {
       out.ran++;
-      try { paintWindshield(ID, { ...view, hour, weather }); }
+      const actors = actorFrames[frame++ % actorFrames.length]();
+      try { paintWindshield(ID, { ...view, hour, weather, actors }); }
       catch (e) { out.push({ key, hour, weather, err: e.message }); }
     }
   }
@@ -12016,6 +12458,20 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // depth), so a building between you and the site occludes it instead of the turret painting on top
   // — it used to draw as a post-pass after flushFaces (the "AA showing through a building" bug).
   if (v.aaSites && (v.worldBlend ?? 1) > 0.02) drawAASites(ctx, cam, v, now);
+  // THE PEOPLE. Queued into the same face sink for the same reason the AA sites are: a figure on
+  // the far pavement must be hidden by the building between you and them, not painted over it.
+  // Height-gated — a person is sub-pixel from anything but a low pass, and at cruise this is a few
+  // hundred wasted projections per frame for nothing the pilot can resolve. `height` is 0 in a
+  // truck cab, which is where this layer really lives.
+  if ((v.height || 0) < 0.22 && (v.worldBlend ?? 1) > 0.02) {
+    // Signals before people, so a figure standing at a corner paints over the post rather than
+    // under it. Both are height-gated for the same reason — three lamps on a 9px head resolve to a
+    // single ambiguous dot from anything but a low pass, and a dot that changes colour reads as a
+    // rendering fault rather than as a traffic light.
+    drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
+    drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
+    drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR);
+  }
   pEnd();                      // ── end world:build (queueing) ──
   pBegin('world:flush');
   flushFaces();   // ONE depth-sorted paint across every building + object collected this pass

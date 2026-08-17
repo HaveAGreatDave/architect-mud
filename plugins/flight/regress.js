@@ -1477,4 +1477,64 @@ export default async function regress({ run, check, getPlayer }) {
 
   p.posture = savedPosture; p.npcCombatTargetId = savedCombat;
   if (savedAc) p.aircraftId = savedAc; else { delete p.aircraftId; delete p.seat; }
+
+  // ── STREET ACTORS ───────────────────────────────────────────────────────────
+  // The population feed the windshield draws pedestrians from. The contract worth guarding is
+  // that it is 1:1 and that INDOORS IS ABSENCE — an interior is its own map with no overworld
+  // coordinates, so nobody inside a building may ever appear in it. That is what stops the layer
+  // becoming a free occupancy read on every premises in the city, and it holds by construction
+  // rather than by a flag, which is exactly the kind of thing that is one refactor from silently
+  // reversing.
+  {
+    const { streetActors, _resetActorTally } = await import('../../server/engine/street-actors.js');
+    const { world } = await import('../../server/engine/world.js');
+    // A real surface tile with somebody standing on it: take the first NPC the world placed on a
+    // map_world z=0 zone, and read the feed centred on them.
+    let sx = null, sy = null, hits = 0, interiorNpc = null;
+    for (const npc of world.npcs.values()) {
+      const z = world.zones.get(npc.zone_id);
+      if (!z) continue;
+      if (z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 && z.grid_x != null) {
+        if (sx == null) { sx = z.grid_x; sy = z.grid_y; }
+        if (z.grid_x === sx && z.grid_y === sy) hits++;
+      } else if (!interiorNpc) interiorNpc = npc;
+    }
+    if (sx != null) {
+      _resetActorTally();
+      const near = streetActors(sx, sy, 4);
+      const onTile = near.filter(a => a.x === sx && a.y === sy);
+      check('street actors: the feed is 1:1 with the tile occupancy', onTile.length === hits, `feed=${onTile.length} world=${hits}`);
+      check('street actors: every entry carries a token and absolute coords',
+        near.every(a => typeof a.t === 'string' && a.t.length > 0 && Number.isInteger(a.x) && Number.isInteger(a.y)));
+      check('street actors: the window is square and honoured',
+        near.every(a => Math.abs(a.x - sx) <= 4 && Math.abs(a.y - sy) <= 4));
+      // A token must never be the id — that is the whole reason it exists (see street-actors.js).
+      const ids = new Set([...world.npcs.keys(), ...world.players.keys()]);
+      check('street actors: the token is opaque, never the entity id', near.every(a => !ids.has(a.t)));
+      // Far away from everybody: empty is a real and correct answer, not a fallback crowd.
+      _resetActorTally();
+      check('street actors: an empty stretch reports nobody rather than filler',
+        streetActors(sx + 9000, sy + 9000, 4).length === 0);
+    }
+    if (interiorNpc) {
+      const z = world.zones.get(interiorNpc.zone_id);
+      _resetActorTally();
+      // Centre on the facade tile this interior hangs off, so the NPC would be well inside the
+      // window if interiors leaked into the feed at all.
+      let fx = 0, fy = 0;
+      for (const m of world.maps.values()) {
+        if (m.id !== z.map_id) continue;
+        const par = world.zones.get(m.parent_zone_id);
+        if (par && par.grid_x != null) { fx = par.grid_x; fy = par.grid_y; }
+      }
+      // The token is opaque by design, so we cannot look this NPC up in the feed directly. Ask for
+      // the feed twice — once plain, once with this NPC excluded by id — and assert the two are the
+      // same length. If they differ, the exclusion removed something, which means they were in it.
+      const all = streetActors(fx, fy, 40).length;
+      _resetActorTally();
+      const without = streetActors(fx, fy, 40, interiorNpc.id).length;
+      check('street actors: somebody indoors is ABSENT from the street feed',
+        all === without, `${all} vs ${without} — an interior occupant reached the feed`);
+    }
+  }
 }

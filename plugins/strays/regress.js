@@ -147,10 +147,10 @@ export default async function regress({ run, check, getPlayer }) {
       check('hiding: at rest the cat is in no lane room', inLane().length === 0, inLane().join(','));
 
       // ── Membership integrity ────────────────────────────────────────────────
-      // zone.players has reconcileZoneMembership to repair drift. zone.npcs has
-      // NOTHING. A raw set poke that gets this wrong yields a cat in two rooms,
-      // or in none, permanently and silently. This is the assertion the engine
-      // cannot make for us.
+      // A raw set poke that gets this wrong yields a cat in two rooms, or in
+      // none. reconcileNpcMembership now sweeps that on the 30s tick, but it
+      // trusts `npc.zone_id` — so it repairs a drifted SET and cannot see a
+      // wrongly-written FIELD, which is what these assertions are for.
       const lane = LANE_ZONES[2];
       surface(lane, 'regress: surfacing');
       check('surface: the cat is in the lane room', world.zones.get(lane)?.npcs?.has(CAT_ID), lane);

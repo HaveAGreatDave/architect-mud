@@ -66,6 +66,55 @@ together every adjacent road cell, and the corridor's shoulder is `dirt_road` �
 road — so an unauthored corridor comes back `nesw` on *every* tile and the renderer paints a
 crossroads for the entire length of the highway. Verified both ways.
 
+### 1b. The road BENDS, and the bend is a heading rather than an icon
+
+*(2026-08-16.)* The corridor used to be a polyline of **axis-aligned legs**: long southbound runs
+broken by hard 90° jogs. Driving it needed no steering at all. It is now a **curve** — a heading
+integrated along arc length and sampled into 4-tile segments (`SEG`), alternating genuine straights
+with sweeping arcs.
+
+The stated reason it was built straight was that the renderer paints lane markings toward connected
+tile *edges* (`rd`), so a diagonal would come out as a staircase of hairpins. That was true of the
+**icon** and was never true of the **paint**: `stripeA`/`dashedA` in `drawGroundSurfaces` always took
+an arbitrary axis vector and had only ever been handed `[1,0]` or `[0,1]`. So a paved tile now ships
+three new flags and the renderer draws along them:
+
+| flag | is | why it exists |
+|---|---|---|
+| `road_deg` | the segment's heading, degrees | the marking axis — a curve is a *straight* pointing between two compass letters, never an elbow |
+| `road_t` | this tile's lateral offset from the centreline | every tile of a multi-tile band paints the **same** world-space lines; without it each tile lays its own double-yellow and the highway gets three centrelines |
+| `road_w` | the paved half-width | marking spacing is derived, not a second copy of corridor.js's numbers living in the client |
+
+They travel through `deriveSurfaceCell` as `rdeg`/`rt`/`rw`. Every baked world tile leaves them
+undefined and keeps the icon path untouched. The icon is still authored, always, but only ever as
+the **nearest axis** (`road_ns`/`road_ew`) and **never as a bend piece**.
+
+Three things about this are load-bearing:
+
+⚠ **The minimum turn radius is a correctness invariant, not a taste setting.** Every cell out here is
+classified by its *distance from the centreline*, out to `OFFROAD_R`. Bend tighter than that and the
+verge band folds through itself: two distant stretches of one route claim the same tile, `locate`
+answers with whichever is nearer, and the odometer jumps backwards through the fold. `MIN_RADIUS` is
+110 tiles against a 24-tile verge, and regress asserts it.
+
+⚠ **The tarmac had to get wider, and that is correctness rather than generosity.** A one-tile band
+(`|t| < 0.5`) is fine on an axis and comes apart the instant it isn't — the tiles of a diagonal band
+touch only at their *corners*, so the highway renders as a dotted line of squares. It is `|t| < 1.2`
+now (≈2.4 tiles), and regress flood-fills the whole paved set demanding a single 8-connected piece.
+
+⚠ **The leash is applied when a bend is CHOSEN, never while one is driven.** The heading may not
+stray more than `HOME_MAX` from due south, or the road eventually doubles back. The obvious way to
+write that is to pull the heading toward south a little every tile — which quietly ruins the feature,
+because then the *straights* are not straight either, the wheel is never still, and no bend registers
+as an event because everything is one. Instead, past `HOME_BIAS` the next bend simply has to turn
+back. Regress asserts a good third of segments are dead straight.
+
+Two consequences elsewhere in the file. Roadside structures and wrecks are placed with a
+**tolerance band** (`|t − off| < 0.7`), never `Math.round(t) === off` — on a curve that perpendicular
+row is a diagonal and an equality test places them intermittently or not at all. And the fork's arc
+gets its length **and** its tightness from the destination seed: where the leash forces both limbs
+the same way, identical curvature kept them on the same tiles for a full void room past the junction.
+
 ### 2. The drive IS the crossing
 
 `player.current_zone` stays the void room the whole way. The odometer crossing a node boundary
@@ -1478,10 +1527,12 @@ on the road it **takes the other limb**, which is legal only while the fork is s
 
 The invariant that makes that safe is new and load-bearing: **the trunk is one road**. Every
 destination shares the crossing's first `trunk` rooms, so `corridorFor` now seeds the trunk
-polyline *without* the destination and only the limb with it, and never lets a leg straddle the
+centreline *without* the destination and only the limb with it, and never lets a segment straddle the
 boundary. Before that, the two roads diverged from the gate — and changing your mind would have
 teleported the rig sideways onto tarmac that had been somewhere else the whole way. The boundary
-also forces a jog, so **the junction is a bend you can see** rather than a room name changing.
+also forces a bend, so **the junction is a bend you can see** rather than a room name changing.
+(Since the curve rework in §1b that is a real sweeper rather than a 90° jog, and its arc length and
+tightness are both destination-seeded — see the note there on why direction alone was not enough.)
 
 ### A parked rig sits down, and both headlamps are on the screen *(2026-08-12)*
 

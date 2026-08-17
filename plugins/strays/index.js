@@ -116,10 +116,15 @@ async function setHiddenUntil(ms) {
 
 // ─── Surface / despawn ─────────────────────────────────────────────────────
 //
-// EVERY position change goes through moveNpcToZone and nothing else. Unlike
-// zone.players, there is no reconcileZoneMembership for zone.npcs — a raw
+// EVERY position change goes through moveNpcToZone and nothing else. A raw
 // `zone.npcs.add/delete` that gets it wrong produces a cat that is in two rooms
-// or in none, permanently, with no self-heal and no error. One funnel.
+// or in none. One funnel.
+//
+// There is now a reconcileNpcMembership() sweep on the 30s tick, so that is a
+// bounded blip with a name in the log rather than permanent and silent — but it
+// is a NET, not a licence. Up to 30 seconds of a cat in two lanes is still a cat
+// in two lanes, and the sweep believes `npc.zone_id`, so a writer that sets the
+// field wrongly gets its mistake made CONSISTENT rather than corrected.
 
 const ARRIVALS = [
   'Something small comes out from between the crates, unhurried, and sits down like it owns the lane. One of its front paws is not a paw.',

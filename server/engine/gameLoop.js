@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, bodyZoneOf } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, tryBattleCry, setApartmentCache, hasActivePlayers, resolveLanding, getZone, reconcileZoneMembership, reconcileNpcMembership, bodyZoneOf } from './world.js';
 import { wakeFromDream } from './dreamscape.js';
 import { tickUnconscious, knockOut, isOut, KO_MS } from './unconscious.js';
 import { tickStealth } from './stealth.js';
@@ -87,6 +87,10 @@ export function startGameLoop(broadcast) {
   // from that set silently stops hearing their room. Pure in-memory sweep, no
   // DB — it bounds any such drift to 30s and names the culprit in the log.
   schedule('30s', () => reconcileZoneMembership());
+  // The same sweep for NPCs, which had none until the street-actor feed made its drift visible
+  // out the windscreen (the same person on two corners). Rides the same cadence and is the same
+  // shape of work — a few hundred in-memory set entries, no DB. See reconcileNpcMembership.
+  schedule('30s', () => reconcileNpcMembership());
   // Parked long `wait` continuations (script_waits). Idle-gated by the scheduler,
   // so an empty world costs nothing; a row whose player is offline stays owed.
   schedule('1m', () => resumeDueWaits(broadcastFn));

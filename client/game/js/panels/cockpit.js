@@ -4360,6 +4360,7 @@ function fsimFrame(now) {
     // Spatial weather cells + our absolute world position → real clouds/rain out the canopy.
     wxField: F.sky?.field, acX: F.pos.x, acY: F.pos.y,
     map: F.map, mapCenter: F.mapCenter, phase: 'cruise', airport: F.airport, helipad: !!F.helipad, biomeBelow: F.biomeBelow,
+    actors: F.actors,   // the street population under us — drawn only on a low pass (see drawStreetActors)
     regions: F.regions,   // drives the windshield region atmosphere grade (The Reach dust, …)
     mapOffset: { x: F.pos.x - F.mapCenter.x, y: F.pos.y - F.mapCenter.y }, travel: F.travel,
     // World-fixed runway: its origin + heading in the world, offset from the craft — so it
@@ -4984,6 +4985,10 @@ export function flightSimContext(msg) {
   if (msg.fuelCap != null) F.fuelCap = msg.fuelCap;
   // Update the map AND its window centre together so they stay paired (no recenter jump).
   if (msg.map) { F.map = msg.map; if (msg.mapX != null) F.mapCenter = { x: msg.mapX, y: msg.mapY }; }
+  // The street population, in absolute tile coords, paired with the map for the same reason it is.
+  // Assigned unconditionally: an EMPTY list is a real answer (everybody went indoors) and must not
+  // be read as "no news", or the last people seen would stand on the pavement forever.
+  if (msg.actors !== undefined) F.actors = msg.actors;
   if (msg.minimap) F.minimap = msg.minimap;
   if (msg.fields) F.fields = msg.fields;
   if (msg.landmarks) F.landmarks = msg.landmarks;   // named buildings the target guide can lock onto (cycled alongside fields)

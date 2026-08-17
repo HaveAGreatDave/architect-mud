@@ -2001,6 +2001,109 @@ check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message |
   p.current_zone = priorZone;
 }
 
+// ── NPC zone membership ───────────────────────────────────────────────────────
+// The twin of the sweep above, and the newer half. `zone.npcs` went years without a reconciler
+// because drift in it was INVISIBLE: getZoneNpcs hydrates ids through world.npcs and filters the
+// misses, so a stale id vanished silently and a missing one was silently absent.
+//
+// The street-actor feed (server/engine/street-actors.js) draws a figure per zone occupant out the
+// windscreen, which turned that invisible drift into THE SAME PERSON ON TWO STREET CORNERS. Hence
+// these cases — and hence the sweep repairs BOTH directions, unlike the player one: a stale
+// membership is the half that duplicates somebody on screen.
+{
+  const { reconcileNpcMembership, world: w } = await import('../server/engine/world.js');
+  const npc = [...w.npcs.values()].find(n => n?.zone_id && w.zones.has(n.zone_id));
+  if (!npc) {
+    check('npc membership: a world with placed NPCs to sweep', false, 'no placed NPC found');
+  } else {
+    const home = w.zones.get(npc.zone_id);
+    check('npc membership: a live NPC is in its own zone\'s npc set', home.npcs.has(npc.id));
+    check('npc membership: a clean world needs no repair',
+      reconcileNpcMembership({ quiet: true }) === 0);
+
+    // MISSING: a path that set zone_id without moveNpcToZone(). The NPC is in the room as far as
+    // it knows, and absent from every reader that walks the set.
+    home.npcs.delete(npc.id);
+    check('npc membership: the sweep restores a missing membership',
+      reconcileNpcMembership({ quiet: true }) >= 1 && home.npcs.has(npc.id));
+
+    // STALE: the half the player sweep does not have. A path moved the NPC and left the old
+    // membership behind, so it is now listed in two rooms at once — which the windscreen draws as
+    // two people.
+    const other = [...w.zones.values()].find(z => z.id !== home.id);
+    other.npcs.add(npc.id);
+    check('npc membership: drift is detectable (listed in two zones at once)',
+      home.npcs.has(npc.id) && other.npcs.has(npc.id));
+    const repaired = reconcileNpcMembership({ quiet: true });
+    check('npc membership: the sweep drops the stale membership, keeps the real one',
+      repaired >= 1 && home.npcs.has(npc.id) && !other.npcs.has(npc.id), `repaired=${repaired}`);
+
+    // An id for an NPC that no longer exists at all (killed, or removed by a content deploy) is
+    // drift too — it is exactly what a stale id looks like once the entity is gone.
+    other.npcs.add('__regress_ghost_npc');
+    check('npc membership: an id with no live NPC behind it is swept',
+      reconcileNpcMembership({ quiet: true }) >= 1 && !other.npcs.has('__regress_ghost_npc'));
+
+    // A transient/void zone holds no set of its own; an NPC in one is not drift and must not throw.
+    const priorZone = npc.zone_id;
+    npc.zone_id = '__regress_nonexistent_zone';
+    reconcileNpcMembership({ quiet: true });
+    check('npc membership: an unknown zone is skipped, not conjured into the world',
+      !w.zones.has('__regress_nonexistent_zone'));
+    npc.zone_id = priorZone;
+    reconcileNpcMembership({ quiet: true });
+    check('npc membership: restored once the NPC is back in a real room', home.npcs.has(npc.id));
+    check('npc membership: the world is left clean for every suite after this one',
+      reconcileNpcMembership({ quiet: true }) === 0);
+  }
+}
+
+// ── Traffic signals in the text game ──────────────────────────────────────────
+// The windshield paints three lamps on a post at a junction; a player reading rather than looking
+// gets the same junction as a sentence. Both call signalLamp() out of client/shared/traffic.js, so
+// they cannot disagree — the case that matters is a driver reading "green" and seeing red.
+//
+// ⚠ The junction test derives from EXITS, not from the tile's `road_*` icon. Exactly one tile in
+// the whole world has an authored junction icon, so an icon-based test would pass forever while
+// the feature was invisible everywhere. These cases assert against the real world map.
+{
+	const { signalLamp, junctionOffset, isJunction, LAMP_WORD } = await import('../client/shared/traffic.js');
+	const { world: w } = await import('../server/engine/world.js');
+	const { primaryExits } = await import('../server/engine/exits.js');
+
+	check('traffic: the two axes are never both green',
+		Array.from({ length: 400 }, (_, i) => i / 400 * 14000)
+			.every(t => !(signalLamp('n', t, 0) === 'g' && signalLamp('e', t, 0) === 'g')));
+	check('traffic: a full cycle shows all three lamps',
+		new Set(Array.from({ length: 400 }, (_, i) => signalLamp('n', i / 400 * 14000, 0))).size === 3);
+	check('traffic: opposite arms of one axis always agree',
+		Array.from({ length: 200 }, (_, i) => i / 200 * 14000)
+			.every(t => signalLamp('n', t, 0.3) === signalLamp('s', t, 0.3)
+				&& signalLamp('e', t, 0.3) === signalLamp('w', t, 0.3)));
+	check('traffic: the junction offset is stable and in range', (() => {
+		const a = junctionOffset(12, -7);
+		return a === junctionOffset(12, -7) && a >= 0 && a < 1 && a !== junctionOffset(13, -7);
+	})());
+	check('traffic: a stub or a bend is not a junction',
+		!isJunction('ns') && !isJunction('ne') && !isJunction('n') && isJunction('nes') && isJunction('nesw'));
+	check('traffic: every lamp has a word for the text game',
+		['g', 'a', 'r'].every(k => typeof LAMP_WORD[k] === 'string' && LAMP_WORD[k].length > 2));
+
+	// The world must actually CONTAIN junctions by the exit-derived rule, or the feature ships
+	// invisible — which is precisely what the icon-based version did.
+	const paved = (z) => !!z && (z.flags?.terrain === 'road' || /^road_/.test(z.flags?.icon || ''));
+	const L = { north: 'n', east: 'e', south: 's', west: 'w' };
+	let junctions = 0;
+	for (const z of w.zones.values()) {
+		if (!paved(z)) continue;
+		const ex = primaryExits(z);
+		let rd = '';
+		for (const d of ['north', 'east', 'south', 'west']) if (ex[d] && paved(w.zones.get(ex[d]))) rd += L[d];
+		if (isJunction(rd)) junctions++;
+	}
+	check('traffic: the real world map contains signalled junctions', junctions > 0, `found ${junctions}`);
+}
+
 // ── Work-gate substrate ────────────────────────────────────────────────────────
 // Ticks that poll a table for outstanding work skip the round trip when the
 // table is known-empty. The dangerous failure is a gate that says "nothing to

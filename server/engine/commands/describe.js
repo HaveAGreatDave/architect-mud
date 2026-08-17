@@ -22,7 +22,7 @@ import {
 import { acuitySync } from "../senses.js";
 import { isHiddenFrom } from "../stealth.js";
 import { getCustodianOutcastResponse, mutationSeesInDark } from "../mutations.js";
-import { allExits } from "../exits.js";
+import { allExits, primaryExits } from "../exits.js";
 import { districtFor } from "../districts.js";
 import {
 	describeApartmentStatus,
@@ -39,6 +39,8 @@ import { getLockTagPublic, checkLockAuth } from "./doors.js";
 import { getItem } from "../items-cache.js";
 import { getPhantomsInZone, applyTransforms, applyNpcTransforms, getRoomTransform, getRoomTransformName, getWeatherWarp } from "../phantoms.js";
 import { bodyTell } from "../dreamscape.js";
+import { signalLamp, junctionOffset, isJunction, LAMP_WORD } from "../../../client/shared/traffic.js";
+import { getZonePowerStatus } from "../environment.js";
 import { mobStatusLabels } from "../effects.js";
 import { sectionFurniture } from "../classify.js";
 import { loggedPanelsSync } from "../presentation.js";
@@ -841,6 +843,59 @@ function skylineBearing(dx, dy) {
 // `out` is an optional collector for values computed here that a caller would
 // otherwise have to recompute: cmdMove ships out.vis in the move payload so the
 // client's brightness filter doesn't need its own /environment/visibility fetch.
+/**
+ * The traffic signals over a junction, as a sentence.
+ *
+ * The windshield paints three lamps on a post at every junction it can see; this is the same
+ * junction for somebody who is reading rather than looking. Both call `signalLamp` out of
+ * client/shared/traffic.js, so the sentence and the picture can never disagree — a driver who
+ * reads "green north-south" and then sees red would have been lied to by whichever copy drifted.
+ *
+ * ⚠ THE ICON IS NOT ENOUGH. The obvious implementation reads the tile's own `road_*` icon, and it
+ * is what the first version of this did — but there is exactly ONE tile in the entire world with
+ * an authored junction icon. Every other junction in Coldwater is auto-tiled from its neighbours,
+ * so an icon-only test produces a feature that ships, passes, and is invisible forever.
+ *
+ * So the connectors are derived from the zone's own cardinal EXITS instead: a junction is a road
+ * tile with three or more road neighbours. That is the engine's own graph rather than the
+ * renderer's coordinate index (which belongs to the flight plugin and must not be imported here),
+ * and it costs at most four O(1) Map lookups on a tile that is already known to be a road.
+ *
+ * The two derivations can in principle disagree — the renderer asks about adjacent COORDINATES and
+ * this asks about connected EXITS — for a road tile that has no exit to a road neighbour. That
+ * tile is a wall between two streets, and calling it a junction would be the wrong answer here
+ * anyway.
+ *
+ * Returns '' for everything that is not a signalled junction.
+ */
+const SIGNAL_ROAD_DIRS = ["north", "east", "south", "west"];
+const DIR_LETTER = { north: "n", east: "e", south: "s", west: "w" };
+// Paved road only. A dirt track has no signals, which is also the renderer's rule (`ft:'dust'`).
+const isPavedRoad = (z) =>
+	!!z && (z.flags?.terrain === "road" || /^road_/.test(z.flags?.icon || ""));
+
+function junctionSignalLine(zone) {
+	if (!isPavedRoad(zone)) return "";
+	const exits = primaryExits(zone);
+	let rd = "";
+	for (const dir of SIGNAL_ROAD_DIRS) {
+		const target = exits[dir];
+		if (target && isPavedRoad(getZone(target))) rd += DIR_LETTER[dir];
+	}
+	if (!isJunction(rd)) return "";
+	// Dead when the tile has no grid power, on the same sim the room lights read. A blackout takes
+	// the junctions with it. Deliberately dark rather than flashing: a flashing signal is a real
+	// instruction to treat it as a stop, and nothing in this game enforces one.
+	if (getZonePowerStatus(zone.id) !== "powered") {
+		return `\n<span class="signal-row">The signals over the junction are dark.</span>`;
+	}
+	const off = junctionOffset(zone.grid_x ?? 0, zone.grid_y ?? 0);
+	const now = Date.now();
+	const ns = LAMP_WORD[signalLamp("n", now, off)];
+	const ew = LAMP_WORD[signalLamp("e", now, off)];
+	return `\n<span class="signal-row">The signals over the junction show ${ns} north-south, ${ew} east-west.</span>`;
+}
+
 export async function describeZone(zone, player, out = {}) {
 	const vis = getZoneVisibility(zone.id);
 	// Per-player perception seam: a carried light source (e.g. a lit flashlight)
@@ -902,6 +957,13 @@ export async function describeZone(zone, player, out = {}) {
 				return destLink(p.direction, null, "exit-link");
 			});
 			darkDesc += `\n\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
+		}
+		// A signal is a LIGHT, so it survives the darkness gate that hides everything else here —
+		// coloured lamps over a junction are precisely the thing you can still make out when the
+		// street around them has gone black, and a dead one reads as part of that same blackness.
+		{
+			const sig = junctionSignalLine(zone);
+			if (sig) darkDesc += sig;
 		}
 		if (buildings.length) {
 			const links = buildings.map((b) =>
@@ -1592,6 +1654,7 @@ export async function describeZone(zone, player, out = {}) {
 		}));
 		desc += `\n<span class="exits-row"><span class="exits-label">Exits:</span> ${exitLinks.join(", ")}</span>`;
 	}
+	desc += junctionSignalLine(zone);
 	if (buildings.length) {
 		const links = await Promise.all(buildings.map(async (b) =>
 			destLink(b.direction, b.name, "building-link") +

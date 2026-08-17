@@ -16,6 +16,7 @@
 // rules in docs/architecture.md are explicit that per-tick state does not go near the DB.
 
 import { getZone, addPlayerToZone, removePlayerFromZone, getLivePlayer } from '../../server/engine/world.js';
+import { streetActors } from '../../server/engine/street-actors.js';
 import { emit } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { query } from '../../server/models/db.js';
@@ -504,6 +505,12 @@ export function cabContext(rig, extra = {}) {
     leg: rig.leg,
     map: mapWindow({ grid_x: cx, grid_y: cy }, CAB_RADIUS, providerFor(rig)),
     mapX: cx, mapY: cy,
+    // Everyone standing on the surface grid inside the same window, so the cab draws a figure
+    // per person on the pavement. Absolute tile coords, paired with mapX/mapY exactly as `map`
+    // is. Corridor legs are void road with no placed tiles, so this is empty out there by
+    // construction — nothing has to check the leg. The driver is dropped by id, or they would
+    // stand in the road underneath their own truck.
+    actors: city ? streetActors(cx, cy, CAB_RADIUS, rig.playerId) : [],
     x: +rig.x.toFixed(3), y: +rig.y.toFixed(3),
     heading: Math.round(rig.heading), speed: Math.round(rig.speed),
     fuel: +rig.fuel.toFixed(3),

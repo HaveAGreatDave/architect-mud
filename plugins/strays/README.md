@@ -39,10 +39,13 @@ any `await`**. If an await creeps above it, `npcWanderTick` fires in the gap and
 the 24-hour grief window silently becomes sixty seconds. There is no respawn code
 in this plugin at all. `regress.js` asserts the window is > 23h.
 
-**`zone.npcs` has no reconciler.** `zone.players` drift is repaired by
-`reconcileZoneMembership`; `zone.npcs` is not. Every position change goes through
-`moveNpcToZone` and nothing else, or you get a cat in two rooms — or in none —
-permanently, silently, with no self-heal.
+**`zone.npcs` has a reconciler now, and it is a net, not a licence.**
+`reconcileNpcMembership` sweeps the npc sets on the same 30s tick
+`reconcileZoneMembership` sweeps the player ones, so drift is a bounded blip with a
+name in the log rather than a cat in two rooms forever. But it treats `npc.zone_id`
+as the truth — it repairs a drifted SET and is blind to a wrongly-written FIELD, and
+30 seconds of a cat in two lanes is still wrong. Every position change still goes
+through `moveNpcToZone` and nothing else.
 
 ## Calling her
 

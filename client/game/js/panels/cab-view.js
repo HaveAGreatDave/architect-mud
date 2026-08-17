@@ -1931,6 +1931,9 @@ export function cabContext(ctx) {
   // The damage HUD repaints on the SERVER push, never in the frame loop — see renderDamage.
   if (ctx.dmg) st.renderDamage?.(ctx.dmg);
   if (ctx.map) { st.map = ctx.map; st.mapX = ctx.mapX; st.mapY = ctx.mapY; }
+  // The street population, paired with the map. An empty list is a real answer, not an absent one —
+  // see the same note in cockpit.js flightSimContext.
+  if (ctx.actors !== undefined) st.actors = ctx.actors;
   st.s = ctx.s ?? st.s; st.L = ctx.L ?? st.L;
   st.aim = ctx.aim !== undefined ? ctx.aim : st.aim;
   if (ctx.routes !== undefined) { st.routes = ctx.routes; st.renderRoutePicker?.(); }   // what the GPS names — the route verb owns the aiming
@@ -2593,6 +2596,7 @@ function frame(now) {
       // half a world. Same channel, same renderer, no new code on either side.
       contacts: (st.contacts || []).concat(st.trailers || []),
       map: st.map, mapCenter: { x: st.mapX, y: st.mapY },
+      actors: st.actors,   // the people on the pavement either side of the road
       mapOffset: { x: st.sim.x - st.mapX, y: st.sim.y - st.mapY },
       acX: st.sim.x, acY: st.sim.y,
     });

@@ -8,7 +8,7 @@
 // engine-facing seam the whole plugin shares.
 
 import { query } from '../../server/models/db.js';
-import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf } from '../../server/engine/world.js';
+import { getZone, getAllZones, getLivePlayer, getMinimapData, buildingEntranceDir, getRegion, addPlayerToZone, removePlayerFromZone, airfieldOf, getZoneFurniture } from '../../server/engine/world.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
 import { biomeOf, districtBiome } from './biomes.js';
 import { normalizeLivery } from './livery.js';
@@ -16,10 +16,11 @@ import { sendToPlayer, sendToZone, sendToZoneExcept } from '../../server/engine/
 import { setPosture, forceStand } from '../../server/engine/posture.js';
 import { handlePlayerDeath } from '../../server/engine/gameLoop.js';
 import { emit } from '../../server/engine/events.js';
+import { streetActors } from '../../server/engine/street-actors.js';
 import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
-import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent } from '../../server/engine/environment.js';
+import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus } from '../../server/engine/environment.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -983,6 +984,18 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     if (isRoadCell(at(x - 1, y))) s += 'w';
     rd = s || 'nesw';
   }
+  // A road that does not run along an axis carries its own heading in degrees, and the windshield
+  // paints its lane markings along THAT rather than toward the connected tile edges. `rd` above is
+  // a set of compass letters and can only ever say straight/elbow/T/crossroads, which is exactly
+  // right for a city block and cannot express a curve at all. Only the void corridor authors this
+  // today (plugins/trucking/corridor.js); every baked world tile leaves it undefined and keeps the
+  // icon-driven path untouched.
+  // `rt` is this tile's own lateral offset from that centreline and `rw` the paved half-width, so
+  // every tile of a multi-tile band paints the SAME markings on the real centreline instead of a
+  // fresh set through its own middle. All three travel together or none of them mean anything.
+  const rdeg = Number.isFinite(cell.flags?.road_deg) ? cell.flags.road_deg : undefined;
+  const rt = rdeg === undefined ? undefined : (Number(cell.flags?.road_t) || 0);
+  const rw = rdeg === undefined ? undefined : (Number(cell.flags?.road_w) || 0.5);
   // The Curtain energy wall on a land-edge tile — carry its run axis so the windshield
   // stands a shimmer barrier along it (see curtainRun).
   // A Curtain tile carries its own run axis; the perimeter GATE tile carries no curtain flag
@@ -1012,10 +1025,37 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
     if (isHighCell(at(x - 1, y))) s += 'w';
     cf = s;
   }
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature };
+  // GRID POWER, and the streetlight standing on this tile.
+  //
+  // `pw` is the tile's power status straight off the live power sim — an O(1) Map read, no query.
+  // The windshield's traffic signals go dark on it, so a plant failure blacks out the junctions
+  // along with the room lights and the ATMs instead of them cycling away over a dead city.
+  //
+  // `sl` is the STREETLIGHT: 1 when this tile has one and it is lit, 0 when it has one that is
+  // dark, absent when there is no lamp here. Three states rather than a boolean on purpose — an
+  // unlit lamp post is still a thing you can see, so collapsing "off" into "no lamp" would make
+  // the street furniture pop in and out of the world as the sun went down. `light_on` is already
+  // reconciled by environment.js against BOTH ambient darkness and power, so nothing here
+  // re-derives either: this reads the answer that system publishes rather than asking the same
+  // question a second way and drifting from it.
+  let sl;
+  if (!cell.flags?.airfield_id) {
+    for (const fu of getZoneFurniture(cell.id)) {
+      if (fu.light_type !== 'streetlight') continue;
+      sl = fu.light_on === 1 ? 1 : 0;
+      if (sl === 1) break;   // one lit lamp is enough; keep looking only while all we have is a dark one
+    }
+  }
+  const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl };
 }
 
-export function mapWindow(a, radius = 36, at = surfaceAt) {
+// The flight window's half-width, named so the things that have to AGREE with it can say so
+// rather than each writing 36 down again: the yacht helm window, and the street-actor window
+// in contextPayload (an actor outside the map the client holds has no cell to stand on).
+export const FLIGHT_RADIUS = 36;
+
+export function mapWindow(a, radius = FLIGHT_RADIUS, at = surfaceAt) {
   const rows = [];
   for (let dy = -radius; dy <= radius; dy++) {
     const row = [];
@@ -1044,7 +1084,7 @@ export function mapWindow(a, radius = 36, at = surfaceAt) {
 // skyline the chase view can draw is always in the payload. A smaller window (was 24) left the far
 // city short of the draw distance, so buildings "popped in" at the window edge as she made way; at
 // 36 the full basin is present from the moment the helm opens and never reveals in as she moves.
-export function yachtHelmWindow(x, y, radius = 36) {
+export function yachtHelmWindow(x, y, radius = FLIGHT_RADIUS) {
   const rows = mapWindow({ grid_x: x, grid_y: y }, radius);
   const c = rows[radius] && rows[radius][radius];
   if (c) { c.self = undefined; if (!c.mark) c.mark = 'yacht'; }
@@ -1386,6 +1426,11 @@ export function contextPayload(live) {
     type: 'flight_ctx',
     fuel: Math.round(a.fuel), fuelCap: Math.round(cap), fuelPct: Math.max(0, Math.round(a.fuel / cap * 100)),
     map: mapWindow(a), mapX: a.grid_x, mapY: a.grid_y, sky: skyState(),   // window centre → client keeps map+centre paired (no recenter pop)
+    // Everyone standing on the surface grid inside the same window, so a low pass shows the
+    // street population rather than an empty city. Absolute tile coords, paired with mapX/mapY
+    // exactly as `map` is. No exclusion list is needed here: this payload goes to every occupant
+    // of the aircraft, and an occupant is `posture: 'flying'`, which streetActors already drops.
+    actors: streetActors(a.grid_x, a.grid_y, FLIGHT_RADIUS),
     // Overflight readout: the real place under the craft — a named building wins over the
     // raw tile name, so you read "Embassy Hotel & Bar", not the street cell it sits on.
     surface: airfieldOf(surfaceZone)?.name || surfaceZone?.flags?.building_name || surfaceZone?.name || 'open air',

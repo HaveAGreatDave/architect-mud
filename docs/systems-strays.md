@@ -68,15 +68,27 @@ There is **no respawn code in this plugin at all**. The world flag
 the RAM field cannot: a restart, which clears `_dead` entirely. Either alone
 holds the line; neither can strand her.
 
-### `zone.npcs` has no reconciler
+### `zone.npcs` has a reconciler now — and it is a net, not a licence
 
-`reconcileZoneMembership()` repairs `zone.players` drift because that drift
-silently breaks broadcasts. There is **no equivalent for `zone.npcs`**. A raw
-`zone.npcs.add/delete` that gets it wrong produces a cat who is in two rooms, or
-in none, permanently, with no self-heal and no error.
+For most of this plugin's life there was **no equivalent of
+`reconcileZoneMembership()` for `zone.npcs`**, and a raw `zone.npcs.add/delete`
+that got it wrong produced a cat who was in two rooms, or in none, permanently,
+with no self-heal and no error. What let that sit unfixed is that the drift was
+*invisible*: `getZoneNpcs` hydrates ids through `world.npcs` and filters the
+misses, so a stale id vanished silently.
 
-Every position change goes through `moveNpcToZone()` and nothing else. The
-regress suite asserts she is in exactly one room after every transition.
+The street-actor feed made it visible — it draws a figure per zone occupant out
+the windscreen, so the same drift now reads as **the same person on two street
+corners**. `reconcileNpcMembership()` sweeps both directions (stale memberships
+*and* missing ones) on the same 30s tick as the player sweep, and logs what it
+fixed.
+
+**This does not relax the rule.** The sweep believes `npc.zone_id`, so it repairs
+a drifted SET and is blind to a wrongly-written FIELD — a bad writer gets its
+mistake made consistent rather than corrected. And 30 seconds of a cat in two
+lanes is still a cat in two lanes. Every position change goes through
+`moveNpcToZone()` and nothing else. The regress suite asserts she is in exactly
+one room after every transition.
 
 ## 3. State model
 
@@ -405,7 +417,7 @@ happens. Keep the voices apart.
 ## 12. Traps
 
 1. **The 60s-vs-24h race** (§2). Assert it, never move it.
-2. **`zone.npcs` has no reconciler** (§2). One funnel: `moveNpcToZone`.
+2. **`zone.npcs`'s reconciler is a net, not a licence** (§2). One funnel: `moveNpcToZone`.
 3. **`cmdPet` passes spread copies**, not the live NPC (§6).
 4. **A dev-panel NPC move writes a home override** (`world.js`) that beats the
    authored `home_zone` on the next boot. Drag Cathode out of the den once in the

@@ -121,15 +121,136 @@ export default async function regress({ run, check, getPlayer }) {
     // the whole "you may drive off the road" rule. Just past the tarmac there is real ground to
     // roll on (slow, and murder on tyres); four times the half-width out there is nothing at all,
     // which is what keeps the limit a law rather than something you can collide with.
-    const mid = corridorPos(a, a.L / 2, 0);
+    // These probe ACROSS the road at the mid point, and they have to be taken along the road's own
+    // normal rather than along +x — the road is a curve now and "sideways" is only occasionally east.
+    const across = (s, t) => { const p = corridorPos(a, s, t); return corridorAt(a, Math.round(p.x), Math.round(p.y)); };
     check('just off the pavement there is still ground to drive on',
-      corridorAt(a, Math.round(mid.x) + CORRIDOR_R + 2, Math.round(mid.y)) !== null);
+      across(a.L / 2, CORRIDOR_R + 2) !== null);
     check('…and it is NOT road, so the surface is the punishment',
-      corridorAt(a, Math.round(mid.x) + CORRIDOR_R + 2, Math.round(mid.y))?.flags.terrain !== 'road');
+      across(a.L / 2, CORRIDOR_R + 2)?.flags.terrain !== 'road');
     check('past the off-road limit is open air, not a wall',
-      corridorAt(a, Math.round(mid.x) + OFFROAD_R + 2, Math.round(mid.y)) === null);
-    check('the shoulder is graded dirt, so drifting off it READS before it costs',
-      corridorAt(a, Math.round(mid.x) + 1, Math.round(mid.y))?.flags.terrain === 'dirt_road');
+      across(a.L / 2, OFFROAD_R + 4) === null);
+    // ⚠ Probe the ORDER of the bands, never a specific `t`. The shoulder is barely a tile wide and
+    // the road runs at an angle, so rounding a point at t=2 onto the tile grid lands on tarmac or on
+    // verge often enough to make an exact-offset assertion a coin flip. What actually matters is
+    // that crossing outward you meet tarmac, then dirt, then open ground, in that order and with no
+    // band missing — which is the thing that makes drifting off READ before it costs.
+    {
+      let bad = null;
+      for (let s = 40; s <= a.L - 40 && !bad; s += 37) {
+        const seq = [];
+        for (let t = 0; t <= OFFROAD_R; t += 0.25) {
+          const c = across(s, t);
+          const band = !c ? 'air' : c.flags.terrain === 'road' ? 'road' : c.flags.terrain === 'dirt_road' ? 'dirt' : 'verge';
+          if (seq[seq.length - 1] !== band) seq.push(band);
+        }
+        const want = ['road', 'dirt', 'verge'];
+        if (seq.slice(0, 3).join('>') !== want.join('>')) bad = `s=${s}: ${seq.join('>')}`;
+      }
+      check('crossing outward you meet tarmac, then graded dirt, then open ground — in that order',
+        bad === null, bad);
+    }
+
+    // ── The curve invariants ────────────────────────────────────────────────
+    // The road bends now, and every one of these is a way that goes wrong silently.
+
+    // 1. IT ACTUALLY BENDS. The whole point of the change; a generator that quietly degenerated to
+    // due south would pass every other test in this file.
+    const degs = a.legs.map(l => l.deg);
+    check('the road actually turns, rather than running due south',
+      Math.max(...degs) - Math.min(...degs) > 15, `${Math.min(...degs).toFixed(1)}..${Math.max(...degs).toFixed(1)}`);
+
+    // 2. ⚠ THE MINIMUM TURN RADIUS. Every cell out here is classified by distance from the
+    // centreline out to OFFROAD_R, so a bend tighter than that folds the verge band through itself
+    // and two distant stretches of one route start claiming the same tile. This is the invariant the
+    // whole synthesis rests on, and nothing else in the suite would notice it breaking.
+    let tightest = Infinity;
+    for (let i = 1; i < a.legs.length; i++) {
+      const dth = Math.abs(a.legs[i].deg - a.legs[i - 1].deg) * (Math.PI / 180);
+      if (dth > 1e-9) tightest = Math.min(tightest, a.legs[i - 1].len / dth);
+    }
+    check('no bend is tighter than the verge is wide, so the road never folds through itself',
+      tightest > OFFROAD_R * 2, `tightest radius ${tightest.toFixed(0)} tiles`);
+
+    // 3. A STRAIGHT IS STRAIGHT. The first cut leashed the heading back toward south a little every
+    // tile, which reads as a road that never stops wandering — the wheel is never still and no bend
+    // registers as an event because everything is one.
+    let straight = 0;
+    for (let i = 1; i < a.legs.length; i++) if (Math.abs(a.legs[i].deg - a.legs[i - 1].deg) < 1e-9) straight++;
+    check('a good half of the road is genuinely straight, so a bend is an event',
+      straight > a.legs.length * 0.3, `${straight}/${a.legs.length} segments`);
+
+    // 4. THE ROUND TRIP. corridorPos and corridorLocate must stay inverses across the whole verge,
+    // because the odometer, every node crossing and the bogged test are all derived through them.
+    // Tolerance is not zero and cannot be: the nearest point on a CURVE to an offset point is not
+    // the point the offset was measured from, so a tile far out on the verge legitimately locates a
+    // little ahead or behind. A tile's worth of that is fine; a segment's worth is a fold.
+    let rt = 0, rtNull = null;
+    for (let s = 0; s <= a.L; s += 1) for (const t of [0, 1, 5, 15, 22]) {
+      const p = corridorPos(a, s, t);
+      const h = corridorLocate(a, p.x, p.y);
+      if (!h) { rtNull = `s=${s} t=${t}`; break; }
+      rt = Math.max(rt, Math.abs(h.s - s));
+    }
+    check('every point of the corridor locates back to itself', rtNull === null, rtNull);
+    check('…to within a tile, so the odometer never jumps through a fold', rt < 1.5, rt.toFixed(2));
+
+    // 5. ⚠ THE PAVED BAND IS ONE PIECE. This is the test the widened tarmac exists to pass. A road
+    // one tile wide is fine on an axis and comes apart the moment it isn't: the tiles of a diagonal
+    // band touch only at their CORNERS, so the highway renders as a dotted line of squares with
+    // verge showing through the gaps. Flood-fill the whole paved set and demand a single component.
+    {
+      const paved = new Set();
+      const xs = a.legs.map(l => l.x0), ys = a.legs.map(l => l.y0);
+      const x0 = Math.floor(Math.min(...xs)) - 4, x1 = Math.ceil(Math.max(...xs)) + 4;
+      const y0 = Math.floor(Math.min(...ys)) - 4, y1 = Math.ceil(Math.max(...ys)) + 4;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        if (corridorAt(a, x, y)?.flags.terrain === 'road') paved.add(`${x},${y}`);
+      }
+      const seen = new Set(), stack = [[...paved][0]];
+      seen.add(stack[0]);
+      while (stack.length) {
+        const [px, py] = stack.pop().split(',').map(Number);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const k = `${px + dx},${py + dy}`;
+          if (paved.has(k) && !seen.has(k)) { seen.add(k); stack.push(k); }
+        }
+      }
+      check('the tarmac is one unbroken piece, not a dotted line of tiles',
+        seen.size === paved.size, `${seen.size}/${paved.size} tiles connected`);
+    }
+
+    // 6. EVERY PAVED TILE CARRIES A HEADING, and it is the heading that makes the renderer paint a
+    // curve instead of an elbow. A tarmac cell shipping only an icon is a bend drawn as a crossroads.
+    {
+      let missing = null;
+      for (let s = 0; s <= a.L && !missing; s += 7) {
+        const c = across(s, 0);
+        if (!Number.isFinite(c?.flags?.road_deg) || !Number.isFinite(c?.flags?.road_t)) missing = `s=${s}`;
+        // The icon is the FALLBACK and must never be a bend piece — a 90° elbow is not what the road
+        // does here, and drawing one puts lane markings down an arm the highway never takes.
+        else if (!['road_ns', 'road_ew'].includes(c.flags.icon)) missing = `icon ${c.flags.icon} @ s=${s}`;
+      }
+      check('every paved tile ships its own heading, and an axis-aligned icon as the fallback',
+        missing === null, missing);
+    }
+
+    // 7. THE TRUNK IS ONE ROAD. Both destinations out of a void share their first `trunk` rooms, so
+    // the tarmac over them must be identical tile for tile — otherwise changing your mind at the
+    // fork teleports the rig sideways onto a road that was somewhere else the whole way. The curve
+    // generator has to keep the trunk/limb seed split intact to hold this.
+    if ((vdef.dests || []).length > 1) {
+      const t1 = corridorFor(VOIDKEY, vdef.dests[0].key, 4242, 8, 3);
+      const t2 = corridorFor(VOIDKEY, vdef.dests[1].key, 4242, 8, 3);
+      let diverged = null;
+      for (let s = 0; s <= 3 * TILES_PER_ROOM && !diverged; s++) {
+        const p = corridorPos(t1, s, 0), q = corridorPos(t2, s, 0);
+        if (Math.abs(p.x - q.x) > 1e-9 || Math.abs(p.y - q.y) > 1e-9) diverged = `s=${s}`;
+      }
+      check('both destinations drive the identical trunk before the fork', diverged === null, diverged);
+      check('…and part company after it',
+        Math.abs(corridorPos(t1, 3 * TILES_PER_ROOM + 200, 0).x - corridorPos(t2, 3 * TILES_PER_ROOM + 200, 0).x) > 1);
+    }
 
     // Every roadside structure must be a type the renderer actually models. A bad `building_type`
     // is invisible in every test except a player driving past it, which is precisely the failure
@@ -233,8 +354,15 @@ export default async function regress({ run, check, getPlayer }) {
     const route = corridorFor(VOIDKEY, DESTKEY, 4242, 8);
     const mk = (s, t) => { const p = corridorPos(route, s, t); return { route, x: p.x, y: p.y }; };
     check('the centreline classifies as road', surfaceUnder(mk(200, 0)) === 'road');
-    check('the shoulder classifies as shoulder', surfaceUnder(mk(200, 1)) === 'shoulder');
-    check('the verge classifies as offroad', surfaceUnder(mk(200, 4)) === 'offroad');
+    // Sweep outward for the shoulder rather than naming an offset — see the band-order note above:
+    // the shoulder is about a tile wide and the road is at an angle, so any fixed `t` is a coin flip
+    // once rounded onto the grid. What has to hold is that a shoulder EXISTS between the two.
+    let firstShoulder = null;
+    for (let t = 0; t <= CORRIDOR_R && firstShoulder === null; t += 0.1) {
+      if (surfaceUnder(mk(200, t)) === 'shoulder') firstShoulder = t;
+    }
+    check('there is a shoulder between the tarmac and the verge', firstShoulder !== null, firstShoulder);
+    check('the verge classifies as offroad', surfaceUnder(mk(200, 5)) === 'offroad');
     check('beyond the corridor classifies as offroad', surfaceUnder({ route, x: 9e5, y: 9e5 }) === 'offroad');
     for (const name of ['road', 'shoulder', 'offroad']) {
       check(`the model knows the surface "${name}" the corridor can produce`, !!SURFACES[name]);

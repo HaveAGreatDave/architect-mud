@@ -1416,6 +1416,67 @@ export function reconcileZoneMembership({ quiet = false } = {}) {
   return repaired;
 }
 
+/**
+ * The NPC twin of reconcileZoneMembership. Treats `npc.zone_id` as the truth and repairs the
+ * `zone.npcs` sets to match it.
+ *
+ * This set had no reconciler at all for a long time, and the reason it got away with it is that
+ * drift in it was INVISIBLE. `getZoneNpcs` hydrates ids through `world.npcs` and filters the
+ * misses, so a stale id is silently dropped and a missing one is silently absent — an NPC in two
+ * rooms, or in none, permanently, with no self-heal and nothing in the log. The stray-cat docs
+ * call this out by name: "you get a cat in two rooms — or in none — permanently, silently".
+ *
+ * What changed is that it stopped being invisible. The street-actor feed
+ * (server/engine/street-actors.js) draws a figure per zone occupant out the windscreen, so the
+ * same drift now shows up as THE SAME PERSON STANDING ON TWO STREET CORNERS. That is a bug report
+ * nobody could act on, because the symptom is nowhere near the cause: the culprit is whichever
+ * path wrote `npc.zone_id` without going through moveNpcToZone/moveEntity, and it may have run
+ * hours earlier.
+ *
+ * Both directions, unlike the player sweep — which only ever ADDS, because a player's own
+ * `current_zone` write is paired with removePlayerFromZone by every path that exists. NPC
+ * positions are mutated from more places (the AI move seam, the wander tick's respawn branch,
+ * plugin relocations), so a stale membership is at least as likely as a missing one, and a stale
+ * one is the half that duplicates a person on screen.
+ *
+ * Cost is trivial and deliberately so, since this runs on a timer: one pass over the zones whose
+ * npc sets are non-empty (a few hundred entries across the whole world) plus one pass over
+ * `world.npcs` (~215). No DB, no allocation per zone. Returns the repair count so a test can
+ * assert on it, and LOGS what it fixed — a bounded blip with a name attached beats a person
+ * quietly existing twice.
+ */
+export function reconcileNpcMembership({ quiet = false } = {}) {
+  let repaired = 0;
+  // 1. Drop memberships that are not where the NPC says it is — including ids for NPCs that no
+  //    longer exist at all (killed and never cleaned up, or removed by a content deploy).
+  for (const zone of world.zones.values()) {
+    if (!zone.npcs.size) continue;
+    for (const id of zone.npcs) {
+      const npc = world.npcs.get(id);
+      if (npc && npc.zone_id === zone.id) continue;
+      zone.npcs.delete(id);
+      repaired++;
+      if (!quiet) {
+        console.warn(`[world] npc membership drift repaired: ${npc?.name || id} was listed in ${zone.id} but is ${npc ? `in ${npc.zone_id}` : 'gone from the world'} — some path moved it without moveNpcToZone()`);
+      }
+    }
+  }
+  // 2. Add the memberships that are missing. Transient/void zones are not DB rooms and hold no
+  //    set, so an NPC in one is not drift — same exemption the player sweep makes.
+  for (const [id, npc] of world.npcs) {
+    const zid = npc?.zone_id;
+    if (!zid) continue;
+    const zone = world.zones.get(zid);
+    if (!zone || zone.npcs.has(id)) continue;
+    zone.npcs.add(id);
+    repaired++;
+    if (!quiet) {
+      console.warn(`[world] npc membership drift repaired: ${npc.name || id} thinks it is in ${zid} but was missing from its npc set — some path set zone_id without moveNpcToZone()`);
+    }
+  }
+  return repaired;
+}
+
 export function addPlayerToZone(pid, zid) { world.zones.get(zid)?.players.add(pid); }
 export function removePlayerFromZone(pid, zid) { world.zones.get(zid)?.players.delete(pid); }
 export function setLivePlayer(pid, data) { world.players.set(pid, data); }
