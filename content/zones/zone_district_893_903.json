@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
     "east": "zone_district_894_903",
@@ -11,7 +10,7 @@
   "flags": {
     "district": "wasteland",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 893,
   "grid_y": 903,

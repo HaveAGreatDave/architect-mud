@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "east": "zone_district_905_904",
@@ -11,7 +10,7 @@
   "flags": {
     "district": "docks",
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "terrain": "sand"
   },
   "grid_x": 904,
   "grid_y": 904,
