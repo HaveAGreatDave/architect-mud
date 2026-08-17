@@ -31,6 +31,7 @@
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
 import { rasterSmoke } from './raster-smoke.mjs';
+import { rasterCount } from '../../client/game/js/panels/model-raster.js';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
@@ -71,14 +72,30 @@ async function main() {
   // truck cab, both cockpits and the helm view with this suite still green.
   const WS_ID = '__smoke-ws';
   stubCanvas(WS_ID, 640, 360);
+  // ── …AND THAT THE CHASE CAMERA IS ON THE DEPTH PATH AT ALL ──────────────────
+  // The truck mesh has four renderers and this exact mistake has now been made three times: a fix
+  // written, verified in one of them, and never reaching the other three. The last one was the depth
+  // buffer itself, which went into the depot walkaround while the external view a player drives the
+  // rig from kept sorting — so every report of parts flickering was still true and every round of
+  // work on it read as having done nothing. `cab:ext` below is a truck in the external view, so the
+  // counter has to move; if it stops moving, that renderer has quietly fallen back off.
+  const rasterBefore = rasterCount();
   const views = ws.viewRenderSmoke(WS_ID);
   for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
+  const rasterRan = rasterCount() - rasterBefore;
+  if (rasterRan <= 0) {
+    problems.push('view   cab:ext → the external truck view never reached the depth buffer. '
+      + 'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
+  }
   // The depth buffer that replaced the truck sort — see model-raster.js. Its cases are the ones no
   // ordering can pass, so a regression here is the whole class coming back.
   const raster = rasterSmoke();
   for (const f of raster) problems.push(`raster ${f}`);
   const fairing = truckFairingSmoke();
   for (const f of fairing) problems.push(`shell  ${f}`);
+  // The forecourt's lanes — the other building a truck is meant to drive INTO. See the note on
+  // forecourtDriveSmoke: a gas station looks open from every camera whatever its collision says.
+  for (const f of ws.forecourtDriveSmoke()) problems.push(`drive  ${f}`);
   const bayOcc = ws.bayOccluderSmoke(WS_ID);
   for (const f of bayOcc) problems.push(`bayocc ${f}`);
 
@@ -235,6 +252,7 @@ async function main() {
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  Depot occlusion: a shed beside the rig covers ${bayOcc.length ? '?' : 'the span buffer'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
+  console.log('  Forecourt: both pump lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — and the pumps are still solid.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

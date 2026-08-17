@@ -23,7 +23,13 @@ function makeCtx() {
       if (k === 'measureText') return () => ({ width: 0 });
       if (k === 'createLinearGradient' || k === 'createRadialGradient' || k === 'createConicGradient') return () => gradient;
       if (k === 'createPattern') return () => null;
-      if (k === 'getImageData' || k === 'createImageData') return (x, y, w, h) => {
+      // ⚠ TWO ARITIES, AND THEY ARE NOT THE SAME ONE. `getImageData(x, y, w, h)` takes a rect;
+      // `createImageData(w, h)` takes a SIZE. Answering both with the four-argument shape made
+      // createImageData(w, h) read w as x and hand back a 1×1 buffer, so the first caller to fill it
+      // — blitRaster, once the truck's depth pass reached this harness — threw `offset is out of
+      // bounds` from inside a stub, which reads exactly like a bug in the code under test.
+      if (k === 'getImageData' || k === 'createImageData') return (...a) => {
+        const [w, h] = a.length >= 4 ? [a[2], a[3]] : [a[0], a[1]];
         const W = Math.max(1, w | 0), H = Math.max(1, h | 0);
         return { data: new Uint8ClampedArray(W * H * 4), width: W, height: H };
       };

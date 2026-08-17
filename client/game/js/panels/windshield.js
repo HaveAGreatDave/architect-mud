@@ -36,10 +36,14 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { rasterFaces, blitRaster, depthAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
 
+let _frameDpr = 1;              // this frame's device-pixel ratio — see where it is set in paintWindshield
+const RASTER_MIN_PX = 46;       // below this on screen a truck keeps the sort — see the ⚠ at the call
+const RASTER_BUDGET_PX = 1_400_000;   // …and above this many buffer pixels the supersample gives way
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
 
@@ -754,6 +758,11 @@ export function paintWindshield(id, view) {
 
   ctx.save();
   ctx.scale(dpr, dpr);
+  // The frame's device-pixel ratio, published for the one pass that has to rasterise into a buffer
+  // of its own rather than draw on this ctx — the truck's depth pass (drawAircraftModel). Everything
+  // else here works in CSS pixels and never needs to know. Module-level rather than a seventh
+  // parameter threaded through two call sites for a number that is constant across a frame.
+  _frameDpr = dpr;
   ctx.clearRect(0, 0, W, H);
 
   // Horizon. On the deck it tracks how much field is in view: pull the nose up (or
@@ -1276,7 +1285,9 @@ export function paintWindshield(id, view) {
       // `steer` rides over for the lifter jets alone (drawVehicleGround): a vehicle with no steer
       // axle corners by pushing sideways, and the cones are where that becomes visible. Aircraft
       // ignore it, and a contact that never sends one simply has none.
-      const ownbb = drawAircraftModel(ctx, cam, { dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, steer: v.steer, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
+      // `own: true` marks this as the camera's SUBJECT rather than one more thing in the world — the
+      // truck path reads it to keep the depth buffer on however small the window is (see the ⚠ there).
+      const ownbb = drawAircraftModel(ctx, cam, { own: true, dx: 0, dy: 0, cls: v.cls, variant: v.variant, armed: !!v.armed, hdg: v.heading, steer: v.steer, drive: v.drive, bank: v.bank, pitch: v.pitch, livery: v.livery, sizeMul: ownExtMul(v.cls), gearAnim: v.gearAnim ?? 1, power: v.enginePct != null ? v.enginePct : v.speed, ctrl: v.ctrl, propPhase: v.propPhase, propSpin: v.propSpin, propDisc: v.propDisc, lights: v.engineOn !== false, landing: !!v.landingLight, breakup: v.breakup, noseVisor: v.noseVisor || 0 }, ownShipBaseWz(cam, v), sunFx, now);
       if (v.wreckFx && ownbb) drawWreckFire(ctx, ownbb, v.wreckFx, now);   // crash-cinematic fire + smoke over the burning wreck
       if (clipped) ctx.restore();
       pEnd();
@@ -4550,6 +4561,11 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   ty_wh_metal: [120, 124, 130], ty_cont_r: [150, 66, 54], ty_cont_b: [56, 84, 120], ty_cont_g: [70, 104, 80], ty_cont_y: [150, 128, 54],
   ty_pallet: [96, 74, 48], ty_cold: [186, 196, 204], ty_cold_unit: [70, 78, 86], ty_fab_metal: [96, 100, 108], ty_fab_steel: [70, 74, 82],
   ty_wharf: [72, 80, 86], ty_wharf_steel: [64, 70, 78], ty_freight_office: [86, 82, 74], ty_fwd_metal: [110, 116, 122],
+  // The forecourt (fuel_yard). A dispenser is not a wall, and neither is a canopy soffit or a
+  // painted kerb — see PUMP_WALL / SOFFIT_WALL / PLAIN_WALL, which is where each of these stops
+  // being given a grid of lit apartment windows.
+  ty_pump: [214, 216, 220], ty_pump_dk: [44, 48, 54], ty_soffit: [232, 234, 228], ty_kerb: [186, 156, 46],
+  ty_fuel_kiosk: [108, 112, 118],
   // Halloran's Fix-It — a grease-and-steel repair garage: oil-stained warm concrete block, darker roll-up bays.
   ty_garage: [92, 82, 70], ty_garage_bay: [46, 42, 40],
   // Salvage Rites — the scrapyard: a rusted site shack, oxidised bales of crushed car,
@@ -4957,6 +4973,27 @@ const TR = () => Math.max(0.5, RENDER_TUNE.texRes || 1);
 const METAL_WALL = new Set(['ty_hangarmetal', 'ty_wh_metal', 'ty_cont_r', 'ty_cont_b', 'ty_cont_g', 'ty_cont_y', 'ty_cold', 'ty_fab_metal', 'ty_fwd_metal', 'ty_studio', 'ty_ksab', 'ty_reach_hangar', 'ty_reach_rust', 'ty_reach_dynamo', 'ty_reach_tank', 'ty_reefer', 'ty_stack_dk', 'ty_melt_tank']);   // ...+ sound-stage shells: a stage is a windowless ribbed-panel clear-span box, never a windowed block
 const GLASS_WALL = new Set(['ty_halcyon', 'ty_solenne', 'ty_ksab_glass']);   // curtain-glass skins: floor-plate striping + sky sheen instead of a window grid
 const DECO_WALL = new Set(['ty_meridian']);   // bespoke art-deco limestone: reeded vertical piers + tall paired windows + chevron spandrels (The Meridian)
+// ── STRUCTURE IS NOT A BUILDING, AND IT WAS BEING SKINNED LIKE ONE ───────────
+// Every palette that is not in one of the three sets above falls through to the default branch at
+// the bottom of wallTex, and that branch's whole job is a grid of lit windows. Fine for a wall;
+// absurd on the things this palette is actually used for, which are without exception POSTS — the
+// forecourt canopy's columns, the fab shed's gantry legs, the garage's hoist mast, the price
+// pylon's stem. A gas station whose four columns each had six floors of glowing apartments in them
+// is the report, and it is one missing family rather than one bad model: anything narrow and
+// structural drawn with a wall texture will do the same thing the day it is added.
+// So: painted steel. A vertical light/shade gradient across the section so it reads as round-ish,
+// a bolt seam, and no apertures of any kind.
+const STRUCT_WALL = new Set(['ty_fab_steel']);
+// A FUEL DISPENSER, drawn as a texture rather than as fifteen more boxes. The brief was "procedural
+// canvas textures that make the pumps look better", and the reason that is the right answer here
+// rather than more geometry is scale: a pump is about a metre across in a world whose unit is a
+// city tile, so its display, keypad, nozzle boots and brand band are all sub-pixel as mass and
+// perfectly legible as paint. The geometry stays four boxes; the detail lives in the skin.
+const PUMP_WALL = new Set(['ty_pump']);
+// Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
+// kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
+// these has any.
+const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk']);
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -4971,6 +5008,68 @@ function wallTex(biome, night) {
         g.fillRect(x, 0, Math.max(1, rib - 1), H);
       }
       for (let y = 4 * tr; y < H; y += 10 * tr) for (let x = 1 * tr; x < W; x += rib * 2) { g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x | 0, y | 0, Math.max(1, tr | 0), Math.max(1, tr | 0)); }   // rivets
+      return c;
+    }
+    if (PUMP_WALL.has(biome)) {   // A FUEL DISPENSER — see PUMP_WALL for why this is paint and not geometry.
+      // The body: a pale enamelled shell with a soft vertical falloff, so the box reads as a
+      // moulded case rather than a flat card.
+      const bg = g.createLinearGradient(0, 0, W, 0);
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      bg.addColorStop(0, k(0.70)); bg.addColorStop(0.38, k(1.0)); bg.addColorStop(1, k(0.66));
+      g.fillStyle = bg; g.fillRect(0, 0, W, H);
+      const px = Math.max(1, tr | 0);
+      // Everything below is placed as a FRACTION of the tile, because `tr` moves with the texture
+      // resolution slider and a pump laid out in pixels comes apart the moment somebody drags it.
+      const R = (fx, fy, fw, fh2, fill) => { g.fillStyle = fill; g.fillRect(Math.round(W * fx), Math.round(H * fy), Math.max(px, Math.round(W * fw)), Math.max(px, Math.round(H * fh2))); };
+      R(0.06, 0.03, 0.88, 0.09, 'rgba(28,32,38,0.92)');                     // the topper, dark against the shell
+      R(0.10, 0.05, 0.80, 0.045, nite ? 'rgba(255,196,96,0.95)' : 'rgba(236,196,110,0.75)');   // …with the brand band lit across it
+      R(0.10, 0.17, 0.80, 0.20, 'rgba(18,22,28,0.95)');                     // the display recess
+      // The readout itself. Warm digits on a dark panel by day, genuinely emissive at night — the
+      // one part of a forecourt that is legible from the road when nothing else is.
+      for (let i = 0; i < 4; i++) R(0.15 + i * 0.17, 0.20, 0.11, 0.07, nite ? 'rgba(255,178,86,0.95)' : 'rgba(190,150,90,0.6)');
+      for (let i = 0; i < 3; i++) R(0.16 + i * 0.22, 0.30, 0.15, 0.035, nite ? 'rgba(120,196,160,0.75)' : 'rgba(96,130,112,0.5)');
+      R(0.12, 0.41, 0.30, 0.14, 'rgba(40,44,50,0.85)');                     // keypad
+      for (let ry = 0; ry < 3; ry++) for (let rx = 0; rx < 3; rx++) R(0.145 + rx * 0.085, 0.435 + ry * 0.042, 0.05, 0.025, 'rgba(150,156,164,0.75)');
+      R(0.52, 0.41, 0.36, 0.14, 'rgba(200,80,52,0.85)');                    // grade select, the one bit of colour
+      R(0.08, 0.60, 0.84, 0.012, 'rgba(0,0,0,0.35)');                       // a shadow line where the case steps in
+      R(0.10, 0.63, 0.34, 0.26, 'rgba(30,34,40,0.9)');                      // nozzle boot, left
+      R(0.56, 0.63, 0.34, 0.26, 'rgba(30,34,40,0.9)');                      // …and right
+      R(0.13, 0.66, 0.10, 0.20, 'rgba(190,70,50,0.9)');                     // the nozzles in them, colour-coded by grade
+      R(0.59, 0.66, 0.10, 0.20, 'rgba(70,110,180,0.9)');
+      R(0.04, 0.92, 0.92, 0.06, 'rgba(20,22,26,0.85)');                     // the plinth it stands on
+      return c;
+    }
+    if (PLAIN_WALL.has(biome)) {   // painted panel: a soffit, a kerb, a kiosk flank — never a facade
+      const vg = g.createLinearGradient(0, 0, 0, H);
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      vg.addColorStop(0, k(1.06)); vg.addColorStop(1, k(0.84));
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+      const seam = Math.max(4, Math.round(8 * tr)), px = Math.max(1, tr | 0);
+      for (let x = seam; x < W; x += seam) { g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(x, 0, px, H); }   // panel joints only
+      for (let i = 0; i < Math.round(24 * tr); i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.03 + frac(i) * 0.04})`; g.fillRect(rx, ry, 1, 1); }
+      if (nite) { g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillRect(0, 0, W, H); }
+      return c;
+    }
+    if (STRUCT_WALL.has(biome)) {   // painted structural steel: a column section, never a facade — see STRUCT_WALL
+      // Across the width: bright where the light catches the section, falling off to a dark edge on
+      // each side. That single gradient is what makes a square extrusion read as a round column at
+      // any distance, and it is doing the job the window grid was accidentally doing badly.
+      const hg = g.createLinearGradient(0, 0, W, 0);
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      hg.addColorStop(0, k(0.62)); hg.addColorStop(0.34, k(1.35)); hg.addColorStop(0.62, k(1.02)); hg.addColorStop(1, k(0.55));
+      g.fillStyle = hg; g.fillRect(0, 0, W, H);
+      // Flange seams every so often up the section, and a bolt line down the lit face. Small, dark,
+      // and the only thing here with a horizontal rhythm — enough to give a column a scale without
+      // suggesting storeys.
+      const seam = Math.max(5, Math.round(11 * tr)), px = Math.max(1, tr | 0);
+      for (let y = seam; y < H; y += seam) {
+        g.fillStyle = 'rgba(0,0,0,0.30)'; g.fillRect(0, y, W, px);
+        g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, y + px, W, px);
+      }
+      for (let y = Math.round(3 * tr); y < H; y += Math.max(3, Math.round(5 * tr))) {
+        g.fillStyle = 'rgba(0,0,0,0.22)'; g.fillRect(Math.round(W * 0.30), y, px, px);
+      }
+      if (nite) { g.fillStyle = 'rgba(0,0,0,0.34)'; g.fillRect(0, 0, W, H); }   // a post has no lights of its own
       return c;
     }
     if (GLASS_WALL.has(biome)) {   // futuristic curtain glass: a blue sky-reflection sheen + STRONG horizontal floor plates (no window grid)
@@ -5729,6 +5828,27 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
 }
 // A horizontal RING at world-z `z`, radius `r`, centred on (dx,dy) — a band line / catwalk rail
 // around a drum. Projected through the camera; skipped if any point is behind the near plane.
+// ── PAINT ON THE DECK ────────────────────────────────────────────────────────
+// A flat polygon lying on the ground: bay markings, hatching, an apron. Deliberately NOT a very
+// short draw3DBoxAt — a box has walls and a top, so a 2 mm slab of paint gets four vertical faces,
+// a shaded roof and a silhouette, which is how the forecourt's bay markings became a raised yellow
+// platform with a truck balanced on it. Paint has no height at all, and the only reason it sits a
+// hair off z=0 is to clear the road surface it is painted onto.
+//
+// `pts` are WORLD [x, y] pairs — the caller places them through its own model frame (`F`), so this
+// needs to know nothing about entrances or footprints. Adornment, like every other marking: it
+// never contributes mass, never reaches the collision model, and is skipped during shape capture.
+function groundPaint(ctx, cam, pts, z, fill, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;
+  const p = [];
+  for (const [x, y] of pts) { const q = cam.proj(x, y, z); if (q.f <= 0.1) return; p.push(q); }
+  if (p.length < 3) return;
+  emitFace(decoDepth(...p.map(q => q.f)), () => {
+    ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+    ctx.beginPath(); p.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
+    ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  });
+}
 function drawRing(ctx, cam, dx, dy, z, r, N, strokeStyle, lw, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — a catwalk rail is not mass
   const pts = [];
@@ -6280,34 +6400,94 @@ const SIGNAL_COL = { g: [86, 214, 108], a: [232, 178, 52], r: [226, 66, 58] };
 
 // One head: a short dark post with three stacked lamps, the live one lit and haloed. Drawn at the
 // junction corner on the near side of its arm, facing the traffic it governs.
-function drawSignalHead(ctx, cam, dx, dy, lamp, alpha, night) {
-  const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.2);
+// ── A MAST-ARM SIGNAL ────────────────────────────────────────────────────────
+//
+// One pole on the kerb with a horizontal arm cantilevered out OVER the carriageway, carrying its
+// heads above the lanes they govern, and a cobra street light on the same mast. This is what a
+// real junction on a road wide enough to need signals looks like, and it replaces four separate
+// pole-mounted heads standing one on each corner — which is what a residential side street gets,
+// not an arterial crossroads, and at four per junction it made every intersection in the city read
+// as a forest of identical little posts.
+//
+// ⚠ ONE MAST PER AXIS, NOT PER ARM, and that is where the count actually comes down. A crossroads
+// has four arms and two AXES; the signals a driver obeys are the ones facing them, and both
+// directions of one street are governed together by definition (they share a phase — see
+// signalLamp). So a crossroads gets two masts instead of four heads, a T-junction two instead of
+// three, and each one is a bigger, more legible object than the thing it replaced.
+//
+// `arm` is the unit vector the boom reaches along (out over the road); `face` is the approach it
+// governs, which is what picks the phase. Drawn as strokes and fills through the shared projection,
+// so it queues into the same face sink and a building in front of a junction still hides it.
+//
+// SCALE IS CALIBRATED AGAINST THE BILLBOARDS ALREADY IN THIS WORLD rather than picked out of the
+// air: drawTreeBB uses 34/f for a tree and drawActorFigure 11/f for a person, so a signal head is
+// 18 — about half a tree. The first version of the old kerbside post used 9 and the heads came out
+// the size of a pedestrian's head: visible, plausible at a glance, and quietly half the size of
+// the thing they were meant to be.
+const MAST_H = 0.30;          // pole height in world-z — half again the old post, because it spans a road
+const MAST_REACH = 0.72;      // how far the boom carries out over the carriageway, in tiles
+function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
+  const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, MAST_H);
   if (base.f <= 0.1 || top.f <= 0.1) return;
-  // Scale is calibrated against the billboards that already sit in this world rather than picked
-  // out of the air: drawTreeBB uses 34/f for a tree, drawActorFigure 11/f for a person. A signal
-  // head on its post is about half a tree, so 18. A first pass used 9 and the heads came out at
-  // roughly the size of a pedestrian's head — visible, plausible at a glance, and quietly half the
-  // size of the thing they were meant to be.
+  // The far end of the boom, and a mid point — the arm droops a little toward the tip, which is the
+  // one detail that stops a cantilever reading as a scaffold pole taped on at right angles.
+  const tipX = dx + arm[0] * MAST_REACH, tipY = dy + arm[1] * MAST_REACH;
+  const tip = cam.proj(tipX, tipY, MAST_H - 0.012);
+  const mid = cam.proj(dx + arm[0] * MAST_REACH * 0.5, dy + arm[1] * MAST_REACH * 0.5, MAST_H - 0.004);
+  if (tip.f <= 0.1 || mid.f <= 0.1) return;
   const s = clamp(18 / top.f, 1.2, 30);
-  if (s < 1.6) return;                       // too far to resolve three lamps: drawing one is a lie
+  if (s < 1.6) return;                        // too far to resolve three lamps: drawing one is a lie
   ctx.globalAlpha = alpha;
-  ctx.strokeStyle = 'rgba(38,42,50,0.9)'; ctx.lineWidth = Math.max(0.8, s * 0.12);
-  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();   // post
-  const r = Math.max(0.6, s * 0.16), hx = top.sx, hy = top.sy;
+  const steelW = Math.max(0.9, s * 0.13);
+  ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = steelW * 1.25; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();          // the pole
+  ctx.lineWidth = steelW;
+  ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.quadraticCurveTo(mid.sx, mid.sy, tip.sx, tip.sy); ctx.stroke();   // the boom
+  // The heads, hung under the boom at the lane positions. Two on a mast — a real one carries one
+  // per lane, and two is what reads as "over the road" without turning into a row of dots.
+  const r = Math.max(0.6, s * 0.15);
+  for (const t of [0.42, 0.80]) {
+    const hp = cam.proj(dx + arm[0] * MAST_REACH * t, dy + arm[1] * MAST_REACH * t, MAST_H - 0.006);
+    if (hp.f <= 0.1) continue;
+    ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = Math.max(0.7, s * 0.06);
+    ctx.beginPath(); ctx.moveTo(hp.sx, hp.sy); ctx.lineTo(hp.sx, hp.sy + r * 0.9); ctx.stroke();     // the drop bracket
+    signalLamps(ctx, hp.sx, hp.sy + r * 0.9, r, lamp, s, night);
+  }
+  // The cobra head, on the opposite side of the same pole. A real mast carries the street light too,
+  // and putting it here rather than on its own post beside it is the other half of "fewer poles".
+  const cobra = cam.proj(dx - arm[0] * 0.26, dy - arm[1] * 0.26, MAST_H + 0.01);
+  if (cobra.f > 0.1) {
+    ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = Math.max(0.7, s * 0.08);
+    ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(cobra.sx, cobra.sy); ctx.stroke();
+    ctx.fillStyle = 'rgba(70,74,82,0.95)';
+    ctx.beginPath(); ctx.ellipse(cobra.sx, cobra.sy + r * 0.3, r * 1.5, r * 0.5, 0, 0, 7); ctx.fill();
+    if (lit) {
+      const g = ctx.createRadialGradient(cobra.sx, cobra.sy + r * 0.5, 0, cobra.sx, cobra.sy + r * 0.5, r * 6);
+      g.addColorStop(0, `rgba(255,226,168,${0.20 + night * 0.34})`); g.addColorStop(1, 'rgba(255,226,168,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy + r * 0.5, r * 6, 0, 7); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+// The three lamps in a housing, hung from (hx, hy) — the top of the housing, so a head reads as
+// suspended from the bracket above it rather than balanced on a point. Its own function because a
+// mast carries two of them and any future kerbside head would carry a third: one drawing of what a
+// signal looks like, however many are hung.
+//
+// ⚠ THE HALO'S THRESHOLD IS IN `s`, THE HEAD'S ON-SCREEN SIZE, NOT IN TILES. `f` is projection
+// space and runs well ahead of the tile count — a junction two tiles up measures s≈2.5, not 4.5 —
+// so an earlier gate of 3 meant the halo never drew at any distance at all, which reads exactly
+// like "the lights just aren't very bright" rather than like a dead branch.
+function signalLamps(ctx, hx, hy, r, lamp, s, night) {
   ctx.fillStyle = 'rgba(26,29,35,0.92)';
-  ctx.fillRect(hx - r * 1.5, hy - r * 5.4, r * 3, r * 6.4);                                   // the housing
+  ctx.fillRect(hx - r * 1.5, hy, r * 3, r * 6.4);
   for (let i = 0; i < 3; i++) {
     const key = i === 0 ? 'r' : i === 1 ? 'a' : 'g', on = lamp === key, col = SIGNAL_COL[key];
-    const ly = hy - r * 4.2 + i * r * 2;
+    const ly = hy + r * 1.2 + i * r * 2;
     // A dark lamp is the housing colour with a hint of its own, not a dimmed bright one — an unlit
     // red that still reads red makes all three look lit at the sizes this actually draws at.
     ctx.fillStyle = on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`;
     ctx.beginPath(); ctx.arc(hx, ly, r * 0.72, 0, 7); ctx.fill();
-    // A halo, and only when there are pixels to spend on one. ⚠ The threshold is in `s` (the head's
-    // on-screen size), NOT in tiles — and `p.f` is projection-space, not tile distance, so it runs
-    // well ahead of the tile count: a junction two tiles up measures s≈2.5, not 4.5. A first pass
-    // gated this at 3 and the halo therefore never drew at any distance at all, which looked exactly
-    // like "the lights just aren't very bright" rather than like a dead branch.
     if (on && s > 2) {
       const g = ctx.createRadialGradient(hx, ly, 0, hx, ly, r * 2.6);
       g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${0.32 + night * 0.34})`);
@@ -6315,7 +6495,6 @@ function drawSignalHead(ctx, cam, dx, dy, lamp, alpha, night) {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, ly, r * 2.6, 0, 7); ctx.fill();
     }
   }
-  ctx.globalAlpha = 1;
 }
 
 // ── STREET LAMPS ──────────────────────────────────────────────────────────────────────────────
@@ -6335,7 +6514,7 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.34);
   if (base.f <= 0.1 || top.f <= 0.1) return;
   // Calibrated against the same billboards the signal heads are: a lamp standard is taller than a
-  // signal and about two-thirds of a tree. See drawSignalHead for why this is measured in `s`.
+  // signal and about two-thirds of a tree. See drawSignalMast for why this is measured in `s`.
   const s = clamp(24 / top.f, 1.2, 34);
   if (s < 1.4) return;
   // The head reaches OUT over the road. `inward` is the unit vector from the kerb toward the
@@ -6418,19 +6597,36 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     // flashing amber: a flashing signal is a real-world instruction ("treat as a stop"), and this
     // system enforces nothing, so it must not appear to be telling anybody to do anything.
     const dead = c.pw === 0;
-    for (const d of dirs) {
-      const A = DIRV[d]; if (!A) continue;
+    // ── ONE MAST PER AXIS ─────────────────────────────────────────────────────
+    // This used to place one kerbside post per ARM — four little heads on the four corners of every
+    // crossroads in the city, which is the treatment a quiet side street gets and reads as clutter
+    // on an arterial. Both directions of one street already share a phase by construction (the axis
+    // term in signalLamp), so the arms of an axis were never independent: they were two drawings of
+    // the same decision. Collapsing them to a single mast with the boom out over the road halves
+    // the poles, puts the heads where a driver actually looks for them, and carries the street
+    // light on the same steel — see drawSignalMast.
+    for (const ax of ['ns', 'ew']) {
+      // Which of the two arms on this axis exists — a T-junction has one, a crossroads both. The
+      // mast stands at the kerb of the approach it faces, so it is placed off whichever arm is
+      // there rather than assumed to be a full crossing.
+      const d = ax === 'ns' ? (dirs.includes('s') ? 's' : dirs.includes('n') ? 'n' : null)
+        : (dirs.includes('w') ? 'w' : dirs.includes('e') ? 'e' : null);
+      if (!d) continue;
+      const A = DIRV[d];
       const lamp = dead ? null : signalLamp(d, now, off);
-      // On the corner: out along the arm to the kerb line, and across to the pavement beside it.
+      // The pole goes on the corner: out along the approach to the kerb line, and across to the
+      // pavement beside it. The BOOM then reaches back across the carriageway from there, which is
+      // why the arm vector is the inward perpendicular.
       const Px = A[1], Py = -A[0];
-      const hx = dx + A[0] * 0.44 + Px * VERGE, hy = dy + A[1] * 0.44 + Py * VERGE;
-      // Queued at the HEAD's own depth, not the tile centre — a signal sits most of a tile off
-      // centre and the arms of one junction are a tile apart, so a tile-centre depth would sort the
-      // far head in front of the near one. And it must go through emitFace at all: the sink is open
-      // during this pass, so anything painting straight to ctx here is painted OVER by every
+      const mx = dx + A[0] * 0.46 + Px * VERGE, my = dy + A[1] * 0.46 + Py * VERGE;
+      const arm = [-Px, -Py];
+      // Queued at the MAST's own depth, not the tile centre — a signal sits most of a tile off
+      // centre and the two masts of one junction are a tile apart, so a tile-centre depth would sort
+      // the far one in front of the near one. And it must go through emitFace at all: the sink is
+      // open during this pass, so anything painting straight to ctx here is painted OVER by every
       // building in the flush that follows.
-      const hf = hx * cam.sinh - hy * cam.cosh;
-      emitFace(hf + (cam.back || 0), () => drawSignalHead(ctx, cam, hx, hy, lamp, alpha, night));
+      const hf = mx * cam.sinh - my * cam.cosh;
+      emitFace(hf + (cam.back || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
     }
   }
 }
@@ -7181,6 +7377,23 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
     // mechanism. (`steer` is the same normalised −1..+1 axle the cab's own gauge shows.)
     const steer = clamp(c.steer || 0, -1, 1);
     const side = Math.abs(steer) > 0.06 ? -Math.sign(steer) : 0;   // fires from the side OPPOSITE the turn
+    // ── AND THE SAME ARGUMENT ALONG THE OTHER AXIS ────────────────────────────
+    // A machine with no wheels does not accelerate by gripping anything; it accelerates by throwing
+    // air the other way. So the pods at the BACK fire backwards to push the truck forward, and the
+    // pods at the FRONT fire forwards to push it back — which makes reversing look like reversing
+    // from the outside instead of like driving with the model turned round.
+    //
+    // ⚠ IT IS KEYED ON THE DIRECTION OF TRAVEL, NOT ON THE GEARBOX. `drive` is signed road speed;
+    // a rig rolling forward with reverse selected is still being pushed forward, and a stationary
+    // one fires neither. Anything that never sends `drive` (every contact, and any caller that
+    // predates this) gets exactly the down-and-sideways set it had before.
+    const drive = clamp(c.drive != null ? c.drive : 0, -1, 1);
+    const along = Math.abs(drive) > 0.02 ? Math.sign(drive) : 0;   // +1 travelling forward, −1 in reverse
+    // Which end is doing the work: the pods BEHIND the middle when moving forward, ahead of it when
+    // reversing. Measured off the stations themselves rather than a constant, so it stays right on
+    // a four-pod bobtail and a six-pod rig alike.
+    let fMid = 0; for (const { p } of pods) fMid += p[0];
+    fMid /= (pods.length || 1);
     // A cone is three points: the pod's own emitter, and two on the ground under it — so it widens
     // as it goes, exactly as a jet of anything does, and it stays in the mesh's coordinates so it
     // turns and leans with the truck for free.
@@ -7212,6 +7425,19 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
       const jit = 0.86 + 0.14 * Math.sin(t * 21 + p[0] * 30 + p[1] * 17);
       // DOWN: the column holding it up. Always on, and it is the one that scales with the engine.
       cone([p[0], p[1], z0], [p[0] - w, p[1] - w * 0.7, 0.0006], [p[0] + w, p[1] + w * 0.7, 0.0006], lit, jit);
+      // ALONG: the push. Only the working end fires — the pods behind the middle when travelling
+      // forward, ahead of it in reverse — and it leaves the housing from that end rather than from
+      // under it, so the jet reads as coming out of the machine and not off the road.
+      if (along) {
+        const rear = along > 0 ? p[0] < fMid - 1e-4 : p[0] > fMid + 1e-4;
+        if (rear) {
+          const mag = Math.abs(drive);
+          const fs = p[0] - along * r * 0.5;                        // the face it leaves from
+          const out = -along * (r * 1.4 + r * 3.0 * mag);           // …and how far it throws, astern
+          cone([fs, p[1], z0 * 1.5], [fs + out, p[1] - w * 0.75, z0 * 0.6], [fs + out, p[1] + w * 0.75, z0 * 2.2],
+            lit * (0.40 + mag * 0.85), jit);
+        }
+      }
       if (!side) continue;
       // ACROSS: only the flank doing the pushing, and only as hard as the wheel is asking. It fires
       // from the pod's own side rather than from under it, so the jet reads as coming out of the
@@ -7325,8 +7551,15 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
     // `nf` is the NEAREST vertex, and it is the key the truck's part sort uses — see there for why
     // a mean cannot order a box bolted onto a panel and a nearest point can.
-    let af = 0, nf = Infinity;
-    for (const q of pts) { af += q.f; if (q.f < nf) nf = q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
+    // `xf` is the part's FAR extent, which sortTruckFaces needs for its disjoint test. It could
+    // re-derive it by walking `pts` and did; handing it over directly costs nothing.
+    // ⚠ NO `hf` HERE, AND THAT IS CORRECT RATHER THAN AN OMISSION. `hf` exists for a camera whose
+    // depth carries a height term (the depot's, which measures from the eye), and this camera's
+    // `f` is `bx·sinh − by·cosh` — a pure GROUND-PLANE distance with `wz` nowhere in it. Supplying
+    // `hf = nf` would be a second name for the same number; leaving it off is what the ⚠ on the
+    // parameter means by "exactly the old behaviour", and here the old behaviour was already right.
+    let af = 0, nf = Infinity, xf = -Infinity;
+    for (const q of pts) { af += q.f; if (q.f < nf) nf = q.f; if (q.f > xf) xf = q.f; if (q.sx < minx) minx = q.sx; if (q.sx > maxx) maxx = q.sx; if (q.sy < miny) miny = q.sy; if (q.sy > maxy) maxy = q.sy; }
     // Sun lighting multiplier: outward face normal (world) · sun. Kept ON TOP of the baked `sh`
     // so the hand-tuned character stays, but the sun now shapes the light across the airframe.
     // ── THE OUTWARD NORMAL, AND WHAT IT IS MEASURED FROM ───────────────────────
@@ -7391,32 +7624,84 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       const nl = Math.max(0, nx * toSun[0] + ny * toSun[1] + nz * toSun[2]);
       lm = 0.82 + 0.5 * nl * sunStr;
     }
-    const col = shadeRgb(faceBaseRgb(face, pal), face.sh * pal.fmul * lm);
+    // ⚠ THE SHADE IS COMPUTED ONCE AND KEPT BOTH WAYS — `col` is the CSS string canvas wants, `rv`
+    // the same three numbers the depth rasteriser writes straight into a pixel. Deriving one from
+    // the other later would mean parsing "rgb(83,42,28)" per face per frame, and letting the
+    // rasteriser do its own lighting would be two shading models that agree until one is edited.
+    const shk = face.sh * pal.fmul * lm;
+    const brgb = faceBaseRgb(face, pal);
+    const col = shadeRgb(brgb, shk);
+    const rv = [clamp(brgb[0] * shk, 0, 255) | 0, clamp(brgb[1] * shk, 0, 255) | 0, clamp(brgb[2] * shk, 0, 255) | 0];
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
-    faces.push({ pts, af: af / pts.length, nf, part: face.part, col, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
+    faces.push({ pts, af: af / pts.length, nf, xf, part: face.part, col, rv, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
   }
   if (!drawn) return null;
-  // PAINTER'S ORDER, far face first — and for a ROAD VEHICLE, quantised.
+  // ── A TRUCK IS DRAWN WITH A DEPTH BUFFER; EVERYTHING WITH WINGS IS SORTED ────
   //
-  // The key is a face's MEAN vertex depth, which is the right call for an airframe: a fuselage and
-  // a wing are big, smooth and mostly convex, so two faces at the same depth are genuinely at the
-  // same depth and it does not matter which goes down first.
+  // ⚠ AND THIS IS THE THIRD TIME A FIX FOR THIS MESH HAS BEEN APPLIED IN ONE RENDERER AND MISSED
+  // THE OTHERS. First the flashing was solved out the windscreen and the depot never got it; the
+  // sort was moved next to the geometry so a renderer could not use one without the other. Then the
+  // sort itself was abandoned — no key per part can order nested boxes, because a big panel can be
+  // behind a small one over here and in front of it over there — and the per-pixel depth test that
+  // replaced it went into the DEPOT and never came out here. So the depot forecourt you look at the
+  // rig on was exact and the chase camera you drive it from was still swapping parts, which is why
+  // three rounds of this work read as having changed nothing at all: none of it was ever in the
+  // view being complained about.
   //
-  // A truck is the opposite shape. It is a pile of small boxes SITTING ON other boxes — grille
-  // bars, exhaust stacks, steps, battery boxes, mirror arms — so a detail's mean depth and the
-  // panel it is bolted to differ by millimetres. Orbit the camera and those two means cross, then
-  // cross back, and every crossing swaps which one is painted second. That is the flashing: not
-  // z-fighting, and not the LOD popping either, but a sort order genuinely reversing several times
-  // a second on parts that are physically nested.
+  // Below the fills go through model-raster.js: whichever face genuinely owns a pixel keeps it.
+  // Exact from every angle including straight down, and nothing left to flicker, because depth is
+  // continuous — a camera nudge moves an edge by a pixel instead of swapping which part is visible.
   //
-  // So depths are BUCKETED at a fraction of the model's own size, and anything landing in the same
-  // bucket falls back to MESH ORDER — which `buildTruck` emits inside-out (chassis, then cab, then
-  // the details bolted to it). Ties therefore resolve to "the thing on top is on top", every frame,
-  // regardless of where the camera is. Aircraft keep the exact comparator they always had.
-  if (c.cls === 'truck') sortTruckFaces(faces, c, SIZE);
-  else faces.sort((a, b) => b.af - a.af);
+  // ⚠ THE DETAIL PASSES STILL RUN ON CANVAS, GATED ON WHAT WON. Jazz splatter, canopy art and the
+  // glass sheen stay canvas drawing; re-implementing four effects inside a software rasteriser is
+  // not a trade worth making. Each face asks the buffer whether it still owns its own centre, and a
+  // face that lost cannot paint its decoration over the panel hiding it.
+  //
+  // ⚠ AND IT IS SUPERSAMPLED TO THE FRAME'S DPR. The buffer is measured in device pixels and blitted
+  // back into the CSS-pixel box it came from, so the model is as crisp as the canvas fills it
+  // replaces. Skip that and the hero model — the one thing on screen the player is looking at — is
+  // the only soft object in the frame on every retina display.
+  //
+  // ⚠ THE DEPTH PASS IS BUILT HERE AND BLITTED BELOW THE GROUND LIGHT, NOT HERE. Everything on the
+  // ROAD — the contact shadow, the lifter wash, the thrust cones — is painted before the model so
+  // the bodywork covers what it should for free. Blit at the point the buffer is filled and the
+  // truck goes down first, and then the pool of light under it is painted straight over the chassis.
+  let raster = null;
+  const rasterBox = { x0: 0, y0: 0 };
+  const boxW = maxx - minx, boxH = maxy - miny;
+  // ⚠ THE OWN SHIP ALWAYS, A CONTACT ONLY WHEN IT IS BIG ENOUGH TO SEE A MISTAKE IN. A depth buffer
+  // per truck is cheap for the one you are driving and silly for the eight parked across a yard at
+  // thirty pixels each, so contacts keep the sort until they are worth the pass — which is what the
+  // ⚠ at the top of model-raster.js means by leaving distant contacts alone: this is for ONE model,
+  // not for the world.
+  // ⚠ BUT `own` IS NOT A SIZE TEST AND MUST NOT BECOME ONE. The rig in the chase view is the SUBJECT
+  // of the camera whatever the window measures, and a pixel threshold quietly excused it on any
+  // small canvas — including the smoke's own 640×360, where the truck lands at 25px and every gate
+  // written to prove this renderer is on the depth path would have passed by never running it.
+  if (c.cls === 'truck' && (c.own || (boxW >= RASTER_MIN_PX && boxH >= RASTER_MIN_PX))) {
+    const pad = 2;
+    const x0 = Math.floor(minx) - pad, y0 = Math.floor(miny) - pad;
+    const x1 = Math.ceil(maxx) + pad, y1 = Math.ceil(maxy) + pad;
+    rasterBox.x0 = x0; rasterBox.y0 = y0;
+    // Supersample to the frame's DPR, but never past a fixed pixel budget. The chase camera can be
+    // dollied until the rig fills the screen, and at that point 2× is four times the fill of a pass
+    // that is already the most expensive thing this function does — so the sharpening gives way
+    // gracefully to a soft-but-correct model rather than to a dropped frame.
+    const sc = Math.max(1, Math.min(clamp(_frameDpr || 1, 1, 2),
+      Math.sqrt(RASTER_BUDGET_PX / Math.max(1, (x1 - x0) * (y1 - y0)))));
+    raster = rasterFaces(faces.map(fc => ({
+      pts: fc.pts.map(q => ({ x: q.sx, y: q.sy, z: q.f })),
+      r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
+    })), x0, y0, x1 - x0, y1 - y0, sc);
+  }
+  // The fallback, and for an airframe the only path: a mean-depth painter's sort, which is the
+  // right answer for one smooth convex hull and the wrong one for a pile of bolted-on boxes.
+  if (!raster) {
+    if (c.cls === 'truck') sortTruckFaces(faces, c, SIZE);
+    else faces.sort((a, b) => b.af - a.af);
+  }
   // Edge: hazard pattern flashes its trim; the designated target reads red; else a dark outline.
   const edge = c.designated ? 'rgba(255,90,80,0.95)' : pal.pat === 'hazard' ? shadeRgb(pal.trim, 1.0) : 'rgba(8,10,14,0.7)';
   ctx.lineJoin = 'round';
@@ -7428,16 +7713,42 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // two things that belong to the ground go here, and the model then covers whatever of them it
   // should cover for free — no depth buffer, no per-lamp occlusion test, just paint order.
   if (c.cls === 'truck') drawVehicleGround(ctx, P, c, sun, now);
+  let rasterOK = false;
+  if (raster) {
+    // ⚠ ONLY IF THE BLIT LANDED. A headless harness has no canvas to compose through, and a
+    // rasterOK set on faith there would skip the canvas fills too — a truck drawn nowhere at all
+    // rather than drawn in the old order.
+    rasterOK = blitRaster(ctx, raster, rasterBox.x0, rasterBox.y0);
+    if (rasterOK) {
+      // Which faces survived, for the detail passes. A face owns its own centre or it does not.
+      const sc = raster.scale || 1;
+      for (const fc of faces) {
+        let cx = 0, cy = 0, cz = 0;
+        for (const q of fc.pts) { cx += q.sx; cy += q.sy; cz += q.f; }
+        const n = fc.pts.length;
+        const bx = Math.round((cx / n - rasterBox.x0) * sc), by = Math.round((cy / n - rasterBox.y0) * sc);
+        fc.seen = bx >= 0 && by >= 0 && bx < raster.w && by < raster.h
+          && Math.abs(depthAt(raster, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
+      }
+    } else {
+      sortTruckFaces(faces, c, SIZE);   // the blit failed after all — fall the whole way back
+    }
+  }
   for (const fc of faces) {
+    if (rasterOK && !fc.seen) continue;                             // hidden: its detail would paint over the winner
     ctx.globalAlpha = fc.alpha ?? 1;                                // gear fades as it retracts (alpha < 1)
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
     for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i].sx, fc.pts[i].sy);
     ctx.closePath();
-    ctx.fillStyle = fc.col; ctx.fill();
+    if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }           // the depth pass already laid the colour down
     if (fc.uv && jazzImg) overlayJazz(ctx, fc.pts, fc.uv, jazzImg);             // Memphis splatter, mapped in body space (as in the hangar)
     if (fc.cuv && detail) drawCanopyGlass(ctx, fc.pts, fc.cuv, fc.cart);        // greenhouse art — near/hero LOD only, like nose art
     if (fc.role === 'glass' || fc.role === 'window') glassSheen(ctx, fc.pts);   // glassy specular on canopy/windows, in flight too
-    ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke();
+    // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL. The stroke follows a face's WHOLE outline, including
+    // the part of it that lost the depth test, so it would draw the hidden half of every box as a
+    // wireframe over the panel standing in front of it. Half its job was hiding sort seams anyway,
+    // and there are none left to hide.
+    if (!rasterOK) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
     // Gloss finish: a bright specular flick on the fuselage crown.
     if (lv.finish === 'gloss' && fc.role === 'body') {
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.4;
@@ -8899,6 +9210,49 @@ export function bayMassSmoke() {
   } finally {
     _bayVehicles.length = 0;
     for (const q of savedBay) _bayVehicles.push(q);
+  }
+  return out;
+}
+
+// ── CAN A TRUCK ACTUALLY PULL ONTO THE FORECOURT? ────────────────────────────
+// The same question the bay asks, for the other building a rig is meant to drive INTO rather than
+// around, and it is asked here because the answer is not visible in the picture. A forecourt looks
+// open from every camera — it is a roof on four legs — while its collision is whatever the pump
+// islands, kerbs, bollards and columns add up to, and those are placed by eye. The first version
+// laid two islands 0.88 of a tile wide across the middle of it, which drew as one raised slab and
+// collided as a wall from edge to edge: a gas station you could see into and not enter.
+//
+// So the lanes are asserted rather than eyeballed. Two pull-through lanes, swept end to end at the
+// truck's own clearance, must be clear the whole way — and the pumps must still be solid, or the
+// check would pass just as happily on a forecourt with nothing on it at all.
+export function forecourtDriveSmoke() {
+  const out = [];
+  const wx = 0, wy = 0;
+  for (const ent of ['north', 'south', 'east', 'west']) {
+    const cell = { kind: 'land', biome: 'freight', bt: 'fuel_yard', ent, flr: 0 };
+    const E = faceVec(ent), px = E[1], py = -E[0];                    // model-local +x, as facePt uses
+    const L = (lx, ly) => [wx + lx * px + ly * E[0], wy + lx * py + ly * E[1]];
+    const fh = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
+    // The two lanes: outboard of the centre kerb, inboard of the column line. Swept from the STREET
+    // EDGE back to behind the pumps, because a lane that is clear in the middle and blocked at the
+    // mouth is not a lane — the failure this is written against was the mouth.
+    // ⚠ IT DOES NOT SWEEP TO THE BACK FENCE, AND THAT IS DELIBERATE. The last fifth of the lot is
+    // the tank, the vent stacks and the kiosk, which are things you are supposed to hit; a sweep
+    // that demanded clear tarmac all the way through would be asking for a forecourt with its
+    // working half deleted. `ly = +1` is the entrance side (facePt), so the sweep runs inward.
+    for (const s of [-1, 1]) {
+      for (let t = -0.52; t <= 0.95; t += 0.05) {
+        const [qx, qy] = L(s * fh * 0.60, t * fh);
+        if (groundObstructionAt(wx, wy, cell, qx, qy, 0.01) !== 0) {
+          out.push(`forecourt (${ent}) → the ${s < 0 ? 'left' : 'right'} lane is blocked ${t.toFixed(2)} into the lot; a truck cannot pull in to refuel`);
+          break;
+        }
+      }
+    }
+    // …and the dispensers are still things you can hit. Without this the check above is satisfied by
+    // deleting the pumps, which is not the forecourt anybody asked for.
+    const [hx, hy] = L(-fh * 0.30, -fh * 0.34);
+    if (groundObstructionAt(wx, wy, cell, hx, hy, 0.01) === 0) out.push(`forecourt (${ent}) → a truck drives straight through the pumps`);
   }
   return out;
 }
@@ -11081,37 +11435,140 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // canopy height, the ground plane is open on all four sides, and a truck is meant to be
       // visible standing underneath it. So there are deliberately no walls here at all, and the
       // one solid volume left is the tank, pushed to the back edge where it does not close the lot.
+      // ── ⚠ THE ISLANDS ARE PAINT AND A LOW KERB, NOT A PLATFORM ────────────────
+      // The first cut drew each pump island as `draw3DBoxAt(…, fh * 0.44, 0, h * 0.04)`. That is a
+      // half-width of 0.44fh — 0.88 of a tile across — TWICE, so the two islands met in the middle
+      // and became one raised yellow slab covering the whole forecourt with four pumps standing on
+      // top of it. There was nowhere left to drive, and from the road it read as a plinth rather
+      // than as a place you pull into. The lesson is not "make it smaller": it is that a marked bay
+      // is PAINT, an island is a KERB, and neither of them is a box the height of a step. So the
+      // bays are `groundPaint` at z≈0 and the kerbs are 10 mm of stone under the dispensers only.
+      //
+      // ⚠ AND THE LANES ARE THE SPEC, NOT THE LEFTOVERS. A truck has to be able to drive in, so the
+      // clear widths come first and the furniture is fitted between them: two pull-through lanes
+      // either side of a central kerb line, with the columns outside both and the tank behind. Move
+      // anything in here and check the lanes are still lanes.
       const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
       const canopyZ = h * 0.52, deckT = h * 0.10;          // underside clearance, and the slab's own thickness
+      const yaw = Math.atan2(-E[0], E[1]);                 // the entrance yaw every rectangular box here turns to
+      // A rectangular box in the model's own frame — `hw` across the frontage, `hd` into the lot.
+      // draw3DBoxAt's footprint is square unless it is handed both, and almost everything on a
+      // forecourt is longer one way than the other.
+      const boxL = (lx, ly, hw, hd, z0, z1, p, sd, roof = true) => {
+        const [wx, wy] = F(lx, ly);
+        draw3DBoxAt(ctx, cam, wx, wy, hw, z0, z1, p, sd, night, alpha, roof, yaw, hd);
+      };
+      // A rectangle of paint in the model frame, given as a centre and two half-extents.
+      const paintL = (lx, ly, hw, hd, fill, a = alpha) => groundPaint(ctx, cam,
+        [F(lx - hw, ly - hd), F(lx + hw, ly - hd), F(lx + hw, ly + hd), F(lx - hw, ly + hd)], 0.0016, fill, a);
 
-      // The four columns. Thin, and at the canopy's corners rather than the tile's — the roof
-      // oversails them, which is what makes it read as a canopy and not as a building with the
-      // walls left off.
-      for (const [sx, sy] of [[-0.62, -0.55], [0.62, -0.55], [-0.62, 0.55], [0.62, 0.55]]) {
-        const [cx2, cy2] = F(sx * fh, sy * fh);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.07, 0, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
+      // 1) THE APRON. A concrete pad under the whole canopy, a shade lighter than the road it meets,
+      // so the forecourt has an edge without a kerb round it. This is the thing that says "the
+      // surface changes here", which is most of what tells a driver where the station is.
+      paintL(0, 0, fh * 0.96, fh * 0.98, night > 0.4 ? 'rgba(96,98,102,0.85)' : 'rgba(150,152,152,0.8)');
+      paintL(0, 0, fh * 0.90, fh * 0.92, night > 0.4 ? 'rgba(84,86,90,0.7)' : 'rgba(138,140,140,0.7)');
+
+      // 2) THE MARKINGS. Two bays a side, boxed in yellow with the lane between them left bare —
+      // the yellow is where you STOP, and every square metre of it is somewhere a truck is meant to
+      // stand rather than somewhere it is kept out of.
+      const YEL = night > 0.4 ? 'rgba(196,164,58,0.85)' : 'rgba(226,190,62,0.9)';
+      const YEL_D = night > 0.4 ? 'rgba(150,124,44,0.8)' : 'rgba(196,162,50,0.85)';
+      for (const s of [-1, 1]) {
+        const bx = s * fh * 0.60;                                     // bay centreline, outboard of the kerb
+        paintL(bx, 0, fh * 0.26, fh * 0.66, YEL_D, alpha * 0.5);      // the bay itself, a wash
+        // …boxed. Four strips rather than a stroked path, because a stroke on the ground plane keeps
+        // a constant SCREEN width and a marking has to foreshorten with the tarmac it is painted on.
+        paintL(bx, -fh * 0.66, fh * 0.26, fh * 0.022, YEL);
+        paintL(bx, fh * 0.66, fh * 0.26, fh * 0.022, YEL);
+        paintL(bx - fh * 0.26, 0, fh * 0.022, fh * 0.66, YEL);
+        paintL(bx + fh * 0.26, 0, fh * 0.022, fh * 0.66, YEL);
+        // Hazard hatching off the outboard edge — the strip between the bay and the column line,
+        // which is the one part of a forecourt nothing is allowed to stand on.
+        for (let i = 0; i < 5; i++) paintL(s * fh * 0.90, (-0.56 + i * 0.28) * fh, fh * 0.05, fh * 0.055, YEL_D, alpha * 0.75);
       }
-      // The slab, oversailing on every side. `roof: true` because from above this IS the building.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, canopyZ, canopyZ + deckT, pal, seed, night, alpha, true);
+      // The centre kerb line, in paint, running the length of the lot between the two bays.
+      paintL(0, 0, fh * 0.13, fh * 0.70, night > 0.4 ? 'rgba(70,72,76,0.8)' : 'rgba(112,114,116,0.8)');
+
+      // 3) THE ISLANDS. A real kerb, and a low one — 1% of the building's height, which is under the
+      // truck's own clearance probe, so a rig that clips one rides over it instead of stopping dead
+      // on a step nobody can see. Narrow across, long into the lot: that is what makes the two lanes
+      // either side of it lanes.
+      for (const s of [-1, 1]) {
+        boxL(s * fh * 0.30, 0, fh * 0.10, fh * 0.62, 0, h * 0.012, 'ty_kerb', seed + 30 + s * 3);
+        paintL(s * fh * 0.30, 0, fh * 0.105, fh * 0.63, YEL, alpha * 0.55);   // the kerb's own yellow, painted on top
+      }
+
+      // 4) THE DISPENSERS. Two per island, standing on it — a plinth, the case, and a lit topper
+      // over each. The case carries the whole of the detail as a texture (see PUMP_WALL): display,
+      // keypad, grade select, two nozzle boots.
+      for (const s of [-1, 1]) for (const t of [-1, 1]) {
+        const px2 = s * fh * 0.30, py2 = t * fh * 0.34;
+        boxL(px2, py2, fh * 0.085, fh * 0.11, h * 0.012, h * 0.036, 'ty_pump_dk', seed + 40 + s * 5 + t);      // plinth
+        boxL(px2, py2, fh * 0.075, fh * 0.10, h * 0.036, h * 0.30, 'ty_pump', seed + 44 + s * 5 + t);          // the case
+        boxL(px2, py2, fh * 0.088, fh * 0.115, h * 0.30, h * 0.345, 'ty_pump_dk', seed + 48 + s * 5 + t);      // the topper it wears
+        // The hose arm reaching out over the bay — a thin boom on the outboard side, which is the
+        // one part of a pump that tells you which way the vehicle is meant to be facing.
+        boxL(px2 + s * fh * 0.14, py2, fh * 0.07, fh * 0.018, h * 0.26, h * 0.285, 'ty_pump_dk', seed + 52 + s * 5 + t);
+        if (night) glowPool(ctx, cam, ...F(px2, py2), h * 0.33, '255,206,132', 4, alpha * 0.42);
+      }
+
+      // 5) THE COLUMNS, and they are columns now rather than blocks of flats — `ty_fab_steel` joined
+      // STRUCT_WALL, which is the family that does not paint windows on things that are not walls.
+      // A splayed base collar and a capital under the deck give each one a top and a bottom.
+      for (const [sx, sy] of [[-0.72, -0.62], [0.72, -0.62], [-0.72, 0.62], [0.72, 0.62]]) {
+        const [cx2, cy2] = F(sx * fh, sy * fh);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.095, 0, h * 0.05, 'ty_pump_dk', seed + 60 + sx * 3 + sy, night, alpha, true);        // base collar
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.062, h * 0.05, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.090, canopyZ - h * 0.035, canopyZ, 'ty_fab_steel', seed + 64 + sx * 3 + sy, night, alpha, true);   // capital
+        paintL(sx * fh, sy * fh, fh * 0.13, fh * 0.13, YEL, alpha * 0.6);   // …and the ring of yellow round its foot
+      }
+
+      // 6) THE CANOPY. The deck, a fascia rail standing proud of it on all four sides, and a soffit
+      // one step in — a forecourt roof is three planes, and drawing it as one slab is what made the
+      // old one read as a plank on sticks.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, canopyZ + deckT * 0.35, canopyZ + deckT, pal, seed, night, alpha, true);            // the deck
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, canopyZ + deckT * 0.10, canopyZ + deckT * 0.55, 'ty_pump', seed + 70, night, alpha, false);   // the white fascia rail
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.80, canopyZ, canopyZ + deckT * 0.14, 'ty_soffit', seed + 71, night, alpha, false);      // the soffit, stepped in
+      // The lights in it. Five rows of recessed panels — the reason a forecourt at night is the
+      // brightest thing on a dark road is that its entire ceiling is a light fitting.
+      for (let i = -2; i <= 2; i++) for (const t of [-1, 1]) {
+        const [lx2, ly2] = F(i * fh * 0.30, t * fh * 0.34);
+        draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.10, canopyZ - h * 0.006, canopyZ + h * 0.004, 'ty_soffit', seed + 80 + i * 3 + t, night, alpha, false);
+        if (night) glowPool(ctx, cam, lx2, ly2, canopyZ - h * 0.01, '255,236,200', 7, alpha * 0.30);
+      }
       // The lit fascia band round the edge of the canopy — the one bit of signage a forecourt has,
       // and at night it is the whole silhouette from a mile out.
       if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.86, canopyZ + deckT * 0.5, m.neon || '#ffb14a', night, alpha);
 
-      // Two pump islands under the roof, laid across the tile so a rig pulls through rather than in.
-      for (const sy of [-0.3, 0.3]) {
-        const [ix, iy] = F(0, sy * fh);
-        draw3DBoxAt(ctx, cam, ix, iy, fh * 0.44, 0, h * 0.04, 'ty_junk_crane', seed + 31 + sy * 7, night, alpha, true);   // the kerbed island
-        for (const sx of [-0.2, 0.2]) {                                                                                   // and the pumps standing on it
-          const [px, py] = F(sx * fh, sy * fh);
-          draw3DBoxAt(ctx, cam, px, py, fh * 0.09, h * 0.04, h * 0.26, 'ty_door', seed + 41 + sx * 5 + sy * 3, night, alpha, true);
-        }
-      }
+      // 7) BEHIND THE CANOPY. The tank, its filler ring, two vent stacks, a kiosk and a bin — the
+      // working half of a station, kept at the back edge where it does not close the lot off.
+      { const [tx, ty] = F(-fh * 0.56, -fh * 0.84);
+        drawFacetDrum(ctx, cam, tx, ty, 0, h * 0.42, fh * 0.24, fh * 0.24, 12, alpha, steel(150, 148, 140), 'rgb(120,120,112)');
+        drawRing(ctx, cam, tx, ty, h * 0.25, fh * 0.24 + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha);
+        drawRing(ctx, cam, tx, ty, h * 0.42 + 0.001, fh * 0.16, 10, 'rgba(30,32,36,0.6)', 1.4, alpha);       // the manway on top
+        for (const s of [-1, 1]) {                                                                           // vent stacks off its shoulder
+          const [vx, vy] = F(-fh * 0.56 + s * fh * 0.20, -fh * 0.60);
+          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.022, 0, h * 0.62, 'ty_fab_steel', seed + 90 + s, night, alpha, false);
+          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.040, h * 0.62, h * 0.66, 'ty_pump_dk', seed + 92 + s, night, alpha, true);
+        } }
+      // The kiosk. Somebody works here, and a forecourt with nobody in it is a fuel dump.
+      boxL(fh * 0.60, -fh * 0.80, fh * 0.30, fh * 0.16, 0, h * 0.34, 'ty_fuel_kiosk', seed + 96);
+      boxL(fh * 0.60, -fh * 0.80, fh * 0.33, fh * 0.19, h * 0.34, h * 0.37, 'ty_pump_dk', seed + 97);          // its parapet
+      boxL(fh * 0.60, -fh * 0.63, fh * 0.20, fh * 0.012, h * 0.06, h * 0.24, 'ty_pump', seed + 98, false);     // the serving window, facing the pumps
+      if (night) glowPool(ctx, cam, ...F(fh * 0.60, -fh * 0.66), h * 0.20, '255,226,170', 8, alpha * 0.4);
+      boxL(fh * 0.20, -fh * 0.80, fh * 0.07, fh * 0.07, 0, h * 0.13, 'ty_pump_dk', seed + 99);                 // a bin beside the door
 
-      // One tank left, at the back fence. The fiction still keeps its stock somewhere, and a
-      // forecourt with nothing behind it reads as a bus shelter.
-      { const [tx, ty] = F(-fh * 0.52, -fh * 0.82);
-        drawFacetDrum(ctx, cam, tx, ty, 0, h * 0.42, fh * 0.26, fh * 0.26, 12, alpha, steel(150, 148, 140), 'rgb(120,120,112)');
-        drawRing(ctx, cam, tx, ty, h * 0.25, fh * 0.26 + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha); }
+      // 8) BOLLARDS along the back edge and off the island ends — the things that stop a reversing
+      // rig putting a trailer through the kiosk, and the detail that reads as a working forecourt
+      // rather than a diagram of one.
+      for (let i = -2; i <= 2; i++) {
+        const [bx2, by2] = F(i * fh * 0.34, -fh * 0.96);
+        draw3DBoxAt(ctx, cam, bx2, by2, fh * 0.028, 0, h * 0.11, 'ty_kerb', seed + 104 + i, night, alpha, true);
+      }
+      for (const s of [-1, 1]) for (const t of [-1, 1]) {
+        const [bx2, by2] = F(s * fh * 0.30, t * fh * 0.70);
+        draw3DBoxAt(ctx, cam, bx2, by2, fh * 0.026, 0, h * 0.10, 'ty_kerb', seed + 110 + s * 3 + t, night, alpha, true);
+      }
 
       // The price pylon out by the kerb, on the entrance side — the thing you read from the road.
       if (frontVis) {
@@ -12367,6 +12824,22 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const core = lodOrder(segs).byIndex.find(r => r.at <= 0);
       if (!core) continue;
       const V = (p) => p[0] * ofh + p[1] * oh + p[2];
+      // ── ⚠ AN OCCLUDER HAS TO REACH THE GROUND, AND THIS IS THE ONE THAT DID NOT ──────────────
+      // A column in this buffer means "solid from here DOWNWARD", which is the truth for a building
+      // and a flat lie for anything standing in the air. The core box was measured from z=0 to the
+      // segment's top whatever its own `z0` was — so a FORECOURT CANOPY, whose whole point is that
+      // it is a roof on four thin legs with open ground under it, registered as a solid slab from
+      // the tarmac to the fascia. Every truck parked under it was then reported as hidden behind
+      // it: to `occludedByBuilding` as a contact that vanishes, and to `beginOcclusionClip` as the
+      // OWN rig clipped away the moment you pulled onto the forecourt. That is the truck
+      // disappearing at certain angles, and it is one missing `z0`.
+      //
+      // Conservative in the same direction as everything else here: a segment that does not start
+      // at the deck is simply not an occluder. It could contribute the band between its own top and
+      // bottom, but this buffer cannot express a band, and a wrong answer that hides the subject of
+      // the camera is far worse than a building drawn that did not need to be.
+      const coreZ0 = core.s.z0 ? V(core.s.z0) : 0, coreZ1 = core.s.z1 ? V(core.s.z1) : 1;
+      if (coreZ0 > coreZ1 * 0.12) continue;
       const cw = core.s.kind === 'box' ? Math.min(V(core.s.hwRaw), V(core.s.fdRaw ?? core.s.hwRaw), 0.44)
         : core.s.kind === 'drum' ? Math.max(V(core.s.rb), V(core.s.rt)) * 0.7 : V(core.s.hl || core.s.hx) * 0.7;
       const ccx = V(core.s.cx), ccy = V(core.s.cy), k = cw * (1 - OCC_SHRINK);

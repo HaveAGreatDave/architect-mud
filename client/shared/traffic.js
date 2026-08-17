@@ -24,15 +24,32 @@ export const SIGNAL_CYCLE = 14000;                  // ms for a full green → a
 export const SIGNAL_GREEN = 0.40, SIGNAL_AMBER = 0.48;   // fractions of the cycle; the rest is red
 
 /**
- * A stable per-junction offset in [0,1) from its world tile.
+ * How many tiles of city share one signal phase. See junctionOffset.
+ */
+export const SIGNAL_ZONE = 7;
+
+/**
+ * A stable offset in [0,1) for the signals at a world tile.
  *
- * Two jobs. It puts neighbouring junctions out of step with each other — a whole city changing in
- * unison is the single most obvious tell that a thing is faked — and it is deterministic off the
- * WORLD coordinate rather than an array index, so a junction keeps its own rhythm as the client's
- * map window recentres and as the server answers about it from anywhere.
+ * ⚠ IT IS PER AREA, NOT PER JUNCTION, AND THAT IS THE FIX. It used to hash the exact tile, on the
+ * reasoning that a whole city changing in unison is the most obvious tell that a thing is faked.
+ * True — and it bought that at the cost of a worse tell, because the thing a driver actually looks
+ * at is not the city, it is the two or three junctions in front of them down one street. Hashing
+ * per tile made consecutive junctions on the same road show green, red and amber at once, which no
+ * real corridor does: signals on a street are run off one controller precisely so a vehicle that
+ * makes the first one makes the next.
+ *
+ * So the hash is taken on a coarse CELL of the map instead. Junctions within `SIGNAL_ZONE` tiles
+ * change together and read as one system; the next district over is still out of step with this
+ * one, so the city as a whole never pulses. The axis term in `signalLamp` is untouched, so the two
+ * directions through any junction stay opposed — which is the half of this that must never break.
+ *
+ * Still deterministic off the WORLD coordinate rather than an array index, so a junction keeps its
+ * rhythm as the client's map window recentres and as the server answers about it from anywhere.
  */
 export function junctionOffset(x, y) {
-  const v = (Math.round(x) + 512) * 3.71 + (Math.round(y) + 512) * 7.13;
+  const cx = Math.floor(Math.round(x) / SIGNAL_ZONE), cy = Math.floor(Math.round(y) / SIGNAL_ZONE);
+  const v = (cx + 512) * 3.71 + (cy + 512) * 7.13;
   return v - Math.floor(v);
 }
 

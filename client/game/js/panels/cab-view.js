@@ -1549,7 +1549,13 @@ export function openCab(ctx = {}) {
   function setPark(on) {
     if (on && Math.abs(st.sim.speed) > 3) return;      // it is a park brake; you are not parked
     st.park = !!on;
-    if (st.park) { st.setCruise?.(null); st.setAuto?.(false); }
+    // ⚠ THE PARK BRAKE SUSPENDS THE AUTOMATIC, IT NO LONGER SWITCHES IT OFF. Cruise is cancelled
+    // because a set speed is a thing you asked for once and it should not survive you stopping; the
+    // automatic is a way of driving, and taking it away silently is how a driver ends up rolling
+    // around in manual wondering why the box stopped shifting. Reverse works the same way — see the
+    // inhibit in autoShift, which is the one place that decides whether the automatic has anything
+    // to do right now. Both conditions clear by themselves, and the automatic simply resumes.
+    if (st.park) st.setCruise?.(null);
     const el = container.querySelector('.cab-parkbtn');
     if (el) {
       el.classList.toggle('on', st.park);
@@ -2301,10 +2307,17 @@ function autoShift(dt) {
   }
   if (st.shiftCool > 0) st.shiftCool -= dt;
   if (!st.auto || !P) return;
-  // Nothing to drive: dead engine, no drive, or the driver reversing/parked. Reverse is deliberately
-  // never chosen FOR you — which way a truck is pointed when it moves is the one decision that must
-  // stay with the person who can see out of the window.
-  if (st.dry || st.broken || st.sim.stalled || st.sim.gear < 0) return;
+  // ── WHAT SUSPENDS THE AUTOMATIC, AND WHY IT IS A SUSPENSION ─────────────────
+  // Reverse is deliberately never chosen FOR you — which way a truck is pointed when it moves is the
+  // one decision that must stay with the person who can see out of the window. But that is a reason
+  // for the automatic to have NOTHING TO DO while reverse is selected, not a reason to switch it
+  // off: come back out of reverse and the driver has not changed their mind about how they want to
+  // drive, and a box that quietly reverted to manual behind them is a box that stopped shifting for
+  // no reason they can see. The park brake is the same argument (see setPark, which used to call
+  // setAuto(false) here and is what actually made "AUTO is off after reversing" happen — you stop,
+  // you park, you select R, and the switch you never touched is gone by the time you pull away).
+  // So both are inhibits, tested every tick and clearing themselves.
+  if (st.dry || st.broken || st.sim.stalled || st.sim.gear < 0 || st.park) return;
   if (st.shiftCool > 0) return;
   // ⚠ WHICH GEAR IT WANTS IS `bestGear`, NOT A SECOND OPINION. That function already exists and the
   // cab already prints its answer as the suggested gear on the dash — so the automatic obeying it
@@ -2666,6 +2679,11 @@ function frame(now) {
       //          point, which is what made everything out of the glass read small and far.
       ...(st.external ? {} : { eyeH: 0.12, fovMul: 1.22 }),
       height: 0, speed: r.speed / 68, mph: r.speed,
+      // ⚠ SIGNED, WHERE `speed` IS NOT. `truckReadout.speed` is a magnitude and the direction lives
+      // in `reversing` — fine for a speedometer, useless to anything that has to point something
+      // the way the truck is travelling. The lifter thrust cones fire opposite the direction of
+      // travel, so they need the one number that says which way that is.
+      drive: (r.reversing ? -1 : 1) * (r.speed / 68),
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
       // and the renderer only throws the beam when the seeing is bad enough to want it (night OR

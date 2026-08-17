@@ -2067,7 +2067,7 @@ check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message |
 // the whole world has an authored junction icon, so an icon-based test would pass forever while
 // the feature was invisible everywhere. These cases assert against the real world map.
 {
-	const { signalLamp, junctionOffset, isJunction, LAMP_WORD } = await import('../client/shared/traffic.js');
+	const { signalLamp, junctionOffset, isJunction, LAMP_WORD, SIGNAL_ZONE } = await import('../client/shared/traffic.js');
 	const { world: w } = await import('../server/engine/world.js');
 	const { primaryExits } = await import('../server/engine/exits.js');
 
@@ -2082,8 +2082,27 @@ check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message |
 				&& signalLamp('e', t, 0.3) === signalLamp('w', t, 0.3)));
 	check('traffic: the junction offset is stable and in range', (() => {
 		const a = junctionOffset(12, -7);
-		return a === junctionOffset(12, -7) && a >= 0 && a < 1 && a !== junctionOffset(13, -7);
+		return a === junctionOffset(12, -7) && a >= 0 && a < 1;
 	})());
+	// ⚠ THIS ASSERTED THE OPPOSITE UNTIL THE SIGNALS WERE SYNCED, and the flip is the point rather
+	// than a loosened test. It used to demand that two ADJACENT tiles hash differently, on the
+	// reasoning that a city changing in unison reads as fake. What a driver actually looks at is the
+	// next two junctions down one street, and per-tile hashing showed them green, red and amber at
+	// once — which no real corridor does, because a street's signals run off one controller. So
+	// neighbours now share a phase and only a different AREA is out of step.
+	// ⚠ COUNTED ALONG A RUN, NOT ASSERTED ON A HAND-PICKED PAIR. Any zoning scheme has boundaries,
+	// so "these two neighbours match" is a test of whether the author happened to pick two tiles on
+	// the same side of one — the first attempt used 12/13/14 with a boundary at 14 and failed for a
+	// reason that had nothing to do with the behaviour. The property that matters is the RATE: walk
+	// a street and the phase should change about once a zone, not once a tile.
+	check('traffic: junctions on the same street share a phase', (() => {
+		const N = 70;
+		let changes = 0;
+		for (let x = 1; x < N; x++) if (junctionOffset(x, -7) !== junctionOffset(x - 1, -7)) changes++;
+		return changes > 0 && changes <= Math.ceil(N / SIGNAL_ZONE);
+	})());
+	check('traffic: …but the next district over does not',
+		junctionOffset(12, -7) !== junctionOffset(12 + SIGNAL_ZONE * 3, -7));
 	check('traffic: a stub or a bend is not a junction',
 		!isJunction('ns') && !isJunction('ne') && !isJunction('n') && isJunction('nes') && isJunction('nesw'));
 	check('traffic: every lamp has a word for the text game',

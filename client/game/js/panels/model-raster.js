@@ -27,6 +27,17 @@
 // are moving, which is the whole cost this is trying to avoid.
 let _buf = null;
 
+// ── HOW MANY MODELS WENT THROUGH THE DEPTH TEST ──────────────────────────────
+// Not instrumentation: a test seam, and it exists because of the specific way this bug keeps
+// coming back. The truck mesh has four renderers, and three separate times a fix for it was
+// written, verified in ONE of them, and left the other three on the old path — most recently this
+// very file, which landed in the depot walkaround while the chase camera the rig is actually
+// driven from went on sorting. Nothing failed; the work simply had no effect where it was wanted.
+// A counter makes "this renderer is on the depth path" a thing a smoke can assert rather than a
+// thing somebody has to remember, so the next renderer that quietly falls off it says so.
+let _rasterCount = 0;
+export const rasterCount = () => _rasterCount;
+
 function ensure(w, h) {
   if (_buf && _buf.w >= w && _buf.h >= h) return _buf;
   const W = Math.max(w, _buf ? _buf.w : 0), H = Math.max(h, _buf ? _buf.h : 0);
@@ -66,7 +77,12 @@ export function rasterFaces(faces, x0, y0, w, h, scale = 1) {
         f.r, f.g, f.b, f.a === undefined ? 255 : f.a);
     }
   }
-  return { buf, w, h };
+  // ⚠ `scale` RIDES HOME WITH THE RESULT, because the blit is the only thing that can undo it. The
+  // buffer is `scale`× the caller's coordinate box, so drawing it back at w×h would paint a truck
+  // twice the size in the wrong place. `blitRaster` divides it out; `depthAt` and `readPixels` work
+  // in buffer pixels and are unaffected. A caller that passes no scale gets exactly what it got.
+  _rasterCount++;
+  return { buf, w, h, scale };
 }
 
 // One triangle, depth-tested per pixel.
@@ -141,6 +157,9 @@ export const _resetRasterBuffer = () => { _buf = null; };
 let _scratch = null;
 export function blitRaster(ctx, res, x0, y0) {
   const { buf, w, h } = res;
+  // Back into the caller's own units. Supersampling is the reason a caller passes a scale at all —
+  // it rasterises at device resolution and lands the result on a ctx that is measured in CSS pixels.
+  const ss = res.scale || 1;
   if (typeof document === 'undefined' || !document.createElement) return false;
   if (!_scratch || _scratch.width < w || _scratch.height < h) {
     _scratch = document.createElement('canvas');
@@ -156,6 +175,6 @@ export function blitRaster(ctx, res, x0, y0) {
   }
   sc.clearRect(0, 0, w, h);
   sc.putImageData(img, 0, 0);
-  ctx.drawImage(_scratch, 0, 0, w, h, x0, y0, w, h);
+  ctx.drawImage(_scratch, 0, 0, w, h, x0, y0, w / ss, h / ss);
   return true;
 }
