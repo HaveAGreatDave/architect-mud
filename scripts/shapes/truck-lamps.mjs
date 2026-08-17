@@ -349,3 +349,57 @@ export function truckSortStabilitySmoke(sortTruckFaces, resetOrder, opts = {}) {
   }
   return out;
 }
+
+// ── IS THE WIND KIT A BOX OR A CAVITY? ───────────────────────────────────────
+// The roof fairing was authored as a lid and two cheeks and nothing else — a box with one whole
+// side missing, facing the trailer. From any camera above and behind the cab you looked straight
+// into the hollow and out through the far side, which reads as the truck having a hole in it,
+// because it does. It shipped that way on both aero rigs and on the top-of-the-range one.
+//
+// The test is the mesh's own arithmetic rather than a picture: every edge of a closed shell is
+// shared by exactly two faces, so an edge used ONCE is a rim where the shell stops. The fairing's
+// two cheeks meet the lid along their top edges and each other along nothing at all — unless the
+// back panel is there, which is the only thing that can share their rear edges.
+//
+// Scoped to the fairing rather than the whole truck on purpose: a truck is made of panels and has
+// plenty of legitimate rims (a mudflap has two sides and no inside). What must not have a rim is a
+// thing shaped like a box.
+export function truckFairingSmoke(variants = ['hauler', 'drayman', 'continental']) {
+  const out = [];
+  const ekey = (a, b) => {
+    const r = (v) => v.map((x) => x.toFixed(4)).join(',');
+    const ka = r(a), kb = r(b);
+    return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+  };
+  for (const variant of variants) {
+    const faces = aircraftFaces('truck', 1, false, variant);
+    // The fairing is the body geometry standing above the sleeper roof, and it is the only body
+    // work up there. Its back plane is the model's rearmost point at that height.
+    const roofZ = Math.max(...faces.filter((f) => f.role === 'body').flatMap((f) => f.p.map((p) => p[2])));
+    // ⚠ 0.40, NOT 0.42. The cheeks reach DOWN behind the cab, and on the Continental their lowest
+    // point lands on 0.4176 of the roof height — a hair under a 0.42 cut, which silently dropped
+    // both of them from the set and made this test pass on the one rig it was written for while
+    // still failing on the other two. A selector that excludes the thing being tested is worse than
+    // no test: it reports green for the exact model in the screenshot.
+    const high = faces.filter((f) => f.role === 'body' && !f.cen && f.p.every((p) => p[2] > roofZ * 0.40));
+    if (high.length < 3) { out.push(`${variant}: no roof fairing found at all`); continue; }
+    const edges = new Map();
+    for (const f of high) for (let i = 0; i < f.p.length; i++) {
+      const k = ekey(f.p[i], f.p[(i + 1) % f.p.length]);
+      edges.set(k, (edges.get(k) || 0) + 1);
+    }
+    // The rear edge of each cheek — the pair that the missing panel used to leave open. Both must
+    // now be shared. Anything still open is a rim on the OUTSIDE of the kit (its lower lip), which
+    // is not a cavity and not this test's business.
+    const backF = Math.min(...high.flatMap((f) => f.p.map((p) => p[0])));
+    let openAtBack = 0;
+    for (const [k, n] of edges) {
+      if (n !== 1) continue;
+      const [a, b] = k.split('|').map((s) => s.split(',').map(Number));
+      // An edge lying IN the back plane and running vertically is a cheek's rear edge.
+      if (Math.abs(a[0] - backF) < 1e-4 && Math.abs(b[0] - backF) < 1e-4 && Math.abs(a[1] - b[1]) < 1e-4) openAtBack++;
+    }
+    if (openAtBack) out.push(`${variant}: the roof fairing is open at the back (${openAtBack} unshared edge(s) in its rear plane) — you can see into it and out the other side`);
+  }
+  return out;
+}

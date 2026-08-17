@@ -2891,8 +2891,21 @@ function buildTruck(variant = 'hauler', detail = 1) {
     const rTop = S.hi + S.sleeper, fh = rTop + 0.030 * S.aero;
     poly('body', 1.00, [[cab0 - 0.055 * S.aero, -S.w * 0.92, fh], [cab0 - 0.055 * S.aero, S.w * 0.92, fh],
                         [cab1 - 0.06, S.w * 0.9, rTop], [cab1 - 0.06, -S.w * 0.9, rTop]]);
-    for (const g of [-1, 1]) poly('body', 0.66, [[cab0 - 0.055 * S.aero, g * S.w * 0.92, fh], [cab1 - 0.06, g * S.w * 0.9, rTop],
-                        [cab1 - 0.06, g * S.w * 0.9, rTop - 0.02], [cab0 - 0.055 * S.aero, g * S.w * 0.92, 0.02 + rTop * 0.4]]);
+    const aeroBack = cab0 - 0.055 * S.aero, aeroLow = 0.02 + rTop * 0.4;
+    for (const g of [-1, 1]) poly('body', 0.66, [[aeroBack, g * S.w * 0.92, fh], [cab1 - 0.06, g * S.w * 0.9, rTop],
+                        [cab1 - 0.06, g * S.w * 0.9, rTop - 0.02], [aeroBack, g * S.w * 0.92, aeroLow]]);
+    // ⚠ AND THE BACK OF IT IS CLOSED. The wind kit was a lid and two cheeks and nothing else, so it
+    // was a box with one whole side missing — an opening a third of a metre across and a quarter of
+    // one deep, facing the trailer. From any camera above and behind the cab you looked straight
+    // into the hollow, and what you saw through it was the inside of the far cheek and then the
+    // road, which reads as the truck having a hole in it because it does.
+    //
+    // On a real rig this face is the bulkhead the fairing bolts to, and it is the one part of the
+    // kit you can actually see from a following vehicle. It spans the two cheeks' own back edges
+    // exactly — same two stations, same two heights — so it cannot leave a seam of its own, and it
+    // takes the darkest shade here because it is the surface that never sees the sun.
+    poly('body', 0.52, [[aeroBack, -S.w * 0.92, fh], [aeroBack, S.w * 0.92, fh],
+                        [aeroBack, S.w * 0.92, aeroLow], [aeroBack, -S.w * 0.92, aeroLow]]);
     // A sensor pod on the crown — the road-scanner. Small, and the second and last future tell.
     box(cab1 - 0.10, cab1 - 0.07, 0.016, rTop, rTop + 0.012, 'strut');
     box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', [120, 210, 220]);
