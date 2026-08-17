@@ -120,6 +120,22 @@ async function fill(args, raw, player) {
 
   const cap = tagValue(c, 'fillable', 0);
 
+  // ── A PUMP IS A BUSINESS; A TAP IS NOT ──────────────────────────────────────
+  //
+  // `fuel_source` may carry a price in ₵ per fluid unit. A bare flag (the shape every fuel source
+  // in the game had before forecourts existed) is 0 and free, so nothing that already worked
+  // starts charging — the price is opt-in per piece of furniture, authored on the pump.
+  //
+  // Water is deliberately never priced. A tap you have to pay for is a different design decision
+  // from a pump you have to pay for, and it is not one this line gets to make quietly.
+  const unit = fluidType === 'fuel' ? Number(fuelSrc[0]?.flags?.fuel_source) || 0 : 0;
+  let charged = 0;
+  if (unit > 0) {
+    charged = Math.ceil(cap * unit);
+    if ((player.credits || 0) < charged)
+      return { type: 'error', message: `Filling the ${c.name} is ${charged}₵ and you have ${player.credits || 0}₵.` };
+  }
+
   // Water drawn from a fouled/peed toilet is foul — tag it so drinking it later
   // sickens, instead of the fouling silently vanishing into a clean canteen.
   let contaminated = false;
@@ -140,12 +156,22 @@ async function fill(args, raw, player) {
   await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
     [JSON.stringify({ fluid_amount: cap, fluid_type: fluidType, contaminated }), invId]);
 
+  // The money moves AFTER the fluid, so a failed write cannot bill for a fill that did not happen.
+  if (charged > 0) {
+    player.credits -= charged;
+    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  }
+
   const flavour = fluidType === 'fuel'
-    ? `Fuel sloshes to the brim, reeking of hydrocarbons.`
+    ? `Fuel sloshes to the brim, reeking of hydrocarbons.${charged > 0 ? ` <span class="text-dim">(${charged}₵)</span>` : ''}`
     : contaminated
     ? `<span style="color:var(--red)">It fills with cloudy, foul-smelling water. You should not drink this.</span>`
     : `It's full of water.`;
-  return { type:'use', message:`You fill the ${c.name} from the ${srcName}. ${flavour}` };
+  return {
+    type: 'use',
+    message: `You fill the ${c.name} from the ${srcName}. ${flavour}`,
+    ...(charged > 0 ? { player_update: { credits: player.credits } } : {}),
+  };
 }
 
 async function drink(args, raw, player) {

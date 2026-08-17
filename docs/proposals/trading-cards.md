@@ -50,7 +50,7 @@ each region with `M` at the widest weight.
 |---|---:|---|---|
 | Handle | **16** | `players.handle` | Handles are already capped shorter at signup; a legacy over-16 handle blocks mint with a clear reason |
 | Epithet | **28** | `players.archetype` + origin tag | Drop the origin tag, then the epithet entirely |
-| **LAST SEEN** | **340** | body + equipped, prose | Clause ladder, below |
+| **LAST SEEN** | **440** | body + equipped + pose + disciplines, prose | Clause ladder, below |
 | In their own words | **150** | `players.origin_fragment` | Whole sentences from the start until the next would exceed; if sentence 1 alone is over, the region renders empty |
 | Overheard | **90** | captured `say` | Never trimmed — an over-90 line is simply not eligible; the mint looks further back |
 | Footer | fixed | date / zone / seed | Zone name over 24 chars falls back to its district |
@@ -58,10 +58,34 @@ each region with `M` at the widest weight.
 `origin_fragment` is already `slice(0, 200)` at the API (`routes.js:2746`). We do **not** lower that —
 the field is used in `examine` too. The card takes whole sentences up to 150 and stops.
 
+**The region names are internal.** *LAST SEEN* and *In their own words* are what the builder calls
+them; the face prints neither. They render as **two paragraphs**, prose then quotation, because a
+reader can already tell those apart by looking and the labels made the card read as a form. (An
+enemy's second paragraph is what it leaves behind rather than something it said, so it is the one
+that gets no quotation marks.)
+
+### The record
+
+Under the two paragraphs, a player card carries **the half a photograph cannot show**: lifetime XP,
+their top three skills by level, the order they lean toward (or *Unaligned*), their corp tag if they
+are in one, and their kill count. It replaced the **kit manifest**, which was a second and duller
+copy of the sentence directly above it.
+
+Every element is omitted when it has nothing to say **except the kills**, which print at zero on
+purpose — "0 kills" on a trading card is a fact about somebody. Alignment is `classifyLean()`, the
+same derivation the `ideologies` verb shows, so the card can never disagree with the sheet; skills
+are levels from `player_skills`, for the same reason.
+
+`gatherDossier()` in `index.js` collects all of it, once, at the terminal. The builder stays pure.
+⚠ **Its cross-system imports are dynamic, at call time.** Hoisting them to the top of the file pulls
+half the engine into this plugin's module graph at boot, reorders initialisation ahead of the world
+map, and fails the prologue skyline, the tablet map, voidwalking, trucking and the yacht — in 18
+reds that never once mention cards. `mint` is one command at one machine; the import costs nothing.
+
 ### The LAST SEEN clause ladder
 
 The prose is assembled from ranked clauses. Emit in order, keeping a running count; the first clause
-that would cross 340 ends the paragraph, and every clause after it is skipped too (skipping *around*
+that would cross the budget ends the paragraph, and every clause after it is skipped too (skipping *around*
 a clause reorders the sentence and reads worse than stopping).
 
 1. **Body** — `physicalDescription()`, minus the closing period.
@@ -70,13 +94,43 @@ a clause reorders the sentence and reads worse than stopping).
 4. **Condition damage** on any piece at Battered or worse, spoken (`gone thin at the shoulders`,
    `split through at the knuckles`) — never the band name. The word "Battered" belongs on the back.
 5. **Legs + feet.**
-6. **Weapon**, as its own short sentence.
-7. **Covered layers** (`over a patched kevlar vest`).
+6. **The pose** — see below.
+7. **The discipline clause** — chrome, mutation, mastery, and (only at Seer) psionics, as one sentence.
 8. **Accessories**, as a trailing clause.
 
 Ranks 1 and 3 are mandatory: a card that can't afford them is not mintable, which in practice means
-a naked player with an 80-character handle-adjacent build string. That case gets its own copy
-(`Nothing on. Nothing to report.`) rather than an error.
+a naked player with an 80-character handle-adjacent build string. That case falls back to body +
+worn + pose, which always fits.
+
+**⚠ Covered layers were removed from this ladder (2026-08-16).** They were rank 7 (`over a patched
+kevlar vest`) and that is the one clause the conceit cannot support: *the card is a description of a
+photograph*, and a camera cannot see under a coat. The layers still count toward power and rarity,
+which are the record rather than the picture.
+
+### The pose
+
+A weapon is not a line in a kit list — it is **how the subject is standing**, because nobody stands
+for a photograph holding a shotgun the way they stand holding nothing. `poseFor()` keys off the
+`weapon_skill` tag every weapon already carries for routing its attack, so a new weapon poses
+correctly with **nothing authored**; an unrecognised skill still poses, generically, rather than
+going missing. Empty hands are a pose too — there is no "no weapon" case. A natural weapon (a
+mutated claw) poses in place of empty hands, and a held weapon still wins over it, mirroring the
+unarmed-branch rule in combat.
+
+### The discipline clause
+
+Chrome, mutation, mastery and psionics are four systems with four stores, and four labelled rows
+would read like a character sheet. They are **one woven sentence**, in the order a photograph gives
+them up: what is bolted on, what grew, how they move — and only sometimes, what the picture cannot
+account for.
+
+⚠ **Psionics appears at Seer and above, and never below.** Below Seer nothing in the game may state
+the mechanism (`docs/systems-psionics.md`), and a printed card is the most permanent statement there
+is. The Seer line claims nothing, explains nothing, and is deliberately about the film rather than
+about the person. `regress.js` asserts that the clause names no mechanism.
+
+Mutations reach it **only when visible** (`visibilityOfMutation`), for the same reason covered
+layers do not.
 
 **Condition is spoken, tier is a tint.** Both are drawn from live data (`player_inventory.condition`,
 `tierIndex(value, armor)`) and both are **frozen at mint**. This is what makes an early card worth
@@ -88,6 +142,19 @@ The **Overheard** line is the player's most recent `say` **in the mint zone, wit
 minutes, at or under 90 characters, no command-looking text**. The mint walks backwards through
 eligible lines and takes the first that fits. If nothing qualifies the region renders its silence
 copy — `— said nothing worth printing —` — which is itself a fine card.
+
+⚠ **An OVERHEARD line is sniffed for whether it is speech at all; a WRITTEN one is not.** NPC
+chitchat is third-person stage direction (`drags his rebar along the ground`) with any real speech
+quoted inside it, so `pickQuote` lifts the quoted part out and skips a line that starts lowercase.
+That test means nothing about a line the player deliberately typed at `mintquote`, and applying it
+to one refused `i have made a terrible mistake` with *"The press will not take that line"* — a
+refusal that names no reason, on the one surface where the player is writing prose. That was the
+entire "censor": no word list anywhere in the codebase, one capital letter. A candidate is now
+either a plain string (overheard, sniffed as before) or `{ text, authored: true }` (typed, taken
+as written). Everything that is about the PRINT rather than about who is talking — the budget,
+substitution tokens, command-shaped text — still applies to both, so this stays **one gate**.
+⚠ Both ends must pass the same flag: `mintquote` validates and the mint re-picks, and relaxing
+only the first would confirm the player's line, take their money, and print somebody else's.
 
 Two quotes, two jobs, and they must not be conflated: *In their own words* is `.describe`, who they
 say they are. *Overheard* is something they actually said out loud. The second is what makes the

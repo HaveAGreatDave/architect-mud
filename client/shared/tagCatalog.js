@@ -427,6 +427,10 @@
     // --- Furniture capabilities (presence-only, on a furniture row) ---
     water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can drink from and wash at this furniture. Enables the water-plugin verbs (drink/wash). The verb is blind to what the furniture is — sink, fountain, well, leaking pipe — it only asks for this capability.' },
+    fuel_source: { label: 'Fuel Source', shape: 'number', scope: 'furniture', group: 'Capabilities',
+      help: 'A fuel point `fill` draws from — a forecourt pump, a bowser, a drum with a hand pump. The VALUE is the price in ₵ per fluid unit; leave it 0 (or set the flag bare) and the fill is free, which is what every fuel source in the world did before forecourts existed. Blind to what the furniture is, exactly like Water Source. Note this does NOT fuel a truck: a rig fuels off the ZONE (building_type `fuel_yard`, or the Truck Fuel zone flag), because a truck parks on a tile rather than walking up to a pump.' },
+    fuel_price_sign: { label: 'Fuel Price Board', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Examining this renders a forecourt price board. It holds NO prices of its own — it prints whatever the systems that actually charge for fuel report through the `fuel.prices` gather hook for this zone (trucking answers with a tank of diesel wherever there is a pump; the fuelstation plugin answers with the per-unit gasoline in any Fuel Source furniture standing here). A board in a room where nothing is sold renders as dark, which is a correct answer rather than an error.' },
     bulletin: { label: 'Bulletin Board', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can READ this furniture to see the server leaderboard — the top 5 survivors ranked by total XP (ties broken by older account first).' },
     toilet: { label: 'Toilet', shape: 'flag', scope: 'furniture', group: 'Capabilities',

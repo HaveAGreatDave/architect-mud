@@ -35,6 +35,9 @@ const NOT_PLAYER_TYPED = new Set([
   'readresolve',
   // Client/session handshakes.
   'introdone', 'tabletdone', 'flightsync', 'flightevent', 'tabletnav', 'tabletaction',
+  // The cab's pump handle reports how long the trigger was held; the server re-derives the money.
+  // Same shape as `trucksync` — a control, not a word. The typed way to buy diesel is `fuel`.
+  'truckpump',
   'selectcassette', 'tablettune', 'sprayapply', 'spraysave', 'spraydel',
   'outfitsetid', 'outfitwearid', 'outfitwearnowid', 'outfitdelid',
   'undressid', 'hangwornid', 'takeoffid',

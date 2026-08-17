@@ -1171,7 +1171,15 @@ const handlers = {
   cardpack_open: (msg) => { if (msg.render !== 'log') openPackReveal(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
   // Same contract again: the cabinet is the show, the character box is the
   // record and always prints, so the bottom rung losing the panel loses nothing.
-  slots_spin: (msg) => { if (msg.render !== 'log') openSlotsPanel(msg); if (msg.message) appendHtml(msg.message, 'loot'); },
+  // The cabinet and the character box are the same information; print the box
+  // only when there is no cabinet. At the visual rung the log gets the one-line
+  // record instead, so a burst of pulls doesn't bury everything else.
+  slots_spin: (msg) => {
+    const visual = msg.render !== 'log';
+    if (visual) openSlotsPanel(msg);
+    const line = visual ? (msg.logLine || msg.message) : msg.message;
+    if (line) appendHtml(line, 'loot');
+  },
   // The press is the show; `message` is the record and always prints, so the
   // bottom Display Mode rung keeps the whole two-step (mint / mintquote / mint
   // confirm) as text with nothing lost.

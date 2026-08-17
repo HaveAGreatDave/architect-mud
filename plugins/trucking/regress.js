@@ -13,7 +13,7 @@ import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R,
   addWreck, wrecksOn, wreckAhead, _clearWrecks } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
-  atOrBeforeFork, cabContext } from './state.js';
+  atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
@@ -1840,6 +1840,39 @@ export default async function regress({ run, check, getPlayer }) {
       if (savedRig) rigs.set(player.id, savedRig); else rigs.delete(player.id);
       player._inCab = savedInCab;
     }
+  }
+
+  // ── The pump, and the cab handle that meters it ────────────────────────────
+  //
+  // The value of these cases is that FOUR readers now ask "is there a pump here" — the `fuel`
+  // verb, the depot panel, the cab payload and the `truckpump` commit — and they got that way by
+  // being collapsed onto one function. A regression here is a handle that lights on a tile the
+  // verb then refuses, which is the exact drift the collapse was for.
+  {
+    check('a fuel yard is a pump', pumpAt({ leg: 'city', zoneId: 'zone_district_923_907' }) === true);
+    check('…and an ordinary street is not', pumpAt({ leg: 'city', zoneId: 'zone_district_923_908' }) === false);
+    check('…and neither is nothing at all', pumpAt(null) === false && pumpAt({ leg: 'city', zoneId: 'nope' }) === false);
+
+    // THE AFFORDABILITY CLAMP, as arithmetic. A driver with less than a tank's worth takes what
+    // they can pay for and no more — the handle clicks off, it does not refuse the transaction —
+    // and the cost can never exceed the balance, which is the only invariant that actually matters
+    // when a client is reporting the amount.
+    // ⚠ THE REAL FUNCTION, not a copy of its arithmetic. `pumpClamp` is what the commit charges
+    // with and what the cab's readout is drawn from, so a test that reimplemented the same three
+    // Math.min arguments would go on passing after the shipping one changed.
+    const broke = pumpClamp(90, 0.2, 1);
+    check('a short driver gets what they paid for, not a refusal',
+      broke.take > 0 && broke.cost <= 90, JSON.stringify(broke));
+    const rich = pumpClamp(99999, 0.5, 1);
+    check('…and a full tank is never overcharged',
+      Math.abs(rich.take - 0.5) < 1e-9 && rich.cost === Math.round(0.5 * FUEL_FULL), JSON.stringify(rich));
+    const greedy = pumpClamp(99999, 0.9, 5);   // a lying client asking for five tanks
+    check('…and asking for more than the tank holds buys only the tank',
+      Math.abs(greedy.take - 0.1) < 1e-9, JSON.stringify(greedy));
+    check('…a broke driver at a pump buys nothing and is charged nothing',
+      pumpClamp(0, 0.1, 1).cost === 0, JSON.stringify(pumpClamp(0, 0.1, 1)));
+    check('…and a garbage amount from the client cannot go negative',
+      pumpClamp(9999, 0.5, -3).take === 0 && pumpClamp(9999, 0.5, NaN).take > 0);
   }
 
 }

@@ -42,6 +42,22 @@ export default async function regress({ run, check }) {
   check('a tile with no building has no walls', wallsNear({ id: 'x', exits: { north: '__rg_field__' } }).length === 0);
   check('a tile with no exits at all has no walls', wallsNear({ id: 'x' }).length === 0);
 
+  // --- Indoors, the room's own wall is the surface --------------------------
+  // ⚠ A FAKE ZONE PUT INTO `world.zones` IS A REAL ZONE TO EVERYTHING ELSE, and it
+  // must carry the Sets a hydrated one has: `getAllZones()` maps `z.players.size`
+  // and `z.enemies.size` over every zone in the world, so one without them throws
+  // there — and the throw lands in whichever suite happens to call it NEXT, which
+  // is nowhere near this file. Leaving this one behind cost 18 reds across
+  // prologue, swimming, tablet, trucking, voidwalking and yacht (every suite that
+  // sorts after "graffiti"), none of which mentions graffiti anywhere.
+  const backroom = { id: '__rg_room__', name: 'Back Room', flags: { is_interior: true }, exits: { south: street.id },
+    players: new Set(), enemies: new Set(), npcs: new Set() };
+  world.zones.set(backroom.id, backroom);
+  const inner = wallsNear(backroom);
+  check('an interior offers its own wall', inner.length === 1 && inner[0].id === backroom.id, JSON.stringify(inner));
+  check('the interior wall is pickable with no word', pickWall(inner, '')?.wall?.id === backroom.id);
+  check('an interior does not also offer the street outside', !inner.some(w => w.id === street.id));
+
   // --- Picking which wall ---------------------------------------------------
   check('pickWall matches a direction', pickWall(walls, 'north')?.wall?.id === '__rg_shop__');
   check('pickWall matches an initial', pickWall(walls, 'n')?.wall?.id === '__rg_shop__');
@@ -89,6 +105,12 @@ export default async function regress({ run, check }) {
   const line = await (await import('./index.js')).hooks['zone.describeRoom'](street);
   check('the room line names the building it is sprayed on', /Bodega Vu/.test(line || ''), line);
   check('the room line carries the tag text', /NO GODS NO LANDLORDS/.test(line || ''), line);
+  // Inside vs. outside is derived from the wall being the tile itself.
+  tags.set(backroom.id, { text: 'HI', targetZoneId: backroom.id, targetName: backroom.name, dayIndex: nowIdx });
+  const inLine = await (await import('./index.js')).hooks['zone.describeRoom'](backroom);
+  check('an interior tag reads as the wall in here', /wall in here/.test(inLine || ''), inLine);
+  check('an interior tag does not claim a shopfront', !/front of/.test(inLine || ''), inLine);
+  tags.delete(backroom.id);
   const clean = await (await import('./index.js')).hooks['zone.describeRoom'](field);
   check('an untagged room contributes nothing to the description', clean === undefined, String(clean));
 
@@ -161,5 +183,6 @@ export default async function regress({ run, check }) {
   world.zones.delete(street.id);
   world.zones.delete(shop.id);
   world.zones.delete(field.id);
+  world.zones.delete('__rg_room__');   // ⚠ and the interior — a leaked fake zone poisons every later suite
   tags.delete(street.id);
 }

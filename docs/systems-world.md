@@ -394,7 +394,14 @@ The client (game sidebar minimap, full-map popup, tablet bigmap in
 [minimap.js](../client/game/js/panels/minimap.js) / [tablet-os.js](../client/game/js/panels/tablet-os.js))
 shares a **Labels / None overlay** setting (Tablet OS → Settings → Layout → *Map Labels*, stored as
 `mapOverlay` in the shared settings object): both modes draw the SVG tile base; *labels* adds the
-authored 2-letter building acronym (`zones.marker`) on top. A third *icons* mode, which stamped a
+2-letter building acronym (`zones.marker`) on top. **A building code reads off its NAME** — *Screw
+It* is `SI` — and the build derives it (`uniqueMarkerFor` in
+[derive.mjs](../scripts/content/derive.mjs)), seeing every building at once so the codes are unique
+without an author guessing one at a time. `zones.marker` is still an override and still wins, but as
+of 2026-08-16 no world building authors one: 34 hand-written codes had drifted off their own names
+(*Screw It* was `BB`, *The Cherry Pit* was `TC`) and two pairs collided outright, so they were
+cleared rather than rewritten. **Author a marker only when the code is meant to be a choice rather
+than an acronym**, and expect the next sweep to ask why. A third *icons* mode, which stamped a
 building-type emoji over the rooftop footprint, was removed — it fought the tile art and said less
 than the acronym. The you-are-here marker is
 transparent so the current tile shows through. The full-map popup uses fixed square tiles that fill its

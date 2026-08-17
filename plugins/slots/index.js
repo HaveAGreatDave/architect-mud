@@ -119,6 +119,21 @@ function renderMachine(machineName, reels, result, bet, winnings, balance) {
     + `<div class="text-dim">bet ₵ ${bet}  ·  balance ${y(`₵ ${balance.toLocaleString()}`)}</div>`;
 }
 
+// The one-line record. Same facts as the cabinet, no frame: the reels as they
+// landed, what they paid, what it cost and what is left.
+function renderLine(machineName, reels, result, bet, winnings, balance) {
+  const y = (s) => `<span style="color:var(--yellow)">${s}</span>`;
+  const g = (s) => `<span style="color:var(--green,#6f6)">${s}</span>`;
+  const r = (s) => `<span style="color:var(--red,#f66)">${s}</span>`;
+  const face = `[ ${reels.join(' ')} ]`;
+  const verdict = result.mult
+    ? g(`${result.jackpot ? '★ JACKPOT ★ ' : ''}${result.label} ×${result.mult} — ₵ ${winnings.toLocaleString()}`)
+    : r('no luck');
+  return `<span class="action-link slot-pull" data-action="cmd" data-cmd="spin ${bet}" data-label="spin ${bet}"`
+    + ` title="Pull the ${machineName} again for ₵ ${bet}">${face}</span> ${verdict}`
+    + `<span class="text-dim">  ·  bet ₵ ${bet}  ·  balance ${y(`₵ ${balance.toLocaleString()}`)}</span>`;
+}
+
 // ── Command ──────────────────────────────────────────────────────────────────
 async function cmdSpin(args, raw, player, broadcast) {
   const machine = getZoneFurniture(player.current_zone).find(f => f.flags?.slot_machine);
@@ -162,6 +177,12 @@ async function cmdSpin(args, raw, player, broadcast) {
   return logRender(player, {
     type: 'slots_spin',
     message: renderMachine(machine.name, reels, result, bet, winnings, player.credits),
+    // …but the RECORD is not the SHOW. When the cabinet opens, the eleven-line
+    // box underneath it is the same information twice, and a slot machine is
+    // played in bursts — ten pulls buried the rest of the log. So the payload
+    // carries a one-line record too, and the client prints whichever one it did
+    // not just draw. Nothing is lost at any rung: reels, verdict, cost, balance.
+    logLine: renderLine(machine.name, reels, result, bet, winnings, player.credits),
     machineName: machine.name,
     marquee: marquee(machine.name),
     reels,

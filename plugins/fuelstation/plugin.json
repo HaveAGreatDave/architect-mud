@@ -1,0 +1,9 @@
+{
+  "name": "fuelstation",
+  "version": "1.0.0",
+  "description": "Forecourt furniture — the pumps and the price board. Owns no verbs and no prices of its own: `fill` (fillable) draws fuel from a pump, `fuel` (trucking) fills a rig at one, and the board prints whatever the `fuel.prices` gather hook is told by the systems that actually charge. A station is a place where several unrelated plugins already take money for diesel; this is the sign that says how much.",
+  "commands": [],
+  "hooks": ["furniture.describe", "fuel.prices"],
+  "events": { "consumes": [], "emits": [] },
+  "ticks": []
+}

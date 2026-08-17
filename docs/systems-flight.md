@@ -643,6 +643,36 @@ per-dive latch, an 18 s per-aircraft floor, and a 15 s per-zone cooldown. The la
 not enough: it re-arms on the pull-up, so a pilot porpoising the nose could carpet a
 neighbourhood in sirens without ever dropping anything.
 
+⚠ **A throw inside `fsimFrame` does not skip a frame — it ENDS THE SIM.** The loop re-arms with
+`requestAnimationFrame` at the *end* of its body, so the aeroplane stops in mid air with the last
+frame still painted while every DOM button (⏪, ABORT) keeps working — which looks like anything
+except an exception. The bomb release's "nose down" nag called `fsimToast` bare, and that const
+lives in the **panel-setup closure**, not at module scope: pressing FIRE with bombs selected out
+of a dive killed the sim every time. `fsimToast` is now also a module-level function delegating to
+the `F.toast` handle (the closure's const still shadows it inside the setup function, so no
+existing call site changed). ⚠ **Anything the frame loop calls must be reachable from module
+scope** — the missile path's `if (F.toast) F.toast(…)` was the convention that worked, and two
+conventions for one thing is how this got in.
+
+**Flying the attack** (`cockpit.js`). Three things the Shrike shipped without, each of which
+made the aeroplane read as broken rather than hard:
+
+- **The bomb is visible on the way down.** The server still resolves a release instantly and
+  sends the impact tile; the client now **holds the fireball for the fall** (`F.drops`), draws
+  the store tracking from the release point to the aim point with a vapour thread behind it
+  (`drawDrops` in `windshield.js`), and spawns the burst when it arrives. ⚠ Nothing about the
+  outcome depends on the animation — a dropped frame changes the picture and nothing else.
+- **She carries them on the airframe.** `p.stores` on `FW_PARAMS.divebomber` is the rack —
+  one on the centreline crutch, four underwing. ⚠ It is **always the full rack**, because the
+  face list is memoised per (class, detail, armed, variant) and a live count would either blow
+  the memo on every release or have to be smuggled into `variant`. What is left is on the pips.
+- **The dive computer** (`B`, or the ⤵ DIVE button, which appears only on an airframe with a
+  rack). One control, two phases: it pushes over to 68° and holds it, and the **release** flips
+  it to the pull-out — fired off the server's confirmation, so a refused release keeps you
+  diving. It commands the **elevator**, the same input a hand moves, so the g limit, the stall
+  and the chase model's control surfaces are all unaware it exists. ⚠ **The pilot always wins:**
+  touching the yoke disengages it, or the assist becomes a thing you cannot get out of.
+
 **Targeting a tile from the map** (any aircraft, not just the Shrike). The tablet Map app's
 **✜ Target here** sends `flightwaypoint <x> <y>`; it is held **in RAM on the player**, not on
 the aircraft, so it works standing on the ground with no airframe and follows the pilot

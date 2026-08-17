@@ -15,6 +15,6 @@
   "grid_z": -1,
   "id": "zone_util_zone_yard_fuelyard",
   "map_id": "map_int_yard_fuelyard",
-  "name": "Flash Point Fuel & Pallet — Utility Room",
+  "name": "Flash Point Fuel — Utility Room",
   "parent_zone": "zone_district_923_907"
 }

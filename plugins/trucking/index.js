@@ -32,7 +32,6 @@ import { saveDrivingState, restoreDrivingState } from './resume.js';
 // components are what it is now DERIVED from. See damage.js for why the weakest link and not a mean.
 import { applyDamage, impactSplit, grindSplit, IMPACT_AREAS, damageOf, overall, PARTS, PART_LABELS, partBand,
   isBroken, isCosmetic, PART_ITEMS, PART_SHARE, COSMETIC_MUL, BROKEN_AT } from './damage.js';
-import { describeZone } from '../../server/engine/commands/describe.js';
 import { sendToPlayer, sendToZone, teachVerb } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerMoveGate } from '../../server/engine/movement-gates.js';
@@ -55,7 +54,7 @@ import { routeOptions, aimedDest, destByWord } from './routes.js';
 import { surfaceAt } from '../flight/state.js';
 import { rigs, rigOf, mountRig, dismountRig, reconcileTruck, crossToNode, driveToZone, flushZone,
   joinCorridor, leaveCorridor, unbog, pushCab, cabContext, surfaceUnder, truckContactsNear,
-  announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck } from './state.js';
+  announceBreak, switchLimb, atOrBeforeFork, cbLine, markWreck, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
 import { corridorPos, corridorAt, TILES_PER_ROOM, wreckNear } from './corridor.js';
 import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';
@@ -573,10 +572,6 @@ async function repush(player, tab = 'fleet') {
   if (panel && panel.type === 'truck_depot') sendToPlayer(player.id, panel);
 }
 
-// What a full tank costs. One number, because diesel is diesel — the interesting variable in this
-// system is the DISTANCE between pumps, not the price at them.
-const FUEL_FULL = 380;
-
 // THE FOUR BARS THE BENCH DRAWS, and they are derived from the drive's own parameter set rather
 // than from a second table of marketing numbers. That is the whole point of routing every knob
 // through `effTruckParams`: a bar that moves when a dial turns is promising the wheel, and the
@@ -634,7 +629,7 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const towedIds = new Set(myTrailers.filter(t => t.towedBy).map(t => t.towedBy));
   // A pump is a property of the PLACE, and the place is two zones — a depot that keeps diesel
   // keeps it on the apron, which is the tile with the road on it.
-  const pumpHere = !!(yard.flags?.truck_fuel || bay.flags?.truck_fuel || yard.flags?.building_type === 'fuel_yard');
+  const pumpHere = pumpAt({ leg: 'city', zoneId: yard.id }) || pumpAt({ leg: 'city', zoneId: bay.id });
   const quotes = quotesFor(region, day);
   await rememberMarket(player, region, day, quotes);
   const seen = await recallMarkets(player);
@@ -1240,7 +1235,7 @@ async function rigPaint(player, truck, cd, args) {
 // panel shows next to the gauge.
 async function rigFuel(player, truck, bay, depot) {
   const yard = getZone(yardIdOf(bay, depot));
-  const pump = !!(yard?.flags?.truck_fuel || bay?.flags?.truck_fuel || yard?.flags?.building_type === 'fuel_yard');
+  const pump = pumpAt({ leg: 'city', zoneId: yard?.id }) || pumpAt({ leg: 'city', zoneId: bay?.id });
   if (!pump) return say('This yard keeps no diesel. You would have to run it to a pump.');
   const need = 1 - (truck.fuel ?? 1);
   if (need < 0.02) return say('It is already full.');
@@ -1393,29 +1388,58 @@ async function recallMarkets(player) {
 // ── refuel ───────────────────────────────────────────────────────────────────
 // At a fuel yard, or at any depot that keeps a pump. Priced off what you actually take.
 async function cmdRefuelTruck(args, raw, player) {
+  if (!rigOf(player)) return say('You are not driving anything.');
+  // The typed verb is the whole-tank case, which is what typing it has always meant. It is the same
+  // commit the handle sends, asked for everything — so there is one place that moves fuel and money.
+  return pumpFuel(player, 1, { typed: true });
+}
+
+// ── The handle ───────────────────────────────────────────────────────────────
+// `truckpump <fraction>` — the dash handle's commit, and the only thing the cab is trusted to say
+// is HOW LONG IT HELD THE TRIGGER. Everything that decides money is re-derived here: whether there
+// is a pump, how much room is in the tank, and what the driver can pay.
+//
+// WHY A COMMIT RATHER THAN A SERVER-SIDE POUR. The obvious build is an interval that adds fuel and
+// charges credits every 200ms while the trigger is down. That is a per-player timer, a second place
+// fuel changes outside the drive loop, and a teardown case for every way a session can end mid-pour
+// (logout, park, breakdown, the road ending under you). The cab already simulates continuously and
+// reports what it did — this is that same contract, and it costs one round trip instead of thirty.
+//
+// AND IT IS NOT AN EXPLOIT SURFACE, which is the question worth asking of any client-reported
+// number. The worst a lying client can send is 1 — a full tank, instantly, at the full price the
+// verb has always charged for exactly that. There is nothing to gain by lying because the ceiling
+// is the honest transaction.
+async function cmdTruckPump(args, raw, player) {
+  return pumpFuel(player, Number(args[0]), { typed: false });
+}
+
+async function pumpFuel(player, want, { typed }) {
   const rig = rigOf(player);
-  if (!rig) return say('You are not driving anything.');
-  const here = getZone(rig.zoneId || player.current_zone);
-  const pump = here?.flags?.building_type === 'fuel_yard' || here?.flags?.truck_fuel
-    || (rig.leg === 'corridor' && nearRoadsideFuel(rig));
-  if (!pump) return say('No pump here.');
-  const need = 1 - rig.fuel;
-  if (need < 0.02) return say('She is already full.');
-  const cost = Math.round(need * FUEL_FULL);
-  if ((player.credits || 0) < cost) return say(`A full tank runs ${cost}₵ and you have ${player.credits || 0}₵.`);
+  if (!rig) return typed ? say('You are not driving anything.') : { type: 'none' };
+  if (!pumpAt(rig, player.current_zone)) return say('No pump here.');
+  const room = 1 - rig.fuel;
+  if (room < 0.02) return say('She is already full.');
+
+  // THE AFFORDABILITY CAP IS A CLAMP, NEVER A REFUSAL. A driver with 90₵ standing at a pump gets
+  // 90₵ of diesel — the handle clicks off when the money runs out, exactly as it does at a real
+  // pump — because refusing the whole transaction for being short is how you strand somebody who
+  // had enough to get to the next town. (The typed verb asks for a full tank, so this is the line
+  // that turns `fuel` into "fill it as far as I can afford" rather than an error message.)
+  const { take, cost } = pumpClamp(player.credits, rig.fuel, Number.isFinite(want) ? want : room);
+  if (take < 0.01) return say(`You cannot cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
+
   player.credits -= cost;
-  rig.fuel = 1;
+  rig.fuel = Math.min(1, rig.fuel + take);
   rig.dry = false; rig.dryTold = false; rig.warnedLow = false;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
-  pushCab(rig);
-  return say(`<span class="item-grant">Tanks filled. ${cost}₵.</span>`);
-}
-// Out on the corridor the fuel stop is a roadside structure rather than a zone — the generator
-// already places `fuel_yard` mileposts, so standing on one is the pump.
-function nearRoadsideFuel(rig) {
-  const c = corridorAt(rig.route, Math.round(rig.x), Math.round(rig.y));
-  return c?.flags?.building_type === 'fuel_yard';
+  // `extra` forces the push past the once-a-second floor: the gauge has to move on the same beat
+  // the credits do, or the driver watches their money go and their needle sit still.
+  pushCab(rig, { pumped: true });
+  const pct = Math.round(rig.fuel * 100);
+  return say(rig.fuel >= 0.995
+    ? `<span class="item-grant">Tanks filled. ${cost}₵.</span>`
+    : `<span class="item-grant">The handle clicks off. ${cost}₵ — she is at ${pct}%.</span>`);
 }
 
 // ── park ─────────────────────────────────────────────────────────────────────
@@ -1487,13 +1511,15 @@ async function parkRig(player, forced) {
   await persistTruck(rig);
   setPosture(player, 'standing');
   sendToPlayer(player.id, { type: 'truck_sim_close' });
-  const zone = getZone(player.current_zone);
+  // AND THE ROOM COMES BACK. The cab owns the area-pane while you are driving, so `paneFreeForRoom`
+  // is false for as long as it is open — which meant a room description composed HERE, in the same
+  // reply, was thrown away by the client and the pane sat on whatever it had before the drive.
+  // `force_look` is the seam for exactly this: it lands after the close above, so the pane is free
+  // by the time the re-asked `look` comes back, and the log rung gets its copy for free.
+  sendToPlayer(player.id, { type: 'force_look' });
   // The prose finally matches the mechanic: the brake is set and the engine is already off, because
   // this verb refused to run until it was. Only the door is left to do.
-  return {
-    type: 'emote',
-    message: `<span class="text-amber">You set the brake, drop down onto the dirt and lock her up behind you. The silence out here is enormous.</span>${zone ? `\n\n${await describeZone(zone, player)}` : ''}`,
-  };
+  return say('<span class="text-amber">You set the brake, drop down onto the dirt and lock her up behind you. The silence out here is enormous.</span>');
 }
 
 // ── trucksync ────────────────────────────────────────────────────────────────
@@ -1904,6 +1930,10 @@ async function cmdTow(args, raw, player) {
     await query('UPDATE players SET current_zone=$1 WHERE id=$2', [homeZone.id, player.id]).catch(() => {});
   }
   sendToPlayer(player.id, { type: 'truck_sim_close' });
+  // Same as `park`: the cab holds the area-pane until the close above lands, so the room has to be
+  // re-asked afterwards rather than composed here. More so on this path — you RODE somewhere, and
+  // the pane would otherwise still be showing the last room you stood in before the drive.
+  sendToPlayer(player.id, { type: 'force_look' });
 
   return say(canPay
     ? `<span class="text-amber">You make the call and then you sit on the step for a long time.</span>\n`
@@ -2620,12 +2650,20 @@ export const commands = {
   yard: cmdYard,
   rig: cmdRig,
   fuel: cmdRefuelTruck,
+  truckpump: cmdTruckPump,
   trucksync: cmdTruckSync,
   truckevent: cmdTruckEvent,
 };
 
 export const hooks = {
   'zone.describeRoom': describeDepot,
+  // DIESEL'S PRICE, ANSWERED BY THE THING THAT CHARGES IT. A forecourt price board asks the room
+  // what it sells; trucking is the only system that knows what a tank costs, so it says so here
+  // rather than letting a sign keep a second copy of `FUEL_FULL` that retuning would not update.
+  // A tile with no pump on it answers nothing, which is how a board in a bar stays blank.
+  'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })
+    ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, note: 'a full tank, any rig' }
+    : null,
   // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
   // the dependency stays one-way — flight has never heard of trucking and does not need to.
   'vehicle.contacts': (x, y, range) => truckContactsNear(x, y, range),

@@ -132,10 +132,33 @@
   },
   "chitchat": [
     "Emmett slides a book out of its sleeve, checks something along the spine with his thumbnail, and puts it back without comment.",
+    "He wipes the top of the glass counter with a soft cloth, holds it up to the light, and does it again.",
+    "He squares a stack that was already square, then squares it the other way.",
+    "He turns a book face down, looks at it, and turns it back over with an apology nobody hears.",
+    "He breathes on a mylar sleeve, finds no fingerprint, and looks vaguely disappointed about it.",
+    "He rotates the spinner rack a quarter turn so the covers face the door, and watches the door for a while.",
+    "He reaches under the counter without looking and comes up with the exact backing board he wanted.",
+    "He holds a page up to the tube light and reads the paper rather than the words.",
+    "He slides a bagged issue an inch to the left. The gap it leaves is measured in something.",
     "\"Don't. \" He stops himself, visibly, with effort. \"Don't stack them face down. Please.\"",
-    "The dehumidifier downstairs changes note. He glances at the floor, waits, and relaxes about a quarter of the way.",
     "\"Worst. Reprint. Ever,\" he tells nobody, and turns the page.",
-    "He wipes the top of the glass counter with a soft cloth, holds it up to the light, and does it again."
+    "\"It's not a comic,\" he says to the empty aisle. \"It's a book. It has a spine and a printer and a year.\"",
+    "\"Second printing,\" he says, to nobody, in the tone other men use for a diagnosis.",
+    "\"They put the inker's name on the cover of that one,\" he says. \"Once. Nineteen years too late.\"",
+    "\"People say golden age like it's a decade. It's a paper stock.\"",
+    "\"That's a variant. Not a rare one. A variant.\" He waits for an argument that does not come.",
+    "\"Trimmed,\" he says, closing something with two fingers. \"You can hear it.\"",
+    "He sets a book down mid-page, looks at the door for a moment, and picks it up again.",
+    "\"Nobody comes in for the art,\" he says. \"They come in for what it's worth. Same building, different shop.\"",
+    "He reads a panel twice, and the second time his mouth moves.",
+    "\"My father sold this run to feed us,\" he says, to a shelf. \"I have bought most of it back.\"",
+    "He says a name under his breath, an artist's, the way other men say a saint's.",
+    "The dehumidifier downstairs changes note. He glances at the floor, waits, and relaxes about a quarter of the way.",
+    "He checks the hygrometer by the register, taps the glass, and writes the number in a notebook.",
+    "He shifts a longbox off the damp side of the wall by about a hand's width.",
+    "The strip light over the back shelf buzzes. He glares at it until it stops, which it does not.",
+    "He counts the float, gets a number he dislikes, and counts it again to the same result.",
+    "He eats half a sandwich over the bin, well clear of the counter, and washes his hands after."
   ],
   "description": "A very large man in a black shirt buttoned to the throat, sitting on a stool that has given up arguing with him. He has the encyclopedic, wounded manner of somebody who knows more about one subject than anyone alive and has never once been thanked for it, and he will correct you — courteously, exhaustively, and at a volume that assumes an audience — on the year, the printing, the inker, and what you have just called it. His hands, though, are careful past the point of reverence: he handles forty-year-old newsprint the way a nurse handles a wrist.",
   "dialogue_tree": {
@@ -409,3 +432,4 @@
   "wanders": 0,
   "work_zone_id": "zone_mintcond_floor"
 }
+

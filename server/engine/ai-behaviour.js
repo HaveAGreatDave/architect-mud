@@ -671,8 +671,45 @@ function pickChitchatLine(entity, mode) {
   // chitchat array or null.
   const m = mode || (isNpcAtWork(entity) ? 'work' : 'life');
   const lines = getNpcChitchat(entity, m) || (Array.isArray(entity.chitchat) ? entity.chitchat : []);
-  if (lines.length) return lines[Math.floor(Math.random() * lines.length)];
+  if (lines.length) return pickFresh(entity, lines, m);
   return null; // SAY case falls back to the literal smoking line when this returns null
+}
+
+// ── A BAG, NOT A DIE ──────────────────────────────────────────────────────────
+// A uniform random pick over five lines repeats one about every other draw, and
+// the player is standing in the room for all of them — so the character reads as
+// a machine with five buttons rather than as somebody with things on their mind.
+// This is not a content problem and cannot be fixed by writing more lines: at any
+// pool size, an independent roll will say the same thing twice in a row.
+//
+// So a line that has just been said is removed from the pool until most of the
+// rest have had a turn. Deliberately MOST and not all: exhausting the whole bag
+// before resetting turns the pool into a fixed cycle, which a player standing
+// there long enough will hear as a loop — the one thing more mechanical than a
+// repeat.
+//
+// Held in a WeakMap keyed by the entity rather than on the blackboard, because
+// enemies say lines too and never get one; it costs no schema, survives no
+// restart (correct — an NPC forgetting what they said last night is right), and
+// releases with the entity.
+const RECENT_FRACTION = 0.6;
+const recentLines = new WeakMap();     // entity -> { [mode]: [line, …] }
+export function pickFresh(entity, lines, key = 'line') {
+  if (!Array.isArray(lines) || lines.length < 2) return lines?.[0] ?? null;
+  if (!entity || typeof entity !== 'object') return lines[Math.floor(Math.random() * lines.length)];
+
+  let bag = recentLines.get(entity);
+  if (!bag) recentLines.set(entity, bag = {});
+  const used = bag[key] || (bag[key] = []);
+
+  let pool = lines.filter(l => !used.includes(l));
+  if (!pool.length) { used.length = 0; pool = lines; }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+
+  used.push(pick);
+  const cap = Math.max(1, Math.floor(lines.length * RECENT_FRACTION));
+  while (used.length > cap) used.shift();
+  return pick;
 }
 
 // ── Blackboard ────────────────────────────────────────────────────────────────
@@ -2031,10 +2068,17 @@ async function execAction(node, entity, ctx) {
       return 'offWork';
     }
 
-    // VENDOR_CHITCHAT: say a random chitchat line from entity.chitchat (60s cooldown).
+    // VENDOR_CHITCHAT: say a chitchat line from entity.chitchat.
+    //
+    // A bare cooldown makes a vendor a METRONOME: the node runs every tick, so the
+    // first tick past the cooldown always speaks and the shop talks at you on a
+    // fixed beat you can set a watch by. The floor is now a floor, and past it the
+    // line is a ROLL — so the gaps are uneven, which is what idle talk sounds like.
+    // (The line itself is chosen by the no-repeat bag; see pickFresh.)
     case 'VENDOR_CHITCHAT': {
       if (!ai) break;
-      if (Date.now() - ai.lastSay < 60000) break;
+      if (Date.now() - ai.lastSay < 75000) break;
+      if (Math.random() > 0.25) break;
       const line = pickChitchatLine(entity);
       if (!line) break;
       ai.lastSay = Date.now();
@@ -2606,7 +2650,9 @@ export async function tickEntityAI(entity, ctx) {
         const pool = woke ? WOKEN_ACTIVITIES[woke]
           : (Array.isArray(entity.home_activities) && entity.home_activities.length)
             ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
-        const act = pool[Math.floor(Math.random() * pool.length)];
+        // Same no-repeat bag as chitchat — a player watching somebody's evening
+        // at home is standing in the room for every line of it.
+        const act = pickFresh(entity, pool, 'home');
         const { type: actType, message: actMsg } = formatChitchat(entity.name, act);
         ctx.broadcast(entityZone(entity), { type: actType, message: actMsg });
       } else if (playersHere.length) {

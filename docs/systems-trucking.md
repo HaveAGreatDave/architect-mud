@@ -17,7 +17,7 @@ and a city that resolves out of the haze at the end of it.
 | --- | --- |
 | Corridor geometry + cell synthesis | [plugins/trucking/corridor.js](../plugins/trucking/corridor.js) |
 | Rig state, the clamp, node crossings, the cab push | [plugins/trucking/state.js](../plugins/trucking/state.js) |
-| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
+| Verbs (`drive`, `hitch`, `unhitch`, `stash`, `pickup`, `revs`, `boot`, `cruise`, `coast`, `brake`, `jake`, `park`, `fix`, `route`, `cb`, `haul`, `market`, `yard`, `rig`, `fuel`, `truckpump`, `trucksync`, `truckevent`) | [plugins/trucking/index.js](../plugins/trucking/index.js) |
 | The physics (`stepTruck`, the gearbox, the articulation angle, `SURFACES`) | [client/game/js/panels/flight-model.js](../client/game/js/panels/flight-model.js) |
 | The cab (60fps loop, gauges, wheel) | [client/game/js/panels/cab-view.js](../client/game/js/panels/cab-view.js) |
 | Cab interior + mirrors | `drawCabInterior` in [windshield.js](../client/game/js/panels/windshield.js) |
@@ -216,6 +216,34 @@ quarter off: a commitment, not a savings account to shuffle money through.
 > announced but **must not short-circuit the sync handler**: an early return there skipped every
 > arrival and delivery below it, so a rig that ran dry one tile from the dock could never finish.
 > The text rung burns and dries identically; a rung must never be a way to dodge a constraint.
+
+> **The pump handle, and why you never leave the seat for it.** Fuelling used to be a verb you
+> typed after climbing down: `fuel`, all of it, at the full price, or a refusal if you were short.
+> A driver at a pump with 90₵ got an error message instead of 90₵ of diesel, which is the version
+> of that transaction nobody has ever had. So the cab grew a **held handle** on the switch panel —
+> present only when the server says there is a pump under the nose, the same "the world affords it
+> or it is not on the panel" rule the trailer air valve follows. It fills while you hold it, the
+> face is the **running total in credits**, and it clicks off at a full tank *or* at the end of
+> your money, whichever comes first.
+>
+> **The handle is not a server-side pour, and the client is not trusted with the money.** The
+> obvious build is an interval adding fuel and taking credits every 200ms: a per-player timer, a
+> second place fuel moves outside the drive loop, and a teardown case for every way a session can
+> end mid-pour. Instead the cab does what it already does with everything else — simulate the feel,
+> then report — and `truckpump <fraction>` is the commit. The only thing the client is believed
+> about is **how long the trigger was down**; pump, tank space and affordability are all re-derived
+> server-side. That is safe by construction rather than by vigilance: the worst a lying client can
+> ask for is `1`, a full tank at the price the verb has always charged for exactly that.
+>
+> ⚠ **A push mid-pour must not touch the gauge.** `pushCab` lands about once a second, carrying the
+> server's *pre-pour* fuel, so accepting it while the handle is down drags the needle back to where
+> the tank was, once a second, while the driver watches it rise. `st.pumping` gates that one field
+> and nothing else.
+>
+> The typed `fuel` verb is now the same commit asked for everything, which is what makes it fill as
+> far as you can afford rather than refusing you. **The affordability cap is a clamp, never a
+> refusal** — that is what stops the system stranding somebody who had enough to reach the next
+> town.
 
 > **The heavy-truck trap.** A ponderous truck is `mass`, `engineLag` and `wheelbase` — **never**
 > starving it of power. The first cut gave the Continental `thrustMax: 7.4` against a rolling

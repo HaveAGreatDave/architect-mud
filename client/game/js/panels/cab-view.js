@@ -487,7 +487,20 @@ export function openCab(ctx = {}) {
                  both of them without looking, and they are the same gesture. Spring brakes hold
                  the rig with no air and no engine, which is why this is the one control that still
                  does something with the key off. -->
-            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
+            <button class="cab-btn cab-parkbtn" aria-pressed="false" aria-label="Park brake" title="Park brake (P) — the spring brakes. Holds the rig with the engine off; it will not let you pull away. Pull it with the key off and the rig stopped and you climb down."><i></i><b class="cab-knobface cab-parkface"><s></s><em>PULL</em></b><u><span>PARK</span></u></button>
+
+            <!-- THE PUMP HANDLE. Hidden until the server says there is a pump under the nose — the
+                 same 'a control appears because the world affords it' rule the trailer air valve
+                 follows, and for the same reason: a dead button on the panel everywhere else in
+                 the world is worse than no button.
+
+                 IT IS HELD, and that is the entire design. A driver who wants twenty credits of
+                 diesel because that is what they have takes it by letting go, which is what a
+                 pump handle is FOR — the alternative was a dialog asking how much, and nobody has
+                 ever wanted a form in a truck. The readout is the running total in credits, so the
+                 number you are watching is the number you are about to pay; it stops climbing when
+                 the tank is full or the money runs out, and the handle clicks off exactly there. -->
+            <button class="cab-btn cab-pumpbtn" hidden aria-label="Fuel pump — hold to fill" title="Fuel — HOLD the handle. It fills while you hold it and charges you when you let go; it clicks off when the tank is full or you have spent what you have."><i></i><b class="cab-knobface cab-pumpface"><s></s><em class="cab-pumpread">FUEL</em></b><u><span>PUMP</span></u></button>
 
           </div>
 
@@ -702,6 +715,76 @@ export function openCab(ctx = {}) {
   container.querySelector('.cab-hitchbtn')?.addEventListener('click', () => {
     sendCmdSilent(st.sim?.hitched ? 'unhitch' : 'hitch');
   });
+
+  // ── THE PUMP HANDLE ─────────────────────────────────────────────────────────
+  //
+  // Held, metered, and committed on release. It is NOT hold() — that helper writes a driving input
+  // the model reads every frame, and this writes money.
+  //
+  // The needle rises LOCALLY while you hold it, which is the same split as everything else in this
+  // cab: the client simulates the feel, the server owns the fact and corrects on the next push. So
+  // the gauge moves under your thumb at 20fps instead of stepping once a second, and the authority
+  // is still the number the server sends back after it has taken the credits.
+  //
+  // ⚠ TWO CEILINGS, AND THE MONEY ONE IS THE POINT. `room` stops it at a full tank; `afford` stops
+  // it at the driver's balance, so the handle can never run up a bill they cannot pay. Both are
+  // re-derived server-side at the commit — this is the feel, not the enforcement — but they have to
+  // be here too, or the readout promises a number the commit then quietly refuses to honour.
+  const RATE = 0.10;                       // tank fraction per second — a full fill is about ten
+  {
+    const el = container.querySelector('.cab-pumpbtn');
+    const read = () => el?.querySelector('.cab-pumpread');
+    let pid = null, t0 = 0, took = 0, timer = 0;
+    const cap = () => {
+      const room = Math.max(0, 1 - (st.fuel ?? 1));
+      const afford = (st.pump?.credits || 0) / (st.pump?.full || 380);
+      return Math.min(room, afford);
+    };
+    const tick = () => {
+      const lim = cap();
+      took = Math.min(lim, ((performance.now() - t0) / 1000) * RATE);
+      st.fuel = Math.min(1, (st.fuelAtPump ?? 0) + took);
+      const cost = Math.round(took * (st.pump?.full || 380));
+      const r = read();
+      // CLICK is the pump stopping, and it is deliberately the same word whether the tank filled or
+      // the money ran out — the driver can see which from the gauge, and a handle does not explain
+      // itself. It keeps showing the total, because that is what you are about to be charged.
+      if (r) r.textContent = took >= lim - 1e-6 ? `CLICK ${cost}₵` : `${cost}₵`;
+      el.classList.toggle('clicked', took >= lim - 1e-6);
+    };
+    const on = (e) => {
+      if (!el || el.hidden || !st.pump || timer) return;
+      pid = e.pointerId != null ? e.pointerId : 'kb';
+      if (e.pointerId != null) el.setPointerCapture?.(e.pointerId);
+      t0 = performance.now(); took = 0; st.fuelAtPump = st.fuel ?? 1;
+      st.pumping = true;
+      el.classList.add('on');
+      timer = setInterval(tick, 50);
+      e.preventDefault();
+    };
+    const off = (e) => {
+      if (!st || !timer) return;
+      if (e && e.pointerId != null && pid !== null && pid !== 'kb' && e.pointerId !== pid) return;
+      clearInterval(timer); timer = 0; pid = null;
+      st.pumping = false;
+      el.classList.remove('on', 'clicked');
+      const r = read(); if (r) r.textContent = 'FUEL';
+      // Nothing worth a round trip: a stab at the handle is not a purchase.
+      if (took >= 0.01) sendCmdSilent(`truckpump ${took.toFixed(3)}`);
+      else st.fuel = st.fuelAtPump ?? st.fuel;
+      took = 0;
+    };
+    el?.addEventListener('pointerdown', on);
+    el?.addEventListener('pointerup', off);
+    el?.addEventListener('pointercancel', off);
+    el?.addEventListener('keydown', (e) => { if (isPress(e) && !e.repeat) on(e); });
+    el?.addEventListener('keyup', (e) => { if (isPress(e)) off(); });
+    el?.addEventListener('blur', () => off());
+    addEventListener('pointerup', off);
+    // Letting the panel close mid-pour must not leave an interval running against a dead `st`, and
+    // must not silently swallow the diesel the driver already watched go in.
+    winOff.push(() => off());
+  }
 
   // Held STEERING buttons, for a touch device with no keyboard and no room to drag a wheel. They
   // drive the wheel widget's own `setHeld`, not a private angle — one wheel, three ways to turn it,
@@ -1476,6 +1559,13 @@ export function openCab(ctx = {}) {
       const w = el.querySelector('em');
       if (w) w.textContent = st.park ? 'PUSH' : 'PULL';
     }
+    // AND IF THERE IS NOTHING LEFT TO DO, THIS IS GETTING OUT. Setting the spring brakes on a dead,
+    // stationary truck is the last step of parking it and there is no other reason to do it — so
+    // the knob finishes the sequence rather than leaving the driver to find a verb for the part
+    // they have visibly already done. It sends the ORDINARY `park` command (which locks up, flushes
+    // and closes this panel); the cab decides nothing about whether it is allowed, and with the
+    // engine running the verb's own refusal is the one that speaks.
+    if (st.park && st.sim.stalled && Math.abs(st.sim.speed) < 0.5) sendCmdSilent('park');
   }
   st.setPark = setPark;
   // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by
@@ -1945,6 +2035,9 @@ export function cabContext(ctx) {
   // the contact list below and drawn by the same code that draws another player's rig.
   if (ctx.trailers) st.trailers = ctx.trailers;
   if (ctx.hitchable !== undefined) { st.hitchable = ctx.hitchable; paintHitchBtn(st); }
+  // The pump under the nose, and the balance the handle meters against. `null` is a real answer —
+  // it is most of the world — so this assigns rather than merges.
+  if (ctx.pump !== undefined) { st.pump = ctx.pump || null; paintPumpBtn(st); }
   // Out of diesel: the server says so and the pedal stops meaning anything. It clamps the speed
   // its own side too — this is the feel, not the enforcement.
   if (ctx.dry != null) st.dry = !!ctx.dry;
@@ -1952,7 +2045,11 @@ export function cabContext(ctx) {
   // read it — a driver got a boolean at the moment they ran out and nothing at all before it. The
   // gauge is the warning; running dry with a needle on the peg is the driver's fault, which is the
   // only version of that event worth having.
-  if (ctx.fuel != null) st.fuel = Math.max(0, Math.min(1, ctx.fuel));
+  // ⚠ NOT WHILE THE HANDLE IS DOWN. A push lands about once a second, and the server's fuel is the
+  // pre-pour figure until the commit — so accepting it mid-pour drags the needle back to where the
+  // tank was every second while the driver is watching it rise. The commit's own push (`pumped`)
+  // arrives after the handle is released and lands normally, which is the correction that matters.
+  if (ctx.fuel != null && !st.pumping) { st.fuel = Math.max(0, Math.min(1, ctx.fuel)); paintPumpBtn(st); }
   if (ctx.broken !== undefined) st.broken = ctx.broken || null;
   if (ctx.hour != null) st.hour = ctx.hour;
   if (ctx.weather) {
@@ -2128,6 +2225,26 @@ function paintHitchBtn(st) {
   el.setAttribute('title', coupled
     ? 'Pull the air supply and drop the trailer here (unhitch)'
     : `Push the air supply in and couple to ${target?.name || 'the trailer'} (hitch)`);
+}
+
+// THE PUMP HANDLE'S PRESENCE, on the same rule as the hitch knob above: the world affords it or it
+// is not on the panel. Three conditions, and each is a different kind of "there is nothing to do
+// here" — no pump under the nose, the tank already full, or a driver who cannot pay for a splash.
+// The last one is why the balance rides in the payload at all: a handle you can grab and get
+// nothing out of is worse than a handle that is not there.
+function paintPumpBtn(st) {
+  const el = st?.container?.querySelector('.cab-pumpbtn');
+  if (!el) return;
+  const p = st.pump;
+  const room = 1 - (st.fuel ?? 1);
+  const show = !!p && room > 0.02 && (p.credits || 0) >= Math.round((p.full || 380) * 0.01);
+  el.hidden = !show;
+  if (!show) return;
+  // What a full one costs, said before you pull it rather than after. The tooltip is the price
+  // board; the readout while held is the meter.
+  el.setAttribute('title', `Diesel — ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
+    + ` HOLD the handle: it fills while you hold it and charges you when you let go.`);
+  el.setAttribute('aria-label', `Fuel pump — hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
 }
 
 function drawRigOverlay(st, r) {
@@ -2994,6 +3111,42 @@ function ensureCabStyles() {
   .cab-btn.cab-parkbtn:active b.cab-knobface{transform:translateY(2px);
     box-shadow:inset 0 3px 6px rgba(0,0,0,.7)}
   .cab-btn.cab-parkbtn:active{transform:none}
+
+  /* ── THE PUMP HANDLE ───────────────────────────────────────────────────────
+     Not a knob and deliberately not shaped like one — the two knobs on this panel are BRAKES, and
+     a control that takes money must not be findable by the same shape as the control that stops
+     the truck. So it is a wide flat trigger with a readout window in it, which is what a pump is:
+     a grip and a number. The face is the meter, so it is monospaced and wide enough for '9999₵'
+     without the housing changing size mid-pour (a button that grows while you hold it reads as
+     broken). Sodium orange, because that is the colour of every forecourt in this game. */
+  .cab-btn.cab-pumpbtn{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:58px}
+  .cab-btn.cab-pumpbtn::before{display:none}          /* it has its own lamp */
+  .cab-btn.cab-pumpbtn b.cab-pumpface{position:relative;display:flex;align-items:center;
+    justify-content:center;width:52px;height:26px;border-radius:3px;
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(0,0,0,.35));
+    background-color:#3a2d18;
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.65), inset 0 -1px 0 rgba(255,255,255,.07);
+    transition:transform .09s ease-out, box-shadow .09s ease-out, background-color .12s}
+  .cab-btn.cab-pumpbtn b.cab-pumpface s{position:absolute;left:6%;top:8%;width:40%;height:30%;
+    border-radius:3px;text-decoration:none;
+    background:linear-gradient(160deg,rgba(255,255,255,.30),rgba(255,255,255,0));filter:blur(.6px)}
+  .cab-btn.cab-pumpbtn b.cab-pumpface em{position:relative;font-style:normal;
+    font:700 9px/1 ui-monospace,'SF Mono',Menlo,Consolas,monospace;letter-spacing:.04em;
+    color:#ffb14a;text-shadow:0 0 6px rgba(255,177,74,.5), 0 1px 0 rgba(0,0,0,.7)}
+  .cab-btn.cab-pumpbtn u{display:block;text-decoration:none;font:700 7px/1 inherit;letter-spacing:.1em;
+    color:#7f8b98;text-shadow:0 1px 0 rgba(0,0,0,.9)}
+  .cab-btn.cab-pumpbtn i{display:block;width:6px;height:6px;border-radius:50%;background:#1d2229;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
+  /* PULLED: fuel is moving and the meter is running. */
+  .cab-btn.cab-pumpbtn.on b.cab-pumpface{background-color:#6b4a12;transform:translateY(2px);
+    box-shadow:inset 0 3px 6px rgba(0,0,0,.7), 0 0 10px rgba(255,177,74,.35)}
+  .cab-btn.cab-pumpbtn.on i{background:#f0a83a;box-shadow:0 0 8px #f0a83a}
+  .cab-btn.cab-pumpbtn.on u{color:#c9d2dc}
+  /* CLICKED OFF: full tank, or the money is gone. The lamp goes out and the meter stops — the
+     handle is still in your hand and nothing more is going in, which is the real thing exactly. */
+  .cab-btn.cab-pumpbtn.clicked b.cab-pumpface{background-color:#43331a}
+  .cab-btn.cab-pumpbtn.clicked b.cab-pumpface em{color:#8f9aa6;text-shadow:0 1px 0 rgba(0,0,0,.7)}
+  .cab-btn.cab-pumpbtn.clicked i{background:#1d2229;box-shadow:inset 0 1px 2px rgba(0,0,0,.8)}
 
   /* ── THE IGNITION BARREL ───────────────────────────────────────────────────
      A lock barrel with a blade in it, and the blade ROTATES: '--keyrot' is written by paintKey and

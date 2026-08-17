@@ -3,13 +3,13 @@
   "ambient_theme": "urban",
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "description": "Stacked pallets and a cluster of squat fuel bowsers behind chain-link, hoses coiled like sleeping snakes. Placards warn NO NAKED FLAME in three languages and one skull. The avgas smell gets into your teeth and stays there.",
+  "description": "An open forecourt off the freight road: no walls anywhere, just a low steel canopy on four fat columns keeping the weather off two pump islands. Painted lanes tell you where to put a rig. Out by the kerb a price pylon totals the day's damage in sodium orange, and the numbers move often enough that people slow down to read them. The avgas smell gets into your teeth and stays there.",
   "exits": {
     "north": "zone_yard_fuelyard",
     "south": "zone_district_923_908"
   },
   "flags": {
-    "building_name": "Flash Point Fuel & Pallet",
+    "building_name": "Flash Point Fuel",
     "building_type": "fuel_yard",
     "district": "yards",
     "entrance": "south",
@@ -23,7 +23,7 @@
   "grid_z": 0,
   "id": "zone_district_923_907",
   "map_id": "map_world",
-  "marker": "FY",
-  "name": "Flash Point Fuel & Pallet",
+  "name": "Flash Point Fuel",
   "parent_zone": null
 }
+

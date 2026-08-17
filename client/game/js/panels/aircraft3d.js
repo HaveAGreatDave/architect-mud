@@ -98,6 +98,20 @@ function faceWearsTrim(face, pat) {
       const s = Math.sin(f * 8.5 + ang * 0.9) + camoHash(Math.round(f * 9), 0, Math.round(ang * 3)) * 0.6 - 0.3;
       return s > 0.35;
     }
+    // ── WARBIRD: the identification paint of a wartime dive bomber ─────────────
+    // The reference is the one everybody pictures — camouflaged upper surfaces, a pale belly, and
+    // then the THEATRE BANDS in a shrieking yellow: the whole cowl ahead of the windscreen, the
+    // rudder, and a band round each outer wing panel. It is the only pattern here that is about
+    // WHERE a colour goes on an airframe rather than what shape it makes, which is why it needs
+    // no new authored fields — the mesh already knows which facet is a cowl and which is a tip.
+    //
+    // Fin and rudder come free: TRIM_ROLE has always painted them trim, and on this scheme that
+    // is exactly right rather than a coincidence to work around.
+    case 'warbird': {
+      if (face.role === 'body') return f > 0.66;                       // the cowl, forward of the windscreen
+      if (face.role === 'wing' || face.role === 'aileron') return Math.abs(g) > 0.84;   // outboard identification band
+      return false;
+    }
     case 'digital': return camoHash(Math.round(f * 9), Math.round(g * 13), Math.round(h * 13)) > 0.5;   // fine pixel-block camo (denser grid than splinter)
     case 'checker': { const ang = Math.atan2(h, g); return (Math.floor(f * 6.5) + Math.floor(ang / Math.PI * 4)) % 2 === 0; }   // wrapping racing checkerboard
     default:         return false;                     // bare / solid: one hull colour
@@ -112,7 +126,21 @@ export function faceBaseRgb(face, pal) {
   if (role === 'interior') return [26, 28, 33];   // dark cargo-hold walls, livery-independent
   if (role === 'ramp') return [58, 61, 68];        // bare metal cargo ramp
   if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
-  return faceWearsTrim(face, pal.pat) ? pal.trim : pal.base;
+  if (faceWearsTrim(face, pal.pat)) return pal.trim;
+  // WARBIRD'S OTHER TWO TONES, AND THEY ARE DERIVED. A pattern picks base or trim and that is the
+  // whole contract — two colours is what a livery stores and adding a third and fourth field to
+  // the database for one scheme would be paying forever for one aeroplane. So the split camo and
+  // the pale belly are computed FROM the chosen base: the underside washes toward a high-altitude
+  // sky grey, and the upper surfaces break into hard-edged blotches of a darker version of the
+  // same colour. Pick olive and you get olive-over-grey; pick maroon and the scheme still works,
+  // because nothing here names a colour, only a direction to move the one you chose.
+  if (pal.pat === 'warbird' && PATTERN_ROLE.has(role)) {
+    const [f, g, h] = faceCentroid(face.p);
+    if (h / (Math.hypot(g, h) || 1) < -0.15) return mix3(pal.base, [206, 214, 222], 0.68);   // the pale belly
+    return camoHash(Math.round(f * 3.6), Math.round(g * 3.2), Math.round(h * 5)) > 0.52
+      ? mix3(pal.base, [22, 30, 22], 0.45) : pal.base;                                       // the splinter break up top
+  }
+  return pal.base;
 }
 
 // ── Geometry ────────────────────────────────────────────────────────────────────
@@ -370,7 +398,14 @@ function buildFixedWing(p, detail = 1) {
   // Nose prop. `p.spinner` sizes it — the default 0.5 is a light single's little GA spinner
   // (Cessna, Cub); an ag-plane hangs a 1000-shp turbine off the firewall and its spinner is a
   // BIG blunt cone almost as wide as the cowl, which is most of why the type reads heavy.
-  if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, 0.02, p.spinner ?? 0.5);
+  // ⚠ AND IT SITS ON THE CENTRELINE THE NOSE ACTUALLY ENDS AT. This was hardcoded to h = 0.02 —
+  // the DEFAULT `noseZ` — so the moment an airframe drooped its snout the spinner stayed up where
+  // a straight nose would have been and the prop hung off the top corner of the cowl. The Shrike
+  // (noseZ −0.035) was the first to have both a drooped nose and a nose prop, and she read as a
+  // model assembled wrong. `czAt` is the function that decides where the tip is; this is the same
+  // number, and every existing craft (all of which leave noseZ at the default) is untouched.
+  if (p.prop === 'nose') addSpinner(faces, p.noseF, 0, p.noseZ ?? 0.02, p.spinner ?? 0.5);
+  if (p.stores) addStores(faces, p);   // what she is carrying, on the racks she carries it on
   // Cowl EXHAUST STACKS (p.exhaust) — the short dark pipes elbowing out of the cowl flanks just
   // ahead of the windscreen and canting aft. Tiny, but they're the difference between a smooth
   // moulded snout and an engine that's actually bolted in there.
@@ -944,6 +979,45 @@ function addTube(faces, a, b, r, role = 'gear', sh = 0.55, sides = 6) {
   const ring = (c) => { const o = []; for (let i = 0; i < sides; i++) { const t = i / sides * Math.PI * 2, cs = Math.cos(t) * r, sn = Math.sin(t) * r; o.push(V(c[0] + u[0] * cs + v[0] * sn, c[1] + u[1] * cs + v[1] * sn, c[2] + u[2] * cs + v[2] * sn)); } return o; };
   const A = ring(a), B = ring(b);
   for (let i = 0; i < sides; i++) { const j = (i + 1) % sides; faces.push({ role, sh, p: [A[i], A[j], B[j], B[i]] }); }
+}
+
+// ── ORDNANCE ON THE RACKS ─────────────────────────────────────────────────────
+// A bomb is a body with a rounded nose, a boat-tailed rear and a cruciform tail — and the tail is
+// what makes it read as a WEAPON rather than a fuel tank at a hundred yards, so it is drawn even
+// though it is four flat quads.
+//
+// ⚠ THIS IS THE MESH, WHICH MEANS IT IS THE FULL RACK, ALWAYS. The face list is memoised per
+// (class, detail, armed, variant), so making it track a live count would either blow the memo
+// every release or need the count folded into `variant` — and a rack that is empty on the ground
+// because the pilot flew a sortie an hour ago is a worse lie than one that is always full. What
+// the pilot needs to know about the rack is on the pips and the dive ladder; what this is for is
+// that the aeroplane visibly carries bombs.
+//
+// `p.stores` = [[f, g, h, length, radius], …]. On the centreline it also gets a CRUTCH — the
+// swinging trapeze that throws the bomb clear of the prop in a vertical dive, and the one piece of
+// hardware on this aeroplane that only exists because of how it attacks.
+function addStores(faces, p) {
+  for (const [sf, sg, sh, len, rad] of p.stores) {
+    const nose = V(sf + len * 0.52, sg, sh), tail = V(sf - len * 0.48, sg, sh);
+    addTube(faces, V(sf + len * 0.30, sg, sh), V(sf - len * 0.30, sg, sh), rad, 'gun', 0.62, 8);
+    // Nose and tail cones, as fans off the parallel section's own end rings.
+    for (const [end, at, shd] of [[nose, sf + len * 0.30, 0.78], [tail, sf - len * 0.30, 0.5]]) {
+      for (let i = 0; i < 8; i++) {
+        const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2, r = end === tail ? rad * 0.62 : rad;
+        faces.push({ role: 'gun', sh: shd, p: [end,
+          V(at, sg + Math.cos(a0) * r, sh + Math.sin(a0) * r), V(at, sg + Math.cos(a1) * r, sh + Math.sin(a1) * r)] });
+      }
+    }
+    const fin = rad * 2.1, f0 = sf - len * 0.20, f1 = sf - len * 0.46;
+    for (const [dg, dh] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      faces.push({ role: 'gun', sh: 0.7, p: [
+        V(f0, sg + dg * rad * 0.4, sh + dh * rad * 0.4), V(f0, sg + dg * fin, sh + dh * fin),
+        V(f1, sg + dg * fin, sh + dh * fin), V(f1, sg + dg * rad * 0.4, sh + dh * rad * 0.4)] });
+    }
+    if (Math.abs(sg) < 0.02) for (const df of [len * 0.22, -len * 0.16]) {   // the crutch, centreline only
+      addTube(faces, V(sf + df, 0, sh + rad), V(sf + df * 0.6, 0, -p.fv * 0.92), 0.008, 'strut', 0.6, 4);
+    }
+  }
 }
 
 // A vertical oleo strut: an n-gon leg from zTop down to zBot, dull cylinder over a bright piston.
@@ -1976,7 +2050,7 @@ export const PROP_STATIONS = {
   prop: [[0.47, 0.42, 0.11], [0.47, -0.42, 0.11]],     // Twin Otter: two wing props
   grasshopper: [[0.865, 0, 0.030]],                    // Cub: one nose prop, at her own spinner apex (CUB_STATIONS' cowl face + SPIN_R)
   locust: [[1.13, 0, 0.02]],                           // ag turbine: one big nose prop (spinner apex = noseF 1.00 + 0.14·0.9)
-  divebomber: [[1.19, 0, 0.015]],                      // Shrike: one big slow nose prop (spinner apex = noseF 1.06 + 0.14·0.82)
+  divebomber: [[1.19, 0, -0.035]],                     // Shrike: one big slow nose prop (spinner apex = noseF 1.06 + 0.14·0.82, on her DROOPED centreline — noseZ, same as addSpinner)
 };
 
 // Real-world RELATIVE size (Twin Otter = 1). The meshes are all normalised to a similar extent,
@@ -2021,10 +2095,19 @@ export function drawRotorFX(ctx, cls, projFn, { spin = 0, power = 0.7, parked = 
     // Cessna two-blade nose prop / Twin Otter three-blade wing turboprops. The
     // stations record the spinner apex (ultralight) vs base (prop) — nudge the
     // blade plane back to the cone root either way.
-    const blades = (cls === 'ultralight' || cls === 'grasshopper') ? 2 : 3, off = cls === 'ultralight' ? -0.06 : 0.03;
+    const blades = (cls === 'ultralight' || cls === 'grasshopper') ? 2 : 3;
+    // Where the blade plane sits relative to the recorded station, and how big the disc is. Both
+    // were single expressions with the same value on each side of a `?` — a table that had been
+    // flattened into a ternary and then never grew. A station recording the spinner APEX has to be
+    // walked BACK to the cone root or the blades hang in front of the aeroplane, and the Shrike's
+    // 0.82-scale spinner is a long cone: hers is the biggest walk-back in the fleet, as well as
+    // the biggest disc (the gull wing exists to give this prop ground clearance — it has to LOOK
+    // like the reason).
+    const off = { ultralight: -0.06, grasshopper: -0.075, locust: -0.095, divebomber: -0.115 }[cls] ?? 0.03;
+    const rad = { locust: 0.26, divebomber: 0.30 }[cls] ?? 0.21;
     for (const st of (PROP_STATIONS[cls] || [])) {
       spinDisc(ctx, projFn, [st[0] + off, st[1], st[2]], [0, 0, 1], [0, 1, 0],
-        cls === 'ultralight' ? 0.21 : 0.21, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5, bladeFade);
+        rad, spin * 2.2 + st[1] * 3, dsc, spl, parked, blades, 0.5, bladeFade);
     }
   }
 }
@@ -2325,6 +2408,12 @@ const FW_PARAMS = {
     dorsal: -0.28,   // spine fillet forward off the fin
     exhaust: { f: 0.78, g: 0.88, z: -0.008, at: [0, -0.045, -0.09] },   // a row of stacks down the cowl flank
     diveBrakes: { u0: 0.22, u1: 0.44, drop: 0.062, aft: 0.05 },
+    // The load: one big one on the centreline crutch, and four small ones out under the gull's
+    // outer panels where the trousers are not in the way. The rack is authored here rather than in
+    // the flight model because it is a SHAPE — what she is armed with is `data.bombs` on the type.
+    stores: [[0.10, 0, -0.175, 0.40, 0.036],
+      [0.02, 0.46, -0.055, 0.22, 0.021], [0.02, -0.46, -0.055, 0.22, 0.021],
+      [0.02, 0.62, -0.030, 0.22, 0.021], [0.02, -0.62, -0.030, 0.22, 0.021]],
     stabStruts: true,   // the braced tailplane — a strut each side from the stabiliser up to the fin
     chinScoop: { f0: 0.76, f1: 0.30, w: 0.052, h: 0.055 },   // the ventral intake under the nose
     canopy: { f0: 0.58, f1: -0.14, w: 0.076, h: 0.090, front: 0.24, tail: 0.16, segs: 7, arc: 5, sink: 0.014, art: 'shrike' } },
@@ -3974,13 +4063,30 @@ function decalTex(id) {
   const W = 72, H = 44, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   if (id === 'sharkmouth') {
-    g.fillStyle = '#9c1717';                                    // red maw, opening toward the nose (left)
-    g.beginPath(); g.moveTo(1, H * 0.36); g.lineTo(W * 0.62, H * 0.30); g.lineTo(W * 0.62, H * 0.70); g.lineTo(1, H * 0.68); g.closePath(); g.fill();
+    // ⚠ U = 0 IS THE NOSE. drawNoseArt maps texture column 0 to the FORWARD end of the panel on
+    // both flanks (reach decals never flip), so everything about this animal's head has to be
+    // drawn facing LEFT. It was drawn facing right: the eye sat at U 0.14 — out on the spinner,
+    // in front of its own mouth — and the maw was widest at the BACK and pinched at the front,
+    // which is a shark swimming away from you. A sharkmouth gapes at the tip and closes aft, and
+    // the eye is up on the cowl BEHIND the jaw hinge, which is where it goes now.
+    const gape = H * 0.46, hinge = H * 0.10, jawX = W * 0.66;   // half-heights at the tip and at the hinge
+    g.fillStyle = '#9c1717';                                    // the red maw
+    g.beginPath();
+    g.moveTo(1, H * 0.50 - gape); g.lineTo(jawX, H * 0.50 - hinge);
+    g.lineTo(jawX, H * 0.50 + hinge); g.lineTo(1, H * 0.50 + gape);
+    g.closePath(); g.fill();
+    // Teeth ride the lip line, so they shrink with the closing jaw rather than marching along at
+    // one size — that taper is most of what makes a row of triangles read as a mouth.
     g.fillStyle = '#f2f2ea';
-    for (let i = 0; i < 6; i++) { const x = 4 + i * 9.5; g.beginPath(); g.moveTo(x, H * 0.35); g.lineTo(x + 6, H * 0.35); g.lineTo(x + 3, H * 0.52); g.closePath(); g.fill(); }   // upper teeth
-    for (let i = 0; i < 6; i++) { const x = 8 + i * 9.5; g.beginPath(); g.moveTo(x, H * 0.69); g.lineTo(x + 6, H * 0.69); g.lineTo(x + 3, H * 0.53); g.closePath(); g.fill(); }   // lower teeth
-    g.fillStyle = '#f2f2ea'; g.beginPath(); g.arc(W * 0.14, H * 0.17, 5.2, 0, 7); g.fill();
-    g.fillStyle = '#101010'; g.beginPath(); g.arc(W * 0.15, H * 0.17, 2.4, 0, 7); g.fill();   // angry eye
+    for (let i = 0; i < 7; i++) {
+      const t = i / 7, x = 3 + t * (jawX - 10), half = gape + (hinge - gape) * t, w = 6.5 - t * 3;
+      g.beginPath(); g.moveTo(x, H * 0.50 - half); g.lineTo(x + w, H * 0.50 - half); g.lineTo(x + w * 0.5, H * 0.50 - half * 0.42); g.closePath(); g.fill();
+      const x2 = x + 4.5, half2 = gape + (hinge - gape) * (t + 0.06), w2 = w * 0.92;
+      g.beginPath(); g.moveTo(x2, H * 0.50 + half2); g.lineTo(x2 + w2, H * 0.50 + half2); g.lineTo(x2 + w2 * 0.5, H * 0.50 + half2 * 0.42); g.closePath(); g.fill();
+    }
+    // The eye: aft of the hinge and high on the cowl, glaring FORWARD over the mouth.
+    g.fillStyle = '#f2f2ea'; g.beginPath(); g.arc(W * 0.80, H * 0.20, 5.4, 0, 7); g.fill();
+    g.fillStyle = '#101010'; g.beginPath(); g.arc(W * 0.775, H * 0.20, 2.5, 0, 7); g.fill();   // pupil forward in the socket — it is looking where it is going
   } else if (id === 'killmarks') {
     for (let i = 0; i < 6; i++) { const x = 10 + i * 10, y = 13;                              // a tally of enemy roundels
       g.strokeStyle = '#d33'; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 3.4, 0, 7); g.stroke();

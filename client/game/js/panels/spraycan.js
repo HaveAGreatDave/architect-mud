@@ -155,6 +155,9 @@ function paint() {
   S.$('sp-count').textContent = `${S.text.length}/${S.maxLen}`;
   S.$('sp-count').classList.toggle('sp-over', S.text.length > S.maxLen);
   S.$('sp-shelf').innerHTML = savedHtml();
+  S.$('sp-stops').innerHTML = S.fade.map((c, i) =>
+    `<button type="button" class="sp-cap sp-stop" data-stop="${i}" style="background:${c}" title="${c}"></button>`).join('');
+  S.$('sp-ramp').style.background = `linear-gradient(90deg, ${S.fade.join(', ')})`;
   S.$('sp-scope').textContent = S.sel ? `letters ${selRange()[0] + 1}–${selRange()[1] + 1}` : 'the whole tag';
   const swatch = S.$('sp-swatch');
   swatch.querySelector('i').style.background = S.ink;
@@ -197,6 +200,31 @@ function rainbow() {
     S.colors[i] = hslHex(hue, 1, 0.62);
   }
   paint();
+}
+
+// The four-stop fade. The rainbow is a fixed sweep through the spectrum; this is the
+// same gesture with the colours chosen — you set four cans and the letters between
+// them are mixed for you. Blending is a straight sRGB lerp per segment, which is what
+// a fading can actually does on a wall: the stops land on real letters and everything
+// between two stops is an intermediate nobody had to pick.
+function fade() {
+  const stops = S.fade.filter(c => /^#[0-9a-f]{6}$/i.test(c));
+  if (stops.length < 2) return;
+  const [a, b] = selRange();
+  const span = Math.max(1, b - a);
+  for (let i = a; i <= b && i < S.text.length; i++) {
+    const t = ((i - a) / span) * (stops.length - 1);
+    const k = Math.min(stops.length - 2, Math.floor(t));
+    S.colors[i] = mixHex(stops[k], stops[k + 1], t - k);
+  }
+  paint();
+}
+
+const rgb = (hex) => [1, 3, 5].map(o => parseInt(hex.slice(o, o + 2), 16));
+
+function mixHex(x, y, t) {
+  const p = rgb(x), q = rgb(y);
+  return '#' + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
 
 function hslHex(h, s, l) {
@@ -297,6 +325,11 @@ function ensureStyles() {
   #sp-root .sp-cap { height:15px; padding:0; border-radius:3px; cursor:pointer; border:1px solid rgba(0,0,0,0.4);
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.25); transition:transform .1s; }
   #sp-root .sp-cap:hover { transform:scale(1.2); }
+  #sp-root .sp-stops { display:flex; gap:4px; padding:4px; border-radius:7px;
+    background:rgba(0,0,0,0.3); box-shadow:inset 0 1px 3px var(--hb-bevel-lo); }
+  #sp-root .sp-stop { width:26px; height:20px; }
+  #sp-root .sp-ramp { flex:1 1 90px; min-width:60px; height:20px; border-radius:5px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2); }
   #sp-root .sp-shelf { display:flex; flex-direction:column; gap:4px; max-height:132px; overflow-y:auto; }
   #sp-root .sp-saved { display:flex; align-items:center; gap:7px; padding:3px 5px; border-radius:6px; background:rgba(0,0,0,0.28); }
   #sp-root .sp-load { flex:1 1 auto; text-align:left; padding:4px 7px; font-family:inherit; font-size:14px; cursor:pointer;
@@ -356,6 +389,12 @@ export function openSprayCan(msg) {
         <button type="button" class="sp-btn" id="sp-strip-btn" title="Back to plain">strip</button>
       </div>
       <div class="sp-rack" id="sp-rack">${RACK.map(c => `<button type="button" class="sp-cap" data-cap="${c}" style="background:${c}" title="${c}"></button>`).join('')}</div>
+      <div class="sp-lab">Fade — four cans, mixed between</div>
+      <div class="sp-row">
+        <div class="sp-stops" id="sp-stops"></div>
+        <div class="sp-ramp" id="sp-ramp"></div>
+        <button type="button" class="sp-btn" id="sp-fade" title="Blend the four across the selection">fade</button>
+      </div>
       <div class="sp-lab">Shelf</div>
       <div class="sp-shelf" id="sp-shelf"></div>
       <div class="sp-row" style="margin-top:7px">
@@ -377,6 +416,7 @@ export function openSprayCan(msg) {
   const $ = (id) => overlay.querySelector('#' + id);
   S = {
     text: '', colors: [], flags: [], sel: null, ink: '#ff2d55',
+    fade: ['#ff2d55', '#ffb300', '#00e676', '#2196ff'],
     walls, wall, saved: Array.isArray(msg.saved) ? msg.saved : [],
     maxLen: Number(msg.maxLen) || 48, saveCap: Number(msg.saveCap) || 12,
     overlay, close, $,
@@ -419,6 +459,20 @@ export function openSprayCan(msg) {
   $('sp-wall').addEventListener('change', (e) => { S.wall = e.target.value; });
   $('sp-rainbow').addEventListener('click', rainbow);
   $('sp-strip-btn').addEventListener('click', strip);
+  $('sp-fade').addEventListener('click', fade);
+  // Each stop opens the same wheel the ink swatch does, on its own key so the four
+  // remember themselves independently. Changing a stop re-paints the ramp only — the
+  // letters change when you press `fade`, because a stop is a choice, not a stroke.
+  $('sp-stops').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-stop]');
+    if (!b) return;
+    e.stopPropagation();
+    const k = Number(b.getAttribute('data-stop'));
+    openColorPicker({
+      key: 'spray-fade-' + k, anchor: b, value: S.fade[k], title: `fade ${k + 1}`, quick: RACK,
+      themeFrom: 'sp-root', onChange: (hex) => { S.fade[k] = hex; paint(); },
+    });
+  });
   for (const btn of overlay.querySelectorAll('[data-flag]')) {
     btn.addEventListener('click', () => toggleFlag(Number(btn.getAttribute('data-flag'))));
   }

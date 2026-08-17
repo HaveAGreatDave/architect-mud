@@ -11,7 +11,11 @@
 // whole units or none.
 import { getItem } from '../../server/engine/items-cache.js';
 
-export const BUDGET = { handle: 16, epithet: 28, lastSeen: 340, origin: 150, quote: 90, zone: 24, marks: 74 };
+// `lastSeen` carries more than it used to — the pose and the discipline clause
+// both live in it now, because they are part of the picture rather than facts
+// beside it. Raised to match; the ladder rule is unchanged, so a card that can't
+// fit the tail simply stops early.
+export const BUDGET = { handle: 16, epithet: 28, lastSeen: 440, origin: 150, quote: 90, zone: 24, marks: 74 };
 
 // ── field marks ────────────────────────────────────────────────────────────────
 // The physical line a real trading card carries — HT/WT/BATS/THROWS, except this
@@ -155,16 +159,36 @@ export function wholeSentences(text, budget) {
 // A quote is never edited to fit. Walk candidates newest-first and take the first
 // one that qualifies; if none do, the region prints its silence copy.
 export const SILENCE = '— said nothing worth printing —';
+// A candidate is either a plain string — something OVERHEARD, which has to be
+// sniffed for whether it is speech at all — or `{ text, authored: true }`, a line
+// the player sat down and WROTE. The difference is not politeness, it is that the
+// sniffing below is nonsense when applied to the second kind:
+//
+// ⚠ `/^[a-z]/ → skip` is a STAGE-DIRECTION test, and it only means anything about
+// somebody else's chitchat. Applied to a typed line it refuses "i have made a
+// terrible mistake" — a perfectly good card quote — with "The press will not take
+// that line", which explains nothing, on the one surface in the game where the
+// player is deliberately writing prose. That was the whole of the "censor": no
+// list of words anywhere, one capital letter.
+//
+// Everything else still applies to both, which is what keeps this ONE gate rather
+// than a second, laxer path for written quotes: the budget, the substitution
+// tokens and the command-shaped line are all reasons the PRINT fails, and those
+// are true whoever wrote it.
 export function pickQuote(candidates, budget = BUDGET.quote) {
   for (const raw of candidates || []) {
-    let q = String(raw || '').trim().replace(/\s+/g, ' ');
+    const authored = !!(raw && typeof raw === 'object' && raw.authored);
+    let q = String((raw && typeof raw === 'object' ? raw.text : raw) || '').trim().replace(/\s+/g, ' ');
     // NPC chitchat is third-person ACTION text ("drags his rebar along the
     // ground") with any actual speech wrapped in quotes inside it. Overheard is a
     // spoken line, so pull the speech out when there is some — and skip the line
     // entirely when there isn't, rather than printing stage direction as dialogue.
-    const spoken = q.match(/["“]([^"”]{2,})["”]/);
-    if (spoken) q = spoken[1].trim();
-    else if (/^[a-z]/.test(q)) continue;
+    // A written line is not chitchat and is taken exactly as it was typed.
+    if (!authored) {
+      const spoken = q.match(/["“]([^"”]{2,})["”]/);
+      if (spoken) q = spoken[1].trim();
+      else if (/^[a-z]/.test(q)) continue;
+    }
     if (!q || q.length > budget) continue;
     if (/^[./@;]/.test(q)) continue;   // looks like a command, not speech
     // Combat cries and dialogue lines carry substitution tokens ($enemy, $player,
@@ -177,6 +201,29 @@ export function pickQuote(candidates, budget = BUDGET.quote) {
 }
 
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * How an "in their own words" fragment is SET, which is one decision and therefore
+ * lives in one place. Two kinds of line end up in that region and they are not the
+ * same kind of writing: a spoken one ("Low and slow, they said") is a quotation and
+ * takes quotation marks, and a stage direction lifted from chitchat ("reads a
+ * bearing off his slate") is narration about somebody — it has no speaker, so
+ * quoting it puts words in his mouth he never said.
+ *
+ * The test is the one already used to sniff chitchat: a fragment starting lowercase
+ * is a verb phrase waiting for its subject, so we give it one — the given name, not
+ * the full name, because a card has already printed the full name two lines above.
+ *
+ * Returns { text, quoted } and never HTML: the two surfaces that print it (the game
+ * card face and the dev-panel preview) style it themselves.
+ */
+export function ownWords(subjectName, origin) {
+  const t = stripWrappingQuotes(origin);
+  if (!t) return { text: '', quoted: false };
+  if (!/^[a-z]/.test(t)) return { text: t, quoted: true };
+  const given = String(subjectName || '').trim().split(/\s+/)[0] || '';
+  return { text: given ? `${given} ${t}` : cap(t), quoted: false };
+}
 
 // Authored prose often wraps its speech in quotes; the card supplies its own, so
 // a stored block must not carry a second pair (“"Clean it, check it."”).
@@ -224,9 +271,69 @@ export function tierIndex(value = 0, armor = 0) {
   return Math.min(4, t);
 }
 
+// ── the pose ───────────────────────────────────────────────────────────────────
+// A card is a photograph, and nobody stands for a photograph holding a shotgun
+// the way they stand holding nothing. So what a subject is armed with is not a
+// line in a kit list — it is HOW THEY ARE STANDING, and it is written as one.
+//
+// Keyed off `weapon_skill`, which every weapon in the game already carries for
+// routing its attack, so a new weapon poses correctly with nothing authored. The
+// fallback is the generic hold, never a missing clause.
+const POSES = {
+  firearms: n => `held ${n} low and across, the way people do when they have decided already`,
+  blades:   n => `turned ${n} over once in their hand and let it hang there`,
+  clubs:    n => `rested ${n} on one shoulder like it weighed nothing`,
+  science:  n => `kept ${n} pointed at the floor, which is the only polite way to keep it`,
+  fists:    n => `kept ${n} where a hand should be`,
+};
+export function poseFor(weaponName, weaponSkill, naturalWeapon) {
+  if (weaponName) {
+    const f = POSES[String(weaponSkill || '').toLowerCase()];
+    return f ? f(article(weaponName)) : `held ${article(weaponName)} like they meant to keep it`;
+  }
+  // An unarmed body is not always an empty one — a clawed hand IS a weapon, and
+  // it poses instead of the pipe rather than alongside it.
+  if (naturalWeapon) return POSES.fists(article(naturalWeapon));
+  return 'stood with their hands empty, which on this street is its own statement';
+}
+
+// ── the disciplines, woven rather than listed ──────────────────────────────────
+// Chrome, mutation, psionics and mastery are four separate systems with four
+// separate stores, and a card that printed four labelled rows would read like a
+// character sheet. One sentence, in the order a photograph would give them up:
+// what is bolted on, what grew, how they move, and — only sometimes — what the
+// picture cannot account for.
+//
+// ⚠ PSIONICS IS GATED HERE ON PURPOSE. Below Seer nothing in the game may state
+// the mechanism (docs/systems-psionics.md — `voice()` and the deniability rule),
+// and a printed card is the most permanent statement there is. So a low-rank
+// psion gets NO clause at all, and at Seer the card is allowed to be strange.
+export function disciplineClause({ chrome = [], flesh = [], mastery = null, psionic = false } = {}) {
+  const parts = [];
+  if (chrome.length) {
+    parts.push(chrome.length > 2
+      ? `more hardware in them than most people own`
+      : `${chrome.slice(0, 2).join(' and ')} under the skin`);
+  }
+  if (flesh.length) {
+    parts.push(flesh.length > 2
+      ? `and a body that has stopped asking permission`
+      : `and ${flesh.slice(0, 2).join(', ')}`);
+  }
+  if (mastery) parts.push(`and the stillness of ${mastery}`);
+  if (!parts.length && !psionic) return '';
+  let s = parts.length ? cap(`they carried ${parts.join(' ')}.`) : '';
+  // The Seer line claims nothing, explains nothing, and is deliberately about
+  // the PHOTOGRAPH rather than about them.
+  if (psionic) s += (s ? ' ' : '') + 'The film came back wrong on one frame.';
+  return s;
+}
+
 // ── PLAYER ─────────────────────────────────────────────────────────────────────
 // equipped: [{ item_id, layer, condition }]; physLine: physicalDescription() output.
-export function buildPlayerCard({ player, equipped = [], physLine = '', quotes = [] }) {
+// dossier: the record half — see gatherDossier() in index.js. Everything in it is
+// optional; an absent field simply omits its clause, per the ladder rule.
+export function buildPlayerCard({ player, equipped = [], physLine = '', quotes = [], dossier = {} }) {
   const bySlot = {};
   for (const row of equipped) {
     const it = getItem(row.item_id);
@@ -253,23 +360,27 @@ export function buildPlayerCard({ player, equipped = [], physLine = '', quotes =
   const upper = [worn('head'), worn('torso')].filter(Boolean);
   const lower = [worn('legs'), worn('feet')].filter(Boolean);
   const weapon = bySlot.weapon_hand;
-  const under = (bySlot._under || []).map(e => e.item.name);
   const acc = (bySlot.accessory || []).map(e => e.item.name);
+  const pose = poseFor(weapon?.item?.name, weapon?.item?.tags?.weapon_skill, dossier.naturalWeapon);
+  const discipline = disciplineClause(dossier);
 
+  // The card is a photograph, not an inventory sheet: it records what a camera
+  // could see. Covered layers (_under) are deliberately absent — the shirt under
+  // the coat and the underwear under the trousers are both simply not in frame.
+  // They still count toward power/rarity, which are the record.
   const clauses = [
     body + '.',
     upper.length ? `They wore ${upper.join(' and ')}.` : '',
     lower.length ? `${cap(lower.join(', '))}.` : '',
-    weapon ? `They carried ${article(weapon.item.name)}.` : '',
-    under.length ? `Underneath, ${under.join(' and ')}.` : '',
+    `They ${pose}.`,
+    discipline,
     acc.length ? `${cap(acc.join(', '))} on them.` : '',
   ];
   // rank 0 (body) is mandatory; rank 1 (what they wore) is mandatory when they
   // were wearing anything at all.
   const required = upper.length ? 2 : 1;
   let lastSeen = ladder(clauses, BUDGET.lastSeen, required);
-  if (!lastSeen && !upper.length && !lower.length && !weapon) lastSeen = 'Nothing on. Nothing to report.';
-  if (!lastSeen) lastSeen = ladder([clauses[0], clauses[1]], BUDGET.lastSeen, 1);
+  if (!lastSeen) lastSeen = ladder([clauses[0], clauses[1], clauses[3]], BUDGET.lastSeen, 1);
 
   const items = Object.values(bySlot).flat().filter(e => e && e.item);
   const power = items.reduce((a, e) => a + Math.round((Number(e.item.value) || 0) / 100) + (Number(e.item.tags?.armor) || 0) * 6, 0);
@@ -284,7 +395,18 @@ export function buildPlayerCard({ player, equipped = [], physLine = '', quotes =
     spec: {
       item_ids: items.map(e => e.item.id),
       conditions: items.map(e => e.band),
-      manifest: items.map(e => ({ name: e.item.name, band: e.band, tier: e.tier })),
+      // THE RECORD, which is the half the prose above deliberately refuses to be.
+      // What used to sit here was the kit manifest — a second, duller copy of the
+      // sentence the reader had just finished. This is the part of a person a
+      // photograph genuinely cannot show: what they know, who they answer to, and
+      // how many people they have killed.
+      record: {
+        xp: Number(dossier.xp) || 0,
+        skills: (dossier.skills || []).slice(0, 3),      // [{ name, level }]
+        alignment: dossier.alignment || 'Unaligned',
+        corp: dossier.corp || null,                      // short tag, absent when none
+        kills: Number(dossier.kills) || 0,
+      },
       stats: {
         brawn: player.stat_brawn, reflexes: player.stat_reflexes, endurance: player.stat_endurance,
         brains: player.stat_brains, cool: player.stat_cool, senses: player.stat_senses,
@@ -315,11 +437,27 @@ export function buildNpcCard(npc) {
   ];
   // The origin block and the quote must not be the same sentence twice. Whatever
   // the origin consumed is dropped from the quote candidates.
+  // ── ONE QUOTE, DRAWN AT RANDOM ─────────────────────────────────────────────
+  // An NPC card used to carry TWO spoken regions — an "in their own words" line
+  // (always `card_note` or the first chitchat) plus a second Overheard one — and
+  // they were competing for the same handful of authored lines: one fixed at the
+  // top of the list forever, the other picking through the leftovers. So a card
+  // said the same thing every time it was struck AND said it twice.
+  //
+  // Now there is one region and the line is a RANDOM draw from everything this
+  // person has ever been given to say. That is what makes a second copy of the
+  // same face worth looking at: the card is the same, the moment is not. It is
+  // drawn at STRIKE time and stored, so a card in a binder never changes under
+  // its owner — the randomness is across cards, not across readings.
+  //
+  // `flags.card_note` still wins outright when somebody has authored the line
+  // they want on the card, which is the whole point of an override.
   const chitchat = Array.isArray(npc.chitchat) ? npc.chitchat : [];
-  const originSrc = f.card_note || chitchat[0] || '';
-  const origin = wholeSentences(stripWrappingQuotes(originSrc), BUDGET.origin);
-  const quotes = [f.card_quote, ...firstBanterTurns(npc.banter), ...chitchat]
-    .filter(q => q && String(q) !== String(originSrc));
+  const sayable = shuffled([f.card_quote, ...firstBanterTurns(npc.banter), ...chitchat].filter(Boolean));
+  const drawn = pickQuote(sayable, BUDGET.origin);
+  const origin = f.card_note
+    ? wholeSentences(stripWrappingQuotes(f.card_note), BUDGET.origin)
+    : (drawn === SILENCE ? '' : stripWrappingQuotes(drawn));
 
   return {
     subject_type: 'npc',
@@ -336,9 +474,19 @@ export function buildNpcCard(npc) {
       marks: fieldMarks(`${npc.description || ''} ${layers.join(' ')}`),
       last_seen: ladder(clauses, BUDGET.lastSeen, 1) || '',
       origin,
-      quote: pickQuote(quotes),
+      // Deliberately empty: an NPC's one spoken line is `origin` above. A second
+      // region here is what made a card quote the same person twice.
+      quote: '',
     },
   };
+}
+
+// Fisher-Yates on a COPY. The caller's array is somebody's authored content list
+// and shuffling it in place would reorder the NPC's actual banter.
+function shuffled(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
 }
 // Rank by ROLE, derived so an unauthored roster still produces a spread — a world
 // where every NPC is Common gives the rare pack slots nothing to draw but
@@ -376,6 +524,10 @@ export function buildEnemyCard(enemy, spawn = {}) {
   const dmg = Array.isArray(enemy.weapon) ? enemy.weapon : [];
   const maxDmg = dmg.reduce((a, d) => a + (Number(d?.max) || 0), 0) || 3;
   const power = Math.round((Number(enemy.hp_max) || 20) / 2 + (Number(enemy.hit) || 1) * 3 + maxDmg * 2);
+  // A cry is drawn at random like an NPC's line, for the same reason: two cards
+  // of the same beast should not read identically.
+  const cry = pickQuote(shuffled(Array.isArray(f.battle_cries) ? f.battle_cries : []));
+  const silent = cry === SILENCE;
 
   return {
     subject_type: 'enemy',
@@ -393,11 +545,67 @@ export function buildEnemyCard(enemy, spawn = {}) {
       epithet: prettyTag(enemy.faction || enemy.behavior) || 'Feral',
       // Its numbers lead, then whatever the description physically says about it.
       marks: fieldMarks(enemy.description, combatMarks(enemy, maxDmg)),
-      last_seen: ladder([String(enemy.description || '').trim()], BUDGET.lastSeen, 1) || '',
+      // ⚠ MOST THINGS OUT THERE DO NOT TALK, AND THAT IS NOT A GAP TO ANNOUNCE.
+      // A rot-hound with no battle cries printed "— said nothing worth printing —"
+      // in the quote region, which reads as a card that failed to fill rather than
+      // as an animal. So a silent enemy is never told off for it: the region is
+      // dropped entirely, its space goes back to the DESCRIPTION (which is the
+      // interesting half of a field guide anyway), and the card says what the
+      // thing IS instead — see anatomyLine, which reads the body-part table the
+      // combat system already keeps.
+      last_seen: ladder([String(enemy.description || '').trim()], silent ? BUDGET.lastSeen + BUDGET.quote + 40 : BUDGET.lastSeen, 1) || '',
       origin: wholeSentences(stripWrappingQuotes(enemy.death_message), BUDGET.origin),
-      quote: pickQuote(Array.isArray(f.battle_cries) ? f.battle_cries : []),
+      anatomy: silent ? anatomyLine(enemy.body_parts) : '',
+      quote: silent ? '' : cry,
     },
   };
+}
+
+// ── what it is made of ─────────────────────────────────────────────────────────
+// The field-guide clause a silent enemy gets in place of a quote, derived from
+// `enemies.body_parts` — the same table the part roll, typed soak and butchering
+// already read, so this needs no authoring pass and can never disagree with what
+// you actually hit in a fight.
+//
+// TWO things are worth printing, and neither is "it has a head". What makes a
+// thing worth a card is the parts a person does NOT have (wings, talons, a crop,
+// a carapace) and the parts that turn a weapon (real typed soak). Everything
+// else is scenery and is left out.
+const ORDINARY_PART = new Set(['head', 'torso', 'chest', 'breast', 'abdomen', 'groin',
+  'left_arm', 'right_arm', 'left_leg', 'right_leg', 'left_hand', 'right_hand', 'left_foot', 'right_foot']);
+const PART_WORD = (p) => String(p || '').replace(/^(left|right)_/, '').replace(/_/g, ' ');
+const SOAK_WORD = { energy: 'energy', kinetic: 'a bullet', ballistic: 'a bullet', cut: 'an edge', slash: 'an edge',
+  blunt: 'a hammer', fire: 'fire', cold: 'cold', acid: 'acid', chem: 'acid', explosive: 'a blast', shock: 'a shock' };
+export function anatomyLine(parts, budget = BUDGET.quote + 60) {
+  const list = Array.isArray(parts) ? parts.filter(p => p && p.part) : [];
+  if (!list.length) return '';
+  // Pairs collapse: "a left wing and a right wing" is a description written by a
+  // spreadsheet. Anything appearing on both sides is counted once and pluralised.
+  const odd = new Map();
+  for (const p of list) {
+    if (ORDINARY_PART.has(String(p.part))) continue;
+    const w = PART_WORD(p.part);
+    odd.set(w, (odd.get(w) || 0) + (/^(left|right)_/.test(String(p.part)) ? 1 : 0.5));
+  }
+  const oddWords = [...odd.entries()].map(([w, n]) => (n >= 2 ? `${w}s` : w));
+  // The armour clause reads off the heaviest single soak on the body — a card
+  // has room for the one fact, and the one fact is what your weapon bounces off.
+  let best = null;
+  for (const p of list) {
+    for (const [type, v] of Object.entries(p.soak || {})) {
+      if (Number(v) > 0 && (!best || Number(v) > best.v)) best = { v: Number(v), type, part: PART_WORD(p.part) };
+    }
+  }
+  const bits = [];
+  if (oddWords.length) bits.push(`It carries ${listWords(oddWords)} where a person carries nothing.`);
+  if (best) bits.push(`The ${best.part} turns ${SOAK_WORD[best.type] || best.type}.`);
+  if (!bits.length) return '';
+  return ladder(bits, budget) || '';
+}
+function listWords(w) {
+  if (w.length === 1) return w[0];
+  if (w.length === 2) return `${w[0]} and ${w[1]}`;
+  return `${w.slice(0, -1).join(', ')} and ${w[w.length - 1]}`;
 }
 
 // Spawn scarcity is the ONLY rarity signal the codebase has — there is no boss,

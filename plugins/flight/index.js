@@ -56,6 +56,10 @@ import { registerTabletApp } from '../tablet/registry.js';
 // and delegates to the prior owner by context.
 import { commands as gametableCommands } from '../gametable/index.js';
 import { commands as generatorCommands } from '../generator/index.js';
+// The third claimant on `refuel`. One-way: trucking has never heard of this file (it imports
+// flight/state.js for the map window and nothing else), so this edge adds no cycle.
+import { commands as truckingCommands } from '../trucking/index.js';
+import { rigOf as rigOfPlayer } from '../trucking/state.js';
 import { commands as interactionsCommands } from '../interactions/index.js';
 
 // ── Boarding under fire ───────────────────────────────────────────────────────
@@ -850,6 +854,11 @@ async function cmdRefuel(args, raw, player, broadcast) {
     if (REFUEL_CRAFT_ID.test(args[0] || '')) return refuelParked(player, args[0]);
     const m = await matchCraftHere(args, player);
     if (m && m.owner_id === player.id) return refuelParked(player, m.id);
+    // …and if they are sitting in a truck, `refuel` means the truck. A forecourt is the one place
+    // in the game where the word is ambiguous between three systems, and a driver at a pump who
+    // types it and gets told there is no generator deployed has been failed by a router, not by a
+    // rule. Trucking's own verb re-checks the pump — this only decides WHOSE question it is.
+    if (truckingCommands.fuel && rigOfPlayer(player)) return truckingCommands.fuel(args, raw, player, broadcast);
     return generatorCommands.refuel(args, raw, player, broadcast);
   }
   const res = await refuelAt(args, raw, player);

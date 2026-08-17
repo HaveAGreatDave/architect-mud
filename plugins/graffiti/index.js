@@ -144,6 +144,15 @@ export async function removeTag(zoneId) {
 // Every building facade on an adjacent exit, as [{ dir, id, name }]. This is the
 // whole "you can't tag thin air" rule: no entries, no spraying.
 function wallsNear(zone) {
+  // Indoors there is no facade to stand in front of, and a back room with no wall
+  // to tag was never the rule — it was a side effect of only ever looking OUTWARD.
+  // So an interior offers its own wall, and nothing else changes: a tag has always
+  // been keyed on the tile you are STANDING on, and the wall only ever named what
+  // you put it on. Here those are the same zone, which is exactly what the room
+  // line reads to word itself (describeTag).
+  if (zone?.flags?.is_interior || zone?.flags?.is_apartment) {
+    return [{ dir: 'wall', id: zone.id, name: zone.name || 'the wall' }];
+  }
   const out = [];
   const seen = new Set();
   for (const { dir, target } of allExits(zone)) {
@@ -258,7 +267,7 @@ async function applyTag(player, wall, text, runs, can) {
   // nothing here decides whether you got away with it.
   emit('graffiti.tagged', { player, zoneId: player.current_zone, targetZoneId: wall.id });
 
-  let msg = `You shake the can and put it up on ${esc(wall.name)}: ${paintedText(entry)}`;
+  let msg = `You shake the can and put it up on ${wall.id === player.current_zone ? 'the wall' : esc(wall.name)}: ${paintedText(entry)}`;
   if (over) {
     msg += over.authorId === player.id
       ? `\n<span class="text-dim">Straight over your own last one. Nobody will ever know.</span>`
@@ -458,7 +467,11 @@ function describeTag(zone) {
   // room-lines there), dim and italic like the rest of the ambient beat — with the
   // paint itself in `graffiti-ink`, which sets its own weight and colour back so a
   // red tag is red and a bold one is bold.
-  return `<span class="room-graffiti">Somebody's tagged the front of ${esc(t.targetName || 'the building')}: <span class="graffiti-ink">${paintedText(t)}</span></span>`;
+  // Inside vs. outside is DERIVED, never stored: a tag whose wall is the tile it is
+  // keyed on was sprayed on the room's own wall, which only ever happens indoors.
+  const inside = t.targetZoneId && t.targetZoneId === zone.id;
+  const where = inside ? 'the wall in here' : `the front of ${esc(t.targetName || 'the building')}`;
+  return `<span class="room-graffiti">Somebody's tagged ${where}: <span class="graffiti-ink">${paintedText(t)}</span></span>`;
 }
 
 export const hooks = {

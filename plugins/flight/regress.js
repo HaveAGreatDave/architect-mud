@@ -404,6 +404,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('conspicuousnessMult reads paint off a live row', conspicuousnessMult({ row: { custom_data: { livery: darkLv } } }) < conspicuousnessMult({ row: { custom_data: { livery: brightLv } } }));
   check('paintCost scales by class (heavy dearer than ultralight)', paintCost({ class: 'heavy' }) > paintCost({ class: 'ultralight' }));
   check('rentals and wrecks are not paintable; a plain owned craft is', !isPaintable({ rental: 1 }) && !isPaintable({ is_wreck: 1 }) && isPaintable({}));
+  // The warbird scheme. Two assertions, because it is the one pattern whose renderer derives
+  // extra tones from `base` — and the thing that would break silently is the ID going out of the
+  // catalog (leaving every aeroplane wearing it to normalise back to bare on the next save).
+  check('warbird is a real pattern, so a painted craft keeps it', normalizeLivery({ livery: { pattern: 'warbird' } }).pattern === 'warbird');
+  check('…and it is described rather than falling through to the bare clause',
+    /cowl/i.test(describeExterior({ base: '#4c5340', trim: '#e2b21c', pattern: 'warbird', finish: 'matte' }, 'Shrike')));
   // Slice 2 — decals + saved schemes.
   check('a decal is described in the exterior prose', /shark/i.test(describeExterior({ base: '#334455', trim: '#889', pattern: 'solid', finish: 'satin', decal: 'sharkmouth' }, 'Reaper')));
   check('a bad decal falls back to none', normalizeLivery({ livery: { decal: 'lolnope' } }).decal === 'none');
@@ -495,6 +501,12 @@ export default async function regress({ run, check, getPlayer }) {
   check('dive quality rises monotonically with angle', diveQuality(-45, 200) < diveQuality(-60, 200) && diveQuality(-60, 200) < diveQuality(-75, 200));
   check('…and is never outside 0..1', diveQuality(-179, 9999) <= 1 && diveQuality(90, 0) >= 0);
   r = await run('bomb'); check('bomb off an aircraft refuses and mutates nothing', /not aboard/i.test(r?.message || ''), r?.message);
+  // ⚠ SHE IS DRAWN ON A TAILWHEEL AND MUST BE FLOWN OFF ONE. The mesh has carried
+  // `gearStyle: 'taildragger'` and its own groundPitch since she was built; the flight-model row
+  // did not, so she sat nose-high in the picture and flew off flat, and the tail never came up on
+  // the roll. The two numbers are one fact in two files — this is the assertion that keeps them
+  // the same fact. (aircraft3d.js: FW_PARAMS.divebomber.groundPitch)
+  check('the Shrike is a taildragger in the sim, not just in the mesh', FM_TYPES.shrike.groundPitch === 9, FM_TYPES.shrike.groundPitch);
 
   // ── Tile waypoint (the tablet map's "Target here") ───────────────────────────
   // The shape must be STABLE: the cockpit reads `waypoint` on every context push, so an

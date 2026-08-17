@@ -10,6 +10,7 @@ import {
   ladder, wholeSentences, pickQuote, BUDGET, SILENCE, rollSleeve, RANKS,
   buildNpcCard, buildEnemyCard, enemyRarity, conditionBand, mulberry32,
   isHotSeed, HOT_RANK_WEIGHT, RANK_WEIGHT, fieldMarks, combatMarks,
+  buildPlayerCard, poseFor, disciplineClause, anatomyLine,
 } from './builder.js';
 
 export default async function regress({ run, check, getPlayer }) {
@@ -60,6 +61,21 @@ export default async function regress({ run, check, getPlayer }) {
     check('pickQuote skips pure stage direction',
       pickQuote(['drags his rebar along the ground']) === SILENCE,
       pickQuote(['drags his rebar along the ground']));
+    // ⚠ …AND THAT TEST IS ONLY ABOUT OVERHEARD CHITCHAT. The same line WRITTEN by
+    // a player is a card quote, and refusing it was the whole of the reported
+    // "censor" — one capital letter, reported as "The press will not take that
+    // line", which explains nothing.
+    check('⚠ an authored line starting lowercase is printed, not refused',
+      pickQuote([{ text: 'i have made a terrible mistake', authored: true }]) === 'i have made a terrible mistake',
+      pickQuote([{ text: 'i have made a terrible mistake', authored: true }]));
+    check('…and an authored line keeps its own quotation marks rather than being unwrapped',
+      pickQuote([{ text: 'She said "hold still" and I did', authored: true }]) === 'She said "hold still" and I did');
+    // The rules that are about the PRINT rather than about who is talking still
+    // apply to a written line — this is one gate, not a laxer second path.
+    check('an authored line is still refused for length, tokens and command shape',
+      pickQuote([{ text: 'Q'.repeat(200), authored: true }]) === SILENCE
+      && pickQuote([{ text: '$enemy lunges', authored: true }]) === SILENCE
+      && pickQuote([{ text: '/say hi', authored: true }]) === SILENCE);
 
     // ── sleeves ──────────────────────────────────────────────────────────────
     let sawSize = new Set(), allSorted = true, allGuaranteed = true;
@@ -100,11 +116,89 @@ export default async function regress({ run, check, getPlayer }) {
     const thinNpc = buildNpcCard({ id: 'npc_x', name: 'Nobody', description: 'A person.', flags: {}, sex: 'female' });
     check('an unauthored NPC still builds a card', thinNpc.rarity === 'common' && !!thinNpc.text_blocks.last_seen,
       JSON.stringify(thinNpc.text_blocks));
-    check('an NPC with no quote gets silence, not a crash', thinNpc.text_blocks.quote === SILENCE, thinNpc.text_blocks.quote);
+    // ⚠ AN NPC CARD HAS ONE SPOKEN REGION AND IT IS `origin`. The second one was
+    // quoting the same person twice off the same short list of authored lines.
+    check('an NPC with nothing to say prints no quote region at all, and does not crash',
+      thinNpc.text_blocks.quote === '' && thinNpc.text_blocks.origin === '',
+      JSON.stringify({ q: thinNpc.text_blocks.quote, o: thinNpc.text_blocks.origin }));
+    // The draw. Struck enough times, a talker with several lines must produce more
+    // than one card — that IS the feature, and a "random" pick that always returns
+    // the first element would pass every other check in this file.
+    const talker = { id: 'npc_t', name: 'Talker', description: 'A person.', flags: {}, sex: 'male',
+      chitchat: ['Door holds.', 'Long shift.', 'Mind the step.', 'You again.'] };
+    const drawn = new Set();
+    for (let i = 0; i < 60; i++) drawn.add(buildNpcCard(talker).text_blocks.origin);
+    check('⚠ an NPC with several lines does not print the same one on every card', drawn.size > 1,
+      [...drawn].join(' | ').slice(0, 120));
+    check('…and every draw is one of the lines they actually have',
+      [...drawn].every(d => talker.chitchat.includes(d)), [...drawn].join(' | ').slice(0, 120));
+    check('an authored card_note still wins over the draw',
+      buildNpcCard({ ...talker, flags: { card_note: 'The line I chose.' } }).text_blocks.origin === 'The line I chose.');
 
     const enemyCard = buildEnemyCard({ id: 'en_x', name: 'Thing', description: 'It is a thing.', hp_max: 40, hit: 3, dodge: 2, weapon: [{ min: 1, max: 5 }] }, { spawn_weight: 100, max_count: 4, zones: 3 });
     check('an enemy card has no portrait body', enemyCard.body === null, String(enemyCard.body));
     check('enemy power derives from combat numbers', enemyCard.power > 0, String(enemyCard.power));
+    // ⚠ A THING THAT DOES NOT TALK IS NOT TOLD OFF FOR IT. The silence copy on a
+    // rot-hound read as a card that failed to fill; it now gets its anatomy and
+    // the description keeps the room the quote would have taken.
+    check('a silent enemy prints no quote region', enemyCard.text_blocks.quote === '', enemyCard.text_blocks.quote);
+    const winged = buildEnemyCard({ id: 'en_w', name: 'Drifter', description: 'It circles.', hp_max: 30, hit: 2, dodge: 2,
+      body_parts: [{ part: 'head', weight: 10 }, { part: 'left_wing', weight: 20 }, { part: 'right_wing', weight: 20 },
+        { part: 'talons', weight: 16 }, { part: 'breast', soak: { energy: 2 }, weight: 26 }] }, { spawn_weight: 100 });
+    check('…and says what it is made of instead', /wing/.test(winged.text_blocks.anatomy || ''), winged.text_blocks.anatomy);
+    check('⚠ a matched pair is one plural, not "a left wing and a right wing"',
+      /wings/.test(winged.text_blocks.anatomy || '') && !/left wing/.test(winged.text_blocks.anatomy || ''),
+      winged.text_blocks.anatomy);
+    check('…and ordinary human parts are never listed', !/head/.test(winged.text_blocks.anatomy || ''),
+      winged.text_blocks.anatomy);
+    check('…and the heaviest soak becomes the armour clause', /energy/.test(winged.text_blocks.anatomy || ''),
+      winged.text_blocks.anatomy);
+    check('an enemy WITH cries keeps its quote and gets no anatomy line', (() => {
+      const c = buildEnemyCard({ id: 'en_c', name: 'Unit', description: 'It complies.', hp_max: 30, hit: 2, dodge: 2,
+        flags: { battle_cries: ['"COMPLY."'] } }, { spawn_weight: 100 });
+      return c.text_blocks.quote === 'COMPLY.' && !c.text_blocks.anatomy;
+    })());
+    check('a body with nothing unusual about it adds no anatomy line',
+      anatomyLine([{ part: 'head', weight: 10 }, { part: 'torso', weight: 40 }]) === '',
+      anatomyLine([{ part: 'head', weight: 10 }, { part: 'torso', weight: 40 }]));
+
+    // ── the pose ─────────────────────────────────────────────────────────────
+    check('a weapon becomes a pose, not a kit line',
+      /shoulder/.test(poseFor('pipe', 'clubs')) && !/carried/.test(poseFor('pipe', 'clubs')),
+      poseFor('pipe', 'clubs'));
+    check('an unknown weapon_skill still poses rather than going missing',
+      poseFor('oddity', 'nonsense').length > 0, poseFor('oddity', 'nonsense'));
+    check('empty hands are a pose too', /empty/.test(poseFor(null, null)), poseFor(null, null));
+    check('a natural weapon poses INSTEAD of nothing, and a held one still wins',
+      /claws/.test(poseFor(null, null, 'claws')) && /pipe/.test(poseFor('pipe', 'clubs', 'claws')),
+      `${poseFor(null, null, 'claws')} | ${poseFor('pipe', 'clubs', 'claws')}`);
+
+    // ── the discipline clause ────────────────────────────────────────────────
+    // ⚠ THE DENIABILITY LAW. Below Seer the plugin must never hand this builder
+    // `psionic`, and this asserts the builder's own half: nothing it prints for a
+    // psion claims a mechanism. See docs/systems-psionics.md.
+    const psiLine = disciplineClause({ psionic: true });
+    check('the psionic clause names no mechanism',
+      !!psiLine && !/psi|psychic|telekin|mind|power/i.test(psiLine), psiLine);
+    check('nothing carried, nothing said', disciplineClause({}) === '', disciplineClause({}));
+    check('a lot of chrome is summarised, never listed out',
+      /more hardware/.test(disciplineClause({ chrome: ['a', 'b', 'c'] })),
+      disciplineClause({ chrome: ['a', 'b', 'c'] }));
+
+    // ── a card is a photograph ───────────────────────────────────────────────
+    // The whole point of the covered-layer rule: a camera cannot see under a coat,
+    // so neither can the card. Nothing here needs real item rows — an unequipped
+    // body still has to build a complete face.
+    const bare = buildPlayerCard({
+      player: { id: 'p_x', handle: 'Nobody', stat_brawn: 3, player_kills: 0 },
+      physLine: 'Nobody is a tall lean man with short cropped black hair and grey eyes.',
+      dossier: { xp: 1200, skills: [{ name: 'Blades', level: 4 }], alignment: 'The Long Watch', kills: 2 },
+    });
+    check('an unequipped player still gets a pose rather than a blank card',
+      /hands empty/.test(bare.text_blocks.last_seen), bare.text_blocks.last_seen);
+    check('the record replaces the manifest',
+      !bare.spec.manifest && bare.spec.record?.alignment === 'The Long Watch',
+      JSON.stringify(bare.spec.record));
 
     // ── field marks ──────────────────────────────────────────────────────────
     // Marks are LIFTED from the author's description, never invented, and that is
@@ -213,6 +307,17 @@ export default async function regress({ run, check, getPlayer }) {
       /I would do it again/.test(r?.face || ''), (r?.face || '').slice(0, 200));
     check('and the panel reports it as written rather than overheard', r?.quoteIsWritten === true,
       JSON.stringify({ q: r?.quote, w: r?.quoteIsWritten }));
+    // ⚠ END TO END, on the line that was actually being refused. `mintquote` and
+    // the mint itself both run pickQuote, so this has to pass BOTH: accepted at
+    // the desk and still on the card afterwards. Relaxing only the first would be
+    // worse than the bug — the player would see their line confirmed, pay, and get
+    // somebody else's overheard remark printed instead.
+    r = await run('mintquote sometimes the machine is right');
+    check('⚠ a lowercase written line is accepted by the press', r?.type === 'output' && /will read/.test(r.message || ''),
+      JSON.stringify(r)?.slice(0, 160));
+    r = await run('mint');
+    check('…and it is the line on the card', /sometimes the machine is right/.test(r?.face || ''),
+      (r?.face || '').slice(0, 200));
     r = await run('mintquote clear');
     check('a quote can be cleared', r?.type === 'output' && /cleared/i.test(r.message || ''),
       JSON.stringify(r)?.slice(0, 120));

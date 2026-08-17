@@ -23,19 +23,19 @@
     "building_type": "truck_depot",
     "entrance": "west",
     "facade": true,
+    "floors": 3,
     "is_building": true,
     "lawless": true,
     "region_id": "region_the_reach",
-    "world_exit_zone": "zone_the_reach_871_1958",
     "vehicle_bay": true,
-    "floors": 3
+    "world_exit_zone": "zone_the_reach_871_1958"
   },
   "grid_x": 912,
   "grid_y": 1042,
   "grid_z": 0,
   "id": "zone_the_reach_872_1958",
   "map_id": "map_world",
-  "marker": "LL",
   "name": "The Last Load",
   "parent_zone": null
 }
+

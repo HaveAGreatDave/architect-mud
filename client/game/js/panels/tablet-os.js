@@ -11611,6 +11611,18 @@ export function openTabletToSpecter() {
   sendCmdSilent('tabletnav specter');
 }
 
+// Open the tablet on the Binder — the shelf, as a surface you can look at rather
+// than a wall of text. The pack reveal's "SEE THE SHELF" button lands here.
+// ⚠ It used to send `cards`, which is the TYPED reading of the shelf and prints
+// every card you own into the log: the one moment a player has just been shown
+// their collection as objects was also the one that answered with a page of text.
+// The verb is still there for anybody who wants to type it — this is about which
+// surface a BUTTON opens.
+export function openTabletToBinder() {
+  _skipBoot = true;
+  sendCmdSilent('tabletnav binder');
+}
+
 // Play a datachip clip in the tablet's own reel viewer. The server already
 // authorised this (the player is carrying the chip) and hands us the full frames,
 // so we render the payload directly rather than re-fetching through the owner-gated

@@ -580,6 +580,12 @@ export function cabContext(rig, extra = {}) {
     // off this and nothing else, so the button and the verb can never disagree about whether you
     // are under it. (The verb still re-checks: a button is a hint, never an authority.)
     hitchable: hitchableFor(rig),
+    // THE PUMP HANDLE ON THE DASH, and it is the same three facts the commit re-checks: is there a
+    // pump here, what does a tank cost, and what can this driver actually pay. The cab needs the
+    // last one because the whole point of the handle is that the running total is honest while it
+    // is still running — a driver watching the credits climb must be stopped by the pump clicking
+    // off, not by a refusal after the fact. (The verb re-checks all three: a button is a hint.)
+    pump: pumpAt(rig) ? { full: FUEL_FULL, credits: getLivePlayer(rig.playerId)?.credits || 0 } : null,
     ...extra,
   };
 }
@@ -594,6 +600,38 @@ export function cabContext(rig, extra = {}) {
 // always a state change — bogged, fixed, stopped), or once a second as a floor so a slow
 // authoritative correction still lands. Nothing downstream is throttled by this that isn't
 // derived from the tile anyway.
+// ── The pump ─────────────────────────────────────────────────────────────────
+// What a full tank costs. One number, because diesel is diesel — the interesting variable in this
+// system is the DISTANCE between pumps, not the price at them.
+export const FUEL_FULL = 380;
+
+// IS THERE A PUMP WITHIN REACH RIGHT NOW. One definition, because there are now four readers — the
+// `fuel` verb, the depot panel, the cab's hold-to-pump handle and the commit that handle sends —
+// and the moment two of them disagree you get a button that lights on a tile the verb then refuses.
+// A fuel yard is a pump by being one; any other depot is a pump by carrying `truck_fuel`. Out on
+// the corridor the fuel stop is a roadside structure rather than a zone, so standing on one is it.
+export function pumpAt(rig, fallbackZoneId) {
+  if (!rig) return false;
+  if (rig.leg === 'corridor')
+    return corridorAt(rig.route, Math.round(rig.x), Math.round(rig.y))?.flags?.building_type === 'fuel_yard';
+  const z = getZone(rig.zoneId || fallbackZoneId);
+  return !!(z?.flags?.truck_fuel || z?.flags?.building_type === 'fuel_yard');
+}
+
+// HOW MUCH FUEL A REQUEST ACTUALLY BUYS, as one pure function, because three things ask it and one
+// of them is a client. The cab needs it to draw an honest running total under the driver's thumb;
+// the commit needs it to decide what to charge; the test needs it to be checkable without a truck.
+// Two ceilings — the tank, and the balance — and the balance one is a CLAMP rather than a refusal,
+// which is what stops the system stranding a driver who had enough to reach the next town.
+export function pumpClamp(credits, fuel, want) {
+  const take = Math.max(0, Math.min(
+    Number.isFinite(want) ? Math.max(0, want) : 1,
+    1 - fuel,
+    (credits || 0) / FUEL_FULL,
+  ));
+  return { take, cost: Math.round(take * FUEL_FULL) };
+}
+
 const PUSH_MS = 1000;
 export function pushCab(rig, extra) {
   const cx = Math.round(rig.x), cy = Math.round(rig.y), now = Date.now();

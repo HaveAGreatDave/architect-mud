@@ -22,6 +22,7 @@ import { sendCmd, sendCmdSilent } from '../net.js';
 import { refreshInventory } from './inventory-state.js';
 import { sfx, esc, mountOverlay } from './minigame-common.js';
 import { prefersReducedMotion } from '/shared/settings.js';
+import { openTabletToBinder } from './tablet-os.js';
 
 // ── the rarity ladder, as presentation ────────────────────────────────────────
 // One table drives colour, ray count, screen flash, the pre-flip HOLD and the
@@ -1407,7 +1408,10 @@ function toSummary() {
 
   const wire = (id, fn) => show.overlay.querySelector(id)?.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
   wire('#cp-done', () => show.close());
-  wire('#cp-shelf', () => { show.close(); sendCmd('cards'); });
+  // SEE THE SHELF opens the BINDER, not the log. See openTabletToBinder: the
+  // reveal has just shown these as objects and the follow-through has to be the
+  // surface where they stay objects.
+  wire('#cp-shelf', () => { show.close(); openTabletToBinder(); });
   wire('#cp-again', () => { show.close(); sendCmdSilent('openpack'); });
 
   // Every card in the wall is a way back into that card. The reveal moves at its

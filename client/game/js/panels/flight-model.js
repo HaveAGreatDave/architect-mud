@@ -170,6 +170,13 @@ export const TYPES = {
     pitchStable: 0.95, rollStable: 1.05, dragP: 0.00196, flapDrag: 1.15, flapLift: 0.4, flapVs: 0.2,
     rollFric: 1.5, aoaCrit: 19, liftScale: 1.0, vsMax: 1900, vsGain: 2000, vsTau: 0.9,
     brake: 7.0, groundSteer: 24, ceiling: 30000, ldMax: 6.8, gLimit: 6.0,
+    // TAILDRAGGER, and the mesh always said so — `divebomber` is cut with `gearStyle:
+    // 'taildragger'` and its own `groundPitch: 9` (aircraft3d.js), so she was drawn sitting on a
+    // tailwheel while the sim flew her off flat. The two numbers must match: the comment on
+    // groundPitchFor is the standing instruction, and this is the row that had missed it. With it
+    // she parks nose-high and the stick pushes the tail up on the roll, exactly as the Grasshopper
+    // and the Locust do — no new mechanic, just the one this airframe should always have been in.
+    groundPitch: 9,   // taildragger 3-point sit (deg nose-up): rests on the tailwheel
   },
   // Dragonfly — a REVOLUTION MINI 500 analogue: a tiny single-rotor kit helicopter. Light,
   // darty and gets into tight spots (huge cyclic + pedal authority, spins on the spot in a

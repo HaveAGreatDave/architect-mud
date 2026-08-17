@@ -27,6 +27,7 @@
     "market",
     "yard",
     "fuel",
+    "truckpump",
     "trucksync",
     "truckevent",
     "rig"
@@ -34,6 +35,7 @@
   "hooks": [
     "zone.describeRoom",
     "vehicle.contacts",
-    "hijack.target"
+    "hijack.target",
+    "fuel.prices"
   ]
 }

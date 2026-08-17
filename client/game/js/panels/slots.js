@@ -153,6 +153,15 @@ export function openSlotsPanel(msg) {
     id: 'slots-overlay',
     closeOnBackdrop: true,
     onKey: (e, close) => {
+      // The handler is on WINDOW, and the command input keeps focus behind the
+      // cabinet — so an unguarded Space/Enter meant every character typed and
+      // every command sent pulled the lever again. That is a player being
+      // charged for spins they never asked for, on the one surface they are
+      // entitled to be suspicious of. Typing is never a pull; the cabinet's own
+      // bet field is the one exception, where Enter means "go".
+      const el = e.target;
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      if (typing && !(e.key === 'Enter' && el.id === 'sl-bet')) return;
       if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); pullAgain(); }
     },
     onClose: () => { live = null; },

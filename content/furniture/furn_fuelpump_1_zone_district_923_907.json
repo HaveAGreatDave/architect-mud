@@ -1,0 +1,20 @@
+{
+  "description": "A squat island pump in Flash Point orange, hose slung over the cradle, nozzle worn shiny where ten thousand hands have gripped it. The mechanical counter clacks over when it runs, which is the only part of this place anyone trusts.",
+  "flags": {
+    "fuel_source": 3,
+    "interactions": [
+      "fill",
+      "refuel"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fuelpump_1_zone_district_923_907",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "pump one",
+  "object_type": "fuel_pump",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_district_923_907"
+}

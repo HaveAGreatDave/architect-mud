@@ -12,12 +12,12 @@
 import { randomUUID } from 'crypto';
 import { logRender } from '../../server/engine/minigame.js';
 import { query } from '../../server/models/db.js';
-import { getZoneFurniture, getZone, world } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone, world, getOrg, getPlayerMembership } from '../../server/engine/world.js';
 import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import {
   buildPlayerCard, buildNpcCard, buildEnemyCard, rollSleeve, RANKS, RANK_WEIGHT,
-  BUDGET, SILENCE, pickQuote, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE,
+  BUDGET, SILENCE, pickQuote, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE, ownWords,
 } from './builder.js';
 import {
   slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
@@ -128,17 +128,23 @@ function quoteProblem(text) {
   if (q.length > BUDGET.quote) return `That is ${q.length} characters. The line on a card is ${BUDGET.quote}, and the press does not shrink type to make room.`;
   if (/[${]/.test(q)) return 'Substitution tokens ($enemy, {name}) print as themselves on a card that is never re-rendered. Write it out.';
   if (/^[./@;]/.test(q)) return 'That reads as a command, not as something you said.';
-  if (pickQuote([q]) === SILENCE) return 'The press will not take that line.';
+  // Held to the same gate as an overheard line, as an AUTHORED candidate — see
+  // pickQuote. Every rule that can refuse a written line now has its own sentence
+  // above explaining itself, so this last one should be unreachable; it stays as
+  // the backstop that keeps the two ends honest, because the refusal a player can
+  // do nothing about is the one that must never fire silently at mint time.
+  if (pickQuote([{ text: q, authored: true }]) === SILENCE) return 'The press will not take that line.';
   return null;
 }
 
 async function cmdMintQuote(args, raw, player, broadcast) {
   // READ `raw`, NOT `args`. The dispatcher lowercases the whole input line before
   // splitting it (commands/index.js: `raw.toLowerCase().split(...)`), which is
-  // right for verbs and targets and fatal for prose: a quote arrives as "i have
-  // made a terrible mistake", and pickQuote refuses anything starting lowercase
-  // because that is how it tells speech from stage direction. Any verb that takes
-  // a line the player WROTE has to come off raw.
+  // right for verbs and targets and fatal for prose: a quote typed as "I have made
+  // a terrible mistake" would print with a small i. Any verb that takes a line the
+  // player WROTE has to come off raw to keep their capitals. (It no longer decides
+  // whether the line is ACCEPTED — see the authored candidate in pickQuote — but
+  // the case a player typed is still theirs and the card prints it verbatim.)
   const text = String(raw || '').replace(/^\s*\S+\s*/, '').trim();
   if (/^(clear|none|off)$/i.test(text)) {
     pendingQuote.delete(player.id);
@@ -207,6 +213,20 @@ const RANK_CLASS = { common: 'text-dim', uncommon: 'card-r-uncommon', rare: 'car
                      epic: 'card-r-epic', legendary: 'card-r-legendary', architect: 'card-r-architect' };
 const rankSpan = r => `<span class="card-rank ${RANK_CLASS[r] || 'text-dim'}">${r.toUpperCase()}</span>`;
 
+// The record strip on a player card. Every element is omitted rather than
+// zeroed when it has nothing to say — except the kill count, which is printed at
+// zero on purpose, because "0 kills" on a trading card is a fact about somebody.
+function recordLine(r) {
+  const bits = [];
+  if (r.xp) bits.push(`XP <b>${Number(r.xp).toLocaleString('en-US')}</b>`);
+  for (const s of r.skills || []) bits.push(`${s.name} <b>${s.level}</b>`);
+  bits.push(r.alignment || 'Unaligned');
+  if (r.corp) bits.push(`<span class="card-corp">⟨${r.corp}⟩</span>`);
+  const k = Number(r.kills) || 0;
+  bits.push(`${k} kill${k === 1 ? '' : 's'}`);
+  return bits.join(' <span class="text-dim">·</span> ');
+}
+
 export function renderCard(row) {
   const t = row.text_blocks || {};
   const s = row.spec || {};
@@ -219,17 +239,148 @@ export function renderCard(row) {
   // subject's own description, so it can never argue with the prose below it —
   // and simply absent when nobody wrote anything physical down.
   if (t.marks) out.push(`<span class="card-marks">${t.marks}</span>`);
-  if (t.last_seen) out.push(`<span class="card-block"><span class="card-lbl">${row.subject_type === 'enemy' ? 'In the field' : 'Last seen'}</span>${t.last_seen}</span>`);
-  if (t.origin) out.push(`<span class="card-block"><span class="card-lbl">${row.subject_type === 'enemy' ? 'What it leaves' : 'In their own words'}</span><i>“${t.origin}”</i></span>`);
-  out.push(`<span class="card-quote">${t.quote === SILENCE ? `<i>${SILENCE}</i>` : `“${t.quote}”`}</span>`);
-  if (Array.isArray(s.manifest) && s.manifest.length) {
-    out.push(`<span class="card-block"><span class="card-lbl">Manifest</span>${s.manifest.map(m => `${m.name} <span class="text-dim">· ${m.band}</span>`).join(', ')}</span>`);
+  // TWO PARAGRAPHS, NO HEADINGS. The labels used to announce each region ("Last
+  // seen", "In their own words") and that is what made the face read as a form
+  // rather than as writing — the reader can already tell prose from a quotation
+  // by looking at it. The regions are unchanged; only the furniture is gone.
+  if (t.last_seen) out.push(`<span class="card-block">${t.last_seen}</span>`);
+  if (t.origin) {
+    // An enemy's second paragraph is what it leaves behind, not something it
+    // said, so it is the one that never gets quotation marks — and the only one
+    // of the three that stays body text. A SPOKEN line is set apart in its own
+    // colour (`card-quote`), because on a card the difference between prose about
+    // somebody and words out of their mouth is the whole point of printing it.
+    // And a line lifted from chitchat is a STAGE DIRECTION, not speech, so it is
+    // set as narration under the subject's given name rather than quoted — see
+    // ownWords, which is where that decision lives for every surface.
+    const ow = ownWords(row.subject_name, t.origin);
+    out.push(row.subject_type === 'enemy'
+      ? `<span class="card-block">${t.origin}</span>`
+      : ow.quoted
+        ? `<span class="card-quote"><i>“${ow.text}”</i></span>`
+        : `<span class="card-block card-narration">${ow.text}</span>`);
   }
+  // What it is made of, for a thing that does not talk — see anatomyLine. It sits
+  // where the quote would have been and takes that region's own colour, so the
+  // card has the same shape whether the subject speaks or not.
+  if (t.anatomy) out.push(`<span class="card-quote">${t.anatomy}</span>`);
+  // ⚠ AN EMPTY QUOTE IS A REGION THAT IS NOT THERE, not a silence line. Only a
+  // subject who COULD have said something and didn't gets told off for it: a
+  // player who was quiet at the terminal. An NPC's line is `origin` above and a
+  // silent enemy gets its anatomy, so neither ever reaches this.
+  if (t.quote) out.push(`<span class="card-quote">${t.quote === SILENCE ? `<i>${SILENCE}</i>` : `“${t.quote}”`}</span>`);
+  if (s.record) out.push(`<span class="card-block"><span class="card-lbl">Record</span>${recordLine(s.record)}</span>`);
   if (s.hp_max) out.push(`<span class="card-block"><span class="card-lbl">Field data</span>HP ${s.hp_max} · hit ${s.hit ?? 1} · dodge ${s.dodge ?? 1}</span>`);
   out.push(`<span class="card-power">${row.subject_type === 'enemy' ? 'Threat' : row.subject_type === 'npc' ? 'Standing' : 'Power'} <b>${row.power}</b></span>`);
   out.push(`</span>`);
   return out.join('');
 }
+
+// ── the dossier ────────────────────────────────────────────────────────────────
+// Everything a photograph cannot see, gathered ONCE at the mint terminal. This is
+// the only place in the plugin that reaches across into other systems, and it is
+// deliberately a COLD path — `mint` is one command typed at one machine, so the
+// two awaited reads here (lifetime XP, skill IP) are affordable in a way that the
+// same reads on any hot path would not be. Everything else is a sync in-memory
+// read by contract: augments, mutations, psionics, mastery and org membership all
+// serve from the live player object.
+//
+// The builder stays pure: it takes this object and never fetches anything.
+//
+// ⚠ EVERY CROSS-SYSTEM MODULE HERE IS LOADED AT CALL TIME, NEVER AT THE TOP OF
+// THE FILE. Hoisting these to static imports pulls half the engine into this
+// plugin's module graph at boot and reorders initialisation ahead of the world
+// map — it took the prologue skyline, the tablet map, voidwalking, trucking and
+// the yacht down with it, and none of those failures mention cards. The mint is
+// one command at one machine, so an import at call time costs nothing.
+async function gatherDossier(player) {
+  const [
+    { getTotalXp },
+    { getPlayerSkills, SKILLS },
+    { getPlayerIdeologyRep, classifyLean, PATHS },
+    { getFlag },
+    { getMutations, naturalWeaponName },
+    { psiRank, RANKS: PSI_RANKS },
+    { getAugments },
+    { DISCIPLINES },
+    { effectiveRank },
+  ] = await Promise.all([
+    import('../../server/engine/ip.js'),
+    import('../../server/engine/skills.js'),
+    import('../../server/engine/ideologies.js'),
+    import('../../server/engine/flags.js'),
+    import('../../server/engine/mutations.js'),
+    import('../../server/engine/psionics.js'),
+    import('../augments/state.js'),
+    import('../mastery/state.js'),
+    import('../mastery/purity.js'),
+  ]);
+
+  const [xp, skillIp] = await Promise.all([
+    getTotalXp(player.id).catch(() => 0),
+    getPlayerSkills(player.id).catch(() => ({})),
+  ]);
+
+  // Top three by LEVEL, which is what the skills sheet shows, so a card can never
+  // disagree with the sheet the player checked before paying.
+  const skills = Object.values(SKILLS)
+    .map(s => ({ name: s.name, level: Math.floor((skillIp[s.id]?.ip || 0) / 100) }))
+    .filter(s => s.level > 0)
+    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
+    .slice(0, 3);
+
+  // Alignment is the lean, not a membership — you do not join an order, you end
+  // up resembling one. Nobody who has taken no side is labelled as having one.
+  let alignment = 'Unaligned';
+  try {
+    const reps = await getPlayerIdeologyRep(player.id);
+    const stance = Number(await getFlag('player', 'stance_axis', player)) || 0;
+    const paths = {};
+    for (const p of PATHS) paths[p] = Number(await getFlag('player', `path_${p}`, player)) || 0;
+    alignment = classifyLean(stance, paths, reps)?.name || 'Unaligned';
+  } catch { /* an unaligned card is the correct failure */ }
+
+  const membership = getPlayerMembership(player.id);
+  const org = membership ? getOrg(membership.org_id) : null;
+  const corp = org ? (org.flags?.tag || (org.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || null) : null;
+
+  // Chrome, by its own names. Two at most reach the sentence; the builder handles
+  // the "more hardware than most people own" case above that.
+  const chrome = safe(() => getAugments(player).map(a => a.aug?.name).filter(Boolean), []);
+
+  // Only VISIBLE mutations. A card is a photograph and a hidden mutation is, by
+  // its own authored definition, not in it — see visibilityOfMutation().
+  const flesh = safe(() => getMutations(player)
+    .filter(m => m.visibility && m.visibility !== 'hidden')
+    .map(m => String(m.mutation?.name || '').toLowerCase())
+    .filter(Boolean), []);
+
+  // The best discipline they actually have RIGHT NOW — effectiveRank, so chrome
+  // and mutation lower it exactly as they do everywhere else, stain included.
+  const mastery = safe(() => {
+    let best = null, bestV = 0;
+    for (const d of DISCIPLINES) {
+      const v = effectiveRank(player, d);
+      if (v > bestV) { bestV = v; best = d; }
+    }
+    return bestV >= 40 ? `a ${best}-trained hand` : null;   // 'practised' and up
+  }, null);
+
+  // ⚠ Seer and above ONLY. See disciplineClause() in builder.js.
+  const psionic = safe(() => {
+    const i = PSI_RANKS.indexOf(String(psiRank(player) || ''));
+    return i >= 0 && i >= PSI_RANKS.indexOf('seer');
+  }, false);
+
+  return {
+    xp, skills, alignment, corp,
+    kills: Number(player.player_kills) || 0,
+    chrome, flesh, mastery, psionic,
+    naturalWeapon: safe(() => naturalWeaponName(player), null),
+  };
+}
+// A card must never fail to strike because a system the player doesn't use threw.
+function safe(fn, dflt) { try { return fn() ?? dflt; } catch { return dflt; } }
 
 // ── verbs ──────────────────────────────────────────────────────────────────────
 
@@ -253,7 +404,11 @@ async function cmdMint(args, raw, player, broadcast) {
   const card = buildPlayerCard({
     player, equipped,
     physLine: physicalDescription(player, false) || '',
-    quotes: written ? [written, ...overheard] : overheard,
+    // ⚠ The written line goes in AS AUTHORED, or the press accepts it at
+    // `mintquote` and then quietly drops it here — the player sees their line
+    // confirmed, pays, and gets somebody else's overheard remark on the card.
+    quotes: written ? [{ text: written, authored: true }, ...overheard] : overheard,
+    dossier: await gatherDossier(player),
   });
 
   // PREVIEW FIRST, always. Nobody should pay and THEN discover their quote

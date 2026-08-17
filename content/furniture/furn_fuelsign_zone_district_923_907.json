@@ -1,0 +1,16 @@
+{
+  "description": "A price pylon out by the kerb, tall enough to read from the road: FLASH POINT across the top in tired orange, and under it the grades and today's numbers in flip-digits that clack over one at a time when the yard revises them.",
+  "flags": {
+    "fuel_price_sign": true
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_fuelsign_zone_district_923_907",
+  "light_type": "streetlight",
+  "lumen_output": 400,
+  "name": "price pylon",
+  "object_type": "fuel_price_sign",
+  "power_draw_kw": 0.05,
+  "price": 0,
+  "zone_id": "zone_district_923_907"
+}

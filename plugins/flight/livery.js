@@ -37,6 +37,9 @@ export const PATTERNS = [
   { id: 'splinter', label: 'Splinter Camo',   sig: 0.85 },
   { id: 'tiger',    label: 'Tiger Stripe',    sig: 0.90 },
   { id: 'digital',  label: 'Digital Camo',    sig: 0.85 },
+  // Camo over a pale belly with shrieking identification bands on the cowl, the rudder and the
+  // wingtips: it hides at altitude and is unmistakable up close, so it sits a hair under neutral.
+  { id: 'warbird',  label: 'Warbird',         sig: 0.95 },
   { id: 'checker',  label: 'Checkerboard',    sig: 1.10 },
   { id: 'hazard',   label: 'Hazard Chevrons', sig: 1.15 },
   { id: 'jazz',     label: 'Jazz',            sig: 1.18 },   // Memphis dry-brush splatter — the loudest thing on the ramp
@@ -67,6 +70,10 @@ export const PRESETS = [
   { id: 'racing',    label: 'Racing Red',  base: '#b81f24', trim: '#e8e8e8', pattern: 'stripes',  finish: 'gloss',     cabin: '#2a1416', uphol: 'leather' },
   { id: 'coldblue',  label: 'Cold Blue',   base: '#274b7a', trim: '#7fb0e0', pattern: 'twotone',  finish: 'satin',     cabin: '#16202e', uphol: 'quilted' },
   { id: 'jazz',      label: 'Jazz Wave',   base: '#18b8c2', trim: '#5a2c9c', accent: '#c22b8c', ground: '#eee7d6', pattern: 'jazz', finish: 'gloss', cabin: '#1a1230', uphol: 'quilted' },
+  // The old attack scheme: field green over a pale belly, with the cowl, the rudder and the
+  // wingtips in a yellow you can identify from a mile off. The renderer derives the belly and the
+  // camo break from `base`, so this row is genuinely just the two colours (see faceBaseRgb).
+  { id: 'warbird',   label: 'Warbird',     base: '#4c5340', trim: '#e2b21c', pattern: 'warbird',  finish: 'matte',     cabin: '#232a1c', uphol: 'leather' },
 ];
 
 const PATTERN_IDS = new Set(PATTERNS.map(p => p.id));
@@ -193,6 +200,7 @@ function trimClause(lv) {
     case 'splinter': return `${c} splinter camo`;
     case 'tiger':    return `${c} tiger-stripe camo`;
     case 'digital':  return `${c} digital pixel camo`;
+    case 'warbird':  return `a ${c} cowl and rudder over split camo`;
     case 'checker':  return `a ${c} checkerboard down the flank`;
     case 'hazard':   return `${c} hazard chevrons`;
     case 'jazz':     return `a wild ${colorName(lv.trim)}-and-${colorName(lv.accent)} jazz splatter`;

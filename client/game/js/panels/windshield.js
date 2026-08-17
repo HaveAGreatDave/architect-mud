@@ -35,7 +35,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
@@ -1221,6 +1221,7 @@ export function paintWindshield(id, view) {
       if (v.fireworks) drawFireworks(ctx, cam, v, now);   // admin fireworks bursting over a world tile
       if (vw.apTarget) drawAirportTarget(ctx, cam, vw, W, H, now);   // target-field ring / Home waypoint
       if (vw.gates) drawGates(ctx, cam, vw, W, H, now);   // checkride pilot-wings rings
+      if (vw.drops) drawDrops(ctx, cam, vw, now);         // …and on their way there first
       if (vw.bursts) drawBursts(ctx, cam, vw, W, H);      // bombs going off on the ground below
       if (vw.bombsight) drawBombsight(ctx, cam, vw, W, H, now);   // the Shrike's dive sight, on the designated tile
     }
@@ -6586,6 +6587,55 @@ function drawBombsight(ctx, cam, v, W, H, now) {
 //
 // `age` is 0..1 across the burst's life. Every layer has its OWN curve over that one number,
 // which is what buys a five-stage animation with no simulation behind it.
+// ── THE STORE IN THE AIR ──────────────────────────────────────────────────────
+// A released bomb, between the aeroplane and the ground. `v.drops` carries its ground track
+// (already interpolated by the cockpit) and `t`, 0..1 down the fall; the HEIGHT is solved here,
+// because this is the only place that knows where this airframe's belly sits in world-z — the
+// same `ownShipBaseWz` the chase model is anchored with, so the bomb leaves from the racks rather
+// than from a guessed altitude. It falls as t² (which is what falling is) and its long axis leans
+// with the fall, so it goes down nose-first the way a finned store does.
+//
+// Three pixels of dark shape at a hundred yards is nothing to look at, so it carries a thin
+// vapour thread back up its own path: in a dive, over a city, that thread is the only reason you
+// can see where your weapon went.
+function drawDrops(ctx, cam, v, now) {
+  if (!Array.isArray(v.drops) || !v.drops.length) return;
+  const z0 = ownShipBaseWz(cam, v);
+  ctx.save();
+  for (const d of v.drops) {
+    const t = Math.max(0, Math.min(1, d.t || 0));
+    const wz = z0 * (1 - t * t);                                   // gravity, and it lands ON the ground at t=1
+    const p = cam.proj(d.dx, d.dy, wz); if (!p || p.f <= 0.12) continue;
+    // A tail point a moment behind it: the direction it is travelling on screen, which is what
+    // both the body's lean and the thread are drawn along.
+    const tb = Math.max(0, t - 0.16);
+    const q = cam.proj(d.dx * (tb / (t || 1e-6)), d.dy * (tb / (t || 1e-6)), z0 * (1 - tb * tb));
+    let ux = 0, uy = -1;
+    if (q && q.f > 0.12) { const mx = p.sx - q.sx, my = p.sy - q.sy, m = Math.hypot(mx, my) || 1; ux = mx / m; uy = my / m; }
+    const L = Math.max(3, 22 / Math.max(0.3, p.f)), Wd = Math.max(1.2, L * 0.30);
+    if (q && q.f > 0.12) {                                          // the thread
+      ctx.strokeStyle = `rgba(226,232,238,${0.16 * (1 - t * 0.5)})`;
+      ctx.lineWidth = Math.max(0.8, Wd * 0.35);
+      ctx.beginPath(); ctx.moveTo(p.sx, p.sy); ctx.lineTo(q.sx, q.sy); ctx.stroke();
+    }
+    const px = -uy, py = ux;                                        // across the body
+    ctx.fillStyle = '#20242a';
+    ctx.beginPath();
+    ctx.moveTo(p.sx + ux * L * 0.55, p.sy + uy * L * 0.55);                                  // nose
+    ctx.lineTo(p.sx + px * Wd * 0.5, p.sy + py * Wd * 0.5);
+    ctx.lineTo(p.sx - ux * L * 0.45 + px * Wd * 0.34, p.sy - uy * L * 0.45 + py * Wd * 0.34);
+    ctx.lineTo(p.sx - ux * L * 0.45 - px * Wd * 0.34, p.sy - uy * L * 0.45 - py * Wd * 0.34);
+    ctx.lineTo(p.sx - px * Wd * 0.5, p.sy - py * Wd * 0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(140,150,160,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();                                                // the cruciform tail, one line each way
+    ctx.moveTo(p.sx - ux * L * 0.42 + px * Wd * 0.9, p.sy - uy * L * 0.42 + py * Wd * 0.9);
+    ctx.lineTo(p.sx - ux * L * 0.42 - px * Wd * 0.9, p.sy - uy * L * 0.42 - py * Wd * 0.9);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawBursts(ctx, cam, v, W, H) {
   for (const b of v.bursts) {
     const p = cam.proj(b.dx, b.dy, 0);
@@ -7432,7 +7482,14 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         ctx.beginPath(); ctx.moveTo(q.sx, q.sy); ctx.lineTo(q.sx + ex * len, q.sy + ey * len); ctx.stroke();
       }
     }
-  } else if (c.cls === 'ultralight' || c.cls === 'prop' || c.cls === 'heli') {
+  // ⚠ ASK THE STATION TABLE, NEVER A LIST OF CLASS NAMES. This was
+  // `ultralight || prop || heli` — an allowlist written when those were the only three, and never
+  // touched again. Every prop class added since (grasshopper, locust, divebomber) declared its
+  // spinner in PROP_STATIONS, was drawn with a static spinner cone, and then had NO TURNING PROP
+  // AT ALL: three aeroplanes flying around behind a stopped blade. PROP_STATIONS is the register of
+  // what has a prop, so reading it means the next one is right without anybody remembering this
+  // line. `heli` keeps its name because its discs are rotors and live inside drawRotorFX.
+  } else if (c.cls === 'heli' || PROP_STATIONS[c.cls]) {
     // Spinning props / rotors: real model-space blades + blur disc + tip glint via
     // the shared FX layer (aircraft3d.js), projected through this SAME camera and
     // orientation so they bank and foreshorten with the craft. The own-ship (external
@@ -9001,6 +9058,22 @@ export function viewRenderSmoke(ID) {
     ['framed',         { ...base, cls: 'heavy', phase: 'cruise', height: 0.7, windowClass: 'heavy' }],
     ['helm',           { ...base, cls: 'boat', phase: 'ground', worldBlend: 0, height: 0 }],
     ['cab:blackout',   { ...base, map: darkMap, cls: 'truck', phase: 'ground', worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', tier: 2 }],
+    // ── THE DIVE BOMBER, MID-ATTACK ────────────────────────────────────────────
+    // Two passes nothing else in this suite has ever entered: the BOMBSIGHT (only built on an
+    // airframe with a rack, and only in bomb mode) and the BURSTS (only present in the frames
+    // after a release). Which is the roaster failure again in a different room — the only thing
+    // that ever ran this code was a player who had actually dropped one, so a throw in it froze
+    // the render loop for exactly the pilot who was aiming at something. Ages are spread across
+    // the burst's whole life because the five layers each own a different slice of it (flash <6%,
+    // shockwave <45%, fireball <62%, sparks <55%, late smoke >50%) and one age would miss four.
+    ['bomb:dive',      { ...base, cls: 'divebomber', phase: 'cruise', height: 0.42, pitch: -62, speed: 0.9,
+      bombsight: { dx: 0.4, dy: -2.1, q: 0.8, ready: true },
+      drops: [{ dx: 0.1, dy: -0.4, t: 0.05 }, { dx: 0.3, dy: -1.4, t: 0.6 }, { dx: 0.4, dy: -2.05, t: 0.99 }],
+      bursts: [{ dx: 0.5, dy: -1.8, age: 0.02, scale: 1.1 }, { dx: -1.2, dy: -3.4, age: 0.3, scale: 0.9 },
+               { dx: 2.0, dy: -0.6, age: 0.58, scale: 1 }, { dx: -0.3, dy: -6.0, age: 0.94, scale: 0.85 }] }],
+    ['bomb:ext',       { ...base, cls: 'divebomber', phase: 'cruise', height: 0.42, pitch: -48, external: true, extYaw: 0.9, extPitch: 0.1,
+      bombsight: { dx: 0, dy: -1, q: 0.2, ready: false },
+      bursts: [{ dx: 0, dy: -1, age: 0.5, scale: 1 }] }],
   ];
   // THE PEOPLE, cycled so every branch of the actor pass is entered rather than just the standing
   // one. Each frame is a FRESH array, because syncStreetActors keys off payload identity — reusing
@@ -11001,16 +11074,55 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 11, alpha * 0.13);                            // one sodium lamp over the gate
       break;
     }
-    case 'fuel_yard': {   // a cluster of squat cylindrical storage tanks + a low pallet stack
+    case 'fuel_yard': {   // A FORECOURT: a canopy on columns over two pump islands, one storage tank behind.
+      // THE DEFINING FEATURE OF A GAS STATION IS THAT YOU CAN SEE THROUGH IT. This was a tank farm
+      // — three solid drums filling the tile — and read from the air as an industrial block like
+      // every other lot in the Yards. A forecourt is a ROOF AND NOTHING ELSE: the mass is up at
+      // canopy height, the ground plane is open on all four sides, and a truck is meant to be
+      // visible standing underneath it. So there are deliberately no walls here at all, and the
+      // one solid volume left is the tank, pushed to the back edge where it does not close the lot.
       const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
-      const tankStyle = steel(150, 148, 140);
-      for (const [sx, sy, r, tz] of [[-0.5, -0.3, 0.34, 0.7], [0.45, -0.35, 0.28, 0.55], [0.1, 0.45, 0.3, 0.62]]) {
-        const [tx, ty] = F(sx * fh, sy * fh);
-        drawFacetDrum(ctx, cam, tx, ty, 0, h * tz, fh * r, fh * r, 12, alpha, tankStyle, 'rgb(120,120,112)');   // vertical cylinder, flat cap
-        drawRing(ctx, cam, tx, ty, h * tz * 0.6, fh * r + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha);             // seam band
+      const canopyZ = h * 0.52, deckT = h * 0.10;          // underside clearance, and the slab's own thickness
+
+      // The four columns. Thin, and at the canopy's corners rather than the tile's — the roof
+      // oversails them, which is what makes it read as a canopy and not as a building with the
+      // walls left off.
+      for (const [sx, sy] of [[-0.62, -0.55], [0.62, -0.55], [-0.62, 0.55], [0.62, 0.55]]) {
+        const [cx2, cy2] = F(sx * fh, sy * fh);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.07, 0, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
       }
-      { const [px, py] = F(-fh * 0.1, fh * 0.7); draw3DBoxAt(ctx, cam, px, py, fh * 0.4, 0, h * 0.16, pal, seed + 4, night, alpha, true); }   // low pallet stack
-      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 10, alpha * 0.14);
+      // The slab, oversailing on every side. `roof: true` because from above this IS the building.
+      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, canopyZ, canopyZ + deckT, pal, seed, night, alpha, true);
+      // The lit fascia band round the edge of the canopy — the one bit of signage a forecourt has,
+      // and at night it is the whole silhouette from a mile out.
+      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.86, canopyZ + deckT * 0.5, m.neon || '#ffb14a', night, alpha);
+
+      // Two pump islands under the roof, laid across the tile so a rig pulls through rather than in.
+      for (const sy of [-0.3, 0.3]) {
+        const [ix, iy] = F(0, sy * fh);
+        draw3DBoxAt(ctx, cam, ix, iy, fh * 0.44, 0, h * 0.04, 'ty_junk_crane', seed + 31 + sy * 7, night, alpha, true);   // the kerbed island
+        for (const sx of [-0.2, 0.2]) {                                                                                   // and the pumps standing on it
+          const [px, py] = F(sx * fh, sy * fh);
+          draw3DBoxAt(ctx, cam, px, py, fh * 0.09, h * 0.04, h * 0.26, 'ty_door', seed + 41 + sx * 5 + sy * 3, night, alpha, true);
+        }
+      }
+
+      // One tank left, at the back fence. The fiction still keeps its stock somewhere, and a
+      // forecourt with nothing behind it reads as a bus shelter.
+      { const [tx, ty] = F(-fh * 0.52, -fh * 0.82);
+        drawFacetDrum(ctx, cam, tx, ty, 0, h * 0.42, fh * 0.26, fh * 0.26, 12, alpha, steel(150, 148, 140), 'rgb(120,120,112)');
+        drawRing(ctx, cam, tx, ty, h * 0.25, fh * 0.26 + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha); }
+
+      // The price pylon out by the kerb, on the entrance side — the thing you read from the road.
+      if (frontVis) {
+        const [sx2, sy2] = F(fh * 0.72, fh * 0.92);
+        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.05, 0, h * 0.62, 'ty_fab_steel', seed + 51, night, alpha, false);            // post
+        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.17, h * 0.62, h * 0.86, 'ty_door', seed + 52, night, alpha, true);           // the board
+        if (night) glowPool(ctx, cam, sx2, sy2, h * 0.74, '255,180,90', 5, alpha * 0.5);
+      }
+      // A forecourt at night is the brightest thing on a dark road, and the light comes from UNDER
+      // the canopy — a pool on the deck, not a glow on the roof.
+      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,215,150', 14, alpha * 0.34);
       break;
     }
     case 'cold_storage': {   // windowless insulated block, rooftop condenser units, a cold blue breath

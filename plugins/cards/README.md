@@ -25,7 +25,33 @@ trims: it emits ranked clauses and stops at the first that would cross. An omitt
 invisible; a truncated one is a bug the player can see. `regress.js` tests this directly — a 900-char
 enemy description must yield `null`, never a slice.
 
-Caps: handle 16 · epithet 28 · last seen 340 · own words 150 · quote 90.
+Caps: handle 16 · epithet 28 · last seen 440 · own words 150 · quote 90.
+
+**The face is a photograph, and the card is written like a description of one.** Three rules follow
+from that and all three are load-bearing:
+
+- **A camera cannot see under a coat.** Covered layers never reach the prose — the shirt under the
+  jacket and the underwear under the trousers are simply not in frame. They still count toward power
+  and rarity, which are the record rather than the picture.
+- **What you are armed with is a POSE, not a kit line.** `poseFor()` keys off the `weapon_skill` tag
+  every weapon already carries, so a new weapon poses correctly with nothing authored, and a clawed
+  hand poses in place of an empty one. Empty hands are a pose too — there is no "no weapon" case.
+- **Chrome, mutation, mastery and psionics are woven into one sentence**, never printed as four
+  labelled rows. ⚠ **Psionics only appears at Seer and above** — below that nothing in the game may
+  state the mechanism (`docs/systems-psionics.md`), and a printed card is the most permanent
+  statement there is. The Seer line claims nothing and is about the photograph, not the person.
+
+**Two paragraphs, no headings.** The regions used to announce themselves ("Last seen", "In their own
+words") and that is what made the face read as a form rather than as writing.
+
+**The record replaces the manifest.** What sat under the prose was the kit list — a second, duller
+copy of the sentence just read. It is now the half a photograph genuinely cannot show: lifetime XP,
+top three skills, the order they lean toward (or *Unaligned*), their corp tag if they have one, and
+the kill count — printed at zero on purpose, because "0 kills" on a trading card is a fact about
+somebody. Gathered once by `gatherDossier()` in `index.js`; the builder stays pure and fetches
+nothing. ⚠ Every cross-system module it needs is imported **at call time** — hoisting them to static
+imports reorders engine initialisation ahead of the world map and takes the prologue skyline, the
+tablet map, voidwalking and trucking down with it, in failures that never mention cards.
 
 The **quote is never edited to fit**. Candidates are walked newest-first and the first that fits
 wins; nothing qualifying prints `— said nothing worth printing —`. Chitchat is third-person stage
@@ -33,7 +59,7 @@ direction, so the picker lifts speech out of quotes and skips lines that are pur
 rejects `$token` combat cries outright (a card is printed once and never re-rendered against a scene).
 
 **Condition is spoken, not labelled**: a Battered coat is "gone thin at the shoulders". The band name
-lives in the manifest on the back.
+lives in `spec.conditions` on the back, never on the face.
 
 **Field marks are LIFTED, never invented.** A real trading card carries a physical line (HT/WT/BATS),
 and there are no physical columns on `npcs` or `enemies` — so the obvious move is to roll a height

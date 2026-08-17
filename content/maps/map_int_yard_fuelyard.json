@@ -1,6 +1,6 @@
 {
   "entry_zone_id": "zone_yard_fuelyard",
   "id": "map_int_yard_fuelyard",
-  "name": "Flash Point Fuel & Pallet",
+  "name": "Flash Point Fuel",
   "parent_zone_id": "zone_district_923_907"
 }
