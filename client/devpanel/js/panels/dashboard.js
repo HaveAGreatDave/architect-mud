@@ -145,7 +145,7 @@ function renderDashboard(data) {
 }
 
 // ── Next deploy window countdown ─────────────────────────────────────────────
-// CI debounces deploys onto `cron: '0 */2 * * *'` (see .github/workflows/
+// CI debounces deploys onto `cron: '37 */2 * * *'` (see .github/workflows/
 // deploy-content.yml) — a push only runs the regress gate.
 //
 // ⚠ AND A CRON IS NOT A CLOCK, WHICH IS WHY THIS STOPPED BEING PURE ARITHMETIC. The old version
@@ -171,22 +171,90 @@ function renderDashboard(data) {
 //
 // Poll is once a minute for three rows: this is a dev panel, not a hot path, and the countdown
 // itself still ticks locally every second so nothing depends on the request landing.
-const DEPLOY_SKIP_AFTER = 45 * 60000;    // a window with no row by now was a skip, not a delay
+//
+// ⚠ AND "NOTHING RECORDED YET" IS THREE DIFFERENT THINGS, WHICH IS WHY THE SKIP TIMER WENT AWAY.
+// `DEPLOY_SKIP_AFTER` used to call the window a skip once 45 minutes passed with no row. That was
+// an inference, and it was usually wrong: GitHub dispatched this cron 29–106 minutes late on every
+// one of 12 consecutive windows (see the schedule comment in deploy-content.yml), so the card
+// announced a skip and then contradicted itself when the run finally landed. Worse, the three
+// states it collapsed are the three you actually want distinguished — *queued* (GitHub has not got
+// to us), *running* (it is happening now), and *finished without deploying* (the gate skipped
+// because HEAD was already live) — and a FAILED run rendered identically to a healthy skip.
+//
+// So the run state is now read from the source instead of guessed: the repo is public, so the
+// Actions REST API answers unauthenticated straight from the browser, no token and no server hop.
+// `deployments` stays the ground truth for *did prod restart*; Actions only explains the gap.
+//
+// ⚠ UNAUTHENTICATED MEANS 60 REQUESTS PER HOUR PER IP, SHARED WITH EVERY OTHER TAB. Hence: polled
+// only while the window is unresolved (never once a deploy has landed), at 3 minutes rather than
+// the 1 minute used for our own API, and a failure just sets `_ghBlocked` and drops back to the
+// arithmetic — the old behaviour, which is a fine floor to fall to.
+const DEPLOY_WINDOW_MIN = 37;            // ⚠ must match the cron minute in deploy-content.yml
+const DEPLOY_FALLBACK_SKIP = 75 * 60000; // only used when Actions is unreachable; see _windowStatus
+// `event=schedule` on purpose: this read exists ONLY to explain why a scheduled window has gone
+// quiet. A forced deploy (`[deploy]` token, or Run workflow) is a different event and is invisible
+// here — correctly, because it writes a `deployments` row, so `landed` already covers it.
+const GH_RUNS_URL = 'https://api.github.com/repos/HaveAGreatDave/architect-mud'
+                  + '/actions/workflows/deploy-content.yml/runs?event=schedule&per_page=1';
 let _lastDeployAt = null;                // ms epoch of the newest recorded deploy, or null
 let _deployPollAt = 0;
+let _ghRun = null;                       // newest scheduled run: {at, done, status, conclusion}
+let _ghPollAt = 0;
+let _ghBlocked = false;                  // last Actions fetch failed → fall back to arithmetic
+
+const _pad2 = n => String(n).padStart(2, '0');
 
 function _windowBefore(now) {            // the most recent 2-hourly boundary at or before `now`
   const w = new Date(now);
-  w.setUTCMinutes(0, 0, 0);
+  w.setUTCMinutes(DEPLOY_WINDOW_MIN, 0, 0);
   if (w.getUTCHours() % 2 !== 0) w.setUTCHours(w.getUTCHours() - 1);
+  // Snapping the minute FORWARD lands us past `now` for the first `DEPLOY_WINDOW_MIN` minutes of
+  // each even hour, so step back a whole window rather than reporting a boundary in the future.
+  if (w.getTime() > now) w.setUTCHours(w.getUTCHours() - 2);
   return w;
+}
+
+function _windowLabel(d) { return `${_pad2(d.getUTCHours())}:${_pad2(d.getUTCMinutes())} UTC`; }
+
+// What to say about a window that recorded no deploy. Returns { text, bad, resolved }:
+//   · `resolved` false ⇒ the window is still in play, so the clock counts UP and waits.
+//   · `resolved` true  ⇒ this window is over and produced nothing, so the clock goes back to
+//     counting DOWN to the next one and this text becomes its prefix. Without that split a skipped
+//     window would count up for the whole two hours and never show the next deploy at all.
+//   · `bad` reddens the clock, and is reserved for a run that actually FAILED — the state the old
+//     card could not draw, because a failure and a healthy skip both looked like silence.
+function _windowStatus(prev, sinceWindow, now) {
+  const label = _windowLabel(prev);
+  const run = _ghRun && _ghRun.at >= prev.getTime() ? _ghRun : null;
+
+  if (run) {
+    if (run.status === 'queued')      return { text: `${label} run queued on GitHub`, resolved: false };
+    if (run.status === 'in_progress') return { text: `${label} run in progress`, resolved: false };
+    if (run.conclusion === 'success') {
+      // Succeeded but wrote no `deployments` row ⇒ the gate skipped it. Give our own 60s poll a
+      // chance to catch up first, or a real deploy reads as a skip for up to a minute.
+      return now - run.done < 90000
+        ? { text: `${label} run finished · confirming`, resolved: false }
+        : { text: `${label} skipped — HEAD already live`, resolved: true };
+    }
+    return { text: `${label} run ${run.conclusion || 'ended'} — check Actions`, bad: true, resolved: true };
+  }
+
+  // No run exists for this window yet. With Actions readable that is a FACT (GitHub has not
+  // dispatched us), so say so, and keep waiting however long it takes — the whole point is that we
+  // no longer have to guess when to give up. Blocked, it is the old guess, so keep the old wording
+  // and the old skip inference, widened because 45 minutes was inside the observed dispatch lag.
+  if (!_ghBlocked) return { text: `${label} window open · waiting on GitHub's scheduler`, resolved: false };
+  return sinceWindow > DEPLOY_FALLBACK_SKIP
+    ? { text: `${label} no run seen (Actions unreachable)`, resolved: true }
+    : { text: `${label} window open · waiting on the runner`, resolved: false };
 }
 
 function _initDeployClock() {
   if (!document.getElementById('dep-clock')) return;
   clearInterval(window._depTimer);   // panel re-renders; never stack intervals
 
-  const pad = n => String(n).padStart(2, '0');
+  const pad = _pad2;
   const hms = (ms) => `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms % 3600000 / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}`;
   const ago = (ms) => (ms < 90000 ? 'just now' : ms < 3600000 ? `${Math.round(ms / 60000)} min ago` : `${(ms / 3600000).toFixed(1)}h ago`);
 
@@ -202,6 +270,24 @@ function _initDeployClock() {
     }).catch(() => {});
   };
 
+  const pollRuns = () => {
+    // Unauthenticated, public-repo read — no token, no server hop, and CORS-clean. A non-2xx is
+    // almost always the 60/hour rate limit, and is treated exactly like being offline.
+    fetch(GH_RUNS_URL, { headers: { Accept: 'application/vnd.github+json' } })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d) => {
+        const r = d?.workflow_runs?.[0];
+        _ghRun = r ? {
+          at: Date.parse(r.created_at),      // when GitHub DISPATCHED it, which is the late number
+          done: Date.parse(r.updated_at),
+          status: r.status,                  // queued | in_progress | completed
+          conclusion: r.conclusion,          // success | failure | cancelled | skipped | null
+        } : null;
+        _ghBlocked = false;
+      })
+      .catch(() => { _ghBlocked = true; });
+  };
+
   const tick = () => {
     const clock = document.getElementById('dep-clock');
     if (!clock) { clearInterval(window._depTimer); return; }  // panel switched away
@@ -214,22 +300,27 @@ function _initDeployClock() {
     const landed = _lastDeployAt != null && _lastDeployAt >= prev.getTime();
     const sub = document.getElementById('dep-sub');
 
-    if (!landed && sinceWindow < DEPLOY_SKIP_AFTER) {
-      // The window is open and nothing has been recorded yet: the runner is queued, running, or
-      // about to skip. Counting UP is the only honest thing to show here.
+    // Only while this window is unrecorded, and never at the 1s tick rate — see the rate-limit ⚠.
+    if (!landed && now - _ghPollAt > 180000) { _ghPollAt = now; pollRuns(); }
+
+    const st = landed ? null : _windowStatus(prev, sinceWindow, now);
+
+    if (st && !st.resolved) {
+      // The window is open and still in play. Counting UP is the only honest thing to show, and
+      // `st.text` now names WHICH of the three reasons rather than implying one.
       clock.textContent = `+${hms(sinceWindow)}`;
       clock.style.color = 'var(--yellow)';
-      if (sub) sub.textContent = `${pad(prev.getUTCHours())}:00 UTC window open · waiting on the runner`;
+      if (sub) sub.textContent = st.text;
       return;
     }
 
     const ms = Math.max(0, next.getTime() - now);
     clock.textContent = hms(ms);
-    clock.style.color = ms < 600000 ? 'var(--yellow)' : '';
+    clock.style.color = st?.bad ? 'var(--red)' : (ms < 600000 ? 'var(--yellow)' : '');
     if (!sub) return;
-    const at = `${pad(next.getUTCHours())}:00 UTC · ${next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`;
+    const at = `${_windowLabel(next)} · ${next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`;
     sub.textContent = landed ? `deployed ${ago(now - _lastDeployAt)} · next ${at}`
-      : `${pad(prev.getUTCHours())}:00 skipped (already live) · next ${at}`;
+      : `${st.text} · next ${at}`;
   };
 
   tick();

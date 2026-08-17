@@ -73,7 +73,25 @@ name: deploy-content
 on:
   workflow_dispatch:      # manual force: Actions tab → Run workflow
   schedule:
-    - cron: '0 */2 * * *'  # debounced batch deploy, every 2 hours
+    # Debounced batch deploy, every 2 hours. ⚠ THE :37 IS LOAD-BEARING — DO NOT
+    # "TIDY" IT BACK TO :00. GitHub dispatches `schedule` events best-effort from
+    # a service shared by every repo on the platform, and the top of the hour is
+    # its most oversubscribed minute (every `0 * * * *` and `0 0 * * *` job in the
+    # world fires there). On `0 */2 * * *` this workflow was dispatched 29–106
+    # minutes late, every single window, measured over 12 consecutive runs on
+    # 2026-08-16/17. It was not runner starvation and not our `concurrency` group:
+    # `createdAt` equalled `startedAt` on all 12, so the run did not exist yet —
+    # nothing was queued, the event itself was simply delivered late. Worst was
+    # the 00:00 UTC window at 106 minutes, which is the busiest cron minute
+    # anywhere; the quiet evening windows still ran 29–38 minutes behind.
+    #
+    # An arbitrary off-peak minute is the standard mitigation. The interval is
+    # unchanged, so everything downstream that says "2-hourly" is still true.
+    #
+    # If you change this minute, change `_windowBefore()` in
+    # client/devpanel/js/panels/dashboard.js to match — the Deploy Window card
+    # snaps to the boundary and will draw against the wrong one otherwise.
+    - cron: '37 */2 * * *'
   push:
     branches: [main]
     # Pushes trigger a run so regress validates them; the gate job only lets the
