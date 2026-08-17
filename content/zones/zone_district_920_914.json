@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
   "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "north": "zone_district_920_913",
@@ -12,7 +11,7 @@
     "district": "residential",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 920,
   "grid_y": 914,

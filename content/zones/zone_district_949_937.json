@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_950_937",
@@ -14,7 +13,7 @@
     "radiation": 38,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "redrock"
+    "terrain": "cliff"
   },
   "grid_x": 949,
   "grid_y": 937,

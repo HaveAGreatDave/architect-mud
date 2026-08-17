@@ -6,7 +6,7 @@
   "exits": {
     "down": "zone_util_1782953094650",
     "up": "zone_prod_1782953094650",
-    "west": "zone_district_913_911"
+    "west": "zone_district_912_911"
   },
   "flags": {
     "building_type": "studio",
@@ -19,7 +19,7 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_913_911"
+    "world_exit_zone": "zone_district_912_911"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -27,5 +27,5 @@
   "id": "zone_studio_1782953094650",
   "map_id": "map_int_1782953094650",
   "name": "KSAB-TV Studio Stage",
-  "parent_zone": "zone_district_913_911"
+  "parent_zone": "zone_district_912_911"
 }

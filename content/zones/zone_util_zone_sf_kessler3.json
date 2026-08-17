@@ -8,7 +8,7 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_921_913"
+    "world_exit_zone": "zone_district_922_914"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_util_zone_sf_kessler3",
   "map_id": "map_int_sf_kessler3",
   "name": "Unit 3, Kessler Street — Utility Room",
-  "parent_zone": "zone_district_921_913"
+  "parent_zone": "zone_district_922_914"
 }

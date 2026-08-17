@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "Broken mesa shelves step away in ochre and iron-red, cut by dry washes where the wind funnels grit against your teeth.",
   "exits": {
     "east": "zone_district_887_919",
@@ -13,7 +12,7 @@
     "district": "wilds",
     "radiation": 28,
     "region_id": "region_coldwater",
-    "terrain": "redrock"
+    "terrain": "cliff"
   },
   "grid_x": 886,
   "grid_y": 919,

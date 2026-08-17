@@ -10,7 +10,7 @@
   "description": "A long shed of a shop built around a forge that has not been allowed to go out in eleven years. Blades hang in racks by maker's mark, house work on the near wall and the good marques behind glass, and the floor is grey with a decade of grinding dust. It is twenty degrees warmer in here than outside, and everything smells of hot iron and quenching oil.",
   "exits": {
     "down": "zone_util_zone_grindhouse_interior",
-    "north": "zone_district_913_914"
+    "north": "zone_district_912_913"
   },
   "flags": {
     "building_name": "Grind House",
@@ -23,7 +23,7 @@
       "name": "the shopfront window",
       "visibility": 0.9
     },
-    "world_exit_zone": "zone_district_913_914"
+    "world_exit_zone": "zone_district_912_913"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -31,5 +31,5 @@
   "id": "zone_grindhouse_interior",
   "map_id": "map_interior_zone_grindhouse_interior",
   "name": "Grind House",
-  "parent_zone": "zone_district_913_914"
+  "parent_zone": "zone_district_912_913"
 }

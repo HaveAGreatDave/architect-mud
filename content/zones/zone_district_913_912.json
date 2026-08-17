@@ -4,6 +4,7 @@
   "description": "Loose stone crunches underfoot, greyed with dust and old oil. A dead streetlight leans at the verge, and the wind carries grit that finds your teeth. Tyre tracks braid off into the haze.",
   "exits": {
     "east": "zone_district_914_912",
+    "north": "zone_district_913_911",
     "south": "zone_district_913_913",
     "west": "zone_district_912_912"
   },

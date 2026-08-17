@@ -1,8 +1,8 @@
 {
-  "a": "zone_district_900_903",
+  "a": "zone_district_904_905",
   "b": "zone_slag_shop",
   "blocked": false,
-  "dir": "west",
+  "dir": "north",
   "id": "conn_district_900_903_west_1dcb",
   "lockable": true,
   "one_way": false

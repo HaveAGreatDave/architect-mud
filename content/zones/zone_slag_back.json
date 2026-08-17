@@ -4,7 +4,7 @@
   "bg_color": "#231713",
   "description": "In under the cart, where the good stuff sleeps and so does he. Sacking, a bedroll, and the heavy grades stacked as ballast so the whole thing cannot be tipped by anything that has tried so far. Scratches on the underside of the boards count something. He will not say what.",
   "exits": {
-    "east": "zone_slag_shop"
+    "south": "zone_slag_shop"
   },
   "flags": {
     "building_name": "Slag & Wares",
@@ -12,13 +12,13 @@
     "floor": "concrete",
     "is_building": true,
     "is_interior": true,
-    "world_exit_zone": "zone_district_900_903"
+    "world_exit_zone": "zone_district_904_905"
   },
-  "grid_x": -1,
-  "grid_y": 0,
+  "grid_x": 0,
+  "grid_y": -1,
   "grid_z": 0,
   "id": "zone_slag_back",
   "map_id": "map_int_slag",
   "name": "Slag & Wares — The Cart Bed",
-  "parent_zone": "zone_district_900_903"
+  "parent_zone": "zone_district_904_905"
 }

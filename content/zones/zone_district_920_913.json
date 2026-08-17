@@ -1,16 +1,16 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
   "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
   "exits": {
+    "east": "zone_district_921_913",
     "south": "zone_district_920_914"
   },
   "flags": {
     "district": "residential",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "terrain": "road"
   },
   "grid_x": 920,
   "grid_y": 913,

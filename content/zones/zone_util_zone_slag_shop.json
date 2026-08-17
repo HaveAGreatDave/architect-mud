@@ -8,7 +8,7 @@
   "flags": {
     "floor": "concrete",
     "is_interior": true,
-    "world_exit_zone": "zone_district_900_903"
+    "world_exit_zone": "zone_district_904_905"
   },
   "grid_x": 0,
   "grid_y": 0,
@@ -16,5 +16,5 @@
   "id": "zone_util_zone_slag_shop",
   "map_id": "map_int_slag",
   "name": "Slag & Wares — Utility Room",
-  "parent_zone": "zone_district_900_903"
+  "parent_zone": "zone_district_904_905"
 }

@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "Grey ash banks against every ruin and rise, sliding away in slow falls where the ground steps down. It tastes of burnt paper and gets into every seam.",
   "exits": {
     "east": "zone_district_949_941",
@@ -14,7 +13,7 @@
     "radiation": 38,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "ash"
+    "terrain": "cliff"
   },
   "grid_x": 948,
   "grid_y": 941,

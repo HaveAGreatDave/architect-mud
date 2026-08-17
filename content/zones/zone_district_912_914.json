@@ -4,7 +4,7 @@
   "color": "#8ba36a",
   "description": "Open grassland quietly reclaiming old ground, seedheads nodding over the buried kerb of a road that used to matter. Insects drone. The horizon wobbles in the heat.",
   "exits": {
-    "north": "zone_district_912_913",
+    "east": "zone_district_913_914",
     "south": "zone_district_912_915",
     "west": "zone_district_911_914"
   },

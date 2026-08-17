@@ -1,24 +1,28 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "color": "#8f4f3a",
+  "description": "A pitch rather than a shop: a hand-cart the size of a room, roofed over with corrugate and dug into the hardpan so the wind goes over it. It sits where the west road starts to empty out, which is where everything dragging itself back from the flats has to pass. Sorted salvage is laid out on boards either side in grades, and a bell on a pole rings whenever anything heavy moves out there, which it does. SLAG & WARES is chalked on the tailboard and re-chalked most weeks.",
   "exits": {
-    "east": "zone_district_905_905",
-    "north": "zone_district_904_904",
-    "south": "zone_district_904_906",
-    "west": "zone_district_903_905"
+    "north": "zone_slag_shop",
+    "south": "zone_district_904_906"
   },
   "flags": {
+    "building_name": "Slag & Wares",
+    "building_type": "junkyard",
     "district": "docks",
+    "entrance": "south",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_904_906"
   },
   "grid_x": 904,
   "grid_y": 905,
   "grid_z": 0,
   "id": "zone_district_904_905",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "SW",
+  "name": "Slag & Wares",
   "parent_zone": null
 }

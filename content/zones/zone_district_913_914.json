@@ -1,29 +1,25 @@
 {
   "ambient_events": [],
-  "ambient_theme": "forest",
-  "bg_color": "#2f3a26",
-  "color": "#8ba36a",
-  "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
+  "ambient_theme": "city",
+  "description": "A wide run of packed gravel and grit, graded flat by traffic and rain into something almost like a road. Puddles stand in the ruts, skinned with a chemical sheen. Nothing grows in the margins.",
   "exits": {
+    "east": "zone_district_914_914",
     "north": "zone_district_913_913",
-    "south": "zone_grindhouse_interior"
+    "south": "zone_district_913_915",
+    "west": "zone_district_912_914"
   },
   "flags": {
-    "building_name": "Grind House",
-    "building_type": "blade_shop",
     "district": "wasteland",
-    "entrance": "north",
-    "facade": true,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "world_exit_zone": "zone_district_913_913"
+    "scavenging_table_id": "scav_roadside_junk",
+    "street_life": true,
+    "terrain": "grass"
   },
   "grid_x": 913,
   "grid_y": 914,
   "grid_z": 0,
   "id": "zone_district_913_914",
   "map_id": "map_world",
-  "marker": "GH",
-  "name": "Grind House",
+  "name": "Foundry Way",
   "parent_zone": null
 }

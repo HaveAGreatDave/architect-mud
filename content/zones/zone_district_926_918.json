@@ -1,8 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "bg_color": "#332e28",
-  "color": "#b89a72",
   "description": "Home sweet subsidised home: prefab housing the colour of wet cardboard, balconies caged against jumpers and pigeons with equal indifference. A billboard over the roofline promises a better unit uptown. Nobody here has ever seen uptown.",
   "exits": {
     "east": "zone_district_927_918",

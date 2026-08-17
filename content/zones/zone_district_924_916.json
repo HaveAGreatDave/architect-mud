@@ -13,7 +13,7 @@
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "grass"
   },
   "grid_x": 924,
   "grid_y": 916,

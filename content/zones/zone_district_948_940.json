@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "Ash lies over everything in a soft grey blanket, deep enough to take a boot to the ankle. Nothing grows through it and nothing has tried.",
   "exits": {
     "east": "zone_district_949_940",
@@ -14,7 +13,7 @@
     "radiation": 38,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "ash"
+    "terrain": "cliff"
   },
   "grid_x": 948,
   "grid_y": 940,

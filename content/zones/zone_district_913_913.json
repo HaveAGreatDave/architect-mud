@@ -5,15 +5,14 @@
   "exits": {
     "east": "zone_district_914_913",
     "north": "zone_district_913_912",
-    "south": "zone_district_913_914",
-    "west": "zone_district_912_913"
+    "south": "zone_district_913_914"
   },
   "flags": {
     "district": "wasteland",
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_roadside_junk",
     "street_life": true,
-    "terrain": "road"
+    "terrain": "grass"
   },
   "grid_x": 913,
   "grid_y": 913,

@@ -15,5 +15,5 @@
   "id": "zone_util_zone_grindhouse_interior",
   "map_id": "map_interior_zone_grindhouse_interior",
   "name": "Grind House — Utility Room",
-  "parent_zone": "zone_district_913_914"
+  "parent_zone": "zone_district_912_913"
 }

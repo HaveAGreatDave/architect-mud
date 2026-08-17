@@ -1,25 +1,29 @@
 {
   "ambient_events": [],
   "ambient_theme": "forest",
+  "bg_color": "#2f3a26",
   "color": "#8ba36a",
   "description": "Rough pasture, tussocked and uneven, dotted with the grey bones of dead machinery the green has decided to keep. It smells, improbably, alive.",
   "exits": {
-    "east": "zone_district_913_913",
     "north": "zone_district_912_912",
-    "south": "zone_district_912_914",
-    "west": "zone_district_911_913"
+    "south": "zone_grindhouse_interior"
   },
   "flags": {
+    "building_name": "Grind House",
+    "building_type": "blade_shop",
     "district": "wasteland",
+    "entrance": "north",
+    "facade": true,
+    "is_building": true,
     "region_id": "region_coldwater",
-    "scavenging_table_id": "scav_west_wastes",
-    "terrain": "grass"
+    "world_exit_zone": "zone_district_912_912"
   },
   "grid_x": 912,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_912_913",
   "map_id": "map_world",
-  "name": "Grasslands",
+  "marker": "GH",
+  "name": "Grind House",
   "parent_zone": null
 }

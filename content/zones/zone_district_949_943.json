@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "A flat of packed ash, hard below and loose on top. Footprints keep here a long time; there is no wind down in this hollow to take them.",
   "exits": {
     "east": "zone_district_950_943",
@@ -14,7 +13,7 @@
     "radiation": 38,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "ash"
+    "terrain": "cliff"
   },
   "grid_x": 949,
   "grid_y": 943,

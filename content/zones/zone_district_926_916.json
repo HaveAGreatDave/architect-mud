@@ -1,8 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "residential",
-  "bg_color": "#332e28",
-  "color": "#b89a72",
   "description": "A residential stack optimised for maximum tenants per cubic metre and the bare legal minimum of reasons to keep living. Corridors of identical doors, behind each a life the city quietly stopped counting. A cat holds the stairwell; nobody contests the claim.",
   "exits": {
     "east": "zone_district_927_916",

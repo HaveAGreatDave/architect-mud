@@ -1,30 +1,23 @@
 {
   "ambient_events": [],
-  "ambient_theme": "indoors",
-  "bg_color": "#3a3550",
-  "color": "#e8e0ff",
-  "description": "A corner unit under three floors of flats, the sort of shop a street keeps because walking further is worse. The shutter is down and the notice has been up long enough to go yellow. Somebody has written UNDER NEW MANAGEMENT on it, optimistically, in a different hand.",
+  "ambient_theme": "forest",
+  "description": "A stretch of hardy, knee-high grass gone silver-green and gnawed short by whatever still grazes out here. The wind moves through it in long slow waves. Something rustles, then goes very still.",
   "exits": {
     "east": "zone_district_922_913",
-    "west": "zone_sf_kessler3"
+    "north": "zone_district_921_912",
+    "west": "zone_district_920_913"
   },
   "flags": {
-    "building_name": "Unit 3, Kessler Street",
-    "building_type": "shop",
     "district": "residential",
-    "entrance": "east",
-    "facade": true,
-    "is_building": true,
     "region_id": "region_coldwater",
-    "street_life": true,
-    "world_exit_zone": "zone_district_922_913"
+    "scavenging_table_id": "scav_west_wastes",
+    "terrain": "road"
   },
   "grid_x": 921,
   "grid_y": 913,
   "grid_z": 0,
   "id": "zone_district_921_913",
   "map_id": "map_world",
-  "marker": "K3",
-  "name": "Unit 3, Kessler Street",
+  "name": "Grasslands",
   "parent_zone": null
 }

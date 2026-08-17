@@ -1,7 +1,6 @@
 {
   "ambient_events": [],
   "ambient_theme": "wasteland",
-  "color": "#b5744a",
   "description": "Grey ash banks against every ruin and rise, sliding away in slow falls where the ground steps down. It tastes of burnt paper and gets into every seam.",
   "exits": {
     "east": "zone_district_953_939",
@@ -14,7 +13,7 @@
     "radiation": 40,
     "region_id": "region_coldwater",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "terrain": "ash"
+    "terrain": "redrock"
   },
   "grid_x": 952,
   "grid_y": 939,
