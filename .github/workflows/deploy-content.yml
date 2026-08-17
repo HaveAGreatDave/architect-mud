@@ -349,15 +349,40 @@ jobs:
   #
   # Deliberately no external service and no new secrets: the built-in GITHUB_TOKEN
   # can file an issue, so this cannot itself break for want of configuration.
+  #
+  # ⚠ THE ALARM MUST NEVER BE THE THING THAT RAISES THE ALARM. This job reports on
+  # the deploy; it is not part of it. By the time it runs, content is already in
+  # Neon and Render has already been kicked — so a failure HERE means the report
+  # did not get written, never that prod is broken. Hence `continue-on-error`: the
+  # run's colour is decided by `regress` and `deploy` alone, which are the two jobs
+  # that can actually leave prod stale.
+  #
+  # Without it, this job inverted the feature it exists for. On 2026-08-17 two
+  # consecutive scheduled deploys went fully green — imported, rebooted, recorded —
+  # and both runs were painted red by a GitHub API 503 (`No server is currently
+  # available…`) thrown while closing the stall issue. So the dashboard showed a
+  # failing deploy on a healthy prod, AND issue #28 stayed open insisting content
+  # was frozen when it had shipped minutes earlier. Both directions of the signal
+  # were lying at once, which is worse than having no notifier at all: the July
+  # failure this job was built for was missed because nobody was looking, and a
+  # notifier that cries wolf is how you get back to nobody looking.
+  #
+  # `retries: 3` handles the same 503 one layer down, so the ordinary transient
+  # blip still leaves the issue in the right state rather than merely failing
+  # quietly. 503 is not in octokit's `retry-exempt-status-codes` (400/401/403/404/
+  # 422 — the genuinely terminal ones), so it is retried with backoff; a real
+  # permissions or not-found error still fails fast instead of burning retries.
   notify:
     needs: [regress, deploy]
     if: always()   # including manual dispatches: a hand-run green deploy should clear the flag too
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       issues: write
     steps:
       - uses: actions/github-script@v8
         with:
+          retries: 3
           script: |
             // Only speak up about runs that actually tried to deploy. A validate-only
             // push (gate skipped the deploy) has deployResult === 'skipped' — nothing

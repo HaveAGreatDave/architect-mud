@@ -310,6 +310,19 @@ try {
     }
 
     // ── Upsert pass ───────────────────────────────────────────────────────────
+    // BATCHED, and it has to be: this was one INSERT round trip per file, and
+    // there are ~37k files (15,785 zones + 15,765 power_zones alone — 85% of the
+    // tree in two tables that usually change nothing). Against a remote Neon that
+    // is 37k sequential round trips whatever the diff, so the deploy's runtime is
+    // `file_count × RTT` and has NOTHING to do with how much content changed. On
+    // 2026-08-17 that meant 44 minutes to write SEVEN rows (1 inserted, 6 updated)
+    // — and 5 minutes for the same no-op work earlier the same afternoon, purely
+    // because RTT moved from ~8ms to ~71ms. This is the "never query in a loop"
+    // rule in architecture.md, on the one path that talks to prod.
+    //
+    // So: one multi-row INSERT per chunk instead of one per file, which is what
+    // the drift report above has always done. Same statement shape, same
+    // IS DISTINCT FROM guard, same RETURNING — only the trip count changes.
     for (const { entry, files } of entries) {
       const types = await columnTypes(client, entry.table);
       // Absent-by-default override columns (registry omitWhenNull) are the one
@@ -320,30 +333,80 @@ try {
       // built one would match the files.
       const forcedNull = (entry.omitWhenNull || []).filter(c => types.has(c));
       let ins = 0, upd = 0;
+
+      // Files in one table need not carry the same keys, and a row's column list
+      // decides its statement — so group by column signature and batch within a
+      // group. Sorted, so two files with the same columns in a different key
+      // order share one group rather than compiling two identical statements.
+      const groups = new Map();
+      const seenPk = new Map();
       for (const f of files) {
-        const cols = Object.keys(f.data).filter(c => types.has(c));
-        for (const c of forcedNull) if (!cols.includes(c)) cols.push(c);
         const unknown = Object.keys(f.data).filter(c => !types.has(c));
         if (unknown.length) throw new Error(`${entry.table}/${f.name}: unknown column(s) ${unknown.join(', ')} — stale file or missing schema change.`);
+        const cols = Object.keys(f.data).filter(c => types.has(c));
+        for (const c of forcedNull) if (!cols.includes(c)) cols.push(c);
+        cols.sort();
+        // Two files with one pk would make Postgres throw "ON CONFLICT DO UPDATE
+        // command cannot affect row a second time" — but only once they share a
+        // statement, so batching is what turns this from silently-last-wins into
+        // an error. Catch it here, where the message can name both files, rather
+        // than letting a chunk fail with a pk nobody can map back to a path.
+        const pkKey = entry.pk.map(c => String(f.data[c])).join('\0');
+        const prev = seenPk.get(pkKey);
+        if (prev) throw new Error(`${entry.table}: ${prev} and ${f.name} are both ${entry.pk.map(c => `${c}=${f.data[c]}`).join(', ')} — one row, two files.`);
+        seenPk.set(pkKey, f.name);
+        const key = cols.join('\0');
+        const g = groups.get(key);
+        if (g) g.push(f); else groups.set(key, [f]);
+      }
+
+      // One savepoint per table, so a failing chunk can be replayed row-by-row to
+      // name the file that broke it. Batching costs debuggability otherwise: the
+      // old loop failed on a single known file, a chunk fails on 500 of them. Paid
+      // for on the error path only — the happy path is one extra round trip per
+      // table, against the ~37k this removes.
+      await client.query('SAVEPOINT upsert_table');
+      for (const [key, group] of groups) {
+        const cols = key.split('\0');
         const nonPk = cols.filter(c => !entry.pk.includes(c));
         const colList = cols.map(c => `"${c}"`).join(', ');
-        const params = cols.map((c, i) => `$${i + 1}`).join(', ');
-        const values = cols.map(c => paramFor(f.data[c], types.get(c)));
         const conflict = entry.pk.map(c => `"${c}"`).join(', ');
-        let sql;
-        if (nonPk.length) {
-          const set = nonPk.map(c => `"${c}"=EXCLUDED."${c}"`).join(', ');
-          const distinct = `(${nonPk.map(c => `${entry.table}."${c}"`).join(', ')}) IS DISTINCT FROM (${nonPk.map(c => `EXCLUDED."${c}"`).join(', ')})`;
-          sql = `INSERT INTO ${entry.table} (${colList}) VALUES (${params})
-                 ON CONFLICT (${conflict}) DO UPDATE SET ${set} WHERE ${distinct}
-                 RETURNING (xmax = 0) AS inserted`;
-        } else {
-          sql = `INSERT INTO ${entry.table} (${colList}) VALUES (${params})
-                 ON CONFLICT (${conflict}) DO NOTHING RETURNING (xmax = 0) AS inserted`;
+        const tail = nonPk.length
+          ? `ON CONFLICT (${conflict}) DO UPDATE SET ${nonPk.map(c => `"${c}"=EXCLUDED."${c}"`).join(', ')}
+             WHERE (${nonPk.map(c => `${entry.table}."${c}"`).join(', ')}) IS DISTINCT FROM (${nonPk.map(c => `EXCLUDED."${c}"`).join(', ')})`
+          : `ON CONFLICT (${conflict}) DO NOTHING`;
+        const build = (chunk) => {
+          const params = [];
+          const tuples = chunk.map(f => `(${cols.map(c => `$${params.push(paramFor(f.data[c], types.get(c)))}`).join(', ')})`);
+          return [`INSERT INTO ${entry.table} (${colList}) VALUES ${tuples.join(', ')}
+                   ${tail} RETURNING (xmax = 0) AS inserted`, params];
+        };
+        // Postgres caps a statement at 65,535 parameters, so the chunk has to be
+        // sized against the column count, not picked as a round number.
+        const size = Math.max(1, Math.min(500, Math.floor(60000 / cols.length)));
+        for (let i = 0; i < group.length; i += size) {
+          const chunk = group.slice(i, i + size);
+          let res;
+          try {
+            const [sql, params] = build(chunk);
+            res = await client.query(sql, params);
+          } catch (e) {
+            await client.query('ROLLBACK TO SAVEPOINT upsert_table');
+            for (const f of chunk) {
+              const [sql, params] = build([f]);
+              try {
+                await client.query(sql, params);
+              } catch (inner) {
+                throw new Error(`${entry.table}/${f.name}: ${inner.message}`);
+              }
+            }
+            throw e;   // every row passed alone — the batch itself is the problem
+          }
+          for (const r of res.rows) r.inserted ? ins++ : upd++;
         }
-        const res = await client.query(sql, values);
-        if (res.rows.length) res.rows[0].inserted ? ins++ : upd++;
       }
+      await client.query('RELEASE SAVEPOINT upsert_table');
+
       totalIns += ins; totalUpd += upd;
       if (ins || upd) console.log(`  ${entry.table.padEnd(26)} +${ins} inserted, ~${upd} updated (${files.length} files)`);
     }
