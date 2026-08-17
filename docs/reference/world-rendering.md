@@ -193,6 +193,45 @@ Rules for anyone adding to a building model:
   paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
 
+## Vehicles are the exception — they get a real depth buffer
+
+The rules above are for the **world** pass, where painter's algorithm is the right trade: thousands
+of buildings, full screen, and none of them interpenetrating. A **vehicle mesh is the opposite
+shape** — a pile of small convex boxes bolted onto bigger ones, where a big panel is behind a small
+one over here and in front of it over there. No single depth per part can say so, which is why four
+successive sort keys each fixed the case in front of them and left the class alone (grille bars
+through the panel they are screwed to, one headlamp eaten, flanks flashing as the model turned).
+
+So the truck mesh rasterises through a **per-pixel depth buffer** —
+[`client/game/js/panels/model-raster.js`](../../client/game/js/panels/model-raster.js), sized to the
+model's own screen box, never the canvas. Aircraft keep the mean-depth sort: one smooth hull is the
+shape a sort *is* right for.
+
+⚠ **There are four renderers of that mesh, and a fix has three times reached only one of them** —
+the chase view you drive from (`paintWindshield`), the depot floor and hangar lot
+(`drawHangarScene`), the walkaround/bench hero (`paintTurntable`), and the CRT schematic
+(`drawWireframe3D`, deliberately x-ray and on no sort at all). The pass itself lives in **one
+function**, `truckDepthPass` in
+[`aircraft3d.js`](../../client/game/js/panels/aircraft3d.js) — add a renderer, call that, and don't
+write the twenty lines again.
+
+Three things worth knowing before touching it:
+
+- **The part sort is not dead code.** `sortTruckFaces` is the live fallback for any frame the blit
+  cannot land, so it is still gated (`truckOcclusionSmoke`, `truckSortStabilitySmoke`, and the
+  headlamp smoke, which asks for it by name through `_setBlitEnabled`).
+- **`RASTER_BUDGET_PX` is a frame time, not a taste.** In a panel the model fills the pane, so the
+  supersample budget binds every frame — at ~30 ns per buffer pixel, a full-pane rig at a retina
+  ratio is ~25 ms, which is not a slow frame but no frame at all. The sharpening gives way under
+  load; the pass never does.
+- **No outline over a depth-buffered model**, and detail passes (jazz splatter, hull texture, canopy
+  art, glass sheen) run only for a face that still owns its own centre — otherwise a hidden face
+  paints its decoration over the panel hiding it.
+
+`scripts/shapes/smoke.mjs` asserts each renderer *reached* the buffer via `rasterCount()`, because
+the failure mode here is silent: the work is real, verified in one view, and has no effect in the
+others.
+
 ## Building mass is shared with the cold open
 
 `TYPE_FLOORS`, `FLOOR_Z`, `BUILDING_FOOT` and `floorsFor()` live in
@@ -344,7 +383,10 @@ second rule to keep in step. ⚠ `sl` is **three states** (1 lit / 0 dark / abse
 post is still street furniture; collapsing "off" into "absent" would pop every lamp in the city out
 of existence at dawn.
 
-**Traffic signals** stand at each arm of a junction. Two things to know:
+**Traffic signals** are one mast-arm per **axis** of a junction — not one head per arm — with the
+boom cantilevered out over the carriageway and the street light on the same steel. Both directions
+of a street already share a phase by construction, so the arms of an axis were never independent
+decisions; a crossroads gets two masts instead of four kerbside posts. Three things to know:
 
 - ⚠ **The phase lives in [client/shared/traffic.js](../../client/shared/traffic.js), not here**,
   because the text game prints a sentence about the same junction ([describe.js](../../server/engine/commands/describe.js)).
@@ -356,6 +398,27 @@ of existence at dawn.
   icon-based test ships a feature that passes and is invisible forever. The engine's own exit graph
   is used instead (a road tile with ≥3 road neighbours), which also keeps the flight plugin's
   coordinate index out of the engine.
+- ⚠ **A head is geometry, not a sprite.** The housing, its flank, its lens face and the three lenses
+  are polygons laid out in a small world frame — `u` across the road, `v` up, `w` down the approach
+  — whose screen basis is read out of the projection by `planeBasis` for three extra `cam.proj`
+  calls. So a head foreshortens as you turn and goes edge-on when you cross it, and the junction on
+  the cross street shows you the *side* of its heads, which is what says at a glance that those
+  lights are not the ones talking to you. Which face carries the lenses falls out of the camera:
+  `df/dw = w·(sinh, −cosh)`, negative meaning that face is the near one, and `|df/dw|` doubles as
+  how square-on the head is — the halo is scaled by it so a signal you are passing does not blaze at
+  you sideways. **Both** faces carry lenses, deliberately: one mast governs an axis, so the driver
+  arriving the other way is looking at the far side of the same head. The bloom stays a screen-space
+  gradient, which is not an oversight — a halo is what the atmosphere does with a bright source, not
+  a surface the lamp has. It was the *fitting* that had to stop being a sprite.
+
+⚠ **The steel is geometry too, and its width is a world measurement.** The pole, boom, brackets and
+lamp standards are tapered polygons (`drawSteel`) sized by **radius in tiles**, projected through
+`cam.FL`, with a narrow off-centre highlight strip that is the only thing separating a drawn pole
+from a drawn rectangle at these sizes. They were strokes whose `lineWidth` came off `s`, the *head's*
+on-screen size — `max(0.9, s * 0.13)`, which pins every mast in the city at about a pixel from seven
+tiles out to the horizon: a hairline that reads as a scratch on the glass. Thicker is **not** fat:
+the pole lands near 12:1 height-to-width against a real mast's ~25:1, because going to the real ratio
+just puts the hairline back and going past this reads as a concrete plinth with a light on it.
 
 **A signal is set dressing and the code says so in both files.** Nothing obeys it: no verb reads it,
 the truck is not stopped by one, NPCs do not cross roads. It is deliberately never given a stop
@@ -363,8 +426,8 @@ line, a camera or a ticket, and it goes **dark** rather than flashing amber in a
 flashing signal is a real-world instruction to treat the junction as a stop, and this system
 enforces nothing.
 
-⚠ **Two sizing traps, both of which shipped silently in a first pass.** `drawSignalHead`/
-`drawStreetLamp` scale off `s = K / p.f`, and **`p.f` is projection space, not tile distance** — a
+⚠ **Two sizing traps, both of which shipped silently in a first pass.** `signalHead`/
+`drawStreetLamp` still gate on `s = K / p.f`, and **`p.f` is projection space, not tile distance** — a
 junction two tiles ahead measures `s ≈ 2.5`, not `4.5`. A halo gated at `s > 3` therefore never drew
 at any distance, which looked like "the lights aren't very bright" rather than a dead branch. And
 calibrate `K` against the billboards already in the world (`drawTreeBB` 34, `drawActorFigure` 11)
@@ -377,6 +440,15 @@ centre is the camera's own position and near-clips, so a junction at `(R,R)` exe
 signal code while appearing to. The regress suite asserts the phase invariants (the two axes are
 never both green, opposite arms agree, a full cycle shows all three) and that the **real world map
 contains junctions by the exit rule**.
+
+⚠ That sweep asks one question — *did the frame throw* — and **a sprite and a box answer it the
+same way**, so a head that quietly went back to facing the camera would leave every gate green.
+`signalGeomSmoke` measures the two properties that ARE the change: a head's lens face at full width
+square-on and all but gone from the side (a billboard's never moves), and the pole's width halving
+as the distance doubles (the old stroke sat on a `max(0.9, …)` floor). ⚠ It builds its own
+**windscreen-sized** canvas rather than the 640px view stub — steel is sized off `cam.FL`, a
+fraction of the canvas *width*, so a pixel threshold asserted at 640 is asserting something about a
+panel nobody plays on.
 
 ## Gotchas
 

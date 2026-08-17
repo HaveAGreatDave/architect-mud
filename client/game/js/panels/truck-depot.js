@@ -420,13 +420,17 @@ function stepWalk(dt) {
 // about half — you were buying a price and a paragraph.
 function buyScreen() {
   const d = B.data;
+  // One scale for the whole line, taken off the biggest thing on it — see the `fitRef` note in
+  // wireframe-plane.js. The top of the range is the reference by DATA (the highest tier the dealer
+  // stocks) rather than by a type id written in here, so a new flagship needs no edit.
+  const fitRef = (d.stock || []).reduce((a, b) => (a && a.tier >= b.tier ? a : b), null)?.variant || '';
   const cards = (d.stock || []).map(t => `
     <div class="td-lot${t.afford ? '' : ' poor'}${B.lotSel === t.id ? ' on' : ''}" data-lot="${esc(t.id)}">
       <div class="td-lot-head">
         <div><b>${esc(t.name)}</b><div class="td-dim">TIER ${t.tier}</div></div>
         <div class="td-price">${money(t.price)}</div>
       </div>
-      <canvas class="td-wf" width="440" height="200" data-variant="${esc(t.variant)}" aria-hidden="true"></canvas>
+      <canvas class="td-wf" width="440" height="300" data-variant="${esc(t.variant)}" data-fit="${esc(fitRef)}" aria-hidden="true"></canvas>
       <div class="td-blurb">${esc(t.blurb)}</div>
       ${statBars(t.stats)}
       <dl class="td-spec">
@@ -768,7 +772,11 @@ function startSpin() {
     }
     for (const c of root.querySelectorAll('.td-wf')) {
       const ctx = c.getContext('2d');
-      if (ctx) drawWireframe3D(ctx, { cls: 'truck', variant: c.dataset.variant, w: c.width, h: c.height, accent, yaw });
+      // `fill` — the rig is sized by the CARD, not by how big the mesh happens to be authored. A
+      // truck is a quarter of an airframe across and this viewport was drawn for airframes, which
+      // is why the schematic used to be a doodle in the middle of an empty box.
+      if (ctx) drawWireframe3D(ctx, { cls: 'truck', variant: c.dataset.variant, w: c.width, h: c.height, accent, yaw,
+        fill: 0.94, fitRef: c.dataset.fit });
     }
     raf = requestAnimationFrame(loop);
   };

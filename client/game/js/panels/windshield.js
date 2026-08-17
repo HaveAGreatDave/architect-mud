@@ -6461,6 +6461,76 @@ const SIGNAL_COL = { g: [86, 214, 108], a: [232, 178, 52], r: [226, 66, 58] };
 // the thing they were meant to be.
 const MAST_H = 0.30;          // pole height in world-z — half again the old post, because it spans a road
 const MAST_REACH = 0.72;      // how far the boom carries out over the carriageway, in tiles
+
+// ── THE STEEL IS GEOMETRY, NOT A LINE WIDTH ──────────────────────────────────
+//
+// The pole and the boom used to be strokes whose lineWidth came off `s`, the HEAD's on-screen size:
+// `max(0.9, s * 0.13)`, which pins every mast in the city at about one pixel of steel at any range
+// you actually drive at. That reads as a scratch on the glass rather than as a column you could
+// walk into. They are tapered polygons now, sized in TILE units — the same units MAST_REACH is
+// in — and projected through `cam.FL`, so a member thins with distance and along its own taper the
+// way a real one does, and making one thicker is a world measurement instead of a magic pixel
+// count. These are RADII, not diameters, base → top.
+//
+// Thicker, not FAT: the pole comes out around 12:1 height-to-width, against a real mast's ~25:1 and
+// the old stroke's ~26:1-at-best-and-usually-a-flat-pixel. Doubling a hairline is what was wanted;
+// going to a real-world ratio just puts the hairline back, and going past this reads as a concrete
+// plinth with a traffic light on it.
+const POLE_R0 = 0.0095, POLE_R1 = 0.0065;
+const BOOM_R0 = 0.006, BOOM_R1 = 0.0035;
+const STEEL_FILL = 'rgba(84,89,98,0.96)', STEEL_HI = 'rgba(136,143,155,0.9)';
+// A round member as a tapered polygon. `pts` is the screen centreline, each point carrying its own
+// half-width in pixels. The second fill is a narrow off-centre strip — a cylinder catching light
+// down one side, which at these sizes is the only thing separating a drawn pole from a drawn
+// rectangle. Pass `hi: false` for the small brackets, where the strip is sub-pixel and just noise.
+function drawSteel(ctx, pts, fill, hi) {
+  const n = pts.length, L = [], Rt = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let tx = b.x - a.x, ty = b.y - a.y; const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+    L.push([pts[i].x - ty * pts[i].w, pts[i].y + tx * pts[i].w]);
+    Rt.push([pts[i].x + ty * pts[i].w, pts[i].y - tx * pts[i].w]);
+  }
+  ctx.fillStyle = fill || STEEL_FILL;
+  ctx.beginPath(); ctx.moveTo(L[0][0], L[0][1]);
+  for (let i = 1; i < n; i++) ctx.lineTo(L[i][0], L[i][1]);
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo(Rt[i][0], Rt[i][1]);
+  ctx.closePath(); ctx.fill();
+  if (hi === false) return;
+  const lerp2 = (A, B, t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
+  ctx.fillStyle = hi || STEEL_HI;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) { const p = lerp2(L[i], Rt[i], 0.20); if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }
+  for (let i = n - 1; i >= 0; i--) { const p = lerp2(L[i], Rt[i], 0.44); ctx.lineTo(p[0], p[1]); }
+  ctx.closePath(); ctx.fill();
+}
+// The screen frame of a small world plane, read straight out of the projection: where one world
+// unit along `u` (a horizontal tile vector), one unit of world-z and one unit along `w` each land,
+// in pixels. Anything laid out through `bp` below is therefore a real object STANDING IN THE WORLD
+// — it foreshortens, it leans with the horizon, and it goes edge-on when you drive past it — for
+// three extra cam.proj calls and no matrix library. The step is small and the frame is only used
+// over a few hundredths of a tile, so the linear approximation is exact to well under a pixel.
+const BASIS_EPS = 0.04;
+function planeBasis(cam, x, y, z, u, w) {
+  const o = cam.proj(x, y, z);
+  if (o.f <= 0.1) return null;
+  const pu = cam.proj(x + u[0] * BASIS_EPS, y + u[1] * BASIS_EPS, z);
+  const pv = cam.proj(x, y, z + BASIS_EPS);
+  const pw = cam.proj(x + w[0] * BASIS_EPS, y + w[1] * BASIS_EPS, z);
+  return {
+    ox: o.sx, oy: o.sy, f: o.f,
+    ux: (pu.sx - o.sx) / BASIS_EPS, uy: (pu.sy - o.sy) / BASIS_EPS,
+    vx: (pv.sx - o.sx) / BASIS_EPS, vy: (pv.sy - o.sy) / BASIS_EPS,
+    wx: (pw.sx - o.sx) / BASIS_EPS, wy: (pw.sy - o.sy) / BASIS_EPS,
+  };
+}
+const bp = (B, a, b, c) => [B.ox + B.ux * a + B.vx * b + B.wx * c, B.oy + B.uy * a + B.vy * b + B.wy * c];
+function fillPoly(ctx, pts, fill) {
+  ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath(); ctx.fill();
+}
+
 function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, MAST_H);
   if (base.f <= 0.1 || top.f <= 0.1) return;
@@ -6473,63 +6543,178 @@ function drawSignalMast(ctx, cam, dx, dy, arm, lamp, alpha, night, lit) {
   const s = clamp(18 / top.f, 1.2, 30);
   if (s < 1.6) return;                        // too far to resolve three lamps: drawing one is a lie
   ctx.globalAlpha = alpha;
-  const steelW = Math.max(0.9, s * 0.13);
-  ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = steelW * 1.25; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy); ctx.stroke();          // the pole
-  ctx.lineWidth = steelW;
-  ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.quadraticCurveTo(mid.sx, mid.sy, tip.sx, tip.sy); ctx.stroke();   // the boom
+  // A projected point plus the pixel half-width of a member of world radius `r` at that point's own
+  // depth. The floor is half a pixel: below that a fill drops out entirely and the mast at the far
+  // end of a street would flicker in and out as it drifted across the pixel grid.
+  const px = (p, r) => ({ x: p.sx, y: p.sy, w: Math.max(0.5, r * cam.FL / p.f) });
+  drawSteel(ctx, [px(base, POLE_R0), px(top, POLE_R1)]);                                   // the pole
+  // The boom, sampled off the same quadratic the stroke used to draw (mid is the CONTROL point, not
+  // a point on the curve) so the droop is unchanged — it is the width that is new, not the shape.
+  const boom = [];
+  for (let i = 0; i <= 5; i++) {
+    const t = i / 5, m0 = (1 - t) * (1 - t), m1 = 2 * (1 - t) * t, m2 = t * t;
+    boom.push({
+      x: m0 * top.sx + m1 * mid.sx + m2 * tip.sx,
+      y: m0 * top.sy + m1 * mid.sy + m2 * tip.sy,
+      w: Math.max(0.5, (BOOM_R0 + (BOOM_R1 - BOOM_R0) * t) * cam.FL / (top.f + (tip.f - top.f) * t)),
+    });
+  }
+  drawSteel(ctx, boom);
   // The heads, hung under the boom at the lane positions. Two on a mast — a real one carries one
   // per lane, and two is what reads as "over the road" without turning into a row of dots.
-  const r = Math.max(0.6, s * 0.15);
-  for (const t of [0.42, 0.80]) {
-    const hp = cam.proj(dx + arm[0] * MAST_REACH * t, dy + arm[1] * MAST_REACH * t, MAST_H - 0.006);
-    if (hp.f <= 0.1) continue;
-    ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = Math.max(0.7, s * 0.06);
-    ctx.beginPath(); ctx.moveTo(hp.sx, hp.sy); ctx.lineTo(hp.sx, hp.sy + r * 0.9); ctx.stroke();     // the drop bracket
-    signalLamps(ctx, hp.sx, hp.sy + r * 0.9, r, lamp, s, night);
+  // `face` is the approach the lenses look down: the boom reaches across the carriageway, so the
+  // head faces along the perpendicular of the arm, which is the approach the mast was placed off.
+  const face = [arm[1], -arm[0]];
+  const hangZ = MAST_H - 0.006;
+  // Far head first. The whole mast is ONE entry in the face sink (it is one object, and splitting it
+  // would let a passing truck sort between a pole and its own boom), so within it the order is the
+  // order it is written — and the boom points across the road, so which of the two heads is nearer
+  // flips as you turn. A third of a tile apart is enough to overlap when the boom is pointing at you.
+  const heads = [0.42, 0.80].map((t) => ({ t, hx: dx + arm[0] * MAST_REACH * t, hy: dy + arm[1] * MAST_REACH * t }));
+  for (const h of heads) h.f = h.hx * cam.sinh - h.hy * cam.cosh;
+  heads.sort((a, b) => b.f - a.f);
+  for (const h of heads) {
+    const b0 = cam.proj(h.hx, h.hy, hangZ), b1 = cam.proj(h.hx, h.hy, hangZ - BRACKET_H);
+    if (b0.f <= 0.1) continue;
+    drawSteel(ctx, [px(b0, 0.004), px(b1, 0.0035)], STEEL_FILL, false);                    // the drop bracket
+    signalHead(ctx, cam, h.hx, h.hy, hangZ - BRACKET_H, arm, face, lamp, s, night);
   }
   // The cobra head, on the opposite side of the same pole. A real mast carries the street light too,
   // and putting it here rather than on its own post beside it is the other half of "fewer poles".
-  const cobra = cam.proj(dx - arm[0] * 0.26, dy - arm[1] * 0.26, MAST_H + 0.01);
+  const cbx = dx - arm[0] * 0.26, cby = dy - arm[1] * 0.26;
+  const cobra = cam.proj(cbx, cby, MAST_H + 0.01);
   if (cobra.f > 0.1) {
-    ctx.strokeStyle = 'rgba(96,100,108,0.95)'; ctx.lineWidth = Math.max(0.7, s * 0.08);
-    ctx.beginPath(); ctx.moveTo(top.sx, top.sy); ctx.lineTo(cobra.sx, cobra.sy); ctx.stroke();
-    ctx.fillStyle = 'rgba(70,74,82,0.95)';
-    ctx.beginPath(); ctx.ellipse(cobra.sx, cobra.sy + r * 0.3, r * 1.5, r * 0.5, 0, 0, 7); ctx.fill();
+    drawSteel(ctx, [px(top, 0.005), px(cobra, 0.0035)], STEEL_FILL, false);
+    // The luminaire is a HORIZONTAL plate, so it is laid out in a frame with no vertical extent at
+    // all: it thins to a sliver as you come level with it and opens out as you pass under it, which
+    // an ellipse pinned to the screen could never do.
+    const LB = planeBasis(cam, cbx, cby, MAST_H + 0.006, arm, face);
+    if (LB) {
+      fillPoly(ctx, [bp(LB, -0.016, 0, -0.009), bp(LB, 0.016, 0, -0.009), bp(LB, 0.019, 0, 0.009), bp(LB, -0.019, 0, 0.009)], 'rgba(70,74,82,0.95)');
+      fillPoly(ctx, [bp(LB, -0.012, -0.003, -0.006), bp(LB, 0.012, -0.003, -0.006), bp(LB, 0.014, -0.003, 0.006), bp(LB, -0.014, -0.003, 0.006)],
+        lit ? `rgba(255,236,196,${0.72 + night * 0.28})` : 'rgba(44,48,56,0.95)');
+    }
     if (lit) {
-      const g = ctx.createRadialGradient(cobra.sx, cobra.sy + r * 0.5, 0, cobra.sx, cobra.sy + r * 0.5, r * 6);
+      // The bloom stays a screen-space gradient, and that is not an oversight: a halo is what the
+      // atmosphere and the eye do with a bright source, not a surface the lamp has. It is the
+      // FITTING that had to stop being a sprite.
+      const gr = Math.max(3, 0.042 * cam.FL / cobra.f);
+      const g = ctx.createRadialGradient(cobra.sx, cobra.sy, 0, cobra.sx, cobra.sy, gr);
       g.addColorStop(0, `rgba(255,226,168,${0.20 + night * 0.34})`); g.addColorStop(1, 'rgba(255,226,168,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy + r * 0.5, r * 6, 0, 7); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cobra.sx, cobra.sy, gr, 0, 7); ctx.fill();
     }
   }
   ctx.globalAlpha = 1;
 }
-// The three lamps in a housing, hung from (hx, hy) — the top of the housing, so a head reads as
-// suspended from the bracket above it rather than balanced on a point. Its own function because a
-// mast carries two of them and any future kerbside head would carry a third: one drawing of what a
-// signal looks like, however many are hung.
+
+// ── ONE SIGNAL HEAD, AS GEOMETRY ─────────────────────────────────────────────
+//
+// The head was a screen-space rect with three ctx.arc lenses in it: a sprite, square to the camera
+// at every angle, so a signal you were driving past presented its full face right up to the moment
+// it left the screen. It is a box standing in the world now — laid out in the local frame above
+// (u across the road, v up, w down the approach) — so it foreshortens as you turn, and a junction
+// on a cross street shows you the SIDE of its heads, which is what tells you at a glance that those
+// lights are not the ones talking to you.
+//
+// The housing is in tiles across and world-z tall, and a lens needs different numbers on the two
+// axes to come out round, because tiles and world-z do not project at the same rate (cam.FL against
+// the vertical depth scale). Sized to land where the sprite landed: about a quarter of the pole.
+const BRACKET_H = 0.014;
+const HEAD_W = 0.021, HEAD_D = 0.018, HEAD_H = 0.065;
+const LENS_U = 0.0065, LENS_V = 0.0089;
 //
 // ⚠ THE HALO'S THRESHOLD IS IN `s`, THE HEAD'S ON-SCREEN SIZE, NOT IN TILES. `f` is projection
 // space and runs well ahead of the tile count — a junction two tiles up measures s≈2.5, not 4.5 —
 // so an earlier gate of 3 meant the halo never drew at any distance at all, which reads exactly
 // like "the lights just aren't very bright" rather than like a dead branch.
-function signalLamps(ctx, hx, hy, r, lamp, s, night) {
-  ctx.fillStyle = 'rgba(26,29,35,0.92)';
-  ctx.fillRect(hx - r * 1.5, hy, r * 3, r * 6.4);
+function signalHead(ctx, cam, x, y, z, u, face, lamp, s, night) {
+  const B = planeBasis(cam, x, y, z, u, face);
+  if (!B) return;
+  // Which way round are we looking at it? df/d(face) falls straight out of the camera — depth is
+  // bx*sinh − by*cosh, so a unit step along a horizontal vector changes it by exactly this — and a
+  // negative value means that face is the NEAR one. |dfw| doubles as how square-on the head is, 1
+  // face-on down to 0 edge-on, which is what the halo is scaled by: a signal you are passing must
+  // not blaze at you sideways.
+  const dfw = face[0] * cam.sinh - face[1] * cam.cosh;
+  const dfu = u[0] * cam.sinh - u[1] * cam.cosh;
+  const faceness = Math.min(1, Math.abs(dfw));
+  const cF = dfw < 0 ? HEAD_D / 2 : -HEAD_D / 2;      // the lens face toward us…
+  const aS = dfu < 0 ? HEAD_W / 2 : -HEAD_W / 2;      // …and the flank we can see
+  // BOTH faces carry lenses, and that is not a cheat to dodge back-face culling. One mast governs an
+  // AXIS (see the note above drawSignalMast), so the driver arriving from the other direction is
+  // looking at the far side of this same head; a real junction hangs a head per approach and this is
+  // those heads as one object. The phase they show is identical by construction.
+  const W2 = HEAD_W / 2;
+  fillPoly(ctx, [bp(B, -W2, 0, -cF), bp(B, W2, 0, -cF), bp(B, W2, -HEAD_H, -cF), bp(B, -W2, -HEAD_H, -cF)], 'rgba(18,20,25,0.94)');   // the far face, so the box is solid edge-on
+  if (s > 2.4) fillPoly(ctx, [bp(B, aS, 0, -cF), bp(B, aS, 0, cF), bp(B, aS, -HEAD_H, cF), bp(B, aS, -HEAD_H, -cF)], 'rgba(23,26,32,0.94)');   // the flank
+  fillPoly(ctx, [bp(B, -W2, 0, cF), bp(B, W2, 0, cF), bp(B, W2, -HEAD_H, cF), bp(B, -W2, -HEAD_H, cF)], 'rgba(31,35,42,0.95)');               // the lens face
+  const lensC = cF * 1.08, hoodC = cF + (cF > 0 ? 0.010 : -0.010);
   for (let i = 0; i < 3; i++) {
     const key = i === 0 ? 'r' : i === 1 ? 'a' : 'g', on = lamp === key, col = SIGNAL_COL[key];
-    const ly = hy + r * 1.2 + i * r * 2;
+    const lb = -HEAD_H * (0.19 + i * 0.31);
+    // An octagon, not a circle. At the size these actually draw the two are the same picture — the
+    // point of the octagon is that its eight corners are WORLD points, so the lens sits in the
+    // head's own plane and shears with it instead of staying a disc pinned to the screen.
+    const pts = [];
+    for (let k = 0; k < 8; k++) { const th = (k + 0.5) * Math.PI / 4; pts.push(bp(B, LENS_U * Math.cos(th), lb + LENS_V * Math.sin(th), lensC)); }
     // A dark lamp is the housing colour with a hint of its own, not a dimmed bright one — an unlit
     // red that still reads red makes all three look lit at the sizes this actually draws at.
-    ctx.fillStyle = on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`;
-    ctx.beginPath(); ctx.arc(hx, ly, r * 0.72, 0, 7); ctx.fill();
+    fillPoly(ctx, pts, on ? `rgb(${col[0]},${col[1]},${col[2]})` : `rgba(${col[0] * 0.22 | 0},${col[1] * 0.22 | 0},${col[2] * 0.22 | 0},0.9)`);
+    // The hood over each lens, close in only: at range it is a sub-pixel smudge that just darkens
+    // the lamp it is meant to shade.
+    if (s > 5) {
+      const hb = lb + LENS_V * 1.2;
+      fillPoly(ctx, [bp(B, -LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb, cF), bp(B, LENS_U * 1.45, hb - 0.004, hoodC), bp(B, -LENS_U * 1.45, hb - 0.004, hoodC)], 'rgba(14,16,20,0.95)');
+    }
     if (on && s > 2) {
-      const g = ctx.createRadialGradient(hx, ly, 0, hx, ly, r * 2.6);
-      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${0.32 + night * 0.34})`);
+      const c = bp(B, 0, lb, lensC), gr = Math.max(1.6, LENS_V * Math.hypot(B.vx, B.vy) * 3.4);
+      const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], gr);
+      g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${(0.32 + night * 0.34) * (0.35 + 0.65 * faceness)})`);
       g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(hx, ly, r * 2.6, 0, 7); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], gr, 0, 7); ctx.fill();
     }
   }
+}
+
+// ── PROOF THAT THE HEAD HAS A FACING, AND THE STEEL A THICKNESS ──────────────
+//
+// The render smoke asks one question — did the frame throw — and a sprite and a box both answer it
+// the same way, so the entire point of this rewrite is invisible to it. A future tidy-up that puts
+// the lenses back on a screen-space rect would leave every existing gate green.
+//
+// So measure the two properties that ARE the change. A head is placed dead ahead at a fixed camera
+// depth, facing back down its approach, and the camera swings around it: square-on its lens face
+// must be at full width, and from the side it must all but vanish (a billboard's never moves). And
+// the pole's width must SCALE with distance rather than sit on a floor — the old stroke clamped at
+// max(0.9, …) and was a flat 0.9px from about seven tiles out to the horizon, which is the specific
+// thing "thicken the poles" was asking about.
+export function signalGeomSmoke() {
+  const out = [];
+  // ⚠ MEASURED ON A WINDSCREEN-SIZED CANVAS, not the 640px view stub. Steel is sized off cam.FL,
+  // which is a fraction of the canvas WIDTH, so a pixel threshold asserted at 640 is asserting
+  // something about a panel nobody plays on — the same pole is twice as thick on a real one.
+  const W = 1200, H = 560, horizonY = H * 0.42, focal = H * 0.55;
+  const D = 2.5, face = [0, 1], u = [1, 0];   // head faces south; camera approaches it from the south
+  const lensWidth = (headingDeg) => {
+    const cam = makeCam(W, horizonY, focal, { heading: headingDeg });
+    const x = D * cam.sinh, y = -D * cam.cosh;   // straight ahead, so camera depth is D at every heading
+    const B = planeBasis(cam, x, y, MAST_H - 0.02, u, face);
+    if (!B) return 0;
+    const dfw = face[0] * cam.sinh - face[1] * cam.cosh, cF = dfw < 0 ? HEAD_D / 2 : -HEAD_D / 2;
+    const a = bp(B, -HEAD_W / 2, 0, cF), b = bp(B, HEAD_W / 2, 0, cF);
+    return Math.hypot(b[0] - a[0], b[1] - a[1]);
+  };
+  const on = lensWidth(0), oblique = lensWidth(45), edge = lensWidth(90);
+  if (!(on > 0.5)) out.push(`a signal head square-on measures ${on.toFixed(2)}px across — it is not drawing at all`);
+  if (!(edge < on * 0.15)) out.push(`a signal head seen from the side measures ${edge.toFixed(2)}px against ${on.toFixed(2)}px square-on: it is still facing the camera, not the road`);
+  if (!(oblique > on * 0.5 && oblique < on * 0.85)) out.push(`a signal head at 45° measures ${(oblique / on).toFixed(2)} of its square-on width — expected about cos 45°, so the frame is not foreshortening`);
+  // The steel: half-width at a given world radius must halve as the distance doubles.
+  const cam = makeCam(W, horizonY, focal, { heading: 0 });
+  const wAt = (f) => Math.max(0.5, POLE_R0 * cam.FL / f);
+  const near = wAt(3), far = wAt(6);
+  if (!(near > 1.0)) out.push(`a mast pole three tiles out is ${(near * 2).toFixed(2)}px of steel — back to a hairline`);
+  if (Math.abs(near / far - 2) > 0.05) out.push(`a mast pole does not thin with distance (${near.toFixed(2)}px at 3 tiles, ${far.toFixed(2)}px at 6) — the width is back on a clamp, not on the world`);
+  return out;
 }
 
 // ── STREET LAMPS ──────────────────────────────────────────────────────────────────────────────
@@ -6545,6 +6730,10 @@ function signalLamps(ctx, hx, hy, r, lamp, s, night) {
 // The post is drawn whether the lamp is lit or not, because an unlit post is still street
 // furniture you can see. Collapsing "off" into "absent" would make every lamp in the city pop out
 // of existence at dawn.
+//
+// Column radii in tiles, base → top: thinner than the signal mast, because a lamp standard carries
+// one fitting and a mast carries a boom out over four lanes.
+const LAMP_R0 = 0.008, LAMP_R1 = 0.005;
 function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   const base = cam.proj(dx, dy, 0), top = cam.proj(dx, dy, 0.34);
   if (base.f <= 0.1 || top.f <= 0.1) return;
@@ -6555,12 +6744,19 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   // The head reaches OUT over the road. `inward` is the unit vector from the kerb toward the
   // centreline, so a lamp lights the carriageway it is standing beside rather than the wall behind
   // it — which is the whole visual difference between a streetlight and a fence post.
-  const armEnd = cam.proj(dx + inward[0] * 0.16, dy + inward[1] * 0.16, 0.33);
+  const ax = dx + inward[0] * 0.16, ay = dy + inward[1] * 0.16;
+  const armEnd = cam.proj(ax, ay, 0.33);
+  if (armEnd.f <= 0.1) return;
   ctx.globalAlpha = alpha;
-  ctx.strokeStyle = 'rgba(52,57,66,0.92)'; ctx.lineWidth = Math.max(0.8, s * 0.07); ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(base.sx, base.sy); ctx.lineTo(top.sx, top.sy);          // the column
-  ctx.lineTo(armEnd.sx, armEnd.sy); ctx.stroke();                                      // the cantilever
+  // The column and its cantilever, as tapered polygons in world radii for the same reason the
+  // signal mast is (see POLE_R0): a lamp standard is a chunky bit of steel and a 0.8px stroke is a
+  // hairline. One member through drawSteel, so the bend at the top carries the taper with it.
+  const px = (p, r) => ({ x: p.sx, y: p.sy, w: Math.max(0.5, r * cam.FL / p.f) });
+  drawSteel(ctx, [px(base, LAMP_R0), px(top, LAMP_R1), px(armEnd, LAMP_R1 * 0.7)], 'rgba(52,57,66,0.94)', 'rgba(88,95,106,0.85)');
   const r = Math.max(0.7, s * 0.1);
+  // The fitting is a flat horizontal luminaire, laid out in a world frame rather than as a screen
+  // ellipse: it closes to a sliver as you come level with it and opens as you drive under it.
+  const FB = planeBasis(cam, ax, ay, 0.328, inward, [inward[1], -inward[0]]);
   if (lit) {
     // Sodium orange, and a pool of it on the road below. The pool is what actually reads at
     // distance — the lamp itself is two pixels, and a city at night is legible by the ground it
@@ -6569,12 +6765,10 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
     g.addColorStop(0, `rgba(255,206,132,${0.42 + night * 0.4})`);
     g.addColorStop(1, 'rgba(255,206,132,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(armEnd.sx, armEnd.sy, r * 5, 0, 7); ctx.fill();
-    ctx.fillStyle = `rgba(255,232,190,${0.75 + night * 0.25})`;
-    ctx.beginPath(); ctx.ellipse(armEnd.sx, armEnd.sy, r * 1.25, r * 0.62, 0, 0, 7); ctx.fill();
-    if (night > 0.2) glowPool(ctx, cam, dx + inward[0] * 0.16, dy + inward[1] * 0.16, 0.01, '255,198,120', 9, alpha * night * 0.55);
-  } else {
-    ctx.fillStyle = 'rgba(44,48,56,0.92)';
-    ctx.beginPath(); ctx.ellipse(armEnd.sx, armEnd.sy, r * 1.25, r * 0.62, 0, 0, 7); ctx.fill();   // the dark fitting
+    if (FB) fillPoly(ctx, [bp(FB, -0.012, 0, -0.007), bp(FB, 0.014, 0, -0.007), bp(FB, 0.014, 0, 0.007), bp(FB, -0.012, 0, 0.007)], `rgba(255,232,190,${0.75 + night * 0.25})`);
+    if (night > 0.2) glowPool(ctx, cam, ax, ay, 0.01, '255,198,120', 9, alpha * night * 0.55);
+  } else if (FB) {
+    fillPoly(ctx, [bp(FB, -0.012, 0, -0.007), bp(FB, 0.014, 0, -0.007), bp(FB, 0.014, 0, 0.007), bp(FB, -0.012, 0, 0.007)], 'rgba(44,48,56,0.92)');   // the dark fitting
   }
   ctx.globalAlpha = 1;
 }

@@ -115,6 +115,11 @@ async function main() {
     const cut = grid([[road('ns'), road('nesw'), road('ns')]]);
     if (ws._blockSpan(cut, 0, 0, 'ns').width !== 1) problems.push('road   a junction no longer breaks a carriageway — a crossroads is being paved as part of the street through it');
   }
+  // ── A TRAFFIC SIGNAL IS AN OBJECT, NOT A DECAL ──────────────────────────────
+  // The view pass above already draws a junction, so a throw in the signal code is caught — but a
+  // head that has quietly gone back to facing the camera draws perfectly and passes every gate in
+  // this file. See signalGeomSmoke: it measures the facing and the steel, which is what changed.
+  for (const f of ws.signalGeomSmoke()) problems.push(`signal ${f}`);
   const bayOcc = ws.bayOccluderSmoke(WS_ID);
   for (const f of bayOcc) problems.push(`bayocc ${f}`);
 
@@ -138,7 +143,18 @@ async function main() {
   // looked at a truck's headlamps was a player looking at a truck, and they were invisible twice.
   // See scripts/shapes/truck-lamps.mjs for why this has to render rather than assert on geometry.
   const a3d = await import('../../client/game/js/panels/aircraft3d.js');
+  // ── …AND THAT THE FORECOURT IS ON THE DEPTH PATH TOO ────────────────────────
+  // The fourth renderer of the truck mesh, and the last one to keep sorting: a rig was solid out of
+  // the windscreen and on the bench, and still had a grille bar through the panel it is bolted to on
+  // the floor you buy it from. Same counter as `cab:ext` above and for the same reason — the smoke
+  // deliberately runs the SORT (see truckLampSmoke), so the only way to know the live renderer even
+  // reached the buffer is that building it moved this.
+  const lotRasterBefore = rasterCount();
   const lamps = truckLampSmoke(a3d.drawHangarScene);
+  if (rasterCount() - lotRasterBefore <= 0) {
+    problems.push('lamps  the depot floor never reached the depth buffer. It is back on the painter\'s '
+      + 'sort, which cannot order nested boxes — see model-raster.js.');
+  }
   for (const L of lamps) {
     const lo = Math.min(L.left, L.right), hi = Math.max(L.left, L.right);
     if (lo < LAMP_MIN_AREA) {
@@ -273,6 +289,7 @@ async function main() {
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: both pump lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — and the pumps are still solid.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');
+  console.log('  Signals: a head is square-on to its own approach and all but vanishes from the side, and the mast steel thins with distance instead of sitting on a floor.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

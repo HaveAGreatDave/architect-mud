@@ -148,6 +148,19 @@ export function depthAt(res, x, y) {
 
 export const _resetRasterBuffer = () => { _buf = null; };
 
+// ── ASKING FOR THE FALLBACK ON PURPOSE ───────────────────────────────────────
+// ⚠ A TEST SEAM, and it lives here rather than in the harness because of a detail that is easy to
+// get wrong twice: the DOM stub is permissive enough that `blitRaster` SUCCEEDS in node. So the
+// moment a renderer moves onto the depth path, any gate that reads the DRAW ORDER — the headlamp
+// smoke, which replays the polygons the canvas was given — is handed an empty canvas and reports a
+// truck with no headlamps at all.
+//
+// The sort is not dead code: every caller falls back to it when the blit cannot land, and a lamp
+// being eaten by it is exactly the bug that shipped twice. So it still has to be gated, and this is
+// how a harness asks to be shown it. Never call it from the client.
+let _blitOff = false;
+export const _setBlitEnabled = (on) => { _blitOff = !on; };
+
 // Put the finished window onto a canvas.
 //
 // ⚠ THROUGH A SCRATCH CANVAS, NOT `putImageData`. putImageData ignores the current transform and
@@ -160,6 +173,7 @@ export function blitRaster(ctx, res, x0, y0) {
   // Back into the caller's own units. Supersampling is the reason a caller passes a scale at all —
   // it rasterises at device resolution and lands the result on a ctx that is measured in CSS pixels.
   const ss = res.scale || 1;
+  if (_blitOff) return false;                                                   // a harness asked for the sort — see _setBlitEnabled
   if (typeof document === 'undefined' || !document.createElement) return false;
   if (!_scratch || _scratch.width < w || _scratch.height < h) {
     _scratch = document.createElement('canvas');

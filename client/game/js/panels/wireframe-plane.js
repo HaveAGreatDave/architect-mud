@@ -13,31 +13,85 @@ export function themeColor(varName, fallback) {
   return v || fallback;
 }
 
+// ── Filling the viewport ─────────────────────────────────────────────────────
+// The mesh library is NOT drawn to one scale. A truck is about a quarter of an airframe across —
+// so the focal that frames a Twin Otter leaves a rig as a ~50px doodle adrift in a 440px panel,
+// which is exactly what the dealer's line shipped. `fill` (0…1, the fraction of the viewport the
+// silhouette should occupy) measures the mesh and scales it to fit, so a schematic is sized by the
+// panel it was given rather than by how big somebody happened to author the model.
+//
+// ⚠ Measured over a FULL TURN, never at the yaw about to be drawn. The obvious version fits the
+// frame in front of it, and the model then breathes — biggest side-on, smallest nose-on — which
+// reads as a zoom nobody asked for on a turntable that is supposed to be turning and nothing else.
+// One envelope for the whole rotation is fixed, so the fit is a property of the mesh rather than of
+// the frame. Cached per mesh+viewport: this projects every face two dozen times over and must never
+// run on the frame path.
+const FIT_CACHE = new Map();
+function fitBox(key, faces, projAt, w, h, fill) {
+  const hit = FIT_CACHE.get(key);
+  if (hit) return hit;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const TURNS = 24;
+  for (let i = 0; i < TURNS; i++) {
+    const p = projAt(i / TURNS * Math.PI * 2);
+    for (const face of faces) {
+      if (visorHidden(face)) continue;
+      const P = face.p.map(v => p(v[0], v[1], v[2]));
+      if (P.some(q => q.z <= 0.15)) continue;          // same near-plane cull the draw does
+      for (const q of P) {
+        if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
+        if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
+      }
+    }
+  }
+  const bw = x1 - x0, bh = y1 - y0;
+  const out = (bw > 0.5 && bh > 0.5)
+    ? { s: Math.min(w * fill / bw, h * fill / bh), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 }
+    : { s: 1, cx: w / 2, cy: h * 0.54 };               // nothing measurable — leave the camera alone
+  FIT_CACHE.set(key, out);
+  return out;
+}
+
 // ── True 3D wireframe — the actual aircraft3d.js face geometry, projected
 // through the same ¾ turntable camera the real hangar model uses, but stroked
 // as hollow edges instead of shaded/filled faces. Farther edges fade (a cheap
 // x-ray depth cue) rather than being hidden, so the whole airframe reads through
 // itself like a real technical drawing. `yaw` (radians) spins it in place —
 // callers animate this every frame for the "alive" showroom feel.
-export function drawWireframe3D(ctx, { cls, armed = false, variant = '', w, h, accent = '#39ff9e', yaw = 0, glow = true }) {
+export function drawWireframe3D(ctx, { cls, armed = false, variant = '', w, h, accent = '#39ff9e', yaw = 0, glow = true, fill = 0, fitRef = '' }) {
   ctx.save();
   ctx.clearRect(0, 0, w, h);
   const faces = aircraftFaces(cls, 1, armed, variant);
   // Taildraggers render nose-high (their 3-point sit) on the schematic too.
   const gp = groundPitchFor(cls, armed) * Math.PI / 180, cgp = Math.cos(gp), sgp = Math.sin(gp);
   const E = 0.42, cosE = Math.cos(E), sinE = Math.sin(E);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
   // The armed heli (Viper) is authored double-size, so at the stock focal she
   // overflows the schematic viewport. Back the camera off for her alone — still
   // visibly the biggest airframe on the lot, just fully in frame.
   const camDist = 3.5, focal = Math.min(w, h) * (armed ? 0.95 : 1.5), ox = w / 2, oy = h * 0.54;
-  const proj = (f0, g, h0) => {
-    const f = gp ? f0 * cgp - h0 * sgp : f0, hh = gp ? f0 * sgp + h0 * cgp : h0;   // nose-up ground tilt
-    const fx = f * cy - g * sy, gy = f * sy + g * cy, hz = hh;
-    const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;
-    const z = camDist - camZ;
-    return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z };
+  const projAt = (yv) => {
+    const cy = Math.cos(yv), sy = Math.sin(yv);
+    return (f0, g, h0) => {
+      const f = gp ? f0 * cgp - h0 * sgp : f0, hh = gp ? f0 * sgp + h0 * cgp : h0;   // nose-up ground tilt
+      const fx = f * cy - g * sy, gy = f * sy + g * cy, hz = hh;
+      const camY = hz * cosE - fx * sinE, camZ = fx * cosE + hz * sinE;
+      const z = camDist - camZ;
+      return { sx: ox + gy * focal / z, sy: oy - camY * focal / z, z };
+    };
   };
+  const spun = projAt(yaw);
+  // ⚠ `fitRef` is what keeps a LINE of vehicles a line. Fitting each mesh to its own frame draws
+  // the cheapest rig on the lot exactly as big as the flagship, and the tier ladder — the one thing
+  // a dealer's line is for — vanishes. Measuring the BIGGEST in the family and scaling everything
+  // by that one factor fills the frame for the flagship and leaves a stubby cab looking stubby.
+  const ref = fill ? (fitRef || variant) : '';
+  const box = fill
+    ? fitBox(`${cls}|${ref}|${armed ? 1 : 0}|${w}x${h}|${fill}`,
+        ref === variant ? faces : aircraftFaces(cls, 1, armed, ref), projAt, w, h, fill)
+    : null;
+  const proj = box
+    ? (f0, g, h0) => { const q = spun(f0, g, h0); return { sx: (q.sx - box.cx) * box.s + w / 2, sy: (q.sy - box.cy) * box.s + h / 2, z: q.z }; }
+    : spun;
   ctx.strokeStyle = accent;
   ctx.lineWidth = 1;
   if (glow) { ctx.shadowColor = accent; ctx.shadowBlur = 5; }

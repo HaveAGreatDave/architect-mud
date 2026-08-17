@@ -1328,6 +1328,18 @@ dealer already used — takes a variant, so every card on the depot panel turns 
 the *actual mesh* rather than showing three numbers in a table. Owned trucks draw with a trailer,
 dealer stock without: what you have is a working rig, what is on the lot is a bare tractor.
 
+⚠ **It is sized by the CARD, not by the mesh** (`fill` / `fitRef`, [wireframe-plane.js](client/game/js/panels/wireframe-plane.js)).
+The mesh library is not drawn to one scale — a truck is about a quarter of an airframe across — so
+the focal that frames a Twin Otter left every rig a ~50px doodle adrift in a 440px panel, which is
+what the line first shipped. `fill` measures the silhouette and scales it to fill the viewport, and
+two things about that measurement are load-bearing. It is taken over a **full turn**, never at the
+yaw about to be drawn, or the model breathes as it spins — biggest side-on, smallest nose-on — which
+reads as a zoom nobody asked for. And it is taken off **`fitRef`, the biggest mesh in the family**
+(the highest tier the dealer stocks, by data — no type id is written into the client), because
+fitting each rig to its own frame draws the cheapest one exactly as big as the flagship and deletes
+the tier ladder the line exists to show. The fit is cached per mesh+viewport; it projects every face
+two dozen times over and must never reach the frame path.
+
 **The cab.** The dash was the one flat fill in a scene otherwise built from procedural canvas
 textures, and it is the surface a player looks at for twenty minutes at a stretch. It now takes a
 memoised moulded-vinyl texture through the same `getTex` registry every wall in the city uses

@@ -4714,6 +4714,79 @@ function drawATCTower(ctx, proj, fillModel, pal, night) {
   }
 }
 
+// ── THE DEPTH PASS, WRITTEN ONCE ─────────────────────────────────────────────
+// Every renderer of the truck mesh needs the same twenty lines, and the ⚠ at the top of
+// model-raster.js is about what happens when they are written twenty lines at a time: the buffer
+// went into the walkaround while the chase camera kept sorting, and before that the part sort went
+// into the windscreen while the forecourt kept sorting. Each time the work was real, verified in
+// one view, and had no effect in the others — so the dance lives here and the callers hand it
+// their faces.
+//
+// A face record needs `P` (projected {sx, sy, z}, smaller z nearer), `rv` (its shaded colour as
+// numbers) and optionally `alpha`. Each one comes back stamped with `seen`: whether it still owns
+// its own centre once everything nearer has been laid down, which is what the canvas detail passes
+// (jazz splatter, hull texture, canopy art, glass sheen) are gated on — a face that lost cannot
+// paint its decoration over the panel hiding it.
+//
+// Returns FALSE when there was nothing to do, the model is too small to be worth it, or the blit
+// could not land (a headless harness has no canvas to compose through). A false is the caller's cue
+// to fall the whole way back to sortTruckFaces — not to skip the fills it is no longer doing.
+const RASTER_MIN_PX = 46;           // below this on screen a rig keeps the sort: too small to see a mistake in
+// ⚠ AND THIS NUMBER IS A FRAME TIME, NOT A TASTE. These panels are not the windscreen: there the
+// rig is a couple of hundred pixels across and the budget never binds, while here the model FILLS
+// the pane and it binds every frame. Measured on this mesh, the pass runs at roughly 30ns per
+// buffer pixel — so a full-pane rig supersampled to a retina ratio is 840k pixels and ~25ms, which
+// is not a slow frame, it is no frame at all on a 60fps loop that redraws a static shed.
+//
+// 200k lands the worst case (one rig filling the pane) at ~6ms and scale 1 — exactly what the hero
+// shot has always shipped — while a row of six small rigs, which is cheap, still gets the full
+// device ratio. That is the trade: the sharpening is what gives way under load, never the pass.
+const RASTER_BUDGET_PX = 200_000;
+// The canvas's own transform, which on every canvas in this client is the device-pixel ratio. Read
+// off the context rather than off `window`, so a caller that scales differently — or a harness with
+// no transform at all — gets the truth rather than an assumption.
+function canvasScale(ctx) {
+  try {
+    const m = ctx.getTransform ? ctx.getTransform() : null;
+    return m ? clampN(Math.hypot(m.a || 1, m.b || 0) || 1, 1, 2) : 1;
+  } catch { return 1; }
+}
+function truckDepthPass(ctx, drawn, { min = 0, budget = RASTER_BUDGET_PX } = {}) {
+  if (!drawn.length) return false;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const fc of drawn) for (const q of fc.P) {
+    if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
+    if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
+  }
+  if (!(x1 > x0 && y1 > y0)) return false;
+  if (min && (x1 - x0 < min || y1 - y0 < min)) return false;   // a thumbnail keeps the sort — see the ⚠ in model-raster.js
+  x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
+  const bw = x1 - x0, bh = y1 - y0;
+  // ⚠ SUPERSAMPLED TO THE CANVAS'S OWN SCALE. These canvases are measured in CSS pixels and drawn
+  // through a device-ratio transform, so a buffer built in CSS pixels lands as the only soft object
+  // in an otherwise crisp frame — and it is the object the player is looking at. The budget is what
+  // keeps that graceful: a rig dragged until it fills the pane gives up the sharpening rather than
+  // the frame.
+  const sc = Math.max(1, Math.min(canvasScale(ctx), Math.sqrt(budget / Math.max(1, bw * bh))));
+  const res = rasterFaces(drawn.map(fc => ({
+    pts: fc.P.map(q => ({ x: q.sx, y: q.sy, z: q.z })),
+    r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
+  })), x0, y0, bw, bh, sc);
+  if (!res) return false;
+  // ⚠ ONLY IF THE BLIT LANDED. A rasterOK set on faith in a headless harness skips the canvas fills
+  // as well — a truck drawn nowhere at all rather than drawn in the old order.
+  if (!blitRaster(ctx, res, x0, y0)) return false;
+  for (const fc of drawn) {
+    let cx = 0, cy = 0, cz = 0;
+    for (const q of fc.P) { cx += q.sx; cy += q.sy; cz += q.z; }
+    const n = fc.P.length;
+    const bx = Math.round((cx / n - x0) * sc), by = Math.round((cy / n - y0) * sc);
+    fc.seen = bx >= 0 && by >= 0 && bx < res.w && by < res.h
+      && Math.abs(depthAt(res, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
+  }
+  return true;
+}
+
 // ── Turntable renderer (hangar hero view) ─────────────────────────────────────
 // Draws the model into a 2D canvas on a perspective camera (elevated, looking down the
 // nose), spun about the vertical axis by `yaw`, at camera elevation `elev` (the walkaround
@@ -4928,34 +5001,9 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   //
   // Everything with wings keeps the mean-depth sort it has always had: an airframe is one smooth
   // hull, which is the shape a sort IS right for.
-  let rasterOK = false;
-  if (cls === 'truck' && drawn.length) {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const fc of drawn) for (const q of fc.P) {
-      if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
-      if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
-    }
-    x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
-    const res = rasterFaces(drawn.map(fc => ({
-      pts: fc.P.map(q => ({ x: q.sx, y: q.sy, z: q.z })),
-      r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
-    })), x0, y0, x1 - x0, y1 - y0);
-    if (res) {
-      // ⚠ ONLY IF THE BLIT LANDED. Headless harnesses have no real canvas to compose through, and
-      // a rasterOK set on faith there would skip the canvas fills as well — a truck drawn nowhere at
-      // all rather than drawn in the old order.
-      rasterOK = blitRaster(ctx, res, x0, y0);
-      // Which faces survived, for the detail passes below. A face owns its centre or it does not.
-      for (const fc of drawn) {
-        let cx = 0, cy = 0, cz = 0;
-        for (const q of fc.P) { cx += q.sx; cy += q.sy; cz += q.z; }
-        const n = fc.P.length;
-        cx = Math.round(cx / n - x0); cy = Math.round(cy / n - y0);
-        fc.seen = cx >= 0 && cy >= 0 && cx < res.w && cy < res.h
-          && Math.abs(depthAt(res, cx, cy) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
-      }
-    }
-  }
+  // The hero shot is the SUBJECT of its camera, so it takes the pass at any size — see the `min`
+  // the floor scene passes, which is for a row of machines rather than one.
+  const rasterOK = cls === 'truck' && truckDepthPass(ctx, drawn);
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
     else drawn.sort((a, b) => b.avgZ - a.avgZ);
@@ -5650,7 +5698,12 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       let nf = Infinity, xf = -Infinity, hf = Infinity;
       for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
       const avgZf = z / P.length;
-      const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZf, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1)) };
+      // ⚠ THE SHADE IS COMPUTED ONCE AND KEPT BOTH WAYS — the same rule as paintTurntable. `col` is
+      // the CSS string canvas wants; `rv` is the same numbers the depth rasteriser writes into a
+      // pixel buffer. Two derivations agree until one of them is edited.
+      const shk = face.sh * pal.fmul * light * (selected ? 1.12 : 1) * (e.wreck ? 0.8 : 1);
+      const rv = [clampN(rgb[0] * shk, 0, 255) | 0, clampN(rgb[1] * shk, 0, 255) | 0, clampN(rgb[2] * shk, 0, 255) | 0];
+      const rec = { P, role: face.role, avgZ: avgZf, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZf, i: drawn.length, rv, col: shadeRgb(rgb, shk) };
       if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
       if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }      // canopy art: UVs + style authored on the mesh
       drawn.push(rec);
@@ -5690,25 +5743,47 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ring.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},0.4)`); ring.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
       ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(grp.origin.sx, grp.origin.sy + 8, spotR, 0, 7); ctx.fill();
     }
-    // Nested convex boxes cannot be ordered per face — see sortTruckFaces. The lot keys its
-    // hysteresis per ENTRY, so two rigs parked side by side never share a part order.
-    // ⚠ AND PER MESH. Part ids come from one build-time counter, so the same integer means a
-    // different box in a different variant — key on the entry alone and a lot that swaps a hauler
-    // for a drayman under the same id hands the new mesh the old mesh's part order, steadily and
-    // wrongly. The lamp smoke found exactly that: three of the four rigs lost a headlamp behind a
-    // panel that had been in front of it on the model before.
+    // ── THE FLOOR IS ORDERED TO THE CAMERA, NOT TO A KEY ───────────────────────
+    // Same depth buffer the windscreen and the walkaround use, and it is here because this was the
+    // last renderer of the truck mesh still sorting. Which is exactly the failure model-raster.js
+    // keeps a counter for: a rig was solid out of the windscreen you drive it from and on the bench
+    // you tune it at, and still had a grille bar in front of the panel it is screwed to on the
+    // forecourt you buy it from. A pile of nested convex boxes has no correct per-part order — a
+    // big panel is behind a small one over here and in front of it over there — so the fills go
+    // through a per-pixel depth test, exact from every angle including straight down.
+    //
+    // ⚠ EACH MACHINE GETS ITS OWN PASS, AND THE ROW IS STILL PAINTED FAR→NEAR. Two rigs a lane
+    // apart never interpenetrate, so one buffer per machine is both cheaper and enough; the
+    // whole-plane sort above is what keeps the row itself in order.
+    //
+    // The sort below is the live fallback for every frame the blit cannot land, so it is still
+    // gated: the lamp smoke asks model-raster's `_setBlitEnabled` for it by name and measures the
+    // draw order exactly as it always did.
+    // Its hysteresis is keyed per ENTRY *and per mesh* — part ids come from one build-time counter,
+    // so the same integer means a different box in a different variant, and a lot that swaps a
+    // hauler for a drayman under one id would hand the new mesh the old mesh's part order.
     const faces = grp.faces;
-    if (grp.entry.cls === 'truck') sortTruckFaces(faces, { id: `lot:${grp.entry.id}:${grp.entry.variant || ''}` }, 1);
-    else faces.sort((a, b) => b.avgZ - a.avgZ);
+    // A budget shared across the row: eight rigs at full device resolution is eight times the most
+    // expensive thing in the frame, and the sharpening is what gives way — never the pass.
+    const rasterOK = grp.entry.cls === 'truck'
+      && truckDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
+    if (!rasterOK) {
+      if (grp.entry.cls === 'truck') sortTruckFaces(faces, { id: `lot:${grp.entry.id}:${grp.entry.variant || ''}` }, 1);
+      else faces.sort((a, b) => b.avgZ - a.avgZ);
+    }
     for (const fc of faces) {
+      if (rasterOK && !fc.seen) continue;                 // hidden: its detail would paint over the winner
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
       for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
       ctx.closePath();
-      ctx.fillStyle = fc.col; ctx.fill();
+      if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass already laid the colour down
       if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
       if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);  // greenhouse art (same authored map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
-      ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+      // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL — the stroke follows a face's WHOLE outline,
+      // including the half that lost the depth test, so it would draw the hidden part of every box
+      // as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway.
+      if (!rasterOK) { ctx.strokeStyle = 'rgba(8,10,14,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
     }
     // Parked craft: crisp stopped blades, angled differently lane to lane so the
     // row doesn't read as clones.
@@ -5721,6 +5796,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     // as a highlight and starts reading as a blue wireframe box drawn over the paint.
     if (grp.selected && n > 1) {
       for (const fc of faces) {
+        if (rasterOK && !fc.seen) continue;   // a highlight on a face that lost the depth test is a line through the bodywork
         if (fc.role === 'body' || fc.role === 'wing') {
           ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
           for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);

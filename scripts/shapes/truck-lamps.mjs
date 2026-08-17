@@ -17,6 +17,7 @@
 // It runs the PARKED pose because that is what the depot shows, and the parked pose is the one a
 // player looks at longest.
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
+import { _setBlitEnabled } from '../../client/game/js/panels/model-raster.js';
 
 // The lens tints, straight off the mesh (`buildTruck`'s headlamp block). Matching by colour rather
 // than by walking the face list is deliberate: it tests what reached the CANVAS, which is the
@@ -75,7 +76,19 @@ const inside = (pt, poly) => {
 };
 
 // Returns { variant, left, right } — visible lens area each side of the model's centreline.
+//
+// ⚠ IT MEASURES THE FALLBACK, AND THAT IS THE POINT. The depot floor now orders its faces with the
+// per-pixel depth buffer (model-raster.js), which cannot eat a headlamp by construction — but it
+// drops to the part sort whenever the blit cannot land, and the sort is what ate one twice. Reading
+// a draw order needs the canvas to have BEEN drawn to, so the blit is switched off for the run
+// rather than left to succeed against a stub and hand this back an empty canvas.
 export function truckLampSmoke(drawHangarScene, variants = ['scrapper', 'hauler', 'drayman', 'continental']) {
+  _setBlitEnabled(false);
+  try { return lampRun(drawHangarScene, variants); }
+  finally { _setBlitEnabled(true); }
+}
+
+function lampRun(drawHangarScene, variants) {
   const out = [];
   for (const variant of variants) {
     const { ctx, polys } = recorder();
