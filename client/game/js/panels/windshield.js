@@ -4800,10 +4800,19 @@ export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
   // band is generous (±0.1 tile) because a sweep samples discretely and a door you can tunnel
   // through at fifty is worse than no door at all.
   if (cell?.mark === 'bay') {
-    if (bayDoorOpen(wx, wy, cell) > 0.5) return 0;
-    const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
-    const rx = px - wx, ry = py - wy;
-    const lx = rx * ct + ry * st, ly = -rx * st + ry * ct;
+    // ⚠ THE DOOR IS READ FROM THE BODY BEING TESTED, NOT FROM THE RENDER FRAME. This asked
+    // `bayDoorOpen`, whose occupant list is in the WINDSCREEN's own-ship-relative frame — the own
+    // ship sits at (0, 0) there — while `wx, wy` here are world tile coordinates. Two different
+    // origins, so the sensor was measuring a rig that did not exist at a shed that was not there,
+    // came back zero, and the doorway went solid on the person driving out of it. That is the
+    // exit you could not leave through with the door standing open above you.
+    //
+    // The probe point IS the vehicle, so it can answer for itself: same curve, same constants, fed
+    // the one position this function actually knows. And that is also the honest model — a door
+    // opens for the thing arriving at it, so approach it and it lifts, come at the wall beside it
+    // and it does not.
+    const [lx, ly] = bayLocal(px, py, wx, wy, cell);
+    if (bayDoorSense(lx, ly) > 0.5) return 0;
     if (Math.abs(lx) <= BAY.DOOR_W + 0.02 && Math.abs(ly - BAY.HL) < 0.10) return BAY.DOOR_H;
     return 0;
   }
@@ -8309,34 +8318,43 @@ export function bayMassSmoke() {
   near(buildingRoofFtAt(wx, wy, cell, wx, wy), BAY_FLOORS * FT_PER_FLOOR, 1e-6, 'the ridge in feet');
   if (modelTopZAt(wx, wy, cell, wx + 0.49, wy + 0.49) !== 0) out.push('the probe found mass outside the shed footprint');
   if (groundObstructionAt(wx, wy, cell, wx, wy, 0.01) !== 0) out.push('a truck can no longer drive into the bay — the one hole in the collision model closed');
-  // ── THE DOOR IS A PHYSICAL OBJECT, AND BOTH OF ITS STATES ARE ASSERTED ─────
-  // Two probes at the threshold, with nothing changed between them but whether a truck is standing
-  // outside. Shut, the aperture stops you; with a rig on the apron it lifts and lets you through.
-  // Without both halves this is untested in the only place it matters: the tile-centre probe above
-  // sits in the middle of the shed and never touches the door plane, so it passed unchanged on the
-  // day the door became solid — a new physical object with no coverage at all.
+  // ── THE DOOR YOU CAN ALWAYS DRIVE OUT OF ─────────────────────────────────
+  // The regression this exists for shipped: the aperture asked the RENDERER for the door state,
+  // whose occupant list lives in the windscreen's own-ship-relative frame, while the collision
+  // works in world tiles. Two origins, no match, sensor reads zero, and the doorway went solid on
+  // the driver standing under an open door.
   //
-  // ⚠ The occupant list is global and every other caller shares it, so it is saved and restored.
+  // ⚠ AND THE OLD TEST COULD NOT HAVE CAUGHT IT, which is the more useful half of the lesson. It
+  // built its fake rig in world coordinates and handed those same coordinates to the renderer's
+  // function — a coherent frame the game never had. A test that supplies both sides of a mismatch
+  // will agree with itself all day.
+  //
+  // So this asserts the property rather than the plumbing: a body AT the threshold is never
+  // blocked, whatever the renderer happens to think, because the thing arriving at a door is the
+  // thing that opens it. The occupant list is deliberately left EMPTY for the drive-out probes —
+  // that is the state the collision path used to see, and it must no longer matter.
   const savedBay = _bayVehicles.slice();
   try {
     const ent = faceVec(cell.ent), th2 = Math.atan2(-ent[0], ent[1]);
     const thrX = wx + Math.sin(th2) * BAY.HL, thrY = wy + Math.cos(th2) * BAY.HL;   // the doorway, in world
     setBayVehicles(null);
-    if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) === 0) out.push('the roller door does not stop anything when it is shut');
-    // A truck one tile out on the apron. `_bayVehicles` is relative to the own ship, and the tile
-    // sits at (wx, wy) in that same frame, so the rig goes just beyond the threshold.
+    if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) !== 0) out.push('the doorway blocks a truck standing in it — the exit is shut on the driver');
+    // …and every step of the way out, not just the one point on the line.
+    for (let t = -0.25; t <= 0.25; t += 0.05) {
+      const ox = wx + Math.sin(th2) * (BAY.HL + t), oy = wy + Math.cos(th2) * (BAY.HL + t);
+      if (groundObstructionAt(wx, wy, cell, ox, oy, 0.01) !== 0) { out.push(`the way out is blocked ${t.toFixed(2)} tiles from the threshold`); break; }
+    }
+    // The PICTURE still runs off the vehicles the renderer knows about, and that half is unchanged:
+    // a rig at the threshold lifts the door, one across the yard does not.
     _bayVehicles.length = 0;
     _bayVehicles.push([thrX + Math.sin(th2) * 0.5, thrY + Math.cos(th2) * 0.5]);
     if (bayDoorOpen(wx, wy, cell) <= 0.5) out.push('a truck at the threshold does not open the door');
-    if (groundObstructionAt(wx, wy, cell, thrX, thrY, 0.01) !== 0) out.push('the door is up and the aperture still blocks');
-    // …and a rig on the far side of the yard must NOT open it, or the sensor is a tile flag with
-    // extra steps.
     _bayVehicles.length = 0;
     _bayVehicles.push([wx + 6, wy + 6]);
     if (bayDoorOpen(wx, wy, cell) !== 0) out.push('a truck across the yard opens the door');
   } finally {
     _bayVehicles.length = 0;
-    for (const p of savedBay) _bayVehicles.push(p);
+    for (const q of savedBay) _bayVehicles.push(q);
   }
   return out;
 }
@@ -12063,21 +12081,33 @@ export function setBayVehicles(v) {
 }
 // How far up the door on the tile at (dx, dy) is: 0 shut, 1 fully up. Pure, and cheap enough to
 // call from a collision sweep — the occupant list is at most a handful of rigs.
+// The sensor itself, given one body's position in the shed's own frame. ONE curve, two callers, and
+// that is the whole reason it is a function: the door you can see and the door that stops you must
+// be the same door.
+function bayDoorSense(lx, ly) {
+  const { HW, HL, DOOR_W } = BAY;
+  const inside = Math.abs(lx) < HW && Math.abs(ly) < HL;
+  // Measured to the DOORWAY, not the tile centre, so it means the same thing from the apron and
+  // from the back wall; the lateral term is what stops a rig passing down the far side of the yard
+  // from opening it.
+  const d = Math.hypot(Math.max(0, Math.abs(lx) - DOOR_W), ly - HL);
+  const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
+  return clamp((s0 - d) / Math.max(0.01, s0 - s1), 0, 1);
+}
+// Put a point into the shed's frame. `ox, oy` is the body, `dx, dy` the tile, both in whatever
+// frame the caller is working in — the subtraction is what makes this frame-agnostic, and getting
+// that wrong is what shut the door on the person driving through it (see the ⚠ in
+// groundObstructionAt).
+function bayLocal(ox, oy, dx, dy, cell) {
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const wx = ox - dx, wy = oy - dy;
+  return [wx * ct + wy * st, -wx * st + wy * ct];
+}
 export function bayDoorOpen(dx, dy, cell) {
   if (!_bayVehicles.length || !cell) return 0;
-  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
-  const { HW, HL, DOOR_W } = BAY;
   let best = 0;
   for (const [vx, vy] of _bayVehicles) {
-    const wx = vx - dx, wy = vy - dy;                                  // vehicle → tile centre, world axes
-    const lx = wx * ct + wy * st, ly = -wx * st + wy * ct;             // …and in the shed's own frame
-    const inside = Math.abs(lx) < HW && Math.abs(ly) < HL;
-    // Measured to the DOORWAY, not the tile centre, so the sensor means the same thing from the
-    // apron and from the back wall; `lateral` is what stops a rig passing down the far side of the
-    // yard from opening it.
-    const d = Math.hypot(Math.max(0, Math.abs(lx) - DOOR_W), ly - HL);
-    const s0 = inside ? BAY_IN_SENSE : BAY_SENSE_TILES, s1 = inside ? BAY_IN_OPEN : BAY_OPEN_TILES;
-    const o = clamp((s0 - d) / Math.max(0.01, s0 - s1), 0, 1);
+    const o = bayDoorSense(...bayLocal(vx, vy, dx, dy, cell));
     if (o > best) best = o;
   }
   return best;
