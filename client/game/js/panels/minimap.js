@@ -831,9 +831,24 @@ function renderMinimapDom(nodes, direction) {
         styled = ' mm-styled';
       }
       const terrCls = terr ? ` mm-terr mm-${terr}` : '';
-      // Perimeter wall: gate tiles get a highlighted opening; other curtain tiles a
-      // shimmer-edge; the glacis kill-zone a faint hazard tint. (server whitelists these.)
-      const perimCls = node.perimeter_gate ? ' mm-gate' : (node.curtain ? ' mm-curtain' : (node.glacis ? ' mm-glacis' : ''));
+      // Perimeter wall. `spec.curtain` is the derived list of the tile's OWN EDGES the
+      // wall stands on (see deriveCurtain in scripts/content/derive.mjs), so a class per
+      // face puts the stroke on the boundary rather than a ring around the whole tile —
+      // the run reads as one continuous line, a corner as an L, and the tile's middle
+      // stays clear, because a player who walks onto this tile is standing BEHIND the
+      // wall and not inside it.
+      // The fallback below is the shimmer ring this used to be, and it is not dead code:
+      // a database whose zone_derived is stale carries no faces, and a wall that renders
+      // as nothing at all is worse than one that renders as a ring.
+      // Glacis is a ZONE, not a wall — it keeps its ring in both paths.
+      const cwFaces = node.spec?.curtain || '';
+      let perimCls = '';
+      if (cwFaces) {
+        perimCls = ' mm-cw' + (node.perimeter_gate ? ' mm-gate mm-cw-gate' : '');
+        for (const d of cwFaces) perimCls += ` mm-cw-${d}`;
+      } else if (node.perimeter_gate) perimCls = ' mm-gate mm-curtain';
+      else if (node.curtain) perimCls = ' mm-curtain';
+      else if (node.glacis) perimCls = ' mm-glacis';
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const unreach = node.reachable === false ? ' mm-unreachable' : '';
       // Enterable buildings are doors, not rooms — clickable (action-link + data-dest

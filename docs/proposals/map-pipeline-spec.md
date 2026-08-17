@@ -362,6 +362,11 @@ may do to it (§7.7):
   // label — present iff a code means something here. NEVER on painted ground.
   "label": { "text": "BW", "kind": "building" },   // kind: building | room | art
 
+  // overlay — present iff the tile is perimeter wall. The OUTWARD faces, not the
+  // joins: 's' a run along the south edge, 'sw' the corner L. Its own key rather
+  // than the feature slot, because the wall stands ON a tile that keeps its art.
+  "curtain": "sw",
+
   "entrance": "north",        // facades only — mirrors flags.entrance, for the bar
   "height": 4                 // buildings only — from flags.floors
 }
@@ -717,6 +722,7 @@ connectivity. Lift these into derive rather than reinventing them.
 | `deriveColors(zone, palette)` | tile | `{color, bg_color}` | override → palette. |
 | `deriveAutoTile(zone, ctx)` | tile + neighbours | `{n,e,s,w}` | **BUILT.** Only when the palette entry sets `auto_tile` — 158 tiles. See §7.6. |
 | `deriveFeature(zone, autoTile)` | tile | string\|null | **BUILT.** The footprint SVG — authored `flags.icon` → building rooftop → auto-tiled connector. 232 tiles. See §7.7. |
+| `deriveCurtain(zone, ctx)` | tile + whole map | string\|null | **BUILT.** The perimeter wall's OUTWARD faces (`'s'`, `'sw'`, …). 64 tiles. Whole-map because "which side is out" is answered from the centroid of the connected run. |
 | `deriveLabel(zone, palette, ctx)` | tile | `{text,kind}`\|null | **BUILT.** The code someone reads. Never on painted ground. 270 tiles. See §7.7. |
 | `buildRenderSpec(...)` | all of the above | `spec` JSONB | §2.3. The only renderer channel. |
 | `projectEdges(zones, connections)` | world | `EdgeRow[]` | §7.5. |
@@ -907,6 +913,12 @@ by eye, which is the editor holding an opinion about what a road looks like.
 | ground | `fill` / `text` / `terrain` | always |
 | feature | `feature` — one zone-icon name | iff something stands on the ground |
 | label | `label: {text, kind}` | iff a code means something here |
+| overlay | `curtain` — the wall's outward faces | iff the tile is perimeter wall |
+
+The overlay is a FOURTH layer rather than a fourth precedence rung inside `feature`, because it does
+not compete with the tile's own drawing: the wall stands on a tile that keeps its ground, its terrain
+and, at the gate, its road piece. Sharing the slot would have had one silently delete the other, and
+which one won would have depended on the tile.
 
 `deriveFeature` resolves the footprint with an explicit precedence — **authored `flags.icon` →
 building rooftop → auto-tiled connector → none**. Rung 1 is the override seam: it is what lets the

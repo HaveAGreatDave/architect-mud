@@ -212,10 +212,34 @@ is a *vertical* energy wall, not a ground surface, so it does **not** go in `fla
 the ground-surface SSOT). A `flags.curtain` tile keeps its real terrain and gains two things: (a) the
 `perimeter` plugin appends a sensory band to the room description via a describe hook — *"South, the
 Architect's curtain-wall stands: a floor-to-sky sheet of hard light, humming, cold. There is no way
-through here."*; (b) a small new client rule in `minimap.js` draws a bright field-colored shimmer edge
-on curtain tiles (reuse the artery/Avenue-View edge-drawing hooks) and a distinct **gate glyph** on
-`perimeter_gate` tiles. No new terrain type; the Curtain is a wall overlay, the gate is a marked
-opening. **Also rendered in the flight sim:** `state.js` emits a `cur` run-axis field (from
+through here."*; (b) the 2-D map draws it **on the tile's own outward edges**, as a line rather than
+as a ring.
+
+**(b), as built (2026-08-17).** The build derives `spec.curtain` — the sides of the tile the wall
+FACES OUT on, `'s'` a horizontal run along its south edge, `'sw'` the corner L, `'w'` a vertical run
+up its west edge (`deriveCurtain` in [scripts/content/derive.mjs](../scripts/content/derive.mjs)).
+All three 2-D renderers stroke exactly those edges, and the run reads as one continuous line across
+the map because two tiles in a run agree on the face and their strokes are collinear — no renderer
+ever looks at its neighbour.
+
+Two decisions inside that are worth not re-litigating:
+
+- **A wall carries FACES, not JOINS — it cannot reuse the cliff family.** `autoTileName` names the
+  sides that join, and the cliff art inverts that into faces on the sides that don't, which is right
+  for high ground because there the mass IS the connected set. A wall is a *boundary*: its connected
+  set is the line, so "the sides missing from the run" is ambiguous on every straight tile and wrong
+  on a zigzag, where two consecutive corners would name opposite faces for the segment between them.
+  Which side is out is a whole-map question, answered from the **centroid of the connected run** —
+  geometrically, never from `district === 'wilds'`, which would be Architect content read out of a
+  THOMAS file.
+- **The stroke is on the EDGE, not through the middle.** A wall drawn across its tile says the tile
+  *is* the wall, and a player who steps onto it is standing inside a floor-to-sky sheet of hard
+  light. On the edge, the tile's body stays clear and reads as the ground behind the wall — which is
+  what it is, since the Curtain is an overlay and the tile keeps its real terrain.
+
+No new terrain type; the Curtain is a wall overlay, the gate is a marked opening — drawn as the same
+edge with a **gap in it** (two stubs at 32%/68%, identical in the DOM, canvas and tablet renderers, so
+the three screens never disagree about where the door is). **Also rendered in the flight sim:** `state.js` emits a `cur` run-axis field (from
 `curtainRun()`) on curtain/gate tiles and `mark: 'gate'` on the gate, and the windshield draws
 `drawCurtainWall` (the 3-D energy wall) and `drawSouthGate` — so the barrier reads from the air too,
 not just the minimap.

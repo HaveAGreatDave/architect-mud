@@ -267,9 +267,15 @@ function drawTile(ctx, node, px, py, t, remembered) {
 	// 2. Glyph layer — the same three-way decision symFor() makes for the DOM.
 	drawGlyph(ctx, node, px, py, t, ink);
 
-	// 3. Perimeter wall. The gate's CSS pulse is dropped to a static ring: it is one
-	//    tile on the whole map and not worth a per-frame pass.
-	if (node.perimeter_gate) inset(ctx, px, py, t, '#7fe0ff', 1);
+	// 3. Perimeter wall — one band per outward face, ON the tile's own edge, so a run
+	//    of tiles draws one continuous line and a corner draws an L. Same faces the DOM
+	//    path reads (spec.curtain), same fractions for the gate's gap, so the two
+	//    renderers agree tile for tile. The gate's CSS pulse is dropped: it is one tile
+	//    on the whole map and not worth a per-frame pass.
+	//    No faces derived ⇒ the ring this used to draw, rather than nothing at all.
+	const cwFaces = node.spec?.curtain || '';
+	if (cwFaces) curtainFaces(ctx, px, py, t, cwFaces, !!node.perimeter_gate);
+	else if (node.perimeter_gate) inset(ctx, px, py, t, '#7fe0ff', 1);
 	else if (node.curtain) inset(ctx, px, py, t, 'rgba(122,196,255,0.42)', 1);
 	else if (node.glacis) inset(ctx, px, py, t, 'rgba(224,120,90,0.45)', 1);
 
@@ -285,6 +291,29 @@ function inset(ctx, px, py, t, color, w) {
 	ctx.strokeStyle = color;
 	ctx.lineWidth = w;
 	ctx.strokeRect(px + w / 2, py + w / 2, t - w, t - w);
+}
+
+// The Curtain's outward faces, as filled bands hugging the tile edges they name.
+// Whole device pixels for the same reason the glyphs are: a 2px band on a half pixel
+// is antialiased into a 3px smear, and across a 37-tile run that reads as a fuzzy
+// smudge rather than as a wall.
+//
+// A gate is the same wall with a hole in it — two stubs at the SAME fractions the DOM
+// gradient uses (styles.css .mm-cw-gate), because the one thing worse than a gap in
+// the wrong place is two screens disagreeing about where the door is.
+function curtainFaces(ctx, px, py, t, faces, gate) {
+	const w = Math.max(1, Math.round(t / 12));
+	ctx.fillStyle = gate ? '#aef0ff' : 'rgba(122,196,255,0.85)';
+	const spans = gate ? [[0, 0.32], [0.68, 1]] : [[0, 1]];
+	for (const d of faces) {
+		for (const [a, b] of spans) {
+			const off = Math.round(a * t), len = Math.round(b * t) - off;
+			if (d === 'n') ctx.fillRect(px + off, py, len, w);
+			else if (d === 's') ctx.fillRect(px + off, py + t - w, len, w);
+			else if (d === 'w') ctx.fillRect(px, py + off, w, len);
+			else if (d === 'e') ctx.fillRect(px + t - w, py + off, w, len);
+		}
+	}
 }
 
 // Text is drawn at WHOLE DEVICE PIXELS (this ctx is untransformed, so `t` is already

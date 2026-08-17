@@ -3826,6 +3826,52 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('painted roads derive as a connected network, not a field of islands',
     junctions.length > 0, `${junctions.length}/${autoTiles.length} tiles join two or more sides`);
 
+  // ── The perimeter wall (spec.curtain) ─────────────────────────────────────
+  // A wall carries the OUTWARD FACES of its tile, not its joins — deriveCurtain's
+  // header says why a boundary cannot borrow the cliff family's spelling. These four
+  // checks are the properties that spelling has to deliver, and none of them can be
+  // seen at draw time: every renderer strokes its own tile's edges and never looks at
+  // the tile next door, so a wall that comes apart comes apart silently.
+  const wallZones = zonesForDerive.filter(z => (z.flags?.curtain || z.flags?.perimeter_gate) && z.grid_x != null);
+  const wallAt = new Map(wallZones.map(z => [gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z), z]));
+  const faceOf = (z) => specAt(z.id)?.curtain || '';
+  const noFaces = wallZones.filter(z => !faceOf(z));
+  check(`every perimeter-wall tile derives its outward faces (${wallZones.length} tiles)`,
+    wallZones.length > 0 && noFaces.length === 0, noFaces.slice(0, 3).map(z => z.id).join(', '));
+  // Present iff, same rule as auto_tile: a key that is null on 5,800 tiles teaches a
+  // renderer to test for it instead of testing for the layer.
+  const strayWall = zonesForDerive.filter(z => !(z.flags?.curtain || z.flags?.perimeter_gate)
+    && specAt(z.id)?.curtain !== undefined);
+  check('a tile that is not perimeter wall carries no curtain key',
+    strayWall.length === 0, strayWall.slice(0, 3).map(z => z.id).join(', '));
+  // A face is a side the wall shows the OUTSIDE, so it can never be a side the wall
+  // CONTINUES along. An L that closes onto its own run is precisely what an inverted
+  // inside/outside test looks like, and it is the only way this one fails — which is
+  // what makes it independent of the centroid that decided the faces.
+  const joinsOf = (z) => Object.entries(AT_DIRS)
+    .filter(([, [dx, dy]]) => wallAt.has(gridKey(z.map_id, z.grid_x + dx, z.grid_y + dy, z.grid_z)))
+    .map(([d]) => d);
+  const facingIn = wallZones.filter(z => { const j = joinsOf(z); return [...faceOf(z)].some(d => j.includes(d)); });
+  check('no wall tile faces along its own run (the L opens outward)',
+    facingIn.length === 0, facingIn.slice(0, 3).map(z => z.id).join(', '));
+  // And the corner has to exist, or the check above passed on straights alone — a wall
+  // that never turns is also the degenerate case deriveCurtain cannot orient.
+  const wallCorners = wallZones.filter(z => faceOf(z).length === 2);
+  check('the perimeter turns at least one corner, derived as two faces',
+    wallCorners.length > 0, `${wallCorners.length} corner tile(s)`);
+  // THE CONTINUITY INVARIANT, and the reason the faces are worth deriving at all: two
+  // tiles side by side in one run must name the SAME face, or the line steps sideways
+  // where they meet and the wall reads as a staircase.
+  const broken = [];
+  for (const z of wallZones) {
+    const east = wallAt.get(gridKey(z.map_id, z.grid_x + 1, z.grid_y, z.grid_z));
+    if (east) for (const d of 'ns') if (faceOf(z).includes(d) !== faceOf(east).includes(d)) broken.push(`${z.id}|${east.id}`);
+    const south = wallAt.get(gridKey(z.map_id, z.grid_x, z.grid_y + 1, z.grid_z));
+    if (south) for (const d of 'ew') if (faceOf(z).includes(d) !== faceOf(south).includes(d)) broken.push(`${z.id}|${south.id}`);
+  }
+  check('the wall line is continuous — neighbours in one run agree on the face',
+    broken.length === 0, broken.slice(0, 3).join(', '));
+
   // ── The tile stack: ground / feature / label (spec §7.7) ──────────────────
   // This used to read PAINTED GROUND NEVER CARRIES A LABEL, and it was a blanket
   // suppression standing in for a data cleanup: 860 tiles authored a terrain

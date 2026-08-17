@@ -435,6 +435,112 @@ export function deriveAutoTile(zone, palette, ctx = {}) {
   return out;
 }
 
+// ── The perimeter wall (the overlay layer) ───────────────────────────────────
+//
+// A WALL IS NOT A MASS, and that is the whole reason this cannot reuse the cliff
+// family. `autoTileName` names the sides that JOIN and the cliff art inverts that
+// into faces on the sides that DON'T — exactly right for high ground, because there
+// the mass IS the connected set. The Curtain is a BOUNDARY: its connected set is the
+// line itself, so "the sides missing from the run" is ambiguous on every straight
+// tile (a lone e–w run is missing both n and s) and outright wrong on a zigzag,
+// where two consecutive corners name opposite faces for the segment between them.
+//
+// So a wall tile carries its OUTWARD FACES rather than its joins, and to have them it
+// has to know which side the city is on. That is a whole-map question — hence the
+// component pass below — and it is answered GEOMETRICALLY. A `district === 'wilds'`
+// test here would read the Basin's own content out of a file that is supposed to know
+// nothing about it, and the next game's wall encloses something else.
+//
+// The gate counts as wall for both passes, exactly as it does in the flight sim
+// (`isCurtain` in plugins/flight/state.js): the flanking wall has to butt into the
+// pylons rather than stop a tile short of them and leave the line broken.
+const isCurtainZone = (z) => !!(z?.flags?.curtain || z?.flags?.perimeter_gate);
+
+/**
+ * Every wall cell, plus the CENTROID OF ITS CONNECTED RUN — which is this pass's
+ * whole answer to "which way is out".
+ *
+ * Per component, never globally: a second wall elsewhere on the map (an east gate,
+ * another city) would drag a single shared centroid off both of them and face half
+ * the tiles inward. Components are 4-connected, same as every other pass here.
+ *
+ * DEGENERATE CASE, named because it is the one the rule cannot answer: a wall that
+ * encloses nothing — a single straight segment — has its centroid ON the line, so
+ * both perpendicular sides are equally far out and there is no geometry left to ask.
+ * That resolves to w/n by the `>` in deriveCurtain, deterministically and
+ * arbitrarily. A real perimeter turns at least one corner, and that one bend is what
+ * breaks the tie for every tile in the run, including the straight ones nowhere near it.
+ */
+export function buildCurtainIndex(zones) {
+  const cells = new Map();
+  for (const z of zones) {
+    if (!isCurtainZone(z) || z?.map_id == null || z?.grid_x == null || z?.grid_y == null) continue;
+    cells.set(gridKey(z.map_id, z.grid_x, z.grid_y, z.grid_z), { map: z.map_id, x: z.grid_x, y: z.grid_y, z: z.grid_z ?? 0 });
+  }
+  const centroid = new Map();
+  const seen = new Set();
+  for (const start of cells.keys()) {
+    if (seen.has(start)) continue;
+    const comp = [];
+    const queue = [start];
+    seen.add(start);
+    while (queue.length) {
+      const c = cells.get(queue.pop());
+      comp.push(c);
+      for (const [dx, dy] of Object.values(AUTO_DIRS)) {
+        const nk = gridKey(c.map, c.x + dx, c.y + dy, c.z);
+        if (cells.has(nk) && !seen.has(nk)) { seen.add(nk); queue.push(nk); }
+      }
+    }
+    const mid = {
+      x: comp.reduce((a, c) => a + c.x, 0) / comp.length,
+      y: comp.reduce((a, c) => a + c.y, 0) / comp.length,
+    };
+    for (const c of comp) centroid.set(gridKey(c.map, c.x, c.y, c.z), mid);
+  }
+  return { cells, centroid };
+}
+
+/**
+ * The sides of this tile the wall presents to the OUTSIDE, as `n`/`e`/`s`/`w` in
+ * that order — `'s'` a horizontal wall along the tile's south edge, `'sw'` the corner
+ * L, `'w'` a vertical one up its west edge. Null on every tile that is not wall,
+ * which is 5,800 of them.
+ *
+ * ONE FACE PER AXIS THE WALL RUNS ON. A tile joined north–south is a vertical run, so
+ * it can only present an east or a west face; a corner joined north and east runs on
+ * both axes and presents one of each, and the two strokes meet at the tile's own
+ * corner because they are drawn on its own edges. That is what makes the line
+ * continuous across tiles without any renderer knowing what its neighbours drew:
+ * adjacent tiles in one run agree on the face, so their strokes are collinear and touch.
+ *
+ * PUTTING THE STROKE ON THE EDGE IS THE POINT, not a detail of the art. A wall drawn
+ * through the middle of its tile says the tile is the wall, and a player who walks
+ * onto it is standing inside a floor-to-sky sheet of hard light. On the edge, the
+ * tile's body stays clear and reads as the ground behind the wall — which is what it
+ * is, because the Curtain is an overlay and the tile keeps its real terrain.
+ *
+ * THE LETTERS MEAN THE OPPOSITE OF `autoTileName`'s, deliberately, which is why the
+ * payload names them apart (`spec.curtain` vs `spec.feature`). They are faces, not
+ * joins; nothing reads both keys, so no renderer ever has to guess which it holds.
+ */
+export function deriveCurtain(zone, ctx = {}) {
+  if (!ctx.curtain || !isCurtainZone(zone) || zone?.grid_x == null || zone?.grid_y == null) return null;
+  const gz = zone.grid_z ?? 0;
+  const mid = ctx.curtain.centroid.get(gridKey(zone.map_id, zone.grid_x, zone.grid_y, gz));
+  if (!mid) return null;
+  const joined = (dx, dy) => ctx.curtain.cells.has(gridKey(zone.map_id, zone.grid_x + dx, zone.grid_y + dy, gz));
+  const horiz = joined(1, 0) || joined(-1, 0);
+  // An isolated wall tile joins nothing and still has to be a wall: stand a lone
+  // vertical post, which is the call plugins/flight/state.js makes with its `|| 'ns'`
+  // fallback rather than letting the barrier disappear for a tile.
+  const vert = joined(0, -1) || joined(0, 1) || !horiz;
+  const faces = new Set();
+  if (horiz) faces.add(zone.grid_y > mid.y ? 's' : 'n');
+  if (vert) faces.add(zone.grid_x > mid.x ? 'e' : 'w');
+  return ['n', 'e', 's', 'w'].filter(d => faces.has(d)).join('');
+}
+
 // ── The tile stack — ground, feature, label (§7.7) ───────────────────────────
 //
 // A tile is at most three layers, and which layers it HAS is the whole answer to
@@ -907,6 +1013,13 @@ export function buildRenderSpec(zone, palette, resolved, ctx = {}) {
   if (feature) spec.feature = feature;
   const label = deriveLabel(zone, palette, ctx);
   if (label) spec.label = label;
+  // The overlay layer. NOT `feature`: that slot is a single winner-takes-all
+  // precedence chain (authored icon > rooftop > auto), and the wall does not compete
+  // with the tile's own drawing — it stands ON a tile that keeps its ground, its
+  // terrain and, at the gate, its road piece. Sharing the slot would have had one of
+  // the two silently delete the other, and which one won depended on the tile.
+  const curtain = deriveCurtain(zone, ctx);
+  if (curtain) spec.curtain = curtain;
   // Facade-only and building-only extras, present just when they mean something
   // — a spec key that is null on 5,700 tiles teaches a renderer to test for it.
   const entrance = zone?.flags?.entrance;
@@ -940,7 +1053,7 @@ export function deriveWorld({ zones = [], regions = [], connections = [], palett
   // index no longer picks a winner per cell (buildCellIndex keeps every occupant),
   // the marker pass and the order of `render` still ride on this.
   const sorted = [...zones].sort((a, b) => String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
-  const ctx = { buildingMarkers, byCell: buildCellIndex(sorted) };
+  const ctx = { buildingMarkers, byCell: buildCellIndex(sorted), curtain: buildCurtainIndex(sorted) };
   const featureOverrides = [];
 
   for (const zone of sorted) {

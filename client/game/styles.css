@@ -3006,12 +3006,87 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	color: #d6f4ff;
 	font-weight: bold;
 	z-index: 2;
+	/* Outer glow only — the inset ring half of this keyframe went when the wall
+	   started drawing its own edges. The animation stays on the TILE rather than on
+	   the .mm-cw::before below, because .mm-c clips its children (overflow: hidden)
+	   and a glow drawn inside the tile is a glow you cannot see. */
 	animation: mm-gate-pulse 2.4s ease-in-out infinite;
 }
 @keyframes mm-gate-pulse {
-	0%, 100% { box-shadow: inset 0 0 0 1px #7fe0ff, 0 0 4px rgba(127, 224, 255, 0.55); }
-	50% { box-shadow: inset 0 0 0 1px #aef0ff, 0 0 8px rgba(127, 224, 255, 0.95); }
+	0%, 100% { box-shadow: 0 0 4px rgba(127, 224, 255, 0.55); }
+	50% { box-shadow: 0 0 8px rgba(127, 224, 255, 0.95); }
 }
+/* ── The Curtain, drawn on the tile's EDGES ──────────────────────────────────
+   `spec.curtain` names the sides the wall faces out on, and each becomes one 2px
+   band along that edge. Two tiles in the same run agree on the face, so their bands
+   are collinear and touch: the wall reads as one line across the map with no renderer
+   knowing what the tile next door drew. A corner carries two faces and they meet at
+   its own corner — the L.
+
+   THE BAND HAS TO REACH THE TILE'S TRUE EDGE, or the line is dotted. That is the
+   whole reason for the pseudo-element and the two resets under it:
+
+     • `.mm-room` is `border: 1px solid transparent`, and an inset shadow paints
+       inside the PADDING box. Every band would sit 1px in from its own edge, so two
+       neighbours would be 2px apart and the wall would render as a dashed line with a
+       gap at every tile boundary. Zeroing the border-WIDTH moves the padding box out
+       to the real edge; `box-sizing: border-box` means the tile does not resize, and
+       these tiles are all `.mm-styled`, whose border-colour is already transparent.
+     • `border-radius: 2px` rounds the ends of every band. On a 1.7em tile that is a
+       visible nick at each boundary — the same dotting, from the other direction.
+
+   ONE `box-shadow`, FOUR VARIABLES, because box-shadow does not accumulate across
+   rules: `.mm-cw-s` and `.mm-cw-w` each declaring one would leave a corner with
+   whichever rule happened to be last, i.e. half an L. The custom properties compose
+   where the property itself cannot (and they inherit into the pseudo-element), and
+   the unset ones resolve to a transparent zero-size shadow rather than to `none` —
+   a bare `0 0` is a real black shadow.
+
+   ON A PSEUDO-ELEMENT rather than the tile, because the tile's own `background` and
+   `box-shadow` are both spoken for: `.mm-room.danger-*` and `.mm-room.mm-styled`
+   set the background shorthand further down this file, and `.mm-gate` animates the
+   box-shadow. A fresh box owns both outright. */
+.mm-room.mm-cw {
+	border-width: 0;
+	border-radius: 0;
+	--cw-ink: rgba(122, 196, 255, 0.9);
+	--cw-n: inset 0 0 0 0 transparent;
+	--cw-e: inset 0 0 0 0 transparent;
+	--cw-s: inset 0 0 0 0 transparent;
+	--cw-w: inset 0 0 0 0 transparent;
+}
+.mm-room.mm-cw::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	box-shadow: var(--cw-n), var(--cw-e), var(--cw-s), var(--cw-w);
+}
+.mm-room.mm-cw-n { --cw-n: inset 0 2px 0 0 var(--cw-ink); }
+.mm-room.mm-cw-e { --cw-e: inset -2px 0 0 0 var(--cw-ink); }
+.mm-room.mm-cw-s { --cw-s: inset 0 -2px 0 0 var(--cw-ink); }
+.mm-room.mm-cw-w { --cw-w: inset 2px 0 0 0 var(--cw-ink); }
+/* The gate is the same wall with a hole in it, so it draws the same edge — as two
+   stubs with a gap, which box-shadow cannot express and a gradient can. The faces go
+   transparent and the pseudo-element's background takes over on the same edge, at
+   the same 32%/68% split the canvas renderer uses. */
+.mm-room.mm-cw-gate { --cw-ink: transparent; --cw-gate: #aef0ff; }
+.mm-room.mm-cw-gate::before {
+	background-repeat: no-repeat;
+	background-image: var(--cw-h, none), var(--cw-v, none);
+	background-position: var(--cw-hp, top), var(--cw-vp, left);
+	background-size: 100% 2px, 2px 100%;
+}
+.mm-room.mm-cw-gate.mm-cw-n, .mm-room.mm-cw-gate.mm-cw-s {
+	--cw-h: linear-gradient(to right, var(--cw-gate) 0 32%, transparent 32% 68%, var(--cw-gate) 68% 100%);
+}
+.mm-room.mm-cw-gate.mm-cw-e, .mm-room.mm-cw-gate.mm-cw-w {
+	--cw-v: linear-gradient(to bottom, var(--cw-gate) 0 32%, transparent 32% 68%, var(--cw-gate) 68% 100%);
+}
+.mm-room.mm-cw-gate.mm-cw-n { --cw-hp: top; }
+.mm-room.mm-cw-gate.mm-cw-s { --cw-hp: bottom; }
+.mm-room.mm-cw-gate.mm-cw-w { --cw-vp: left; }
+.mm-room.mm-cw-gate.mm-cw-e { --cw-vp: right; }
 /* Avenue View / Auto-walk toggles sit in the minimap section's top-right corner
    (kept out of the .sidebar-label so it doesn't leak into the section's reorder
    title), side by side in a small flex row. */

@@ -2382,8 +2382,40 @@ function ensureStyles() {
        Architect's Curtain shimmers, the glacis kill-zone gets a hazard edge, the one gate pulses. */
     #tablet-os-overlay .tos-map-tile.tos-curtain { box-shadow:inset 0 0 0 1px rgba(122,196,255,.5), inset 0 0 4px rgba(122,196,255,.32); }
     #tablet-os-overlay .tos-map-tile.tos-glacis { box-shadow:inset 0 0 0 1px rgba(224,120,90,.5); }
+    /* Outer glow only; the inset ring half went when the wall started drawing its own
+       edges. It stays on the TILE rather than on the .tos-cw::before below, because the
+       tile clips its children (overflow:hidden) and a glow drawn inside is invisible. */
     #tablet-os-overlay .tos-map-tile.tos-gate { color:#d6f4ff; font-weight:bold; z-index:2; animation:tos-gate-pulse 2.4s ease-in-out infinite; }
-    @keyframes tos-gate-pulse { 0%,100%{ box-shadow:inset 0 0 0 1px #7fe0ff, 0 0 5px rgba(127,224,255,.55); } 50%{ box-shadow:inset 0 0 0 1px #aef0ff, 0 0 10px rgba(127,224,255,.95); } }
+    @keyframes tos-gate-pulse { 0%,100%{ box-shadow:0 0 5px rgba(127,224,255,.55); } 50%{ box-shadow:0 0 10px rgba(127,224,255,.95); } }
+    /* The Curtain drawn on the tile EDGES (mirrors styles.css .mm-cw, including its
+       long note). THE BAND HAS TO REACH THE TRUE EDGE or the line comes out dotted:
+       an inset shadow paints inside the PADDING box, so with this tile's 1px border
+       every band would sit 1px in and two neighbours would be 2px apart — and the 4px
+       border-radius would nick the ends on top of that. Zeroing both is what closes
+       the line; box-sizing keeps the tile the same size, and losing the separator on
+       64 wall tiles is the point rather than a cost.
+       ONE box-shadow and four variables, because box-shadow does not accumulate across
+       rules: a corner carries two face classes and would otherwise keep only whichever
+       rule came last, i.e. half an L. Unset faces resolve to a transparent zero-size
+       shadow — a bare "0 0" is a real black one. On a pseudo-element because the tile's
+       own background and box-shadow are already spoken for. */
+    #tablet-os-overlay .tos-map-tile.tos-cw { border-width:0; border-radius:0; --cw-ink:rgba(122,196,255,.9); --cw-n:inset 0 0 0 0 transparent; --cw-e:inset 0 0 0 0 transparent; --cw-s:inset 0 0 0 0 transparent; --cw-w:inset 0 0 0 0 transparent; }
+    #tablet-os-overlay .tos-map-tile.tos-cw::before { content:""; position:absolute; inset:0; pointer-events:none; box-shadow:var(--cw-n),var(--cw-e),var(--cw-s),var(--cw-w); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-n { --cw-n:inset 0 2px 0 0 var(--cw-ink); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-e { --cw-e:inset -2px 0 0 0 var(--cw-ink); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-s { --cw-s:inset 0 -2px 0 0 var(--cw-ink); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-w { --cw-w:inset 2px 0 0 0 var(--cw-ink); }
+    /* The gate is the same wall with a hole in it: two stubs and a gap, which
+       box-shadow cannot express and a gradient can. Same 32%/68% split the canvas
+       renderer uses, so the two screens put the door in the same place. */
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate { --cw-ink:transparent; --cw-gate:#aef0ff; }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate::before { background-repeat:no-repeat; background-image:var(--cw-h,none),var(--cw-v,none); background-position:var(--cw-hp,top),var(--cw-vp,left); background-size:100% 2px,2px 100%; }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-n, #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-s { --cw-h:linear-gradient(to right,var(--cw-gate) 0 32%,transparent 32% 68%,var(--cw-gate) 68% 100%); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-e, #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-w { --cw-v:linear-gradient(to bottom,var(--cw-gate) 0 32%,transparent 32% 68%,var(--cw-gate) 68% 100%); }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-n { --cw-hp:top; }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-s { --cw-hp:bottom; }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-w { --cw-vp:left; }
+    #tablet-os-overlay .tos-map-tile.tos-cw-gate.tos-cw-e { --cw-vp:right; }
     #tablet-os-overlay .tos-gps-svg { position:absolute; grid-column:1/-1; grid-row:1/-1; width:100%; height:100%; pointer-events:none; z-index:2; }
     #tablet-os-overlay .tos-gps-line { fill:none; stroke:var(--mg-accent); stroke-width:0.18; stroke-linecap:round; stroke-linejoin:round; }
     #tablet-os-overlay .tos-map-tile.dest { outline:2px solid #fff; }
@@ -8063,9 +8095,16 @@ function renderMap(d) {
       ent = ['north', 'south', 'east', 'west'].includes(t.entrance)
         ? `<span class="tos-edge tos-edge-${t.entrance} open"></span>` : '';
     }
-    // Perimeter wall (mirrors the sidebar minimap): gate tiles get a highlighted
-    // opening, other curtain tiles a shimmer-edge, the glacis kill-zone a hazard tint.
-    if (t.perimeter_gate) cls.push('tos-gate');
+    // Perimeter wall (mirrors the sidebar minimap). The derived faces in spec.curtain
+    // are the tile's own OUTWARD edges, so the stroke lands on the boundary: a run reads
+    // as one line, a corner as an L, and the tile's middle stays clear for the player
+    // standing behind the wall. No faces derived ⇒ the old shimmer ring, not nothing.
+    const cwFaces = t.spec?.curtain || '';
+    if (cwFaces) {
+      cls.push('tos-cw');
+      if (t.perimeter_gate) cls.push('tos-gate', 'tos-cw-gate');
+      for (const d of cwFaces) cls.push('tos-cw-' + d);
+    } else if (t.perimeter_gate) cls.push('tos-gate', 'tos-curtain');
     else if (t.curtain) cls.push('tos-curtain');
     else if (t.glacis) cls.push('tos-glacis');
     // What sits on the tile. A derived building/room code REPLACES the footprint, and
