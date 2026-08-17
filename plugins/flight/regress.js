@@ -1549,4 +1549,33 @@ export default async function regress({ run, check, getPlayer }) {
         all === without, `${all} vs ${without} — an interior occupant reached the feed`);
     }
   }
+
+  // ── A running cockpit is a heated cabin ───────────────────────────────────
+  // hvac.js registers live aircraft as cabin providers. This matters more here than anywhere
+  // else: a pilot's `current_zone` is still the airfield they took off from, so without the
+  // cabin every thermal question about them was answered by the weather on a patch of ramp.
+  {
+    const { cabinTemperature, stepCabinTemps, getZoneTemperature } =
+      await import('../../server/engine/environment.js');
+    const p = getPlayer();
+    const acId = 'flight_regress_hvac_ac';
+    const fake = { row: { engine_on: 1 }, type: { id: 'ac_regress_none' }, occupants: new Set([p.id]) };
+    liveAircraft.set(acId, fake);
+    try {
+      for (let i = 0; i < 20; i++) stepCabinTemps();
+      check('a running cockpit is held at the 20C setpoint',
+        cabinTemperature(p.id) === 20, String(cabinTemperature(p.id)));
+
+      fake.row.engine_on = 0;
+      for (let i = 0; i < 200; i++) stepCabinTemps();
+      const cold = cabinTemperature(p.id), out = getZoneTemperature(p.current_zone);
+      check('dead engines bleed the cockpit back to the weather',
+        Math.abs(cold - out) < 0.5, `${cold} vs ${out} outside`);
+    } finally {
+      liveAircraft.delete(acId);
+      stepCabinTemps();
+    }
+    check('stepping out of the aircraft leaves no cabin behind',
+      cabinTemperature(p.id) === null);
+  }
 }

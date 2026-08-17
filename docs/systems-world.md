@@ -290,6 +290,12 @@ HAPPEN stay legible while the room description goes on dimming.
 
 `stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp by **passive conduction proportional to the indoor↔outdoor gap** (`step = (outdoor − current) × INDOOR_PASSIVE_CONDUCTION`, `= 0.01`): ΔT=10°C ≈ 0.1°C/min, but ΔT=50°C bleeds at ~0.5°C/min — so a mild outage stays survivable while a blackout in an extreme cold snap or heatwave becomes lethal (**no free safe haven**; a −30°C snap drops an interior to 10°C in ~23 min, 0°C in ~51 min). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
 
+### Vehicle cabins
+
+The same model, keyed on a **person** instead of a room. `stepCabinTemps` runs on the same 1m tick and drives each occupied vehicle cabin toward `CABIN_HVAC_TARGET_C` — deliberately the **same 20°C** the buildings hold — at `CABIN_HVAC_RATE_PER_MIN = 12.0`°C/min while its engine runs, and bleeds it back toward the outside air at `CABIN_PASSIVE_CONDUCTION = 0.20` once it stops. A cab is a few cubic metres with a heater matrix sized for an engine, so it *reaches* the setpoint in a minute or two and *loses* it twenty times faster than a building — which is what makes a breakdown in a cold snap a problem rather than a long wait somewhere warm.
+
+Cabins are contributed, never authored: plugins that own vehicles answer `registerCabinProvider(fn)` with `[{ id, on, zoneId, occupants }]`, and the engine owns everything else. Read per player via `cabinTemperature(playerId)` and, in practice, through `feltAmbientC` — see [systems-survival.md](systems-survival.md#vehicle-cabins) for why this could not be a `registerHeatSource`.
+
 ## Spawning & corpses
 
 `tickSpawns` (every 10s) joins `zone_spawns` with `enemies`, and for each timer that's due, spawns if the

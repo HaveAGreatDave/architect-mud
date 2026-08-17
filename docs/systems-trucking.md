@@ -25,6 +25,8 @@ and a city that resolves out of the haze at the end of it.
 | The scale house, customs, impound | [plugins/trucking/scale.js](../plugins/trucking/scale.js) |
 | Trailers as world objects | [plugins/trucking/trailers.js](../plugins/trucking/trailers.js) · `trailers` table in SCHEMA_SQL |
 | People on the shoulder | [plugins/trucking/hitchers.js](../plugins/trucking/hitchers.js) |
+| The sleeper cab as a place you can sleep | [plugins/trucking/bunk.js](../plugins/trucking/bunk.js) |
+| The cab heater (20°C while the engine runs) | [plugins/trucking/hvac.js](../plugins/trucking/hvac.js) |
 | Text-rung driving + its gearbox verbs | [plugins/trucking/textdrive.js](../plugins/trucking/textdrive.js) |
 | Breakdowns, the roadside `fix`, the fork (`route`), the CB | [rig.js](../plugins/trucking/rig.js) · `announceBreak`/`cbLine`/`switchLimb` in [state.js](../plugins/trucking/state.js) |
 | Ownership + the dealer | [plugins/trucking/fleet.js](../plugins/trucking/fleet.js) · `trucks` table in SCHEMA_SQL |
@@ -738,6 +740,21 @@ mode**. The yacht's default reports the *change* in wheel rotation, because a bo
 A truck holds a line and its front axle self-centres, so absolute mode reports wheel POSITION as a
 normalised −1..+1 axle deflection, clamps to a real lock, and returns to centre on release. Passing
 no `mode` leaves the yacht untouched.
+
+### The heater, which is the engine's
+
+[hvac.js](../plugins/trucking/hvac.js) registers the rig set as a **vehicle cabin**: while the
+engine turns, the cab holds **20°C** and reaches it within a minute or two; kill it and the box
+gives all of it back within a few. Nothing here implements heating — the engine owns the
+thermometer and both rates ([systems-survival.md](systems-survival.md#vehicle-cabins)), and this
+file answers only *which cabs exist, who is in them, and is the engine running*.
+
+It could not be a `registerHeatSource`, because that warms a **zone** and a driver's
+`current_zone` is the public road tile the rig is over — heating the zone would heat the street
+for the pedestrians on it. It also needed no new state: `rig.engineOn` is already reconciled from
+the cab's own telemetry four times a second (see the ⚠ on the ignition in `reconcileTruck`), so
+there is no second notion of "is the heater on" to fall out of step with the truck. Which is what
+makes a **breakdown in a cold snap** a real problem rather than a long wait somewhere warm.
 
 ### The dash, the glass, and who has the keyboard
 

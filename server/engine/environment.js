@@ -829,6 +829,105 @@ function stepIndoorTemps() {
 }
 
 // ---------------------------------------------------------------------------
+// Vehicle cabins — climate control that travels with you
+// ---------------------------------------------------------------------------
+//
+// A ROOM IS A PLACE; A CABIN IS A PLAYER. The indoor HVAC above is keyed on the zone, which
+// is the only honest model for a building: everyone standing in the bar is the same
+// temperature. It cannot describe a truck. A driver's `current_zone` is the ROAD TILE the
+// rig is over — a public outdoor tile shared with anyone walking past — so warming the zone
+// would heat the street for the pedestrians too, and a pilot's `current_zone` is the airfield
+// they took off from, which is not where their body is in any sense the weather cares about.
+// So this is a per-PLAYER override rather than another `registerHeatSource`: while you are
+// sealed in a running vehicle you take the cabin's temperature and none of the sky's.
+//
+// It is a CONTRIBUTOR SEAM for the same reason the heat sources are: the engine must not know
+// what an aircraft or a rig is. A plugin that owns vehicles answers "which cabins exist right
+// now, who is sitting in them, and is the climate control running" — the engine owns nothing
+// but the thermometer. IN-MEMORY ONLY and SYNC BY CONTRACT (this is read once per player per
+// minute by the body-temperature drift and again by frostbite): never a query, never a write.
+//
+// The setpoint is deliberately the SAME 20°C the buildings hold. A cab is not a better room
+// than a room, and the moment it is, every interior in the game is the wrong place to shelter.
+const CABIN_HVAC_TARGET_C      = INDOOR_HVAC_TARGET_C;
+// …but it reaches it far faster. A cabin is a few cubic metres with a heater matrix sized for
+// an engine, not a building with an HVAC plant sized for a budget: turning the key is supposed
+// to FIX the cold, within a minute or two, rather than start a slow argument with it.
+const CABIN_HVAC_RATE_PER_MIN  = 12.0;
+// And loses it far faster once the engine stops. A metal box with windows has almost no
+// thermal mass and no insulation worth the name — twenty times a building's conduction — which
+// is what makes a breakdown in a blizzard a real problem rather than a long wait in a warm car.
+const CABIN_PASSIVE_CONDUCTION = 0.20;
+
+const cabinProviders = [];
+export function registerCabinProvider(fn) { if (typeof fn === 'function') cabinProviders.push(fn); }
+
+// cabinId -> °C. Runtime only; a restart puts every cabin back at ambient, which is correct —
+// nobody was sitting in it.
+const cabinTemps = new Map();
+
+// Every cabin currently occupied, from every provider. Shape per entry:
+//   { id, on, zoneId, occupants }  — occupants is a Set or array of player ids.
+function listCabins() {
+  const out = [];
+  for (const fn of cabinProviders) {
+    try { const r = fn(); if (r) for (const c of r) if (c?.id) out.push(c); }
+    catch { /* a broken provider heats nothing */ }
+  }
+  return out;
+}
+
+// The temperature the cabin is bleeding toward with its engine off: the air outside it,
+// including any zone temp_offset, but NOT the wind chill — a cab you are sitting inside stops
+// the wind even when it has stopped doing anything else.
+function cabinOutsideC(zoneId) {
+  if (!zoneId) return state.tempC + diurnalOffset(state.minutes);
+  return getZoneTemperature(zoneId) + (world.zones.get(zoneId)?.flags?.temp_offset || 0);
+}
+
+function cabinOf(playerId) {
+  if (!playerId) return null;
+  for (const c of listCabins()) {
+    const occ = c.occupants;
+    if (!occ) continue;
+    if (typeof occ.has === 'function' ? occ.has(playerId) : Array.prototype.includes.call(occ, playerId)) return c;
+  }
+  return null;
+}
+
+// °C inside the cabin this player is sitting in, or null if they are not in one. Falls back to
+// the outside air for a cabin the tick has not seeded yet, so a rig mounted between two ticks
+// reads honestly for its first minute rather than reading undefined.
+export function cabinTemperature(playerId) {
+  const c = cabinOf(playerId);
+  if (!c) return null;
+  return cabinTemps.get(c.id) ?? cabinOutsideC(c.zoneId);
+}
+
+// Called every 1-minute tick, beside stepIndoorTemps — same model, different constants.
+// Exported only so the regress suite can drive the curve without a running clock; nothing in
+// the server calls it but tick1m.
+export function stepCabinTemps() {
+  const alive = new Set();
+  for (const c of listCabins()) {
+    alive.add(c.id);
+    const outside = cabinOutsideC(c.zoneId);
+    const current = cabinTemps.get(c.id) ?? outside;
+    let step;
+    if (c.on) {
+      const diff = CABIN_HVAC_TARGET_C - current;
+      step = Math.sign(diff) * Math.min(Math.abs(diff), CABIN_HVAC_RATE_PER_MIN);
+    } else {
+      step = (outside - current) * CABIN_PASSIVE_CONDUCTION;
+    }
+    cabinTemps.set(c.id, Math.round((current + step) * 10) / 10);
+  }
+  // A cabin nobody is in is not a cabin. Dropping it means the next person to get in starts
+  // from the outside air rather than inheriting a temperature from a journey they never took.
+  for (const id of [...cabinTemps.keys()]) if (!alive.has(id)) cabinTemps.delete(id);
+}
+
+// ---------------------------------------------------------------------------
 // 5-Minute Brownout Rotation Tick (only active when grid is overloaded)
 // ---------------------------------------------------------------------------
 
@@ -932,6 +1031,7 @@ async function tick1m() {
     if (crossed30) await tick30m().catch(logError);
   }
   stepIndoorTemps();
+  stepCabinTemps();
   if (broadcast) {
     broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), date: state.date, dayOfWeek: state.dayOfWeek, tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
     // Per-zone indoor temp broadcasts so indoor HUDs stay current — only for
@@ -941,6 +1041,16 @@ async function tick1m() {
       if (occupiedTemp && !occupiedTemp.has(zoneId)) continue;
       broadcast(zoneId, { type: 'environment.zoneTempTick', tempC });
     }
+    // ⚠ NO CABIN BROADCAST HERE, DELIBERATELY. The obvious move is to push each cabin's
+    // temperature to its occupants right after this loop, and it does not work: an occupied
+    // cabin sits in an OUTDOOR zone, and `broadcastZoneWeather` sends that zone the very same
+    // `environment.zoneTempTick` every 30s carrying `cloudCover`/`precipRate`. The client reads
+    // the presence of those keys as "this is the outdoor tick" and their absence as "this is an
+    // indoor room" (see updateZoneTempHUD's weather-FX side-channel), so a per-player cabin push
+    // would fight the zone push twice a minute — the thermometer flicking between 20°C and the
+    // weather, and the rain overlay switching off and on with it. The body-temperature model is
+    // per player; this wire is per zone, and one of them has to change before they can meet.
+    // Until then the thermometer reads the air OUTSIDE a moving cab, which is at least stable.
   }
   await flickerOverloadedZones();
 }
@@ -2432,6 +2542,26 @@ export function windChillDelta(zoneId, extraOffsetC = 0) {
   const hum = getZoneHumidity(zoneId);
   return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, hum)
        - apparentTemperature(ambient, 0, hum);
+}
+
+// THE ONE ANSWER TO "how cold is it where this body is". Everything that asks about a player
+// rather than about a room goes through here: the body-temperature drift and frostbite's
+// peripheral skin temperature both used to spell the same three-term expression out
+// themselves, which is exactly the shape of duplication the heat-source seam above warns
+// about — a cab that warmed your core but not your fingers would be a bug nobody could find.
+//
+// Returns the cabin temperature outright when the player is sealed in a running vehicle: a
+// cabin is climate-controlled AIR, so it replaces the ambient rather than offsetting it, and
+// it takes no wind chill and no zone temp_offset because neither reaches inside it. Otherwise
+// it is the feels-like temperature with the windproofed share of the chill given back.
+//
+// Does NOT include clothing insulation — that is the caller's, and frostbite deliberately
+// refuses it.
+export function feltAmbientC(player, zoneId, extraOffsetC = 0) {
+  const cabin = cabinTemperature(player?.id);
+  if (cabin != null) return cabin;
+  const chill = windChillDelta(zoneId, extraOffsetC);
+  return getZoneApparentTemperature(zoneId, extraOffsetC) - chill * (player?.windproof || 0);
 }
 
 // The temperature a SUBMERGED swimmer's body drifts toward — water conducts heat far faster

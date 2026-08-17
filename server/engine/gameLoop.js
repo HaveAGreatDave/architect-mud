@@ -32,7 +32,7 @@ import { query, logActivity } from '../models/db.js';
 import { addSweat } from './hygiene.js';
 import { warmthBonus, tickWarmth } from './warmth.js';
 import { appetiteMessages } from './appetite.js';
-import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, windChillDelta, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, feltAmbientC, waterTemperature, getZoneHumidity, getWindKph, recordLightningKill, getZoneStormIntensity, getWeatherFieldSnapshot, getZonePrecip } from './environment.js';
 import { tickDrugDecayAll, tickDrugs, tickOnsets, tickWithdrawalAll, clearActiveDrugState } from './drugs.js';
 import { getTimeScale } from './gametime.js';
 import { escAttr } from './text.js';
@@ -1404,16 +1404,14 @@ export function driftBodyTemperature(player, gm) {
   // the existing cold-drift + <30°C lethal path. Insulation (a wetsuit) still
   // applies, so gear can offset the pull.
   const submerged = !!player._submerged;
-  // WINDPROOFING gives back the wind's share of the feels-like temperature for the slots a
-  // shell covers. It has to happen here rather than inside getZoneApparentTemperature because
-  // the chill is a property of the ZONE and the shell is a property of the PLAYER; without
-  // it, wind chill was applied to the ambient before any clothing and so bit a bundled-up
-  // player exactly as hard as a naked one, which is the opposite of what a shell is for.
-  // Underwater there is no wind, and no shell.
-  const chill = submerged ? 0 : windChillDelta(bodyZone, tempOffset);
+  // `feltAmbientC` folds in the two things that are properties of the PLAYER rather than of
+  // the room — windproofing (a shell gives back the wind's share of the feels-like temp, which
+  // is applied to the ambient before any clothing and would otherwise bite a bundled-up player
+  // exactly as hard as a naked one) and a climate-controlled vehicle cabin (which replaces the
+  // ambient outright). Underwater there is neither, and no room either.
   const effectiveAmbient = submerged
     ? waterTemperature(bodyZone)
-    : getZoneApparentTemperature(bodyZone, tempOffset) - chill * (player.windproof || 0);
+    : feltAmbientC(player, bodyZone, tempOffset);
 
   const playerWetness = submerged ? 100 : (player.wetness ?? 0);
 

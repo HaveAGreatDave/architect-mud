@@ -60,6 +60,7 @@ import { cbStatus, cbTune, cbPower, cbSpeaker, cbTransmit } from './cb.js';
 import { tickHijackers, playerHijack } from './hijack.js';
 import { collideTrucks, narrateCollision } from './collide.js';
 import './bunk.js';   // registers the sleeper cab as a place you can sleep — see the file header
+import './hvac.js';   // registers the cab as a climate-controlled box while the engine runs
 import { schedule } from '../../server/engine/scheduler.js';
 import { hitcherAt } from './hitchers.js';
 import { runScale, afterDrive, customsAnswer, pendingCustoms, scaleAt, releaseImpound } from './scale.js';

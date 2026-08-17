@@ -297,7 +297,7 @@ export const hooks = {
 **1b. Sync contributor registries** — the shape to reach for when the question is
 "what does everyone contribute" but the caller is on a **hot path**. A hook is an
 `await` into arbitrary plugin code; a registry of plain functions cannot become a
-DB round trip no matter what a plugin does inside it. Four exist:
+DB round trip no matter what a plugin does inside it. These exist:
 
 | Registry | Owner | Contributor signature | Called from |
 | --- | --- | --- | --- |
@@ -306,6 +306,8 @@ DB round trip no matter what a plugin does inside it. Four exist:
 | `registerArmorContributor(fn)` | `commands/inventory.js` | `(player, bySlot)` mutating in place | `recomputeArmor` — equip/login only, **may** await |
 | `registerSwingContributor(fn, owner)` | `combat.js` | `(phase, ctx)` mutating in place | **twice per swing**, both directions |
 | `registerSanityResistor(fn, owner)` | `condition.js` | `(player, reason) → 0..1 fraction` | `adjustSanity` — every sanity loss |
+| `registerHeatSource(fn)` | `environment.js` | `(zoneId, baseC) → °C bonus` | `getZoneTemperature` — summed into every ambient read |
+| `registerCabinProvider(fn)` | `environment.js` | `() → [{ id, on, zoneId, occupants }]` | `cabinTemperature` / the 1m tick — see [systems-survival.md](systems-survival.md#vehicle-cabins) |
 
 All except `registerArmorContributor` are **sync by contract**: a contributor
 that awaits returns a promise the loop ignores, so its work silently vanishes.

@@ -3177,6 +3177,63 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     removeTransientZone(dreamId);
   }
 
+  // ── Vehicle cabins: climate control that belongs to a person, not a room ───
+  {
+    const env = await import('../server/engine/environment.js');
+    const { registerCabinProvider, cabinTemperature, feltAmbientC, stepCabinTemps,
+            getZoneTemperature, getZoneApparentTemperature } = env;
+
+    // A zone id nothing owns reads as ordinary outdoor air — same trick the windproofing
+    // block below uses. The cabin is what we are testing, not the weather.
+    const OUT = 'cabin_regress_outdoor_zone';
+    const driver = { id: 'cabin_regress_driver' };
+    const walker = { id: 'cabin_regress_walker' };
+    let engineOn = true, providerLive = true;
+    registerCabinProvider(() => providerLive
+      ? [{ id: 'regress:cab', on: engineOn, zoneId: OUT, occupants: [driver.id] }]
+      : []);
+
+    check('a player in no cabin has no cabin temperature', cabinTemperature(walker.id) === null);
+    check('a cabin the tick has not seeded yet reads as the outside air',
+      cabinTemperature(driver.id) === getZoneTemperature(OUT), String(cabinTemperature(driver.id)));
+
+    // THE HEADLINE: a running engine holds 20°C, and gets there in a couple of minutes rather
+    // than the twenty a building would take.
+    stepCabinTemps(); stepCabinTemps();
+    const quick = cabinTemperature(driver.id);
+    for (let i = 0; i < 20; i++) stepCabinTemps();
+    check('a running cabin holds the 20C setpoint', cabinTemperature(driver.id) === 20,
+      String(cabinTemperature(driver.id)));
+    check('and reaches it quickly — a cab is not a building',
+      Math.abs(20 - quick) <= Math.abs(20 - getZoneTemperature(OUT)) / 2, `${quick} after 2 min`);
+
+    // The whole reason this is a per-player seam and not a heat source: the driver and the
+    // pedestrian are standing on the same tile at different temperatures.
+    check('the cabin is the ambient the body feels', feltAmbientC(driver, OUT, 0) === 20);
+    check('a bystander on the same tile is untouched',
+      feltAmbientC(walker, OUT, 0) === getZoneApparentTemperature(OUT, 0));
+    check('a sealed cabin takes no wind chill',
+      feltAmbientC({ ...driver, windproof: 0 }, OUT, 0) === feltAmbientC({ ...driver, windproof: 1 }, OUT, 0));
+
+    // Kill the engine and the box gives it all back — this is what makes a breakdown in a
+    // cold snap a problem rather than a long wait somewhere warm.
+    engineOn = false;
+    for (let i = 0; i < 200; i++) stepCabinTemps();
+    const cold = cabinTemperature(driver.id), outside = getZoneTemperature(OUT);
+    check('a dead engine bleeds the cabin back to the outside air',
+      Math.abs(cold - outside) < 0.5, `${cold} vs ${outside} outside`);
+
+    // A cabin nobody is in is dropped, so the next person to climb in starts from the weather
+    // rather than inheriting a journey they never took.
+    engineOn = true;
+    for (let i = 0; i < 20; i++) stepCabinTemps();
+    providerLive = false; stepCabinTemps();
+    providerLive = true;
+    check('an abandoned cabin is forgotten, not remembered warm',
+      cabinTemperature(driver.id) === getZoneTemperature(OUT), String(cabinTemperature(driver.id)));
+    providerLive = false;
+  }
+
   // ── Windproofing, and seasonal water ───────────────────────────────────────
   {
     const { windChillDelta, waterTemperature, apparentTemperature } = await import('../server/engine/environment.js');

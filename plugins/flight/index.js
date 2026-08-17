@@ -33,6 +33,7 @@ import {
   isWalkableCabin, isCabinZone, boardCabin, lookPayload, pushWindowTo, closeHud,
   airfieldOf, fieldName,
 } from './state.js';
+import './hvac.js';   // registers a running cockpit as a climate-controlled cabin — see the file header
 import { boardCompanions } from './companions.js';
 import { describeExterior, rampColorWord, conspicuousnessMult, normalizeLivery } from './livery.js';
 import { districtBiome } from './biomes.js';

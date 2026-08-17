@@ -28,6 +28,8 @@
 - **charter.js** — NPC-piloted charter flights (see §Charter below).
 - **checkride.js** — the guided-checkride tutorial (`checkride`).
 - **companions.js** — NPCs that ride along with a *player* (see §NPC companions).
+- **hvac.js** — registers a running cockpit as a heated cabin (see §The cockpit is
+  climate-controlled). Side-effect import; declares no verbs and no hooks.
 - **biomes.js** — overflight biomes.
 - **collateral.js** — ground collateral (crash/strike effects).
 - **livery.js** — aircraft liveries.
@@ -237,6 +239,25 @@ Three rules, all inherited rather than invented: a companion boards only if they
 nothing is reserved — no room means they stay behind and you're told), they occupy a
 **real seat**, and they are a **real body aboard a real airframe**. The escort plugin
 is the only consumer today; see [plugins/escort/README.md](../plugins/escort/README.md).
+
+### The cockpit is climate-controlled *(as built, 2026-08-17)*
+[hvac.js](../plugins/flight/hvac.js) registers every occupied live aircraft as a **vehicle
+cabin**: `engine_on` ⇒ the cockpit holds **20°C**, reaching it within a minute or two; engines
+off ⇒ it bleeds back to the weather. The engine owns the thermometer and both rates
+([systems-survival.md](systems-survival.md#vehicle-cabins)); this file answers only which cabins
+exist, who is aboard, and whether the engines are turning.
+
+This mattered more here than anywhere else, and the reason is one line up in this doc: a pilot's
+`current_zone` stays pointed at the **airfield they took off from**, because takeoff removes
+occupants from the zone's player set and has nowhere to move them to. So every thermal question
+about a pilot — body-temperature drift, frostbite, the HUD thermometer — was being answered by
+the weather on a patch of ramp they were four thousand feet above, at full wind chill.
+
+⚠ **The walkable cabin is excluded.** The Leviathan's interior rooms are real `is_interior`
+zones wired into `power_zones`, already held at 20°C by the ordinary indoor HVAC off the
+airframe's own power. Anybody standing in one is filtered out of the provider (`isCabinZone`), or
+a parked Leviathan with cold engines would drag its own furnished lounge below the identical room
+in a building. **The room wins wherever there is a room.**
 
 ### The sky is a computed overlay
 An airborne craft carries its own `(grid_x, grid_y, altitude, heading)`.

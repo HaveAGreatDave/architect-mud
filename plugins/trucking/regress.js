@@ -1875,4 +1875,33 @@ export default async function regress({ run, check, getPlayer }) {
       pumpClamp(9999, 0.5, -3).take === 0 && pumpClamp(9999, 0.5, NaN).take > 0);
   }
 
+  // ── The cab is a heated box, and only while the engine runs ────────────────
+  // hvac.js registers the rig set as a cabin provider; the engine owns the thermometer. This
+  // drives the real curve rather than a copy of it, so a retune of either constant is visible
+  // here. Note it never touches the shared fake player — mounting for real would set
+  // `player._inCab`, and a leaked one makes a player permanently unattackable somewhere
+  // that looks nothing like trucking.
+  {
+    const { cabinTemperature, stepCabinTemps, getZoneTemperature } =
+      await import('../../server/engine/environment.js');
+    const pid = 'trucking_regress_hvac_driver';
+    const zoneId = 'trucking_regress_hvac_zone';
+    rigs.set(pid, { playerId: pid, engineOn: true, zoneId });
+    try {
+      for (let i = 0; i < 20; i++) stepCabinTemps();
+      check('a running cab is held at the 20C setpoint',
+        cabinTemperature(pid) === 20, String(cabinTemperature(pid)));
+
+      rigs.get(pid).engineOn = false;
+      for (let i = 0; i < 200; i++) stepCabinTemps();
+      const cold = cabinTemperature(pid), out = getZoneTemperature(zoneId);
+      check('killing the engine bleeds the cab back to the weather',
+        Math.abs(cold - out) < 0.5, `${cold} vs ${out} outside`);
+    } finally {
+      rigs.delete(pid);
+      stepCabinTemps();
+    }
+    check('climbing down leaves no cabin behind', cabinTemperature(pid) === null);
+  }
+
 }

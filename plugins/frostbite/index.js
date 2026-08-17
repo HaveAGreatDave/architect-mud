@@ -16,7 +16,7 @@
  */
 import { registerStatusEffect, applyEffect, clearEffect } from '../../server/engine/effects.js';
 import { getAllLivePlayers, bodyZoneOf, getZone } from '../../server/engine/world.js';
-import { getZoneApparentTemperature, windChillDelta } from '../../server/engine/environment.js';
+import { feltAmbientC } from '../../server/engine/environment.js';
 import { getFlag, setFlags } from '../../server/engine/flags.js';
 
 const FLAG = 'frostbite';
@@ -141,13 +141,14 @@ export async function clearFrostbite(player) {
 // The temperature at the SKIN of an extremity: the windproofed apparent temperature, with no
 // credit for core insulation. A parka does nothing for your fingers, which is the entire
 // point of this system — only what actually covers them (via `extremityExposure`) does.
+// A heated vehicle cabin, however, DOES: that is air, not clothing, and `feltAmbientC` hands
+// back its temperature for a player sealed in a running one. Same function the body-temp drift
+// calls, so a cab can never warm the core and freeze the hands.
 function peripheralTempC(player) {
   const zoneId = bodyZoneOf(player);
   const zone = getZone(zoneId);
   if (!zone) return null;
-  const offset = zone.flags?.temp_offset || 0;
-  const chill = windChillDelta(zoneId, offset);
-  return getZoneApparentTemperature(zoneId, offset) - chill * (player.windproof || 0);
+  return feltAmbientC(player, zoneId, zone.flags?.temp_offset || 0);
 }
 
 export const hooks = {
