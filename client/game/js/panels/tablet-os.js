@@ -2366,12 +2366,17 @@ function ensureStyles() {
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px 3px; text-align:center;
       background:color-mix(in srgb,var(--mg-accent) 6%,var(--bg2,#0b1116)); color:var(--tos-fg-dim); transition:filter .12s; }
     #tablet-os-overlay .tos-map-tile:hover { filter:brightness(1.2); }
-    /* Danger tint — a coloured left rail, echoing the full map's danger reading. */
-    #tablet-os-overlay .tos-map-tile.d-low    { box-shadow:inset 3px 0 0 rgba(205,180,70,.65); }
-    #tablet-os-overlay .tos-map-tile.d-medium { box-shadow:inset 3px 0 0 rgba(220,140,55,.7); }
-    #tablet-os-overlay .tos-map-tile.d-high   { box-shadow:inset 3px 0 0 rgba(212,70,60,.8); }
-    #tablet-os-overlay .tos-map-tile.d-lethal { box-shadow:inset 3px 0 0 rgba(214,55,55,.95); animation:tos-map-lethal 1.6s ease-in-out infinite; }
-    @keyframes tos-map-lethal { 0%,100%{filter:none} 50%{filter:brightness(1.25)} }
+    /* THE DANGER RAIL IS GONE, AND SO IS THE READING IT CAME FROM.
+       It was 'box-shadow: inset 3px 0 0 <tier colour>' — a bar down the LEFT edge of
+       every tile above 'safe'. On a street that is a handful of tiles and reads as an
+       accent; across the Wildlands it is every tile in the region, because 'zoneDanger'
+       buckets off the max threat of a zone's spawn templates and the whole of the
+       wilds spawns something. 3,471 tiles each wearing a red column turned an open
+       region into a lattice of red lines, over multiple terrains, with nothing on the
+       map to explain it — and the sidebar minimap, which never drew danger at all,
+       rendered the same ground perfectly.
+       The tile inspector's "Danger" row went with it. A player is not told a
+       numeric threat tier for a patch of ground; they find out by being there. */
     #tablet-os-overlay .tos-map-tile.unreach { opacity:.4; }
     /* Perimeter wall (mirrors the sidebar minimap .mm-curtain/.mm-gate/.mm-glacis): the
        Architect's Curtain shimmers, the glacis kill-zone gets a hazard edge, the one gate pulses. */
@@ -8015,7 +8020,9 @@ function renderMap(d) {
       continue;
     }
     const cls = ['tos-map-tile'];
-    if (t.danger && t.danger !== 'safe') cls.push('d-' + t.danger);
+    // No `d-<tier>` class: nothing styles it any more (see the note in the CSS), and
+    // a class shipped on 3,471 tiles that nothing reads is how the rail comes back by
+    // accident the next time somebody is looking for a hook to hang a tint on.
     if (t.reachable === false) cls.push('unreach');
     if (t.id === dest && !t.isCurrent) cls.push('dest');
     if (t.id === _tosMapSel) cls.push('sel');
@@ -8195,7 +8202,9 @@ function renderMapDetail(d) {
   const rows = [];
   const funcLabel = FUNC_LEGEND[t.func]?.label;
   if (funcLabel) rows.push(`<div class="tos-row"><span>District</span><span>${esc(funcLabel)}</span></div>`);
-  if (t.danger && t.danger !== 'safe') rows.push(`<div class="tos-row"><span>Danger</span><span>${esc(t.danger)}</span></div>`);
+  // No Danger row. `zoneDanger` is a bucketed read of what SPAWNS there — it is the
+  // spawn table with the serial numbers filed off, and printing it hands a player a
+  // threat rating for ground they have never walked on. They find out by going.
   const poiLabel = t.poi && POI_LEGEND[t.poi] ? POI_LEGEND[t.poi].label : null;
   if (poiLabel) rows.push(`<div class="tos-row"><span>Landmark</span><span>${esc(t.icon || '')} ${esc(poiLabel)}</span></div>`);
   if (Array.isArray(t.artery) && t.artery.length) rows.push(`<div class="tos-row"><span>On</span><span>${t.artery.map(esc).join(' · ')}</span></div>`);
