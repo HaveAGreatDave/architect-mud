@@ -96,6 +96,25 @@ async function main() {
   // The forecourt's lanes — the other building a truck is meant to drive INTO. See the note on
   // forecourtDriveSmoke: a gas station looks open from every camera whatever its collision says.
   for (const f of ws.forecourtDriveSmoke()) problems.push(`drive  ${f}`);
+  // ── A WIDE ROAD IS ONE ROAD ─────────────────────────────────────────────────
+  // The rule that stops a three-wide artery painting three centre lines and four kerbs across
+  // itself, which reads as a row of traffic islands. Checked here rather than by eye because the
+  // failure is per-tile-correct and only wrong in aggregate — every tile passes inspection.
+  {
+    const road = (rd) => ({ kind: 'land', biome: 'citycore', road: 1, rd });
+    const grid = (cells) => (x, y) => (cells[y] && cells[y][x]) || null;
+    // Three parallel N–S lanes: one block of width 3, each tile knowing its own place in it.
+    const wide = grid([[road('ns'), road('ns'), road('ns')]]);
+    const ix = [0, 1, 2].map(x => ws._blockSpan(wide, x, 0, 'ns'));
+    if (!ix.every(r => r.width === 3)) problems.push(`road   three parallel lanes measured as widths ${ix.map(r => r.width).join('/')}, not one 3-wide carriageway`);
+    if (ix.map(r => r.index).join(',') !== '0,1,2') problems.push(`road   tiles in one carriageway do not know their own place in it (${ix.map(r => r.index).join(',')})`);
+    // A lone street is width 1 and must draw exactly what it always drew — the migration invariant.
+    const solo = grid([[road('ns')]]);
+    if (ws._blockSpan(solo, 0, 0, 'ns').width !== 1) problems.push('road   a one-tile street no longer measures as one tile — every ordinary road in the city just changed');
+    // A junction ends a block: a crossroads is where two carriageways meet, not part of one.
+    const cut = grid([[road('ns'), road('nesw'), road('ns')]]);
+    if (ws._blockSpan(cut, 0, 0, 'ns').width !== 1) problems.push('road   a junction no longer breaks a carriageway — a crossroads is being paved as part of the street through it');
+  }
   const bayOcc = ws.bayOccluderSmoke(WS_ID);
   for (const f of bayOcc) problems.push(`bayocc ${f}`);
 
@@ -253,6 +272,7 @@ async function main() {
   console.log(`  Depot occlusion: a shed beside the rig covers ${bayOcc.length ? '?' : 'the span buffer'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: both pump lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — and the pumps are still solid.');
+  console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a
   // bad proxy: a mass face is a flat fill, a neon blade sets shadowBlur (a software blur per draw).

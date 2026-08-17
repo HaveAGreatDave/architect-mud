@@ -1565,13 +1565,20 @@ export function openCab(ctx = {}) {
       const w = el.querySelector('em');
       if (w) w.textContent = st.park ? 'PUSH' : 'PULL';
     }
-    // AND IF THERE IS NOTHING LEFT TO DO, THIS IS GETTING OUT. Setting the spring brakes on a dead,
+    // AND IF THERE IS NOTHING LEFT TO DO, THIS IS GETTING OUT. Setting the spring brakes on a
     // stationary truck is the last step of parking it and there is no other reason to do it — so
     // the knob finishes the sequence rather than leaving the driver to find a verb for the part
-    // they have visibly already done. It sends the ORDINARY `park` command (which locks up, flushes
-    // and closes this panel); the cab decides nothing about whether it is allowed, and with the
-    // engine running the verb's own refusal is the one that speaks.
-    if (st.park && st.sim.stalled && Math.abs(st.sim.speed) < 0.5) sendCmdSilent('park');
+    // they have visibly already done. It sends the ORDINARY `park` command, which locks up, flushes
+    // and closes this panel.
+    //
+    // ⚠ IT IS SENT WITH THE ENGINE RUNNING TOO, AND THE COMMENT HERE ALREADY SAID SO WHILE THE
+    // GUARD DID THE OPPOSITE. The line read "the cab decides nothing about whether it is allowed,
+    // and with the engine running the verb's own refusal is the one that speaks" — and then gated
+    // on `st.sim.stalled`, so with the engine running NOTHING was sent and nothing spoke. A driver
+    // pulled the park brake expecting to climb down, got silence, and had no way to learn that the
+    // key was the missing step. `parkRig` refuses in one clear sentence that names the key; letting
+    // it say so is the whole point of not deciding here.
+    if (st.park && Math.abs(st.sim.speed) < 0.5) sendCmdSilent('park');
   }
   st.setPark = setPark;
   // Toggling it ON takes the speed you are DOING, which is the only number a driver ever means by

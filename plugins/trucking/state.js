@@ -612,6 +612,15 @@ export const FUEL_FULL = 380;
 // the corridor the fuel stop is a roadside structure rather than a zone, so standing on one is it.
 export function pumpAt(rig, fallbackZoneId) {
   if (!rig) return false;
+  // ⚠ AND YOU HAVE TO HAVE STOPPED. The handle on the dash lit the moment the tile under the wheels
+  // was a forecourt, which meant it came on as a driver swept THROUGH one at fifty and went out
+  // again a second later — a control that appears and disappears while you are steering reads as a
+  // glitch rather than as an offer. Nobody fuels a moving truck, so the reach test says so, and it
+  // says it HERE because four things ask this question (the verb, the depot panel, the cab's handle
+  // and the commit that handle sends) and the moment two of them disagree you get a button that
+  // lights on a tile the verb then refuses. A caller with no rig in motion — the depot panel, which
+  // asks about a yard rather than about a vehicle — sends no speed and is unaffected.
+  if (Math.abs(rig.speed || 0) > 2) return false;
   if (rig.leg === 'corridor')
     return corridorAt(rig.route, Math.round(rig.x), Math.round(rig.y))?.flags?.building_type === 'fuel_yard';
   const z = getZone(rig.zoneId || fallbackZoneId);

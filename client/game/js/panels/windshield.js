@@ -509,7 +509,12 @@ function sceneFor(id, W, H) {
       clouds: Array.from({ length: 12 }, (_, i) => { const hi = i % 3 === 0; return {
         az: rnd(i * 3) * 360, el: hi ? 20 + rnd(i * 5) * 16 : 5 + rnd(i * 5) * 12,
         s: (hi ? 0.5 : 0.9) + rnd(i * 2) * 0.8, drift: (0.4 + rnd(i) * 0.9) * (hi ? 1.5 : 1) }; }),
-      parts: Array.from({ length: 90 }, (_, i) => ({ x: rnd(i * 7), y: rnd(i * 11), v: 0.5 + rnd(i) * 0.8 })),
+      // ⚠ SIZED FOR THE HEAVIEST PRECIP, NOT THE AVERAGE. drawWeather indexes this pool directly, so
+      // a pool smaller than the storm count silently walks off the end and draws nothing for the
+      // drops that fell past it — which is a rain effect that gets THINNER the harder it rains. 90
+      // was the old storm count exactly; the count is 260 now, and the far/near split reads a second
+      // offset window into the same pool, so it needs headroom past that too.
+      parts: Array.from({ length: 340 }, (_, i) => ({ x: rnd(i * 7), y: rnd(i * 11), v: 0.5 + rnd(i) * 0.8 })),
       drops: Array.from({ length: 30 }, (_, i) => ({ x: rnd(i * 4), y: rnd(i * 6) * 0.9, r: 1.4 + rnd(i * 2) * 3, life: rnd(i), streak: 0 })),
       bugs: [],                 // canopy bug splats that accumulate over the flight (impact specks on the glass)
       bugT: 4 + rnd(3) * 6,     // seconds until the next splat
@@ -1335,6 +1340,17 @@ export function paintWindshield(id, view) {
   // Region atmosphere grade — a place's cosmetic mood (e.g. The Reach's sun-baked dust), faded in
   // by how deep in the region you are. Over the world, under the canopy glass/prop overlays below.
   { const rg = regionGradeFor(v); if (rg) applyRegionGrade(ctx, W, H, horizonY, rg.g, rg.w, now, sky.night); }
+
+  // ── WHAT BAD WEATHER DOES TO THE WHOLE PICTURE ──────────────────────────────
+  // Until now weather was PARTICLES and haze: streaks in the air, water on the glass, and a fog
+  // colour on distant faces. All correct, all local, and together they still left a storm looking
+  // like a sunny street with rain drawn on top of it — because the thing that actually reads as bad
+  // weather is that the LIGHT changes. Colour goes out of the world, the contrast collapses, and
+  // the sky stops lighting the ground.
+  //
+  // So this is one grade over the finished world, driven by the same `WX_HAZE` scalar the fog and
+  // the headlight gate already read — no new severity number to keep in step with those two.
+  { const wsv = stormSeverity(wx, wxSample); if (wsv > 0.02) applyStormGrade(ctx, W, H, horizonY, wsv, sky.night, wx); }
 
   // Heat shimmer: the tarmac wavers in the hot air above the horizon (hot fields, high sun).
   if (shimmerStr > 0.01) drawHeatShimmer(ctx, cv, W, H, horizonY, dpr, now, shimmerStr);
@@ -6217,10 +6233,23 @@ const WP_ACCENT_TILE = '255,92,176';
 // only fiction in the layer and it is a fiction about pacing, never about who is present.
 const ACTORS = new Map();   // token -> { ax, ay, bx, by, t0, side, born, gone }
 let _actorSrc = null;       // identity of the last payload array — see syncStreetActors
-const WALK_MS = 3400;       // a tile-crossing. Under the 15 s NPC tick on purpose: the pause that
-                            // leaves reads as somebody stopping at a window, which is what people
-                            // on a pavement do. Interpolating over the full 15 s instead would need
-                            // the runner to lag a whole tick behind to know where it was going.
+// ── A TILE-CROSSING TAKES THE WHOLE TICK ─────────────────────────────────────
+// This was 3400 ms against a 15 s NPC tick, and the reasoning was that the pause afterwards reads
+// as somebody stopping at a window. It does not. What it reads as is a figure darting a tile,
+// freezing for eleven seconds, and darting again — a stop-motion puppet, because the eye is far
+// better at spotting a rhythm than at inventing a reason for one. Somebody walking a pavement is
+// walking the whole time you can see them.
+//
+// ⚠ THE COST IS A TICK OF LAG, AND IT IS THE RIGHT TRADE. The server says "they are at B" and the
+// figure only ARRIVES at B fifteen seconds later, so the drawn position trails the authoritative
+// one by up to a tile. That is invisible — a real walker takes time to cross ground too — and it
+// is the only way to be smooth, because the destination cannot be known before the tick that names
+// it. Nothing mechanical reads this: pedestrians are drawn and are never geometry (see the note on
+// the kerb below), so a tile of visual lag cannot desync anything.
+//
+// Keep it in step with the server's own step interval — if that tick ever changes, this is the
+// number that has to move with it or the walk goes back to stopping and starting.
+const WALK_MS = 15000;
 const FADE_MS = 900;        // a doorway swallowing somebody, or a figure reaching the window edge
 const VERGE = 0.38;         // how far off the tile centre the kerb is. Under half a tile, so a
                             // figure is always inside its own tile and never straddles the lane.
@@ -6269,11 +6298,17 @@ function syncStreetActors(list, now) {
   }
 }
 
-// Where a figure is this instant, in absolute tile coords. Eased rather than linear so a step has
-// a push-off and a settle instead of the constant-velocity slide that reads as a chess piece.
+// Where a figure is this instant, in absolute tile coords.
+//
+// ⚠ LINEAR, AND IT USED TO BE EASED. Smoothstep was right when a crossing was a 3.4 s dart between
+// long pauses: a step needs a push-off and a settle or it reads as a chess piece being slid. Now
+// that a crossing fills the whole tick the two are back to back, and easing every one of them
+// means accelerating and decelerating continuously — a figure that lurches forward and hesitates,
+// forever, which is a worse artefact than the one it was added to fix. Somebody walking holds a
+// speed; only the gait bob (`phase`, in the draw pass) should be periodic.
 function actorPos(h, now) {
-  const t = clamp((now - h.t0) / WALK_MS, 0, 1), e = smoothstep(t);
-  return { x: h.ax + (h.bx - h.ax) * e, y: h.ay + (h.by - h.ay) * e, moving: t < 1 };
+  const t = clamp((now - h.t0) / WALK_MS, 0, 1);
+  return { x: h.ax + (h.bx - h.ax) * t, y: h.ay + (h.by - h.ay) * t, moving: t < 1 };
 }
 
 // THE KERB. A figure is never in the carriageway — you drive down the middle of these streets.
@@ -8516,6 +8551,35 @@ function cornerBox(ctx, cx, cy, r) {
 // pavement never bleeds softly into the terrain. Markings run in WORLD space along the
 // surface's direction, derived from which neighbours share the same surface (a N–S run
 // marks along y, an E–W run along x; a crossing tile stays bare).
+// ── HOW WIDE IS THIS CARRIAGEWAY, AND WHERE AM I IN IT ───────────────────────
+// Roads are authored one tile at a time, so an arterial is a RUN of parallel tiles that each
+// believe they are a whole street. Painting them as such gives a wide road a centre line and a
+// kerb every tile across it, which reads as a row of traffic islands — see the note at the call.
+//
+// This walks perpendicular to the road's own axis and counts contiguous tiles carrying the SAME
+// straight axis, returning the block's width and this tile's index in it. Two rules keep it
+// honest: a junction ends a block (a crossroads is not part of a carriageway, it is where two of
+// them meet), and so does a curve (`rdeg`, which already ships a real width of its own).
+//
+// Capped at BLOCK_MAX either way. Not for performance — the scan is a handful of array lookups on
+// a hot path that already does far more per tile — but because an unbounded count would let a
+// plaza-sized field of road tiles resolve to a twenty-lane highway with one line down the middle,
+// which is a worse answer than the per-tile one it replaced.
+const BLOCK_MAX = 4;
+export { blockSpan as _blockSpan };   // smoke seam — see carriagewaySmoke in scripts/shapes/smoke.mjs
+function blockSpan(at, rx, ry, axis) {
+  const axisOf = (cc) => {
+    if (!cc || !cc.road || cc.bt || cc.rdeg != null || cc.ft === 'dust' || cc.kind === 'field') return null;
+    const d = cc.rd || '';
+    if (d.length >= 3) return null;                 // a junction is where two roads meet, not part of one
+    return d === 'ns' ? 'ns' : d === 'ew' ? 'ew' : null;
+  };
+  // Perpendicular to the run: a north–south road widens across x, an east–west one across y.
+  const px = axis === 'ns' ? 1 : 0, py = axis === 'ns' ? 0 : 1;
+  const reach = (s) => { let n = 0; for (let k = 1; k <= BLOCK_MAX; k++) { if (axisOf(at(rx + px * s * k, ry + py * s * k)) !== axis) break; n++; } return n; };
+  const lo = reach(-1), hi = reach(1);
+  return { width: lo + hi + 1, index: lo };
+}
 function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
   const map = v.map; if (!map || !map.length) return; const R = cam.R;
   const baseAlpha = ctx.globalAlpha;   // = worldBlend (set by the caller); the far fade rides on top of it
@@ -8650,9 +8714,50 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       };
       if (RA || dirs === 'ns' || dirs === 'ew') {   // straight: continuous 4-lane markings across the tile
         const A = RA || (dirs === 'ew' ? [1, 0] : [0, 1]);
-        if (!offAxis) pavement(A, -RSPAN, RSPAN);
-        dashedA(A, ROFF - 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE); dashedA(A, ROFF + 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE);
-        stripeA(A, ROFF - 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL); stripeA(A, ROFF + 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL);
+        // ── ⚠ A BLOCK OF ROAD TILES IS ONE ROAD, NOT N ROADS SIDE BY SIDE ────────
+        // Every tile used to paint its own double yellow down its own middle and its own pavement
+        // up both its own sides. On a one-tile street that is exactly right. On a three-wide
+        // artery it draws three centre lines and four kerbs across a single carriageway, and the
+        // eye reads the inner ones as traffic islands — because that is what a kerb and a double
+        // yellow in the middle of a road MEAN. Nothing was wrong with any one tile; the mistake was
+        // that a tile is the wrong unit to decide a marking on.
+        //
+        // So the block is measured first, and each tile paints only the lines that fall inside its
+        // own square. Lane lines sit every half tile across the whole width, the double yellow goes
+        // down the middle of the BLOCK wherever that lands, and the pavement is painted once by
+        // whichever tile the outer edge happens to be in. A one-wide street measures width 1 and
+        // comes out byte-identical to what it drew before, which is the migration invariant here.
+        //
+        // Curved roads opt out entirely: `rw`/`rt` already ship a real width and offset for those
+        // (see the corridor), so a second width model would be two answers to one question.
+        const nBlk = RA ? null : blockSpan(at, rx, ry, dirs === 'ew' ? 'ew' : 'ns');
+        if (nBlk && nBlk.width > 1) {
+          const { width, index } = nBlk;
+          const u = index - (width - 1) / 2;          // this tile's centre, in tiles from the block centre
+          const halfW = width / 2;
+          // Anything at block-lateral `L` is at local offset `L - u`; paint it only if it lands in
+          // this tile, or every tile in the block draws every line of the whole road.
+          const mine = (L) => Math.abs(L - u) <= 0.5 + 1e-6 ? L - u : null;
+          const put = (L, hw, style, dash) => {
+            const o = mine(L); if (o == null) return;
+            if (dash) dashedA(A, o, hw, -RSPAN, RSPAN, 0.34, 0.2, style);
+            else stripeA(A, o, hw, -RSPAN, RSPAN, style);
+          };
+          put(-0.045, 0.014, YEL); put(0.045, 0.014, YEL);           // the block's own centreline
+          for (let L = 0.5; L < halfW - 0.06; L += 0.5) { put(L, 0.014, LANE, true); put(-L, 0.014, LANE, true); }
+          // The pavement, at the outer edge of the whole block — 0.12 in from the kerb line, which
+          // is where a single tile's own band sits relative to its edge (0.5 − VERGE).
+          const pw = halfW - (0.5 - VERGE);
+          for (const s of [-1, 1]) {
+            const o = mine(s * pw); if (o == null) continue;
+            stripeA(A, o, WALK_HW, -RSPAN, RSPAN, WALK);
+            stripeA(A, o - s * WALK_HW, 0.012, -RSPAN, RSPAN, KERB);
+          }
+        } else {
+          if (!offAxis) pavement(A, -RSPAN, RSPAN);
+          dashedA(A, ROFF - 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE); dashedA(A, ROFF + 0.23 * RK, 0.014, -RSPAN, RSPAN, 0.34, 0.2, LANE);
+          stripeA(A, ROFF - 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL); stripeA(A, ROFF + 0.045 * RK, 0.014, -RSPAN, RSPAN, YEL);
+        }
       } else {   // stub / turn / T / crossroads: mark each connected arm from the centre out to its edge
         // A JUNCTION IS A HOLE IN THE PAVEMENT, not a crossing of it. Each arm's bands run from
         // the corner outward and stop short of the middle, which is what leaves the box clear for
@@ -8668,8 +8773,36 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
           // inside the pavement it joins — so it reads as connecting the two kerbs rather than
           // floating in the road. Junctions only (a T or a crossroads): a bend or a dead-end stub
           // with a crossing painted on it is a crossing to nowhere.
+          //
+          // ⚠ IT REACHES KERB TO KERB. Seven bars at 0.082 spanned ±0.25 — half the carriageway,
+          // stopping well short of the pavement at either end, so it read as a strip of paint in
+          // the middle of the road rather than as a route across it. A crossing is defined by the
+          // two things it JOINS; anything narrower than the gap between the kerbs is decoration.
           if (!junction) continue;
-          for (let k = -3; k <= 3; k++) stripeA(A, k * 0.082, 0.028, 0.30, 0.42, LANE);
+          for (let k = -4; k <= 4; k++) stripeA(A, k * (VERGE - WALK_HW) / 4.5, 0.030, 0.30, 0.42, LANE);
+        }
+        // ── ⚠ THE PAVEMENT TURNS THE CORNER ──────────────────────────────────────
+        // Each arm above lays its bands from 0.42 out to the tile edge, which leaves a square hole
+        // at every corner of the junction box: two bands arriving at right angles and stopping
+        // short of each other, with bare tarmac in the gap. On a crossroads that is four holes, and
+        // on a bend it is the whole outside of the turn — which is precisely where a pavement is
+        // most obviously continuous in life, because a corner is the one part of it everybody
+        // stands on. A patch centred on the corner bridges both bands by construction: the bands
+        // are at ±VERGE on each axis, so a square there of the band's own half-width meets each of
+        // them exactly, with no numbers of its own to drift.
+        //
+        // Only where BOTH bounding arms exist. A corner with one arm is not a corner, it is the end
+        // of a band, and paving it would put a pale square out on tile nobody walks on.
+        for (const [d1, d2] of [['n', 'e'], ['e', 's'], ['s', 'w'], ['w', 'n']]) {
+          if (!dirs.includes(d1) || !dirs.includes(d2)) continue;
+          const cx3 = (DIRV[d1][0] + DIRV[d2][0]) * VERGE, cy3 = (DIRV[d1][1] + DIRV[d2][1]) * VERGE;
+          const q = (a, b) => cam.proj(dx + cx3 + a, dy + cy3 + b, 0);
+          const k = WALK_HW;
+          const cs = [q(-k, -k), q(k, -k), q(k, k), q(-k, k)];
+          if (cs.some(p => p.f <= 0.05)) continue;
+          ctx.fillStyle = WALK; ctx.beginPath();
+          cs.forEach((p, i) => (i ? ctx.lineTo(p.sx, p.sy) : ctx.moveTo(p.sx, p.sy)));
+          ctx.closePath(); ctx.fill();
         }
       }
     }
@@ -9609,6 +9742,45 @@ function regionGradeFor(v) {
 // a sun-baked ochre in, lift the midtones, then a dirty vignette + a wavering horizon heat-haze.
 // Runs BEFORE the canopy glass/prop overlays so the glass still sits cleanly on top. Gated on w>0,
 // so it costs nothing outside a graded region.
+// ── HOW BAD IS IT, AS ONE NUMBER ─────────────────────────────────────────────
+// Derived from `WX_HAZE`, which is already the file's single statement of how much a given sky
+// costs you — the fog ceiling reads it, and so does the headlight gate through `wxGloom`. A third
+// independent table of "how stormy is storm" would be the thing that eventually disagrees with the
+// other two, and the failure would be lamps coming on in weather the grade thinks is fine.
+// The local cell wins where the weather field is plumbed, so flying into a cell darkens with it.
+function stormSeverity(wx, wxSample) {
+  const base = clamp(((WX_HAZE[wx] ?? 0.12) - 0.18) / 0.5, 0, 1);
+  const local = wxSample ? clamp(Math.max(wxSample.storm, wxSample.precip * 0.65), 0, 1) : 0;
+  return Math.max(base, local);
+}
+// The grade itself. Four passes, and each one is a separate thing bad light does:
+//   · saturation out — the single biggest tell, and the one no particle effect can fake
+//   · a cold multiply — the world goes blue-grey because the sun is no longer reaching it
+//   · midtone crush — contrast collapses under cloud; nothing is bright and nothing is black
+//   · a heavy vignette pulled in tight — the edge of what you can see comes closer
+// Deliberately NOT applied to the glass layer: this is the world getting darker, not the
+// windscreen. drawGlass paints after it, so drops and wiper smear still sit on top at full value.
+function applyStormGrade(ctx, W, H, horizonY, sev, night, wx) {
+  const s = clamp(sev, 0, 1);
+  // A cast per weather, because "grim" is not one colour: rain is cold, ash is warm and filthy,
+  // and an ion storm is neither. Everything else takes the cold default.
+  const cast = wx === 'ash' || wx === 'dust' ? [96, 78, 60] : wx === 'ion_storm' ? [70, 96, 88] : [72, 84, 104];
+  ctx.save();
+  ctx.globalCompositeOperation = 'saturation';
+  ctx.globalAlpha = clamp(s * 0.55, 0, 0.6); ctx.fillStyle = 'rgb(128,128,128)'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = clamp(s * 0.42 * (1 - night * 0.45), 0, 0.5);
+  ctx.fillStyle = `rgb(${cast[0] + 90},${cast[1] + 90},${cast[2] + 90})`; ctx.fillRect(0, 0, W, H);
+  // The midtone crush, as a flat wash of the cast at low alpha. `soft-light` would preserve the
+  // contrast this is trying to take away, which is the opposite of the effect.
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = clamp(s * 0.16, 0, 0.2); ctx.fillStyle = `rgb(${cast[0]},${cast[1]},${cast[2]})`; ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+  const vg = ctx.createRadialGradient(W / 2, horizonY, Math.min(W, H) * (0.46 - s * 0.20), W / 2, horizonY, Math.max(W, H) * 0.82);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(10,14,20,${clamp(s * 0.5, 0, 0.55)})`);
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
 function applyRegionGrade(ctx, W, H, horizonY, g, w, now, night) {
   if (w <= 0.002) return;
   const [tr, tg, tb] = g.tint;
@@ -14318,12 +14490,36 @@ function drawWeather(ctx, W, H, wx, st, dt, speed, precipLocal) {
     rate = clamp(precipLocal.rate, 0.15, 1);
   }
   if (rainy) {
-    const n = Math.round((stormy ? 90 : 55) * rate), slant = stormy ? 6 : 3;
-    ctx.strokeStyle = `rgba(180,205,235,${(stormy ? 0.4 : 0.28) * (0.5 + rate * 0.5)})`; ctx.lineWidth = 1;
-    for (let i = 0; i < n; i++) {
-      const p = st.parts[i]; p.y = (p.y + (0.9 + p.v) * dt * (1.4 + speed)) % 1; p.x = (p.x + 0.02 * dt) % 1;
-      const x = p.x * W, y = p.y * H, len = 10 + p.v * 12;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - slant, y + len); ctx.stroke();
+    // ── ⚠ DENSITY IS THE WHOLE COMPLAINT, AND IT WAS TUNED FOR THE WRONG VIEW ──
+    // 55 hairlines at alpha 0.28 is legible against a bright empty sky at eight thousand feet,
+    // which is where this was looked at. At street level in a truck the same effect is drawn over
+    // wet tarmac, dark buildings and a lit shopfront — everything it has to be seen against is busy
+    // and mid-toned — and it disappears completely. "I'm not seeing the rain in truck mode" was
+    // exactly right: it was being drawn, at a strength that only ever worked against sky.
+    //
+    // So the count and the contrast triple, the strokes get real width, and rain is drawn in TWO
+    // passes at different depths — a fast bright near curtain and a slower faint far one. That
+    // parallax is what makes rain read as falling THROUGH a scene rather than as scratches on it,
+    // and it costs one more loop.
+    const heavy = stormy ? 1 : 0.72;
+    const n = Math.round((stormy ? 260 : 170) * rate), slant = stormy ? 7 : 4;
+    for (let layer = 0; layer < 2; layer++) {
+      const near = layer === 1;
+      const cnt = near ? Math.round(n * 0.42) : n;
+      // The near curtain is brighter, longer, faster and thicker; the far one hangs back.
+      ctx.strokeStyle = `rgba(196,216,242,${(near ? 0.52 : 0.26) * heavy * (0.55 + rate * 0.45)})`;
+      ctx.lineWidth = near ? 1.8 : 1;
+      const vmul = near ? 1.9 : 1, lmul = near ? 2.1 : 1;
+      for (let i = 0; i < cnt; i++) {
+        const p = st.parts[(layer * 331 + i) % st.parts.length];
+        if (!near) { p.y = (p.y + (0.9 + p.v) * dt * (1.4 + speed)) % 1; p.x = (p.x + 0.02 * dt) % 1; }
+        // ⚠ THE NEAR LAYER READS THE SAME PARTICLES AND MUST NOT ADVANCE THEM. Both passes step the
+        // pool and every drop moves twice per frame — at 60fps that is rain falling at double the
+        // speed the numbers say, and the tuning above would be a lie about what is on screen.
+        const x = ((p.x * 1.37 + layer * 0.41) % 1) * W, y = ((p.y * (near ? 1.6 : 1) + layer * 0.23) % 1) * H;
+        const len = (10 + p.v * 12) * lmul;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - slant * vmul * 0.6, y + len); ctx.stroke();
+      }
     }
     if (stormy && !precipLocal && Math.abs(Math.sin(st.scroll * 40)) > 0.985) { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, 0, W, H); }
   } else if (snowy) {
