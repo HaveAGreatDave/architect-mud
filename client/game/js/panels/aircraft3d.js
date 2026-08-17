@@ -19,6 +19,7 @@
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+import { rasterFaces, blitRaster, depthAt } from './model-raster.js';
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
 const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 
@@ -4792,27 +4793,84 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // same monotonic quantity the windscreen calls `f` — see sortTruckFaces.
     let nf = Infinity, xf = -Infinity, hf = Infinity;
     for (const q of P) { if (q.z < nf) nf = q.z; if (q.z > xf) xf = q.z; if (q.gz != null && q.gz < hf) hf = q.gz; }
-    const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZ, i: drawn.length, col: shadeRgb(rgb, face.sh * pal.fmul * light * (wreck ? 0.8 : 1)) };
+    // ⚠ THE SHADE IS COMPUTED ONCE AND KEPT BOTH WAYS. `col` is the CSS string canvas wants; `rv`
+    // is the same numbers the depth rasteriser writes into a pixel buffer. Deriving one from the
+    // other later means parsing "rgb(83,42,28)" for every face of every frame, and having the
+    // rasteriser apply its own lighting means two shading models that agree until one is edited.
+    const shk = face.sh * pal.fmul * light * (wreck ? 0.8 : 1);
+    const rv = [clampN(rgb[0] * shk, 0, 255) | 0, clampN(rgb[1] * shk, 0, 255) | 0, clampN(rgb[2] * shk, 0, 255) | 0];
+    const rec = { P, role: face.role, avgZ, alpha, part: face.part, nf, xf, hf: hf === Infinity ? null : hf, af: avgZ, i: drawn.length, rv, col: shadeRgb(rgb, shk) };
     if (jazzImg && JAZZ_ROLE.has(face.role)) rec.uv = face.p.map(v => jazzUV(v, face.role));
     if (face.uv) { rec.cuv = face.uv; rec.cart = face.art; }        // canopy art: UVs + style authored on the mesh, not derived
     drawn.push(rec);
   }
   // A truck is nested convex boxes and cannot be ordered per face — see sortTruckFaces. Everything
   // with wings still takes the plain mean-depth sort it always had.
-  if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
-  else drawn.sort((a, b) => b.avgZ - a.avgZ);
+  // ── THE TRUCK IS DRAWN WITH A DEPTH BUFFER, NOT AN ORDER ────────────────────
+  // Four keys were tried here and each one fixed the case in front of it: mean depth, nearest
+  // vertex, ground-plane depth, distance-to-box. They fail for the same reason, which is not the
+  // key — a big panel can be behind a small one in one place and in front of it in another, and no
+  // single number per part can say so. So the fills go through a per-pixel depth test instead (see
+  // model-raster.js), which is exact from every angle including straight down, and has nothing left
+  // to flicker because depth is continuous.
+  //
+  // ⚠ AND THE DETAIL PASSES STILL RUN ON CANVAS, GATED ON WHAT WON. Jazz splatter, hull texture,
+  // canopy art and the glass sheen are canvas drawing and stay that way — re-implementing them
+  // inside a software rasteriser would be a second copy of four effects. A face asks the depth
+  // buffer whether it owns its own centre; if something nearer took that pixel, its detail is
+  // skipped. Cheap, and it cannot paint a hidden face's decoration over the panel hiding it.
+  //
+  // Everything with wings keeps the mean-depth sort it has always had: an airframe is one smooth
+  // hull, which is the shape a sort IS right for.
+  let rasterOK = false;
+  if (cls === 'truck' && drawn.length) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const fc of drawn) for (const q of fc.P) {
+      if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
+      if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
+    }
+    x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
+    const res = rasterFaces(drawn.map(fc => ({
+      pts: fc.P.map(q => ({ x: q.sx, y: q.sy, z: q.z })),
+      r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
+    })), x0, y0, x1 - x0, y1 - y0);
+    if (res) {
+      // ⚠ ONLY IF THE BLIT LANDED. Headless harnesses have no real canvas to compose through, and
+      // a rasterOK set on faith there would skip the canvas fills as well — a truck drawn nowhere at
+      // all rather than drawn in the old order.
+      rasterOK = blitRaster(ctx, res, x0, y0);
+      // Which faces survived, for the detail passes below. A face owns its centre or it does not.
+      for (const fc of drawn) {
+        let cx = 0, cy = 0, cz = 0;
+        for (const q of fc.P) { cx += q.sx; cy += q.sy; cz += q.z; }
+        const n = fc.P.length;
+        cx = Math.round(cx / n - x0); cy = Math.round(cy / n - y0);
+        fc.seen = cx >= 0 && cy >= 0 && cx < res.w && cy < res.h
+          && Math.abs(depthAt(res, cx, cy) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
+      }
+    }
+  }
+  if (!rasterOK) {
+    if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
+    else drawn.sort((a, b) => b.avgZ - a.avgZ);
+  }
   ctx.lineJoin = 'round';
   for (const fc of drawn) {
+    if (rasterOK && !fc.seen) continue;                 // hidden: its detail would paint over the winner
     if (fc.alpha < 1) ctx.globalAlpha = fc.alpha;
     ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
     for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
     ctx.closePath();
-    ctx.fillStyle = fc.col; ctx.fill();
+    if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass already laid the colour down
     if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, jazzImg);           // Memphis splatter, mapped in body space
     else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
     if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);          // greenhouse: mullions, sky reflection, the crew behind the glass
     if (!wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows
-    ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+    // ⚠ NO OUTLINE OVER A DEPTH-BUFFERED MODEL. The stroke is drawn on the face's whole outline,
+    // including the parts of it that lost the depth test, so it would draw the hidden half of every
+    // box as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway,
+    // and there are none left.
+    if (!rasterOK) { ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke(); }
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy); ctx.lineTo(fc.P[1].sx, fc.P[1].sy); ctx.stroke(); ctx.restore();

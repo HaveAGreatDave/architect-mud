@@ -30,6 +30,7 @@
 // Runs in node in about a second via scripts/shapes/dom-stub.mjs — no browser, no DB, no network.
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
+import { rasterSmoke } from './raster-smoke.mjs';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
@@ -72,6 +73,10 @@ async function main() {
   stubCanvas(WS_ID, 640, 360);
   const views = ws.viewRenderSmoke(WS_ID);
   for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
+  // The depth buffer that replaced the truck sort — see model-raster.js. Its cases are the ones no
+  // ordering can pass, so a regression here is the whole class coming back.
+  const raster = rasterSmoke();
+  for (const f of raster) problems.push(`raster ${f}`);
   const fairing = truckFairingSmoke();
   for (const f of fairing) problems.push(`shell  ${f}`);
   const bayOcc = ws.bayOccluderSmoke(WS_ID);
