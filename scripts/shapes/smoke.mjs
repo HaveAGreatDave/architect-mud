@@ -72,6 +72,8 @@ async function main() {
   stubCanvas(WS_ID, 640, 360);
   const views = ws.viewRenderSmoke(WS_ID);
   for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
+  const bayOcc = ws.bayOccluderSmoke(WS_ID);
+  for (const f of bayOcc) problems.push(`bayocc ${f}`);
 
   // ── GROUND COLLISION ──
   // Every model probed at truck height, asserting ground-solid ⊆ air-solid. The two probes share
@@ -224,6 +226,7 @@ async function main() {
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
+  console.log(`  Depot occlusion: a shed beside the rig covers ${bayOcc.length ? '?' : 'the span buffer'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
   // Cost of the LIGHTS, measured in the two canvas operations that actually hurt. Face count is a

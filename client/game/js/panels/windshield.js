@@ -8409,6 +8409,46 @@ export function shapeRenderSmoke() {
 //
 // `ID` must already resolve through document.getElementById to a sized canvas — the caller owns the
 // DOM, since this file must not import anything out of scripts/.
+// ── DOES THE DEPOT SHED HIDE WHAT IS BEHIND IT? ──────────────────────────────
+// The bay is the one building with no `shapeForModel`, so it fell out of the occluder pass at the
+// first `continue` and contributed nothing at all — the truck drew straight through its walls, from
+// every angle, for as long as the shed has existed. Nothing caught it because every other test here
+// asks whether a thing DRAWS, and this is a bug about a thing that draws when it should not.
+//
+// So: one chase frame over a map whose only building is a shed off to the side, and the span buffer
+// must come back with columns covered. Then the two cases that must NOT cover — a shed with your
+// own rig inside it (it is in cutaway for you, and masking against a wall you are being shown
+// through is the same bug one layer down) and an empty map (nothing to hide behind).
+export function bayOccluderSmoke(ID) {
+  const out = [];
+  const R = 8, N = R * 2 + 1;
+  const plain = () => Array.from({ length: N }, () => Array.from({ length: N }, () => ({ kind: 'land', biome: 'freight', flr: 0 })));
+  const bay = (bn) => ({ kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay', bn });
+  const view = { heading: 0, speed: 0, hour: 13, weather: 'clear', cls: 'truck', phase: 'ground',
+    worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', external: true, extYaw: 0.2, extPitch: 0.25, extZoom: 1.1 };
+  const covered = (map) => {
+    paintWindshield(ID, { ...view, map });
+    const F = OCC_FIELD;
+    if (!F) return -1;                       // occlusion tuned off — the caller reports it as a skip
+    let n = 0;
+    for (let c = 0; c < OCC_BUCKETS; c++) if (F.covTop[c] < Infinity) n++;
+    return n;
+  };
+  // ⚠ NEXT DOOR, NOT ACROSS THE YARD. Buildings fade IN with distance, and a building still fading
+  // in is deliberately never an occluder (it is not opaque yet) — three tiles out this shed is at
+  // 46% and skips the branch entirely, which would make this a test that passes by not running.
+  // One tile away is both fully opaque and the case the bug is actually about: you are beside it.
+  const off = plain(); off[R - 1][R + 1] = bay('OFFSET DEPOT');
+  const nOff = covered(off);
+  if (nOff === 0) out.push('a depot shed beside the truck occludes nothing — the span buffer never hears about it');
+  if (nOff > 0) {
+    const own = plain(); own[R][R] = bay('OWN DEPOT');
+    if (covered(own) > 0) out.push('the shed the truck is standing IN is masking it — the cutaway and the occluder disagree');
+    if (covered(plain()) > 0) out.push('an empty map reports occluders');
+  }
+  return out;
+}
+
 export function viewRenderSmoke(ID) {
   const out = [];
   out.ran = 0;
@@ -11620,6 +11660,45 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
       if (!it.c || !it.c.bt) continue;
+      // ── THE DEPOT SHED IS AN OCCLUDER TOO, AND IT WAS THE ONE BUILDING THAT WAS NOT ──────────
+      // Everything below works off `shapeForModel`, and the bay has no shape: it is the one
+      // building drawn at a fixed size by its own function rather than extruded from a storey
+      // stack. So it fell out of this loop at the first `continue` and contributed NOTHING to the
+      // span buffer — which is the whole of "the truck shows through the depot walls". The own ship
+      // has been depth-masked against buildings for a long time (see beginOcclusionClip); the shed
+      // simply never told the mask it was there.
+      //
+      // Three decisions make it correct rather than merely present:
+      //
+      //  · THE SIDE WALLS ONLY, NEVER THE HEADER. A column in this buffer is covered from one line
+      //    DOWNWARD, which is the truth for a wall and a lie for the strip of wall above a doorway —
+      //    contribute that and a truck standing in an open doorway is hidden by the lintel over its
+      //    own roof. The two solid flanks are what a shed actually blocks.
+      //  · THE DOORWAY IS AN OCCLUDER WHEN THE DOOR IS DOWN. That is the same `bayDoorOpen` the
+      //    picture and the collision already share, so a shut door hides the rig behind it, an open
+      //    one shows it, and none of the three can disagree about which it is.
+      //  · AND A SHED WITH YOUR OWN RIG INSIDE IT CONTRIBUTES NOTHING. That building is being drawn
+      //    in cutaway for you — its roof and near wall are already fading out so you can see your
+      //    own truck — and masking the truck against a wall it is deliberately being shown through
+      //    would put the bug back one layer down.
+      if (it.c.mark === 'bay') {
+        if (it.alpha < OCC_OPAQUE) continue;
+        const E = faceVec(it.c.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+        const subjLX = -it.dx * ct - it.dy * st, subjLY = it.dx * st - it.dy * ct;
+        if (Math.abs(subjLX) < BAY.HW && Math.abs(subjLY) < BAY.HL) continue;   // your own rig is in it
+        const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
+        const k = 1 - OCC_SHRINK;
+        const spans = [[-BAY.HW, -BAY.DOOR_W], [BAY.DOOR_W, BAY.HW]];
+        if (bayDoorOpen(it.dx, it.dy, it.c) < 0.5) spans.push([-BAY.DOOR_W, BAY.DOOR_W]);
+        for (const [sx0, sx1] of spans) {
+          if (!(sx1 > sx0)) continue;
+          const cc = [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB);
+          const cbox = screenBox(cam, cc, 0, BAY.WALL * k);
+          if (!cbox) continue;
+          for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) { covTop[c] = cbox.y0; covF[c] = it.f; }
+        }
+        continue;
+      }
       const om = modelFor(it.c); if (!om) continue;
       const segs = shapeForModel(om, it.seed); if (!segs || !segs.length) continue;
       const oh = floorHeight(it.c, it.seed);
