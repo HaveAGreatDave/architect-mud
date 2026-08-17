@@ -1401,7 +1401,15 @@ export function paintWindshield(id, view) {
   // the bottom of the screen you are looking through — so a shoulder-check that carried them was
   // wiping the side window with a blade that is not on it. The rain, the beading and the frost all
   // stay: those are on every pane in the vehicle.
-  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.viewYaw ? 0 : (v.wipers | 0));
+  // The truck's forward view is the one place the canvas is not all glass — see `glassRect`. The
+  // numbers are the cab interior's own (drawCabInterior: a header at 0.085, pillars at 0.075 of the
+  // width, the dash taking CAB_DASH off the bottom), so the weather stops exactly where the trim
+  // starts and moves with it if the cab is ever re-proportioned.
+  const cabForward = !v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw;
+  const glassRect = cabForward
+    ? { x: W * 0.075, y: H * 0.085, w: W * 0.85, h: H * (1 - CAB_DASH) - H * 0.085 }
+    : null;
+  if (!ext) drawGlass(ctx, W, H, WX_EVENT_AS[wx] || wx, st, dt, speed, framed, v.viewYaw ? 0 : (v.wipers | 0), glassRect);
   pEnd();
   // A TRUCK CAB is not an aircraft canopy: a flat two-pane screen with a centre post and an
   // A-pillar each side, and a dash filling the lower third rather than a glareshield. Same two
@@ -1419,7 +1427,7 @@ export function paintWindshield(id, view) {
   // until something says otherwise, so an unconditional clear is the only version that survives a
   // shoulder-check, the external view and a window seat — each of which leaves the forward branch
   // by a different door.
-  const wantCab = !v.windowClass && !ext && v.cls === 'truck' && !v.viewYaw;
+  const wantCab = cabForward;
   if (wantCab) paintCabDash(id, v); else clearCabDash(id);
   // A TRUCK LOOKING OFF THE NOSE GETS TRUCK GLASS. Without this branch a shoulder-check fell
   // through to the aircraft canopy header and the nose cowl below — a curved DA62 windscreen arch
@@ -1436,6 +1444,40 @@ export function paintWindshield(id, view) {
     drawCowlCached(ctx, W, H, v.cls, dpr);   // nose cowl / glareshield along the bottom — hides the bare near-ground band without lifting the camera
   }
   if (!v.windowClass) drawWxBadge(ctx, W, bowArcs ? v.event.type : wx, v.wind);
+  // ── RAIN IN FRONT OF THE CHASE CAMERA ────────────────────────────────────────
+  // The atmospheric pass runs early, before the world objects, so that falling rain reads as being
+  // out IN the scene rather than plastered on the glass — right for a cockpit, and the reason the
+  // external view looked dry. At ground level almost the whole frame is road, buildings and your
+  // own truck, all of which are painted after it, so the weather was there and covered up.
+  //
+  // A chase camera has no windscreen, so it cannot borrow the on-glass layer. What it has instead
+  // is the honest thing: rain BETWEEN the eye and the truck. This is that layer — the same particle
+  // field, drawn last, closer and faster and brighter, so it falls in front of the model.
+  //
+  // ⚠ EXTERNAL ONLY. From inside a cab this would be rain indoors, which is the exact mistake the
+  // early pass is positioned to avoid.
+  if (ext && (wx === 'rain' || wx === 'storm' || (wxSample && wxSample.precip > 0.12 && wxSample.ptype !== 'snow'))) {
+    pBegin('weather');
+    const rate = wxSample && wxSample.precip > 0.12 ? clamp(wxSample.precip, 0.15, 1) : 1;
+    const heavy = wx === 'storm' || wxSample?.ptype === 'thunderstorm';
+    const n = Math.round((heavy ? 70 : 44) * rate);
+    // ⚠ ITS OWN PARTICLES, NOT A SLICE OF THE FAR FIELD’S. A storm already drives 90 of those, so
+    // any window into that pool is a bead being advanced twice a frame — it would fall at double
+    // rate and streak in two places. Lazily built, so a clear day allocates nothing.
+    if (!st.near) st.near = Array.from({ length: 70 }, (_, i) => ({ x: ((i * 37) % 100) / 100, y: ((i * 61) % 100) / 100, v: 0.4 + ((i * 17) % 100) / 125 }));
+    ctx.save();
+    ctx.strokeStyle = `rgba(198,220,245,${(heavy ? 0.5 : 0.36) * (0.55 + rate * 0.45)})`;
+    ctx.lineWidth = 1.6;                       // near rain is a fatter streak than the far field
+    for (let i = 0; i < n; i++) {
+      const p = st.near[i];
+      p.y = (p.y + (2.2 + p.v * 1.6) * dt) % 1;      // …and much faster, because it is close
+      p.x = (p.x + 0.05 * dt) % 1;
+      const x = p.x * W, y = p.y * H, len = 26 + p.v * 30;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - (heavy ? 9 : 5), y + len); ctx.stroke();
+    }
+    ctx.restore();
+    pEnd();
+  }
   if (v.hud) drawHud(ctx, W, H, v);
   // Guns (Phase B): tracers are drawn as 3D world objects inside the banked world block
   // above (drawGunTracers) so they streak out with real depth toward the target.
@@ -3008,7 +3050,20 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
 // banked world, so it reads as being *on* the canopy in front of you. Plus the slow
 // accretion that dirties a canopy over a flight: bug splats that build up, and frost
 // creeping in from the corners in snow.
-function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
+// ⚠ `glassRect` IS WHERE THE GLASS ACTUALLY IS, and passing it is what stops the weather being
+// painted on the dashboard. Everything in here — beads, streaks, frost, the blades — used to run
+// edge to edge on the assumption that the whole canvas is a window, which is true of an aircraft
+// canopy and false of a truck: a cab is a header, two A-pillars and a dash filling the lower third,
+// and rain does not fall on the inside of any of them. The dash happens to be painted on a later
+// layer and hid the bottom of it, so the lie only showed at the pillars and the roof — and it only
+// showed in the rain, which is the one condition nobody screenshots. Clipped here instead, it is
+// right regardless of what any other layer does afterwards.
+function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0, glassRect = null) {
+  if (glassRect) { ctx.save(); ctx.beginPath(); ctx.rect(glassRect.x, glassRect.y, glassRect.w, glassRect.h); ctx.clip(); }
+  drawGlassInner(ctx, W, H, wx, st, dt, speed, framed, wipers);
+  if (glassRect) ctx.restore();
+}
+function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
   // Bug splats: while flying, the odd bug hits the glass and stays — the canopy gets
   // progressively grubbier until you land (state resets with the scene). Rain washes it.
   if (!framed && speed > 0.35 && wx !== 'rain' && wx !== 'storm') {
@@ -3077,7 +3132,22 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
         // Angle of this bead off the pivot, in the same frame the blade is drawn in. A narrow
         // window (not "everything behind the blade") is what makes the pane clear progressively.
         const a = Math.atan2(dx, -dy);
-        if (Math.abs(a - wipeAng) < 0.16) { d.streak = 0; d.life = 0.7 + (d.x * 7 % 1) * 1.4; d.y = (d.x * 11 % 1) * 0.18; }
+        // ⚠ THE BLADE ERASES, IT DOES NOT NUDGE. This used to re-anchor a swept drop at the top of
+        // the glass with a fresh life, so the pane never actually emptied: every drop the blade
+        // touched reappeared instantly a little higher up, and at any wiper speed above
+        // intermittent the screen stayed as wet as it started. What a wiper does is leave CLEAR
+        // GLASS behind it that fills in again over the next second or two, so a swept bead is
+        // killed and then held off for a beat — the hold is what you actually see, and it is the
+        // difference between wipers that work and an arm waving over unchanged rain.
+        //
+        // The band is a little wider than the blade it is drawn from, because a squeegee clears the
+        // glass it is ON rather than the geometric line through it, and a band narrower than the
+        // rubber leaves a wet stripe down the middle of the stroke.
+        if (Math.abs(a - wipeAng) < 0.20) {
+          d.streak = 0;
+          d.life = -(0.35 + (d.x * 7 % 1) * 0.9);      // negative: gone, and not back for that long
+          d.y = (d.x * 11 % 1) * 0.10;                 // …and when it does return it starts high
+        }
       }
     }
   }
@@ -3088,6 +3158,11 @@ function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
     // toward HORIZONTAL and the beads race off to the edges. `flat` = 0 vertical → 1 flat.
     const sp = clamp(speed, 0, 1), flat = sp * sp;
     for (const d of st.drops) {
+      // ⚠ A NEGATIVE LIFE IS CLEARED GLASS, and it has to be handled BEFORE the respawn or the
+      // wiper does nothing at all: the old line respawns anything at or below zero, so a swept
+      // drop reappears on the very next frame and the blade is decorative. Held drops count back
+      // UP toward zero and are not drawn at all in the meantime, which is the swept band.
+      if (d.life < 0) { d.life += dt; continue; }
       d.life -= dt * (0.3 + sp * 0.5);
       if (d.life <= 0) { d.life = 0.6 + (d.x * 7 % 1) * 1.6; d.streak = 0; d.y = (d.x * 13 % 1) * 0.6; }
       // A drop lets go and streaks — sooner and faster at speed (wind strips the glass).
