@@ -44,7 +44,7 @@ function renderDashboard(data) {
         ${card('🛡', 'Admins Online', admins.length, admins.length ? admins.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
         ${card('🕐', 'Server Time', timeStr, `${dateStr} · ${season} · ${weatherStr}`, "showPanel('timeweather')")}
         ${card('👾', 'Live Enemies', data.live_enemies ?? '—', `${(data.zones||[]).length} zones active`, "showPanel('enemies')")}
-        ${card('🚀', 'Next Deploy Window', '<span id="dep-clock">--:--:--</span>', '<span id="dep-sub">every 2h · click for Actions</span>', "window.open('https://github.com/HaveAGreatDave/architect-mud/actions/workflows/deploy-content.yml','_blank')")}
+        ${card('🚀', 'Deploy Window', '<span id="dep-clock">--:--:--</span>', '<span id="dep-sub">every 2h · click for Actions</span>', "window.open('https://github.com/HaveAGreatDave/architect-mud/actions/workflows/deploy-content.yml','_blank')")}
       </div>
 
       <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">7-Day Forecast</div>
@@ -146,30 +146,90 @@ function renderDashboard(data) {
 
 // ── Next deploy window countdown ─────────────────────────────────────────────
 // CI debounces deploys onto `cron: '0 */2 * * *'` (see .github/workflows/
-// deploy-content.yml) — a push only runs the regress gate. This is a pure
-// client-side clock: no request, no server state. It can't know whether the
-// upcoming run will actually ship (a scheduled run skips when HEAD's sha is
-// already live), so it reads as "earliest possible start", not a promise.
+// deploy-content.yml) — a push only runs the regress gate.
+//
+// ⚠ AND A CRON IS NOT A CLOCK, WHICH IS WHY THIS STOPPED BEING PURE ARITHMETIC. The old version
+// counted down to the next even hour and knew nothing else, so it was confidently wrong for the
+// whole of the part anybody cares about: GitHub's scheduler queues cron runs and starts them late —
+// routinely minutes, sometimes much longer — so the card hit 00:00:00, instantly reset to 1:59:59,
+// and then the deploy it had been counting down to happened while the card said two hours. Watching
+// that once is enough to stop trusting the number, and it read as the timer being out of sync
+// because it was: it was showing a SCHEDULE while the question is always "has it gone yet".
+//
+// There is ground truth available and it was already on the server. The CI job writes a
+// `deployments` row as its last step (see the workflow's "Record deployment"), which is the moment
+// prod actually restarted onto the new content, and `/staging/deployments` already served it to the
+// staging panel. So the card now carries a FACT and an estimate instead of an estimate alone:
+//
+//  · Before the boundary — count down, as before. This half was never wrong.
+//  · After the boundary with no new row — say the window is OPEN and count UP. That is the honest
+//    state, and it is exactly the stretch the old clock lied through.
+//  · Once a row lands after the boundary — the run has landed, so say when, and resume counting to
+//    the next window.
+//  · And past `SKIP_AFTER` with nothing recorded — the scheduled run skipped, which is the
+//    documented behaviour when HEAD's sha is already live rather than a failure.
+//
+// Poll is once a minute for three rows: this is a dev panel, not a hot path, and the countdown
+// itself still ticks locally every second so nothing depends on the request landing.
+const DEPLOY_SKIP_AFTER = 45 * 60000;    // a window with no row by now was a skip, not a delay
+let _lastDeployAt = null;                // ms epoch of the newest recorded deploy, or null
+let _deployPollAt = 0;
+
+function _windowBefore(now) {            // the most recent 2-hourly boundary at or before `now`
+  const w = new Date(now);
+  w.setUTCMinutes(0, 0, 0);
+  if (w.getUTCHours() % 2 !== 0) w.setUTCHours(w.getUTCHours() - 1);
+  return w;
+}
 
 function _initDeployClock() {
   if (!document.getElementById('dep-clock')) return;
   clearInterval(window._depTimer);   // panel re-renders; never stack intervals
 
   const pad = n => String(n).padStart(2, '0');
+  const hms = (ms) => `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms % 3600000 / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}`;
+  const ago = (ms) => (ms < 90000 ? 'just now' : ms < 3600000 ? `${Math.round(ms / 60000)} min ago` : `${(ms / 3600000).toFixed(1)}h ago`);
+
+  const poll = () => {
+    // Failure is silent on purpose: a dev panel that cannot reach the API has bigger problems to
+    // report than this card, and falling back to the arithmetic is exactly the old behaviour.
+    // `directAPI`, like the rest of this panel: a GET needs none of the staging interception `API`
+    // wraps every call in, and this one runs on a timer.
+    directAPI('/staging/deployments').then((d) => {
+      const t = d?.deployments?.[0]?.deployedAt;
+      const ms = t ? Date.parse(t) : NaN;
+      if (!Number.isNaN(ms)) _lastDeployAt = ms;
+    }).catch(() => {});
+  };
+
   const tick = () => {
     const clock = document.getElementById('dep-clock');
     if (!clock) { clearInterval(window._depTimer); return; }  // panel switched away
-    const now  = new Date();
-    const next = new Date(now);
-    next.setUTCMinutes(0, 0, 0);
-    next.setUTCHours(next.getUTCHours() + (next.getUTCHours() % 2 === 0 ? 2 : 1));
+    const now = Date.now();
+    if (now - _deployPollAt > 60000) { _deployPollAt = now; poll(); }
 
-    const ms = Math.max(0, next - now);
-    clock.textContent = `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms % 3600000 / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}`;
-    clock.style.color = ms < 600000 ? 'var(--yellow)' : '';
-
+    const prev = _windowBefore(now);
+    const next = new Date(prev); next.setUTCHours(next.getUTCHours() + 2);
+    const sinceWindow = now - prev.getTime();
+    const landed = _lastDeployAt != null && _lastDeployAt >= prev.getTime();
     const sub = document.getElementById('dep-sub');
-    if (sub) sub.textContent = `${pad(next.getUTCHours())}:00 UTC · ${next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`;
+
+    if (!landed && sinceWindow < DEPLOY_SKIP_AFTER) {
+      // The window is open and nothing has been recorded yet: the runner is queued, running, or
+      // about to skip. Counting UP is the only honest thing to show here.
+      clock.textContent = `+${hms(sinceWindow)}`;
+      clock.style.color = 'var(--yellow)';
+      if (sub) sub.textContent = `${pad(prev.getUTCHours())}:00 UTC window open · waiting on the runner`;
+      return;
+    }
+
+    const ms = Math.max(0, next.getTime() - now);
+    clock.textContent = hms(ms);
+    clock.style.color = ms < 600000 ? 'var(--yellow)' : '';
+    if (!sub) return;
+    const at = `${pad(next.getUTCHours())}:00 UTC · ${next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`;
+    sub.textContent = landed ? `deployed ${ago(now - _lastDeployAt)} · next ${at}`
+      : `${pad(prev.getUTCHours())}:00 skipped (already live) · next ${at}`;
   };
 
   tick();
