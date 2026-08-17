@@ -148,6 +148,23 @@ export const terrainOf = (z) => z?.flags?.terrain || (z?.flags?.water ? 'water' 
 /** Plain ground: somewhere a player stands and a door can open onto. */
 export const isStreet = (z) => !!z && z.grid_x != null && !isBuildingish(z) && terrainOf(z) !== 'water';
 
+// ⚠ WHY a side is refused, in the words of what is actually there. `isStreet` is NOT
+// a road test — grass, dirt, sand and rubble all pass it; it rejects only a building,
+// water, and the edge of the map. But every refusal it fed said "there is no street
+// <dir> of…", which reads as "a door has to face a ROAD" and is wrong. A door onto
+// grass has always been legal, and people turned buildings trying to satisfy a rule
+// that was never there.
+//
+// So the message names the obstacle instead of the missing road. Keep it that way: a
+// refusal whose reason is a category the reader has to guess at is how a rule acquires
+// an imaginary stricter version in everybody's head.
+export function whyNotOpenable(z) {
+  if (!z || z.grid_x == null) return 'the map ends there';
+  if (isBuildingish(z)) return `${z.name || z.id} is a building`;
+  if (terrainOf(z) === 'water') return `${z.name || z.id} is water`;
+  return null;
+}
+
 function cellIndex(zones) {
   const m = new Map();
   for (const z of zones) {
@@ -237,7 +254,7 @@ export function planRotate(tree, facadeId, k = 1) {
     const open = Object.entries(CARDINAL)
       .filter(([, [ox, oy]]) => isStreet(at.get(gridKey(facade.map_id, facade.grid_x + ox, facade.grid_y + oy, facade.grid_z))))
       .map(([d]) => d);
-    errors.push(`nothing to open onto ${to} of ${facade.name || facadeId}${street ? ` — ${street.name || street.id} is not a street` : ''}. Sides that would work: ${open.join(', ') || 'none'}`);
+    errors.push(`the door cannot open ${to}: ${whyNotOpenable(street)}. Sides that would work: ${open.join(', ') || 'none'}`);
     return { errors, warnings, writes, from, to, label: 'Rotate' };
   }
 
@@ -395,9 +412,12 @@ export function planMove(tree, facadeId, toX, toY, opts = {}) {
     errors.push(`${dest.name || dest.id} has ${held.length} thing(s) standing on it (${held.slice(0, 6).join(', ')}${held.length > 6 ? `, +${held.length - 6} more` : ''}) — a facade is not standable, so they would be sealed inside a building nobody can reach. Move or delete them first (the dev panel owns those tables), or pick another cell.`);
   }
 
-  // THE DOOR DOES NOT MOVE ITSELF. Preserved, and refused when the destination has
-  // no street on that side — the refusal names the sides that would work so "turn
+  // THE DOOR DOES NOT MOVE ITSELF. Preserved, and refused when there is nothing to
+  // walk out onto on that side — the refusal names the sides that would work so "turn
   // it, then move it" is one deliberate extra click rather than a silent relocation.
+  // ⚠ NOT a road rule, despite `isStreet`'s name: grass, dirt and sand all pass, and
+  // only a building, water or the map edge fail. The old wording said "there is no
+  // street <dir> of…", which invented a stricter rule in the reader's head.
   const ent = facade.flags.entrance;
   const off = CARDINAL[ent];
   const street = off ? at.get(gridKey(facade.map_id, toX + off[0], toY + off[1], z0)) : null;
@@ -409,7 +429,9 @@ export function planMove(tree, facadeId, toX, toY, opts = {}) {
     const open = Object.entries(CARDINAL)
       .filter(([, [ox, oy]]) => isStreet(at.get(gridKey(facade.map_id, toX + ox, toY + oy, z0))))
       .map(([d]) => d);
-    errors.push(`the door faces ${ent} and there is no street ${ent} of (${toX}, ${toY}). Turn the building first — sides that would work there: ${open.join(', ') || 'none'}`);
+    errors.push(`the door faces ${ent} and there is nothing to walk out onto ${ent} of (${toX}, ${toY}): ${whyNotOpenable(street)}. `
+      + `(Any open ground will do — it does not have to be a road.) `
+      + `Turn the building first — sides that would work there: ${open.join(', ') || 'none'}`);
   }
   if (terrainOf(dest) === 'water') warnings.push(`${dest.name || dest.id} is water — the building would stand on it`);
   if (terrainOf(dest) === 'road') warnings.push(`${dest.name || dest.id} is a road tile — the lane is consumed and the lanes beside it re-draw`);

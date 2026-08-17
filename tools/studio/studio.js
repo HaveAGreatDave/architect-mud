@@ -61,6 +61,21 @@ const state = {
   // request per hovered cell. The authoritative answer is still the server's plan,
   // on click — this only decides what the overlay tints red.
   move: { arm: null, hover: null, plan: null },
+  // ── The region lock ────────────────────────────────────────────────────────
+  // One region id, or null for the whole world. It does TWO things and they are
+  // deliberately the same switch: it dims every tile outside the region, and it
+  // refuses every edit that would land on one. A filter that only changed the view
+  // would leave a rectangle fill free to cross a border you can no longer see,
+  // which is worse than not having it — the guard is the reason the view filter is
+  // safe to use.
+  lockRegion: null,
+  regions: [],        // [{ id, name }] from /api/world
+  // ── The rectangle fill ─────────────────────────────────────────────────────
+  // { a: zone, b: zone } while the drag is live, else null. Held as the two CORNER
+  // TILES rather than as pixels so the highlight and the fill are computed from the
+  // same two cells — a preview derived from mouse coordinates and a fill derived
+  // from tile ids is two answers to "which tiles" waiting to disagree at an edge.
+  rect: null,
 };
 
 const canvas = $('#c');
@@ -74,7 +89,7 @@ async function loadMaps({ keep = false } = {}) {
   // building it hangs off, so it is authored prose reaching innerHTML — one
   // apostrophe-and-angle-bracket building name away from breaking this list.
   $('#maps').innerHTML = body.maps.map(m =>
-    `<button data-map="${esc(m.id)}">${esc(m.name || m.id)}<span class="n">${esc(m.tiles)}</span></button>`).join('');
+    `<button data-map="${esc(m.id)}"><span class="nm">${esc(m.name || m.id)}</span><span class="n">${esc(m.tiles)}</span></button>`).join('');
   $('#maps').onclick = (e) => { const b = e.target.closest('button'); if (b) selectMap(b.dataset.map); };
   showOpenMap();
   state.terrains = body.terrains;
@@ -123,7 +138,52 @@ async function loadMapData(id, { resetFloor = false } = {}) {
   if (resetFloor || !state.floors.includes(state.z)) {
     state.z = state.floors.includes(0) ? 0 : state.floors[0];
   }
+  if (body.regions) state.regions = body.regions;
+  renderRegionLock();
 }
+
+// ── The region lock ─────────────────────────────────────────────────────────
+// Which regions actually have tiles on THIS map, in the order the server sorted
+// them. Derived from the tiles rather than from the region list, because bounds are
+// derived from member tiles by contract and never stored — so "does this region
+// appear here" is a question only the tiles can answer, and offering a region with
+// nothing on the open map would be a lock that blanks the canvas.
+function regionsOnMap() {
+  const here = new Set();
+  for (const z of state.zones) if (z.region) here.add(z.region);
+  return state.regions.filter(r => here.has(r.id));
+}
+
+function renderRegionLock() {
+  const avail = regionsOnMap();
+  // No regions on this map at all — an interior, a sewer, a building's floors. The
+  // control does not belong on screen rather than sitting there inert.
+  $('#pane-region').style.display = avail.length ? '' : 'none';
+  if (!avail.length) {
+    if (state.lockRegion) { state.lockRegion = null; draw(); }
+    return;
+  }
+  // A lock held across a map change whose region is not on the new map would filter
+  // every tile away. Dropping it is the only honest option: the region is genuinely
+  // not here.
+  if (state.lockRegion && !avail.some(r => r.id === state.lockRegion)) state.lockRegion = null;
+  $('#regionlock').innerHTML = `<option value="">All regions (${avail.length})</option>`
+    + avail.map(r => `<option value="${esc(r.id)}">${esc(r.name || r.id)}</option>`).join('');
+  $('#regionlock').value = state.lockRegion || '';
+  renderRegionHelp();
+}
+
+function renderRegionHelp() {
+  const n = state.lockRegion ? state.zones.filter(z => z.region === state.lockRegion).length : 0;
+  $('#regionhelp').textContent = state.lockRegion
+    ? `Locked — ${n} tiles. Everything else is dimmed, and edits landing outside are refused.`
+    : 'Every region drawn at once. Lock one to work in it without reaching the others.';
+}
+
+// A tile is editable iff no lock is on or it belongs to the locked region. The ONE
+// question every write path asks, so a new tool cannot forget the lock by writing
+// its own version of this test.
+const editable = (z) => !state.lockRegion || z?.region === state.lockRegion;
 
 // Re-read the open map in place: same camera, same floor, same selection. The
 // specs come back re-derived by the server, so this is a fresh paint of the whole
@@ -293,6 +353,10 @@ async function saveDistrict() {
 // Painting a district is the same gesture as painting terrain, against a different
 // field: the stroke collects tile ids, and the server writes flags.district on each.
 async function assign(ids) {
+  // The district brush is a write to a tile like any other, so the lock reaches it
+  // too — see the note in paint(). A lock that held for terrain and not for district
+  // assignment would be a lock you cannot trust, which is worse than none.
+  ids = ids.filter(id => editable(state.byId.get(id)));
   if (!ids.length) return;
   const { body } = await api('/api/assign', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -548,19 +612,84 @@ function bounds() {
   }
   return Number.isFinite(x0) ? { x0, y0, x1, y1 } : { x0: 0, y0: 0, x1: 1, y1: 1 };
 }
-function fit() {
-  // Re-measure first: the module runs before the grid has settled, so a fit that
-  // trusted the last resize would centre the world on a 0×0 canvas.
+// The bounds of one region's tiles on the open map. Derived from the TILES, which is
+// the only honest source: a region's extent is not stored anywhere (moving a region
+// must not be able to desync a written rectangle from its members), so this is the
+// same derivation the taxonomy describes rather than a second opinion about it.
+function regionBounds(regionId) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const z of state.zones) {
+    if (!onFloor(z) || z.region !== regionId) continue;
+    x0 = Math.min(x0, z.grid_x); x1 = Math.max(x1, z.grid_x);
+    y0 = Math.min(y0, z.grid_y); y1 = Math.max(y1, z.grid_y);
+  }
+  return Number.isFinite(x0) ? { x0, y0, x1, y1 } : null;
+}
+
+// Re-measure first: the module runs before the grid has settled, so a fit that
+// trusted the last resize would centre the world on a 0×0 canvas.
+function measureCanvas() {
   const r = canvas.parentElement.getBoundingClientRect();
   if (r.width && (canvas.width !== Math.floor(r.width) || canvas.height !== Math.floor(r.height))) {
     canvas.width = r.width; canvas.height = r.height;
   }
-  const b = bounds();
-  const w = b.x1 - b.x0 + 1, h = b.y1 - b.y0 + 1;
-  state.cell = Math.max(2, Math.min(28, Math.floor(Math.min(canvas.width / w, canvas.height / h))));
-  state.ox = Math.round(canvas.width / 2 - ((b.x0 + b.x1 + 1) / 2) * state.cell);
-  state.oy = Math.round(canvas.height / 2 - ((b.y0 + b.y1 + 1) / 2) * state.cell);
+}
+const cellFor = (b) => Math.max(2, Math.min(28,
+  Math.floor(Math.min(canvas.width / (b.x1 - b.x0 + 1), canvas.height / (b.y1 - b.y0 + 1)))));
+const centreOf = (b) => ({ cx: (b.x0 + b.x1 + 1) / 2, cy: (b.y0 + b.y1 + 1) / 2 });
+// ⚠ The camera is a SCALE AND A CENTRE, and ox/oy are derived from them — never
+// animated directly. Interpolating the offsets instead looks like the map sliding
+// out from under the zoom, because the offset that centres a point is a function of
+// the cell size that is changing underneath it.
+function applyCamera(cell, cx, cy) {
+  state.cell = cell;
+  state.ox = Math.round(canvas.width / 2 - cx * cell);
+  state.oy = Math.round(canvas.height / 2 - cy * cell);
+}
+
+function fit() {
+  measureCanvas();
+  const b = bounds(), c = centreOf(b);
+  applyCamera(cellFor(b), c.cx, c.cy);
   draw();
+}
+
+// ── Flying the camera somewhere ─────────────────────────────────────────────
+// Picking a region and having the map arrive there is the point of the picker; a
+// jump-cut leaves you working out which part of the world you are now looking at,
+// which is the question the gesture was supposed to answer.
+//
+// ⚠ It is CANCELLED by any hand on the controls (wheel, drag, a second flight).
+// An animation that keeps running while you pan is the tool fighting you for the
+// camera, and it always wins because it finishes last.
+let flight = null;
+const cancelFlight = () => { if (flight) { cancelAnimationFrame(flight); flight = null; } };
+
+function flyTo(b, ms = 420) {
+  measureCanvas();
+  cancelFlight();
+  const toCell = cellFor(b), to = centreOf(b);
+  const fromCell = state.cell;
+  const from = {
+    cx: (canvas.width / 2 - state.ox) / state.cell,
+    cy: (canvas.height / 2 - state.oy) / state.cell,
+  };
+  // Reduced motion gets the destination, not a slower trip to it. The header's
+  // THOMAS badge already honours this and the map is a much larger moving surface.
+  if (ms <= 0 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    applyCamera(toCell, to.cx, to.cy);
+    return draw();
+  }
+  const t0 = performance.now();
+  const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / ms), e = ease(p);
+    applyCamera(fromCell + (toCell - fromCell) * e,
+      from.cx + (to.cx - from.cx) * e, from.cy + (to.cy - from.cy) * e);
+    draw();
+    flight = p < 1 ? requestAnimationFrame(step) : null;
+  };
+  flight = requestAnimationFrame(step);
 }
 const sx = (gx) => state.ox + gx * state.cell;
 const sy = (gy) => state.oy + gy * state.cell;
@@ -810,6 +939,60 @@ function drawDistrictEdges(c) {
   ctx.lineCap = cap;
 }
 
+// ── The rectangle fill ──────────────────────────────────────────────────────
+// The tiles a rectangle covers, and the two reasons one inside it is left alone.
+//
+// TERRAIN ONLY, SO A BUILDING IS SKIPPED. `z.building` is the server's read of
+// `flags.building_type` — the field that decides what stops a truck — not a guess
+// off the rooftop art. A fill is the one gesture broad enough to cross a whole
+// block without meaning to, and a building's ground is not ground: repainting the
+// tile under a facade is how a shop ends up standing on water. Silently, by
+// request: the highlight has already shown you which tiles are out.
+//
+// AND THE LOCK IS OBEYED. Same `editable` every other write path asks.
+function rectTiles() {
+  if (!state.rect) return { fill: [], skip: [] };
+  const { a, b } = state.rect;
+  const x0 = Math.min(a.grid_x, b.grid_x), x1 = Math.max(a.grid_x, b.grid_x);
+  const y0 = Math.min(a.grid_y, b.grid_y), y1 = Math.max(a.grid_y, b.grid_y);
+  const fill = [], skip = [];
+  // Walked over the map's OWN tiles rather than over the coordinate range, so a
+  // rectangle dragged across a hole in the map fills the tiles that exist and
+  // invents nothing. The Studio does not create content files.
+  for (const z of state.zones) {
+    if (!onFloor(z)) continue;
+    if (z.grid_x < x0 || z.grid_x > x1 || z.grid_y < y0 || z.grid_y > y1) continue;
+    (z.building || !editable(z) ? skip : fill).push(z);
+  }
+  return { fill, skip };
+}
+
+function drawRectPreview(c) {
+  const { fill, skip } = rectTiles();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = chrome('--accent');
+  for (const z of fill) ctx.fillRect(sx(z.grid_x), sy(z.grid_y), c, c);
+  // Refused tiles wear the same red a refused move destination does, so "this is
+  // not going to change" is one colour across the tool rather than a new one to
+  // learn per gesture.
+  ctx.fillStyle = chrome('--bad');
+  for (const z of skip) ctx.fillRect(sx(z.grid_x), sy(z.grid_y), c, c);
+  ctx.globalAlpha = 1;
+  const { a, b } = state.rect;
+  const x0 = Math.min(sx(a.grid_x), sx(b.grid_x)), y0 = Math.min(sy(a.grid_y), sy(b.grid_y));
+  const w = Math.abs(sx(a.grid_x) - sx(b.grid_x)) + c, h = Math.abs(sy(a.grid_y) - sy(b.grid_y)) + c;
+  ctx.strokeStyle = chrome('--accent'); ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+  ctx.setLineDash([]);
+  // The count lives in the status bar, not on the canvas: it changes on every
+  // mousemove, and text redrawn under the cursor forty times a second is the one
+  // thing on this canvas that would flicker.
+  $('#status').textContent = `${fill.length} tile${fill.length === 1 ? '' : 's'}`
+    + (skip.length ? ` · ${skip.length} left alone` : '')
+    + ` · ${state.terrain || 'no terrain'}`;
+}
+
 function draw() {
   ctx.fillStyle = chrome('--bg');
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -821,6 +1004,14 @@ function draw() {
     const x = sx(z.grid_x), y = sy(z.grid_y);
     if (x + c < 0 || y + c < 0 || x > canvas.width || y > canvas.height) continue;
     const spec = z.spec || {};
+    // REGION LOCK — dimmed, never hidden. A tile removed from the canvas takes the
+    // shape of the coastline and the road you are painting up to with it, and you
+    // would be working against an outline you have to remember. Dimming keeps the
+    // neighbours legible as context while saying plainly that they are not yours:
+    // the same distinction the district view already draws between the district you
+    // selected and the ones around it.
+    const locked = !editable(z);
+    ctx.globalAlpha = locked ? 0.22 : 1;
     ctx.fillStyle = spec.fill || chrome('--bg3');
     // EDGE TO EDGE. Painted ground is a surface, not a swatch: the 1px gutter this
     // used to leave broke a bay into 945 blue squares and a road into a dotted line
@@ -947,10 +1138,20 @@ function draw() {
     }
     const seams = state.portals[z.id];
     if (seams && c >= 5) drawPortal(x, y, c, seams, authoredDoor);
+    // The lock's dimming is set at the TOP of this body and every layer above draws
+    // under it, so it is cleared here — once, at the end — rather than by each of
+    // them. Leaving it set would fade the district edges and the move ghost too.
+    ctx.globalAlpha = 1;
   }
   // After every tile, never during: a boundary drawn tile-by-tile inside the loop
   // gets half painted over by the neighbour that comes next.
   if (state.view === 'districts') drawDistrictEdges(c);
+  // THE RECTANGLE, over the finished map. Drawn after the tiles for the same reason
+  // the district boundary is: a preview painted per-tile inside the loop is
+  // overdrawn by whichever neighbour is next, and the box would come out with holes
+  // in it. Skipped tiles are shown as skipped — a fill that silently leaves twelve
+  // buildings alone should still let you SEE that before you let go.
+  if (state.rect) drawRectPreview(c);
   // MOVING A BUILDING. Two things are drawn and neither is a decision this file
   // makes: the cells the server said are already built on or already have something
   // standing on them, and a ghost of the building under the cursor. The ghost wears
@@ -1001,9 +1202,30 @@ const stroke = new Set();
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('mousedown', (e) => {
   const r = canvas.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (e.button === 2) { panning = { px, py, ox: state.ox, oy: state.oy }; return; }
+  // A hand on the mouse outranks a camera flight in progress — see cancelFlight.
+  cancelFlight();
+  // PAN ON MIDDLE OR RIGHT. Right has always panned; middle is what every other map
+  // in the world uses, and it costs one button number. ⚠ preventDefault on the middle
+  // button, or the browser opens its own autoscroll widget and the drag pans two
+  // things at once.
+  if (e.button === 1 || e.button === 2) {
+    if (e.button === 1) e.preventDefault();
+    panning = { px, py, ox: state.ox, oy: state.oy };
+    return;
+  }
   const z = cellAt(px, py);
   if (!z) return;
+  // ALT-CLICK IS THE EYEDROPPER, from inside whichever tool you are in. The Pick
+  // button has always done this, and a tool you have to SWITCH TO is not the
+  // gesture: picking a colour is something you do in the middle of painting, and
+  // going Pick → click → Paint for every sample is three actions for one. It does
+  // not change the tool, which is the whole difference — the button flips you to
+  // Paint because that is where you were going; this leaves you where you are.
+  if (e.altKey && state.view !== 'threat') {
+    if (state.view === 'districts') selectDistrict(z.district?.id || '');
+    else { state.terrain = z.spec?.terrain || null; paintSwatches(); }
+    return;
+  }
   // Same three tools, pointed at whichever field the view is about.
   if (state.view === 'districts') {
     if (state.tool === 'pick') { selectDistrict(z.district?.id || ''); setTool('paint'); return; }
@@ -1022,6 +1244,7 @@ canvas.addEventListener('mousedown', (e) => {
     return;
   }
   if (state.tool === 'pick') { state.terrain = z.spec?.terrain || null; setTool('paint'); paintSwatches(); return; }
+  if (state.tool === 'rect') { state.rect = { a: z, b: z }; draw(); return; }
   if (state.tool === 'paint') { painting = true; stroke.clear(); stroke.add(z.id); return; }
   if (state.tool === 'move') { moveClick(z); return; }
   select(z.id);
@@ -1053,6 +1276,9 @@ canvas.addEventListener('mousemove', (e) => {
   $('#status').textContent = z
     ? `${z.name || '(unnamed)'} · ${z.id} · ${z.grid_x},${z.grid_y} · ${danger || dis || z.spec?.terrain || 'no terrain'}${seam ? ` · ${seam} — double-click to follow` : ''}`
     : '—';
+  // The rectangle owns the status bar while it is being dragged (drawRectPreview
+  // writes the count there), so this runs after the readout above and replaces it.
+  if (state.rect && z && z.id !== state.rect.b.id) { state.rect.b = z; draw(); }
   if (painting && z) { stroke.add(z.id); }
   if (state.tool === 'move' && state.move.arm) {
     const id = z?.id ?? null;
@@ -1071,8 +1297,26 @@ canvas.addEventListener('dblclick', (e) => {
   const seam = seams.find(s => s.way === 'out') || seams[0];
   jumpTo(seam.far);
 });
-window.addEventListener('mouseup', async () => {
+window.addEventListener('mouseup', async (e) => {
   panning = null;
+  // ⚠ mouseup FIRES FOR EVERY BUTTON. Releasing a pan button after panning the canvas
+  // mid-gesture would otherwise commit whatever the left button had started — a
+  // rectangle fills, a stroke lands — from a gesture the user has not finished and did
+  // not release. Only the left button ends a left-button gesture, which is why this
+  // tests for 0 rather than listing the pan buttons: a fourth button added to a mouse
+  // must not become a way to commit a paint.
+  if (e.button !== 0) return;
+  if (state.rect) {
+    const { fill } = rectTiles();
+    state.rect = null;
+    draw();
+    // One stroke, one request, one lint — the same path a dragged brush takes. A
+    // fill is not a special kind of write, it is a wide one, which is why it needs
+    // no batching of its own: the client has always accumulated a gesture and sent
+    // it whole on release.
+    if (fill.length) await paint(fill.map(z => z.id));
+    return;
+  }
   if (!painting) return;
   painting = false;
   if (state.view === 'districts') await assign([...stroke]);
@@ -1080,6 +1324,7 @@ window.addEventListener('mouseup', async () => {
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
+  cancelFlight();   // your zoom wins over the camera's
   const r = canvas.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const gx = (px - state.ox) / state.cell, gy = (py - state.oy) / state.cell;
   state.cell = Math.max(2, Math.min(40, state.cell + (e.deltaY < 0 ? 1 : -1)));
@@ -1089,7 +1334,10 @@ canvas.addEventListener('wheel', (e) => {
 
 function setTool(t) {
   state.tool = t;
-  for (const k of ['select', 'paint', 'pick', 'move']) $(`#t-${k}`).classList.toggle('on', k === t);
+  for (const k of ['select', 'paint', 'pick', 'rect', 'move']) $(`#t-${k}`).classList.toggle('on', k === t);
+  // Leaving the rect tool mid-drag must not leave the preview on the canvas with
+  // nothing driving it — the next mouseup would then fill a box you cannot see.
+  if (t !== 'rect' && state.rect) { state.rect = null; draw(); }
   $('#pane-move').style.display = (t === 'move' && state.view === 'tiles') ? '' : 'none';
   // Putting the tool down puts the building down with it. A building held across a
   // switch to Paint would be a pickup nothing on screen was still showing.
@@ -1099,7 +1347,19 @@ $('#m-props').onclick = showMapProps;
 $('#t-select').onclick = () => setTool('select');
 $('#t-paint').onclick = () => setTool('paint');
 $('#t-pick').onclick = () => setTool('pick');
+$('#t-rect').onclick = () => setTool('rect');
 $('#t-move').onclick = () => setTool('move');
+$('#regionlock').onchange = (e) => {
+  state.lockRegion = e.target.value || null;
+  renderRegionHelp();
+  // ARRIVING THERE IS THE POINT OF PICKING IT. Locking a region and staying parked
+  // over a different corner of the world leaves you to find the place yourself,
+  // which is the question the picker was supposed to answer. Unlocking flies back
+  // out to the whole map, so the control is symmetrical rather than a one-way trip
+  // that leaves you zoomed into a region you have just stopped working in.
+  const b = state.lockRegion ? regionBounds(state.lockRegion) : bounds();
+  if (b) flyTo(b); else draw();
+};
 $('#m-cancel').onclick = () => { disarmMove(); if (state.selected) select(state.selected); else showMapProps(); };
 $('#t-clear').onclick = () => { state.terrain = null; setTool('paint'); paintSwatches(); };
 function setOverlay(o) {
@@ -1229,7 +1489,7 @@ function renderJournal(j) {
   const rows = [...undone, ...entries];
   const row = (e, i) => `<button data-seq="${e.seq}" data-undone="${e.undone ? 1 : 0}"
       class="${e.undone ? 'undone' : ''}${i === undone.length && !e.undone ? ' here' : ''}"
-      title="${esc(e.detail || '')}">${esc(e.label)}<span class="n">${e.files} file(s)</span><span class="when">${ago(e.at)}</span></button>`;
+      title="${esc(e.detail || '')}"><span class="nm">${esc(e.label)}</span><span class="n">${e.files} file(s)</span><span class="when">${ago(e.at)}</span></button>`;
   $('#log').innerHTML = rows.length
     ? rows.map(row).join('')
     : `<div class="help">Nothing yet. Paint, assign or save and it lands here — the
@@ -1292,6 +1552,29 @@ $('#redo').onclick = redo;
 // A text field owns its own Ctrl+Z — the inspector is full of them, and stealing
 // the keystroke there would mean a typo in a description could only be taken back
 // by reverting the whole file.
+// ESCAPE PUTS THE BUILDING DOWN AND HANDS YOU BACK THE SELECT TOOL. Holding one is
+// the only state in this tool you can be in without the canvas saying so under the
+// cursor — every click goes to a destination review instead of the tile you clicked,
+// and the way out was a button in the sidebar you have to go and find. Escape is
+// where everybody's hand already is.
+//
+// It cancels a half-drawn rectangle too, and for the same reason: both are gestures
+// with a middle, and a gesture with a middle needs a way out of it.
+//
+// ⚠ Not while typing. The inspector is a column of real inputs and Escape in a text
+// field must stay the field's own — reverting an edit, closing a native picker —
+// rather than silently changing the tool out from under the form.
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const t = e.target;
+  if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+  // setTool does the putting-down: it hides the move pane and calls disarmMove for
+  // any tool that is not Move, which is the same path the sidebar buttons take. One
+  // way to let go of a building, not two that have to agree.
+  if (state.rect) { state.rect = null; draw(); }
+  if (state.tool !== 'select') setTool('select');
+});
+
 window.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;
   const t = e.target;
@@ -1302,6 +1585,12 @@ window.addEventListener('keydown', (e) => {
 });
 
 async function paint(ids) {
+  // THE LOCK IS ENFORCED HERE, not at the gesture. Every way of painting funnels
+  // through this call — brush, rectangle, and whatever gets added next — so a tool
+  // that forgets the lock cannot exist. Filtering at mousedown would have to be
+  // repeated per tool, which is the shape of a guard that eventually gets missed.
+  // Silent, because the canvas already dimmed the tiles it is dropping.
+  ids = ids.filter(id => editable(state.byId.get(id)));
   if (!ids.length) return;
   const { body } = await api('/api/paint', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1343,7 +1632,18 @@ function disarmMove() {
 
 async function armMove(id) {
   const { ok, body } = await api(`/api/move-arm/${encodeURIComponent(id)}`);
-  if (!ok) { $('#status').textContent = body.error || 'not a building'; return; }
+  // ⚠ THE REFUSAL GOES IN THE MOVE PANE, NOT THE STATUS BAR. `#status` is rewritten
+  // by every mousemove, so a refusal put there was gone before the hand left the
+  // mouse — clicking a tile that is not a facade looked like the tool doing nothing
+  // at all, which is what "move isn't working" turns out to mean most of the time.
+  // The pane is the surface that is already about holding a building, and it stays
+  // until the next thing you do.
+  if (!ok) {
+    $('#movewho').innerHTML = `<span class="bad">${esc(body.error || 'not a building')}</span><br>
+      <span class="muted">Click the FACADE — the street-facing tile with the door — not a room inside it.</span>`;
+    $('#status').textContent = body.error || 'not a building';
+    return;
+  }
   state.move = {
     arm: { ...body, built: new Set(body.built), occupied: new Set(body.occupied) },
     hover: null, plan: null,

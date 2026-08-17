@@ -48,7 +48,12 @@
   html, body { height: 100%; margin: 0; }
   body {
     background: var(--bg); color: var(--text);
-    display: grid; grid-template-columns: 220px 1fr 330px; grid-template-rows: auto 1fr;
+    /* 250, not 220. The tool row is the measurement that sets this: five buttons of
+       real words do not fit 200px of usable column, and `aside`'s overflow-x:hidden
+       meant they were not wrapping, they were being CUT OFF — silently, with the last
+       one simply absent. The canvas gives up 30px it does not miss; the inspector is
+       untouched at 330 because its forms were already sized against it. */
+    display: grid; grid-template-columns: 250px 1fr 330px; grid-template-rows: auto 1fr;
     font-family: var(--font); font-size: 12px; line-height: 1.45;
   }
   /* Header — the dev panel's, so the two tools open the same way: a spaced logo
@@ -93,6 +98,15 @@
        margin: 14px 0 6px; font-weight: normal; }
   h2:first-child { margin-top: 0; }
   .row { display: flex; gap: 5px; align-items: center; }
+  /* ⚠ A ROW OF TOOLS IS A GRID, NOT A FLEX ROW — because the column has a fixed width
+     and the number of tools grows. Flex + overflow-x:hidden does not wrap and does not
+     scroll: it CLIPS, so a fifth tool added to a full row is invisible rather than
+     cramped, and nothing on screen says a button is missing. A grid wraps to a second
+     row instead, so widening the column stays a taste decision rather than the thing
+     holding the toolbar together. Equal columns also stop the tools jumping sideways
+     as their labels change length. */
+  .row.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .row.tools button { padding: 4px 2px; text-align: center; }
   /* Buttons are the dev panel's .action-btn: transparent, a hairline border, and
      the accent arriving on hover rather than sitting there. */
   button { font-family: var(--font); font-size: 11px; background: transparent; color: var(--text-dim);
@@ -100,8 +114,19 @@
            transition: all 0.1s; }
   button:hover { border-color: var(--accent); color: var(--accent); }
   button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-  .maplist button { display: block; width: 100%; text-align: left; margin-bottom: 2px; }
-  .maplist .n { color: var(--dim); float: right; }
+  /* Flex, not block-with-a-float: a map name is derived from the building it hangs
+     off and several run past the column. Floated, the count was pushed onto a second
+     line by a long name and the row grew to two; as a flex pair the NAME gives way —
+     ellipsised — and the tile count, which is the shorter and more scannable half,
+     always survives on the same line. */
+  .maplist button { display: flex; gap: 6px; align-items: baseline;
+                    width: 100%; text-align: left; margin-bottom: 2px; }
+  /* ⚠ `.nm`, never `:first-child`. Both renderers put the name in as a BARE TEXT
+     NODE beside the count's span, so a child selector picks the COUNT and ellipsises
+     the wrong half. The name is wrapped explicitly for this reason. */
+  .maplist .nm { flex: 1; overflow: hidden;
+                    text-overflow: ellipsis; white-space: nowrap; }
+  .maplist .n { color: var(--dim); flex: none; }
   /* The map list fans down. 71 entries open at all times is most of a 190px column
      spent on a list you use once a session — the summary keeps the answer it was
      giving (which map is open) and gives the space back to the tools. */
@@ -164,7 +189,11 @@
   #log button.undone { opacity: .45; font-style: italic; }
   #log button.here { border-color: var(--accent); }
   #log .when { color: var(--dim); float: right; margin-left: 6px; }
-  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  /* Five across at 250px rather than four at 220 — the palette is the one list here
+     you scan rather than read, so fitting more of it above the fold is worth more
+     than a wider swatch. auto-fill, so a column resize re-flows it instead of
+     needing this number changed alongside. */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 3px; }
   .sw { height: 26px; border: 1px solid var(--border); border-radius: 2px; cursor: pointer; position: relative; }
   .sw.on { outline: 2px solid var(--accent); outline-offset: 1px; }
   .sw span { position: absolute; inset: auto 0 1px 0; text-align: center; font-size: 8px;
@@ -230,6 +259,10 @@
           font-size: 11px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
   #lint b { color: var(--orange); }
   .muted { color: var(--text-dim); }
+  /* Scoped to the move pane on purpose: a bare `.bad` would also reach
+     `.dlist button.bad` / `.elist button.bad`, which use the class for a red BORDER
+     and would pick up red text they never asked for. */
+  #movewho .bad { color: var(--bad); }
   .pill { display: inline-block; border: 1px solid var(--border); border-radius: 2px;
           padding: 1px 6px; color: var(--text-dim); font-size: 10px; background: var(--bg3); }
   button:disabled { opacity: .45; cursor: default; border-color: var(--border); }
@@ -331,13 +364,26 @@
   <button id="m-props" style="width:100%;margin-top:5px">Map properties…</button>
   <button id="back" style="width:100%;margin-top:3px" disabled>← Back</button>
 
+  <!-- Region lock. Only the world map has regions on it — an interior's tiles carry
+       no region_id — so this whole block hides itself on any other map rather than
+       offering a filter that would blank the canvas. -->
+  <div id="pane-region" style="display:none">
+    <h2>Region</h2>
+    <select id="regionlock" style="width:100%"></select>
+    <div class="help" style="margin-top:4px" id="regionhelp"></div>
+  </div>
+
   <h2>Tool</h2>
-  <div class="row">
+  <div class="row tools">
     <button id="t-select" class="on">Select</button>
     <button id="t-paint">Paint</button>
     <button id="t-pick">Pick</button>
+    <button id="t-rect">Rect</button>
     <button id="t-move">Move</button>
   </div>
+  <div class="help" style="margin-top:4px">Alt-click picks the terrain under the cursor
+    without leaving the brush. <b>Rect</b> drags a box and fills it — ground only, so
+    buildings inside it keep what they have.</div>
 
   <div id="pane-move" style="display:none">
     <h2>Move a building</h2>
@@ -389,7 +435,7 @@
 
   <h2>View</h2>
   <div class="row"><button id="fit" style="flex:1">Fit</button></div>
-  <div class="row" style="margin-top:4px"><button id="o-art" class="on">Art</button><button id="o-labels">Labels</button></div>
+  <div class="row" style="margin-top:4px"><button id="o-art" class="on" style="flex:1">Art</button><button id="o-labels" style="flex:1">Labels</button></div>
 
   <h2>Key</h2>
   <div class="key"><i></i> leaves this map — double-click to follow</div>

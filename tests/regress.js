@@ -4544,6 +4544,116 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   check('the Studio builds its district form from the field catalog',
     /districtColumnCatalog/.test(serve) && /districtCatalog/.test(client));
 
+  // THE LINT IS READ ONCE AND PATCHED, NEVER RE-READ. The badge lints on every
+  // mutation and a lint was `readContentTree()` — 12.5s of readFileSync + JSON.parse
+  // over 37,242 files, SYNCHRONOUSLY, on a one-thread server. The next paint was not
+  // slow, it was unparsed: the tool appeared to hang for ~15s per tile while the
+  // paint itself took 0.35s. Rules alone are ~1s, so the read was the entire cost.
+  const writeRowFn = (serve.match(/async function writeRow\([\s\S]*?\n\}/) || [''])[0];
+  check('the Studio hands the lint a tree it already holds, rather than re-reading it',
+    /lintContentTree\(CONTENT_DIR, \{ tree:/.test(serve));
+  // Patched at the SAME funnel the journal hangs off. A write that skipped writeRow
+  // would leave the badge answering about bytes that are no longer on disk — and the
+  // funnel is the only reason a cache is safe here at all.
+  check('every Studio write patches the tree the lint reads',
+    /patchLintTree/.test(writeRowFn), 'writeRow must patch the lint tree');
+  // ⚠ THE WHOLE TREE, not `tree`. TABLES is 19 of 37 and half the lint is cross-table
+  // FK checks, so a tree missing `items` does not skip item rules — it reports every
+  // reference into it as broken. Handing over the Studio's own rows would turn a
+  // clean tree red, which is why the cache is a second, complete read.
+  check('the lint tree is a complete read of content/, not the Studio\'s own tables',
+    /lintTree \|\|= readContentTree\(CONTENT_DIR\)/.test(serve));
+  // deriveWorld ALREADY projects the edges and returns undeclaredOneWays with them,
+  // memoised on the cache a paint invalidates. Importing projectEdges here is how a
+  // second, unmemoised copy gets called on a request path — /api/lint did exactly
+  // that, spending 0.23s recomputing a number sitting in `derived`.
+  check('the Studio projects edges once, through the derive cache',
+    !/\bprojectEdges\b\s*\(/.test(serve) && /world\(\)\.undeclaredOneWays/.test(serve));
+
+  // THE REGION LOCK IS ENFORCED IN THE WRITE FUNNEL, NOT AT THE GESTURE. Every way
+  // of painting ends at paint() or assign(), so filtering there means a tool added
+  // tomorrow cannot forget the lock. Filtering at mousedown would have to be repeated
+  // per tool, which is the shape of a guard that eventually gets missed — and a lock
+  // that held for terrain but not for district assignment is a lock you cannot trust.
+  const paintFn = (client.match(/async function paint\([\s\S]*?\n\}/) || [''])[0];
+  const assignFn = (client.match(/async function assign\([\s\S]*?\n\}/) || [''])[0];
+  check('the region lock is applied where writes funnel, not per tool',
+    /editable\(/.test(paintFn) && /editable\(/.test(assignFn));
+  // A locked-out tile is DIMMED, never dropped from the canvas. Removing it takes the
+  // coastline and the road you are painting up to with it, leaving you working against
+  // an outline you have to remember — the same reason the district view washes rather
+  // than replaces.
+  // Asserted on the DIM, not on the word "lockRegion": draw() asks `editable(z)` —
+  // the one shared question — and never names the lock, which is the point. The
+  // failure this guards is a later pass "optimising" the dim into a skip.
+  check('the region lock dims the rest of the world rather than hiding it',
+    /const locked = !editable\(z\)/.test(drawFn) && /locked \? 0\.22 : 1/.test(drawFn));
+
+  // A RECTANGLE FILL IS GROUND ONLY, and "is this a building" is the AUTHORED field
+  // — flags.building_type, the same one `bt` reads to decide what stops a truck — not
+  // the rooftop art. Deciding it from `spec.height` or a feature would make the guard
+  // a question about how a tile DRAWS, and repainting the ground under a facade is how
+  // a shop ends up standing on water.
+  check('the fill refuses buildings by what a tile IS, not by how it draws',
+    /building: !!z\.flags\?\.building_type/.test(serve) && /z\.building/.test(client));
+  // One gesture, one request, one lint — the same path a dragged brush takes. A fill
+  // is not a special kind of write, it is a wide one.
+  check('a rectangle fill lands as a single paint, like any other stroke',
+    /rectTiles\(\)/.test(client) && /await paint\(fill\.map/.test(client));
+
+  // PAINTING GROUND DROPS THE TILE'S HARDCODED COLOUR. `deriveColors` is
+  // `zone.bg_color ?? entry.fill` — authored first — so a tile carrying a top-level
+  // colour renders that hex forever and the brush is a VISUAL NO-OP on it. 4,813
+  // tiles were in that state: paint wrote flags.terrain, minimap_class changed, and
+  // the canvas did not move. Worst on roads, which took the colour of whatever they
+  // were laid on and so changed shade tile to tile down one street.
+  //
+  // Deleting the key is the documented way to say "whatever the palette gives me"
+  // (the zones omitWhenNull note), and omitWhenNull is what makes an absent key
+  // import as NULL instead of leaving the old value standing in prod.
+  // ⚠ Scoped to the route by finding where the NEXT one starts, never by a character
+  // count. A fixed window is a magic number that rots as the comment above the code
+  // grows: at 3000 it cut the file between `delete next.bg_color` and the
+  // `delete next.color` on the line after it, and failed on correct code.
+  const paintAt = serve.indexOf("path === '/api/paint'");
+  const nextRoute = serve.indexOf("path === '/api", paintAt + 30);
+  const paintRoute = serve.slice(paintAt, nextRoute > paintAt ? nextRoute : serve.length);
+  check('painting ground drops the tile\'s pinned colour, so the palette decides',
+    /delete next\.bg_color/.test(paintRoute) && /delete next\.color/.test(paintRoute));
+  // The precedence this exists to defeat. If deriveColors ever stops preferring the
+  // authored value the delete becomes unnecessary — and if it starts preferring it
+  // somewhere ELSE, this check is the thing that says so.
+  // A REMOVAL IS A WRITE THAT LEAVES NOTHING. `deleteRow` is writeRow's sibling and
+  // must do the same bookkeeping, or the journal/ref caches/lint tree disagree about
+  // what is on disk. ⚠ `record` FIRST: it reads the `before` side out of tree[table],
+  // so dropping the row before recording makes `before` null and the undo silently
+  // restores nothing — an entry with two null sides reads as a no-op, not as loss.
+  const deleteRowFn = (serve.match(/async function deleteRow\([\s\S]*?\n\}/) || [''])[0];
+  check('a Studio delete records the row before it drops it',
+    deleteRowFn.indexOf('record(') >= 0
+    && deleteRowFn.indexOf('record(') < deleteRowFn.indexOf('tree[table]'),
+    'record() must precede the tree drop in deleteRow');
+  check('a Studio delete keeps the lint tree and ref caches honest',
+    /patchLintTree\(table, id, null\)/.test(deleteRowFn) && /REF_ID_CACHE\.delete/.test(deleteRowFn));
+  // null is a first-class SIDE, not an impossible value: after=null is a deletion,
+  // before=null is the creation that undoing one performs. Only an entry with nothing
+  // on either side is meaningless.
+  check('undo treats a null side as absence, and can restore a deleted row',
+    /if \(f\[side\] === null\) await deleteRow/.test(serve)
+    && /f\.before === null && f\.after === null/.test(serve));
+  // The street-furniture rule is AUTHORED — props.frontage in the palette, the same
+  // field a facade's door consults — never a list of terrains kept in the tool.
+  check('what a surface can carry is read from the palette, not listed in the tool',
+    /palette\?\.terrains\?\.\[t\]\?\.props\?\.frontage/.test(serve));
+  // ⚠ Narrow on purpose. A lamp or an overhead belongs to a ROOM; widening this to
+  // "furniture on the tile" would bin a player's own things on a terrain repaint.
+  check('only street lights are treated as belonging to the street',
+    /light_type === 'streetlight'/.test(serve));
+
+  check('an authored tile colour still outranks the palette in derive',
+    /zone\?\.bg_color \?\? entry\?\.fill/.test(
+      await readFile(join(__dirname, '..', 'scripts', 'content', 'derive.mjs'), 'utf8')));
+
   // A SAVE AND AN EXPORT MUST PRODUCE THE SAME BYTES, which is what makes a no-op
   // save a no-op diff and a terrain paint a one-line one. The rule that decides it
   // is the registry's omitWhenNull, and this file used to carry a hand-typed copy

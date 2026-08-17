@@ -13,8 +13,8 @@ npm run studio     # the Studio alone
 keeping them apart ([scripts/dev.mjs](../../scripts/dev.mjs) is the whole of that
 integration — it spawns, it reports, it takes the other one down when one dies).
 They remain two processes, and that is the point: this one has no database in it,
-and its save path lints ~10k files synchronously, which inside the game server
-would stall the tick loop on every save. `npm run dev -- --no-studio` opts out.
+and it parses the whole of `content/` — 37,242 files — to lint, which inside the
+game server would stall the tick loop. `npm run dev -- --no-studio` opts out.
 
 ## What it is
 
@@ -161,6 +161,79 @@ what the brushes paint (offering "Terrain" on an unpainted tile would hand back 
 the form deliberately took away, and it is the building footprints and interiors that
 have no terrain), and `world_exit_zone` on a mapped interior belongs to the map's anchor
 — carried, it shows locked; unset, it is not offered at all.
+
+## Painting
+
+Four tools and one modifier. **Paint** drags a brush, **Rect** drags a box, **Pick**
+takes the terrain under the cursor, **Select** opens a tile, **Move** picks a building
+up. A drag of any kind is accumulated in the client and sent **once on release** — one
+request, one action in the journal, one lint. A rectangle is not a special kind of
+write, it is a wide one.
+
+**Alt-click is the eyedropper, from inside whichever tool you are in.** The Pick
+button has always done this and still does; what it could not do is happen in the
+middle of something else. Sampling a colour is not a mode you enter — going Pick →
+click → Paint for every sample is three actions for one. So Alt-click picks and
+**leaves the tool where it was**, which is the whole difference between the two: the
+button flips you to Paint because that is where you were going.
+
+**Rect fills ground and nothing else.** A building inside the box keeps what it has,
+silently — the highlight has already shown you which tiles are out, in the same red a
+refused move destination wears. The test is `flags.building_type`, the authored field
+`bt` reads to decide what stops a truck, and deliberately **not** `spec.height` or the
+rooftop art: those are presentation, and deciding it there would make the guard a
+question about how a tile *draws*. Repainting the ground under a facade is how a shop
+ends up standing on water.
+
+⚠ The box is held as its two **corner tiles**, never as pixels. A preview derived from
+mouse coordinates and a fill derived from tile ids are two answers to "which tiles"
+waiting to disagree at an edge.
+
+### Ground the new surface cannot carry
+
+Painting a road to grass **takes the street lights with it**, in the same action. It
+used to leave them standing there, and nothing said so at the time — you met it much
+later as a building move being refused (*"has 1 thing(s) standing"*), several actions
+away from the paint that caused it, on a tile that looked fine.
+
+The rule is **authored, not coded**: `props.frontage` in the terrain palette is what
+makes a surface a street, and street furniture needs a street. That is the same field
+a building's door already consults to decide whether it can front onto a tile, so
+"somewhere a facade could open onto" and "somewhere a street light belongs" stay one
+idea with one answer. Clearing terrain counts as not carrying — a tile handed back to
+the palette is no longer a road.
+
+⚠ **Deliberately narrow: `light_type: 'streetlight'` only.** A lamp or an overhead
+belongs to a *room* and has nothing to do with the ground outside it, and widening
+this to "furniture on the tile" would quietly bin a player's own things.
+
+### Locking a region
+
+The picker under the map list lists the regions that have tiles **on the open map**,
+and locking one does two things that are deliberately the same switch: everything
+outside it **dims to 22%**, and every edit landing outside it is **refused**.
+
+A filter that only changed the view would leave a rectangle fill free to cross a
+border you can no longer see — the guard is what makes the view filter safe to use.
+And the guard lives in `paint()` and `assign()`, the two calls every gesture funnels
+through, rather than at mousedown: a per-tool check is one a tool added tomorrow can
+forget.
+
+**Dimmed, not hidden.** A tile removed from the canvas takes the coastline and the
+road you are painting up to with it, and you end up working against an outline you
+have to remember. This is the same call the district view makes.
+
+⚠ **202 world tiles carry no `region_id` at all.** Under *any* lock they are outside
+it, so they dim and refuse — they are reachable only with the lock off. That is
+correct (they genuinely belong to no region) and it is the one case where "locked to
+Coldwater" is not the same as "not locked to anything else". Regions live on
+`flags.region_id`, whose SSOT is [land-taxonomy.md](../../docs/reference/land-taxonomy.md);
+bounds are derived from member tiles and never stored, which is why the list is built
+from the tiles rather than from the region rows.
+
+The block hides itself entirely on a map with no regions on it — an interior, a
+sewer, a building's floors — rather than offering a filter that would blank the
+canvas.
 
 ## What it refuses
 
@@ -476,6 +549,39 @@ no unsaved buffer to close without saving. A client-side undo would also be
 apologising for writes it never saw: saving a map pushes the anchor onto every tile
 on it, and painting one road tile changes what the four around it draw.
 
+**A removal is a write that leaves nothing, and it undoes like one.** `null` is a
+first-class *side* of a journal entry: an entry whose `after` is null is a deletion,
+and one whose `before` is null is a creation — which is exactly what undoing a
+deletion is. `deleteRow` is `writeRow`'s sibling and does the same bookkeeping, so
+the journal, the ref caches and the lint tree cannot tell the two apart. This is why
+painting a road to grass can take the street lights with it in the same action, and
+one Ctrl+Z puts the terrain *and* the lights back.
+
+⚠ **`record` before the tree drop.** `record` reads the `before` side out of
+`tree[table]`, so removing the row first makes `before` null and the undo restores
+nothing — silently, because an entry with two null sides reads as a no-op rather than
+as lost content.
+
+The journal holds 20 actions; the real backstop is **git**. Content files are tracked,
+so `git checkout -- <path>` restores one long after the log has forgotten it, and the
+import's deletion pass is git-diff-driven — a removal here reaches prod through an
+ordinary push, with the pipeline's own promise that a `git revert` plus re-import
+restores it.
+
+⚠ **A deletion needs a COMMIT before it reaches a database.** The import's deletion
+pass is driven by `git diff <marker>..HEAD`, not by which files are absent — that is
+what stops it touching runtime-created rows that never had files at all. So an
+uncommitted removal is invisible to it: `content:import` reports `0 deleted` and the
+row stays in the DB with its file already gone. Edits behave the opposite way (the
+upsert pass reads the working tree), so this asymmetry catches people:
+
+| | Studio writes a file | Studio deletes a file |
+| --- | --- | --- |
+| after `content:import` | applied | **still in the DB** |
+| after commit + `content:import` | applied | removed |
+
+"Delete it in the Studio and see it gone in game" therefore needs a commit in between.
+
 **An action is one thing you did, whatever number of files it turned into.** A paint
 stroke across 40 tiles is one entry. A map save that rewrites 331 is one entry. The
 journal does not know what any of those *are* — it records at `writeRow`, the one
@@ -545,3 +651,29 @@ The bottom-right badge runs `content:lint` over the working tree on every save, 
 the authored-half rules answer **live** (spec §8.4). The derived-half rules — the
 ones that read `zone_render` and `zone_edges` — need an import and the badge says so
 rather than implying a freshness it doesn't have.
+
+**The tree is read once and then patched, never re-read.** This is the difference
+between a tool that paints and a tool that hangs. A lint was `readContentTree()`:
+`readFileSync` + `JSON.parse` across all 37,242 files, **12.5 s**, and *synchronous*
+— which is the half that hurt. Node is one thread, so for those twelve seconds the
+Studio answered nothing at all. The next paint was not slow, it was **not parsed**:
+click, wait fifteen seconds, watch one tile change. The paint itself was 0.35 s the
+whole time.
+
+Every rule in `lint.mjs` put together is **~1 s**. The read was the entire cost. So
+the tree is read once, lazily, and `writeRow` — the one funnel every write already
+goes through, for the same reason the journal hangs off it — patches the row it just
+wrote. Measured on the live server: **15.3 s** for the first lint of a session,
+**~1.0 s** for every one after it.
+
+⚠ **It is a second, COMPLETE tree, not the `tree` the Studio already holds.** The
+obvious saving is to lint the rows in memory, and it is wrong: `TABLES` is 19 tables
+of 37, and half the lint is cross-table FK checks. A tree missing `items` does not
+skip the item rules — it reports every zone referencing an item as pointing at
+nothing, and turns a clean tree red.
+
+⚠ **Nothing on a request path may call `projectEdges`.** `deriveWorld` runs it and
+returns `undeclaredOneWays` alongside the edges, memoised on the cache a paint
+invalidates. `/api/lint` called it a second time and spent 0.23 s recomputing a
+number already sitting in `derived`. The import is gone from `serve.mjs` so a third
+copy cannot quietly reappear.

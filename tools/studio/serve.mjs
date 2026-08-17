@@ -31,11 +31,11 @@
 // loop this replaces.
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, stat, unlink } from 'node:fs/promises';
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds } from '../../scripts/content/lib.mjs';
+import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds, readContentTree } from '../../scripts/content/lib.mjs';
 // The registry, for omitWhenNull. NOT a second copy of it: a Studio save and a
 // content:export have to produce the same bytes, and the way that stops being an
 // aspiration is by reading the rule instead of retyping it. This file used to
@@ -44,7 +44,10 @@ import { CONTENT_DIR, canonicalJson, schemaColumnsOf, readPalette, assetRefIds }
 // subsequent no-op save produce a diff — quietly voiding the one property the
 // whole tool is built on.
 import { contentEntries } from '../../server/models/content-registry.js';
-import { deriveWorld, projectEdges, deriveMapName, gridKey, featureProvenance, autoTileFamily } from '../../scripts/content/derive.mjs';
+// No `projectEdges`: deriveWorld runs it and returns its results, so importing it
+// here is how a second, unmemoised copy of the edge projection gets called on a
+// request path. /api/lint did exactly that until it was reading `world()` instead.
+import { deriveWorld, deriveMapName, gridKey, featureProvenance, autoTileFamily } from '../../scripts/content/derive.mjs';
 import { applyAnchor, expectedAnchor } from '../../scripts/content/map-anchor.mjs';
 // The two structural operations, as pure planners. They live beside derive.mjs and
 // map-anchor.mjs for the same reason those do: regress drives them without a server,
@@ -105,6 +108,57 @@ let derived = null;   // { render, edges } — invalidated on every write
 const stamps = new Map();
 const rowPath = (table, id) => join(CONTENT_DIR, table, `${id}.json`);
 const stampOf = (s) => `${s.mtimeMs}:${s.size}`;
+// A file this process has deliberately removed. Absence has to be a STAMP VALUE
+// rather than a missing entry, or conflictOf cannot tell "I deleted this" from
+// "somebody deleted this behind my back" — and a tombstoned row would report a
+// conflict against its own correct state on every undo.
+const ABSENT = 'absent';
+
+// ── The lint tree ────────────────────────────────────────────────────────────
+// THE WHOLE OF content/, PARSED, KEPT, AND PATCHED — not re-read.
+//
+// The badge lints on every mutation, and a lint was `readContentTree()`: readFileSync
+// + JSON.parse across all 37,242 files, 14.9 s of it, synchronous. Synchronous is the
+// part that hurt. Node is one thread, so for those 15 s the Studio answered NOTHING —
+// the next paint was not slow, it was not parsed. Painting felt like a tool that
+// hangs for twenty seconds a tile, and the paint itself was 0.35 s.
+//
+// The rules are not the cost: every check in lint.mjs put together is ~0.8 s against
+// 14.9 s to read the tree they run on. So the tree is read ONCE and then kept, and
+// `writeRow` — the one funnel every Studio write already goes through, for the same
+// reason the journal hangs off it — patches the row it just wrote. A lint after the
+// first is rules-only.
+//
+// ⚠ IT IS THE WHOLE TREE, NOT `tree`. The obvious move is to lint the rows the Studio
+// already holds in memory, and it is wrong: `TABLES` is 19 tables of 37, and half the
+// lint is cross-table FK checks. A tree missing `items` does not skip item rules, it
+// reports every zone referencing an item as pointing at nothing. This is a SECOND,
+// complete tree that exists to be linted.
+//
+// It is deliberately lazy: paying 15 s at boot would move the freeze rather than
+// remove it, and a session that never lints never pays it at all.
+let lintTree = null;
+const lintTreeNow = () => (lintTree ||= readContentTree(CONTENT_DIR));
+
+// Keep the cached tree honest about a row this process just wrote. Called from
+// writeRow, so there is no path that writes a file and forgets — which is the only
+// property that makes a cache safe here. A table the lint tree has never been asked
+// for (lintTree still null) needs nothing: the first read will see the new bytes.
+function patchLintTree(table, id, obj) {
+  if (!lintTree) return;
+  const bucket = lintTree.entries.find(e => e.entry.table === table);
+  if (!bucket) return;                       // a table outside the content registry
+  const name = `${id}.json`;
+  const at = bucket.files.findIndex(x => x.name === name);
+  // `obj === null` is a REMOVAL — the row must leave the tree the lint reads, not
+  // sit in it holding null, or every rule that walks a table trips over a file with
+  // no data in it. The insert branch keeps the sort readContentTree established, so
+  // a restored row lands back where it was rather than at the end.
+  if (obj === null) { if (at >= 0) bucket.files.splice(at, 1); return; }
+  if (at >= 0) { bucket.files[at].data = obj; return; }
+  bucket.files.push({ name, path: rowPath(table, id), data: obj });
+  bucket.files.sort((a, b) => a.name.localeCompare(b.name));
+}
 
 function loadTree() {
   stamps.clear();
@@ -145,8 +199,14 @@ async function conflictOf(table, id) {
   if (!seen) return null;                       // never read it; nothing to lose
   let now;
   try { now = stampOf(await stat(rowPath(table, id))); }
-  catch { return `content/${table}/${id}.json has been deleted since the Studio read it — restart the Studio`; }
+  catch { now = ABSENT; }
+  // Absent AND expected absent is agreement, not a conflict: this is a row the
+  // Studio tombstoned, and an undo restoring it must not be refused for finding
+  // exactly the state it left behind.
   if (now === seen) return null;
+  if (now === ABSENT) return `content/${table}/${id}.json has been deleted since the Studio read it — restart the Studio`;
+  if (seen === ABSENT) return `content/${table}/${id}.json is back on disk since the Studio deleted it `
+    + '(a git checkout, another tab, or a hand restore). Undoing would discard it. Restart the Studio to pick it up.';
   return `content/${table}/${id}.json changed on disk since the Studio read it `
     + '(a git pull, another tab, sync-map-anchors, or a hand edit). Saving would discard that change. '
     + 'Restart the Studio to pick it up.';
@@ -167,11 +227,70 @@ async function writeRow(table, id, obj) {
   await writeFile(tmp, canonicalJson(obj), 'utf8');
   await rename(tmp, p);
   stamps.set(`${table}/${id}`, stampOf(await stat(p)));
+  // The lint's copy of this row, so the badge never re-reads 37,242 files to find
+  // out what this line just did. Same funnel as the journal above, and for the same
+  // reason: a write that skipped it would leave the badge answering about old bytes.
+  patchLintTree(table, id, obj);
   // A saved name is a ref option somebody is about to pick from. The cache was
   // filled once at first use and never invalidated, so the zone picker and the
   // red NOT IN <table> flagging both went stale within a session.
   REF_CACHE.delete(table);
   REF_ID_CACHE.delete(table);
+}
+
+// ── The other funnel ─────────────────────────────────────────────────────────
+// REMOVING A ROW IS A WRITE THAT HAPPENS TO LEAVE NOTHING, and it does exactly the
+// bookkeeping writeRow does so the journal, the caches and the lint tree cannot tell
+// the two apart. `null` is a first-class SIDE of a journal entry: an entry whose
+// `after` is null is a deletion, and one whose `before` is null is a creation —
+// which is precisely what undoing a deletion is.
+//
+// ⚠ RECORD BEFORE THE TREE DROP. `record` reads the `before` side out of
+// `tree[table]`, so removing the row first makes `before` null and the undo restores
+// nothing — silently, because an entry with two null sides reads as a no-op rather
+// than as lost content.
+//
+// The journal holds 20 actions; the real backstop is git. Content files are tracked,
+// so `git checkout -- <path>` restores one long after the log has forgotten it, and
+// the import's deletion pass is git-diff-driven — so a removal here reaches prod
+// through an ordinary push with no pipeline work at all.
+async function deleteRow(table, id) {
+  record(table, id, null);
+  await unlink(rowPath(table, id)).catch(() => {});   // already gone is the state we wanted
+  tree[table]?.delete(id);
+  stamps.set(`${table}/${id}`, ABSENT);
+  patchLintTree(table, id, null);
+  REF_CACHE.delete(table);
+  REF_ID_CACHE.delete(table);
+}
+
+// ── What a surface can carry ─────────────────────────────────────────────────
+// ⚠ MODULE SCOPE, not inside the request handler. These are read by the paint route,
+// which sits ABOVE them in that handler's body — a `const` declared after it there is
+// in the temporal dead zone at request time and throws
+// "Cannot access 'terrainCarriesStreet' before initialization" on the first paint.
+//
+// A street light needs a STREET, and which terrains are streets is authored in the
+// palette (`props.frontage` — today, `road` alone) rather than listed here. That is
+// the same field a building's door already consults to decide whether it can open
+// onto a tile, so "somewhere a facade could front onto" and "somewhere a street light
+// belongs" stay one idea with one answer.
+//
+// Clearing terrain entirely counts as not carrying: a tile handed back to the palette
+// is no longer a road, and its lights are no more justified than they would be on
+// grass.
+const terrainCarriesStreet = (t) => !!(t && palette?.terrains?.[t]?.props?.frontage);
+
+// The street furniture standing on one tile. Walks the table rather than keeping an
+// index: furniture is ~1,600 rows and a paint stroke asks this once per tile, which
+// is cheaper than an index another writer could leave stale — the mistake the zone
+// caches exist to warn about.
+function streetFurnitureIn(zoneId) {
+  const out = [];
+  for (const fu of tree.furniture.values()) {
+    if (fu.zone_id === zoneId && fu.light_type === 'streetlight') out.push(fu);
+  }
+  return out;
 }
 
 // ── The action log ───────────────────────────────────────────────────────────
@@ -264,7 +383,13 @@ async function applyEntry(entry, side) {
   for (const f of entry.files) {
     const conflict = await conflictOf(f.table, f.id);
     if (conflict) objections.push(conflict);
-    if (!f[side]) objections.push(`content/${f.table}/${f.id}.json did not exist before this action — the Studio does not create or delete content files`);
+    // A null side is MEANINGFUL — it is the absence a deletion leaves, and reverting
+    // to it is how a creation is taken back. What is not meaningful is an entry with
+    // nothing on either side: that is a row that never existed and still doesn't, so
+    // there is no state to move it to.
+    if (f.before === null && f.after === null) {
+      objections.push(`content/${f.table}/${f.id}.json has no state on either side of this action — nothing to revert to`);
+    }
   }
   if (objections.length) {
     return { ok: false, errors: [
@@ -273,8 +398,15 @@ async function applyEntry(entry, side) {
     ] };
   }
   for (const f of entry.files) {
-    await writeRow(f.table, f.id, f[side]);   // recording is null here: an undo is not an action
-    tree[f.table].set(f.id, f[side]);
+    // recording is null here: an undo is not an action. Restoring a deleted row goes
+    // through writeRow like any other write, which is why undoing a deletion needs no
+    // path of its own — it is the same rewrite in the other direction, exactly as the
+    // journal's whole design intends.
+    if (f[side] === null) await deleteRow(f.table, f.id);
+    else {
+      await writeRow(f.table, f.id, f[side]);
+      tree[f.table].set(f.id, f[side]);
+    }
   }
   // AS IF IT WERE A FRESH PAINT. derive is whole-map by contract (§7.2) — a
   // building's marker depends on every other building and a road's connector on its
@@ -1167,12 +1299,34 @@ const server = createServer(async (req, res) => {
             // from this, and the tile inspector states it. Shipped with the tile
             // rather than fetched per district so switching views is instant.
             district: districtOfZone(z, prefixes),
+            // Which REGION this tile belongs to — `flags.region_id`, the taxonomy's
+            // SSOT for it (docs/reference/land-taxonomy.md), shipped raw rather than
+            // resolved to a name because the client already has the region list and
+            // a second copy of the name per tile is 15,307 of them.
+            //
+            // Region and district are different questions and the tile answers both:
+            // a region is the spatial place a pilot navigates to, a district is the
+            // land-use identity a pedestrian walks into. Don't infer either from the
+            // other, and don't parse the zone id for it.
+            region: z.flags?.region_id || null,
+            // Buildings are what the rectangle fill refuses to touch, and this is the
+            // authoritative test — `flags.building_type`, the same field `bt` reads to
+            // decide what stops a truck. NOT `spec.height` or a rooftop feature, which
+            // are presentation and would make the guard a question about how a tile
+            // DRAWS rather than what it IS.
+            building: !!z.flags?.building_type,
           }))
         : [];
       return json(res, 200, {
         maps: maps.map(m => ({ ...m, tiles: counts.get(m.id) || 0 })).sort((a, b) => (counts.get(b.id) || 0) - (counts.get(a.id) || 0)),
         mapId, zones,
         portals: mapId ? portalsOnMap(mapId, mapNames) : {},
+        // The region list, for the lock picker. Bounds are deliberately NOT sent:
+        // they are derived from member tiles at read time and never stored (moving a
+        // region must not be able to desync them), and the client already holds every
+        // tile's `region`, so it can derive what it needs from the same source.
+        regions: [...tree.regions.values()].map(r => ({ id: r.id, name: r.name }))
+          .sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))),
         terrains: Object.entries(palette?.terrains || {}).map(([key, t]) => ({ key, label: t.label || key, fill: t.fill })),
       });
     }
@@ -1295,8 +1449,48 @@ const server = createServer(async (req, res) => {
           }
           const flags = { ...fl };
           if (terrain) flags.terrain = terrain; else delete flags.terrain;
-          const r = await saveZone({ ...row, flags });
-          if (!r.ok) errors.push(`${id}: ${r.errors.join('; ')}`);
+          // ── PAINTING GROUND DROPS THE TILE'S HARDCODED COLOUR ────────────────
+          // `deriveColors` is `zone.bg_color ?? entry.fill` — AUTHORED FIRST — so a
+          // tile carrying a top-level colour renders that hex forever and the brush
+          // is a visual no-op on it. 4,813 tiles were in that state: paint wrote
+          // flags.terrain, the minimap class changed, and the canvas did not move.
+          // Worse for roads, which took the colour of whatever they were painted on
+          // and so looked different tile to tile along one street — a road should be
+          // a road wherever it is laid.
+          //
+          // Those columns are pre-terrain BULK FILL that derive has otherwise
+          // discarded (see the registry note on zones.omitWhenNull), and deleting
+          // the key is the documented way to say "whatever the palette gives me" —
+          // `omitWhenNull` is what makes an absent key import as NULL rather than
+          // leaving the old value standing in prod.
+          //
+          // Only ever on the tiles in this stroke, so nothing changes until you
+          // paint it, and CLEARING terrain drops them too: a tile handed back to the
+          // palette must not keep the fill of the ground it no longer has.
+          const next = { ...row, flags };
+          delete next.bg_color;
+          delete next.color;
+          const r = await saveZone(next);
+          if (!r.ok) { errors.push(`${id}: ${r.errors.join('; ')}`); continue; }
+          // ── GROUND THE NEW SURFACE CANNOT CARRY GOES WITH IT ─────────────────
+          // Paving a road to grass used to leave the road's street lights standing
+          // on the grass. Nothing said so at the time; you met it later as a MOVE
+          // being refused ("has 1 thing(s) standing"), several actions away from the
+          // paint that caused it, and the tile looked fine.
+          //
+          // The rule is authored, not written here: `props.frontage` in the terrain
+          // palette is what makes a surface a street, and street furniture needs a
+          // street. So this asks the palette rather than holding a list of terrains
+          // that would drift from it.
+          //
+          // Deliberately narrow — `light_type: 'streetlight'` only. A lamp or an
+          // overhead belongs to a ROOM and is nothing to do with the ground outside
+          // it, and widening this to "furniture on the tile" would quietly bin a
+          // player's own things. It rides the same action, so one Ctrl+Z puts both
+          // the terrain and the lights back.
+          if (!terrainCarriesStreet(terrain)) {
+            for (const fu of streetFurnitureIn(id)) await deleteRow('furniture', fu.id);
+          }
         }
       });
       const { render } = world();
@@ -1398,9 +1592,12 @@ const server = createServer(async (req, res) => {
     // it is answering about what would actually ship — and the derived half is not
     // pretended at: those rules need an import and say so in the UI.
     if (req.method === 'GET' && path === '/api/lint') {
-      const { errors, warnings } = lintContentTree();
-      const { undeclaredOneWays } = projectEdges([...tree.zones.values()], [...tree.connections.values()]);
-      return json(res, 200, { errors, warnings, undeclaredOneWays: undeclaredOneWays.length });
+      const { errors, warnings } = lintContentTree(CONTENT_DIR, { tree: lintTreeNow() });
+      // `world()` ALREADY RAN THIS. deriveWorld projects the edges and returns
+      // `undeclaredOneWays` with them, memoised on the same cache a paint stroke
+      // invalidates — so the second projectEdges here was 0.23 s spent recomputing a
+      // number sitting in `derived`, on the one endpoint that had no budget for it.
+      return json(res, 200, { errors, warnings, undeclaredOneWays: world().undeclaredOneWays.length });
     }
 
     return json(res, 404, { error: 'not found' });

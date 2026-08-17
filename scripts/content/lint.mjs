@@ -53,7 +53,18 @@ function fksOf(table) {
 // invisible without becoming a reason the deploy can't ship.
 const PROP_KEYS = Object.keys(PROP_DEFAULTS);
 
-export function lintContentTree(baseDir) {
+// `tree` lets a caller that ALREADY HOLDS the parsed tree hand it over instead of
+// paying for a second read. The read is the entire cost of a lint — 14.9s of
+// readFileSync + JSON.parse across 37,242 files, against ~0.8s for every rule in
+// this file put together — so a caller that lints repeatedly against a tree it is
+// itself mutating (the Studio, on every paint) is otherwise re-reading the whole of
+// content/ from disk to check work it just did in memory.
+//
+// ⚠ IT MUST BE THE WHOLE TREE, not the caller's subset. Half these rules are
+// cross-table FK checks, so a tree missing a table does not lint that table's
+// absence — it reports every reference INTO it as a broken one. The Studio holds 19
+// tables of 37; handing those over would have turned a clean tree red.
+export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
   const errors = [];
   const warnings = [];
   // Read once, up here, because two rules need it: the palette reconciliation
@@ -63,7 +74,7 @@ export function lintContentTree(baseDir) {
   try { palette = readPalette(baseDir); } catch (e) { paletteErr = e.message; }
   let tree;
   try {
-    tree = readContentTree(baseDir);
+    tree = preRead || readContentTree(baseDir);
   } catch (e) {
     return { errors: [e.message], warnings };
   }
