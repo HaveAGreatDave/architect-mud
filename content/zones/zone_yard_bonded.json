@@ -9,7 +9,7 @@
   },
   "flags": {
     "building_name": "Bonded & Bothered",
-    "building_type": "warehouse",
+    "building_type": "truck_depot",
     "claimable_asset": "warehouse",
     "floor": "concrete",
     "is_building": true,

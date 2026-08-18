@@ -649,6 +649,26 @@ decal**; a decal that ignores the fit scores 0.16–0.19 where a healthy one sco
 measures a ratio rather than a position on purpose: a check that re-derived the transform would
 agree with a bug in the transform.
 
+⚠ **AND A DECAL MAY NOT VANISH BEFORE THE PANEL IT IS PRINTED ON** *(2026-08-18)*. The second half
+of the same report — *"decals disappear once you zoom in past a certain point"* — and a different
+cause. Both painters carried a near plane of their own (`0.18`) that was **stricter than the one the
+model is culled at**: `0.15` on the bench, and `0.07` in TILE units out on the road, where a rig you
+had pulled alongside lost the picture off its door a fifth of a tile out while the door was still
+solid in front of you. The artwork switched itself off exactly as you got close enough to read it.
+So the painters take the near plane **from their caller** now (`MODEL_NEAR_Z` in aircraft3d.js,
+`CONTACT_NEAR_F` in windshield.js) rather than owning one.
+
+That left one step of gap, and it was the decal standing **proud of the skin**. `drawNoseArt` pushes
+its art out by 3.5% because it is wrapping a CURVE and the grid's chords would otherwise sink into
+the hull between vertices. A door is flat, and nothing on this path is depth-tested — the art is
+painted after every face — so the overhang bought nothing and cost the only thing that showed:
+standing proud makes the decal **nearer than its own panel**, so it crosses the near plane first.
+It is `1.004` now: enough to stay off the surface, and no more. The walk-up is gated in
+[scripts/shapes/truck-doorart.mjs](../scripts/shapes/truck-doorart.mjs), which walks a camera in
+along the door's own normal and asserts there is **no standoff at which the truck is still being
+painted in quantity and the decal is not** — a face count as the yardstick rather than a distance,
+so the threshold moves with the fit transform instead of going quietly green when it changes.
+
 
 **The horn works** *(2026-08-12)*. Two chrome trumpets were added to every roof, plus cab steps
 under the door (the walkaround ends in CLIMB IN and there was nothing there to climb). A horn you
@@ -856,6 +876,107 @@ interior names keys that exist.
 Storage is `trucks.custom_data.trim` — `{ mat, col, cust }`, all nullable, no schema change. It
 rides the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
 renders byte-for-byte what it always did.
+
+#### Bonded & Bothered was a warehouse with a truck door in it *(2026-08-18)*
+
+The corner came apart from the driver's seat: flat grey slabs, the signwriting lying on the tarmac,
+and sky where the roof is. Nothing was broken in the model — the building was simply **the wrong
+model**. `zone_district_922_907` carried `building_type: "warehouse"` while carrying a depot's
+`truck_depot` flags, a depot's `vehicle_bay` and a depot's three floors; it was identical to the
+other four depots in every respect except the one field that decides which arm of `drawTypeModel`
+runs.
+
+And the `warehouse` arm is a **solid box**. That is the exact failure the `truck_depot` arm was
+rebuilt to fix and documents at length: a solid box seen from *within* has every face pointing away
+from you, so the backface cull removes the whole building and the driver is left on a bare slab.
+It was invisible to everything — the flags were all valid, the building rendered fine from the
+road, and the fault only existed from inside a cab that had just pulled out of it.
+
+⚠ **So `content:lint` now refuses a `vehicle_bay` on a model that is not a shell.** The list of
+shell types is short and deliberately **not derived from the renderer** (lint cannot import the
+client), so when you build a second drivable building model, add it to `SHELL_TYPES` in the same
+commit. The rule is the general statement of the bug: *a building you drive into has to have an
+inside.*
+
+#### A box is one colour, and it is the box's *(2026-08-18)*
+
+A trailer used to be drawn in whatever the tractor's `deck` field said, and standing in a yard it
+was drawn in nothing at all — the depot floor sent the renderer an id, a class and a mesh key and
+no livery, so your boxes were black slabs beside a yellow truck.
+
+⚠ **The colour is stamped on the ROW, not derived from whoever is towing.** The cheap version reads
+it off the tractor, and it is wrong for the reason a trailer is a row at all: the same box would be
+two colours in one yard depending on which cab happened to be hooked to it, and would change under
+you the moment you dropped it. `trailers.paint` is one nullable JSONB column, stamped at purchase
+from **the buyer's own cab colour** — a yard hand sprays it to match the rig that is going to pull
+it — and repaintable afterwards as its own job, `yard paint <box> #rrggbb`, for a flat fee.
+
+That verb is on `yard` rather than `rig` deliberately: `rig paint` takes eight named surfaces and a
+box has one, so half its grammar would be refusals.
+
+⚠ **`deck` IS THE FIELD, NOT `base`.** The solo mesh is the whole rig with the tractor spliced off,
+and every face left over is stamped `deck` (see `buildTruck`) — so a livery that set only `base`
+would paint a box that is entirely deck faces exactly nothing. `boxLivery` sets both, because
+nothing downstream should have to know which one a given mesh reads. The chassis, legs and glass
+stay hardware-coloured: a trailer is a painted box on black steel, and washing the whole thing in
+one colour reads as a toy.
+
+A null stamp is every box written before this, and renders as plain unbranded haulage grey — a real
+answer (an unpainted box off the line) rather than a hole. The stamp wins in **every** view:
+standing in a yard (`trailersNear`), towed by you (`cabContext`), towed past somebody else
+(`truckContactsNear`) and on the depot floor. Repainting is guarded on the **owner** — a box
+standing in a public yard is somebody's, and a spray gun is not a claim on it.
+
+#### The shed stopped being a shed when you looked at it from above *(2026-08-18)*
+
+`drawVehicleBay` had a **cutaway**: with your rig inside and the camera up over the eaves, the roof
+and the near wall faded out so you could see your own truck rather than your own roof. It solved a
+real problem, and it solved it by making the building stop being a building — which from the
+driver's seat reads as *"the walls always vanish depending on angle"*, in those words. A world
+where a wall's existence depends on where you are looking from is a worse trade than not being able
+to see your truck through a roof, so **`BAY_CUTAWAY_ON` is false** and the shed is always solid.
+
+The ramp is deliberately **left standing** rather than deleted — it is the tuned answer to a
+question that may well be asked again, and turning it back on is one constant. Everything
+downstream already read `cut` as a number rather than a flag, so nothing else had to change.
+
+⚠ **Except the occlusion gate, and for a reason that is not the cutaway at all.** The mask used to
+skip a shed *when it was being opened up*; it skips one when the **eye is inside it**, which is the
+honest statement and stays true whether or not anything is ever cut away again: a wall you are
+standing within cannot come between you and something in the room with you. Without that, every
+contact in the yard is culled against the room the driver is sitting in. `bayOccluderSmoke` now
+asserts both halves — a solid shed with your rig in it **does** mask it from a camera outside, and
+masks **nothing** from the cab.
+
+#### A depot must not contain a trailer that is nowhere *(2026-08-18)*
+
+`posed` was written as an optional state — *"no pose, nothing to draw, the yard lists it instead"* —
+and that reads as a graceful fallback until you look at what it produces. A box with no pose is on
+the fleet list, in the depot panel, in the `hitch` search and on the cab's air knob, and is **on no
+picture anywhere**. You are told you own a reefer, told it is here, offered a button that couples to
+it, and there is nothing in the yard to walk round. Worse, the row that gets into that state is
+parked in the **bay** — a building interior at grid 0,0 — so there is no coordinate to draw it at
+even in principle. The dealer standing what it *sells* on the hardstand fixed the new ones and left
+everything already in the world exactly where it was.
+
+So **the yard walks them out** (`standStock`). Any box of yours sitting in this depot without a
+place gets one, on the hardstand, in the same alternating rank new stock is stood in — and from
+that moment it is an ordinary dropped trailer: drawn, driven around, and hitchable only when the
+fifth wheel is genuinely under the pin.
+
+⚠ **It is a move within one depot, which is why it needs no permission.** `hitchZones` has always
+treated the bay and the yard as one place, so nothing about *finding* your trailer changes — what
+changes is that the place it is in now has ground under it. A box parked on a street tile somewhere
+else is never touched, because that IS a place and somebody chose it.
+
+⚠ **And it is a cold path only** — opening a yard, and climbing into a cab. Never on the drive. In
+the steady state it reads nothing it was not about to read anyway and writes nothing at all: the
+`UPDATE` only runs for a box that has no place, which happens once per box, ever. Regress drives
+the real converge against a real depot and asserts the second run moves **zero**, because a version
+that rewrote a pose each pass would be a write on a read path — and would shuffle a box the driver
+had deliberately dropped in the yard. A depot with no drivable yard (the legacy one-tile shape, and
+the fixtures) has no hardstand to stand anything on, so it does nothing and the unposed row stays
+legal.
 
 #### …and one colourway is yours *(2026-08-18)*
 

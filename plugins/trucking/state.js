@@ -26,7 +26,7 @@ import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider,
 import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
-import { trailersNear, standingIn, hitchReach, posed, refreshStanding } from './trailers.js';
+import { trailersNear, standingIn, hitchReach, posed, refreshStanding, boxColour } from './trailers.js';
 // The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
 // note on why it is in client/shared rather than in the renderer.
 import { truckLivery } from '../../client/shared/truck-livery.js';
@@ -495,7 +495,12 @@ export function truckContactsNear(x, y, range = 26) {
       // paint is for: an aircraft's livery says whose it is, and a truck's says who you are.
       // Contacts have carried a finished `livery` since flight (plugins/flight/state.js), and the
       // model painter reads `c.livery` whatever the `cls` — so this is one field, not a code path.
-      livery: truckLivery(rig.cd?.paint),
+      // ⚠ …AND THE BOX ON THE BACK KEEPS ITS OWN COLOUR. `deck` is the tractor's opinion about what
+      // colour a trailer should be, which is fine for a rig with no box on it and wrong the moment
+      // there is one: the same trailer would be one colour hooked to your cab and another hooked to
+      // somebody else's, and would change under you at the pin. The stamp on the ROW wins, so a box
+      // is the same colour standing in a yard, towed by you, and towed by a stranger.
+      livery: { ...truckLivery(rig.cd?.paint), ...(rig.trailer ? { deck: boxColour(rig.trailer) } : {}) },
     });
   }
   return out;
@@ -588,7 +593,9 @@ export function cabContext(rig, extra = {}) {
     // The client model owns φ and the brake temperature between frames — it simulates them at
     // 60fps and nothing here could improve on that. What the server owns is WHETHER there is a
     // trailer and what it weighs, because that is a fact about the world and not about this frame.
-    trailer: rig.trailer ? { name: rig.trailer.name, kg: rig.trailer.kg, loadKg: rig.cargo?.kg || 0 } : null,
+    // …and what colour it is, because the cab draws your own rig in the chase view and a box that
+    // was one colour in the yard and another on the pin is not one box.
+    trailer: rig.trailer ? { name: rig.trailer.name, kg: rig.trailer.kg, loadKg: rig.cargo?.kg || 0, colour: boxColour(rig.trailer) } : null,
     // The corridor half is only meaningful on that leg; in the city the cab shows the destination
     // rather than a distance-to-go, because there is no single road to be a distance along.
     s: city ? 0 : Math.round(rig.s), t: city ? 0 : +rig.t.toFixed(2),

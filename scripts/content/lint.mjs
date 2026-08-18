@@ -393,6 +393,29 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
       if (!wez || !zoneIds.has(wez)) errors.push(`${label}: facade needs a valid world_exit_zone (got "${wez ?? ''}")`);
     }
 
+    // ── A BUILDING YOU DRIVE INTO HAS TO BE MODELLED AS A SHELL ──────────────
+    // `vehicle_bay` means a truck is driven INSIDE this footprint, and only some building models
+    // are built as one: four wall slabs and a roof, each with an inward face as well as an outward
+    // one. Every other model in the flight sim is a solid box, and a solid box seen from within has
+    // every face pointing away from you — the backface cull removes the entire building and the
+    // driver is sitting on a bare grey slab with the sky where the roof should be.
+    //
+    // Bonded & Bothered shipped as `warehouse` while carrying a depot's flags, a depot's vehicle
+    // bay and a depot's three floors — identical to the other four in every respect except the one
+    // that decides which model is drawn. It looked like a corner of the world that had come apart,
+    // and nothing could see it: the flags were all valid, the building rendered, and the fault only
+    // existed from inside a cab that had just pulled out of it.
+    //
+    // The list is short and deliberately not derived from the renderer — lint cannot import the
+    // client — so when you build a second drivable model, add it here in the same commit.
+    const SHELL_TYPES = new Set(['truck_depot']);
+    for (const f of zoneFiles) {
+      const fl = f.data.flags || {};
+      if (!fl.vehicle_bay) continue;
+      if (SHELL_TYPES.has(fl.building_type)) continue;
+      errors.push(`zones/${f.name}: flags.vehicle_bay on a "${fl.building_type || 'untyped'}" building — that model is a solid box, so a driver inside it sees the whole building culled away. A bay needs a shell model (${[...SHELL_TYPES].join(', ')}).`);
+    }
+
     // A BUILDING IS NOT GROUND, so it cannot carry a ground surface. resolveTerrain
     // says exactly that in its own comment — but it reads flags.terrain first, so a
     // stray paint stroke wins and the tile silently loses its navigable code

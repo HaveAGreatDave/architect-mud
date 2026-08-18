@@ -2889,6 +2889,14 @@ export const SCHEMA_SQL = `
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_x REAL;
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_y REAL;
   ALTER TABLE trailers ADD COLUMN IF NOT EXISTS park_heading REAL;
+  -- WHAT COLOUR IT IS, and the reason it is on the BOX rather than derived from whoever is towing
+  -- it. A trailer is a thing you own, drop, come back for, and one day sell to somebody else; a
+  -- colour that came off the tractor would mean the same box was two colours in one yard depending
+  -- on which cab happened to be hooked to it, and would change under you the moment you unhitched.
+  -- Stamped from the buyer's own cab colour at purchase (see yardBuyTrailer), repaintable after
+  -- (yard paint), and null on every row written before this — which renders as plain unbranded
+  -- haulage grey rather than as a hole, so nothing already standing in a yard is stranded.
+  ALTER TABLE trailers ADD COLUMN IF NOT EXISTS paint JSONB;
   CREATE INDEX IF NOT EXISTS idx_trailers_owner ON trailers(owner_id);
   CREATE INDEX IF NOT EXISTS idx_trailers_parked ON trailers(parked_zone);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_trailers_towed ON trailers(towed_by) WHERE towed_by IS NOT NULL;

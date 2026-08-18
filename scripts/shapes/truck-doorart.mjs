@@ -21,6 +21,7 @@
 // The door tex is 56×56 and the hull-detail tex is 48×48, which is how a decal triangle is told
 // apart from the panel grain going through the same texture-mapper.
 import { _setBlitEnabled } from '../../client/game/js/panels/model-raster.js';
+import { aircraftFaces, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 
 const DOOR_TEX = 56;   // doorArtTex's canvas — see aircraft3d.js
 
@@ -108,4 +109,42 @@ function doorArtRun(drawHangarFloorBay, variants) {
     out.push({ variant, cells: fitted.art.length, ratio: mR > 0 && aR > 0 ? aR / mR : 0, onSkin });
   }
   return out;
+}
+
+// ── …AND IT MUST NOT SWITCH ITSELF OFF AS YOU WALK UP TO IT ──────────────────
+// The second failure, and the one a still frame cannot show: the decal painters carried a near
+// plane of their own (0.18) that was stricter than the one the model is culled at (0.15 here, 0.07
+// on the road). So the last stretch of walking up to a door took the picture off it and left the
+// door standing there — the artwork switching off exactly as you got close enough to read it.
+//
+// This walks the camera in along the door's own normal and asserts the one relationship that
+// matters: THERE IS NO STANDOFF AT WHICH THE TRUCK IS STILL BEING PAINTED IN QUANTITY AND THE
+// DECAL IS NOT. The face count is the yardstick rather than a distance, so if the fit transform
+// this camera is aimed with ever moves, the threshold moves with it instead of going quietly
+// green. `FLOOR_Z` and the fit are paintTurntable's own three lines, used only to POINT A CAMERA
+// — nothing here asserts on them.
+const SOLID_FACES = 300;   // 'the model is plainly still there', measured on a healthy hauler
+export function doorArtCloseUpSmoke(drawHangarFloorBay, variant = 'hauler') {
+  _setBlitEnabled(false);
+  try {
+    const V = `${variant}~p`, FIT = 2.2, FLOOR_Z = -0.27;
+    const faces = aircraftFaces('truck', 1, false, V);
+    let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    for (const f of faces) for (const v of f.p) for (let k = 0; k < 3; k++) { if (v[k] < lo[k]) lo[k] = v[k]; if (v[k] > hi[k]) hi[k] = v[k]; }
+    const mScale = FIT / Math.max(hi[0] - lo[0], hi[1] - lo[1]), mDrop = FLOOR_Z - lo[2] * mScale;
+    const d = truckMeta(`${V}:1`)?.door;
+    if (!d) return [{ standoff: null, faces: 0, cells: 0, bad: true }];
+    const door = { f: ((d.f0 + d.f1) / 2) * mScale, g: d.g * mScale, z: ((d.z0 + d.z1) / 2) * mScale + mDrop };
+    const out = [];
+    for (const off of [2, 1, 0.5, 0.35, 0.25, 0.18, 0.16]) {
+      const r = recorder();
+      drawHangarFloorBay(r.ctx, {
+        w: 900, h: 520, cls: 'truck', variant: V, flat: true, venue: 'garage', fit: FIT,
+        livery: { base: '#7d3f2a', trim: '#d8cfc0', art: 'eye', finish: 'satin' },
+        cam: { x: door.f, y: door.g + off, z: door.z, yaw: -Math.PI / 2, pitch: 0, fov: 1 },
+      });
+      out.push({ standoff: off, faces: r.model.length, cells: r.art.length, bad: r.model.length >= SOLID_FACES && !r.art.length });
+    }
+    return out;
+  } finally { _setBlitEnabled(true); }
 }

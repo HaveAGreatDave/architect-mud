@@ -2788,7 +2788,11 @@ function frame(now) {
       power: r.stalled ? 0
         : (st.sim.rpm || 0) <= IDLE ? 0.55 * ((st.sim.rpm || 0) / IDLE)
         : 0.55 + 0.45 * Math.min(1, ((st.sim.rpm || 0) - IDLE) / (1 - IDLE)),
-      livery: truckLivery(PAINT),
+      // ⚠ THE BOX KEEPS ITS OWN COLOUR HERE TOO. `deck` is this tractor's opinion; the stamp on the
+      // trailer row is the box's own, and it has to win in every view or the same trailer is one
+      // colour standing in the yard and another one behind you. Server-sent (see cabContext) —
+      // the client is not deciding this, it is being told.
+      livery: { ...truckLivery(PAINT), ...(st.trailer?.colour ? { deck: st.trailer.colour } : {}) },
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
       // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height

@@ -10,7 +10,7 @@
   },
   "flags": {
     "building_name": "Bonded & Bothered",
-    "building_type": "warehouse",
+    "building_type": "truck_depot",
     "district": "yards",
     "entrance": "south",
     "facade": true,

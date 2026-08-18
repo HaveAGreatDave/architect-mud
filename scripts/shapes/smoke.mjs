@@ -33,7 +33,7 @@ import { bakeShapes } from './bake.mjs';
 import { rasterSmoke } from './raster-smoke.mjs';
 import { rasterCount, shadeCount } from '../../client/game/js/panels/model-raster.js';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
-import { truckDoorArtSmoke } from './truck-doorart.mjs';
+import { truckDoorArtSmoke, doorArtCloseUpSmoke } from './truck-doorart.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -254,6 +254,16 @@ async function main() {
       problems.push(`door   ${d.variant} → part of the decal landed off the painted body. It is beside the truck, not on it.`);
     }
   }
+  // …and it must still be there when you are standing at the door — see the second half of
+  // truck-doorart.mjs. The decal used to carry a near plane stricter than the model's own, so the
+  // artwork switched off a step before the panel it is printed on did.
+  const closeUp = doorArtCloseUpSmoke(a3d.drawHangarFloorBay);
+  for (const c of closeUp) {
+    if (c.bad) {
+      problems.push(`door   the decal is gone at ${c.standoff} out while ${c.faces} faces of the truck are still being painted. `
+        + 'It is being culled at a nearer plane than the panel it sits on — see MODEL_NEAR_Z.');
+    }
+  }
   const stances = parkedStanceSmoke();
   for (const s of stances) {
     if (!(s.drop > 0.008)) problems.push(`parked ${s.variant} → a shut-down rig did not settle (${s.drop.toFixed(4)} of drop)`);
@@ -347,8 +357,9 @@ async function main() {
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
   console.log(`  Truck door art: painted on all ${doorArt.length} rigs and riding the fit (${doorArt.map((d) => d.ratio.toFixed(2)).join(', ')}× the silhouette's own scaling).`);
+  console.log(`  …and it survives the walk-up: still painted at ${closeUp.filter((c) => c.cells).at(-1)?.standoff} out, where the model is ${closeUp.filter((c) => c.cells).at(-1)?.faces} faces.`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
-  console.log(`  Depot occlusion: a shed beside the rig fills ${bayOcc.length ? '?' : 'the field and the per-pixel solid list'}; the one it is parked IN does not.`);
+  console.log(`  Depot occlusion: ${bayOcc.length ? '?' : 'a shed is a shed from every camera outside it — beside the rig, and around the rig — and masks nothing from a driver standing inside it'}.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');

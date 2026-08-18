@@ -1140,8 +1140,12 @@ function startSpin() {
         entries: [
           ...(B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
             variant: `${t.variant}~p` })),
+          // …in their own colours. A box is stamped with the cab colour of whoever bought it and
+          // repainted on its own (yard paint), so the floor draws a fleet rather than a row of
+          // black slabs — and the colour is the SERVER's, exactly as the paint on a truck is.
           ...(B.data.trailers || []).filter(t => t.hereNow).map(t => ({
             id: t.id, cls: 'truck', variant: `${boxShape(t.ratedKg)}+t~s`,
+            livery: boxLivery(t.colour),
           })),
         ],
       });
@@ -1206,6 +1210,12 @@ function boxShape(ratedKg) {
   const r = ratedKg || 0;
   return r >= 5000 ? 'continental' : r >= 3200 ? 'drayman' : r >= 2000 ? 'hauler' : 'scrapper';
 }
+// A box's livery from the one colour the server sends. Deliberately the same shape the trucks go
+// through (truckLivery) rather than a bespoke object, so a trailer and a tractor are painted by
+// one conversion — and the chassis and legs stay dark, because a trailer is a painted box on
+// black steel and washing the whole thing in one colour reads as a toy.
+const boxLivery = (c) => truckLivery({ base: c || '#8d9199', deck: c || '#8d9199', trim: c || '#8d9199',
+  hw: '#23262b', bright: '#9aa2ab', glow: '#60c4d6', glass: '#324a5c', flash: 'none', finish: 'satin', art: 'none', chrome: 0 });
 function liveryOf(t, live = false) {
   const p = (live && B?.bench?.paint && t.id === B.selId)
     ? { ...(B.data.paintDefault || {}), ...(t.paint || {}), ...B.bench.paint } : t.paint;

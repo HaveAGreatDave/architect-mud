@@ -5149,6 +5149,11 @@ export const CLIMBOUT_MAX_F = 4.5, CLIMBOUT_LAT_IN = 0.3, CLIMBOUT_LAT_OUT = 0.2
 // (about to pass under/behind you) or this far (still fading in) isn't really "on the glass"
 // yet. Collision must never fire on a tile outside this window, or a hit can land on
 // something the player couldn't actually have seen.
+// How near the lens a CONTACT's own geometry may come before that face is dropped — the aircraft
+// and the trucks, not the world. Named because the decal painters take a near plane from their
+// caller now, and the one thing that must never happen is the artwork and the panel it is printed
+// on disappearing at two different distances.
+export const CONTACT_NEAR_F = 0.07;
 export const VISIBLE_NEAR_F = 0.05, VISIBLE_FAR_F = 34;   // long skyline — buildings draw out to 34 tiles (the server sends a 36-tile map window); only the last HAZE_BAND tiles fade, so the distance reads crisp rather than hazed
 export function climbOutClear(f, lat, height) {
   if (!(f > 0.1 && f < CLIMBOUT_MAX_F && height < 0.2)) return true;
@@ -8187,7 +8192,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const bw = (shed && shed.ballistic) ? lp.map(v => Wshed(v, shed)) : null;
     const dp = bw ? lp : (shed ? lp.map(v => shedVert(v, shed)) : lp);
     const pts = bw ? bw.map(w => cam.proj(w[0], w[1], w[2])) : dp.map(P);
-    if (pts.some(q => q.f <= 0.07)) continue;                       // vertex behind the lens → skip (avoids blow-up)
+    if (pts.some(q => q.f <= CONTACT_NEAR_F)) continue;             // vertex behind the lens → skip (avoids blow-up)
     // `nf` is the NEAREST vertex, and it is the key the truck's part sort uses — see there for why
     // a mean cannot order a box bolted onto a panel and a nearest point can.
     // `xf` is the part's FAR extent, which sortTruckFaces needs for its disjoint test. It could
@@ -8439,8 +8444,13 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Appendage faces occlude the decal so it doesn't paint through a nearer wing/nacelle/gear.
     const occ = faces.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.pts, z: fc.af }));
     const pr = (f, g, h) => { const q = P([f, g, h]); return { sx: q.sx, sy: q.sy, z: q.f }; };
-    if (c.cls === 'truck') drawTruckDoorArt(ctx, pr, c.variant || 'hauler', detail, lv, occ);
-    else drawNoseArt(ctx, pr, c.cls, lv, occ);
+    // ⚠ AND THE DECAL IS HANDED THIS RENDERER'S OWN NEAR PLANE. It used to carry a 0.18 of its own,
+    // which is nearly three times the depth at which a FACE here is dropped — and in tile units,
+    // so a rig you had pulled alongside lost the picture off its door a fifth of a tile out while
+    // the door itself was still solid in front of you. A decal must go when its panel goes and not
+    // a step before it; see MODEL_NEAR_Z in aircraft3d.js.
+    if (c.cls === 'truck') drawTruckDoorArt(ctx, pr, c.variant || 'hauler', detail, lv, occ, CONTACT_NEAR_F);
+    else drawNoseArt(ctx, pr, c.cls, lv, occ, CONTACT_NEAR_F);
   }
   // ── Engine effects ──────────────────────────────────────────────────────────
   // Jets trail an orange exhaust plume (growing with power); props spin a translucent disc at
@@ -10181,14 +10191,28 @@ export function bayOccluderSmoke(ID) {
     // …and the quads the own ship is masked against per pixel. Coverage alone cannot see this: the
     // coarse field could be perfect while the fine mask has nothing to test and quietly no-ops.
     if (solids === 0) out.push('a shed beside the truck put no solid in OCC_SOLIDS — the per-pixel mask has nothing to test');
+    // ── ⚠ THE SHED YOUR RIG IS IN MASKS IT, AND THAT IS THE POINT NOW ───────
+    // This assertion used to run the other way: with the cutaway on, a shed containing your truck
+    // was being opened up for you and had to mask nothing, or the rig drew through a wall it was
+    // deliberately being shown through. The cutaway is off (see BAY_CUTAWAY_ON) — the building is
+    // always a building — so from a camera OUTSIDE it, a wall between you and your own truck is a
+    // wall, and a mask that had not heard of it would put the truck back through the wall.
     const own = plain(); own[R][R] = bay('OWN DEPOT');
-    if (covered(own) > 0) out.push('the shed the truck is standing IN is masking it — the cutaway and the occluder disagree');
-    // ── …AND THE OTHER HALF OF THE SAME SENTENCE ────────────────────────────
-    // The case above is the camera UP over the eaves, where the shed is being cut open for you and
-    // must not mask your rig. Drop the chase onto the road — below the eaves — and the cutaway does
-    // not happen at all: the walls are painted solid, so they have to mask. Skipping the shed on a
-    // boolean (`is my rig inside it`) rather than on the cutaway is exactly what made a truck draw
-    // through a wall that was plainly there, and this is the pose it happened in.
+    if (covered(own) === 0) out.push('a solid shed with the rig standing in it masks nothing — the walls are painted and the occluder has not heard of them');
+    // …and the one exemption, which is not about the picture at all: a wall you are STANDING
+    // INSIDE cannot come between you and something in the room with you. From the cab — eye at the
+    // truck, inside the footprint — the shed must mask nothing, or every contact in the yard is
+    // culled against the room the driver is sitting in.
+    {
+      paintWindshield(ID, { ...view, external: false, map: own });
+      const F = OCC_FIELD;
+      let n = 0;
+      if (F) for (let i = 0; i < F.gh; i++) { const row = i * F.stride; for (let c = 0; c < F.gw; c++) if (F.d[row + c] < Infinity) n++; }
+      if (n > 0) out.push('from inside the shed, the shed is masking the room — a wall you are within cannot occlude what is in there with you');
+    }
+    // ── …AND FROM DOWN ON THE ROAD ──────────────────────────────────────────
+    // The pose the original bug happened in: the chase dropped onto the road, below the eaves,
+    // where the walls are painted solid. They have to mask there too.
     const flat = { ...view, extPitch: 0.02, extZoom: 1 };
     paintWindshield(ID, { ...flat, map: own });
     {
@@ -14120,8 +14144,13 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         // not there, and the own ship is painted after the world pass. That is a rig drawn straight
         // through a wall you can see, and it is the bug this line exists for. Now both halves ask
         // `bayCutaway`, and a wall hides exactly as much as it is opaque.
-        const { cut: bcut, ct, st } = bayCutaway(cam, it.dx, it.dy, it.c);
-        if (bcut > 0.5) continue;   // it is being opened up for you — masking against it would put the bug back
+        const { cut: bcut, inside: bInside, ct, st } = bayCutaway(cam, it.dx, it.dy, it.c);
+        // Two ways a shed stops masking, and only one of them is about the picture. It is being
+        // OPENED UP for you (masking against a wall you are being shown through puts the bug back
+        // one layer down) — or you are STANDING IN IT, which is not a rendering decision at all: a
+        // wall cannot come between you and something in the room with you, and with the cutaway
+        // switched off this is the only one of the two that ever fires.
+        if (bcut > 0.5 || bInside) continue;
         const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
         const k = 1 - OCC_SHRINK;
         const slab = (sx0, sx1, z0, z1) => {
@@ -14618,6 +14647,23 @@ const BAY_CUT_NEAR = 0.25;   // …and by here it is fully open, which is about 
 // "down at chase height the shed is solid on screen and masks nothing" fails the moment this band
 // reaches far enough down to open the walls a crack). The band only has to be wide enough that the
 // eye cannot cross it in one notch of the orbit; it does not have to be gentle.
+// ── ⚠ AND IT IS OFF ──────────────────────────────────────────────────────────
+// A shed that opens up when the camera rises reads, from the driver's seat, as walls that come and
+// go with the angle — which is what it was reported as, in those words. The cutaway was solving a
+// real problem (your own rig parked inside and hidden under its own roof) and solving it by making
+// the building stop being a building, and a world where a wall's existence depends on where you
+// are looking from is a worse trade than not being able to see your truck through a roof.
+//
+// So `bayCutaway` returns 0 and the shed is always solid. The ramp below is deliberately LEFT
+// STANDING rather than deleted: it is the tuned answer to a question that may well be asked again,
+// and turning it back on is this one constant. Everything downstream already reads `cut` as a
+// number rather than a flag, so nothing else had to change to switch it off.
+//
+// ⚠ WHAT DID HAVE TO CHANGE is the occlusion gate, and for a reason that is not the cutaway at
+// all: a wall you are STANDING INSIDE cannot be between you and anything in the room with you. The
+// mask used to skip a shed when it was being opened up; it skips one when the EYE is within it,
+// which is the honest statement and is true whether or not anything is ever cut away again.
+const BAY_CUTAWAY_ON = false;
 const BAY_CUT_EYE0 = 0.80;   // ×WALL: below this the eye is under the eaves and the shed is solid
 const BAY_CUT_EYE1 = 0.90;   // ×WALL: at this height it is the full cutaway — the old boolean
 const BAY_CUT_LEAVE = 0.9;   // tiles of apron over which a shed stops being the one you are in
@@ -14660,7 +14706,7 @@ function bayCutaway(cam, dx, dy, cell) {
   const claim = inside ? 1 : clamp((BAY_CUT_LEAVE - subjOut) / BAY_CUT_LEAVE, 0, 1);
   // …and how far the eye is above the eaves, as a ramp that reaches 1 at the old hard threshold.
   const high = clamp((cam.EH - WALL * BAY_CUT_EYE0) / (WALL * (BAY_CUT_EYE1 - BAY_CUT_EYE0)), 0, 1);
-  const cut = claim * high * clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1);
+  const cut = BAY_CUTAWAY_ON ? claim * high * clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1) : 0;
   return { cut, inside, subjectInside, camLX, camLY, ct, st };
 }
 export const _bayCutaway = bayCutaway;

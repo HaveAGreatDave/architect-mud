@@ -70,6 +70,18 @@ const STAB_ROLE = new Set(['stab', 'elevator']);
 // backface-cull (their far side is genuinely hidden). Kept OUT: wings/stabs/fins/struts/
 // nacelles/gear — thin or off-axis surfaces where an outward-from-origin test is unreliable.
 const CULL_ROLE = new Set(['body', 'glass', 'window']);
+// ── HOW CLOSE THE EYE CAN GET BEFORE A THING IS NO LONGER DRAWN ──────────────
+// One number, because the DECAL AND THE PANEL IT IS PRINTED ON MUST VANISH TOGETHER. They did not:
+// the model culled a face at 0.15 and the decal painters carried their own 0.18, so walking the
+// last few centimetres up to a door took the artwork off it and left the door there. On the road
+// it is worse, because the face cull out there is 0.07 in TILE units — a truck you are alongside
+// loses its door art at a fifth of a tile while the panel is still solid, which reads as the decal
+// switching itself off as you get close enough to look at it.
+//
+// So the painters take the near plane from their CALLER rather than owning one. This is the value
+// paintTurntable culls at; windshield.js passes its own, which is a different number in different
+// units and correct for the same reason.
+export const MODEL_NEAR_Z = 0.15;
 // Solid appendages that can stand IN FRONT of the fuselage flank and so should occlude nose art.
 export const OCCLUDE_ROLE = new Set(['wing', 'aileron', 'flap', 'stab', 'elevator', 'fin', 'rudder', 'nacelle', 'gear', 'strut', 'gun']);
 // Centroid of a facet in the craft frame [f = fore+, g = right+, h = up+].
@@ -4369,7 +4381,7 @@ function ptInScreenPoly(x, y, P) {
   }
   return inside;
 }
-export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
+export function drawNoseArt(ctx, proj, cls, lv, occluders = null, near = MODEL_NEAR_Z) {
   const id = lv?.decal; if (!id || id === 'none') return;
   const img = decalTex(id); if (!img) return;
   const p = FW_PARAMS[cls] || FW_PARAMS.prop;
@@ -4429,7 +4441,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
       // it hugs the cone to the tip instead of overshooting the thin front as a fixed-height slab.
       const hh = reach ? hHalf * (0.30 + 0.70 * (CS ? CS(f).rg / CS(0).rg : radVAt(f))) : hHalf;
       const h = czAt(f) + hh - 2 * hh * (j / Nr);   // top(j=0) → bottom
-      const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > 0.18) anyNear = true;
+      const P = proj(...surf(f, h, sign)); row.push(P); if (P.z > near) anyNear = true;
     }
     grid.push(row);
   }
@@ -4449,7 +4461,7 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
   const occ = occluders || [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], d = grid[j + 1][i];
-    if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || d.z <= 0.18) continue;             // skip cells crossing behind the eye
+    if (a.z <= near || b.z <= near || c.z <= near || d.z <= near) continue;             // skip cells crossing behind the eye
     // Occlusion: skip a cell whose centre sits behind a NEARER appendage face (wing/nacelle/gear/…),
     // so the decal no longer paints through parts of the airframe standing in front of the flank.
     const mx = (a.sx + b.sx + c.sx + d.sx) / 4, my = (a.sy + b.sy + c.sy + d.sy) / 4;
@@ -4605,14 +4617,22 @@ function doorArtTex(id) {
 
 // Paint whatever is on the door onto the flank facing the camera. `proj` is the model-space
 // projector every truck renderer already has — [f, g, h] to {sx, sy, z}, with z a camera depth.
-export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = null) {
+export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = null, near = MODEL_NEAR_Z) {
   const id = lv && lv.art; if (!id || id === 'none') return;
   const meta = TRUCK_META.get(String(variant || 'hauler') + ':' + (detail ? 1 : 0));
   const d = meta && meta.door; if (!d) return;                       // a dropped box has no cab
   const img = doorArtTex(id); if (!img) return;
   // WHICH FLANK. Both doors exist; only the near one is painted, because the far one is behind the
   // cab and would draw straight through it — the same reason drawNoseArt picks a side.
-  const mf = (d.f0 + d.f1) / 2, mz = (d.z0 + d.z1) / 2, OUT = 1.035;
+  // ⚠ AND IT SITS ON THE DOOR, NOT 3% OFF IT. `drawNoseArt` stands its decal proud of the hull
+  // because it is wrapping a CURVE and the grid's chords would otherwise sink inside the skin
+  // between vertices. A door is flat, there are no chords, and nothing here is depth-tested — the
+  // art is painted after every face — so the overhang bought nothing and cost the one thing that
+  // showed: standing proud makes the decal NEARER THAN ITS OWN PANEL, so it crosses the near plane
+  // first and switches off while the door is still in front of you. 3.5% of a flank half-width is
+  // a couple of centimetres of daylight, which is most of a paint job's thickness away from the
+  // truck. Enough to stay off the surface, and no more.
+  const mf = (d.f0 + d.f1) / 2, mz = (d.z0 + d.z1) / 2, OUT = 1.004;
   const sign = proj(mf, d.g * OUT, mz).z <= proj(mf, -d.g * OUT, mz).z ? 1 : -1;
   const Nc = 3, Nr = 3, grid = [];
   let anyNear = false;
@@ -4621,7 +4641,7 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
     for (let i = 0; i <= Nc; i++) {
       const f = d.f0 + (d.f1 - d.f0) * (i / Nc);
       const z = d.z1 + (d.z0 - d.z1) * (j / Nr);                     // top (j=0) then down
-      const P = proj(f, sign * d.g * OUT, z); row.push(P); if (P.z > 0.18) anyNear = true;
+      const P = proj(f, sign * d.g * OUT, z); row.push(P); if (P.z > near) anyNear = true;
     }
     grid.push(row);
   }
@@ -4639,7 +4659,7 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
   const occ = occluders || [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], e = grid[j + 1][i];
-    if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || e.z <= 0.18) continue;
+    if (a.z <= near || b.z <= near || c.z <= near || e.z <= near) continue;
     const mx = (a.sx + b.sx + c.sx + e.sx) / 4, my = (a.sy + b.sy + c.sy + e.sy) / 4;
     const mzz = (a.z + b.z + c.z + e.z) / 4;
     if (occ.some(o => o.z < mzz && ptInScreenPoly(mx, my, o.P))) continue;
@@ -5439,7 +5459,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     if (face.role === 'rotor') continue;   // spinning surfaces drawn by drawRotorFX below
     if (visorHidden(face)) continue;       // parked on the turntable she sits nose-CLOSED, so the hold isn't there to punch through her belly
     const P = face.p.map(v => { const t = modelV(v); return proj(t[0], t[1], t[2]); });
-    if (P.some(q => q.z <= 0.15)) continue;
+    if (P.some(q => q.z <= MODEL_NEAR_Z)) continue;
     // Newell's method for the face normal (sum over all edges) — stays valid even when ONE
     // edge of the polygon collapses to zero length, which happens at the nose/tail cone tips
     // where a whole cross-section ring degenerates to a point. The old two-edge cross product
@@ -5590,8 +5610,8 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // frame, never once on the door. Same adapter the rotor pass has always used, and the same shape
     // windshield.js passes from the road, which is why the art was right out there and wrong in here.
     const projM = (f, g, hh) => { const t = modelV([f, g, hh]); return proj(t[0], t[1], t[2]); };
-    if (cls === 'truck') drawTruckDoorArt(ctx, projM, variant || 'hauler', 1, livery, occD);
-    else drawNoseArt(ctx, projM, cls, livery, occD);
+    if (cls === 'truck') drawTruckDoorArt(ctx, projM, variant || 'hauler', 1, livery, occD, MODEL_NEAR_Z);
+    else drawNoseArt(ctx, projM, cls, livery, occD, MODEL_NEAR_Z);
   }
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
@@ -5810,19 +5830,30 @@ function drawHelipadBackdrop(ctx, w, h, { sky } = {}) {
 function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   const horizon = h * 0.46, floorTop = horizon, cx = w / 2;
   const night = sky?.night ?? 0;
+  // ── ⚠ A WORKING DEPOT IS A LIT ROOM ────────────────────────────────────────
+  // This read as a shed at dusk: a dark wall, two small pools of sodium, and a heavy vignette over
+  // the lot. It is the wrong mood for the building — the pit, the gantry and the hoist are all
+  // things somebody has to SEE to use, and a yard that keeps its own floor dark is a yard nobody
+  // could work a night shift in. The windshield's own bay already says this in as many words
+  // (`inLit`, 'a workplace is LIT, so the inside barely darkens at night'); this backdrop simply
+  // never got the memo, and the panel is where a player spends the longest looking at it.
+  //
+  // So the light comes up: a wall that is lit rather than merely grey, floods that reach across the
+  // bay instead of haloing their own bracket, a floor wash with some throw in it, and a vignette
+  // that frames instead of closing in. Still sodium, still dirty, still not a showroom.
   // Back wall: a block lower course under a corrugated upper, warmer and dirtier than the hangar's.
   let g = ctx.createLinearGradient(0, 0, 0, horizon);
-  g.addColorStop(0, '#2b2a2a'); g.addColorStop(1, '#40403c');
+  g.addColorStop(0, '#3a3836'); g.addColorStop(1, '#55544e');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, horizon);
   ctx.strokeStyle = 'rgba(206,196,180,0.10)'; ctx.lineWidth = 1;
   for (let x = 0; x <= w; x += 18) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, horizon * 0.62); ctx.stroke(); }
-  ctx.fillStyle = 'rgba(24,24,26,0.35)'; ctx.fillRect(0, horizon * 0.62, w, horizon * 0.38);      // block course
+  ctx.fillStyle = 'rgba(24,24,26,0.22)'; ctx.fillRect(0, horizon * 0.62, w, horizon * 0.38);      // block course
   ctx.strokeStyle = 'rgba(180,176,168,0.10)';
   for (let y = horizon * 0.62; y < horizon; y += 9) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
   // Bay numbers stencilled on the wall — the yard tells you where to park, which is most of what
   // makes a depot read as a depot rather than a shed with vehicles in it.
   ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(232,206,140,0.16)';
+  ctx.fillStyle = 'rgba(232,206,140,0.30)';
   ctx.fillText('02', w * 0.16, horizon * 0.52); ctx.fillText('03', w * 0.84, horizon * 0.52);
   ctx.textAlign = 'left';
   drawNoticeBoard(ctx, w * 0.06, horizon * 0.62, 34, 24);
@@ -5847,13 +5878,14 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
 
   // Sodium floods on wall brackets, throwing DOWN the wall — no ceiling truss, nothing hanging in
   // the space a rig's stacks occupy. Two of them, amber, and they carry the whole room's colour.
-  for (const fx of [w * 0.22, w * 0.78]) {
+  for (const fx of [w * 0.12, w * 0.38, w * 0.62, w * 0.88]) {
     ctx.strokeStyle = 'rgba(120,120,112,0.6)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(fx, horizon * 0.10); ctx.lineTo(fx, horizon * 0.20); ctx.stroke();
     ctx.fillStyle = '#4a4a44'; ctx.fillRect(fx - 9, horizon * 0.20, 18, 6);
-    const lg = ctx.createRadialGradient(fx, horizon * 0.26, 2, fx, horizon * 0.26, 46 + night * 22);
-    lg.addColorStop(0, `rgba(255,206,124,${0.42 + night * 0.2})`); lg.addColorStop(1, 'rgba(255,206,124,0)');
-    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(fx, horizon * 0.26, 46 + night * 22, 0, 7); ctx.fill();
+    const R = w * 0.20 + night * 22;
+    const lg = ctx.createRadialGradient(fx, horizon * 0.26, 2, fx, horizon * 0.26, R);
+    lg.addColorStop(0, `rgba(255,214,146,${0.52 + night * 0.16})`); lg.addColorStop(0.55, 'rgba(255,206,124,0.16)'); lg.addColorStop(1, 'rgba(255,206,124,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(fx, horizon * 0.26, R, 0, 7); ctx.fill();
   }
   // A gantry beam across the back of the bay with a chain hoist hanging off it — the depot's own
   // overhead, low and structural, where the hangar has a lighting truss.
@@ -5866,7 +5898,7 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   // Floor: oil-dark concrete, warmer than the hangar's polished grey, with painted BAYS rather
   // than a single lane, and a couple of old spills soaked into it.
   g = ctx.createLinearGradient(0, floorTop, 0, h);
-  g.addColorStop(0, '#3d3a36'); g.addColorStop(1, '#211f1e');
+  g.addColorStop(0, '#55504a'); g.addColorStop(1, '#332f2c');
   ctx.fillStyle = g; ctx.fillRect(0, floorTop, w, h - floorTop);
   ctx.strokeStyle = 'rgba(226,204,132,0.30)'; ctx.lineWidth = 2;
   for (const i of [-3, -1, 1, 3]) { ctx.beginPath(); ctx.moveTo(cx + i * w * 0.052, floorTop); ctx.lineTo(cx + i * w * 0.30, h); ctx.stroke(); }
@@ -5900,10 +5932,10 @@ function drawDepotBackdrop(ctx, w, h, { doorFrac = 0.5, sky } = {}) {
   drawChargePost(ctx, w * 0.90, h * 0.72, night);
   // The floor wash is sodium here, not the hangar's cold white.
   const pool = ctx.createRadialGradient(cx, h * 0.88, 4, cx, h * 0.88, w * 0.55);
-  pool.addColorStop(0, `rgba(255,214,150,${0.16 + night * 0.12})`); pool.addColorStop(1, 'rgba(255,214,150,0)');
+  pool.addColorStop(0, `rgba(255,216,156,${0.26 + night * 0.10})`); pool.addColorStop(0.5, 'rgba(255,214,150,0.10)'); pool.addColorStop(1, 'rgba(255,214,150,0)');
   ctx.fillStyle = pool; ctx.fillRect(0, floorTop, w, h - floorTop);
   const vg = ctx.createRadialGradient(cx, h * 0.5, Math.min(w, h) * 0.42, cx, h * 0.5, Math.max(w, h) * 0.85);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.36)');
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.20)');   // frames the bay; it used to close it in
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
 }
 // A stack of spare lifter pods on a pallet — the depot's answer to a tyre stack, and the prop that

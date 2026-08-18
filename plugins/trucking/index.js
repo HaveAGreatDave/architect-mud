@@ -71,7 +71,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
   buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
-  hitchReach, posed, refreshStanding, stockPose } from './trailers.js';
+  hitchReach, posed, refreshStanding, stockPose, standStock, paintTrailer, boxColour } from './trailers.js';
 
 const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -193,6 +193,17 @@ async function cmdDrive(args, raw, player) {
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot.heading, depot: yardId || here.id });
   rig.zoneId = here.id;
   rig._hardStart = hardStart;      // spent by whichever rung actually turns the key — see above
+  // ⚠ AND ANYTHING WITHOUT A PLACE GETS ONE FIRST. A box with no pose is on every list in the game
+  // and on no picture in it, so the yard walks it out onto the hardstand before the standing set is
+  // read — see standStock. Nothing to move is the ordinary case and costs one query.
+  // ⚠ THE BAY, NOT `here`. `here` is the DOOR TILE by this point (see the ⚠ above), and the box
+  // with no place is usually sitting in the room behind it — which is the one zone in the set that
+  // has no coordinates and so could never have been drawn from.
+  // …and BOTH tiles come from `depotFrom` rather than from `yardId`, which is null whenever you are
+  // stood on the apron rather than in the shed — the case where you are looking straight at the
+  // empty hardstand the box should be standing on.
+  const yardCtx = depotFrom(stood?.id);
+  await standStock(yardCtx?.bay || null, yardCtx?.yard || getZone(yardId), spot?.heading ?? 180);
   // WHATEVER IS STANDING AT THIS DEPOT, so it is drawn from the first frame. Both tiles, because
   // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
   // starting the engine looked out at an empty yard until the wheels crossed the boundary.
@@ -629,6 +640,10 @@ async function cmdYard(args, raw, player) {
   if (sub === 'sell') return await yardSell(player, bay, args[1]);
   // Fetching one home is the third thing a yard does with a truck, so it sits with buying and selling.
   if (sub === 'recall' || sub === 'fetch' || sub === 'tow') return await yardRecall(player, bay, args[1]);
+  // …and painting a box, which is a different job from painting the cab that pulls it and is priced
+  // as one. It lives on `yard` rather than on `rig` because `rig` takes a TRUCK and every one of
+  // its eight named fields is a surface a box has not got: a trailer is one colour, once.
+  if (sub === 'paint') return await yardPaintTrailer(player, bay, depot, args[1], args[2]);
 
   return await depotPanel(player, bay, depot, 'fleet', sub === 'text');
 }
@@ -698,6 +713,11 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
   const yard = getZone(yardIdOf(bay, depot)) || bay;
   const here = yard.grid_x != null ? yard : bay;
   const zonesHere = depotZonesOf(bay, depot);
+  // ⚠ BEFORE ANYTHING IS READ. Opening a yard is the other cold moment a box without a place can be
+  // given one, and it has to happen ahead of `trailersOf` below or the panel lists this trailer as
+  // being in a zone the write is about to change. See standStock for why a depot must not contain a
+  // trailer that is nowhere.
+  await standStock(bay, yard, mountSpot(bay)?.heading ?? 180);
   const region = here.flags?.region_id;
   const day = marketDay();
   const mine = await fleetOf(player.id);
@@ -821,6 +841,9 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       hereNow: !t.towedBy && zonesHere.includes(t.parkedZone),
       where: t.towedBy ? 'hitched' : (zonesHere.includes(t.parkedZone) ? 'here' : depotNameOf(t.parkedZone)),
       cargo: t.cargo ? { name: t.cargo.name, kg: t.cargo.kg } : null,
+      // What colour it is, so the yard floor draws a fleet rather than a row of black slabs. One
+      // field, because a box is one colour — see boxLivery.
+      colour: boxColour(t),
     })),
     // The bench's catalogues, sent once with the panel exactly as the hangar sends its paint and
     // tune catalogues: the client renders the dials it is told about and invents none.
@@ -1026,8 +1049,16 @@ async function yardBuyTrailer(player, here, depot, t) {
   const pose = outside
     ? stockPose(outside.grid_x, outside.grid_y, mountSpot(here)?.heading ?? 180, (await trailersAt(outside.id)).length)
     : null;
+  // ⚠ AND IT COMES OUT OF THE SHED IN YOUR COLOURS. A box you have just bought is yours, and the
+  // cheapest way to say so is the one a real yard uses: it gets sprayed to match the cab that is
+  // going to pull it. The stamp is taken ONCE, here, from the truck you keep at this depot — not
+  // read live off the tractor, because then a box would change colour every time you repainted a
+  // cab or hooked a different one to it, and the whole point of the colour is that it belongs to
+  // the BOX. Repainting it afterwards is its own job: `yard paint`.
+  const mine = await trucksAt(player.id, depotZonesOf(here, depot));
+  const stamp = sanitizePaint({}, (mine[0]?.custom_data || {}).paint || {}).base;
   player.credits -= t.price;
-  await buyTrailer(player.id, t.id, outside?.id || here.id, pose);
+  await buyTrailer(player.id, t.id, outside?.id || here.id, pose, stamp);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   // It is standing there NOW, so it is drawn from the next frame rather than from the next time
@@ -1039,6 +1070,40 @@ async function yardBuyTrailer(player, here, depot, t) {
     + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. ${outside
       ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road — ${teachVerb('hitch')} once you have backed under it.`
       : `It is standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
+}
+
+// ── yard paint ───────────────────────────────────────────────────────────────
+// A box, one colour, for a flat fee. Deliberately NOT `rig paint` with a trailer id in it: that
+// verb takes eight named surfaces and a trailer has one, so half its grammar would be refusals.
+//
+// ⚠ THE BOX HAS TO BE HERE. Not because a spray gun is fussy about geography, but because the
+// alternative is repainting something you cannot see from a menu — the same rule `hitch` follows,
+// and the reason both of them search the depot's own zones rather than the tile you happen to be
+// standing on.
+const BOX_PAINT_FEE = 340;
+async function yardPaintTrailer(player, bay, depot, want, colour) {
+  const here = getZone(yardIdOf(bay, depot)) || bay;
+  const zones = hitchZones(bay?.id || here.id);
+  const mine = [];
+  for (const z of zones) for (const t of await trailersAt(z)) if (t.ownerId === player.id) mine.push(t);
+  if (!mine.length) return say('You have no box standing in this yard.');
+  const w = String(want || '').toLowerCase();
+  const box = w ? (mine.find(t => t.id.toLowerCase() === w) || mine.find(t => (t.name || '').toLowerCase().includes(w))) : (mine.length === 1 ? mine[0] : null);
+  if (!box) {
+    return say(`Which box? ` + mine.map(t => `<span class="action-link" data-action="cmd" data-cmd="yard paint ${t.id} ${colour || ''}">${t.name}</span>`).join(', '));
+  }
+  const c = String(colour || '').trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(c)) return say(`A colour, like <span class="text-dim">#8e0f18</span>. <span class="text-dim">yard paint ${box.id} #8e0f18</span>`);
+  if ((player.credits || 0) < BOX_PAINT_FEE) return say(`Painting a box is ${BOX_PAINT_FEE}₵ and you have ${player.credits || 0}₵.`);
+  if (!await paintTrailer(box.id, player.id, c)) return say('That box is not yours to paint.');
+  player.credits -= BOX_PAINT_FEE;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  // It is standing there NOW, so it changes colour on the glass rather than the next time somebody
+  // happens to arrive in the zone — see the same call in yardBuyTrailer.
+  await Promise.all(zones.map(z => refreshStanding(z)));
+  await repush(player, 'fleet');
+  return say(`<span class="item-grant">Painted — ${BOX_PAINT_FEE}₵.</span> <span class="text-dim">${box.name}, and the overspray is on the concrete for a week.</span>`);
 }
 
 // ── Recovery: getting a truck home you did not drive home ────────────────────

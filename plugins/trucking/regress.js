@@ -31,7 +31,7 @@ import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest } from './index.js';
 import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
-  posed, stockPose } from './trailers.js';
+  posed, stockPose, standStock, boxColour, boxLivery, paintTrailer, BOX_GREY } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
@@ -1904,6 +1904,73 @@ export default async function regress({ run, check, getPlayer }) {
       stand.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
     check('…facing the way the truck came out, so the pin is on its centreline',
       stand.every(p => p.heading === 180), stand[0].heading);
+  }
+
+  // ── A BOX IS ONE COLOUR, AND IT IS THE BOX'S ───────────────────────────────
+  // The cheap version of this derives the colour from whoever is TOWING (the tractor already has a
+  // `deck` field and the towed mesh already reads it) and it is wrong for the reason a trailer is a row
+  // at all: the same box would be two colours in one yard depending on which cab was hooked to it,
+  // and would change under you at the moment you dropped it. So it is stamped on the row.
+  {
+    const me = getPlayer();
+    const depotZone = truckTest.allDepots().find(d => truckTest.depotFrom(d.id)?.yard?.grid_x != null);
+    const ctx = depotZone ? truckTest.depotFrom(depotZone.id) : null;
+    if (ctx?.yard) {
+      const painted = await buyTrailer(me.id, 'box', ctx.yard.id, null, '#8E0F18');
+      check('a bought box carries the colour it was sprayed', boxColour(painted) === '#8e0f18', boxColour(painted));
+      const bare = await buyTrailer(me.id, 'box', ctx.yard.id, null, null);
+      // ⚠ EVERY BOX ALREADY IN THE WORLD HAS NO STAMP, and must render as a real colour rather than
+      // as a hole — an unpainted box off the line, which is a true thing for a trailer to be.
+      check('a box with no stamp is unbranded grey, never undefined', boxColour(bare) === BOX_GREY, boxColour(bare));
+      // ⚠ AND THE LIVERY PAINTS THE DECK. The solo mesh is the rig with the tractor spliced off and
+      // every face left is stamped `deck`, so a livery that set only `base` would paint nothing.
+      const lv = boxLivery(painted);
+      check('…and its livery reaches the faces a box is actually made of', lv.deck === '#8e0f18' && lv.base === '#8e0f18', JSON.stringify(lv));
+      check('…while the chassis stays hardware-coloured, not washed in the body colour', lv.hw !== '#8e0f18', lv.hw);
+      // Repainting is guarded on the OWNER: a box standing in a public yard is somebody's, and a
+      // spray gun is not a claim on it.
+      check('you can repaint your own box', await paintTrailer(painted.id, me.id, '#123f6b'));
+      check('…and not a box that is not yours', !(await paintTrailer(painted.id, 'someone_else', '#000000')));
+      check('…and the repaint is what is read back', boxColour(await getTrailer(painted.id)) === '#123f6b');
+      await query('DELETE FROM trailers WHERE id = ANY($1)', [[painted.id, bare.id]]).catch(() => {});
+    }
+  }
+
+  // ── A DEPOT MUST NOT CONTAIN A TRAILER THAT IS NOWHERE ─────────────────────
+  // The other half of the pose rule, and the one that had to be added afterwards: the dealer stands
+  // what it SELLS on the hardstand, and everything already in the world stayed exactly where it was.
+  // A box parked in the bay with no pose is on the fleet list, in the depot panel, in the `hitch`
+  // search and on the cab's air knob, and on no picture anywhere — you are told you own a reefer,
+  // told it is here, offered a button that couples to it, and there is nothing in the yard to walk
+  // round. Worse, the row that gets into that state is parked in the BAY, which is a building
+  // interior at grid 0,0 — so there is no coordinate to draw it at even in principle.
+  //
+  // These drive the real converge (`standStock`) against a real depot rather than asserting on the
+  // geometry, because the failure was never the geometry — it was that nothing ever ran.
+  {
+    const me = getPlayer();
+    const depotZone = truckTest.allDepots().find(d => truckTest.depotFrom(d.id)?.yard?.grid_x != null);
+    const ctx = depotZone ? truckTest.depotFrom(depotZone.id) : null;
+    check('there is a depot with a drivable yard to stand a box in', !!ctx?.yard, depotZone?.id || 'no depot');
+    if (ctx?.yard) {
+      // The legacy shape, made deliberately: parked in the room behind the door, with no place.
+      const lost = await buyTrailer(me.id, 'reefer', ctx.bay.id, null);
+      check('the case exists: a box in the bay with no pose at all', !!lost && !posed(lost));
+      const moved = await standStock(ctx.bay, ctx.yard, 180);
+      const out = await getTrailer(lost.id);
+      check('the yard walks a homeless box out onto the hardstand', moved >= 1 && posed(out),
+        out ? `${out.x},${out.y}` : 'gone');
+      check('…and stands it in the YARD, not in the room that has no coordinates',
+        out?.parkedZone === ctx.yard.id, out?.parkedZone);
+      check('…on the tile itself, or hitch could never reach it',
+        Math.abs(out.x - ctx.yard.grid_x) <= 0.5 && Math.abs(out.y - ctx.yard.grid_y) <= 0.5,
+        `${out.x},${out.y} vs ${ctx.yard.grid_x},${ctx.yard.grid_y}`);
+      // ⚠ AND IT IS A NO-OP THE SECOND TIME. This runs on every yard open and every mount, so a
+      // version that rewrote a pose each pass would be a write on a read path — and worse, would
+      // pick up a box the driver had deliberately dropped somewhere in the yard and shuffle it.
+      check('…and running it again moves nothing', await standStock(ctx.bay, ctx.yard, 180) === 0);
+      await query('DELETE FROM trailers WHERE id = $1', [lost.id]).catch(() => {});
+    }
   }
 
   // ── THE CAB IS A BOX, AND HIJACK IS ITS ONLY DOOR ─────────────────────────
