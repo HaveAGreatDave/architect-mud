@@ -535,6 +535,16 @@ const COLD_START_LINES = [
 
 let _coldTimer = null;
 let _coldBag = [];
+let _coldLoggedAt = 0;
+let _coldMode = null;
+
+// The overlay and the log are two different reading situations and want two
+// different cadences. The overlay is a single slot that REPLACES its line, so a
+// fast rotation costs nothing and a slow one reads as a hung dialog; the log
+// APPENDS, so the same cadence there buries whatever the player was reading
+// under a wall of paperwork jokes. Hence 10s on screen, 60s in the log.
+const COLD_PAINT_MS = 10000;
+const COLD_LOG_MS = 60000;
 
 // Shuffled bag, not Math.random() per tick: a one-minute wait shows ~9 lines,
 // and independent picks would repeat inside that window often enough to read
@@ -551,6 +561,18 @@ function nextColdLine() {
 }
 
 function showColdStart(opts = {}) {
+  // ⚠ This is RE-ENTERED once per reconnect attempt, not once per outage. ws.js
+  // arms a fresh cold-start notice 5s after EVERY failed socket, so while the
+  // backoff climbs from 1s to 15s this runs again and again. Rebuilding the
+  // overlay there restarts the flavour rotation each time, which means the
+  // interval below never gets to govern anything — the real cadence becomes the
+  // retry cadence, on both surfaces. Already up in the same mode: leave it
+  // alone and let the timer keep its own time.
+  const mode = opts.db ? 'db' : 'full';
+  const existing = document.getElementById('cold-start-notice');
+  if (_coldMode === mode && existing && existing.style.display !== 'none') return;
+  _coldMode = mode;
+
   // Two flavours: the connection-level cold start (~60s) and the lighter DB
   // compute wake ({ db: true }, ~a few seconds) signalled by the server's
   // "waking" message. Neither names the hosting tier — that's our plumbing,
@@ -597,13 +619,20 @@ function showColdStart(opts = {}) {
       if (slot) slot.textContent = line;
       // Log rung / screen reader gets the identical show, not a stripped one:
       // the humour IS the feature here, so shipping only "Reconnecting..." to
-      // the log would be that rung not being done.
-      if (hasLog) { try { appendMsg(line, 'system'); } catch { /* log not ready */ } }
+      // the log would be that rung not being done. It just gets it at the log's
+      // own cadence — whichever line happens to be up when the minute is due.
+      const now = Date.now();
+      if (hasLog && now - _coldLoggedAt >= COLD_LOG_MS) {
+        _coldLoggedAt = now;
+        try { appendMsg(line, 'system'); } catch { /* log not ready */ }
+      }
     };
+    // First paint always logs: a reconnect that says nothing in the log at all
+    // for its first minute is the disconnect being silent, which is the thing
+    // the mirror exists to fix.
+    _coldLoggedAt = 0;
     paint();
-    // 7s: long enough to read a two-clause line without hurrying, short enough
-    // that a 60s wait is a show rather than one sentence going stale.
-    _coldTimer = setInterval(paint, 7000);
+    _coldTimer = setInterval(paint, COLD_PAINT_MS);
   }
   el.querySelector('#cold-start-retry').onclick = (e) => {
     const b = e.currentTarget;
@@ -621,6 +650,7 @@ function hideColdStart() {
   // interval keeps writing paperwork lines into the log of a connected player.
   clearInterval(_coldTimer);
   _coldTimer = null;
+  _coldMode = null;
   const el = document.getElementById('cold-start-notice');
   if (el) el.style.display = 'none';
 }
