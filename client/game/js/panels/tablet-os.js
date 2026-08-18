@@ -2219,7 +2219,19 @@ function ensureStyles() {
        The same conversations as the floating chat window (corp #<name>, #arcnet,
        open PMs), reshaped into the tablet's bevel language. A horizontal strip of
        conversation chips, a scrolling message log, and a send row. */
+    /* ── THE CHAT APP USES THE WHOLE SCREEN ────────────────────────────────────
+       The log was a fixed 320px (max 44vh) box, which is the right shape for the
+       small floating chat panel and quite wrong in the tablet: on a tall device it
+       left two thirds of the screen empty and scrolled the MOTD — an ascii-art
+       banner drawn to be looked at all at once — inside a letterbox at the top.
+       Same construction as the TV view: the BODY is the full-height flex column (a
+       plain block cannot be flexed by its parent, see the note there) and the log
+       is what grows, with min-height:0 so it may shrink below its content and
+       scroll internally rather than pushing the input row off the bottom. */
+    #tablet-os-overlay .tos-body.tos-chat-view { box-sizing:border-box; height:100%; display:flex; flex-direction:column; }
     #tablet-os-overlay .tos-chat { display:flex; flex-direction:column; gap:9px; }
+    #tablet-os-overlay .tos-chat-view .tos-chat { flex:1 1 auto; min-height:0; }
+    #tablet-os-overlay .tos-chat-view .tos-chat-log { flex:1 1 auto; height:auto; max-height:none; min-height:0; }
     #tablet-os-overlay .tos-chat-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:3px; }
     #tablet-os-overlay .tos-chat-tab { position:relative; cursor:pointer; white-space:nowrap; padding:6px 11px; border-radius:5px; font-size:0.75rem; letter-spacing:.5px; color:var(--tos-fg-dim);
       background:linear-gradient(165deg, var(--tos-surface-hi), var(--tos-surface-lo));
@@ -10075,7 +10087,7 @@ function renderBody() {
     </div>`;
   }
   if (d.view === 'chat') {
-    return `<div class="tos-body">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
+    return `<div class="tos-body tos-chat-view">${hdr}${summary}${renderBreadcrumb(d.appId, d.breadcrumb?.length ? d.breadcrumb : [d.appName])}
       ${renderChat()}
     </div>`;
   }

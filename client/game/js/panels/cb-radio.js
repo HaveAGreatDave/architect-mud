@@ -20,7 +20,7 @@
 // would produce a transcript of two rooms with no way to tell which was which.
 import { appendHtml } from '../render.js';
 import { enqueueForReading } from '../logreader.js';
-import { registerLocalChannel, dropLocalChannel, receiveChannelMsg, echoLocalChannel } from './whisper.js';
+import { registerLocalChannel, dropLocalChannel, receiveChannelMsg, echoLocalChannel, reopenChatTab } from './whisper.js';
 import { sendCmdSilent } from '../net.js';
 
 export const CB_MIN = 1;
@@ -208,7 +208,23 @@ export function wireCbRadio(container, { openDeadhead } = {}) {
 
   pwr.addEventListener('click', () => sendCmdSilent(cb.on ? 'cb off' : 'cb on'));
   spk.addEventListener('click', () => sendCmdSilent('cb speaker'));
-  root.querySelector('.cab-cb-set')?.addEventListener('click', () => openDeadhead?.(cbTabKey()));
+  // ── THE SET OPENS THE WINDOW, AND IT BUILDS ONE IF THERE IS NOT ONE ────────
+  // Pressing this used to do nothing but navigate: `openTabletToChatTab` points the Chat app at a
+  // key and lets it render. That is right while the conversation exists — and a player who had
+  // CLOSED the Deadhead tab had no conversation under that key at all (`_closeWhisperTab` deletes
+  // it from `_channels`), so the app fell back to its own default and the button silently landed
+  // you on Users. The one control whose entire job is "show me the radio" was the one that could
+  // not, and only for the people who had already used the window enough to tidy it away.
+  //
+  // So it re-opens rather than assuming: clear it off the closed list, then re-register the channel
+  // — `ensureCbTab` is idempotent and carries the `send` path, so this is also the repair for a
+  // def restored from a stash. Both are cheap and neither can fire twice.
+  root.querySelector('.cab-cb-set')?.addEventListener('click', () => {
+    const key = cbTabKey(cb.chan);
+    reopenChatTab(key);
+    ensureCbTab(cb.chan);
+    openDeadhead?.(key);
+  });
 
   const widget = {
     paint() {
