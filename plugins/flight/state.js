@@ -21,6 +21,7 @@ import { applyCrashCollateral, isSeverelyImpaired } from './collateral.js';
 import { setDownCompanions, killCompanions } from './companions.js';
 import { isResidentOf } from '../../server/engine/apartments.js';
 import { getEnvironmentState, getWeatherFieldSnapshot, getWeatherEvent, getZonePowerStatus } from '../../server/engine/environment.js';
+import { gatherHookSync } from '../../server/engine/plugins.js';
 
 export const TICK_MS = 3000;
 // Overall traversal pace — a single knob that slows the flight down without
@@ -1038,16 +1039,38 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // reconciled by environment.js against BOTH ambient darkness and power, so nothing here
   // re-derives either: this reads the answer that system publishes rather than asking the same
   // question a second way and drifting from it.
-  let sl;
+  // `brd` is the PRICE BOARD, and it exists because a forecourt whose pylon is blank is a forecourt
+  // that has not told you the one thing a forecourt is for. The renderer paints the rows onto the
+  // pylon's face (see the fuel_yard arm in windshield.js); the numbers are gathered from whoever is
+  // actually charging, exactly as the in-world `examine` board is — see the rule in
+  // plugins/fuelstation. Nothing here knows what fuel costs, and that is deliberate: a second copy
+  // of the price is a sign that lies the first time anybody retunes diesel.
+  //
+  // ⚠ SYNC, and gated on the furniture rather than on the building type. This function runs for
+  // every cell of a ~73×73 window, so it uses `gatherHookSync` (never `gatherHook` — see the
+  // contract on it) and only reaches for it on the handful of tiles that actually stand a sign.
+  // The gate rides the streetlight sweep below, which was already walking this tile's furniture.
+  let sl, board;
   if (!cell.flags?.airfield_id) {
     for (const fu of getZoneFurniture(cell.id)) {
+      if (fu.flags?.fuel_price_sign) board = true;
       if (fu.light_type !== 'streetlight') continue;
       sl = fu.light_on === 1 ? 1 : 0;
       if (sl === 1) break;   // one lit lamp is enough; keep looking only while all we have is a dark one
     }
   }
+  // Cheapest first, same order the examined board prints in — a driver reading a pylon from the
+  // road is looking for the bottom of it. Three rows: that is what fits on a board, and a fourth
+  // grade would render as unreadable slivers rather than as more information.
+  const brd = board
+    ? gatherHookSync('fuel.prices', { id: cell.id })
+      .filter(r => r && r.grade)
+      .sort((a, b) => a.price - b.price)
+      .slice(0, 3)
+      .map(r => ({ g: String(r.grade).toUpperCase().slice(0, 8), p: r.price, u: r.unit }))
+    : undefined;
   const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl };
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so

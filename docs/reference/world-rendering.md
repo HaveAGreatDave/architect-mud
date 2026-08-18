@@ -248,6 +248,13 @@ keys off the same `floorsOf`. windshield.js imports them and re-exports
 that stays true). The cold open's own `STRETCH` and its 90° rotation of the city
 are local art choices in intro-cinematic.js and do not belong here.
 
+⚠ **A type missing from `TYPE_FLOORS` is not "unstyled", it is FOUR STOREYS.** `floorsFor` falls
+through to `default: 4`, and since every fraction inside a model arm is a multiple of `h`, the whole
+model silently inflates. `fuel_yard` shipped that way: a forecourt is one storey of occupancy, so
+its dispensers came out over a storey tall and its canopy cleared two, which reads from the cab as
+"the gas pumps are massive". Nothing was wrong with the arm. **When you add a building type, add its
+row here in the same commit**, and read the arm's fractions as storeys afterwards.
+
 ## The three "tower" renderers (do not confuse them)
 
 | # | Renderer | File | When it draws | Is it the airport tower? |
@@ -462,6 +469,21 @@ panel nobody plays on.
 - **What you see is what you can hit.** Building height comes from `floorHeight`/`bldgStyle`, the
   same value the CFIT collision sweep reads. Keep rooftop adornments visual-only; don't change the
   mass without meaning to change collisions.
+- **Ground paint sorts by its FAR corner, and it is the one face that does.** `groundPaint` (aprons,
+  bay boxes, hazard hatching, lane chevrons) does **not** go through `decoDepth`. It used to, and
+  the two biases compounded: `decoDepth` takes the nearest corner and lifts it another 0.6 tiles,
+  so a near-tile-wide apron sorted a full tile in front of itself and painted straight over the
+  neighbouring building — "the floor can be seen through other buildings". A flat quad on the deck
+  has an exact answer instead of a tuned one: **everything standing on it is nearer than its far
+  edge, and anything beyond its far edge projects above it**. The corollary is that you can no
+  longer paint a stripe *under* a raised object and expect it to appear *on* it — colour the object.
+- **A ground vehicle rides over anything under `TRUCK_STEP_Z`.** `groundObstructionAt` gates on the
+  segment's underside (`z0` vs the cab roof) *and* its top (`z1` vs the step height, opt-in and 0 by
+  default). Without the second gate a kerb — underside on the ground, top at ankle height — collides
+  as a full wall, which is what made the forecourt islands impassable. If you draw a kerb, keep it
+  under that height; if you draw something that must stop a rig, give it real mass **from `z0 = 0`**
+  (a plinth modelled as standing *on* a kerb has its underside above the clearance probe and becomes
+  a thing you drive through).
 
 ## Twin audit — buildings that share a model
 

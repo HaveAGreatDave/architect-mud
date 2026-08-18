@@ -50,6 +50,20 @@ Three things, none of which touch this plugin:
 A board in a room where nothing is on sale renders as dark. That is a correct answer, not a
 failure — it is the state of the same furniture anywhere else.
 
+## The pylon you read from the road
+
+There are two boards, and they are one derivation. `examine` prints the framed one above. The
+**price pylon out the windscreen** — the tall sign the forecourt model raises by the kerb — is
+painted by `drawPriceBoard` in `client/game/js/panels/windshield.js` from `brd` on the map cell,
+which `deriveSurfaceCell` gathers from this same `fuel.prices` hook. Neither the renderer nor the
+map cell knows what fuel costs, for exactly the reason above.
+
+⚠ **`fuel.prices` is therefore a SYNC hook.** The map window derives ~5,300 cells per snapshot, so
+the pylon's rows come through `gatherHookSync` (see the contract on it in
+`server/engine/plugins.js`) rather than through an await. A contributor that turns `async` keeps
+working for `examine` and silently disappears from the pylon; `regress.js` asserts the hook answers
+without a promise and that both gathers return the same rows.
+
 ## Not here
 
 Charging for the fill happens in **fillable**, because that is the plugin that owns `fill` and the

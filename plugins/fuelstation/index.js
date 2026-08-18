@@ -20,9 +20,21 @@
  * The pumps themselves need no code at all to work: `fuel_source` on a furniture row is already the
  * whole contract the fillable plugin's `fill` reads, and a `fuel_yard` tile is already the whole
  * contract trucking's `fuel` reads. This file only makes them SAY so when you look at them.
+ *
+ * ── ⚠ `fuel.prices` IS A SYNC HOOK. EVERY CONTRIBUTOR MUST STAY SYNCHRONOUS ─────────────────────
+ *
+ * There are two boards now, and the second one is on the other side of a hot path. `examine` gets
+ * the framed one below, through the ordinary awaited `gatherHook`. The PYLON — the thing you read
+ * from the road, out the truck's windscreen — is painted by the renderer from `brd` on the map
+ * cell, and deriveSurfaceCell (plugins/flight/state.js) builds that with `gatherHookSync`, because
+ * it runs for every cell of a ~73×73 window and cannot afford an await.
+ *
+ * So a contributor that becomes `async` does not break: it silently vanishes from the pylon while
+ * every awaited caller keeps working, which is the worst shape a bug can have. The regress suite
+ * asserts the hook answers without a promise, and both gathers agree row for row.
  */
 import { gatherHook } from '../../server/engine/plugins.js';
-import { getZoneFurniture } from '../../server/engine/world.js';
+import { getZoneFurniture, getZone } from '../../server/engine/world.js';
 
 // The board's width, in characters. Everything is padded to it so the frame survives a
 // proportional typeface in the log — the same rule the bounty poster follows, and for the same
@@ -75,7 +87,9 @@ export const hooks = {
     const line = (l, r) => `│ ${pad(l, WIDTH - 4 - 9)}${padL(r, 9)} │`;
     const out = [
       '┌' + '─'.repeat(WIDTH - 2) + '┐',
-      line('FLASH POINT', ''),
+      // The forecourt's own name, off the tile, never a string in this file: the plugin is THOMAS
+      // and "Flash Point" is Architect. A second forecourt gets its own header for free.
+      line(((getZone(f.zone_id)?.flags?.building_name) || 'FUEL').toUpperCase().slice(0, WIDTH - 4), ''),
       '├' + '─'.repeat(WIDTH - 2) + '┤',
       ...rows.map(r => line(r.grade, `${r.price}₵/${r.unit}`)),
       '└' + '─'.repeat(WIDTH - 2) + '┘',

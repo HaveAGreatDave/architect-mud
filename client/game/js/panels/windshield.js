@@ -4581,7 +4581,12 @@ const WALL_COL = { uptown: [46, 64, 92], civic: [72, 68, 60], citycore: [52, 56,
   // painted kerb — see PUMP_WALL / SOFFIT_WALL / PLAIN_WALL, which is where each of these stops
   // being given a grid of lit apartment windows.
   ty_pump: [214, 216, 220], ty_pump_dk: [44, 48, 54], ty_soffit: [232, 234, 228], ty_kerb: [186, 156, 46],
-  ty_fuel_kiosk: [108, 112, 118],
+  ty_fuel_kiosk: [216, 216, 212],
+  // …and its LIVERY. A forecourt is the most aggressively branded object on any road: one saturated
+  // house colour on the fascia, the pump tops and the shop band, and white everywhere else so the
+  // colour reads from half a mile away. Flash Point's is a tired orange-red, which is also the only
+  // warm mass in a freight district of grey steel and rust.
+  ty_fuel_red: [176, 52, 40], ty_fuel_white: [228, 230, 228], ty_fuel_glass: [58, 78, 86],
   // Halloran's Fix-It — a grease-and-steel repair garage: oil-stained warm concrete block, darker roll-up bays.
   ty_garage: [92, 82, 70], ty_garage_bay: [46, 42, 40],
   // Salvage Rites — the scrapyard: a rusted site shack, oxidised bales of crushed car,
@@ -4891,7 +4896,20 @@ function segContains(s, lx, ly, V) {
 //
 // `clearZ` is the vehicle's height in render world-z. FLOOR_Z is one storey, so a semi tractor at
 // roughly a third of a storey is about 0.009.
-export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
+// A rig rides over anything shorter than this rather than stopping dead on it — the OTHER end of
+// the same question `clearZ` asks at the top of the vehicle. Kept out of cab-view.js so the model
+// arms that draw a kerb and the sweep that decides whether it is a wall read one number.
+//
+// This exists because of a forecourt. The pump islands are edged with a kerb, the arm that draws
+// them says in as many words that it is low enough to ride over, and it was not: the sweep's only
+// test was the segment's UNDERSIDE against the cab roof, and a kerb's underside is the ground. So
+// every island on the lot collided as a full-height wall and the one building in the game you are
+// supposed to drive into was the one you could not. Deliberately tiny — 0.011 world-z is under 6%
+// of a storey, which is a kerb, a threshold or a painted-on lip and nothing else. Anything with
+// real mass on it (the pump plinths that stand on these islands, at 10% of a storey) is still a
+// thing you hit, and `forecourtDriveSmoke` asserts both halves of that.
+export const TRUCK_STEP_Z = 0.011;
+export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01, stepZ = 0) {
   // ⚠ THE ONE HOLE IN A BUILDING, and it is named rather than general: a depot bay is a shed you
   // drive into, so at ground level it is open. Everything about this is deliberately narrow — it
   // is keyed on a mark the world derivation only puts on a tile authored `flags.vehicle_bay`, it
@@ -4948,6 +4966,10 @@ export function groundObstructionAt(wx, wy, cell, px, py, clearZ = 0.01) {
     // The z0 gate, and the whole reason this is not just modelTopAt: a segment whose underside is
     // above the vehicle's roof is something you drive UNDER, not into.
     if (V(s.z0) > clearZ) continue;
+    // …and its mirror at the other end: a segment whose TOP is below the vehicle's step-over height
+    // is something you drive OVER. Default 0, so every caller that does not opt in behaves exactly
+    // as it always did and nothing in the world quietly became passable.
+    if (stepZ > 0 && V(s.z1) <= stepZ) continue;
     if (!segContains(s, lx, ly, V)) continue;
     const top = V(s.z1);
     if (top > worst) worst = top;
@@ -5009,7 +5031,13 @@ const PUMP_WALL = new Set(['ty_pump']);
 // Flat painted surfaces that are emphatically not facades: the canopy soffit, a painted kerb, the
 // kiosk's panel wall. Same reason as STRUCT_WALL — the default branch's job is windows, and none of
 // these has any.
-const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk']);
+const PLAIN_WALL = new Set(['ty_soffit', 'ty_kerb', 'ty_pump_dk', 'ty_fuel_kiosk', 'ty_fuel_red', 'ty_fuel_white']);
+// A GLAZED SHOPFRONT — the kiosk's front wall, and the second-brightest thing on a forecourt after
+// the canopy. Not GLASS_WALL: that family is a TOWER's curtain wall (floor-plate striping over
+// dozens of storeys), and a single-storey shop window has no floor plates, one sill, one head, and
+// a lit interior you can see the shelves in. Same argument as STRUCT_WALL — the default branch's
+// job is a grid of apartment windows and this is one big window.
+const SHOP_GLASS = new Set(['ty_fuel_glass']);
 function wallTex(biome, night) {
   const tr = TR(), nite = night > 0.4;
   return getTex('wall:' + biome + (nite ? ':n' : '') + ':' + tr, () => {
@@ -5064,6 +5092,33 @@ function wallTex(biome, night) {
       for (let x = seam; x < W; x += seam) { g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(x, 0, px, H); }   // panel joints only
       for (let i = 0; i < Math.round(24 * tr); i++) { const rx = frac(i * 3.1) * W | 0, ry = frac(i * 5.7) * H | 0; g.fillStyle = `rgba(0,0,0,${0.03 + frac(i) * 0.04})`; g.fillRect(rx, ry, 1, 1); }
       if (nite) { g.fillStyle = 'rgba(0,0,0,0.26)'; g.fillRect(0, 0, W, H); }
+      return c;
+    }
+    if (SHOP_GLASS.has(biome)) {   // a glazed shopfront — see SHOP_GLASS
+      // One tall pane between a sill and a head, split by slim mullions, with the shop's own light
+      // behind it. By day the glass is a dark green-grey that reflects the sky at the top and goes
+      // deep at the bottom; at night the interior wins and the whole panel is a warm box with the
+      // silhouettes of the shelving standing in it. That inversion is the entire read: a forecourt
+      // shop is a dark hole in daylight and the brightest window on the road after dark.
+      const k = (m) => `rgb(${Math.min(255, w[0] * m) | 0},${Math.min(255, w[1] * m) | 0},${Math.min(255, w[2] * m) | 0})`;
+      const px = Math.max(1, tr | 0);
+      const vg = g.createLinearGradient(0, 0, 0, H);
+      if (nite) { vg.addColorStop(0, 'rgb(122,104,66)'); vg.addColorStop(0.55, 'rgb(150,126,78)'); vg.addColorStop(1, 'rgb(96,80,52)'); }
+      else { vg.addColorStop(0, k(1.5)); vg.addColorStop(0.42, k(0.9)); vg.addColorStop(1, k(0.6)); }
+      g.fillStyle = vg; g.fillRect(0, 0, W, H);
+      // The shelving inside, as blocks rather than as detail — at the size a kiosk occupies on the
+      // glass these are three or four pixels, and three or four pixels of RHYTHM is what says
+      // "there are things in there" where three or four pixels of drawing says nothing.
+      for (let i = 0; i < 3; i++) {
+        const sy = Math.round(H * (0.42 + i * 0.16));
+        g.fillStyle = nite ? 'rgba(52,38,22,0.55)' : 'rgba(0,0,0,0.22)';
+        g.fillRect(Math.round(W * 0.08), sy, Math.round(W * 0.84), Math.max(px, Math.round(H * 0.055)));
+      }
+      const mull = Math.max(3, Math.round(6 * tr));                                   // slim mullions
+      for (let x = mull; x < W; x += mull) { g.fillStyle = 'rgba(24,26,28,0.55)'; g.fillRect(x, 0, px, H); }
+      g.fillStyle = 'rgba(20,22,24,0.85)'; g.fillRect(0, 0, W, Math.max(px, Math.round(H * 0.07)));      // head
+      g.fillStyle = 'rgba(28,30,32,0.9)'; g.fillRect(0, H - Math.max(px, Math.round(H * 0.09)), W, Math.max(px, Math.round(H * 0.09)));   // sill
+      if (nite) { g.fillStyle = 'rgba(255,214,150,0.16)'; g.fillRect(0, Math.round(H * 0.07), W, Math.round(H * 0.10)); }   // the strip light over the door
       return c;
     }
     if (STRUCT_WALL.has(biome)) {   // painted structural steel: a column section, never a facade — see STRUCT_WALL
@@ -5854,12 +5909,34 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
 // `pts` are WORLD [x, y] pairs — the caller places them through its own model frame (`F`), so this
 // needs to know nothing about entrances or footprints. Adornment, like every other marking: it
 // never contributes mass, never reaches the collision model, and is skipped during shape capture.
+// ── ⚠ A FLAT QUAD ON THE DECK SORTS BY ITS FAR EDGE, NOT ITS NEAR ONE ────────
+// This used to queue at `decoDepth(...)` — the polygon's NEAREST corner, lifted a further
+// DECO_LIFT (0.6) tiles toward the camera. That lift is right for the thing it was written for, an
+// adornment floating in the AIR that has to beat the walls of its own host (see decoDepth). It is
+// badly wrong for a marking lying on the ground, because the two biases compound: a full-tile apron
+// already has its near corner ~0.43 of a tile in front of the anchor, so the total came to slightly
+// over ONE TILE of forward bias — which is precisely the gap decoDepth's own comment says the lift
+// must stay well under. The forecourt's apron therefore sorted as if it were a tile nearer than it
+// is and painted straight over the neighbouring warehouse. That is "the floor can be seen through
+// other buildings", and it was not a fault of the model at all.
+//
+// The right depth needs no tuning constant, because a flat quad on the deck has an exact answer:
+// EVERYTHING STANDING ON IT IS NEARER THAN ITS FAR EDGE, and anything beyond its far edge projects
+// ABOVE it and cannot overlap it. So sort by the farthest corner and the painter's order is simply
+// correct — kerbs, pumps, columns and bollards all queue after the paint they stand on, a building
+// one tile back queues before it and is never covered, and a building in FRONT queues after it and
+// occludes it properly. No lift, so nothing can leap onto a neighbour.
+//
+// The one thing this forbids is paint that is supposed to lie on TOP of a raised object drawn from
+// the same call site (a stripe up the face of a kerb). That is a lie about geometry anyway — the
+// paint is at z≈0 and the kerb's top is not — so the answer is to colour the object, not to paint
+// under it and lift the paint into view.
 function groundPaint(ctx, cam, pts, z, fill, alpha) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;
   const p = [];
   for (const [x, y] of pts) { const q = cam.proj(x, y, z); if (q.f <= 0.1) return; p.push(q); }
   if (p.length < 3) return;
-  emitFace(decoDepth(...p.map(q => q.f)), () => {
+  emitFace(Math.max(...p.map(q => q.f)), () => {
     ctx.globalAlpha = alpha; ctx.fillStyle = fill;
     ctx.beginPath(); p.forEach((q, i) => (i ? ctx.lineTo(q.sx, q.sy) : ctx.moveTo(q.sx, q.sy)));
     ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
@@ -9555,35 +9632,61 @@ export function bayMassSmoke() {
 export function forecourtDriveSmoke() {
   const out = [];
   const wx = 0, wy = 0;
+  // ⚠ THE TEST'S `fh` MUST BE THE COLLISION'S `fh`, NOT AN APPROXIMATION OF IT. groundObstructionAt
+  // derives the footprint from the TILE SEED (`BUILDING_FOOT + frac(seed+2) * 0.06`, up to 16% wider
+  // than BUILDING_FOOT), and this used to sweep at a flat BUILDING_FOOT. The two frames therefore
+  // disagreed by up to a sixth of a tile, which is wider than the lanes being asserted — so the
+  // sweep could pass on a lane it was not actually inside. Same seed, same number, no daylight.
+  const seed = (wx + 512) * 73 + (wy + 512) * 149;
+  const fh = (BUILDING_FOOT + frac(seed + 2) * 0.06) * (RENDER_TUNE.bldgFoot || 1);
+  // The three lanes the model arm reserves, at their centres — see the layout table in the
+  // `fuel_yard` arm, which is the same geometry written from the other side. A rig pulls through
+  // the middle; a car takes an outer lane and stops at a pump.
+  const LANES = [0, -0.632, 0.632];
   for (const ent of ['north', 'south', 'east', 'west']) {
     const cell = { kind: 'land', biome: 'freight', bt: 'fuel_yard', ent, flr: 0 };
     const E = faceVec(ent), px = E[1], py = -E[0];                    // model-local +x, as facePt uses
     const L = (lx, ly) => [wx + lx * px + ly * E[0], wy + lx * py + ly * E[1]];
-    const fh = BUILDING_FOOT * (RENDER_TUNE.bldgFoot || 1);
-    // The two lanes: outboard of the centre kerb, inboard of the column line. Swept from the STREET
-    // EDGE back to behind the pumps, because a lane that is clear in the middle and blocked at the
-    // mouth is not a lane — the failure this is written against was the mouth.
-    // ⚠ IT DOES NOT SWEEP TO THE BACK FENCE, AND THAT IS DELIBERATE. The last fifth of the lot is
-    // the tank, the vent stacks and the kiosk, which are things you are supposed to hit; a sweep
-    // that demanded clear tarmac all the way through would be asking for a forecourt with its
+    // Swept from the STREET EDGE back to behind the pumps, because a lane that is clear in the
+    // middle and blocked at the mouth is not a lane — the failure this is written against was the
+    // mouth. ⚠ IT DOES NOT SWEEP TO THE BACK FENCE, AND THAT IS DELIBERATE. The last fifth of the
+    // lot is the tank, the vent stacks and the shop, which are things you are supposed to hit; a
+    // sweep that demanded clear tarmac all the way through would be asking for a forecourt with its
     // working half deleted. `ly = +1` is the entrance side (facePt), so the sweep runs inward.
-    for (const s of [-1, 1]) {
+    for (const lane of LANES) {
       for (let t = -0.52; t <= 0.95; t += 0.05) {
-        const [qx, qy] = L(s * fh * 0.60, t * fh);
-        if (groundObstructionAt(wx, wy, cell, qx, qy, 0.01) !== 0) {
-          out.push(`forecourt (${ent}) → the ${s < 0 ? 'left' : 'right'} lane is blocked ${t.toFixed(2)} into the lot; a truck cannot pull in to refuel`);
+        const [qx, qy] = L(lane * fh, t * fh);
+        if (groundObstructionAt(wx, wy, cell, qx, qy, 0.01, TRUCK_STEP_Z) !== 0) {
+          out.push(`forecourt (${ent}) → the ${lane === 0 ? 'centre' : lane < 0 ? 'left' : 'right'} lane is blocked ${t.toFixed(2)} into the lot; a truck cannot pull in to refuel`);
           break;
         }
       }
     }
     // …and the dispensers are still things you can hit. Without this the check above is satisfied by
-    // deleting the pumps, which is not the forecourt anybody asked for.
-    const [hx, hy] = L(-fh * 0.30, -fh * 0.34);
-    if (groundObstructionAt(wx, wy, cell, hx, hy, 0.01) === 0) out.push(`forecourt (${ent}) → a truck drives straight through the pumps`);
+    // deleting the pumps, which is not the forecourt anybody asked for. Both pumps on an island,
+    // because the plinth is the only part of one that reaches the ground and it is easy to raise it
+    // onto the kerb by accident — at which point the island is a decal you drive through.
+    for (const t of [-1, 1]) {
+      const [hx, hy] = L(-fh * 0.36, (0.06 + t * 0.24) * fh);
+      if (groundObstructionAt(wx, wy, cell, hx, hy, 0.01, TRUCK_STEP_Z) === 0) out.push(`forecourt (${ent}) → a truck drives straight through the ${t < 0 ? 'inner' : 'outer'} pump`);
+    }
+    // The kerb around the island is the OTHER half of that bargain: it has to be there, and it has
+    // to be something a wheel rides over rather than a wall. Probed at the island's STREET-SIDE
+    // nose, which is the end a wheel actually clips on the way in and is kerb and only kerb —
+    // solid to a probe with no step allowance, clear to one with it.
+    const [kx, ky] = L(-fh * 0.36, (0.06 + 0.42) * fh);
+    if (groundObstructionAt(wx, wy, cell, kx, ky, 0.01, 0) === 0) out.push(`forecourt (${ent}) → the pump island has no kerb at all`);
+    if (groundObstructionAt(wx, wy, cell, kx, ky, 0.01, TRUCK_STEP_Z) !== 0) out.push(`forecourt (${ent}) → the island kerb stops a rig dead instead of being ridden over`);
   }
   return out;
 }
 
+// Live tile data the arms may be handed — today only the forecourt's price board reads it. Passed
+// on EVERY model rather than only the one that wants it: the point of this smoke is that an arm
+// runs, and an arm that reads a field nobody thought it would read is exactly the sort of thing it
+// is here to catch. Populated rather than empty because a blank board takes the early-out branch
+// and would leave the glyph path — the part that bakes a texture and maps it onto a quad — unrun.
+const SMOKE_BOARD = [{ g: 'DIESEL', p: 380, u: 'tank' }, { g: 'GASOLINE', p: 3, u: 'unit' }];
 export function shapeRenderSmoke() {
   const out = [];
   for (const { key, m } of shapeModelRegistry()) {
@@ -9591,7 +9694,7 @@ export function shapeRenderSmoke() {
       const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
       try {
         FACE_SINK = [];
-        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST');
+        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, dyOff, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
         flushFaces();   // the closures are where nearly all the ctx calls actually happen
       } catch (e) {
         out.push({ key, night, front: dyOff < 0, err: e.message });
@@ -9605,7 +9708,7 @@ export function shapeRenderSmoke() {
       const savedFace = FACE_SINK, savedFog = FOG_STATE, savedLight = LIGHT_STATE, savedSign = _bladeSign;
       try {
         FACE_SINK = []; MASS_OFF = true;
-        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST');
+        drawTypeModel(SHAPE_STUB_CTX, SHAPE_STUB_CAM, 0, -8, 0.4, 1, m, 3, night, 1, 1000, [0, 1], 'SMOKE TEST', SMOKE_BOARD);
         flushFaces();
       } catch (e) {
         out.push({ key, night, err: `adornments-only: ${e.message}` });
@@ -10300,6 +10403,75 @@ function marqueeBand(ctx, cam, dx, dy, E, half, wz, color, night, alpha, label) 
   });
 }
 
+// ── THE PRICE BOARD ───────────────────────────────────────────────────────────
+// A forecourt's pylon, painted with the numbers a driver actually slows down to read.
+//
+// ⚠ THE NUMBERS ARE NEVER THIS FILE'S. `rows` arrives on the map cell as `brd`, gathered
+// server-side from whoever is genuinely charging for fuel — see the rule in plugins/fuelstation and
+// the `brd` note in deriveSurfaceCell. A constant here would be a sign that lies the first time
+// anybody retunes diesel, which is worse than a blank board because a player budgets a haul
+// against it. No rows is therefore a real answer and renders DARK, exactly as the examined board
+// does: nobody here is selling.
+//
+// The face is a rectangle in world space, so every cell of it (header, each grade, each price) is
+// built from world corners and projected — not interpolated in screen space. That costs four
+// projections per cell and buys a board that shears with the pylon from every angle instead of
+// swivelling to face you, which is the same promise drawSurfaceText makes for the glyphs inside it.
+//
+// `cx,cy` is the board's centre already pushed proud of its post; `E` the entrance vector; `half`
+// the across-front half-width; `z0..z1` its top and bottom in world-z.
+function drawPriceBoard(ctx, cam, cx, cy, E, half, z0, z1, title, rows, night, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;   // adornment — the cabinet itself is mass, drawn by the caller
+  // World point at (u across ∈ [-1,1], v down ∈ [0,1]).
+  const P = (u, v) => cam.proj(cx + E[1] * half * u, cy - E[0] * half * u, z1 - (z1 - z0) * v);
+  const cell = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const face = cell(-1, 1, 0, 1);
+  if (face.some(p => p.f <= 0.12)) return;
+  const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
+  const dn = night > 0.4 ? 1 : 0;
+  const list = (rows || []).slice(0, 3);
+  // Same hair of forward bias marqueeBand uses, and for the same reason: the board is coplanar with
+  // nothing, but its own post is a hand's breadth behind it and a raw average flickers against it.
+  // Deliberately NOT decoDepth's 0.6 — a lift that size jumps a sign onto a nearer neighbour.
+  emitFace(face.reduce((s, p) => s + p.f, 0) / 4 - 0.06, () => {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // 1) The cabinet. Near-black by day; at night the panel behind the digits is genuinely lit, so
+    //    it goes a deep warm brown rather than blacker — a dark box with bright numerals on it
+    //    reads as switched OFF, which is the opposite of what a lit pylon does to a night road.
+    ctx.fillStyle = dn ? '#1a1410' : '#171a1e'; poly(face); ctx.fill();
+    if (!list.length) {   // nobody selling — a dead board, and that is a correct answer
+      ctx.globalAlpha = alpha * 0.5; ctx.strokeStyle = 'rgba(90,96,104,0.8)'; ctx.lineWidth = 1.2; poly(face); ctx.stroke();
+      ctx.restore(); return;
+    }
+    // 2) The header — the brand, white on the house red, across the top fifth.
+    const HDR = 0.26;
+    const hq = cell(-1, 1, 0, HDR);
+    ctx.fillStyle = dn ? 'rgb(150,44,34)' : 'rgb(176,52,40)'; poly(hq); ctx.fill();
+    if (title) drawSurfaceText(ctx, hq[0], hq[1], hq[2], hq[3],
+      bakeSignText(title.slice(0, 11), '#ffd9a0', dn, false), false, alpha);
+    // 3) One row per grade, cheapest at the bottom — the order the examined board prints in, and
+    //    the end of a pylon a driver's eye goes to.
+    const top = HDR + 0.03, rowH = (0.97 - top) / list.length;
+    for (let i = 0; i < list.length; i++) {
+      const v0 = top + i * rowH, v1 = v0 + rowH * 0.88;
+      const gq = cell(-0.90, 0.10, v0 + rowH * 0.10, v1);          // the grade, left
+      const pq = cell(0.16, 0.92, v0 + rowH * 0.02, v1);           // the number, right, and bigger
+      ctx.globalAlpha = alpha * (dn ? 0.85 : 0.7);
+      ctx.fillStyle = dn ? 'rgb(30,22,14)' : 'rgb(22,25,29)'; poly(cell(-0.94, 0.94, v0, v1)); ctx.fill();
+      ctx.globalAlpha = alpha;
+      drawSurfaceText(ctx, gq[0], gq[1], gq[2], gq[3], bakeSignText(String(list[i].g).slice(0, 8), '#cfd6de', dn, false), false, alpha * 0.92);
+      // The digits are the one thing on a forecourt that is emissive by day as well as by night —
+      // a flip-digit panel is backlit, so it does not dim with the sky the way painted signage does.
+      drawSurfaceText(ctx, pq[0], pq[1], pq[2], pq[3], bakeSignText(String(list[i].p), '#ffb14a', 1, false), false, alpha);
+    }
+    // 4) The frame last, over everything, so the cells read as recessed into it.
+    ctx.globalAlpha = alpha; ctx.strokeStyle = dn ? 'rgba(70,58,44,0.9)' : 'rgba(24,26,30,0.9)'; ctx.lineWidth = 1.4;
+    poly(face); ctx.stroke();
+    ctx.restore();
+  });
+}
+
 // ── Entrance facing ───────────────────────────────────────────────────────────
 // A model is authored with its FRONT (door, awning, marquee, forecourt) on its local
 // +y axis. faceVec turns the server's entrance direction into that front's world
@@ -10442,7 +10614,12 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
 // A dedicated named-building model: a type-appropriate silhouette built from draw3DBoxAt +
 // the adornments above, coloured by the building's own palette (m.pal) and neon (m.neon).
 // `E` is the entrance world-vector (faceVec) so the door/forecourt points at the street.
-function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1], name = '') {
+// `board` is live tile data rather than model geometry — today the forecourt's fuel prices, gathered
+// server-side from whoever is actually charging (see `brd` in deriveSurfaceCell). It is passed
+// rather than made ambient like `_bladeSign` because it is not derivable from anything the arm has:
+// a price is a fact about the world at this moment, and the alternative to threading it is a
+// hardcoded number in a renderer, which is the one thing the fuel plugin exists to prevent.
+function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = [0, 1], name = '', board = null) {
   const pal = m.pal;
   // The building's display name, upper-cased for signage. Published as the ambient blade sign so
   // every neonBlade in this pass paints the real name; undefined (no name) → the abstract rungs.
@@ -11794,28 +11971,46 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,180,90', 11, alpha * 0.13);                            // one sodium lamp over the gate
       break;
     }
-    case 'fuel_yard': {   // A FORECOURT: a canopy on columns over two pump islands, one storage tank behind.
+    case 'fuel_yard': {   // A FORECOURT: a lit canopy on four columns over two pump islands, a shop behind.
       // THE DEFINING FEATURE OF A GAS STATION IS THAT YOU CAN SEE THROUGH IT. This was a tank farm
       // — three solid drums filling the tile — and read from the air as an industrial block like
       // every other lot in the Yards. A forecourt is a ROOF AND NOTHING ELSE: the mass is up at
       // canopy height, the ground plane is open on all four sides, and a truck is meant to be
-      // visible standing underneath it. So there are deliberately no walls here at all, and the
-      // one solid volume left is the tank, pushed to the back edge where it does not close the lot.
+      // visible standing underneath it. So there are deliberately no walls here at all, and the one
+      // solid volume left is the shop, pushed to the back edge where it does not close the lot.
+      //
+      // ── ⚠ EVERYTHING HERE IS A MULTIPLE OF ONE STOREY, AND FOR MONTHS THAT STOREY WAS FOUR ────
+      // `fuel_yard` had no row in TYPE_FLOORS, so `h` arrived as a FOUR-STOREY building's height and
+      // every fraction below was measured against it: a dispenser at 0.30h stood a storey and a
+      // quarter tall, and the canopy cleared two. That is the "gas pumps are massive" report, and
+      // the fix was one line in client/shared/skyline-scale.js rather than anything in this arm.
+      // Now `h` is one storey and the numbers say what they mean — a canopy soffit at 1.52 storeys,
+      // a pump at half of one, a price pylon at three. If you retune anything in here, keep reading
+      // it that way: THESE ARE STOREYS, and a fraction under ~0.1 is ankle height.
+      //
       // ── ⚠ THE ISLANDS ARE PAINT AND A LOW KERB, NOT A PLATFORM ────────────────
       // The first cut drew each pump island as `draw3DBoxAt(…, fh * 0.44, 0, h * 0.04)`. That is a
       // half-width of 0.44fh — 0.88 of a tile across — TWICE, so the two islands met in the middle
       // and became one raised yellow slab covering the whole forecourt with four pumps standing on
       // top of it. There was nowhere left to drive, and from the road it read as a plinth rather
       // than as a place you pull into. The lesson is not "make it smaller": it is that a marked bay
-      // is PAINT, an island is a KERB, and neither of them is a box the height of a step. So the
-      // bays are `groundPaint` at z≈0 and the kerbs are 10 mm of stone under the dispensers only.
+      // is PAINT, an island is a KERB, and neither of them is a box the height of a step.
       //
-      // ⚠ AND THE LANES ARE THE SPEC, NOT THE LEFTOVERS. A truck has to be able to drive in, so the
-      // clear widths come first and the furniture is fitted between them: two pull-through lanes
-      // either side of a central kerb line, with the columns outside both and the tank behind. Move
-      // anything in here and check the lanes are still lanes.
+      // ── ⚠ AND THE LANES ARE THE SPEC, NOT THE LEFTOVERS ───────────────────────
+      // A truck has to be able to drive in, so the clear widths come first and the furniture is
+      // fitted between them: a wide central pull-through, an outer lane down each side, the columns
+      // outside both, and the working half (shop, tank, vents, bollards) behind the canopy line.
+      // `forecourtDriveSmoke` sweeps all three lanes end to end at the truck's own clearance and
+      // fails the build if any of them is blocked, so move something in here and run the smoke —
+      // the numbers below and the numbers in that test are one layout described twice.
+      //
+      //   x (fh)  0.265 ── 0.455   pump island kerb
+      //           0.425 ── 0.525   the hose boom reaching out over the lane
+      //           0.740 ── 0.940   column collar
+      //   ⇒ centre lane  |x| < 0.265      outer lanes  0.525 < |x| < 0.740
       const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
-      const canopyZ = h * 0.52, deckT = h * 0.10;          // underside clearance, and the slab's own thickness
+      const canopyZ = h * 1.52, deckT = h * 0.32;          // underside clearance, and the fascia+deck sandwich above it
+      const canY = fh * 0.06;                              // the canopy is pushed toward the road, off the back strip
       const yaw = Math.atan2(-E[0], E[1]);                 // the entrance yaw every rectangular box here turns to
       // A rectangular box in the model's own frame — `hw` across the frontage, `hd` into the lot.
       // draw3DBoxAt's footprint is square unless it is handed both, and almost everything on a
@@ -11827,125 +12022,170 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // A rectangle of paint in the model frame, given as a centre and two half-extents.
       const paintL = (lx, ly, hw, hd, fill, a = alpha) => groundPaint(ctx, cam,
         [F(lx - hw, ly - hd), F(lx + hw, ly - hd), F(lx + hw, ly + hd), F(lx - hw, ly + hd)], 0.0016, fill, a);
+      const nite = night > 0.4;
 
-      // 1) THE APRON. A concrete pad under the whole canopy, a shade lighter than the road it meets,
-      // so the forecourt has an edge without a kerb round it. This is the thing that says "the
-      // surface changes here", which is most of what tells a driver where the station is.
-      paintL(0, 0, fh * 0.96, fh * 0.98, night > 0.4 ? 'rgba(96,98,102,0.85)' : 'rgba(150,152,152,0.8)');
-      paintL(0, 0, fh * 0.90, fh * 0.92, night > 0.4 ? 'rgba(84,86,90,0.7)' : 'rgba(138,140,140,0.7)');
+      // 1) THE APRON. A concrete pad under the whole lot, a shade lighter than the road it meets, so
+      // the forecourt has an edge without a kerb round it. This is the thing that says "the surface
+      // changes here", which is most of what tells a driver where the station is. Two washes and a
+      // set of saw-cut joints, because a single flat fill reads as a hole rather than as ground.
+      paintL(0, 0, fh * 0.94, fh * 0.96, nite ? 'rgba(94,96,100,0.86)' : 'rgba(152,154,153,0.82)');
+      paintL(0, 0, fh * 0.88, fh * 0.90, nite ? 'rgba(82,84,88,0.72)' : 'rgba(140,142,141,0.72)');
+      for (let i = -2; i <= 2; i++) paintL(i * fh * 0.44, 0, fh * 0.006, fh * 0.90, 'rgba(0,0,0,0.16)', alpha * 0.7);
+      // Twenty years of drips under the nozzles, which is the one thing that stops a forecourt
+      // reading as a car park with a roof. Deterministic off the tile seed — no per-frame flicker.
+      for (let i = 0; i < 7; i++) {
+        const ox = (frac(seed + i * 3.7) - 0.5) * 1.0, oy = (frac(seed + i * 7.3) - 0.5) * 0.9;
+        paintL(ox * fh, oy * fh, fh * (0.03 + frac(seed + i) * 0.05), fh * (0.02 + frac(seed + i * 2) * 0.04), 'rgba(28,26,24,0.30)', alpha * 0.55);
+      }
 
-      // 2) THE MARKINGS. Two bays a side, boxed in yellow with the lane between them left bare —
-      // the yellow is where you STOP, and every square metre of it is somewhere a truck is meant to
-      // stand rather than somewhere it is kept out of.
-      const YEL = night > 0.4 ? 'rgba(196,164,58,0.85)' : 'rgba(226,190,62,0.9)';
-      const YEL_D = night > 0.4 ? 'rgba(150,124,44,0.8)' : 'rgba(196,162,50,0.85)';
+      // 2) THE MARKINGS. A bay each side of each island, boxed in yellow with the lanes left bare —
+      // the yellow is where you STOP, and every square metre of it is somewhere a vehicle is meant
+      // to stand rather than somewhere it is kept out of.
+      const YEL = nite ? 'rgba(198,166,60,0.85)' : 'rgba(228,192,64,0.9)';
+      const YEL_D = nite ? 'rgba(150,124,44,0.78)' : 'rgba(196,162,50,0.82)';
+      const WHT = nite ? 'rgba(196,200,204,0.7)' : 'rgba(238,240,238,0.78)';
       for (const s of [-1, 1]) {
-        const bx = s * fh * 0.60;                                     // bay centreline, outboard of the kerb
-        paintL(bx, 0, fh * 0.26, fh * 0.66, YEL_D, alpha * 0.5);      // the bay itself, a wash
-        // …boxed. Four strips rather than a stroked path, because a stroke on the ground plane keeps
-        // a constant SCREEN width and a marking has to foreshorten with the tarmac it is painted on.
-        paintL(bx, -fh * 0.66, fh * 0.26, fh * 0.022, YEL);
-        paintL(bx, fh * 0.66, fh * 0.26, fh * 0.022, YEL);
-        paintL(bx - fh * 0.26, 0, fh * 0.022, fh * 0.66, YEL);
-        paintL(bx + fh * 0.26, 0, fh * 0.022, fh * 0.66, YEL);
-        // Hazard hatching off the outboard edge — the strip between the bay and the column line,
+        for (const t of [-1, 1]) {
+          const bx = s * fh * 0.62, by = canY + t * fh * 0.24;        // a bay in the outer lane, beside each pump
+          paintL(bx, by, fh * 0.10, fh * 0.20, YEL_D, alpha * 0.34);  // the bay itself, a wash
+          // …boxed. Four strips rather than a stroked path, because a stroke on the ground plane
+          // keeps a constant SCREEN width and a marking has to foreshorten with the tarmac it is
+          // painted on.
+          paintL(bx, by - fh * 0.20, fh * 0.10, fh * 0.014, YEL);
+          paintL(bx, by + fh * 0.20, fh * 0.10, fh * 0.014, YEL);
+          paintL(bx - fh * 0.10, by, fh * 0.014, fh * 0.20, YEL);
+          paintL(bx + fh * 0.10, by, fh * 0.014, fh * 0.20, YEL);
+        }
+        // Hazard hatching off the outboard edge — the strip between the lane and the column line,
         // which is the one part of a forecourt nothing is allowed to stand on.
-        for (let i = 0; i < 5; i++) paintL(s * fh * 0.90, (-0.56 + i * 0.28) * fh, fh * 0.05, fh * 0.055, YEL_D, alpha * 0.75);
+        for (let i = 0; i < 5; i++) paintL(s * fh * 0.895, (-0.52 + i * 0.27) * fh, fh * 0.04, fh * 0.05, YEL_D, alpha * 0.7);
       }
-      // The centre kerb line, in paint, running the length of the lot between the two bays.
-      paintL(0, 0, fh * 0.13, fh * 0.70, night > 0.4 ? 'rgba(70,72,76,0.8)' : 'rgba(112,114,116,0.8)');
-
-      // 3) THE ISLANDS. A real kerb, and a low one — 1% of the building's height, which is under the
-      // truck's own clearance probe, so a rig that clips one rides over it instead of stopping dead
-      // on a step nobody can see. Narrow across, long into the lot: that is what makes the two lanes
-      // either side of it lanes.
-      for (const s of [-1, 1]) {
-        boxL(s * fh * 0.30, 0, fh * 0.10, fh * 0.62, 0, h * 0.012, 'ty_kerb', seed + 30 + s * 3);
-        paintL(s * fh * 0.30, 0, fh * 0.105, fh * 0.63, YEL, alpha * 0.55);   // the kerb's own yellow, painted on top
+      // The centre pull-through, and the chevrons that say which way through it. They point INTO the
+      // lot (away from the road), because the whole reason to paint a direction on a forecourt is
+      // that everybody wants to leave by the way they came in and there is not room for it.
+      for (let i = 0; i < 4; i++) {
+        const cy2 = (0.42 - i * 0.30) * fh;
+        paintL(-fh * 0.055, cy2, fh * 0.055, fh * 0.016, WHT, alpha * 0.55);
+        paintL(fh * 0.055, cy2, fh * 0.055, fh * 0.016, WHT, alpha * 0.55);
       }
+      // A drain channel across the mouth — every forecourt has one, and it is the detail that makes
+      // the apron read as a slab that was poured rather than a rectangle that was filled.
+      paintL(0, fh * 0.80, fh * 0.86, fh * 0.022, 'rgba(24,26,28,0.55)', alpha * 0.8);
 
-      // 4) THE DISPENSERS. Two per island, standing on it — a plinth, the case, and a lit topper
-      // over each. The case carries the whole of the detail as a texture (see PUMP_WALL): display,
-      // keypad, grade select, two nozzle boots.
+      // 3) THE ISLANDS. A real kerb, and a low one — 5% of a storey, which is under the step-over
+      // height a rig is allowed (see TRUCK_STEP_Z), so a wheel that clips one rides over it instead
+      // of stopping dead on a shin-high edge nobody can see from the cab. Narrow across, long into
+      // the lot: that is what makes the lanes either side of it lanes. The kerb palette is ALREADY
+      // the painted yellow, so nothing paints a stripe under it — see the note on groundPaint about
+      // why paint under an object is not paint on top of it.
+      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY, fh * 0.095, fh * 0.46, 0, h * 0.05, 'ty_kerb', seed + 30 + s * 3);
+
+      // 4) THE DISPENSERS. Two per island, standing on it — a plinth, the case, a lit topper, a hose
+      // boom out over the bay and the hose hanging off it. The case carries the whole of the detail
+      // as a texture (see PUMP_WALL): display, keypad, grade select, two nozzle boots.
+      //
+      // ⚠ THE PLINTH RISES FROM z=0, NOT FROM THE KERB TOP. It looks like it ought to sit on the
+      // kerb, and modelling it that way puts its underside above the truck's clearance probe — at
+      // which point the whole island becomes something you drive THROUGH, since the kerb under it is
+      // deliberately step-over. A pump has to be solid; the kerb is wider, so nothing shows.
       for (const s of [-1, 1]) for (const t of [-1, 1]) {
-        const px2 = s * fh * 0.30, py2 = t * fh * 0.34;
-        boxL(px2, py2, fh * 0.085, fh * 0.11, h * 0.012, h * 0.036, 'ty_pump_dk', seed + 40 + s * 5 + t);      // plinth
-        boxL(px2, py2, fh * 0.075, fh * 0.10, h * 0.036, h * 0.30, 'ty_pump', seed + 44 + s * 5 + t);          // the case
-        boxL(px2, py2, fh * 0.088, fh * 0.115, h * 0.30, h * 0.345, 'ty_pump_dk', seed + 48 + s * 5 + t);      // the topper it wears
-        // The hose arm reaching out over the bay — a thin boom on the outboard side, which is the
-        // one part of a pump that tells you which way the vehicle is meant to be facing.
-        boxL(px2 + s * fh * 0.14, py2, fh * 0.07, fh * 0.018, h * 0.26, h * 0.285, 'ty_pump_dk', seed + 52 + s * 5 + t);
-        if (night) glowPool(ctx, cam, ...F(px2, py2), h * 0.33, '255,206,132', 4, alpha * 0.42);
+        const px2 = s * fh * 0.36, py2 = canY + t * fh * 0.24;
+        boxL(px2, py2, fh * 0.085, fh * 0.115, 0, h * 0.10, 'ty_pump_dk', seed + 40 + s * 5 + t);              // plinth
+        boxL(px2, py2, fh * 0.072, fh * 0.098, h * 0.10, h * 0.52, 'ty_pump', seed + 44 + s * 5 + t);          // the case
+        boxL(px2, py2, fh * 0.086, fh * 0.112, h * 0.52, h * 0.62, 'ty_fuel_red', seed + 48 + s * 5 + t);      // the lit topper it wears
+        // The boom reaching out over the bay, and the hose slung off the end of it — the one part of
+        // a pump that tells you which way the vehicle is meant to be facing.
+        boxL(px2 + s * fh * 0.115, py2, fh * 0.05, fh * 0.016, h * 0.42, h * 0.47, 'ty_pump_dk', seed + 52 + s * 5 + t, false);
+        boxL(px2 + s * fh * 0.155, py2, fh * 0.014, fh * 0.014, h * 0.18, h * 0.44, 'ty_pump_dk', seed + 56 + s * 5 + t, false);
+        if (night) glowPool(ctx, cam, ...F(px2, py2), h * 0.58, '255,196,120', 4, alpha * 0.40);
       }
+      // A bin at each island head, because somebody empties the footwells here.
+      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY - fh * 0.40, fh * 0.05, fh * 0.05, 0, h * 0.26, 'ty_pump_dk', seed + 58 + s);
 
       // 5) THE COLUMNS, and they are columns now rather than blocks of flats — `ty_fab_steel` joined
       // STRUCT_WALL, which is the family that does not paint windows on things that are not walls.
-      // A splayed base collar and a capital under the deck give each one a top and a bottom.
-      for (const [sx, sy] of [[-0.72, -0.62], [0.72, -0.62], [-0.72, 0.62], [0.72, 0.62]]) {
+      // A red crash collar at the foot and a white capital under the deck give each one a top and a
+      // bottom, and the collar is the thing a reversing trailer actually meets.
+      for (const [sx, sy] of [[-0.84, -0.52], [0.84, -0.52], [-0.84, 0.64], [0.84, 0.64]]) {
         const [cx2, cy2] = F(sx * fh, sy * fh);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.095, 0, h * 0.05, 'ty_pump_dk', seed + 60 + sx * 3 + sy, night, alpha, true);        // base collar
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.062, h * 0.05, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.090, canopyZ - h * 0.035, canopyZ, 'ty_fab_steel', seed + 64 + sx * 3 + sy, night, alpha, true);   // capital
-        paintL(sx * fh, sy * fh, fh * 0.13, fh * 0.13, YEL, alpha * 0.6);   // …and the ring of yellow round its foot
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.10, 0, h * 0.20, 'ty_fuel_red', seed + 60 + sx * 3 + sy, night, alpha, true);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.062, h * 0.20, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.095, canopyZ - h * 0.10, canopyZ, 'ty_fuel_white', seed + 64 + sx * 3 + sy, night, alpha, true);
+        paintL(sx * fh, sy * fh, fh * 0.135, fh * 0.135, YEL, alpha * 0.5);   // …and the ring of yellow round its foot
       }
 
-      // 6) THE CANOPY. The deck, a fascia rail standing proud of it on all four sides, and a soffit
-      // one step in — a forecourt roof is three planes, and drawing it as one slab is what made the
-      // old one read as a plank on sticks.
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.86, canopyZ + deckT * 0.35, canopyZ + deckT, pal, seed, night, alpha, true);            // the deck
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.90, canopyZ + deckT * 0.10, canopyZ + deckT * 0.55, 'ty_pump', seed + 70, night, alpha, false);   // the white fascia rail
-      draw3DBoxAt(ctx, cam, dx, dy, fh * 0.80, canopyZ, canopyZ + deckT * 0.14, 'ty_soffit', seed + 71, night, alpha, false);      // the soffit, stepped in
-      // The lights in it. Five rows of recessed panels — the reason a forecourt at night is the
-      // brightest thing on a dark road is that its entire ceiling is a light fitting.
-      for (let i = -2; i <= 2; i++) for (const t of [-1, 1]) {
-        const [lx2, ly2] = F(i * fh * 0.30, t * fh * 0.34);
-        draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.10, canopyZ - h * 0.006, canopyZ + h * 0.004, 'ty_soffit', seed + 80 + i * 3 + t, night, alpha, false);
-        if (night) glowPool(ctx, cam, lx2, ly2, canopyZ - h * 0.01, '255,236,200', 7, alpha * 0.30);
+      // 6) THE CANOPY. A soffit, a deep coloured fascia rail standing proud of it on all four sides,
+      // and the white deck above — a forecourt roof is three planes, and drawing it as one slab is
+      // what made the old one read as a plank on sticks. RECTANGULAR and pushed toward the road, so
+      // it covers the pumps and stops short of the shop behind them rather than roofing the lot.
+      boxL(0, canY, fh * 0.86, fh * 0.71, canopyZ + deckT * 0.58, canopyZ + deckT, 'ty_fuel_white', seed);          // the deck
+      boxL(0, canY, fh * 0.90, fh * 0.74, canopyZ + deckT * 0.04, canopyZ + deckT * 0.70, 'ty_fuel_red', seed + 70, false);   // the house-red fascia
+      boxL(0, canY, fh * 0.80, fh * 0.66, canopyZ, canopyZ + deckT * 0.18, 'ty_soffit', seed + 71, false);          // the soffit, stepped in
+      // The lights in it. Twelve recessed panels — the reason a forecourt at night is the brightest
+      // thing on a dark road is that its entire ceiling is a light fitting, and one lamp in the
+      // middle would read as a porch.
+      for (let i = -2; i <= 1; i++) for (let t = -1; t <= 1; t++) {
+        const [lx2, ly2] = F((i + 0.5) * fh * 0.40, canY + t * fh * 0.30);
+        draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.085, canopyZ - h * 0.014, canopyZ + h * 0.008, 'ty_soffit', seed + 80 + i * 3 + t, night, alpha, false);
+        if (night) glowPool(ctx, cam, lx2, ly2, canopyZ - h * 0.02, '255,238,206', 7, alpha * 0.30);
       }
-      // The lit fascia band round the edge of the canopy — the one bit of signage a forecourt has,
+      // The lit fascia band round the front of the canopy — the one bit of signage a forecourt has,
       // and at night it is the whole silhouette from a mile out.
-      if (frontVis) marqueeBand(ctx, cam, dx, dy, E, fh * 0.86, canopyZ + deckT * 0.5, m.neon || '#ffb14a', night, alpha);
+      if (frontVis) marqueeBand(ctx, cam, ...F(0, canY), E, fh * 0.88, canopyZ + deckT * 0.36, m.neon || '#ffb14a', night, alpha);
 
-      // 7) BEHIND THE CANOPY. The tank, its filler ring, two vent stacks, a kiosk and a bin — the
-      // working half of a station, kept at the back edge where it does not close the lot off.
+      // 7) BEHIND THE CANOPY. The shop, the bulk tank, its vent stacks and the bollards that keep a
+      // reversing trailer out of all three — the working half of a station, kept on the back strip
+      // where it does not close the lot off.
       { const [tx, ty] = F(-fh * 0.56, -fh * 0.84);
-        drawFacetDrum(ctx, cam, tx, ty, 0, h * 0.42, fh * 0.24, fh * 0.24, 12, alpha, steel(150, 148, 140), 'rgb(120,120,112)');
-        drawRing(ctx, cam, tx, ty, h * 0.25, fh * 0.24 + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha);
-        drawRing(ctx, cam, tx, ty, h * 0.42 + 0.001, fh * 0.16, 10, 'rgba(30,32,36,0.6)', 1.4, alpha);       // the manway on top
-        for (const s of [-1, 1]) {                                                                           // vent stacks off its shoulder
-          const [vx, vy] = F(-fh * 0.56 + s * fh * 0.20, -fh * 0.60);
-          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.022, 0, h * 0.62, 'ty_fab_steel', seed + 90 + s, night, alpha, false);
-          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.040, h * 0.62, h * 0.66, 'ty_pump_dk', seed + 92 + s, night, alpha, true);
+        drawFacetDrum(ctx, cam, tx, ty, 0, h * 1.10, fh * 0.17, fh * 0.17, 12, alpha, steel(150, 148, 140), 'rgb(120,120,112)');
+        drawRing(ctx, cam, tx, ty, h * 0.62, fh * 0.17 + 0.003, 12, 'rgba(0,0,0,0.25)', 1, alpha);          // the strap band round it
+        drawRing(ctx, cam, tx, ty, h * 1.10 + 0.001, fh * 0.11, 10, 'rgba(30,32,36,0.6)', 1.4, alpha);      // the manway on top
+        for (const s of [-1, 1]) {                                                                          // vent stacks off its shoulder
+          const [vx, vy] = F(-fh * 0.56 + s * fh * 0.24, -fh * 0.72);
+          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.022, 0, h * 1.70, 'ty_fab_steel', seed + 90 + s, night, alpha, false);
+          draw3DBoxAt(ctx, cam, vx, vy, fh * 0.040, h * 1.70, h * 1.78, 'ty_pump_dk', seed + 92 + s, night, alpha, true);
         } }
-      // The kiosk. Somebody works here, and a forecourt with nobody in it is a fuel dump.
-      boxL(fh * 0.60, -fh * 0.80, fh * 0.30, fh * 0.16, 0, h * 0.34, 'ty_fuel_kiosk', seed + 96);
-      boxL(fh * 0.60, -fh * 0.80, fh * 0.33, fh * 0.19, h * 0.34, h * 0.37, 'ty_pump_dk', seed + 97);          // its parapet
-      boxL(fh * 0.60, -fh * 0.63, fh * 0.20, fh * 0.012, h * 0.06, h * 0.24, 'ty_pump', seed + 98, false);     // the serving window, facing the pumps
-      if (night) glowPool(ctx, cam, ...F(fh * 0.60, -fh * 0.66), h * 0.20, '255,226,170', 8, alpha * 0.4);
-      boxL(fh * 0.20, -fh * 0.80, fh * 0.07, fh * 0.07, 0, h * 0.13, 'ty_pump_dk', seed + 99);                 // a bin beside the door
+      // The shop. Somebody works here, and a forecourt with nobody in it is a fuel dump. A white box
+      // under a red parapet with its whole front in glass, which is the second-brightest thing on
+      // the lot after dark — see SHOP_GLASS for why that is a texture and not fifteen more boxes.
+      boxL(fh * 0.44, -fh * 0.84, fh * 0.42, fh * 0.14, 0, h * 1.05, 'ty_fuel_kiosk', seed + 96);
+      boxL(fh * 0.44, -fh * 0.84, fh * 0.45, fh * 0.17, h * 1.05, h * 1.22, 'ty_fuel_red', seed + 97);          // its parapet
+      boxL(fh * 0.44, -fh * 0.695, fh * 0.36, fh * 0.012, h * 0.16, h * 0.86, 'ty_fuel_glass', seed + 98, false);   // the glazed front, facing the pumps
+      boxL(fh * 0.10, -fh * 0.695, fh * 0.07, fh * 0.016, 0, h * 0.72, 'ty_pump_dk', seed + 99, false);         // the door in it
+      if (night) glowPool(ctx, cam, ...F(fh * 0.44, -fh * 0.66), h * 0.50, '255,226,170', 9, alpha * 0.42);
+      // The air-and-water bay out on the far side, where nobody is queuing for fuel.
+      boxL(-fh * 0.90, canY + fh * 0.04, fh * 0.055, fh * 0.085, 0, h * 0.52, 'ty_fuel_red', seed + 101);
+      boxL(-fh * 0.90, canY + fh * 0.04, fh * 0.062, fh * 0.092, h * 0.52, h * 0.58, 'ty_fuel_white', seed + 102);
 
-      // 8) BOLLARDS along the back edge and off the island ends — the things that stop a reversing
-      // rig putting a trailer through the kiosk, and the detail that reads as a working forecourt
-      // rather than a diagram of one.
-      for (let i = -2; i <= 2; i++) {
-        const [bx2, by2] = F(i * fh * 0.34, -fh * 0.96);
-        draw3DBoxAt(ctx, cam, bx2, by2, fh * 0.028, 0, h * 0.11, 'ty_kerb', seed + 104 + i, night, alpha, true);
+      // 8) BOLLARDS in front of the shop and the tank, and off the island ends — the things that
+      // stop a reversing rig putting a trailer through a window, and the detail that reads as a
+      // working forecourt rather than a diagram of one. Deliberately NOT across the middle: the
+      // centre of the back strip is where the lanes run out, and a post there is a wall.
+      for (const bx2 of [-0.88, -0.62, -0.36, 0.14, 0.40, 0.66, 0.88]) {
+        const [px3, py3] = F(bx2 * fh, -fh * 0.68);
+        draw3DBoxAt(ctx, cam, px3, py3, fh * 0.028, 0, h * 0.30, 'ty_kerb', seed + 104 + bx2 * 7, night, alpha, true);
       }
       for (const s of [-1, 1]) for (const t of [-1, 1]) {
-        const [bx2, by2] = F(s * fh * 0.30, t * fh * 0.70);
-        draw3DBoxAt(ctx, cam, bx2, by2, fh * 0.026, 0, h * 0.10, 'ty_kerb', seed + 110 + s * 3 + t, night, alpha, true);
+        const [bx3, by3] = F(s * fh * 0.36, canY + t * fh * 0.50);
+        draw3DBoxAt(ctx, cam, bx3, by3, fh * 0.026, 0, h * 0.26, 'ty_kerb', seed + 110 + s * 3 + t, night, alpha, true);
       }
 
-      // The price pylon out by the kerb, on the entrance side — the thing you read from the road.
+      // 9) THE PRICE PYLON, out by the kerb on the entrance side — the thing you read from the road,
+      // and until now the thing that was blank. The cabinet is mass; the numbers on its face are
+      // live tile data gathered from whoever is actually charging (see drawPriceBoard, and the rule
+      // in plugins/fuelstation). It stands taller than the canopy on purpose: a pylon that only
+      // cleared the roof it belongs to would be unreadable from the one place it is for.
       if (frontVis) {
-        const [sx2, sy2] = F(fh * 0.72, fh * 0.92);
-        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.05, 0, h * 0.62, 'ty_fab_steel', seed + 51, night, alpha, false);            // post
-        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.17, h * 0.62, h * 0.86, 'ty_door', seed + 52, night, alpha, true);           // the board
-        if (night) glowPool(ctx, cam, sx2, sy2, h * 0.74, '255,180,90', 5, alpha * 0.5);
+        const [sx2, sy2] = F(fh * 0.80, fh * 0.92);
+        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.05, 0, h * 2.10, 'ty_fab_steel', seed + 51, night, alpha, false, yaw, fh * 0.05);        // post
+        draw3DBoxAt(ctx, cam, sx2, sy2, fh * 0.24, h * 2.10, h * 3.05, 'ty_pump_dk', seed + 53, night, alpha, true, yaw, fh * 0.055);   // the cabinet
+        const [bx4, by4] = F(fh * 0.80, fh * 0.92 + fh * 0.058);
+        drawPriceBoard(ctx, cam, bx4, by4, E, fh * 0.22, h * 2.16, h * 3.00, (name || '').trim().toUpperCase() || 'FUEL', board, night, alpha);
+        if (night) glowPool(ctx, cam, sx2, sy2, h * 2.58, '255,180,90', 6, alpha * 0.5);
       }
       // A forecourt at night is the brightest thing on a dark road, and the light comes from UNDER
       // the canopy — a pool on the deck, not a glow on the roof.
-      if (night) glowPool(ctx, cam, dx, dy, 0.02, '255,215,150', 14, alpha * 0.34);
+      if (night) glowPool(ctx, cam, ...F(0, canY), 0.02, '255,215,150', 15, alpha * 0.34);
       break;
     }
     case 'cold_storage': {   // windowless insulated block, rooftop condenser units, a cold blue breath
@@ -13380,11 +13620,11 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const tier = RENDER_TUNE.lodAdorn | 0;
       if (tier > 0) {
         MASS_OFF = true; ADORN_TIER = Math.min(tier, ADORN_RICH);
-        try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn); }
+        try { drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd); }
         finally { MASS_OFF = false; ADORN_TIER = ADORN_RICH; }   // never leave either set — an arm that throws would blank every building behind it
       }
     }
-    else if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn);
+    else if (m) drawTypeModel(ctx, cam, it.dx, it.dy, fh, h, m, it.seed, night, alpha, now, face, it.c.bn, it.c.brd);
     else drawBuilding(ctx, cam, it.dx, it.dy, fh, h, arch, it.seed, night, alpha, now);
     // Rooftop holo-ad: a flickering translucent sign floating over ~1 in 4 tall-ish city
     // buildings at night — post-singularity advertising, half its pixels dead. Generic

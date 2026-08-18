@@ -222,6 +222,48 @@ export async function gatherHook(hookName, ...args) {
   return out;
 }
 
+// The same gather, WITHOUT the await — for the callers that cannot have one.
+//
+// `gatherHook` awaits every handler, which is right nearly everywhere and wrong on a path that
+// runs thousands of times to build one payload. The map window the flight sim and the truck cab
+// render from derives ~5,300 cells per snapshot (see deriveSurfaceCell in plugins/flight/state.js),
+// and that function is synchronous all the way down on purpose: making it async so it could ask
+// one question about one tile would turn a plain loop into 5,300 promises per window.
+//
+// Same precedent and same reasoning as the swing-contributor registry in server/engine/combat.js:
+// when a seam sits on a hot path, the cheapest correct thing is a contract that CANNOT become a
+// round trip, rather than an await everybody promises to keep cheap.
+//
+// SYNC BY CONTRACT. A handler reached this way:
+//
+//   · may not await   (the promise is dropped — loudly, because the symptom is a blank sign)
+//   · may not query   (RAM is authoritative here; read the hydrated world Maps)
+//
+// A hook is only safe to gather this way if EVERY registered handler for it is synchronous, which
+// is a property of the HOOK rather than of this function — so it has to be written down in the
+// hook's own docs. Today that is `fuel.prices` (see plugins/fuelstation), whose two contributors
+// both answer out of furniture flags and a plugin constant.
+export function gatherHookSync(hookName, ...args) {
+  const handlers = hooks.get(hookName);
+  if (!handlers?.length) return [];
+
+  const out = [];
+  for (const { pluginName, handler } of handlers) {
+    try {
+      const r = handler(...args);
+      if (r === undefined || r === null) continue;
+      if (typeof r?.then === 'function') {
+        console.error(`Plugin hook error [${pluginName}:${hookName}]: handler is async on a SYNC hook; its result is dropped`);
+        continue;
+      }
+      Array.isArray(r) ? out.push(...r.filter(x => x != null)) : out.push(r);
+    } catch (e) {
+      console.error(`Plugin hook error [${pluginName}:${hookName}]: ${e.message}`);
+    }
+  }
+  return out;
+}
+
 // --- Command registration ---
 
 export function registerCommand(name, handler) {

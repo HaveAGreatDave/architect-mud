@@ -9,6 +9,7 @@
  */
 import { hooks as fuelHooks, _test } from './index.js';
 import { FUEL_FULL } from '../trucking/state.js';
+import { gatherHook, gatherHookSync } from '../../server/engine/plugins.js';
 
 export default async ({ check }) => {
   const FORECOURT = 'zone_district_923_907';
@@ -56,5 +57,29 @@ export default async ({ check }) => {
   check('no pumps, no gasoline row',
     (await fuelHooks['fuel.prices']({ id: 'zone_nowhere_at_all' })) == null);
 
+  // The forecourt's NAME comes off the tile, not out of this file. A plugin is THOMAS and
+  // "Flash Point" is Architect, so a second forecourt has to get its own header for free.
+  check('the board header is the building name off the zone, not a constant',
+    typeof board === 'string' && /FLASH POINT FUEL/.test(board));
+
+  // ── ⚠ `fuel.prices` IS A SYNC HOOK, AND THE PYLON YOU SEE FROM THE ROAD DEPENDS ON IT ────────
+  // The 3-D price board (drawPriceBoard in the windshield) is fed by `brd` on the map cell, which
+  // deriveSurfaceCell gathers with `gatherHookSync` — no await, because that function runs for
+  // every cell of a ~73×73 window. A contributor that quietly became async would still satisfy
+  // every check above (they all await) and would silently blank the pylon, which is a failure
+  // nobody would trace back to this file. So: assert the shape the sync path needs.
+  for (const [name, fn] of Object.entries(fuelHooks)) {
+    if (name !== 'fuel.prices') continue;
+    const raw = fn({ id: FORECOURT });
+    check('fuel.prices answers synchronously — the 3-D pylon reads it without an await',
+      typeof raw?.then !== 'function' && Array.isArray([].concat(raw || [])));
+  }
+  const sync = gatherHookSync('fuel.prices', { id: FORECOURT }).filter(r => r && r.grade);
+  const asy = (await gatherHook('fuel.prices', { id: FORECOURT })).filter(r => r && r.grade);
+  const key = (l) => l.map(r => `${r.grade}:${r.price}:${r.unit}`).sort().join('|');
+  check('the pylon and the examined board are gathering the same rows',
+    sync.length > 0 && key(sync) === key(asy));
+  check('the sync gather carries the same diesel price as the till',
+    sync.some(r => r.grade === 'DIESEL' && r.price === FUEL_FULL));
   void rows;
 };

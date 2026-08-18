@@ -16,10 +16,20 @@
 // Nudged UP for the low-rise commercial/civic types: a 1-storey pancake in a
 // dense ~50-year-future city reads wrong, so a corner shop is small-mixed-use, a
 // soundstage a tall clear-span volume, a bar/club a couple of storeys.
+//
+// ⚠ A FORECOURT IS ONE STOREY, AND LEAVING IT OUT OF THIS TABLE IS WHAT MADE IT ENORMOUS.
+// `fuel_yard` had no row, so it fell to `default: 4` and every fraction inside its model arm — the
+// canopy clearance, the dispensers, the tank, the price pylon — was measured against a FOUR-STOREY
+// building. The pumps came out about the height of a house and the canopy sat two storeys up, which
+// is the "gas pumps are massive" report. Nothing was wrong with the model's proportions; the number
+// they were proportional to was. A type whose whole mass is a roof over a truck belongs here
+// explicitly, and the arm now spends multiples of `h` above 1.0 where it means to (a canopy is
+// taller than a storey, a price pylon much taller) rather than fractions of a number four times
+// too big.
 export const TYPE_FLOORS = {
   corporate_office: 22, hotel: 6, apartment: 8, residential: 4, shop: 3, diner: 2,
   bar: 2, club: 3, studio: 4, police: 4, clinic: 4, power: 5, hangar: 1, civic: 6,
-  gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, default: 4,
+  gun_shop: 2, casino: 3, fence: 2, chem_supply: 3, fuel_yard: 1, default: 4,
 };
 
 // World-z height of one storey, in tile units. Vertically stretched (taller

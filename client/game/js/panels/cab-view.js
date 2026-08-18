@@ -17,7 +17,7 @@
 // authoritative world window.
 
 import { paintWindshield, windshieldHTML, ensureWindshieldStyles, disposeWindshield,
-  groundObstructionAt, MODEL_MAX_EXTENT, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
+  groundObstructionAt, MODEL_MAX_EXTENT, TRUCK_STEP_Z, RENDER_TUNE, cabTrim, cabWheelHub, cabWheelGeom, cabGpsRect, cabDashCanvas } from './windshield.js';
 import { TYPES, IDLE, createTruckState, truckReadout, step, truckShift, truckSplit, truckSelectGear, bestGear } from './flight-model.js';
 import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed, airHornOn, airHornOff } from './engine-audio.js';
 // The cab draws the weather through its own windscreen, so the pane's outdoor overlay has to
@@ -2101,6 +2101,10 @@ export function cabContext(ctx) {
 // between frames, so testing only the endpoint would let it tunnel clean through a wall.
 const SWEEP = 4;
 const TRUCK_CLEAR_Z = 0.010;   // cab roof in render world-z (FLOOR_Z is one storey ≈ 0.028)
+// …and the other end of the rig: TRUCK_STEP_Z, the height below which a thing is ridden over rather
+// than hit. It lives in windshield.js beside the probe that reads it, because the model arms that
+// draw a kerb have to be able to check what counts as one. See the note on it there — the forecourt
+// islands were colliding as walls until this existed.
 const BUMP_MPH = 12;           // at or below this it is a bump; above it, you hit something
 // Below this the server is never told at all. A kerb at walking pace is not an incident and does
 // not need a sentence in the log — the rebound and the jolt on the glass have already said it.
@@ -2141,7 +2145,7 @@ function obstructionAhead(st) {
     const rx = Math.round(wx - mc.x + R), ry = Math.round(wy - mc.y + R);
     const cell = map[ry] && map[ry][rx];
     if (!cell) continue;
-    const z = groundObstructionAt(wx, wy, cell, px, py, TRUCK_CLEAR_Z);
+    const z = groundObstructionAt(wx, wy, cell, px, py, TRUCK_CLEAR_Z, TRUCK_STEP_Z);
     if (z > worst) worst = z;
   }
   return worst;

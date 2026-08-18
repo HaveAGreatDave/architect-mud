@@ -287,7 +287,7 @@ async function main() {
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  Depot occlusion: a shed beside the rig covers ${bayOcc.length ? '?' : 'the span buffer'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
-  console.log('  Forecourt: both pump lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — and the pumps are still solid.');
+  console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');
   console.log('  Signals: a head is square-on to its own approach and all but vanishes from the side, and the mast steel thins with distance instead of sitting on a floor.');
   console.log(`  LOD faces per building: ${full.toFixed(1)} at full detail → ${mid.toFixed(1)} mid → ${far.toFixed(1)} at range (${(100 - far / full * 100).toFixed(0)}% fewer).`);
