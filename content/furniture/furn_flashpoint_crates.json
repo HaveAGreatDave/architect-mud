@@ -1,0 +1,18 @@
+{
+  "description": "The wall behind the counter, stacked to head height with crates one aisle deep. This is the entire stockroom. There is no back room at Flash Point; there is only behind.",
+  "flags": {
+    "aliases": "crates, stock, boxes, stockroom, pallet",
+    "backstock_depth": 2,
+    "container": 200000
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_crates",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "stock crates",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

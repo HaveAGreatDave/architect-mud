@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "I am on the rota. Look, that is me.",
+    "She likes this one. I can tell.",
+    "Marrow says I do the afternoons.",
+    "I got put on the rota when I was eight. You have to be eight.",
+    "What is it like where you are from?"
+  ],
+  "description": "A girl of about ten sitting on the floor by bed seven with a book open on her knees, reading out loud, badly and steadily, to somebody who cannot tell her she is getting the words wrong.\n\nShe has a second set of small ridges coming up along her forearms and she picks at them when she is concentrating and has been told not to.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "outside": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are on the rota?",
+          "next": "rota"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That it is very big and it has got machines in the walls that look at you.\"\n\nShe picks at her forearm and stops herself.\n\n\"And that I cannot go, not ever, because of these.\" She holds up an arm, entirely matter of fact about it, the way you would show somebody a freckle. \"Marrow says maybe when I am older it will be different and Quarrel says it will not be, and Quarrel is usually right about things.\"\n\nShe finds her place in the book again.\n\n\"It sounds loud. I would not want to leave her anyway. She likes this one.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Shh.\" She holds up a finger, finishes the sentence badly, and marks the place with a scrap of wire. \"All right. Hello. Are you the one from outside?\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are on the rota?",
+          "next": "rota"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What have you been told about the city?",
+          "next": "outside"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hello.\"",
+      "text_by_relation": {
+        "close": "She hands you the book, which is a considerable thing, and folds her arms, and waits to see whether you do it properly.",
+        "familiar": "She budges over on the floor without looking up, and carries on reading.",
+        "known": "\"You came back.\" She marks her place. \"I told her you would.\""
+      }
+    },
+    "rota": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What have you been told about the city?",
+          "next": "outside"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everyone is on the rota.\"\n\nShe says this with the absolute conviction of somebody stating that water is wet.\n\n\"You have to be eight. Then you get put on. I do afternoons in here and I do Tuesday on the Netting, and I am not allowed on the roof yet because of the wind.\"\n\nShe considers you.\n\n\"You are not on it. That is all right. You have only just got here.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a cut-down coat with the sleeves rolled nine times",
+      "a shirt of somebody else's",
+      "no shoes"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_kept",
+  "hp": 12,
+  "hp_max": 12,
+  "id": "npc_thorn_nettle",
+  "name": "Nettle",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_kept"
+}

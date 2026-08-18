@@ -66,7 +66,7 @@ import { draw, reach, press } from './telekinesis.js';
 import { registerStrainEffects } from './strain.js';
 import { wireResidue } from './residue.js';
 import { voice } from './prose.js';
-import { registerPsiDoor } from './door.js';
+import { registerPsiDoor, registerTerminusGate } from './door.js';
 import { wireExodusReactions } from './reactions.js';
 import { registerPurifier } from './purifier.js';
 import {
@@ -79,6 +79,7 @@ registerAegisEffects();
 registerAegisSoak();
 wireResidue();
 registerPsiDoor();
+registerTerminusGate();
 registerPurifier();
 wireExodusReactions();
 

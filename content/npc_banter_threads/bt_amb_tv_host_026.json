@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_host_026",
+  "lines": [
+    "\"They cut my segment.\"",
+    "\"For what?\"",
+    "\"Weather.\"",
+    "\"You cannot fight weather. Weather is undefeated.\""
+  ],
+  "personality": "tv_host",
+  "sort_order": 425
+}
+

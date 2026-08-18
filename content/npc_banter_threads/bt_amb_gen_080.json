@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_080",
+  "lines": [
+    "\"You hear the plant?\"",
+    "\"You only hear it when it stops.\"",
+    "\"It has never stopped.\"",
+    "\"That is my point.\""
+  ],
+  "personality": null,
+  "sort_order": 479
+}
+

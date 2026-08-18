@@ -1,0 +1,16 @@
+{
+  "description": "Thick, dark, and faintly gritty at the bottom, out of a pot that has never been allowed to go cold. Somebody has tasted this off the back of their wrist before it reached you.",
+  "flags": {},
+  "id": "item_wb_bone_broth",
+  "name": "bone broth",
+  "tags": {
+    "consumable": true,
+    "description": "A bowl of the Long Fire's big pot. It is very good and nobody will tell you what is in it.",
+    "restore_hp": 6,
+    "restore_hunger": 34,
+    "stackable": true
+  },
+  "type": "food",
+  "value": 8,
+  "weight": 350
+}

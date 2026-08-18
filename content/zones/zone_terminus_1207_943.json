@@ -15,22 +15,22 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, in rows, things are growing that nobody out here has bothered to grow in thirty years.",
-  "exits": {},
+  "description": "Loose broken rock in a long skirt off the high ground, sorted by size the way water sorts things, moving a little underfoot the whole time. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1208_943",
+    "north": "zone_terminus_1207_942",
+    "south": "zone_terminus_1207_944",
+    "west": "zone_terminus_1206_943"
+  },
   "flags": {
-    "building_name": "Glasshouse 2",
-    "building_type": "greenhouse",
-    "entrance": "west",
-    "floors": 2,
-    "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "terrain": "gravel"
   },
   "grid_x": 1207,
   "grid_y": 943,
   "grid_z": 0,
   "id": "zone_terminus_1207_943",
   "map_id": "map_world",
-  "marker": "G2",
-  "name": "Glasshouse 2",
+  "name": "The Standing Flats",
   "parent_zone": null
 }

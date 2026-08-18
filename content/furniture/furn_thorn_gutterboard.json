@@ -1,0 +1,14 @@
+{
+  "description": "The whole town drawn as a run of gutters, in chalk, corrected constantly, with the bad joints ringed and a name beside each ring.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_gutterboard",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the gutter board",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_roofwalk"
+}

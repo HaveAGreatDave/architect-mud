@@ -1,5 +1,6 @@
 import { world, doorOnLink } from './world.js';
 import { allExits } from './exits.js';
+import { OPPOSITE } from './directions.js';
 
 // Minimum intensity for a sound to be heard at a given distance.
 const HEAR_THRESHOLD = 0.5;
@@ -54,7 +55,8 @@ export const noisyZoneCount = () => noisy.size;
 // Doubled so a closed door heavily deadens all crossing noise (weather ambience
 // included) — the room beyond stays at most barely audible, not merely faint.
 const DOOR_MUFFLE_HOPS = 4;
-const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+// (OPPOSITE is imported from ./directions.js — this file used to keep its own
+// byte-identical copy.)
 
 function edgeMuffle(zoneId, dir, neighborId) {
   const door = doorOnLink(zoneId, dir, neighborId);

@@ -1,0 +1,14 @@
+{
+  "description": "Somebody's boots, under the last bed, set square, with a book laid open face-down across them. It is a book about tides. There is no sea within four hundred miles of here.\n\nIt is the single most personal object in a room that sleeps sixty.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_boots_book",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a pair of boots with a book on them",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_dorm"
+}

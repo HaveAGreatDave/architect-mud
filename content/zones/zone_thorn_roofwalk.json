@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "Boots go up the ladder, and along, and stop somewhere above you.",
+    "A bad joint gets ringed on the chalk board and a name written beside it.",
+    "Water moves in a header tank overhead and settles.",
+    "Somebody comes down with an armful of gutter and a very specific opinion about it."
+  ],
+  "ambient_theme": "indoors",
+  "description": "The bottom of the gantry, which is also the tool store, which is also where the roof crew argue. A board on the wall carries the whole town drawn as a run of gutters, in chalk, corrected constantly, with the bad joints ringed.\n\nUp the ladder the walk goes out over the roofs, and from the top of it you can see the whole of the Thornwarren laid out and the wall around it and the red country going on past the wall for as far as there is anything.\n\nSomebody has written, small, on the underside of the top rail where you would only see it lying down: WE BUILT THIS. It is not a boast. It is a note to whoever is up here next.",
+  "exits": {
+    "down": "zone_util_zone_thorn_roofwalk",
+    "south": "zone_scw_1047_975"
+  },
+  "flags": {
+    "building_name": "The Roofwalk",
+    "building_type": "civic",
+    "floor": "metal",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1047_975"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_roofwalk",
+  "map_id": "map_int_thorn_roofwalk",
+  "name": "The Roofwalk",
+  "parent_zone": "zone_scw_1047_975"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Lamps hung in among the salvage at every height, so the room has no shadow anywhere in it and nowhere to stand where you cannot be seen. Nobody built it that way on purpose, and it is that way.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_den",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "lamps in the hangings",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_den"
+}

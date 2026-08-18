@@ -1,0 +1,14 @@
+{
+  "description": "A single hooded lamp over the table, turned low and never turned off. It is the only light burning on this wall after dark and it is deliberately not bright enough to see the road by.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_gatehouse",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "a hooded lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_gatehouse"
+}

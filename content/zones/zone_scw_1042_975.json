@@ -16,13 +16,11 @@
   "ambient_theme": "wasteland",
   "description": "A narrow way between houses, barely two abreast, with washing strung over it and a drain channel cut down the middle of the packed ground. A cat owns the sunny end.",
   "exits": {
-    "east": "zone_scw_1043_975",
     "north": "zone_scw_1042_974",
     "south": "zone_scw_1042_976",
     "west": "zone_scw_1041_975"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

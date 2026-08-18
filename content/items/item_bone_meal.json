@@ -1,0 +1,12 @@
+{
+  "description": "Bone, burnt white and ground fine. It goes in the water beds, it goes in the poultices, and it goes on the Netting. Very little in this town is used for only one thing.",
+  "flags": {},
+  "id": "item_bone_meal",
+  "name": "burnt bone meal",
+  "tags": {
+    "description": "Bone, burnt white and ground fine. It goes in the water beds, it goes in the poultices, and it goes on the Netting. Very little in this town is used for only one thing."
+  },
+  "type": "material",
+  "value": 9,
+  "weight": 300
+}

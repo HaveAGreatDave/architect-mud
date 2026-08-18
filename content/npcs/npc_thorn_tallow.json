@@ -1,0 +1,166 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "You are not booked. It is fine. Look round.",
+    "Nine days notice. Always nine. You need the nine.",
+    "I will tell you everything I am about to do before I do it.",
+    "The chair at the head is not for me.",
+    "Most of them go the ordinary way. Most."
+  ],
+  "description": "Her hands have too many joints in them. Not extra fingers: extra bends, three to a digit where there should be two, so that when she works they do something closer to flowing than to gripping.\n\nShe does the Quickening. She has done four hundred and eleven of them. She is unhurried and she is warm and she explains every single step before she does it, out loud, whether or not the person on the table can still hear her, and that is the most frightening thing about her by a considerable distance.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "chair": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What actually happens?",
+          "next": "how"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the marks on the wall?",
+          "next": "tally"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Whoever they ask for.\"\n\nShe straightens it again.\n\n\"Usually a mother. Sometimes Marrow, if there is nobody. Twice it has been me, which is not ideal, because I have got both hands full.\"\n\nShe looks at the chair for a moment.\n\n\"Nobody in this town does the six hours alone. Not once, not ever, not if we have to take somebody off the roof to sit there.\""
+    },
+    "how": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the marks on the wall?",
+          "next": "tally"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who sits in the chair?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You lie down. I put a line in. It goes in slow, over about six hours, because fast is how you get the bad ones.\"\n\nShe is entirely matter of fact.\n\n\"You will be awake for the first two and you will not want to be. Somebody sits in that chair and holds your hand the whole way and does not let go, and that is not sentiment, it is because people pull the line out.\"\n\nShe straightens the chair, which she does constantly.\n\n\"Then nine days in the back room. Then you find out what you got.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"You are not on the board.\" She checks anyway, with a finger, all the way down. \"No. Right. Come in, then, and do not touch the rack.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What actually happens?",
+          "next": "how"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the marks on the wall?",
+          "next": "tally"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who sits in the chair?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You are not on the board.\"",
+      "text_by_relation": {
+        "close": "She puts the kettle on without being asked, which in this room is a considerable thing.",
+        "familiar": "\"Sit in the chair if you like. The one at the head. It is a good chair.\"",
+        "known": "\"Not on the board.\" She says it almost fondly now."
+      }
+    },
+    "tally": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What actually happens?",
+          "next": "how"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who sits in the chair?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Four hundred and eleven Quickenings. One mark each.\"\n\nShe does not soften it and does not look away from you while she says it.\n\n\"Three hundred and sixty came through the ordinary way. Thirty-eight got something that made their life harder and they are still here and most of them are all right. Nine are in the Kept and will not come out of it.\"\n\nA pause.\n\n\"Four did not survive the nine days.\"\n\nShe goes back to the bench.\n\n\"I could take those four off the wall. Everybody would let me. It is my wall. But then the next one to lie on that table would be told a number that is not true, and I have never yet been able to work out how a person would go on doing this job after that.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a rubber apron over everything, cracked and scrubbed",
+      "sleeves to the shoulder",
+      "clogs"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_fleshery",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_thorn_tallow",
+  "name": "Tallow Skeen",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_fleshery"
+}

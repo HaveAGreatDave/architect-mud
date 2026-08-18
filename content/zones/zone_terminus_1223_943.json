@@ -1,0 +1,18 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "description": "A long glazed vault on a stone knee-wall, ridge lights propped open, the panes every colour glass goes when it has been salvaged one at a time over thirty years.",
+  "exits": {},
+  "flags": {
+    "building_type": "greenhouse",
+    "exodus_space": true,
+    "region_id": "region_terminus"
+  },
+  "grid_x": 1223,
+  "grid_y": 943,
+  "grid_z": 0,
+  "id": "zone_terminus_1223_943",
+  "map_id": "map_world",
+  "name": "Glasshouse",
+  "parent_zone": null
+}

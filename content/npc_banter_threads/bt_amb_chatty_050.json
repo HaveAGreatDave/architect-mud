@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_chatty_050",
+  "lines": [
+    "\"I am not gossiping.\"",
+    "\"You are gossiping.\"",
+    "\"I am providing context.\"",
+    "\"Provide it quieter, then.\""
+  ],
+  "personality": "chatty",
+  "sort_order": 449
+}
+

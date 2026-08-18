@@ -134,7 +134,12 @@ export function lintQueries() {
   const files = ROOTS.flatMap(r => walk(r));
   for (const f of files) {
     const rel = f.replace(/\\/g, '/');
-    const lines = readFileSync(f, 'utf8').split('\n');
+    // Split on CRLF-or-LF, never bare '\n'. A trailing '\r' survives that split
+    // and `.` in code()'s `//.*$` does NOT match a carriage return — so on this
+    // repo's CRLF files every comment line reached the rules unstripped, and a
+    // comment EXPLAINING a removed query ("this was a `SELECT * FROM npcs`")
+    // failed the gate. That took the whole pretest:regress chain down with it.
+    const lines = readFileSync(f, 'utf8').split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
       const src = code(lines[i]);
       if (!src.trim()) continue;

@@ -94,13 +94,18 @@ export async function trailerOnTruck(truckId) {
   return shape(rows[0]);
 }
 
-export async function buyTrailer(playerId, typeId, zoneId) {
+// BUY. `pose` is optional and is the dealer standing its stock somewhere you can SEE it — the same
+// {x, y, heading} an unhitch writes, so a bought trailer and a dropped one are the same object from
+// the moment money changes hands. Without one the row is unposed, which is still a legal trailer
+// (see `posed`): it is listed rather than drawn, and it couples from anywhere in the depot.
+export async function buyTrailer(playerId, typeId, zoneId, pose = null) {
   const t = trailerType(typeId);
   if (!t) return null;
   const id = `trl_${randomUUID().slice(0, 12)}`;
   await query(
-    'INSERT INTO trailers (id, name, owner_id, kg, rated_kg, parked_zone) VALUES ($1,$2,$3,$4,$5,$6)',
-    [id, t.name, playerId, t.kg, t.rated, zoneId]
+    `INSERT INTO trailers (id, name, owner_id, kg, rated_kg, parked_zone, park_x, park_y, park_heading)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    [id, t.name, playerId, t.kg, t.rated, zoneId, pose?.x ?? null, pose?.y ?? null, pose?.heading ?? null]
   );
   return getTrailer(id);
 }
@@ -164,19 +169,30 @@ export function forgetStanding(zoneId) { standing.delete(zoneId); }
 // The drawable set: standing boxes near a point, in the contact shape the cab already renders
 // aircraft and other rigs in — so a trailer in the yard costs the client no new channel and no new
 // code path. `~s` is the solo mesh: the same box you tow, with the tractor thrown away.
-export function trailersNear(zoneId, x, y, range = 26) {
+//
+// ⚠ IT TAKES A SET OF ZONES, NOT ONE. A depot is three tiles and a truck mounts on the DOOR one, so
+// a box standing on the hardstand a few feet away is in a different zone from the driver looking at
+// it — and with a single zone id it did not exist until the wheels crossed the boundary, then
+// appeared out of nothing. The caller passes where you are AND the yard you belong to; the range
+// test does the rest, so this is not a widening of what is drawn, only of where it is looked for.
+export function trailersNear(zoneIds, x, y, range = 26) {
   const out = [];
-  for (const t of standingIn(zoneId)) {
-    if (!posed(t)) continue;                       // no pose, nothing to draw — the yard lists it instead
-    if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > range) continue;
-    out.push({
-      id: `trailer_${t.id}`, cls: 'truck', variant: `${meshShapeFor(t)}+t~s`,
-      x: t.x, y: t.y, hdg: t.heading ?? 0,
-      ias: 0, alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
-      bank: 0, pitch: 0, vs: 0, hullPct: Math.round((t.condition ?? 1) * 100),
-      power: 0, lights: false,                     // nothing is running: no underglow, no lamps
-      reg: t.name, trailerId: t.id,
-    });
+  const seen = new Set();
+  for (const zoneId of (Array.isArray(zoneIds) ? zoneIds : [zoneIds])) {
+    if (!zoneId || seen.has(zoneId)) continue;
+    seen.add(zoneId);
+    for (const t of standingIn(zoneId)) {
+      if (!posed(t)) continue;                     // no pose, nothing to draw — the yard lists it instead
+      if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > range) continue;
+      out.push({
+        id: `trailer_${t.id}`, cls: 'truck', variant: `${meshShapeFor(t)}+t~s`,
+        x: t.x, y: t.y, hdg: t.heading ?? 0,
+        ias: 0, alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
+        bank: 0, pitch: 0, vs: 0, hullPct: Math.round((t.condition ?? 1) * 100),
+        power: 0, lights: false,                   // nothing is running: no underglow, no lamps
+        reg: t.name, trailerId: t.id,
+      });
+    }
   }
   return out;
 }
@@ -235,6 +251,37 @@ export function hitchReach(rig, t) {
   if (across > HITCH_ACROSS) return { ok: false, why: 'across', across, d };
   if (along > HITCH_ALONG || along < -HITCH_BEHIND) return { ok: false, why: 'far', d, along };
   return { ok: true, why: null, d, off, along, across };
+}
+
+// ── WHERE A DEALER STANDS ITS STOCK ──────────────────────────────────────────
+// A bought trailer used to be given no pose at all, which made it the one box in the game you could
+// not see: `trailersNear` draws only posed rows, and it was parked in the SHED, which is a building
+// interior with no coordinates to draw it at. So the knob in the cab lit, named the thing, and
+// there was nothing on the hardstand to back under.
+//
+// Stock now stands outside on the apron at a real pose, nose out to the road, and from that moment
+// it is an ordinary dropped trailer — drawn, driven around, and hitchable only when the fifth wheel
+// is genuinely under the pin.
+//
+// ⚠ THE POSE MUST STAY INSIDE THE APRON TILE, which is what the clamp is for. `hitch` only searches
+// the depot's own three zones, so a box stood a tile up the street is drawn, driven up to, lined up
+// on — and then refused, because the ROW is in the yard and the driver is not. A longer row of
+// boxes would have to move the search, not the geometry.
+const STOCK_ACROSS = 0.30;   // off the door lane, so pulling out does not drive through the stock
+const STOCK_BACK = 0.22;     // …and each further box steps back down the fence
+const STOCK_LIMIT = 0.45;    // …but never off the tile it is parked in
+export function stockPose(x, y, heading, n = 0) {
+  const h = (heading || 0) * Math.PI / 180;
+  const fx = Math.sin(h), fy = -Math.cos(h);           // out toward the road, the way the nose points
+  const rx = Math.cos(h), ry = Math.sin(h);            // the trailer's own right
+  const across = (n % 2 ? -1 : 1) * STOCK_ACROSS;      // alternating sides of the lane out
+  const back = -STOCK_BACK * Math.floor(n / 2);        // then back toward the shed, a row at a time
+  const clamp = (v) => Math.max(-STOCK_LIMIT, Math.min(STOCK_LIMIT, v));
+  return {
+    x: x + clamp(rx * across + fx * back),
+    y: y + clamp(ry * across + fy * back),
+    heading: ((heading || 0) % 360 + 360) % 360,
+  };
 }
 
 // The load, written back as one statement. `cargo` is the DECLARED load and `stash` is what is not

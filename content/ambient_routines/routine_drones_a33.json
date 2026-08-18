@@ -1,0 +1,20 @@
+{
+  "category": "drones",
+  "enabled": true,
+  "id": "routine_drones_a33",
+  "interactive": null,
+  "lines": [
+    "Something small and lit goes over in a dead straight line, at a height nothing is supposed to fly at.",
+    "It does not deviate. It is not delivering anything."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "night"
+  ],
+  "sort_order": 132,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

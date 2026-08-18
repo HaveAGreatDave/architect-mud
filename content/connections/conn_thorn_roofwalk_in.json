@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1047_975",
+  "b": "zone_thorn_roofwalk",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_thorn_roofwalk_in",
+  "lockable": true,
+  "one_way": false
+}

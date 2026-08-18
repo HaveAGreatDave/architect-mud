@@ -22,10 +22,13 @@ import { world } from '../../server/engine/world.js';
 import { registerEquipGate } from '../../server/engine/equip-gates.js';
 import { organCommands } from './organs.js';
 import './reactions.js';                      // the social ladder, wired on zone.entered
+import { registerThornGate } from './door.js';
 import './onset.js';                          // what it costs your body to change, on mutation.gained
 import { on } from '../../server/engine/events.js';
 import { applyCloneInheritance, undiagnosedMutations } from '../../server/engine/mutations.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
+
+registerThornGate();
 
 // Coming out of the vats. The policy itself is the substrate's (survivesCloning);
 // what belongs here is the sentence you read when something did not come back

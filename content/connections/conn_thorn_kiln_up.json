@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_kiln",
+  "b": "zone_thorn_kiln",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_kiln_up",
+  "lockable": false,
+  "one_way": true
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Windows down the whole south wall, unusually large for this place, and a lamp on a high shelf for the winter afternoons.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_creche",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the tall windows",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_creche"
+}

@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 18,
+  "base_output": {
+    "item_id": "item_wb_spurblade",
+    "quantity": 1
+  },
+  "category": "weapons",
+  "description": "Leaf spring, folded and ground and folded again, with a hook where the pommel should be. Ferrous Bight will show anybody how, once.",
+  "id": "recipe_wb_spurblade",
+  "ingredients": [
+    {
+      "item_id": "item_scrap_metal",
+      "quantity": 4
+    },
+    {
+      "item_id": "item_wb_bone_plate",
+      "quantity": 1
+    }
+  ],
+  "name": "Grind a Spurblade",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 3
+  }
+}

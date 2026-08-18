@@ -1,0 +1,14 @@
+{
+  "description": "A basin four feet across, cut from one piece of stone and sunk flush into the floor, filled to the brim with water and not a hair over. The surface is completely flat.\n\nWhile you are looking at it, a ring goes out from the middle of it, reaches the stone, and comes back. Nothing dropped. Nothing moved. The air in the room has not stirred at all.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_stillwell",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stillwell",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_stillwell"
+}

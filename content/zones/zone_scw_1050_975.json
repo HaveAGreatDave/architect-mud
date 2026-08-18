@@ -16,13 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "Workshops open to the lane: a wheelwright, a stitcher, somebody rebuilding a pump on a trestle with the parts laid out on a cloth in the order they came off.",
   "exits": {
-    "east": "zone_scw_1051_975",
     "north": "zone_scw_1050_974",
-    "south": "zone_scw_1050_976",
-    "west": "zone_scw_1049_975"
+    "south": "zone_scw_1050_976"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

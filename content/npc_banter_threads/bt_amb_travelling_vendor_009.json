@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_travelling_vendor_009",
+  "lines": [
+    "\"Everywhere starts to look the same after a while.\"",
+    "\"Only from a doorway. Get inside and they are all different.\"",
+    "\"When did you last get inside anywhere?\"",
+    "\"Fair.\""
+  ],
+  "personality": "travelling_vendor",
+  "sort_order": 408
+}
+

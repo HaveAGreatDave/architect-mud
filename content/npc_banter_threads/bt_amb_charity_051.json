@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_charity_051",
+  "lines": [
+    "\"Ran out of blankets by noon.\"",
+    "\"Coats by one, was it?\"",
+    "\"Coats by one.\"",
+    "\"It gets earlier every week.\"",
+    "\"It does.\""
+  ],
+  "personality": "charity",
+  "sort_order": 450
+}
+

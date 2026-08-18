@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a23",
+  "interactive": null,
+  "lines": [
+    "Sleet comes off a roofline in a sheet and lands all at once, on nobody, loudly."
+  ],
+  "loudness": 0.4,
+  "phases": [],
+  "sort_order": 122,
+  "themes": [],
+  "weather": [
+    "sleet"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

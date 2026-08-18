@@ -1,0 +1,17 @@
+{
+  "category": "drones",
+  "enabled": true,
+  "id": "routine_drones_a32",
+  "interactive": null,
+  "lines": [
+    "A delivery drone comes over low, corrects hard, and carries on with one rotor sounding worse than the others."
+  ],
+  "loudness": 0.6,
+  "phases": [],
+  "sort_order": 131,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

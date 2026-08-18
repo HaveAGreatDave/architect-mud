@@ -1,0 +1,154 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sit on the bed, not the table.",
+    "Show me. Do not tell me, show me.",
+    "It will scar. Everything scars. Scars are fine.",
+    "I have got one of everything and two of nothing.",
+    "If it is the teeth, I am sorry in advance."
+  ],
+  "description": "A tall woman with her sleeves cut off at the elbow, writing in a book with the stub of a pencil. Every surface in the room has been scrubbed within an hour. She finishes the sentence before she looks up, and looks up at the part of you that is wrong before she looks at your face.",
+  "dialogue_tree": {
+    "alone": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You could fix a lot of that with better gear.",
+          "next": "chrome"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"For everything, yes.\"\n\nShe closes the book.\n\n\"Two hundred and eleven people. Babies, backs, burns, teeth, the ones that are going to die and the ones that only think they are. There is a girl of nineteen who is learning it and she is quick and she is four years off, and I am fifty-eight.\"\n\n\"That is the only sum in this place that frightens anybody. Nobody talks about it. I am telling you because you are not from here, so it costs me nothing.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "chrome": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Is it just you?",
+          "next": "alone"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you for slightly too long.\n\n\"I could.\" A beat. \"Do not say that at the table.\"\n\nAnd she opens the book again, and writes the sentence she was going to write, and does not say another word about it."
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Are you bleeding?\" It is the first thing she says and it is not rhetorical. \"No. Right. Then sit down and do not touch anything.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Is it just you?",
+          "next": "alone"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You could fix a lot of that with better gear.",
+          "next": "chrome"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Are you bleeding?\"",
+      "text_by_relation": {
+        "close": "\"Ah.\" She puts the pencil down, which for her is dropping everything.",
+        "familiar": "\"Sit down. How is the thing.\" She does not say which thing and does not need to.",
+        "known": "\"You. Still upright.\" She goes back to the book."
+      }
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a linen coat, boiled grey",
+      "a shirt with the cuffs cut off",
+      "plain shoes"
+    ],
+    "personality": "doctor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_mending",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_physician",
+  "name": "Mercy Vantry",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_rag_bandage",
+      "min_trust": 0,
+      "price": 6
+    },
+    {
+      "item_id": "item_bandage",
+      "min_trust": 0,
+      "price": 14
+    },
+    {
+      "item_id": "item_field_splint",
+      "min_trust": 0,
+      "price": 30
+    },
+    {
+      "item_id": "item_medkit",
+      "min_trust": 0,
+      "price": 70
+    },
+    {
+      "item_id": "item_herb_bundle",
+      "min_trust": 0,
+      "price": 12
+    },
+    {
+      "item_id": "item_soap_block",
+      "min_trust": 0,
+      "price": 4
+    },
+    {
+      "item_id": "item_towel_rough",
+      "min_trust": 0,
+      "price": 10
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Mending Room",
+  "vendor_stock_size": 7,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_mending"
+}

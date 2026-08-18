@@ -1,0 +1,14 @@
+{
+  "description": "Two beds with a folding screen between them, both made up, both empty. Pinned inside the door where the patient can see it and the physician cannot, a child's drawing of a shape with a great many straight lines going up out of it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_sickbed",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "two beds and a screen",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_mending"
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_doctor_064",
+  "lines": [
+    "\"They come in wanting a miracle.\"",
+    "\"And you have got gauze.\"",
+    "\"I have got gauze.\"",
+    "\"Gauze has done more for this city than any miracle.\""
+  ],
+  "personality": "doctor",
+  "sort_order": 463
+}
+

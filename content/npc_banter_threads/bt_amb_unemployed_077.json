@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_unemployed_077",
+  "lines": [
+    "\"Anything going?\"",
+    "\"Nothing going.\"",
+    "\"Nothing going most days.\"",
+    "\"One of these days something will turn up.\"",
+    "\"You have been saying that since the spring.\""
+  ],
+  "personality": "unemployed",
+  "sort_order": 476
+}
+

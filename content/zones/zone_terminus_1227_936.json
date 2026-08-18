@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A file goes over metal eleven times and then the work is turned.",
+    "The forge gets one pump of the bellows and settles back down.",
+    "A tool goes back on the board, into its own outline, without anybody looking at the board."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "An open-fronted workshop with the tools hung on a board, each on its own painted outline, and not one outline empty. Whatever is being made in there is being made by hand and is being made slowly.",
+  "exits": {
+    "east": "zone_terminus_1228_936",
+    "west": "zone_exo_bench"
+  },
+  "flags": {
+    "building_name": "The Bench",
+    "building_type": "fabrication",
+    "entrance": "east",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1228_936"
+  },
+  "grid_x": 1227,
+  "grid_y": 936,
+  "grid_z": 0,
+  "id": "zone_terminus_1227_936",
+  "map_id": "map_world",
+  "marker": "BE",
+  "name": "The Bench",
+  "parent_zone": null
+}

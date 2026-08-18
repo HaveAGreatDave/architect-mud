@@ -1,0 +1,14 @@
+{
+  "description": "Not a bill. A list of what the town owes each person: roof hours, gate hours, water hauled, nights sat up. The people in the Kept are at the top because they cannot do anything, and they stay at the top, and nobody has ever proposed otherwise.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_owing",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the owing board",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_longfire"
+}

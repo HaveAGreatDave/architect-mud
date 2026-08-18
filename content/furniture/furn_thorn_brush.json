@@ -1,0 +1,14 @@
+{
+  "description": "A scrubbing brush with a handle on both ends, which makes no sense until you see it used. It is for the ones who cannot reach their own backs any more, and somebody always does it, and nobody is ever asked twice.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_brush",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the big brush",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_bath"
+}

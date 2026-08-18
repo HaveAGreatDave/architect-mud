@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "You can come in. She will not mind.",
+    "Two dates. That is the whole of what we put.",
+    "The candle is lit while there is somebody on the stone.",
+    "It is cold in here on purpose.",
+    "Everybody helps carry. Everybody."
+  ],
+  "description": "A woman folding linen beside a stone bier, doing it slowly, along creases that were made a long time ago. There is a candle lit on the lectern. There is a name on the bier.\n\nShe does not stop when you come in and she does not mind that you have.",
+  "dialogue_tree": {
+    "book": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every marker is the same.",
+          "next": "markers"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"To the first one we had paper for.\"\n\nShe turns the lectern book back, and back, to a first page in a small square hand, and turns it forward again to the last three entries, and they are in the same hand, and she closes the book without appearing to have seen anything worth mentioning.\n\n\"There are people before that. They are out in the plot with the rest. We just did not have the paper.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "markers": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How far back does the book go?",
+          "next": "book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Yes.\"\n\nShe shakes out the sheet.\n\n\"A name and two dates. There was an argument about it once, a long time before me, and whoever won it won it properly, because nobody has raised it since.\"\n\nShe folds.\n\n\"You want to know which one is important. That is the argument, that is exactly the argument, and that is why they are all the same size.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Come in.\" She does not look up from the linen. \"There is somebody here today, so mind your voice, that is all.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every marker is the same.",
+          "next": "markers"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How far back does the book go?",
+          "next": "book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Come in.\"",
+      "text_by_relation": {
+        "close": "\"Sit with me a minute,\" she says, and you do, and that is the whole of it.",
+        "familiar": "She hands you the other end of the sheet, and you fold it together, and neither of you says anything.",
+        "known": "\"You.\" She nods at the bier. \"Nobody today.\""
+      }
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a dark coat, not black, just old",
+      "a shirt buttoned to the throat",
+      "boots"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_quiet",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_burial",
+  "name": "Remember Sett",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_quiet"
+}

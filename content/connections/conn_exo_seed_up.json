@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_seed",
+  "b": "zone_exo_seed",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_seed_up",
+  "lockable": false,
+  "one_way": true
+}

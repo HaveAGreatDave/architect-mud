@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_clerk_018",
+  "lines": [
+    "\"Do you ever think nobody reads any of it?\"",
+    "\"Constantly.\"",
+    "\"And?\"",
+    "\"And I file it correctly anyway. Somebody might.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 417
+}
+

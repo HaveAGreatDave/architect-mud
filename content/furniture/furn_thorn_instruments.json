@@ -1,0 +1,14 @@
+{
+  "description": "Laid out in order on folded cloth, and every one of them made across the yard at the Foundry. Two are shapes you have never seen in a clinic and are obviously for a joint that does not exist in most people.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_instruments",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the instrument case",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_physic"
+}

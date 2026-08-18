@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_official_015",
+  "lines": [
+    "\"There is a form for this.\"",
+    "\"There is a form for everything.\"",
+    "\"That is what separates us from the wasteland.\"",
+    "\"That, and the wasteland gets things done.\""
+  ],
+  "personality": "official",
+  "sort_order": 414
+}
+

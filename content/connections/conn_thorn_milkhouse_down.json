@@ -1,0 +1,9 @@
+{
+  "a": "zone_thorn_milkhouse",
+  "b": "zone_util_zone_thorn_milkhouse",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_thorn_milkhouse_down",
+  "lockable": false,
+  "one_way": true
+}

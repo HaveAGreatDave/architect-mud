@@ -1,0 +1,14 @@
+{
+  "description": "Forty feet of graded trench with six pots down it at six heights, so everything on it is cooking at its own speed. The big pot at the near end has not been allowed to go cold in nineteen years and everybody knows exactly how long it has been.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_trench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the fire trench",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_longfire"
+}

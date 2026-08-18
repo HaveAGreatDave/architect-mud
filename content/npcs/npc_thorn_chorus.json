@@ -455,7 +455,7 @@
     "personality": "cult_member"
   },
   "home_activities": [],
-  "home_zone": "zone_scw_1046_977",
+  "home_zone": "zone_thorn_den",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_thorn_chorus",
@@ -470,5 +470,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_scw_1046_977"
+  "work_zone_id": "zone_thorn_den"
 }

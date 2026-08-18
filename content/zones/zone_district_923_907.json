@@ -3,8 +3,9 @@
   "ambient_theme": "urban",
   "bg_color": "#37322a",
   "color": "#cdb489",
-  "description": "An open forecourt off the freight road: no walls anywhere, just a low steel canopy on four fat columns keeping the weather off two pump islands. Painted lanes tell you where to put a rig. Out by the kerb a price pylon totals the day's damage in sodium orange, and the numbers move often enough that people slow down to read them. The avgas smell gets into your teeth and stays there.",
+  "description": "An open forecourt off the freight road: no walls anywhere, just a low steel canopy on four fat columns keeping the weather off two pump islands. Painted lanes tell you where to put a rig. A lit glass kiosk sits on the back edge of the lot with FLASH POINT CONVENIENCE over the door, and out by the kerb a price pylon totals the day's damage in sodium orange, and the numbers move often enough that people slow down to read them. The avgas smell gets into your teeth and stays there.",
   "exits": {
+    "east": "zone_flashpoint_shop",
     "north": "zone_yard_fuelyard",
     "south": "zone_district_923_908"
   },
@@ -27,4 +28,3 @@
   "name": "Flash Point Fuel",
   "parent_zone": null
 }
-

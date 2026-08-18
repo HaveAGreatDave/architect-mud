@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sit down, you are looming.",
+    "Nine on the list. It covers the week.",
+    "It goes wrong here more than it should. We know the number.",
+    "You get used to the name of the room. Everyone does.",
+    "Shhh. Not you. Them."
+  ],
+  "description": "They are sitting in the rocking chair with a bundle and are entirely unhurried about everything.\n\nTheir ears are wrong: too large, set too low, and mobile, and they track. Halfway through your sentence one of them turns toward the far end of the room, and eleven seconds later a child at that end starts to cry, and Cobble is already getting up.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the numbers by the door?",
+          "next": "numbers"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "They look at you with genuine incomprehension for a second, and then get it, and laugh, and the laugh is not unkind.\n\n\"Oh. Yes. You would hear it like that.\"\n\nThey settle back.\n\n\"It is what it is called. It has been called that since before me. Nobody in this town has ever heard anything in it except a warm room with a stove going.\"\n\nAnd that is all they have to say about that, and they go back to the bundle."
+    },
+    "numbers": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The room has an unfortunate name.",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"How many we lose.\"\n\nThey say it without any weight on it at all.\n\n\"It is higher here than in the city. Considerably. The bodies are all different shapes and half of them do not know what they are trying to be yet, and some of them do not manage it.\"\n\nA pause. They shift the bundle.\n\n\"We write it up because pretending would be worse. And then somebody wrote the other list under it, which is the ones who came through, and it is four times as long, and I am glad they did that and I would not have thought of it.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Sit down, you are looming.\" They do not look up. \"There. Now you are a chair and nobody minds you.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the numbers by the door?",
+          "next": "numbers"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "The room has an unfortunate name.",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down, you are looming.\"",
+      "text_by_relation": {
+        "close": "They are asleep in the chair and wake as you come through the door, before the door makes any sound.",
+        "familiar": "\"Take her a minute,\" and it is not a question, and you do.",
+        "known": "\"You. Sit.\" A bundle is very nearly handed to you."
+      }
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a shapeless cardigan with everything in the pockets",
+      "a shirt buttoned wrong",
+      "slippers"
+    ],
+    "personality": "charity"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_whelp",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_thorn_cobble",
+  "name": "Cobble Enns",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_whelp"
+}

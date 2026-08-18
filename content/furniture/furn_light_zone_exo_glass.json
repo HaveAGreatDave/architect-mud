@@ -1,0 +1,14 @@
+{
+  "description": "The glass does it in the day. At night there is a single bulb at the far end on a long flex, and it is on a timer somebody made out of a clock.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_glass",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the ridge lights",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_glass"
+}

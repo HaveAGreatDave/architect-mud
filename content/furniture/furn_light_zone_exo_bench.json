@@ -1,0 +1,14 @@
+{
+  "description": "One strip light over each bench, and nothing anywhere else, because a workshop lit evenly is a workshop where nobody can see what they are doing.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_bench",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "a strip over each bench",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_bench"
+}

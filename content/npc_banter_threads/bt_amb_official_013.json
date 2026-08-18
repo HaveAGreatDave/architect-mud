@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_official_013",
+  "lines": [
+    "\"Did the requisition go through?\"",
+    "\"It went somewhere.\"",
+    "\"Somewhere is not through.\"",
+    "\"Somewhere is where things live now. Get used to somewhere.\""
+  ],
+  "personality": "official",
+  "sort_order": 412
+}
+

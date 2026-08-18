@@ -1,0 +1,18 @@
+{
+  "description": "Hide scorched to the consistency of board, with a bib high enough to take a splash and a hem long enough to take a drop. Every burn on it is somebody else's.",
+  "flags": {},
+  "id": "item_wb_hide_apron",
+  "name": "foundry apron",
+  "tags": {
+    "armor_soak": {
+      "fire": 3,
+      "kinetic": 1
+    },
+    "description": "A hide apron burned stiff, patched at the bib with a square of tin.",
+    "layer": "outerwear",
+    "slot": "torso"
+  },
+  "type": "clothing",
+  "value": 90,
+  "weight": 1600
+}

@@ -1,0 +1,21 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a09",
+  "interactive": null,
+  "lines": [
+    "A gull the size of a dog lands on a bin, takes stock, and starts working on the lid.",
+    "It gets the lid off. Nobody intervenes, on the grounds that it would clearly win."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "dawn",
+    "night"
+  ],
+  "sort_order": 108,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_bench",
+  "b": "zone_util_zone_exo_bench",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_exo_bench_down",
+  "lockable": false,
+  "one_way": true
+}

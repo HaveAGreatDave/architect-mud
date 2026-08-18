@@ -1,0 +1,19 @@
+{
+  "description": "A laminate counter with the till bolted through the top of it, and a rubber mat by the till worn white where a great many hands have put a great many notes down. A receipt roll hangs off the side with a tally on the back of it in pencil: four strokes and a line through, over and over, for pages.",
+  "flags": {
+    "aliases": "counter, till, desk",
+    "interactions": [
+      "lean"
+    ]
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_counter",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "shop counter",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

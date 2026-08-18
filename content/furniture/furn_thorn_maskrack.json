@@ -1,0 +1,14 @@
+{
+  "description": "Eleven masks. Bone, plate, horn, a jaw wired open, one with too many sockets and nothing behind them.\n\nEvery one of them is lined. Quilted rag, stitched down flat at every edge so it does not chafe on a long shift, and two have been re-lined this season in a different cloth. There is a needle stuck in the cloth of the second one, still threaded.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_maskrack",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the mask rack",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_gatehouse"
+}

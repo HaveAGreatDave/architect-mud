@@ -1,0 +1,14 @@
+{
+  "description": "Six cells off the hall, each with a bed made up, a stool, a shelf and a jug. One of them has been made up fresh this week and the dust on the shelf says it has been three years since anybody slept in it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_guestbeds",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "six made beds",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_opendoor"
+}

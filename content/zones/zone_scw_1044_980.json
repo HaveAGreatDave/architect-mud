@@ -16,13 +16,11 @@
   "ambient_theme": "wasteland",
   "description": "Water butts and a hand pump, and a rota nailed to the post beside it with everybody's name on it and a great many ticks.",
   "exits": {
-    "east": "zone_scw_1045_980",
     "north": "zone_scw_1044_979",
     "south": "zone_scw_1044_981",
     "west": "zone_scw_1043_980"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

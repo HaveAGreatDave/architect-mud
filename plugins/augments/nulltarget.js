@@ -35,7 +35,7 @@ import { getZonePlayers } from '../../server/engine/world.js';
 // augmentKey / VITAL / nullAugmentDown live in state.js, NOT here, so the
 // dependency runs one way: state.js never imports this file. They belong beside
 // getAugments anyway — that is the funnel that reads them.
-import { rosterOf, catalogSync, VITAL } from './state.js';
+import { rosterOf, catalogSync, VITAL, augmentKey } from './state.js';
 
 // Attack surfaces by slot. A neural implant has no actuator and an arm has no
 // memory worth reading — keeping that honest is what makes `analyze` worth typing

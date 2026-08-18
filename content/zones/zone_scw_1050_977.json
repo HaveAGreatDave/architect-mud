@@ -16,13 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "A bank of catchment tanks on stone footings, lidded and numbered, with the run of guttering coming off six roofs into the top of them.",
   "exits": {
-    "east": "zone_scw_1051_977",
     "north": "zone_scw_1050_976",
-    "south": "zone_scw_1050_978",
-    "west": "zone_scw_1049_977"
+    "south": "zone_scw_1050_978"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

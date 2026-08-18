@@ -15,7 +15,7 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Grey-green thorn, waist high, following a line of damp that is not visible any other way. It is the only thing out here that is any colour at all.",
   "exits": {
     "east": "zone_terminus_1201_939",
     "north": "zone_terminus_1200_938",
@@ -23,7 +23,7 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "redrock"
+    "terrain": "scrub"
   },
   "grid_x": 1200,
   "grid_y": 939,

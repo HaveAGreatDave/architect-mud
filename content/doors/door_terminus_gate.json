@@ -1,0 +1,27 @@
+{
+  "connection_id": "conn_terminus_gate",
+  "door_type": "reinforced",
+  "exit_dir": "east",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 4000,
+  "hp_max": 4000,
+  "id": "door_terminus_gate",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the gate",
+  "tags": {
+    "lock:terminusgate": {
+      "canHack": false,
+      "messages": {
+        "denied": "The gate does not open.",
+        "lock": "The leaves come together without a sound and stand as though they had never been apart.",
+        "unlock": "The gate opens. Nobody touches it."
+      }
+    },
+    "unbreakable": true
+  },
+  "target_zone": "zone_terminus_1211_940",
+  "zone_id": "zone_terminus_1210_940"
+}

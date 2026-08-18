@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_thorn_sweetwater",
+  "id": "zone_thorn_sweetwater",
+  "max_capacity_kw": 1000,
+  "name": "The Sweetwater",
+  "source_type": "junction_box"
+}

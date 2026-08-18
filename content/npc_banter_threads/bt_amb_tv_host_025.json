@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_tv_host_025",
+  "lines": [
+    "\"How was I?\"",
+    "\"You were good.\"",
+    "\"How good?\"",
+    "\"You were good, and if I say a number you will chase the number.\""
+  ],
+  "personality": "tv_host",
+  "sort_order": 424
+}
+

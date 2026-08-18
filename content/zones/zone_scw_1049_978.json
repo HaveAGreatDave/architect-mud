@@ -17,12 +17,10 @@
   "description": "Grey water, soap, and the smell of wet stone. Two people are unblocking a channel with a rod and are enjoying it far more than the job warrants.",
   "exits": {
     "east": "zone_scw_1050_978",
-    "north": "zone_scw_1049_977",
     "south": "zone_scw_1049_979",
     "west": "zone_scw_1048_978"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

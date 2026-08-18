@@ -131,7 +131,7 @@
     "personality": "labourer"
   },
   "home_activities": [],
-  "home_zone": "zone_scw_1045_977",
+  "home_zone": "zone_thorn_gatehouse",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_thorn_ossa",
@@ -164,5 +164,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_scw_1046_968"
+  "work_zone_id": "zone_thorn_gatehouse"
 }

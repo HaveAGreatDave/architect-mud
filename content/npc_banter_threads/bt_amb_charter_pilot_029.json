@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_charter_pilot_029",
+  "lines": [
+    "\"You look at the sky when you are indoors.\"",
+    "\"So do you.\"",
+    "\"I know. I hate that we both do it.\"",
+    "\"It has told me nothing useful in eleven years.\""
+  ],
+  "personality": "charter_pilot",
+  "sort_order": 428
+}
+

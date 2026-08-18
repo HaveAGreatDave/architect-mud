@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_charter_pilot_028",
+  "lines": [
+    "\"Fuel price?\"",
+    "\"Do not.\"",
+    "\"That bad?\"",
+    "\"I flew a full load out and came back owing money on the trip.\""
+  ],
+  "personality": "charter_pilot",
+  "sort_order": 427
+}
+

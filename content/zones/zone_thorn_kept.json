@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Somebody is turned, by two people, without being woken.",
+    "A page is turned and the reading goes on.",
+    "A hand is squeezed twice, which means yes.",
+    "The rota on the door is initialled and the next name comes on.",
+    "The plant on the sill has been watered. It is the only cared-for green thing in the building and it is doing well."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Ten beds, wide ones, and the frames are all different because all ten were made to fit the person in them.\n\nThis is where the town keeps the ones it went too far with. A man whose ribcage kept going and cannot now sit up, being read to. A woman with no face left to speak of who is having her hands held and is answering by squeezing. Somebody under a sheet who is a shape a person is not, and is warm, and is turned every two hours by a rota with fourteen names on it.\n\nNone of it is hidden and none of it is displayed. The shutters are open. There is a plant on the sill.\n\nOn the wall, the only sentence written anywhere in the Thornwarren that could be called a creed, and it is not about evolution: NOBODY IS CARRIED OUT ALONE.",
+  "exits": {
+    "down": "zone_util_zone_thorn_kept",
+    "south": "zone_scw_1051_975"
+  },
+  "flags": {
+    "building_name": "The Kept",
+    "building_type": "clinic",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1051_975"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_kept",
+  "map_id": "map_int_thorn_kept",
+  "name": "The Kept",
+  "parent_zone": "zone_scw_1051_975"
+}

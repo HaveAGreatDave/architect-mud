@@ -16,13 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "The reason the town is here, and the best-made thing for sixty miles. Rain comes off every roof in the Thornwarren down channelled gutters into a stepped run of settling tanks, through three beds of crushed limestone and burnt bone, and comes out the far end into a covered cistern sweet enough to drink. The stonework is old and the ironwork is not, and both are immaculate. A test bench by the outflow holds a rack of little glass tubes and a chart, and the chart has been filled in twice a day, in different hands, for a very long time. There is a second inlet at the top of the run, wider, plated, built to take a barrel tipped straight into it, and the board above it reads SLAKE WATER: BOTH BEDS, TWICE. In a dry month the whole town drinks the lake, and it drinks it through this.",
   "exits": {
-    "east": "zone_scw_1047_975",
     "north": "zone_scw_1046_974",
-    "south": "zone_scw_1046_976",
-    "west": "zone_scw_1045_975"
+    "south": "zone_scw_1046_976"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
@@ -33,6 +30,6 @@
   "grid_z": 0,
   "id": "zone_scw_1046_975",
   "map_id": "map_world",
-  "name": "The Sweetwater",
+  "name": "The Tank Steps",
   "parent_zone": null
 }

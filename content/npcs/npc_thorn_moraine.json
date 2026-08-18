@@ -185,7 +185,7 @@
     "personality": "scientist"
   },
   "home_activities": [],
-  "home_zone": "zone_scw_1046_975",
+  "home_zone": "zone_thorn_sweetwater",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_thorn_moraine",
@@ -200,5 +200,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_scw_1046_975"
+  "work_zone_id": "zone_thorn_sweetwater"
 }

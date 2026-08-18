@@ -1,0 +1,166 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Quietly, if you would.",
+    "Bed four is having a bad day. Do not take it personally.",
+    "Two hours, turn. Two hours, turn. It is not complicated.",
+    "You can talk to them. All of them. Some of them answer.",
+    "I do the nights. It suits me."
+  ],
+  "description": "A rangy man moving very quietly between ten beds. His eyes have no whites left in them, which is startling for about four seconds and then stops being anything at all.\n\nHe does not sleep. Not badly, not a little: not at all, and has not since he was twenty-two, and so the night rota in this building has one name on it and it is his. He has been awake for thirty-one years and he is the calmest person in the Scarletwastes.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "city": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are they?",
+          "next": "who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody is carried out alone.",
+          "next": "sign"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He is quiet for long enough that you think he has not heard.\n\n\"Yes.\"\n\nHe goes to the next bed.\n\n\"I took bed seven to Coldwater. Two years ago, in a cart, four days, with a letter from Gristle laid out like a physician writes. Got to the Yards checkpoint. They read the letter.\"\n\nHe turns her, carefully, and settles the pillow.\n\n\"They were not cruel about it either.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Come in.\" He does not stop. \"Quietly, if you would, and you can stay as long as you like.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are they?",
+          "next": "who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody is carried out alone.",
+          "next": "sign"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A Basin clinic could do more for them.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Quietly, if you would.\"",
+      "text_by_relation": {
+        "close": "He puts a hand on your shoulder on the way past, briefly, and carries on down the row.",
+        "familiar": "\"Take that end,\" and it is a sheet, and you take it.",
+        "known": "\"You came back.\" He is pleased and does not stop moving."
+      }
+    },
+    "sign": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are they?",
+          "next": "who"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A Basin clinic could do more for them.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"That is Tallow's. She put it up after the fourth one.\"\n\nHe smooths a sheet.\n\n\"It means what it says. There is a rota on that door for turning and there is a second one nobody writes down for sitting, and when one of them goes, the whole town is in this room. All of it. The gate shift comes off the gate.\"\n\nHe straightens up.\n\n\"They can have the wall for an hour. We have decided that.\""
+    },
+    "who": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody is carried out alone.",
+          "next": "sign"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "A Basin clinic could do more for them.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Bed one is Renna's brother. Bed three did the roof for forty years. Bed seven is nineteen.\"\n\nHe checks something, adjusts something.\n\n\"They went into the Fleshery and what they got was not the good kind. That is all. There is no more to it than that and there is no story in it and I would rather you did not go looking for one.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a soft shirt, washed to nothing, no buttons",
+      "trousers with the knees gone",
+      "no shoes indoors"
+    ],
+    "personality": "charity"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_kept",
+  "hp": 32,
+  "hp_max": 32,
+  "id": "npc_thorn_marrow",
+  "name": "Marrow Kell",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_kept"
+}

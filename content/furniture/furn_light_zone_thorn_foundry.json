@@ -1,0 +1,14 @@
+{
+  "description": "The fire does most of it. Two strip lights over the benches for the fine work, which is the only part of this building that needs to be seen rather than felt.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_foundry",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "the fire and two strips",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_foundry"
+}

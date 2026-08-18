@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_chatty_048",
+  "lines": [
+    "\"So you will not BELIEVE the morning I have had.\"",
+    "\"Go on.\"",
+    "\"Right, so, it starts with the drone.\"",
+    "\"It always starts with the drone.\"",
+    "\"It does! That is what I keep saying!\""
+  ],
+  "personality": "chatty",
+  "sort_order": 447
+}
+

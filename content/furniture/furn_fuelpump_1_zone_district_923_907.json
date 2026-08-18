@@ -4,6 +4,7 @@
     "fuel_source": 3,
     "interactions": [
       "fill",
+      "fuel",
       "refuel"
     ]
   },

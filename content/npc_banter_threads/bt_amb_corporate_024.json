@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_corporate_024",
+  "lines": [
+    "\"Do you know we still do earnings calls?\"",
+    "\"To whom?\"",
+    "\"Nobody has ever asked that on the call.\"",
+    "\"Somebody should.\"",
+    "\"Somebody did. Once.\""
+  ],
+  "personality": "corporate",
+  "sort_order": 423
+}
+

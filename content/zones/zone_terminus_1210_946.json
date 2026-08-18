@@ -1,30 +1,26 @@
 {
   "ambient_events": [
-    "Wind comes off the flats in one long unbroken note and does not stop.",
-    "Somebody is counting, somewhere out of sight, and does not hurry.",
-    "A line of figures crosses the middle distance, walking, and none of them look over.",
-    "Chalk marks on a rock face. A date, maybe. It has been corrected twice.",
-    "The gate does not open. Nothing about it suggests it is going to.",
-    "Two figures pass on the wall walk. Neither speaks. Both change direction.",
-    "Somewhere behind the wall, a great many people stop doing something at the same moment.",
-    "A child watches you from the top of the wall. An adult arrives and moves them along, and you do not hear anybody call.",
-    "The light goes flat and red and every stone throws a shadow twice its length.",
-    "Rope, coiled and re-coiled until it is perfect. Nobody has been near it.",
-    "A hand goes up on the wall walk, in greeting, a moment before you had decided to raise yours.",
-    "There is no rubbish here. Not a scrap, not anywhere, and no bins either.",
-    "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
+    "The wind comes off the mesa tops in a long shove and drops away to nothing.",
+    "Grit runs along the ground in a thin sheet at ankle height and stops dead.",
+    "Something raptor-shaped turns twice, a very long way up, and goes east.",
+    "Heat comes up off the rock in a slow column you can see the far country bend through.",
+    "A rock the size of a fist comes off a rim somewhere behind you and takes a long time to land.",
+    "Bones, small ones, bleached, arranged by water rather than by anybody.",
+    "The salt flat throws the light back so hard that for a moment the sky is the darker half.",
+    "A wash runs off toward the west, dry, with a high-water mark on it from a year nobody remembers.",
+    "Wheel ruts, old, going the wrong way for anywhere.",
+    "Absolutely nothing happens for a while, at considerable scale."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "A crust of salt so white the light comes off it upward. Nothing grows on it, nothing crosses it that does not have to, and it can be seen from the wall at any hour. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
-    "east": "zone_terminus_1211_946",
     "north": "zone_terminus_1210_945",
     "south": "zone_terminus_1210_947",
     "west": "zone_terminus_1209_946"
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "redrock"
+    "terrain": "alkali"
   },
   "grid_x": 1210,
   "grid_y": 946,

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_robot_053",
+  "lines": [
+    "\"UNIT STATUS?\"",
+    "\"WITHIN TOLERANCE.\"",
+    "\"CONFIRMED. WITHIN TOLERANCE.\"",
+    "\"THE OPERATOR HAS NOT RETURNED.\"",
+    "\"CONFIRMED.\""
+  ],
+  "personality": "robot",
+  "sort_order": 452
+}
+

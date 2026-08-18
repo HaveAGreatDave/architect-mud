@@ -1,0 +1,14 @@
+{
+  "description": "The fire does it. After dark somebody hangs two storm lanterns off the posts, and they are lit with a taper off the cooking fire because striking a light when there is one going is considered a small stupidity here.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_longfire",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "the fire trench",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_longfire"
+}

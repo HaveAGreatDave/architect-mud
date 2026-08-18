@@ -1,0 +1,154 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Eleven. Then turn it.",
+    "Hand tools. You want a machine, there is a city for that.",
+    "It will outlast you. That is the whole idea.",
+    "Do not put that back in the wrong outline.",
+    "Everything in here has been made twice."
+  ],
+  "description": "A heavy-shouldered man filing a face on a piece of stock, counting the strokes under his breath. He gets to eleven, turns the work, and starts again. There is a drawing on the wall behind him that has been corrected in three hands over twenty years, and he does not look at it, because he knows it.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "drawing": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every tool is in its own outline.",
+          "next": "tools"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He looks at it as though noticing it.\n\n\"Work.\"\n\nHe files eleven strokes and turns the piece.\n\n\"My mother put the middle third of that on the wall. Her hand is the small one. The top is her teacher and the corrections are mine and one day somebody will correct mine, and that will be a good day and I will not be here for it.\"\n\nHe blows the dust off the work and holds it up.\n\n\"That is as much as you are getting and it is more than I meant to say.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Mind the swarf.\" He does not look up. \"You can watch. Do not touch the board.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the drawing?",
+          "next": "drawing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every tool is in its own outline.",
+          "next": "tools"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the swarf.\"",
+      "text_by_relation": {
+        "close": "\"Take an end of this,\" he says, before you are through the door, and you do.",
+        "familiar": "He grunts, which you have learned is a greeting, and pushes a stool out with his foot.",
+        "known": "\"You.\" He turns the work. \"Mind the swarf.\""
+      }
+    },
+    "tools": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the drawing?",
+          "next": "drawing"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Yes.\"\n\nHe considers whether that needs anything adding to it, and decides it does.\n\n\"Because then you can see the one that is missing from the door, in the dark, in a second. It is not tidiness. Tidiness is what it looks like from outside.\""
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a leather apron, hard as board",
+      "a shirt burned through in eleven places",
+      "boots with steel in the toes"
+    ],
+    "personality": "gruff"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_bench",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_smith",
+  "name": "Constant Ferris",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_pipe_wrench",
+      "min_trust": 0,
+      "price": 80
+    },
+    {
+      "item_id": "item_kitchen_knife",
+      "min_trust": 0,
+      "price": 35
+    },
+    {
+      "item_id": "item_rag_bandage",
+      "min_trust": 0,
+      "price": 6
+    },
+    {
+      "item_id": "item_soap_block",
+      "min_trust": 0,
+      "price": 3
+    },
+    {
+      "item_id": "item_towel_rough",
+      "min_trust": 0,
+      "price": 9
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "min_trust": 0,
+      "price": 7
+    },
+    {
+      "item_id": "item_calib_rig_scrap",
+      "min_trust": 0,
+      "price": 130
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Bench",
+  "vendor_stock_size": 7,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_bench"
+}

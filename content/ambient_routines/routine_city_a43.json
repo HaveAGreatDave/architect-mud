@@ -1,0 +1,17 @@
+{
+  "category": "city",
+  "enabled": true,
+  "id": "routine_city_a43",
+  "interactive": null,
+  "lines": [
+    "Somewhere under the pavement, something the size of a room turns over once and settles."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 142,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

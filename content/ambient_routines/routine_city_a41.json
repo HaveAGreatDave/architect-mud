@@ -1,0 +1,17 @@
+{
+  "category": "city",
+  "enabled": true,
+  "id": "routine_city_a41",
+  "interactive": null,
+  "lines": [
+    "A streetlight buzzes, dims, and comes back stronger than before, which is not how they are supposed to work."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 140,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

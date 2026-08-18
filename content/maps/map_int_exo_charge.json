@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_exo_charge",
+  "id": "map_int_exo_charge",
+  "name": "The Standing Charge",
+  "parent_zone_id": "zone_terminus_1227_946"
+}

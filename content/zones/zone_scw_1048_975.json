@@ -16,13 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "A yard stacked with sorted salvage. Sorted is the word that matters. Plate here, rail there, wire coiled by gauge, and a tally slate on the post at the end of each row.",
   "exits": {
-    "east": "zone_scw_1049_975",
     "north": "zone_scw_1048_974",
-    "south": "zone_scw_1048_976",
-    "west": "zone_scw_1047_975"
+    "south": "zone_scw_1048_976"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

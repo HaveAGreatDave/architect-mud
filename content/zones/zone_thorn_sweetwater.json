@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "Two tubes are made up and set in the rack to stand.",
+    "A number goes on the board in the same hand as every number above it.",
+    "Water moves through the beds with a sound like a long sigh.",
+    "The cistern lid is checked without being lifted, which is done by ear."
+  ],
+  "ambient_theme": "indoors",
+  "description": "The test bench, and the whole run of it laid out where anybody can see: rain off every roof in the Thornwarren, into the settling tanks, through limestone, through burnt bone, into the covered cistern.\n\nTwo glass tubes are made up twice a day, every day, and the results are chalked on the board, and the board goes back years in a photograph of columns nobody has ever needed to check.\n\nThis is the best piece of engineering within sixty miles of here and it belongs to the people the city calls animals. Nobody in the building will say that sentence. There is a second inlet at the top of the beds, plated and separate, for water hauled up from the Slake in a dry month, and the rule for that one is chalked over it: SLAKE WATER: BOTH BEDS, TWICE.",
+  "exits": {
+    "down": "zone_util_zone_thorn_sweetwater",
+    "west": "zone_scw_1047_980"
+  },
+  "flags": {
+    "building_name": "The Sweetwater",
+    "building_type": "infra",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1047_980"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_sweetwater",
+  "map_id": "map_int_thorn_sweetwater",
+  "name": "The Sweetwater",
+  "parent_zone": "zone_scw_1047_980"
+}

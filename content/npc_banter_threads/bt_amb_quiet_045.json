@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "id": "bt_amb_quiet_045",
+  "lines": [
+    "\"Mm.\"",
+    "\"Mm.\"",
+    "\"Yes.\""
+  ],
+  "personality": "quiet",
+  "sort_order": 444
+}
+

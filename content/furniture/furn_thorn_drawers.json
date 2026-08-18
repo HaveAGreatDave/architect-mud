@@ -1,0 +1,14 @@
+{
+  "description": "Labelled in a small square hand. SPLINT, SHORT. SPLINT, LONG. SPLINT, WRONG WAY. HONEY. WILLOW. TEETH. TEETH, THE OTHER KIND.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_drawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drawers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_physic"
+}

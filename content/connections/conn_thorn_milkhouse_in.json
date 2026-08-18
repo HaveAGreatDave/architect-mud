@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1045_980",
+  "b": "zone_thorn_milkhouse",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_thorn_milkhouse_in",
+  "lockable": true,
+  "one_way": false
+}

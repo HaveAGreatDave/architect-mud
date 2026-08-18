@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_dealer_072",
+  "lines": [
+    "\"Somebody asked after you.\"",
+    "\"Who?\"",
+    "\"They did not say.\"",
+    "\"Then they were not asking after me. They were asking about me.\""
+  ],
+  "personality": "dealer",
+  "sort_order": 471
+}
+

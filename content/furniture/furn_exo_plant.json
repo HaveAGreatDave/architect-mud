@@ -1,0 +1,14 @@
+{
+  "description": "A single generator on a concrete pad, bedded on rubber, running at a speed it has clearly been running at for years. The floor around it is cleaner than the sick room. There is not one drip tray in the building because there has never been anything to catch.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_plant",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the generator",
+  "object_type": "machine",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_charge"
+}

@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Do not stand there, you are in my light. I do not use it. Stand there anyway.",
+    "A thousand bowls. Maybe two.",
+    "Red glaze is for the jars. Do not pick those up.",
+    "Everything breaks. I make more.",
+    "By feel. I have not looked at the wheel in years."
+  ],
+  "description": "At the wheel, and he has hands like Tallow's, three bends to a finger, and where hers flow over an incision his flow over clay. He works faster than looks possible and does not watch what he is doing.\n\nEverything the Thornwarren eats off came off this wheel. Every piece has a thumbprint pressed into the foot ring. They are all his thumbprint. Nobody has ever mentioned it to him.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "jars": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not watching what you are doing.",
+          "next": "speed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Tallow.\"\n\nThe wheel goes.\n\n\"Flasks live in felt for nine years. Glass takes the cold badly and metal takes it worse. These do not care.\" He lifts one off the wheel without looking at it. \"Thicker in the shoulder than they look. Nine of them a month, every month, and about six survive the firing, and I have got a stack of eleven hundred going back to before I was born.\"\n\nHe sets it on the board.\n\n\"If this kiln stops, the whole thing stops. Not the pots. The other thing.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Mind the boards.\" The wheel does not stop. \"Everything on them is wet and everything on them is somebody's.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the red jars for?",
+          "next": "jars"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not watching what you are doing.",
+          "next": "speed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the boards.\"",
+      "text_by_relation": {
+        "close": "There is a mug on the bench that is glazed better than the rest and has your initial cut into the foot, and he has never said anything about it.",
+        "familiar": "He pushes a stool out with his foot without stopping the wheel.",
+        "known": "\"You. Mind the boards.\""
+      }
+    },
+    "speed": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What are the red jars for?",
+          "next": "jars"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nHe centres another lump and opens it.\n\n\"I stopped about fifteen years ago. It is better this way. Hands know it.\"\n\nA pause, and then, unexpectedly, he does look up.\n\n\"There was a man came out here from a Basin works once, buying. Watched me for an hour. Offered me a job and a room and a name on the door and the whole of it.\" Back to the wheel. \"Then he went and looked at the paperwork and came back and said he was sorry and it was not up to him.\"\n\n\"He was sorry, actually. You could tell. Did not help.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "clay to the elbow and everywhere else",
+      "an apron",
+      "bare feet, caked"
+    ],
+    "personality": "labourer"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_kiln",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_thorn_sump",
+  "name": "Sump Rhee",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_kiln"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Two hours, turn. Fourteen names, covering every hour of every day, initialled as it goes. One of the names is written much larger and much worse than the others and belongs to somebody who is ten.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_turnrota",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the turning rota",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_kept"
+}

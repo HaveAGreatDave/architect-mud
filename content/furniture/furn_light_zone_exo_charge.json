@@ -1,0 +1,14 @@
+{
+  "description": "Bulkhead lights in wire cages, three of them, and a fourth over the log so it can be written in without a lamp.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_charge",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the bulkhead lights",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_charge"
+}

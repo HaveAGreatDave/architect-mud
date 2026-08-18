@@ -2,17 +2,45 @@
   "name": "mutations",
   "version": "3.0.0",
   "description": "Mutations: the verb, the radiation trigger, the appearance prose, the active organs, the clothing gate and the city's refusal. The substrate is engine (server/engine/mutations.js).",
-  "hooks": ["tick.minute", "player.appearanceNotes"],
-  "events": { "consumes": ["zone.entered", "player.respawn"], "emits": ["mutation.reported"] },
-  "commands": ["mutations", "shock", "screech", "morph", "swoop"],
-  "actions": { "registers": ["MUTAGEN_CONSUME", "GRANT_MUTATION"] },
+  "hooks": [
+    "tick.minute",
+    "player.appearanceNotes"
+  ],
+  "events": {
+    "consumes": [
+      "zone.entered",
+      "player.respawn"
+    ],
+    "emits": [
+      "mutation.reported"
+    ]
+  },
+  "commands": [
+    "mutations",
+    "shock",
+    "screech",
+    "morph",
+    "swoop"
+  ],
+  "actions": {
+    "registers": [
+      "MUTAGEN_CONSUME",
+      "GRANT_MUTATION"
+    ]
+  },
   "ticks": [
-    { "cadence": "1m", "what": "radiation mutation roll for players above rad 40 (5% gated, memory-only until it lands)" }
+    {
+      "cadence": "1m",
+      "what": "radiation mutation roll for players above rad 40 (5% gated, memory-only until it lands)"
+    }
   ],
   "dependencies": [],
   "extensionPoints": [
     "mutationRefusal(npc, player) — the vendor refusal voice, consulted at the trade funnels",
     "conflictNote(player, item) — the gear-screen warning for a garment this body can't take",
     "the `accommodates` item tag — TAIL / WINGS / EXTRA_LIMBS / CARAPACE / LARGE_HEAD"
+  ],
+  "lockTypes": [
+    "thornwarrengate — the two Thornwarren gates, and the Wildblood sibling of psionics' `terminusgate`. Two halves, both required: (1) `thorn_admitted`, set at the gate by Quarrel Nine once you have paid the toll, because the gate is never opened by standing at it; and (2) the flesh must not already be somebody else's — it reads the ordinary `path_*` ideology flags and refuses when machine/mind/human is at or above `path_flesh`, so a tie refuses too. Reputation is deliberately not read: half this town has taken money off the city, and standing is what you have done rather than what you decided to be. Not hackable, not pickable, unbreakable in content, because cutting the thorn is the one thing that wall is famous for surviving. The path refusal fires the warden's one-shot line (`thorn_gate_told`) rather than refusing silently, because a Wildblood who would not say why has started behaving like the city."
   ]
 }

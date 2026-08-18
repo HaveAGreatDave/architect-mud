@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_bartender_061",
+  "lines": [
+    "\"Busy?\"",
+    "\"Busy enough. Two arguments and a proposal.\"",
+    "\"Same table?\"",
+    "\"Same table.\""
+  ],
+  "personality": "bartender",
+  "sort_order": 460
+}
+

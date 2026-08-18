@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1216_947",
+  "b": "zone_exo_quiet",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_exo_quiet_in",
+  "lockable": true,
+  "one_way": false
+}

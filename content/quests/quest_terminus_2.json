@@ -1,0 +1,62 @@
+{
+  "category": null,
+  "description": "Tace Ambler wants you to walk the outside of the wall. All of it: the north face, round the far side, the south face, and back to her stool in the middle of the road. She said there is nothing to see and that she was not going to pretend otherwise, and she asked you not to ask what it was for, on the grounds that she would only say something she would be embarrassed about later.",
+  "fail_on": [],
+  "id": "quest_terminus_2",
+  "meta": {},
+  "name": "The Long Way Round",
+  "objectives": [
+    {
+      "desc": "Walk the north face of the wall.",
+      "emotes": [
+        "{who} walks the north face with the wall on their right and does not look up at it once."
+      ],
+      "id": "o_north",
+      "type": "visit",
+      "zone": "zone_terminus_1220_930"
+    },
+    {
+      "desc": "Walk the far side of the wall.",
+      "emotes": [
+        "{who} comes round the eastern face, where nobody from the road can see them at all."
+      ],
+      "id": "o_east",
+      "type": "visit",
+      "zone": "zone_terminus_1230_940"
+    },
+    {
+      "desc": "Walk the south face of the wall.",
+      "emotes": [
+        "{who} works along the south face with the salt throwing the light up under their chin."
+      ],
+      "id": "o_south",
+      "type": "visit",
+      "zone": "zone_terminus_1220_950"
+    },
+    {
+      "desc": "Go back to Tace Ambler on the road.",
+      "emotes": [
+        "{who} comes back up the road having gone all the way round, which most people do not."
+      ],
+      "id": "o_back",
+      "type": "visit",
+      "zone": "zone_terminus_1207_940"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 120,
+    "flags": [
+      {
+        "flag": "terminus_q2_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 30
+  },
+  "updated_at": "1787000000"
+}

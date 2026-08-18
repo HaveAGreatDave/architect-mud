@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a20",
+  "interactive": null,
+  "lines": [
+    "A sign two doors down is legible, then a suggestion, then gone, all without anything appearing to move."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 119,
+  "themes": [],
+  "weather": [
+    "fog"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

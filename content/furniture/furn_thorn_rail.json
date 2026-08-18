@@ -1,0 +1,14 @@
+{
+  "description": "From up here the Thornwarren is laid out below you and the wall goes round all of it and the red country goes on past the wall as far as there is anything.\n\nOn the underside of the rail, where you would only see it lying down, somebody has written small: WE BUILT THIS. It is not a boast. It is a note to whoever is up here next.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_rail",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the top rail",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_roofwalk"
+}

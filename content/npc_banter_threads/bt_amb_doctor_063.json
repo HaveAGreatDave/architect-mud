@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "id": "bt_amb_doctor_063",
+  "lines": [
+    "\"Anybody interesting today?\"",
+    "\"Everybody was interesting. That is the problem.\"",
+    "\"How many did you keep?\"",
+    "\"Most of them.\"",
+    "\"Most is good.\"",
+    "\"Most is not all.\""
+  ],
+  "personality": "doctor",
+  "sort_order": 462
+}
+

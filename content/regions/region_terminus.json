@@ -1,6 +1,9 @@
 {
   "base_terrain": "redrock",
-  "climate_bias": null,
+  "climate_bias": {
+    "dryness": 0.88,
+    "temp": 9
+  },
   "defaults": {},
   "grid_z": 0,
   "id": "region_terminus",

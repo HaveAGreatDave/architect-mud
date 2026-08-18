@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_exo_mending",
+  "id": "map_int_exo_mending",
+  "name": "The Mending Room",
+  "parent_zone_id": "zone_terminus_1213_944"
+}

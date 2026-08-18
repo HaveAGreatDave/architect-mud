@@ -1,0 +1,14 @@
+{
+  "description": "Daylight up the ladder well, and one bulkhead lamp at the bottom for the crew who come off the roof in the dark.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_roofwalk",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "a bulkhead lamp and the sky",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_roofwalk"
+}

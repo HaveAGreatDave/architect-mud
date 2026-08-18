@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_vendor_005",
+  "lines": [
+    "\"Feet.\"",
+    "\"Feet.\"",
+    "\"Twelve hours on a concrete floor.\"",
+    "\"You could get a mat.\"",
+    "\"I could. I will not.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 404
+}
+

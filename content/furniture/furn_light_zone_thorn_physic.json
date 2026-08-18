@@ -1,0 +1,14 @@
+{
+  "description": "A good lamp on a jointed arm over the table, off the Bank, and a bank of candles for when the Bank is down, which it has been twice in eleven years and he still keeps the candles.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_physic",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "the jointed lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_physic"
+}

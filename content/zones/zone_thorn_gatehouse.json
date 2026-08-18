@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A mask comes off the rack and is checked at the lining before anything else.",
+    "The kettle goes on. Somebody is coming off a shift.",
+    "Hours are totted up on the tally board and somebody is owed a half day.",
+    "A mask goes back on its peg the wrong way round and is turned round by the next person through, without comment."
+  ],
+  "ambient_theme": "indoors",
+  "description": "The mask rack, and it is the most important object in the Thornwarren.\n\nEleven masks: bone, plate, horn, a jaw wired open, a thing with too many sockets. Out on the trophy road at a hundred paces they are the most frightening objects in the region.\n\nUp close, every one of them is lined. Quilted rag, stitched down flat at every edge, so they do not chafe on a long shift. Two of them have been re-lined recently in a different cloth. There is a tally board beside the rack of names against hours, and a kettle, and four mugs, and a tin of something to eat.\n\nThe horror is a costume. The costume is rota'd. Somebody's grandmother sews the lining.",
+  "exits": {
+    "down": "zone_util_zone_thorn_gatehouse",
+    "east": "zone_scw_1045_969"
+  },
+  "flags": {
+    "building_name": "The Gate House",
+    "building_type": "civic",
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1045_969"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_gatehouse",
+  "map_id": "map_int_thorn_gatehouse",
+  "name": "The Gate House",
+  "parent_zone": "zone_scw_1045_969"
+}

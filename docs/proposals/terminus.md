@@ -1,9 +1,15 @@
-# TERMINUS — the Exodus settlement
+# TERMINUS — the Exodus settlement (as built)
 
-**STATUS: Design. Nothing built.** Scoped 2026-08-11.
-
-The east limb of Coldwater's void currently points at `zone_exodus_waypoint`, **a zone that does not
-exist** — a walker who takes that fork is deposited nowhere. This is what goes there.
+> **Status: BUILT.** Pass 1 (the apron) shipped 2026-08-12. **The redraw shipped 2026-08-18** and
+> is what this document describes: a 40×40 region with a derived landform, a walled compound, a
+> launch pad at the centre of it, 16 enterable interiors, 15 people and a way in. What is
+> deliberately not built is listed at the bottom.
+>
+> Read alongside [systems-psionics.md](../systems-psionics.md) (the discipline behind the wall, and
+> the `psi` lock this region's doors use), [systems-ideologies.md](../systems-ideologies.md)
+> (stance/path, which is what the gate actually reads),
+> [proposals/scarletwastes.md](scarletwastes.md) (the other walled town, and the landform machinery
+> this borrowed), and [reference/land-taxonomy.md](../reference/land-taxonomy.md).
 
 ---
 
@@ -21,206 +27,274 @@ direction the Exodus went*. It is called **Terminus**: a transit word meaning en
 by people who meant it as the last stop before somewhere better. They were right about the first
 part.
 
-**No retcon is needed.** The org file says they *"abandoned Coldwater Basin entirely"* — the
-**Basin**, not the planet. "Will not tell you where to" is about their destination, not their
-address. They are at Terminus, working on the next leaving.
-
----
-
-## The pairing that was already written
-
-Cass Renner, at Buzzard Field, unprompted (`content/npcs/npc_1784516450269.json`):
-
-> *"You think about where you'd go? If you had to go."* … *"No. That's the point of here."*
-
 **The Reach is where you go to stop. Terminus is where you go to keep going.** Two forks of one
-void, and nobody had written it down.
+void, and Cass Renner at Buzzard Field wrote the pairing before anybody noticed
+(*"You think about where you'd go? If you had to go." … "No. That's the point of here."*).
 
 ---
 
-## The design problem, and the answer
-
-A settlement that shuns outsiders is a **wall, not a destination**. Let players in and it isn't
-secret; keep them out and it's a dead end at the end of a very long drive.
-
-Half the answer already exists in `docs/proposals/void-arrival-checkpoint.md`:
-
-> **Exodus** — Renounce-faction vetting — *ideology/rep, not law.*
-
-So: **two tiers**, split by a wall.
-
-### Outside — the apron
-
-Anyone can come. It exists because **purity is expensive**: a creed that renounces the machine still
-needs bearings, and somebody has to buy them from Coldwater. That is the district's joke, and the
-tone guardrails ask every district for one.
-
-- **Last Requisition** — the quartermaster's. Buys machine parts they publicly renounce, sells fuel
-  at a price that makes the disapproval explicit. Run by a man who hates his own job and is very
-  good at it.
-- **The Gantry** — a VTOL pad, not an airstrip. They built it to leave the *planet*; an aeroplane
-  was never the point. Reuses the existing `vtolOnlyField` circle-H rendering for free.
-- **The truck depot** — `flags.truck_depot` + `truck_fuel` on the apron street tile. THE LONG HAUL's
-  third yard and its longest run.
-- **The gate** — visible, shut, and staffed. You are turned away politely, every time, until you are
-  not.
-
-### Inside — earned
-
-**Two stages, both using systems that already exist:**
-
-1. **Exodus rep gets you spoken to.** `systems-jobboard.md` already grants Exodus rep for ruin-site
-   jobs, so the ladder is in place before the door is.
-2. **Declaring the Exodus path gets you through.** A real character commitment, on the existing
-   ideology axis. No new mechanic.
-
-Behind it is the thing the org file describes and **nothing has ever built**:
-
-> *"they still a room and move what is in it without a touch, press a thought whole into another
-> skull, and speak of the mind as the last country the Architect could never wire shut."*
-
-- **The Stillhouse** — where the disciplines are practised. (A still room; a still; stilling a room.)
-- **The Waking Hall** — assembly, and the creed. Their motto is *awaken*.
-
-Psionics is currently design-space only (`docs/design.md` and one codex chapter). Terminus is where
-it would live. **A real gate wants a real reward** — but see Scope below: the region can ship without
-it.
-
-### How the inside reads: the rule
-
-**Nothing is ever named.** No robes, no chanting, no one says "we are a cult", nobody demonstrates a
-power. The moment a thing is stated it becomes a mechanic and stops being unnerving. Everything below
-is inference, and the player is allowed to conclude nothing at all.
-
-**Psionics, shown four ways and never explained:**
-
-- **Answered before asked.** Somebody hands you the thing you were about to ask for and does not
-  notice they did it. They are not showing off. They think that is how conversation works.
-- **Conversations with holes in them.** Two people talk, pause, and one of them replies to something
-  that was not said out loud. Then they carry on. The gap is the tell.
-- **Objects in impossible order.** Rope coiled to the millimetre with nobody near it. Dust with no
-  handprints on a shelf that was rearranged this morning. A door that is open before you reach it and
-  nobody behind it.
-- **Rooms that go quiet in a way that is not sound.** Pressure. The sense of having been read, filed,
-  and found uninteresting. Never confirmed.
-
-**Cultishness, shown four ways and never named:**
-
-- **Uniformity without uniforms.** No dress code, and everyone is dressed the same anyway. No bell,
-  and everyone stops at once.
-- **Absence as evidence.** No locks. No arguments. No possessions worth the word. No waste, anywhere,
-  of anything. That is the frightening bit, not the robes.
-- **Nothing is explained**, because everyone already knows, and asking marks you.
-- **The horror of kindness.** They are not sinister. They are *warm*, patient and pleased you came,
-  and they will not tell you a single thing you want to know, and none of that is a contradiction to
-  them. A hostile cult is easy to leave.
-
-**Children are the sharpest instrument and should be used twice at most.** A child who is too calm, or
-who answers a question you only thought, does more than a room full of adults. Overuse it and it
-becomes a gag.
-
-**The one line never to write:** anything where a character explains the creed to the player. Ivo
-Stannard, out on the apron, is the *only* one who talks plainly about what this place is — and he can
-only do that because he is the one who touched the machine, and he is not going with them.
-
----
-
-## Geography
+## Geography (as built)
 
 | | |
 |---|---|
-| Bounding box | **x 1200–1213, y 934–947** (14×14 = 196 tiles, hole-free rectangle) — as built |
-| Base terrain | `redrock` — continues Coldwater's east rim honestly, and "remote launch mesa" is the canon image (`systems-wildlands.md:83`) |
-| Clearance | ~245 tiles east of Coldwater's rim. Nothing exists past x=955 anywhere |
-| Latitude | Sits inside the y 909–947 band, the only **land** on Coldwater's east edge — y 896–908 is basin, and **water is never a rim**. Moved south to y 934–947 (2026-08-12) so it is not sitting on the coast: the basin reaches y909 on this side, and the old y910 north edge read as a shoreline settlement. Its south edge is now level with Coldwater's own south rim, and the return leg lands at `zone_district_955_940` |
+| Bounding box | **x 1200–1239, y 921–960** — 40×40, **1,600 tiles**, hole-free |
+| Zone ids | `zone_terminus_<x>_<y>`, matching grid coordinates exactly |
+| Arrival | `zone_terminus_1200_940`, on the west rim, off Coldwater's east limb |
+| Compound | wall ring **x1211–1229, y931–949** (19×19, 72 wall tiles), one gate at **(1211, 940)** |
+| Inside | x1212–1228, y932–948 — 17×17, 289 tiles |
+| The pad | **(1220, 940)**, the exact centre of the compound and of the region |
 
-**The route is the void's east limb, and only that.** The overland stub reserved in the Wildblood
-proposal (`919_927`, which `systems-wildlands.md` calls `921_927` — the docs disagree) becomes
-**signage pointing east**, not a second route. The road and the void are already the same space:
-walked it is a crossing, driven it is a highway.
+**The region grew east, north and south, and its west rim did not move**, so the void's arrival tile
+is unchanged and **no engine change was needed for any of the redraw**. `VOIDS` still reads
+`{ key: 'exodus', dest: 'zone_terminus_1200_940', length: 12 }` in both directions.
 
-### The limb needs a `length`, and the number is the best decision here
+### What the redraw changed, and why
 
-The east limb is distance-derived and would **clamp to `MIN_ROOMS` (5)** exactly as the Reach did —
-255 tiles straight-line is under one room's worth. It needs an explicit `length` in `VOIDS`.
+Pass 1 drew the wall as a straight **column** down the middle of a 14×14 box: apron west, rumour
+east. That was right for a place whose entire content was a shut door, and wrong the moment the
+inside became real.
 
-**Proposed: `length: 12`.**
+1. **A wall that is a LINE is a border, not a defence.** You cannot walk round a settlement that has
+   no round. The wall is a ring now, and the compound is a thing with an outside.
+2. **196 tiles of one flat terrain is not country, it is a colour** — the exact finding the
+   Scarletwastes wrote down when its own flat sheet never got hand-painted.
+3. **The Gantry was a pad on the apron**, which made the Exodus's one great work a car park for
+   visitors.
 
-| | corridor | one way | round trip | drive |
-|---|---|---|---|---|
-| Terminus (12) | 1,080 | ~1,170 | ~2,340 | ~23 min |
-| The Reach (8) | 720 | 765 | 1,530 | ~15 min |
+### The landform
 
-And then the fleet does something lovely with no extra code:
+Nine terrains off **one continuous height surface** (two-octave hashed value noise, no RNG, so a
+rebuild is byte-identical and a re-import produces no diff). Each family is a threshold on that one
+field, which is what makes the bands contiguous rather than speckled.
 
-| truck | tank | can it reach Terminus? |
+> **The ground is a field, not a sprinkle.** If you want it different, change the surface.
+
+| Family | `flags.terrain` | Tiles | What it is |
+|---|---|---|---|
+| `flat` | `redrock` | 430 | the country you cross most of |
+| `scree` | `gravel` | 210 | the talus skirt a mesa sheds |
+| `cliff` | `cliff` | 143 | the rim of a tableland. **Impassable** |
+| `mesa` | `plateau` | 126 | caprock, flat on top and a long way up |
+| `pan` | `hardpan` | 100 | cracked pale lakebed in the low ground |
+| `scrub` | `scrub` | 95 | thorn following the drainage lines |
+| `salt` | `alkali` | 58 | one flat, southwest, and nowhere else |
+| `dune` | `sand` | 43 | blown sand collecting in the lee |
+| `ramp` | `ramp` | 22 | the break in a rim, and the only way up |
+| road | `dirt_road` | 10 | the approach |
+
+**⚠ The thresholds are tuned to THIS WINDOW, not to the unit interval.** Value noise is only uniform
+over an infinite plane; across this particular 40×40 patch the height field runs 0.29–0.91 with its
+median at **0.633**. Reusing the Scarletwastes' numbers unchanged is exactly what the first build of
+this region did, and it produced 63% of the country above the scree line and **not one tile of
+hardpan, sand or salt anywhere**, because three of the nine bands sat below the field's own floor.
+If you move the box, re-measure the field before you trust the numbers.
+
+**Two exemptions, and both are correctness rather than taste.** The approach corridor (three rows
+deep along y940, west of the wall) and the ground under the Gantry and Last Requisition are never
+given to the landform pass. `cliff` is the only impassable terrain in the game and the height field
+has never heard of the road: one cliff tile dropped across y940 makes the whole region unreachable
+on foot, with nothing anywhere to say so. **The generator flood-fills from the arrival tile and
+fails the build** if the gate, the pad or any courtyard tile is unreachable.
+
+---
+
+## The compound
+
+### The wall
+
+72 tiles, and they carry **`building_type` and nothing else** — no `is_building`, no
+`building_name`. This is the Thornwarren rule, and Terminus is the region that proved why it exists:
+`bt` (what stops a truck, what the flight sim extrudes) reads `building_type` alone, while the map's
+marker namespace keys off `is_building` and derives a two-letter code from `building_name`. Pass 1
+gave **thirteen** wall tiles a unique name apiece to dodge the collision, which worked and produced
+W2..W8 and six copies of WA. A boundary is not a landmark. The wall reads on the map as the
+compound's own outline, which is what a wall should look like.
+
+**⚠ The marker carry-forward must be scoped to facades.** The redraw demoted 68 named wall tiles and
+four glasshouses to anonymous mass, and the generator's "preserve any existing marker" line kept
+twenty dead codes alive in content — tiles with no `building_name` to derive one from, still
+shipping T2..T9 and G1..G5, one of which then collided with a code the new gate legitimately
+derived. A stale marker is worse than a missing one, because the map draws it.
+
+### The Ascension, and why there are two pads
+
+**The pad is the middle of the temple.** A hundred feet of poured concrete with four lattice masts
+around it and, between them on gantries, the beginnings of something that has been the beginnings of
+something for a very long time. The welds nearest the ground have been ground back and redone in a
+better hand than the ones at the top.
+
+| field | id | where | who it is for |
+|---|---|---|---|
+| **The Gantry** | `terminus_gantry` | the apron, (1203, 943) | visitors, and the trucker who drove 1,170 tiles |
+| **The Ascension** | `terminus_ascension` | the centre, (1220, 940) | them |
+
+Both are `vtol_only`, so both render the circle-H pad rather than a strip, and anything with a wing
+can use neither. They were never building for aeroplanes.
+
+**Yes, you can land on the Ascension without being let through the gate, and that is deliberate
+rather than a hole.** The wall is a rule about the *road*. What stops a stranger walking off the pad
+into the assembly is the hall's own door, which does not open, and nobody will tell them why.
+
+### The 16 interiors
+
+| Room | `building_type` | Who is in it |
 |---|---|---|
-| Krell Barrow | 850 | **no** (0.73) |
-| Ostrek Courier | 1,100 | **no** (0.94) |
-| Vachon Drayman | 1,400 | yes (1.20) |
-| Orlov Continental | 2,100 | yes (1.79) |
+| **The Waking Hall** | `civic` | Thankful Sedge. Benches facing a floor rather than an altar. `psi`-locked |
+| **The Stillhouse** | `clinic` | Silence Marrable, and the chair |
+| **The Stillwell** | *(back room)* | nobody. A stone basin of water that is not still. `psi`-locked |
+| **The Long Table** | `diner` | Comfort Delaide. Forty feet of it, and neither end is the head |
+| **The Wash House** | `bathhouse` | a copper, a trough, and everybody's own towel |
+| **The Long Dormitory** | `apartment` | sixty identical beds and one book about tides |
+| **The Mending Room** | `clinic` | Mercy Vantry, and every drawer labelled in one hand |
+| **The Creche** | `civic` | Amity Locke, and eleven children drawing the same thing |
+| **The Open Door** | `hotel` | Patience Colm. Six made beds, a ledger of first names |
+| **The Quiet Ground** | `undertaker` | Remember Sett, a bier, and a book in an impossible hand |
+| **The Bench** | `fabrication` | Constant Ferris, and the drawing on the wall |
+| **The Seed Vault** | `cold_storage` | Preserved Wain. 406 drawers, no lock |
+| **The Glasshouse** | `greenhouse` | the food, and the reason the wall is worth looking over |
+| **The Standing Charge** | `dynamo` | Increase Talley, and the one machine they keep |
+| **The Gate House** | `civic` | the rota, and a bell with no rope |
+| **Last Requisition** | `truck_depot` | Ivo Stannard. Built in pass 1; the redraw moved the world around it |
 
-**The truck ladder becomes a map gate.** You need an 11,500₵ rig to reach Terminus at all — and
-since the round trip is 2,340 against a best tank of 2,100, **nobody gets home without refuelling
-there.** You must buy diesel from people who disapprove of diesel. That is the joke, the economy and
-the gate in one number, and it costs nothing to build.
+Every interior ships with a utility room, a junction box, a generator, power rows and a light
+fixture, because **an interior that ships without power ships dark** and that has happened here
+before. The Stillwell is the one deliberate exception: no fixture, no switch, no lamp. The only
+reason to build a windowless room with no light in it is that the people who use it do not need one.
 
-*(A beater can still gamble on a roadside `fuel_yard` spawning on the corridor. Running dry means
-`park` and walk — humiliating, not fatal.)*
-
----
-
-## Scope
-
-Costed against The Reach, which is the precedent for a small region.
-
-| | The Reach | Terminus |
-|---|---|---|
-| region file | 1 | 1 |
-| zone JSONs | 400 | 400 |
-| generator + power_zones | 1 + 400 | 1 + 400 |
-| building facades (+ interiors) | 4 | 4 |
-| NPCs | 6 | 5 |
-
-The tiles are fill. **The authored cost is four buildings and five people.**
-
-**Ship in two passes:**
-
-- **Pass 1 — the apron.** Region, tiles, the wall, Last Requisition, The Gantry, the depot, the
-  gate, and 2 NPCs (quartermaster, gate warden). The east limb stops being broken, the Long Haul
-  gets its long route, and the inside is a rumour. *This is a complete, playable thing.*
-- **Pass 2 — through the gate.** The Stillhouse, The Waking Hall, 3 more NPCs, the ideology gate,
-  and whatever psionics turns out to be.
+**The plant moved inside the wall**, and that is the joke the apron is built on: the trading post
+outside the gate, the diesel pump and the lamps in Last Requisition all run off the one machine
+these people renounce. They power the thing they disapprove of and never once mention it.
 
 ---
 
-## Open questions
+## `flags.exodus_space`, and the flag that had no home
 
-1. **Does psionics ship with pass 2, or is the inside "place and people" only at first?** It is a
-   whole system and it does not have to block the region.
-2. **Do the Pioneers ever contest it?** `ideology_pioneers` is expansion-gated and its designed home
-   is literally a rebuilt frontier settlement. A later claim on the apron is free drama.
-3. ~~**Return leg.**~~ **SOLVED**, and for both at once, as this predicted. `region_terminus` and
-   `region_the_reach` now have their own `VOIDS` entries — the same crossing read backwards, same
-   `length` so the tank that got you there gets you back, landing on the rim tile that faces the way
-   you went. It mattered most here, because The Gantry is `vtol_only, charter: false`: a trucker who
-   drove to Terminus was stranded unless they already owned an aircraft. Four regress invariants now
-   pin it (anything reachable is leavable; every limb has a matching leg back; both legs are the
-   same length), and a dest names its endpoint `region` on the edge rather than reading it off live
-   zone state, because that check is about the shape of the table.
-4. **The `919_927` / `921_927` discrepancy** in the Wildblood and Wildlands docs should be settled
-   whichever way this goes.
+The armour taboo (`plugins/psionics/reactions.js`) has shipped since psionics Phase 1 and reads
+`flags.exodus_space`. **No zone in the world carried it.** The taboo had never fired anywhere.
+
+It is now on every tile inside the wall and on the wall's own buildings, and on **nothing** outside
+the gate — because the trading post on the apron is exactly where the creed is suspended. It is also
+now in the tag catalog (`client/shared/tagCatalog.js`), which is what `content:lint` checks.
 
 ---
 
-## Conventions this must respect
+## The way in
 
-- **No em dashes in Exodus dialogue.** That punctuation is a voice tell reserved for the Ascendants
-  and the Architect.
-- **Unique NPC names** — no two NPCs in the world share a name, full or given. Check before writing.
-- **Greeting split** — root node gets `first` (one-time intro) plus `text`, `known`, `familiar`.
-- **Dialogue trees are flat and rooted at `root`**, options carrying `next` and `label`. Not
-  `{ nodes, edges }`, despite the VINE editor's own format.
-- **A new building gets its map icon in the same build**, never backfilled.
-- **New interior zones get power + a light fixture** in the same build, or they ship dark.
-- Ship through the **`codex`** skill; run **`map-audit`** on the facades.
+The player chose the softest of three readings: **standing is never consulted, only the path.** You
+can have run jobs for all four orders and still be let in. What you cannot be is *signed up*.
+
+### The gate lock: `terminusgate`
+
+Registered in `plugins/psionics/door.js` beside the `psi` one, and it asks a different question.
+`psi` asks what you can DO; this asks what you ARE. Two halves, both required:
+
+1. **`terminus_admitted`** — somebody let you in. The gate is never opened by standing at it.
+2. **The mind is not already somebody else's** — it reads the ordinary `path_machine` /
+   `path_flesh` / `path_human` / `path_mind` flags and refuses when any non-mind path is **at or
+   above** `path_mind`. **A tie refuses**: somebody equally committed to two paths has not chosen,
+   and the whole gate is about having chosen.
+
+**It must NOT be a `psi` door.** The purifier chair that awakens you is *inside* the wall, so gating
+the gate on awakening puts the door in front of its own key. That is the commonest way a chain like
+this dies quietly.
+
+**There is no membership flag doing the real work.** The rule reads the ideology axes and nothing
+else, so a player who later leans back toward the mind through ordinary play walks in, and one who
+takes Ascendant work walks out, with nothing in the plugin to keep in sync.
+
+The refusal is flat, like every door here — **except** the path refusal, which fires Verity
+Strand's one-shot line (`terminus_gate_told`). A player who did both errands, answered the child and
+is then refused invisibly is looking at a bug rather than at a decision. She explains *them*, never
+the creed, and never names the order they belong to.
+
+### The chain
+
+Verity Strand has been saying this since pass 1, and the admission had to honour it:
+
+> *"Go and live. Do the work you'd have done anyway. Someone will notice, and it will not be me, and
+> you'll be told."*
+
+So it is not the warden who lets you in, and it is not a quest board.
+
+1. **`quest_terminus_1`, "Nothing Owing"** — Ivo Stannard. Carry a sealed box to the gate and bring
+   the empty back. He says twice not to open it and then apologises for saying it twice. What is in
+   it is a set of gauges he made before his hands stopped being his, which they will not take from
+   him, and he knows why and will not say it out loud in his own shed.
+2. **`quest_terminus_2`, "The Long Way Round"** — Tace Ambler, who only offers it once Ivo's is
+   done. Walk the outside of the wall. All of it. She says there is nothing to see and that she is
+   not going to pretend otherwise, and asks you not to ask what it is for.
+3. **The child.** **Hopestill**, nine years old, sitting on a rock on the *outside* of a wall with
+   no way through it, asks one question: *"What are you for?"* Answering it one particular way runs
+   `ADJUST_PATH { mind }`, `ADJUST_STANCE`, and sets `terminus_admitted`. Then she walks at the gate
+   and it comes apart in front of her, and she does not look back to see whether you are following.
+
+**Nothing ever explains how she got out.** Nobody remarks on it.
+
+Both errands refuse to be about anything, which is the register the Oracle-9 chain
+(`quest_exo_1..3`) established for this order. What is actually being measured is whether you will
+do a pointless thing carefully, and that is never said by anybody.
+
+---
+
+## How the place reads
+
+**The terror is at the wall. The inside is domestic, and nothing ever remarks on it.** Outside you
+are turned away, politely, forever, by people who will not say what is behind them. Inside it is a
+kitchen, a laundry, a sick room and a school. Both are true and neither is a trick.
+
+**Four instruments, used everywhere and named nowhere:** somebody answers before they were asked and
+does not notice; a great many people do one thing at one moment with no signal for it; objects are
+in an order nobody was near enough to have put them in; a room goes quiet in a way that has nothing
+to do with sound.
+
+**The one line never to write** is any line where a character explains the creed to the player. **Ivo
+Stannard is the only exception**, and he has it because he touched the machine and is not going with
+them.
+
+**The names.** People born inside carry virtue names (Verity, Thankful, Silence, Comfort, Mercy,
+Constant, Amity, Patience, Increase, Remember, Preserved, Hopestill). People who came carry ordinary
+ones (Ivo, Tace, Josiah). **Nothing in the game says so**, no NPC remarks on it, and no quest rewards
+working it out.
+
+**Psionic content is exactly two objects and two doors, and all four are real.** The stillhouse chair
+carries `psi_purifier`, which `plugins/psionics/purifier.js` reads; the Waking Hall and the Stillwell
+are `lock:psi`. The Stillwell is prose in a room whose *door* is the mechanic. Nothing here invents a
+flag that nothing reads — the rule the mutations system bought the expensive way with its `effects`
+keys.
+
+---
+
+## Rebuilding it
+
+```bash
+node scripts/build-terminus.mjs
+```
+
+Then, in order — the middle step exists because a building's two-letter map code can only be chosen
+by something that sees every building in the world at once:
+
+```bash
+npm run content:import && npm run map:derive && node scripts/bake-terminus-markers.mjs && npm run content:import
+```
+
+```bash
+node scripts/build-terminus-npcs.mjs && npm run content:import
+```
+
+Both generators are idempotent and carry any existing `marker` forward. **⚠ `build-terminus.mjs`
+prunes every `conn_terminus_*` / `conn_exo_*` file before reminting**, and the importer only deletes
+rows for files deleted *in git between the marker and HEAD* — so after a local rebuild the dev DB
+keeps orphan `connections` rows and `zone_edges` comes out short. Committing the deletion fixes it
+on deploy; locally, delete the rows whose file is gone.
+
+---
+
+## Not built (deliberate)
+
+- **The Pioneers never contest the apron.** `ideology_pioneers` is expansion-gated and its designed
+  home is a rebuilt frontier settlement. A later claim on the trading post is free drama.
+- **Nobody ever leaves.** The thing on the pad is under construction and stays that way. There is no
+  launch, no countdown and no ending, and Increase Talley's line about the generator staying behind
+  is as close as the district gets to one.
+- **The `919_927` / `921_927` discrepancy** between the Wildblood and Wildlands docs is still
+  unsettled.

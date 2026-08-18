@@ -1,0 +1,14 @@
+{
+  "description": "A plated inlet at the top of the beds, separate from the roof feed, for water hauled up from the Slake in a dry month. The rule is chalked over it in letters a foot high: SLAKE WATER: BOTH BEDS, TWICE.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_inlet",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the second inlet",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_sweetwater"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Glazed deep red and much better work than the tableware beside them, thicker in the shoulder than they look. Nine a month, six survive the firing, eleven hundred going back to before the potter was born.\n\nThey are not for the table.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_jars",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a stack of red jars",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_kiln"
+}

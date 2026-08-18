@@ -1,0 +1,9 @@
+{
+  "a": "zone_thorn_kept",
+  "b": "zone_util_zone_thorn_kept",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_thorn_kept_down",
+  "lockable": false,
+  "one_way": true
+}

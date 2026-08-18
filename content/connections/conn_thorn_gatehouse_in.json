@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1045_969",
+  "b": "zone_thorn_gatehouse",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_thorn_gatehouse_in",
+  "lockable": true,
+  "one_way": false
+}

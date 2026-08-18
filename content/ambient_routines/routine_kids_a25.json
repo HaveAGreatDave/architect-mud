@@ -1,0 +1,21 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_a25",
+  "interactive": null,
+  "lines": [
+    "Two kids have worked out that a stretch of railing makes a noise if you run a stick along it.",
+    "They have now established this beyond any doubt, several times."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 124,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

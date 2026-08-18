@@ -1,0 +1,20 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a16",
+  "interactive": null,
+  "lines": [
+    "The snow has taken the edges off everything. The street looks briefly like somebody looked after it."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 115,
+  "themes": [],
+  "weather": [
+    "snow",
+    "blizzard"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

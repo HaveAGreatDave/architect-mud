@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The drain gurgles once and settles.",
+    "Linen is refolded on the bench by somebody who has folded a great deal of linen.",
+    "The door at the far end does not open. You had not asked it to.",
+    "Water runs somewhere behind the wall, for a long time, and stops all at once."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Whitewash, a drain in the middle of the floor, and a chair bolted down over it under a hood of salvaged medical gear. Along one wall, a bench with a great deal of clean linen folded on it and a bucket underneath. At the far end there is a second door, plain, with no handle on it.\n\nThe room smells of soap and, under the soap, of something else.",
+  "exits": {
+    "down": "zone_util_zone_exo_stillhouse",
+    "east": "zone_exo_stillwell",
+    "north": "zone_terminus_1216_941"
+  },
+  "flags": {
+    "building_name": "The Stillhouse",
+    "building_type": "clinic",
+    "exodus_space": true,
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_941"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_stillhouse",
+  "map_id": "map_int_exo_stillhouse",
+  "name": "The Stillhouse",
+  "parent_zone": "zone_terminus_1216_941"
+}

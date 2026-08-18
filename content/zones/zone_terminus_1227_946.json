@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The generator changes note by about a quarter of nothing and changes back.",
+    "A gauge is tapped, read, and written down.",
+    "Somebody wipes a rag round a fitting that was already clean."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A shed with a stack, and from the stack a thin haze that is the only smoke anywhere in the compound. It is the one machine these people keep and it is kept better than anything else here, which is a sentence somebody inside would rather you did not write down.",
+  "exits": {
+    "east": "zone_terminus_1228_946",
+    "west": "zone_exo_charge"
+  },
+  "flags": {
+    "building_name": "The Standing Charge",
+    "building_type": "dynamo",
+    "entrance": "east",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1228_946"
+  },
+  "grid_x": 1227,
+  "grid_y": 946,
+  "grid_z": 0,
+  "id": "zone_terminus_1227_946",
+  "map_id": "map_world",
+  "marker": "SC",
+  "name": "The Standing Charge",
+  "parent_zone": null
+}

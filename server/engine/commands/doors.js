@@ -17,9 +17,11 @@ import { registerAction } from '../actions.js';
 import { hasHackDeck, hackDifficulty, damageHackDeck, breachMargin } from '../hack-gear.js';
 import { escAttr } from '../text.js';
 import { loggedPanelsSync } from '../presentation.js';
+import { OPPOSITE } from '../directions.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
-const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+// (OPPOSITE is imported from ../directions.js — this file used to keep its own
+// byte-identical copy.)
 const DIR_ABBR = { n:'north', s:'south', e:'east', w:'west', u:'up', d:'down' };
 const WINDOW_WORDS = new Set(['window', 'windows', 'curtain', 'curtains']);
 // Filler words stripped before matching, so "door to west" == "west door" == "door west".

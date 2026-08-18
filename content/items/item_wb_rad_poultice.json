@@ -1,0 +1,19 @@
+{
+  "description": "Burnt bone, crushed limestone and something green, worked into a paste and spread on a rag. Gristle Thole's pattern. It draws, and it stings, and it works.",
+  "flags": {},
+  "id": "item_wb_rad_poultice",
+  "name": "drawing poultice",
+  "tags": {
+    "consumable": true,
+    "description": "A grey-green paste on a folded rag, still slightly warm from being worked.",
+    "restore_radiation": -14,
+    "stackable": true,
+    "treat_injury": {
+      "floor": 1,
+      "steps": 1
+    }
+  },
+  "type": "medicine",
+  "value": 45,
+  "weight": 250
+}

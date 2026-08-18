@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_cult_member_075",
+  "lines": [
+    "\"The routing was strange this week.\"",
+    "\"You noticed too.\"",
+    "\"Everybody noticed. Nobody says.\"",
+    "\"We say.\"",
+    "\"We say.\""
+  ],
+  "personality": "cult_member",
+  "sort_order": 474
+}
+

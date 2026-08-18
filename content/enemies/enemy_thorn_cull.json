@@ -1,0 +1,94 @@
+{
+  "behavior": "sentinel",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 8,
+  "butcher_table": [],
+  "death_message": "The Field Cull comes apart much more easily than the size of it suggested, and the last of the eyes to close is not looking at you.",
+  "description": "Leaner than the others and much faster, working the open ground outside the wall in a wide slow circuit that is plainly a route.\n\nIt has too many eyes and they are not arranged in any pattern, and they do not blink together, and it can therefore look at the road, the ridge and you at the same time, and is.\n\nIt is not blocking anything. It is counting.",
+  "dodge": 14,
+  "faction": "ideology_wildblood",
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "The Field Cull adjusts its circuit by about four feet and continues.",
+      "Several of the eyes are on you. Several are not.",
+      "The Field Cull stops. Then it goes on."
+    ],
+    "first_strike_delay_ms": 0
+  },
+  "hit": 13,
+  "hp_max": 180,
+  "id": "enemy_thorn_cull",
+  "loot_table": [
+    {
+      "item": "item_wb_grave_salt",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 45
+    },
+    {
+      "item": "item_bone_meal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 40
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        1,
+        3
+      ],
+      "weight": 40
+    }
+  ],
+  "name": "a Field Cull",
+  "weapon": [
+    {
+      "max": 17,
+      "min": 9,
+      "type": "edged"
+    }
+  ]
+}

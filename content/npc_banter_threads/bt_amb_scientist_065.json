@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_scientist_065",
+  "lines": [
+    "\"The result is fine.\"",
+    "\"So what is wrong?\"",
+    "\"The explanation. The explanation is wrong.\"",
+    "\"Then the result is not fine.\"",
+    "\"No. It is not.\""
+  ],
+  "personality": "scientist",
+  "sort_order": 464
+}
+

@@ -1,0 +1,23 @@
+{
+  "description": "A spike with no handle. Instead there is a socket, tapered and lined with hide, meant to be pushed onto something that has grown to a point. It has been sold four times and returned three, and Ferrous will not stop making them.",
+  "flags": {},
+  "id": "item_wb_socket_spike",
+  "name": "socket spike",
+  "tags": {
+    "damage": {
+      "max": 12,
+      "min": 6
+    },
+    "damage_type": "edged",
+    "description": "A hide-lined socket with a spike on the end of it. There is no grip because it was never meant to be gripped.",
+    "min_skill": {
+      "blades": 1
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "blades"
+  },
+  "type": "weapon",
+  "value": 180,
+  "weight": 500
+}

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_professional_021",
+  "lines": [
+    "\"Somebody asked me for free advice today.\"",
+    "\"What did you tell them?\"",
+    "\"I told them what it would have cost.\"",
+    "\"Did they pay?\"",
+    "\"No. But they stopped asking.\""
+  ],
+  "personality": "professional",
+  "sort_order": 420
+}
+

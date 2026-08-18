@@ -1,0 +1,14 @@
+{
+  "description": "The fire at the end throws most of it. Two lamps on the wall are lit at dusk and left burning all night, which in a place this careful with oil is a statement.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_opendoor",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the hall fire and two lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_opendoor"
+}

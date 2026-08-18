@@ -129,7 +129,7 @@
     "trust_flag": "wildblood_trust"
   },
   "home_activities": [],
-  "home_zone": "zone_scw_1045_976",
+  "home_zone": "zone_thorn_rindles",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_thorn_rindle",
@@ -225,5 +225,5 @@
   "vendor_stock_size": 16,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_scw_1045_976"
+  "work_zone_id": "zone_thorn_rindles"
 }

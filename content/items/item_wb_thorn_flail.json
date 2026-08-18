@@ -1,0 +1,23 @@
+{
+  "description": "Two feet of the wall on a length of chain. It is still alive, which is the point: it has been cut and it is closing, and it goes on closing on whatever it is wrapped around. It has to be watered.",
+  "flags": {},
+  "id": "item_wb_thorn_flail",
+  "name": "thorn flail",
+  "tags": {
+    "damage": {
+      "max": 14,
+      "min": 7
+    },
+    "damage_type": "kinetic",
+    "description": "A living length of thorn wired to a chain. The spines are the length of your hand and it is not dead.",
+    "min_skill": {
+      "clubs": 1
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
+  },
+  "type": "weapon",
+  "value": 260,
+  "weight": 1100
+}

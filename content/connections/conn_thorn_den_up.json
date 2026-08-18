@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_den",
+  "b": "zone_thorn_den",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_den_up",
+  "lockable": false,
+  "one_way": true
+}

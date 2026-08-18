@@ -301,13 +301,24 @@ let _fxCache = { ts: 0, jammed: new Set(), spoofed: new Set() };
 // writer lives in this file, but regress and the offline scripts write the table
 // directly, and a TTL self-heals where a write-through cache would silently
 // serve stale rows forever.
+//
+// ⚠ The TTL must never equal (or undercut) the period of the tick that reads it.
+// It was 4000 ms while wantedTick runs on the '4s' cadence, so by the time that
+// tick called, `now - ts < 4000` was ALWAYS false — the snapshot was re-read on
+// every single pass and this cache never once hit on its hottest path. It
+// measured 369 of 1478 round trips (25% of ALL database traffic) on a session
+// with one player. 12 s clears the three cadences that read it (4s wanted, 5s
+// hub, 6s heat) with room on either side; the staleness class is unchanged
+// because every in-file writer still calls invalidateDeviceCache() and the TTL
+// only ever bounded out-of-band writers.
+const DEV_SNAPSHOT_TTL_MS = 12_000;
 let _devCache = { ts: 0, rows: [] };
 async function allDevices(force = false) {
   const now = Date.now();
-  if (!force && now - _devCache.ts < 4000) return _devCache.rows;
+  if (!force && now - _devCache.ts < DEV_SNAPSHOT_TTL_MS) return _devCache.rows;
   const { rows } = await query('SELECT * FROM security_devices').catch(() => ({ rows: null }));
   // A failed read must not be cached as "no devices" — that would silently
-  // switch surveillance off for 4 s. Keep the last good snapshot instead.
+  // switch surveillance off for a whole window. Keep the last good snapshot.
   if (rows) _devCache = { ts: now, rows };
   return _devCache.rows;
 }

@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1046_984",
+  "b": "zone_scw_1046_983",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_scw_sallygate",
+  "lockable": true,
+  "one_way": false
+}

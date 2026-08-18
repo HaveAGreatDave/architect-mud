@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "A drawer goes out, and back, and the label gets straightened.",
+    "Somebody outside on the bench pours a cup and does not drink it.",
+    "Linen comes off the boil and is hung, steaming, on the line by the window.",
+    "A splint is cut down to length with four unhurried strokes."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Two beds, a screen, a scrubbed table and a wall of small drawers, each one labelled in a small square hand. Splints, honey, boiled linen, willow, a bone saw kept very clean and used very rarely. There is no machine in this room. There is a great deal of knowledge in it, and most of it is in one person's head.\n\nA child's drawing is pinned inside the door where the patient can see it and the physician cannot.",
+  "exits": {
+    "down": "zone_util_zone_exo_mending",
+    "west": "zone_terminus_1213_944"
+  },
+  "flags": {
+    "building_name": "The Mending Room",
+    "building_type": "clinic",
+    "exodus_space": true,
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1213_944"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_mending",
+  "map_id": "map_int_exo_mending",
+  "name": "The Mending Room",
+  "parent_zone": "zone_terminus_1213_944"
+}

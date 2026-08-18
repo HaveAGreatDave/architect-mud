@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_charity_052",
+  "lines": [
+    "\"Somebody came back to say thank you today.\"",
+    "\"That happens twice a year.\"",
+    "\"Twice a year is worth turning up for.\"",
+    "\"It is. It should not have to be.\""
+  ],
+  "personality": "charity",
+  "sort_order": 451
+}
+

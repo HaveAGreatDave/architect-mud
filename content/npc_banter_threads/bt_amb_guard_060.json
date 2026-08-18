@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_guard_060",
+  "lines": [
+    "\"You still set your boots by the door?\"",
+    "\"Toes out.\"",
+    "\"Toes out. Twenty years and I cannot stop.\"",
+    "\"Nobody stops.\""
+  ],
+  "personality": "guard",
+  "sort_order": 459
+}
+

@@ -1,0 +1,259 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "This is as far as the road goes for you.",
+    "You can sit if you like. I have got the stool but the rock is fine.",
+    "I am not going to tell you and you are not going to guess.",
+    "It is a long way back. Drink something before you start.",
+    "No. Sorry. Genuinely, sorry, and still no.",
+    "People do get in. Not many, and never the ones who ask."
+  ],
+  "description": "She has set a folding stool in the middle of the road and is sitting on it with her hands on her knees, facing west, which is to say facing you and facing the whole of the rest of the world at the same time. No weapon. No badge. A water bottle, a hat, and an entirely settled expression.\n\nShe stands up as you come, and it is not a challenge, it is manners.",
+  "dialogue_tree": {
+    "allowed": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            },
+            {
+              "flag": "terminus_q2_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "Is there anything I can do for you?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Everything except through. Trade with Stannard, he is straight and he will not cheat you. Fuel up. Sleep on the flats, nobody will touch you. Walk the whole wall if you want, and people do, and I have never once minded.\"\n\n\"And then go home, or do not. That part is yours.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Safe road.\"\n\nShe means it, and sits back down, and faces west."
+    },
+    "from": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in there?",
+          "next": "inside"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then what am I allowed to do?",
+          "next": "allowed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "She thinks about that one, which she has not done with any of the others.\n\n\"Nobody, mostly. Nobody comes. Twice a season somebody like you comes, and once a year somebody comes with a truck and a proposal.\" A pause. \"The wall is not for keeping people out. It is for making the question be asked at the gate instead of in the middle of the yard.\"\n\n\"You are asking it at the gate. That is the wall working.\""
+    },
+    "inside": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are you protecting it from?",
+          "next": "from"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then what am I allowed to do?",
+          "next": "allowed"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"People.\"\n\nShe lets that sit for exactly as long as it takes you to decide it is a joke, and then says, \"That was not me being clever. That is the answer. There are people in there, and they are doing what people do, and none of it is any of your business.\"\n\n\"I know what you have decided it is. Everyone decides. You will be wrong in a way I would find quite funny, and I am still not going to tell you.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Morning.\" She says it before you are quite in earshot, which you decide not to think about. \"You have come a long way, so I will be quick and I will be honest with you. You do not belong here, and I am not going to explain that, and I am not going to move.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in there?",
+          "next": "inside"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Who are you protecting it from?",
+          "next": "from"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Then what am I allowed to do?",
+          "next": "allowed"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q2_done",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "I walked the wall.",
+          "next": "work_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            },
+            {
+              "flag": "terminus_q2_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "Is there anything I can do for you?",
+          "next": "work"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Still no.\"",
+      "text_by_relation": {
+        "close": "\"You again.\" She moves the stool six inches so there is room to stand out of the sun. \"Still no. You know that. Sit down anyway.\"",
+        "familiar": "\"You.\" She nods at the rock beside the stool. \"Still no.\"",
+        "known": "\"Back again.\" She does not sound surprised, or bothered. \"Still no.\""
+      }
+    },
+    "work": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "START_QUEST",
+              "quest_id": "quest_terminus_2"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "work_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "She looks at you for a while.\n\n\"Stannard says you took his box to the gate and brought the empty back and did not open it. He tells me that about one person in nine.\"\n\nShe stands, and stretches, and points north with her chin.\n\n\"Walk the wall. All of it, the whole way round, the north corner and the far side and the south, and come back here. It is about two hours and there is nothing to see and I am not going to pretend otherwise.\"\n\n\"Do not ask me what it is for. I would only say something I would have to be embarrassed about later.\""
+    },
+    "work_done": {
+      "actions": [
+        {
+          "action": "TURN_IN",
+          "quest_id": "quest_terminus_2"
+        },
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_exodus",
+          "reason": "The Long Way Round"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"You did the whole thing.\" It is not a question. \"Most people cut the north corner. There is a scree slope and it is genuinely horrible and everybody cuts it.\"\n\nShe looks at your boots, and then at you, and something in her settles.\n\n\"All right. That is that done. Go and stand at the gate a while.\"\n\n\"No, I am not telling you why.\""
+    },
+    "work_take": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Good. Keep the wall on your right the whole way and you cannot get it wrong.\"\n\nShe sits back down and faces west again, at the world."
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a wide canvas hat, re-brimmed twice",
+      "a grey shirt washed pale",
+      "boots with the soles stitched back on"
+    ],
+    "personality": "stoic"
+  },
+  "home_activities": [],
+  "home_zone": "zone_terminus_1207_940",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_terminus_picket",
+  "name": "Tace Ambler",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_terminus_1207_940"
+}

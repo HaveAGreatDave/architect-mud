@@ -1,0 +1,17 @@
+{
+  "description": "A grey steel box with a lever on the side of it. The feed comes off the plant in the south corner, and somebody has written the load on the door in pencil and rubbed it out and written it again.",
+  "flags": {
+    "destructible": true,
+    "generator_id": "gen_zone_util_zone_exo_bench"
+  },
+  "hp": 1200,
+  "hp_max": 1200,
+  "id": "furn_jbox_zone_util_zone_exo_bench",
+  "light_type": "lamp",
+  "lumen_output": null,
+  "name": "junction box",
+  "object_type": "junction_box",
+  "power_draw_kw": 0,
+  "price": 0,
+  "zone_id": "zone_util_zone_exo_bench"
+}

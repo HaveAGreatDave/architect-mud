@@ -1,0 +1,14 @@
+{
+  "description": "A can with a fine rose on it, filled, standing at the end of the row that has not been done yet. It is exactly where the person doing the row would want it to be, and there is nobody in the glasshouse.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_watercan",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a watering can",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_glass"
+}

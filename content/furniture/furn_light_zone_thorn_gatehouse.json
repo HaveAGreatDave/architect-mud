@@ -1,0 +1,14 @@
+{
+  "description": "One hooded lamp, kept low, because a lit gate house is a gate house nobody outside can see past and that is the whole idea.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_gatehouse",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "a hooded lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_gatehouse"
+}

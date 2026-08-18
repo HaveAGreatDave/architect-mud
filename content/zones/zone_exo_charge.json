@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The generator changes note by about a quarter of nothing and changes back.",
+    "A gauge is tapped, read, and written down.",
+    "Somebody wipes a rag round a fitting that was already clean.",
+    "The load comes on as the light goes, and the note dips, and holds."
+  ],
+  "ambient_theme": "indoors",
+  "description": "The plant. A single generator on a concrete pad, bedded on rubber, running at a speed it has clearly been running at for years, and around it a floor you could eat off. The log on the wall goes back eleven years in daily entries. Oil, hours, load, one line a day, no gaps.\n\nA second, older machine stands stripped in the corner under a sheet, kept for parts, and the sheet is clean.",
+  "exits": {
+    "down": "zone_util_zone_exo_charge",
+    "east": "zone_terminus_1227_946"
+  },
+  "flags": {
+    "building_name": "The Standing Charge",
+    "building_type": "dynamo",
+    "exodus_space": true,
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1227_946"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_charge",
+  "map_id": "map_int_exo_charge",
+  "name": "The Standing Charge",
+  "parent_zone": "zone_terminus_1227_946"
+}

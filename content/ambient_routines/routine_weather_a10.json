@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a10",
+  "interactive": null,
+  "lines": [
+    "The rain gets into a broken gutter and starts a noise that will not stop until it does."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 109,
+  "themes": [],
+  "weather": [
+    "rain"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

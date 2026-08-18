@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_092",
+  "lines": [
+    "\"My neighbour has stopped playing music.\"",
+    "\"That is good, surely.\"",
+    "\"It is not good. He played it every night for six years.\"",
+    "\"Ah.\""
+  ],
+  "personality": null,
+  "sort_order": 491
+}
+

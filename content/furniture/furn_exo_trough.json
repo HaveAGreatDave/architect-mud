@@ -1,0 +1,14 @@
+{
+  "description": "A wooden trough the length of the room, silver with steam, with a plug chain at one end and a row of hooks above it. Every towel on the hooks is a different colour and each has plainly been the same person's towel for years.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_trough",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the long trough",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_wash"
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_police_032",
+  "lines": [
+    "\"Nobody wants us there.\"",
+    "\"Everybody calls.\"",
+    "\"Both of those are true at once.\"",
+    "\"That is the whole job in one sentence.\""
+  ],
+  "personality": "police",
+  "sort_order": 431
+}
+

@@ -1,0 +1,14 @@
+{
+  "description": "Ascendant work, unmistakable, hung on the wall among the salvage and the bone and a child's drawing. There is a hole punched clean through it from one side.\n\nNothing about how it is hung suggests a trophy. It is at the same height as everything else and it is not in the middle.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_hullplate",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a length of hull plate",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_den"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_quiet",
+  "b": "zone_exo_quiet",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_quiet_up",
+  "lockable": false,
+  "one_way": true
+}

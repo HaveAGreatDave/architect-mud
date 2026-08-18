@@ -41,6 +41,7 @@ import {
 import { registerAction, dispatchAction } from "../../server/engine/actions.js";
 import { setPosture } from "../../server/engine/posture.js";
 import { findTransformByName, isTransformed } from "../../server/engine/phantoms.js";
+import { query } from "../../server/models/db.js";
 
 // ---------------------------------------------------------------------------
 // Context helpers

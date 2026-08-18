@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_lowlife_012",
+  "lines": [
+    "\"I am owed.\"",
+    "\"Everybody is owed.\"",
+    "\"No, I am properly owed.\"",
+    "\"That is what everybody who is owed says.\""
+  ],
+  "personality": "lowlife",
+  "sort_order": 411
+}
+

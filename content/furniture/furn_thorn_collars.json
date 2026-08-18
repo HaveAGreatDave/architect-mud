@@ -1,0 +1,14 @@
+{
+  "description": "Sixteen collars on pegs with no dogs attached to them. Every peg is labelled and every label is a name. They are oiled and checked with the working collars, on the same rota, and there is no plan to take them down.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_collars",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the collar pegs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_hounds"
+}

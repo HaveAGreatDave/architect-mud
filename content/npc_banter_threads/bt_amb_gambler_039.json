@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gambler_039",
+  "lines": [
+    "\"I was up eight hundred on Tuesday.\"",
+    "\"You were up eight hundred on Tuesday.\"",
+    "\"You do not believe me.\"",
+    "\"I believe the Tuesday part.\""
+  ],
+  "personality": "gambler",
+  "sort_order": 438
+}
+

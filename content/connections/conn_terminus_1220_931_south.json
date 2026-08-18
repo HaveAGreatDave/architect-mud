@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1220_931",
+  "b": "zone_terminus_1220_932",
+  "blocked": true,
+  "dir": "south",
+  "id": "conn_terminus_1220_931_south",
+  "lockable": false,
+  "one_way": false
+}

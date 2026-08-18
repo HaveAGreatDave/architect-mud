@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_lowlife_011",
+  "lines": [
+    "\"Heard your name come up.\"",
+    "\"In what?\"",
+    "\"A conversation I walked out of.\"",
+    "\"That is the best kind of conversation to be in.\""
+  ],
+  "personality": "lowlife",
+  "sort_order": 410
+}
+

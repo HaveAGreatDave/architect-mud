@@ -1,0 +1,20 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a12",
+  "interactive": null,
+  "lines": [
+    "A truck goes through the standing water at the kerb without slowing at all.",
+    "The pavement receives most of it. There is a shout, and then the sound of somebody deciding not to bother."
+  ],
+  "loudness": 0.4,
+  "phases": [],
+  "sort_order": 111,
+  "themes": [],
+  "weather": [
+    "rain"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

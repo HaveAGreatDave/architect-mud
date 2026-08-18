@@ -1,0 +1,527 @@
+{
+  "banter": [],
+  "behaviour_graph": {
+    "_start": "start",
+    "nodes": {
+      "atm_emote": {
+        "action_type": "EMOTE",
+        "next": "atm_wait",
+        "params": {
+          "message": "feeds the night take into the cash terminal a note at a time, waiting out its complaint after each one."
+        },
+        "type": "action"
+      },
+      "atm_wait": {
+        "jitter": 20,
+        "next": "deposit",
+        "seconds": 10,
+        "type": "wait"
+      },
+      "cash_up": {
+        "jitter": 900,
+        "next": "collect_safe",
+        "seconds": 20,
+        "type": "wait"
+      },
+      "check_work": {
+        "action_type": "CHECK_VENDOR_WORK",
+        "endShift": "cash_up",
+        "goToWork": "go_to_work",
+        "haveLife": "have_life",
+        "offWork": "off_home_check",
+        "type": "action"
+      },
+      "collect_safe": {
+        "action_type": "VENDOR_COLLECT_SAFE",
+        "next": "go_to_atm",
+        "type": "action"
+      },
+      "deposit": {
+        "action_type": "VENDOR_DEPOSIT",
+        "next": "post_shift",
+        "type": "action"
+      },
+      "go_home_off": {
+        "action_type": "GO_HOME",
+        "next": "check_work",
+        "type": "action"
+      },
+      "go_home_ps": {
+        "action_type": "GO_HOME",
+        "next": "home_life_ps",
+        "type": "action"
+      },
+      "go_to_atm": {
+        "action_type": "VENDOR_GO_TO_ATM",
+        "next": "atm_emote",
+        "type": "action"
+      },
+      "go_to_work": {
+        "action_type": "GO_TO_WORK",
+        "next": "work_wait",
+        "type": "action"
+      },
+      "have_life": {
+        "action_type": "HAVE_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_idle": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "home_life_ps": {
+        "action_type": "AT_HOME_LIFE",
+        "next": "check_work",
+        "type": "action"
+      },
+      "off_home_check": {
+        "condition_type": "AT_HOME",
+        "ifFalse": "off_random",
+        "ifTrue": "home_idle",
+        "type": "condition"
+      },
+      "off_random": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_off",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 6
+          }
+        ],
+        "type": "random"
+      },
+      "player_check": {
+        "condition_type": "PLAYER_IN_ZONE",
+        "ifFalse": "check_work",
+        "ifTrue": "work_say",
+        "type": "condition"
+      },
+      "post_shift": {
+        "branch_0": "have_life",
+        "branch_1": "go_home_ps",
+        "branches": [
+          {
+            "weight": 1
+          },
+          {
+            "weight": 6
+          }
+        ],
+        "type": "random"
+      },
+      "start": {
+        "next": "check_work",
+        "type": "start"
+      },
+      "work_say": {
+        "action_type": "VENDOR_CHITCHAT",
+        "next": "check_work",
+        "type": "action"
+      },
+      "work_wait": {
+        "next": "player_check",
+        "seconds": 60,
+        "type": "wait"
+      }
+    }
+  },
+  "chitchat": [
+    "Nadine adds a stroke to the receipt roll without looking up, and turns the page over when it fills.",
+    "\"Card reader is fine. It is always fine. Try it the other way round.\"",
+    "The urn gurgles, settles, and produces nothing at all. Nadine does not react to this in any way.",
+    "Somebody out on the forecourt leans on a horn for four full seconds. She lets them finish."
+  ],
+  "description": "The attendant on the long shift, somewhere past forty, in a station fleece gone bald at one shoulder from the strap of a bag she no longer carries. She works the counter the way you work a lock you have picked a hundred times, without ever quite looking at it. She keeps a tally on the back of the receipt roll of every rig that comes onto the lot, and she has never told anybody what it is for.",
+  "dialogue_tree": {
+    "bye": {
+      "options": [],
+      "text": "\"Mm.\" The pencil is already moving again."
+    },
+    "gossip": {
+      "actions": [
+        {
+          "action": "GOSSIP_TELL"
+        }
+      ],
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Everybody stops here. Nobody stops here long.\" She taps the counter with the pencil. \"You get the first forty seconds of an awful lot of stories.\""
+    },
+    "pumps": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"Two islands, same fuel, same price, and one of them has a shorter hose than the other.\" She points with the pencil without looking. \"That one. People pull up on the wrong side, and then they blame the pump, and then I have to come out and say a sentence I have now said eleven thousand times.\" She goes back to the roll. \"The meter is honest, though. That is the one thing on this lot I would swear to.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "She looks up, clocks you, clocks the door swinging shut behind you, and goes back to the roll. \"Pumps are metered, urn's hot, and the toilet key is on the spoon.\" A beat, as though she has remembered the rest of it. \"Nadine. I open at two and I am here until it gets light, so if you are ever in here in proper daylight, it is not me.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Let's see the shelves.",
+          "next": "__shop__"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What's the tally for?",
+          "next": "tally"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Anything I should know about the pumps?",
+          "next": "pumps"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Is the coffee actually coffee?",
+          "next": "urn"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Quiet tonight?",
+          "next": "gossip"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing, thanks.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Back.\" She does not look up. \"Pumps are metered, urn's hot.\"",
+      "text_by_relation": {
+        "close": "\"Sit on the crate if you are stopping.\" She nods at it. \"Do not sit on the crate if you are going. You will only make a thing out of leaving.\"",
+        "familiar": "She has the urn topped up before the door has finished shutting, which is as close to a greeting as this counter gets.",
+        "known": "\"You again.\" She turns the receipt roll over without marking it. \"Go on, then.\""
+      }
+    },
+    "tally": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "She looks at the receipt roll as though she has not thought about it in years. \"Rigs on the lot. One stroke each.\" She turns it over. \"I started counting to prove the late shift was not worth staffing. It is not. They staffed it anyway, and I never stopped counting, so now it is just a thing I do with my hands.\""
+    },
+    "urn": {
+      "options": [
+        {
+          "label": "Back.",
+          "next": "root"
+        }
+      ],
+      "text": "\"It is hot, it is there, and the urn has never once run dry on my shift.\" She nods at it. \"That is the entire pitch and I am not going to improve it for you.\" A shrug. \"Bring your own cup if you have got one. The paper ones run out twice a month and I have stopped pretending I am going to order more.\""
+    }
+  },
+  "faction": null,
+  "flags": {
+    "clothing_layers": [
+      "a station fleece gone bald at one shoulder",
+      "a shirt she has stopped bothering to iron",
+      "work trousers and shoes with no laces left in them"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_yards_tenement_u3_3",
+  "hp": 40,
+  "hp_max": 40,
+  "id": "npc_flashpoint_attendant",
+  "name": "Nadine Quist",
+  "npc_type": "vendor",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_bar_jerky",
+      "price": 8,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_beef_jerky",
+      "price": 12,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_ration",
+      "price": 11,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_ramen_noodles",
+      "price": 11,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_ersatz_noodle",
+      "price": 6,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_flat_bread",
+      "price": 6,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_salt_ration",
+      "price": 4,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_tinned_meat",
+      "price": 11,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_soap_block",
+      "price": 6,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_newspaper_sentinel",
+      "price": 9,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_battery",
+      "price": 14,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_duct_tape",
+      "price": 14,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_condom",
+      "price": 6,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_flashlight",
+      "price": 58,
+      "restockToQty": 2,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_jerry_can",
+      "price": 46,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_truck_spares",
+      "price": 168,
+      "restockToQty": 2,
+      "sourceContainer": "furn_flashpoint_shelves"
+    },
+    {
+      "item_id": "item_energy_drink",
+      "price": 11,
+      "restockToQty": 8,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_cream_soda",
+      "price": 8,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_lemon_soda",
+      "price": 7,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_ginger_soda",
+      "price": 7,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_iced_tea_carton",
+      "price": 8,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_water_bottle",
+      "price": 7,
+      "restockToQty": 8,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_soda_water",
+      "price": 5,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_chiller"
+    },
+    {
+      "item_id": "item_sausage",
+      "price": 24,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_roller"
+    },
+    {
+      "item_id": "item_cigarettes",
+      "price": 18,
+      "restockToQty": 6,
+      "sourceContainer": "furn_flashpoint_gantry"
+    },
+    {
+      "item_id": "item_gold_cigarillo",
+      "price": 15,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_gantry"
+    },
+    {
+      "item_id": "item_stim_jolt",
+      "price": 16,
+      "restockToQty": 4,
+      "sourceContainer": "furn_flashpoint_gantry"
+    },
+    {
+      "item_id": "item_coffee_grounds",
+      "price": 13,
+      "restockToQty": 3,
+      "sourceContainer": "furn_flashpoint_gantry"
+    },
+    {
+      "item_id": "item_drug_coffee",
+      "price": 5
+    },
+    {
+      "item_id": "item_ration_apple",
+      "price": 11
+    },
+    {
+      "item_id": "item_cooking_oil",
+      "price": 13
+    },
+    {
+      "item_id": "item_industrial_tape",
+      "price": 17
+    },
+    {
+      "item_id": "item_amptape_drifting_mix",
+      "price": 495
+    }
+  ],
+  "vendor_restock_rate": 2,
+  "vendor_schedule": {
+    "fri": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "mon": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "sat": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "sun": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "thu": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "tue": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ],
+    "wed": [
+      {
+        "from": 0,
+        "to": 6
+      },
+      {
+        "from": 14,
+        "to": 24
+      }
+    ]
+  },
+  "vendor_shop_name": "Flash Point Convenience",
+  "vendor_stock_size": 8,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_flashpoint_shop"
+}

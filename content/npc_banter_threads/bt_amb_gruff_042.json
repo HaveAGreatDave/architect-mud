@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gruff_042",
+  "lines": [
+    "\"What.\"",
+    "\"Nothing.\"",
+    "\"Say it.\"",
+    "\"I said nothing.\"",
+    "\"You said nothing loudly.\""
+  ],
+  "personality": "gruff",
+  "sort_order": 441
+}
+

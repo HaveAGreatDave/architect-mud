@@ -1,0 +1,154 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sit. Eat. Then talk, if you have got to.",
+    "That one is fine. That one is fine. Not that one.",
+    "Nobody pays. Put your name on the board if you feel bad about it.",
+    "Bones in, always. It is the bones that make it.",
+    "Everything out there wants to poison you. Most of it is bad at it."
+  ],
+  "description": "A wide man working six pots at once with a ladle in each hand and a third under his arm. He has eleven fingers and every one of them is doing something.\n\nHe tastes off the back of his wrist rather than off the spoon, holding it against the inside of his lip for a moment before he swallows, and what he is checking for is not seasoning. Everything that goes into a Thornwarren pot comes off ground that is trying to kill them, and he is the reason nobody has died of dinner in twenty years.",
+  "dialogue_tree": {
+    "board": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in the third pot?",
+          "next": "pots"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Who the town owes.\"\n\nHe wipes his hands.\n\n\"Nobody pays for food. So instead it goes up there: what you brought in, what you did, what you are owed. Roof crew are owed a lot. Gate shift are owed a lot. The people in the Kept are owed everything and cannot do anything, so their names are at the top and they stay there.\"\n\nA shrug.\n\n\"It does not settle. It is not supposed to settle. It is just so everybody can see it.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "pots": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the owing board?",
+          "next": "board"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Not sure yet.\"\n\nHe stirs it, tastes it off his wrist, makes a face that is entirely professional, and stirs it again.\n\n\"Somebody brought in a sack of something off the north flats. Looks like it should be food. Half of what looks like it should be food out here will shut your kidneys in a day and a half.\" He puts the lid back. \"So it sits in the third pot for a week and it goes to me first and to nobody else, and if it is all right in a fortnight it is dinner.\"\n\nHe says this the way another man would say he is thinking about painting the shed."
+    },
+    "root": {
+      "actions": [],
+      "first": "\"You are the one at the gate.\" A bowl arrives before you have agreed to anything. \"Eat that. It is safe. I would know.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in the third pot?",
+          "next": "pots"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is the owing board?",
+          "next": "board"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Eat something.\"",
+      "text_by_relation": {
+        "close": "The bowl is already poured and already on the bench and he does not mention it.",
+        "familiar": "\"I did the one you liked.\" He had. He remembered.",
+        "known": "\"You.\" A bowl. \"Eat.\""
+      }
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "an apron burned through at the front and patched with tin",
+      "a vest, no shirt",
+      "clogs"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_longfire",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_thorn_pitch",
+  "name": "Pitch Halloway",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_wb_bone_broth",
+      "min_trust": 0,
+      "price": 8
+    },
+    {
+      "item_id": "item_flat_bread",
+      "min_trust": 0,
+      "price": 3
+    },
+    {
+      "item_id": "item_soup_bowl",
+      "min_trust": 0,
+      "price": 6
+    },
+    {
+      "item_id": "item_wb_thorn_tea",
+      "min_trust": 0,
+      "price": 12
+    },
+    {
+      "item_id": "item_water_bottle",
+      "min_trust": 0,
+      "price": 4
+    },
+    {
+      "item_id": "item_herb_bundle",
+      "min_trust": 0,
+      "price": 10
+    },
+    {
+      "item_id": "item_bar_jerky",
+      "min_trust": 0,
+      "price": 12
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Long Fire",
+  "vendor_stock_size": 7,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_longfire"
+}

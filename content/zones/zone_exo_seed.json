@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "A drawer comes out an inch, is looked into, and goes back.",
+    "The thermometer is read and a number is written in the log.",
+    "It is very cold in here and very still and the stillness is the point.",
+    "Somebody counts under their breath, in tens, and gets to four hundred, and starts again tomorrow."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Cold, dry and dark. Drawers, floor to ceiling, four hundred of them, each labelled with a name and a year and a number that goes down by one or two every season and occasionally back up by a hundred.\n\nThis is the single most valuable thing in the region and there is no lock on the door.",
+  "exits": {
+    "down": "zone_util_zone_exo_seed",
+    "west": "zone_terminus_1221_934"
+  },
+  "flags": {
+    "building_name": "The Seed Vault",
+    "building_type": "cold_storage",
+    "exodus_space": true,
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1221_934"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_seed",
+  "map_id": "map_int_exo_seed",
+  "name": "The Seed Vault",
+  "parent_zone": "zone_terminus_1221_934"
+}

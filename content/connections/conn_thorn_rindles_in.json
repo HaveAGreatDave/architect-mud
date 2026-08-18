@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1043_977",
+  "b": "zone_thorn_rindles",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_thorn_rindles_in",
+  "lockable": true,
+  "one_way": false
+}

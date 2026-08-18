@@ -1,0 +1,166 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "It is running right. I would know.",
+    "One line a day. Eleven years of them.",
+    "Oil is the only thing we buy that I sign for myself.",
+    "Do not touch the log with those hands.",
+    "It will do another eleven if I do my job."
+  ],
+  "description": "A man of about forty with a rag through his belt, standing with one hand flat on the generator housing, listening to it. He stays like that for a while. Then he takes his hand off, writes one line in the log, and only then notices you.",
+  "dialogue_tree": {
+    "after": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not supposed to have one of these.",
+          "next": "one"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Eleven years of one line a day.",
+          "next": "log"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He stops with his hand on the housing.\n\n\"It stays.\"\n\nHe says it flatly, and then, because he is honest, \"It has to. It is four tons and it is the wrong kind of thing to be taking.\" A pause. \"Somebody will come up that road eventually and find a shed with a plant in it that starts first time, and a log, and no one at all.\"\n\nHe takes his hand off the machine.\n\n\"I have thought about writing them a note. I probably will not.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "log": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not supposed to have one of these.",
+          "next": "one"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to it when you all go?",
+          "next": "after"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Twelve in March.\"\n\nHe turns a page back, and another, and finds a day without looking for it.\n\n\"That one. Load dropped a third for six hours and I could not find why, and I stripped the governor twice, and on the third day I found a bird in the intake.\" He shuts the book. \"I wrote that down too. That is the point of writing it down.\""
+    },
+    "one": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Eleven years of one line a day.",
+          "next": "log"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to it when you all go?",
+          "next": "after"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He does not react at all, which takes practice.\n\n\"It runs the lamps in the sick room and the pump on the cistern and the cold in the seed vault. And the pump out on the road, and the lights in Stannard's shed, which he would tell you about at length.\"\n\nHe checks the gauge. Writes nothing.\n\n\"I keep it running and I keep the log and in eleven years nobody has come in here and had an argument with me about it. Not one person. You are the first one to bring it up and you do not live here.\"\n\nA beat.\n\n\"That is not a complaint. Take it however you like.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Mind the pad, it is greasy.\" He wipes his hands. \"You are the new one. Everybody comes and looks at it eventually.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You are not supposed to have one of these.",
+          "next": "one"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Eleven years of one line a day.",
+          "next": "log"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to it when you all go?",
+          "next": "after"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Mind the pad.\"",
+      "text_by_relation": {
+        "close": "He moves along the bench without being asked, and there is a mug on it that is not his.",
+        "familiar": "\"Listen to that,\" he says, of a sound you cannot hear, and you both listen to it.",
+        "known": "\"You.\" He goes back to the gauge. \"Mind the pad.\""
+      }
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "overalls, oil to the knee, washed weekly",
+      "a vest gone grey",
+      "boots"
+    ],
+    "personality": "gruff"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_charge",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_engineer",
+  "name": "Increase Talley",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_charge"
+}

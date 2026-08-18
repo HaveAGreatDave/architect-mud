@@ -30,6 +30,96 @@
       ],
       "text": "\"It's a job.\" He goes back to the list. \"Everyone here has one. Mine has an ending in it, which is more than most people get.\""
     },
+    "box": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "START_QUEST",
+              "quest_id": "quest_terminus_1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "box_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in it?",
+          "next": "box_what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "He puts the pencil behind his ear, which for him is sitting down.\n\n\"I owe them for a thing. Eleven years ago, and it is not money, and I have tried to make it money eleven times because money is a thing I understand.\" He taps a flat sealed box on the counter. \"They will not take it off me. Off me specifically. I walk it up there and it comes back down.\"\n\n\"So take it up and leave it at the gate and bring the empty back. And do not open it, and I am going to say that twice, and then I am going to apologise for saying it twice, because you have not given me any reason.\"\n\nHe does. Both."
+    },
+    "box_done": {
+      "actions": [
+        {
+          "action": "ADJUST_REPUTATION",
+          "delta": 60,
+          "ideology_id": "ideology_exodus",
+          "reason": "Nothing Owing"
+        }
+      ],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "He takes the empty box off you and turns it over twice, and there is nothing written on it and nothing in it, and something in his shoulders goes down about an inch.\n\n\"Right,\" he says. \"Right.\"\n\nHe puts it under the counter with a great deal of care, on top of the other ten.\n\n\"Ambler will talk to you now. She will pretend that is a coincidence.\""
+    },
+    "box_take": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Right.\" He slides it across. \"Gate. Leave it. Come back.\"\n\nAnd he picks up the pencil and goes down the list again, and does not look at you leaving."
+    },
+    "box_what": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "START_QUEST",
+              "quest_id": "quest_terminus_1"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "box_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "No.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Nothing you would want and nothing you could sell.\"\n\nHe looks at the box, and then out at the road, and for a moment he is somewhere else entirely.\n\n\"It is a set of gauges. Good ones. I made them, before, when I had hands that could.\" He turns one of them over, and you see the joint at the knuckle where it is not a knuckle. \"Eleven years I have been getting them exactly right and they will not take them, and they will not tell me why, and I know why, and I am not going to say it out loud in my own shed.\"\n\n\"Take the box or do not. It is the only thing I have ever asked anybody in this valley for.\""
+    },
     "buy": {
       "actions": [],
       "options": [
@@ -113,6 +203,78 @@
       "actions": [],
       "first": "He looks up, takes you in, and goes back to the list. \"You'll be after the gate. Everyone's after the gate. I'm Stannard, I do the buying, and the buying is out here.\"",
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "You look like you want something.",
+          "next": "box"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "I brought the empty back.",
+          "next": "box_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "You look like you want something.",
+          "next": "box"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "I brought the empty back.",
+          "next": "box_done"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "You look like you want something.",
+          "next": "box"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "I brought the empty back.",
+          "next": "box_done"
+        },
         {
           "actions": [],
           "conditions": [],

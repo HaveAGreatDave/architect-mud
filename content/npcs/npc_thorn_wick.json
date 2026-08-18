@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Shut the door. Please.",
+    "Two hundred and eleven. It was two hundred and nineteen in the spring.",
+    "Do not touch a rack. Touch me if you want to know what cold is.",
+    "Every one of these is somebody who has not decided yet.",
+    "It takes nine years to make what is in this room."
+  ],
+  "description": "A small still woman standing with both palms flat on a rack of flasks. She has been doing that for a while.\n\nHer hands run about twenty degrees under yours. It is not a trick and it is not comfortable to shake, and it is the entire reason she has the most important job in the Thornwarren: two hundred and eleven flasks and no machine anywhere in the region that could hold them at temperature, and one woman who can.\n\nShe looks up when you come in and does not stop what she is doing.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "gaps": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in the flasks?",
+          "next": "stock"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She does not look at the log.\n\n\"Eighty-one, eighty-two, ninety-four, one-eleven, one-thirty.\"\n\nA pause.\n\n\"Eighty-one was Renna Ford. Eighty-two was her brother, four days later, because he would not let her do it on her own.\" She lays her hands flat on the rack again. \"Every gap is a person and I know all of them and that is on purpose. Somebody has to.\"\n\n\"Tallow keeps the tally on her wall so the town can see the numbers. I keep this one so somebody keeps the names.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Shut the door.\" Then, after she has heard it shut: \"Thank you. Most people leave it.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is in the flasks?",
+          "next": "stock"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "There are gaps in the numbering.",
+          "next": "gaps"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shut the door behind you.\"",
+      "text_by_relation": {
+        "close": "She takes her hands off the rack when you come in, which costs her, and does not mention it.",
+        "familiar": "\"Hold this a moment,\" and she puts a flask in your hand, which is a thing she does not do.",
+        "known": "\"You shut it.\" Approval, from her, is enormous. \"Good.\""
+      }
+    },
+    "stock": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "There are gaps in the numbering.",
+          "next": "gaps"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The Pool, settled.\"\n\nShe turns one in its felt so the label faces out.\n\n\"You cannot use it as it comes. Straight out of the water it will kill you nine times in ten and the tenth is not worth having. It has to stand. Nine years, dark and cold, and then Tallow tests it and then it goes in a rack and waits for somebody.\"\n\nShe puts it back.\n\n\"There is no more. Not anywhere. The Pool gives what it gives and it is not much and this is all of it, so when you hear somebody in the Basin say we hand it out, you will know exactly how much they know.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a coat worn indoors, always, and never buttoned",
+      "fingerless gloves she does not need",
+      "soft shoes"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_milkhouse",
+  "hp": 34,
+  "hp_max": 34,
+  "id": "npc_thorn_wick",
+  "name": "Wick Ollam",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_milkhouse"
+}

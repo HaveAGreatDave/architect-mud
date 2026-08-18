@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "A price is chalked up, looked at, and chalked down again.",
+    "Somebody buys nothing at all and stays twenty minutes and leaves happier.",
+    "The locked case is opened, something is taken out, and the case is locked again."
   ],
   "ambient_theme": "wasteland",
-  "description": "Growing beds under stretched mesh, sloped to shed the rain off sideways. The soil in them was carried here. All of it, by hand, from somewhere else.",
+  "description": "A shopfront made of four different shopfronts, none of which came from the same building, and a shutter that rolls up into a housing off a truck. Everything about it is salvage and none of it is slapdash. The stock board by the door is written in a careful hand and priced in three currencies.",
   "exits": {
-    "east": "zone_scw_1044_977",
     "north": "zone_scw_1043_976",
-    "south": "zone_scw_1043_978",
-    "west": "zone_scw_1042_977"
+    "south": "zone_thorn_rindles"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "Rindle's",
+    "building_type": "mercantile",
+    "entrance": "north",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1043_976"
   },
   "grid_x": 1043,
   "grid_y": 977,
   "grid_z": 0,
   "id": "zone_scw_1043_977",
   "map_id": "map_world",
-  "name": "Netting Row",
+  "marker": "RI",
+  "name": "Rindle's",
   "parent_zone": null
 }

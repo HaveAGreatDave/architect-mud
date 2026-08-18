@@ -1,0 +1,14 @@
+{
+  "description": "Floor to ceiling, four hundred and six of them, each with a name, a year, and a number that goes down by one or two a season and occasionally back up by a hundred. Some of the years on these labels are older than the Basin.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_seeddrawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "four hundred drawers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_seed"
+}

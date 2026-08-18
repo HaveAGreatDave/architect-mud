@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1227_946",
+  "b": "zone_exo_charge",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_exo_charge_in",
+  "lockable": true,
+  "one_way": false
+}

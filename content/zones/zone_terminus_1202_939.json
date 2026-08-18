@@ -28,8 +28,8 @@
     "floors": 3,
     "is_building": true,
     "region_id": "region_terminus",
-    "world_exit_zone": "zone_terminus_1202_940",
-    "vehicle_bay": true
+    "vehicle_bay": true,
+    "world_exit_zone": "zone_terminus_1202_940"
   },
   "grid_x": 1202,
   "grid_y": 939,

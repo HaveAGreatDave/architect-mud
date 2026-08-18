@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_corporate_023",
+  "lines": [
+    "\"We are not downsizing.\"",
+    "\"No?\"",
+    "\"We are rightsizing.\"",
+    "\"How many people is rightsizing?\"",
+    "\"Let us take that offline.\""
+  ],
+  "personality": "corporate",
+  "sort_order": 422
+}
+

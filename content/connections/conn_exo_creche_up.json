@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_creche",
+  "b": "zone_exo_creche",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_creche_up",
+  "lockable": false,
+  "one_way": true
+}

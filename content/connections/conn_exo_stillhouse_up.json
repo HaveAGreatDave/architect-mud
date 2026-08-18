@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_stillhouse",
+  "b": "zone_exo_stillhouse",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_stillhouse_up",
+  "lockable": false,
+  "one_way": true
+}

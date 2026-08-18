@@ -15,21 +15,22 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Rammed earth and salvaged plate, twice the height of a man and going on out of sight in both directions. There are no windows in it. Whatever is on the other side does not want to be looked at from here.",
-  "exits": {},
+  "description": "Grey-green thorn, waist high, following a line of damp that is not visible any other way. It is the only thing out here that is any colour at all. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1206_937",
+    "north": "zone_terminus_1205_936",
+    "south": "zone_terminus_1205_938",
+    "west": "zone_terminus_1204_937"
+  },
   "flags": {
-    "building_name": "Terminus Wall 4",
-    "building_type": "ruins",
-    "floors": 1,
-    "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "terrain": "scrub"
   },
   "grid_x": 1205,
   "grid_y": 937,
   "grid_z": 0,
   "id": "zone_terminus_1205_937",
   "map_id": "map_world",
-  "marker": "T4",
-  "name": "The Wall",
+  "name": "The Long Quiet",
   "parent_zone": null
 }

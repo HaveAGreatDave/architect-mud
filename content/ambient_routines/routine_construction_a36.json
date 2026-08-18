@@ -1,0 +1,19 @@
+{
+  "category": "construction",
+  "enabled": true,
+  "id": "routine_construction_a36",
+  "interactive": null,
+  "lines": [
+    "Something heavy is being dropped repeatedly a street away, on a rhythm you could set a watch by."
+  ],
+  "loudness": 1,
+  "phases": [
+    "day"
+  ],
+  "sort_order": 135,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

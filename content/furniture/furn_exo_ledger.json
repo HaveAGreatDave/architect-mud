@@ -1,0 +1,14 @@
+{
+  "description": "A ledger open on a stand with a pen beside it, going back years in a dozen hands. First names and dates and nothing else. Some names appear once. One name appears eleven times over nine years, always in the spring.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_ledger",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the ledger",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_opendoor"
+}

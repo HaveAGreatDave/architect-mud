@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1043_975",
+  "b": "zone_thorn_longfire",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_thorn_longfire_in",
+  "lockable": true,
+  "one_way": false
+}

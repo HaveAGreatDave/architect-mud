@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a17",
+  "interactive": null,
+  "lines": [
+    "Somebody is clearing a doorway with a length of board, which is not the tool for it."
+  ],
+  "loudness": 0.4,
+  "phases": [],
+  "sort_order": 116,
+  "themes": [],
+  "weather": [
+    "snow"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

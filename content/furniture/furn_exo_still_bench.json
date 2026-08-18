@@ -1,0 +1,14 @@
+{
+  "description": "A scrubbed bench with a great deal of clean linen folded on it and a bucket underneath. The folding is exact. There is a lot of linen for a room with one chair in it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_still_bench",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bench of folded linen",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_stillhouse"
+}

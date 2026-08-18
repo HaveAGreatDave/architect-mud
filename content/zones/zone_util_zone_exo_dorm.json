@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room: bare stone, a floor drain, and the building junction box in its steel cabinet. Even down here somebody has swept.",
+  "exits": {
+    "up": "zone_exo_dorm"
+  },
+  "flags": {
+    "exodus_space": true,
+    "floor": "concrete",
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_933"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_exo_dorm",
+  "map_id": "map_int_exo_dorm",
+  "name": "The Long Dormitory — Utility Room",
+  "parent_zone": "zone_terminus_1216_933"
+}

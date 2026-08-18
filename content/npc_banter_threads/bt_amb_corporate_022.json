@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_corporate_022",
+  "lines": [
+    "\"Numbers came in.\"",
+    "\"Directionally encouraging?\"",
+    "\"Directionally encouraging.\"",
+    "\"So they are down.\"",
+    "\"They are down.\""
+  ],
+  "personality": "corporate",
+  "sort_order": 421
+}
+

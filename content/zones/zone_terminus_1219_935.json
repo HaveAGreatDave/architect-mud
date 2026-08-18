@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A child looks up at the door a moment before anybody reaches it.",
+    "Chalk goes back in the tin. All of it, without being asked.",
+    "Somebody very small is crying, briefly, and is dealt with, and stops."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A single room with a yard walled off in front of it, and in the yard a swing, a sand pit, and a low fence around a patch of dirt where things have been planted in rows by somebody about four years old.",
+  "exits": {
+    "east": "zone_terminus_1220_935",
+    "west": "zone_exo_creche"
+  },
+  "flags": {
+    "building_name": "The Creche",
+    "building_type": "civic",
+    "entrance": "east",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1220_935"
+  },
+  "grid_x": 1219,
+  "grid_y": 935,
+  "grid_z": 0,
+  "id": "zone_terminus_1219_935",
+  "map_id": "map_world",
+  "marker": "C2",
+  "name": "The Creche",
+  "parent_zone": null
+}

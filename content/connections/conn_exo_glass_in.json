@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1224_933",
+  "b": "zone_exo_glass",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_exo_glass_in",
+  "lockable": true,
+  "one_way": false
+}

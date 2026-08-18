@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_mercenary_069",
+  "lines": [
+    "\"Who was paying?\"",
+    "\"Does not matter.\"",
+    "\"It matters afterwards.\"",
+    "\"That is what afterwards is for.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 468
+}
+

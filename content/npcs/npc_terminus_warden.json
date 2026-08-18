@@ -64,6 +64,19 @@
       ],
       "text": "She looks at you for a long moment, and what is in her face is not suspicion. It is something closer to sympathy.\n\n\"No.\"\n\n\"That's not me being clever with you. It's the one thing we hold. The machine kept the records: every face, every door, every heartbeat, filed and cross-checked forever. The one place it never got to was the inside of a head, and the moment we say a direction out loud it stops being that.\n\nSo. No. Not to you, not to Stannard, and mostly not to each other.\""
     },
+    "inside": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"She does that.\"\n\nVerity does not move out of the slot, and does not look at the gate, and there is nothing at all in her face that says this is a day different from the last four thousand.\n\n\"I will say the one thing and then I will not mention it again. In there, nobody is going to tell you anything. Not because they are keeping it from you. Because they cannot say it and have it still be true, and they have all agreed about that so long ago that they have forgotten anybody would need telling.\"\n\n\"So you are going to spend a while thinking you are being frozen out. You are not. Eat with them.\""
+    },
     "no": {
       "actions": [],
       "options": [
@@ -95,6 +108,42 @@
       "actions": [],
       "first": "\"You came a long way to look at a door.\" She says it without any edge at all. \"I'm the door. Ask what you like, and then go and trade with Stannard, because that's what there is here for you.\"",
       "options": [
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_admitted",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "The child let me in.",
+          "next": "inside"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_admitted",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "The child let me in.",
+          "next": "inside"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_admitted",
+              "op": "set"
+            }
+          ],
+          "enabled": true,
+          "label": "The child let me in.",
+          "next": "inside"
+        },
         {
           "actions": [],
           "conditions": [],
@@ -169,7 +218,7 @@
     "personality": "stoic"
   },
   "home_activities": [],
-  "home_zone": "zone_terminus_1204_940",
+  "home_zone": "zone_terminus_1210_940",
   "hp": 30,
   "hp_max": 30,
   "id": "npc_terminus_warden",
@@ -184,5 +233,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_terminus_1204_940"
+  "work_zone_id": "zone_terminus_1210_940"
 }

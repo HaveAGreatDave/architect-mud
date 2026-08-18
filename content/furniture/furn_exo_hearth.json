@@ -1,0 +1,14 @@
+{
+  "description": "A stone hearth with three pots on it, the smallest of which is the one everybody watches. A ladle hangs on a nail. A stack of bowls, and a trough of water for washing them, and no one to do it for you.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_hearth",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hearth",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_table"
+}

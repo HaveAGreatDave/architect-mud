@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_thorn_kiln",
+  "id": "zone_thorn_kiln",
+  "max_capacity_kw": 1000,
+  "name": "The Kiln",
+  "source_type": "junction_box"
+}

@@ -1,0 +1,21 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cellar dug out under the building and lined with whatever came to hand, holding the junction box in a steel cabinet somebody has wired shut against the damp. It is tidier down here than it needs to be.",
+  "exits": {
+    "up": "zone_thorn_bath"
+  },
+  "flags": {
+    "floor": "dirt",
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1045_975"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_thorn_bath",
+  "map_id": "map_int_thorn_bath",
+  "name": "The Bathhouse — Utility Room",
+  "parent_zone": "zone_scw_1045_975"
+}

@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The drop hammer goes eleven times and stops.",
+    "Something comes out of the quench with a noise like a held breath.",
+    "A blade is offered up against somebody's grip, taken back, and ground a little more.",
+    "He takes a piece off the fire with his hand. Nobody looks up."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Heat you feel in your teeth, and the drop hammer going in a rhythm you can set a watch by.\n\nThe man on the floor takes ingots out of the fire with a bare hand. He is not showing off and nobody is watching; his skin sheds heat the way a leaf sheds water and it is the reason he has this job rather than the roof, and that sentence is the whole social theory of this town said in one man.\n\nAgainst the far wall, work that is not tools. A rack of blades ground out of leaf spring and rail steel, each one shaped for a specific grip: one with a hooked pommel for a hand with no thumb, one with a two-hand haft for arms of different lengths, one with no handle at all because it socketed into something that had grown.",
+  "exits": {
+    "down": "zone_util_zone_thorn_foundry",
+    "east": "zone_scw_1045_972"
+  },
+  "flags": {
+    "building_name": "The Foundry",
+    "building_type": "foundry",
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1045_972"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_foundry",
+  "map_id": "map_int_thorn_foundry",
+  "name": "The Foundry",
+  "parent_zone": "zone_scw_1045_972"
+}

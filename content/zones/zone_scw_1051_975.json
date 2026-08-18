@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "Somebody is turned, by two people, without being woken.",
+    "A page is turned and the reading goes on.",
+    "A hand is squeezed twice, which means yes."
   ],
   "ambient_theme": "wasteland",
-  "description": "A yard stacked with sorted salvage. Sorted is the word that matters. Plate here, rail there, wire coiled by gauge, and a tally slate on the post at the end of each row.",
+  "description": "A long building set slightly apart, with wide doors and a ramp instead of a step, and a run of shutters that open the whole south wall to the light on a good day. There is a bench outside with a view of the yard and it is never empty.",
   "exits": {
-    "east": "zone_scw_1052_975",
-    "north": "zone_scw_1051_974",
-    "south": "zone_scw_1051_976",
-    "west": "zone_scw_1050_975"
+    "north": "zone_thorn_kept",
+    "south": "zone_scw_1051_976"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Kept",
+    "building_type": "clinic",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1051_976"
   },
   "grid_x": 1051,
   "grid_y": 975,
   "grid_z": 0,
   "id": "zone_scw_1051_975",
   "map_id": "map_world",
-  "name": "Hammer Row",
+  "marker": "KE",
+  "name": "The Kept",
   "parent_zone": null
 }

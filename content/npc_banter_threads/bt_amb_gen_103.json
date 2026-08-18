@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_103",
+  "lines": [
+    "\"{temp} out.\"",
+    "\"That is not weather, that is a diagnosis.\"",
+    "\"It was worse last year.\"",
+    "\"It is always worse last year.\""
+  ],
+  "personality": null,
+  "sort_order": 502
+}
+

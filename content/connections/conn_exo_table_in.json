@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1224_939",
+  "b": "zone_exo_table",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_exo_table_in",
+  "lockable": true,
+  "one_way": false
+}

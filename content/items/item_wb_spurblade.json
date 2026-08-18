@@ -1,0 +1,23 @@
+{
+  "description": "A heavy leaf-spring blade with a hook where a pommel should be, so a hand with no thumb can hold it closed. Ground, folded, ground again. The edge is better than anything the Basin sells at four times the price and the handle is wound with somebody else's bootlace.",
+  "flags": {},
+  "id": "item_wb_spurblade",
+  "name": "spurblade",
+  "tags": {
+    "damage": {
+      "max": 11,
+      "min": 5
+    },
+    "damage_type": "edged",
+    "description": "A hooked leaf-spring blade, wound at the grip with a bootlace that has been replaced more recently than the wrapping under it.",
+    "min_skill": {
+      "blades": 1
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "blades"
+  },
+  "type": "weapon",
+  "value": 210,
+  "weight": 700
+}

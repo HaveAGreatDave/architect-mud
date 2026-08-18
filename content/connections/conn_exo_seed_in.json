@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1221_934",
+  "b": "zone_exo_seed",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_exo_seed_in",
+  "lockable": true,
+  "one_way": false
+}

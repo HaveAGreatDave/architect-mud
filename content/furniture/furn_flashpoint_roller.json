@@ -1,0 +1,18 @@
+{
+  "description": "A row of steel rollers turning slowly under a lamp and, revolving on them with enormous patience, food. The lamp has been on considerably longer than the food has. A pair of tongs is chained to the frame, which tells you what you need to know about the clientele.",
+  "flags": {
+    "aliases": "grill, roller, rollers, hot case, hot food",
+    "container": 20000,
+    "vendor_stock": "npc_flashpoint_attendant"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_roller",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "roller grill",
+  "object_type": "container",
+  "power_draw_kw": 0.8,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

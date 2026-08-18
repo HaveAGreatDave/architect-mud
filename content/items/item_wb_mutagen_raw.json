@@ -1,0 +1,12 @@
+{
+  "description": "A flask drawn straight off the Pool and stoppered where it stood, the colour of a bruise and warm through the glass. It has not stood, it has not settled and it has not been tested.\n\nWick Ollam will tell you exactly what it does to a person who drinks it at this stage, at length, without being asked, and she will not sell you one.",
+  "flags": {},
+  "id": "item_wb_mutagen_raw",
+  "name": "a raw draw",
+  "tags": {
+    "description": "Unsettled Pool water in a red-glazed jar. It is warm and it should not be."
+  },
+  "type": "drug",
+  "value": 900,
+  "weight": 400
+}

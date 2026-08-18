@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_104",
+  "lines": [
+    "\"{sports_leader} are top again.\"",
+    "\"On what, exactly?\"",
+    "\"{sports_record}.\"",
+    "\"That is not a season, that is a formality.\""
+  ],
+  "personality": null,
+  "sort_order": 503
+}
+

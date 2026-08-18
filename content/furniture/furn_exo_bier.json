@@ -1,0 +1,14 @@
+{
+  "description": "A slab of dressed stone down the middle of the room, cold to the hand, with a fold of linen at the head of it. There is a name chalked on the end today.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_bier",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stone bier",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_quiet"
+}

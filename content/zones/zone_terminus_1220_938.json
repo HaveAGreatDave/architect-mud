@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The room goes quieter. Not less noisy. Quieter.",
+    "Somebody at the back stands, crosses the floor, sits down again, and nobody looks up.",
+    "A bench creaks in the empty half of the hall."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A long low hall of dressed red stone, its doors standing open on the pad, its roof carrying a clerestory of narrow lights that catch the last of the sun and hold it after everything else has gone dark. There is no tower, no bell, no symbol cut anywhere into it. It is the biggest building here by a considerable margin and it is the only one that has not been made to look like anything.",
+  "exits": {
+    "north": "zone_exo_waking",
+    "south": "zone_terminus_1220_939"
+  },
+  "flags": {
+    "building_name": "The Waking Hall",
+    "building_type": "civic",
+    "entrance": "south",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1220_939"
+  },
+  "grid_x": 1220,
+  "grid_y": 938,
+  "grid_z": 0,
+  "id": "zone_terminus_1220_938",
+  "map_id": "map_world",
+  "marker": "W2",
+  "name": "The Waking Hall",
+  "parent_zone": null
+}

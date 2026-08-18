@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a19",
+  "interactive": null,
+  "lines": [
+    "Footsteps come up the street, pass close by, and go away again. Nothing is visible at any point."
+  ],
+  "loudness": 0.5,
+  "phases": [],
+  "sort_order": 118,
+  "themes": [],
+  "weather": [
+    "fog"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

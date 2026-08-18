@@ -10,7 +10,7 @@ import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone, isZoneWatched, npcNextShiftInMins } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
-import { getNpcChitchat } from './npc-personality.js';
+import { getNpcChitchat, getNpcHomeActivities } from './npc-personality.js';
 import { setPosture, forceStand } from './posture.js';
 import { npcWashAtHome } from './hygiene.js';
 import { on, emit } from './events.js';
@@ -385,6 +385,15 @@ export const DEFAULT_CHITCHAT_LINES = [
   'scratches at an old scar.',
   'cracks a thin, joyless smile.',
 ];
+
+// How far an off-shift NPC will pick a destination from where they stand, in
+// tiles of the shared world grid. Coldwater is 93x52, so NEAR is a quarter of the
+// city and FAR is most of it. These are deliberately not "the whole world": see
+// the long note at the patrol picker in HAVE_LIFE for what uniform selection over
+// every exterior tile actually did.
+const WANDER_NEAR_R = 12;
+const WANDER_FAR_R = 30;
+const WANDER_FAR_CHANCE = 0.15;
 
 const DEFAULT_HOME_ACTIVITIES = [
   'putters around the apartment, tidying up.',
@@ -1988,21 +1997,49 @@ async function execAction(node, entity, ctx) {
           if (hauntZone && Math.random() < 0.7) {
             ai.patrolTarget = hauntZone;
           } else {
-            const safe = [];
+            // WHERE a wander goes is the whole difference between a city with
+            // people in it and a city people walk out of.
+            //
+            // This picked uniformly from every exterior world tile. The regions
+            // sit in DISJOINT blocks of one shared grid (Coldwater x863..955,
+            // Deadwater x726..818, the Scarletwastes x1000..1092), so roughly two
+            // thirds of every roll sent a Coldwater shopkeeper to another region.
+            // At one step per 15s tick that is a walk of hours: the NPC left the
+            // neighbourhood, never arrived anywhere a player was, and never came
+            // back inside a session. Wandering read as the city quietly emptying
+            // out, which is what it was.
+            //
+            // So a destination is drawn from within reach of where they already
+            // are. Because the regions are disjoint on that one grid, a plain
+            // radius is ALSO a region check, and needs no second source of truth.
+            const anchor = getZone(zoneId) || getZone(entity.home_zone);
+            const ax = anchor?.grid_x, ay = anchor?.grid_y;
+            // Most trips are around the block; occasionally somebody crosses town.
+            // Without that second band every NPC is on a short leash, which reads
+            // as its own kind of wrong.
+            const radius = Math.random() < WANDER_FAR_CHANCE ? WANDER_FAR_R : WANDER_NEAR_R;
+            const near = [];
+            const anywhere = [];   // eligible ignoring distance, the fallback
             const safeOnly = entity.flags?.safe_zones_only;
             for (const [sid, sz] of world.zones) {
               if (sz.map_id !== 'map_world') continue;
               if (sz.flags?.is_interior || sz.flags?.is_apartment) continue;
-              // Never TARGET an enterable facade — forwarding would strand the
-              // wanderer in the lobby with `zoneId === patrolTarget` never true
+              // Never TARGET an enterable facade: forwarding would strand the
+              // wanderer in the lobby with zoneId === patrolTarget never true
               // (walking through one mid-path is fine and self-heals).
               if (isEnterableFacade(sz)) continue;
               // Inferred danger. (The old set included 'very_high'/'extreme',
-              // values that never existed — lethal zones were never avoided.)
+              // values that never existed, so lethal zones were never avoided.)
               if (safeOnly ? !isSanctuary(sz) : DANGER_RANK[zoneDanger(sz)] >= DANGER_RANK.high) continue;
-              safe.push(sid);
+              anywhere.push(sid);
+              if (Number.isFinite(ax) && Number.isFinite(ay)
+                  && Math.max(Math.abs(sz.grid_x - ax), Math.abs(sz.grid_y - ay)) <= radius) near.push(sid);
             }
-            ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;
+            // The unrestricted set stays as the fallback rather than being
+            // deleted: an NPC standing somewhere with no eligible tile in range
+            // must still get somewhere to go, or they stop wandering entirely.
+            const pool = near.length ? near : anywhere;
+            ai.patrolTarget = pool.length ? pool[Math.floor(Math.random() * pool.length)] : entity.home_zone;
           }
         }
         hlife_dest = ai.patrolTarget;
@@ -2647,9 +2684,11 @@ export async function tickEntityAI(entity, ctx) {
         // Freshly dragged out of bed, they act like it — for as long as the wake
         // grace runs, then it's back to ordinary home life.
         const woke = ai.wokeMood && now < ai.wokeMood.until ? ai.wokeMood.mood : null;
+        // Per-NPC authoring first, then the archetype pool, then the generic
+        // fallback. Before that middle tier existed, 146 of the 149 NPCs who live
+        // in a real dwelling shared the same twelve lines below.
         const pool = woke ? WOKEN_ACTIVITIES[woke]
-          : (Array.isArray(entity.home_activities) && entity.home_activities.length)
-            ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
+          : (getNpcHomeActivities(entity) || DEFAULT_HOME_ACTIVITIES);
         // Same no-repeat bag as chitchat — a player watching somebody's evening
         // at home is standing in the room for every line of it.
         const act = pickFresh(entity, pool, 'home');

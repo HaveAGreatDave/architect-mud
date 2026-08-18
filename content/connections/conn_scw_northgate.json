@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1046_968",
+  "b": "zone_scw_1046_969",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_scw_northgate",
+  "lockable": true,
+  "one_way": false
+}

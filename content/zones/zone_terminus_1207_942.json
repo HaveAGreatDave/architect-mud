@@ -15,15 +15,16 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Loose broken rock in a long skirt off the high ground, sorted by size the way water sorts things, moving a little underfoot the whole time. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
   "exits": {
     "east": "zone_terminus_1208_942",
     "north": "zone_terminus_1207_941",
+    "south": "zone_terminus_1207_943",
     "west": "zone_terminus_1206_942"
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "redrock"
+    "terrain": "gravel"
   },
   "grid_x": 1207,
   "grid_y": 942,

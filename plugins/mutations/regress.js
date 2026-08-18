@@ -20,6 +20,7 @@ import {
 import { getRegisteredStatusEffects, effectStatBonus, tickEffects, clearEffect } from '../../server/engine/effects.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { query } from '../../server/models/db.js';
+import { _test as thornDoor } from './door.js';
 import { getRegisteredMutationEffects, scaleByExpression, getUnconsumedMutationEffects } from '../../server/engine/mutation-effects.js';
 import { BASE_PARTS, ALL_PARTS, PART_TO_SLOT, partsForPlayer, hitWeightsForPlayer, DEFAULT_BODY_PART_WEIGHTS } from '../../server/engine/body-parts.js';
 import { getRegisteredEquipGates } from '../../server/engine/equip-gates.js';
@@ -818,6 +819,55 @@ export default async function regress({ run, check, getPlayer }) {
     delete live._turning;
     live.hp = live.hp_max ?? 40;
     live.stamina = live.stamina_max ?? 100;
+  }
+
+  // ── The thorn gates: admitted, and not already somebody else's ─────────────
+  //
+  // The authFn writes flags and messages a live player, so what is tested here is the RULE it is
+  // made of. Every case below is a whole character's worth of decisions expressed as four numbers,
+  // which is the point of reading the ordinary ideology path flags rather than minting a Wildblood
+  // membership flag of our own.
+  const gateOk = (flags) => {
+    const p = { _flags: new Map(Object.entries(flags)) };
+    if (!p._flags.get(thornDoor.ADMITTED)) return false;
+    const flesh = thornDoor.pathFlag(p, 'flesh');
+    const other = Math.max(thornDoor.pathFlag(p, 'machine'), thornDoor.pathFlag(p, 'mind'),
+                           thornDoor.pathFlag(p, 'human'));
+    return !(other > 0 && other >= flesh);
+  };
+  check('the thorn never opens for somebody nobody admitted', !gateOk({ path_flesh: '90' }));
+  check('admitted and undeclared gets in', gateOk({ [thornDoor.ADMITTED]: 'yes' }));
+  check('admitted and leaning flesh gets in',
+    gateOk({ [thornDoor.ADMITTED]: 'yes', path_flesh: '45', path_mind: '10' }));
+  check('a player signed up to the machine is refused',
+    !gateOk({ [thornDoor.ADMITTED]: 'yes', path_flesh: '45', path_machine: '60' }));
+  check('a player signed up to the mind is refused',
+    !gateOk({ [thornDoor.ADMITTED]: 'yes', path_mind: '30' }));
+  // A dead heat refuses. Somebody equally committed to two paths has not chosen, and choosing is
+  // the entire toll at this gate.
+  check('a tie refuses rather than admitting',
+    !gateOk({ [thornDoor.ADMITTED]: 'yes', path_flesh: '40', path_human: '40' }));
+  check('the warden names what the player did, never the creed',
+    !/wildblood|creed|order|evolution|adapt/i.test(thornDoor.WARDEN_LINE), thornDoor.WARDEN_LINE);
+
+  // ── The gate guards stand still ────────────────────────────────────────────
+  //
+  // THE ONLY NON-AGGRO ENEMIES IN THE GAME, and the whole approach to the Thornwarren depends on
+  // them staying that way: `canAggro` in gameLoop.js is exactly `behavior === 'aggressive' ||
+  // behavior === 'territorial' || behaviour_graph._start`, so flipping any one of those three turns
+  // the road up to the gate into a road nobody can walk. They are intimidating and they are lethal
+  // if you start something, and they never start it.
+  {
+    const { rows: guards } = await query(
+      "SELECT id, behavior, behaviour_graph FROM enemies WHERE id LIKE 'enemy_thorn_%' ORDER BY id");
+    check('the three thorn guards are loaded', guards.length === 3, `${guards.length} found`);
+    for (const row of guards) {
+      const graph = typeof row.behaviour_graph === 'string'
+        ? JSON.parse(row.behaviour_graph || '{}') : (row.behaviour_graph || {});
+      check(`${row.id} never aggros on its own`,
+        row.behavior !== 'aggressive' && row.behavior !== 'territorial' && !graph?._start,
+        `behavior=${row.behavior}`);
+    }
   }
 
   // Leave the shared cache exactly as found — later suites read it.

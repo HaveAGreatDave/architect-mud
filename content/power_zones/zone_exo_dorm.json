@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_exo_dorm",
+  "id": "zone_exo_dorm",
+  "max_capacity_kw": 1000,
+  "name": "The Long Dormitory",
+  "source_type": "junction_box"
+}

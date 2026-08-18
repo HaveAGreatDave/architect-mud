@@ -1,0 +1,14 @@
+{
+  "description": "A thermometer screwed to the door frame with a log hanging beside it on a string. Two readings a day, every day, in two different hands. There are no gaps anywhere in it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_thermometer",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the thermometer and log",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_seed"
+}

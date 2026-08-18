@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The copper is topped up from a jug and the fire is fed one stick.",
+    "Somebody hums four notes, stops, and starts again from the beginning.",
+    "Steam rolls along the ceiling and finds the gap under the eave.",
+    "A towel is taken off its hook and a different one is put in its place."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Duckboards, a long trough, and a copper at the end with a fire under it. Everything wooden in here has gone silver with steam. There are hooks, and on the hooks are towels, and each towel is a different colour and has clearly been that person's towel for years.\n\nWater is not wasted here. That is not a sign on the wall, it is just a thing that visibly does not happen.",
+  "exits": {
+    "down": "zone_util_zone_exo_wash",
+    "west": "zone_terminus_1213_935"
+  },
+  "flags": {
+    "building_name": "The Wash House",
+    "building_type": "bathhouse",
+    "exodus_space": true,
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1213_935"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_wash",
+  "map_id": "map_int_exo_wash",
+  "name": "The Wash House",
+  "parent_zone": "zone_terminus_1213_935"
+}

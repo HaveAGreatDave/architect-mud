@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_mercenary_070",
+  "lines": [
+    "\"Kit ready?\"",
+    "\"Kit is always ready.\"",
+    "\"Even tonight?\"",
+    "\"Especially tonight.\""
+  ],
+  "personality": "mercenary",
+  "sort_order": 469
+}
+

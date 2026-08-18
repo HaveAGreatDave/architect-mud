@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_table",
+  "b": "zone_exo_table",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_table_up",
+  "lockable": false,
+  "one_way": true
+}

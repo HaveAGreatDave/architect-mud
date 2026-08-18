@@ -17,12 +17,10 @@
   "description": "Water butts and a hand pump, and a rota nailed to the post beside it with everybody's name on it and a great many ticks.",
   "exits": {
     "east": "zone_scw_1046_981",
-    "north": "zone_scw_1045_980",
     "south": "zone_scw_1045_982",
     "west": "zone_scw_1044_981"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

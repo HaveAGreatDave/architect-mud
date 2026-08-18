@@ -1,0 +1,9 @@
+{
+  "a": "zone_flashpoint_shop",
+  "b": "zone_district_923_907",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_flashpoint_shop_south_d6dn",
+  "lockable": true,
+  "one_way": true
+}

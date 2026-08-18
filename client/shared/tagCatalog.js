@@ -547,6 +547,8 @@
       help: 'Manual danger override. Danger is normally inferred from the zone\'s enemy spawns — set this only for hazard-flavor zones with no spawn rows (rad fields, scripted horrors).' },
     lawless: { label: 'Lawless', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Crimes here raise no heat/wanted (surveillance).' },
+    exodus_space: { label: 'Exodus Space', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
+      help: 'Ground the Exodus hold, inside their own walls. The armour taboo fires here (plugins/psionics/reactions.js): a player who has COMMITTED to the order and walks in wearing armour loses warmth with the people who see it, a bit at a time. Purely social — armour is never blocked and never penalised mechanically, and a guest who has taken no vow is never held to one. Terminus carries it on every tile inside the wall and on the wall\'s own buildings, and on nothing outside the gate, because the trading post on the apron is exactly where the creed is suspended.' },
     unsurveilled: { label: 'Unsurveilled', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',
       help: 'Off the Architect\'s grid — the surveillance witness roll (cameras/cops/bystanders) short-circuits to unseen here, so no crime is ever witnessed and no heat is earned. The Long Watch bunker uses this to stay hidden from the machine.' },
     safehouse: { label: 'Safehouse', shape: 'flag', scope: 'zone', group: 'Zone: Law & Hazard',

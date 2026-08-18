@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "In you get. Middle tub. Mind the step.",
+    "No, that one is too hot. That one is for Ferrous.",
+    "Towels on the left, and bring it back.",
+    "I have been in here since the sun was on the other side of everything.",
+    "Everybody talks in a bathhouse. It is the rules."
+  ],
+  "description": "She is in the steam and of it. Her skin is faintly, permanently wet, and it does not dry, and it never has, and in any other room in the world that would be a problem. In this one she can stand at the copper for nine hours without going down, which is why she is the one who does.\n\nShe talks constantly, to everybody, about nothing, and it is the most relaxing sound in the Thornwarren.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "look": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This must take a lot of water.",
+          "next": "water"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She stops, for the first time, and looks at you with real curiosity rather than any offence.\n\n\"Where would we put it?\"\n\nAnd she goes back to the copper, and after a moment says, in exactly the same tone as everything else, \"You have got a scar on your back you did not want anybody to see and I saw it in the first four seconds and I have not thought about it since, and neither has anyone else. That is the whole of what this room is for.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Oh, you are the one from outside.\" She does not stop what she is doing. \"In or out, love, the heat gets away.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "This must take a lot of water.",
+          "next": "water"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody in here is covering anything up.",
+          "next": "look"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"In or out, the heat gets away.\"",
+      "text_by_relation": {
+        "close": "She is already talking when you come in, halfway through a sentence, and you are expected to catch up.",
+        "familiar": "\"I saved you the middle one.\" She had not, and she had.",
+        "known": "\"Back again. Middle tub.\""
+      }
+    },
+    "water": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody in here is covering anything up.",
+          "next": "look"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It does and we have got it.\"\n\nShe is enormously pleased about this and makes no attempt to hide it.\n\n\"Everything off every roof, down the tanks, through Sill's beds, into the cistern. Best water for sixty miles and I get the run-off for the tubs and then that goes on the Netting.\" She taps the copper. \"Nothing leaves. It goes round.\"\n\nA pause.\n\n\"They have got a river in Coldwater and they drink out of a machine. Anyway.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a wrap, permanently damp, and she does not appear to mind",
+      "nothing much else",
+      "wooden pattens"
+    ],
+    "personality": "chatty"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_bath",
+  "hp": 30,
+  "hp_max": 30,
+  "id": "npc_thorn_brine",
+  "name": "Brine Tack",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_bath"
+}

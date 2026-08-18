@@ -1,0 +1,17 @@
+{
+  "category": "dogs",
+  "enabled": true,
+  "id": "routine_dogs_a28",
+  "interactive": null,
+  "lines": [
+    "A dog starts up two streets over. A second one answers it. Then a third, further off, which sets the first one going again."
+  ],
+  "loudness": 0.8,
+  "phases": [],
+  "sort_order": 127,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

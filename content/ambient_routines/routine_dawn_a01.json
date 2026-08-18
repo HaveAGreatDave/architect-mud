@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a01",
+  "interactive": null,
+  "lines": [
+    "A shutter goes up somewhere along the row, one hard rattle, and then another further off answering it."
+  ],
+  "loudness": 0.4,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 100,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

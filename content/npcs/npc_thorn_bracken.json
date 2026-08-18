@@ -242,7 +242,7 @@
     "personality": "guard"
   },
   "home_activities": [],
-  "home_zone": "zone_scw_1048_974",
+  "home_zone": "zone_thorn_hounds",
   "hp": 26,
   "hp_max": 26,
   "id": "npc_thorn_bracken",
@@ -257,5 +257,5 @@
   "vendor_stock_size": 10,
   "wander_zones": [],
   "wanders": 0,
-  "work_zone_id": "zone_scw_1048_974"
+  "work_zone_id": "zone_thorn_hounds"
 }

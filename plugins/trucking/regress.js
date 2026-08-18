@@ -29,12 +29,13 @@ import { HELP_GROUPS } from '../../server/engine/commands/world.js';
 import { query } from '../../server/models/db.js';
 import { getBroadcast, setBroadcast } from '../../server/engine/messaging.js';
 import { _test as truckTest } from './index.js';
-import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop } from './trailers.js';
+import { TRAILER_TYPES, trailersAt, getTrailer, buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop,
+  posed, stockPose } from './trailers.js';
 import { runScale, scaleAt, clearCustoms } from './scale.js';
 import { hitcherAt, HITCHER_KINDS } from './hitchers.js';
 import { effTruckParams, tuneRange, repairCost, wearFor, wearForImpact, bandOf, FIELD_CAP,
   breakChance, fixOdds, BREAKDOWNS, FIX_GRACE_TILES } from './rig.js';
-import { resaleValue } from './fleet.js';
+import { resaleValue, TRUCK_TYPES } from './fleet.js';
 
 const GATE = 'zone_regress_truckgate';
 const mkZone = (id, name, extra = {}) => ({
@@ -1338,8 +1339,24 @@ export default async function regress({ run, check, getPlayer }) {
       // is part of the loop now, not a formality the suite can skip.
       const gotBox = await run('yard buy box');
       check('you can buy a trailer off the same line as the trucks', /Bought/i.test(gotBox?.message || ''), gotBox?.message?.slice(0, 50));
+      // …AND IT IS STOOD SOMEWHERE YOU CAN SEE IT. Stock used to be parked in the bay with no pose,
+      // which made it undrawable (a bay has no coordinates) and hitchable from anywhere — the cab's
+      // air knob named a box that was on no picture. It now stands on the hardstand at a real pose,
+      // so buying one and coupling to one are two different acts with a manoeuvre in between.
+      const stock = (await trailersAt(player.current_zone)).find(t => t.ownerId === player.id);
+      check('a bought trailer is stood on the hardstand at a pose you can drive to', posed(stock),
+        stock ? `${stock.x},${stock.y} @${stock.heading}` : 'nothing standing');
+      check('…and it stays on the tile it is parked in, or `hitch` could never reach it',
+        !!stock && Math.abs(stock.x - Math.round(stock.x)) <= 0.5 && Math.abs(stock.y - Math.round(stock.y)) <= 0.5,
+        `${stock?.x},${stock?.y}`);
+      // The truck is still in the shed doorway where `drive` put it, which is not under the pin.
+      const across = await run('hitch');
+      check('…so you cannot couple to it from across the yard', !rig?.trailer, across?.message?.slice(0, 60));
+      // Back under it: the pose IS the coupling point, so standing on it squares every test.
+      rig.x = stock.x; rig.y = stock.y; rig.heading = stock.heading; rig.speed = 0;
       const hitched = await run('hitch');
-      check('you can hitch a trailer at a depot', !!rig?.trailer, hitched?.message?.slice(0, 50));
+      check('you can hitch a trailer at a depot once the fifth wheel is under the pin',
+        !!rig?.trailer, hitched?.message?.slice(0, 50));
       const load = await run(`haul ${crossSlot}`);
       check('you can take a load off the board', !!rig?.cargo, load?.message?.slice(0, 60));
       const bound = rig?.cargo?.to;
@@ -1733,6 +1750,23 @@ export default async function regress({ run, check, getPlayer }) {
     check('a trailer with no pose is not drawable', !posed(unplaced), 'claimed a position it has not got');
     check('…but is still hitchable, so nothing already in the world is stranded',
       hitchReach(at(999, 999, 0), unplaced).ok, 'an existing trailer became unreachable');
+
+    // ── WHERE THE DEALER STANDS ITS STOCK ────────────────────────────────────
+    // Two rules, and both are about the tile. A box has to STAY on the apron it is parked in, or
+    // `hitch` — which only searches the depot's own zones — will refuse a trailer the driver is
+    // sitting under. And no two may land on the same spot, or a second purchase is invisible
+    // inside the first.
+    const stand = Array.from({ length: 6 }, (_, n) => stockPose(40, 70, 180, n));
+    check('stock stands inside the tile it is parked in, however many you buy',
+      stand.every(p => Math.abs(p.x - 40) <= 0.5 && Math.abs(p.y - 70) <= 0.5),
+      stand.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+    check('…and the first two are on opposite sides of the lane out',
+      stand[0].x !== stand[1].x || stand[0].y !== stand[1].y, `${stand[0].x} vs ${stand[1].x}`);
+    check('…and none of them is standing inside another',
+      new Set(stand.map(p => `${p.x.toFixed(3)},${p.y.toFixed(3)}`)).size === stand.length,
+      stand.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' '));
+    check('…facing the way the truck came out, so the pin is on its centreline',
+      stand.every(p => p.heading === 180), stand[0].heading);
   }
 
   // ── THE CAB IS A BOX, AND HIJACK IS ITS ONLY DOOR ─────────────────────────
@@ -1881,6 +1915,59 @@ export default async function regress({ run, check, getPlayer }) {
       pumpClamp(0, 0.1, 1).cost === 0, JSON.stringify(pumpClamp(0, 0.1, 1)));
     check('…and a garbage amount from the client cannot go negative',
       pumpClamp(9999, 0.5, -3).take === 0 && pumpClamp(9999, 0.5, NaN).take > 0);
+  }
+
+  // ── ON FOOT AT THE PUMP ────────────────────────────────────────────────────
+  //
+  // `fuel` used to mean "the cab I am sitting in" and nothing else, so a driver who parked under
+  // the canopy and got out was answered "You are not driving anything" by the one verb the pump's
+  // own examine line offers them (plugins/fuelstation renders that link). `rig fuel` is not the way
+  // out: it is the depot bench and refuses anywhere there is no depot, which is every forecourt.
+  //
+  // The case walks the actual state a parked driver is in — a real `trucks` row whose `depot_zone`
+  // is the forecourt, which is exactly what `persistTruck` writes on `park` — and drives the real
+  // verb. It asserts the money as well as the fuel, because a fill that does not bill is the more
+  // expensive half of getting this wrong.
+  {
+    const savedZone = player.current_zone, savedCredits = player.credits || 0;
+    const FORECOURT = 'zone_district_923_907';
+    const STREET = 'zone_district_923_908';
+    const tid = 'truck_regress_pump';
+    try {
+      await query('DELETE FROM trucks WHERE id=$1', [tid]).catch(() => {});
+      await query('INSERT INTO trucks (id, type_id, name, owner_id, depot_zone, fuel) VALUES ($1,$2,$3,$4,$5,$6)',
+        [tid, TRUCK_TYPES[0].id, 'Regress', player.id, FORECOURT, 0.25]).catch(() => {});
+
+      removePlayerFromZone(player.id, savedZone);
+      player.current_zone = FORECOURT; addPlayerToZone(player.id, FORECOURT);
+      setLivePlayer(player.id, player);
+      player.credits = 100000;
+
+      const filled = await run('fuel');
+      const { rows: after } = await query('SELECT fuel FROM trucks WHERE id=$1', [tid]);
+      check('a parked rig can be fuelled by somebody standing at the pump',
+        Number(after[0]?.fuel) > 0.99, `${filled?.message?.slice(0, 60)} → ${after[0]?.fuel}`);
+      check('…and it was billed for exactly the three quarters it took',
+        player.credits === 100000 - Math.round(0.75 * FUEL_FULL), player.credits);
+      const again = await run('fuel');
+      check('…and a full tank is refused rather than resold',
+        /already full/i.test(again?.message || ''), again?.message?.slice(0, 40));
+
+      // The refusal has to survive OFF the forecourt, or the fix has quietly made `fuel` mean
+      // "top up whatever I own, wherever I am standing".
+      removePlayerFromZone(player.id, FORECOURT);
+      player.current_zone = STREET; addPlayerToZone(player.id, STREET);
+      setLivePlayer(player.id, player);
+      const nowhere = await run('fuel');
+      check('…while a street with no pump on it still says you are not driving anything',
+        /not driving anything/i.test(nowhere?.message || ''), nowhere?.message?.slice(0, 50));
+    } finally {
+      await query('DELETE FROM trucks WHERE id=$1', [tid]).catch(() => {});
+      removePlayerFromZone(player.id, player.current_zone);
+      player.current_zone = savedZone; addPlayerToZone(player.id, savedZone);
+      setLivePlayer(player.id, player);
+      player.credits = savedCredits;
+    }
   }
 
   // ── The cab is a heated box, and only while the engine runs ────────────────

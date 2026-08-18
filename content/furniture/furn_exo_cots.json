@@ -1,0 +1,14 @@
+{
+  "description": "Beds down both walls with a chest at the foot of each and nothing on top of any chest. The same blanket, sixty times. The same pillow, sixty times. It is not bleak. It is somehow the opposite, and working out why takes a while.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_cots",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rows of beds",
+  "object_type": "bed",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_dorm"
+}

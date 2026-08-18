@@ -1,0 +1,9 @@
+{
+  "a": "zone_thorn_rindles",
+  "b": "zone_util_zone_thorn_rindles",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_thorn_rindles_down",
+  "lockable": false,
+  "one_way": true
+}

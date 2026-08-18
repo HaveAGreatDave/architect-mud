@@ -1,0 +1,14 @@
+{
+  "description": "Every flask in and every flask out, with a name against each. There are gaps in the numbering. Beside every gap, in the same small hand, is a note, and every note is a person, and one of them just says AND HER BROTHER, FOUR DAYS.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_stocklog",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the stock log",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_milkhouse"
+}

@@ -15,21 +15,22 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Rammed earth and salvaged plate, twice the height of a man and going on out of sight in both directions. There are no windows in it. Whatever is on the other side does not want to be looked at from here.",
-  "exits": {},
+  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted, and nothing has needed to. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1206_943",
+    "north": "zone_terminus_1205_942",
+    "south": "zone_terminus_1205_944",
+    "west": "zone_terminus_1204_943"
+  },
   "flags": {
-    "building_name": "Terminus Wall 10",
-    "building_type": "ruins",
-    "floors": 1,
-    "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "terrain": "redrock"
   },
   "grid_x": 1205,
   "grid_y": 943,
   "grid_z": 0,
   "id": "zone_terminus_1205_943",
   "map_id": "map_world",
-  "marker": "10",
-  "name": "The Wall",
+  "name": "The Waiting Ground",
   "parent_zone": null
 }

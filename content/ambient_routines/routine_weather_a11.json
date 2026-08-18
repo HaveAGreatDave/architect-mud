@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a11",
+  "interactive": null,
+  "lines": [
+    "Somebody sprints for an awning holding a coat over their head, gets there, and finds four people already under it."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 110,
+  "themes": [],
+  "weather": [
+    "rain"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

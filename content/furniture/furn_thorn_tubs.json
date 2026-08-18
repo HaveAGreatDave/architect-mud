@@ -1,0 +1,14 @@
+{
+  "description": "Cut down from tank ends and set in the duckboards, one of them hot enough to hurt. There is a step into each and the step in the middle one has a second, lower step beside it that was added for somebody in particular.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_tubs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "three tubs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_bath"
+}

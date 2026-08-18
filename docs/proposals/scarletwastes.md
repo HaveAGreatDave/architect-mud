@@ -1,8 +1,10 @@
 # The Scarletwastes & the Thornwarren (as built)
 
-> **Status: BUILT, 2026-08-12.** The region, its weather, the walled Wildblood town and its six
-> people all ship. What is deliberately NOT built is listed at the bottom (the recruitment arc, the
-> mutation grant, the Wildblood item set) — those were always a second pass.
+> **Status: BUILT, 2026-08-12; the infrastructure pass shipped 2026-08-18.** The region, its
+> weather, the walled Wildblood town and its people all ship. The second pass added what the town
+> did not have: **fifteen enterable rooms**, sixteen people, a gate that is actually shut, three
+> guards on the road outside it and the things the town makes. What is still deliberately NOT built
+> is listed at the bottom.
 >
 > Read alongside [systems-wildlands.md](../systems-wildlands.md) (the Curtain and the South Gate that
 > point at this place), [systems-ideologies.md](../systems-ideologies.md) (stance/path, and why the
@@ -207,17 +209,163 @@ differ only by path, so `restingRep` puts them at **0**: they can cool toward ea
 never permanently hate each other. Only the Long Watch can bottom out. The ideology model already
 encoded this; nothing was added for it.
 
-## Not built (second pass)
+## The infrastructure pass (2026-08-18)
 
-The recruitment arc (`quest_wild_proving` / `_quickening` / `_hunt`), the `GRANT_MUTATION` action,
-`mut_thornhide`, and the mutagen/feral-gear/rad-med item set — all still specced in
-[wildblood-stronghold.md](wildblood-stronghold.md). The town is walkable and populated without them.
+The town shipped as 195 named tiles and **not one room**. Every landmark in it — the Physic, the
+Chorus' Den, Rindle's — was a patch of ground with a good sentence over it, which reads fine walking
+through and gives you nowhere to stand still.
+
+### The rule the interiors are written under
+
+> **A mutation is a trade, and the town is organised around what each body turned out to be good
+> for.**
+
+Nobody here is "a mutant". They are the woman whose hands run twenty degrees cold and therefore
+holds the mutagen stock; the man whose skin sheds heat and therefore takes ingots off the fire
+barehanded; the one who has not slept in thirty-one years and therefore owns the night rota in the
+long-term ward. Every job in this town is held by the person whose body suits it, the rotas are
+chalked on walls where anybody can read them, and **no line of dialogue anywhere states it.**
+
+The register is body horror on the outside and domestic on the inside, and — unlike Terminus, where
+the two are separated by a wall — here they are usually **in the same room**. The Fleshery is a
+horror and it is also a clinic with a mop, a kettle and one chipped mug, and neither cancels the
+other. **Nobody ever argues that they are not monsters**; not one line defends the town or invites
+the player to revise, exactly as when the town shipped.
+
+Aesthetically it is chaos: nothing matches, everything is made of eleven other things. But nothing
+is dirty and nothing is broken, because these people mend. **Chaos is a look here, not a failure.**
+
+### The fifteen rooms
+
+Two open lanes cross at the Commons — the row at y976 and the run at x1046 — and **every building
+fronts one and none sits on either**. A facade is solid, so a plaza whose four neighbours are all
+doors is a cul-de-sac; the generator flood-fills the town and all 225 interior tiles stay reachable.
+
+| Room | Who | What it is for |
+|---|---|---|
+| **The Fleshery** | Tallow Skeen | The Quickening. A table with a drain, a padded restraint, a rack of flasks, a kettle, and a chair at the head that somebody sits in for six hours |
+| **The Milkhouse** | Wick Ollam | **The mutagen stock.** 211 flasks in cut felt, the only padlock in the town, and a log whose gaps each have a name beside them |
+| **The Physic** | Gristle Thole | The hospital. Instruments made across the yard; a drawer labelled TEETH and one labelled TEETH, THE OTHER KIND |
+| **The Kept** | Marrow Kell | Long-term care for the ones the Quickening took too far. Ten beds, ten different frames |
+| **The Whelping Room** | Cobble Enns | The children, and the numbers by the door, and the much longer list under them |
+| **The Chorus' Den** | The Chorus | Cushions, salvage, and a rota that is the entire government of the place |
+| **The Long Fire** | Pitch Halloway | Forty feet of fire trench. Nobody pays; there is an owing board instead |
+| **The Foundry** | Ferrous Bight | Eleven blades and no two alike, because eleven hands and no two alike |
+| **The Gate House** | Quarrel Nine, Ossa Vurn | The mask rack, quilted and stitched flat, and the tally board |
+| **The Sweetwater** | Sill Moraine | The test bench, twice a day, for years |
+| **The Bathhouse** | Brine Tack | The most used building in the town, and the one where nobody is hiding anything |
+| **Rindle's** | Rindle Ashcroft | Ordinary stock on the left, the reason people drive four days on the right |
+| **The Kiln** | Sump Rhee | Every bowl in the Thornwarren, and the red jars the flasks live in |
+| **The Roofwalk** | — | The rain harvest, and WE BUILT THIS written under the top rail |
+| **The Houndyard** | Bracken Hale | Sixteen collars on pegs with no dogs attached, oiled on the same rota as the working ones |
+
+The single highest-leverage object is still **the mask rack**, and the second is **the sign in The
+Kept**, which carries the only sentence in the town that could be called a creed and is not about
+evolution: **NOBODY IS CARRIED OUT ALONE.**
+
+### The guards, and the first non-aggro enemies in the game
+
+Three templates stand outside the wall: **a Gate Warden** (320 hp) at each gate, **a Road Harrow**
+(230 hp) walking the trophy road, and **a Field Cull** (180 hp) on a circuit of the open ground.
+They are enormous, they are wrong in specific ways, and they do not speak. Quarrel Nine does the
+talking; they do the other thing.
+
+**⚠ Their `behavior` is `sentinel` and they carry no `behaviour_graph`, and that is load-bearing.**
+`canAggro` in [gameLoop.js](../../server/engine/gameLoop.js) is exactly
+`behavior === 'aggressive' || behavior === 'territorial' || behaviour_graph._start` — nothing else
+in the game ever aggros on its own, and these are the first enemies to sit outside that set. Flip
+any one of the three and the road up to the gate becomes a road nobody can walk. Attacking one sets
+`targetId` on the ordinary combat path and then it fights, and so does everything beside it. Regress
+asserts all three, by id.
+
+### The way in: `thornwarrengate`
+
+The town shipped **open** — 195 tiles anybody could walk into off the waste. Survivable while it was
+scenery; not survivable with a mutagen store, a ritual room and ten people in beds behind the wall.
+
+The lock lives in [plugins/mutations/door.js](../../plugins/mutations/door.js) and is the deliberate
+sibling of psionics' `terminusgate`, written twice rather than shared. Two halves, both required:
+
+1. **`thorn_admitted`** — Quarrel Nine set it. The gate is never opened by standing at it.
+2. **The flesh is not already somebody else's** — it reads the ordinary `path_*` ideology flags and
+   refuses when machine/mind/human is **at or above** `path_flesh`. **A tie refuses.**
+
+**Reputation is deliberately not read.** Half this town has taken money off the city and all of them
+despise it; standing is what you have done, and the path is what you decided to be.
+
+The refusal is flat except once: the path refusal fires the warden's one-shot line
+(`thorn_gate_told`), because **a Wildblood who would not say why has started behaving like the
+city.**
+
+The doors sit on the seam **between the gate tile and the first tile inside**, never on the
+approach, so `quest_wild_seen` (which sends the player to stand on `zone_scw_1046_968`) keeps
+working for somebody who has not been let in. You can stand in the gateway. You cannot go through
+it.
+
+**The chain**, which sits in front of the arc that already existed rather than replacing any of it:
+
+1. **`quest_thorn_toll`, "The Toll"** — one of Bracken Hale's hounds is out on the flats, heavy in
+   whelp, and he is fifty-one and has been out three nights. Quarrel Nine is explicit that this is
+   not a test and buys you nothing, and asks anyway. She is telling the truth: it is not a test.
+2. **The question** — *"What are you going to do with your body?"* Answering it one particular way
+   runs `ADJUST_PATH { flesh }`, `ADJUST_STANCE` and sets `thorn_admitted`. The other two answers
+   are treated as real answers and she says so.
+3. Then the built arc runs on inside: `quest_wild_seen` → `quest_wild_proving` →
+   `quest_wild_quickening`, and `wildblood_trust` 1 → 2 → 3, which is still the only thing that
+   opens the mutagen flask on Rindle's shelf.
+
+### What they make
+
+Fourteen items and six stationless recipes, because the Thornwarren has no chem lab and never will.
+Weapons cut for one specific body — a hooked pommel for a hand with no thumb, a two-hand haft with
+its grips a hand apart in height, a spike with a hide-lined socket and no grip because it was never
+meant to be gripped. A living thorn flail that has to be watered. A gate mask that is a horror
+outside and quilted rag inside. Bone meal, grave salt, drawing poultices, thorn tea, bone broth, and
+one **raw draw** straight off the Pool that Wick Ollam will describe to you at length and will not
+sell you.
+
+### Two latent bugs this pass surfaced
+
+Both are the same class: **the generator was stale against a later hand-fix, and every rebuild
+silently reverted it.**
+
+- **The Deadleg's door.** Its shed interior, vendor and depot were added by a later script this
+  generator never knew about, so every run replaced its `north` exit — the only way into the shed —
+  with an ordinary link to the hardpan behind it. It is now a `preserve` entry in the buildings
+  table: the geometry pass knows it is a facade and regenerates nothing else about it.
+- **The depot shape.** The generator wrote the old loose `truck_depot` (no `yard`) onto the yard
+  tile, which trucking's regress fails by name — a flag on open hardstand has no building for the
+  renderer to extrude, so `drive` pulls a rig out of bare ground. The depot proper lives on the shed
+  interior; the tile is the **yard** it names.
+
+And a third of the same shape: **nothing ever pruned a blocked-connection file** when the geometry
+stopped needing one, so promoting fifteen tiles to facades left walls standing in front of walls.
+The generator now sweeps its own namespace first.
+
+## Not built
+
+The recruitment arc, `GRANT_MUTATION`, `mut_thornhide` and the mutagen/feral-gear/rad-med item set
+are all **built** now. What is left of [wildblood-stronghold.md](wildblood-stronghold.md) is the
+repeatable `quest_wild_hunt` gig loop and nothing else.
+
+Still genuinely unbuilt, and each one is a real gap rather than a deferral:
+
+- **The town has no economy of its own.** Nobody buys what the Foundry or the Kiln makes, and the
+  owing board in the Long Fire is prose rather than a ledger. The most interesting economic idea in
+  the region — a town that runs on debt nobody intends to settle — is currently a wall decoration.
+- **Nothing ever goes wrong.** There is no raid, no bad season, no Ascendant survey crew that
+  actually turns up. Quarrel Nine names four incidents at the gate and all four are backstory.
+- **The Breakers cell inside Coldwater is not connected to any of this.** Ossa Vurn is Sledge Vurn's
+  son and the game still says so in exactly one place.
+- **The Quickening's outcomes are not modelled.** Tallow Skeen's tally board says 360 / 38 / 9 / 4,
+  and the game only implements the first number.
 
 ## Rebuilding it
 
 ```bash
 node scripts/build-scarletwastes.mjs
 node scripts/build-thornwarren-npcs.mjs
+node scripts/build-thornwarren-people.mjs
 npm run content:import && npm run map:derive
 ```
 

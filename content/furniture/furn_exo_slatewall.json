@@ -1,0 +1,14 @@
+{
+  "description": "A wall of slate at child height with a tin of chalk on a ledge. The chalk is counted. There are eleven pieces in the tin and eleven children in the room and this has never once been a problem.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_slatewall",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the slate wall",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_creche"
+}

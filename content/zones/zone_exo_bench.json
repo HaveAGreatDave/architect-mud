@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "A file goes over metal eleven times and then the work is turned.",
+    "The forge gets one pump of the bellows and settles back down.",
+    "A tool goes back on the board, into its own outline, without anybody looking at the board.",
+    "Somebody measures a thing that has already been measured, and gets the same answer, and writes it down anyway."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Vices, files, a treadle lathe, a forge banked low, and a rack of stock cut to length and sorted by length. Two long benches, and on the second one a thing half made that you cannot identify and that is clearly part of something much larger.\n\nOn the wall, a drawing. It is a drawing of a very tall structure, in section, dimensioned, and it has been corrected in three different hands over what looks like twenty years.",
+  "exits": {
+    "down": "zone_util_zone_exo_bench",
+    "east": "zone_terminus_1227_936"
+  },
+  "flags": {
+    "building_name": "The Bench",
+    "building_type": "fabrication",
+    "exodus_space": true,
+    "floor": "concrete",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1227_936"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_bench",
+  "map_id": "map_int_exo_bench",
+  "name": "The Bench",
+  "parent_zone": "zone_terminus_1227_936"
+}

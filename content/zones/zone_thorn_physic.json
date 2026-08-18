@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "An instrument goes into the boil and comes out and is laid on clean linen.",
+    "Somebody in the queue is moved up it, and nobody objects.",
+    "A splint is cut down to fit a limb that has an extra joint in it.",
+    "He writes something in a book and the writing is very small and very neat."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Four beds, a scrubbed table, a lamp on a jointed arm, and a wall of instruments in a glass case that would not shame a Coldwater clinic and were every one of them made across the yard at the Foundry.\n\nBurns, backs, teeth, babies, and the particular injuries of a town whose bodies are all different shapes. There is a shelf of splints and none of them are a standard size. There is a drawer labelled TEETH and one labelled TEETH, THE OTHER KIND.\n\nThe physician has done this for forty years with equipment he mostly made and drugs he mostly grew, and the results he gets are, if anybody ever compared them, better than the Basin's. Nobody has ever compared them. He would not care.",
+  "exits": {
+    "down": "zone_util_zone_thorn_physic",
+    "north": "zone_scw_1049_977"
+  },
+  "flags": {
+    "building_name": "The Physic",
+    "building_type": "clinic",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1049_977"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_physic",
+  "map_id": "map_int_thorn_physic",
+  "name": "The Physic",
+  "parent_zone": "zone_scw_1049_977"
+}

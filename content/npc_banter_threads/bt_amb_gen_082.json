@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_082",
+  "lines": [
+    "\"Rent went up.\"",
+    "\"On what grounds?\"",
+    "\"There were no grounds. There was a notice.\"",
+    "\"That is the grounds.\""
+  ],
+  "personality": null,
+  "sort_order": 481
+}
+

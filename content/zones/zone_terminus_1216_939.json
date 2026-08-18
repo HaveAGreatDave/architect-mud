@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A cell door stands open on a made bed nobody has slept in.",
+    "Somebody writes a first name in the ledger and does not write a surname.",
+    "The fire is fed one log and left alone."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "The only building in the compound whose door is propped, and it is propped with a stone that has clearly lived there for years. A water butt beside it with a dipper on a chain, and the chain is not there to stop anybody taking the dipper, it is there so the dipper does not get lost.",
+  "exits": {
+    "north": "zone_exo_opendoor",
+    "south": "zone_terminus_1216_940"
+  },
+  "flags": {
+    "building_name": "The Open Door",
+    "building_type": "hotel",
+    "entrance": "south",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_940"
+  },
+  "grid_x": 1216,
+  "grid_y": 939,
+  "grid_z": 0,
+  "id": "zone_terminus_1216_939",
+  "map_id": "map_world",
+  "marker": "OD",
+  "name": "The Open Door",
+  "parent_zone": null
+}

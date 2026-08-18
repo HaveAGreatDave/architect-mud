@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gambler_041",
+  "lines": [
+    "\"Do not lend me anything.\"",
+    "\"I was not going to.\"",
+    "\"Good. I mean it.\"",
+    "\"I know you mean it. That is why I was not going to.\""
+  ],
+  "personality": "gambler",
+  "sort_order": 440
+}
+

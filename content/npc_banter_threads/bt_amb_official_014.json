@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_official_014",
+  "lines": [
+    "\"Three hundred applications this week.\"",
+    "\"And how many processed?\"",
+    "\"I said three hundred applications. I did not mention processing.\"",
+    "\"No. You never do.\""
+  ],
+  "personality": "official",
+  "sort_order": 413
+}
+

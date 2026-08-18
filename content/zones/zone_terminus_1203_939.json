@@ -15,7 +15,7 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "Blown sand, collected in the lee of the rock and combed into long ridges that shift over each other and hiss when the wind gets under them.",
   "exits": {
     "east": "zone_terminus_1204_939",
     "north": "zone_terminus_1203_938",
@@ -23,7 +23,7 @@
   },
   "flags": {
     "region_id": "region_terminus",
-    "terrain": "redrock"
+    "terrain": "sand"
   },
   "grid_x": 1203,
   "grid_y": 939,

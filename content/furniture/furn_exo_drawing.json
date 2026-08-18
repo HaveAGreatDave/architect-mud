@@ -1,0 +1,14 @@
+{
+  "description": "A very tall structure, in section, dimensioned to the sixteenth of an inch, drawn in three hands over what must be twenty years. The middle third is in a small neat hand. The top is older and looser. The corrections are heavy and recent and there are a great many of them.\n\nNowhere on it is there a title, a date, or a name.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_drawing",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the drawing on the wall",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_bench"
+}

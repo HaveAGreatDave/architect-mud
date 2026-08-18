@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Water goes along a row, slowly, from a can with a rose on it.",
+    "A ridge light is opened another two inches and propped.",
+    "Something is tied back with a strip of rag, gently, twice.",
+    "The whole vault ticks as the sun comes off it.",
+    "A leaf is turned over and looked at underneath and turned back."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Warm, wet, and thirty degrees off the world outside. Beans up strings, tomatoes tied back, a bed of greens, and at the far end a stand of something with a red stem that you have never seen before and that is being watched very closely by whoever is on today.\n\nThe glass is not new. It has been salvaged pane by pane over a very long time and no two panes are quite the same colour, so the light in here comes down in a hundred slightly different greens.",
+  "exits": {
+    "down": "zone_util_zone_exo_glass",
+    "north": "zone_terminus_1224_933"
+  },
+  "flags": {
+    "building_name": "The Glasshouse",
+    "building_type": "greenhouse",
+    "exodus_space": true,
+    "floor": "dirt",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1224_933"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_glass",
+  "map_id": "map_int_exo_glass",
+  "name": "The Glasshouse",
+  "parent_zone": "zone_terminus_1224_933"
+}

@@ -1,0 +1,166 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "There is a bed. There is always a bed.",
+    "You do not have to say where you came from.",
+    "First name in the book. That is all we want.",
+    "The fire stays lit. Do not put it out for us.",
+    "Some of them stay a night. Some of them stay thirty years."
+  ],
+  "description": "A woman in her fifties making up a bed that is already made, because it has been empty three weeks and she does it anyway. There is a fire lit at the end of the hall for nobody, and a chair pulled up to it for nobody, and she has clearly had that fire going since long before you came up the road.",
+  "dialogue_tree": {
+    "book": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does it cost?",
+          "next": "cost"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to the ones who leave?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because that is all anybody needs to be given a bed.\"\n\nShe smooths the sheet.\n\n\"There are eleven people in this compound who came up that road with a surname they did not want any more. Two of them run things. One of them is my husband. If the book asked for the rest of it, none of the three would be here, and I would have been the reason.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "cost": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why only a first name?",
+          "next": "book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to the ones who leave?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She actually laughs.\n\n\"Nothing. Sorry. That is a horrible answer to have to give somebody, I know, and everybody hates it for about a week.\"\n\nShe tucks the corner in.\n\n\"You want to be told the price so you can decide whether you can afford it. There is not one. Eat at the table, wash your bowl, take an end if somebody is carrying something. That is the whole of it and it is not a trick and I am afraid you will not believe me for a while.\""
+    },
+    "out": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why only a first name?",
+          "next": "book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does it cost?",
+          "next": "cost"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"They leave.\"\n\nShe straightens up and looks down the hall at the six open doors and the six made beds.\n\n\"Most of them go back to it, you know. Six in ten. They get to about the fourth week and there is a morning where the quiet is unbearable and they walk out through the gate and Ambler wishes them a safe road.\" A pause. \"And about one in nine of those comes back, some years later, and there is a bed.\"\n\n\"I have made this one up every week for three years. He is called Tobin. He will get here.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Ah, good, somebody.\" She snaps the sheet flat. \"Take a cell, any of them, and put a name in the book on the way out. First name. Nothing else.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why only a first name?",
+          "next": "book"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does it cost?",
+          "next": "cost"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens to the ones who leave?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is a bed. There is always a bed.\"",
+      "text_by_relation": {
+        "close": "She has moved the chair by the fire round to face the door, and does not say she has.",
+        "familiar": "\"Your one is made up.\" It is. It has been all week.",
+        "known": "\"You are still with us.\" She sounds glad about it."
+      }
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a heavy skirt, working weight",
+      "a shirt with the collar turned",
+      "shoes that have been resoled twice"
+    ],
+    "personality": "charity"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_opendoor",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_refuge",
+  "name": "Patience Colm",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_opendoor"
+}

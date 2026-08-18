@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_stillhouse",
+  "b": "zone_exo_stillwell",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_exo_stillwell_in",
+  "lockable": true,
+  "one_way": false
+}

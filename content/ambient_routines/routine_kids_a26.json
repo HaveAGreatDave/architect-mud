@@ -1,0 +1,19 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_a26",
+  "interactive": null,
+  "lines": [
+    "A child explains the rules of a game to another child. The rules are extensive and appear to be being invented."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day"
+  ],
+  "sort_order": 125,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

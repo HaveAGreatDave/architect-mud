@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a18",
+  "interactive": null,
+  "lines": [
+    "The wind puts a wall of white down the street and takes it away again. Nothing that was there has moved."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 117,
+  "themes": [],
+  "weather": [
+    "blizzard"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

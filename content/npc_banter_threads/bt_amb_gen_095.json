@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_095",
+  "lines": [
+    "\"Did the bins go?\"",
+    "\"The bins went.\"",
+    "\"Who takes them?\"",
+    "\"Do not ask that. Once you ask that you cannot stop.\""
+  ],
+  "personality": null,
+  "sort_order": 494
+}
+

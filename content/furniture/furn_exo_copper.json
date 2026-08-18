@@ -1,0 +1,14 @@
+{
+  "description": "A great copper at the end of the duckboards with a fire under it and a jug on the ledge. It has been re-bottomed twice, and you can see both repairs, and both of them are better work than the original.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_copper",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the copper",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_wash"
+}

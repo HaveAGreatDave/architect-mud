@@ -1,0 +1,16 @@
+{
+  "description": "Bitter and slightly numbing, brewed off the young growth at the top of the wall. It is what the Thornwarren drinks when the rain has been the wrong colour.",
+  "flags": {},
+  "id": "item_wb_thorn_tea",
+  "name": "thorn tea",
+  "tags": {
+    "consumable": true,
+    "description": "A dark bitter infusion of new thorn. It numbs the tongue for about a minute.",
+    "restore_radiation": -6,
+    "restore_thirst": 20,
+    "stackable": true
+  },
+  "type": "drink",
+  "value": 12,
+  "weight": 120
+}

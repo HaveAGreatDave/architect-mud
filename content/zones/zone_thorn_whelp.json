@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The stove is fed one stick and the door shut quietly.",
+    "A curtain is pulled round a bed by somebody who does not look in first.",
+    "Somebody very small is being talked to, at length, about nothing.",
+    "A name goes up on one of the small shelves. Chalk, not paint, and nobody remarks on why."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Warm, and quiet, and much bigger inside than the door suggests. Beds along one wall with curtains that pull round, a stove, a rocking chair worn smooth, and a wall of small shelves each with a name chalked on it.\n\nThe name of this room is not a joke and nobody here has ever heard it as one.\n\nA great many things go wrong in this town that would not go wrong in a city, and everyone knows the numbers, and the numbers are written on the wall by the door in the same hand as the rota, with no comment attached. Under them, in a different hand, is a much longer list of the ones who came through, and it is very much the longer list, and somebody has underlined that.",
+  "exits": {
+    "down": "zone_util_zone_thorn_whelp",
+    "south": "zone_scw_1049_975"
+  },
+  "flags": {
+    "building_name": "The Whelping Room",
+    "building_type": "civic",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1049_975"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_whelp",
+  "map_id": "map_int_thorn_whelp",
+  "name": "The Whelping Room",
+  "parent_zone": "zone_scw_1049_975"
+}

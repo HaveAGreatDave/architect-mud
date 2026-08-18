@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1216_933",
+  "b": "zone_exo_dorm",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_exo_dorm_in",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The third pot gets a taste and a shake of the head and is left alone.",
+    "Somebody arrives with an armful of something and puts it down without a word and leaves.",
+    "A name is crossed off the owing board and written on again lower down.",
+    "The fire is fed one length of thorn root. It burns green for a moment.",
+    "Two people eat side by side without saying anything and both look better for it afterwards."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Heat, and the sweet-iron smell of a stock pot that has never been allowed to go out. Six pots on a graded trench, each one at its own heat, and a chalked board over them that reads what is in each and what is NOT to go in the third one.\n\nThe cook has arms like a docker and eleven fingers, and uses all of them. He tastes everything off the back of his wrist and he is tasting for something other than salt.\n\nNobody pays. There is a bench, and there are bowls, and there is a bucket to wash your own in, and a second board by the door with a list of names and what each of them is owed by the town, which is how the accounting is done here.",
+  "exits": {
+    "down": "zone_util_zone_thorn_longfire",
+    "south": "zone_scw_1043_975"
+  },
+  "flags": {
+    "building_name": "The Long Fire",
+    "building_type": "diner",
+    "floor": "dirt",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1043_975"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_longfire",
+  "map_id": "map_int_thorn_longfire",
+  "name": "The Long Fire",
+  "parent_zone": "zone_scw_1043_975"
+}

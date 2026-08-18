@@ -1076,6 +1076,97 @@ console.log('— layer 1i: relations substrate —');
   registerNpcScheduleChecker(prevChecker || (() => false));
 }
 
+// ── Layer 1i3: the archetype tiers behind ambient life ───────────────────────
+// Three things ambient life leans on, each of which failed silently before it was
+// pinned here, because every one of them degrades into a WORKING but duller game
+// rather than an error:
+//
+//   • A personality slug that the registry has never heard of. Thirteen were
+//     authored onto 46 named NPCs and getData() quietly handed every one of them
+//     FALLBACK. Nothing threw; those characters just had no voice of their own.
+//   • The home-life tier. Before it existed, 146 of the 149 NPCs who live in a
+//     real dwelling shared one twelve-line pool, and the symptom was "everyone's
+//     evening looks the same", which no test was ever going to notice.
+//   • The banter library's personality coverage, for the same reason: a slug with
+//     no threads falls back to the generic pool and reads as merely repetitive.
+console.log('— layer 1i3: archetype tiers (chitchat / home / banter) —');
+{
+  const { getNpcChitchat, getNpcHomeActivities, getNpcCombatLine }
+    = await import('../server/engine/npc-personality.js');
+  const fsp = await import('node:fs/promises');
+
+  // Every personality slug actually worn by a shipped NPC must resolve on all
+  // three engine tiers. This reads the CONTENT rather than a list, so authoring a
+  // new slug onto an NPC and forgetting to register it fails here instead of
+  // shipping a character with no voice.
+  const npcDir = new URL('../content/npcs/', import.meta.url);
+  const slugs = new Map(); // slug -> one NPC name wearing it
+  for (const f of await fsp.readdir(npcDir)) {
+    if (!f.endsWith('.json')) continue;
+    const j = JSON.parse(await fsp.readFile(new URL(f, npcDir), 'utf8'));
+    const p = j.flags?.personality;
+    if (p && !slugs.has(p)) slugs.set(p, j.name);
+  }
+
+  const missing = { work: [], life: [], home: [] };
+  for (const [slug, who] of slugs) {
+    const npc = { flags: { personality: slug } };
+    if (!getNpcChitchat(npc, 'work')?.length) missing.work.push(`${slug} (${who})`);
+    if (!getNpcChitchat(npc, 'life')?.length) missing.life.push(`${slug} (${who})`);
+    if (!getNpcHomeActivities(npc)?.length) missing.home.push(`${slug} (${who})`);
+  }
+  check(`every shipped personality has work chitchat (${slugs.size} slugs)`,
+    !missing.work.length, missing.work.join(', '));
+  check('every shipped personality has life chitchat',
+    !missing.life.length, missing.life.join(', '));
+  check('every shipped personality has home activities',
+    !missing.home.length, missing.home.join(', '));
+
+  // The three tiers, in order. A hand-authored pool outranks the archetype, and an
+  // unregistered slug returns null rather than an empty array, because the caller
+  // uses `|| DEFAULT_HOME_ACTIVITIES` and an empty array is truthy: returning []
+  // here would hand pickFresh nothing to pick and silence home life entirely.
+  check('per-NPC home_activities outrank the archetype',
+    getNpcHomeActivities({ flags: { personality: 'vendor' }, home_activities: ['mine'] })[0] === 'mine');
+  check('an archetype with no per-NPC authoring still gets a pool',
+    getNpcHomeActivities({ flags: { personality: 'vendor' } })?.length > 0);
+  check('an unregistered slug returns null, not an empty array',
+    getNpcHomeActivities({ flags: { personality: 'no_such_archetype' } }) === null);
+  check('an NPC with no personality at all returns null',
+    getNpcHomeActivities({ flags: {} }) === null);
+  check('a combat line resolves for a newly registered slug',
+    typeof getNpcCombatLine({ flags: { personality: 'labourer' } }).line === 'string');
+
+  // Banter: the shared library is personality-keyed content, so the same
+  // question gets asked of the content tree rather than of code.
+  const btDir = new URL('../content/npc_banter_threads/', import.meta.url);
+  const threadPersonalities = new Set();
+  let flatThread = null;
+  for (const f of await fsp.readdir(btDir)) {
+    if (!f.endsWith('.json')) continue;
+    const j = JSON.parse(await fsp.readFile(new URL(f, btDir), 'utf8'));
+    if (j.personality) threadPersonalities.add(j.personality);
+    // pickThread() keeps only Array-of-turns; a thread whose `lines` holds
+    // anything but strings would be dropped with no error and no log line.
+    if (!Array.isArray(j.lines) || !j.lines.length || j.lines.some(l => typeof l !== 'string')) flatThread = j.id;
+  }
+  check('no banter thread ships with a malformed lines array', !flatThread, String(flatThread));
+  const noThreads = [...slugs.keys()].filter(s => !threadPersonalities.has(s));
+  check('every shipped personality has at least one banter thread',
+    !noThreads.length, noThreads.join(', '));
+
+  // The tone rule is a voice marker, not punctuation: an em dash in an ordinary
+  // NPC's mouth costs the Architect and the Ascendants their tell. Cheap to check,
+  // and the failure is invisible in play.
+  const dashed = [];
+  for (const f of await fsp.readdir(btDir)) {
+    if (!f.endsWith('.json')) continue;
+    const j = JSON.parse(await fsp.readFile(new URL(f, btDir), 'utf8'));
+    if (j.lines.some(l => /[—–]/.test(l))) dashed.push(j.id);
+  }
+  check('no banter thread uses an em dash', !dashed.length, dashed.join(', '));
+}
+
 // ── Layer 1i2: NPC-vs-NPC combat ──────────────────────────────────────────
 // The missing corner of the matrix (enemy→player, enemy→npc, enemy→enemy and
 // npc→player all pre-existed). The one thing that MUST hold: `floorHp` is what

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_roofwalk",
+  "b": "zone_thorn_roofwalk",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_roofwalk_up",
+  "lockable": false,
+  "one_way": true
+}

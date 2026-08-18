@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_opendoor",
+  "b": "zone_util_zone_exo_opendoor",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_exo_opendoor_down",
+  "lockable": false,
+  "one_way": true
+}

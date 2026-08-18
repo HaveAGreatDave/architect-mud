@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The book's page is turned back and read and turned forward again.",
+    "Linen is shaken out and refolded along its old creases.",
+    "Cold comes up off the stone.",
+    "Somebody comes in, stands, says nothing at all, and leaves."
+  ],
+  "ambient_theme": "indoors",
+  "description": "A cool room with a stone bier down the middle of it and a shelf of folded linen. A book lies open on a lectern: every name, in order, going back to a first entry that is not the first person to die here but the first one they had the paper to write down.\n\nThe last three entries are in the same hand as the first forty. That is not possible and nobody in the compound appears to have noticed.",
+  "exits": {
+    "down": "zone_util_zone_exo_quiet",
+    "south": "zone_terminus_1216_947"
+  },
+  "flags": {
+    "building_name": "The Quiet Ground",
+    "building_type": "undertaker",
+    "exodus_space": true,
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_947"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_quiet",
+  "map_id": "map_int_exo_quiet",
+  "name": "The Quiet Ground",
+  "parent_zone": "zone_terminus_1216_947"
+}

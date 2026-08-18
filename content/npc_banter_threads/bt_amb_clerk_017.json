@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_clerk_017",
+  "lines": [
+    "\"Blue ink.\"",
+    "\"It has to be blue ink.\"",
+    "\"They came in with black.\"",
+    "\"What did you say?\"",
+    "\"I said blue ink.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 416
+}
+

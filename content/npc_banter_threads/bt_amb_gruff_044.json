@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gruff_044",
+  "lines": [
+    "\"You are in a mood.\"",
+    "\"This is my face.\"",
+    "\"I know your face. That is a mood.\"",
+    "\"Fine. It is a mood. Leave it.\""
+  ],
+  "personality": "gruff",
+  "sort_order": 443
+}
+

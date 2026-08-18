@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_charge",
+  "b": "zone_exo_charge",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_charge_up",
+  "lockable": false,
+  "one_way": true
+}

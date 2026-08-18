@@ -70,7 +70,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { resolveInventoryItem } from '../../server/engine/inventory.js';
 import { TRAILER_TYPES, trailerType, trailersAt, trailersOf, getTrailer, trailerOnTruck,
   buyTrailer, hitchTrailer, dropTrailer, saveLoad, canDrop, declaredKg, actualKg, stashKg, setTrailerCondition,
-  hitchReach, posed, refreshStanding } from './trailers.js';
+  hitchReach, posed, refreshStanding, stockPose } from './trailers.js';
 
 const say = (msg) => ({ type: 'emote', message: msg });
 
@@ -172,7 +172,10 @@ async function cmdDrive(args, raw, player) {
   // would have been "you don't own a truck here" while sitting in it.
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot.heading, depot: yardId || here.id });
   rig.zoneId = here.id;
-  await refreshStanding(here.id);   // whatever is standing on this apron, so it is drawn from the first frame
+  // WHATEVER IS STANDING AT THIS DEPOT, so it is drawn from the first frame. Both tiles, because
+  // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
+  // starting the engine looked out at an empty yard until the wheels crossed the boundary.
+  await Promise.all([...new Set([here.id, yardId].filter(Boolean))].map(z => refreshStanding(z)));
   rig.truckId = owned.id;
   rig.typeId = owned.type_id;
   // WHAT YOU BOUGHT IS WHAT YOU DRIVE. `rig.params` is the tuned, kitted, worn parameter set from
@@ -850,7 +853,7 @@ async function yardBuy(player, here, depot, typeId, plate) {
   // TRAILERS ARE BOUGHT ON THE SAME LINE. A second verb for the second half of a rig would be a
   // second place to look for one purchase; the dealer's fence has trucks on it and boxes behind it.
   const trl = trailerType(key);
-  if (trl) return yardBuyTrailer(player, here, trl);
+  if (trl) return yardBuyTrailer(player, here, depot, trl);
   const type = truckType(key);
   if (!type) {
     return say(`No such truck. <span class="text-dim">trucks: ${TRUCK_TYPES.map(t => t.id).join(', ')} · trailers: ${TRAILER_TYPES.map(t => t.id).join(', ')}</span>`);
@@ -879,15 +882,40 @@ async function yardBuy(player, here, depot, typeId, plate) {
 // A trailer is bought STANDING IN THE YARD, not attached — which is the honest shape of the thing
 // and also teaches `hitch` by making it necessary. There is no one-per-yard rule the way there is
 // for trucks: a yard full of your own boxes is a perfectly sensible thing to own.
-async function yardBuyTrailer(player, here, t) {
+//
+// ⚠ IT IS STOOD OUTSIDE, ON THE HARDSTAND, AT A POSE. It used to be parked in the BAY with no pose
+// at all, and that made it the one trailer in the game that could not be seen: a bay is a building
+// interior with no grid coordinates, and `trailersNear` draws only posed rows. The cab's air knob
+// lit and named a box that was nowhere on the picture, and `hitch` — which waves an unposed row
+// through — coupled to it from across the yard. Both were correct and neither looked it.
+//
+// So a bought box goes where a bought truck cannot: out on the apron, in the open, nose to the
+// road. From that moment it is an ordinary dropped trailer and the manoeuvre is the same one.
+// `hitchZones` already reached the yard, so nothing about finding it changed.
+async function yardBuyTrailer(player, here, depot, t) {
   if ((player.credits || 0) < t.price) return say(`${cap(t.name)} is ${t.price}₵ and you have ${player.credits || 0}₵.`);
+  // The hardstand, and the way OUT of the shed — the same heading `drive` points the truck at, from
+  // the same facade `entrance`, so the box stands the way the traffic runs rather than at an angle
+  // somebody typed. A depot with no drivable yard (the legacy one-tile shape, and the fixtures)
+  // falls back to the old behaviour: parked where you stand, unposed, hitchable anywhere.
+  const yard = getZone(yardIdOf(here, depot));
+  const outside = yard && yard.grid_x != null ? yard : null;
+  const pose = outside
+    ? stockPose(outside.grid_x, outside.grid_y, mountSpot(here)?.heading ?? 180, (await trailersAt(outside.id)).length)
+    : null;
   player.credits -= t.price;
-  await buyTrailer(player.id, t.id, here.id);
+  await buyTrailer(player.id, t.id, outside?.id || here.id, pose);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  // It is standing there NOW, so it is drawn from the next frame rather than from the next time
+  // somebody happens to arrive in the zone — a driver already sitting in the cab is the commonest
+  // way this is bought.
+  if (outside) await refreshStanding(outside.id);
   await repush(player, 'buy');
   return say(`<span class="item-grant">Bought: ${t.name}. ${t.price}₵.</span>\n`
-    + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. It is standing in the yard — ${teachVerb('hitch')} to back under it.</span>`);
+    + `<span class="text-dim">${t.rated} kg rated, ${t.kg} kg empty. ${outside
+      ? `A yard hand walks it out and drops the legs on the hardstand, nose to the road — ${teachVerb('hitch')} once you have backed under it.`
+      : `It is standing in the yard — ${teachVerb('hitch')} to back under it.`}</span>`);
 }
 
 // ── Recovery: getting a truck home you did not drive home ────────────────────
@@ -1523,10 +1551,50 @@ async function recallMarkets(player) {
 // ── refuel ───────────────────────────────────────────────────────────────────
 // At a fuel yard, or at any depot that keeps a pump. Priced off what you actually take.
 async function cmdRefuelTruck(args, raw, player) {
-  if (!rigOf(player)) return say('You are not driving anything.');
+  if (!rigOf(player)) return await pumpParked(player);
   // The typed verb is the whole-tank case, which is what typing it has always meant. It is the same
   // commit the handle sends, asked for everything — so there is one place that moves fuel and money.
   return pumpFuel(player, 1, { typed: true });
+}
+
+// ── STANDING AT THE PUMP, ON YOUR OWN FEET ───────────────────────────────────
+// The other half of `fuel`, and the half that was missing. Everything above assumes a driver in a
+// cab, because that is where the handle is; but a forecourt is a place you PARK, and the moment
+// somebody does they are out of the sim and standing on the apron next to a nozzle. Before this,
+// that player was told "You are not driving anything" by the one verb the pump's own examine line
+// offers them (see plugins/fuelstation) — a room advertising an action it then refuses.
+//
+// `rig fuel` is not the answer to it either: that is the DEPOT bench, and it refuses anywhere there
+// is no depot, which is every forecourt in the world. A pump is not a workshop. You do not need a
+// bay or a fitter to put diesel in a tank; you need a pump and a truck standing at it.
+//
+// So this asks the same two questions the cab path asks, of the same two functions, and moves money
+// with the same clamp: `pumpAt` decides whether this tile sells diesel (the zone-only call shape
+// `rigFuel` already uses), and `pumpClamp` decides how much a given balance buys. Nothing here is a
+// second opinion about either — the day somebody retunes FUEL_FULL or adds a pump flag, this path
+// changes with the rest of them.
+async function pumpParked(player) {
+  if (!pumpAt({ leg: 'city', zoneId: player.current_zone })) return say('You are not driving anything.');
+  const truck = await truckAt(player.id, player.current_zone);
+  if (!truck) return say('You are not driving anything, and nothing of yours is standing at these pumps.');
+
+  const room = 1 - (truck.fuel ?? 1);
+  if (room < 0.02) return say('She is already full.');
+  const { take, cost } = pumpClamp(player.credits, truck.fuel ?? 1, room);
+  if (take < 0.01) return say(`You cannot cover so much as a splash. Diesel is ${FUEL_FULL}₵ a tank.`);
+
+  // Fuel first, money second, exactly as the cab path does it: a failed write must never bill for a
+  // fill that did not happen.
+  await setFuel(truck.id, player.id, Math.min(1, (truck.fuel ?? 1) + take));
+  player.credits -= cost;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'fleet');
+
+  const pct = Math.round(Math.min(1, (truck.fuel ?? 1) + take) * 100);
+  return say(pct >= 100
+    ? `<span class="item-grant">You walk the nozzle over, brace it in the filler and let it run. Tanks filled. ${cost}₵.</span>`
+    : `<span class="item-grant">The handle clicks off. ${cost}₵, and she is at ${pct}%.</span>`);
 }
 
 // ── The handle ───────────────────────────────────────────────────────────────
@@ -2380,9 +2448,13 @@ async function describeDepot(zone) {
   // sentence that replaces the whole panel that used to blow open here.
   const bay = bayForYard(zone?.id);
   if (bay && !depotAt(zone)) {
+    // …AND WHAT IS STANDING ON IT. The apron is where stock is stood and where a driver drops a box,
+    // so this is now the tile the "On their legs" line matters most on — without it the hardstand
+    // described itself as empty concrete while a trailer sat on it.
     return `<span class="ambient">The hardstand outside ${bay.depot.name || bay.zone.name} — swept concrete, `
       + `scored with the arcs of everything that has ever backed onto it, and wide enough to turn something with a `
-      + `box behind it. The office and the bays are through the roller door; the road is the road.</span>`;
+      + `box behind it. The office and the bays are through the roller door; the road is the road.</span>`
+      + await standingLine(zone.id);
   }
 
   const depot = depotAt(zone);
@@ -2411,18 +2483,24 @@ async function describeDepot(zone) {
     line += `\n<span class="furniture-label">Parked up:</span> <span class="text-dim">${list}.</span>`;
   }
 
-  // STANDING TRAILERS. The whole of phase 2.9 is that a dropped box is a thing in a place, and a
-  // thing in a place that the room does not mention is a thing nobody will ever find again. Loaded
-  // ones say so, because "there is a trailer here with freight still on it" is the sentence the
-  // entire drop-and-come-back loop exists to produce.
-  const standing = await trailersAt(zone.id);
-  if (standing.length) {
-    const list = standing.slice(0, 6).map(t =>
-      `<span class="action-link" data-action="cmd" data-cmd="hitch ${t.id}" title="back under it">${t.name}</span>`
-      + (t.cargo ? ` <span class="text-dim">(loaded)</span>` : '')).join(', ');
-    line += `\n<span class="furniture-label">On their legs:</span> <span class="text-dim">${list}.</span>`;
-  }
+  line += await standingLine(zone.id);
   return line;
+}
+
+// STANDING TRAILERS. The whole of phase 2.9 is that a dropped box is a thing in a place, and a
+// thing in a place that the room does not mention is a thing nobody will ever find again. Loaded
+// ones say so, because "there is a trailer here with freight still on it" is the sentence the
+// entire drop-and-come-back loop exists to produce.
+//
+// Factored out because it is now needed on TWO tiles — the bay, and the hardstand outside it where
+// stock is stood and boxes are dropped. Returns '' rather than undefined so it appends cleanly.
+async function standingLine(zoneId) {
+  const standing = await trailersAt(zoneId);
+  if (!standing.length) return '';
+  const list = standing.slice(0, 6).map(t =>
+    `<span class="action-link" data-action="cmd" data-cmd="hitch ${t.id}" title="back under it">${t.name}</span>`
+    + (t.cargo ? ` <span class="text-dim">(loaded)</span>` : '')).join(', ');
+  return `\n<span class="furniture-label">On their legs:</span> <span class="text-dim">${list}.</span>`;
 }
 
 // You cannot walk while you are driving. Without this the two systems disagree about where you
@@ -2527,9 +2605,19 @@ async function cmdHitch(args, raw, player) {
   const standing = (await Promise.all(hitchZones(here?.id).map(z => trailersAt(z)))).flat();
   if (!standing.length) return say('Nothing standing here to back under. Trailers are bought and left at yards — see the <b>yard</b>.');
 
+  // ⚠ A BARE `hitch` TAKES THE NEAREST ONE IN REACH, NOT THE OLDEST ROW. A yard holds as many of
+  // your own boxes as you have paid for, standing a few feet apart, and picking the first row meant
+  // backing under one trailer and coupling to another — or, worse, being refused for a box on the
+  // far side of the apron while sitting square under the one you meant. Falls back to the old
+  // choice when nothing is in reach at all, so the "line it up on it" answers still come from a
+  // sensible box rather than from nothing.
+  const mine = standing.filter(t => !t.ownerId || t.ownerId === player.id);
+  const pool = mine.length ? mine : standing;
+  const gap = (t) => (posed(t) ? Math.hypot((rig.x ?? 0) - t.x, (rig.y ?? 0) - t.y) : 99);
+  const nearest = pool.filter(t => hitchReach(rig, t).ok).sort((a, b) => gap(a) - gap(b))[0];
   const want = args.length
     ? standing.find(t => t.id === args[0] || t.name.toLowerCase().includes(args.join(' ').toLowerCase()))
-    : standing.find(t => t.ownerId === player.id) || standing[0];
+    : nearest || pool[0];
   if (!want) return say(`Nothing here by that name. Standing in the yard: ${standing.map(t => t.name).join(', ')}.`);
 
   // Somebody else's box is somebody else's box. This is the one place trucking says no on grounds

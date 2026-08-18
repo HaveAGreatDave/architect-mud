@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 200,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_yard_fuelyard",
+  "id": "zone_flashpoint_shop",
+  "max_capacity_kw": 200,
+  "name": "Flash Point Convenience",
+  "source_type": "junction_box"
+}

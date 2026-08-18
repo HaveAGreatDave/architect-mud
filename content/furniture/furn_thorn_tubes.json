@@ -1,0 +1,14 @@
+{
+  "description": "Two glass tubes made up twice a day, every day, for years. The board above them goes back so far the earliest columns have been written over twice, and there is not one gap in it anywhere.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_tubes",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the test rack",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_sweetwater"
+}

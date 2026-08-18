@@ -1,0 +1,22 @@
+{
+  "description": "Two short aisles of wire shelving set close enough together that two people cannot pass without one of them deciding to be gracious about it. Snacks at eye level, everything a truck might need at ankle height, and nothing at all on the top shelf but dust and one dead wasp.",
+  "flags": {
+    "aliases": "shelves, shelf, shelving, aisle, rack",
+    "backstock": "furn_flashpoint_crates",
+    "container": 140000,
+    "interactions": [
+      "lean"
+    ],
+    "vendor_stock": "npc_flashpoint_attendant"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "wire shelving",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

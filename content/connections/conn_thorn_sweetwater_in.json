@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1047_980",
+  "b": "zone_thorn_sweetwater",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_thorn_sweetwater_in",
+  "lockable": true,
+  "one_way": false
+}

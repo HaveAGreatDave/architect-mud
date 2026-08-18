@@ -1,0 +1,14 @@
+{
+  "description": "Strip lights over the test bench, off the Bank, because reading a tube by lamplight is how you get a wrong answer and she has said so at length.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_sweetwater",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "strip lights over the bench",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_sweetwater"
+}

@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_exo_mending",
+  "b": "zone_exo_mending",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_exo_mending_up",
+  "lockable": false,
+  "one_way": true
+}

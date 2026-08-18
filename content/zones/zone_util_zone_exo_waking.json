@@ -1,0 +1,22 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "indoors",
+  "description": "A cramped below-grade utility room: bare stone, a floor drain, and the building junction box in its steel cabinet. Even down here somebody has swept.",
+  "exits": {
+    "up": "zone_exo_waking"
+  },
+  "flags": {
+    "exodus_space": true,
+    "floor": "concrete",
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1220_938"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": -1,
+  "id": "zone_util_zone_exo_waking",
+  "map_id": "map_int_exo_waking",
+  "name": "The Waking Hall — Utility Room",
+  "parent_zone": "zone_terminus_1220_938"
+}

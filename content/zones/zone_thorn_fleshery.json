@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "The drain is flushed with a bucket of clean water. Nothing was in it.",
+    "A flask is turned in its felt so the label faces out, and set back down.",
+    "The kettle goes on. Nothing else about the room changes.",
+    "A name goes up on the board outside, and a date, and the date is nine days off.",
+    "The chair at the head of the table is straightened. It is always straightened."
+  ],
+  "ambient_theme": "indoors",
+  "description": "The room the whole faction turns on, and it is the size of a kitchen.\n\nA table with a drain in it. A rack of glass and steel that somebody has kept in a state a surgeon would recognise. Restraints, padded and clean and replaced when they wear. A stand of flasks in a rack, each one nested in its own cut felt, each one labelled in a small hand with a date and a name and a number.\n\nAnd around all of that, absolutely everywhere: the ordinary. A mop. A kettle. A tea-stained mug with a chipped rim. A chair pulled up to the head of the table, worn, because somebody sits in it and holds a hand for the six hours it takes.\n\nOn the wall by the door, in chalk, a tally of every Quickening this town has done, with a mark against each one. Most of the marks are the same. Some are not. Nobody has rubbed the second kind out.",
+  "exits": {
+    "down": "zone_util_zone_thorn_fleshery",
+    "north": "zone_scw_1051_977"
+  },
+  "flags": {
+    "building_name": "The Fleshery",
+    "building_type": "clone",
+    "floor": "tile",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1051_977"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_fleshery",
+  "map_id": "map_int_thorn_fleshery",
+  "name": "The Fleshery",
+  "parent_zone": "zone_scw_1051_977"
+}

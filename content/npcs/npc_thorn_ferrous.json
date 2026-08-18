@@ -1,0 +1,154 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Made to be mended. All of it.",
+    "Bring it back when it breaks and I will show you where it broke.",
+    "I do not make two the same. Nobody here is two the same.",
+    "Leaf spring. Best steel that ever came out of the Basin, and they threw it away.",
+    "Tell me how you hold it. Then I will make it."
+  ],
+  "description": "He reaches into the fire and takes out a piece of stock with his bare hand, carries it four steps, and sets it on the anvil.\n\nHis skin is dark and dull and slightly wrong at the edges, and it sheds heat the way a leaf sheds water. He is not showing off. Nobody in the building looks up. He got this job because of this, the same way the potter got his and the woman in the cold store got hers, and if you say anything about it he will be politely baffled.",
+  "dialogue_tree": {
+    "blades": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the steel come from?",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Every hand on this town is different.\"\n\nHe turns the work on the anvil.\n\n\"That one is for Sump. Two thumbs on the left, none on the right, so it has got a hook on the pommel and no guard that side. That one is Quarrel's and it is stupid to look at because her arms are not the same length and a straight haft would tear her shoulder out in a year.\"\n\nHammer. Hammer. Hammer.\n\n\"A city armoury makes one knife eleven hundred times and calls it a standard. I make eleven hundred knives once each. Mine work.\""
+    },
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "city": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every blade on that rack is different.",
+          "next": "blades"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Out there.\" He tips his head north. \"Rail, leaf spring, hull plate. The Basin threw away better steel than it has ever made.\"\n\nHe sets the piece back in the fire, bare-handed.\n\n\"Went in for a hopper of coke once. Twelve years back. Got as far as the weigh station on the north road.\" He turns the piece in the coals. \"They would not take my money. Not would not sell to me, you understand. Would not take the money out of my hand.\"\n\nHe pulls the piece out.\n\n\"So I make my own coke now. It is worse. It is fine.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Put your hands out.\" He looks at them, both sides, without touching. \"Right. Ordinary. That is easy then.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Every blade on that rack is different.",
+          "next": "blades"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does the steel come from?",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Put your hands out.\"",
+      "text_by_relation": {
+        "close": "There is a stool pulled up to the far bench that was not there before and is plainly for you.",
+        "familiar": "\"Take that end,\" he says, and you do, and it is hot, and he does not notice.",
+        "known": "\"You. Ordinary hands.\" He goes back to the anvil."
+      }
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a hide apron, scorched to board",
+      "no shirt at all",
+      "boots with the toes cut out"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_foundry",
+  "hp": 45,
+  "hp_max": 45,
+  "id": "npc_thorn_ferrous",
+  "name": "Ferrous Bight",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_wb_spurblade",
+      "min_trust": 0,
+      "price": 210
+    },
+    {
+      "item_id": "item_wb_ribsaw",
+      "min_trust": 0,
+      "price": 340
+    },
+    {
+      "item_id": "item_wb_socket_spike",
+      "min_trust": 0,
+      "price": 180
+    },
+    {
+      "item_id": "item_wb_thorn_flail",
+      "min_trust": 0,
+      "price": 260
+    },
+    {
+      "item_id": "item_wb_hide_apron",
+      "min_trust": 0,
+      "price": 90
+    },
+    {
+      "item_id": "item_scrap_metal",
+      "min_trust": 0,
+      "price": 7
+    },
+    {
+      "item_id": "item_pipe_wrench",
+      "min_trust": 0,
+      "price": 80
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Foundry",
+  "vendor_stock_size": 7,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_foundry"
+}

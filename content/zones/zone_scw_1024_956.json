@@ -27,8 +27,8 @@
     "radiation": 9,
     "region_id": "region_scarletwastes",
     "scavenging_table_id": "scav_irradiated_salvage",
-    "world_exit_zone": "zone_scw_1024_957",
-    "vehicle_bay": true
+    "vehicle_bay": true,
+    "world_exit_zone": "zone_scw_1024_957"
   },
   "grid_x": 1024,
   "grid_y": 956,
@@ -36,6 +36,6 @@
   "id": "zone_scw_1024_956",
   "map_id": "map_world",
   "marker": "DE",
-  "name": "The Deadleg",
+  "name": "Scrub Bench",
   "parent_zone": null
 }

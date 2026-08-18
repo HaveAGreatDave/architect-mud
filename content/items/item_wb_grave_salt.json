@@ -1,0 +1,12 @@
+{
+  "description": "Coarse crystals scraped off the pale ground where the rain stands. It preserves, it draws water, and it is one of the three things the Thornwarren has enough of.",
+  "flags": {},
+  "id": "item_wb_grave_salt",
+  "name": "grave salt",
+  "tags": {
+    "description": "Coarse crystals scraped off the pale ground where the rain stands. It preserves, it draws water, and it is one of the three things the Thornwarren has enough of."
+  },
+  "type": "material",
+  "value": 18,
+  "weight": 200
+}

@@ -1,0 +1,19 @@
+{
+  "category": "city",
+  "enabled": true,
+  "id": "routine_city_a42",
+  "interactive": null,
+  "lines": [
+    "Every screen on the row changes to the same image at the same instant, and then back."
+  ],
+  "loudness": 0,
+  "phases": [
+    "night"
+  ],
+  "sort_order": 141,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

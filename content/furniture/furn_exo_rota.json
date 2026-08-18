@@ -1,0 +1,14 @@
+{
+  "description": "A table with the gate rota chalked straight onto it, three weeks ahead. Every name is in the same hand, and it is not the hand of anybody who has been in this room today.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_rota",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rota table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_gatehouse"
+}

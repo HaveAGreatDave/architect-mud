@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1213_944",
+  "b": "zone_exo_mending",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_exo_mending_in",
+  "lockable": true,
+  "one_way": false
+}

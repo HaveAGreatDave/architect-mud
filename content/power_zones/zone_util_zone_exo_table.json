@@ -1,0 +1,9 @@
+{
+  "capacity_kw": 1000,
+  "flags": {},
+  "generator_id": "gen_zone_util_zone_exo_table",
+  "id": "zone_util_zone_exo_table",
+  "max_capacity_kw": 1000,
+  "name": "The Long Table — Utility Room",
+  "source_type": "junction_box"
+}

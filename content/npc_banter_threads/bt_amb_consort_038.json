@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_consort_038",
+  "lines": [
+    "\"Do you take the face off before you get home or after?\"",
+    "\"Before. Always before.\"",
+    "\"Why?\"",
+    "\"Because otherwise I bring her through the door with me.\""
+  ],
+  "personality": "consort",
+  "sort_order": 437
+}
+

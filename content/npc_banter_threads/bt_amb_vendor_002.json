@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_vendor_002",
+  "lines": [
+    "\"What did you take today?\"",
+    "\"Enough. You?\"",
+    "\"Enough.\"",
+    "\"Nobody in this trade has ever once said a number out loud.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 401
+}
+

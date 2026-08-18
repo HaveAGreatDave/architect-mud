@@ -1,0 +1,33 @@
+{
+  "ambient_events": [
+    "The wind comes off the mesa tops in a long shove and drops away to nothing.",
+    "Grit runs along the ground in a thin sheet at ankle height and stops dead.",
+    "Something raptor-shaped turns twice, a very long way up, and goes east.",
+    "Heat comes up off the rock in a slow column you can see the far country bend through.",
+    "A rock the size of a fist comes off a rim somewhere behind you and takes a long time to land.",
+    "Bones, small ones, bleached, arranged by water rather than by anybody.",
+    "The salt flat throws the light back so hard that for a moment the sky is the darker half.",
+    "A wash runs off toward the west, dry, with a high-water mark on it from a year nobody remembers.",
+    "Wheel ruts, old, going the wrong way for anywhere.",
+    "Absolutely nothing happens for a while, at considerable scale."
+  ],
+  "ambient_theme": "wasteland",
+  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted, and nothing has needed to. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1231_926",
+    "north": "zone_terminus_1230_925",
+    "south": "zone_terminus_1230_927",
+    "west": "zone_terminus_1229_926"
+  },
+  "flags": {
+    "region_id": "region_terminus",
+    "terrain": "redrock"
+  },
+  "grid_x": 1230,
+  "grid_y": 926,
+  "grid_z": 0,
+  "id": "zone_terminus_1230_926",
+  "map_id": "map_world",
+  "name": "The Standing Flats",
+  "parent_zone": null
+}

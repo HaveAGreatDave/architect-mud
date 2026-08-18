@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 14,
+  "base_output": {
+    "item_id": "item_wb_thorn_flail",
+    "quantity": 1
+  },
+  "category": "weapons",
+  "description": "Two feet of the wall on a length of chain, cut at dusk so it closes overnight. It has to be watered afterwards and everybody forgets.",
+  "id": "recipe_wb_flail",
+  "ingredients": [
+    {
+      "item_id": "item_scrap_metal",
+      "quantity": 2
+    },
+    {
+      "item_id": "item_wb_grave_salt",
+      "quantity": 1
+    }
+  ],
+  "name": "Wire a Thorn Flail",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 2
+  }
+}

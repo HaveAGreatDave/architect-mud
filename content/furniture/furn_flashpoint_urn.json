@@ -1,0 +1,17 @@
+{
+  "description": "A stainless urn on a hotplate, with a brown ring baked into the drip tray so thoroughly it has become a feature of the tray. The coffee in it was made at some point. It is hot, it is here at four in the morning, and nobody has ever claimed a single thing beyond that for it.",
+  "flags": {
+    "aliases": "urn, coffee, coffee machine, pot, hot water",
+    "brew_tier": "kettle"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_urn",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "coffee urn",
+  "object_type": "fixture",
+  "power_draw_kw": 1.2,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

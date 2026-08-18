@@ -1,0 +1,21 @@
+{
+  "category": "crews",
+  "enabled": true,
+  "id": "routine_crews_a34",
+  "interactive": null,
+  "lines": [
+    "A maintenance crew has the cover off a junction box and is looking into it the way you look into a grave.",
+    "\"That is not what that is meant to do.\"",
+    "They put the cover back on."
+  ],
+  "loudness": 0.7,
+  "phases": [
+    "day"
+  ],
+  "sort_order": 133,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

@@ -1,0 +1,37 @@
+{
+  "ambient_events": [
+    "Somewhere across the compound, a number of people stop doing something at the same moment.",
+    "A door opens ahead of you. There is nobody behind it, and nobody comes through.",
+    "Two people pass, neither speaking, and one of them laughs.",
+    "Somebody hands somebody else a tool a moment before it is reached for. Neither of them remarks.",
+    "A stack of trays is squared off against a wall by somebody at the other end of the yard.",
+    "The gravel has been raked. Recently. There are no footprints in it and you have seen four people cross it.",
+    "A child stops, looks at you steadily, and is called away by somebody who did not call.",
+    "There is no rubbish. Not a scrap, and no bins either, and no smell of any.",
+    "The air goes still in a way that is nothing to do with the wind.",
+    "A conversation two rows away has a hole in the middle of it, and then carries on.",
+    "Somebody starts to answer you and stops, politely, and waits for you to say it.",
+    "Everything you can see has been mended at least once and nothing has been replaced."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A circle of poured concrete a hundred feet across, swept, with a ring of low bollards round it and a painted mark at the centre that has been repainted so many times it stands proud of the surface.\n\nAt the four points of it stand four masts of welded lattice, each one twice the height of the hall, and between them, on gantries, the beginnings of something. It has been the beginnings of something for a very long time. The welds nearest the ground have been ground back and redone in a better hand than the ones at the top.\n\nNobody is working on it today. The tools are laid out at the foot of the north mast in the order they would be used.",
+  "exits": {
+    "east": "zone_terminus_1221_940",
+    "north": "zone_terminus_1220_939",
+    "south": "zone_terminus_1220_941",
+    "west": "zone_terminus_1219_940"
+  },
+  "flags": {
+    "airfield_id": "terminus_ascension",
+    "exodus_space": true,
+    "region_id": "region_terminus",
+    "terrain": "concrete"
+  },
+  "grid_x": 1220,
+  "grid_y": 940,
+  "grid_z": 0,
+  "id": "zone_terminus_1220_940",
+  "map_id": "map_world",
+  "name": "The Ascension",
+  "parent_zone": null
+}

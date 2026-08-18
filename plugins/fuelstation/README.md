@@ -36,6 +36,25 @@ charge. Trucking's answer lives in trucking. The regress suite reads `FUEL_FULL`
 rather than writing `380`, deliberately: a hardcoded price in the test would pass forever while
 the board drifted away from the till.
 
+## The kiosk
+
+The forecourt model has always drawn a shop: a white box under a red parapet on the back strip,
+glazed front facing the pumps, lit after dark (`drawTypeModel`, the `fuel_yard` arm, with the
+comment *"somebody works here, and a forecourt with nobody in it is a fuel dump"*). It is now a
+room. **Flash Point Convenience** (`zone_flashpoint_shop`) sits east off the lot and west of the tank
+yard, which is where the model puts it, and Nadine Quist works the counter there from two in the
+afternoon until it gets light.
+
+None of that is code in this plugin, and it should stay that way. A shopkeeper is a `vendor`
+NPC, her stock is four `vendor_stock` containers, the urn is a `brew_tier` fixture and the cash
+machine is an `atm` flag. The forecourt is a PLACE, and this plugin renders two of the things
+standing on it.
+
+One thing the kiosk did change, one plugin over: `fuel` used to refuse anybody who was not sitting
+in a cab, which meant the pump's own `examine` line offered `fuel the rig` and the click landed on
+"You are not driving anything". The verb now also fills a rig parked on the tile you are standing
+on. See [systems-trucking.md](../../docs/systems-trucking.md).
+
 ## Authoring another one
 
 Three things, none of which touch this plugin:

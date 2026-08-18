@@ -18,11 +18,9 @@
   "exits": {
     "east": "zone_scw_1049_972",
     "north": "zone_scw_1048_971",
-    "south": "zone_scw_1048_973",
-    "west": "zone_scw_1047_972"
+    "south": "zone_scw_1048_973"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

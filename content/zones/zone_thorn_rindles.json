@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "A price is chalked up, looked at, and chalked down again.",
+    "Somebody buys nothing at all and stays twenty minutes and leaves happier.",
+    "The locked case is opened, something is taken out, and the case is locked again.",
+    "A tin of screws is sorted while she talks to you, without her looking at it."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Eleven pockets on the apron and about eleven hundred things on the shelves, and she knows where all of them are.\n\nThe left half of the shop is ordinary: bandages, jerky, wire, boots, a bin of screws sorted by size. The right half is not, and the right half is why people come four days across the waste. Rad-meds. Grown gear cut for bodies the city does not make clothes for. A locked case at the back with a card on it that says ASK, and under that, smaller, DO NOT ASK TWICE.\n\nThe prices are honest and they are not the same for everybody, and the difference is written up on the board where anybody can check it, which is a kind of honesty most cities have never managed.",
+  "exits": {
+    "down": "zone_util_zone_thorn_rindles",
+    "north": "zone_scw_1043_977"
+  },
+  "flags": {
+    "building_name": "Rindle's",
+    "building_type": "mercantile",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1043_977"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_rindles",
+  "map_id": "map_int_thorn_rindles",
+  "name": "Rindle's",
+  "parent_zone": "zone_scw_1043_977"
+}

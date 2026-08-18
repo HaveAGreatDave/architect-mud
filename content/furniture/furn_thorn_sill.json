@@ -1,0 +1,14 @@
+{
+  "description": "A green thing in a red-glazed pot, watered, turned, thriving. It is the only cared-for growing thing in the building that is not a person, and somebody has moved it into the light twice today.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_sill",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a plant on the sill",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_kept"
+}

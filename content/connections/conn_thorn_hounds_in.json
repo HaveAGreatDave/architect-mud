@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1047_972",
+  "b": "zone_thorn_hounds",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_thorn_hounds_in",
+  "lockable": true,
+  "one_way": false
+}

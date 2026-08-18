@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gambler_040",
+  "lines": [
+    "\"I have got a system.\"",
+    "\"How is the system?\"",
+    "\"The system is nearly ready.\"",
+    "\"It has been nearly ready for two years.\"",
+    "\"That is how you know it is close.\""
+  ],
+  "personality": "gambler",
+  "sort_order": 439
+}
+

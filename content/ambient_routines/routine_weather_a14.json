@@ -1,0 +1,21 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a14",
+  "interactive": null,
+  "lines": [
+    "Something metal comes loose further up the street and goes over end on end.",
+    "It stops against a wall. Nobody goes to look at what it was."
+  ],
+  "loudness": 1,
+  "phases": [],
+  "sort_order": 113,
+  "themes": [],
+  "weather": [
+    "thunderstorm",
+    "storm"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

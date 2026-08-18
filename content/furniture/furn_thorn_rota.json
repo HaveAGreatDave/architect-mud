@@ -1,0 +1,14 @@
+{
+  "description": "Water, roof, gate, turning. Four columns, three weeks ahead, amended constantly in one hand.\n\nThis is the entire government of the Thornwarren, and it has worked for thirty years, which is longer than the Basin has managed anything.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_rota",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the rota",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_den"
+}

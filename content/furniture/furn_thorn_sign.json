@@ -1,0 +1,14 @@
+{
+  "description": "The only sentence written anywhere in the Thornwarren that could be called a creed, and it is not about evolution.\n\nNOBODY IS CARRIED OUT ALONE.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_sign",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the sign on the wall",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_kept"
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_vendor_006",
+  "lines": [
+    "\"You ever think about packing it in?\"",
+    "\"Every day at about four.\"",
+    "\"And at five?\"",
+    "\"At five somebody buys something and I forget I asked.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 405
+}
+

@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1049_975",
+  "b": "zone_thorn_whelp",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_thorn_whelp_in",
+  "lockable": true,
+  "one_way": false
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Beans up strings, tomatoes tied back with rag, a bed of greens, and at the far end a stand of something with a red stem you have never seen before, staked and labelled and watched.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_beds",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the growing beds",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_glass"
+}

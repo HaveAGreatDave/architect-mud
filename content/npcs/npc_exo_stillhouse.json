@@ -1,0 +1,166 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Sit when you are ready. Not before.",
+    "It is not quick and it is not clean and it does work.",
+    "Everybody asks whether it hurts. Yes.",
+    "The drum goes out on a Thursday.",
+    "You keep your name. That is the one thing you keep."
+  ],
+  "description": "A wiry man in a rubber apron, folding linen, with the unbothered competence of somebody who has done a difficult thing several hundred times. His forearms are scarred in a pattern that is not from work.\n\nHe glances at you once, at your arms and your jaw and the way you stand, and prices you in about a second and a half.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "chair": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why does it have to come out?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is behind the far door?",
+          "next": "door"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Takes it out.\"\n\nHe says it exactly as flatly as that, and then, because he is fair, gives you the whole of it.\n\n\"Wire, plate, weave, whatever you are carrying. Anything grown into you that was not yours to start with. All of it, in one go, and it goes in the drum, and the drum goes out on a Thursday and is not discussed.\"\n\n\"It hurts. I am not going to dress that up. You will be on the floor for a while and somebody will sit with you. And I will tell you twice before I do it, and if you sit down and change your mind, you get up. That has happened. Nobody said anything about it then either.\""
+    },
+    "door": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does the chair do?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why does it have to come out?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"A room.\"\n\nHe does not look at it.\n\n\"There is no handle on it because it does not need one. It will not open for you. It will not open for most people, for a long while, and standing in front of it does nothing at all except make you late.\"\n\nHe folds the last of the linen and squares the pile off.\n\n\"It opened for me when I was thirty-one. I had been here since I was six.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"You are the new one.\" He puts the linen down. \"Nothing today. Look at the room. Come back when you have stopped looking at the chair.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does the chair do?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why does it have to come out?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is behind the far door?",
+          "next": "door"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Not today.\"",
+      "text_by_relation": {
+        "close": "\"Ah.\" He puts the kettle on without being asked, which from him is an embrace.",
+        "familiar": "\"You.\" He carries on folding. \"Still not today?\"",
+        "known": "\"Back.\" He nods at the bench. \"Sit down if you are sitting.\""
+      }
+    },
+    "why": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What does the chair do?",
+          "next": "chair"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is behind the far door?",
+          "next": "door"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He considers you for a moment.\n\n\"Because you cannot carry two answers.\"\n\nAnd that is the entire explanation, and he goes back to the linen, and it is very clear that as far as he is concerned the subject has been fully covered."
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a rubber apron, cracked and clean",
+      "sleeves rolled to the elbow",
+      "clogs"
+    ],
+    "personality": "stoic"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_stillhouse",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_stillhouse",
+  "name": "Silence Marrable",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_stillhouse"
+}

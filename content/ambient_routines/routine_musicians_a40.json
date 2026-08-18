@@ -1,0 +1,20 @@
+{
+  "category": "musicians",
+  "enabled": true,
+  "id": "routine_musicians_a40",
+  "interactive": null,
+  "lines": [
+    "Somebody is playing badly and with total confidence a little way off, and it is somehow improving the street."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 139,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

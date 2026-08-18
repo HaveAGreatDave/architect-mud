@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_longfire",
+  "b": "zone_thorn_longfire",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_longfire_up",
+  "lockable": false,
+  "one_way": true
+}

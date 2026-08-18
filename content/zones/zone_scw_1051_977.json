@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "The drain is flushed with a bucket of clean water. Nothing was in it.",
+    "A flask is turned in its felt so the label faces out, and set back down.",
+    "The kettle goes on. Nothing else about the room changes."
   ],
   "ambient_theme": "wasteland",
-  "description": "Grey water, soap, and the smell of wet stone. Two people are unblocking a channel with a rod and are enjoying it far more than the job warrants.",
+  "description": "Set apart at the end of the row, windowless, with a drain running out from under the door to a sealed sump. The walls are double-skinned. There is a bell mounted by the door and a board beside it with a single name on it: whoever is going in next, and when.",
   "exits": {
-    "east": "zone_scw_1052_977",
     "north": "zone_scw_1051_976",
-    "south": "zone_scw_1051_978",
-    "west": "zone_scw_1050_977"
+    "south": "zone_thorn_fleshery"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Fleshery",
+    "building_type": "clone",
+    "entrance": "north",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1051_976"
   },
   "grid_x": 1051,
   "grid_y": 977,
   "grid_z": 0,
   "id": "zone_scw_1051_977",
   "map_id": "map_world",
-  "name": "The Drains",
+  "marker": "FL",
+  "name": "The Fleshery",
   "parent_zone": null
 }

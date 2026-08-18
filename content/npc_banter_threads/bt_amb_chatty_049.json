@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_chatty_049",
+  "lines": [
+    "\"Do you want the short version?\"",
+    "\"Is there a short version?\"",
+    "\"There is not a short version.\"",
+    "\"Then give me the long one, I have got nowhere to be.\""
+  ],
+  "personality": "chatty",
+  "sort_order": 448
+}
+

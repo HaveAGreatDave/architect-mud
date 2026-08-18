@@ -51,7 +51,7 @@
 //
 // After that, re-running this script is safe: it carries any existing `marker` forward.
 
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, readdirSync, unlinkSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = process.cwd();
@@ -507,7 +507,7 @@ const TOWN = {
     desc: 'The middle of the town: a swept oval of packed ground with a long fire trench down the centre of it and cook pots on chains over the coals. Benches, most of them mended. A board on a post carries the week in chalk, and the week is water duty, roof duty, gate duty and, in a different hand and underlined twice, WHOEVER IS TAKING THE GOOD KNIFE PUT IT BACK. People come through constantly on their way to somewhere else. Almost nobody looks at you for longer than it takes to decide you are not carrying anything heavy.',
   },
   [`${CX}_${CY - 1}`]: {
-    name: 'The Sweetwater', landmark: true,
+    name: 'The Tank Steps', landmark: true,
     desc: 'The reason the town is here, and the best-made thing for sixty miles. Rain comes off every roof in the Thornwarren down channelled gutters into a stepped run of settling tanks, through three beds of crushed limestone and burnt bone, and comes out the far end into a covered cistern sweet enough to drink. The stonework is old and the ironwork is not, and both are immaculate. A test bench by the outflow holds a rack of little glass tubes and a chart, and the chart has been filled in twice a day, in different hands, for a very long time. There is a second inlet at the top of the run, wider, plated, built to take a barrel tipped straight into it, and the board above it reads SLAKE WATER: BOTH BEDS, TWICE. In a dry month the whole town drinks the lake, and it drinks it through this.',
   },
   [`${CX - 1}_${CY - 1}`]: {
@@ -519,15 +519,15 @@ const TOWN = {
     desc: 'A run of duckboard along the backs of the dwellings at gutter height, put there so the roof crews can work the channels without going through anybody\'s house. Every roof in sight is pitched at the same steep shed angle and every one drains into the same run of tin. Catchment drums stand under each downpipe, lidded, numbered, and chained to the wall so nobody borrows one.',
   },
   [`${CX - 1}_${CY}`]: {
-    name: 'Rindle\'s',
+    name: 'The Barter Ground',
     desc: 'A trader\'s lean-to grown outward over the years into most of a shop: a plate awning, a counter made from a truck bed, and shelves back into the shade holding salvage, cured meat, wire, rad-meds, seed, and boots in every size arranged smallest to largest. A hand-lettered card by the till reads NO CREDIT, and under it, in the same hand, EXCEPT FOR YOU, KESH, and under that a list of eleven other names.',
   },
   [`${CX + 1}_${CY}`]: {
-    name: 'The Physic',
+    name: 'Physic Row',
     desc: 'A clean tent over a boarded floor, with the sides rolled up in the heat. Two cots, both made. A cabinet of instruments laid out in order on a folded cloth, a hand-drawn chart of the body pinned to the centre post with a great many annotations, and a bucket of soapy water by the entrance that gets changed while you are standing there. Somebody in here is having a splinter taken out and is being extremely brave about it, out loud, at length.',
   },
   [`${CX}_${CY + 1}`]: {
-    name: 'The Chorus\' Den',
+    name: 'The Den Door',
     desc: 'A round shelter of hide over bent rail, set a little apart, with the door mat beaten and the step swept. This is where the elder holds court, which in practice means this is where arguments about water rota come to die. There are cushions. There are a great many cushions.',
   },
   [`${CX - 1}_${CY + 1}`]: {
@@ -543,7 +543,7 @@ const TOWN = {
     desc: 'A yard of criss-crossed line under a rigged canopy, because you do not dry washing under open sky here and everybody knows why. Sheets, work rags, small clothes, a great many socks. Two people are taking a sheet down between them in the practised way of people who have done it ten thousand times, and are talking about somebody else entirely.',
   },
   [`${CX + 2}_${CY}`]: {
-    name: 'The Foundry',
+    name: 'The Anvil Ground',
     desc: 'An open-sided works of salvaged plate where the region\'s scrap comes to be argued with: a drop hammer, a bank of gas bottles, a bath of quench oil with a skin on it. Everything made here is made to be mended, and you can tell, because half of what is stacked by the door has been mended already.',
   },
   [`${CX}_${CY - 2}`]: {
@@ -555,7 +555,7 @@ const TOWN = {
     desc: 'The burial ground, walled off with a knee-high course of dry stone and planted over with the same thorn as the wall, kept low. The markers are salvage plate with names punched through so the light comes past. Somebody has been at the weeds recently. There is a jar of water on one of the newer ones, and the jar is full.',
   },
   [`${CX + 2}_${CY - 2}`]: {
-    name: 'The Houndyard',
+    name: 'The Runs',
     desc: 'A run of wire and shade cloth with a dozen hounds in it, long-legged and scarred and heavy in the shoulder. They come up to the wire to look at you, all of them at once and in silence, which is much worse than barking. A woman inside the run is going down the line with a bucket and a rag, doing ears, and every one of them sits for her.',
   },
   [`${CX - 2}_${CY + 2}`]: {
@@ -565,6 +565,281 @@ const TOWN = {
   [`${CX + 2}_${CY + 2}`]: {
     name: 'The Long Table',
     desc: 'A single table sixty feet long under a run of sailcloth, made from eleven different tables and painted once, badly, a long time ago. This is where the town eats when it eats together, which the state of the benches suggests is often.',
+  },
+};
+
+// ── THE BUILDINGS (2026-08-18) ───────────────────────────────────────────────
+//
+// The town shipped as 195 named tiles and NOT ONE ROOM. Every landmark in it — the Physic, the
+// Chorus' Den, Rindle's — was a patch of ground with a good sentence over it, which reads fine
+// walking through and gives you nowhere to stand still. This is the infrastructure pass.
+//
+// ── The rule the interiors are written under ─────────────────────────────────
+//
+//   A MUTATION IS A TRADE. Nobody here is "a mutant"; they are the woman whose hands run cold
+//   enough to hold the stock, or the man who takes ingots out of the fire because his skin does
+//   not care. The town is organised around what each body turned out to be good for, and it is
+//   organised OUT LOUD, on rotas, in chalk. That is the difference between this place and a
+//   freak show, and it is never stated in a line of dialogue anywhere.
+//
+// The register is body horror on the OUTSIDE and domestic on the INSIDE, and unlike the
+// Thornwarren's approach road, here the two are in the same room at the same time: the Fleshery is
+// a horror and it is also a clinic with a mop and a rota, and neither of those cancels the other.
+//
+// Aesthetically they embrace chaos: nothing matches, nothing is painted one colour, everything is
+// made of eleven other things. But nothing is DIRTY and nothing is broken, because these people
+// mend. Chaos is a look here, not a failure.
+//
+// NO NPC EVER ARGUES THAT THEY ARE NOT MONSTERS. Not one line defends the town or invites the
+// player to revise their opinion. The revision is the player's own work or it does not happen.
+//
+// Their bitterness at the Ascendants, the Long Watch and the city is REAL and it is specific: it
+// comes out as facts and dates, never as a speech. Every one of them has been turned back at a
+// checkpoint, and none of them will tell you that story unprompted.
+//
+// Geometry: fifteen facades, none of them on the two open lanes (the east-west row at y976 and the
+// north-south run at x1046) that cross at the Commons. A facade is SOLID, so a plaza whose four
+// neighbours are all doors is a cul-de-sac. The lanes stay clear and everything fronts one.
+const STEP = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east' };
+
+const BLD = {
+  // ── Preserved: The Deadleg ─────────────────────────────────────────────────
+  //
+  // A LATENT BUG THIS PASS SURFACED. The Deadleg's shed interior, its vendor and its truck depot
+  // were added by a later script and this generator has never known about them, so every rebuild of
+  // the region has been quietly replacing its `north` exit (the only door into the shed) with an
+  // ordinary link to the hardpan behind it. Nothing failed; the shed simply stopped having a way in,
+  // until the next run of whatever script put it there. It is listed here so the geometry pass
+  // treats it as what it is, and `preserve` stops the rest of it being regenerated from a table that
+  // does not know about the vendor, the depot flags or the prose.
+  '1024_956': {
+    name: 'The Deadleg', type: 'truck_depot', entrance: 'south', floors: 3,
+    slug: 'deadleg', interiorId: 'zone_yard_deadleg', preserve: true,
+    seamId: 'conn_scw_1024_956_north_deadleg',
+  },
+
+  // ── The row, north side ────────────────────────────────────────────────────
+  '1043_975': {
+    name: 'The Long Fire', type: 'diner', entrance: 'south', floors: 1, slug: 'longfire',
+    desc: 'A cookhouse with no front wall at all, just a roof on posts over a fire trench forty feet long with six pots down it at different heights. The smell reaches the gate. Whatever is in the big pot has been in the big pot, being added to, for longer than anybody will admit to.',
+    room: 'The Long Fire',
+    interior: 'Heat, and the sweet-iron smell of a stock pot that has never been allowed to go out. Six pots on a graded trench, each one at its own heat, and a chalked board over them that reads what is in each and what is NOT to go in the third one.\n\nThe cook has arms like a docker and eleven fingers, and uses all of them. He tastes everything off the back of his wrist and he is tasting for something other than salt.\n\nNobody pays. There is a bench, and there are bowls, and there is a bucket to wash your own in, and a second board by the door with a list of names and what each of them is owed by the town, which is how the accounting is done here.',
+    floor: 'dirt',
+    light: ['the fire trench', 'The fire does it. After dark somebody hangs two storm lanterns off the posts, and they are lit with a taper off the cooking fire because striking a light when there is one going is considered a small stupidity here.'],
+    amb: [
+      'The third pot gets a taste and a shake of the head and is left alone.',
+      'Somebody arrives with an armful of something and puts it down without a word and leaves.',
+      'A name is crossed off the owing board and written on again lower down.',
+      'The fire is fed one length of thorn root. It burns green for a moment.',
+      'Two people eat side by side without saying anything and both look better for it afterwards.',
+    ],
+  },
+  '1045_975': {
+    name: 'The Bathhouse', type: 'bathhouse', entrance: 'south', floors: 1, slug: 'bath',
+    desc: 'A long shed of tin and salvage plate with three chimneys going and the whole of it steaming gently in the cold hour. The queue outside is a rota board and a bench, and the bench is full.',
+    room: 'The Bathhouse',
+    interior: 'Three tubs cut down from tank ends, one hot enough to hurt, and a run of duckboards between them worn hollow. It is the single most used building in the town.\n\nWhat you notice, if you are from outside and looking for it, is that nobody in here is hiding anything. Plate, spurs, a back grown into ridges, a woman with a second set of ribs, an old man with an arm that ends in something that is not a hand and works better than one. Nobody looks. Nobody is being brave about it. They are queuing for a bath.\n\nThe scrubbing brushes are hung in three sizes and the biggest one is enormous and has a handle on both ends, for the ones who cannot reach their own backs any more, and somebody always does it.',
+    floor: 'boards',
+    light: ['lanterns on wire', 'Storm lanterns on a wire down the length of the shed, hung high out of the steam, and the glass on every one of them is clean.'],
+    amb: [
+      'A tub is topped from the copper and somebody hisses and settles.',
+      'The big brush changes hands without either of them saying anything about it.',
+      'Somebody sings four bars of something and gets told to stop, fondly.',
+      'A child is scrubbed, protesting, in the middle tub, and gets away.',
+      'Steam rolls along the roofline and finds the gap at the end.',
+    ],
+  },
+  '1047_975': {
+    name: 'The Roofwalk', type: 'civic', entrance: 'south', floors: 2, slug: 'roofwalk',
+    desc: 'A frame of scaffold and salvage rail going up two storeys, with a gantry off it running away over the roofs of half the town. The whole rain harvest is up there: gutters, headers, a bank of settling tanks, all of it walked twice a day by somebody with a pot of grease and a spanner.',
+    room: 'The Roofwalk',
+    interior: 'The bottom of the gantry, which is also the tool store, which is also where the roof crew argue. A board on the wall carries the whole town drawn as a run of gutters, in chalk, corrected constantly, with the bad joints ringed.\n\nUp the ladder the walk goes out over the roofs, and from the top of it you can see the whole of the Thornwarren laid out and the wall around it and the red country going on past the wall for as far as there is anything.\n\nSomebody has written, small, on the underside of the top rail where you would only see it lying down: WE BUILT THIS. It is not a boast. It is a note to whoever is up here next.',
+    floor: 'metal',
+    light: ['a bulkhead lamp and the sky', 'Daylight up the ladder well, and one bulkhead lamp at the bottom for the crew who come off the roof in the dark.'],
+    amb: [
+      'Boots go up the ladder, and along, and stop somewhere above you.',
+      'A bad joint gets ringed on the chalk board and a name written beside it.',
+      'Water moves in a header tank overhead and settles.',
+      'Somebody comes down with an armful of gutter and a very specific opinion about it.',
+    ],
+  },
+  '1049_975': {
+    name: 'The Whelping Room', type: 'civic', entrance: 'south', floors: 1, slug: 'whelp',
+    desc: 'A low warm building with the thickest walls in the town and a stove going in it year round. There is a bell outside the door, and a chalked list of who is on call, and the list has nine names on it and covers every hour of the week.',
+    room: 'The Whelping Room',
+    interior: 'Warm, and quiet, and much bigger inside than the door suggests. Beds along one wall with curtains that pull round, a stove, a rocking chair worn smooth, and a wall of small shelves each with a name chalked on it.\n\nThe name of this room is not a joke and nobody here has ever heard it as one.\n\nA great many things go wrong in this town that would not go wrong in a city, and everyone knows the numbers, and the numbers are written on the wall by the door in the same hand as the rota, with no comment attached. Under them, in a different hand, is a much longer list of the ones who came through, and it is very much the longer list, and somebody has underlined that.',
+    floor: 'boards',
+    light: ['the stove and a shaded lamp', 'A shaded lamp that can be turned right down without going out, which is the whole specification, and it took the Foundry three attempts.'],
+    amb: [
+      'The stove is fed one stick and the door shut quietly.',
+      'A curtain is pulled round a bed by somebody who does not look in first.',
+      'Somebody very small is being talked to, at length, about nothing.',
+      'A name goes up on one of the small shelves. Chalk, not paint, and nobody remarks on why.',
+    ],
+  },
+  '1051_975': {
+    name: 'The Kept', type: 'clinic', entrance: 'south', floors: 1, slug: 'kept',
+    desc: 'A long building set slightly apart, with wide doors and a ramp instead of a step, and a run of shutters that open the whole south wall to the light on a good day. There is a bench outside with a view of the yard and it is never empty.',
+    room: 'The Kept',
+    interior: 'Ten beds, wide ones, and the frames are all different because all ten were made to fit the person in them.\n\nThis is where the town keeps the ones it went too far with. A man whose ribcage kept going and cannot now sit up, being read to. A woman with no face left to speak of who is having her hands held and is answering by squeezing. Somebody under a sheet who is a shape a person is not, and is warm, and is turned every two hours by a rota with fourteen names on it.\n\nNone of it is hidden and none of it is displayed. The shutters are open. There is a plant on the sill.\n\nOn the wall, the only sentence written anywhere in the Thornwarren that could be called a creed, and it is not about evolution: NOBODY IS CARRIED OUT ALONE.',
+    floor: 'boards',
+    light: ['the shutters and low lamps', 'The whole south wall opens, which is the point of the building. At night, lamps kept low and never put out entirely, because two of the ten cannot tell you they are frightened of the dark and one of them plainly is.'],
+    amb: [
+      'Somebody is turned, by two people, without being woken.',
+      'A page is turned and the reading goes on.',
+      'A hand is squeezed twice, which means yes.',
+      'The rota on the door is initialled and the next name comes on.',
+      'The plant on the sill has been watered. It is the only cared-for green thing in the building and it is doing well.',
+    ],
+  },
+
+  // ── The row, south side ────────────────────────────────────────────────────
+  '1043_977': {
+    name: "Rindle's", type: 'mercantile', entrance: 'north', floors: 1, slug: 'rindles',
+    desc: 'A shopfront made of four different shopfronts, none of which came from the same building, and a shutter that rolls up into a housing off a truck. Everything about it is salvage and none of it is slapdash. The stock board by the door is written in a careful hand and priced in three currencies.',
+    room: "Rindle's",
+    interior: 'Eleven pockets on the apron and about eleven hundred things on the shelves, and she knows where all of them are.\n\nThe left half of the shop is ordinary: bandages, jerky, wire, boots, a bin of screws sorted by size. The right half is not, and the right half is why people come four days across the waste. Rad-meds. Grown gear cut for bodies the city does not make clothes for. A locked case at the back with a card on it that says ASK, and under that, smaller, DO NOT ASK TWICE.\n\nThe prices are honest and they are not the same for everybody, and the difference is written up on the board where anybody can check it, which is a kind of honesty most cities have never managed.',
+    floor: 'boards',
+    light: ['a strip off the Bank', 'A salvaged strip light wired straight off the Thornwarren Bank, and the only shop in the region that can promise you light after dark.'],
+    amb: [
+      'A price is chalked up, looked at, and chalked down again.',
+      'Somebody buys nothing at all and stays twenty minutes and leaves happier.',
+      'The locked case is opened, something is taken out, and the case is locked again.',
+      'A tin of screws is sorted while she talks to you, without her looking at it.',
+    ],
+  },
+  '1045_977': {
+    name: "The Chorus' Den", type: 'civic', entrance: 'north', floors: 1, slug: 'den',
+    desc: 'The biggest single room in the Thornwarren, under a roof of layered plate that somebody has spent thirty years making watertight. There is no door, only a hanging, and the hanging is pinned back in the day. Everyone comes here eventually and nobody is summoned.',
+    room: "The Chorus' Den",
+    interior: 'Cushions. Hundreds of them, in every colour a thing can be, none of them matching, arranged in rings around a low fire pit that is not lit. The walls are hung with salvage and bone and cable and someone\'s childhood drawings and a length of Ascendant hull plate with a hole punched through it, and there is no order to any of it and it is not disordered.\n\nAt the far end, a good chair, and in it the woman who runs this place and would deny it.\n\nThere is a rota on her knee. There is always a rota on her knee. The Thornwarren is governed by a water rota, a roof rota, a gate rota and a turning rota, and by absolutely nothing else, and it has worked for thirty years, which is longer than the Basin has managed anything.',
+    floor: 'boards',
+    light: ['lamps in the hangings', 'Lamps hung in among the salvage at every height, so the room has no shadow anywhere in it and nowhere to stand where you cannot be seen. Nobody built it that way on purpose, and it is that way.'],
+    amb: [
+      'Somebody comes in, sits down on a cushion, says nothing, and is not asked.',
+      'The rota is amended. Two names swap. Neither of them was here.',
+      'A dog comes in, walks the whole room, and goes out again.',
+      'She answers a question. It was going to be asked in a moment.',
+      'Somebody laughs at the far end of the room and the whole room turns toward it and is pleased.',
+    ],
+  },
+  '1047_977': {
+    name: 'The Kiln', type: 'industrial', entrance: 'north', floors: 1, slug: 'kiln',
+    desc: 'A domed brick kiln with a stack, blackened at the mouth and mended in three colours of brick, and a drying yard beside it under netting. Everything the Thornwarren eats off, drinks out of and stores in was made here.',
+    room: 'The Kiln',
+    interior: 'The mouth of the kiln, a wheel, and a wall of boards with green ware drying on them, hundreds of pieces, none of them quite like any other.\n\nThe potter has hands with too many joints in them and works faster than seems reasonable. Every bowl in the Thornwarren came off this wheel, and every one of them has a thumbprint pressed into the foot ring, and they are all his thumbprint, and nobody has ever mentioned it to him.\n\nStacked separately by the door, glazed a deep red and much better work than the rest, a run of small sealed jars. They are not for the table.',
+    floor: 'dirt',
+    light: ['the kiln mouth', 'The kiln does it when the kiln is going. When it is not, one lamp, and the potter works by feel anyway and says so.'],
+    amb: [
+      'The wheel goes, and stops, and goes again.',
+      'A piece comes off the wheel and is set down on the board without being looked at.',
+      'The kiln ticks as it cools, all the way down the scale.',
+      'A cracked piece is broken up and the pieces go back into the slip bin.',
+    ],
+  },
+  '1049_977': {
+    name: 'The Physic', type: 'clinic', entrance: 'north', floors: 1, slug: 'physic',
+    desc: 'A whitewashed building with a covered porch, a boot scraper, and a bell. The busiest door in the Thornwarren after the bathhouse. There is a queue and it is not first-come, and everybody in it knows the order and nobody argues about it.',
+    room: 'The Physic',
+    interior: 'Four beds, a scrubbed table, a lamp on a jointed arm, and a wall of instruments in a glass case that would not shame a Coldwater clinic and were every one of them made across the yard at the Foundry.\n\nBurns, backs, teeth, babies, and the particular injuries of a town whose bodies are all different shapes. There is a shelf of splints and none of them are a standard size. There is a drawer labelled TEETH and one labelled TEETH, THE OTHER KIND.\n\nThe physician has done this for forty years with equipment he mostly made and drugs he mostly grew, and the results he gets are, if anybody ever compared them, better than the Basin\'s. Nobody has ever compared them. He would not care.',
+    floor: 'tile',
+    light: ['the jointed lamp', 'A good lamp on a jointed arm over the table, off the Bank, and a bank of candles for when the Bank is down, which it has been twice in eleven years and he still keeps the candles.'],
+    amb: [
+      'An instrument goes into the boil and comes out and is laid on clean linen.',
+      'Somebody in the queue is moved up it, and nobody objects.',
+      'A splint is cut down to fit a limb that has an extra joint in it.',
+      'He writes something in a book and the writing is very small and very neat.',
+    ],
+  },
+  '1051_977': {
+    name: 'The Fleshery', type: 'clone', entrance: 'north', floors: 1, slug: 'fleshery',
+    desc: 'Set apart at the end of the row, windowless, with a drain running out from under the door to a sealed sump. The walls are double-skinned. There is a bell mounted by the door and a board beside it with a single name on it: whoever is going in next, and when.',
+    room: 'The Fleshery',
+    interior: 'The room the whole faction turns on, and it is the size of a kitchen.\n\nA table with a drain in it. A rack of glass and steel that somebody has kept in a state a surgeon would recognise. Restraints, padded and clean and replaced when they wear. A stand of flasks in a rack, each one nested in its own cut felt, each one labelled in a small hand with a date and a name and a number.\n\nAnd around all of that, absolutely everywhere: the ordinary. A mop. A kettle. A tea-stained mug with a chipped rim. A chair pulled up to the head of the table, worn, because somebody sits in it and holds a hand for the six hours it takes.\n\nOn the wall by the door, in chalk, a tally of every Quickening this town has done, with a mark against each one. Most of the marks are the same. Some are not. Nobody has rubbed the second kind out.',
+    floor: 'tile',
+    light: ['the overhead and a hand lamp', 'A hard overhead over the table and a hand lamp on a lead, and a third lamp much softer at the head end, which is for the person in the chair rather than the person on the table.'],
+    amb: [
+      'The drain is flushed with a bucket of clean water. Nothing was in it.',
+      'A flask is turned in its felt so the label faces out, and set back down.',
+      'The kettle goes on. Nothing else about the room changes.',
+      'A name goes up on the board outside, and a date, and the date is nine days off.',
+      'The chair at the head of the table is straightened. It is always straightened.',
+    ],
+  },
+
+  // ── The north run ──────────────────────────────────────────────────────────
+  '1045_972': {
+    name: 'The Foundry', type: 'foundry', entrance: 'east', floors: 1, slug: 'foundry',
+    desc: 'An open-sided works of salvaged plate where the region\'s scrap comes to be argued with: a drop hammer, a bank of gas bottles, a bath of quench oil with a skin on it. Everything made here is made to be mended, and you can tell, because half of what is stacked by the door has been mended already.',
+    room: 'The Foundry',
+    interior: 'Heat you feel in your teeth, and the drop hammer going in a rhythm you can set a watch by.\n\nThe man on the floor takes ingots out of the fire with a bare hand. He is not showing off and nobody is watching; his skin sheds heat the way a leaf sheds water and it is the reason he has this job rather than the roof, and that sentence is the whole social theory of this town said in one man.\n\nAgainst the far wall, work that is not tools. A rack of blades ground out of leaf spring and rail steel, each one shaped for a specific grip: one with a hooked pommel for a hand with no thumb, one with a two-hand haft for arms of different lengths, one with no handle at all because it socketed into something that had grown.',
+    floor: 'concrete',
+    light: ['the fire and two strips', 'The fire does most of it. Two strip lights over the benches for the fine work, which is the only part of this building that needs to be seen rather than felt.'],
+    amb: [
+      'The drop hammer goes eleven times and stops.',
+      'Something comes out of the quench with a noise like a held breath.',
+      'A blade is offered up against somebody\'s grip, taken back, and ground a little more.',
+      'He takes a piece off the fire with his hand. Nobody looks up.',
+    ],
+  },
+  '1047_972': {
+    name: 'The Houndyard', type: 'junkyard', entrance: 'west', floors: 1, slug: 'hounds',
+    desc: 'A run of wire and shade cloth with a dozen hounds in it, long-legged and scarred and heavy in the shoulder. They come up to the wire to look at you, all of them at once and in silence, which is much worse than barking.',
+    room: 'The Houndyard',
+    interior: 'The shed at the end of the run: a wall of collars on pegs, a bench of ointments and clippers, and a bin of feed with a scoop in it.\n\nA man is going down the line doing ears with a rag, and every one of them sits for him. They are the size of ponies and half of them have the wrong number of eyes and one of them has a plate of bone across its skull like a helmet, and they sit for him.\n\nOn the wall, sixteen collars on pegs with no dogs attached to them, and the pegs are labelled, and the labels are names.',
+    floor: 'dirt',
+    light: ['a caged bulb', 'A single caged bulb over the bench, because the dogs do not want it brighter and he does not either.'],
+    amb: [
+      'A hound is done, and gets up, and the next one comes and sits without being called.',
+      'Twelve heads turn at the same moment toward the gate, and then turn back.',
+      'A collar is taken off its peg, checked, oiled, and hung back up.',
+      'Something enormous puts its chin on the bench and is elbowed off, gently.',
+    ],
+  },
+
+  // ── The south run ──────────────────────────────────────────────────────────
+  '1045_980': {
+    name: 'The Milkhouse', type: 'cold_storage', entrance: 'east', floors: 1, slug: 'milkhouse',
+    desc: 'Half sunk into the ground with a turf roof and a heavy door set into the slope, and a padlock on it that is the only padlock in the Thornwarren. A thermometer on the frame and a log on a string, read four times a day, and the log is signed.',
+    room: 'The Milkhouse',
+    interior: 'Cold. Properly cold, and the cold is not machinery, it is depth and thick walls and a woman whose hands run twenty degrees under yours and who spends her shift with them flat on the racks.\n\nThe stock. Two hundred and eleven flasks in cut felt, in numbered racks, each one drawn and settled and tested and logged. This is every Quickening the Thornwarren will be able to perform for the next nine years, and there is no second source anywhere, and the Basin would pay a fortune for a single flask and has never been offered one.\n\nThe log by the door records every flask in and every flask out, with a name against each. There are gaps in the numbering. Every gap has a note beside it and every note is a person.',
+    floor: 'concrete',
+    light: ['a lamp on a hook', 'One lamp on a hook by the door, taken down and carried to the rack you want. Nothing is left burning in here.'],
+    amb: [
+      'A flask is lifted, held to the lamp, turned once, and set back in its felt.',
+      'The thermometer is read and a number is written and initialled.',
+      'She lays both hands flat on a rack and holds them there a while.',
+      'It is so quiet in here that you can hear the felt.',
+    ],
+  },
+  '1047_980': {
+    name: 'The Sweetwater', type: 'infra', entrance: 'west', floors: 2, slug: 'sweetwater',
+    desc: 'The town\'s pride, and the only building in it that has been painted. Settling tanks stepped down a frame, beds of crushed limestone and burnt bone, and a covered cistern with a lid that takes four people to lift and is lifted every week to be looked at.',
+    room: 'The Sweetwater',
+    interior: 'The test bench, and the whole run of it laid out where anybody can see: rain off every roof in the Thornwarren, into the settling tanks, through limestone, through burnt bone, into the covered cistern.\n\nTwo glass tubes are made up twice a day, every day, and the results are chalked on the board, and the board goes back years in a photograph of columns nobody has ever needed to check.\n\nThis is the best piece of engineering within sixty miles of here and it belongs to the people the city calls animals. Nobody in the building will say that sentence. There is a second inlet at the top of the beds, plated and separate, for water hauled up from the Slake in a dry month, and the rule for that one is chalked over it: SLAKE WATER: BOTH BEDS, TWICE.',
+    floor: 'concrete',
+    light: ['strip lights over the bench', 'Strip lights over the test bench, off the Bank, because reading a tube by lamplight is how you get a wrong answer and she has said so at length.'],
+    amb: [
+      'Two tubes are made up and set in the rack to stand.',
+      'A number goes on the board in the same hand as every number above it.',
+      'Water moves through the beds with a sound like a long sigh.',
+      'The cistern lid is checked without being lifted, which is done by ear.',
+    ],
+  },
+  '1045_969': {
+    name: 'The Gate House', type: 'civic', entrance: 'east', floors: 2, slug: 'gatehouse',
+    desc: 'A blockhouse against the inside of the thorn beside the North Gate, with a stair up the outside to the walk and a shuttered slot facing the road. The mask rack is in here, and the tally board, and the kettle.',
+    room: 'The Gate House',
+    interior: 'The mask rack, and it is the most important object in the Thornwarren.\n\nEleven masks: bone, plate, horn, a jaw wired open, a thing with too many sockets. Out on the trophy road at a hundred paces they are the most frightening objects in the region.\n\nUp close, every one of them is lined. Quilted rag, stitched down flat at every edge, so they do not chafe on a long shift. Two of them have been re-lined recently in a different cloth. There is a tally board beside the rack of names against hours, and a kettle, and four mugs, and a tin of something to eat.\n\nThe horror is a costume. The costume is rota\'d. Somebody\'s grandmother sews the lining.',
+    floor: 'stone',
+    light: ['a hooded lamp', 'One hooded lamp, kept low, because a lit gate house is a gate house nobody outside can see past and that is the whole idea.'],
+    amb: [
+      'A mask comes off the rack and is checked at the lining before anything else.',
+      'The kettle goes on. Somebody is coming off a shift.',
+      'Hours are totted up on the tally board and somebody is owed a half day.',
+      'A mask goes back on its peg the wrong way round and is turned round by the next person through, without comment.',
+    ],
   },
 };
 
@@ -631,7 +906,7 @@ const OUTSIDE = {
     desc: 'A path worn into the rock by feet, going one way. Cairns beside it, each one built by somebody, none of them the same. The last cairn has a lamp on it, sheltered, and the lamp has oil in it.' },
 
   // THE ROADHEAD + THE STRIP. Reachability. Neither is Wildblood work and neither pretends to be.
-  '1024_957': { name: 'The Roadhead', depot: true,
+  '1024_957': { name: 'The Deadleg', depot: true,
     desc: 'Where the track from the northwest gives up being a track: a graded turning circle in the hardpan, a drum of diesel under a lean-to, and a plate shack with a hatch in it. Ruts run off southeast. A board by the hatch lists distances to places, and somebody has scratched out the last entry and written under it, in a different hand, DONT.' },
   '1030_960': { name: 'The Strip', strip: true,
     desc: 'A run of hardpan somebody once flattened and nobody since has maintained, marked out with painted drums at intervals and a windsock on a pole that has been repaired with a shirt. It is long enough. It is not much more than long enough. Off at the far end sits the burnt-out frame of something that found that out.' },
@@ -672,12 +947,29 @@ function main() {
       // A wall tile carries no exits of its own, and nothing links INTO one. Note this is not
       // sufficient by itself: derive.mjs projects an edge between any two adjacent tiles on the same
       // map, so every one of those non-links has to be un-said by a blocked connection file below.
+      const bld = BLD[key];
       const exits = {};
-      if (!isWallMass) {
+      if (bld) {
+        // A FACADE IS A DOORWAY, not ground. Its street is the neighbour in the entrance direction
+        // and its interior hangs off the opposite side; it links to nothing else, on any side.
+        // Getting the two the wrong way round puts the door in the back wall and the room inside
+        // the thorn.
+        const [sx, sy] = STEP[bld.entrance];
+        exits[bld.entrance] = id(x + sx, y + sy);
+        exits[OPPOSITE[bld.entrance]] = bld.interiorId || `zone_thorn_${bld.slug}`;
+      } else if (!isWallMass) {
         const link = (dx, dy, dir) => {
           const nx = x + dx, ny = y + dy;
           if (nx < X0 || nx > X1 || ny < Y0 || ny > Y1) return;
           if (onWall(nx, ny) && !(TOWN[`${nx}_${ny}`]?.gate)) return;   // never walk into the thorn
+          // A facade opens at its entrance and nowhere else, so a neighbour only links into one if
+          // that door is pointing back at it. Without this the town's fifteen buildings are fifteen
+          // holes in the street grid you can walk through sideways.
+          const nb = BLD[`${nx}_${ny}`];
+          if (nb) {
+            const [ex, ey] = STEP[nb.entrance];
+            if (nx + ex !== x || ny + ey !== y) return;
+          }
           exits[dir] = id(nx, ny);
         };
         link(0, -1, 'north'); link(0, 1, 'south'); link(1, 0, 'east'); link(-1, 0, 'west');
@@ -696,6 +988,22 @@ function main() {
       const land = LANDFORM[lf] || null;
       if (!inTown(x, y)) tally[lf] = (tally[lf] || 0) + 1;
       const flags = { region_id: REGION, radiation: radAt(x, y), terrain: TERRAIN_OF[lf] };
+      if (bld?.preserve) {
+        // Keep what is on disk. This tile was authored elsewhere and knows more than this table does.
+        delete flags.terrain;
+        const prior = (() => { try { return JSON.parse(readFileSync(zonePath(me), 'utf8')).flags; } catch { return null; } })();
+        Object.assign(flags, prior || {});
+      } else if (bld) {
+        // A BUILDING FOOTPRINT IS NOT GROUND. Painted terrain on a building tile suppresses the
+        // tile's map code, so every one of these would vanish off the map and the tablet.
+        delete flags.terrain;
+        const [sx, sy] = STEP[bld.entrance];
+        Object.assign(flags, {
+          building_name: bld.name, building_type: bld.type, entrance: bld.entrance,
+          facade: true, is_building: true, floors: bld.floors,
+          world_exit_zone: id(x + sx, y + sy),
+        });
+      }
       if (isWallMass) {
         // SOLID, BUT NOT A LANDMARK. The wall has to stop a vehicle: `groundObstructionAt` reads
         // buildingHeightZ, and the render cell's `bt` comes from `flags.building_type` and nothing
@@ -722,7 +1030,14 @@ function main() {
       // Keyed off the BASIN, not the family, so the hard standing at the waterline is not a step of
       // sixteen points from the water it is standing in.
       if (!inTown(x, y) && lakeField(x, y) < 1.2) flags.radiation = 4;
-      if (out?.depot) { flags.truck_depot = { name: 'The Roadhead' }; flags.truck_fuel = true; }
+      // THE YARD, NOT THE DEPOT. The depot proper is authored on the shed interior
+      // (zone_yard_deadleg), which is a building and names this tile as its yard. Writing a
+      // `truck_depot` here instead is the old loose shape that trucking's regress now fails by
+      // name: a flag on open hardstand has no building for the renderer to extrude, so a player
+      // stands in the yard, types `drive`, and pulls a rig out of bare ground. This tile was
+      // hand-corrected in content long ago and every rebuild of this script had been quietly
+      // reverting it, which is the same class of bug as the Deadleg facade above.
+      if (out?.depot) { flags.truck_yard = 'The Deadleg'; flags.truck_fuel = true; }
       if (out?.strip) flags.airfield_id = 'scarlet_strip';
       // The wilds have no law out here, and the town enforces its own inside the thorn.
       if (!inside(x, y)) flags.lawless = true;
@@ -735,14 +1050,14 @@ function main() {
       if (inTown(x, y)) flags.no_spawn = true;
 
       const q = inside(x, y) ? QUARTERS[quarterAt(x, y)] : null;
-      const name = town?.name || out?.name
+      const name = (bld && !bld.preserve ? bld.name : null) || town?.name || out?.name
         || (isWallMass ? 'The Thorn Wall' : q ? pick(q.names, x, y)
           : land ? pick(land.names, x, y) : pick(TILE_NAMES, x, y));
 
       const onRoad = y >= 963 && y <= 967 && x === NORTH_GATE[0];
       // The Pool's corruption band beats the landform: within six tiles of it the ground itself is
       // the set-piece, and it is the same wrong ground whatever shape the country is in.
-      const description = town?.desc || out?.desc || (isWallMass ? WALL_DESC : q ? pick(q.descs, x, y)
+      const description = (bld && !bld.preserve ? bld.desc : null) || town?.desc || out?.desc || (isWallMass ? WALL_DESC : q ? pick(q.descs, x, y)
         : dist(x, y, POOL) < 6
           ? 'Red rock, and the rock here is wrong: banded through with a colour that is not mineral, and warm to the back of the hand from a foot away. Nothing grows. The few bones lying about have gone the same colour as the ground.'
           : land
@@ -753,7 +1068,7 @@ function main() {
 
       // The landform's own beats, then the region's, so a mesa top still gets the walking weather and
       // the ticking rock. A shore is a place in the Scarletwastes before it is a shore.
-      const ambient = isWallMass ? [] : inside(x, y) ? AMBIENT_TOWN : onRoad ? AMBIENT_ROAD
+      const ambient = bld && !bld.preserve ? bld.amb.slice(0, 3) : isWallMass ? [] : inside(x, y) ? AMBIENT_TOWN : onRoad ? AMBIENT_ROAD
         : land ? [...land.ambient, ...AMBIENT_WASTE.slice(0, 4)] : AMBIENT_WASTE;
 
       if (town || out) authored++;
@@ -789,7 +1104,18 @@ function main() {
   // and quietly demolishes the wall the whole town is about.
   //
   // One file per PAIR, deterministically named so a re-run overwrites rather than accumulates.
-  let walls = 0;
+  // PRUNE FIRST. Nothing ever removed a blocked-connection file when the geometry stopped
+  // needing one, so promoting fifteen town tiles to facades left walls standing in front of
+  // walls: a `blocked: true` between two tiles that no longer project an edge at all. That is a
+  // wall with nothing standing in it — invisible, un-examinable, in no zone's exits — and
+  // regress fails the build for it by name. Only the generated namespace is swept; the
+  // hand-authored seams (the gates, the Deadleg door) are named differently and survive.
+  let walls = 0, pruned = 0;
+  for (const f of readdirSync(join(ROOT, 'content', 'connections'))) {
+    if (/^conn_scw_\d+_\d+_(east|south)\.json$/.test(f)) {
+      unlinkSync(join(ROOT, 'content', 'connections', f)); pruned++;
+    }
+  }
   const declared = (x, y, dir, to) => {
     try { return JSON.parse(readFileSync(zonePath(id(x, y)), 'utf8')).exits?.[dir] === to; }
     catch { return false; }
@@ -803,6 +1129,12 @@ function main() {
         if (nx > X1 || ny > Y1 || nx > TX1 + 1 || ny > TY1 + 1) continue;
         const a = id(x, y), b = id(nx, ny);
         if (declared(x, y, dir, b) || declared(nx, ny, OPP[dir], a)) continue;   // a real link
+        // A FACADE ALREADY BLOCKS ITS OWN SIDES. derive's one geometric rule is
+        // `facadeBlocks(z, dir) = facade && entrance !== dir`, so it never projects an edge into a
+        // facade except at its door: a blocked file there walls something the geometry was never
+        // going to build, and regress fails the build for it by name.
+        const fb = (k, d) => { const t = BLD[k]; return !!t && t.entrance !== d; };
+        if (fb(`${x}_${y}`, dir) || fb(`${nx}_${ny}`, OPP[dir])) continue;
         const cid = `conn_scw_${x}_${y}_${dir}`;
         write(join(ROOT, 'content', 'connections', `${cid}.json`),
           { a, b, blocked: true, dir, id: cid, lockable: false, one_way: false });
@@ -810,6 +1142,85 @@ function main() {
       }
     }
   }
+
+  // ── The interiors ──────────────────────────────────────────────────────────
+  //
+  // Fifteen rooms, each with its utility room, its map, its junction box, its lights and the power
+  // rows for both, because AN INTERIOR THAT SHIPS WITHOUT POWER SHIPS DARK and that has bitten this
+  // codebase before. They run off the Thornwarren Bank like everything else in the town.
+  //
+  // Every seam gets a connection file. Interiors are off the grid (grid_x/grid_y are 0), so
+  // `projectEdges` has no adjacency to project: an interior exit that is not ALSO written down as a
+  // connection is an exit the derive pass simply drops, and content:lint says so in as many words.
+  let rooms = 0;
+  for (const [k, b] of Object.entries(BLD)) {
+    const [bx, by] = k.split('_').map(Number);
+    const facade = id(bx, by);
+    if (b.preserve) {
+      // The room is already built and better than this table. What it still needs is its SEAM:
+      // an interior is off the grid, so nothing projects that exit and the only door into the shed
+      // lives in this one file. Keeping the original id means nothing referencing it has to move.
+      write(join(ROOT, 'content', 'connections', `${b.seamId}.json`),
+        { a: facade, b: b.interiorId, blocked: false, dir: OPPOSITE[b.entrance], id: b.seamId, lockable: true, one_way: false });
+      continue;
+    }
+    const zid = `zone_thorn_${b.slug}`;
+    const util = `zone_util_${zid}`;
+    const mapId = `map_int_thorn_${b.slug}`;
+    const genId = `gen_${util}`;
+
+    write(zonePath(zid), {
+      ambient_events: b.amb, ambient_theme: 'indoors', description: b.interior,
+      exits: { [b.entrance]: facade, down: util },
+      flags: {
+        building_name: b.name, building_type: b.type, floor: b.floor,
+        is_building: true, is_interior: true, region_id: REGION, world_exit_zone: facade,
+      },
+      grid_x: 0, grid_y: 0, grid_z: 0, id: zid, map_id: mapId,
+      name: b.room, parent_zone: facade,
+    });
+    write(zonePath(util), {
+      ambient_events: [], ambient_theme: 'indoors',
+      description: 'A cellar dug out under the building and lined with whatever came to hand, holding the junction box in a steel cabinet somebody has wired shut against the damp. It is tidier down here than it needs to be.',
+      exits: { up: zid },
+      flags: { floor: 'dirt', is_interior: true, region_id: REGION, world_exit_zone: facade },
+      grid_x: 0, grid_y: 0, grid_z: -1, id: util, map_id: mapId,
+      name: `${b.room} — Utility Room`, parent_zone: facade,
+    });
+    write(join(ROOT, 'content', 'maps', `${mapId}.json`), {
+      entry_zone_id: zid, id: mapId, name: b.name, parent_zone_id: facade,
+    });
+    write(join(ROOT, 'content', 'generators', `${genId}.json`), {
+      capacity_kw: 5000, city_generator_id: 'gen_region_region_scarletwastes', connection_range: 0,
+      flags: {}, fuel_burn_rate: 0, fuel_remaining: 0, fuel_type: null,
+      generator_type: 'junction_box', id: genId, name: `${b.name} — Utility Room Junction Box`,
+      owner_id: null, zone_id: util,
+    });
+    for (const [rowId, rowName] of [[zid, b.room], [util, `${b.room} — Utility Room`]]) {
+      write(powerPath(rowId), {
+        capacity_kw: 1000, flags: {}, generator_id: genId,
+        id: rowId, max_capacity_kw: 1000, name: rowName, source_type: 'junction_box',
+      });
+    }
+    write(join(ROOT, 'content', 'furniture', `furn_jbox_${util}.json`), {
+      description: 'A junction box off a bus shelter, rehoused in a steel cabinet and wired shut. The feed comes off the Bank. Somebody has written the load on the door in chalk, rubbed it out, and written a bigger number.',
+      flags: { destructible: true, generator_id: genId },
+      hp: 1200, hp_max: 1200, id: `furn_jbox_${util}`, light_type: 'lamp', lumen_output: null,
+      name: 'junction box', object_type: 'junction_box', power_draw_kw: 0, price: 0, zone_id: util,
+    });
+    write(join(ROOT, 'content', 'furniture', `furn_light_${zid}.json`), {
+      description: b.light[1], flags: {}, hp: null, hp_max: null,
+      id: `furn_light_${zid}`, light_type: 'overhead', lumen_output: 1100,
+      name: b.light[0], object_type: 'light', power_draw_kw: 0.04, price: 0, zone_id: zid,
+    });
+    const conn = (cid, a2, b2, dir, extra) => write(join(ROOT, 'content', 'connections', `${cid}.json`),
+      { a: a2, b: b2, blocked: false, dir, id: cid, lockable: false, one_way: false, ...extra });
+    conn(`conn_thorn_${b.slug}_in`, facade, zid, OPPOSITE[b.entrance], { lockable: true });
+    conn(`conn_thorn_${b.slug}_down`, zid, util, 'down', { one_way: true });
+    conn(`conn_thorn_${b.slug}_up`, util, zid, 'up', { one_way: true });
+    rooms++;
+  }
+  console.log(`  rooms      ${rooms} enterable interiors (+ ${rooms} utility rooms)`);
 
   write(join(ROOT, 'content', 'regions', `${REGION}.json`), {
     // acid: the share of this region's precipitation that falls as acid. Read by the weather
@@ -841,7 +1252,7 @@ function main() {
     .map(([k, n]) => `${k} ${n}`).join(', ')}`);
   console.log(`  thornwarren x${TX0}-${TX1} y${TY0}-${TY1}  (${wallTiles} wall tiles, 2 gates)`);
   console.log(`  authored   ${authored} hand-written tiles`);
-  console.log(`  walls      ${walls} blocked connection file(s)`);
+  console.log(`  walls      ${walls} blocked connection file(s), ${pruned} pruned first`);
 }
 
 main();

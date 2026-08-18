@@ -1,0 +1,19 @@
+{
+  "description": "A wire-fronted rack on the wall behind the counter, which is to say behind the counter and about a foot too far forward to actually be behind anything. The wire is there to slow a hand down rather than to stop one, and everybody in the building understands the arrangement.",
+  "flags": {
+    "aliases": "gantry, cigarettes, smokes, rack, wire",
+    "backstock": "furn_flashpoint_crates",
+    "container": 8000,
+    "vendor_stock": "npc_flashpoint_attendant"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_gantry",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "cigarette gantry",
+  "object_type": "container",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_stoic_055",
+  "lines": [
+    "\"Bad week.\"",
+    "\"It was a week.\"",
+    "\"That is not what I said.\"",
+    "\"No. It is what I said.\""
+  ],
+  "personality": "stoic",
+  "sort_order": 454
+}
+

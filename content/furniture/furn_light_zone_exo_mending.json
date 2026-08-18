@@ -1,0 +1,14 @@
+{
+  "description": "The window is set high and wide and does most of the work. The lamp is for the nights, and it is a good one, and it is the one thing here they bought from outside.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_mending",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the window and a lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_mending"
+}

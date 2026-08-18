@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a04",
+  "interactive": null,
+  "lines": [
+    "Steam finds a crack in the pavement and stands up out of it in a slow column."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 103,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

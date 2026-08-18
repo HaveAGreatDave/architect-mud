@@ -1,0 +1,14 @@
+{
+  "description": "A storm lantern on a hook by the copper, well back from the steam, with a wire cage on it that somebody made carefully.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_wash",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "a lantern on a hook",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_wash"
+}

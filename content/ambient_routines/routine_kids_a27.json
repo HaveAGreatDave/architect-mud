@@ -1,0 +1,20 @@
+{
+  "category": "kids",
+  "enabled": true,
+  "id": "routine_kids_a27",
+  "interactive": null,
+  "lines": [
+    "Something is being kicked against a wall with great regularity and no particular skill."
+  ],
+  "loudness": 0,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 126,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

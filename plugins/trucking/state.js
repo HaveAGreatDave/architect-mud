@@ -483,16 +483,29 @@ export function truckContactsNear(x, y, range = 26) {
   return out;
 }
 
+// WHICH ZONES' STANDING BOXES THIS DRIVER CAN SEE. Where the wheels are, plus the yard this rig
+// belongs to — because a depot is three tiles and you mount on the DOOR one, so the stock on the
+// hardstand is in a zone you are not standing in until you have rolled a truck's length. The range
+// test in `trailersNear` is what actually decides what is drawn; this only decides where to look.
+const drawZones = (rig) => [...new Set([rig?.zoneId, rig?.fromDepot].filter(Boolean))];
+
 // WHICH BOX THE FIFTH WHEEL COULD TAKE RIGHT NOW. Nearest first, so a driver reversing between two
 // parked trailers gets the one they are actually under. Returns null rather than a list because the
 // cab's HITCH button is one button: it is either lit, with a name on it, or it is not there.
+//
+// It scans the SAME zones the picture is drawn from (see `drawZones`), which is what keeps the knob
+// and the box on the glass talking about the same object: a trailer you can see is a trailer the
+// button can offer. The VERB still searches wider — the whole depot, `hitchZones` — so this can
+// only ever be a subset of what typing `hitch` would find, never the other way round.
 function hitchableFor(rig) {
   if (!rig || rig.leg !== 'city' || rig.trailer) return null;
   let best = null, bd = Infinity;
-  for (const t of standingIn(rig.zoneId)) {
-    if (!hitchReach(rig, t).ok) continue;
-    const d = posed(t) ? Math.hypot(rig.x - t.x, rig.y - t.y) : 99;
-    if (d < bd) { bd = d; best = t; }
+  for (const zoneId of drawZones(rig)) {
+    for (const t of standingIn(zoneId)) {
+      if (!hitchReach(rig, t).ok) continue;
+      const d = posed(t) ? Math.hypot(rig.x - t.x, rig.y - t.y) : 99;
+      if (d < bd) { bd = d; best = t; }
+    }
   }
   return best ? { id: best.id, name: best.name } : null;
 }
@@ -579,7 +592,7 @@ export function cabContext(rig, extra = {}) {
     // contact shape as the aircraft above, so the cab draws a dropped trailer with the renderer it
     // already has; served from the per-zone RAM cache (trailers.js) because this runs on the drive
     // and the drive does not get to touch the database.
-    trailers: city ? trailersNear(rig.zoneId, cx, cy, 22) : [],
+    trailers: city ? trailersNear(drawZones(rig), cx, cy, 22) : [],
     // Which one, if any, the fifth wheel could take right now — the HITCH button in the cab lights
     // off this and nothing else, so the button and the verb can never disagree about whether you
     // are under it. (The verb still re-checks: a button is a hint, never an authority.)

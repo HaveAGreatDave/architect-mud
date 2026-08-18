@@ -96,4 +96,103 @@ export function registerPsiDoor() {
   });
 }
 
-export const _test = { GUIDE_LINE, WALKED_INTO_IT };
+/**
+ * THE OUTER GATE — a second lock family, and a different rule.
+ *
+ * The psi door above asks what you can DO. This one asks what you ARE, and the
+ * two are deliberately not the same question: you are let through the gate long
+ * before you are awakened, because the machine that awakens you is inside it.
+ * A gate standing in front of its own key is the commonest way a chain like this
+ * dies quietly.
+ *
+ * ── The rule ────────────────────────────────────────────────────────────────
+ *
+ * Two halves, both of which must hold:
+ *
+ *   1. SOMEBODY LET YOU IN. `terminus_admitted`, set by the child at the gate at
+ *      the end of the errands. The gate is never opened by standing at it.
+ *   2. YOU ARE NOT SIGNED UP TO SOMEBODY ELSE. The Exodus's path is `mind`
+ *      (content/orgs/ideology_exodus.json), and if you have declared harder for
+ *      the machine, the flesh or the human way, this is not your door.
+ *
+ * It reads the ordinary ideology PATH FLAGS and nothing else. There is no
+ * Terminus membership number, no secret-society flag, and no second copy of
+ * "which side is this player on" living in this file — which matters, because a
+ * player who later leans back toward the mind through ordinary play walks in,
+ * and one who takes Ascendant work walks out, with nothing here to keep in sync.
+ *
+ * Note what it does NOT read: reputation. You can have run jobs for all four
+ * orders and still be let in. Standing is what you have DONE; the path is what
+ * you have decided to be, and only the second one is a door somebody else's name
+ * is already on.
+ *
+ * Ties go to the incumbent. `other >= mind` refuses, so a dead heat is a refusal:
+ * somebody equally committed to the machine and the mind has not chosen, and the
+ * whole gate is about having chosen.
+ */
+const ADMITTED = 'terminus_admitted';
+const GATE_TOLD = 'terminus_gate_told';
+
+/**
+ * Verity Strand, saying the one plain thing she is prepared to say, once.
+ *
+ * The refusal itself is flat and unexplained, like every other door here. But a
+ * player who did both errands, answered the child, and is then refused for a
+ * reason they cannot see would be looking at a bug rather than at a decision.
+ * So the warden standing three feet away says it — and she says it about THEM,
+ * not about the creed, which keeps her inside the district's one hard rule.
+ *
+ * No em dashes, and it never names the order the player belongs to: she can see
+ * what they are and does not have to have been told its name.
+ */
+const WARDEN_LINE =
+  '<span class="ambient">The gate does not open.</span><br>' +
+  '<span class="ambient">Verity Strand does not look at it, or at you. "She said you could come in," ' +
+  'she says, "and she was right, and it still will not." A pause, without any unkindness in it at ' +
+  'all. "You have already given this to somebody. I do not need to know who and I am not going to ' +
+  'ask. It is only that a person can hold one of these, and yours is full."</span>';
+
+const pathFlag = (player, name) => Number(player?._flags?.get(`path_${name}`)) || 0;
+
+export function registerTerminusGate() {
+  registerLockType('terminusgate', {
+    tagType: 'lock:terminusgate',
+    kitTag: 'lockkit:terminusgate',
+    defaults: {
+      // Nothing to hack, nothing to pick, and marked unbreakable in content. The
+      // answer to this door is supposed to be a decision about who you are, and
+      // a door you can bash is a door whose answer is a crowbar.
+      canHack: false,
+      messages: {
+        lock: 'The leaves come together without a sound.',
+        unlock: 'The gate opens. Nobody touches it.',
+        denied: 'The gate does not open.',
+      },
+    },
+
+    authFn: async (lockTag, door, player) => {
+      // Nobody has said you may. Flat refusal and no explanation: there are four
+      // people on this road whose entire job is to explain it, and the gate is
+      // not one of them.
+      if (!player?._flags?.get(ADMITTED)) return false;
+
+      const mind = pathFlag(player, 'mind');
+      const other = Math.max(pathFlag(player, 'machine'), pathFlag(player, 'flesh'),
+                             pathFlag(player, 'human'));
+      if (other > 0 && other >= mind) {
+        if (!player?._flags?.get(GATE_TOLD)) {
+          // Same write-through the psi door does: flags.js hydrates at login and
+          // every sync reader takes the Map, so setting only the row would let
+          // this fire twice in one session.
+          player._flags?.set(GATE_TOLD, '1');
+          setFlagById(player.id, GATE_TOLD, '1').catch(() => {});
+          sendToPlayer(player.id, { type: 'output', message: WARDEN_LINE });
+        }
+        return false;
+      }
+      return true;
+    },
+  });
+}
+
+export const _test = { GUIDE_LINE, WALKED_INTO_IT, WARDEN_LINE, ADMITTED, GATE_TOLD, pathFlag };

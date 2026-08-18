@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Somebody comes in, sits down on a cushion, says nothing, and is not asked.",
+    "The rota is amended. Two names swap. Neither of them was here.",
+    "A dog comes in, walks the whole room, and goes out again.",
+    "She answers a question. It was going to be asked in a moment.",
+    "Somebody laughs at the far end of the room and the whole room turns toward it and is pleased."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Cushions. Hundreds of them, in every colour a thing can be, none of them matching, arranged in rings around a low fire pit that is not lit. The walls are hung with salvage and bone and cable and someone's childhood drawings and a length of Ascendant hull plate with a hole punched through it, and there is no order to any of it and it is not disordered.\n\nAt the far end, a good chair, and in it the woman who runs this place and would deny it.\n\nThere is a rota on her knee. There is always a rota on her knee. The Thornwarren is governed by a water rota, a roof rota, a gate rota and a turning rota, and by absolutely nothing else, and it has worked for thirty years, which is longer than the Basin has managed anything.",
+  "exits": {
+    "down": "zone_util_zone_thorn_den",
+    "north": "zone_scw_1045_977"
+  },
+  "flags": {
+    "building_name": "The Chorus' Den",
+    "building_type": "civic",
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_scarletwastes",
+    "world_exit_zone": "zone_scw_1045_977"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_thorn_den",
+  "map_id": "map_int_thorn_den",
+  "name": "The Chorus' Den",
+  "parent_zone": "zone_scw_1045_977"
+}

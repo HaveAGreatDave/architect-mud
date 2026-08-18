@@ -1,0 +1,18 @@
+{
+  "category": "arguments",
+  "enabled": true,
+  "id": "routine_arguments_a38",
+  "interactive": null,
+  "lines": [
+    "\"I am not having this conversation in the street.\"",
+    "\"You are having it in the street. Look around.\""
+  ],
+  "loudness": 0.5,
+  "phases": [],
+  "sort_order": 137,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

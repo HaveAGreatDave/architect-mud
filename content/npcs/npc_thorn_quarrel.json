@@ -1,0 +1,321 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "This is the gate. You are outside it.",
+    "I am not going to make you leave. I am going to not let you in.",
+    "Look at the road for a bit. It is a good road.",
+    "Two hours on, four off. It is not a bad shift.",
+    "You want me to say something frightening. I would rather not.",
+    "The masks are for the road. This is the gate."
+  ],
+  "description": "She is standing in the gate house door because she is too tall for the gate house, and she has to duck to get into her own guardroom, and she does it eleven times a shift without appearing to notice.\n\nHer left arm is longer than her right by most of a forearm and ends in a hand with too many bones in it. She uses it to reach things down off high shelves without moving her feet, and to hold you at a distance that is exactly out of your reach and exactly inside hers, and she is doing the second one now.\n\nShe is not hostile. She is not going to move either.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Right.\"\n\nAnd they go back to it, which out here is the whole of a goodbye."
+    },
+    "city": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is with the road?",
+          "next": "masks"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "She considers the question like it is a piece of work.\n\n\"I went to Coldwater when I was nineteen. Got to the checkpoint at the Yards. There is a frame there you walk through and a man behind glass who reads what it says about you.\"\n\nA pause, and she looks down the road rather than at you.\n\n\"He was not cruel about it. That is the bit people get wrong. He was bored. He had done it forty times that day and I was the forty-first and he did not look up.\"\n\nShe rolls her shoulder, the long one.\n\n\"Anyway. Nothing to tell. Everyone here has that story and everyone here is bored of it.\""
+    },
+    "in": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "She nods once, and does not congratulate you, and does not smile.\n\n\"Good enough.\"\n\nAnd she puts her long hand flat against the thorn, and the thorn draws back off the frame, all along its length, without hurrying and without any sound worth the word, and stays back.\n\n\"Gate is open to you. Eat at the Fire, the food is free and you will feel strange about that for a fortnight. Do not go in the Fleshery. Do not touch a rack in the Milkhouse. Everything else in there you can walk into and somebody will tell you what it is.\"\n\nShe turns back to the road.\n\n\"And when they ask you what you were before, tell them. They will not care and you will not believe that until it has happened about four times.\""
+    },
+    "masks": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do not think much of the Basin.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The road works.\"\n\nShe almost smiles, and it is the first thing in the conversation she has plainly enjoyed.\n\n\"You came up it. You are here and you are being polite to me. It works.\"\n\nAnd she does not say another word about it, and does not offer to explain what is on the road, and there is something about the way she stopped that suggests the explanation would be very boring indeed."
+    },
+    "out": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Right.\"\n\nShe does not look disappointed. She looks like somebody who has just had a question answered honestly and is filing it.\n\n\"That is a real answer and I would rather have it than the other thing. Bracken owes you and Bracken pays, so you will not go short out here.\"\n\nShe settles back against the frame.\n\n\"But no. Not through here. Ask me again if that ever changes.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Stop there.\" She does not raise her voice and does not need to. \"You have come a long way and you are going to be told no, so I will tell you fast and you can decide what to do with the afternoon.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Why not?",
+          "next": "why"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do not think much of the Basin.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is with the road?",
+          "next": "masks"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "thorn_toll_done",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "Is there anything I could do?",
+          "next": "toll"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "thorn_toll_done",
+              "op": "set"
+            },
+            {
+              "flag": "thorn_admitted",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "I brought the hound back.",
+          "next": "toll_done"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Still outside.\"",
+      "text_by_relation": {
+        "close": "\"Come in out of the sun a minute,\" she says, and stands aside from a doorway you still cannot use.",
+        "familiar": "\"There you are.\" She reaches something down off a shelf without looking at it. \"Still outside. For now.\"",
+        "known": "\"You again.\" She shifts, and the gate house door frame creaks. \"Still outside.\""
+      }
+    },
+    "toll": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "START_QUEST",
+              "quest_id": "quest_thorn_toll"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "All right.",
+          "next": "toll_take"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Not my problem.",
+          "next": "toll_no"
+        }
+      ],
+      "text": "She looks at you for a long moment, and something in it changes, and it is not warmth. It is that she has decided to stop being professional at you.\n\n\"All right. Yes. There is.\"\n\nShe points west with her chin, out over the flats.\n\n\"One of Bracken's bitches went out four days ago and has not come back and she is heavy in whelp. He has been out three nights and he is fifty-one and he will kill himself doing it and he will not stop. Go and find her and bring her in.\"\n\n\"She will not come to you. Just find her and stay with her and she will follow you when she has decided about you. It will take as long as it takes.\"\n\nA pause.\n\n\"And no, this is not a test, and no, I am not going to let you in for it. I am asking because I have got a gate to stand at and you have got legs.\""
+    },
+    "toll_done": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "ADJUST_PATH",
+              "delta": 45,
+              "path": "flesh"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": -25
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 90,
+              "ideology_id": "ideology_wildblood",
+              "reason": "The Toll"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "thorn_admitted",
+              "scope": "player",
+              "value": "yes"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "Whatever it turns out I need it to be.",
+          "next": "in"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Keep it exactly as it is.",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Improve it. Properly. With hardware.",
+          "next": "out"
+        }
+      ],
+      "text": "Bracken Hale came down the road at a run, which at fifty-one he should not have done, and took the animal off you without a word, and has not come back out.\n\nQuarrel Nine watched all of it from the gate and has not said anything for some time.\n\n\"Right,\" she says eventually. \"I am going to ask you one thing and then I am going to do something about it, and I want you to actually think, because people say the easy answer here and then they are inside and it is a problem for everybody.\"\n\nShe turns round and looks down at you.\n\n\"What are you going to do with your body?\""
+    },
+    "toll_no": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Fair enough.\"\n\nAnd she means it, entirely, and goes back to watching the road, and the conversation is over in a way that leaves nothing at all to push against."
+    },
+    "toll_take": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"West and south. Past the Rise, keep off the high ground, you will hear her before you see her.\"\n\nShe goes back to watching the road, and then, without turning round: \"Take water. Two. One of them is not for you.\""
+    },
+    "why": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "You do not think much of the Basin.",
+          "next": "city"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is with the road?",
+          "next": "masks"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Because of what happened the last four times.\"\n\nShe says it without any heat at all.\n\n\"Twice it was Ascendant survey crews with a paper saying this land was theirs. Once it was a Long Watch pair who wanted to count us. Once it was a man on his own who was exactly as harmless as you look and came back in the spring with eleven friends and a truck.\"\n\n\"So. No. It is not about you. It has never once been about the person standing where you are standing.\""
+    }
+  },
+  "faction": "ideology_wildblood",
+  "flags": {
+    "clothing_layers": [
+      "a coat of plate and hide, cut for shoulders that are not the usual shape",
+      "a shirt with the left sleeve gone entirely",
+      "boots, resoled with tyre"
+    ],
+    "personality": "guard"
+  },
+  "home_activities": [],
+  "home_zone": "zone_thorn_gatehouse",
+  "hp": 60,
+  "hp_max": 60,
+  "id": "npc_thorn_quarrel",
+  "name": "Quarrel Nine",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_thorn_gatehouse"
+}

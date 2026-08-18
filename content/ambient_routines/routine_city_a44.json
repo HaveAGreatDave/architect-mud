@@ -1,0 +1,17 @@
+{
+  "category": "city",
+  "enabled": true,
+  "id": "routine_city_a44",
+  "interactive": null,
+  "lines": [
+    "A public terminal wakes up, offers a service that has not existed for years, and goes back to sleep."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 143,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

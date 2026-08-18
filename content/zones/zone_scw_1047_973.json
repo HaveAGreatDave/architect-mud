@@ -17,12 +17,10 @@
   "description": "Somebody is teaching somebody else to braze, patiently, for what is clearly not the first time.",
   "exits": {
     "east": "zone_scw_1048_973",
-    "north": "zone_scw_1047_972",
     "south": "zone_scw_1047_974",
     "west": "zone_scw_1046_973"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

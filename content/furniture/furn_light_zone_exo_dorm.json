@@ -1,0 +1,14 @@
+{
+  "description": "One lamp at the head of the stair, on all night, shaded so it lights the treads and nothing else.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_dorm",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "the stair lamp",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_dorm"
+}

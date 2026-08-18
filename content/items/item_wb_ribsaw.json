@@ -1,0 +1,23 @@
+{
+  "description": "A two-hand blade on a haft whose grips are set at different heights, because it was made for somebody whose arms were not the same length and there was no reason at all for that to be a problem. Awkward for the first hour and then not.",
+  "flags": {},
+  "id": "item_wb_ribsaw",
+  "name": "ribsaw",
+  "tags": {
+    "damage": {
+      "max": 16,
+      "min": 8
+    },
+    "damage_type": "edged",
+    "description": "A long two-hand blade with its grips set a hand apart in height. It is not a mistake and it took eleven attempts.",
+    "min_skill": {
+      "blades": 2
+    },
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "blades"
+  },
+  "type": "weapon",
+  "value": 340,
+  "weight": 1400
+}

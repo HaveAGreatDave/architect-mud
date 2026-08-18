@@ -16,13 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "A round shelter of hide over bent rail, set a little apart, with the door mat beaten and the step swept. This is where the elder holds court, which in practice means this is where arguments about water rota come to die. There are cushions. There are a great many cushions.",
   "exits": {
-    "east": "zone_scw_1047_977",
     "north": "zone_scw_1046_976",
-    "south": "zone_scw_1046_978",
-    "west": "zone_scw_1045_977"
+    "south": "zone_scw_1046_978"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
@@ -33,6 +30,6 @@
   "grid_z": 0,
   "id": "zone_scw_1046_977",
   "map_id": "map_world",
-  "name": "The Chorus' Den",
+  "name": "The Den Door",
   "parent_zone": null
 }

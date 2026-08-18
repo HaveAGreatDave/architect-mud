@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_105",
+  "lines": [
+    "\"Did you see {sports_cellar}?\"",
+    "\"I try not to.\"",
+    "\"Somebody has to.\"",
+    "\"Somebody does. Their families, mostly.\""
+  ],
+  "personality": null,
+  "sort_order": 504
+}
+

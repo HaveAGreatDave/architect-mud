@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_hounds",
+  "b": "zone_thorn_hounds",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_hounds_up",
+  "lockable": false,
+  "one_way": true
+}

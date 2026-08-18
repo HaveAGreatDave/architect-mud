@@ -1,0 +1,14 @@
+{
+  "description": "Eleven pegs at knee height with a coat on each, in order of size, smallest at the door end. Nobody has ever been told to hang them that way and nobody remembers when it started.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_pegs",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a row of pegs",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_creche"
+}

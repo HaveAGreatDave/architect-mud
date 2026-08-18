@@ -157,7 +157,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
 | `START_QUEST` | `quest_id`, `cooldown_s` | Offer a quest (dispatch the quests plugin's `START_QUEST`) to every player in the entity's zone. Per-player/per-quest cooldown via the blackboard so it fires once, not every tick; the plugin no-ops if the player already has it. Editor renders a jump into that quest's VINE editor. |
 | `GO_TO_WORK` | `zone_id?`, `arrive_by?` (hour), `depart_early_minutes?` | Commute to `zone_id` ?? `work_zone_id` ?? `studio_zone_id` ?? the broadcast-schedule studio, several zones per tick; returns RUNNING until arrived. **Checks no schedule of its own** — with `zone_id` + `arrive_by` it holds until the commute window opens, otherwise it leaves immediately, so gate it behind `CHECK_WORK`/`CHECK_VENDOR_WORK`. The window sizes itself off the real path length converted to game-minutes (`COMMUTE_TILES_PER_REAL_MIN` × `timeScale`) plus a buffer of half the trip, floor 5 min. **Late arrivals catch up** rather than waiting out the 24h ring: if the NPC's own schedule (`isNpcScheduledNow` / `vendor_schedule`) says they should be at work now, they leave on this tick; an NPC with bare `arrive_by` params and no schedule behind it gets `LATE_CATCHUP_GRACE_MINUTES` (240 game-min) instead. Destinations resolve facade → interior entry |
-| `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. **Studio actors:** when off-shift and still inside their studio building (same interior map as their studio zone), walk out to the exterior world tile first — one step per tick — before any random activity; once outside, the normal wander resumes. |
+| `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. **Studio actors:** when off-shift and still inside their studio building (same interior map as their studio zone), walk out to the exterior world tile first — one step per tick — before any random activity; once outside, the normal wander resumes. **The destination is drawn from within reach of where the NPC already stands** (`WANDER_NEAR_R` = 12 tiles, or `WANDER_FAR_R` = 30 on a 15% roll), falling back to the unrestricted set when nothing eligible is in range. See the wander-radius note below. |
 | `AT_WORK` | — | No-op that marks the "at work" position in the graph. Keeps NPC in place during scheduled hours; graph re-checks schedule on next loop. |
 | `CHECK_WORK` | — | 2-way branch for studio NPCs. Ports: `goToWork` (scheduled now), `haveLife` (off-shift, or no studio assigned) |
 | `GO_HOME` | — | Walk toward `entity.home_zone`; returns RUNNING until arrived |
@@ -221,6 +221,45 @@ The stored graph lives in `enemies.behaviour_graph` or `npcs.behaviour_graph` (J
 
 ---
 
+## A wander has to come back
+
+`HAVE_LIFE`'s patrol destination used to be drawn **uniformly from every exterior world
+tile** — about 9,000 of them after the danger and facade filters. The four regions sit in
+**disjoint blocks of one shared grid**:
+
+| region | grid x | grid y | tiles |
+|---|---|---|---|
+| Coldwater | 863..955 | 896..947 | 4,837 |
+| Deadwater | 726..818 | 950..1001 | 4,836 |
+| Scarletwastes | 1000..1092 | 950..1001 | 4,836 |
+| The Reach | 903..922 | 1032..1051 | 400 |
+| Terminus | 1200..1213 | 934..947 | 196 |
+
+So roughly **two rolls in three sent a Coldwater shopkeeper to another region**. NPC AI
+ticks every 15s and walks one step per tick, which makes that a journey of hours: the NPC
+left the neighbourhood, never arrived anywhere a player was, and never came back inside a
+session. There was no error and nothing in the logs. Wandering read as the city quietly
+emptying out, because that is exactly what it was.
+
+The picker now draws from tiles within `WANDER_NEAR_R` (12) of where the NPC is standing,
+or `WANDER_FAR_R` (30) on a `WANDER_FAR_CHANCE` (15%) roll so that somebody does still
+cross town. **Because the regions are disjoint on that one grid, the radius is also a
+region check** and needs no second source of truth — do not add one.
+
+Two things to keep if you tune this:
+
+- **The unrestricted set stays as a fallback.** An NPC standing where nothing eligible is
+  in range must still get somewhere to go, or they stop wandering permanently.
+- **The far band is not decoration.** Without it every NPC is on a short leash, which
+  reads as its own kind of wrong: a city where nobody ever leaves their own street.
+
+`npcs.wanders` / `npcs.wander_zones` are a **different, effectively dead path** — the
+hardcoded fallback in `npcWanderTick` for NPCs with no behaviour graph. 214 of 215 shipped
+NPCs have a graph, so only Reg Naylor reaches it. Three dealers (Gita Halvard, Wick Sorel,
+Dov Keller) carry authored `wander_zones` that can never fire for exactly this reason.
+
+---
+
 ## Home life needs a home
 
 `home_zone` had drifted into meaning *"where this NPC is when they're not working"* —
@@ -243,6 +282,45 @@ routines (the cooking/drinking vignettes) use the same gate, so both halves agre
 **`is_dwelling` is the flag for a home nobody rents** — the Reach cabins, Akerson's
 penthouse, the Long Watch bunkroom, Dredge's cistern, the Echelon boudoir. Adding it to a
 workplace is the one way to reintroduce the bug.
+
+### What they actually do in there — the archetype tier
+
+Passing the `atHome` gate gets you an evening; **which** evening comes from three tiers,
+resolved by `getNpcHomeActivities()` in
+[npc-personality.js](../server/engine/npc-personality.js):
+
+| order | source | reach |
+|---|---|---|
+| 1 | `npc.home_activities` (hand-authored, per NPC) | 3 NPCs |
+| 2 | `HOME_ACTIVITIES[flags.personality]` (the archetype pool) | 146 NPCs |
+| 3 | `DEFAULT_HOME_ACTIVITIES` in ai-behaviour.js | anyone with an unregistered slug, or none |
+
+Tier 2 is the one that was missing, and its absence is the kind of bug that never
+throws: **146 of the 149 NPCs who live in a real dwelling shared the same twelve
+lines.** Nothing was broken, everyone's evening was just the same evening. Banter has
+had a personality tier since it shipped; this is home life catching up, and it reaches
+all 146 without a single per-NPC edit.
+
+The getter returns **`null`, never `[]`**, when it has nothing — the caller ends
+`|| DEFAULT_HOME_ACTIVITIES`, and an empty array is truthy, so returning one would hand
+`pickFresh` nothing to pick and silence home life completely.
+
+Same convention as chitchat throughout: `"quoted"` is spoken, unquoted is an emote with
+the NPC's name in front. Adding a personality to the registry and forgetting the home
+pool is a **regress failure** (layer 1i3), which also covers the same question for work
+chitchat, life chitchat and the banter library.
+
+### The thirteen unregistered slugs
+
+`lowlife`, `official`, `clerk`, `professional`, `labourer`, `corporate`, `quiet`, `gruff`,
+`gambler`, `charity`, `chatty`, `robot` and `stoic` were each set on real, named NPCs and
+none of them existed in `DEFAULTS`, so `getData()` handed all **46** of those characters
+the same `FALLBACK`: no work voice, no life voice, one shared set of combat lines. They
+are registered now. This failure mode is silent by construction — an unknown slug is not
+an error, it is a shrug — which is exactly why the regress layer reads the content tree
+for slugs rather than checking a list.
+
+---
 
 ### The commute build
 

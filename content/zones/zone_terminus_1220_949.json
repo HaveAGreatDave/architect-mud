@@ -1,0 +1,18 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "description": "Rammed earth between shuttering, faced with salvaged plate and capped with a walk. Twice the height of a man and going on out of sight both ways. There are no windows in it, and there is no graffiti on it, in a world that has written on absolutely everything else.",
+  "exits": {},
+  "flags": {
+    "building_type": "ruins",
+    "exodus_space": true,
+    "region_id": "region_terminus"
+  },
+  "grid_x": 1220,
+  "grid_y": 949,
+  "grid_z": 0,
+  "id": "zone_terminus_1220_949",
+  "map_id": "map_world",
+  "name": "The Wall",
+  "parent_zone": null
+}

@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The room goes quieter. Not less noisy. Quieter.",
+    "Somebody at the back stands, crosses the floor, sits down again, and nobody looks up.",
+    "A bench creaks in the empty half of the hall.",
+    "Two people come in, sit apart, and do not once speak, and leave at the same moment.",
+    "Somewhere above you the clerestory glass ticks as the heat goes out of the day."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Benches, in rows, facing a floor rather than an altar. The floor at the far end is worn pale in one patch about the size of a person standing. Nothing hangs on the walls. The acoustics are extraordinary and entirely accidental, which nobody here will say, because saying it would mean somebody had checked.\n\nIt is very quiet, in a way that has nothing to do with sound.",
+  "exits": {
+    "down": "zone_util_zone_exo_waking",
+    "south": "zone_terminus_1220_938"
+  },
+  "flags": {
+    "building_name": "The Waking Hall",
+    "building_type": "civic",
+    "exodus_space": true,
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1220_938"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_waking",
+  "map_id": "map_int_exo_waking",
+  "name": "The Waking Hall",
+  "parent_zone": "zone_terminus_1220_938"
+}

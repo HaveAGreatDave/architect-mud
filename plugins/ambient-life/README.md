@@ -31,6 +31,28 @@ construction, traffic, maintenance crews, food vendors, arguments, dogs barking.
   - **Food cart → `order`** (`[Buy a skewer ₵3]`) — restores hunger on the spot.
   Both resolve whatever opportunity is live in the player's room — no target to disambiguate.
 
+### Coverage: what the gates are actually reachable by
+
+A routine's gates are ANDed, so an unauthored value is not a fallback, it is a hole. Two
+were open for a long time and neither could ever surface as an error:
+
+- **`dawn` had nothing.** `phaseForMinutes()` returns `dawn | day | dusk | night`, and every
+  one of the original 41 rows listed `day`, `dusk` or `night`. Between first light and the
+  working day only the phase-agnostic rows could fire, so the busiest hour of a real city
+  was its quietest here.
+- **`weather` had four of twelve.** `WEATHER_TYPES` is `clear, cloudy, overcast, rain,
+  sleet, thunderstorm, storm, snow, blizzard, fog, haze, ash`. Routines existed for the
+  first three and `haze`. The street behaved identically in a blizzard, in fog and under
+  falling ash.
+
+Both are filled. When adding a routine, check it against the whole vocabulary rather than
+the values already in the table — the table is where the hole came from.
+
+**Weather-gated lines should describe the weather doing something to the street, not the
+weather.** The player already knows it is raining; a routine that says so is a duplicate of
+the environment line. What earns the slot is the gutter, the awning with four people
+already under it, and the truck that does not slow down.
+
 ### Tick / pacing
 
 A `30s` tick scans zones that currently hold a player, are opted in, and aren't resting; it

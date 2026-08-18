@@ -1,0 +1,20 @@
+{
+  "category": "vendors",
+  "enabled": true,
+  "id": "routine_vendors_a39",
+  "interactive": null,
+  "lines": [
+    "Somebody down the row is calling prices that get lower every time nobody stops."
+  ],
+  "loudness": 0.4,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 138,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

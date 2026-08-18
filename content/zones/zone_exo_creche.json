@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A child looks up at the door a moment before anybody reaches it.",
+    "Chalk goes back in the tin. All of it, without being asked.",
+    "Somebody very small is crying, briefly, and is dealt with, and stops.",
+    "Eleven children stop drawing at once and then, after a moment, carry on.",
+    "A drawing is held up for approval to nobody in particular and gets it anyway."
+  ],
+  "ambient_theme": "indoors",
+  "description": "Low benches, a slate wall, chalk in a tin, and a row of pegs at knee height with a coat on each. There are eleven children in here and the room is not loud.\n\nThey are drawing. Several of them are drawing the same thing, which is a shape with a great many straight lines going up out of it, and none of them are looking at each other's work.",
+  "exits": {
+    "down": "zone_util_zone_exo_creche",
+    "east": "zone_terminus_1219_935"
+  },
+  "flags": {
+    "building_name": "The Creche",
+    "building_type": "civic",
+    "exodus_space": true,
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1219_935"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_creche",
+  "map_id": "map_int_exo_creche",
+  "name": "The Creche",
+  "parent_zone": "zone_terminus_1219_935"
+}

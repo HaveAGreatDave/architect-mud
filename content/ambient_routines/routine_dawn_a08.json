@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a08",
+  "interactive": null,
+  "lines": [
+    "{npc} comes out, looks at the sky for a moment as though checking it is still there, and gets on with the day."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 107,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

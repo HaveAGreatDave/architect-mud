@@ -247,6 +247,23 @@ quarter off: a commitment, not a savings account to shuffle money through.
 > refusal** — that is what stops the system stranding somebody who had enough to reach the next
 > town.
 
+> **And `fuel` also works with both feet on the apron.** The handle above is the *driving* half, and
+> for a while it was the only half: `fuel` opened with `if (!rigOf(player))` and answered "You are
+> not driving anything" to anyone who had parked under a canopy and climbed down. That is most of
+> the people standing at a pump. It is also a room advertising an action it then refuses — the pump
+> furniture's own `examine` line offers `fuel the rig` as a click-link (see
+> [plugins/fuelstation](../plugins/fuelstation/README.md)), and the click landed on that error.
+>
+> `rig fuel` was not the way out of it. That is the **depot bench**, and it opens with a `depotHere`
+> gate, so it refuses on every forecourt in the world. A pump is not a workshop: you do not need a
+> bay, a fitter or a dealer to put diesel in a tank, you need a pump and a truck standing at it. So
+> `fuel` on foot (`pumpParked`) asks the same two questions of the same two functions the cab path
+> uses — **`pumpAt` decides whether this tile sells diesel and `pumpClamp` decides what a balance
+> buys** — and finds the truck by the `depot_zone` that `park` already wrote. Nothing here holds a
+> second opinion about either, so retuning `FUEL_FULL` or adding a pump flag moves this path with
+> the rest of them. Off a pump tile the old refusal is unchanged, and regress pins that: a street
+> with no pump on it still says you are not driving anything.
+
 > **The heavy-truck trap.** A ponderous truck is `mass`, `engineLag` and `wheelbase` — **never**
 > starving it of power. The first cut gave the Continental `thrustMax: 7.4` against a rolling
 > resistance of 2.6 and the drivability invariant caught it: it could not move off the pavement at
@@ -1597,6 +1614,27 @@ exist tomorrow — **never a transient void room**, which is torn down with the 
 turn somebody's freight into a row pointing at nothing. Deck capacity moved onto the box, too: the
 truck pulls, the trailer carries, and buying a bigger tractor no longer buys capacity it does not
 have.
+
+**Stock is stood outside, at a pose, because a trailer you cannot see is not a thing in a place.**
+`yard buy <flat|box|reefer|tank>` used to park the box in the **bay** with no pose at all, and both
+halves of that were invisible: a bay is a building interior with no grid coordinates, and
+`trailersNear` draws only *posed* rows. So the cab's trailer-air knob lit, named the trailer, and
+there was nothing on the picture to back under — while `hitch`, which waves an unposed row through
+by design, coupled to it from across the yard. A bought box now stands on the **hardstand**, nose
+out to the road (the same heading `drive` points the truck at, derived from the facade's
+`entrance`), stepped alternately either side of the lane out so a second purchase does not land
+inside the first. From that moment it is an ordinary dropped trailer and the manoeuvre is the same
+one. ⚠ **The pose must stay inside the apron tile** — `hitch` only searches the depot's own three
+zones, so a box stood a tile up the street would be drawn, driven up to and then *refused*; hence
+`stockPose`'s clamp rather than a longer row of boxes. The unposed path is untouched and still
+hitchable from anywhere, which is what stops every trailer already in the world being stranded.
+
+Two consequences worth knowing. The cab now draws standing boxes from **the zone you are in *and*
+the yard your rig belongs to** (`drawZones`) — you mount on the *door* tile and the stock stands on
+the *hardstand*, so with a single zone id a trailer feet away did not exist until the wheels crossed
+the boundary and then appeared out of nothing. And a bare `hitch` takes the **nearest one in reach**
+rather than the oldest row, because a yard now routinely holds several of your own boxes a few feet
+apart.
 
 **Hitchhikers are seeded facts, not NPC rows** — a corridor node is transient, so an NPC whose home
 is deleted when the crossing ends is the wrong machinery. `hitcherAt` is a pure function of route

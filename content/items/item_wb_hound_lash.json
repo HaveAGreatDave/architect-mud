@@ -1,0 +1,20 @@
+{
+  "description": "Bracken Hale's pattern: a plaited lash with a weighted fall, made for turning something the size of a pony that has decided not to be turned. It has never once been used on a hound.",
+  "flags": {},
+  "id": "item_wb_hound_lash",
+  "name": "hound lash",
+  "tags": {
+    "damage": {
+      "max": 10,
+      "min": 4
+    },
+    "damage_type": "kinetic",
+    "description": "A long plaited lash with a weighted fall, worn shiny at the grip.",
+    "slot": "weapon_hand",
+    "weapon": true,
+    "weapon_skill": "clubs"
+  },
+  "type": "weapon",
+  "value": 150,
+  "weight": 600
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A good bell, bronze, mounted under the eave outside and reachable from the upper floor. There is no rope on it and there is no rope in the room, and the bell has been polished.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_bell",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "a bell with no rope",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_gatehouse"
+}

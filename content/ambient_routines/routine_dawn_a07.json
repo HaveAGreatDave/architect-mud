@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a07",
+  "interactive": null,
+  "lines": [
+    "Somebody is hosing a doorway down. The water goes grey before it reaches the drain."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 106,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

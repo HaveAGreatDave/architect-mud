@@ -1,0 +1,213 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Hello.",
+    "I am not supposed to be out here. It is fine.",
+    "You have got a lot of things. Are they all yours?",
+    "That one over there is Josiah. He is nice. He worries.",
+    "It is going to be windy later."
+  ],
+  "description": "A girl of about nine, sitting on a rock at the side of the road with her heels drawn up, entirely absorbed in nothing at all. She is on the wrong side of a wall with no way through it and does not appear to think this is worth mentioning.\n\nWhen you look at her she is already looking back, and she waits, comfortably, for you to work out what you were going to say.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Bye.\"\n\nShe waves, and goes on sitting on the rock, on the wrong side of the wall."
+    },
+    "in": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Follow her.",
+          "next": "bye"
+        }
+      ],
+      "text": "She nods, once, as though you have confirmed the weather.\n\n\"All right.\"\n\nAnd she turns and walks at the gate, and does not slow down, and the two leaves of it come apart in front of her without a sound and without anybody behind them, and she goes through without looking back to see whether you are following.\n\nFrom inside, without turning round: \"You can come in. You will walk into some doors. Everybody does.\""
+    },
+    "name": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How did you get out here?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hopestill.\"\n\nShe waits. Then, kindly, because you have not managed it, she says your name back to you, and gets it right, and goes back to looking at the road."
+    },
+    "other": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Right.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"All right.\"\n\nShe does not look disappointed, or interested, or anything much. She gets back on the rock and draws her heels up and goes back to watching the road.\n\n\"You can ask me again another day. I will still be here. I am always here.\""
+    },
+    "out": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is your name?",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"I walked.\"\n\nShe says it the way you would say it, if you had walked.\n\n\"Do you want to see how far I can throw a stone? It is quite far. It is further than Josiah, but he lets me, so it does not count.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Hello.\" She says it pleasantly, and then, before you have said anything, \"You are the one with the truck.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "How did you get out here?",
+          "next": "out"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is your name?",
+          "next": "name"
+        },
+        {
+          "actions": [],
+          "conditions": [
+            {
+              "flag": "terminus_q1_done",
+              "op": "set"
+            },
+            {
+              "flag": "terminus_q2_done",
+              "op": "set"
+            },
+            {
+              "flag": "terminus_admitted",
+              "op": "unset"
+            }
+          ],
+          "enabled": true,
+          "label": "Somebody said I should stand at the gate.",
+          "next": "told"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Hello again.\"",
+      "text_by_relation": {
+        "close": "\"There you are.\" She budges up on the rock, which is not big enough for two people and she does it anyway.",
+        "familiar": "\"Hello.\" She has been expecting you, in the way a child expects the afternoon.",
+        "known": "\"You came back.\" She sounds pleased and not at all surprised."
+      }
+    },
+    "told": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [
+            {
+              "action": "ADJUST_PATH",
+              "delta": 45,
+              "path": "mind"
+            },
+            {
+              "action": "ADJUST_STANCE",
+              "delta": -25
+            },
+            {
+              "action": "ADJUST_REPUTATION",
+              "delta": 80,
+              "ideology_id": "ideology_exodus",
+              "reason": "The Standing"
+            },
+            {
+              "action": "SET_FLAG",
+              "flag": "terminus_admitted",
+              "scope": "player",
+              "value": "yes"
+            }
+          ],
+          "conditions": [],
+          "enabled": true,
+          "label": "I have not found out yet. I would like to.",
+          "next": "in"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Getting paid.",
+          "next": "other"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "That is not a question anybody can answer.",
+          "next": "other"
+        }
+      ],
+      "text": "\"That was Ambler.\" She sounds satisfied about it. \"She always says that. She thinks it is very subtle.\"\n\nShe gets down off the rock and stands in front of you, and she is small, and it makes no difference at all to the shape of the conversation.\n\n\"I have to ask you a thing and then I am allowed to take you in. It is only one thing and there is no wrong answer, there are just different answers.\" A breath. \"What are you for?\""
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a smock cut down from something adult",
+      "a cardigan with the elbows gone",
+      "sandals, mended"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_terminus_1210_940",
+  "hp": 12,
+  "hp_max": 12,
+  "id": "npc_terminus_child",
+  "name": "Hopestill",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_terminus_1210_940"
+}

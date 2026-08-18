@@ -1,0 +1,20 @@
+{
+  "category": "crews",
+  "enabled": true,
+  "id": "routine_crews_a35",
+  "interactive": null,
+  "lines": [
+    "Two workers are arguing about which cable is the live one, at length, with the box already open."
+  ],
+  "loudness": 0.6,
+  "phases": [
+    "day",
+    "dusk"
+  ],
+  "sort_order": 134,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

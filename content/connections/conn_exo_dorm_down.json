@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_dorm",
+  "b": "zone_util_zone_exo_dorm",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_exo_dorm_down",
+  "lockable": false,
+  "one_way": true
+}

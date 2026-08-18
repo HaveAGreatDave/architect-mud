@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "id": "bt_amb_clerk_016",
+  "lines": [
+    "\"I found an error today. Four years old.\"",
+    "\"What did you do?\"",
+    "\"I corrected it.\"",
+    "\"Did anybody notice?\"",
+    "\"No. That is not the point of correcting it.\""
+  ],
+  "personality": "clerk",
+  "sort_order": 415
+}
+

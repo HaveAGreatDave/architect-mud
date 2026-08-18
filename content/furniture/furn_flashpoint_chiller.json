@@ -1,0 +1,21 @@
+{
+  "description": "A three-door upright with the middle door's seal long gone, so it sweats onto the floor and the cans at the back are colder than the cans at the front. Somebody has written the price of a can on the glass in marker, twice, at two different prices, and neither of them is the price.",
+  "flags": {
+    "aliases": "chiller, cooler, fridge, drinks, cans",
+    "appliance_grade": "commercial",
+    "backstock": "furn_flashpoint_crates",
+    "container": 90000,
+    "preserves": "refrigerated",
+    "vendor_stock": "npc_flashpoint_attendant"
+  },
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_flashpoint_chiller",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "glass-door chiller",
+  "object_type": "container",
+  "power_draw_kw": 0.5,
+  "price": 0,
+  "zone_id": "zone_flashpoint_shop"
+}

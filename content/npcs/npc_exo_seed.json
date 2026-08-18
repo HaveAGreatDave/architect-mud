@@ -1,0 +1,118 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Shut it behind you. The cold is the point.",
+    "Four hundred and six. It was four hundred and eleven.",
+    "Do not breathe on an open drawer.",
+    "Some of these have not been grown in ninety years.",
+    "They are not ours. We are just where they are."
+  ],
+  "description": "A small precise man in a coat and fingerless gloves, working along a bank of drawers with a slate and a stub of chalk, counting under his breath in tens. He is very cold and does not appear to have thought about it in years.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "lock": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Are you taking all this with you?",
+          "next": "taking"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"No.\"\n\nHe writes a number, checks it, and writes it again.\n\n\"If it needed one it would be the wrong place for it.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Shut the door.\" Then, having looked at you: \"Thank you. Most people do not, first time.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "There is no lock on the door.",
+          "next": "lock"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Are you taking all this with you?",
+          "next": "taking"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Shut the door behind you.\"",
+      "text_by_relation": {
+        "close": "He hands you the slate without looking up, and carries on counting, and you find you are keeping the tally.",
+        "familiar": "\"Come and hold this.\"",
+        "known": "\"You shut it.\" He sounds pleased. \"Good.\""
+      }
+    },
+    "taking": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "There is no lock on the door.",
+          "next": "lock"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "He stops.\n\nIt is the first time he has stopped.\n\n\"Yes,\" he says, and there is a very long pause, and then he goes back to the drawers and says, in a completely ordinary voice, \"That is what it is for. That is what it has always been for.\"\n\nSomewhere above you, out in the compound, a great many people stop doing something at the same moment."
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a wool coat worn indoors, always",
+      "fingerless gloves",
+      "soft shoes"
+    ],
+    "personality": "quiet"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_seed",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_seed",
+  "name": "Preserved Wain",
+  "npc_type": "npc",
+  "sex": "male",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_seed"
+}

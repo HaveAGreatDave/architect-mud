@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The drain gurgles once and settles.",
+    "Linen is refolded on the bench by somebody who has folded a great deal of linen.",
+    "The door at the far end does not open. You had not asked it to."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "Single storey, thick-walled, no windows facing the road. A drum stands outside the door on a pallet with a lid strapped down on it, and the drum is the only thing in the compound that anybody has bothered to chain to anything.",
+  "exits": {
+    "north": "zone_terminus_1216_940",
+    "south": "zone_exo_stillhouse"
+  },
+  "flags": {
+    "building_name": "The Stillhouse",
+    "building_type": "clinic",
+    "entrance": "north",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_940"
+  },
+  "grid_x": 1216,
+  "grid_y": 941,
+  "grid_z": 0,
+  "id": "zone_terminus_1216_941",
+  "map_id": "map_world",
+  "marker": "ST",
+  "name": "The Stillhouse",
+  "parent_zone": null
+}

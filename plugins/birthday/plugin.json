@@ -1,7 +1,9 @@
 {
   "name": "birthday",
-  "version": "1.0.0",
-  "description": "A player's birthday is the calendar date their account was created. It is not shown anywhere else — `birthday` is the only surface that tells you yours, and on the day itself it also hands you a free MANY HAPPY RETURNS soylent pouch, once per year. The date is stored nowhere: it is derived from players.created_at every time it is asked for, so there is nothing to migrate and nothing to keep in step.",
+  "version": "1.1.0",
+  "description": "A player's birthday is an IN-WORLD date: the account's registration timestamp extrapolated onto the world calendar (real days elapsed × the game clock's speed), then twenty-five years back — the age the vats hand you. It is latched into a player flag the first time it is asked for, because the speed knob moves and a recomputed birthday would move with it. `birthday` is the only surface that tells you yours, and on the day itself it hands over a free MANY HAPPY RETURNS soylent pouch, once per game year.",
   "hooks": [],
-  "commands": ["birthday"]
+  "commands": [
+    "birthday"
+  ]
 }

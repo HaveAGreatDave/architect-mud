@@ -1,0 +1,19 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a21",
+  "interactive": null,
+  "lines": [
+    "Ash settles on a parked truck in a soft even layer, like something being politely put away."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 120,
+  "themes": [],
+  "weather": [
+    "ash"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

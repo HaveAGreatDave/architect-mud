@@ -164,7 +164,7 @@ async function buildScreen(player, screenId, params) {
   const screenNorm = normScreen(screenId);
   if (screenNorm === 'pilot contracts') {
     const flight = await import('../flight/contracts.js');
-    const { fieldFor } = await import('../flight/state.js');
+    const { fieldFor, airfieldOf } = await import('../flight/state.js');
     const field = fieldFor(player);
     if (!field) return { view: 'error', message: 'The contract board is at the airfields.' };
     const fields = await flight.airfields();

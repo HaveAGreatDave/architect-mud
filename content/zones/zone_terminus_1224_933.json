@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Water goes along a row, slowly, from a can with a rose on it.",
+    "A ridge light is opened another two inches and propped.",
+    "Something is tied back with a strip of rag, gently, twice."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, in rows, things are growing that nobody out here has bothered to grow in thirty years.",
+  "exits": {
+    "north": "zone_terminus_1224_932",
+    "south": "zone_exo_glass"
+  },
+  "flags": {
+    "building_name": "The Glasshouse",
+    "building_type": "greenhouse",
+    "entrance": "north",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1224_932"
+  },
+  "grid_x": 1224,
+  "grid_y": 933,
+  "grid_z": 0,
+  "id": "zone_terminus_1224_933",
+  "map_id": "map_world",
+  "marker": "GL",
+  "name": "The Glasshouse",
+  "parent_zone": null
+}

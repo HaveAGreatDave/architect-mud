@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_101",
+  "lines": [
+    "\"{weather}, again.\"",
+    "\"It has been {weather} all week.\"",
+    "\"It has been {weather} since I moved here.\"",
+    "\"Then stop mentioning it.\""
+  ],
+  "personality": null,
+  "sort_order": 500
+}
+

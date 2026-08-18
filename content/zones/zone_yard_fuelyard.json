@@ -3,8 +3,9 @@
   "ambient_theme": "indoors",
   "bg_color": "#2b2824",
   "color": "#cdb489",
-  "description": "The tank yard behind the pumps, chain-link on three sides and open to the sky: drums stacked to head height, a spill tray gritty with absorbent, hoses coiled like sleeping snakes. A NO SMOKING sign has been shot clean through. It reeks of diesel and hot rubber.",
+  "description": "The tank yard behind the pumps, chain-link on three sides and open to the sky: drums stacked to head height, a spill tray gritty with absorbent, hoses coiled like sleeping snakes. A NO SMOKING sign has been shot clean through. A steel door in the kiosk wall opens onto this side, propped with a brick. It reeks of diesel and hot rubber.",
   "exits": {
+    "east": "zone_flashpoint_shop",
     "south": "zone_district_923_907"
   },
   "flags": {

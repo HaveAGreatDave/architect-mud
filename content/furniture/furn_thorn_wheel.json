@@ -1,0 +1,14 @@
+{
+  "description": "A kick wheel worn hollow on the near side. Every bowl in the Thornwarren came off it, and every one has a thumbprint pressed into the foot ring, and they are all the same thumbprint.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_wheel",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the wheel",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_kiln"
+}

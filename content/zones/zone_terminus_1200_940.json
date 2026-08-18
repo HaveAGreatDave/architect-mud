@@ -15,7 +15,7 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left.",
+  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that from here does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left.",
   "exits": {
     "east": "zone_terminus_1201_940",
     "north": "zone_terminus_1200_939",
@@ -30,6 +30,6 @@
   "grid_z": 0,
   "id": "zone_terminus_1200_940",
   "map_id": "map_world",
-  "name": "The Roadhead",
+  "name": "The Road",
   "parent_zone": null
 }

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_vendor_003",
+  "lines": [
+    "\"Supplier put me up eight percent.\"",
+    "\"Eight? He told me six.\"",
+    "\"He tells everybody six.\"",
+    "\"And we all pay eight. Marvellous.\""
+  ],
+  "personality": "vendor",
+  "sort_order": 402
+}
+

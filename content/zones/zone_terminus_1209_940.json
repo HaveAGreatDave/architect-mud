@@ -15,22 +15,22 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, in rows, things are growing that nobody out here has bothered to grow in thirty years.",
-  "exits": {},
+  "description": "Graded dirt, wide enough for something with a trailer on it, running east toward a wall that from here does not appear to have a way through. Tyre ruts, and the marks where heavy things have been dragged off the road and left. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1210_940",
+    "north": "zone_terminus_1209_939",
+    "south": "zone_terminus_1209_941",
+    "west": "zone_terminus_1208_940"
+  },
   "flags": {
-    "building_name": "Glasshouse 3",
-    "building_type": "greenhouse",
-    "entrance": "west",
-    "floors": 2,
-    "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "terrain": "dirt_road"
   },
   "grid_x": 1209,
   "grid_y": 940,
   "grid_z": 0,
   "id": "zone_terminus_1209_940",
   "map_id": "map_world",
-  "marker": "G3",
-  "name": "Glasshouse 3",
+  "name": "The Road",
   "parent_zone": null
 }

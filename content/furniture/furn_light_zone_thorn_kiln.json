@@ -1,0 +1,14 @@
+{
+  "description": "The kiln does it when the kiln is going. When it is not, one lamp, and the potter works by feel anyway and says so.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_kiln",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "the kiln mouth",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_kiln"
+}

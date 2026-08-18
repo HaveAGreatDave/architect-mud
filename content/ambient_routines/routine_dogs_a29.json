@@ -1,0 +1,20 @@
+{
+  "category": "dogs",
+  "enabled": true,
+  "id": "routine_dogs_a29",
+  "interactive": null,
+  "lines": [
+    "Something is going through the bins with real commitment.",
+    "It stops. It considers being seen. It goes back to the bins."
+  ],
+  "loudness": 0.7,
+  "phases": [
+    "night"
+  ],
+  "sort_order": 128,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

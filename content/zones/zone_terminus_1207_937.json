@@ -15,22 +15,22 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "A long glazed vault on a low stone knee-wall, its ridge lights cracked open a hand's width. Inside, in rows, things are growing that nobody out here has bothered to grow in thirty years.",
-  "exits": {},
+  "description": "Cracked pale hardpan, flat to the horizon and ringing slightly underfoot, the mud of a lake that dried before anybody was counting. Off toward the middle of the country there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "exits": {
+    "east": "zone_terminus_1208_937",
+    "north": "zone_terminus_1207_936",
+    "south": "zone_terminus_1207_938",
+    "west": "zone_terminus_1206_937"
+  },
   "flags": {
-    "building_name": "Glasshouse 1",
-    "building_type": "greenhouse",
-    "entrance": "west",
-    "floors": 2,
-    "is_building": true,
-    "region_id": "region_terminus"
+    "region_id": "region_terminus",
+    "terrain": "hardpan"
   },
   "grid_x": 1207,
   "grid_y": 937,
   "grid_z": 0,
   "id": "zone_terminus_1207_937",
   "map_id": "map_world",
-  "marker": "G1",
-  "name": "Glasshouse 1",
+  "name": "The Waiting Ground",
   "parent_zone": null
 }

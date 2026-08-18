@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "An instrument goes into the boil and comes out and is laid on clean linen.",
+    "Somebody in the queue is moved up it, and nobody objects.",
+    "A splint is cut down to fit a limb that has an extra joint in it."
   ],
   "ambient_theme": "wasteland",
-  "description": "Where the town's water goes when it has been used: open channels running to a reed bed, the reeds looking better than anything else growing for sixty miles.",
+  "description": "A whitewashed building with a covered porch, a boot scraper, and a bell. The busiest door in the Thornwarren after the bathhouse. There is a queue and it is not first-come, and everybody in it knows the order and nobody argues about it.",
   "exits": {
-    "east": "zone_scw_1050_977",
     "north": "zone_scw_1049_976",
-    "south": "zone_scw_1049_978",
-    "west": "zone_scw_1048_977"
+    "south": "zone_thorn_physic"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Physic",
+    "building_type": "clinic",
+    "entrance": "north",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1049_976"
   },
   "grid_x": 1049,
   "grid_y": 977,
   "grid_z": 0,
   "id": "zone_scw_1049_977",
   "map_id": "map_world",
-  "name": "The Sink",
+  "marker": "PH",
+  "name": "The Physic",
   "parent_zone": null
 }

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_vagrant_068",
+  "lines": [
+    "\"Where are you tonight?\"",
+    "\"Same as last night.\"",
+    "\"That is not an answer.\"",
+    "\"It is the only one I have got, and it is a good one.\""
+  ],
+  "personality": "vagrant",
+  "sort_order": 467
+}
+

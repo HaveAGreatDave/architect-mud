@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1219_935",
+  "b": "zone_exo_creche",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_exo_creche_in",
+  "lockable": true,
+  "one_way": false
+}

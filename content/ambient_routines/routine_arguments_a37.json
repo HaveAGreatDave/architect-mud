@@ -1,0 +1,20 @@
+{
+  "category": "arguments",
+  "enabled": true,
+  "id": "routine_arguments_a37",
+  "interactive": null,
+  "lines": [
+    "An argument starts up above street level, gets to the good part, and a window shuts on it."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "dusk",
+    "night"
+  ],
+  "sort_order": 136,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

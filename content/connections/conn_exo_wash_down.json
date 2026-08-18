@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_wash",
+  "b": "zone_util_zone_exo_wash",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_exo_wash_down",
+  "lockable": false,
+  "one_way": true
+}

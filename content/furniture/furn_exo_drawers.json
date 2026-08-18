@@ -1,0 +1,14 @@
+{
+  "description": "A hundred small drawers, each labelled in a small square hand: SPLINT, LINEN BOILED, WILLOW, HONEY, TEETH. The last one is at the bottom, where you would have to kneel to open it, which is somebody being kind.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_drawers",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the wall of drawers",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_mending"
+}

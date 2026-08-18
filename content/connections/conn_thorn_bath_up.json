@@ -1,0 +1,9 @@
+{
+  "a": "zone_util_zone_thorn_bath",
+  "b": "zone_thorn_bath",
+  "blocked": false,
+  "dir": "up",
+  "id": "conn_thorn_bath_up",
+  "lockable": false,
+  "one_way": true
+}

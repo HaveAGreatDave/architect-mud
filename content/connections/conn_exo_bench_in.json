@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1227_936",
+  "b": "zone_exo_bench",
+  "blocked": false,
+  "dir": "west",
+  "id": "conn_exo_bench_in",
+  "lockable": true,
+  "one_way": false
+}

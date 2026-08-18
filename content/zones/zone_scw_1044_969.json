@@ -16,12 +16,10 @@
   "ambient_theme": "wasteland",
   "description": "Dwellings packed shoulder to shoulder: plate, hide, rammed earth, every roof pitched the same steep angle into the same run of tin gutter. Doorways are curtained against the grit. Somebody has planted something in a cut-down drum by a step and it is being watered.",
   "exits": {
-    "east": "zone_scw_1045_969",
     "south": "zone_scw_1044_970",
     "west": "zone_scw_1043_969"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

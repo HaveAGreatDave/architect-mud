@@ -1,0 +1,20 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a24",
+  "interactive": null,
+  "lines": [
+    "The far end of the street has stopped existing. It will be back later."
+  ],
+  "loudness": 0,
+  "phases": [],
+  "sort_order": 123,
+  "themes": [],
+  "weather": [
+    "haze",
+    "ash"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

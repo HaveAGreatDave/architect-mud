@@ -1,0 +1,17 @@
+{
+  "category": "traffic",
+  "enabled": true,
+  "id": "routine_traffic_a30",
+  "interactive": null,
+  "lines": [
+    "A rig grinds down through the gears somewhere close and keeps going."
+  ],
+  "loudness": 0.9,
+  "phases": [],
+  "sort_order": 129,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

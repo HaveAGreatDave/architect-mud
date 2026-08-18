@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1045_977",
+  "b": "zone_thorn_den",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_thorn_den_in",
+  "lockable": true,
+  "one_way": false
+}

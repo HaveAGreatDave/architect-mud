@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "Somebody turns over, two rows down, and settles.",
+    "A blanket is squared off at the foot of a bed that is already made.",
+    "The building ticks as it cools."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "Two storeys of small square windows, every one of them the same size, and every one of them with the shutter set at exactly the same angle. Not a decision anybody made together, and not one anybody made separately either.",
+  "exits": {
+    "north": "zone_terminus_1216_932",
+    "south": "zone_exo_dorm"
+  },
+  "flags": {
+    "building_name": "The Long Dormitory",
+    "building_type": "apartment",
+    "entrance": "north",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_932"
+  },
+  "grid_x": 1216,
+  "grid_y": 933,
+  "grid_z": 0,
+  "id": "zone_terminus_1216_933",
+  "map_id": "map_world",
+  "marker": "LD",
+  "name": "The Long Dormitory",
+  "parent_zone": null
+}

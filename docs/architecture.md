@@ -28,7 +28,7 @@ THOMAS is a **platform**, not this game's front end: with modification — throu
 | **Frontend** | Vanilla JS, single-file HTML | Player client + Dev panel — no build step |
 | **Database** | PostgreSQL via Neon | Persistent world state, players, items — single source of truth |
 | **Query layer** | `pg` (node-postgres), raw SQL | No ORM — schema is hand-written in `schema.js` |
-| **Auth** | JWT (`jsonwebtoken`) + SHA-256 password hashing | Player accounts, dev/admin roles |
+| **Auth** | Opaque random session tokens (`crypto.randomBytes(32)`) + SHA-256 password hashing | Player accounts, dev/admin roles. **Not JWT** — this row said `jsonwebtoken` for months while nothing imported it; the dependency was removed 2026-08-18 |
 | **Hosting** | Render (free Web Service tier) | Node server, auto-deploys on git push |
 
 ### Why this stack, in practice
@@ -399,8 +399,8 @@ discipline as deciding a write's persistence tier:
 | **Boot-loaded world Map** | content + live entity state read constantly | **every** writer funnels through a helper that updates Map + DB together | `world.zones/npcs/doors/orgs/furniture/spawnTimers…` (world.js) |
 | **Write-through module cache** | small global tables | all writers live in the one module that owns the cache | world flags (flags.js), per-player skill IP (ip.js), **item templates (items-cache.js — every items writer calls reloadItem/deleteItemCache; runtime minters: keycards, datachips, cassettes)** |
 | **Event-bust + TTL cache** | derived per-player values | main mutation paths emit an event that busts; a short TTL bounds the writers that don't; staleness must be **benign** | carried weight, equipped weapon (`inventory.changed` + 5 s) |
-| **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s) |
-| **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `wanted`/`heat` player flags; `security_devices`; `generators`/`power_zones` (the power sim re-reads both every cycle) |
+| **TTL content cache** | authored content, static at runtime | dev CRUD invalidates; TTL covers out-of-band writers | quest definitions (plugins/quests, 30 s); `security_devices` (plugins/surveillance, 12 s — every in-file writer calls `invalidateDeviceCache()`, the TTL only bounds regress + offline scripts) |
+| **Query fresh** | anything gameplay-critical with uncoordinated writers | none needed — the DB is the only truth | `wanted`/`heat` player flags; `generators`/`power_zones` (the power sim re-reads both every cycle) |
 
 **The cache-safety test: a cache is only as safe as its write funnel.** Before caching a table,
 grep *every* `INSERT/UPDATE/DELETE` against it. If writers are scattered and don't (or can't)
@@ -460,6 +460,13 @@ Rules of thumb when building features:
   comparison to state *you* own — coalescing against a shared read cache promotes that cache into a
   write authority, which is why player-flag writes are deliberately **not** coalesced (see the note
   in `server/engine/flags.js`).
+- **A TTL equal to the tick period that reads it is not a cache.** If a snapshot holds for 4000 ms
+  and the tick that reads it runs on the `'4s'` cadence, `now - ts < ttl` is false on every single
+  pass — you pay the full round trip *and* the bookkeeping, and nothing in the code looks wrong.
+  Surveillance's device snapshot sat like that and measured **25% of all database traffic** on a
+  one-player session. Size a TTL clear of every cadence that reads it (it now spans the 4s/5s/6s
+  ticks at 12 s), and remember the TTL is only ever a backstop for out-of-band writers when the
+  in-process writers all invalidate.
 - **Distinguish "polls the DB" from "runs periodically" before event-driving a tick.** A tick
   whose trigger is the *game clock* (media decks aligning to the current playlist slot) can't be
   event-driven — no edit event fires when time rolls into the next slot. The fix there is to make

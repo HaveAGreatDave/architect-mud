@@ -1,0 +1,14 @@
+{
+  "description": "Every name, in order, going back to a first entry that is not the first person to die here but the first one they had the paper to write down.\n\nThe last three entries are in the same hand as the first forty. You check twice. It is the same hand.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_lectern",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the lectern book",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_quiet"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Eleven blades and no two alike. A hooked pommel for a hand with no thumb. A two-hand haft with the grips a hand apart in height. One with no handle at all, only a hide-lined socket, because it went onto something that had grown to a point.\n\nEvery one of them was made for somebody. Some of those people are still alive.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_rack",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the blade rack",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_foundry"
+}

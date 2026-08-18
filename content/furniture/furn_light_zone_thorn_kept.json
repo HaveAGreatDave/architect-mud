@@ -1,0 +1,14 @@
+{
+  "description": "The whole south wall opens, which is the point of the building. At night, lamps kept low and never put out entirely, because two of the ten cannot tell you they are frightened of the dark and one of them plainly is.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_thorn_kept",
+  "light_type": "overhead",
+  "lumen_output": 1100,
+  "name": "the shutters and low lamps",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_thorn_kept"
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_scientist_066",
+  "lines": [
+    "\"I thought of something on the way here.\"",
+    "\"Write it down.\"",
+    "\"I did. I cannot read it.\"",
+    "\"Then you did not write it down.\""
+  ],
+  "personality": "scientist",
+  "sort_order": 465
+}
+

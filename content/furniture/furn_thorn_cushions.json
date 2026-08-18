@@ -1,0 +1,14 @@
+{
+  "description": "Hundreds of them, every colour a thing can be, none matching, in rings around a fire pit that is not lit. They are arranged by nobody and they are never wrong, and if you sit down in the outer ring somebody will quietly move you inward within a quarter of an hour.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_cushions",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the cushions",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_den"
+}

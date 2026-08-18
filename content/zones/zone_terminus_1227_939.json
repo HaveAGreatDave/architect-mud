@@ -1,0 +1,36 @@
+{
+  "ambient_events": [
+    "Somewhere across the compound, a number of people stop doing something at the same moment.",
+    "A door opens ahead of you. There is nobody behind it, and nobody comes through.",
+    "Two people pass, neither speaking, and one of them laughs.",
+    "Somebody hands somebody else a tool a moment before it is reached for. Neither of them remarks.",
+    "A stack of trays is squared off against a wall by somebody at the other end of the yard.",
+    "The gravel has been raked. Recently. There are no footprints in it and you have seen four people cross it.",
+    "A child stops, looks at you steadily, and is called away by somebody who did not call.",
+    "There is no rubbish. Not a scrap, and no bins either, and no smell of any.",
+    "The air goes still in a way that is nothing to do with the wind.",
+    "A conversation two rows away has a hole in the middle of it, and then carries on.",
+    "Somebody starts to answer you and stops, politely, and waits for you to say it.",
+    "Everything you can see has been mended at least once and nothing has been replaced."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "Swept hardpan between the buildings, pale and hard and rung flat by feet. There is nothing lying on it. Not a tool, not a rag, not a stone out of place.",
+  "exits": {
+    "east": "zone_terminus_1228_939",
+    "north": "zone_terminus_1227_938",
+    "south": "zone_terminus_1227_940",
+    "west": "zone_terminus_1226_939"
+  },
+  "flags": {
+    "exodus_space": true,
+    "region_id": "region_terminus",
+    "terrain": "hardpan"
+  },
+  "grid_x": 1227,
+  "grid_y": 939,
+  "grid_z": 0,
+  "id": "zone_terminus_1227_939",
+  "map_id": "map_world",
+  "name": "The Swept Ground",
+  "parent_zone": null
+}

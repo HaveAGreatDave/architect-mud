@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1220_938",
+  "b": "zone_exo_waking",
+  "blocked": false,
+  "dir": "north",
+  "id": "conn_exo_waking_in",
+  "lockable": true,
+  "one_way": false
+}

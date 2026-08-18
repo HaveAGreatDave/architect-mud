@@ -1082,19 +1082,20 @@ function zoneAmbientVisibility(gridX, gridY, mapId) {
 // those zones — the 30-second tick uses this to react instantly for the zones
 // players are actually standing in, while the 30-minute tick sweeps everything.
 async function syncStreetlights(zoneFilter = null) {
-  const { query, broadcast } = deps;
+  const { broadcast } = deps;
 
+  // Both halves of this read are already in RAM, so it does not touch the DB.
+  // It was a `furniture JOIN zones` every 30 s (68 round trips in a 26-minute
+  // session) for two things the process holds: `furniture` is a boot-loaded,
+  // write-funneled Map (the same move describeZone's per-move read made), and
+  // the grid coords come off `world.zones` — note the powerStatus lookup below
+  // was ALREADY reading a zone from memory on the very next line. The WRITES
+  // stay in SQL and stay on updateFurnitureWhere, which re-caches the rows
+  // Postgres says it touched.
   const filter = zoneFilter && zoneFilter.length ? [...zoneFilter] : null;
-  const { rows } = await query(
-    filter
-      ? `SELECT f.zone_id, f.light_on, z.grid_x, z.grid_y, z.map_id
-         FROM furniture f JOIN zones z ON z.id = f.zone_id
-         WHERE f.light_type = 'streetlight' AND f.zone_id = ANY($1)`
-      : `SELECT f.zone_id, f.light_on, z.grid_x, z.grid_y, z.map_id
-         FROM furniture f JOIN zones z ON z.id = f.zone_id
-         WHERE f.light_type = 'streetlight'`,
-    filter ? [filter] : undefined
-  ).catch(() => ({ rows: [] }));
+  const rows = filter
+    ? filter.flatMap(id => getZoneFurniture(id).filter(f => f.light_type === 'streetlight'))
+    : [...world.furniture.values()].filter(f => f.light_type === 'streetlight');
   if (!rows.length) return false;
 
   const want = new Map();     // zoneId -> 1|0 desired
@@ -1104,7 +1105,8 @@ async function syncStreetlights(zoneFilter = null) {
     if (!want.has(r.zone_id)) {
       const z = state.zones.get(r.zone_id);
       const powered = z && (z.powerStatus === 'powered' || z.powerStatus === 'overloaded');
-      const vis = zoneAmbientVisibility(r.grid_x, r.grid_y, r.map_id);
+      const wz = world.zones.get(r.zone_id);
+      const vis = zoneAmbientVisibility(wz?.grid_x, wz?.grid_y, wz?.map_id);
       want.set(r.zone_id, (powered && vis < VISIBILITY_DIM) ? 1 : 0);
     }
   }
@@ -1279,8 +1281,15 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     // sitting in a steady brownout doesn't rewrite rows that already carry it.
     const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light')
       .map(f => ({ ...f, draw_kw: drawKwFor(f) }));
-    if (lights.some(f => f.light_on_intended == null)) {
-      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    //
+    // ⚠ Non-streetlights ONLY, in the gate AND in the SQL — as the offline branch
+    // above already does. Including streetlights made this a two-cycle ping-pong
+    // that never settled: this write put an intended value on the streetlight,
+    // the streetlight sync twelve lines below NULLed it again because streetlights
+    // answer to the day/night phase alone, and the next brownout cycle saw a null
+    // and wrote it back. A steady brownout paid two round trips a cycle forever.
+    if (lights.some(f => f.light_type !== 'streetlight' && f.light_on_intended == null)) {
+      await updateFurnitureWhere(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
     }
 
     // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
@@ -1342,16 +1351,32 @@ async function applyPowerLightEffects(zoneId, prevStatus, newStatus, available, 
     }
   } else if (nowOk && !wasOk) {
     // Power restored — recover intended light states for non-streetlights.
-    await updateFurnitureWhere(`
-      UPDATE furniture
-      SET light_on = COALESCE(light_on_intended, light_on),
-          light_on_intended = NULL
-      WHERE zone_id = $1 AND object_type = 'light' AND light_type != 'streetlight'
-    `, [zoneId]);
+    //
+    // Gated on the cached rows, exactly as the offline and brownout branches
+    // above are. This branch only fires on a TRANSITION, so it looks like it
+    // can't be hot — but a zone that flaps in and out of its ceiling transitions
+    // every other power cycle, and both writes then run forever against rows
+    // that already carry the value (measured 43 + 43 in a 26-minute session).
+    const lights = getZoneFurniture(zoneId).filter(f => f.object_type === 'light');
+    const isDark = state.phase === 'night' || state.phase === 'dusk';
+    // The write sets light_on = COALESCE(intended, light_on) and clears intended,
+    // so a row with no intended value is written to itself. That is the whole gate.
+    const needsRestore = lights.some(f => f.light_type !== 'streetlight' && f.light_on_intended != null);
+    if (needsRestore) {
+      await updateFurnitureWhere(`
+        UPDATE furniture
+        SET light_on = COALESCE(light_on_intended, light_on),
+            light_on_intended = NULL
+        WHERE zone_id = $1 AND object_type = 'light' AND light_type != 'streetlight'
+      `, [zoneId]);
+    }
     // Streetlights follow the day/night cycle exclusively — set them to the
     // correct state for the current phase regardless of what light_on_intended was.
-    const isDark = state.phase === 'night' || state.phase === 'dusk';
-    await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
+    const needsStreet = lights.some(f => f.light_type === 'streetlight'
+      && (f.light_on !== (isDark ? 1 : 0) || f.light_on_intended != null));
+    if (needsStreet) {
+      await updateFurnitureWhere(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
+    }
     recalcZoneLoad(zoneId);
     const lc2 = computeZoneLighting(zoneId);
     const ls2 = lightingFor(zoneId);

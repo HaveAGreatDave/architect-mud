@@ -1,0 +1,14 @@
+{
+  "description": "A table with a drain in the middle of it and a lip all the way round, scrubbed to the grain. The restraints are padded, and the padding has been replaced recently, and the stitching on the new padding is the same stitching as the masks in the gate house.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_slab",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the table",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_fleshery"
+}

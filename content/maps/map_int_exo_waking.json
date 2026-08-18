@@ -1,0 +1,6 @@
+{
+  "entry_zone_id": "zone_exo_waking",
+  "id": "map_int_exo_waking",
+  "name": "The Waking Hall",
+  "parent_zone_id": "zone_terminus_1220_938"
+}

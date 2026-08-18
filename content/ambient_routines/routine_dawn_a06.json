@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a06",
+  "interactive": null,
+  "lines": [
+    "A window across the way lights up. A shape moves behind the blind and does not come back."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 105,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

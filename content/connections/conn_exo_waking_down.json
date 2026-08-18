@@ -1,0 +1,9 @@
+{
+  "a": "zone_exo_waking",
+  "b": "zone_util_zone_exo_waking",
+  "blocked": false,
+  "dir": "down",
+  "id": "conn_exo_waking_down",
+  "lockable": false,
+  "one_way": true
+}

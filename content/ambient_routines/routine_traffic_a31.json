@@ -1,0 +1,19 @@
+{
+  "category": "traffic",
+  "enabled": true,
+  "id": "routine_traffic_a31",
+  "interactive": null,
+  "lines": [
+    "A single vehicle goes past far too fast for the hour, and is gone before the sound catches up."
+  ],
+  "loudness": 0.8,
+  "phases": [
+    "night"
+  ],
+  "sort_order": 130,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

@@ -16,13 +16,11 @@
   "ambient_theme": "wasteland",
   "description": "A low glasshouse of mismatched panes puttied into a salvage frame, every pane a slightly different colour, the whole thing beautiful entirely by accident.",
   "exits": {
-    "east": "zone_scw_1043_977",
     "north": "zone_scw_1042_976",
     "south": "zone_scw_1042_978",
     "west": "zone_scw_1041_977"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

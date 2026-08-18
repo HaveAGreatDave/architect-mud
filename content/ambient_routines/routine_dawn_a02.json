@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a02",
+  "interactive": null,
+  "lines": [
+    "The streetlights cut out all together, a beat before there is enough light to lose them."
+  ],
+  "loudness": 0,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 101,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

@@ -17,12 +17,10 @@
   "description": "Where the town's water goes when it has been used: open channels running to a reed bed, the reeds looking better than anything else growing for sixty miles.",
   "exits": {
     "east": "zone_scw_1048_981",
-    "north": "zone_scw_1047_980",
     "south": "zone_scw_1047_982",
     "west": "zone_scw_1046_981"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",

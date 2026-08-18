@@ -15,7 +15,7 @@
     "You get the brief and entirely unsupported sense of having been read, filed, and found uninteresting."
   ],
   "ambient_theme": "wasteland",
-  "description": "Red rock under a sky that goes on being enormous about it. Nothing grows here that anybody planted. Off east there is a wall, and above the wall, catching the light, a long row of glass roofs. Something is growing in there. Not for you.",
+  "description": "A circle of hard standing scraped flat and edged with painted drums, well off the road and a good way from the wall. A windsock on a pole, a fuel bowser under a tarpaulin, and nothing else at all. It is maintained, and it is maintained by somebody who does not come out here except to maintain it.",
   "exits": {
     "east": "zone_terminus_1204_943",
     "north": "zone_terminus_1203_942",
@@ -32,6 +32,6 @@
   "grid_z": 0,
   "id": "zone_terminus_1203_943",
   "map_id": "map_world",
-  "name": "The Long Quiet",
+  "name": "The Gantry",
   "parent_zone": null
 }

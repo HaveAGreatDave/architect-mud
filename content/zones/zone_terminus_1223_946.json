@@ -1,0 +1,18 @@
+{
+  "ambient_events": [],
+  "ambient_theme": "outdoors",
+  "description": "Three tanks on a trestle with a ladder up the side and a gauge glass on each, and the gauge glasses have been read this morning.",
+  "exits": {},
+  "flags": {
+    "building_type": "infra",
+    "exodus_space": true,
+    "region_id": "region_terminus"
+  },
+  "grid_x": 1223,
+  "grid_y": 946,
+  "grid_z": 0,
+  "id": "zone_terminus_1223_946",
+  "map_id": "map_world",
+  "name": "The Cisterns",
+  "parent_zone": null
+}

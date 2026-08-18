@@ -1,0 +1,26 @@
+{
+  "base_difficulty": 8,
+  "base_output": {
+    "item_id": "item_wb_thorn_tea",
+    "quantity": 2
+  },
+  "category": "goods",
+  "description": "New growth off the top of the wall, cut in the morning and brewed hard. What the town drinks when the rain has been the wrong colour.",
+  "id": "recipe_wb_thorn_tea",
+  "ingredients": [
+    {
+      "item_id": "item_herb_bundle",
+      "quantity": 1
+    },
+    {
+      "item_id": "item_water_bottle",
+      "quantity": 1
+    }
+  ],
+  "name": "Brew Thorn Tea",
+  "requires_station": null,
+  "skill_id": "fabrication",
+  "skill_req": {
+    "fabrication": 1
+  }
+}

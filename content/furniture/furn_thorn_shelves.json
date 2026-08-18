@@ -1,0 +1,14 @@
+{
+  "description": "A wall of them at knee height, each with a name chalked on it. Chalk rather than paint, and nobody in the building will tell you why, and everybody in the building knows.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_shelves",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the small shelves",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_whelp"
+}

@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "A hound is done, and gets up, and the next one comes and sits without being called.",
+    "Twelve heads turn at the same moment toward the gate, and then turn back.",
+    "A collar is taken off its peg, checked, oiled, and hung back up."
   ],
   "ambient_theme": "wasteland",
-  "description": "Workshops open to the lane: a wheelwright, a stitcher, somebody rebuilding a pump on a trestle with the parts laid out on a cloth in the order they came off.",
+  "description": "A run of wire and shade cloth with a dozen hounds in it, long-legged and scarred and heavy in the shoulder. They come up to the wire to look at you, all of them at once and in silence, which is much worse than barking.",
   "exits": {
-    "east": "zone_scw_1048_972",
-    "north": "zone_scw_1047_971",
-    "south": "zone_scw_1047_973",
+    "east": "zone_thorn_hounds",
     "west": "zone_scw_1046_972"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Houndyard",
+    "building_type": "junkyard",
+    "entrance": "west",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1046_972"
   },
   "grid_x": 1047,
   "grid_y": 972,
   "grid_z": 0,
   "id": "zone_scw_1047_972",
   "map_id": "map_world",
-  "name": "Hammer Row",
+  "marker": "H2",
+  "name": "The Houndyard",
   "parent_zone": null
 }

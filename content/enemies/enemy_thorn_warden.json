@@ -1,0 +1,103 @@
+{
+  "behavior": "sentinel",
+  "behaviour_graph": {},
+  "body_parts": [
+    {
+      "part": "head",
+      "soak": {},
+      "weight": 10
+    },
+    {
+      "grants": {
+        "component": 1
+      },
+      "part": "torso",
+      "soak": {},
+      "weight": 40
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "left_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "grants": {
+        "component": 0
+      },
+      "part": "right_arm",
+      "soak": {},
+      "weight": 12
+    },
+    {
+      "part": "left_leg",
+      "soak": {},
+      "weight": 13
+    },
+    {
+      "part": "right_leg",
+      "soak": {},
+      "weight": 13
+    }
+  ],
+  "butcher_difficulty": 8,
+  "butcher_table": [],
+  "death_message": "The Gate Warden goes down on one knee, and then over, and the mask comes off, and underneath it is a face, which is somehow much worse.",
+  "description": "It is eleven feet if it is an inch, and it is wearing a mask of bone and plate with the jaw wired open, and it is standing in the gateway with its hands loose at its sides doing absolutely nothing.\n\nThe proportions are wrong in a way that takes a moment to locate: the arms come down past the knee, and the shoulders have a second set of joints in them, and the whole of it is plated over in something dark and grained that is not armour because it has grown there.\n\nIt watches you the entire way up the road. It does not shift its weight. It does not appear to be breathing very often.",
+  "dodge": 6,
+  "faction": "ideology_wildblood",
+  "flags": {
+    "attacks_npcs": false,
+    "battle_cries": [
+      "The Gate Warden does not move.",
+      "The Gate Warden turns its head very slightly and keeps turning it further than it should.",
+      "Somewhere behind the thorn, something else that is this size answers.",
+      "The wired-open jaw of the mask is not where the sound came from."
+    ],
+    "first_strike_delay_ms": 0
+  },
+  "hit": 16,
+  "hp_max": 320,
+  "id": "enemy_thorn_warden",
+  "loot_table": [
+    {
+      "item": "item_wb_mask_lined",
+      "qty": [
+        1,
+        1
+      ],
+      "weight": 25
+    },
+    {
+      "item": "item_wb_bone_plate",
+      "qty": [
+        1,
+        2
+      ],
+      "weight": 40
+    },
+    {
+      "item": "item_scrap_metal",
+      "qty": [
+        2,
+        4
+      ],
+      "weight": 60
+    }
+  ],
+  "name": "a Gate Warden",
+  "weapon": [
+    {
+      "max": 26,
+      "min": 14,
+      "type": "kinetic"
+    },
+    {
+      "max": 12,
+      "min": 6,
+      "type": "edged"
+    }
+  ]
+}

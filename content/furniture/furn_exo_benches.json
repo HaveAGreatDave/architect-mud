@@ -1,0 +1,14 @@
+{
+  "description": "Plain benches in rows, facing a floor rather than an altar, worn to a shine in the places people sit and nowhere else. There are enough of them for two hundred and eleven people and there are two hundred and eleven of them.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_benches",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "rows of benches",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_waking"
+}

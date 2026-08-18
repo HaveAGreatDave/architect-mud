@@ -1,0 +1,14 @@
+{
+  "description": "Rail steel on an elm stump, with a face polished by seventy years of use and a bright hollow in the middle of it. There are no tongs on the rack beside it. There have never been any tongs.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_thorn_anvil",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the anvil",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_thorn_foundry"
+}

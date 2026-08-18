@@ -265,6 +265,41 @@ export default async function regress({ check, getPlayer }) {
     !/psionic|telekine|power/i.test(door.GUIDE_LINE), door.GUIDE_LINE);
   check('the guide line has no em dash', !door.GUIDE_LINE.includes('—'));
 
+  // ── The outer gate: admitted, and not already somebody else's ──────────────
+  //
+  // The authFn itself writes flags and messages a live player, so what is tested
+  // is the RULE it is made of. Every case below is a whole player's worth of
+  // decisions expressed as four numbers, which is the point of reading the
+  // ordinary path flags rather than minting a membership flag of our own.
+  const gateOk = (flags) => {
+    const p = { _flags: new Map(Object.entries(flags)) };
+    if (!p._flags.get(door.ADMITTED)) return false;
+    const mind = door.pathFlag(p, 'mind');
+    const other = Math.max(door.pathFlag(p, 'machine'), door.pathFlag(p, 'flesh'),
+                           door.pathFlag(p, 'human'));
+    return !(other > 0 && other >= mind);
+  };
+  check('nobody gets in without being admitted', !gateOk({ path_mind: '90' }));
+  check('admitted and undeclared gets in', gateOk({ [door.ADMITTED]: 'yes' }));
+  check('admitted and leaning mind gets in',
+    gateOk({ [door.ADMITTED]: 'yes', path_mind: '45', path_human: '10' }));
+  check('a player signed up to the machine is refused',
+    !gateOk({ [door.ADMITTED]: 'yes', path_mind: '45', path_machine: '60' }));
+  check('a player signed up to the flesh is refused',
+    !gateOk({ [door.ADMITTED]: 'yes', path_flesh: '30' }));
+  // A dead heat is a refusal. Somebody equally committed to two paths has not
+  // chosen, and the whole gate is about having chosen.
+  check('a tie refuses rather than admitting',
+    !gateOk({ [door.ADMITTED]: 'yes', path_mind: '40', path_human: '40' }));
+  // Standing is what you have done; the path is what you decided to be. Only the
+  // second one is a door with another order's name already on it.
+  check('reputation is not consulted anywhere in the gate rule',
+    !/getReputation|reputation|rep\b/i.test(door.WARDEN_LINE)
+    && gateOk({ [door.ADMITTED]: 'yes', path_mind: '20' }));
+  check('the warden explains the player, never the creed',
+    !/creed|order|exodus|mind|psionic/i.test(door.WARDEN_LINE), door.WARDEN_LINE);
+  check('the warden line has no em dash', !door.WARDEN_LINE.includes('—'));
+
   // ── The Purifier warns before it takes anything ────────────────────────────
   const victim = { id: 'regress-purify', _mutations: new Map([['a', {}], ['b', {}]]), _augments: new Map([['c', {}]]) };
   const bill = purifier.billFor(victim);

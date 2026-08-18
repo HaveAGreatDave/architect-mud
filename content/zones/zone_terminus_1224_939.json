@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The pot gets a stir and a taste and then a bit more of something.",
+    "Somebody laughs, once, and the room turns and is pleased about it.",
+    "Bowls go into the trough and come out clean and get stacked without a word passing."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A long shed with its whole south side folded open on props, so the room and the yard are the same room in daylight. Trestles, benches, and a stone hearth at the end with three pots on it. You can smell it from the gate.",
+  "exits": {
+    "north": "zone_exo_table",
+    "south": "zone_terminus_1224_940"
+  },
+  "flags": {
+    "building_name": "The Long Table",
+    "building_type": "diner",
+    "entrance": "south",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1224_940"
+  },
+  "grid_x": 1224,
+  "grid_y": 939,
+  "grid_z": 0,
+  "id": "zone_terminus_1224_939",
+  "map_id": "map_world",
+  "marker": "LT",
+  "name": "The Long Table",
+  "parent_zone": null
+}

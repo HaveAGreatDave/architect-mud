@@ -42,7 +42,13 @@ import { escAttr } from './text.js';
 // and faster while sitting. HP only starts recovering — slowly, and only while
 // sitting — once stamina is back to full.
 const IDLE_REGEN_MS = 8000;       // no-movement grace before stamina recovers
-const STAND_STAMINA_REGEN = 1;    // stamina per tick when idle & standing (slow)
+// Standing recovery is FRACTIONAL now — restRegenTick banks the remainder rather
+// than flooring it, so this no longer has to be a whole number to survive a
+// penalty. It was 1/tick (4/min, twenty-five minutes from empty), which read as
+// nothing happening even on the ticks it wasn't rounding to zero outright. At 2.5
+// a standing player is back on their feet in about ten minutes and sitting is
+// still worth doing — roughly 2.4× faster — which is the gap that has to hold.
+const STAND_STAMINA_REGEN = 2.5;  // stamina per tick when idle & standing (slow)
 const SIT_STAMINA_REGEN = 6;      // stamina per tick when sitting (faster rest)
 const SIT_REGEN_HP = 3;           // HP per tick while sitting, once stamina is full
 const WINDED_REGEN_MULT = 0.5;    // stamina regen while winded (ran the tank dry, movement.js) — halved
@@ -1062,9 +1068,11 @@ function thirstRegenMultiplier(thirst) {
 }
 
 // Hunger and thirst are multiplicative — starving AND parched should be worse
-// than either alone — but floored together, because `gain` is FLOORED to an
-// integer and 0.25 × 0.2 would round a sitting player's recovery to literally
-// zero. Deprivation should make you slow, never stuck.
+// than either alone — but floored together, because 0.25 × 0.2 is a twentieth of
+// the rate and that is indistinguishable from stuck. Deprivation should make you
+// slow, never stuck. (This floor once existed because the tick FLOORED its gain to
+// an integer and a sitting player's recovery rounded to zero; the fraction is
+// carried now — see restRegenTick — so this is a pacing floor, not a rounding one.)
 const DEPRIVATION_FLOOR = 0.2;
 function deprivationRegenMultiplier(player) {
   return Math.max(DEPRIVATION_FLOOR,
@@ -1079,14 +1087,18 @@ function deprivationRegenMultiplier(player) {
 // dehydration's Endurance penalty land somewhere a player can feel it, and it
 // means anything else that ever drags on Endurance reaches recovery for free.
 //
-// END 5 is baseline (×1.0); 8% per point either side, clamped so a low-Endurance
-// character is slower rather than punished and a high one is quick rather than
-// exempt from resting.
-const ENDURANCE_REGEN_BASELINE = 5;
-const ENDURANCE_REGEN_PER_POINT = 0.08;
+// ⚠ END 0 IS THE BASELINE, and every other endurance derivation in the game
+// agrees: maxHpForEndurance/maxStaminaForEndurance are BASE + n × END, neutral at
+// zero. This sat at baseline 5, which sounds reasonable and is wrong for THIS stat
+// system — a character is created with every stat at 0 and the chargen holosign
+// hands out +1, so an ordinary survivor is END 1..4 and was permanently BELOW
+// baseline (×0.68 at END 1) on the one stat that is supposed to govern recovery.
+// Endurance is a bonus above zero here, never a tax below five.
+const ENDURANCE_REGEN_BASELINE = 0;
+const ENDURANCE_REGEN_PER_POINT = 0.04;
 function enduranceRegenMultiplier(player) {
   const end = effectiveStat(player, 'stat_endurance');
-  return Math.max(0.6, Math.min(1.4,
+  return Math.max(1, Math.min(1.4,
     1 + (end - ENDURANCE_REGEN_BASELINE) * ENDURANCE_REGEN_PER_POINT));
 }
 
@@ -1843,7 +1855,7 @@ async function restRegenTick() {
       const base = sitting ? SIT_STAMINA_REGEN : STAND_STAMINA_REGEN;
       // Winded (ran the tank dry) throttles recovery until the penalty window lapses.
       const windedMult = (player._windedUntil ?? 0) > now ? WINDED_REGEN_MULT : 1;
-      const gain = Math.max(0, Math.floor(base
+      const rate = Math.max(0, base
         * tempRegenMultiplier(player.body_temp_c ?? 37)
         * deprivationRegenMultiplier(player)
         * enduranceRegenMultiplier(player)
@@ -1851,8 +1863,25 @@ async function restRegenTick() {
         // A wounded torso is the one that shows up here: a body busy mending
         // itself has less left over to give back as stamina.
         * impairmentOf(player).staminaRegenMult
-        * windedMult * restMult));
+        * windedMult * restMult);
+      // ⚠ CARRY THE FRACTION. Stamina is an integer, so this used to be a raw
+      // Math.floor of the rate — which meant STANDING recovery (base 1) was not
+      // "slow" under any penalty at all, it was exactly ZERO: one chilly room
+      // (×0.8), one hollow stomach (×0.75) or one bruised torso (×0.6) floored a
+      // whole tick's worth of a 1-point base to nothing, forever, and a player
+      // could stand rested and fed at 0 stamina watching nothing happen. Every
+      // multiplier above is meant to make recovery SLOWER, never to switch it off,
+      // so the remainder is banked on the player and paid out on a later tick.
+      // (The DEPRIVATION_FLOOR note above worried about precisely this rounding
+      // and only ever checked it against the sitting base of 6.)
+      const carried = (player._stamCarry ?? 0) + rate;
+      const gain = Math.floor(carried);
+      player._stamCarry = carried - gain;
       if (gain > 0) stamina = Math.min(staminaMax, stamina + gain);
+    } else {
+      // Moving, or already topped off — don't let a fraction sit banked across a
+      // sprint and pay out the instant you stop.
+      player._stamCarry = 0;
     }
 
     // HP only starts knitting back together once stamina is full — and only while

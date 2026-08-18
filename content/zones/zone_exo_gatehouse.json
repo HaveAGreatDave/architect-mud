@@ -1,0 +1,31 @@
+{
+  "ambient_events": [
+    "Boots go up the stair on the far side of the wall, and along, and stop.",
+    "The kettle is filled from a jug and set on without anybody saying anything about tea.",
+    "Somebody crosses a name off the rota and writes it in again two rows down.",
+    "Wind finds the arrow slits and makes a low sound out of them, three notes, always the same three."
+  ],
+  "ambient_theme": "indoors",
+  "description": "A bare room with a stove, a kettle, four chairs and a table with a rota chalked on it. The rota runs three weeks ahead and every name on it has been written by the same hand. On a peg by the door, a coat nobody is wearing, and under the coat a pair of boots set square. Whoever is off shift is not in here, and the room has been left as though somebody is about to be.",
+  "exits": {
+    "down": "zone_util_zone_exo_gatehouse",
+    "south": "zone_terminus_1211_939"
+  },
+  "flags": {
+    "building_name": "The Gate House",
+    "building_type": "civic",
+    "exodus_space": true,
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1211_939"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_gatehouse",
+  "map_id": "map_int_exo_gatehouse",
+  "name": "The Gate House",
+  "parent_zone": "zone_terminus_1211_939"
+}

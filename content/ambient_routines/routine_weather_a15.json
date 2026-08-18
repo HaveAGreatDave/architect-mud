@@ -1,0 +1,20 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a15",
+  "interactive": null,
+  "lines": [
+    "The sky opens up with a crack that gets into your back teeth.",
+    "Every alarm on the row goes off at once, and then, one by one, gives up."
+  ],
+  "loudness": 0.9,
+  "phases": [],
+  "sort_order": 114,
+  "themes": [],
+  "weather": [
+    "thunderstorm"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

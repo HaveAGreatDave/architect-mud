@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_gen_100",
+  "lines": [
+    "\"Do you think it watches?\"",
+    "\"I think it does not need to.\"",
+    "\"That is worse.\"",
+    "\"That is much worse, yes.\""
+  ],
+  "personality": null,
+  "sort_order": 499
+}
+

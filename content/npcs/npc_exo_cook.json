@@ -1,0 +1,169 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "Eat that. You can talk after.",
+    "Barley. It is always barley. It is very good barley.",
+    "Wash your own bowl. Everybody does. Yes, everybody.",
+    "There is no charge for the pot. The rest of it, we will talk.",
+    "You are too thin and I have said nothing."
+  ],
+  "description": "A broad woman working three pots with one spoon, tasting from the back of her hand, entirely in charge of a room that does not have anybody in charge of it. She has flour to the elbow and has clearly been up since four.\n\nShe puts a bowl in front of you before you have said anything, and does not appear to notice doing it.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "food": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody is sitting at the head.",
+          "next": "table"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"The glass, mostly. Beans, greens, the tomatoes when they are in. Barley we grow out on the flats in the wet years and buy in the dry ones, and buying it in is the thing nobody enjoys.\"\n\nShe tastes, and adds nothing.\n\n\"Fish, once a season, from a man who drives four days to bring it and will not tell anybody where he gets it. He and I have a great deal in common and we have never once discussed it.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Sit down.\" She points with the spoon at forty feet of empty bench. \"Anywhere. There is no top end.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does all this come from?",
+          "next": "food"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nobody is sitting at the head.",
+          "next": "table"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down. Anywhere.\"",
+      "text_by_relation": {
+        "close": "She has already got the bowl in her hand when you come through the door, and neither of you says anything about that.",
+        "familiar": "\"There you are, I had it warm.\" A bowl arrives, and it was warm.",
+        "known": "\"You.\" A bowl arrives. \"Sit.\""
+      }
+    },
+    "table": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where does all this come from?",
+          "next": "food"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"There is not one.\" She says it comfortably. \"It is a long table. A long table has two ends and they are both the end.\"\n\nShe wipes the spoon.\n\n\"You will want to know who is in charge. I will save you the fortnight: nobody is, and that is not a lovely idea somebody had, it is just how it has ended up, and it works about nine days in ten. On the tenth day it is horrible and we get through it.\""
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "an apron, boiled white, scorched at one hip",
+      "sleeves pinned back",
+      "clogs with the heels gone over"
+    ],
+    "personality": "vendor"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_table",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_cook",
+  "name": "Comfort Delaide",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [
+    {
+      "item_id": "item_flat_bread",
+      "min_trust": 0,
+      "price": 3
+    },
+    {
+      "item_id": "item_soup_bowl",
+      "min_trust": 0,
+      "price": 6
+    },
+    {
+      "item_id": "item_barley_water",
+      "min_trust": 0,
+      "price": 3
+    },
+    {
+      "item_id": "item_lamp_greens",
+      "min_trust": 0,
+      "price": 4
+    },
+    {
+      "item_id": "item_bean_sprout",
+      "min_trust": 0,
+      "price": 4
+    },
+    {
+      "item_id": "item_herb_bundle",
+      "min_trust": 0,
+      "price": 10
+    },
+    {
+      "item_id": "item_water_bottle",
+      "min_trust": 0,
+      "price": 4
+    },
+    {
+      "item_id": "item_tea_leaves_herbal",
+      "min_trust": 0,
+      "price": 8
+    },
+    {
+      "item_id": "item_seed_oil",
+      "min_trust": 0,
+      "price": 14
+    },
+    {
+      "item_id": "item_salt_ration",
+      "min_trust": 0,
+      "price": 2
+    }
+  ],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": "The Long Table",
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_table"
+}

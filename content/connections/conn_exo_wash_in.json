@@ -1,0 +1,9 @@
+{
+  "a": "zone_terminus_1213_935",
+  "b": "zone_exo_wash",
+  "blocked": false,
+  "dir": "east",
+  "id": "conn_exo_wash_in",
+  "lockable": true,
+  "one_way": false
+}

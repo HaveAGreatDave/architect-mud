@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_thug_076",
+  "lines": [
+    "\"Should have been more.\"",
+    "\"For that? Should have been a lot more.\"",
+    "\"That is what I said.\"",
+    "\"Say it to him next time, not to me.\""
+  ],
+  "personality": "thug",
+  "sort_order": 475
+}
+

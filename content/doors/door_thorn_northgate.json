@@ -1,0 +1,20 @@
+{
+  "connection_id": "conn_scw_northgate",
+  "door_type": "reinforced",
+  "exit_dir": "south",
+  "flags": {},
+  "hololock_difficulty": 0,
+  "hp": 4000,
+  "hp_max": 4000,
+  "id": "door_thorn_northgate",
+  "is_locked": 1,
+  "is_open": 0,
+  "lock_state": "locked",
+  "name": "the thorn",
+  "tags": {
+    "lock:thornwarrengate": {},
+    "unbreakable": true
+  },
+  "target_zone": "zone_scw_1046_969",
+  "zone_id": "zone_scw_1046_968"
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Twelve years of one line a day on the wall: oil, hours, load. No gaps. One entry, six years back, is three lines instead of one, and the third line reads A BIRD.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_plantlog",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the log",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_charge"
+}

@@ -1,0 +1,19 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a05",
+  "interactive": null,
+  "lines": [
+    "The first shift goes past in ones and twos, none of them talking, all of them walking the same speed."
+  ],
+  "loudness": 0.4,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 104,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

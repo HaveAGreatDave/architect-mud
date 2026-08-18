@@ -22,7 +22,6 @@
     "west": "zone_scw_1047_974"
   },
   "flags": {
-    "lawless": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
@@ -33,6 +32,6 @@
   "grid_z": 0,
   "id": "zone_scw_1048_974",
   "map_id": "map_world",
-  "name": "The Houndyard",
+  "name": "The Runs",
   "parent_zone": null
 }

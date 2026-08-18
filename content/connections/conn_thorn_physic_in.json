@@ -1,0 +1,9 @@
+{
+  "a": "zone_scw_1049_977",
+  "b": "zone_thorn_physic",
+  "blocked": false,
+  "dir": "south",
+  "id": "conn_thorn_physic_in",
+  "lockable": true,
+  "one_way": false
+}

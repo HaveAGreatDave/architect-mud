@@ -1,0 +1,14 @@
+{
+  "description": "A shielded work lamp on a swing bracket over the chair, the only thing in the room aimed at anything.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_light_zone_exo_stillhouse",
+  "light_type": "overhead",
+  "lumen_output": 1200,
+  "name": "a work lamp on a bracket",
+  "object_type": "light",
+  "power_draw_kw": 0.04,
+  "price": 0,
+  "zone_id": "zone_exo_stillhouse"
+}

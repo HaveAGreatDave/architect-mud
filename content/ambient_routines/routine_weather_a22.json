@@ -1,0 +1,20 @@
+{
+  "category": "weather",
+  "enabled": true,
+  "id": "routine_weather_a22",
+  "interactive": null,
+  "lines": [
+    "Somebody sweeps their step clear of ash. By the time they straighten up it has started again.",
+    "They look at it. Then they sweep it again anyway."
+  ],
+  "loudness": 0.4,
+  "phases": [],
+  "sort_order": 121,
+  "themes": [],
+  "weather": [
+    "ash"
+  ],
+  "weight": 60,
+  "zones": []
+}
+

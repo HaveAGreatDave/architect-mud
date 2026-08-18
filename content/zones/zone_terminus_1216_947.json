@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "The book's page is turned back and read and turned forward again.",
+    "Linen is shaken out and refolded along its old creases.",
+    "Cold comes up off the stone."
+  ],
+  "ambient_theme": "outdoors",
+  "description": "A small stone building at the south wall with a walled plot behind it. The markers in the plot are all the same size and all the same stone, and each one carries a name and two dates and not one word more.",
+  "exits": {
+    "north": "zone_exo_quiet",
+    "south": "zone_terminus_1216_948"
+  },
+  "flags": {
+    "building_name": "The Quiet Ground",
+    "building_type": "undertaker",
+    "entrance": "south",
+    "exodus_space": true,
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_948"
+  },
+  "grid_x": 1216,
+  "grid_y": 947,
+  "grid_z": 0,
+  "id": "zone_terminus_1216_947",
+  "map_id": "map_world",
+  "marker": "QG",
+  "name": "The Quiet Ground",
+  "parent_zone": null
+}

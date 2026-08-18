@@ -15,26 +15,34 @@
 // tank-grown adult in this city walks out fully formed with no childhood to
 // discuss.
 //
-// ── LATCHED, NOT DERIVED. Read this before "simplifying" it. ─────────────────
+// ── LATCHED ONCE, DERIVED FROM THE ACCOUNT ───────────────────────────────────
 //
-// The old implementation stored NOTHING and recomputed from `players.created_at`
-// every time, which was genuinely better and is no longer possible. `created_at`
-// is a real-world unix timestamp, and the world clock advances at a configurable
-// scale that has changed and will change again — so there is no function from a
-// real timestamp back to "what the in-world date was when this account was
-// made". That information was never recorded and cannot be recovered.
+// The birth date is written into a player flag the first time anybody asks, and
+// read from that flag forever after. What it is derived from at that one moment
+// is the account's own age, extrapolated onto the world's calendar:
+// `players.created_at` is a real unix timestamp, and the world clock runs at
+// `world_clock.time_scale` game-days per real day (3, currently). So the in-world
+// date the account was registered is today's game date minus
+// (real days since registration × scale), and the commencement date is
+// twenty-five years before THAT.
 //
-// So the birth date is LATCHED into a player flag the first time anybody asks
-// for it, and read from the flag forever after. The reference for that first
-// latch is the in-world date TODAY, minus 25 years.
+// It is latched rather than recomputed on every ask because the scale is a knob
+// that has changed and will change again: recomputing would slide a character's
+// birthday every time somebody touched the dev panel's game-speed slider. Latch
+// once, against the scale in force at that moment, and afterwards it is simply a
+// fact about them.
 //
-// The consequence, stated plainly because it is visible in play: every character
-// who existed before this change shares a commencement date with everybody else
-// who first asked on the same in-world day, and their birthday is the day they
-// asked. In a city that grows its people in tanks, a shared decanting date reads
-// as a batch rather than as a bug — but it IS a consequence of the migration and
-// not an authored fact, and if it ever needs scattering, scatter it at the latch
-// (birthDateFor) rather than anywhere downstream.
+// THE ONE-TIME RE-LATCH. The first version of this stored today-minus-25 for
+// everybody, which made every existing character's birthday the day they first
+// typed the verb — an account a month old reporting "Today, in fact". BASIS_FLAG
+// records which rule wrote the stored date, so a birth date with no basis against
+// it is one of those: it is recomputed from the account once and stamped. That is
+// why overwriting a latched value is correct here and nowhere else, and why the
+// stamp must be written in the same call as the date.
+//
+// An account whose `created_at` cannot be read falls back to today-minus-25 and
+// is stamped `unknown` rather than left unstamped, so it does not recompute on
+// every ask — and can be told apart from a real derivation later.
 //
 // HIDDEN BY DEFAULT, deliberately. It is on no sheet, in no panel, and in no
 // examine. `birthday` is the only thing that will tell you, which is what makes
@@ -44,10 +52,14 @@ import { query } from '../../server/models/db.js';
 import { getFlag, setFlags } from '../../server/engine/flags.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
+import { getTimeScale } from '../../server/engine/gametime.js';
 
 const GIFT = 'item_soylent_manyhappy';
 const CLAIM_FLAG = 'birthday_gift_year';   // holds the GAME year last claimed
 const BIRTH_FLAG = 'birth_date';           // 'YYYY-MM-DD' on the game calendar
+const BASIS_FLAG = 'birth_date_basis';     // which rule wrote it: 'account' | 'unknown'
+
+const DAY_MS = 86_400_000;
 
 // The age the vats hand you.
 export const DECANT_AGE = 25;
@@ -87,7 +99,7 @@ function dayOfYear({ y, mo, d }) {
 }
 
 /**
- * Today, on the world's own calendar.
+ * Today on the world's own calendar, and the speed it is running at.
  *
  * Two sources, in order. The live clock (`environment.js` module state) is the
  * production path and costs nothing. The `world_clock` row is the fallback for
@@ -96,29 +108,64 @@ function dayOfYear({ y, mo, d }) {
  * a module-level cache was cold would be untestable AND wrong: the date exists,
  * it is simply in the database rather than in memory.
  *
- * That fallback matters beyond tests, because this function LATCHES a permanent
- * value. Refusing on a cold cache would be survivable; guessing on one would
- * write somebody a wrong birth date forever.
+ * That fallback matters beyond tests, because this function feeds a LATCH.
+ * Refusing on a cold cache would be survivable; guessing on one would write
+ * somebody a wrong birth date forever — which is also why the scale is read from
+ * the same source as the date rather than from `getTimeScale()` alone. That
+ * helper answers 1 both when the world really is 1× and when nobody has told it
+ * anything yet, and the two are indistinguishable from here.
  */
-export async function gameToday() {
+export async function gameNow() {
   try {
     const live = parseGameDate(getGameDateTime()?.date);
-    if (live) return live;
+    if (live) return { today: live, scale: getTimeScale() };
   } catch { /* environment not initialised — fall through to the row */ }
 
   try {
-    const { rows } = await query('SELECT game_date FROM world_clock WHERE id = 1');
+    const { rows } = await query('SELECT game_date, time_scale FROM world_clock WHERE id = 1');
     const raw = rows[0]?.game_date;
     // The column is a DATE, so the driver may hand back a Date object. Format it
     // from its UTC parts rather than through toISOString-on-local, which is the
     // usual way a calendar loses a day.
-    if (raw instanceof Date) {
-      return { y: raw.getUTCFullYear(), mo: raw.getUTCMonth(), d: raw.getUTCDate() };
-    }
-    return parseGameDate(raw);
+    const today = raw instanceof Date
+      ? { y: raw.getUTCFullYear(), mo: raw.getUTCMonth(), d: raw.getUTCDate() }
+      : parseGameDate(raw);
+    const scale = Number(rows[0]?.time_scale) > 0 ? Number(rows[0].time_scale) : 1;
+    return { today, scale };
   } catch {
-    return null;
+    return { today: null, scale: 1 };
   }
+}
+
+/** Today alone, for everything that does not care how fast the world is moving. */
+export async function gameToday() {
+  return (await gameNow()).today;
+}
+
+/** N days along the world's calendar. Negative walks backwards. */
+export function addDays(date, n) {
+  if (!date) return null;
+  let { y, mo, d } = date;
+  d += Math.trunc(n) || 0;
+  while (d > daysInMonth(y, mo)) { d -= daysInMonth(y, mo); if (++mo > 11) { mo = 0; y++; } }
+  while (d < 1) { if (--mo < 0) { mo = 11; y--; } d += daysInMonth(y, mo); }
+  return { y, mo, d };
+}
+
+/**
+ * How many days the world has lived through since an account was registered.
+ *
+ * The whole extrapolation, in one line of arithmetic: real days elapsed × the
+ * game-speed knob. Returns null — not zero — when there is no usable timestamp,
+ * because "registered today" and "we do not know when" must not collapse into
+ * the same answer; the caller stamps them differently.
+ */
+export function gameDaysSince(createdAtSec, nowMs, scale) {
+  const createdMs = Number(createdAtSec) * 1000;
+  if (!Number.isFinite(createdMs) || createdMs <= 0) return null;
+  const s = Number(scale) > 0 ? Number(scale) : 1;
+  const days = ((nowMs - createdMs) / DAY_MS) * s;
+  return days > 0 ? Math.floor(days) : 0;
 }
 
 /**
@@ -156,22 +203,47 @@ export function daysUntil(born, today) {
 }
 
 /**
+ * The registration timestamp. The live player object IS the `players` row in
+ * production, so this normally costs nothing; the query is for the harness and
+ * for anything holding a lighter object than a login does.
+ */
+async function createdAtOf(player) {
+  if (player?.created_at != null) return player.created_at;
+  if (!player?.id) return null;
+  try {
+    const { rows } = await query('SELECT created_at FROM players WHERE id = $1', [player.id]);
+    return rows[0]?.created_at ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * This player's birth date, latching it on first ask. See the header.
  * Returns null only when the world clock has not booted.
  */
 export async function birthDateOf(player) {
   const stored = parseGameDate(await getFlag('player', BIRTH_FLAG, player));
-  if (stored) return stored;
+  const basis = await getFlag('player', BASIS_FLAG, player);
+  if (stored && basis) return stored;
 
-  const today = await gameToday();
-  if (!today) return null;
-  const born = birthDateFor(today);
-  await setFlags(player, { [BIRTH_FLAG]: fmtGameDate(born) });
+  const { today, scale } = await gameNow();
+  // No clock: hand back whatever is stored rather than latching a guess.
+  if (!today) return stored || null;
+
+  const elapsed = gameDaysSince(await createdAtOf(player), Date.now(), scale);
+  const born = birthDateFor(elapsed == null ? today : addDays(today, -elapsed));
+  // Date and stamp in the SAME write — a date that lands without its basis is
+  // indistinguishable from a pre-re-latch row and gets rewritten on the next ask.
+  await setFlags(player, {
+    [BIRTH_FLAG]: fmtGameDate(born),
+    [BASIS_FLAG]: elapsed == null ? 'unknown' : 'account',
+  });
   return born;
 }
 
 async function cmdBirthday(args, raw, player, broadcast) {
-  const today = await gameToday();
+  const { today } = await gameNow();
   if (!today) {
     return { type: 'error', message: 'The registry cannot reach the calendar. Try again in a moment.' };
   }
@@ -225,4 +297,4 @@ async function cmdBirthday(args, raw, player, broadcast) {
 }
 
 export const commands = { birthday: cmdBirthday };
-export const _test = { parseGameDate, fmtGameDate, birthDateFor, ageOn, daysUntil, dayOfYear, daysInMonth, BIRTH_FLAG, CLAIM_FLAG };
+export const _test = { parseGameDate, fmtGameDate, birthDateFor, ageOn, daysUntil, dayOfYear, daysInMonth, BIRTH_FLAG, BASIS_FLAG, CLAIM_FLAG };

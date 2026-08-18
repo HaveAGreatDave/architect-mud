@@ -1,4 +1,4 @@
-import { query, logActivity, getQueryMeter } from '../models/db.js';
+import { query, logActivity, getQueryMeter, getClient } from '../models/db.js';
 import { syncContentFromRequest, syncZoneDeletion } from './content-sync.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors, reloadSpawn, removeSpawn, isEnterableFacade, resolveLanding, reloadMaps, insertFurniture, updateFurniture, deleteFurniture, deleteFurnitureWhere, refreshZoneFurniture, propsOf, loadZoneRender, getAllRegions } from '../engine/world.js';
 import { authorUtilityRoom } from '../../tools/lib/utility-room.mjs';
@@ -35,6 +35,7 @@ import { vendorSafeRow, vendorHasSafe } from '../engine/vendor-safe-furniture.js
 import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
+import { validateMapLayout } from '../engine/mapValidation.js';
 import { DISTRICTS, DISTRICT_PREFIX } from '../engine/districts.js';
 
 // Base URL for links we mail out (verification, password reset). CLIENT_BASE_URL
@@ -3245,7 +3246,9 @@ async function apiBuildApartmentBlock(body) {
     return { status:400, body:{error:`${attach_to_zone_id} already has an exit ${attach_direction} (to ${parentExits[attach_direction]}). Choose a different direction or parent zone.`} };
   }
 
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  // OPPOSITE comes from engine/directions.js (imported at the top). A local copy
+  // used to shadow it here, and it was missing in/out — so an entrance attached
+  // `in` silently produced `undefined` exits.
   const lobbyId = `zone_apt_lobby_${Date.now()}`;
   const unitDirs = UNIT_DIRECTIONS.filter(d => d !== OPPOSITE[attach_direction]).slice(0, unit_count);
   const unitIds = unitDirs.map((_, i) => `zone_apt_unit_${Date.now()}_${i}`);

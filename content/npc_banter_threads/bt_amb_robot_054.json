@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_robot_054",
+  "lines": [
+    "\"MAINTENANCE WINDOW SCHEDULED.\"",
+    "\"YEAR NOT SPECIFIED.\"",
+    "\"YEAR NOT SPECIFIED.\"",
+    "\"ACKNOWLEDGED.\""
+  ],
+  "personality": "robot",
+  "sort_order": 453
+}
+

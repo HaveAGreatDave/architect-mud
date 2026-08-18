@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_politician_078",
+  "lines": [
+    "\"Did you promise them?\"",
+    "\"I indicated.\"",
+    "\"Indicated what?\"",
+    "\"That is the beauty of indicating.\""
+  ],
+  "personality": "politician",
+  "sort_order": 477
+}
+

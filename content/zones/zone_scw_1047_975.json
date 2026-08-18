@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "Boots go up the ladder, and along, and stop somewhere above you.",
+    "A bad joint gets ringed on the chalk board and a name written beside it.",
+    "Water moves in a header tank overhead and settles."
   ],
   "ambient_theme": "wasteland",
-  "description": "A run of duckboard along the backs of the dwellings at gutter height, put there so the roof crews can work the channels without going through anybody's house. Every roof in sight is pitched at the same steep shed angle and every one drains into the same run of tin. Catchment drums stand under each downpipe, lidded, numbered, and chained to the wall so nobody borrows one.",
+  "description": "A frame of scaffold and salvage rail going up two storeys, with a gantry off it running away over the roofs of half the town. The whole rain harvest is up there: gutters, headers, a bank of settling tanks, all of it walked twice a day by somebody with a pot of grease and a spanner.",
   "exits": {
-    "east": "zone_scw_1048_975",
-    "north": "zone_scw_1047_974",
-    "south": "zone_scw_1047_976",
-    "west": "zone_scw_1046_975"
+    "north": "zone_thorn_roofwalk",
+    "south": "zone_scw_1047_976"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Roofwalk",
+    "building_type": "civic",
+    "entrance": "south",
+    "facade": true,
+    "floors": 2,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1047_976"
   },
   "grid_x": 1047,
   "grid_y": 975,
   "grid_z": 0,
   "id": "zone_scw_1047_975",
   "map_id": "map_world",
+  "marker": "RO",
   "name": "The Roofwalk",
   "parent_zone": null
 }

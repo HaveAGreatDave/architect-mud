@@ -1,0 +1,30 @@
+{
+  "ambient_events": [
+    "The water moves. Nothing has touched it.",
+    "The room is quiet in a way that has nothing to do with sound.",
+    "A ring goes out across the basin, reaches the stone, and comes back.",
+    "You become aware that you have been standing still for longer than you meant to."
+  ],
+  "ambient_theme": "indoors",
+  "description": "A room with nothing in it but a basin sunk into the floor, four feet across, cut from one piece of stone and filled to the brim with water. The water is absolutely still. The walls are bare and the ceiling is low and there is no lamp.\n\nThere are marks on the floor around the basin where people have stood, worn into the stone, and there are eleven of them, and they are not evenly spaced.",
+  "exits": {
+    "west": "zone_exo_stillhouse"
+  },
+  "flags": {
+    "building_name": "The Stillhouse",
+    "building_type": "clinic",
+    "exodus_space": true,
+    "floor": "stone",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_941"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_stillwell",
+  "map_id": "map_int_exo_stillhouse",
+  "name": "The Stillwell",
+  "parent_zone": "zone_terminus_1216_941"
+}

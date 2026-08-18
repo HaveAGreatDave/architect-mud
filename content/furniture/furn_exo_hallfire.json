@@ -1,0 +1,14 @@
+{
+  "description": "A fire at the end of the hall with a chair pulled up to it. Neither is for anybody in particular. In a compound that measures its oil to the spoonful, this burns all night, every night, for a door that is propped open with a stone.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_hallfire",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the hall fire",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_opendoor"
+}

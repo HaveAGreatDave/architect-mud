@@ -1,0 +1,20 @@
+{
+  "category": "dawn",
+  "enabled": true,
+  "id": "routine_dawn_a03",
+  "interactive": null,
+  "lines": [
+    "A delivery pallet comes off a truck bed and hits the pavement harder than anybody intended.",
+    "Somebody swears at it. The truck pulls away without waiting to hear the rest."
+  ],
+  "loudness": 0.5,
+  "phases": [
+    "dawn"
+  ],
+  "sort_order": 102,
+  "themes": [],
+  "weather": [],
+  "weight": 60,
+  "zones": []
+}
+

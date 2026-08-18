@@ -1,0 +1,14 @@
+{
+  "description": "A patch of the stone floor at the far end, worn pale, about the size of a person standing. It is not on a step and it is not marked out. Everyone leaves a foot of space around it without appearing to think about it.",
+  "flags": {},
+  "hp": null,
+  "hp_max": null,
+  "id": "furn_exo_worn_floor",
+  "light_type": null,
+  "lumen_output": null,
+  "name": "the worn patch",
+  "object_type": "furniture",
+  "power_draw_kw": null,
+  "price": 0,
+  "zone_id": "zone_exo_waking"
+}

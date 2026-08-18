@@ -1,38 +1,33 @@
 {
   "ambient_events": [
-    "Somebody two roofs over is having an argument about a bucket, and losing it.",
-    "Woodsmoke, and under it, onions.",
-    "Washing on a line, pegged out in order of size.",
-    "A child runs past on an errand, entirely uninterested in you.",
-    "A door opens, a bowl of grey water goes out into a channel, the door shuts.",
-    "Someone is singing badly and not stopping.",
-    "Two women go by carrying a rolled mat between them, arguing amiably about whose it is.",
-    "A dog asleep in the shade of a water drum, legs going, dreaming.",
-    "Chalk on a wall at knee height. A hand, traced round, and a smaller one inside it.",
-    "Somebody laughs, a proper one, from the bottom of the chest, and it sets off two more.",
-    "A very old man is asleep in a chair in the sun with a cat on him.",
-    "The bell on the cistern gate goes twice. Nobody hurries, but everybody turns."
+    "The third pot gets a taste and a shake of the head and is left alone.",
+    "Somebody arrives with an armful of something and puts it down without a word and leaves.",
+    "A name is crossed off the owing board and written on again lower down."
   ],
   "ambient_theme": "wasteland",
-  "description": "Homes built into and onto each other over a long time, so it is not clear where one stops. Numbers have been painted on the doors by somebody with strong opinions about numbers.",
+  "description": "A cookhouse with no front wall at all, just a roof on posts over a fire trench forty feet long with six pots down it at different heights. The smell reaches the gate. Whatever is in the big pot has been in the big pot, being added to, for longer than anybody will admit to.",
   "exits": {
-    "east": "zone_scw_1044_975",
-    "north": "zone_scw_1043_974",
-    "south": "zone_scw_1043_976",
-    "west": "zone_scw_1042_975"
+    "north": "zone_thorn_longfire",
+    "south": "zone_scw_1043_976"
   },
   "flags": {
-    "lawless": true,
+    "building_name": "The Long Fire",
+    "building_type": "diner",
+    "entrance": "south",
+    "facade": true,
+    "floors": 1,
+    "is_building": true,
     "no_spawn": true,
     "radiation": 12,
     "region_id": "region_scarletwastes",
-    "terrain": "redrock"
+    "world_exit_zone": "zone_scw_1043_976"
   },
   "grid_x": 1043,
   "grid_y": 975,
   "grid_z": 0,
   "id": "zone_scw_1043_975",
   "map_id": "map_world",
-  "name": "Cinder Lane",
+  "marker": "LF",
+  "name": "The Long Fire",
   "parent_zone": null
 }

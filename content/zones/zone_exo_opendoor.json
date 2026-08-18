@@ -1,0 +1,32 @@
+{
+  "ambient_events": [
+    "A cell door stands open on a made bed nobody has slept in.",
+    "Somebody writes a first name in the ledger and does not write a surname.",
+    "The fire is fed one log and left alone.",
+    "A jug is taken away full and brought back full.",
+    "Wind comes down the hall from the propped door and nobody moves to shut it."
+  ],
+  "ambient_theme": "indoors",
+  "description": "A hall with six cells off it, each with a bed made up, a stool, a shelf and a jug. Nothing in any of them belongs to anybody. A ledger lies open on a stand by the door and a pen beside it, and the ledger is a list of first names and dates and nothing else, going back years, in a dozen hands.\n\nAt the far end there is a fire lit and a chair pulled up to it, and neither is for anyone in particular.",
+  "exits": {
+    "down": "zone_util_zone_exo_opendoor",
+    "south": "zone_terminus_1216_939"
+  },
+  "flags": {
+    "building_name": "The Open Door",
+    "building_type": "hotel",
+    "exodus_space": true,
+    "floor": "boards",
+    "is_building": true,
+    "is_interior": true,
+    "region_id": "region_terminus",
+    "world_exit_zone": "zone_terminus_1216_939"
+  },
+  "grid_x": 0,
+  "grid_y": 0,
+  "grid_z": 0,
+  "id": "zone_exo_opendoor",
+  "map_id": "map_int_exo_opendoor",
+  "name": "The Open Door",
+  "parent_zone": "zone_terminus_1216_939"
+}

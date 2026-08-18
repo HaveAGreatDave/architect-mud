@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_police_031",
+  "lines": [
+    "\"Quiet one?\"",
+    "\"Quiet ones are worse. You get to thinking.\"",
+    "\"About what?\"",
+    "\"About how quiet it is, mostly. Then something happens.\""
+  ],
+  "personality": "police",
+  "sort_order": 430
+}
+

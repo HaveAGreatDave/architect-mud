@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "id": "bt_amb_quiet_046",
+  "lines": [
+    "nods once and says nothing for a while",
+    "\"It is a quiet one.\"",
+    "\"Good.\"",
+    "nods again, satisfied that the point has been fully made"
+  ],
+  "personality": "quiet",
+  "sort_order": 445
+}
+

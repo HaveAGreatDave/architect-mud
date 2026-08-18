@@ -1,0 +1,228 @@
+{
+  "banter": [],
+  "behaviour_graph": {},
+  "chitchat": [
+    "You found us. Well done.",
+    "Sit down. There is nothing on.",
+    "No, I will not, and you are very good to keep asking.",
+    "It is not a secret. It is just not a sentence.",
+    "You will get it, or you will not, and either is all right."
+  ],
+  "description": "An old woman sitting on the end of a bench near the worn patch of floor, not at the front and not facing anywhere in particular. She is mending a sleeve. She is extremely pleased to see you and makes no attempt to hide it, and at no point does she ask you a single question about yourself.",
+  "dialogue_tree": {
+    "bye": {
+      "actions": [],
+      "options": [],
+      "text": "\"Mind how you go.\"\n\nAnd that is that, and they go back to it."
+    },
+    "hall": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where are you all going?",
+          "next": "leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I supposed to do here?",
+          "next": "me"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"People sit in it.\"\n\nA pause you could drive a truck through.\n\n\"There is a bit at the end where somebody stands, if they have got something. Mostly nobody has. It is very restful. You are welcome to sit in it whenever you like.\"\n\nBehind her, at the far end of the hall, four people who have not spoken to each other get up at the same moment and go out by different doors. She does not turn round."
+    },
+    "leave": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens in this room?",
+          "next": "hall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I supposed to do here?",
+          "next": "me"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Out.\"\n\nShe threads the needle, which at her age takes a moment and which she does not hurry.\n\n\"That is not me being difficult either. We do not say the place. Not to you, not to Stannard, not much to each other. The machine kept every record there has ever been and the one place it never reached was the inside of a head, and a thing that is said out loud stops being in there.\"\n\n\"So we are going out. And we are taking a very long time over it, and we are getting it right.\""
+    },
+    "me": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where are you all going?",
+          "next": "leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens in this room?",
+          "next": "hall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Whatever you would have done anyway.\"\n\nShe holds the sleeve up to the light, decides against it, and starts again.\n\n\"Eat with everybody. Wash up your own bowl. If somebody is carrying something heavy, take an end. If a door does not open for you, do not stand there arguing with it, there is nobody to argue with.\"\n\n\"And do not tell anybody in here what you used to be. Not because we would mind. Because you will want to, badly, for about a fortnight, and then one morning you will not, and that morning is worth having.\""
+    },
+    "root": {
+      "actions": [],
+      "first": "\"Oh, good.\" She puts the sleeve down. \"I did wonder how long. Sit, sit. Nobody is doing anything.\"",
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What is this place?",
+          "next": "what"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where are you all going?",
+          "next": "leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens in this room?",
+          "next": "hall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I supposed to do here?",
+          "next": "me"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"Sit down, if you like.\"",
+      "text_by_relation": {
+        "close": "\"Ah.\" She does not look up from the sleeve, and moves along the bench, and carries on.",
+        "familiar": "\"There you are.\" She makes room she did not need to make.",
+        "known": "\"You are still here.\" She sounds delighted about it."
+      }
+    },
+    "what": {
+      "actions": [],
+      "options": [
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Where are you all going?",
+          "next": "leave"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What happens in this room?",
+          "next": "hall"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "What am I supposed to do here?",
+          "next": "me"
+        },
+        {
+          "actions": [],
+          "conditions": [],
+          "enabled": true,
+          "label": "Nothing.",
+          "next": "bye"
+        }
+      ],
+      "text": "\"It is where we live.\"\n\nShe waits, quite comfortably, to see whether you will accept that. When you do not, she smiles at the sleeve.\n\n\"You want me to say a bigger word. I have got one. Everybody in here has got one. The trouble with the bigger word is that once I say it, that is what you will have come here and found, and you will stop looking, and what you found will be a word.\"\n\n\"So. It is where we live. Ask me again in a year.\""
+    }
+  },
+  "faction": "ideology_exodus",
+  "flags": {
+    "clothing_layers": [
+      "a plain coat, grey, unmarked",
+      "a high-necked shirt",
+      "shoes kept for indoors"
+    ],
+    "personality": "charity"
+  },
+  "home_activities": [],
+  "home_zone": "zone_exo_waking",
+  "hp": 26,
+  "hp_max": 26,
+  "id": "npc_exo_elder",
+  "name": "Thankful Sedge",
+  "npc_type": "npc",
+  "sex": "female",
+  "studio_zone_id": null,
+  "vendor_inventory": [],
+  "vendor_restock_rate": 1,
+  "vendor_schedule": {},
+  "vendor_shop_name": null,
+  "vendor_stock_size": 10,
+  "wander_zones": [],
+  "wanders": 0,
+  "work_zone_id": "zone_exo_waking"
+}

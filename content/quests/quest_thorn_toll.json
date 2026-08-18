@@ -1,0 +1,53 @@
+{
+  "category": null,
+  "description": "One of Bracken Hale's hounds went out onto the flats four days ago and did not come back, and she is heavy in whelp. He has been out three nights looking and he is fifty-one and he will not stop. Quarrel Nine asked you to go and find her, and was extremely clear that this is not a test and buys you nothing, and asked anyway.\n\nShe will not come to you. Find her, stay with her, and she will follow when she has decided about you.",
+  "fail_on": [],
+  "id": "quest_thorn_toll",
+  "meta": {},
+  "name": "The Toll",
+  "objectives": [
+    {
+      "desc": "Search the flats west and south of the Thornwarren.",
+      "emotes": [
+        "{who} works the low ground with the wall at their back, quartering it properly."
+      ],
+      "id": "o_flats",
+      "type": "visit",
+      "zone": "zone_scw_1033_988"
+    },
+    {
+      "desc": "Find the hound in the dry ground below the Slake.",
+      "emotes": [
+        "{who} stops moving, and sits down in the dirt, and waits, which is the only thing that was ever going to work."
+      ],
+      "id": "o_found",
+      "type": "visit",
+      "zone": "zone_scw_1031_982"
+    },
+    {
+      "desc": "Walk her back to the North Gate.",
+      "emotes": [
+        "{who} comes up the trophy road at a walking pace with something enormous following four feet behind them."
+      ],
+      "id": "o_home",
+      "type": "visit",
+      "zone": "zone_scw_1046_967"
+    }
+  ],
+  "penalties": {},
+  "quest_type": "standard",
+  "repeatable": 0,
+  "rewards": {
+    "credits": 140,
+    "flags": [
+      {
+        "flag": "thorn_toll_done",
+        "scope": "player",
+        "value": "done"
+      }
+    ],
+    "items": [],
+    "xp": 34
+  },
+  "updated_at": "1787000000"
+}

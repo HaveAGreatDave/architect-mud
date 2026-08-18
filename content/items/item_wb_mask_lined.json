@@ -1,0 +1,17 @@
+{
+  "description": "Bone and plate with the jaw wired open. At a hundred paces on the trophy road it is the most frightening object in the region.\n\nUp close it is quilted inside, stitched down flat at every edge, so it does not chafe on a long shift. Somebody's grandmother did the lining and did it well.",
+  "flags": {},
+  "id": "item_wb_mask_lined",
+  "name": "a gate mask",
+  "tags": {
+    "armor_soak": {
+      "kinetic": 2
+    },
+    "description": "A horror on the outside and a quilted rag lining on the inside, stitched flat at every edge.",
+    "layer": "armor",
+    "slot": "head"
+  },
+  "type": "clothing",
+  "value": 400,
+  "weight": 900
+}
