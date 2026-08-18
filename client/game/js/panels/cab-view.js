@@ -263,6 +263,23 @@ export function openCab(ctx = {}) {
         <button class="cab-dmg-strip" aria-expanded="false" title="damage (D)"></button>
         <div class="cab-dmg-full" hidden></div>
       </div>
+      <!-- ── THE FUEL GAUGE ON THE GLASS ──────────────────────────────────────
+           The dash already has a fuel dial, and it is not enough on its own for the two moments
+           that matter. In the EXTERNAL view there is no dash at all — drawCabInterior is gated on
+           'not external' inside the renderer — so a driver orbiting the rig has no fuel reading of
+           any kind at all. And
+           while the handle is down, the thing you are watching is a needle creeping across a
+           40-pixel dial with a number changing on a button somewhere else.
+           So: one gauge, on the view rather than on the truck, shown in BOTH views. Always up
+           outside the cab (nothing else there reads out anything); in the cab it comes up when
+           there is something to watch — at a pump, or when the tank is low enough to be a decision.
+           It is HTML rather than a second canvas instrument deliberately: it inherits the theme,
+           it can be read aloud, and it does not need the renderer to know it exists. -->
+      <div class="cab-fuel" hidden role="group" aria-label="Fuel">
+        <div class="cab-fuel-top"><span class="cab-fuel-lb">FUEL</span><span class="cab-fuel-pct">--</span></div>
+        <div class="cab-fuel-bar"><i class="cab-fuel-fill"></i><i class="cab-fuel-warn"></i></div>
+        <div class="cab-fuel-ends"><span>E</span><span class="cab-fuel-note"></span><span>F</span></div>
+      </div>
       <div class="cab-help" hidden></div>
       <!-- THE ROUTE PICKER. Opened by tapping the GPS screen on the dash; every row sends the
            ordinary 'route &lt;key&gt;' verb, which is what actually decides. -->
@@ -740,6 +757,7 @@ export function openCab(ctx = {}) {
       const afford = (st.pump?.credits || 0) / (st.pump?.full || 380);
       return Math.min(room, afford);
     };
+    let flowAt = 0, flowSeed = 0, wasFull = false;
     const tick = () => {
       const lim = cap();
       took = Math.min(lim, ((performance.now() - t0) / 1000) * RATE);
@@ -749,8 +767,17 @@ export function openCab(ctx = {}) {
       // CLICK is the pump stopping, and it is deliberately the same word whether the tank filled or
       // the money ran out — the driver can see which from the gauge, and a handle does not explain
       // itself. It keeps showing the total, because that is what you are about to be charged.
-      if (r) r.textContent = took >= lim - 1e-6 ? `CLICK ${cost}₵` : `${cost}₵`;
-      el.classList.toggle('clicked', took >= lim - 1e-6);
+      const full = took >= lim - 1e-6;
+      if (r) r.textContent = full ? `CLICK ${cost}₵` : `${cost}₵`;
+      el.classList.toggle('clicked', full);
+      // THE SOUND OF IT, on the same tick as the needle. Diesel is only flowing while the handle is
+      // down AND the pump has not clicked off, so the flow stops the moment the tank does — and the
+      // click gets the one cue that means the pour is over, fired once rather than every 50ms.
+      const now = performance.now();
+      if (!full && now - flowAt >= PUMP_FLOW_MS) { flowAt = now; pumpFlowCue(4600 + (flowSeed++ % 23) * 7); }
+      if (full && !wasFull) pumpEndCue('stop');
+      wasFull = full;
+      paintFuelGauge(st);
     };
     const on = (e) => {
       if (!el || el.hidden || !st.pump || timer) return;
@@ -758,8 +785,11 @@ export function openCab(ctx = {}) {
       if (e.pointerId != null) el.setPointerCapture?.(e.pointerId);
       t0 = performance.now(); took = 0; st.fuelAtPump = st.fuel ?? 1;
       st.pumping = true;
+      flowAt = 0; wasFull = false;
+      pumpEndCue('start');                       // the nozzle going into the filler
       el.classList.add('on');
       timer = setInterval(tick, 50);
+      paintFuelGauge(st);
       e.preventDefault();
     };
     const off = (e) => {
@@ -767,12 +797,16 @@ export function openCab(ctx = {}) {
       if (e && e.pointerId != null && pid !== null && pid !== 'kb' && e.pointerId !== pid) return;
       clearInterval(timer); timer = 0; pid = null;
       st.pumping = false;
+      // The handle coming out. Not fired when the pump already clicked off on its own — that cue
+      // has already played, and two clicks a tenth of a second apart reads as a fault.
+      if (!wasFull && took >= 0.01) pumpEndCue('stop');
       el.classList.remove('on', 'clicked');
       const r = read(); if (r) r.textContent = 'FUEL';
       // Nothing worth a round trip: a stab at the handle is not a purchase.
       if (took >= 0.01) sendCmdSilent(`truckpump ${took.toFixed(3)}`);
       else st.fuel = st.fuelAtPump ?? st.fuel;
       took = 0;
+      paintFuelGauge(st);
     };
     el?.addEventListener('pointerdown', on);
     el?.addEventListener('pointerup', off);
@@ -1786,6 +1820,10 @@ export function openCab(ctx = {}) {
     viewBtn.classList.toggle('on', st.external);
     viewBtn.textContent = st.external ? '◎ CAB' : '◎ EXT';
     container.querySelector('.cab-wrap')?.classList.toggle('cab-ext', st.external);
+    // Outside the cab there is no dash, so the glass gauge is the only fuel reading there is —
+    // repaint on the switch rather than waiting for the next server push, or stepping out shows
+    // nothing for up to a second.
+    paintFuelGauge(st);
     const rst = container.querySelector('.cab-orbitreset');
     if (rst) rst.hidden = !st.external;
     // A drag that started as steering must not become an orbit halfway through, and vice versa.
@@ -2050,10 +2088,10 @@ export function cabContext(ctx) {
   if (ctx.hitchable !== undefined) { st.hitchable = ctx.hitchable; paintHitchBtn(st); }
   // The pump under the nose, and the balance the handle meters against. `null` is a real answer —
   // it is most of the world — so this assigns rather than merges.
-  if (ctx.pump !== undefined) { st.pump = ctx.pump || null; paintPumpBtn(st); }
+  if (ctx.pump !== undefined) { st.pump = ctx.pump || null; paintPumpBtn(st); paintFuelGauge(st); }
   // Out of diesel: the server says so and the pedal stops meaning anything. It clamps the speed
   // its own side too — this is the feel, not the enforcement.
-  if (ctx.dry != null) st.dry = !!ctx.dry;
+  if (ctx.dry != null) { st.dry = !!ctx.dry; paintFuelGauge(st); }
   // The tank has been in this payload since phase 1 (state.js packs `fuel`) and the cab has never
   // read it — a driver got a boolean at the moment they ran out and nothing at all before it. The
   // gauge is the warning; running dry with a needle on the peg is the driver's fault, which is the
@@ -2062,7 +2100,7 @@ export function cabContext(ctx) {
   // pre-pour figure until the commit — so accepting it mid-pour drags the needle back to where the
   // tank was every second while the driver is watching it rise. The commit's own push (`pumped`)
   // arrives after the handle is released and lands normally, which is the correction that matters.
-  if (ctx.fuel != null && !st.pumping) { st.fuel = Math.max(0, Math.min(1, ctx.fuel)); paintPumpBtn(st); }
+  if (ctx.fuel != null && !st.pumping) { st.fuel = Math.max(0, Math.min(1, ctx.fuel)); paintPumpBtn(st); paintFuelGauge(st); }
   if (ctx.broken !== undefined) st.broken = ctx.broken || null;
   if (ctx.hour != null) st.hour = ctx.hour;
   if (ctx.weather) {
@@ -2262,6 +2300,82 @@ function paintPumpBtn(st) {
   el.setAttribute('title', `Diesel — ${p.full}₵ a tank, ${Math.round(room * p.full)}₵ to fill this one.`
     + ` HOLD the handle: it fills while you hold it and charges you when you let go.`);
   el.setAttribute('aria-label', `Fuel pump — hold to fill, ${Math.round(room * p.full)} credits for a full tank`);
+}
+
+// ── THE GLASS FUEL GAUGE ─────────────────────────────────────────────────────
+// Painted from the SAME `st.fuel` the dash dial reads and the pump handle moves, so all three
+// always agree — including mid-pour, where `st.fuel` is the client's optimistic needle and the
+// server's number lands a beat later (see the pump handle for that split).
+//
+// ⚠ WHEN IT IS UP is the whole design of it. In the external view there is nothing else that reads
+// out anything at all, so it is always up. In the cab the dash already has the dial, so this only
+// appears when there is a reason to watch: at a pump, or under the reserve mark, where the number
+// stops being scenery and becomes a decision. A permanent second gauge six inches from the first
+// would be the sort of HUD clutter this cab has otherwise been careful not to grow.
+function paintFuelGauge(st) {
+  const el = st?.container?.querySelector('.cab-fuel');
+  if (!el) return;
+  const f = Math.max(0, Math.min(1, st.dry ? 0 : (st.fuel ?? 1)));
+  const low = f < 0.15;
+  const want = st.external || st.pumping || !!st.pump || low;
+  if (el.hidden !== !want) el.hidden = !want;
+  if (!want) return;
+  el.classList.toggle('low', low && f > 0);
+  el.classList.toggle('dry', f <= 0);
+  el.classList.toggle('pumping', !!st.pumping);
+  const pct = Math.round(f * 100);
+  const q = (s, v) => { const n = el.querySelector(s); if (n && n.textContent !== v) n.textContent = v; };
+  q('.cab-fuel-pct', `${pct}%`);
+  const fill = el.querySelector('.cab-fuel-fill');
+  if (fill) fill.style.width = `${(f * 100).toFixed(1)}%`;
+  // The note line is the one place the gauge says anything: the rate you are being charged while
+  // the handle is down, and what it would cost to fill from here while you are stood at a pump.
+  // Two decimals, because that is the number on the pylon outside and they have to be the same
+  // price said twice — see `each` on the fuel.prices row.
+  const p = st.pump;
+  q('.cab-fuel-note', st.pumping && p ? `${(p.full / 100).toFixed(2)}/%`
+    : p ? `${Math.round((1 - f) * p.full)}₵ to fill` : low ? 'RESERVE' : '');
+  el.setAttribute('aria-label', `Fuel ${pct} percent${low ? ', reserve' : ''}`);
+}
+
+// ── THE PUMP, AS A SOUND ─────────────────────────────────────────────────────
+// Diesel going into a tank is three things at once and none of them is a sample: the rush of the
+// liquid, the pump's own motor under it, and the meter counting. Built from the shared generator
+// the rest of the game uses (`pour` for the flow, `impact` for the mechanism), so it sits in the
+// mix at the right level and costs no asset — the same argument as every other cue in this file.
+//
+// ⚠ RE-FIRED ON A CADENCE, NOT LOOPED. The generator produces one-shot cues; there is no sustain
+// primitive, and inventing one for this would be a second audio path to maintain. So the flow is a
+// short `pour` re-fired just inside its own length, which reads as continuous, and it is driven
+// from the SAME 50ms tick that moves the needle — no second timer to leak if the panel closes
+// mid-pour.
+//
+// ⚠ AND IT VARIES. Every cue in the shared generator jitters (see `vary`), which is exactly right
+// here: a pump re-firing an identical 400ms burst reads as a stuck loop, and the whole reason this
+// is generated rather than sampled is that it never has to.
+const PUMP_FLOW_MS = 380;
+function pumpFlowCue(seed) {
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  if (!A || !S) return;
+  try {
+    const flow = S.buildActionCue({ action: 'pour', material: 'liquid', flow: 0.42, intensity: 0.5, seed });
+    if (flow) A.playSfx(flow, 0.16);
+    // The motor, an octave under the rush — a short, dull metal knock is what a diaphragm pump
+    // sounds like through a hose, and re-firing it on the same cadence gives the flow a pulse.
+    const motor = S.buildActionCue({ action: 'impact', surface: 'metal', intensity: 0.12, seed: seed + 17 });
+    if (motor) A.playSfx(motor, 0.07);
+  } catch { /* audio is never load-bearing */ }
+}
+// The nozzle going in, and the handle clicking off. Two ends of the same act, and the second one is
+// the sound a driver is actually listening for.
+function pumpEndCue(kind) {
+  const A = window.AudioEngine, S = window.ProceduralSFX;
+  if (!A || !S) return;
+  try {
+    const d = S.buildActionCue({ action: kind === 'start' ? 'impact' : 'lock', surface: 'metal',
+      state: 'click', intensity: kind === 'start' ? 0.3 : 0.45, seed: 4400 + (kind === 'start' ? 0 : 61) });
+    if (d) A.playSfx(d, kind === 'start' ? 0.2 : 0.3);
+  } catch { /* audio is never load-bearing */ }
 }
 
 function drawRigOverlay(st, r) {
@@ -3586,6 +3700,26 @@ function ensureCabStyles() {
      Bottom-left of the glass, opposite the view chrome. Small enough to ignore
      when everything is fine, and the pips carry the colour so a bad one is
      visible without reading anything. */
+  /* The glass fuel gauge. Top-left, opposite the chrome buttons and clear of the damage strip in
+     the bottom corner. Fixed width so the needle does not jog as the digits change width. */
+  .cab-fuel{position:absolute;left:6px;top:6px;z-index:5;width:132px;padding:5px 6px 4px;
+    background:rgba(6,10,14,.82);border:1px solid #3a4550;border-radius:4px;
+    font:600 9px/1.1 'DejaVu Sans Mono',monospace;color:#9fb0c0;pointer-events:none}
+  .cab-fuel-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+  .cab-fuel-pct{font-size:13px;color:#dfe8f0}
+  .cab-fuel.low .cab-fuel-pct{color:#d8a24e}
+  .cab-fuel.dry .cab-fuel-pct{color:#d2603f}
+  .cab-fuel-bar{position:relative;height:9px;border:1px solid #2b3540;
+    border-radius:2px;background:#0a1016;overflow:hidden}
+  .cab-fuel-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#7d5a2a,#e0b25c);
+    transition:width .12s linear}
+  .cab-fuel.dry .cab-fuel-fill{background:linear-gradient(90deg,#5c2a24,#d2603f)}
+  /* The reserve band is painted UNDER the fill and never moves — a fixed mark on the glass, the way
+     a red arc on a real gauge is a property of the dial and not of the needle. */
+  .cab-fuel-warn{position:absolute;left:0;top:0;bottom:0;width:15%;background:rgba(210,96,63,.28)}
+  .cab-fuel-ends{display:flex;justify-content:space-between;margin-top:2px;font-size:8px;color:#6d7d8c}
+  .cab-fuel-note{color:#e0b25c;letter-spacing:.02em}
+  .cab-fuel.pumping{border-color:#8a6a34;box-shadow:0 0 0 1px rgba(224,178,92,.25)}
   .cab-dmg{position:absolute;left:6px;bottom:6px;z-index:5;display:flex;flex-direction:column;
     align-items:flex-start;gap:5px}
   .cab-dmg-strip{display:flex;gap:3px;align-items:flex-end;background:rgba(6,10,14,.8);
