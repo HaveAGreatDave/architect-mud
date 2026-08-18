@@ -57,15 +57,24 @@ export async function fleetOf(playerId) {
 // bay and the hardstand outside its door are two zones and one place, so a rig parked on either
 // answers "is my truck here". One query with `= ANY`, never one per candidate — the read-tier rule
 // is about round trips, and a depot with a yard would otherwise have doubled them.
-export async function truckAt(playerId, depotZone) {
+//
+// ⚠ IT RETURNS A LIST, AND IT USED TO RETURN ONE ROW WITH A `LIMIT 1` ON IT. That limit was never a
+// performance choice — it was the fleet rule wearing SQL's clothes: a yard held at most one of
+// yours, so "the truck here" was a question with an answer. Several can stand in one yard now (see
+// yardBuy), so the SHAPE had to change rather than the callers guessing. A `LIMIT 1` over two
+// parked trucks is a silent answer to a question nobody asked, and the driver finds out about it by
+// pulling away in the wrong one.
+//
+// Ordered by `created_at`, so the yard screen, the bench and every "which one?" refusal list a
+// fleet in the same order — the order you bought them in.
+export async function trucksAt(playerId, depotZone) {
   const zones = (Array.isArray(depotZone) ? depotZone : [depotZone]).filter(Boolean);
-  if (!zones.length) return null;
+  if (!zones.length) return [];
   const { rows } = await query(
-    'SELECT id, type_id, name, depot_zone, fuel, odometer, impound_fee, condition, custom_data FROM trucks WHERE owner_id = $1 AND depot_zone = ANY($2) LIMIT 1',
+    'SELECT id, type_id, name, depot_zone, fuel, odometer, impound_fee, condition, custom_data FROM trucks WHERE owner_id = $1 AND depot_zone = ANY($2) ORDER BY created_at',
     [playerId, zones]
   ).catch(() => ({ rows: [] }));
-  const r = rows[0];
-  return r && truckType(r.type_id) ? { ...r, type: truckType(r.type_id) } : null;
+  return rows.filter(r => truckType(r.type_id)).map(r => ({ ...r, type: truckType(r.type_id) }));
 }
 
 export async function getTruck(id, playerId) {

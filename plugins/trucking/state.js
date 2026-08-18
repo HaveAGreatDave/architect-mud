@@ -27,6 +27,9 @@ import { wearFor, breakdownRoll, BREAKDOWNS } from './rig.js';
 import { applyDamage, wearSplit, damageOf, PARTS, partBand } from './damage.js';
 import { routeOptions } from './routes.js';
 import { trailersNear, standingIn, hitchReach, posed, refreshStanding } from './trailers.js';
+// The one paint→livery conversion, shared with the cab and the depot panel — see the file's own
+// note on why it is in client/shared rather than in the renderer.
+import { truckLivery } from '../../client/shared/truck-livery.js';
 
 // Fallback range in tiles for a rig with no type attached (only the legacy roadhead mount). Every
 // real truck carries its own `tank`; this is the Drayman's, so a stray rig behaves like the
@@ -478,6 +481,14 @@ export function truckContactsNear(x, y, range = 26) {
       alt: 0, band: 'ground', onGround: true, groundZ: 0, altDiff: 0,
       bank: 0, pitch: 0, vs: 0, hullPct: 100,
       reg: rig.type?.name || 'truck',
+      // ⚠ AND WHAT IT IS PAINTED. Every other renderer in the game drew a rig in its owner's
+      // colours — the cab, the depot floor, the walkaround — and this one, the only place ANYBODY
+      // ELSE sees your truck, drew it in the factory undercoat. So a paint job was a thing you
+      // bought and then were the only person alive who could see, which is the opposite of what
+      // paint is for: an aircraft's livery says whose it is, and a truck's says who you are.
+      // Contacts have carried a finished `livery` since flight (plugins/flight/state.js), and the
+      // model painter reads `c.livery` whatever the `cls` — so this is one field, not a code path.
+      livery: truckLivery(rig.cd?.paint),
     });
   }
   return out;

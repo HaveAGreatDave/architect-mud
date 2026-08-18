@@ -183,7 +183,7 @@ function footChips() {
   const chip = (cmd, label, spend = false) =>
     `<button class="td-verb" ${spend ? 'data-confirm' : 'data-cmd'}="${esc(cmd)}">${esc(label || cmd)}</button>`;
   const out = [];
-  if (sel?.hereNow) out.push(chip('drive'));
+  if (sel?.hereNow) out.push(chip(`drive ${sel.id}`, 'drive'));
   if (sel && sel.condition < 1) out.push(chip(`rig repair ${sel.id} shop`, `rig repair · ${money(sel.repairShop)}`, true));
   if (sel && d.fuelHere && sel.fuel < 0.99) out.push(chip(`rig fuel ${sel.id}`, `rig fuel · ${money(sel.refuel)}`, true));
   if (d.board?.length) out.push(chip('haul 1', `haul 1 · ${money(d.board[0].pay)}`));
@@ -205,6 +205,20 @@ function wire() {
 function floorScreen() {
   const d = B.data, fleet = d.fleet || [];
   const sel = selected();
+  // ⚠ THE BOXES YOU OWN, WHICH THIS SCREEN NEVER SHOWED. A trailer was drawn out on the hardstand
+  // and listed nowhere, so buying a reefer and then looking for it was a search of the yard on
+  // foot. It is a list rather than a second turntable on purpose: a box is a capacity and a place,
+  // and neither of those is a thing you look at from three angles.
+  const mine = d.trailers || [];
+  const boxes = mine.length ? `
+      <div class="td-deck td-boxes"><span class="td-lab">Your boxes</span>
+        ${mine.map(t => `<div class="td-box-row">
+          <b>${esc(t.name)}</b> <span class="td-dim">· ${t.ratedKg} kg rated</span>
+          <span class="td-dim">· ${t.towedBy ? 'on the pin' : t.hereNow ? 'standing here' : `at ${esc(t.where)}`}</span>
+          ${t.cargo ? `<span class="td-dim">· loaded: ${esc(t.cargo.name)}</span>` : ''}
+          ${t.hereNow && d.driving ? tbtn('⚯', 'Back under it', 'data-cmd="hitch"') : ''}
+        </div>`).join('')}
+      </div>` : '';
   const deck = d.cargo
     ? (d.cargo.kind === 'goods'
       ? `<b>${esc(d.cargo.qty)} × ${esc(d.cargo.name)}</b> · ${d.cargo.kg} kg · paid ${money(d.cargo.paid)}/unit`
@@ -214,16 +228,16 @@ function floorScreen() {
   // The toolbar is the selected truck's, and every entry on it is gated on a fact the SERVER sent.
   // A button that is present and refuses is worse than one that is absent and explains itself.
   const acts = sel ? [
-    sel.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : '',
+    sel.hereNow ? tbtn('➤', 'Take it out', `data-cmd="drive ${esc(sel.id)}"`, 'primary') : '',
     tbtn('⚙', 'Bench', 'data-screen="bench"'),
     d.fuelHere && sel.fuel < 0.99 ? tbtn('⛽', `Refuel · ${money(sel.refuel)}`, `data-cmd="rig fuel ${esc(sel.id)}"`) : '',
     tbtn('◉', 'Walk around', 'data-screen="inspect"'),
-    sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`, 'ghost') : '',
+    sel.hereNow ? tbtn('₵', `Sell · ${money(sel.resale)}`, `data-confirm="yard sell ${esc(sel.id)}"`) : '',
     // NOT HERE? THEN THE ONLY USEFUL BUTTON IS THE ONE THAT FETCHES IT. A rig parked two regions
     // away used to offer nothing at all — the toolbar simply thinned out and left you looking at a
     // truck you could not reach, with no way back to it except the drive you were trying to avoid.
     sel.hereNow ? '' : tbtn('⛓', `Tow it home · ${money(sel.recall)}`, `data-confirm="yard recall ${esc(sel.id)}"`, 'primary'),
-    tbtn('⊕', "Dealer's line", 'data-screen="buy"', 'ghost'),
+    tbtn('⊕', "Dealer's line", 'data-screen="buy"'),
   ].filter(Boolean).join('') : tbtn('⊕', "See what's for sale", 'data-screen="buy"', 'primary');
 
   return `
@@ -243,6 +257,7 @@ function floorScreen() {
       <div class="td-acts">${acts}</div>
       <div class="td-deck"><span class="td-lab">On the deck</span> ${deck}
         ${d.driving ? '' : '<div class="td-dim td-note">You are not in a truck.</div>'}</div>
+      ${boxes}
     </aside>`;
 }
 
@@ -334,10 +349,10 @@ function inspectScreen() {
   if (!t) return '<div class="td-none">Nothing selected.</div>';
   const m = B.inspect.mode;
   const board = (m === 'walk' && t.hereNow)
-    ? '<div class="td-board" id="td-board" data-cmd="drive">CLIMB IN</div>' : '';
+    ? `<div class="td-board" id="td-board" data-cmd="drive ${esc(t.id)}">CLIMB IN</div>` : '';
   const strip = `${tbtn('⟳', 'Turntable', 'data-mode="orbit"', m === 'orbit' ? 'primary' : '')}
        ${tbtn('◉', 'Walk around', 'data-mode="walk"', m === 'walk' ? 'primary' : '')}
-       ${t.hereNow ? tbtn('➤', 'Take it out', 'data-cmd="drive"', 'primary') : ''}
+       ${t.hereNow ? tbtn('➤', 'Take it out', `data-cmd="drive ${esc(t.id)}"`, 'primary') : ''}
        ${t.hereNow ? tbtn('📯', 'Horn', 'data-cmd="horn"') : ''}
        ${tbtn('⌖', 'Reset view', 'data-view-reset', 'ghost')}
        ${tbtn('←', 'Back to the floor', 'data-screen="floor"', 'ghost')}
@@ -1374,6 +1389,13 @@ function ensureStyles() {
   .td-check input{accent-color:var(--td-accent)}
   .td-deck{padding:10px 12px;border-radius:9px;background:var(--td-surf-lo);
     border:1px solid var(--border);box-shadow:inset 0 1px 3px var(--td-bevel-lo)}
+  /* The boxes you own, under the deck read-out — a list, because a trailer is a capacity and a
+     place rather than something you look at from three angles. */
+  .td-boxes{margin-top:8px}
+  .td-box-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;padding:4px 0;
+    border-top:1px solid var(--border)}
+  .td-box-row:first-of-type{border-top:0}
+  .td-box-row .td-act{margin-left:auto;padding:2px 8px;font-size:11px}
   .td-lab{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2);display:block}
   .td-none{color:var(--td-fg-dim);padding:14px;text-align:center}
   .td-dim{color:var(--td-fg-dim)}

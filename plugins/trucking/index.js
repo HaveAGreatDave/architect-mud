@@ -43,7 +43,7 @@ import { prefersTextMinigamesOrDefault, prefersLoggedPanelsOrDefault } from '../
 import { startTextDrive, stopTextDrive, setTextTarget, isTextDriving, textDriveCommand } from './textdrive.js';
 import { COMMODITIES, quotesFor, askPrice, bidPrice, capacityFor, marketDay, DEFAULT_TRAILER_KG } from './market.js';
 import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
-import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
+import { fleetOf, trucksAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
   setCondition, saveTruckData, setFuel, recoverTruckTo } from './fleet.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, PAINT_DEFAULT, presetPaint, startTrouble, wearForImpact, burnMul,
@@ -137,7 +137,14 @@ async function cmdDrive(args, raw, player) {
   // that only bites if the truck cost you something you could have spent elsewhere.
   // The bay AND its apron: a truck you left standing outside the door is a truck at this depot.
   const zonesHere = bay ? depotZonesOf(stood, bay) : depotZonesOf(here, depot);
-  const owned = await truckAt(player.id, zonesHere);
+  const parked = await trucksAt(player.id, zonesHere);
+  // WHICH ONE. `drive` takes the plate, the model or the id — and takes nothing at all when there
+  // is only one truck in the yard, which is the case this verb spends most of its life in. The
+  // panel's CLIMB IN button carries the id of the truck on the turntable, so clicking is never
+  // ambiguous however many are standing behind it.
+  const want = (args || []).join(' ').trim();
+  const owned = pickParked(parked, want);
+  if (!owned && parked.length) return whichTruckLine('drive', parked, want);
   if (!owned) {
     const mine = await fleetOf(player.id);
     const elsewhere = mine.find(t => t.depot_zone && !zonesHere.includes(t.depot_zone));
@@ -276,6 +283,44 @@ function depotAt(zone) {
   const f = zone?.flags?.truck_depot;
   if (!f || typeof f !== 'object' || !f.yard) return null;
   return f;
+}
+
+// ── WHICH ONE OF YOURS ───────────────────────────────────────────────────────
+// A yard used to hold at most one truck of yours, and the buy refused a second on the stated
+// grounds that saying so was cheaper than a disambiguation prompt on every mount. It was — right
+// up until owning a FLEET became the point. A yard is where a fleet lives; a rule that scattered
+// six trucks across six towns so that `drive` never had to ask a question was the tail wagging the
+// truck, and it made "own several" mean "own several, somewhere else".
+//
+// So the prompt exists now, and it is deliberately only ever a prompt: with one truck standing
+// here NOTHING asks anything, which is the case every player who owns one truck is in forever.
+// `want` is whatever the player typed after the verb — an id (what the panel's buttons carry),
+// the plate they painted on the door, or any part of the model name. Ids first, because an id is
+// exact and a plate is a thing somebody can call "hauler".
+function pickParked(list, want) {
+  if (!want) return list.length === 1 ? list[0] : null;
+  const w = String(want).trim().toLowerCase();
+  if (!w) return list.length === 1 ? list[0] : null;
+  return list.find(t => t.id.toLowerCase() === w)
+    || list.find(t => (t.name || '').toLowerCase() === w)
+    || list.find(t => (t.name || '').toLowerCase().includes(w))
+    || list.find(t => t.type_id.toLowerCase() === w)
+    || list.find(t => t.type.name.toLowerCase().includes(w))
+    || null;
+}
+// The refusal, and it is a MENU rather than a complaint: every line is the command that picks that
+// truck, because the rule this file is built on is that anything you can click you can type. A
+// plate is offered when there is one, since that is what a driver actually calls it.
+// `byId` is for the bench, where the plate is not a legal way to say it (see the ⚠ in rigBench):
+// the truck is still NAMED in the label, because that is what the driver calls it, and only the
+// command on the end of the line changes.
+function whichTruckLine(verb, list, want, byId = false) {
+  const rows = list.map(t => {
+    const label = t.name ? `<b>${t.name}</b> <span class="text-dim">(${t.type.name})</span>` : `<b>${t.type.name}</b>`;
+    const arg = byId || !t.name ? t.id : t.name.toLowerCase();
+    return `  ${label} — <span class="text-dim">${verb} ${arg}</span>`;
+  }).join('\n');
+  return say((want ? `Nothing of yours here answers to "${want}".` : `You have ${list.length} parked here. Which one?`) + `\n${rows}`);
 }
 
 // ── A DEPOT IS A BUILDING YOU WALK INTO ──────────────────────────────────────
@@ -722,6 +767,25 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       id: t.id, name: t.name, price: t.price, rated: t.rated, kg: t.kg,
       afford: (player.credits || 0) >= t.price,
     })),
+    // ── THE BOXES YOU OWN ──────────────────────────────────────────────────────
+    // ⚠ THIS LIST EXISTED AND WAS NEVER SENT. `myTrailers` was read purely to work out which of
+    // your TRUCKS had something on the pin, and the rows themselves went in the bin — so a player
+    // who bought a reefer got a receipt, a box standing on the hardstand, and no screen anywhere
+    // that admitted it existed. It was findable only by climbing into a cab and looking out of the
+    // window at it, or by typing `hitch` at a thing you had to take on faith.
+    //
+    // A trailer is an owned vehicle exactly as a truck is — a row, an owner, a place — so it gets
+    // the same three facts: what it is, where it is, and what is on it. `where` is resolved here
+    // rather than on the client for the same reason `whereName` is on a truck: the depot names
+    // live in zone flags and the panel has never seen them.
+    trailers: myTrailers.map(t => ({
+      id: t.id, name: t.name, kg: t.kg, ratedKg: t.ratedKg,
+      condition: +(t.condition ?? 1).toFixed(3), band: bandOf(t.condition ?? 1).key,
+      towedBy: t.towedBy || null,
+      hereNow: !t.towedBy && zonesHere.includes(t.parkedZone),
+      where: t.towedBy ? 'hitched' : (zonesHere.includes(t.parkedZone) ? 'here' : depotNameOf(t.parkedZone)),
+      cargo: t.cargo ? { name: t.cargo.name, kg: t.cargo.kg } : null,
+    })),
     // The bench's catalogues, sent once with the panel exactly as the hangar sends its paint and
     // tune catalogues: the client renders the dials it is told about and invents none.
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
@@ -838,6 +902,7 @@ function textYard(p) {
   const fleet = p.fleet.length
     ? p.fleet.map(t => `  <b>${t.name}</b> (${t.type}) · ${t.kg} kg deck · fuel ${Math.round(t.fuel * 100)}% · ${t.odometer} tiles`
         + `${t.hereNow ? ' · <span class="text-green">here</span>' : ` · <span class="text-dim">at ${t.whereName}</span>`}`
+        + `${t.hereNow ? ` · <span class="text-dim">take it out (drive ${t.id})</span>` : ''}`
         + `${t.hereNow ? '' : ` · <span class="text-dim">tow it home for ${t.recall}₵ (yard recall ${t.id})</span>`}`
         + ` · <span class="text-dim">sells for ${t.resale}₵ (yard sell ${t.id})</span>`).join('\n')
     : '  <span class="text-dim">You own nothing with wheels on it.</span>';
@@ -845,7 +910,21 @@ function textYard(p) {
     `  <b>${t.name}</b> — <span class="item-grant">${t.price}₵</span> · ${t.kg} kg deck · ${t.tank} tiles a tank · ${t.top} mph`
     + `${t.afford ? '' : ' <span class="text-dim">(cannot afford)</span>'}\n    <span class="text-dim">${t.blurb}</span>`
     + `\n    <span class="text-dim">yard buy ${t.id}</span>`).join('\n');
-  return `<b>${p.depot} — yard</b>  <span class="text-dim">(${p.credits}₵)</span>\n\n<b>YOUR FLEET</b>\n${fleet}\n\n<b>FOR SALE</b>\n${stock}`;
+  // THE BOXES, ON THE RECORD. A trailer you own was invisible on BOTH rungs of the display
+  // ladder, because it was never in the payload at all — so a bought reefer existed in the
+  // database, on the hardstand and nowhere a player could read. It was findable only by climbing
+  // into a cab and looking out of the window at it. This is the log rung's copy of the same list
+  // the panel draws; a trailer is an owned vehicle exactly as a truck is.
+  const boxes = (p.trailers || []).length
+    ? p.trailers.map(t => `  <b>${t.name}</b> · ${t.ratedKg} kg rated`
+        + `${t.towedBy ? ' · <span class="text-dim">on the pin</span>'
+            : t.hereNow ? ' · <span class="text-green">standing here</span>' : ` · <span class="text-dim">at ${t.where}</span>`}`
+        + `${t.cargo ? ` · <span class="text-dim">loaded: ${t.cargo.name}</span>` : ''}`
+        + `${t.hereNow ? ' · <span class="text-dim">back under it (hitch)</span>' : ''}`).join('\n')
+    : null;
+  return `<b>${p.depot} — yard</b>  <span class="text-dim">(${p.credits}₵)</span>\n\n<b>YOUR FLEET</b>\n${fleet}`
+    + (boxes ? `\n\n<b>YOUR BOXES</b>\n${boxes}` : '')
+    + `\n\n<b>FOR SALE</b>\n${stock}`;
 }
 
 async function yardBuy(player, here, depot, typeId, plate) {
@@ -861,12 +940,13 @@ async function yardBuy(player, here, depot, typeId, plate) {
   if ((player.credits || 0) < type.price) {
     return say(`The ${type.name} is ${type.price}₵ and you have ${player.credits || 0}₵.`);
   }
-  // One truck per depot, so `drive` never has to ask which. Owning several is fine; parking two in
-  // the same yard is not, and saying so is cheaper than a disambiguation prompt on every mount.
-  const depotZones = depotZonesOf(here, depot);
-  if (await truckAt(player.id, depotZones)) {
-    return say('You already have a truck parked in this yard. Move it or sell it before you buy another.');
-  }
+  // A YARD HOLDS AS MANY OF YOURS AS YOU CAN PAY FOR. It used to hold exactly one, and refused the
+  // second with "move it or sell it" — a rule that bought `drive` an unambiguous target and cost
+  // the player the only place a fleet can actually BE. A haulier with four trucks keeps them in one
+  // yard; keeping them in four towns is not an interesting logistics puzzle, it is a chore with a
+  // tow bill attached. The ambiguity that rule was avoiding is answered where it arises now, by
+  // `pickParked` and one prompt (see above), and only ever when there is something to be ambiguous
+  // about.
   player.credits -= type.price;
   // It is bought INTO THE BAY, not onto the street: a truck you just paid for is inside, under a
   // roof, and `drive` is what brings it out. (The row's zone is the bay's, which is also what makes
@@ -1005,7 +1085,14 @@ async function cmdRig(args, raw, player) {
   // after the subcommand), and a player typing never does — so an unnamed one means "the one
   // standing here", which at a depot is unambiguous by the one-truck-per-yard rule.
   const idArg = rest[0] && /^truck_[0-9a-f]+$/i.test(rest[0]) ? rest.shift() : null;
-  const truck = idArg ? await getTruck(idArg, player.id) : await truckAt(player.id, depotZonesOf(bay, depot));
+  // ⚠ AN ID, NEVER A NAME, and that is not an oversight. Everything after the subcommand here is
+  // an ARGUMENT — `rig paint red`, `rig trim walnut` — so a truck picked by plate would be a plate
+  // competing with a colourway for the same token, and the loser is somebody who called their truck
+  // Walnut. The panel always sends the id; a player with two trucks in one yard gets the menu below
+  // and every line of it is typable.
+  const parked = idArg ? [] : await trucksAt(player.id, depotZonesOf(bay, depot));
+  const truck = idArg ? await getTruck(idArg, player.id) : (parked.length === 1 ? parked[0] : null);
+  if (!truck && parked.length > 1) return whichTruckLine(`rig ${sub}`, parked, null, true);
   if (!truck) return say(idArg ? "That isn't one of yours." : 'You have nothing parked here to work on.');
   if (rigOf(player)?.truckId === truck.id) return say('Climb down first — nobody works on a truck they are sitting in.');
   const cd = truck.custom_data || {};
@@ -1551,7 +1638,7 @@ async function recallMarkets(player) {
 // ── refuel ───────────────────────────────────────────────────────────────────
 // At a fuel yard, or at any depot that keeps a pump. Priced off what you actually take.
 async function cmdRefuelTruck(args, raw, player) {
-  if (!rigOf(player)) return await pumpParked(player);
+  if (!rigOf(player)) return await pumpParked(player, (args || []).join(' ').trim());
   // The typed verb is the whole-tank case, which is what typing it has always meant. It is the same
   // commit the handle sends, asked for everything — so there is one place that moves fuel and money.
   return pumpFuel(player, 1, { typed: true });
@@ -1573,9 +1660,11 @@ async function cmdRefuelTruck(args, raw, player) {
 // `rigFuel` already uses), and `pumpClamp` decides how much a given balance buys. Nothing here is a
 // second opinion about either — the day somebody retunes FUEL_FULL or adds a pump flag, this path
 // changes with the rest of them.
-async function pumpParked(player) {
+async function pumpParked(player, want = '') {
   if (!pumpAt({ leg: 'city', zoneId: player.current_zone })) return say('You are not driving anything.');
-  const truck = await truckAt(player.id, player.current_zone);
+  const parked = await trucksAt(player.id, player.current_zone);
+  const truck = pickParked(parked, want);
+  if (!truck && parked.length) return whichTruckLine('fuel', parked, want);
   if (!truck) return say('You are not driving anything, and nothing of yours is standing at these pumps.');
 
   const room = 1 - (truck.fuel ?? 1);
@@ -1731,6 +1820,23 @@ async function parkRig(player, forced) {
   // `force_look` is the seam for exactly this: it lands after the close above, so the pane is free
   // by the time the re-asked `look` comes back, and the log rung gets its copy for free.
   sendToPlayer(player.id, { type: 'force_look' });
+  // AND IF YOU PARKED IT AT A YARD, THE YARD OPENS. Walking into a depot has always thrown the
+  // screen up (see the `zone.entered` handler below) and climbing down inside one did not — which
+  // is backwards, because the end of a haul is the moment you have the most to do: a load to
+  // deliver, a tank to fill, a bill at the bench. The reason it never fired is that no zone was
+  // ENTERED; the panel is skipped while driving, and parking is the moment that stops being true.
+  //
+  // Mirrors the hook exactly rather than calling `repush`, because it has to answer for BOTH rungs:
+  // `depotPanel` hands the log rung prose, and prose is a message rather than a panel.
+  // `depotHere` because you stop on the APRON — the bay is where the truck is stored, not where
+  // the driver is standing.
+  if (!abandoned) {
+    const { bay: pBay, depot: pDepot } = depotHere(player);
+    if (pDepot) {
+      const panel = await depotPanel(player, pBay, pDepot, 'fleet');
+      if (panel) sendToPlayer(player.id, panel.type === 'emote' ? { type: 'output', message: panel.message } : panel);
+    }
+  }
   // The prose finally matches the mechanic: the brake is set and the engine is already off, because
   // this verb refused to run until it was. Only the door is left to do.
   return say('<span class="text-amber">You set the brake, drop down onto the dirt and lock her up behind you. The silence out here is enormous.</span>');
@@ -1917,7 +2023,10 @@ async function cmdHorn(args, raw, player) {
     const zone = getZone(player.current_zone);
     const depot = depotAt(zone);
     if (!depot) return say('There is nothing here with a horn on it.');
-    const truck = await truckAt(player.id, depotZonesOf(zone, depot));
+    // ANY OF THEM WILL DO. This is the one caller that does not care which truck it got: a horn is a
+    // noise the yard hears, and nobody standing in it could tell you which of your cabs it came out
+    // of. Asking "which one?" for a sound effect would be a prompt charging rent for nothing.
+    const truck = (await trucksAt(player.id, depotZonesOf(zone, depot)))[0];
     if (!truck) return say('You have nothing parked here to lean into.');
     typeId = truck.type_id; name = truck.name || truck.type?.name;
   }

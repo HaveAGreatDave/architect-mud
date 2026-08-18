@@ -883,7 +883,11 @@ export default async function regress({ run, check, getPlayer }) {
     // A MOVING rig is traffic a pilot can see; a parked one is scenery and belongs in the room
     // description instead, or it would sit in the contact list as a permanent blip.
     const fake = { playerId: 'p_traffic', leg: 'city', x: 900, y: 900, heading: 90, speed: 40,
-      type: TYPES.drayman };
+      type: TYPES.drayman,
+      // …AND IT IS PAINTED. Everything that draws a truck drew it in the owner's colours except
+      // this — the only place anybody ELSE sees your rig — so a paint job was a thing you bought
+      // and were then the only person alive who could see.
+      cd: { paint: { base: '#112233', trim: '#445566', flash: 'scallop', finish: 'matte' } } };
     rigs.set('p_traffic', fake);
     try {
       const seen = truckContactsNear(900, 900, 26);
@@ -894,6 +898,19 @@ export default async function regress({ run, check, getPlayer }) {
       check('…pinned to the deck, not floating at altitude',
         seen[0]?.groundZ === 0 && seen[0]?.altDiff === 0 && seen[0]?.alt === 0);
       check('…and out of range is out of sight', truckContactsNear(2000, 2000, 26).length === 0);
+      // The paint reaches the people who can see the truck. Asserted as the RENDERER's shape
+      // rather than as the stored one, because the whole failure was a raw paint handed through
+      // where a livery was expected: `pattern` under the truck: prefix is the conversion, and a
+      // missing one paints a flat undercoat and looks like nothing is wrong.
+      check('…wearing its own paint, in the shape the model painter reads',
+        seen[0]?.livery?.base === '#112233' && seen[0]?.livery?.pattern === 'truck:scallop'
+        && seen[0]?.livery?.finish === 'matte',
+        JSON.stringify(seen[0]?.livery || null).slice(0, 80));
+      const bare = { ...fake, playerId: 'p_traffic2', cd: {} };
+      rigs.set('p_traffic2', bare);
+      check('…and a rig nobody has painted carries no livery to argue with the mesh defaults',
+        JSON.stringify(truckContactsNear(900, 900, 26).find(c => c.id === 'truck_p_traffic2')?.livery) === '{}');
+      rigs.delete('p_traffic2');
       fake.speed = 0;
       check('a PARKED rig is scenery, not a permanent blip on every pilot\'s glass',
         truckContactsNear(900, 900, 26).length === 0);
@@ -1253,9 +1270,65 @@ export default async function regress({ run, check, getPlayer }) {
       const tooRich = await run('yard buy continental');
       check('a truck you can afford is bought', !!tooRich && !/cannot|have \d/.test(tooRich?.message || ''), tooRich?.message?.slice(0, 45));
       check('…and it cost the sticker price', player.credits === 40000 - 31000, player.credits);
-      const dupe = await run('yard buy scrapper');
-      check('one truck to a yard, so `drive` never has to ask which',
-        /already have a truck/i.test(dupe?.message || ''), dupe?.message?.slice(0, 40));
+      // ── A YARD IS WHERE A FLEET LIVES ─────────────────────────────────────
+      // This used to assert the opposite: a yard held ONE of yours and the second buy was refused,
+      // so that `drive` never had to ask which. What that bought was an unambiguous verb and what
+      // it cost was the only place a fleet can actually BE — "own several trucks" meant "own
+      // several, in several towns". The ambiguity is answered where it arises now, and only when
+      // there is something to be ambiguous about.
+      const second = await run('yard buy scrapper');
+      check('a second truck can stand in the same yard as the first',
+        /Bought/i.test(second?.message || ''), second?.message?.slice(0, 45));
+      const { rows: both } = await query('SELECT id, type_id FROM trucks WHERE owner_id=$1 AND depot_zone=$2 ORDER BY created_at',
+        [player.id, player.current_zone]);
+      check('…and both of them are really parked here', both.length === 2, both.map(r => r.type_id).join(' + '));
+
+      // WITH TWO IN THE YARD, THE VERB ASKS — and the asking is a MENU, because every line of it
+      // is the command that picks that truck. A refusal that does not name its own way out is a
+      // bug with prose on it.
+      const ask = await run('drive');
+      check('…so a bare `drive` asks which one rather than guessing',
+        !rigOf(player) && /Which one/i.test(ask?.message || ''), ask?.message?.slice(0, 40));
+      check('…and names every one of them, with the command to take it',
+        both.every(r => (ask?.message || '').includes(`drive ${r.id}`) || /drive scrapper|drive continental/i.test(ask?.message || '')),
+        (ask?.message || '').slice(0, 120));
+      const wrong = await run('drive tanker');
+      check('…and a name that is nothing of yours says so instead of taking the nearest',
+        !rigOf(player) && /answers to/i.test(wrong?.message || ''), wrong?.message?.slice(0, 45));
+      const picked = await run('drive scrapper');
+      check('…while naming one takes THAT one', rigOf(player)?.typeId === 'scrapper', rigOf(player)?.typeId);
+      await run('park');
+
+      // ── AND EACH ONE IS PAINTED SEPARATELY ────────────────────────────────
+      // Paint has always lived on the truck's own row, but nothing proved it: one bag per truck is
+      // only true until something writes the wrong row, and the symptom of that would be a whole
+      // fleet turning the colour of the last thing you resprayed.
+      const [tA, tB] = both.map(r => r.id);
+      player.credits = 40000;
+      await run(`rig paint ${tA} base=#101820 flash=flame`);
+      await run(`rig paint ${tB} base=#e0d8c0 flash=scallop`);
+      const { rows: painted } = await query(
+        "SELECT id, custom_data->'paint'->>'base' AS base, custom_data->'paint'->>'flash' AS flash FROM trucks WHERE owner_id=$1 AND depot_zone=$2",
+        [player.id, player.current_zone]);
+      const pA = painted.find(r => r.id === tA), pB = painted.find(r => r.id === tB);
+      check('two trucks in one yard hold two different paint jobs',
+        pA?.base === '#101820' && pB?.base === '#e0d8c0', `${pA?.base} vs ${pB?.base}`);
+      check('…right down to the flash, which is the half nobody looks at',
+        pA?.flash === 'flame' && pB?.flash === 'scallop', `${pA?.flash} vs ${pB?.flash}`);
+      // And the yard SAYS so — the panel and the log rung both read one list, and a paint that
+      // reaches the database and not the screen is a paint nobody bought.
+      const twoUp = await run('yard');
+      check('…and the yard hands the client both trucks, each with its own paint',
+        (twoUp?.fleet || []).length >= 2
+        && (twoUp?.fleet || []).some(t => t.paint?.base === '#101820')
+        && (twoUp?.fleet || []).some(t => t.paint?.base === '#e0d8c0'),
+        (twoUp?.fleet || []).map(t => t.paint?.base).join(', '));
+
+      // The rest of this suite drives THE truck at this yard, so the second one goes back to the
+      // dealer — the assertions above are about owning two, not about the fixture keeping them.
+      await query('DELETE FROM trucks WHERE id=$1', [tB]);
+      await query("UPDATE trucks SET custom_data='{}'::jsonb WHERE id=$1", [both[0].id]);
+      player.credits = 40000 - 31000;
 
       // ── Recovery: a truck you did not drive home ──────────────────────────
       // The whole point of the verb is a rig that is somewhere else, so the case has to put one

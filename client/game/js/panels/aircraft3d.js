@@ -55,14 +55,10 @@ export function liveryPalette(lv) {
 // the catalogue rendered as one flat colour on the truck you are actually driving, and only on the
 // truck you are actually driving. A conversion written down in one of two places is a conversion
 // that is wrong in the other.
-export function truckLivery(paint) {
-  const p = paint || null;
-  if (!p) return {};
-  return {
-    base: p.base, trim: p.trim, hw: p.hw, deck: p.deck, bright: p.bright, glow: p.glow, glass: p.glass,
-    chrome: p.chrome, pattern: `truck:${p.flash || 'none'}`, finish: p.finish || 'gloss', art: p.art || 'none',
-  };
-}
+// …and it now lives in client/shared/truck-livery.js, because the SERVER needs it too: a rig other
+// people can see is a contact, and a contact carries a finished livery. Re-exported here rather
+// than moved out of sight, so every caller that already knew where to find it still does.
+export { truckLivery } from '../../../shared/truck-livery.js';
 
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
 const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
@@ -3255,7 +3251,14 @@ function buildTruck(variant = 'hauler', detail = 1) {
     box(lampF, lampF + 0.009, 0.032, lampZ + 0.040, lampZ + 0.048, 'window', CHROME, g * lampG); // its chrome brow
     box(lampF, lampF + 0.007, 0.026, lampZ + 0.020, lampZ + 0.038, 'window', [242, 234, 196], g * lampG); // upper lens
     box(lampF, lampF + 0.007, 0.026, lampZ, lampZ + 0.017, 'window', [238, 228, 182], g * lampG);        // lower lens
-    if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', GLOW, g * lampG);
+    // ⚠ ACCENT, NOT GLOW — the last hardcoded colour on the front of this truck. This strip under
+    // the lenses is DECORATION, the same object as the beltline strip and the roof scanner, and it
+    // was drawn in the lifter's hot blue-white: so a rig painted white kept a blue bar across its
+    // nose that no field in the booth could reach. The rule this file already states is the one
+    // that decides it — the emitter bands are PROPULSION SHOWING and keep GLOW because the road
+    // wash under them is painted from the same fact; anything that is merely a running light takes
+    // the paint job's own `glow` colour, which is what ACCENT stamps (see PK).
+    if (fine && S.lamps > 0.4) box(lampF + 0.002, lampF + 0.008, 0.028, lampZ - 0.008, lampZ - 0.002, 'window', ACCENT, g * lampG);
   }
   // DAGMARS. Two chrome bullets standing off the bumper — the most 1955 object it is possible to
   // bolt to a vehicle, and the reason the front of this thing now reads as a face.

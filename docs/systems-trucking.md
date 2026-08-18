@@ -207,9 +207,30 @@ refuel at the far end, and the Barrow arrives on 10%.
 > truck borrows an airframe's name.
 
 A truck is a `trucks` row with an owner and a place, exactly as an aircraft is — everything *about*
-the model (speed, deck, tank, price) lives in `TYPES` and nothing is duplicated in the table. **One
-truck to a yard**, so `drive` never has to ask which. Resale is 55% minus odometer wear, capped at a
+the model (speed, deck, tank, price) lives in `TYPES` and nothing is duplicated in the table.
+Resale is 55% minus odometer wear, capped at a
 quarter off: a commitment, not a savings account to shuffle money through.
+
+**A yard holds as many of yours as you can pay for** *(2026-08-18)*. It held exactly **one**, and
+the second buy was refused with "move it or sell it" — a rule whose stated justification was that
+saying so is cheaper than a disambiguation prompt on every mount. It was, right up until owning a
+*fleet* became the point: a yard is where a fleet lives, and a rule that scattered six trucks across
+six towns so one verb never had to ask a question made "own several" mean "own several, somewhere
+else". So `fleet.js` lost its `LIMIT 1` (`truckAt` → **`trucksAt`**, a list — that limit was never a
+performance choice, it was the fleet rule wearing SQL's clothes, and over two parked trucks it is a
+silent answer to a question nobody asked), and the ambiguity is answered **where it arises and only
+when it arises**: with one truck standing there nothing asks anything, which is the case every
+player who owns one truck is in forever. With two, `drive` prints a **menu** — every line is the
+command that takes that truck, because anything you can click you can type — and `drive <plate>`,
+`drive <model>` or `drive <id>` picks. The panel's CLIMB IN and *Take it out* buttons carry the id
+of the truck on the turntable, so clicking is never ambiguous however many stand behind it. The
+bench is deliberately **id-only** (`rig paint <id> …`): everything after the subcommand there is an
+argument, so a truck picked by plate would be a plate competing with a colourway for the same token,
+and the loser is somebody who called their truck *Walnut*.
+
+**And each of them is painted separately**, which was always true (paint lives in the truck's own
+`custom_data`) and is now *asserted* — one bag per truck is only true until something writes the
+wrong row, and the symptom of that would be a whole fleet turning the colour of the last respray.
 
 > **A gauge that never bites is decoration.** For a long time fuel counted down to zero and the
 > truck simply carried on, which made every tank number a label rather than a constraint. Running
@@ -797,6 +818,29 @@ Storage is `trucks.custom_data.trim` — `{ mat, col }`, either nullable, no sch
 the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
 renders byte-for-byte what it always did.
 
+
+### The paint reaches everybody who can see the truck *(2026-08-18)*
+
+Every renderer in the game drew a rig in its owner's colours — the cab, the depot floor, the
+walkaround — **except the one place anybody else sees it**. `truckContactsNear`
+([state.js](../plugins/trucking/state.js)) built its contact without a `livery`, so a paint job was
+a thing you bought and were then the only person alive who could see, which is the exact opposite of
+what paint is for. Contacts have carried a finished livery since flight and the model painter reads
+`c.livery` whatever the `cls`, so the fix is **one field, not a code path**.
+
+The conversion it needs moved to **[client/shared/truck-livery.js](../client/shared/truck-livery.js)**
+— the same argument [cab-trim.js](../client/shared/cab-trim.js) makes for the *inside* of the same
+paint job. Three readers on both sides of the wire, and the server has no business importing a
+7,000-line canvas renderer to answer a ten-line question; `aircraft3d.js` re-exports it so every
+caller that already knew where to find it still does. A conversion written down in two places is a
+conversion that is wrong in one of them, and that has already happened once here.
+
+**And the last hardcoded colour on the nose is gone.** The strip under the headlamp lenses was drawn
+in `GLOW` — the lifter emitter's hot blue-white — so a rig painted white kept a blue bar across its
+face that no field in the booth could reach. It is `ACCENT` now, which is the rule this file already
+stated: the emitter bands are **propulsion showing** and keep `GLOW` because the road wash under
+them is painted from the same fact; anything that is merely a running light takes the paint job's own
+`glow` colour.
 
 ### The booth — four colours, and a finish you can see *(2026-08-17)*
 
@@ -1636,6 +1680,17 @@ the boundary and then appeared out of nothing. And a bare `hitch` takes the **ne
 rather than the oldest row, because a yard now routinely holds several of your own boxes a few feet
 apart.
 
+**A box you own is now on a screen** *(2026-08-18)*. `trailersOf(player.id)` was read by the depot
+panel and **thrown away** — it existed only to work out which of your *trucks* had something on the
+pin — so the rows themselves reached neither rung. A bought reefer had a receipt, a place on the
+hardstand and nowhere a player could read: findable only by climbing into a cab and looking out of
+the window at it, or by typing `hitch` at a thing you had to take on faith. The payload carries a
+`trailers` list now (what it is, where it is, what is on it, with `where` resolved server-side for
+the same reason a truck's `whereName` is — the depot names live in zone flags and the panel has
+never seen them), the floor screen lists it under the deck read-out, and `textYard` prints the same
+list as **YOUR BOXES**. It is a list rather than a second turntable on purpose: a box is a capacity
+and a place, and neither of those is a thing you look at from three angles.
+
 **Hitchhikers are seeded facts, not NPC rows** — a corridor node is transient, so an NPC whose home
 is deleted when the crossing ends is the wrong machinery. `hitcherAt` is a pure function of route
 and node, so the same stretch has the same person on it for everyone this week and both rungs see
@@ -1928,6 +1983,19 @@ a dial that snapped locally and then corrected itself would be worse than one th
 the Deadhead conversation is created **on an arriving message as well as on tuning**, because a
 driver at the `textgames`/`log` rung is in [textdrive.js](../plugins/trucking/textdrive.js), which
 pushes no cab context at all — traffic arriving is the event they definitely get.
+
+### Parking at a yard opens the yard *(2026-08-18)*
+
+Walking into a depot has thrown the screen up since the walk-in rebuild, and climbing down inside
+one did not — which is backwards, because the end of a haul is the moment you have the most to do: a
+load to deliver, a tank to fill, a bill at the bench. The reason it never fired is mechanical rather
+than considered — the auto-open rides `zone.entered` and is skipped while driving, and **parking
+enters no zone**; it is the moment "while driving" stops being true. `parkRig` now builds the same
+panel the hook does, through `depotHere` (you stop on the **apron**; the bay is where the truck is
+stored, not where the driver is standing) and answering for **both rungs** — `depotPanel` hands the
+log rung prose, and prose is a message rather than a panel. Abandoning a rig out in the waste is
+deliberately excluded: there is no yard there, and the line about the low-loader is the whole
+answer to what happens next.
 
 ### The shed you start in
 
