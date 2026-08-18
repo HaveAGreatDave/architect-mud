@@ -2566,7 +2566,10 @@ function ensureStyles() {
     #tablet-os-overlay .tos-map-main .tos-map-wrap { flex:1 1 auto; min-width:0; max-height:none; }
     /* Right rail: legend pinned at the top, buildings + detail scroll beneath it. */
     #tablet-os-overlay .tos-map-side { flex:0 0 158px; display:flex; flex-direction:column; min-height:0; }
-    #tablet-os-overlay .tos-map-side .tos-map-legend { flex:0 0 auto; flex-direction:column; gap:4px; margin:0 0 8px; }
+    /* The key is pinned above the scrolling half of the rail, so it must never grow without
+       limit: a wide regional view can legitimately span a dozen districts, and twelve rows of
+       key would push the buildings list off the panel. It scrolls on its own instead. */
+    #tablet-os-overlay .tos-map-side .tos-map-legend { flex:0 0 auto; flex-direction:column; gap:4px; margin:0 0 8px; max-height:32vh; overflow-y:auto; }
     #tablet-os-overlay .tos-map-side-scroll { flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin;
       scrollbar-color:color-mix(in srgb,var(--mg-accent) 40%,transparent) transparent; }
     #tablet-os-overlay .tos-map-side-scroll::-webkit-scrollbar { width:6px; }
@@ -8133,7 +8136,7 @@ function renderMap(d) {
   // under it — so the tablet panel itself never has to scroll (drag = pan, always).
   return `${renderMapCtl(d)}${renderMapBar(d)}<div class="tos-map-main">`
     + `<div class="tos-map-wrap">${grid}</div>`
-    + `<div class="tos-map-side">${tosIsMobile() ? '' : renderMapLegend(mode)}`
+    + `<div class="tos-map-side">${tosIsMobile() ? '' : renderMapLegend(d, mode)}`
     + `<div class="tos-map-side-scroll">${renderMapBuildings(d)}`
     + `<div class="tos-map-detail" id="tos-map-detail">${renderMapDetail(d)}</div></div></div>`
     + `</div>`;
@@ -8200,12 +8203,31 @@ function renderMapBar(d) {
   return `<div class="tos-map-bar"><span class="tos-map-route">${status}</span></div>`;
 }
 
-function renderMapLegend(mode) {
+// The regional map's district key. Two things about it were wrong and they were the same mistake
+// twice — a list written by hand where the answer was already on screen.
+//
+// ⚠ THE LABEL IS THE WHOLE NAME. It used to be `label.split(/[ /]/)[0]`, the first word, which is
+// a fine abbreviation for exactly one of Coldwater's districts and useless for the rest: five of
+// the six are authored "the Docks", "the Marquee", "the Redline", "the Commercial Strip", "the
+// Industrial Flats", so the key rendered as a colour chart of the word "the". The rail runs this
+// legend as a COLUMN (see .tos-map-side .tos-map-legend), so there was never a width problem to
+// solve — it is a leftover from when the legend was a wrapped horizontal strip.
+//
+// ⚠ AND THE ROWS COME FROM THE VIEW, NOT FROM A LIST. It named six fixed district keys, so it
+// simultaneously advertised districts nowhere near you and stayed silent about the one you were
+// standing in. main.js carries the same warning on the fetch that FILLS this legend: the previous
+// hand-maintained version of that list missed four districts, the Wilds among them, and 3,471
+// tiles went uncoloured. Counting what is actually on the map cannot drift, and orders itself —
+// biggest presence first, so the district under your feet leads the key when you are in it.
+function renderMapLegend(d, mode) {
   let items = '<span>◉ you · ⚑ dest · ═ artery</span>';
   if (mode === 'regional') {
-    const keys = ['northcity', 'commercial', 'nightlife', 'docks', 'industrial', 'redline'];
-    items += keys.map(k => FUNC_LEGEND[k]
-      ? `<span class="tos-cm-lg"><span class="sw" style="background:${FUNC_LEGEND[k].color}"></span>${esc(FUNC_LEGEND[k].label.split(/[ /]/)[0])}</span>` : '').join('');
+    const n = new Map();
+    for (const t of d.tiles || []) if (t.func && FUNC_LEGEND[t.func]) n.set(t.func, (n.get(t.func) || 0) + 1);
+    items += [...n.entries()]
+      .sort((a, b) => b[1] - a[1] || FUNC_LEGEND[a[0]].label.localeCompare(FUNC_LEGEND[b[0]].label))
+      .map(([k]) => `<span class="tos-cm-lg"><span class="sw" style="background:${FUNC_LEGEND[k].color}"></span>${esc(FUNC_LEGEND[k].label)}</span>`)
+      .join('');
   }
   return `<div class="tos-map-legend">${items}</div>`;
 }
