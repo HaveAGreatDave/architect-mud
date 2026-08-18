@@ -1621,6 +1621,20 @@ console.log('— layer 1g2: leash / chase / destination law —');
   const { rowCount } = await query("DELETE FROM aircraft WHERE id LIKE 'aircraft\\_regress\\_%'");
   if (rowCount) console.log(`  · swept ${rowCount} stale aircraft fixture(s) left by a previous crashed run`);
 }
+// The same failure, one system over: a truck is bought by the fake player and deleted at the end
+// of the trucking suite, so a run that dies in between leaves a rig parked in the synthetic yard
+// — and a depot's room line lists the first FIVE trucks standing there, so five dead runs' worth
+// of ghosts silently push the live fixture out of the description. That is a check failing for
+// reasons that have nothing to do with the change under test, which is exactly what this is for.
+//
+// Scoped to the OWNER, never to the yard: the ids are random, but every one of these belongs to a
+// fake player this harness minted (test_regress_*), so a developer's own truck can never match.
+{
+  const { rowCount: tk } = await query("DELETE FROM trucks WHERE owner_id LIKE 'test\\_regress\\_%'");
+  if (tk) console.log(`  · swept ${tk} stale truck fixture(s) left by a previous crashed run`);
+  const { rowCount: tl } = await query("DELETE FROM trailers WHERE owner_id LIKE 'test\\_regress\\_%'");
+  if (tl) console.log(`  · swept ${tl} stale trailer fixture(s) left by a previous crashed run`);
+}
 
 // ── Fake player setup ─────────────────────────────────────────────────────────
 const zones = getAllZones();
