@@ -136,12 +136,30 @@ layers do not.
 `tierIndex(value, armor)`) and both are **frozen at mint**. This is what makes an early card worth
 keeping: you cannot re-mint your way back to the night the gloves were still good.
 
-### The quote
+### The quote, and why it is the small region
 
-The **Overheard** line is the player's most recent `say` **in the mint zone, within the last 30
+A card is mostly a **description of somebody**, and the layout says so: two prose paragraphs take the
+page and the spoken line is a footnote under them. That is not a taste call. **52 of the 215 NPCs
+never say a word that can go on a card and 56 of the 64 enemies do not talk at all**, so a face that
+saved its best space — body size, its own colour, a rule above it — for the quote was a face tuned
+for the exception. It keeps the colour, because the difference between prose about somebody and words
+out of their mouth is the entire reason to print it, and gave up the size.
+
+The **spoken** line is the player's most recent `say` **in the mint zone, within the last 30
 minutes, at or under 90 characters, no command-looking text**. The mint walks backwards through
-eligible lines and takes the first that fits. If nothing qualifies the region renders its silence
-copy — `— said nothing worth printing —` — which is itself a fine card.
+eligible lines and takes the first that fits.
+
+⚠ **Nothing qualifying prints no region at all.** The silence copy — `— said nothing worth printing —`
+— is a message for the MINT, where a player can still write a line with `mintquote` before they pay.
+On a struck object, which is read forever and cannot be edited, it reads as a card that failed to
+fill rather than as a quiet person. `quoteOrNothing()` in `builder.js` is the single path that
+sentinel could take to a face, and it stops it there.
+
+⚠ **And the description is never set as speech.** The second prose region used to take quotation
+marks whenever it started with a capital, which put a player's own `describe` text — the least
+speech-like writing anywhere on the card — in quotes, in the quote colour, directly above the actual
+quote. One card, two quotations, and the longer of them something nobody ever said. See
+`narration()`; it runs at render, so cards already in binders are fixed too.
 
 ⚠ **An OVERHEARD line is sniffed for whether it is speech at all; a WRITTEN one is not.** NPC
 chitchat is third-person stage direction (`drags his rebar along the ground`) with any real speech

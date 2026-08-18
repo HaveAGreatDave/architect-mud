@@ -11,11 +11,25 @@
 // whole units or none.
 import { getItem } from '../../server/engine/items-cache.js';
 
+// ── HOW THE PAGE IS SHARED ─────────────────────────────────────────────────────
+// A card is mostly a DESCRIPTION OF SOMEBODY, and the budgets say so. The two
+// prose regions take the page and the spoken line is a footnote on it, which is
+// an honest split rather than a taste one: most subjects have plenty of
+// description and nothing printable to say. 52 of the 215 NPCs never say a word
+// that can go on a card, and 56 of the 64 enemies do not talk at all. A layout
+// that saves its best space for a region most cards leave empty is a layout
+// tuned for the exception.
+//
 // `lastSeen` carries more than it used to — the pose and the discipline clause
 // both live in it now, because they are part of the picture rather than facts
-// beside it. Raised to match; the ladder rule is unchanged, so a card that can't
-// fit the tail simply stops early.
-export const BUDGET = { handle: 16, epithet: 28, lastSeen: 440, origin: 150, quote: 90, zone: 24, marks: 74 };
+// beside it. `origin` is the second DESCRIPTIVE paragraph — never speech, see
+// narration() below — so it is sized to hold a real one rather than a fragment.
+// The ladder rule is unchanged, so a card that can't fit the tail stops early.
+//
+// ⚠ `quote` is deliberately NOT raised with them. It is also the cap `mintquote`
+// enforces on the line a player types, and 159 of the 163 NPCs who say anything
+// printable already fit inside it. The quote was never too small; it was too loud.
+export const BUDGET = { handle: 16, epithet: 28, lastSeen: 560, origin: 240, quote: 90, zone: 24, marks: 74 };
 
 // ── field marks ────────────────────────────────────────────────────────────────
 // The physical line a real trading card carries — HT/WT/BATS/THROWS, except this
@@ -203,26 +217,87 @@ export function pickQuote(candidates, budget = BUDGET.quote) {
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
- * How an "in their own words" fragment is SET, which is one decision and therefore
- * lives in one place. Two kinds of line end up in that region and they are not the
- * same kind of writing: a spoken one ("Low and slow, they said") is a quotation and
- * takes quotation marks, and a stage direction lifted from chitchat ("reads a
- * bearing off his slate") is narration about somebody — it has no speaker, so
- * quoting it puts words in his mouth he never said.
+ * How the second prose region is SET, which is one decision and therefore lives in
+ * one place — and it lives at RENDER rather than at strike, so every card already
+ * sitting in somebody's binder obeys it too, not only the ones minted after this
+ * was written.
  *
- * The test is the one already used to sniff chitchat: a fragment starting lowercase
- * is a verb phrase waiting for its subject, so we give it one — the given name, not
- * the full name, because a card has already printed the full name two lines above.
+ * ⚠ THIS REGION IS NEVER QUOTED. It used to be: a fragment starting with a capital
+ * was taken for speech and given quotation marks, which meant a player's own
+ * `describe` text — a physical self-description, the least speech-like writing
+ * anywhere on the card — came back as words out of their mouth, in the same marks
+ * and the same colour as the spoken line printed directly underneath it. One card,
+ * two quotations, and the longer of the two something nobody ever said.
  *
- * Returns { text, quoted } and never HTML: the two surfaces that print it (the game
- * card face and the dev-panel preview) style it themselves.
+ * A description is prose about somebody and it is set as prose. The one line they
+ * actually said is the `quote` region, and there is only ever one of it.
+ *
+ * The lowercase test survives, doing the only job it was ever right about: a
+ * fragment starting lowercase is a verb phrase waiting for its subject ("wipes down
+ * a coolant line"), so we give it one — the given name, not the full name, because
+ * the card printed the full name two lines above.
+ *
+ * Returns plain text and never HTML: the surfaces that print it (the game card face
+ * and the dev-panel preview) style it themselves.
  */
-export function ownWords(subjectName, origin) {
-  const t = stripWrappingQuotes(origin);
-  if (!t) return { text: '', quoted: false };
-  if (!/^[a-z]/.test(t)) return { text: t, quoted: true };
-  const given = String(subjectName || '').trim().split(/\s+/)[0] || '';
-  return { text: given ? `${given} ${t}` : cap(t), quoted: false };
+export function narration(subjectName, text) {
+  const t = stripWrappingQuotes(text);
+  if (!t) return '';
+  if (!/^[a-z]/.test(t)) return t;
+  const subject = subjectFor(subjectName);
+  return subject ? `${subject} ${t}` : cap(t);
+}
+
+// ⚠ THE SUBJECT IS NOT ALWAYS A GIVEN NAME. 25 of the roster are unnamed and
+// called things like "a Guardian battery technician", so taking token one blindly
+// prints "a wipes down a coolant line". An articled name is a description of a
+// ROLE and takes the definite article with the whole phrase; a real name gives up
+// only its first token, because the card printed the full one two lines above.
+function subjectFor(name) {
+  const n = String(name || '').trim();
+  if (!n) return '';
+  const articled = n.match(/^(?:an?|the)\s+(.+)$/i);
+  return articled ? `The ${articled[1]}` : n.split(/\s+/)[0];
+}
+
+// pickQuote's silence copy is a message for the MINT — where a player can still do
+// something about it before paying — and never a line for a card, which is struck
+// once and then read forever. Everything that puts a quote on a FACE goes through
+// here, so the sentinel has exactly one way out of this file.
+export function quoteOrNothing(candidates, budget) {
+  const q = pickQuote(candidates, budget);
+  return q === SILENCE ? '' : q;
+}
+
+// Split an NPC's authored lines into the two completely different kinds of writing
+// they actually are: SPEECH ("Keep walking. It's what I do.") and STAGE DIRECTION
+// ("wipes down a coolant line and listens to the gun cycle in the ceiling").
+//
+// The card used to want only the first kind and threw the second away, which is
+// backwards — the stage directions are the best unused description in the roster.
+// They are what a person does with their hands, already written, already in their
+// author's voice, and nothing else in the game ever prints them on anything.
+//
+// A single line is often BOTH (`thumbs the radio. "Weather's clear."`) and both
+// halves are kept, because the card has a region for each of them and discarding
+// one to keep the classification tidy is how the description got lost to begin
+// with. The lead-in is only taken when it is lowercase — a capitalised run before
+// a quotation mark is somebody else's sentence, not a stage direction.
+export function splitVoice(lines) {
+  const speech = [], stage = [];
+  for (const raw of lines || []) {
+    if (typeof raw !== 'string') continue;
+    const line = raw.trim().replace(/\s+/g, ' ');
+    if (!line) continue;
+    const spoken = line.match(/["\u201C]([^"\u201D]{2,})["\u201D]/);
+    if (spoken) {
+      speech.push(spoken[1].trim());
+      const lead = line.slice(0, spoken.index).trim().replace(/[,:;]+$/, '');
+      if (lead && /^[a-z]/.test(lead)) stage.push(/[.!?]$/.test(lead) ? lead : `${lead}.`);
+    } else if (/^[a-z]/.test(line)) stage.push(line);
+    else speech.push(line);
+  }
+  return { speech, stage };
 }
 
 // Authored prose often wraps its speech in quotes; the card supplies its own, so
@@ -329,6 +404,29 @@ export function disciplineClause({ chrome = [], flesh = [], mastery = null, psio
   return s;
 }
 
+// ⚠ A CAMERA CANNOT SEE UNDER A COAT. That is the player card's rule, and an NPC's
+// `flags.clothing_layers` is the list that was quietly breaking it: the array runs
+// outermost → innermost and half the roster's innermost entry is gendered
+// underwear (docs/npc-clothing.md), so printing it whole put a stranger's boxers
+// on a trading card in the middle of a paragraph about their face.
+//
+// It is NOT the innermost SLOT that is the problem, which is why this is a word
+// test rather than a `.slice(0, -1)`: steel-toed boots, a magnifying ocular and a
+// projected badge reading SUB-REGISTRAR 9 all sit in that same last position on
+// live rows, and every one of them shows. So the one class that is definitionally
+// covered is dropped and everything else stays.
+//
+// If that empties the list the outermost is kept anyway — somebody whose whole
+// outfit is underwear is dressed in it, and the card describes what is there.
+const UNDERGARMENT = /\b(boxers?|briefs?|panties|panty|knickers|thong|g-?string|bra|brassiere|underwear|underthings|undershirt|singlet|long johns)\b/i;
+export function visibleLayers(layers) {
+  const list = (Array.isArray(layers) ? layers : []).filter(Boolean);
+  const shown = list.filter(l => !UNDERGARMENT.test(String(l)));
+  // Three is a sentence; four is a wardrobe inventory, which is the other half of
+  // what this region is for NOT being.
+  return (shown.length ? shown : list.slice(0, 1)).slice(0, 3);
+}
+
 // ── PLAYER ─────────────────────────────────────────────────────────────────────
 // equipped: [{ item_id, layer, condition }]; physLine: physicalDescription() output.
 // dossier: the record half — see gatherDossier() in index.js. Everything in it is
@@ -420,7 +518,12 @@ export function buildPlayerCard({ player, equipped = [], physLine = '', quotes =
       marks: fieldMarks(physLine),
       last_seen: lastSeen,
       origin: wholeSentences(player.origin_fragment, BUDGET.origin),
-      quote: pickQuote(quotes),
+      // ⚠ '' RATHER THAN THE SILENCE COPY. A card is struck once and then printed
+      // forever, so a player who happened to be quiet at the terminal must not
+      // carry "— said nothing worth printing —" for the life of the object. The
+      // sentinel still exists and pickQuote still returns it; the MINT reads it to
+      // offer a line before anybody pays. It just never reaches a face.
+      quote: quoteOrNothing(quotes),
     },
   };
 }
@@ -431,33 +534,35 @@ export function buildPlayerCard({ player, equipped = [], physLine = '', quotes =
 export function buildNpcCard(npc) {
   const f = npc.flags || {};
   const layers = Array.isArray(f.clothing_layers) ? f.clothing_layers.filter(Boolean) : [];
+  const shown = visibleLayers(layers);
+
+  // ── PARAGRAPH ONE: who they are, and what a camera would have seen them in ──
   const clauses = [
     String(npc.description || '').trim(),
-    layers.length ? `They wore ${layers[0]}${layers.length > 1 ? `, over ${layers.slice(1).join(' and ')}` : ''}.` : '',
+    shown.length ? `They wore ${shown[0]}${shown.length > 1 ? `, over ${shown.slice(1).join(' and ')}` : ''}.` : '',
   ];
-  // The origin block and the quote must not be the same sentence twice. Whatever
-  // the origin consumed is dropped from the quote candidates.
-  // ── ONE QUOTE, DRAWN AT RANDOM ─────────────────────────────────────────────
-  // An NPC card used to carry TWO spoken regions — an "in their own words" line
-  // (always `card_note` or the first chitchat) plus a second Overheard one — and
-  // they were competing for the same handful of authored lines: one fixed at the
-  // top of the list forever, the other picking through the leftovers. So a card
-  // said the same thing every time it was struck AND said it twice.
+
+  // ── THE SPLIT THAT PAYS FOR THE SECOND PARAGRAPH ────────────────────────────
+  // See splitVoice. An NPC's chitchat and banter are half speech and half stage
+  // direction, and the card wants both — but in different regions and set
+  // differently, never as each other. The speech becomes the one quoted line; the
+  // stage direction becomes description, because it is description: it is what
+  // this person does with their hands while you stand there.
+  const { speech, stage } = splitVoice([...firstBanterTurns(npc.banter), ...(Array.isArray(npc.chitchat) ? npc.chitchat : [])]);
+
+  // ── PARAGRAPH TWO: what they were doing, and what they stood behind ─────────
+  // `flags.card_note` still wins outright — that is the whole point of an
+  // override — and it is prose too, so it is not quoted either.
   //
-  // Now there is one region and the line is a RANDOM draw from everything this
-  // person has ever been given to say. That is what makes a second copy of the
-  // same face worth looking at: the card is the same, the moment is not. It is
-  // drawn at STRIKE time and stored, so a card in a binder never changes under
-  // its owner — the randomness is across cards, not across readings.
-  //
-  // `flags.card_note` still wins outright when somebody has authored the line
-  // they want on the card, which is the whole point of an override.
-  const chitchat = Array.isArray(npc.chitchat) ? npc.chitchat : [];
-  const sayable = shuffled([f.card_quote, ...firstBanterTurns(npc.banter), ...chitchat].filter(Boolean));
-  const drawn = pickQuote(sayable, BUDGET.origin);
-  const origin = f.card_note
+  // The shop clause is the one hard fact an NPC row carries that the prose above
+  // will not already have said: 53 of them run a named business, and a card that
+  // can print WHERE somebody was is doing the job a photograph does. It is left
+  // to the ladder rather than forced, so a long habit line simply keeps the room.
+  const habit = f.card_note
     ? wholeSentences(stripWrappingQuotes(f.card_note), BUDGET.origin)
-    : (drawn === SILENCE ? '' : stripWrappingQuotes(drawn));
+    : quoteOrNothing(shuffled(stage).map(text => ({ text, authored: true })), BUDGET.origin - 40);
+  const post = npc.vendor_shop_name ? `Behind the counter at ${npc.vendor_shop_name}.` : '';
+  const origin = ladder([habit, post], BUDGET.origin) || '';
 
   return {
     subject_type: 'npc',
@@ -471,12 +576,23 @@ export function buildNpcCard(npc) {
       epithet: prettyTag(npc.faction) || 'unaligned',
       // Lifted from the author's own description, plus what they're wearing —
       // the one physical fact about an NPC that is recorded rather than prose.
-      marks: fieldMarks(`${npc.description || ''} ${layers.join(' ')}`),
+      marks: fieldMarks(`${npc.description || ''} ${shown.join(' ')}`),
       last_seen: ladder(clauses, BUDGET.lastSeen, 1) || '',
       origin,
-      // Deliberately empty: an NPC's one spoken line is `origin` above. A second
-      // region here is what made a card quote the same person twice.
-      quote: '',
+      // ── ONE LINE, DRAWN AT RANDOM, AND ONLY IF THEY SAY ANYTHING ───────────
+      // An NPC card used to carry TWO spoken regions competing for the same
+      // handful of authored lines — one fixed at the top of the list forever, the
+      // other picking through the leftovers — so a card said the same thing every
+      // time it was struck AND said it twice. There is one now.
+      //
+      // The draw is what makes a second copy of the same face worth looking at:
+      // the card is the same, the moment is not. It happens at STRIKE time and is
+      // stored, so a card in a binder never changes under its owner — the
+      // randomness is across cards, not across readings.
+      //
+      // 52 of the roster have nothing printable to say and get no region at all,
+      // which is the ladder rule doing its job rather than a gap to apologise for.
+      quote: quoteOrNothing(shuffled([f.card_quote, ...speech].filter(Boolean))),
     },
   };
 }

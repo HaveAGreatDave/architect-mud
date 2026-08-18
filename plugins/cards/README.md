@@ -25,7 +25,42 @@ trims: it emits ranked clauses and stops at the first that would cross. An omitt
 invisible; a truncated one is a bug the player can see. `regress.js` tests this directly — a 900-char
 enemy description must yield `null`, never a slice.
 
-Caps: handle 16 · epithet 28 · last seen 440 · own words 150 · quote 90.
+Caps: handle 16 · epithet 28 · last seen 560 · what they were doing 240 · quote 90.
+
+**The card is mostly a DESCRIPTION, and the budgets say so.** The two prose regions take the page and
+the spoken line is a footnote on it. That is an honest split rather than a taste one: most subjects
+have plenty of description and nothing printable to say — **52 of the 215 NPCs never say a word that
+can go on a card, and 56 of the 64 enemies do not talk at all**. A layout that saves its best space
+for a region most cards leave empty is a layout tuned for the exception. `quote` is deliberately not
+raised with the others (159 of the 163 NPCs who *do* say something already fit inside 90, and it is
+also the cap `mintquote` enforces on a player's typed line); it gave up its size on the face instead.
+
+**⚠ THE SECOND PARAGRAPH IS NEVER QUOTED.** It used to be: a fragment starting with a capital was
+taken for speech and given quotation marks, which meant a player's own `describe` text — a physical
+self-description, the least speech-like writing anywhere on the card — came back as words out of
+their mouth, in the same marks and the same colour as the spoken line printed directly underneath.
+One card, two quotations, and the longer of the two something nobody ever said. A description is
+prose about somebody and is set as prose; the one line they actually said is the `quote` region, and
+there is only ever one of it. `narration()` is where that decision lives, and it runs **at render
+rather than at strike**, so every card already in a binder obeys the rule too.
+
+**Speech and stage direction go to different regions.** An NPC's chitchat is half speech (*"Keep
+walking. It's what I do."*) and half stage direction (*wipes down a coolant line and listens to the
+gun cycle in the ceiling*). The card used to want only the first kind and throw the second away,
+which is backwards — the stage directions are the best unused description in the roster, and nothing
+else in the game prints them. `splitVoice()` keeps both and sends each where it belongs; a line that
+is **both** gives up both halves, because discarding one to keep the classification tidy is how the
+description got lost to begin with. A vendor's card also says where they stood, which is the one hard
+fact an NPC row carries that the prose above will not already have said.
+
+**⚠ A camera cannot see under a coat — including an NPC's.** That rule was written for the player
+card and `flags.clothing_layers` was quietly breaking it: the array runs outermost → innermost and
+half the roster's innermost entry is gendered underwear (`docs/npc-clothing.md`), so printing it whole
+put a stranger's boxers on a trading card in the middle of a paragraph about their face. It is **not
+the innermost slot** that is the problem, which is why `visibleLayers()` is a word test and never a
+`.slice(0, -1)`: steel-toed boots, a magnifying ocular and a projected badge reading SUB-REGISTRAR 9
+all sit in that same last position on live rows and every one of them shows. Three layers max — three
+is a sentence, four is a wardrobe inventory.
 
 **The face is a photograph, and the card is written like a description of one.** Three rules follow
 from that and all three are load-bearing:
@@ -54,9 +89,11 @@ imports reorders engine initialisation ahead of the world map and takes the prol
 tablet map, voidwalking and trucking down with it, in failures that never mention cards.
 
 The **quote is never edited to fit**. Candidates are walked newest-first and the first that fits
-wins; nothing qualifying prints `— said nothing worth printing —`. Chitchat is third-person stage
-direction, so the picker lifts speech out of quotes and skips lines that are pure action, and it
-rejects `$token` combat cries outright (a card is printed once and never re-rendered against a scene).
+wins, and `$token` combat cries are rejected outright (a card is printed once and never re-rendered
+against a scene). ⚠ **Nothing qualifying prints no region at all.** `— said nothing worth printing —`
+is a message for the MINT, where a player can still write a line before they pay; on a struck object
+it reads as a card that failed to fill rather than as a quiet person, and most subjects are quiet.
+`quoteOrNothing()` is the single way that sentinel could reach a face, and it stops it there.
 
 **Condition is spoken, not labelled**: a Battered coat is "gone thin at the shoulders". The band name
 lives in `spec.conditions` on the back, never on the face.

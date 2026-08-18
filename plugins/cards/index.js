@@ -17,7 +17,7 @@ import { isPluggedIn } from '../appliances/index.js';
 import { getGameDateTime } from '../../server/engine/environment.js';
 import {
   buildPlayerCard, buildNpcCard, buildEnemyCard, rollSleeve, RANKS, RANK_WEIGHT,
-  BUDGET, SILENCE, pickQuote, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE, ownWords,
+  BUDGET, SILENCE, pickQuote, mulberry32, isHotSeed, HOT_RANK_WEIGHT, HOT_CHANCE, narration,
 } from './builder.js';
 import {
   slotsFor, slotLeft, totalLeft, fullestSlot, takeFromSlot, normaliseSlot, SLOT_CODES,
@@ -239,36 +239,30 @@ export function renderCard(row) {
   // subject's own description, so it can never argue with the prose below it —
   // and simply absent when nobody wrote anything physical down.
   if (t.marks) out.push(`<span class="card-marks">${t.marks}</span>`);
-  // TWO PARAGRAPHS, NO HEADINGS. The labels used to announce each region ("Last
-  // seen", "In their own words") and that is what made the face read as a form
-  // rather than as writing — the reader can already tell prose from a quotation
-  // by looking at it. The regions are unchanged; only the furniture is gone.
-  if (t.last_seen) out.push(`<span class="card-block">${t.last_seen}</span>`);
+  // TWO PARAGRAPHS OF PROSE, NO HEADINGS, AND THE SPOKEN LINE UNDER THEM. The
+  // labels used to announce each region ("Last seen", "In their own words") and
+  // that is what made the face read as a form rather than as writing — the reader
+  // can already tell prose from a quotation by looking at it.
+  if (t.last_seen) out.push(`<span class="card-block card-narration">${t.last_seen}</span>`);
   if (t.origin) {
-    // An enemy's second paragraph is what it leaves behind, not something it
-    // said, so it is the one that never gets quotation marks — and the only one
-    // of the three that stays body text. A SPOKEN line is set apart in its own
-    // colour (`card-quote`), because on a card the difference between prose about
-    // somebody and words out of their mouth is the whole point of printing it.
-    // And a line lifted from chitchat is a STAGE DIRECTION, not speech, so it is
-    // set as narration under the subject's given name rather than quoted — see
-    // ownWords, which is where that decision lives for every surface.
-    const ow = ownWords(row.subject_name, t.origin);
-    out.push(row.subject_type === 'enemy'
-      ? `<span class="card-block">${t.origin}</span>`
-      : ow.quoted
-        ? `<span class="card-quote"><i>“${ow.text}”</i></span>`
-        : `<span class="card-block card-narration">${ow.text}</span>`);
+    // ⚠ THE SECOND PARAGRAPH IS PROSE, ALWAYS — see narration() in builder.js for
+    // what it used to do instead and why that was wrong. The setting happens HERE
+    // rather than at strike, so every card already in a binder obeys the rule too.
+    // An enemy's second paragraph is what it leaves behind; it has no speaker to
+    // name, so it prints exactly as stored.
+    out.push(`<span class="card-block card-narration">${row.subject_type === 'enemy' ? t.origin : narration(row.subject_name, t.origin)}</span>`);
   }
   // What it is made of, for a thing that does not talk — see anatomyLine. It sits
   // where the quote would have been and takes that region's own colour, so the
   // card has the same shape whether the subject speaks or not.
   if (t.anatomy) out.push(`<span class="card-quote">${t.anatomy}</span>`);
-  // ⚠ AN EMPTY QUOTE IS A REGION THAT IS NOT THERE, not a silence line. Only a
-  // subject who COULD have said something and didn't gets told off for it: a
-  // player who was quiet at the terminal. An NPC's line is `origin` above and a
-  // silent enemy gets its anatomy, so neither ever reaches this.
-  if (t.quote) out.push(`<span class="card-quote">${t.quote === SILENCE ? `<i>${SILENCE}</i>` : `“${t.quote}”`}</span>`);
+  // ⚠ AN EMPTY QUOTE IS A REGION THAT IS NOT THERE, AND SO IS A SILENT ONE. Most
+  // subjects never say a printable word — 52 of 215 NPCs, 56 of 64 enemies, and
+  // any player who was quiet at the terminal — and a card printing "— said nothing
+  // worth printing —" reads as a card that failed to fill rather than as a quiet
+  // person. The sentinel is a message for the MINT, where somebody can still write
+  // a line before they pay; it is not a line for an object struck once and kept.
+  if (t.quote && t.quote !== SILENCE) out.push(`<span class="card-quote">“${t.quote}”</span>`);
   if (s.record) out.push(`<span class="card-block"><span class="card-lbl">Record</span>${recordLine(s.record)}</span>`);
   if (s.hp_max) out.push(`<span class="card-block"><span class="card-lbl">Field data</span>HP ${s.hp_max} · hit ${s.hit ?? 1} · dodge ${s.dodge ?? 1}</span>`);
   out.push(`<span class="card-power">${row.subject_type === 'enemy' ? 'Threat' : row.subject_type === 'npc' ? 'Standing' : 'Power'} <b>${row.power}</b></span>`);
@@ -416,7 +410,7 @@ async function cmdMint(args, raw, player, broadcast) {
   if (!confirming) {
     const gaps = [];
     if (!card.text_blocks.origin) gaps.push('no <b>.describe</b> text will print — write one with <span class="cmd">describe</span> first');
-    if (card.text_blocks.quote === SILENCE) gaps.push('nothing you said here recently fits the quote line — write one with <span class="cmd">mintquote</span>');
+    if (!card.text_blocks.quote) gaps.push('nothing you said here recently fits the quote line — write one with <span class="cmd">mintquote</span>');
 
     // THE PRESS IS THE SHOW; THIS TEXT IS THE RECORD. Same contract the pack
     // reveal states about itself: `message` always prints, so the cabinet can be
@@ -440,11 +434,10 @@ async function cmdMint(args, raw, player, broadcast) {
       // Everything the quote editor needs. The panel sends `mintquote <line>` and
       // re-reads the card off the server's answer — it never renders a quote it
       // composed itself, because the card it draws must be the card that strikes.
-      quote: card.text_blocks.quote === SILENCE ? '' : card.text_blocks.quote,
+      quote: card.text_blocks.quote,
       quoteIsWritten: !!written && card.text_blocks.quote === written,
       quoteBudget: BUDGET.quote,
       overheard: overheard.slice(0, 6),
-      silence: SILENCE,
     });
   }
 
@@ -814,7 +807,7 @@ export async function issueArchitect({ handle, epithet, lastSeen, origin, quote 
   const card = {
     subject_type: 'player', subject_ref: String(rows[0].id), subject_name: rows[0].handle,
     body: 'male', rarity: 'architect', power: 0, spec: { issued: true },
-    text_blocks: { epithet: epithet || 'Architect issue', last_seen: lastSeen || '', origin: origin || '', quote: quote || SILENCE },
+    text_blocks: { epithet: epithet || 'Architect issue', last_seen: lastSeen || '', origin: origin || '', quote: quote || '' },
   };
   const struck = await insertCard(card, { poolWeight: 0 });
   await grant(rows[0].id, struck.id);

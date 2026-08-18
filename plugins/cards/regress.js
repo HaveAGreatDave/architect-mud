@@ -8,6 +8,7 @@ import { getGameDateTime } from '../../server/engine/environment.js';
 import { slotsFor, slotLeft, fullestSlot, takeFromSlot, baseStock, sleeveSeed } from './machine.js';
 import {
   ladder, wholeSentences, pickQuote, BUDGET, SILENCE, rollSleeve, RANKS,
+  splitVoice, narration, quoteOrNothing, visibleLayers,
   buildNpcCard, buildEnemyCard, enemyRarity, conditionBand, mulberry32,
   isHotSeed, HOT_RANK_WEIGHT, RANK_WEIGHT, fieldMarks, combatMarks,
   buildPlayerCard, poseFor, disciplineClause, anatomyLine,
@@ -116,8 +117,8 @@ export default async function regress({ run, check, getPlayer }) {
     const thinNpc = buildNpcCard({ id: 'npc_x', name: 'Nobody', description: 'A person.', flags: {}, sex: 'female' });
     check('an unauthored NPC still builds a card', thinNpc.rarity === 'common' && !!thinNpc.text_blocks.last_seen,
       JSON.stringify(thinNpc.text_blocks));
-    // ⚠ AN NPC CARD HAS ONE SPOKEN REGION AND IT IS `origin`. The second one was
-    // quoting the same person twice off the same short list of authored lines.
+    // ⚠ TWO PROSE REGIONS AND ONE SPOKEN ONE, AND THE SPOKEN ONE IS ALLOWED TO BE
+    // EMPTY. Nothing on a card is ever set as speech unless somebody said it.
     check('an NPC with nothing to say prints no quote region at all, and does not crash',
       thinNpc.text_blocks.quote === '' && thinNpc.text_blocks.origin === '',
       JSON.stringify({ q: thinNpc.text_blocks.quote, o: thinNpc.text_blocks.origin }));
@@ -127,13 +128,61 @@ export default async function regress({ run, check, getPlayer }) {
     const talker = { id: 'npc_t', name: 'Talker', description: 'A person.', flags: {}, sex: 'male',
       chitchat: ['Door holds.', 'Long shift.', 'Mind the step.', 'You again.'] };
     const drawn = new Set();
-    for (let i = 0; i < 60; i++) drawn.add(buildNpcCard(talker).text_blocks.origin);
+    for (let i = 0; i < 60; i++) drawn.add(buildNpcCard(talker).text_blocks.quote);
     check('⚠ an NPC with several lines does not print the same one on every card', drawn.size > 1,
       [...drawn].join(' | ').slice(0, 120));
     check('…and every draw is one of the lines they actually have',
       [...drawn].every(d => talker.chitchat.includes(d)), [...drawn].join(' | ').slice(0, 120));
     check('an authored card_note still wins over the draw',
       buildNpcCard({ ...talker, flags: { card_note: 'The line I chose.' } }).text_blocks.origin === 'The line I chose.');
+
+    // ── SPEECH AND STAGE DIRECTION GO TO DIFFERENT REGIONS ───────────────────
+    // The half of an NPC's chitchat that is action used to be thrown away, and
+    // whatever survived was set as a quotation whether anybody had said it or not.
+    // Both halves are kept now and neither is ever set as the other.
+    const mixed = splitVoice(['thumbs the radio. "Weather\u2019s clear."', 'wipes down a coolant line', '"Keep walking."']);
+    check('splitVoice sends speech one way and action the other',
+      mixed.speech.length === 2 && mixed.stage.length === 2
+      && mixed.speech.includes('Keep walking.') && mixed.stage.includes('wipes down a coolant line'),
+      JSON.stringify(mixed));
+    check('⚠ a line that is BOTH gives up both halves rather than losing one',
+      mixed.stage.includes('thumbs the radio.') && mixed.speech.some(s => /Weather/.test(s)),
+      JSON.stringify(mixed));
+    const doer = buildNpcCard({ id: 'npc_d', name: 'Vesper Kade', description: 'A person.', flags: {}, sex: 'female',
+      chitchat: ['counts the till twice and writes nothing down'], vendor_shop_name: 'Nuts to That' });
+    check('a stage direction becomes DESCRIPTION, not a quote',
+      /counts the till/.test(doer.text_blocks.origin) && doer.text_blocks.quote === '',
+      JSON.stringify(doer.text_blocks));
+    check('…and a shop-runner\u2019s card says where they stood',
+      /Nuts to That/.test(doer.text_blocks.origin), doer.text_blocks.origin);
+    // ⚠ THE REGION IS SET AT RENDER, NOT AT STRIKE, so every card ever minted gets
+    // the rule — including the ones in binders. narration() is that one place.
+    check('⚠ narration never returns a quoted string, whatever it is handed',
+      !/^["\u201C]/.test(narration('Vesper Kade', 'A tall woman in a wet coat.'))
+      && !/^["\u201C]/.test(narration('Vesper Kade', '"A tall woman in a wet coat."')),
+      narration('Vesper Kade', '"A tall woman in a wet coat."'));
+    check('…and gives a subjectless fragment its given name, never the full one',
+      narration('Vesper Kade', 'counts the till twice') === 'Vesper counts the till twice',
+      narration('Vesper Kade', 'counts the till twice'));
+    // ⚠ 25 of the roster are unnamed — 'a Guardian battery technician' — and token
+    // one of that is the article, which printed 'a wipes down a coolant line'.
+    check('⚠ …and an unnamed NPC gets the definite article, not its first word',
+      narration('a Guardian battery technician', 'wipes down a coolant line')
+        === 'The Guardian battery technician wipes down a coolant line',
+      narration('a Guardian battery technician', 'wipes down a coolant line'));
+    // ⚠ A CAMERA CANNOT SEE UNDER A COAT — the player card's rule, applied to the
+    // list that was breaking it. Boots and an ocular sit in the same innermost slot
+    // as the underwear and both of them show, so this is a word test, never a slice.
+    check('⚠ underwear never reaches a card, and everything else in that slot does',
+      JSON.stringify(visibleLayers(['a long duster', 'a work shirt', 'boxers']))
+        === JSON.stringify(['a long duster', 'a work shirt'])
+      && visibleLayers(['a vats-white coverall', 'steel-toed boots worn to the metal']).length === 2,
+      JSON.stringify(visibleLayers(['a long duster', 'a work shirt', 'boxers'])));
+    check('…and somebody wearing nothing else keeps what they have on',
+      visibleLayers(['a black g-string']).length === 1, JSON.stringify(visibleLayers(['a black g-string'])));
+    // ⚠ THE SILENCE COPY IS FOR THE MINT, NEVER FOR A FACE.
+    check('⚠ quoteOrNothing keeps the silence copy off a card', quoteOrNothing([]) === '',
+      JSON.stringify(quoteOrNothing([])));
 
     const enemyCard = buildEnemyCard({ id: 'en_x', name: 'Thing', description: 'It is a thing.', hp_max: 40, hit: 3, dodge: 2, weapon: [{ min: 1, max: 5 }] }, { spawn_weight: 100, max_count: 4, zones: 3 });
     check('an enemy card has no portrait body', enemyCard.body === null, String(enemyCard.body));

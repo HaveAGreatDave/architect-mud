@@ -17425,17 +17425,23 @@ body.intro-cine-open { overflow: hidden; }
    small, spaced, and sitting tight under the name rather than in the prose. */
 .card-marks { display: block; margin-top: 4px; font-size: 0.74em; letter-spacing: 0.08em; color: var(--cyan); opacity: 0.85; }
 .card-block { display: block; margin-top: 9px; font-size: 0.92em; }
-/* A stage-direction "in their own words" line — narration about the subject, not a
-   quotation from them (see ownWords in plugins/cards/builder.js). It reads as prose,
-   so it gets the prose treatment: a touch larger than the block around it and a hair
-   of extra line height, with no quotation marks and no colour of its own to argue
-   with the spoken line below. */
+/* THE DESCRIPTION — both prose paragraphs, and the reason to own the card. It is
+   set as writing rather than as a data row: full size, real line height, no
+   quotation marks and no colour of its own. See narration() in
+   plugins/cards/builder.js for why the second paragraph is never quoted. Kept as
+   a modifier on .card-block so the reveal shimmer, which walks `.card-block`,
+   still finds it (SHIMMER_ORDER in client/game/js/panels/cardpack.js). */
 .card-narration { font-size: 1em; line-height: 1.5; }
 .card-lbl { display: block; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
 /* The corp tag on the record strip: a badge, the way a team abbreviation sits on
    a real card. Absent entirely when the subject answers to nobody. */
 .card-corp { color: var(--cyan); font-weight: 700; letter-spacing: 0.06em; }
-.card-quote { display: block; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--yellow); }
+/* THE SPOKEN LINE — a footnote on a description, not the headline. It used to be
+   the loudest region on the face: body size, its own colour and a rule above it,
+   on a card where most subjects never say a printable word. It keeps the colour,
+   because the difference between prose about somebody and words out of their
+   mouth is the entire reason to print it, and gives up the size. */
+.card-quote { display: block; margin-top: 10px; padding-top: 7px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--yellow); opacity: 0.9; }
 .card-power { display: block; margin-top: 9px; font-size: 0.75em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
 .card-power b { color: var(--yellow); font-size: 1.5em; letter-spacing: 0; }
 .card-rank { font-weight: 700; }

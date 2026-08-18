@@ -238,8 +238,8 @@ function cardEditForm(c) {
     </div>
     ${field('epithet', 'Epithet', B.epithet, 1)}
     ${field('last_seen', c.subject_type === 'enemy' ? 'In the field' : 'Last seen', B.lastSeen, 5)}
-    ${field('origin', c.subject_type === 'enemy' ? 'What it leaves' : 'In their own words', B.origin, 3)}
-    ${field('quote', 'Overheard', B.quote, 2)}
+    ${field('origin', c.subject_type === 'enemy' ? 'What it leaves' : 'What they were doing', B.origin, 4)}
+    ${field('quote', 'The one line they said', B.quote, 2)}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
       ${c.subject_type !== 'player'
         ? `<button class="btn" onclick="cardRederive('${c.id}')">↻ Re-derive from ${c.subject_type} row</button>`
@@ -259,8 +259,8 @@ function cardPreview(c) {
     <div style="font-size:22px;font-weight:700;letter-spacing:.05em;margin:4px 0 2px">${c.subject_name}</div>
     <div style="font-size:11px;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase">${t.epithet || c.subject_type} · ${cardRankBadge(c.rarity)}</div>
     ${t.last_seen ? `<div style="margin-top:10px">${t.last_seen}</div>` : ''}
-    ${t.origin ? `<div style="margin-top:8px;font-style:italic;border-left:2px solid ${col};padding-left:9px">“${t.origin}”</div>` : ''}
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);color:var(--yellow)">“${t.quote || ''}”</div>
+    ${t.origin ? `<div style="margin-top:8px">${t.origin}</div>` : ''}
+    ${t.quote ? `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:.9em;color:var(--yellow)">&ldquo;${t.quote}&rdquo;</div>` : ''}
   </div>`;
 }
 
