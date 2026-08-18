@@ -7,7 +7,7 @@
 //
 // So the assertions are pixels, not order. And the faces are handed over in the WORST order (near
 // first), because a rasteriser that only works when the input is already sorted is a sort.
-import { rasterFaces, readPixels, depthAt, _resetRasterBuffer } from '../../client/game/js/panels/model-raster.js';
+import { rasterFaces, readPixels, depthAt, _resetRasterBuffer, rasterDepth, depthTarget, maskRaster, depthWinAt } from '../../client/game/js/panels/model-raster.js';
 
 const quad = (x0, y0, x1, y1, z, r, g, b) => ({
   pts: [{ x: x0, y: y0, z }, { x: x1, y: y0, z }, { x: x1, y: y1, z }, { x: x0, y: y1, z }],
@@ -78,6 +78,56 @@ export function rasterSmoke() {
   {
     const img = readPixels(rasterFaces([quad(10, 10, 20, 20, 5, 255, 0, 0)], 0, 0, 40, 40));
     if (pix(img, 2, 2)[3] !== 0) out.push('the buffer is opaque where the model is not — it would erase the scene behind it');
+  }
+
+  // ── 6. AND THE OTHER BUFFER: WHAT THE MODEL IS STANDING BEHIND ──────────────
+  // The same question one level out. A model that sorts perfectly against itself still painted
+  // straight through the building in front of it, because the world is canvas fills and paint order
+  // put the model last. So the world's solids go into a depth-only window over the SAME box, and
+  // the two buffers are compared per pixel.
+  //
+  // A wall down the left half at depth 3, a model panel across the whole box at depth 5: the left
+  // must be bitten out and the right must survive untouched. A whole-object test cannot express
+  // that — it either keeps the model or drops it — which is exactly the bug.
+  {
+    const res = rasterFaces([quad(0, 0, 40, 40, 5, 0, 255, 0)], 0, 0, 40, 40);
+    const T = depthTarget();
+    const win = rasterDepth(T, [{ pts: [{ x: 0, y: 0, z: 3 }, { x: 20, y: 0, z: 3 }, { x: 20, y: 40, z: 3 }, { x: 0, y: 40, z: 3 }] }], 0, 0, 40, 40);
+    if (!win) { out.push('the depth-only rasteriser refused a wall'); return out; }
+    if (depthWinAt(win, 5, 20) !== 3) out.push('the wall is not at its own depth in the occluder window');
+    if (depthWinAt(win, 35, 20) !== Infinity) out.push('the occluder window claims depth where nothing was drawn — open sky would occlude');
+    const cut = maskRaster(res, win, 0.02);
+    if (!cut) out.push('nothing was masked — the model is still painted straight through the wall');
+    const img = readPixels(res);
+    if (pix(img, 5, 20)[3] !== 0) out.push('the model still owns pixels the wall is in front of');
+    if (pix(img, 35, 20)[1] !== 255) out.push('the model lost pixels nothing was covering — a whole-object test wearing a mask’s clothes');
+    // …and the depth it beat is still recorded, which is what the detail passes read. The alpha is
+    // the mask; the depth is the model's own answer and must not be rewritten by it.
+    if (Math.abs(depthAt(res, 5, 20) - 5) > 1e-6) out.push('masking rewrote the model depth — the detail passes read that');
+  }
+
+  // 7. A SOLID BEHIND THE MODEL HIDES NOTHING. The direction test, and the one that makes the
+  //    difference between an occlusion pass and a delete: the same wall, further away.
+  {
+    const res = rasterFaces([quad(0, 0, 40, 40, 5, 0, 255, 0)], 0, 0, 40, 40);
+    const T = depthTarget();
+    const win = rasterDepth(T, [{ pts: [{ x: 0, y: 0, z: 9 }, { x: 20, y: 0, z: 9 }, { x: 20, y: 40, z: 9 }, { x: 0, y: 40, z: 9 }] }], 0, 0, 40, 40);
+    if (maskRaster(res, win, 0.02)) out.push('a wall BEHIND the model masked it — every contact would vanish as it drove in front of a building');
+  }
+
+  // 8. ACCUMULATION. The occlusion pre-pass fills the field one building at a time and reads the
+  //    answers between calls, so a second raster into the same target must ADD rather than clear.
+  //    Get this wrong and every building is tested against a field holding only itself.
+  {
+    const T = depthTarget();
+    const wall = (x0, x1, z) => ({ pts: [{ x: x0, y: 0, z }, { x: x1, y: 0, z }, { x: x1, y: 40, z }, { x: x0, y: 40, z }] });
+    rasterDepth(T, [wall(0, 20, 3)], 0, 0, 40, 40);
+    const win = rasterDepth(T, [wall(20, 40, 7)], 0, 0, 40, 40, true);
+    if (depthWinAt(win, 5, 20) !== 3) out.push('the first solid was cleared by the second — the field cannot be built a building at a time');
+    if (depthWinAt(win, 35, 20) !== 7) out.push('the second solid never landed');
+    // …and without the flag it starts again, which is how the field is cleared each frame.
+    const fresh = rasterDepth(T, [], 0, 0, 40, 40);
+    if (depthWinAt(fresh, 5, 20) !== Infinity) out.push('a non-accumulating raster kept last frame’s occluders');
   }
   return out;
 }

@@ -18,6 +18,101 @@
 // after culling, which is a thing 1996 hardware did with room to spare. Keep it that way: if this
 // is ever pointed at the city, the sim stops being 60fps.
 //
+// ── …AND THE HALF OF THAT RULE THAT IS ABOUT WHAT THE MODEL IS STANDING BEHIND ─
+//
+// `rasterDepth` below is the second half of the same idea and obeys the same limit. A truck sorted
+// perfectly against ITSELF still painted straight through the shed it was parked in, because the
+// world it stands in was never in any depth buffer: buildings are canvas fills, the model is
+// painted after them, and paint order is the only answer there has ever been. What the world pass
+// DOES have is a handful of conservative solid boxes per building, and those are cheap enough to
+// rasterise — depth only, no colour, no shading — into a window the size of the model.
+//
+// So the rule stands and gets sharper: never rasterise the CITY, only ever rasterise the few solids
+// that overlap ONE model's own screen box. Standing in the open that is zero boxes and costs
+// nothing; standing in a doorway it is one, and one is what the whole complaint was about.
+
+// Depth-only targets are owned by the CALLER, not by this module. Two live at once in the
+// windshield — the frame-wide coarse field and the per-model window — and a single shared scratch
+// would have the second overwrite the first halfway through the frame.
+export function depthTarget() { return { w: 0, h: 0, d: null }; }
+
+// The same window `rasterFaces` produces, with no colour in it. `quads` are `{ pts: [{x,y,z}] }` in
+// the caller's screen units; the result is sampled by `maskRaster` and `depthWinAt`.
+//
+// ⚠ ONE INTERPOLATOR, SHARED WITH THE COLOUR PATH. The 1/z rule below is the whole correctness of
+// this file and a second copy of it here would be a second chance to write it in z.
+//
+// ⚠ `accumulate` IS NOT AN OPTIMISATION. The occlusion pre-pass walks buildings NEAR→FAR and asks,
+// for each one, whether everything already in the buffer hides it — so the buffer has to be filled
+// a building at a time with the answers read between calls. Gathering every quad and rasterising
+// once would have each building tested against a field that already contains ITSELF, and every
+// building in the world would report as hidden behind itself.
+//
+// ⚠ AND `scale` IS OPTIONAL IN FRONT OF IT, WHICH IS A TRAP WORTH DISARMING. `(…, w, h, true)`
+// reads perfectly and means `scale = true` — which coerces to 1, so the buffer comes out the right
+// size and the accumulate flag is silently lost. The failure that produces is a field cleared
+// between every building, which is not a crash and not visibly wrong in any one frame. A boolean in
+// the scale slot can only ever be that mistake, so it is taken as what it obviously means.
+export function rasterDepth(target, quads, x0, y0, w, h, scale = 1, accumulate = false) {
+  if (typeof scale === 'boolean') { accumulate = scale; scale = 1; }
+  w = Math.ceil(w * scale); h = Math.ceil(h * scale);
+  if (w <= 0 || h <= 0 || w * h > 4_000_000) return null;
+  if (!target.d || target.w < w || target.h < h) {
+    target.w = Math.max(w, target.w); target.h = Math.max(h, target.h);
+    target.d = new Float32Array(target.w * target.h);
+    accumulate = false;                                  // a fresh (or regrown) buffer holds nothing
+  }
+  const { d } = target, stride = target.w;
+  if (!accumulate) for (let y = 0; y < h; y++) { const row = y * stride; d.fill(Infinity, row, row + w); }
+  let drew = 0;
+  for (const q of quads) {
+    const p = q.pts || q;
+    if (!p || p.length < 3) continue;
+    for (let t = 1; t + 1 < p.length; t++) {
+      tri(d, null, stride, w, h,
+        (p[0].x - x0) * scale, (p[0].y - y0) * scale, p[0].z,
+        (p[t].x - x0) * scale, (p[t].y - y0) * scale, p[t].z,
+        (p[t + 1].x - x0) * scale, (p[t + 1].y - y0) * scale, p[t + 1].z,
+        0, 0, 0, 0);
+    }
+    drew++;
+  }
+  return (drew || !accumulate) ? { buf: target, w, h, scale, x0, y0 } : null;
+}
+
+// The depth at one cell of a depth window — Infinity where nothing was drawn, which is "open sky"
+// and never occludes anything.
+export function depthWinAt(win, x, y) {
+  if (!win || x < 0 || y < 0 || x >= win.w || y >= win.h) return Infinity;
+  return win.buf.d[y * win.buf.w + x];
+}
+
+// ── THE TWO BUFFERS MEET HERE ────────────────────────────────────────────────
+// `res` is a model straight out of `rasterFaces`; `win` is the world's solids rasterised over the
+// SAME pixel box at the SAME scale. Any model pixel the world is genuinely in front of has its
+// alpha cleared, so the blit that follows lands a model with a building-shaped bite out of it —
+// per pixel, from every angle, with no ordering left to get wrong.
+//
+// `bias` is in the caller's depth units and exists for one case only: a model resting against a
+// wall it is not behind. Without it the two surfaces trade pixels along the contact and the truck
+// dissolves into the shed it is parked in.
+export function maskRaster(res, win, bias = 0) {
+  if (!res || !win) return 0;
+  const { buf, w, h } = res;
+  const stride = buf.w, { depth, rgba } = buf;
+  let cut = 0;
+  for (let y = 0; y < h; y++) {
+    const row = y * stride, wrow = y * win.buf.w;
+    for (let x = 0; x < w; x++) {
+      const di = row + x;
+      if (rgba[di * 4 + 3] === 0) continue;
+      const wz = win.buf.d[wrow + x];
+      if (wz + bias < depth[di]) { rgba[di * 4 + 3] = 0; cut++; }
+    }
+  }
+  return cut;
+}
+//
 // The buffer is allocated to the model's own screen box, not the canvas, so cost tracks how big the
 // truck actually is. Distant contacts are a few pixels wide and are deliberately left on the sort —
 // they are too small for anybody to see an ordering mistake in, and too numerous to pay for.
@@ -123,6 +218,7 @@ function tri(depth, rgba, stride, W, H, ax, ay, az, bx, by, bz, cx, cy, cz, r, g
       const di = rowOff + x;
       if (z >= depth[di]) continue;                  // something nearer already owns this pixel
       depth[di] = z;
+      if (!rgba) continue;                           // a depth-only target (rasterDepth) — nothing to shade
       const ci = di * 4;
       rgba[ci] = r; rgba[ci + 1] = g; rgba[ci + 2] = b; rgba[ci + 3] = a;
     }

@@ -731,6 +731,109 @@ Storage is `trucks.custom_data.trim` — `{ mat, col }`, either nullable, no sch
 the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
 renders byte-for-byte what it always did.
 
+
+### The booth — four colours, and a finish you can see *(2026-08-17)*
+
+The paint went from **two colours and four flashes** to four colours, fifteen paint jobs, eight
+finish coats and eleven pictures for the door. The old note above called it *"deliberately thinner
+than an aircraft's livery"*, and that was the wrong comparison. An aeroplane's paint is a **uniform**
+— it says whose it is. A truck's paint is the opposite: it is the one thing in this game a driver
+owns outright, walks up to from the outside every time, and cannot be talked out of. Two colours and
+a stripe cannot make a rig recognisable across a yard, and being recognisable across a yard is what
+it is *for*.
+
+**The four colours are four surfaces, not four slots.** Each is a place a real signwriter treats
+separately and — the reason this cost the renderer four lines instead of a system — each is already
+a distinct set of faces in the mesh:
+
+| field | what it paints | how the renderer finds it |
+| --- | --- | --- |
+| `base` | the cab | the fallback: any body face the paint job did not claim |
+| `trim` | whatever the paint job puts on it — the flash, the scallop, the flame | `faceWearsTrim` |
+| `hw` | the hardware: chassis, tanks, bumper, mirror arms, steps, lifter housings, trailer ribs | the `strut`/`gear`/`gun` roles |
+| `deck` | the box on the back — very often not the tractor's colour | a `deck` flag stamped on every face after `tractorFaces` |
+
+> ⚠ **`hw`/`deck`, never `accent`.** An aircraft livery has carried an `accent` since the jazz
+> scheme. Hanging structural metal off *that* would turn every undercarriage and every wing strut in
+> the game magenta the moment somebody flew a Jazz Wave. They are two keys nothing else sets, absent
+> on every aircraft, so the airframes are bit-identical — and regress asserts an airframe strut is
+> still `[44,48,54]` under a jazz palette.
+
+> ⚠ **The `deck` flag is stamped BEFORE the solo splice.** `faces.splice(0, tractorFaces)` throws the
+> tractor away for a dropped box, and after that there is no boundary left to find — a mark computed
+> from an index would call the whole trailer a tractor.
+
+**The finish is a real per-facet effect, not a word on a sheet.** Metallic is the one somebody asks
+for by name, and the whole point of flake is that it does something to the light. It lives inside
+`faceBaseRgb` — the seam **every** renderer of these meshes colours through, which is the same
+reason the patterns ride it, and the reason matters here: there are four renderers of the truck mesh
+and this file has been bitten three separate times by a fix landing in exactly one of them.
+
+> ⚠ **Geometry-driven, never camera-driven.** A real flake sparkles as you walk past it, and chasing
+> that needs a view-dependent term `faceBaseRgb` has no camera for — and a colour that changes
+> between frames is a colour that **shimmers**, which this file already forbids by name (see
+> `camoHash`, and why it exists instead of `Math.random`). So a finish reads the **facet**: which way
+> it points, and a stable hash of where it is. A flaked panel is one whose flanks fall away harder
+> than its roof, which is what metallic actually looks like on a stationary truck, and it is
+> identical in every view and every frame. Regress asserts the same facet answers twice.
+
+`satin` and an unset finish are the **exact identity** — asserted, because this runs on every facet
+of every mesh in the game and a coat that tinted by a rounding error would repaint the whole fleet
+on the day it shipped. `gloss` is a highlight the renderers lay on over the finished colour, so it
+takes the identity path too.
+
+**Door art goes on the door**, which is the flat panel under the cab glass at the height of somebody
+standing beside the truck — where a haulier signwrites, and the only surface on the rig you *read*
+rather than look at.
+
+> ⚠ **`drawTruckDoorArt` is not `drawNoseArt` with different numbers.** Nose art reconstructs a
+> fixed-wing hull — radius taper, superellipse cross-section, drooping centreline — from `FW_PARAMS`,
+> a table a truck has **no row in**. Pointed at a rig it silently falls back to the Twin Otter and
+> maps the art onto the shape of an aeroplane that is not there. A door is flat: four corners and a
+> grid for the perspective.
+
+> ⚠ **The rectangle comes from `TRUCK_META`, never from a constant.** The four rigs are four sizes,
+> and the whole mesh slides back to centre on its origin after it is laid out — the same transform
+> that once left the headlamps hanging in the road ahead of the bumper. Art placed from a hardcoded
+> station lands on the wrong panel of three trucks and on the tarmac beside the fourth. Regress
+> measures the published door against each rig's own drawn bounds, and asserts a dropped box
+> publishes none.
+
+**Nothing is migrated.** Every truck in the database carries the old four keys; the bench payload
+reads them back through `sanitizePaint` rather than rewriting the row, and the defaults are chosen
+so that read reproduces exactly what that truck has always been drawn as. No row changes and nothing
+changes colour on the day this ships — the same net-zero invariant the mutation and augment
+migrations were built on. Regress asserts it, and asserts the normalisation is idempotent (which is
+what makes the panel's "nothing changed" test honest).
+
+**The verb's grammar had to become named.** Four positional arguments are fine; eight are unusable —
+nobody will remember that the seventh slot is the door art. `rig trim` solved the same problem by
+inferring a bare word's meaning from which catalogue it appears in, and ⚠ **that trick does not work
+here**: `candy` is a paint job *and* a finish coat, `flames` is door art while `flame` is a paint
+job. So the keys are written down —
+
+```
+rig paint 1 base=#8e0f18 trim=#f0d97a hw=#1c1e22 deck=#8e0f18 flash=scallop finish=candy art=wolf
+rig paint 1 preset showrig
+```
+
+— and the **old positional form is still accepted exactly as it was**, because it is what every
+macro and every line of anyone's notes already says.
+
+**Nine one-click schemes** sit above the pickers, exactly as the hangar does it, because a
+four-colour picker with fifteen paint jobs behind it is a *worse* experience than two colours unless
+there is a one-click route to something that looks deliberate. ⚠ A scheme is applied **locally**
+rather than sent as `rig paint … preset …`, even though that verb exists: sending it would charge
+for the respray the instant somebody clicked a swatch to see what it looked like. The preset is a
+shortcut through the pickers; the button is the purchase.
+
+**The finish moves the fee** and nothing else does. Flake and candy are coats laid over a base nobody
+ever sees again; primer is the absence of the job. Deliberately **not** priced per colour or per
+paint job — a bench that charged more for a scallop than a stripe would make the interesting half of
+this cost money to look at. The panel re-quotes while you choose, off the gloss price and a
+multiplier table the server sends, because a booth that quoted one number and charged another the
+moment somebody picked candy would be the panel lying about the only fact on it.
+
 ## The loop
 
 Lifted from flight, unchanged in shape: the **client simulates at 60fps** (that is where the feel

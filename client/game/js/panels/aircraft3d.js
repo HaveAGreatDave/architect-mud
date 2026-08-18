@@ -33,7 +33,11 @@ export function liveryPalette(lv) {
   const pat = lv.pattern || 'bare';
   if (pat === 'splinter') base = mix3(base, [60, 64, 44], 0.35);
   const ground = hex2rgb(lv.ground) || JAZZ_GROUND;   // jazz undercoat (the "cup paper" the splatter pops against)
-  return { base, trim, ground, fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
+  // A truck's other two colours, and they are UNDEFINED on an aeroplane rather than defaulted —
+  // every reader downstream branches on their presence, so an airframe takes exactly the path it
+  // always took. See the ⚠ in faceBaseRgb on why they are not `accent`.
+  const hw = hex2rgb(lv.hw) || null, deck = hex2rgb(lv.deck) || null;
+  return { base, trim, ground, hw, deck, finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
 }
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
 const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
@@ -85,6 +89,40 @@ function faceWearsTrim(face, pat) {
       case 'wave':   return Math.abs(h - (BELT + 0.045 * Math.sin(f * 15))) < 0.024;     // the same band, and it swims
       case 'fade':   return h < 0.10 + camoHash(Math.round(f * 22), 0, Math.round(h * 40)) * 0.075;   // trim low, dithering out as it climbs
       case 'candy':  return ((Math.floor(f * 11 - h * 3) % 2) + 2) % 2 === 0;            // raked bands, the whole length of it
+      // ── AND ELEVEN MORE, BECAUSE FOUR IS NOT A PAINT SHOP ────────────────────────────────────
+      // Every one of these is a curve in (f, h) and nothing else — no new authored geometry, no
+      // per-truck data, no UV. The mesh already faces finely enough for a shape to resolve out of
+      // which side of a line each facet falls, which is the whole reason the original four worked
+      // and the reason adding eleven cost nothing but arithmetic.
+      //
+      // ⚠ THEY ARE ALL IN THE TRUCK'S OWN FRAME, where h ∈ [0, 0.28] and 0 is the ROAD. Reach for
+      // an airframe idea here — anything that reads `top` as a sign — and it paints the whole rig
+      // one colour, which is the bug this branch exists because of.
+      // A scallop: the arched panel a signwriter sweeps back from the front of the cab. Two of
+      // them, out of phase, which is what makes it read as a fairground rather than a wave.
+      case 'scallop': {
+        const a = 0.5 + 0.5 * Math.sin(f * 9.5), b = 0.5 + 0.5 * Math.sin(f * 9.5 + 2.1);
+        return h < 0.055 + a * 0.075 || (h > 0.175 && h < 0.185 + b * 0.05);
+      }
+      // Hot-rod flames: licks that climb as they run back, frayed at the edge by the same hash the
+      // camo uses so no two tongues end alike.
+      case 'flame': {
+        const t = Math.sin(f * 13 + h * 6) * 0.5 + 0.5;
+        const lick = 0.045 + t * 0.10 + camoHash(Math.round(f * 16), 0, Math.round(h * 18)) * 0.035;
+        return h < lick;
+      }
+      case 'split':  return h < BELT;                                                    // clean beltline: trim below, base above
+      case 'pinstripe': return Math.abs(h - BELT) < 0.007 || Math.abs(h - (BELT - 0.026)) < 0.006;   // two thin lines, coachpainted
+      case 'chevron': { const band = Math.floor((f * 7 - Math.abs(h - BELT) * 9)); return ((band % 2) + 2) % 2 === 0; }   // hazard arrows down the flank
+      case 'checker': return (Math.floor(f * 12) + Math.floor(h * 12)) % 2 === 0;         // racing squares
+      case 'roof':   return h > 0.205;                                                    // painted roof and fairing, cab left plain
+      case 'lower':  return h < 0.075;                                                    // skirts, tanks and valance — the truck sits lower
+      // A panel van: the flat middle of the flank is a second colour with the framing left in the
+      // cab's own, which is the livery a delivery fleet actually paints.
+      case 'panel':  return h > 0.070 && h < 0.190 && Math.abs(Math.sin(f * 3.1)) > 0.22;
+      // Patina, not a paint job at all: the base coat coming through in patches. Deliberately the
+      // only one keyed on a hash alone, because rust has no geometry.
+      case 'rust':   return camoHash(Math.round(f * 13), Math.round(g * 9), Math.round(h * 15)) > 0.62;
       default:       return false;                                                        // 'none' — one colour, and that is a choice too
     }
   }
@@ -122,11 +160,24 @@ function faceWearsTrim(face, pat) {
 export function faceBaseRgb(face, pal) {
   const role = face.role;
   if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
-  if (role === 'strut' || role === 'gear' || role === 'gun') return [44, 48, 54];
+  // ── THE THIRD AND FOURTH COLOURS, AND WHY THEY ARE OPT-IN KEYS ──────────────
+  // A truck wears four colours where an aeroplane wears two, and both go through this one function
+  // because every renderer of both meshes colours through it. `hw` is the HARDWARE — chassis rails,
+  // tanks, mirror arms, steps, lifter housings, the ribs down a trailer flank — and `deck` is the
+  // BOX on the back, which on a real rig is very often not the tractor's colour at all.
+  //
+  // ⚠ NOT `pal.accent`, WHICH ALREADY MEANS SOMETHING ELSE. An aircraft livery has carried an
+  // `accent` since the jazz scheme, and hanging structural metal off it would turn every
+  // undercarriage and every wing strut in the game magenta the moment somebody flew a Jazz Wave.
+  // Two keys nothing else sets, absent on every aircraft, so the airframes are bit-identical.
+  if (role === 'strut' || role === 'gear' || role === 'gun') return pal.hw || [44, 48, 54];
   if (role === 'interior') return [26, 28, 33];   // dark cargo-hold walls, livery-independent
   if (role === 'ramp') return [58, 61, 68];        // bare metal cargo ramp
   if (pal.pat === 'jazz' && JAZZ_ROLE.has(role)) return pal.ground || JAZZ_GROUND;   // chosen undercoat; overlayJazz paints the splatter on top
-  if (faceWearsTrim(face, pal.pat)) return pal.trim;
+  // The paint job runs over the box as well as the cab — a flash that stopped at the fifth wheel
+  // would read as two vehicles, which is exactly what a hauler paints a matching box to avoid.
+  if (faceWearsTrim(face, pal.pat)) return finishCoat(pal.trim, pal, face);
+  if (face.deck && pal.deck) return finishCoat(pal.deck, pal, face);
   // WARBIRD'S OTHER TWO TONES, AND THEY ARE DERIVED. A pattern picks base or trim and that is the
   // whole contract — two colours is what a livery stores and adding a third and fourth field to
   // the database for one scheme would be paying forever for one aeroplane. So the split camo and
@@ -140,7 +191,64 @@ export function faceBaseRgb(face, pal) {
     return camoHash(Math.round(f * 3.6), Math.round(g * 3.2), Math.round(h * 5)) > 0.52
       ? mix3(pal.base, [22, 30, 22], 0.45) : pal.base;                                       // the splinter break up top
   }
-  return pal.base;
+  return finishCoat(pal.base, pal, face);
+}
+
+// ── THE FINISH COAT, AS A THING THAT HAPPENS TO A FACET ──────────────────────
+// The paint model's fourth axis, and the one somebody asks for by name: metallic. A word on a sheet
+// would have been easy and worth nothing — the whole point of flake is that it does something to
+// the light, and the whole point of primer is that it does not.
+//
+// TWO DECISIONS MAKE THIS AFFORDABLE:
+//
+//  1. IT LIVES IN faceBaseRgb, which every renderer of these meshes colours through — the depot
+//     floor, the walkaround, the bench hero and the windscreen. That is the same seam the patterns
+//     ride, and for the same stated reason: a finish implemented per renderer is a finish that
+//     looks like four different finishes. There are four renderers of the truck mesh and this file
+//     has been bitten three separate times by a fix landing in only one of them.
+//  2. IT IS GEOMETRY-DRIVEN, NOT CAMERA-DRIVEN. A real flake sparkles as you walk past it, and
+//     chasing that would need a view-dependent term this function has no camera for — and a colour
+//     that changes between frames is a colour that SHIMMERS, which this file already forbids by
+//     name (see camoHash, and the reason it exists instead of Math.random). So a finish reads the
+//     FACET instead: which way it points, and a stable hash of where it is. A flaked panel is one
+//     whose flanks fall away harder than its roof, which is what metallic actually looks like on a
+//     stationary truck, and it is identical in every view and every frame.
+//
+// A finish nobody set (satin, and every aircraft) returns the colour it was handed, untouched.
+const finishSat = (c, k) => { const m = (c[0] + c[1] + c[2]) / 3; return [c[0] + (c[0] - m) * k, c[1] + (c[1] - m) * k, c[2] + (c[2] - m) * k]; };
+function finishCoat(rgb, pal, face) {
+  const fin = pal.finish;
+  // Gloss is a HIGHLIGHT, laid on by the renderers over the finished colour, not a tint — so it
+  // takes this path too, and satin is the neutral coat by definition.
+  if (!fin || fin === 'satin' || fin === 'gloss') return rgb;
+  const c = [rgb[0], rgb[1], rgb[2]];
+  const [f, g, h] = faceCentroid(face.p || [[0, 0, 0]]);
+  const up = h / (Math.hypot(g, h) || 1);            // +1 = pointing at the sky, 0 = a flank
+  switch (fin) {
+    // Flake: the spread between what the sky lands on and what it does not, opened up — plus a fine
+    // stable grain so a big flat panel is not one dead value.
+    case 'metallic': {
+      const k = 1 + (up - 0.25) * 0.5 + (camoHash(Math.round(f * 40), Math.round(g * 40), Math.round(h * 40)) - 0.5) * 0.10;
+      return finishSat([c[0] * k, c[1] * k, c[2] * k], 0.10);
+    }
+    // Pearl: the same idea in HUE rather than value — the coat goes toward the trim colour where it
+    // turns away from you, which is the whole read of a pearl and costs one mix.
+    case 'pearl':    return mix3(c, pal.trim || [230, 232, 238], 0.34 * (1 - Math.max(0, up)));
+    // Candy: deep colour over a bright base. Saturated hard and darkened in the shadows, which is
+    // what a dozen translucent coats do.
+    case 'candy':    return finishSat(c.map(v => v * (0.80 + Math.max(0, up) * 0.34)), 0.45);
+    case 'matte':    return finishSat(c, -0.10);
+    // Sun-faded and patchy. The patches are the point — an evenly faded truck reads as a colour
+    // choice, and an unevenly faded one reads as a truck that has been somewhere.
+    case 'weathered': {
+      const w = 0.18 + camoHash(Math.round(f * 7), Math.round(g * 6), Math.round(h * 7)) * 0.22;
+      return finishSat(mix3(c, [178, 176, 168], w), -0.28);
+    }
+    // Primer is the ABSENCE of a paint job, so it barely reads the colour at all: flat, chalky and
+    // the same on every panel. A rig in primer is a rig somebody is halfway through.
+    case 'primer':   return finishSat(mix3(c, [122, 124, 128], 0.62), -0.55);
+    default:         return rgb;
+  }
 }
 
 // ── Geometry ────────────────────────────────────────────────────────────────────
@@ -3374,6 +3482,18 @@ function buildTruck(variant = 'hauler', detail = 1) {
     }
   }
 
+  // ── WHICH HALF OF THE RIG A FACE BELONGS TO ────────────────────────────────
+  // The box gets its own colour in the paint model (`deck`), and this is the whole of what that
+  // cost: the trailer block above is bounded by `tractorFaces`, so which faces are the box is
+  // already known here and nowhere else. Stamped once at build time on a face list that is cached
+  // per variant and shared by every frame and every contact, so it is one flag, not a per-frame
+  // test — the same reasoning as `part` and `cen` above.
+  //
+  // ⚠ AND IT IS STAMPED BEFORE THE SOLO SPLICE, not after. `faces.splice(0, tractorFaces)` throws
+  // the tractor away for a dropped box, and after that there is no boundary left to find: every
+  // face is the trailer, and a mark computed from an index would call the whole thing a tractor.
+  for (let i = tractorFaces; i < faces.length; i++) faces[i].deck = 1;
+
   // THROW THE TRACTOR AWAY, if this was only ever meant to be the box. Everything from
   // `tractorFaces` on is the trailer, so a dropped box is the SAME geometry you tow — same ribs,
   // same doors, same tape, same lamps — rather than a second model that would need keeping in step
@@ -3459,11 +3579,30 @@ function buildTruck(variant = 'hauler', detail = 1) {
       drop = zmin;
     }
   }
-  TRUCK_META.set(str + ':' + detail, { shift, drop, pods: podAt });
+  // ── AND WHERE THE DOOR IS ──────────────────────────────────────────────────
+  // The one flat panel on the whole rig at the height of somebody standing next to it, and the one
+  // a haulier signwrites. Door art is painted onto it (drawTruckDoorArt), and the rectangle has to
+  // come from HERE for exactly the reason `shift` and `pods` do: the four rigs are four different
+  // sizes, the cab is laid out from the nose station and then the whole mesh slides back to centre
+  // on its origin. A decal placed from a constant lands on a different part of every truck, and on
+  // the road ahead of the smallest one.
+  //
+  // It is the panel BELOW the glass — the door window runs cab1−0.105 → cab1−0.048 (see the side
+  // glass above), so the art sits under it and forward of the step. `g` is the flank half-width;
+  // the renderer picks which flank is facing the camera.
+  const doorF1 = cab1 - 0.030 - shift, doorF0 = cab1 - 0.108 - shift;
+  const doorZ0 = S.hi * 0.19 - drop, doorZ1 = S.hi * 0.50 - drop;
+  TRUCK_META.set(str + ':' + detail, {
+    shift, drop, pods: podAt,
+    door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },
+  });
   return faces;
 }
-// variant+detail → { shift, drop, pods }. See the ⚠ at the end of buildTruck.
+// variant+detail → { shift, drop, pods, door }. See the ⚠ at the end of buildTruck.
 const TRUCK_META = new Map();
+// Read-only, for the regress suite: the door panel and the centring are facts about the mesh that
+// nothing outside this file can otherwise see, and door art is placed from them.
+export const truckMeta = (key) => TRUCK_META.get(key) || null;
 // A wreck: a generic hull minus its right wing, both fins, canopy, and windows — a
 // stripped carcass. Built off the plain default (no gear/struts/prop) so it stays neutral.
 function buildWreck() {
@@ -4240,6 +4379,194 @@ export function drawNoseArt(ctx, proj, cls, lv, occluders = null) {
     const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
     acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
     acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [d.sx, d.sy]);
+  }
+}
+
+// ── DOOR ART ─────────────────────────────────────────────────────────────────
+// The other thing a truck wears, and it goes where a truck actually wears it: the flat panel under
+// the door glass, at the height of somebody standing beside the cab. That is where a haulier
+// signwrites, and it is the only surface on the rig you read rather than look at.
+//
+// ⚠ THIS IS NOT `drawNoseArt` WITH DIFFERENT NUMBERS, and the attempt to make it be one is the
+// mistake worth naming. That function reconstructs a fixed-wing HULL — radius taper, superellipse
+// cross-section, drooping centreline — so it can wrap art around a fuselage, and it reads its shape
+// out of `FW_PARAMS`, a table a truck has no row in. Pointed at a rig it silently falls back to a
+// Twin Otter and maps the art onto the shape of an aeroplane that is not there. A truck's door is
+// FLAT. There is nothing to wrap it onto and nothing to reconstruct — four corners out of the
+// mesh's own published metadata, and a grid across them for the perspective.
+//
+// ⚠ AND THE RECTANGLE COMES FROM `TRUCK_META`, NEVER FROM A CONSTANT. The four rigs are four
+// different sizes and the whole mesh slides back to centre on its origin after it is laid out (see
+// the ⚠ at the end of buildTruck) — the same transform that once left the headlamps hanging in the
+// road ahead of the bumper. Art placed from a hardcoded station lands on the wrong panel of three
+// trucks and on the tarmac beside the fourth.
+const _doorCache = {};
+function doorArtTex(id) {
+  if (id in _doorCache) return _doorCache[id];
+  const S = 56, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const g = c.getContext('2d');
+  const M = S / 2;
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  if (id === 'crest') {
+    // A haulage crest: the shield every firm in the Basin puts on a door, with a road running out
+    // of it to a horizon. Sincere, and slightly too pleased with itself, which is the point.
+    g.fillStyle = '#1b2b3c'; g.strokeStyle = '#d9c07a'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(M, 4); g.lineTo(S - 8, 13); g.lineTo(S - 8, S * 0.58);
+    g.quadraticCurveTo(S - 10, S - 8, M, S - 4); g.quadraticCurveTo(10, S - 8, 8, S * 0.58);
+    g.lineTo(8, 13); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#d9c07a';                                     // the road, narrowing away
+    g.beginPath(); g.moveTo(M - 11, S - 13); g.lineTo(M + 11, S - 13); g.lineTo(M + 2.5, S * 0.42); g.lineTo(M - 2.5, S * 0.42); g.closePath(); g.fill();
+    g.strokeStyle = '#1b2b3c'; g.lineWidth = 1.6;                // the centre line on it
+    g.beginPath(); g.moveTo(M, S - 15); g.lineTo(M, S * 0.46); g.stroke();
+    g.fillStyle = '#e8ecf2'; g.beginPath(); g.arc(M, S * 0.31, 4.2, 0, 7); g.fill();   // a sun, or a headlamp, depending who you ask
+  } else if (id === 'eagle') {
+    g.fillStyle = '#e6e8ec';
+    g.beginPath();                                               // one spread bird, wingtip to wingtip
+    g.moveTo(M, 14); g.quadraticCurveTo(M - 12, 8, 4, 20); g.quadraticCurveTo(M - 16, 20, M - 6, 30);
+    g.lineTo(M - 4, 44); g.lineTo(M, 50); g.lineTo(M + 4, 44); g.lineTo(M + 6, 30);
+    g.quadraticCurveTo(M + 16, 20, S - 4, 20); g.quadraticCurveTo(M + 12, 8, M, 14);
+    g.closePath(); g.fill();
+    g.fillStyle = '#c8a23a'; g.beginPath(); g.arc(M, 12, 4.6, 0, 7); g.fill();        // head
+    g.fillStyle = '#141719'; g.beginPath(); g.arc(M + 1.6, 11, 1.3, 0, 7); g.fill();  // eye
+  } else if (id === 'skull') {
+    // Skull over crossed pistons — the pirate flag of a trade that runs on engines.
+    g.strokeStyle = '#c9ccd2'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(11, S - 9); g.lineTo(S - 11, 20); g.moveTo(S - 11, S - 9); g.lineTo(11, 20); g.stroke();
+    g.fillStyle = '#8f949c';
+    for (const xy of [[11, S - 9], [S - 11, S - 9]]) { g.beginPath(); g.arc(xy[0], xy[1], 5, 0, 7); g.fill(); }
+    g.fillStyle = '#eceef2';
+    g.beginPath(); g.arc(M, M - 5, 14, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(M, M + 8, 8.5, 7, 0, 0, 7); g.fill();                    // jaw
+    g.fillStyle = '#0c0e11';
+    g.beginPath(); g.ellipse(M - 5.5, M - 6, 3.8, 4.4, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(M + 5.5, M - 6, 3.8, 4.4, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(M, M - 1); g.lineTo(M - 2.4, M + 4); g.lineTo(M + 2.4, M + 4); g.closePath(); g.fill();
+    g.lineWidth = 1.2; g.strokeStyle = '#0c0e11';
+    for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(M + i * 3.2, M + 8); g.lineTo(M + i * 3.2, M + 14); g.stroke(); }
+  } else if (id === 'pinup') {
+    // A silhouette off a mudflap, moved up to the door. Kept to a shape — this is a decal on a
+    // truck, not a picture of a person, and the whole read is the outline.
+    g.fillStyle = '#e2c04a';
+    g.beginPath(); g.arc(M + 3, 13, 5.5, 0, 7); g.fill();                              // head
+    g.beginPath();                                                                     // the reclining line
+    g.moveTo(M + 8, 18); g.quadraticCurveTo(M + 2, 24, M - 2, 30);
+    g.quadraticCurveTo(M - 10, 38, M - 18, 40); g.lineTo(M - 18, 45);
+    g.quadraticCurveTo(M - 4, 45, M + 6, 36); g.quadraticCurveTo(M + 15, 28, M + 12, 18);
+    g.closePath(); g.fill();
+    g.lineWidth = 2.4; g.strokeStyle = '#e2c04a';
+    g.beginPath(); g.moveTo(M + 8, 21); g.quadraticCurveTo(M + 17, 15, M + 19, 8); g.stroke();   // the raised arm
+  } else if (id === 'wolf') {
+    g.fillStyle = '#dfe3e8';
+    g.beginPath();                                                                     // head, ears, muzzle
+    g.moveTo(M - 15, 16); g.lineTo(M - 11, 5); g.lineTo(M - 4, 14);
+    g.lineTo(M + 4, 14); g.lineTo(M + 11, 5); g.lineTo(M + 15, 16);
+    g.quadraticCurveTo(M + 16, 33, M + 6, 40); g.lineTo(M + 3, 50);
+    g.lineTo(M - 3, 50); g.lineTo(M - 6, 40); g.quadraticCurveTo(M - 16, 33, M - 15, 16);
+    g.closePath(); g.fill();
+    g.fillStyle = '#b8422c';
+    g.beginPath(); g.moveTo(M - 11, 22); g.lineTo(M - 3, 25); g.lineTo(M - 11, 27); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(M + 11, 22); g.lineTo(M + 3, 25); g.lineTo(M + 11, 27); g.closePath(); g.fill();
+    g.fillStyle = '#14171a'; g.beginPath(); g.ellipse(M, 41, 3.4, 2.6, 0, 0, 7); g.fill();       // nose
+  } else if (id === 'flames') {
+    const lick = (col, k) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(2, S - 2);
+      g.quadraticCurveTo(S * 0.22 * k, S * 0.60, S * 0.30 * k, S * 0.72);
+      g.quadraticCurveTo(S * 0.30 * k, S * 0.40, S * 0.56 * k, S * 0.44);
+      g.quadraticCurveTo(S * 0.44 * k, S * 0.24, S * 0.80 * k, S * 0.26);
+      g.quadraticCurveTo(S * 0.52 * k, S * 0.16, S * 0.66 * k, 3);
+      g.lineTo(2, 3);
+      g.closePath(); g.fill();
+    };
+    lick('#b81717', 1.25); lick('#ef7a18', 0.98); lick('#f6cf3b', 0.66);
+  } else if (id === 'eye') {
+    g.strokeStyle = '#6fd6ff'; g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(M, 6); g.lineTo(S - 6, S - 8); g.lineTo(6, S - 8); g.closePath(); g.stroke();
+    g.fillStyle = '#eef6fb'; g.beginPath(); g.ellipse(M, M + 5, 15, 8.5, 0, 0, 7); g.fill();
+    g.fillStyle = '#1c7ba8'; g.beginPath(); g.arc(M, M + 5, 6.4, 0, 7); g.fill();
+    g.fillStyle = '#0a0d10'; g.beginPath(); g.arc(M, M + 5, 2.8, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(M - 2.4, M + 2.4, 1.4, 0, 7); g.fill();
+  } else if (id === 'route') {
+    // A route shield. The number is deliberately the ONE road out of Coldwater, which is the road
+    // this whole system is about, and a driver who has run it will know that without being told.
+    g.fillStyle = '#f0f1f3'; g.strokeStyle = '#15181c'; g.lineWidth = 2.6;
+    g.beginPath(); g.moveTo(10, 12); g.lineTo(S - 10, 12); g.lineTo(S - 10, S * 0.60);
+    g.quadraticCurveTo(S - 12, S - 8, M, S - 5); g.quadraticCurveTo(12, S - 8, 10, S * 0.60);
+    g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#15181c'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 9px sans-serif'; g.fillText('BASIN', M, 20);
+    g.font = 'bold 20px sans-serif'; g.fillText('1', M, 36);
+  } else if (id === 'saint') {
+    // The saint of the road: a haloed figure with a staff, carrying something across water. Nobody
+    // in Coldwater agrees on who it is and every long-haul cab has one.
+    g.fillStyle = '#c8a23a'; g.beginPath(); g.arc(M - 2, 14, 9, 0, 7); g.fill();       // halo
+    g.fillStyle = '#20303f'; g.beginPath(); g.arc(M - 2, 14, 6, 0, 7); g.fill();
+    g.fillStyle = '#dfe4ea';
+    g.beginPath();                                                                     // robe
+    g.moveTo(M - 2, 20); g.lineTo(M + 8, 34); g.lineTo(M + 5, S - 6); g.lineTo(M - 11, S - 6);
+    g.lineTo(M - 9, 30); g.closePath(); g.fill();
+    g.strokeStyle = '#8a6a2a'; g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(M + 12, 10); g.lineTo(M + 6, S - 6); g.stroke();           // the staff
+    g.fillStyle = '#c8a23a'; g.beginPath(); g.arc(M - 8, 26, 4.4, 0, 7); g.fill();     // the child on the shoulder
+  } else if (id === 'dice') {
+    const die = (x, y, r, pips) => {
+      g.save(); g.translate(x, y); g.rotate(r);
+      g.fillStyle = '#f2f3f5'; g.strokeStyle = '#15181c'; g.lineWidth = 1.6;
+      g.beginPath(); g.rect(-11, -11, 22, 22);
+      g.fill(); g.stroke();
+      g.fillStyle = '#b8222a';
+      for (const pp of pips) { g.beginPath(); g.arc(pp[0] * 6.5, pp[1] * 6.5, 2.3, 0, 7); g.fill(); }
+      g.restore();
+    };
+    die(M - 11, M - 6, -0.22, [[-1, -1], [1, 1], [0, 0], [1, -1], [-1, 1]]);
+    die(M + 12, M + 8, 0.3, [[-1, -1], [1, 1]]);
+  } else { _doorCache[id] = null; return null; }
+  _doorCache[id] = c; return c;
+}
+
+// Paint whatever is on the door onto the flank facing the camera. `proj` is the model-space
+// projector every truck renderer already has — [f, g, h] to {sx, sy, z}, with z a camera depth.
+export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = null) {
+  const id = lv && lv.art; if (!id || id === 'none') return;
+  const meta = TRUCK_META.get(String(variant || 'hauler') + ':' + (detail ? 1 : 0));
+  const d = meta && meta.door; if (!d) return;                       // a dropped box has no cab
+  const img = doorArtTex(id); if (!img) return;
+  // WHICH FLANK. Both doors exist; only the near one is painted, because the far one is behind the
+  // cab and would draw straight through it — the same reason drawNoseArt picks a side.
+  const mf = (d.f0 + d.f1) / 2, mz = (d.z0 + d.z1) / 2, OUT = 1.035;
+  const sign = proj(mf, d.g * OUT, mz).z <= proj(mf, -d.g * OUT, mz).z ? 1 : -1;
+  const Nc = 3, Nr = 3, grid = [];
+  let anyNear = false;
+  for (let j = 0; j <= Nr; j++) {
+    const row = [];
+    for (let i = 0; i <= Nc; i++) {
+      const f = d.f0 + (d.f1 - d.f0) * (i / Nc);
+      const z = d.z1 + (d.z0 - d.z1) * (j / Nr);                     // top (j=0) then down
+      const P = proj(f, sign * d.g * OUT, z); row.push(P); if (P.z > 0.18) anyNear = true;
+    }
+    grid.push(row);
+  }
+  if (!anyNear) return;
+  // ⚠ AND IT UN-MIRRORS. A door panel is the same rectangle on both flanks, so the art on the off
+  // side reads backwards unless U is flipped — which matters most for the one design with letters
+  // in it, and is the first thing anybody notices on the others. Keyed off the projected winding,
+  // exactly as drawNoseArt does it, rather than off `sign`: the winding is what actually decides,
+  // and it already accounts for a camera that has gone round the back.
+  const n0 = grid[0][0], nT = grid[0][Nc], bL = grid[Nr][0];
+  const cross = (nT.sx - n0.sx) * (bL.sy - n0.sy) - (nT.sy - n0.sy) * (bL.sx - n0.sx);
+  const flip = cross > 0;
+  const W = img.width, H = img.height;
+  const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
+  const occ = occluders || [];
+  for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
+    const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], e = grid[j + 1][i];
+    if (a.z <= 0.18 || b.z <= 0.18 || c.z <= 0.18 || e.z <= 0.18) continue;
+    const mx = (a.sx + b.sx + c.sx + e.sx) / 4, my = (a.sy + b.sy + c.sy + e.sy) / 4;
+    const mzz = (a.z + b.z + c.z + e.z) / 4;
+    if (occ.some(o => o.z < mzz && ptInScreenPoly(mx, my, o.P))) continue;
+    const s0 = [uOf(i), j / Nr * H], s1 = [uOf(i + 1), j / Nr * H];
+    const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
+    acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
+    acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [e.sx, e.sy]);
   }
 }
 
@@ -5033,7 +5360,13 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   }
   // Appendage faces (wings/nacelles/gear/…) become nose-art occluders so the decal is culled where
   // a nearer part of the airframe stands in front of the flank, instead of painting straight over it.
-  if (!wreck) drawNoseArt(ctx, proj, cls, livery, drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ })));
+  // The decal layer. A truck's goes on its DOOR and an airframe's on its nose — same idea, two
+  // completely different surfaces, and one of them is flat (see drawTruckDoorArt).
+  if (!wreck) {
+    const occD = drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ }));
+    if (cls === 'truck') drawTruckDoorArt(ctx, proj, variant || 'hauler', 1, livery, occD);
+    else drawNoseArt(ctx, proj, cls, livery, occD);
+  }
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
   if (!wreck) drawRotorFX(ctx, cls, (v) => { const t = modelV(v); const q = proj(t[0], t[1], t[2]); return q.z <= 0.2 ? null : q; }, { parked: true, spin: 2.3, armed });

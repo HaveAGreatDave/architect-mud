@@ -285,7 +285,7 @@ async function main() {
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
-  console.log(`  Depot occlusion: a shed beside the rig covers ${bayOcc.length ? '?' : 'the span buffer'}; the one it is parked IN does not.`);
+  console.log(`  Depot occlusion: a shed beside the rig fills ${bayOcc.length ? '?' : 'the field and the per-pixel solid list'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');
   console.log('  Forecourt: all three lanes are clear from the kerb to behind the pumps, on all 4 entrance facings — the pumps are still solid, and the island kerb is ridden over rather than hit.');
   console.log('  Carriageway: three parallel lanes measure as one 3-wide road, a lone street still measures 1, and a junction breaks the block.');

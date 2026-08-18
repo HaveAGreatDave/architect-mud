@@ -232,6 +232,86 @@ Three things worth knowing before touching it:
 the failure mode here is silent: the work is real, verified in one view, and has no effect in the
 others.
 
+## …and the other half of that question: what the vehicle is standing BEHIND
+
+A model that sorts perfectly against itself still painted straight through the shed it was parked
+in. The two are different questions and only one of them was answered: the depth buffer above
+settles which of the truck's own panels owns a pixel and settles nothing at all about the world.
+Buildings are canvas fills painted before the model, the model is painted after them, and paint
+order says the truck wins — from every angle, at every distance.
+
+The answer is the **occlusion field**, which already existed for a different job. The world pass
+builds a set of guaranteed-solid slabs near→far to cull buildings hidden behind nearer ones; a
+vehicle is just another thing that can be behind one, so publishing that set costs nothing and makes
+the two answers consistent by construction.
+
+**It is a grid now, not a row of columns.** It was 96 columns, each holding the topmost screen line
+covered from there *downward*. That shape can only describe one class of occluder — a slab standing
+on the ground — and every exception had to be written out of the pre-pass by hand:
+
+- the depot's **door header** could not be contributed at all, because "covered from this line down"
+  is a lie about a lintel: it would have hidden a truck standing in its own open doorway. So the
+  strip of wall above the opening occluded nothing and the rig drew through it;
+- a **forecourt canopy** — a roof on four legs — is still exempt, and now by choice rather than by
+  the buffer's shape (see below);
+- an **L-shaped building** could only ever offer its core box, because a second slab in the same
+  columns could only overwrite the first rather than sit beside it.
+
+A grid has none of those cases. A cell is a cell: a lintel writes the cells a lintel covers, and two
+wings write two regions. Every one of those exceptions is *deleted* rather than worked around, which
+is the reason to change the shape rather than raise the column count.
+
+Occluders are rasterised as **real projected boxes** (`boxQuads` → `rasterDepth`), not as screen
+bounding rectangles — which is what makes the grid safe to make finer, since an AABB over-claims
+exactly where a per-cell test would be trusted.
+
+| knob | what it does |
+| --- | --- |
+| `OCC_CELL_PX` | canvas px per cell — the silhouette's step, and what the fill costs |
+| `OCC_SEG_DETAIL` / `OCC_SEG_MAX` | how much of a building becomes solid: the bulkiest third, capped. Mass, never trim — a balcony rail is not a thing you cannot see past |
+| `OCC_KEEP_TILES` / `OCC_KEEP_MAX` | how many near solids are kept as quads for the per-pixel pass |
+| `OCC_BIAS` / `OCC_PIXEL_BIAS` | the margins (see below) |
+
+**And the own truck gets it per pixel.** A cell every few pixels is right for "does this whole
+contact draw" and too coarse for the edge of a shed cutting across the rig you are driving. So the
+near solids are *also* kept as projected quads, and the truck's own raster pass rasterises the ones
+overlapping its screen box into a depth window at **its** resolution, then clears the model's alpha
+where the world genuinely won (`occluderWindow` → `maskRaster`).
+
+⚠ **It is cheap because it is scoped, not because it is approximate.** `occluderWindow` returns
+`null` unless something actually overlaps the model — which out on the road is always — so the pass
+costs nothing except in the frames it exists for.
+
+⚠ **The coarse clip is DILATED by one cell.** `beginOcclusionClip` still wraps the things drawn on
+canvas around the model (the lifter wash, the lamp pools) while the model itself is masked per
+pixel. Two masks at two resolutions over one object is only safe if the coarse one is a strict
+superset — dilate it and the fine mask decides every edge; don't, and the truck is cut at cell steps
+by the very pass that exists to stop that happening. On a soft gradient one cell of leak past a wall
+is invisible; a stepped silhouette is not.
+
+⚠ **Two margins, and they answer two different questions.** `OCC_BIAS` (0.35 tiles) asks whether a
+whole vehicle is behind a whole building; `OCC_PIXEL_BIAS` (0.02) asks whether one pixel of bodywork
+is behind one pixel of wall. A rig parked with its mirror against a shed dissolves into it on any
+margin wide enough to matter at the other scale.
+
+⚠ **An occluder still has to reach the ground.** A segment that does not stand on the deck is not an
+occluder, and that is now a *decision* rather than a limitation — the grid could express a floating
+band correctly, and doing so would mean a forecourt canopy's fascia occluding the roof of the rig
+underneath it, which is true of a real canopy and reads as exactly the bug this pass exists to fix.
+This was once a missing `z0`, and every truck parked under a canopy vanished.
+
+⚠ **`_frameW`/`_frameH`, never `ctx.canvas.width`.** Every screen coordinate in windshield.js is in
+CSS pixels; the canvas backing store is `dpr` times bigger. The old pre-pass and its clip both read
+the backing store as if it were the drawing surface, so on any retina display every occluder landed
+in the left half of a buffer measured in the wrong unit — the mask was misaligned by exactly the
+device-pixel ratio, on the machines most likely to be running the game.
+
+Coverage is `bayOccluderSmoke` (a shed beside the rig covers cells, keeps a solid, and leaves sky
+open above its own roofline; the shed you are parked *in* covers nothing, because it is being drawn
+in cutaway for you) plus cases 6–8 of `raster-smoke.mjs`, which assert the two buffers meet
+correctly: a wall in front bites a hole, a wall behind changes nothing, and the field accumulates a
+building at a time.
+
 ## Building mass is shared with the cold open
 
 `TYPE_FLOORS`, `FLOOR_Z`, `BUILDING_FOOT` and `floorsFor()` live in

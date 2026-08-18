@@ -533,27 +533,75 @@ function kitsTab(t) {
   }).join('')}</div>`;
 }
 
+// ── THE BOOTH ────────────────────────────────────────────────────────────────
+// Four colours, fifteen paint jobs, eight finish coats and eleven pictures for the door, and the
+// job this tab has is to stop that being WORSE than the two colours and four flashes it replaces.
+//
+// Three things do that, and none of them is a smaller catalogue:
+//
+//  1. THE SCHEMES COME FIRST. A row of one-click liveries at the top, exactly as the hangar does it
+//     (livery.js PRESETS), so the fastest route to a truck that looks deliberate is one click and
+//     the pickers below are there for the person who wants to argue with it.
+//  2. EVERY CHOICE PREVIEWS ON THE MODEL IN FRONT OF YOU. That was already true of the two colours
+//     and is now true of all four, the job, the coat and the door. Nothing is committed until the
+//     button; the button says what it will cost; and the truck in the hero shot is the truck being
+//     described. Paying to find out what flake looks like is not a mechanic.
+//  3. AND THE PRICE MOVES WHILE YOU CHOOSE, because the finish is the one thing that changes it.
+//     A booth that quoted one number and charged another the moment somebody picked candy would be
+//     the panel lying about the only fact on it — see paintCost and the ⚠ in the payload.
+//
+// ⚠ THE CATALOGUES ARE THE SERVER'S. This file renders `B.data.flashes` / `.finishes` / `.arts` /
+// `.paintPresets` and invents none of them, which is rule 1 of this panel: the client computes
+// nothing. A hardcoded list here is a second copy of a vocabulary `sanitizePaint` would then reject.
+const PAINT_FIELDS = [['base', 'Cab'], ['trim', 'Flash'], ['hw', 'Hardware'], ['deck', 'Box']];
 function paintTab(t) {
-  const cur = B.bench.paint || t.paint || { base: '#7d3f2a', trim: '#d8cfc0', flash: 'stripe', chrome: 1 };
-  const dirty = JSON.stringify(cur) !== JSON.stringify(t.paint || {});
-  const flashes = (B.data.flashes || []).map(f =>
-    `<button class="td-swatch${cur.flash === f ? ' on' : ''}" data-flash="${esc(f)}">${esc(f)}</button>`).join('');
-  const cmd = `rig paint ${t.id} ${cur.base} ${cur.trim} ${cur.flash} ${cur.chrome ? 1 : 0}`;
+  const dflt = B.data.paintDefault || { base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe', finish: 'gloss', art: 'none', chrome: 1 };
+  const cur = { ...dflt, ...(t.paint || {}), ...(B.bench.paint || {}) };
+  const dirty = paintCmd(t, cur) !== null;
+  const price = paintPrice(t, cur);
+  const swatches = (rows, key) => (rows || []).map(r =>
+    `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
+  const presets = (B.data.paintPresets || []).map(p =>
+    `<button class="td-preset" data-preset="${esc(p.id)}" title="${esc(p.label)}">
+       <span class="td-pchip" style="background:${esc(p.base)}"></span><span class="td-pchip" style="background:${esc(p.trim)}"></span><span class="td-pchip" style="background:${esc(p.hw)}"></span>
+       ${esc(p.label)}</button>`).join('');
+  const cols = PAINT_FIELDS.map(([k, label]) =>
+    `<label>${label} <input type="color" class="td-col" data-paint="${k}" value="${esc(cur[k])}"></label>`).join('');
   return `
     <div class="td-pane">
-      <div class="td-paint">
-        <label>Cab <input type="color" class="td-col" data-paint="base" value="${esc(cur.base)}"></label>
-        <label>Trim <input type="color" class="td-col" data-paint="trim" value="${esc(cur.trim)}"></label>
-      </div>
-      <div class="td-lab">Flash down the flank</div>
-      <div class="td-swatches">${flashes}</div>
+      <div class="td-lab">Schemes</div>
+      <div class="td-presets">${presets}</div>
+      <div class="td-paint">${cols}</div>
+      <div class="td-lab">Paint job</div>
+      <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
+      <div class="td-lab">Finish coat</div>
+      <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
+      <div class="td-lab">On the door</div>
+      <div class="td-swatches">${swatches(B.data.arts, 'art')}</div>
       <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Chrome on the stacks and the tank straps</label>
       <div class="td-acts">
-        <button class="td-act primary" data-cmd="${esc(cmd)}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(t.paintPrice)}</button>
+        <button class="td-act primary" data-cmd="${esc(paintCmd(t, cur) || '')}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(price)}</button>
         <button class="td-act ghost" data-paint-reset>Put it back</button>
       </div>
       <div class="td-dim td-note">The name on the door is the plate: <code>rig name ${esc(t.id)} &lt;plate&gt;</code>.</div>
     </div>`;
+}
+// What the booth will charge for the paint CURRENTLY ON THE DIALS. The scale is the server's — it
+// sends the gloss-coat price and the multiplier for every coat — so this multiplies, it does not
+// price. Get that wrong and the panel is quoting a number the till has never heard of.
+function paintPrice(t, cur) {
+  const mul = (B.data.finishMul || {})[cur.finish];
+  return mul == null || t.paintBase == null ? t.paintPrice : Math.max(60, Math.round(t.paintBase * mul));
+}
+// The verb, or null when nothing has changed. Named arguments, because eight positional ones is a
+// grammar nobody can type — see rigPaint, which still accepts the old four for anything already
+// written down.
+function paintCmd(t, cur) {
+  const was = { ...(B.data.paintDefault || {}), ...(t.paint || {}) };
+  const keys = ['base', 'trim', 'hw', 'deck', 'flash', 'finish', 'art'];
+  const parts = keys.filter(k => cur[k] !== was[k]).map(k => `${k}=${cur[k]}`);
+  if ((cur.chrome ? 1 : 0) !== (was.chrome ? 1 : 0)) parts.push(`chrome=${cur.chrome ? 1 : 0}`);
+  return parts.length ? `rig paint ${t.id} ${parts.join(' ')}` : null;
 }
 
 // ── Freight and the exchange ─────────────────────────────────────────────────
@@ -597,7 +645,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-flash],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-paintpick],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -614,7 +662,18 @@ function onClick(e) {
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
   if (t.dataset.viewReset != null) { const m = B.inspect.mode; B.inspect = inspectDefault(); B.inspect.mode = m; walkKeys.clear(); return void render(); }
   if (t.dataset.lot) { B.lotSel = t.dataset.lot; return void render(); }
-  if (t.dataset.flash) { B.bench.paint = { ...(B.bench.paint || selected()?.paint || {}), flash: t.dataset.flash }; return void render(); }
+  // One swatch, whichever row it came from — the paint job, the finish coat and the door art are
+  // three lists of the same widget, so they are one handler rather than three near-copies.
+  if (t.dataset.paintpick) { B.bench.paint = { ...paintNow(), [t.dataset.paintpick]: t.dataset.paintval }; return void render(); }
+  // A scheme sets every field at once. ⚠ It is applied LOCALLY rather than sent as
+  // `rig paint <id> preset <name>`, even though that verb exists and works: sending it would
+  // charge for the respray the instant somebody clicked a swatch to see what it looked like.
+  // The preset is a shortcut through the pickers, not a purchase — the button is the purchase.
+  if (t.dataset.preset) {
+    const p = (B.data.paintPresets || []).find(r => r.id === t.dataset.preset);
+    if (p) { const { id, label, ...fields } = p; B.bench.paint = { ...paintNow(), ...fields }; }
+    return void render();
+  }
   if (t.dataset.tuneReset != null) { B.bench.tune = null; return void render(); }
   if (t.dataset.paintReset != null) { B.bench.paint = null; return void render(); }
   // SELLING IS THE ONE IRREVERSIBLE BUTTON on this screen, and it sits next to Refuel. It asks.
@@ -647,8 +706,7 @@ function onInput(e) {
   if (el.dataset.paint) {
     const t = selected(); if (!t) return;
     const key = el.dataset.paint;
-    B.bench.paint = { ...(B.bench.paint || t.paint || { base: '#7d3f2a', trim: '#d8cfc0', flash: 'stripe', chrome: 1 }),
-      [key]: key === 'chrome' ? (el.checked ? 1 : 0) : el.value };
+    B.bench.paint = { ...paintNow(), [key]: key === 'chrome' ? (el.checked ? 1 : 0) : el.value };
     // NO RE-RENDER, for the same reason the tune slider does not: a colour input fires `input`
     // continuously while you drag around the swatch, and rebuilding the DOM under a live native
     // colour picker closes it on the first pixel of movement. The hero shot needs no re-render
@@ -659,14 +717,21 @@ function onInput(e) {
   }
 }
 
-// The Into-the-booth button, kept in step with a paint edit without touching the rest of the DOM.
+// The paint currently on the dials: the server's truck, whatever the bench has edited on top of
+// it, over the defaults. Everything that touches a picker goes through here, so a truck painted
+// before the model widened never hands a half-filled object to the next edit.
+function paintNow() {
+  const t = selected();
+  return { ...(B.data.paintDefault || {}), ...(t?.paint || {}), ...(B.bench.paint || {}) };
+}
+// The Into-the-booth button, kept in step with a colour drag without touching the rest of the DOM.
 function refreshPaintCommit(t) {
-  const cur = B.bench.paint;
-  if (!cur) return;
   const btn = document.querySelector('.td-side .td-act.primary');
   if (!btn) return;
-  btn.disabled = JSON.stringify(cur) === JSON.stringify(t.paint || {});
-  btn.dataset.cmd = `rig paint ${t.id} ${cur.base} ${cur.trim} ${cur.flash} ${cur.chrome ? 1 : 0}`;
+  const cur = paintNow(), cmd = paintCmd(t, cur);
+  btn.disabled = !cmd;
+  btn.dataset.cmd = cmd || '';
+  btn.textContent = `Into the booth · ${money(paintPrice(t, cur))}`;
 }
 
 function onKey(e) {
@@ -796,9 +861,15 @@ function startSpin() {
 // pay for teal. A half-turned dial is not a lie about the world here: nothing is committed, the
 // button still says what it will cost, and the model in front of you is the one you are describing.
 function liveryOf(t, live = false) {
-  const p = (live && B?.bench?.paint && t.id === B.selId) ? B.bench.paint : t.paint;
+  const p = (live && B?.bench?.paint && t.id === B.selId)
+    ? { ...(B.data.paintDefault || {}), ...(t.paint || {}), ...B.bench.paint } : t.paint;
   if (!p) return {};
-  return { base: p.base, trim: p.trim, pattern: `truck:${p.flash || 'none'}`, finish: p.chrome ? 'gloss' : 'matte' };
+  // ⚠ FOUR COLOURS, AND THE FINISH IS ITS OWN FIELD NOW. `chrome` used to be handed to the renderer
+  // AS the finish — a tickbox called 'chrome on the stacks' silently deciding gloss versus matte,
+  // which is two different questions wearing one control. It is back to meaning brightwork, and
+  // the coat is the coat.
+  return { base: p.base, trim: p.trim, hw: p.hw, deck: p.deck, chrome: p.chrome,
+    pattern: `truck:${p.flash || 'none'}`, finish: p.finish || 'gloss', art: p.art || 'none' };
 }
 
 function sizeCanvas(cv) {
@@ -1047,7 +1118,16 @@ function ensureStyles() {
   .td-kits{display:flex;gap:5px;flex-wrap:wrap}
   .td-kit{font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
     color:var(--td-fg-dim);background:var(--td-surf-lo);border:1px solid var(--border)}
-  .td-paint{display:flex;gap:14px;align-items:center}
+  .td-paint{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  /* The one-click schemes. Three chips of the actual colours in front of the name, because a
+     scheme called 'Night Run' means nothing until you have seen one. */
+  .td-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .td-preset{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 6px;cursor:pointer;
+    font:700 11px/1 'Courier New',monospace;letter-spacing:0.6px;text-transform:uppercase;color:var(--td-fg-dim);
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:7px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent)}
+  .td-preset:hover{color:var(--td-fg);border-color:color-mix(in srgb, var(--td-accent) 55%, transparent)}
+  .td-pchip{width:11px;height:16px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
   .td-paint label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--td-fg-dim)}
   .td-col{width:44px;height:28px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
     border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi)}

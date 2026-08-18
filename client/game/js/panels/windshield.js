@@ -35,7 +35,7 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
 import { rasterFaces, blitRaster, depthAt, rasterDepth, depthTarget, maskRaster, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
@@ -8102,10 +8102,15 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // mapped onto whichever nose side faces the camera as she banks. Only on the near/hero LOD
   // (own-ship chase + close contacts) so distant furball bogeys stay cheap. The adapter maps the
   // model-space projector P onto drawNoseArt's expected {sx,sy,z} (our depth lives in .f).
-  if (detail && lv.decal && lv.decal !== 'none') {
+  // ⚠ AND A TRUCK TAKES THE OTHER ONE. Nose art reconstructs a fixed-wing hull out of FW_PARAMS,
+  // a table a truck has no row in — pointed at a rig it silently falls back to a Twin Otter. The
+  // door panel is flat and the mesh publishes where it is; see drawTruckDoorArt.
+  if (detail && (lv.decal && lv.decal !== 'none' || lv.art && lv.art !== 'none')) {
     // Appendage faces occlude the decal so it doesn't paint through a nearer wing/nacelle/gear.
     const occ = faces.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.pts, z: fc.af }));
-    drawNoseArt(ctx, (f, g, h) => { const q = P([f, g, h]); return { sx: q.sx, sy: q.sy, z: q.f }; }, c.cls, lv, occ);
+    const pr = (f, g, h) => { const q = P([f, g, h]); return { sx: q.sx, sy: q.sy, z: q.f }; };
+    if (c.cls === 'truck') drawTruckDoorArt(ctx, pr, c.variant || 'hauler', detail, lv, occ);
+    else drawNoseArt(ctx, pr, c.cls, lv, occ);
   }
   // ── Engine effects ──────────────────────────────────────────────────────────
   // Jets trail an orange exhaust plume (growing with power); props spin a translucent disc at
@@ -13025,8 +13030,11 @@ function occludedByBuilding(sx, syTop, syBot, f, pad = 0) {
   const F = OCC_FIELD; if (!F) return false;
   const cx0 = clamp(Math.floor((sx - pad) * F.sx), 0, F.gw - 1), cx1 = clamp(Math.ceil((sx + pad) * F.sx), 0, F.gw - 1);
   const cy0 = clamp(Math.floor(syTop * F.sy), 0, F.gh - 1), cy1 = clamp(Math.ceil(syBot * F.sy), 0, F.gh - 1);
+  // ⚠ STRIDE, NOT WIDTH. The buffer is grown and never shrunk, so after any frame at a wider
+  // canvas its row pitch is larger than this frame's grid — index by gw and every row after the
+  // first reads a slice of the one above it, which is a mask that drifts as the window is resized.
   for (let cy = cy0; cy <= cy1; cy++) {
-    const row = cy * F.gw;
+    const row = cy * F.stride;
     for (let cx = cx0; cx <= cx1; cx++) {
       if (!(F.d[row + cx] + OCC_BIAS < f)) return false;   // open, or the cover is BEHIND it
     }
@@ -13068,12 +13076,12 @@ function beginOcclusionClip(ctx, f) {
   // A cell is BLOCKED when the world owns it nearer than us; dilating the blocked set would cut
   // more, so it is the OPEN set that grows — a blocked cell only survives with blocked neighbours,
   // and the grid's own border is never blocked.
-  const d = F.d, gw = F.gw, gh = F.gh, thr = f - OCC_BIAS;
+  const d = F.d, gw = F.gw, gh = F.gh, st = F.stride, thr = f - OCC_BIAS;   // st, not gw — see occludedByBuilding
   let covered = false;
   ctx.save();
   ctx.beginPath();
   for (let cy = 0; cy < gh; cy++) {
-    const row = cy * gw, up = row - gw, dn = row + gw;
+    const row = cy * st, up = row - st, dn = row + st;
     const edgeY = cy === 0 || cy === gh - 1;
     let run = 0;
     for (let cx = 0; cx < gw; cx++) {

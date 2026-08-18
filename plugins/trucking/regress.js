@@ -15,11 +15,11 @@ import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider,
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
-import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
+import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
 import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim } from '../../client/shared/cab-trim.js';
-import { trimCost } from './rig.js';
+import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_PRESETS, FLASHES, FINISHES } from './rig.js';
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
@@ -1943,5 +1943,134 @@ export default async function regress({ run, check, getPlayer }) {
     // The price is a real number on every rung, including a truck with no price at all.
     check('a retrim is priced on every rung and never free',
       [{ price: 1300 }, { price: 31000 }, {}].every(t => trimCost(t) >= 240));
+  }
+  // ── THE BOOTH ──────────────────────────────────────────────────────────────
+  // Paint went from two colours and four flashes to four colours, fifteen paint jobs, eight finish
+  // coats and eleven door pictures. Almost none of that needs a test — a swatch either looks right
+  // or it does not, and no assertion here can tell. What DOES need one is the seam every widening
+  // like this breaks: the trucks that were painted before it.
+  {
+    const legacy = { base: '#112233', trim: '#445566', flash: 'wave', chrome: 0 };
+    const read = sanitizePaint({}, legacy);
+    // ⚠ THE MIGRATION INVARIANT. Every truck in the database carries the OLD four keys and nothing
+    // else, and it is read back through here rather than rewritten (see the ⚠ in the bench payload).
+    // So reading a legacy paint must preserve every field it had and fill the rest from the
+    // defaults — anything else is a fleet that changes colour on the day this ships.
+    check('a truck painted before the model widened keeps its own colours',
+      read.base === legacy.base && read.trim === legacy.trim && read.flash === 'wave' && read.chrome === 0);
+    check('…and gains the new fields at their defaults rather than undefined',
+      read.hw === PAINT_DEFAULT.hw && read.deck === PAINT_DEFAULT.deck
+      && read.finish === PAINT_DEFAULT.finish && read.art === PAINT_DEFAULT.art);
+    // …and reading it TWICE is the same answer, which is what makes the panel's "nothing changed"
+    // test honest: it compares the edited paint against this exact normalisation.
+    check('normalising a paint is idempotent', JSON.stringify(sanitizePaint({}, read)) === JSON.stringify(read));
+  }
+  {
+    // A typo must not silently respray a truck the driver was happy with — the same rule the cab
+    // trim already holds itself to, and the reason every field falls back through `prev`.
+    const prev = sanitizePaint({ base: '#8e0f18', flash: 'scallop', finish: 'candy', art: 'wolf' }, {});
+    const junk = sanitizePaint({ base: 'crimson', flash: 'stripes', finish: 'chrome', art: 'sharkmouth' }, prev);
+    check('an unknown colour keeps the fitted one', junk.base === '#8e0f18');
+    // ⚠ `stripes` IS A REAL PATTERN — the AIRFRAME one. The two vocabularies share words (the fleet
+    // has `stripe`, the airframes have `stripes`; `candy` is both a paint job and a finish coat),
+    // which is exactly why the verb's grammar is named rather than inferred from the catalogues.
+    check('an airframe pattern is not a truck paint job', junk.flash === 'scallop');
+    check('a finish that is not a finish keeps the coat', junk.finish === 'candy');
+    check('nose art is not door art', junk.art === 'wolf');
+  }
+  {
+    // Every scheme on the panel has to expand into a paint that survives sanitising unchanged.
+    // A preset with a typo in it is a one-click button that quietly does something else.
+    const bad = PAINT_PRESETS.filter(p => {
+      const s = presetPaint(p.id, {});
+      return !s || s.flash !== p.flash || s.finish !== p.finish || s.base !== p.base || s.hw !== p.hw || s.deck !== p.deck;
+    });
+    check('every one-click scheme is a paint the booth accepts', bad.length === 0, bad.map(p => p.id).join(','));
+    check('an unknown scheme is refused rather than guessed', presetPaint('sunburst', {}) === null);
+  }
+  {
+    // The finish is the only thing that moves the fee, and the panel re-quotes locally off the
+    // gloss price × a multiplier the server sends. If the two ever disagree the booth is showing a
+    // number the till has never heard of, so the arithmetic is asserted rather than trusted.
+    const type = { price: 31000 };
+    const gloss = paintCost(type, { finish: 'gloss' });
+    check('flake and candy cost more than gloss, primer costs less',
+      paintCost(type, { finish: 'metallic' }) > gloss && paintCost(type, { finish: 'candy' }) > gloss
+      && paintCost(type, { finish: 'primer' }) < gloss);
+    check('a respray is priced on every rung and never free',
+      FINISHES.every(f => paintCost({}, f) >= 60) && FINISHES.every(f => paintCost(type, f) >= 60));
+  }
+  {
+    // ── AND THE RENDERER AGREES ABOUT THE VOCABULARY ─────────────────────────
+    // The catalogue is the server's and the pictures are the client's, and nothing joins them but
+    // a string. A paint job the mesh has never heard of paints the truck one flat colour and a
+    // door picture with no texture behind it paints nothing at all — both are silent, both look
+    // like "that swatch does not do much", and neither would ever be filed as a bug.
+    const face = { role: 'body', p: [[0.1, 0.15, 0.14], [0.2, 0.15, 0.14], [0.2, 0.15, 0.16], [0.1, 0.15, 0.16]] };
+    const pal = { base: [10, 20, 30], trim: [200, 200, 200], pat: 'truck:none' };
+    const inert = FLASHES.filter(f => {
+      // A paint job DOES something when at least one facet somewhere on the flank comes out trim.
+      for (let i = 0; i < 40; i++) for (let j = 0; j < 24; j++) {
+        const fx = -0.2 + i * 0.02, hz = j * 0.012;
+        const q = { role: 'body', p: [[fx, 0.15, hz], [fx, 0.15, hz]] };
+        if (faceBaseRgb(q, { ...pal, pat: `truck:${f.id}` }) === pal.trim) return false;
+      }
+      return true;
+    }).map(f => f.id);
+    check('every paint job in the catalogue paints something on the mesh',
+      inert.length === 1 && inert[0] === 'none', inert.join(','));   // 'none' is a choice, and paints nothing on purpose
+    // The hardware and the box are two keys the airframes must never grow. An aeroplane has carried
+    // an `accent` since the jazz scheme, and hanging structural metal off THAT would have turned
+    // every undercarriage in the game magenta — see the ⚠ in faceBaseRgb.
+    const strut = { role: 'strut', p: [[0, 0, 0]] };
+    check('an airframe strut is untouched by the truck colours',
+      faceBaseRgb(strut, { base: [1, 2, 3], trim: [4, 5, 6], accent: [194, 43, 140], pat: 'jazz' }).join(',') === '44,48,54');
+    check('a truck strut wears the hardware colour',
+      faceBaseRgb(strut, { base: [1, 2, 3], trim: [4, 5, 6], hw: [35, 38, 43], pat: 'truck:none' }).join(',') === '35,38,43');
+    // ⚠ AND A FINISH NOBODY SET CHANGES NOTHING. This runs on every facet of every mesh in the
+    // game, aircraft included, so the neutral path has to be exactly the identity — a coat that
+    // tinted by a rounding error would repaint the whole fleet the day it shipped.
+    const plain = { base: [123, 63, 42], trim: [216, 207, 192], pat: 'truck:none' };
+    check('satin and an unset finish are the identity',
+      faceBaseRgb(face, plain) === plain.base
+      && faceBaseRgb(face, { ...plain, finish: 'satin' }) === plain.base
+      && faceBaseRgb(face, { ...plain, finish: 'gloss' }) === plain.base);
+    check('a finish coat actually changes the colour',
+      ['metallic', 'pearl', 'candy', 'matte', 'weathered', 'primer']
+        .every(fin => faceBaseRgb(face, { ...plain, finish: fin }).join(',') !== plain.base.join(',')));
+    // …and it is STABLE. A finish that reads a clock or a random would shimmer, which is the thing
+    // camoHash exists to prevent and the reason a finish is geometry-driven rather than view-driven.
+    check('a finish coat is the same answer twice',
+      faceBaseRgb(face, { ...plain, finish: 'metallic' }).join(',') === faceBaseRgb(face, { ...plain, finish: 'metallic' }).join(','));
+  }
+  {
+    // ── WHERE THE DOOR IS ────────────────────────────────────────────────────
+    // Door art is placed from `TRUCK_META.door`, which the mesh publishes AFTER it slides itself
+    // back to centre on its origin — the same transform that once left the headlamps hanging in the
+    // road ahead of the bumper. So the panel has to land on the CAB of all four rigs, and a dropped
+    // box (which has no cab at all) has to publish none.
+    const off = [];
+    for (const id of ['scrapper', 'hauler', 'drayman', 'continental']) {
+      aircraftFaces('truck', 1, false, id);
+      const d = truckMeta(id + ':1')?.door;
+      if (!d) { off.push(`${id}: no door`); continue; }
+      // The bounds of the drawn mesh, so this measures the door against the TRUCK rather than
+      // against a constant that would have to be kept in step with four vehicles.
+      let f0 = Infinity, f1 = -Infinity, z1 = -Infinity;
+      for (const fc of aircraftFaces('truck', 1, false, id)) for (const p of fc.p) {
+        if (p[0] < f0) f0 = p[0]; if (p[0] > f1) f1 = p[0]; if (p[2] > z1) z1 = p[2];
+      }
+      if (!(d.f0 > f0 && d.f1 < f1)) off.push(`${id}: door is off the ends of the truck`);
+      if (!(d.z0 > 0 && d.z1 < z1)) off.push(`${id}: door is under the road or over the roof`);
+      if (!(d.f1 > f0 + (f1 - f0) * 0.55)) off.push(`${id}: door is back on the deck, not on the cab`);
+      if (!(d.g > 0)) off.push(`${id}: door has no flank to sit on`);
+    }
+    check('every rig publishes a door panel, on its own cab', off.length === 0, off.join(' · '));
+    aircraftFaces('truck', 1, false, 'hauler~s');
+    check('a dropped box publishes no door — it has no cab', !truckMeta('hauler~s:1')?.door);
+    // And the box knows it is the box, which is what the fourth colour paints.
+    const tractor = aircraftFaces('truck', 1, false, 'hauler').filter(f => f.deck).length;
+    const rig = aircraftFaces('truck', 1, false, 'hauler+t').filter(f => f.deck).length;
+    check('a bobtail has no trailer faces and a coupled rig does', tractor === 0 && rig > 20, `${tractor}/${rig}`);
   }
 }
