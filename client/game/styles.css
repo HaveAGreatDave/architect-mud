@@ -6236,45 +6236,40 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 
 /* ─── Shop (GUI vendor) — two-pane "Terminal Card" layout ──────────────────
-   List of items on the left, an examine card on the right, a transaction footer
-   below. Rendered into #dialogue-text by renderShop() in dialogue.js. The box is
-   widened to a fixed size via the .shop-mode class while a shop is open. */
+   List of items on the left, an examine card on the right, and one action bar
+   along the bottom carrying the stepper, the total, Purchase, Back and Leave.
+   Rendered into #dialogue-text by renderShop() in dialogue.js; the box takes as
+   much of the window as it can get via the .shop-mode class while a shop is
+   open, and #dialogue-options is hidden because nothing renders into it here. */
 #dialogue-box.shop-mode {
-	width: 780px;
-	max-width: 94vw;
-	height: 560px;
-	max-height: 84vh;
+	/* AS MUCH SHELF AS THE WINDOW WILL GIVE. This was a fixed 780×560 whatever the
+	   screen was, so on a desktop the item list stood four rows tall behind a
+	   scrollbar with a third of the viewport empty around it. Both axes are "take
+	   what's there, capped" now — the cap is what stops a wide monitor handing you
+	   a shop the size of a wall, and the height falls back on the box's own
+	   viewport max-height (see #dialogue-box) rather than a second 84vh guess that
+	   was always the smaller of the two anyway.
+	   Tighter padding too: a shop is a dense terminal, not a speech card. */
+	width: min(1100px, 96vw);
+	max-width: 96vw;
+	height: min(820px, 100%);
+	padding: 14px 16px 12px;
 }
 #dialogue-box.shop-mode #dialogue-text {
 	overflow: hidden;
 	white-space: normal;
 	min-height: 0;
-	margin-bottom: 8px;
+	/* The option column below is display:none in shop mode — nothing to clear. */
+	margin-bottom: 0;
 }
-/* Back + Leave share one row; the panel's static Leave button (a direct child
-   of the box) is hidden so only the in-options pair shows.
-
-   The column rules above exist for a conversation with eight replies in it: the
-   options band is allowed to shrink and then scroll rather than run out of the
-   box. A shop has exactly TWO buttons and a fixed-height box, so that same
-   give-way rule had nothing to give — the row was the only shrinkable thing left
-   under a full item list, and it collapsed, squashing both buttons to a sliver.
-   In shop mode the row is rigid instead, and the pair carry their own padding
-   (the roomier `:not(.shop-mode)` sizing is deliberately column-only). */
-#dialogue-box.shop-mode #dialogue-options {
-	flex-direction: row;
-	gap: 6px;
-	align-items: stretch;
-	flex: 0 0 auto;
-	overflow: visible;
-}
-#dialogue-box.shop-mode #dialogue-options .dialogue-opt {
-	flex-shrink: 0;
-	padding: 10px 18px;
-	text-align: center;
-	white-space: nowrap;
-}
-#dialogue-box.shop-mode #dialogue-options .shop-back { flex: 1 1 auto; }
+/* NO OPTION COLUMN IN SHOP MODE. Back and Leave used to be rendered into it as a
+   full-width row of dialogue buttons — two controls that need a corner, spending
+   a whole band of height plus its gap on a panel whose complaint was that there
+   was nowhere to put the stock. They are small ghost buttons in the action bar
+   now (.shop-nav, rendered by renderShop), so the column is empty and hidden.
+   The panel's own static Leave button (a direct child of the box) stays hidden
+   too — it always was. */
+#dialogue-box.shop-mode #dialogue-options,
 #dialogue-box.shop-mode > .dialogue-opt { display: none; }
 
 /* Reactive purchase feedback lives on the credits counter — it rolls to the new
@@ -6342,14 +6337,19 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .shop-cred b { color: var(--yellow); font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
 .shop-result {
 	padding-top: 6px;
-	/* Always holds its spot so the panes don't jump when a quip appears. */
-	min-height: 2.6em;
+	/* It used to hold a reserved 2.6em on every frame so the panes could not jump
+	   under it — height spent on the ~99% of frames that have nothing to say. It
+	   collapses instead (:empty, below): the only thing that fills it is a server
+	   refresh, and a refresh has already rebuilt the list, the card and the
+	   credits, so there is no steady state left for it to disturb. */
+	min-height: 0;
 	/* The buy/sell line + the vendor's reaction are joined by \n; honour it. */
 	white-space: pre-line;
 	font-size: 0.6875rem;
 	color: var(--text-dim);
 	flex-shrink: 0;
 }
+.shop-result:empty { display: none; }
 .shop-result-mark { float: left; margin-right: 6px; font-size: 0.8125rem; line-height: 1; }
 .shop-result.good { color: var(--green); }
 /* A REFUSAL IS A WALL. The old band said no in dim red 11px prose between two
@@ -6381,10 +6381,15 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 .shop-2pane {
 	display: grid;
-	grid-template-columns: 1fr 300px;
+	/* The record pane was a flat 300px, which is most of a phone and a quarter of a
+	   wide window. Proportional between a floor that still fits a stat line and a
+	   ceiling past which it is only a wider description. minmax(0,1fr) on the list
+	   because a grid track's automatic minimum is its CONTENT — a long item name
+	   would otherwise push the column wider than the pane it sits in. */
+	grid-template-columns: minmax(0, 1fr) clamp(240px, 30%, 360px);
 	flex: 1;
 	min-height: 0;
-	margin-top: 8px;
+	margin-top: 6px;
 }
 .shop-list {
 	overflow-y: auto;
@@ -6407,7 +6412,10 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	display: flex;
 	justify-content: space-between;
 	gap: 10px;
-	padding: 7px 10px;
+	/* Tighter than a comfortable row on purpose: this is a price list, and four
+	   more lines of stock on screen is worth more here than the air between them.
+	   The mobile block below puts the thumb-sized padding back. */
+	padding: 5px 9px;
 	cursor: pointer;
 	border: 1px solid transparent;
 }
@@ -6430,7 +6438,7 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .shop-section {
   font-size: 0.625rem; letter-spacing: 1.5px; text-transform: uppercase;
   color: var(--text-dim); opacity: 0.75;
-  margin: 10px 0 3px; padding-bottom: 3px;
+  margin: 8px 0 2px; padding-bottom: 2px;
   border-bottom: 1px solid rgba(40, 229, 255, 0.15);
 }
 .shop-section:first-child { margin-top: 0; }
@@ -6443,7 +6451,7 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .shop-section.shop-takeall-top { margin-top: 0; margin-bottom: 6px; }
 .shop-section.shop-takeall-top > span { display: none; }
 .shop-section.shop-takeall-top > .shop-takeall { flex: 1; padding: 5px 6px; font-size: 0.625rem; opacity: 1; }
-.shop-card { padding-left: 14px; min-height: 0; display: flex; }
+.shop-card { padding-left: 12px; min-height: 0; display: flex; }
 .shop-card-empty {
 	color: var(--text-dim);
 	font-size: 0.75rem;
@@ -6454,11 +6462,16 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .shop-card-inner {
 	border: 1px solid var(--accent-dim);
 	border-radius: 2px;
-	padding: 14px;
+	padding: 12px 13px;
 	flex: 1;
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
+	/* A BACKSTOP, not a scroller. Everything in here except the description is
+	   fixed-height and the description is the one that gives, so this should never
+	   clip. It is here because the version that had the stepper in it DID clip,
+	   silently, out over the footer, and nothing said so. */
+	overflow: hidden;
 	background: var(--bg3);
 }
 .shop-card-name { color: var(--text-bright); font-size: 0.9375rem; }
@@ -6479,11 +6492,15 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	color: var(--text-dim);
 	font-size: 0.75rem;
 	line-height: 1.6;
-	flex: 1;
+	/* Takes what it needs and gives it back under pressure (it scrolls), rather
+	   than flex:1 claiming the whole card — on the taller box that pushed the
+	   stats and the price block to the far bottom with a hand's width of nothing
+	   between them and the description they belong to. */
+	flex: 0 1 auto;
 	overflow-y: auto;
 	min-height: 2em;
 }
-.shop-stats { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.shop-stats { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
 .shop-statline {
 	display: flex;
 	justify-content: space-between;
@@ -6497,14 +6514,13 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 .shop-card-meta {
 	font-size: 0.6875rem;
 	color: var(--text-dim);
-	line-height: 1.9;
-	margin-top: 10px;
+	line-height: 1.7;
+	margin-top: 8px;
 	display: grid;
 	grid-template-columns: 1fr auto;
 	flex-shrink: 0;
 }
 .shop-card-meta b { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
-.shop-qtywrap { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-shrink: 0; }
 .shop-qty {
 	display: flex;
 	align-items: center;
@@ -6544,24 +6560,57 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 }
 .shop-max:hover { background: var(--accent-dim); color: var(--text-bright); }
 .shop-max:disabled { color: var(--border); border-color: var(--border); cursor: not-allowed; }
+/* ── The action bar ── everything you can DO, on one row along the bottom.
+   Leaving on the left, trading on the right, and the two of them costing one band
+   of height between them instead of two. It wraps rather than squeezes: on a
+   handset the transaction takes the top line and Back/Leave sit under it (see the
+   mobile block at the end of this section). */
 .shop-foot {
 	display: flex;
-	gap: 10px;
+	flex-wrap: wrap;
+	gap: 8px 12px;
 	align-items: center;
-	padding-top: 10px;
-	margin-top: 8px;
+	padding-top: 8px;
+	margin-top: 6px;
 	border-top: 1px dashed var(--accent-dim);
 	flex-shrink: 0;
 }
-.shop-foot:empty { display: none; }
-.shop-total { flex: 1; font-size: 0.75rem; color: var(--text-dim); }
+.shop-nav { display: flex; gap: 6px; flex-shrink: 0; }
+.shop-back,
+.shop-leave {
+	background: none;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	border-radius: 3px;
+	padding: 6px 12px;
+	font-family: inherit;
+	font-size: 0.6875rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.shop-back:hover,
+.shop-leave:hover { border-color: var(--accent); color: var(--accent); }
+/* The transaction half. Pushed to the far end, and gone entirely when nothing is
+   selected — the bar is then just the two ways out. */
+.shop-act {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-left: auto;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.shop-act:empty { display: none; }
+.shop-total { font-size: 0.75rem; color: var(--text-dim); white-space: nowrap; }
 .shop-total b { color: var(--yellow); font-size: 0.9375rem; }
 .shop-exec {
 	background: var(--cyan);
 	color: #04121a;
 	border: none;
 	border-radius: 3px;
-	padding: 11px 22px;
+	padding: 9px 20px;
 	font-size: 0.8125rem;
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
@@ -6602,8 +6651,11 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	#dialogue-box.shop-mode {
 		width: 96vw;
 		max-width: 96vw;
-		height: 88vh;
-		max-height: 88vh;
+		/* The whole band the panel leaves it, rather than 88vh of a viewport whose
+		   bottom the panel has already reserved — the box's own max-height does
+		   that arithmetic once, for both orientations. */
+		height: 100%;
+		padding: 12px 12px 10px;
 	}
 	/* Buy/Sell keeps the first line; sort + credits share the second. */
 	.shop-bar { flex-wrap: wrap; gap: 6px 12px; }
@@ -6627,13 +6679,27 @@ html[data-dictation="off"] #dictate-btn { display: none; }
 	.shop-card { padding-left: 0; padding-top: 8px; }
 	.shop-card-inner { padding: 10px 12px; }
 	.shop-card-inner hr { margin: 8px 0; }
-	.shop-card-desc { max-height: 5.5em; flex: 0 1 auto; }
+	.shop-card-desc { max-height: 4.5em; flex: 0 1 auto; }
 	.shop-card-empty { padding: 12px; }
+
+	/* The transaction goes ABOVE the exits on a handset: it is the reason the panel
+	   is open, and it wants the thumb. Purchase takes its own full-width line under
+	   the stepper rather than being squeezed in beside it. */
+	.shop-act { order: -1; width: 100%; margin-left: 0; gap: 8px; }
+	.shop-total { flex: 1 1 auto; min-width: 5em; text-align: right; }
+	/* Wraps onto its own full-width line when the stepper and the total have taken
+	   the first one, and shares it when they haven't — a phone held sideways has
+	   room for all four. min-width is what makes that decision instead of the
+	   button agreeing to be 40px wide. */
+	.shop-exec { flex: 1 1 auto; min-width: 11em; }
+	.shop-nav { width: 100%; }
+	.shop-back, .shop-leave { flex: 1; padding: 11px 8px; font-size: 0.75rem; }
 
 	/* Thumb-sized controls. */
 	/* A 420px floor against a 78vh ceiling overflows a phone held sideways. */
 	#dialogue-box { min-height: 0; padding: 16px 14px; }
-	.shop-row { padding: 11px 8px; }
+	/* Back to a tap target — the desktop density above is a mouse's business. */
+	.shop-row { padding: 10px 8px; }
 	.shop-qty button { width: 38px; height: 38px; }
 	.shop-qty span { min-width: 40px; }
 	.shop-max { height: 38px; }

@@ -521,28 +521,45 @@ function renderShop() {
       + `<span>weight (each)</span><b>${formatWeight(selItem.weight)}</b>`
       + (mode === 'sell' ? `<span>in pack</span><b>${selItem.quantity}</b>` : '')
       + (mode === 'buy' && selItem.discounted ? `<span>rep discount</span><b class="stat-good">applied</b>` : '')
-      + `</div>`
-      + `<div class="shop-qtywrap"><div class="shop-qty">`
-      + `<button data-step="-1" ${qty <= 1 ? 'disabled' : ''}>−</button><span>${qty}</span>`
-      + `<button data-step="1" ${qty >= maxQ ? 'disabled' : ''}>+</button></div>`
-      + `<button class="shop-max" ${maxQ <= 1 ? 'disabled' : ''}>Max ${maxQ}</button></div></div>`;
+      + `</div></div>`;
   }
 
-  let foot = '';
+  // ── THE ACTION BAR ── one row along the bottom holding everything you can DO.
+  //
+  // Two things moved into it, and both were costing the panel a whole band of
+  // height each. The STEPPER was inside the examine card, which made the card
+  // taller than the pane it lives in on anything but a big window — it spilled
+  // out over the footer, which is what the screenshot of a squashed shop always
+  // showed. It belongs beside the total anyway: the card says what a thing IS,
+  // the bar is where you trade for it. And BACK/LEAVE were a second full-width
+  // button row under the footer, for two controls that need a corner.
+  const nav = `<div class="shop-nav">`
+    + `<button class="shop-back" title="back to the conversation">← Back</button>`
+    + `<button class="shop-leave" title="close the shop">Leave</button></div>`;
+  let act = '';
   if (selItem) {
     const total = selItem.price * qty;
     const aff = mode === 'sell' || total <= credits;
-    foot = `<div class="shop-total">${mode === 'buy' ? 'cost' : 'you receive'} <b>${total}₵</b>`
+    act = `<div class="shop-qty">`
+      + `<button data-step="-1" aria-label="one fewer" ${qty <= 1 ? 'disabled' : ''}>−</button><span>${qty}</span>`
+      + `<button data-step="1" aria-label="one more" ${qty >= maxQ ? 'disabled' : ''}>+</button></div>`
+      + `<button class="shop-max" ${maxQ <= 1 ? 'disabled' : ''}>Max ${maxQ}</button>`
+      + `<div class="shop-total">${mode === 'buy' ? 'cost' : 'you receive'} <b>${total}₵</b>`
       + `${mode === 'buy' && !aff ? ' <span class="noafford">insufficient</span>' : ''}</div>`
       + `<button class="shop-exec" ${aff ? '' : 'disabled'}>${mode === 'buy' ? 'Purchase' : 'Sell'} ×${qty}</button>`;
   } else if (mode === 'sell' && list.length) {
     const totalQty = list.reduce((n, it) => n + (it.quantity || 1), 0);
     const totalValue = list.reduce((n, it) => n + (it.price || 0) * (it.quantity || 1), 0);
-    foot = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
+    act = `<button class="shop-sellall">Sell all (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
   }
+  const foot = `<div class="shop-foot">${nav}<div class="shop-act">${act}</div></div>`;
 
-  // The vendor quip band always holds its spot (reserved min-height) so the panes
-  // don't jump when a buy/sell reaction appears. Empty until a transaction lands.
+  // The vendor quip band. It used to hold a reserved 2.6em of height on every
+  // frame so the panes could not jump under it — which spent that height on the
+  // ~99% of frames that have nothing to say. It collapses when empty instead:
+  // the only thing that fills it is a server refresh, and a refresh has already
+  // rebuilt the list, the card and the credits, so there is no steady state for
+  // it to disturb.
   const resultText = mode === 'sell' ? msg.sellResult : msg.buyResult;
   const resultOk = mode === 'sell' ? msg.sellSuccess : msg.buySuccess;
   // A refusal is a wall, not a status line: it gets the box, the ✕ and the knock.
@@ -559,21 +576,13 @@ function renderShop() {
   document.getElementById('dialogue-text').innerHTML =
     `<div class="shop2">${bar}${resultBanner}`
     + `<div class="shop-2pane"><div class="shop-list">${rows}</div><div class="shop-card">${card}</div></div>`
-    + `<div class="shop-foot">${foot}</div></div>`;
+    + foot + `</div>`;
 
-  // Back + Leave share one row (the panel's static Leave button is hidden in
-  // shop mode via CSS, so we render our own here to keep them on a single line).
-  const opts = document.getElementById('dialogue-options');
-  opts.innerHTML = '';
-  const backBtn = document.createElement('button');
-  backBtn.className = 'dialogue-opt shop-back';
-  backBtn.textContent = '← Back';
-  backBtn.onclick = () => sendDialogue(msg.npcId, 'root');
-  const leaveBtn = document.createElement('button');
-  leaveBtn.className = 'dialogue-opt shop-leave';
-  leaveBtn.textContent = '[ Leave ]';
-  leaveBtn.onclick = closeDialogue;
-  opts.append(backBtn, leaveBtn);
+  // Back and Leave are in the action bar now, so the panel's option column has
+  // nothing in it while a shop is open — and is display:none in shop mode, so it
+  // costs no height either. Cleared rather than left alone: whatever the last
+  // conversation put there must not survive into the shelf.
+  document.getElementById('dialogue-options').innerHTML = '';
 
   animateCredits(credits);
   wireShopEvents();
@@ -623,6 +632,10 @@ function wireShopEvents() {
   });
   const sellAll = root.querySelector('.shop-sellall');
   if (sellAll) sellAll.onclick = () => sellAllToNpc(msg.npcId);
+  const back = root.querySelector('.shop-back');
+  if (back) back.onclick = () => sendDialogue(msg.npcId, 'root');
+  const leave = root.querySelector('.shop-leave');
+  if (leave) leave.onclick = () => closeDialogue();
 }
 
 export function initDialogue() {

@@ -256,6 +256,23 @@ function reopensPhrase(npc) {
   return when ? `in ${when}` : 'during business hours';
 }
 
+// ── WHOSE DOOR IS THIS? ──────────────────────────────────────────────────────
+// The refusal named the SHOPKEEPER and not the SHOP: "Angus Malcolm opens again in
+// about six hours" is a sentence about a stranger unless you already knew what he
+// keeps, which is exactly the knowledge a player standing at a locked door does not
+// have yet. The building's own name is the fact they can act on — it is on the sign
+// they are looking at, it is what they will call the place, and it is what makes the
+// line a direction rather than a rebuff.
+//
+// Nothing is authored for this: `getBuildingName` already walks the parent chain to
+// the building root, which is where a shop interior's name lives. A room with no
+// building over it (a stall, a room whose parent chain is bare) simply falls back to
+// the sentence as it was, so nothing that reads correctly today changes.
+const shopPlaceName = (zone) => {
+  const name = getBuildingName(zone);
+  return name && name !== zone?.name ? name : null;
+};
+
 // ── Does this player LIVE here? ───────────────────────────────────────────────
 // Coldwater is mixed-use: shops sit on the ground floor of buildings people live in,
 // and the closing-time law must never trump the housing one. Someone who owns a unit
@@ -272,7 +289,8 @@ registerMoveGate(({ player, to }) => {
   const shut = shopClosedFor(to);
   if (!shut) return;
   if (livesHere(player, to)) return;   // you live here; the hours aren't about you
-  return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens again ${reopensPhrase(shut)}.` };
+  const place = shopPlaceName(to);
+  return { block: true, message: `The door won't give — shutters down, lights off. ${shut.name} opens ${place ? `${place} ` : ''}again ${reopensPhrase(shut)}.` };
 }, 'commerce:shop-hours');
 
 // Closing time: put anyone still inside out the front. Runs on the shared 30s
@@ -295,7 +313,10 @@ async function closingSweep() {
     const dest = streetExitFrom(zone.id);
     if (!dest) continue;
 
-    sendToPlayer(player.id, formatChitchat(shut.name, `"That's us. Out you go — we open again ${reopensPhrase(shut)}."`));
+    // …and he says the name too, for the same reason: it is the one word that tells a
+    // customer standing on the pavement what they will be coming back to.
+    const place = shopPlaceName(zone);
+    sendToPlayer(player.id, formatChitchat(shut.name, `"That's us. Out you go — ${place ? `${place} opens` : 'we open'} again ${reopensPhrase(shut)}."`));
     await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: dest }, context: { broadcast: getBroadcast() } });
     const dz = getZone(dest);
     if (dz) sendToPlayer(player.id, { type: 'move', message: await describeZone(dz, player), zone: dest, minimap: getMinimapData(dest, 8, player) });
