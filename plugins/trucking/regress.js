@@ -1547,13 +1547,19 @@ export default async function regress({ run, check, getPlayer }) {
       // on purpose: it proves the bit is read BEFORE that gate (see the ⚠ in reconcileTruck), which
       // is the whole reason turning the key is felt immediately rather than up to a sync later.
       const ignition = (on) => reconcileTruck(rg, { t: on ? 1 : 0 }, rg.lastSync + 1);
+      // ── WHAT STOPS YOU GETTING OUT IS MOTION, AND ONLY MOTION ────────────────
+      // The refusal used to be the IGNITION, which made the cab's park-brake knob — the one
+      // deliberate get-out gesture a driver has — answer with a lecture every time. Now a rolling
+      // truck is the only thing that refuses, and the key is turned as part of parking.
       ignition(true);
+      rg.speed = 24;
       const refused = await run('park');
-      check('you cannot walk away from a running truck', rigs.has(player.id), refused?.message?.slice(0, 40));
-      check('…and it says which control to use', /key/i.test(refused?.message || ''), refused?.message);
-      ignition(false);
+      check('you cannot step out of a moving truck', rigs.has(player.id), refused?.message?.slice(0, 40));
+      check('…and it says to stop it first', /rolling|stand/i.test(refused?.message || ''), refused?.message);
+      rg.speed = 0;
       const out = await run('park');
-      check('park drops you out of the cab once the key is off', !rigs.has(player.id), out?.message?.slice(0, 30));
+      check('park drops you out of a stopped truck with the engine still running', !rigs.has(player.id), out?.message?.slice(0, 30));
+      check('…and turns the key off on the way down', rg.engineOn === false);
       check('…and it locks the door behind you', rg.locked === true);
 
       // ── The text rung ──
@@ -1960,7 +1966,14 @@ export default async function regress({ run, check, getPlayer }) {
       read.base === legacy.base && read.trim === legacy.trim && read.flash === 'wave' && read.chrome === 0);
     check('…and gains the new fields at their defaults rather than undefined',
       read.hw === PAINT_DEFAULT.hw && read.deck === PAINT_DEFAULT.deck
+      && read.bright === PAINT_DEFAULT.bright && read.glow === PAINT_DEFAULT.glow && read.glass === PAINT_DEFAULT.glass
       && read.finish === PAINT_DEFAULT.finish && read.art === PAINT_DEFAULT.art);
+    // ⚠ AND THOSE DEFAULTS ARE THE MESH'S OWN HARDCODED ARRAYS, TO THE BYTE. The brightwork, the
+    // beltline strip and the door glass were literals in buildTruck that no paint job could reach;
+    // making them buyable is only invisible to an existing truck if the default IS the literal.
+    // Get one of these wrong and every rig in the game changes colour on deploy day.
+    check('the new colours default to exactly what the mesh already drew',
+      PAINT_DEFAULT.bright === '#e2e8f0' && PAINT_DEFAULT.glow === '#60c4d6' && PAINT_DEFAULT.glass === '#324a5c');
     // …and reading it TWICE is the same answer, which is what makes the panel's "nothing changed"
     // test honest: it compares the edited paint against this exact normalisation.
     check('normalising a paint is idempotent', JSON.stringify(sanitizePaint({}, read)) === JSON.stringify(read));
@@ -1983,8 +1996,15 @@ export default async function regress({ run, check, getPlayer }) {
     // A preset with a typo in it is a one-click button that quietly does something else.
     const bad = PAINT_PRESETS.filter(p => {
       const s = presetPaint(p.id, {});
-      return !s || s.flash !== p.flash || s.finish !== p.finish || s.base !== p.base || s.hw !== p.hw || s.deck !== p.deck;
+      return !s || s.flash !== p.flash || s.finish !== p.finish
+        || ['base', 'trim', 'hw', 'deck', 'bright', 'glow', 'glass'].some(k => s[k] !== p[k]);
     });
+    // ⚠ AND A SCHEME IS THE WHOLE TRUCK. The panel sells these as "one click, whole truck"; a
+    // preset that names six of the seven colours leaves the seventh at whatever the rig was wearing
+    // and the click quietly does not do what the button says. Checked as a missing FIELD rather
+    // than through sanitizePaint, which would fill it from the defaults and hide exactly this.
+    const partial = PAINT_PRESETS.filter(p => ['base', 'trim', 'hw', 'deck', 'bright', 'glow', 'glass'].some(k => !p[k]));
+    check('every scheme names every colour on the truck', partial.length === 0, partial.map(p => p.id).join(','));
     check('every one-click scheme is a paint the booth accepts', bad.length === 0, bad.map(p => p.id).join(','));
     check('an unknown scheme is refused rather than guessed', presetPaint('sunburst', {}) === null);
   }
@@ -2025,6 +2045,27 @@ export default async function regress({ run, check, getPlayer }) {
     const strut = { role: 'strut', p: [[0, 0, 0]] };
     check('an airframe strut is untouched by the truck colours',
       faceBaseRgb(strut, { base: [1, 2, 3], trim: [4, 5, 6], accent: [194, 43, 140], pat: 'jazz' }).join(',') === '44,48,54');
+    // ── THE PARTS THAT USED TO BE UNPAINTABLE ────────────────────────────────
+    // A facet stamped with a paint key takes the palette colour; the same facet on a palette that
+    // does not carry one (every aircraft) takes the literal it always had. And `chrome: 0` is the
+    // blacked-out rig — brightwork falls back to the HARDWARE colour rather than simply vanishing,
+    // which is what a murdered-out truck actually looks like.
+    const brightF = { role: 'window', pk: 'bright', tint: [226, 232, 240], p: [[0, 0, 0]] };
+    const glowF = { role: 'window', pk: 'glow', tint: [96, 196, 214], p: [[0, 0, 0]] };
+    check('brightwork wears the colour the booth sold',
+      faceBaseRgb(brightF, { bright: [10, 20, 30], hw: [1, 2, 3], pat: 'truck:none' }).join(',') === '10,20,30');
+    check('…and blacks out to the hardware when the chrome is off',
+      faceBaseRgb(brightF, { bright: [10, 20, 30], hw: [1, 2, 3], chrome: 0, pat: 'truck:none' }).join(',') === '1,2,3');
+    check('the running-light strip wears its own colour',
+      faceBaseRgb(glowF, { glow: [200, 30, 40], pat: 'truck:none' }).join(',') === '200,30,40');
+    check('…and a palette with no truck colours leaves both exactly as the mesh drew them',
+      faceBaseRgb(brightF, { base: [1, 2, 3], pat: 'bare' }).join(',') === '226,232,240'
+      && faceBaseRgb(glowF, { base: [1, 2, 3], pat: 'bare' }).join(',') === '96,196,214');
+    // Glass is SCALED by the chosen tint, so the reference pane reproduces it exactly — which is
+    // the identity that makes retinting invisible on a truck nobody has retinted.
+    const pane = { role: 'glass', tint: [50, 74, 92], p: [[0, 0, 0]] };
+    check('the reference pane is the identity under its own default tint',
+      faceBaseRgb(pane, { glass: [50, 74, 92], pat: 'truck:none' }).map(Math.round).join(',') === '50,74,92');
     check('a truck strut wears the hardware colour',
       faceBaseRgb(strut, { base: [1, 2, 3], trim: [4, 5, 6], hw: [35, 38, 43], pat: 'truck:none' }).join(',') === '35,38,43');
     // ⚠ AND A FINISH NOBODY SET CHANGES NOTHING. This runs on every facet of every mesh in the

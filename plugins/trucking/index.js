@@ -687,6 +687,13 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // which by construction reproduce exactly what that truck has always been drawn as, so no
         // row has to be rewritten and nothing changes colour on the day this ships.
         kits, paint: sanitizePaint({}, cd.paint || {}),
+        // THE INSIDE OF THE PAINT JOB, resolved rather than raw. A truck nobody has retrimmed
+        // stores null and WEARS its tier's stock interior, so a panel handed the raw value would
+        // draw an unpainted dash and tick no swatch — the trim tab would open on a truck that,
+        // according to it, has no interior. Resolving here is the same decision the paint above
+        // makes for the same reason, and it is the one place that knows the tier.
+        trim: { ...truckStockTrim(t), ...sanitizeTrimResolved(cd.trim) },
+        trimPrice: trimCost(t.type),
         repairField: repairCost(t.type, t.condition ?? 1, false),
         repairShop: repairCost(t.type, t.condition ?? 1, true),
         canField: (t.condition ?? 1) < FIELD_CAP,
@@ -718,6 +725,18 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     tuneRange: tuneRange(fab, []),
     kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, ...k, afford: (player.credits || 0) >= k.price })),
     flashes: FLASHES, finishes: FINISHES, arts: ARTS, paintPresets: PAINT_PRESETS, paintDefault: PAINT_DEFAULT,
+    // ── THE INTERIOR CATALOGUE, AND WHY IT CARRIES COLOURS ─────────────────────
+    // Same rule as every other catalogue on this screen: the client renders what it is told and
+    // invents nothing. What is new is that these rows carry the actual swatch colours, because the
+    // trim tab PREVIEWS a dashboard rather than listing seven words — and a preview whose colours
+    // were guessed on the client is a preview that promises a cab the renderer will not draw.
+    // Lifted straight off the shared vocabulary (client/shared/cab-trim.js) the renderer itself
+    // reads, so there is no second copy of any of it anywhere.
+    dashMaterials: Object.entries(DASH_MATERIALS).map(([id, m]) => ({ id, label: m.label, blurb: m.blurb, gloss: m.gloss })),
+    dashColourways: Object.entries(DASH_COLOURWAYS).map(([id, c]) => ({
+      id, label: c.label, stock: !!c.stock,
+      dash: c.dash, hdr: c.hdr, face: c.face, needle: c.needle, glow: c.glow, ring: c.ring, lip: c.lip,
+    })),
     finishMul: Object.fromEntries(FINISHES.map(f => [f.id, +(paintCost({ price: 100000 }, f) / paintCost({ price: 100000 }, { finish: 'gloss' })).toFixed(3)])),
     fuelHere: pumpHere,
     board: boardFor(here.id),
@@ -972,7 +991,7 @@ async function cmdRig(args, raw, player) {
   if (sub === 'trim' || sub === 'interior') return await rigTrim(player, truck, cd, rest);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… flash=… finish=… art=…] | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -1271,6 +1290,7 @@ async function rigPaint(player, truck, cd, args) {
   if (!args.length) {
     const list = (rows) => rows.map(r => r.id).join(', ');
     return say('<span class="text-dim">rig paint &lt;id&gt; base=#rrggbb trim=#rrggbb hw=#rrggbb deck=#rrggbb '
+      + 'bright=#rrggbb glow=#rrggbb glass=#rrggbb '
       + 'flash=&lt;job&gt; finish=&lt;coat&gt; art=&lt;door&gt; chrome=0|1 — or <b>rig paint &lt;id&gt; preset &lt;name&gt;</b>.\n'
       + `Jobs: ${list(FLASHES)}.\nCoats: ${list(FINISHES)}.\nDoor: ${list(ARTS)}.\nSchemes: ${list(PAINT_PRESETS)}.</span>`);
   }
@@ -1334,6 +1354,16 @@ async function rigTrim(player, truck, cd, args) {
 // shared file the renderer reads — a second copy here would drift the first time a stock interior
 // was recoloured, and the symptom would be the swatch book ticking the wrong row.
 const truckStockTrim = (truck) => stockTrim(truck?.type?.tier ?? 1);
+// A stored trim with its nulls DROPPED, so it can be spread over the stock row without a null
+// wiping the factory answer back out. `sanitizeTrim` deliberately returns null for a key nobody
+// has bought — that is right for storage and wrong for a merge.
+const sanitizeTrimResolved = (raw) => {
+  const t = sanitizeTrim(raw || {}, {});
+  const out = {};
+  if (t.mat) out.mat = t.mat;
+  if (t.col) out.col = t.col;
+  return out;
+};
 
 // Filling a PARKED truck. `fuel` (the older verb) fills the one you are sitting in, out on the
 // road; this is the same act at a depot with the keys in your pocket, and it is the button the
@@ -1555,24 +1585,35 @@ async function pumpFuel(player, want, { typed }) {
 // of those is a driver deciding anything — so the engine gate below belongs to the TYPED path only.
 // `forcedPark` is that path: same landing, no refusal, and nothing can strand a player in a sim
 // whose road has ended because their key happened to be on.
+// What counts as stopped. Not zero: the client reports a float and a truck settling on its lifters
+// reports a whisper of it, so an exact test would refuse a rig that has visibly stopped moving.
+const PARK_STOPPED_MPH = 0.6;
 export async function forcedPark(player) { return parkRig(player, true); }
 async function cmdPark(args, raw, player) { return parkRig(player, false); }
 async function parkRig(player, forced) {
   const rig = rigOf(player);
   if (!rig) return say('You are not driving anything.');
-  // YOU DO NOT WALK AWAY FROM A RUNNING TRUCK. Parking is a sequence — brake, key, door — and the
-  // prose said all three while the mechanic checked none of them, so a driver could climb down with
-  // it idling and the cab would report an engine running in an empty seat. The key is one press
-  // (K, or the barrel on the dash), so this is a beat rather than an obstacle.
-  // ⚠ …AND ONLY WHERE THERE IS A KEY TO TURN. A text-rung driver has `boot`/`coast`/`brake`/`revs`
-  // and no ignition — they never send a sync packet at all, so `engineOn` is the value it was born
-  // with and would refuse them forever. That is precisely the rung-locked-out failure
-  // systems-display-mode.md exists to prevent: the gate is a beat in the cab and a line of prose
-  // here, never a wall. (Do not "fix" this by having the text tick report an ignition it has no
-  // control for — that is a second engine state to keep in step with nothing.)
-  if (!forced && rig.engineOn && !isTextDriving(player.id)) {
-    return say('Not with it running. Shut it down first — <b>key</b> off, and let the air bleed out of the lines.');
+  // ── THE ONLY THING THAT STOPS YOU GETTING OUT IS MOTION ────────────────────
+  // This used to refuse a running engine, on the reasoning that parking is a sequence — brake, key,
+  // door — and a driver should perform all three. It was wrong twice over, and both showed up as
+  // the same symptom: pulling the park brake in the cab did nothing and said nothing.
+  //
+  //  · THE KNOB ALREADY IS THE SEQUENCE. Setting the spring brakes on a stationary truck is the
+  //    last thing you do before climbing down and there is no other reason to touch it, so the cab
+  //    sends `park` off that one action (see setPark in cab-view.js). Refusing it for the key
+  //    meant the driver's ONE deliberate get-out gesture was answered with a lecture, every time.
+  //  · AND IT WAS A RUNG GATE WEARING A REALISM COSTUME. A text-rung driver has no ignition at
+  //    all, so the check had to be exempted for them — which is the tell that it was never a fact
+  //    about trucks, only about which panel you happened to be using.
+  //
+  // So the gate is MOTION and nothing else: a rig that is completely stopped can be got out of,
+  // from either rung, with the key in whatever position it is in. Turning it off is then part of
+  // parking rather than a prerequisite for it — you do not leave one running, and the sim is
+  // closing anyway, so the state is set here instead of demanded of the driver.
+  if (!forced && (rig.speed || 0) > PARK_STOPPED_MPH) {
+    return say('Not while it is still rolling. Bring it to a stand first, then set the brakes.');
   }
+  rig.engineOn = false;   // the key, turned for you — the last step of the sequence, not a gate on it
   dismountRig(player.id);
   // The text tick self-heals (it drops any run whose rig has gone), but stopping it here means the
   // road doesn't narrate one more line after you've already climbed down.

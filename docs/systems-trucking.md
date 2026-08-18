@@ -544,6 +544,55 @@ teal looked like was to buy teal. It reads the pending edit now — and, like th
 **not** re-render on `input`, because rebuilding the DOM under a live native colour picker closes it
 on the first pixel of movement.
 
+**The whole truck is paintable, and the booth is four screens** *(2026-08-18)*. A player could paint
+a rig black and it still had a **white spear down the flank and a blue strip under the glass** —
+those were `CHROME` and a literal `[96,196,214]` in `buildTruck`, arrays no paint job could reach. A
+colour the booth cannot sell is a colour the booth is refusing to sell, on the one possession in
+this game a driver owns outright. Paint is now **seven colours**: the four that existed plus
+`bright` (brightwork), `glow` (the decorative running lights — the beltline strip and the roof
+scanner) and `glass` (the tint in the panes). Three decisions carry it:
+
+- **A facet carries a PAINT KEY, not a lookup table.** `buildTruck` stamps `pk` on any face drawn in
+  its own `CHROME`/`ACCENT` arrays — **by identity, not by value**, so a lamp lens that happens to
+  land on the same rgb is never mistaken for chrome, and a new bit of brightwork is paintable the
+  moment it is drawn in `CHROME` with no list to keep in step. `faceBaseRgb` reads the key off the
+  palette with the array itself as the fallback, so **every aircraft facet takes the path it always
+  took** and the defaults are the mesh's own literals to the byte (regress asserts all three).
+- **`chrome` finally does something.** It has been stored, sent to the renderer and read by nothing
+  at all for months — the tickbox changed no pixel on any truck. It now decides whether brightwork
+  takes `bright` or falls back to the **hardware** colour, which is the blacked-out rig the
+  `nightrun` scheme was already asking for and never got.
+- **Glass is SCALED, never flooded.** Every pane is authored as a shade of the door glass, so a
+  retint divides by that reference and multiplies by the chosen colour: the windscreen stays lighter
+  than the sleeper porthole, and the default is the exact identity.
+
+⚠ **The lifter emitter bands are deliberately NOT paintable.** They are the propulsion showing — the
+same fact the road wash under them is drawn from — and a truck whose thrust you could paint pink is
+a truck whose thrust is jewellery.
+
+**Every scheme is now the whole truck** (regress fails a preset that leaves a colour unnamed), and
+the tab that sells all this is **four short screens** behind a segmented control — Schemes, Colours,
+Graphics, Inside — because seven colours, fifteen jobs, eight coats, eleven pictures, four materials
+and seven interiors as one scroll is a wall nobody reads to the bottom of. **The interior is on it
+for the first time**: `rig trim` was a verb that printed a swatch book of seven words, so the only
+way to find out what oxblood and chrome looked like was to buy it. It previews now — a CSS still of
+the dash in the colourway's own gradient, the material's grain, and two lit dials in its needle and
+glow colour, which is the part of a colourway you actually live with. It stays a **separate
+purchase** (own button, own price) because it is a different job at a different bench.
+
+Two things the same pass fixed because they were the same bug in different clothes:
+
+- **The paint job never reached the cab at all.** `flash` → `pattern` is one word of translation and
+  it lived only in the depot panel, so the cab handed its raw paint straight through, `pat` came out
+  `'bare'`, and every flash in the catalogue rendered as one flat colour **on the truck you are
+  actually driving**. It is one exported `truckLivery()` now, called by both.
+- **Door art was printed over the trim.** The decal rectangle was the door's outline *plus a bit*:
+  forward of the B-post is the quarter light, the chrome spear crosses at `S.hi × 0.36…0.40` and the
+  beltline strip at `× 0.47…0.505`, so the picture came out with a chrome bar through it. It is now
+  the panel the brightwork LEAVES, and every bound is stated against the thing it clears rather than
+  as a tuned number — **if you move the spear, move the door.**
+
+
 **The horn works** *(2026-08-12)*. Two chrome trumpets were added to every roof, plus cab steps
 under the door (the walkaround ends in CLIMB IN and there was nothing there to climb). A horn you
 cannot sound is an ornament, so `horn` / `honk` is a real verb: **the room hears it, not you** —

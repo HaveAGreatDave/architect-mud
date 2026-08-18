@@ -37,8 +37,33 @@ export function liveryPalette(lv) {
   // every reader downstream branches on their presence, so an airframe takes exactly the path it
   // always took. See the ⚠ in faceBaseRgb on why they are not `accent`.
   const hw = hex2rgb(lv.hw) || null, deck = hex2rgb(lv.deck) || null;
-  return { base, trim, ground, hw, deck, finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
+  // …and three more, on exactly the same footing and for exactly the same reason: absent on every
+  // aircraft, so an airframe takes the path it always took. `bright` is the brightwork, `glow` the
+  // decorative running lights, `glass` the tint in the panes. `chrome` is the SWITCH that says
+  // whether brightwork is polished at all — see faceBaseRgb, where a 0 sends it to the hardware
+  // colour instead, which is what a blacked-out rig is.
+  const bright = hex2rgb(lv.bright) || null, glow = hex2rgb(lv.glow) || null, glass = hex2rgb(lv.glass) || null;
+  return { base, trim, ground, hw, deck, bright, glow, glass, chrome: lv.chrome == null ? 1 : (lv.chrome ? 1 : 0),
+    finish: lv.finish || 'satin', fmul: FINISH_MUL[lv.finish] ?? 1.0, pat };
 }
+// ── A STORED PAINT → A LIVERY, ONCE ──────────────────────────────────────────
+// What the booth writes down and what the renderer takes are two different shapes, and the join
+// between them is one word: `flash` is a truck paint job and `pattern` is what `faceWearsTrim`
+// reads, under the `truck:` prefix that keeps the fleet's vocabulary from colliding with the
+// airframes'. That translation lived in the depot panel alone, so the CAB — the view you spend the
+// whole drive in — handed its raw paint straight through and `pat` came out 'bare': every flash in
+// the catalogue rendered as one flat colour on the truck you are actually driving, and only on the
+// truck you are actually driving. A conversion written down in one of two places is a conversion
+// that is wrong in the other.
+export function truckLivery(paint) {
+  const p = paint || null;
+  if (!p) return {};
+  return {
+    base: p.base, trim: p.trim, hw: p.hw, deck: p.deck, bright: p.bright, glow: p.glow, glass: p.glass,
+    chrome: p.chrome, pattern: `truck:${p.flash || 'none'}`, finish: p.finish || 'gloss', art: p.art || 'none',
+  };
+}
+
 // Structural accents that ALWAYS wear the trim colour, whatever the pattern.
 const TRIM_ROLE = new Set(['fin', 'rudder', 'nacelle', 'rotor']);
 // Hull roles the exterior pattern paints across (fuselage, flying surfaces + their
@@ -159,6 +184,19 @@ function faceWearsTrim(face, pat) {
 // intakes as dark structural metal, all independent of the livery colour.
 export function faceBaseRgb(face, pal) {
   const role = face.role;
+  // ── THE PARTS THAT USED TO BE A COLOUR NOBODY COULD BUY ────────────────────
+  // `pk` is a PAINT KEY stamped on a facet by buildTruck — the one channel that lets a hardcoded
+  // tint stay hardcoded (it is still the default) while being reachable from the booth. It is set
+  // by identity against the mesh's own CHROME/GLOW consts, so a new bit of brightwork is painted
+  // correctly the moment it is drawn in chrome and there is no list here to keep in step with the
+  // model. Absent on every aircraft facet, so nothing that flies takes this branch at all.
+  if (face.pk === 'bright') return pal.chrome === 0 ? (pal.hw || [44, 48, 54]) : (pal.bright || face.tint || [226, 232, 240]);
+  if (face.pk === 'glow') return pal.glow || face.tint || [96, 196, 214];
+  // Glass is SCALED, not flooded. Every pane is authored as a shade of the door glass, so tinting
+  // by the ratio keeps the windscreen lighter than the sleeper porthole instead of dropping one
+  // flat colour into eight different holes — and at the default (which IS the door pane) it is the
+  // identity, which is the whole migration invariant restated in one line.
+  if (role === 'glass' && pal.glass) return tintPane(face.tint || GLASS_REF, pal.glass);
   if (role === 'glass' || role === 'window') return face.tint || [14, 26, 36];   // per-face tint override (e.g. the heli's clear fishbowl bubble)
   // ── THE THIRD AND FOURTH COLOURS, AND WHY THEY ARE OPT-IN KEYS ──────────────
   // A truck wears four colours where an aeroplane wears two, and both go through this one function
@@ -193,6 +231,16 @@ export function faceBaseRgb(face, pal) {
   }
   return finishCoat(pal.base, pal, face);
 }
+
+// The pane every other pane is authored as a shade of — the truck's door glass. Tinting divides by
+// this and multiplies by the chosen colour, so a pane's own relative darkness survives a retint and
+// picking the default changes nothing at all.
+const GLASS_REF = [50, 74, 92];
+const tintPane = (tint, glass) => [
+  clampN(glass[0] * (tint[0] / GLASS_REF[0]), 0, 255),
+  clampN(glass[1] * (tint[1] / GLASS_REF[1]), 0, 255),
+  clampN(glass[2] * (tint[2] / GLASS_REF[2]), 0, 255),
+];
 
 // ── THE FINISH COAT, AS A THING THAT HAPPENS TO A FACET ──────────────────────
 // The paint model's fourth axis, and the one somebody asks for by name: metallic. A word on a sheet
@@ -2931,7 +2979,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // A box is convex, so "away from `cen`" is exactly "outward" — no winding convention to keep,
     // and nothing to get backwards when a model is authored back-to-front.
     const cen = [(f0 + f1) / 2, gc, (z0 + z1) / 2];
-    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) q.tint = tint; faces.push(q); };
+    const quad = (p, sh) => { const q = { role, sh, p, part, cen }; if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; } faces.push(q); };
     quad([A[3], A[2], B[2], B[3]], 1.00);                    // roof
     quad([A[0], B[0], B[1], A[1]], 0.42);                    // underside
     quad([A[0], A[3], B[3], B[0]], 0.72);                    // left flank
@@ -2946,7 +2994,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // what keeps it in the same ordering scheme as everything around it.
   const poly = (role, sh, pts, tint = null, uv = null, art = null) => {
     const q = { role, sh, p: pts.map(p => V(p[0], p[1], p[2])), part: ++partSeq };
-    if (tint) q.tint = tint;
+    if (tint) { q.tint = tint; const k = PK(tint); if (k) q.pk = k; }
     if (uv) { q.uv = uv; q.art = art || 'truckcab'; }
     faces.push(q);
   };
@@ -2966,6 +3014,20 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // the one thing that makes them one object is agreeing about what colour the light is.
   const GLOW = [128, 226, 255];
   const CHROME = [226, 232, 240];        // bright plate — `window` role so it takes the specular pass
+  // ── AND THE TWO COLOURS THE BOOTH CAN NOW SELL ─────────────────────────────
+  // A truck wears a lot of white brightwork and a strip of running light, and until now neither
+  // could be painted: they were these arrays, and a paint job that turned a rig black left a white
+  // spear down its flank. `PK` is what makes them reachable — a facet carrying one of these exact
+  // arrays is stamped with a PAINT KEY, and `faceBaseRgb` looks the colour up on the palette with
+  // the array itself as the fallback. Two consequences worth stating:
+  //   · IT IS BY IDENTITY, NOT BY VALUE. `tint === CHROME` is the same array, not a colour that
+  //     happens to match — so a lamp lens that lands on the same rgb is never mistaken for chrome,
+  //     and a new chrome part is paintable the moment it is drawn in CHROME, with no list here.
+  //   · THE STRIP IS `ACCENT`, THE EMITTER IS NOT. Only the beltline strip and the roof scanner
+  //     take `glow`; the lifter bands keep this hot blue-white, because they are the propulsion
+  //     showing and the road wash under them is painted from the same fact. See ACCENT below.
+  const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
+  const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
   const pod = (f, g, r = 0.048, len = 1) => {
     const s = Math.sign(g || 1), L = r * len;
@@ -3080,7 +3142,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // openly futuristic thing on the truck, and it does the whole job: everything else here is a
   // 20th-century semi, and one strip of running light drags the date forward without arguing.
   if (fine && S.lamps > 0.5) {
-    for (const g of [-1, 1]) box(cab0 + 0.02, cab1 - 0.02, 0.003, S.hi * 0.47, S.hi * 0.505, 'window', [96, 196, 214], g * S.w);
+    for (const g of [-1, 1]) box(cab0 + 0.02, cab1 - 0.02, 0.003, S.hi * 0.47, S.hi * 0.505, 'window', ACCENT, g * S.w);
   }
   // ── Roof fairing ───────────────────────────────────────────────────────────
   // The wind kit: a wedge off the back of the roof that closes the gap to the box. It is what makes
@@ -3106,7 +3168,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
                         [aeroBack, S.w * 0.92, aeroLow], [aeroBack, -S.w * 0.92, aeroLow]]);
     // A sensor pod on the crown — the road-scanner. Small, and the second and last future tell.
     box(cab1 - 0.10, cab1 - 0.07, 0.016, rTop, rTop + 0.012, 'strut');
-    box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', [120, 210, 220]);
+    box(cab1 - 0.095, cab1 - 0.078, 0.010, rTop + 0.012, rTop + 0.018, 'window', ACCENT);
   }
   // ── Nose ───────────────────────────────────────────────────────────────────
   if (S.nose > 0.001) {
@@ -3587,11 +3649,26 @@ function buildTruck(variant = 'hauler', detail = 1) {
   // on its origin. A decal placed from a constant lands on a different part of every truck, and on
   // the road ahead of the smallest one.
   //
-  // It is the panel BELOW the glass — the door window runs cab1−0.105 → cab1−0.048 (see the side
-  // glass above), so the art sits under it and forward of the step. `g` is the flank half-width;
-  // the renderer picks which flank is facing the camera.
-  const doorF1 = cab1 - 0.030 - shift, doorF0 = cab1 - 0.108 - shift;
-  const doorZ0 = S.hi * 0.19 - drop, doorZ1 = S.hi * 0.50 - drop;
+  // ── ⚠ IT IS THE CLEAR PANEL, NOT THE WHOLE FLANK ───────────────────────────
+  // This rectangle used to be the door's outline plus a bit, and a signwriter would never have used
+  // it: it ran cab1−0.108 → cab1−0.030 and up to S.hi×0.50, which is three separate collisions.
+  // Forward of cab1−0.048 is not the door at all — that is the B-post and then the quarter light,
+  // so the art spilled off the panel onto the cowl. The CHROME SPEAR crosses at S.hi×0.36…0.40 and
+  // the BELTLINE STRIP at ×0.47…0.505, so the decal was printed straight over both: an eye with a
+  // chrome bar through it and a lit strip across its top, which is what a decal applied over the
+  // trim looks like, because that is what it was.
+  //
+  // So it is now the panel the brightwork LEAVES: aft of the B-post, and under the spear. Every
+  // bound is stated against the thing it clears rather than as a tuned number, which is what stops
+  // it drifting back the next time a bit of trim moves — if you move the spear, move this.
+  //
+  //   f — cab1−0.104 → cab1−0.052: the door skin itself, one hair inside the window above it.
+  //   z — S.hi×0.185 → ×0.345: floor is clear of the step boxes (abs 0.030…0.044) on the shortest
+  //       rig in the fleet; ceiling is under the spear on the tallest.
+  //
+  // `g` is the flank half-width; the renderer picks which flank is facing the camera.
+  const doorF1 = cab1 - 0.052 - shift, doorF0 = cab1 - 0.104 - shift;
+  const doorZ0 = S.hi * 0.185 - drop, doorZ1 = S.hi * 0.345 - drop;
   TRUCK_META.set(str + ':' + detail, {
     shift, drop, pods: podAt,
     door: solo ? null : { f0: doorF0, f1: doorF1, z0: doorZ0, z1: doorZ1, g: S.w },

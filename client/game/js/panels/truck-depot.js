@@ -39,7 +39,7 @@
 import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
-import { drawHangarScene, drawHangarFloorBay, pickSceneHit } from './aircraft3d.js';
+import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from './aircraft3d.js';
 import { suppressWeatherFx } from './weather-fx.js';
 
 let B = null;             // { data, screen, selId, inspect, bench }
@@ -90,12 +90,12 @@ export function openTruckDepot(msg) {
     screen: SCREEN_FOR_TAB[msg.tab] || (first ? 'floor' : B?.screen) || 'floor',
     selId: (msg.fleet || []).some(t => t.id === keepSel) ? keepSel : (msg.fleet || [])[0]?.id || null,
     inspect: B?.inspect || inspectDefault(),
-    bench: B?.bench || { tab: 'condition', tune: null, paint: null },
+    bench: B?.bench || { tab: 'condition', psec: 'scheme', tune: null, paint: null, trim: null },
     lotSel: B?.lotSel || null,
   };
   // A fresh truck selected (you just bought one) resets any half-turned dials — they belonged to a
   // different machine, and carrying them across would silently propose a tune nobody asked for.
-  B.bench.tune = null; B.bench.paint = null;
+  B.bench.tune = null; B.bench.paint = null; B.bench.trim = null;
   document.addEventListener('keydown', onKey);
   document.addEventListener('keyup', onKeyUp);
   render();
@@ -533,59 +533,215 @@ function kitsTab(t) {
   }).join('')}</div>`;
 }
 
+// ── THE SEVEN SURFACES ───────────────────────────────────────────────────────
+// Each row is a place on the truck, not a slot in a record — the label is where you would point,
+// and the note is what changes when you move it. That second half is the whole reason these are a
+// table rather than seven bare colour wells: 'Hardware' means nothing until somebody tells you it
+// is the chassis and the tanks, and until then a player only ever moves the first one.
+//
+// ⚠ THE ORDER IS HOW MUCH OF THE TRUCK EACH ONE IS. Cab, then the flash on it, then the box, then
+// the metalwork, then the two accents, then the glass — biggest surface first, so the list reads as
+// a truck being painted rather than as an alphabetised set of fields.
+const PAINT_FIELDS = [
+  ['base',   'Cab',            'The colour anybody would call it.'],
+  ['trim',   'Flash',          'Whatever the paint job lays over the cab.'],
+  ['deck',   'Box',            'The trailer. Very often not the tractor.'],
+  ['hw',     'Hardware',       'Chassis, tanks, steps, mirror arms.'],
+  ['bright', 'Brightwork',     'Grille, spear, stacks — while chrome is on.'],
+  ['glow',   'Running lights', 'The strip under the glass, and the roof pod.'],
+  ['glass',  'Glass',          'The tint in the panes.'],
+];
+// The sections of the booth. Four short screens beat one long one: the pane is a sidebar and the
+// catalogue is now seven colours, fifteen paint jobs, eight coats, eleven pictures, four materials
+// and seven interiors — which as a single scroll is a wall nobody reads to the bottom of.
+const PAINT_SECTIONS = [['scheme', 'Schemes'], ['colour', 'Colours'], ['graphic', 'Graphics'], ['inside', 'Inside']];
+
 // ── THE BOOTH ────────────────────────────────────────────────────────────────
-// Four colours, fifteen paint jobs, eight finish coats and eleven pictures for the door, and the
-// job this tab has is to stop that being WORSE than the two colours and four flashes it replaces.
+// Seven colours, fifteen paint jobs, eight finish coats, eleven pictures for the door and an
+// interior — and the job this tab has is to stop all of that being WORSE than the two colours and
+// four flashes it started as.
 //
-// Three things do that, and none of them is a smaller catalogue:
+// Four things do that, and none of them is a smaller catalogue:
 //
-//  1. THE SCHEMES COME FIRST. A row of one-click liveries at the top, exactly as the hangar does it
-//     (livery.js PRESETS), so the fastest route to a truck that looks deliberate is one click and
-//     the pickers below are there for the person who wants to argue with it.
-//  2. EVERY CHOICE PREVIEWS ON THE MODEL IN FRONT OF YOU. That was already true of the two colours
-//     and is now true of all four, the job, the coat and the door. Nothing is committed until the
-//     button; the button says what it will cost; and the truck in the hero shot is the truck being
-//     described. Paying to find out what flake looks like is not a mechanic.
-//  3. AND THE PRICE MOVES WHILE YOU CHOOSE, because the finish is the one thing that changes it.
-//     A booth that quoted one number and charged another the moment somebody picked candy would be
+//  1. THE SCHEMES COME FIRST, on their own screen. A row of one-click liveries exactly as the
+//     hangar does it (livery.js PRESETS), so the fastest route to a truck that looks deliberate is
+//     one click, and the pickers are there for the person who wants to argue with it. Every scheme
+//     now names every colour, which is what makes "one click and it is done" true rather than "one
+//     click, and then go and find the three it did not set".
+//  2. EVERY CHOICE PREVIEWS ON THE MODEL IN FRONT OF YOU. True of all seven colours, the job, the
+//     coat and the door. Nothing is committed until the button; the button says what it will cost;
+//     and the truck in the hero shot is the truck being described. Paying to find out what flake
+//     looks like is not a mechanic.
+//  3. AND THE PRICE MOVES WHILE YOU CHOOSE, because the finish is the one thing that changes it. A
+//     booth that quoted one number and charged another the moment somebody picked candy would be
 //     the panel lying about the only fact on it — see paintCost and the ⚠ in the payload.
+//  4. THE INSIDE IS IN HERE TOO, AND IT HAS ITS OWN PREVIEW. A retrim was a verb and nothing else:
+//     `rig trim` printed a swatch book of seven words, and the only way to find out what oxblood
+//     and chrome looked like was to buy it. It stays a SEPARATE purchase from the paint — its own
+//     button, its own price, because it is a different job at a different bench — but it answers
+//     the same question the rest of this tab answers, so it lives on the same tab.
 //
 // ⚠ THE CATALOGUES ARE THE SERVER'S. This file renders `B.data.flashes` / `.finishes` / `.arts` /
-// `.paintPresets` and invents none of them, which is rule 1 of this panel: the client computes
-// nothing. A hardcoded list here is a second copy of a vocabulary `sanitizePaint` would then reject.
-const PAINT_FIELDS = [['base', 'Cab'], ['trim', 'Flash'], ['hw', 'Hardware'], ['deck', 'Box']];
+// `.paintPresets` / `.dashMaterials` / `.dashColourways` and invents none of them, which is rule 1
+// of this panel: the client computes nothing. A hardcoded list here is a second copy of a
+// vocabulary `sanitizePaint` would then reject.
 function paintTab(t) {
-  const dflt = B.data.paintDefault || { base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe', finish: 'gloss', art: 'none', chrome: 1 };
-  const cur = { ...dflt, ...(t.paint || {}), ...(B.bench.paint || {}) };
-  const dirty = paintCmd(t, cur) !== null;
-  const price = paintPrice(t, cur);
-  const swatches = (rows, key) => (rows || []).map(r =>
-    `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
-  const presets = (B.data.paintPresets || []).map(p =>
-    `<button class="td-preset" data-preset="${esc(p.id)}" title="${esc(p.label)}">
-       <span class="td-pchip" style="background:${esc(p.base)}"></span><span class="td-pchip" style="background:${esc(p.trim)}"></span><span class="td-pchip" style="background:${esc(p.hw)}"></span>
-       ${esc(p.label)}</button>`).join('');
-  const cols = PAINT_FIELDS.map(([k, label]) =>
-    `<label>${label} <input type="color" class="td-col" data-paint="${k}" value="${esc(cur[k])}"></label>`).join('');
+  const sec = B.bench.psec || 'scheme';
+  const nav = PAINT_SECTIONS.map(([k, l]) =>
+    `<button class="td-seg-btn${sec === k ? ' on' : ''}" data-psec="${k}">${l}</button>`).join('');
+  const body = sec === 'colour' ? paintColours(t) : sec === 'graphic' ? paintGraphics(t)
+    : sec === 'inside' ? paintInside(t) : paintSchemes(t);
   return `
     <div class="td-pane">
-      <div class="td-lab">Schemes</div>
-      <div class="td-presets">${presets}</div>
-      <div class="td-paint">${cols}</div>
+      <div class="td-seg wide">${nav}</div>
+      ${body}
+    </div>`;
+}
+
+// The commit row, shown under every section that edits PAINT. All three share it, because they are
+// edits to one job that is bought once — a button per section would read as three resprays.
+function paintFoot(t) {
+  const cur = paintNow();
+  const cmd = paintCmd(t, cur);
+  return `
+      <div class="td-acts">
+        <button class="td-act primary" data-cmd="${esc(cmd || '')}" ${cmd ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(paintPrice(t, cur))}</button>
+        <button class="td-act ghost" data-paint-reset ${cmd ? '' : 'disabled'}>Put it back</button>
+      </div>`;
+}
+
+// ── Schemes ──────────────────────────────────────────────────────────────────
+// A scheme is the whole truck, so its card shows the whole truck: six colours in the order they
+// cover it, with the job and the coat named underneath. Three chips and a word was a swatch; this
+// is a paint job you can recognise before you click it.
+function paintSchemes(t) {
+  const cur = paintNow();
+  const nameOf = (rows, id) => ((B.data[rows] || []).find(r => r.id === id) || {}).label || id;
+  const cards = (B.data.paintPresets || []).map(p => {
+    const on = ['base', 'trim', 'hw', 'deck', 'bright', 'glow', 'glass', 'flash', 'finish'].every(k => cur[k] === p[k]);
+    const chips = ['base', 'trim', 'deck', 'hw', 'bright', 'glow']
+      .map(k => `<span class="td-pchip" style="background:${esc(p[k] || '#000')}"></span>`).join('');
+    return `<button class="td-scheme${on ? ' on' : ''}" data-preset="${esc(p.id)}">
+        <span class="td-chips">${chips}</span>
+        <b>${esc(p.label)}</b>
+        <span class="td-dim">${esc(nameOf('flashes', p.flash))} · ${esc(nameOf('finishes', p.finish))}${p.chrome ? ' · chrome' : ''}</span>
+      </button>`;
+  }).join('');
+  return `
+      <div class="td-lab">One click, whole truck</div>
+      <div class="td-schemes">${cards}</div>
+      <div class="td-dim td-note">A scheme sets all seven colours, the paint job and the coat. Nothing is charged until you send it into the booth.</div>
+      ${paintFoot(t)}`;
+}
+
+// ── Colours ──────────────────────────────────────────────────────────────────
+// Seven wells, each with the name of the SURFACE and a line saying which part of the truck that is.
+// The hex sits alongside because copying a colour off one rig onto another is a thing people
+// actually do, and reading it back out of a native colour dialog is four clicks.
+function paintColours(t) {
+  const cur = paintNow();
+  const rows = PAINT_FIELDS.map(([k, label, note]) => `
+      <label class="td-crow${k === 'bright' && !cur.chrome ? ' off' : ''}">
+        <input type="color" class="td-col" data-paint="${k}" value="${esc(cur[k])}" aria-label="${esc(label)}">
+        <span class="td-cname">${esc(label)}<span class="td-dim">${esc(note)}</span></span>
+        <code class="td-chex">${esc(String(cur[k] || '').toUpperCase())}</code>
+      </label>`).join('');
+  return `
+      <div class="td-lab">Where the paint goes</div>
+      <div class="td-crows">${rows}</div>
+      <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Brightwork polished<span class="td-dim"> — off blacks it out to the hardware colour</span></label>
+      ${paintFoot(t)}`;
+}
+
+// ── Graphics ─────────────────────────────────────────────────────────────────
+// The three lists that are not colours: what is painted ON the cab, what coat it is under, and what
+// is on the door. One widget, three rows of it.
+function paintGraphics(t) {
+  const cur = paintNow();
+  const swatches = (rows, key) => (rows || []).map(r =>
+    `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
+  return `
       <div class="td-lab">Paint job</div>
       <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
-      <div class="td-lab">Finish coat</div>
+      <div class="td-lab">Finish coat<span class="td-dim"> — the only thing that moves the price</span></div>
       <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
       <div class="td-lab">On the door</div>
       <div class="td-swatches">${swatches(B.data.arts, 'art')}</div>
-      <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Chrome on the stacks and the tank straps</label>
-      <div class="td-acts">
-        <button class="td-act primary" data-cmd="${esc(paintCmd(t, cur) || '')}" ${dirty ? '' : 'disabled title="Nothing changed"'}>Into the booth · ${money(price)}</button>
-        <button class="td-act ghost" data-paint-reset>Put it back</button>
-      </div>
       <div class="td-dim td-note">The name on the door is the plate: <code>rig name ${esc(t.id)} &lt;plate&gt;</code>.</div>
-    </div>`;
+      ${paintFoot(t)}`;
 }
+
+// ── Inside ───────────────────────────────────────────────────────────────────
+// The retrim, and the reason it earns a screen: what you are buying is THE LIGHT YOU DRIVE BY. A
+// colourway is not a brown or a blue, it is a needle colour and a glow on your face for twenty
+// minutes at a stretch, and none of that is sayable in a word. So it previews — the same colours
+// the renderer takes, arranged as the thing they make.
+//
+// ⚠ SURFACE ONLY, AND THE PREVIEW MUST NOT PRETEND OTHERWISE. A retrim reaches the dash's material
+// and its colourway and nothing else; `dials`, `band` and `lamps` are the fleet ladder and the
+// ladder's teeth are INFORMATION. The mock draws two dials on every truck because it is a picture
+// of a SURFACE, and no swatch on it can add an instrument — see the ⚠ in rig.js, which states the
+// same boundary from the other side.
+function paintInside(t) {
+  const cur = trimNow(t);
+  const cols = B.data.dashColourways || [];
+  const mats = B.data.dashMaterials || [];
+  const cmd = trimCmd(t, cur);
+  const swatch = (c) => {
+    const g = `linear-gradient(160deg, ${esc(c.dash?.[0] || '#555')}, ${esc(c.dash?.[1] || '#333')} 62%, ${esc(c.dash?.[2] || '#111')})`;
+    return `<button class="td-tswatch${cur.col === c.id ? ' on' : ''}" data-trimpick="col" data-trimval="${esc(c.id)}" title="${esc(c.label)}">
+        <span class="td-tchip" style="background:${g}"><i style="background:${esc(c.needle || '#fff')};box-shadow:0 0 6px ${esc(c.glow || '#fff')}"></i></span>
+        ${esc(c.id)}</button>`;
+  };
+  const matRow = (m) => `<button class="td-swatch${cur.mat === m.id ? ' on' : ''}" data-trimpick="mat" data-trimval="${esc(m.id)}" title="${esc(m.blurb || '')}">${esc(m.label)}</button>`;
+  return `
+      ${dashPreview(cur)}
+      <div class="td-lab">Colourway<span class="td-dim"> — the light you drive by</span></div>
+      <div class="td-tswatches">${cols.map(swatch).join('')}</div>
+      <div class="td-lab">Material</div>
+      <div class="td-swatches">${mats.map(matRow).join('')}</div>
+      <div class="td-acts">
+        <button class="td-act primary" data-cmd="${esc(cmd || '')}" ${cmd ? '' : 'disabled title="Nothing changed"'}>Retrim it · ${money(t.trimPrice || 0)}</button>
+        <button class="td-act ghost" data-trim-reset ${cmd ? '' : 'disabled'}>Put it back</button>
+      </div>
+      <div class="td-dim td-note">The bench does not sell instruments. What is in the binnacle came with the truck.</div>`;
+}
+
+// The material's grain, as the one thing about it a still picture can show. These are not the
+// renderer's tiles (cabDashTex builds those procedurally at cab scale) and are not pretending to
+// be: they are the difference between four words, which is what this row was.
+const DASH_GRAIN = {
+  steel:   'repeating-linear-gradient(92deg, rgba(255,255,255,.06) 0 1px, transparent 1px 3px)',
+  plastic: 'radial-gradient(rgba(255,255,255,.05) .5px, transparent .6px) 0 0 / 3px 3px',
+  vinyl:   'repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 7px)',
+  wood:    'repeating-linear-gradient(88deg, rgba(0,0,0,.22) 0 2px, rgba(255,255,255,.05) 2px 3px, transparent 3px 9px)',
+};
+// The mock: a header rail, the dash slab in the colourway's own three-stop gradient with the
+// material's grain over it, the lip highlight scaled by the material's gloss, and two lit dials
+// with a needle at rest. That is every colour the renderer actually reads, arranged the way it
+// reads them. CSS rather than a canvas because it is a STILL — nothing here animates, and a canvas
+// would be a second rAF for a picture that only changes when you click.
+function dashPreview(cur) {
+  const c = (B.data.dashColourways || []).find(r => r.id === cur.col) || {};
+  const m = (B.data.dashMaterials || []).find(r => r.id === cur.mat) || {};
+  const d = c.dash || ['#3b414a', '#1e2228', '#0d0f12'];
+  const hdr = c.hdr || ['#16181c', '#23262b'];
+  const face = c.face || ['#171a1f', '#0a0c0f'];
+  const needle = c.needle || '#e8c07a', glow = c.glow || '#9fb4c4';
+  const gloss = m.gloss == null ? 0.5 : m.gloss;
+  const dial = (deg) => `<span class="td-dial" style="background:radial-gradient(circle at 50% 38%, ${esc(face[0])}, ${esc(face[1])});box-shadow:inset 0 0 0 2px ${esc(c.ring || 'rgba(150,165,185,0.28)')}, 0 0 12px ${esc(glow)}"><i style="background:${esc(needle)};transform:rotate(${deg}deg);box-shadow:0 0 5px ${esc(needle)}"></i></span>`;
+  return `
+      <div class="td-dashmock" aria-hidden="true">
+        <span class="td-dm-hdr" style="background:linear-gradient(180deg, ${esc(hdr[0])}, ${esc(hdr[1])})"></span>
+        <span class="td-dm-slab" style="background:linear-gradient(168deg, ${esc(d[0])}, ${esc(d[1])} 58%, ${esc(d[2])})">
+          <span class="td-dm-grain" style="background:${DASH_GRAIN[cur.mat] || DASH_GRAIN.plastic}"></span>
+          <span class="td-dm-lip" style="background:${esc(c.lip || 'rgba(190,205,225,0.16)')};opacity:${(0.35 + gloss * 0.65).toFixed(2)}"></span>
+          <span class="td-dm-dials">${dial(-38)}${dial(24)}</span>
+        </span>
+      </div>
+      <div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.stock === false ? ' — a bench colour, on no truck from the factory' : ''}</div>`;
+}
+
 // What the booth will charge for the paint CURRENTLY ON THE DIALS. The scale is the server's — it
 // sends the gloss-coat price and the multiplier for every coat — so this multiplies, it does not
 // price. Get that wrong and the panel is quoting a number the till has never heard of.
@@ -593,12 +749,26 @@ function paintPrice(t, cur) {
   const mul = (B.data.finishMul || {})[cur.finish];
   return mul == null || t.paintBase == null ? t.paintPrice : Math.max(60, Math.round(t.paintBase * mul));
 }
+// The interior currently on the dials: the truck's own resolved trim (the server merges the stock
+// row in, so this is never half-empty) with whatever the bench has clicked on top of it.
+function trimNow(t) {
+  const sel = t || selected();
+  return { ...((sel && sel.trim) || {}), ...(B.bench.trim || {}) };
+}
+// `rig trim` is ORDER-FREE and takes bare words — a material and a colourway cannot be confused for
+// one another — so the command is simply whichever of the two changed, in either order.
+function trimCmd(t, cur) {
+  const was = t.trim || {};
+  const parts = ['mat', 'col'].filter(k => cur[k] && cur[k] !== was[k]).map(k => cur[k]);
+  return parts.length ? `rig trim ${t.id} ${parts.join(' ')}` : null;
+}
+
 // The verb, or null when nothing has changed. Named arguments, because eight positional ones is a
 // grammar nobody can type — see rigPaint, which still accepts the old four for anything already
 // written down.
 function paintCmd(t, cur) {
   const was = { ...(B.data.paintDefault || {}), ...(t.paint || {}) };
-  const keys = ['base', 'trim', 'hw', 'deck', 'flash', 'finish', 'art'];
+  const keys = ['base', 'trim', 'hw', 'deck', 'bright', 'glow', 'glass', 'flash', 'finish', 'art'];
   const parts = keys.filter(k => cur[k] !== was[k]).map(k => `${k}=${cur[k]}`);
   if ((cur.chrome ? 1 : 0) !== (was.chrome ? 1 : 0)) parts.push(`chrome=${cur.chrome ? 1 : 0}`);
   return parts.length ? `rig paint ${t.id} ${parts.join(' ')}` : null;
@@ -645,7 +815,7 @@ function marketScreen() {
 // ── Events ───────────────────────────────────────────────────────────────────
 function onClick(e) {
   if (!B) return;
-  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-paintpick],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-view-reset]');
+  const t = e.target.closest('[data-cmd],[data-screen],[data-sel],[data-bench],[data-mode],[data-lot],[data-paintpick],[data-trimpick],[data-psec],[data-preset],[data-close],[data-act],[data-confirm],[data-tune-reset],[data-paint-reset],[data-trim-reset],[data-view-reset]');
   if (!t || t.disabled) {
     if (e.target.id === 'td-scene') pickOnFloor(e);
     return;
@@ -656,7 +826,7 @@ function onClick(e) {
   if (t.dataset.close != null) { closeTruckDepot(); return void sendCmdSilent('look'); }
   if (t.dataset.act === 'fullscreen') { document.body.classList.toggle('td-fullscreen'); return void render(); }
   if (t.dataset.act === 'hidepanel') { document.body.classList.toggle('td-hidepanel'); return void render(); }
-  if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; return void render(); }
+  if (t.dataset.sel) { B.selId = t.dataset.sel; B.bench.tune = null; B.bench.paint = null; B.bench.trim = null; return void render(); }
   if (t.dataset.screen) { B.screen = t.dataset.screen; return void render(); }
   if (t.dataset.bench) { B.bench.tab = t.dataset.bench; return void render(); }
   if (t.dataset.mode) { B.inspect.mode = t.dataset.mode; walkKeys.clear(); return void render(); }
@@ -665,6 +835,13 @@ function onClick(e) {
   // One swatch, whichever row it came from — the paint job, the finish coat and the door art are
   // three lists of the same widget, so they are one handler rather than three near-copies.
   if (t.dataset.paintpick) { B.bench.paint = { ...paintNow(), [t.dataset.paintpick]: t.dataset.paintval }; return void render(); }
+  // Which screen of the booth. Held on the bench rather than in a module local so that selecting a
+  // different truck resets it with everything else — see the `sel` branch above.
+  if (t.dataset.psec) { B.bench.psec = t.dataset.psec; return void render(); }
+  // The interior's two swatch rows, exactly as the paint's are: an edit held locally, previewed,
+  // and charged only by the button. ⚠ It is a SEPARATE draft from the paint (`B.bench.trim`), or
+  // clicking a colourway would dirty the respray and the booth would quote for both.
+  if (t.dataset.trimpick) { B.bench.trim = { ...trimNow(), [t.dataset.trimpick]: t.dataset.trimval }; return void render(); }
   // A scheme sets every field at once. ⚠ It is applied LOCALLY rather than sent as
   // `rig paint <id> preset <name>`, even though that verb exists and works: sending it would
   // charge for the respray the instant somebody clicked a swatch to see what it looked like.
@@ -676,6 +853,7 @@ function onClick(e) {
   }
   if (t.dataset.tuneReset != null) { B.bench.tune = null; return void render(); }
   if (t.dataset.paintReset != null) { B.bench.paint = null; return void render(); }
+  if (t.dataset.trimReset != null) { B.bench.trim = null; return void render(); }
   // SELLING IS THE ONE IRREVERSIBLE BUTTON on this screen, and it sits next to Refuel. It asks.
   if (t.dataset.confirm) {
     if (t.dataset.armed) { sendCmdSilent(t.dataset.confirm); return; }
@@ -712,6 +890,10 @@ function onInput(e) {
     // colour picker closes it on the first pixel of movement. The hero shot needs no re-render
     // anyway — it reads B.bench.paint straight off the state every frame — so only the commit
     // button, which is the one thing that cannot repaint itself, is updated in place.
+    // …and the hex beside the well, which is the one other thing on the row that is a fact about the
+    // colour rather than about the truck. Same in-place update, same reason.
+    const hex = el.parentElement && el.parentElement.querySelector('.td-chex');
+    if (hex && key !== 'chrome') hex.textContent = String(el.value || '').toUpperCase();
     refreshPaintCommit(t);
     return;
   }
@@ -769,7 +951,7 @@ function pickOnFloor(e) {
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
   const best = pickSceneHit(sceneHits, x, y);   // the rig's own silhouette, not a circle on the floor
-  if (best && best.id !== B.selId) { B.selId = best.id; B.bench.tune = null; B.bench.paint = null; render(); }
+  if (best && best.id !== B.selId) { B.selId = best.id; B.bench.tune = null; B.bench.paint = null; B.bench.trim = null; render(); }
 }
 
 // ── The one animation loop ───────────────────────────────────────────────────
@@ -868,8 +1050,7 @@ function liveryOf(t, live = false) {
   // AS the finish — a tickbox called 'chrome on the stacks' silently deciding gloss versus matte,
   // which is two different questions wearing one control. It is back to meaning brightwork, and
   // the coat is the coat.
-  return { base: p.base, trim: p.trim, hw: p.hw, deck: p.deck, chrome: p.chrome,
-    pattern: `truck:${p.flash || 'none'}`, finish: p.finish || 'gloss', art: p.art || 'none' };
+  return truckLivery(p);
 }
 
 function sizeCanvas(cv) {
@@ -1118,19 +1299,67 @@ function ensureStyles() {
   .td-kits{display:flex;gap:5px;flex-wrap:wrap}
   .td-kit{font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:11px;
     color:var(--td-fg-dim);background:var(--td-surf-lo);border:1px solid var(--border)}
-  .td-paint{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-  /* The one-click schemes. Three chips of the actual colours in front of the name, because a
-     scheme called 'Night Run' means nothing until you have seen one. */
-  .td-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-  .td-preset{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 6px;cursor:pointer;
-    font:700 11px/1 'Courier New',monospace;letter-spacing:0.6px;text-transform:uppercase;color:var(--td-fg-dim);
-    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:7px;
-    border:1px solid color-mix(in srgb, var(--td-accent) 22%, transparent)}
-  .td-preset:hover{color:var(--td-fg);border-color:color-mix(in srgb, var(--td-accent) 55%, transparent)}
+  /* ── THE BOOTH ─────────────────────────────────────────────────────────────
+     Four screens behind one segmented control, and every row on them is the same two shapes: a
+     swatch (a thing you pick) or a well (a colour you set). Nothing here is bespoke to one
+     section, which is what keeps a seven-colour booth from reading as seven different widgets. */
+  .td-seg.wide{display:flex;gap:4px;margin-bottom:10px;padding:3px;border-radius:9px;
+    background:var(--td-surf-lo);border:1px solid var(--border)}
+  .td-seg-btn{flex:1;padding:6px 4px;cursor:pointer;border:0;border-radius:6px;background:transparent;
+    font:700 10.5px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;color:var(--td-fg-dim2)}
+  .td-seg-btn:hover{color:var(--td-fg)}
+  .td-seg-btn.on{color:var(--td-fg);background:linear-gradient(165deg,color-mix(in srgb, var(--td-accent) 26%, var(--bg2)),var(--td-surf-lo));
+    box-shadow:inset 0 1px 0 var(--td-bevel-hi),0 0 8px color-mix(in srgb, var(--td-accent) 24%, transparent)}
+  /* A scheme card: the whole truck as six chips, then its name, then what it is wearing. */
+  .td-schemes{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+  .td-scheme{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:7px 8px;cursor:pointer;text-align:left;
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:8px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 20%, transparent);color:var(--td-fg-dim)}
+  .td-scheme:hover{border-color:color-mix(in srgb, var(--td-accent) 55%, transparent);color:var(--td-fg)}
+  .td-scheme.on{border-color:var(--td-accent);color:var(--td-fg);
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 30%, transparent),inset 0 1px 0 var(--td-bevel-hi)}
+  .td-scheme b{font:700 11.5px/1.2 'Courier New',monospace;letter-spacing:.6px;text-transform:uppercase}
+  .td-scheme .td-dim{font-size:10.5px;line-height:1.25}
+  .td-chips{display:flex;width:100%;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.5)}
+  .td-chips .td-pchip{flex:1;height:14px;border-radius:0;box-shadow:none}
   .td-pchip{width:11px;height:16px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
-  .td-paint label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--td-fg-dim)}
-  .td-col{width:44px;height:28px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
-    border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi)}
+  /* A colour row: the well, what it paints, and the hex. Grid, so seven of them line up. */
+  .td-crows{display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+  .td-crow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;
+    padding:5px 6px;border-radius:7px;cursor:pointer}
+  .td-crow:hover{background:var(--td-surf-lo)}
+  .td-crow.off{opacity:.45}
+  .td-cname{display:flex;flex-direction:column;gap:1px;font:700 11.5px/1.1 'Courier New',monospace;
+    letter-spacing:.6px;text-transform:uppercase;color:var(--td-fg)}
+  .td-cname .td-dim{font:400 11px/1.25 inherit;letter-spacing:0;text-transform:none}
+  .td-chex{font:400 10.5px/1 'Courier New',monospace;color:var(--td-fg-dim2)}
+  .td-col{width:38px;height:30px;border:1px solid color-mix(in srgb, var(--td-accent) 35%, transparent);
+    border-radius:6px;background:var(--td-surf-lo);cursor:pointer;box-shadow:inset 0 1px 0 var(--td-bevel-hi);padding:2px}
+  /* ── The interior, and its still ────────────────────────────────────────────
+     A dashboard is a slab under a header rail with two lit dials in it, and that is exactly what
+     this is — the colourway's own gradient, the material's grain, the gloss on the lip. */
+  .td-dashmock{position:relative;display:block;height:96px;border-radius:9px;overflow:hidden;margin-bottom:4px;
+    border:1px solid var(--border);box-shadow:inset 0 2px 8px rgba(0,0,0,.5)}
+  .td-dm-hdr{position:absolute;inset:0 0 auto 0;height:22px}
+  .td-dm-slab{position:absolute;inset:22px 0 0 0;display:block}
+  .td-dm-grain,.td-dm-lip{position:absolute;inset:0;display:block;pointer-events:none}
+  .td-dm-lip{inset:auto 0 auto 0;top:0;height:2px}
+  .td-dm-dials{position:absolute;left:0;right:0;top:14px;display:flex;justify-content:center;gap:18px}
+  .td-dial{position:relative;width:38px;height:38px;border-radius:50%;display:block}
+  .td-dial i{position:absolute;left:50%;top:50%;width:2px;height:15px;margin-left:-1px;
+    border-radius:1px;transform-origin:50% 100%;translate:0 -15px}
+  .td-dm-cap{margin-bottom:10px}
+  .td-tswatches{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+  .td-tswatch{display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 6px;cursor:pointer;
+    font:700 10px/1 'Courier New',monospace;letter-spacing:.8px;text-transform:uppercase;color:var(--td-fg-dim);
+    background:linear-gradient(165deg,var(--td-surf),var(--td-surf-lo));border-radius:7px;
+    border:1px solid color-mix(in srgb, var(--td-accent) 20%, transparent)}
+  .td-tswatch:hover{color:var(--td-fg);border-color:color-mix(in srgb, var(--td-accent) 55%, transparent)}
+  .td-tswatch.on{border-color:var(--td-accent);color:var(--td-fg);
+    box-shadow:0 0 10px color-mix(in srgb, var(--td-accent) 30%, transparent)}
+  .td-tchip{position:relative;width:34px;height:20px;border-radius:3px;display:block;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5)}
+  .td-tchip i{position:absolute;right:4px;bottom:4px;width:4px;height:4px;border-radius:50%}
   .td-swatches{display:flex;gap:5px;flex-wrap:wrap}
   .td-swatch{padding:6px 10px;font:700 11.5px/1 'Courier New',monospace;letter-spacing:1px;text-transform:uppercase;
     color:var(--td-fg-dim);border-radius:7px;cursor:pointer;

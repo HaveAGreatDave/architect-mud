@@ -250,7 +250,7 @@ export const SPARES_ITEM = 'item_truck_spares';
 export const FIX_GRACE_TILES = 260;
 
 // ── Paint ────────────────────────────────────────────────────────────────────
-// A truck wears FOUR colours, a paint job over them, a finish coat and a picture on the door.
+// A truck wears SEVEN colours, a paint job over them, a finish coat and a picture on the door.
 //
 // It used to wear two and a choice of four flashes, which was written down as "deliberately thinner
 // than an aircraft's livery". That was the wrong comparison. An aeroplane's paint is a UNIFORM —
@@ -268,6 +268,29 @@ export const FIX_GRACE_TILES = 260;
 //          working rigs, and the single change that makes a truck look kept rather than new.
 //   deck — the box on the back. A tractor and its trailer are two vehicles that happen to be
 //          coupled, and they are very often not the same colour.
+//
+// ── AND THEN THE THREE THAT WERE NOT COLOURS AT ALL ──────────────────────────
+// Four was still not the whole truck, and the tell was that a player could see the gap without
+// knowing any of this: paint a rig black and it still had a WHITE spear down the flank and a BLUE
+// strip under the glass, because both of those were hardcoded arrays in the mesh that no paint job
+// could reach. A colour the booth cannot sell is a colour the booth is refusing to sell, and on a
+// possession that is the one thing the bench is for.
+//
+//   bright — the brightwork. Grille teeth, bullets, the spear down the flank, hubcap bands, stack
+//            mouths, horns, the lamp brows, the step rungs.  (below) still says whether it
+//            is POLISHED at all; this says what colour it is when it is.
+//   glow   — the running lights that are decoration rather than lamp: the beltline strip at the
+//            base of the glass and the roof scanner. ⚠ NOT THE LIFTER EMITTER BANDS, which stay
+//            the machine's own blue-white — those are the propulsion showing, the way an exhaust
+//            flame is, and the road wash under them is painted from the same fact. A truck whose
+//            thrust you could paint pink would be a truck whose thrust was jewellery.
+//   glass  — the tint in the panes. Scaled per pane rather than flooded, so the windscreen stays
+//            lighter than the sleeper porthole exactly as it always was.
+//
+// ⚠ `chrome` IS STILL A SWITCH AND IT FINALLY DOES SOMETHING. It has been stored, handed to the
+// renderer and read by nothing at all — the box you ticked changed no pixel on any truck. It now
+// decides whether brightwork takes `bright` or falls back to the HARDWARE colour, which is the
+// blacked-out rig the `nightrun` scheme has been asking for and never got.
 //
 // THE DOOR NAME IS STILL THE PLATE the fleet already stores, and is deliberately not duplicated
 // here. `art` is a picture, not lettering.
@@ -320,19 +343,24 @@ export const ARTS = [
 // because a four-colour picker with fifteen paint jobs behind it is a worse experience than two
 // colours was, unless there is a way to get something that looks deliberate in one click.
 export const PAINT_PRESETS = [
-  { id: 'workhorse', label: 'Workhorse',    base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe',   finish: 'satin',     chrome: 1 },
-  { id: 'nightrun',  label: 'Night Run',    base: '#14171c', trim: '#3a4048', hw: '#1a1d22', deck: '#1b1f25', flash: 'lower',    finish: 'matte',     chrome: 0 },
-  { id: 'candyapple', label: 'Candy Apple', base: '#8e0f18', trim: '#f0d97a', hw: '#1c1e22', deck: '#8e0f18', flash: 'scallop',  finish: 'candy',     chrome: 1 },
-  { id: 'showrig',   label: 'Show Rig',     base: '#123f6b', trim: '#e9eef4', hw: '#0e1216', deck: '#e9eef4', flash: 'pinstripe', finish: 'metallic', chrome: 1 },
-  { id: 'hotrod',    label: 'Hot Rod',      base: '#101216', trim: '#e2701e', hw: '#26282d', deck: '#101216', flash: 'flame',    finish: 'gloss',     chrome: 1 },
-  { id: 'haulier',   label: 'Company Fleet', base: '#e8e9ec', trim: '#1f4f2e', hw: '#2b2e33', deck: '#e8e9ec', flash: 'split',   finish: 'gloss',     chrome: 0 },
-  { id: 'wasteland', label: 'Wasteland',    base: '#7a6a4c', trim: '#4a3f2c', hw: '#2a2620', deck: '#6a5c42', flash: 'rust',     finish: 'weathered', chrome: 0 },
-  { id: 'hazard',    label: 'Hazard',       base: '#f2b01e', trim: '#191919', hw: '#191919', deck: '#f2b01e', flash: 'chevron',  finish: 'gloss',     chrome: 1 },
-  { id: 'shop',      label: 'In Primer',    base: '#6b6f74', trim: '#5a5e63', hw: '#2f3237', deck: '#6b6f74', flash: 'none',     finish: 'primer',    chrome: 0 },
+  { id: 'workhorse', label: 'Workhorse',    base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', bright: '#e2e8f0', glow: '#60c4d6', glass: '#324a5c', flash: 'stripe',    finish: 'satin',     chrome: 1 },
+  { id: 'nightrun',  label: 'Night Run',    base: '#14171c', trim: '#3a4048', hw: '#1a1d22', deck: '#1b1f25', bright: '#4a5058', glow: '#3f6f7a', glass: '#141c24', flash: 'lower',     finish: 'matte',     chrome: 0 },
+  { id: 'candyapple', label: 'Candy Apple', base: '#8e0f18', trim: '#f0d97a', hw: '#1c1e22', deck: '#8e0f18', bright: '#f4ead2', glow: '#ffb45c', glass: '#3a2a30', flash: 'scallop',   finish: 'candy',     chrome: 1 },
+  { id: 'showrig',   label: 'Show Rig',     base: '#123f6b', trim: '#e9eef4', hw: '#0e1216', deck: '#e9eef4', bright: '#eef3f8', glow: '#7fd6ff', glass: '#2a4258', flash: 'pinstripe', finish: 'metallic',  chrome: 1 },
+  { id: 'hotrod',    label: 'Hot Rod',      base: '#101216', trim: '#e2701e', hw: '#26282d', deck: '#101216', bright: '#e8dfc8', glow: '#ff7a2e', glass: '#2c1f1a', flash: 'flame',     finish: 'gloss',     chrome: 1 },
+  { id: 'haulier',   label: 'Company Fleet', base: '#e8e9ec', trim: '#1f4f2e', hw: '#2b2e33', deck: '#e8e9ec', bright: '#9aa2ab', glow: '#63c98a', glass: '#2e4038', flash: 'split',     finish: 'gloss',     chrome: 0 },
+  { id: 'wasteland', label: 'Wasteland',    base: '#7a6a4c', trim: '#4a3f2c', hw: '#2a2620', deck: '#6a5c42', bright: '#8a7f68', glow: '#c9a24a', glass: '#3a382c', flash: 'rust',      finish: 'weathered', chrome: 0 },
+  { id: 'hazard',    label: 'Hazard',       base: '#f2b01e', trim: '#191919', hw: '#191919', deck: '#f2b01e', bright: '#dfe4ea', glow: '#ffd54a', glass: '#2f2a1e', flash: 'chevron',   finish: 'gloss',     chrome: 1 },
+  { id: 'shop',      label: 'In Primer',    base: '#6b6f74', trim: '#5a5e63', hw: '#2f3237', deck: '#6b6f74', bright: '#7c8189', glow: '#6f8790', glass: '#33383d', flash: 'none',      finish: 'primer',    chrome: 0 },
 ];
 const idsOf = (rows) => new Set(rows.map(r => r.id));
 const FLASH_IDS = idsOf(FLASHES), FINISH_IDS = idsOf(FINISHES), ART_IDS = idsOf(ARTS);
-export const PAINT_DEFAULT = { base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe', finish: 'gloss', art: 'none', chrome: 1 };
+// ⚠ THE DEFAULTS ARE THE MESH'S OWN HARDCODED ARRAYS, TO THE BYTE. `bright` is the CHROME const
+// in buildTruck (226,232,240), `glow` is the beltline strip (96,196,214) and `glass` is the door
+// pane (50,74,92) every other pane is scaled against. That is what makes the widening invisible:
+// a truck nobody has repainted comes out of `sanitizePaint` wearing exactly the colours the
+// renderer was already drawing it in, so no row is rewritten and nothing changes on deploy day.
+export const PAINT_DEFAULT = { base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', bright: '#e2e8f0', glow: '#60c4d6', glass: '#324a5c', flash: 'stripe', finish: 'gloss', art: 'none', chrome: 1 };
 const HEX = /^#[0-9a-f]{6}$/i;
 // ⚠ EVERY NEW FIELD FALLS BACK THROUGH `prev` TO THE DEFAULT, which is what makes the widening
 // invisible to a truck painted before it. A rig in the database carries `{base, trim, flash,
@@ -346,6 +374,9 @@ export function sanitizePaint(next = {}, prev = {}) {
     trim: col(next.trim, prev.trim || PAINT_DEFAULT.trim),
     hw: col(next.hw, prev.hw || PAINT_DEFAULT.hw),
     deck: col(next.deck, prev.deck || PAINT_DEFAULT.deck),
+    bright: col(next.bright, prev.bright || PAINT_DEFAULT.bright),
+    glow: col(next.glow, prev.glow || PAINT_DEFAULT.glow),
+    glass: col(next.glass, prev.glass || PAINT_DEFAULT.glass),
     flash: pick(FLASH_IDS, next.flash, FLASH_IDS.has(prev.flash) ? prev.flash : PAINT_DEFAULT.flash),
     finish: pick(FINISH_IDS, next.finish, FINISH_IDS.has(prev.finish) ? prev.finish : PAINT_DEFAULT.finish),
     art: pick(ART_IDS, next.art, ART_IDS.has(prev.art) ? prev.art : PAINT_DEFAULT.art),

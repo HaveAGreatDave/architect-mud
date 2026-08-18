@@ -5247,6 +5247,19 @@ function flatWallCol(biome, night) {
   }
   return c;
 }
+// The same 1×1 box filter over the ROOF texture, for the one case a roof cannot be blitted as a
+// rectangle: a near-plane-clipped 3-to-5-gon (see the roof block in draw3DBoxAt). Memoised in the
+// same map, so a soffit that starts clipping does not change colour on the frame it does.
+function flatRoofCol(biome, night) {
+  const key = 'roofavg:' + biome + (night > 0.4 ? ':n' : '');
+  let c = _texAvg.get(key);
+  if (!c) {
+    const s2 = texCanvas(1, 1), g2 = s2.getContext('2d');
+    g2.imageSmoothingEnabled = true; g2.drawImage(roofTex(biome, night), 0, 0, 1, 1);
+    const d = g2.getImageData(0, 0, 1, 1).data; c = [d[0], d[1], d[2]]; _texAvg.set(key, c);
+  }
+  return c;
+}
 // Affine texture-mapped triangle (the Mode-7 warp). Maps texture-space triangle
 // (s0,s1,s2) onto screen triangle (d0,d1,d2). Composes with the current transform.
 function texTri(ctx, img, s0, s1, s2, d0, d1, d2, smooth) {
@@ -5635,21 +5648,62 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
       ctx.globalAlpha = 1;
     });
   }
-  // Roof: only when the whole top quad is in front of the eye — a partly-behind roof can't be
-  // seen from that angle anyway, and clipping a 4-gon to the near plane would need a polygon split.
-  if (roof && cf[0] >= NEAR_CLIP && cf[1] >= NEAR_CLIP && cf[2] >= NEAR_CLIP && cf[3] >= NEAR_CLIP) {
-    const t = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz1));
-    const rp = [[t[0].sx, t[0].sy], [t[1].sx, t[1].sy], [t[2].sx, t[2].sy], [t[3].sx, t[3].sy]], rtex = roofTex(biome, night);
-    const rf = (t[0].f + t[1].f + t[2].f + t[3].f) / 4, rfog = fogWeight(rf);
-    // A horizontal roof quad's depth collapses to its tile centre's f (f is linear in x,y, so the
-    // 4-corner average of a centred box = the centre value) — so EVERY concentric roof stacked on one
-    // centre (a stepped tower's cornice ledges + the setback roofs beneath them) ties at one depth and
-    // z-fights as the camera bobs. Break the tie by height: a higher ledge is nearer the down-looking
-    // eye, so bias it forward (smaller depth → painted later → on top). The bias is far below inter-
-    // building depth gaps, so it only orders a box's own stacked roofs, never reorders neighbours.
-    emitFace(rf - wz1 * 0.02, () => { ctx.globalAlpha = alpha; drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]); if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); ctx.lineTo(rp[1][0], rp[1][1]); ctx.lineTo(rp[2][0], rp[2][1]); ctx.lineTo(rp[3][0], rp[3][1]); ctx.closePath(); ctx.fill(); } ctx.globalAlpha = 1; });
+  // ── THE ROOF, AND WHAT HAPPENS WHEN YOU DRIVE UNDER ONE ────────────────────
+  // This used to be: draw the top quad only while ALL FOUR corners are in front of the eye, on the
+  // reasoning that "a partly-behind roof can't be seen from that angle anyway, and clipping a 4-gon
+  // to the near plane would need a polygon split". The first half of that is true of every model on
+  // this map that you look AT, and false of the two you drive INTO — and a fuel canopy is one of
+  // them. Roll under the forecourt roof and its footprint straddles the camera, so all four corners
+  // are never ahead at once and the entire canopy blinks out: from the cab you are standing under a
+  // gas station with no roof on it, at exactly the moment the roof is the whole point of the place.
+  // (The depot shed hit this first and solved it locally — see `bayFace`, note 4 on drawVehicleBay.
+  // This is the same fix made general, so the next thing anybody builds to drive under works.)
+  //
+  // So it IS the polygon split, and it is cheap: `rawF` is affine in (x, y), so the crossing point
+  // interpolates exactly and Sutherland–Hodgman against one half-space is a dozen lines. What comes
+  // back is a 3-to-5-gon, which no longer maps a rectangular texture, so the clipped case takes the
+  // flat tone-matched fill the wall LOD already uses — the same average, so a soffit does not change
+  // colour on the frame it starts clipping. The unclipped case is byte-identical to before.
+  if (roof) {
+    const poly = cs.map(([a, c]) => [dx + a, dy + c]);
+    const g = poly.map(([x, y]) => rawF(x, y) - NEAR_CLIP);
+    const whole = g.every((q) => q >= 0);
+    let cl = poly;
+    if (!whole) {
+      cl = [];
+      for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length, ga = g[i], gb = g[j];
+        if (ga >= 0) cl.push(poly[i]);
+        if ((ga >= 0) !== (gb >= 0)) {
+          const t = ga / (ga - gb);
+          cl.push([poly[i][0] + (poly[j][0] - poly[i][0]) * t, poly[i][1] + (poly[j][1] - poly[i][1]) * t]);
+        }
+      }
+    }
+    if (cl.length >= 3) {
+      const t = cl.map(([x, y]) => cam.proj(x, y, wz1));
+      const rp = t.map((q) => [q.sx, q.sy]), rtex = roofTex(biome, night);
+      let rf = 0; for (const q of t) rf += q.f; rf /= t.length;
+      const rfog = fogWeight(rf);
+      const flat = whole ? null : rgb(flatRoofCol(biome, night));
+      // A horizontal roof quad's depth collapses to its tile centre's f (f is linear in x,y, so the
+      // 4-corner average of a centred box = the centre value) — so EVERY concentric roof stacked on one
+      // centre (a stepped tower's cornice ledges + the setback roofs beneath them) ties at one depth and
+      // z-fights as the camera bobs. Break the tie by height: a higher ledge is nearer the down-looking
+      // eye, so bias it forward (smaller depth → painted later → on top). The bias is far below inter-
+      // building depth gaps, so it only orders a box's own stacked roofs, never reorders neighbours.
+      emitFace(rf - wz1 * 0.02, () => {
+        ctx.globalAlpha = alpha;
+        const path = () => { ctx.beginPath(); ctx.moveTo(rp[0][0], rp[0][1]); for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i][0], rp[i][1]); ctx.closePath(); };
+        if (flat) { ctx.fillStyle = flat; path(); ctx.fill(); }
+        else drawTexQuad(ctx, rtex, rp[0], rp[1], rp[2], rp[3]);
+        if (rfog > 0.004) { ctx.globalAlpha = alpha * rfog; ctx.fillStyle = FOG_STATE.css; path(); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      });
+    }
   }
 }
+
 function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
   draw3DBoxAt(ctx, cam, dx, dy, fh, 0, wz, biome, seed, night, alpha, true);
 }
@@ -6864,6 +6918,20 @@ function drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
 // The lamp pass. Road tiles carrying a streetlight row get one post on the kerb; which side is a
 // stable per-tile choice so a run of lamps down a street alternates believably instead of marching
 // in a single perfect file.
+//
+// ── ⚠ AND NOT ACROSS SOMEBODY'S DOOR ─────────────────────────────────────────
+// The side was a hash and nothing else, which is fine on a run of blank frontage and wrong the one
+// place it matters: a depot's roller door opens straight onto the carriageway, and a lamp standard
+// planted on that kerb stands in the middle of the way in. You could see it from the cab — a post
+// dead ahead of the opening you were trying to drive a forty-tonne truck through — and no amount
+// of reading the depot model would have explained it, because the depot is not what put it there.
+//
+// So the hash still CHOOSES, and a doorway VETOES. A kerb belongs to a door if the tile across it
+// is a building whose entrance faces back this way (that is the same `ent` the building itself is
+// angled by, so a frontage that is turned round takes its lamp with it), and a depot bay is
+// included by name because it is the one door you drive through rather than walk through. If both
+// kerbs are spoken for, the tile simply gets no lamp: a gap in a run of streetlights is invisible,
+// and a post through a doorway is not.
 function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
   const DIRV = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
   for (let ry = 0; ry < map.length; ry++) for (let rx = 0; rx < map[ry].length; rx++) {
@@ -6878,7 +6946,16 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     // number the paint and the pedestrians use, so the lamp is on the kerb rather than near it.
     const dirs = c.rd || '';
     const along = dirs.includes('n') || dirs.includes('s') ? DIRV.n : DIRV.e;
-    const side = frac((wx + 512) * 5.17 + (wy + 512) * 9.31) < 0.5 ? -1 : 1;
+    // Is the kerb `sx` tiles-worth to one side taken by somebody's front door?
+    const doorway = (sx) => {
+      const kx = Math.round(along[1] * sx), ky = Math.round(-along[0] * sx);
+      const nc = map[ry + ky] && map[ry + ky][rx + kx];
+      if (!nc || (!nc.bt && nc.mark !== 'bay')) return false;
+      const E = faceVec(nc.ent);        // the way that building faces, in world axes
+      return E[0] === -kx && E[1] === -ky;   // …straight back at this tile: its door is on this kerb
+    };
+    let side = frac((wx + 512) * 5.17 + (wy + 512) * 9.31) < 0.5 ? -1 : 1;
+    if (doorway(side)) { if (doorway(-side)) continue; side = -side; }
     const px = along[1] * VERGE * side, py = -along[0] * VERGE * side;
     const inward = [-Math.sign(px) || 0, -Math.sign(py) || 0];   // from the kerb back toward the road
     drawStreetLampQueued(ctx, cam, dx + px, dy + py, inward, c.sl === 1, alpha, night, (wx * 73 + wy * 149));
@@ -9853,6 +9930,20 @@ export function bayOccluderSmoke(ID) {
     if (solids === 0) out.push('a shed beside the truck put no solid in OCC_SOLIDS — the per-pixel mask has nothing to test');
     const own = plain(); own[R][R] = bay('OWN DEPOT');
     if (covered(own) > 0) out.push('the shed the truck is standing IN is masking it — the cutaway and the occluder disagree');
+    // ── …AND THE OTHER HALF OF THE SAME SENTENCE ────────────────────────────
+    // The case above is the camera UP over the eaves, where the shed is being cut open for you and
+    // must not mask your rig. Drop the chase onto the road — below the eaves — and the cutaway does
+    // not happen at all: the walls are painted solid, so they have to mask. Skipping the shed on a
+    // boolean (`is my rig inside it`) rather than on the cutaway is exactly what made a truck draw
+    // through a wall that was plainly there, and this is the pose it happened in.
+    const flat = { ...view, extPitch: 0.02, extZoom: 1 };
+    paintWindshield(ID, { ...flat, map: own });
+    {
+      const F = OCC_FIELD;
+      let n = 0;
+      if (F) for (let i = 0; i < F.gh; i++) { const row = i * F.stride; for (let c = 0; c < F.gw; c++) if (F.d[row + c] < Infinity) n++; }
+      if (F && n === 0) out.push('down at chase height the shed is solid on screen and masks nothing — a truck drawn through a wall you can see');
+    }
     if (covered(plain()) > 0) out.push('an empty map reports occluders');
   }
   return out;
@@ -12168,8 +12259,16 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       //
       //   x (fh)  0.265 ── 0.455   pump island kerb
       //           0.425 ── 0.525   the hose boom reaching out over the lane
-      //           0.740 ── 0.940   column collar
-      //   ⇒ centre lane  |x| < 0.265      outer lanes  0.525 < |x| < 0.740
+      //           0.770 ── 0.910   column collar
+      //   ⇒ centre lane  |x| < 0.265      outer lanes  0.525 < |x| < 0.770
+      //
+      // ⚠ THE COLUMNS ARE THINNER THAN THEY WERE, and the reason is the outer lane rather than the
+      // columns. A collar at ±0.10fh with a 0.135 ring of yellow round its foot is a metre and a
+      // half of obstruction on each side of a lane that has to take a tractor unit and a trailer
+      // through a turn, and the smoke only proves a lane is CLEAR — it cannot say whether it is
+      // comfortable. Taking the collar in to 0.07 and the capital to 0.075 widens each outer lane
+      // by 6% of a tile at the pinch point without moving anything else, and a steel column that
+      // reads as slim reads more like a canopy support and less like a pier.
       const steel = (r, g, b) => (f) => { const sh = 0.5 + f.nl * 0.5; return `rgb(${r * sh | 0},${g * sh | 0},${b * sh | 0})`; };
       const canopyZ = h * 1.52, deckT = h * 0.32;          // underside clearance, and the fascia+deck sandwich above it
       const canY = fh * 0.06;                              // the canopy is pushed toward the road, off the back strip
@@ -12275,10 +12374,10 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // bottom, and the collar is the thing a reversing trailer actually meets.
       for (const [sx, sy] of [[-0.84, -0.52], [0.84, -0.52], [-0.84, 0.64], [0.84, 0.64]]) {
         const [cx2, cy2] = F(sx * fh, sy * fh);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.10, 0, h * 0.20, 'ty_fuel_red', seed + 60 + sx * 3 + sy, night, alpha, true);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.062, h * 0.20, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
-        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.095, canopyZ - h * 0.10, canopyZ, 'ty_fuel_white', seed + 64 + sx * 3 + sy, night, alpha, true);
-        paintL(sx * fh, sy * fh, fh * 0.135, fh * 0.135, YEL, alpha * 0.5);   // …and the ring of yellow round its foot
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.070, 0, h * 0.20, 'ty_fuel_red', seed + 60 + sx * 3 + sy, night, alpha, true);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.044, h * 0.20, canopyZ, 'ty_fab_steel', seed + 11 + sx * 3 + sy, night, alpha, false);
+        draw3DBoxAt(ctx, cam, cx2, cy2, fh * 0.075, canopyZ - h * 0.10, canopyZ, 'ty_fuel_white', seed + 64 + sx * 3 + sy, night, alpha, true);
+        paintL(sx * fh, sy * fh, fh * 0.105, fh * 0.105, YEL, alpha * 0.5);   // …and the ring of yellow round its foot
       }
 
       // 6) THE CANOPY. A soffit, a deep coloured fascia rail standing proud of it on all four sides,
@@ -13729,9 +13828,15 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       //    would put the bug back one layer down.
       if (it.c.mark === 'bay') {
         if (it.alpha < OCC_OPAQUE) continue;
-        const E = faceVec(it.c.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
-        const subjLX = -it.dx * ct - it.dy * st, subjLY = it.dx * st - it.dy * ct;
-        if (Math.abs(subjLX) < BAY.HW && Math.abs(subjLY) < BAY.HL) continue;   // your own rig is in it
+        // ⚠ AND IT SKIPS ONLY WHAT IS ACTUALLY BEING SHOWN THROUGH. This used to skip the shed
+        // whenever your rig was standing in it, full stop — a boolean answering a question the
+        // picture answers with a RAMP. Down at chase height the eye is below the eaves, so `cut`
+        // is 0 and the walls are painted solid; the mask meanwhile had been told the building was
+        // not there, and the own ship is painted after the world pass. That is a rig drawn straight
+        // through a wall you can see, and it is the bug this line exists for. Now both halves ask
+        // `bayCutaway`, and a wall hides exactly as much as it is opaque.
+        const { cut: bcut, ct, st } = bayCutaway(cam, it.dx, it.dy, it.c);
+        if (bcut > 0.5) continue;   // it is being opened up for you — masking against it would put the bug back
         const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
         const k = 1 - OCC_SHRINK;
         const slab = (sx0, sx1, z0, z1) => {
@@ -14216,6 +14321,36 @@ const BAY_CUT_NEAR = 0.25;   // …and by here it is fully open, which is about 
 //   · DOOR_H must clear it too, or the way out is a letterbox you cannot see the road through.
 // `BAY` (the shed's dimensions) and `bayTopZ` live up with the height formulas — see the
 // ⚠ note there on why this one building's mass is a fixed shape rather than a storey stack.
+// ── HOW OPEN THE SHED IS, AS ONE ANSWER ──────────────────────────────────────
+// The cutaway and the OCCLUSION have to agree, and for a while they could not, because only one of
+// them existed as a rule. The picture faded the roof and the near wall when the camera was above
+// the eaves with your rig inside; the occlusion pre-pass, meanwhile, simply skipped the whole shed
+// whenever your rig was inside it — a boolean against a ramp. Down at chase height, where the eye
+// is BELOW the eaves and `cut` is therefore 0, that left the walls painted solid and contributing
+// nothing to the depth mask, and the own ship is painted after the world: a truck drawn straight
+// through a wall you can plainly see. That is "seeing the truck through the depot walls", and it
+// was two files disagreeing about one number.
+//
+// So there is one function, and both callers ask it. 0 = a solid building; 1 = fully opened up.
+// The occluder contributes at (1 − cut), which is exactly what the near faces are painted at — a
+// wall you can see through hides nothing, a wall you cannot see through hides everything, and
+// there is no third state for them to disagree about.
+function bayCutaway(cam, dx, dy, cell) {
+  const { HW, HL, WALL } = BAY;
+  const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
+  const back = cam.back || 0;
+  const camWX = -back * cam.sinh - dx, camWY = back * cam.cosh - dy;
+  const camLX = camWX * ct + camWY * st, camLY = -camWX * st + camWY * ct;
+  const inside = Math.abs(camLX) < HW && Math.abs(camLY) < HL;
+  // Where the SUBJECT is — in the chase the eye is astern, out on the apron, while the truck it is
+  // framing stands in the middle of the shed. The lid comes off for the thing being looked at.
+  const subjLX = -dx * ct - dy * st, subjLY = dx * st - dy * ct;
+  const subjectInside = Math.abs(subjLX) < HW && Math.abs(subjLY) < HL;
+  const eyeOut = Math.hypot(Math.max(0, Math.abs(camLX) - HW), Math.max(0, Math.abs(camLY) - HL));
+  const cut = (cam.EH > WALL * 0.9 && (inside || subjectInside))
+    ? clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1) : 0;
+  return { cut, inside, subjectInside, camLX, camLY, ct, st };
+}
 function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   if (MASS_OFF) return;
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
@@ -14228,25 +14363,13 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // The eye sits `back` tiles astern of the focus (makeCam), so in the chase view it is NOT at the
   // origin. Everything this model decides — is the door open, is the roof in the way, which side of
   // a wall am I looking at — is decided from this one pair of numbers.
+  // …the cutaway, and it is NOT derived here any more — see bayCutaway, which the occlusion
+  // pre-pass asks the same question of. `cut` is 0 out where the whole building is in frame, 1 down
+  // where the camera has flattened onto the road, and the near faces are painted at 1 − cut in
+  // between; inside the shed it is always fully open, because you cannot be asked to look through
+  // your own roof at yourself.
   const back = cam.back || 0;
-  const camWX = -back * cam.sinh - dx, camWY = back * cam.cosh - dy;      // eye → tile centre, world axes
-  const camLX = camWX * ct + camWY * st, camLY = -camWX * st + camWY * ct; // …and in the shed's frame
-  const inside = Math.abs(camLX) < HW && Math.abs(camLY) < HL;
-  // …and where the SUBJECT is. In the external chase the eye is 1.6 tiles astern — out on the apron,
-  // or through the back wall — while the truck it is framing is standing in the middle of the shed.
-  // So the cutaway is keyed on the thing being looked at, not on where the eye happens to be: my
-  // rig is in this building and I am above its eaves ⇒ take the lid off and cull whatever stands
-  // between us. Without the second half of that, the roof went and the back wall stayed, and a wall
-  // occludes a truck exactly as well as a roof does.
-  const subjLX = -dx * ct - dy * st, subjLY = dx * st - dy * ct;
-  const subjectInside = Math.abs(subjLX) < HW && Math.abs(subjLY) < HL;
-  // …and HOW MUCH of it happens is the dolly's, not a boolean (see BAY_CUT_FAR/NEAR): `cut` is 0 out
-  // where the whole building is in frame, 1 down where the camera has flattened onto the road, and
-  // the near faces are painted at 1 − cut in between. Inside the shed it is always fully open — you
-  // cannot be asked to look through your own roof at yourself.
-  const eyeOut = Math.hypot(Math.max(0, Math.abs(camLX) - HW), Math.max(0, Math.abs(camLY) - HL));
-  const cut = (cam.EH > WALL * 0.9 && (inside || subjectInside))
-    ? clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1) : 0;
+  const { cut, inside, camLX, camLY } = bayCutaway(cam, dx, dy, cell);
   // Distance from the eye to the DOORWAY rather than to the tile centre, so the sensor means the
   // same thing from the apron and from the back wall. `lateral` is how far off the aperture you are
   // sideways, which is what stops a truck passing down the far side of the yard from opening it.

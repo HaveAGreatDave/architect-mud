@@ -24,6 +24,7 @@ import { updateEngineAudio, stopEngineAudio, damageCue, damageBed, stopDamageBed
 // stand down while it owns the pane — the same hard override the cockpit takes on embark.
 import { suppressWeatherFx } from './weather-fx.js';
 import { createHelmWheel, TRUCK_LOCK_TURNS, TRUCK_LOCK_RAD } from './helm-wheel.js';
+import { truckLivery } from './aircraft3d.js';   // stored paint → renderer livery, the one conversion
 import { sendCmdSilent } from '../net.js';
 import { cbRadioHTML, wireCbRadio, cbTabKey } from './cb-radio.js';
 import { openTabletToChatTab } from './tablet-os.js';
@@ -2775,7 +2776,7 @@ function frame(now) {
       power: r.stalled ? 0
         : (st.sim.rpm || 0) <= IDLE ? 0.55 * ((st.sim.rpm || 0) / IDLE)
         : 0.55 + 0.45 * Math.min(1, ((st.sim.rpm || 0) - IDLE) / (1 - IDLE)),
-      livery: PAINT || undefined,
+      livery: truckLivery(PAINT),
       // The orbit is the player's now, not two constants — drag on the glass, wheel to dolly, ⟲ to
       // put it back down the road.
       // YAW IS THE PLAYER'S, ALWAYS AND AT EVERY DISTANCE — see the ⚠ on chaseAmt. Only the height
@@ -2811,11 +2812,17 @@ function frame(now) {
       //          point, which is what made everything out of the glass read small and far.
       ...(st.external ? {} : { eyeH: 0.12, fovMul: 1.22 }),
       height: 0, speed: r.speed / 68, mph: r.speed,
-      // ⚠ SIGNED, WHERE `speed` IS NOT. `truckReadout.speed` is a magnitude and the direction lives
-      // in `reversing` — fine for a speedometer, useless to anything that has to point something
-      // the way the truck is travelling. The lifter thrust cones fire opposite the direction of
-      // travel, so they need the one number that says which way that is.
-      drive: (r.reversing ? -1 : 1) * (r.speed / 68),
+      // ⚠ SIGNED, AND IT IS THE SIM'S OWN SIGN — NOT THE GEARBOX'S.
+      // This read `(r.reversing ? -1 : 1) * (r.speed / 68)` on the belief that `truckReadout.speed`
+      // is a magnitude with the direction living in `reversing`. It is not: `stepTruck` clamps
+      // `s.speed` to [−cap·REVERSE_CAP, cap] and the readout rounds it, sign and all. So backing up
+      // negated a number that was ALREADY negative and `drive` came out positive — the thrust cones
+      // fired off the back of the truck while it reversed, which reads as driving forwards with the
+      // model turned round, and is the exact failure the renderer's own ⚠ warns about ("keyed on
+      // the direction of TRAVEL, not on the gearbox"; `reversing` is `s.gear < 0`, the gearbox).
+      // Taken straight off the sim, so a rig rolling forward with reverse selected is still being
+      // pushed forward, and a stationary one fires neither end.
+      drive: Math.max(-1, Math.min(1, (st.sim.speed || 0) / 68)),
       heading: st.sim.heading, hour: st.hour, weather: st.weather,
       // Headlights. There is no switch on the dash and there should not be one: a rig runs lit,
       // and the renderer only throws the beam when the seeing is bad enough to want it (night OR
