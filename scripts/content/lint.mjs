@@ -600,16 +600,26 @@ export function lintContentTree(baseDir, { tree: preRead = null } = {}) {
   // DERIVED collision is impossible by construction. An AUTHORED one is a human
   // decision two people made independently, and derive must not paper over it.
   //
-  // §7.4 says fail the build on these. It is a WARNING for now because 8 exist in
-  // shipped content, and turning them into an error would blockade every push until
-  // eight buildings are renamed — a flag day, which the migration shape (redesign
-  // §14) exists to avoid. Promote it to an error once the backlog is clear.
+  // AN ERROR SINCE 2026-08-17, which is what §7.4 always asked for. It was a warning
+  // because 8 collisions existed in shipped content and erroring would have blockaded
+  // every push until eight buildings were renamed — a flag day the migration shape
+  // (redesign §14) exists to avoid. The backlog is clear: `SH` (Second Helpings /
+  // Shipping & Handling) and `LL` (Lather & Lye / The Last Load) were the last two,
+  // and the freight office took `MF` for the Meltwater Freight Office its own
+  // description names while the depot took `TL` under the article-kept convention.
+  //
+  // The promotion is the whole point of having cleared them. A warning on a two-glyph
+  // code is a warning nobody reads: the map keeps rendering, both buildings keep
+  // showing up, and the only symptom is that one of them is unfindable — which reads
+  // as a map bug rather than as a content one, months later, to someone who was not
+  // there. Every push runs this (pretest:regress and precontent:import both do), so
+  // the second author to reach for a code now finds out while they are choosing it.
   {
     const zoneFiles = entries.find(e => e.entry.table === 'zones')?.files || [];
     if (zoneFiles.length) {
       const { collisions } = assignBuildingMarkers(zoneFiles.map(f => f.data));
       for (const c of collisions) {
-        warnings.push(`zones/${c.id}: map code "${c.marker}" is already authored on ${c.with} — two buildings wearing one code are indistinguishable on the map (audit MARK-4)`);
+        errors.push(`zones/${c.id}: map code "${c.marker}" is already authored on ${c.with} — two buildings wearing one code are indistinguishable on the map (audit MARK-4)`);
       }
     }
   }

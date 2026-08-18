@@ -401,13 +401,29 @@ The client (game sidebar minimap, full-map popup, tablet bigmap in
 shares a **Labels / None overlay** setting (Tablet OS → Settings → Layout → *Map Labels*, stored as
 `mapOverlay` in the shared settings object): both modes draw the SVG tile base; *labels* adds the
 2-letter building acronym (`zones.marker`) on top. **A building code reads off its NAME** — *Screw
-It* is `SI` — and the build derives it (`uniqueMarkerFor` in
+It* is `SI` — and the build can derive one (`uniqueMarkerFor` in
 [derive.mjs](../scripts/content/derive.mjs)), seeing every building at once so the codes are unique
-without an author guessing one at a time. `zones.marker` is still an override and still wins, but as
-of 2026-08-16 no world building authors one: 34 hand-written codes had drifted off their own names
-(*Screw It* was `BB`, *The Cherry Pit* was `TC`) and two pairs collided outright, so they were
-cleared rather than rewritten. **Author a marker only when the code is meant to be a choice rather
-than an acronym**, and expect the next sweep to ask why. A third *icons* mode, which stamped a
+without an author guessing one at a time.
+
+⚠ **In practice the derivation fires for nothing: all 115 world buildings author a marker, and that
+is correct rather than a backlog.** (This paragraph claimed the opposite until 2026-08-17 — that the
+authored codes had been "cleared rather than rewritten" on 2026-08-16. They were cleared by a
+`content:export` round-trip through a dev DB, not by a decision, and `56c1bf9f3` put all 36 back
+the next day. Anyone reading the old wording would have concluded these codes are derived.)
+
+The reason to author is that **the better code is usually not the acronym**, which is what the
+[map-audit](../.claude/skills/map-audit/rules.md) MARK-5 taxonomy exists to record. Of the 115: 82
+read off the name; 4 are the Ascendant campus's shared `A` namespace (`AV` The Vats, `AS` The
+Spire); 4 keep the article (`TC` The Cherry Pit); and 25 encode something the name does not say —
+almost always the trade or the signage the room description already writes. `GN` on *Second
+Amendment Superstore* says what it sells, `AE` on *Ohm Sweet Ohm* is the Ampersand Electronics on
+its own fascia, `JT` on *Battery Acid Coffee Co.* is the JITTER stencilled on its glass, `W9` on
+*Office of Permitted Suffering* is the WARD NINE on its shingle, and `V7`/`M4`/`K3` name the
+street a unit is on where the derivation would give four buildings `U3`..`U9` and say nothing.
+
+**Author a marker only when the code is meant to be a choice rather than an acronym**, and expect the
+next sweep to ask why. ⚠ **Two buildings may not share a code** — `content:lint` errors on it
+(MARK-4), so a duplicate fails the push rather than leaving one of the two unfindable on the map. A third *icons* mode, which stamped a
 building-type emoji over the rooftop footprint, was removed — it fought the tile art and said less
 than the acronym. The you-are-here marker is
 transparent so the current tile shows through. The full-map popup uses fixed square tiles that fill its

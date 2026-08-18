@@ -409,8 +409,17 @@ class is one decision rather than one-per-building:
 | group | means | today |
 |---|---|---|
 | `namespace prefix` | last glyph is a word's initial, first is not — a shared campus letter | 4 · the Ascendant set (`AV` The Vats, `AS` The Spire, `AC` Chrome Clinic, `AW` The Weave). **This is the grouping MARK-4 tells you to preserve** |
-| `article kept` | the initials taken *without* dropping the article (`TC` The Cherry Pit) | 3 · an acronym under a different convention |
-| `unrelated` | neither — the code encodes something outside the name, usually the trade | 11 · the only class worth reading building by building |
+| `article kept` | the initials taken *without* dropping the article (`TC` The Cherry Pit) | 4 · an acronym under a different convention |
+| `unrelated` | neither — the code encodes something outside the name, usually the trade | 25 · the only class worth reading building by building |
+
+Counts are as of the 2026-08-17 sweep over all 115 buildings (82 read off the name). That sweep
+changed four codes and left the other 30 divergences standing, because **the divergence was the
+point in almost every case** — `AE` is the Ampersand Electronics on *Ohm Sweet Ohm*'s own fascia,
+`JT` the JITTER stencilled on *Battery Acid Coffee Co.*'s glass, `CY`/`FY`/`WF`/`BW` the
+container yard, fuel yard, wharf and bonded warehouse each building actually is. The four that moved
+had nothing behind them in their own description: `BB`→`SI` *Screw It*, `MR`→`SN` *Stitch 'n'
+Bitch*, `PP`→`SV` *Sentimental Value Pawn*, `LD`→`DL` *The Deadline*. **Read the description
+before calling a code drift** — that is where the answer was every time it was not drift.
 
 ### NAME-2 · Interior room name repeats the building it is inside · judgement
 
