@@ -36,7 +36,7 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
-import { rasterFaces, blitRaster, depthAt } from './model-raster.js';
+import { rasterFaces, blitRaster, depthAt, rasterDepth, depthTarget, maskRaster } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
@@ -9663,18 +9663,18 @@ export function forecourtDriveSmoke() {
       }
     }
     // …and the dispensers are still things you can hit. Without this the check above is satisfied by
-    // deleting the pumps, which is not the forecourt anybody asked for. Both pumps on an island,
-    // because the plinth is the only part of one that reaches the ground and it is easy to raise it
-    // onto the kerb by accident — at which point the island is a decal you drive through.
-    for (const t of [-1, 1]) {
-      const [hx, hy] = L(-fh * 0.36, (0.06 + t * 0.24) * fh);
-      if (groundObstructionAt(wx, wy, cell, hx, hy, 0.01, TRUCK_STEP_Z) === 0) out.push(`forecourt (${ent}) → a truck drives straight through the ${t < 0 ? 'inner' : 'outer'} pump`);
+    // deleting the pumps, which is not the forecourt anybody asked for. One per island, and both
+    // islands checked — the plinth is the only part of a pump that reaches the ground and it is easy
+    // to raise it onto the kerb by accident, at which point the island is a decal you drive through.
+    for (const s of [-1, 1]) {
+      const [hx, hy] = L(s * fh * 0.36, 0.06 * fh);
+      if (groundObstructionAt(wx, wy, cell, hx, hy, 0.01, TRUCK_STEP_Z) === 0) out.push(`forecourt (${ent}) → a truck drives straight through the ${s < 0 ? 'left' : 'right'} pump`);
     }
     // The kerb around the island is the OTHER half of that bargain: it has to be there, and it has
     // to be something a wheel rides over rather than a wall. Probed at the island's STREET-SIDE
     // nose, which is the end a wheel actually clips on the way in and is kerb and only kerb —
     // solid to a probe with no step allowance, clear to one with it.
-    const [kx, ky] = L(-fh * 0.36, (0.06 + 0.42) * fh);
+    const [kx, ky] = L(-fh * 0.36, (0.06 + 0.24) * fh);
     if (groundObstructionAt(wx, wy, cell, kx, ky, 0.01, 0) === 0) out.push(`forecourt (${ent}) → the pump island has no kerb at all`);
     if (groundObstructionAt(wx, wy, cell, kx, ky, 0.01, TRUCK_STEP_Z) !== 0) out.push(`forecourt (${ent}) → the island kerb stops a rig dead instead of being ridden over`);
   }
@@ -10184,9 +10184,13 @@ function latticeTower(ctx, cam, dx, dy, z0, z1, r0, r1, alpha, now, seed) {
 // canvas (dark-edged white core + colour halo); the caller still draws its own backing board.
 const _signTexCache = new Map();   // key `label|color|dn|vertical` → offscreen neon-glyph canvas
 let _bladeSign;   // ambient: the current building's display name, set by drawTypeModel so its neonBlades paint real letters without threading the name through every call site (same idiom as FACE_SINK)
-function bakeSignText(label, color, dn, vertical) {
+// `solid` swaps the neon recipe for a PAINTED one — flat colour, no white core, no halo. Neon is
+// right for a sign that emits (a marquee, a blade); it is wrong for lettering on a white board,
+// where the bright core is the same colour as the board and the halo just fogs the edges. A brand
+// band is paint on enamel and has to read as paint.
+function bakeSignText(label, color, dn, vertical, solid) {
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;   // adornment — and it allocates a canvas, which capture must never do
-  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}`;
+  const key = `${label}|${color}|${dn}|${vertical ? 1 : 0}|${solid ? 1 : 0}`;
   let c = _signTexCache.get(key); if (c) return c;
   const n = label.length, CELL = 46, PAD = 8;   // logical px per glyph cell + margin; the strip map scales this onto the quad
   const W = vertical ? CELL : n * CELL + PAD * 2, H = vertical ? n * CELL + PAD * 2 : CELL;
@@ -10194,6 +10198,12 @@ function bakeSignText(label, color, dn, vertical) {
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `bold ${Math.round(CELL * 0.72)}px monospace`;
   const glow = dn ? 12 : 6, core = dn ? 6 : 2;
   const put = (ch, x, y) => {
+    if (solid) {   // painted, not lit: one flat colour, and after dark a breath of its own glow because the board behind it is backlit
+      g.shadowColor = color; g.shadowBlur = dn ? 5 : 0;
+      g.fillStyle = color; g.fillText(ch, x, y);
+      g.shadowBlur = 0; g.fillText(ch, x, y);
+      return;
+    }
     g.shadowColor = color; g.shadowBlur = glow; g.fillStyle = color; g.fillText(ch, x, y);            // colour halo
     g.shadowBlur = core; g.lineWidth = 2.4; g.strokeStyle = 'rgba(8,6,10,0.9)'; g.strokeText(ch, x, y); // dark edge
     g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.95)'; g.fillText(ch, x, y);                    // bright core
@@ -10463,10 +10473,99 @@ function drawPriceBoard(ctx, cam, cx, cy, E, half, z0, z1, title, rows, night, a
       drawSurfaceText(ctx, gq[0], gq[1], gq[2], gq[3], bakeSignText(String(list[i].g).slice(0, 8), '#cfd6de', dn, false), false, alpha * 0.92);
       // The digits are the one thing on a forecourt that is emissive by day as well as by night —
       // a flip-digit panel is backlit, so it does not dim with the sky the way painted signage does.
-      drawSurfaceText(ctx, pq[0], pq[1], pq[2], pq[3], bakeSignText(String(list[i].p), '#ffb14a', 1, false), false, alpha);
+      //
+      // ⚠ ALWAYS TWO DECIMALS, because that is what makes a number read as a FUEL PRICE rather than
+      // as a quantity. "3" on a pylon is a mystery; "3.00" is a pump price, and the eye takes it in
+      // without stopping. The number itself is still the charging system's — see `each` on the
+      // fuel.prices row, which is where a price quoted by the tank is turned into a price by the
+      // unit, in the file that owns the tank.
+      drawSurfaceText(ctx, pq[0], pq[1], pq[2], pq[3], bakeSignText(Number(list[i].p).toFixed(2), '#ffb14a', 1, false), false, alpha);
     }
     // 4) The frame last, over everything, so the cells read as recessed into it.
     ctx.globalAlpha = alpha; ctx.strokeStyle = dn ? 'rgba(70,58,44,0.9)' : 'rgba(24,26,30,0.9)'; ctx.lineWidth = 1.4;
+    poly(face); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+// ── THE BRAND BAND ────────────────────────────────────────────────────────────
+// A forecourt's canopy sign: a white enamel board with a mark on the left and the operator's name
+// painted across it in the house colour.
+//
+// ⚠ NOT `marqueeBand`, and the difference is the point. That helper paints a COLOUR-LIT face with
+// neon lettering — a cinema front, which is what most of Coldwater's frontages want and what a
+// forecourt emphatically does not: a fuel brand is flat paint on white, legible at a distance in
+// daylight, backlit rather than glowing after dark. Its height is also derived from its width
+// (`clamp(half * 0.26, …)`), so narrowing it thins it, and this board wanted to be halved across
+// while staying nearly as deep. Two different signs, two functions.
+//
+// `cx,cy` is the board's centre already pushed proud of the fascia; `E` the entrance vector; `half`
+// the across-front half-width; `zc ± halfH` its top and bottom.
+const _fuelMarkCache = new Map();
+// The mark: a bolt in a roundel. Deliberately generic — this belongs to FORECOURTS, not to Flash
+// Point, so a second operator gets a mark without anybody drawing one. The name beside it is what
+// makes it a brand.
+function bakeFuelMark(color, dn) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return null;
+  const key = `${color}|${dn}`;
+  let c = _fuelMarkCache.get(key); if (c) return c;
+  const S = 64; c = texCanvas(S, S); const g = c.getContext('2d');
+  g.fillStyle = color;
+  if (dn) { g.shadowColor = color; g.shadowBlur = 6; }
+  g.beginPath(); g.arc(S / 2, S / 2, S * 0.44, 0, 7); g.fill();
+  g.shadowBlur = 0;
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = S * 0.045;
+  g.beginPath(); g.arc(S / 2, S / 2, S * 0.44, 0, 7); g.stroke();
+  // The bolt, as a polygon rather than a glyph — a font's ⚡ is not in every face and renders as a
+  // box on the ones it is missing from, which is a brand mark nobody can read.
+  const P = [[0.56, 0.14], [0.30, 0.54], [0.46, 0.54], [0.40, 0.86], [0.70, 0.44], [0.53, 0.44], [0.62, 0.14]];
+  g.fillStyle = 'rgba(255,255,255,0.96)';
+  g.beginPath(); P.forEach(([x, y], i) => (i ? g.lineTo(x * S, y * S) : g.moveTo(x * S, y * S)));
+  g.closePath(); g.fill();
+  _fuelMarkCache.set(key, c); return c;
+}
+function drawBrandBand(ctx, cam, cx, cy, E, half, zc, halfH, label, color, night, alpha) {
+  if (SHAPE_SINK || ADORN_TIER < ADORN_CHEAP) return;
+  const P = (u, v) => cam.proj(cx + E[1] * half * u, cy - E[0] * half * u, zc + halfH - 2 * halfH * v);
+  const cell = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const face = cell(-1, 1, 0, 1);
+  if (face.some(p => p.f <= 0.12)) return;
+  const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < 4; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
+  const dn = night > 0.4 ? 1 : 0;
+  // The name breaks over two lines when there is a tail word to drop — FLASH POINT over FUEL. One
+  // line of sixteen characters in a board this shape condenses into something you cannot read at
+  // the distance a canopy sign is for, which is the whole distance.
+  const words = (label || '').trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const tail = words.length >= 3 ? words.pop() : '';
+  const head = words.join(' ');
+  // Same hair of forward bias marqueeBand uses — see the note there. Not decoDepth's 0.6, which
+  // would jump a canopy sign onto a nearer building.
+  emitFace(face.reduce((s, p) => s + p.f, 0) / 4 - 0.06, () => {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    // 1) The board. White enamel, faintly graded so it is a panel rather than a hole, and warmer
+    //    after dark because a sign like this is lit from behind rather than switched off.
+    ctx.fillStyle = dn ? 'rgb(232,228,218)' : 'rgb(244,244,240)'; poly(face); ctx.fill();
+    ctx.globalAlpha = alpha * 0.18; ctx.fillStyle = 'rgba(0,0,0,1)'; poly(cell(-1, 1, 0.62, 1)); ctx.fill();
+    ctx.globalAlpha = alpha;
+    // 2) A rule of the house colour top and bottom — the thing that stops a white board reading as
+    //    a blank one from far enough away that the lettering has gone.
+    ctx.fillStyle = color;
+    poly(cell(-1, 1, 0, 0.09)); ctx.fill();
+    poly(cell(-1, 1, 0.91, 1)); ctx.fill();
+    // 3) The mark, then the name.
+    const mq = cell(-0.95, -0.55, 0.14, 0.86);
+    drawSurfaceText(ctx, mq[0], mq[1], mq[2], mq[3], bakeFuelMark(color, dn), false, alpha);
+    if (head) {
+      const hq = tail ? cell(-0.46, 0.95, 0.13, 0.53) : cell(-0.46, 0.95, 0.24, 0.76);
+      drawSurfaceText(ctx, hq[0], hq[1], hq[2], hq[3], bakeSignText(head, color, dn, false, true), false, alpha);
+    }
+    if (tail) {
+      const tq = cell(-0.46, 0.30, 0.56, 0.87);
+      drawSurfaceText(ctx, tq[0], tq[1], tq[2], tq[3], bakeSignText(tail, color, dn, false, true), false, alpha);
+    }
+    // 4) The frame, over everything.
+    ctx.strokeStyle = dn ? 'rgba(120,60,50,0.85)' : 'rgba(90,86,80,0.75)'; ctx.lineWidth = 1.2;
     poly(face); ctx.stroke();
     ctx.restore();
   });
@@ -12023,6 +12122,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const paintL = (lx, ly, hw, hd, fill, a = alpha) => groundPaint(ctx, cam,
         [F(lx - hw, ly - hd), F(lx + hw, ly - hd), F(lx + hw, ly + hd), F(lx - hw, ly + hd)], 0.0016, fill, a);
       const nite = night > 0.4;
+      const BRAND_RED = '#b8352a';                         // the house colour, and the same red ty_fuel_red paints
 
       // 1) THE APRON. A concrete pad under the whole lot, a shade lighter than the road it meets, so
       // the forecourt has an edge without a kerb round it. This is the thing that says "the surface
@@ -12045,16 +12145,16 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       const YEL_D = nite ? 'rgba(150,124,44,0.78)' : 'rgba(196,162,50,0.82)';
       const WHT = nite ? 'rgba(196,200,204,0.7)' : 'rgba(238,240,238,0.78)';
       for (const s of [-1, 1]) {
-        for (const t of [-1, 1]) {
-          const bx = s * fh * 0.62, by = canY + t * fh * 0.24;        // a bay in the outer lane, beside each pump
-          paintL(bx, by, fh * 0.10, fh * 0.20, YEL_D, alpha * 0.34);  // the bay itself, a wash
+        {
+          const bx = s * fh * 0.62, by = canY;                        // one bay in each outer lane, beside its pump
+          paintL(bx, by, fh * 0.10, fh * 0.30, YEL_D, alpha * 0.34);  // the bay itself, a wash
           // …boxed. Four strips rather than a stroked path, because a stroke on the ground plane
           // keeps a constant SCREEN width and a marking has to foreshorten with the tarmac it is
           // painted on.
-          paintL(bx, by - fh * 0.20, fh * 0.10, fh * 0.014, YEL);
-          paintL(bx, by + fh * 0.20, fh * 0.10, fh * 0.014, YEL);
-          paintL(bx - fh * 0.10, by, fh * 0.014, fh * 0.20, YEL);
-          paintL(bx + fh * 0.10, by, fh * 0.014, fh * 0.20, YEL);
+          paintL(bx, by - fh * 0.30, fh * 0.10, fh * 0.014, YEL);
+          paintL(bx, by + fh * 0.30, fh * 0.10, fh * 0.014, YEL);
+          paintL(bx - fh * 0.10, by, fh * 0.014, fh * 0.30, YEL);
+          paintL(bx + fh * 0.10, by, fh * 0.014, fh * 0.30, YEL);
         }
         // Hazard hatching off the outboard edge — the strip between the lane and the column line,
         // which is the one part of a forecourt nothing is allowed to stand on.
@@ -12078,7 +12178,11 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // the lot: that is what makes the lanes either side of it lanes. The kerb palette is ALREADY
       // the painted yellow, so nothing paints a stripe under it — see the note on groundPaint about
       // why paint under an object is not paint on top of it.
-      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY, fh * 0.095, fh * 0.46, 0, h * 0.05, 'ty_kerb', seed + 30 + s * 3);
+      // ⚠ TWO DISPENSERS, ONE PER ISLAND, AND THE ISLANDS ARE SHORT. Four pumps on two long islands
+      // filled the lot: correct for a city forecourt and wrong for a freight one, where the space
+      // between the furniture is the product. Shortening the islands to a single dispenser each
+      // opens the whole back half of the pad to manoeuvring, which is what a rig actually needs.
+      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY, fh * 0.095, fh * 0.30, 0, h * 0.05, 'ty_kerb', seed + 30 + s * 3);
 
       // 4) THE DISPENSERS. Two per island, standing on it — a plinth, the case, a lit topper, a hose
       // boom out over the bay and the hose hanging off it. The case carries the whole of the detail
@@ -12088,19 +12192,19 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
       // kerb, and modelling it that way puts its underside above the truck's clearance probe — at
       // which point the whole island becomes something you drive THROUGH, since the kerb under it is
       // deliberately step-over. A pump has to be solid; the kerb is wider, so nothing shows.
-      for (const s of [-1, 1]) for (const t of [-1, 1]) {
-        const px2 = s * fh * 0.36, py2 = canY + t * fh * 0.24;
-        boxL(px2, py2, fh * 0.085, fh * 0.115, 0, h * 0.10, 'ty_pump_dk', seed + 40 + s * 5 + t);              // plinth
-        boxL(px2, py2, fh * 0.072, fh * 0.098, h * 0.10, h * 0.52, 'ty_pump', seed + 44 + s * 5 + t);          // the case
-        boxL(px2, py2, fh * 0.086, fh * 0.112, h * 0.52, h * 0.62, 'ty_fuel_red', seed + 48 + s * 5 + t);      // the lit topper it wears
+      for (const s of [-1, 1]) {
+        const px2 = s * fh * 0.36, py2 = canY;
+        boxL(px2, py2, fh * 0.085, fh * 0.115, 0, h * 0.10, 'ty_pump_dk', seed + 40 + s * 5);              // plinth
+        boxL(px2, py2, fh * 0.072, fh * 0.098, h * 0.10, h * 0.52, 'ty_pump', seed + 44 + s * 5);          // the case
+        boxL(px2, py2, fh * 0.086, fh * 0.112, h * 0.52, h * 0.62, 'ty_fuel_red', seed + 48 + s * 5);      // the lit topper it wears
         // The boom reaching out over the bay, and the hose slung off the end of it — the one part of
         // a pump that tells you which way the vehicle is meant to be facing.
-        boxL(px2 + s * fh * 0.115, py2, fh * 0.05, fh * 0.016, h * 0.42, h * 0.47, 'ty_pump_dk', seed + 52 + s * 5 + t, false);
-        boxL(px2 + s * fh * 0.155, py2, fh * 0.014, fh * 0.014, h * 0.18, h * 0.44, 'ty_pump_dk', seed + 56 + s * 5 + t, false);
+        boxL(px2 + s * fh * 0.115, py2, fh * 0.05, fh * 0.016, h * 0.42, h * 0.47, 'ty_pump_dk', seed + 52 + s * 5, false);
+        boxL(px2 + s * fh * 0.155, py2, fh * 0.014, fh * 0.014, h * 0.18, h * 0.44, 'ty_pump_dk', seed + 56 + s * 5, false);
         if (night) glowPool(ctx, cam, ...F(px2, py2), h * 0.58, '255,196,120', 4, alpha * 0.40);
       }
-      // A bin at each island head, because somebody empties the footwells here.
-      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY - fh * 0.40, fh * 0.05, fh * 0.05, 0, h * 0.26, 'ty_pump_dk', seed + 58 + s);
+      // A bin at each island tail, because somebody empties the footwells here.
+      for (const s of [-1, 1]) boxL(s * fh * 0.36, canY - fh * 0.24, fh * 0.05, fh * 0.05, 0, h * 0.26, 'ty_pump_dk', seed + 58 + s);
 
       // 5) THE COLUMNS, and they are columns now rather than blocks of flats — `ty_fab_steel` joined
       // STRUCT_WALL, which is the family that does not paint windows on things that are not walls.
@@ -12129,9 +12233,13 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         draw3DBoxAt(ctx, cam, lx2, ly2, fh * 0.085, canopyZ - h * 0.014, canopyZ + h * 0.008, 'ty_soffit', seed + 80 + i * 3 + t, night, alpha, false);
         if (night) glowPool(ctx, cam, lx2, ly2, canopyZ - h * 0.02, '255,238,206', 7, alpha * 0.30);
       }
-      // The lit fascia band round the front of the canopy — the one bit of signage a forecourt has,
-      // and at night it is the whole silhouette from a mile out.
-      if (frontVis) marqueeBand(ctx, cam, ...F(0, canY), E, fh * 0.88, canopyZ + deckT * 0.36, m.neon || '#ffb14a', night, alpha);
+      // The brand band across the front of the canopy — the one bit of signage a forecourt has, and
+      // at night it is the whole silhouette from a mile out. White enamel, house-red lettering and
+      // the bolt mark; see drawBrandBand for why this is not the shared `marqueeBand` (that helper
+      // derives its height from its width, so halving one halves the other, and it paints neon on a
+      // colour-lit face where this wants paint on white).
+      if (frontVis) drawBrandBand(ctx, cam, ...F(0, canY + fh * 0.79), E, fh * 0.44,
+        canopyZ + deckT * 0.36, deckT * 1.30, name || 'FUEL', BRAND_RED, night, alpha);
 
       // 7) BEHIND THE CANOPY. The shop, the bulk tank, its vent stacks and the bollards that keep a
       // reversing trailer out of all three — the working half of a station, kept on the back strip
@@ -12166,7 +12274,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         draw3DBoxAt(ctx, cam, px3, py3, fh * 0.028, 0, h * 0.30, 'ty_kerb', seed + 104 + bx2 * 7, night, alpha, true);
       }
       for (const s of [-1, 1]) for (const t of [-1, 1]) {
-        const [bx3, by3] = F(s * fh * 0.36, canY + t * fh * 0.50);
+        const [bx3, by3] = F(s * fh * 0.36, canY + t * fh * 0.38);
         draw3DBoxAt(ctx, cam, bx3, by3, fh * 0.026, 0, h * 0.26, 'ty_kerb', seed + 110 + s * 3 + t, night, alpha, true);
       }
 
@@ -12805,24 +12913,60 @@ const OCC_OPAQUE = 0.98;     // below this alpha a building is still fading in a
 // building slabs to cull hidden BUILDINGS with, and a contact is just another thing that can be
 // behind one. Publishing it costs nothing and makes the two answers consistent by construction.
 //
-// ⚠ THE DEPTH IS NOT OPTIONAL. covTop alone says "something opaque covers this column", not what or
-// how far away — cull on that and every contact NEARER than the building vanishes as it drives in
-// front of it. So each column also remembers the f of the occluder that set its line, and a contact
-// is only hidden where it is genuinely further away than the thing covering it.
+// ⚠ THE DEPTH IS NOT OPTIONAL. "Something opaque covers this" is not an answer on its own — cull on
+// that and every contact NEARER than the building vanishes as it drives in front of it. So the
+// field stores the f of whatever covered each cell, and a thing is only hidden where it is
+// genuinely further away than what is covering it.
 // Conservative in the same direction as the building cull: any doubt and it draws.
-let OCC_FIELD = null;         // { covTop: Float32Array, covF: Float32Array, W } for THIS frame
-// Is this ground-anchored point hidden behind a nearer building? `pad` widens the tested column
-// span so a wide model isn't judged on its centreline alone.
-function occludedByBuilding(sx, syTop, f, pad = 0) {
+//
+// ── ⚠ AND IT IS A GRID NOW, NOT A ROW OF COLUMNS ─────────────────────────────
+// This was 96 columns, each holding the topmost screen line covered from there DOWNWARD. That
+// shape can only ever describe one class of occluder — a slab standing on the ground — and every
+// exception to it had to be written out of the pre-pass by hand:
+//
+//   · the depot's DOOR HEADER could not be contributed, because "covered from this line down" is a
+//     lie about a lintel: it would have hidden a truck standing in its own open doorway. So the
+//     strip of wall above the door occluded nothing, and the rig showed through it.
+//   · a FORECOURT CANOPY — a roof on four legs — could not be contributed at all, for the same
+//     reason in the other direction, and is still exempted by a `z0` test below.
+//   · an L-shaped building could only ever offer its CORE box, because a second slab in the same
+//     columns could only overwrite the first rather than sit beside it.
+//
+// A grid has none of those cases. A cell is a cell: a lintel writes the cells the lintel covers, a
+// canopy writes its own band with open road under it, and two wings of one building write two
+// regions. Every one of those exceptions is deleted rather than worked around, which is the reason
+// to change the shape rather than raise the column count.
+const OCC_CELL_PX = 5;        // canvas px per cell — the silhouette's step, and what the fill costs
+const OCC_GW_MIN = 64, OCC_GW_MAX = 256;
+let OCC_FIELD = null;         // { d: Float32Array, gw, gh, sx, sy } for THIS frame — depth per cell
+const _occTarget = depthTarget();
+// ── …AND THE SOLIDS THEMSELVES, KEPT FOR THE ONE MODEL THAT NEEDS THEM PER PIXEL ─
+// The grid above is a cell every 5 px, which is right for "does this whole contact draw" and too
+// coarse for the edge of a shed cutting across the rig you are driving. So the near solids are also
+// kept as projected quads, and the own ship rasterises the ones that overlap its own screen box
+// into a depth window at ITS resolution (see maskRaster in model-raster.js). Bounded twice over —
+// only near buildings are kept, and only the ones actually overlapping the model are rasterised.
+const OCC_KEEP_TILES = 7;     // beyond this a solid is grid-only: too far to be a hard edge on the rig
+const OCC_KEEP_MAX = 28;      // …and a hard cap, because a yard full of sheds is a real map
+let OCC_SOLIDS = null;        // [{ f, x0, x1, y0, y1, quads }] this frame, near→far
+// Is this ground-anchored point hidden behind a nearer building? The box is the model's screen
+// extent — `pad` widens it laterally, `syTop`/`syBot` bound it vertically, and it is hidden only
+// when EVERY cell it covers is covered by something nearer.
+function occludedByBuilding(sx, syTop, syBot, f, pad = 0) {
   const F = OCC_FIELD; if (!F) return false;
-  const col = (x) => clamp(Math.floor(x / F.W * OCC_BUCKETS), 0, OCC_BUCKETS - 1);
-  const c0 = col(sx - pad), c1 = col(sx + pad);
-  for (let c = c0; c <= c1; c++) {
-    if (!(F.covTop[c] < syTop)) return false;    // this column is open above it → visible
-    if (!(f > F.covF[c] + 0.35)) return false;   // …or the cover is BEHIND it, which hides nothing
+  const cx0 = clamp(Math.floor((sx - pad) * F.sx), 0, F.gw - 1), cx1 = clamp(Math.ceil((sx + pad) * F.sx), 0, F.gw - 1);
+  const cy0 = clamp(Math.floor(syTop * F.sy), 0, F.gh - 1), cy1 = clamp(Math.ceil(syBot * F.sy), 0, F.gh - 1);
+  for (let cy = cy0; cy <= cy1; cy++) {
+    const row = cy * F.gw;
+    for (let cx = cx0; cx <= cx1; cx++) {
+      if (!(F.d[row + cx] + OCC_BIAS < f)) return false;   // open, or the cover is BEHIND it
+    }
   }
   return true;
 }
+// A slab at our own depth hides nothing. One number, shared by every reader of the field, so the
+// contact that vanishes and the own ship that gets clipped can never disagree about the margin.
+const OCC_BIAS = 0.35;
 
 // ── …AND THE SAME BUFFER HIDES THE OWN SHIP ──────────────────────────────────
 // A contact behind a building gets `occludedByBuilding` and is dropped whole, which is right for a
@@ -12833,34 +12977,112 @@ function occludedByBuilding(sx, syTop, f, pad = 0) {
 // test at all, it simply painted over every building between it and the eye. That is the "truck
 // showing through the building".
 //
-// So instead of a boolean this clips: the span buffer already knows, per column, the screen line a
-// solid slab covers downward from and how far off that slab is, and that is exactly a coarse depth
-// mask. Each column contributes the band ABOVE its cover line when the cover is nearer than we are,
-// and its whole height when it is not. At 96 columns the silhouette edge is a few pixels wide — the
-// building's own painted edge sits right on it, which is what hides the stepping.
+// So instead of a boolean this clips, against the same grid: every cell the world owns at a nearer
+// depth than we are is cut out, and the rest is drawn. What is cut is now a real shape rather than
+// a column height — a doorway is a hole in a wall, an overhang has road under it — which is the
+// whole of what the grid bought.
+//
+// ⚠ AND IT IS DILATED BY ONE CELL, ON PURPOSE. This clip wraps the things drawn on CANVAS around
+// the model — the lifter wash, the lamp pools — while the model itself is masked per pixel against
+// the same solids at its own resolution. Two masks at two resolutions over one object is only safe
+// if the coarse one is a strict superset: dilate it and the fine mask decides every edge, don't and
+// the truck is cut at 5-px steps by the very pass that exists to stop that happening. On a soft
+// gradient one cell of leak past a wall is not visible; a stepped silhouette is.
 //
 // Conservative in the same direction as everything else here: no field (occlusion tuned off, or a
 // frame with no world pass) means no clip and the old behaviour exactly. Returns whether it clipped,
 // and the caller restores.
 function beginOcclusionClip(ctx, f) {
   const F = OCC_FIELD; if (!F) return false;
-  const H = (ctx.canvas && ctx.canvas.height) || 720;
-  const cw = F.W / OCC_BUCKETS;
+  const W = (ctx.canvas && ctx.canvas.width) || 1280, H = (ctx.canvas && ctx.canvas.height) || 720;
+  const cw = 1 / F.sx, ch = 1 / F.sy;
+  // A cell is BLOCKED when the world owns it nearer than us; dilating the blocked set would cut
+  // more, so it is the OPEN set that grows — a blocked cell only survives with blocked neighbours,
+  // and the grid's own border is never blocked.
+  const d = F.d, gw = F.gw, gh = F.gh, thr = f - OCC_BIAS;
   let covered = false;
   ctx.save();
   ctx.beginPath();
-  for (let c = 0; c < OCC_BUCKETS; c++) {
-    // `+ 0.35` is the same bias `occludedByBuilding` uses: a slab at our own depth hides nothing.
-    const hides = F.covF[c] + 0.35 < f;
-    const y1 = hides ? Math.min(H, F.covTop[c]) : H;
-    if (hides) covered = true;
-    if (y1 <= -H) continue;                        // this column is covered to the top of the canvas
-    // One pixel of overlap between columns, so the mask never shows a seam through the model.
-    ctx.rect(c * cw, -H, cw + 1, y1 + H);
+  for (let cy = 0; cy < gh; cy++) {
+    const row = cy * gw, up = row - gw, dn = row + gw;
+    const edgeY = cy === 0 || cy === gh - 1;
+    let run = 0;
+    for (let cx = 0; cx < gw; cx++) {
+      const hide = !edgeY && cx > 0 && cx < gw - 1
+        && d[row + cx] < thr && d[row + cx - 1] < thr && d[row + cx + 1] < thr
+        && d[up + cx] < thr && d[dn + cx] < thr;
+      if (!hide) continue;
+      covered = true;
+      if (cx > run) ctx.rect(run * cw, cy * ch, (cx - run) * cw + 1, ch + 1);
+      run = cx + 1;
+    }
+    if (run < gw) ctx.rect(run * cw, cy * ch, W - run * cw, ch + 1);
   }
+  // Everything above the grid's own top row and below its bottom is open sky and open road — the
+  // model can reach either when the camera pitches, and neither is ever occluded by a building.
+  ctx.rect(0, -H, W, H); ctx.rect(0, F.gh * ch, W, H);
   if (!covered) { ctx.restore(); return false; }   // nothing in front of us — don't pay for a clip
   ctx.clip();
   return true;
+}
+
+// ── THE SAME SOLIDS, AT THE MODEL'S OWN RESOLUTION ───────────────────────────
+// The per-pixel half. `rasterFaces` has just built a depth buffer of ONE model over the screen box
+// (x0, y0, w, h) at `scale`; this rasterises whatever the world has standing in front of it into a
+// second buffer over exactly that box, so `maskRaster` can compare them pixel for pixel.
+//
+// The cost is bounded by what is actually in the way. A rig in the open overlaps nothing and this
+// returns null before allocating anything; a rig in a doorway overlaps one shed. That is the whole
+// reason the solids are kept as quads at all — see OCC_SOLIDS.
+const _occWin = depthTarget();
+function occluderWindow(x0, y0, w, h, scale, f) {
+  if (!OCC_SOLIDS || !OCC_SOLIDS.length) return null;
+  const x1 = x0 + w, y1 = y0 + h;
+  let quads = null;
+  for (const s of OCC_SOLIDS) {
+    if (s.f + OCC_BIAS >= f) continue;                                  // behind us: hides nothing
+    if (s.x1 < x0 || s.x0 > x1 || s.y1 < y0 || s.y0 > y1) continue;     // nowhere near this model
+    (quads ||= []).push(...s.quads);
+  }
+  if (!quads) return null;
+  return rasterDepth(_occWin, quads, x0, y0, w, h, scale);
+}
+
+// ── ONE SOLID BOX, AS THE FACES THAT CAN SEE THE CAMERA ──────────────────────
+// The occlusion field is filled by rasterising boxes rather than by claiming their bounding
+// rectangle, which is the difference between "somewhere inside this outline is solid" and "these
+// pixels are". Four world corners and two heights in, projected quads out.
+//
+// ⚠ BACKFACED HERE, NOT IN THE RASTERISER. A box's far three faces are always behind its near
+// three, so the depth test would throw them away anyway — after paying the fill for them. Testing
+// each face's outward normal against the eye is five cheap dot products and halves the cost of the
+// whole pre-pass. The UNDERSIDE is never emitted at all: these are ground-anchored solids and there
+// is nothing to see it from.
+//
+// The near plane is a REJECT rather than a clip, and that is the conservative direction: a face
+// straddling the eye contributes no occlusion, so anything behind it draws. The only model whose
+// faces legitimately straddle the camera is the shed you are parked in, and that one is exempted
+// from the field by its own rule (see the pre-pass).
+function boxQuads(cam, corners, z0, z1, out) {
+  const n = corners.length;
+  let ccx = 0, ccy = 0;
+  for (const [x, y] of corners) { ccx += x; ccy += y; }
+  ccx /= n; ccy /= n;
+  const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh;   // the eye, in the frame proj() reads
+  const lo = corners.map(([x, y]) => cam.proj(x, y, z0));
+  const hi = corners.map(([x, y]) => cam.proj(x, y, z1));
+  const q = (a, b, c, d) => {
+    if (a.f <= 0.25 || b.f <= 0.25 || c.f <= 0.25 || d.f <= 0.25) return;
+    out.push({ pts: [{ x: a.sx, y: a.sy, z: a.f }, { x: b.sx, y: b.sy, z: b.f }, { x: c.sx, y: c.sy, z: c.f }, { x: d.sx, y: d.sy, z: d.f }] });
+  };
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const [ax, ay] = corners[i], [bx, by] = corners[j];
+    const mx = (ax + bx) / 2, my = (ay + by) / 2;             // the edge's midpoint…
+    if ((mx - ccx) * (ex - mx) + (my - ccy) * (ey - my) <= 0) continue;   // …and is the eye outside it?
+    q(lo[i], lo[j], hi[j], hi[i]);
+  }
+  if (cam.EH > z1) q(hi[0], hi[1], hi[2], hi[3]);             // the roof, only from above it
 }
 
 // Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
@@ -13362,10 +13584,44 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
   let occluded = null;
   if (RENDER_TUNE.occlude) {
-    const W = (ctx.canvas && ctx.canvas.width) || 1280;
-    const covTop = new Float32Array(OCC_BUCKETS).fill(Infinity);
-    const covF = new Float32Array(OCC_BUCKETS).fill(Infinity);   // …and how far off the thing covering it is
-    const col = (x) => clamp(Math.floor(x / W * OCC_BUCKETS), 0, OCC_BUCKETS - 1);
+    const W = (ctx.canvas && ctx.canvas.width) || 1280, H = (ctx.canvas && ctx.canvas.height) || 720;
+    const gw = clamp(Math.round(W / OCC_CELL_PX), OCC_GW_MIN, OCC_GW_MAX);
+    const gscale = gw / W, gh = Math.ceil(H * gscale);
+    // Clear the field for this frame — one call with nothing in it, then a call per building below.
+    // See the ⚠ on `accumulate` in model-raster.js for why it cannot be one call at the end.
+    rasterDepth(_occTarget, [], 0, 0, W, H, gscale);
+    const D = _occTarget.d, DW = _occTarget.w;
+    OCC_FIELD = { d: D, gw, gh, sx: gscale, sy: gscale, stride: DW };
+    OCC_SOLIDS = [];
+    const quads = [];
+    // Does everything already in the field cover this screen rectangle, nearer than `f`? The
+    // early-out on the first open cell is what makes this cheap for the buildings that DRAW —
+    // a visible one usually answers on its first cell.
+    const covers = (x0, y0, x1, y1, f) => {
+      const cx0 = clamp(Math.floor(x0 * gscale), 0, gw - 1), cx1 = clamp(Math.ceil(x1 * gscale), 0, gw - 1);
+      const cy0 = clamp(Math.floor(y0 * gscale), 0, gh - 1), cy1 = clamp(Math.ceil(y1 * gscale), 0, gh - 1);
+      const thr = f - OCC_BIAS;
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const row = cy * DW;
+        for (let cx = cx0; cx <= cx1; cx++) if (!(D[row + cx] < thr)) return false;
+      }
+      return true;
+    };
+    // Everything one building contributes, landed in the field and — if it is near enough to be a
+    // hard edge across the rig — kept for the own ship's own per-pixel pass.
+    const contribute = (it) => {
+      if (!quads.length) return;
+      rasterDepth(_occTarget, quads, 0, 0, W, H, gscale, true);
+      if (it.f <= OCC_KEEP_TILES && OCC_SOLIDS.length < OCC_KEEP_MAX) {
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (const q of quads) for (const p of q.pts) {
+          if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+          if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+        }
+        OCC_SOLIDS.push({ f: it.f, x0, x1, y0, y1, quads: quads.slice() });
+      }
+      quads.length = 0;
+    };
     occluded = new Set();
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];

@@ -22,7 +22,7 @@ unit is:
 
 | system | sells | priced in |
 |---|---|---|
-| trucking | a tank fraction into a rig | `FUEL_FULL` ₵ per full tank |
+| trucking | a tank fraction into a rig | `FUEL_FULL` ₵ per full tank (`each` = per percent) |
 | fillable (via a pump here) | fluid units into a can | `flags.fuel_source` ₵ per unit |
 | flight | aircraft units at a field | `REFUEL_PRICE_PER_UNIT` |
 
@@ -57,6 +57,13 @@ There are two boards, and they are one derivation. `examine` prints the framed o
 painted by `drawPriceBoard` in `client/game/js/panels/windshield.js` from `brd` on the map cell,
 which `deriveSurfaceCell` gathers from this same `fuel.prices` hook. Neither the renderer nor the
 map cell knows what fuel costs, for exactly the reason above.
+
+A pylon quotes a **retail rate per pump-unit** and prints it to two decimals — 3.80, not 380 —
+because that is what makes a number read as a fuel price rather than a quantity. A contributor that
+sells by something bigger than a pump-unit says so with an optional **`each`**, derived in its own
+file from the same constant it charges by (trucking: `FUEL_FULL / 100`, one percent of a tank).
+There is still exactly one number; `each` is a presentation of it, not a second entry of it, and
+`regress.js` reads it back against `FUEL_FULL` rather than asserting `3.8`.
 
 ⚠ **`fuel.prices` is therefore a SYNC hook.** The map window derives ~5,300 cells per snapshot, so
 the pylon's rows come through `gatherHookSync` (see the contract on it in

@@ -1067,7 +1067,10 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
       .filter(r => r && r.grade)
       .sort((a, b) => a.price - b.price)
       .slice(0, 3)
-      .map(r => ({ g: String(r.grade).toUpperCase().slice(0, 8), p: r.price, u: r.unit }))
+      // `each` where a contributor quotes by something bigger than a pump-unit (trucking sells a
+      // TANK), else the price itself. Derived by the charging system, never here — see the note on
+      // `each` in plugins/trucking, and the rule in plugins/fuelstation.
+      .map(r => ({ g: String(r.grade).toUpperCase().slice(0, 8), p: r.each ?? r.price, u: r.unit }))
     : undefined;
   const pw = getZonePowerStatus(cell.id) === 'powered' ? 1 : 0;
   return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, brd: brd && brd.length ? brd : undefined };

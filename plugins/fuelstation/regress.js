@@ -81,5 +81,16 @@ export default async ({ check }) => {
     sync.length > 0 && key(sync) === key(asy));
   check('the sync gather carries the same diesel price as the till',
     sync.some(r => r.grade === 'DIESEL' && r.price === FUEL_FULL));
+
+  // ⚠ THE PYLON'S NUMBER IS A DERIVATION OF THE TILL'S, NOT A SECOND ENTRY OF IT. A board by the
+  // road quotes a retail rate per pump-unit — 3.80 — while the till takes 380 for the whole tank.
+  // Those must stay one number: read `each` back against FUEL_FULL rather than writing 3.8 here, or
+  // this passes forever while the sign drifts, which is the exact failure the hook exists to stop.
+  const dz = sync.find(r => r.grade === 'DIESEL');
+  check('the pylon rate is the tank price over its own hundred, not a typed-in number',
+    dz && dz.each === FUEL_FULL / 100);
+  // A contributor that quotes by the unit already needs no conversion, and must not be given one.
+  check('a per-unit grade has no `each` to convert',
+    sync.filter(r => r.grade === 'GASOLINE').every(r => r.each === undefined));
   void rows;
 };

@@ -2662,8 +2662,13 @@ export const hooks = {
   // what it sells; trucking is the only system that knows what a tank costs, so it says so here
   // rather than letting a sign keep a second copy of `FUEL_FULL` that retuning would not update.
   // A tile with no pump on it answers nothing, which is how a board in a bar stays blank.
+  // `each` is the PYLON's number, and it is derived here rather than by the sign for the same
+  // reason `price` is: a board out by the road quotes a retail rate per pump-unit, and only this
+  // file knows what a unit of diesel is. Trucking bills a tank as a fraction (`t.fuel` is 0..1), so
+  // the retail unit is one percent of a tank — `FUEL_FULL / 100`, which is what a driver taking
+  // half a tank is charged fifty of. One constant, two presentations, no second copy to retune.
   'fuel.prices': (zone) => pumpAt({ leg: 'city', zoneId: zone?.id })
-    ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, note: 'a full tank, any rig' }
+    ? { grade: 'DIESEL', unit: 'tank', price: FUEL_FULL, each: FUEL_FULL / 100, note: 'a full tank, any rig — the pylon prices it by the percent' }
     : null,
   // Flight asks 'who else is out there'; trucking answers with its moving rigs. A gather hook so
   // the dependency stays one-way — flight has never heard of trucking and does not need to.
