@@ -35,13 +35,13 @@
 
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
-import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
-import { rasterFaces, blitRaster, depthAt, rasterDepth, depthTarget, maskRaster, depthWinAt } from './model-raster.js';
+import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, drawTruckDoorArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE, depthPassBuild, depthPassCommit } from './aircraft3d.js';
+import { rasterDepth, depthTarget, lightBasis, rasterShadow, shadeRaster } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
 // The cab's SURFACE vocabulary — materials and colourways — shared with the maintenance bench that
 // sells them. See the note at the top of that file for why it is not in this one.
-import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim } from '../../../shared/cab-trim.js';
+import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim, resolveColourway, sanitizeCustomTrim, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
 
 let _frameDpr = 1;              // this frame's device-pixel ratio — see where it is set in paintWindshield
@@ -54,6 +54,14 @@ let _frameDpr = 1;              // this frame's device-pixel ratio — see where
 let _frameW = 1280, _frameH = 720;
 const RASTER_MIN_PX = 46;       // below this on screen a truck keeps the sort — see the ⚠ at the call
 const RASTER_BUDGET_PX = 1_400_000;   // …and above this many buffer pixels the supersample gives way
+// ── THE SUN'S OWN BUFFER ─────────────────────────────────────────────────────
+// ⚠ A FIXED SIZE, AND THAT IS THE POINT OF IT. Every other buffer in this file is measured in
+// SCREEN pixels, so all of them grow when the camera dollies in — which is exactly when the frame
+// is already at its most expensive. The shadow map is measured in the model's own bounding sphere
+// instead: 256² whatever the camera does, filled with a few hundred faces, so a rig that fills the
+// windscreen costs the sun no more than one parked across the yard.
+const SHADOW_MAP_PX = 256;
+const _shadowTarget = depthTarget();
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
 let _obsHgt = 0;                // current view altitude fraction — drawers show more of a roof/top as it climbs
 
@@ -91,6 +99,11 @@ export const RENDER_TUNE = {
   // 0 = the old single square at the storey-stack height. Kept as a switch so the whole shape system
   // has exactly two off-switches (this and lodNear) that together restore the pre-capture renderer
   // byte for byte — a claim worth being able to TEST rather than assert.
+  // The hero model's own sun shadow and its own lamps, both per pixel through the depth buffer
+  // (see model-raster.js). Each doubles as an on/off switch and a strength: 0 is the renderer
+  // exactly as it was before either existed, which is a claim worth being able to TEST.
+  modelShadow: 0.85,  // how far a shadowed pixel falls back toward the ambient it would have facing away from the sun. 1 = the full flat-shading answer, 0 = off.
+  modelLights: 1,     // strength of the model's own lamps spilling onto its own bodywork (headlamps, lifter wash, tail lamps). 0 = off; the canvas halos are unaffected either way.
   occlude: 1,         // skip buildings entirely hidden behind a nearer one. Lossless by construction (there is no z-buffer, so a hidden building is otherwise fully built, queued, sorted and filled); the occluder/occludee boxes are biased so it can only ever be too timid. 0 = draw everything as before.
   shapeShadow: 1,
   shapeWire: 0,       // dev: stroke the captured building shapes over the render (cyan = mass, amber = entrance-face door/bay, magenta = the core segment that never fades). The one-glance check that collision/shadow/LOD geometry actually sits on the building.
@@ -1440,7 +1453,9 @@ export function paintWindshield(id, view) {
   // the bottom of the screen you are looking through — so a shoulder-check that carried them was
   // wiping the side window with a blade that is not on it. The rain, the beading and the frost all
   // stay: those are on every pane in the vehicle.
-  // The truck's forward view is the one place the canvas is not all glass — see `glassRect`. The
+  // The truck's forward view is the one place the canvas is not all glass — see `glassRect`, which
+  // is the WINDOW the on-glass layer is drawn into rather than a mask over it, so a cab screen beads
+  // up as heavily as a canopy does instead of losing half its rain to trim it was never on. The
   // numbers are the cab interior's own (drawCabInterior: a header at 0.085, pillars at 0.075 of the
   // width, the dash taking CAB_DASH off the bottom), so the weather stops exactly where the trim
   // starts and moves with it if the cab is ever re-proportioned.
@@ -1719,8 +1734,11 @@ const CAB_LADDER = {
 // One assembled row: the ladder's instruments, the colourway's colours, the material's surface.
 // Everything downstream still reads a flat `T` with the same keys it always did, so not one of the
 // forty-odd `T.needle` / `T.dash` / `T.gloss` reads in this file changed.
-function assembleTrim(rung, colKey, matKey) {
-  const c = DASH_COLOURWAYS[colKey] || DASH_COLOURWAYS.slate;
+// `cust` is the player's own three picks, and it reaches here as a COLOURWAY like any other — see
+// customColourway in the shared file. Nothing below this line knows the difference, which is the
+// whole point: forty-odd `T.needle` / `T.dash` reads must not each learn about a special case.
+function assembleTrim(rung, colKey, matKey, cust) {
+  const c = resolveColourway(colKey, cust) || DASH_COLOURWAYS.slate;
   const m = DASH_MATERIALS[matKey] || DASH_MATERIALS.plastic;
   return { ...c, ...rung, col: colKey, mat: matKey, gloss: m.gloss, crazed: !!c.crazed };
 }
@@ -1739,11 +1757,16 @@ export const CAB_TRIM = {
 // cosmetic bench cosmetic even if something upstream of it is one day wrong.
 export const cabTrim = (tier, over) => {
   const rung = CAB_LADDER[tier] ?? CAB_LADDER[1];
-  const col = isDashColourway(over?.col) ? over.col : rung.col;
+  // A mix is only a colourway while the three picks behind it are readable — validated here rather
+  // than trusted, exactly as the two named keys are, so a half-arrived payload renders as the
+  // catalogue colour the truck already had and never as a cab with holes in it.
+  const cust = sanitizeCustomTrim(over?.cust || {}, {});
+  const col = isDashColourway(over?.col) ? over.col
+    : (over?.col === CUSTOM_COL && cust) ? CUSTOM_COL : rung.col;
   const mat = isDashMaterial(over?.mat) ? over.mat : rung.mat;
   return (col === rung.col && mat === rung.mat)
     ? (CAB_TRIM[tier] ?? CAB_TRIM[1])          // stock: hand back the memoised row, untouched
-    : assembleTrim(rung, col, mat);
+    : assembleTrim(rung, col, mat, cust);
 };
 
 // The tell-tale row under the binnacle hood. Order is fixed and the colours are the ones the rest
@@ -3096,14 +3119,77 @@ function drawCityBloom(ctx, cam, dx, dy, h, night, alpha) {
 // canopy and false of a truck: a cab is a header, two A-pillars and a dash filling the lower third,
 // and rain does not fall on the inside of any of them. The dash happens to be painted on a later
 // layer and hid the bottom of it, so the lie only showed at the pillars and the roof — and it only
-// showed in the rain, which is the one condition nobody screenshots. Clipped here instead, it is
-// right regardless of what any other layer does afterwards.
+// showed in the rain, which is the one condition nobody screenshots.
+//
+// ⚠ AND A CLIP ALONE WAS HALF A FIX, which is why the rect is a CHANGE OF FRAME and not a mask.
+// Clipping puts the weather in the right place and then throws away everything that missed it: the
+// drop field is laid out across the unit square, so on a cab — where the glass is 85% of the width
+// and 59% of the height — a measured 48% of the beads were being generated onto the dash and the
+// header and discarded. The screen was half as wet as an aircraft's in the same storm, and it got
+// DRIER the faster you drove, because a bead's streak drags it sideways at speed and it exits
+// through an A-pillar rather than off the edge of the world (39% survived at speed). That is exactly
+// backwards: a truck windscreen at seventy in rain is the wettest piece of glass in the game.
+//
+// So translate into the pane and hand drawGlassInner the PANE's size as its canvas. Every coordinate
+// in there is already a fraction of W/H, so all thirty drops, their respawns, the streak lengths, the
+// wiper pivots, the bug splats and the frost bloom land on the glass and nothing is generated only to
+// be masked off. The clip stays as the guarantee — a bead is an ellipse with a radius and a wiper is
+// pivoted just below the bottom edge on purpose — but it is no longer what does the aiming.
+// ── THE WET TRAIL A RUNNING DROP LEAVES BEHIND ───────────────────────────────────────────────
+//
+// A bead's streak used to exist only while the bead did: the line was drawn from the anchor to the
+// head every frame, and the instant the drop re-seeded, the whole run vanished with it. So the glass
+// never accumulated — it was always exactly as wet as the thirty live drops made it, and there was
+// nothing on it for a wiper to take away. What you actually see through a windscreen in rain is the
+// RECORD of the water that has already run down it, and that record is what a blade clears.
+//
+// So a run that ends is committed here as a fading line and outlives the drop that drew it. Three
+// things about the shape of that:
+//
+//  · NORMALISED, NOT PIXELS. A trail lives the better part of twenty seconds, which is long enough to
+//    survive a resize, a fullscreen toggle and the supersample backing off — all of which change W/H
+//    underneath it. Stored as fractions of the pane, it is redrawn correctly into whatever the pane
+//    becomes.
+//  · IT FADES RATHER THAN EXPIRING. Water dries. A list that dropped its entries on a timer would pop
+//    lines out of existence, and a change is the one thing an eye reliably catches on glass.
+//  · IT IS CAPPED, and the cap drops the OLDEST. At cruise a canopy commits several runs a second;
+//    unbounded, this is a list that grows for as long as the weather lasts and is redrawn in full
+//    every frame.
+// ⚠ THE CAP MUST NOT BE WHAT SETS THE WETNESS. Thirty drops each finish a run every second or two,
+// so this list is fed at roughly twenty trails a second and the FADE is the only thing that decides
+// how many are on the glass at once. Measured at the first numbers tried (a 15-second dry time) the
+// count pinned to the cap within two seconds and stayed there for as long as it rained — which looks
+// like a fixed pattern of scratches, and makes the wiper useless: the blade cleared the glass and it
+// was full again before the arm reached the other side. So the trail is SHORT-LIVED, and the cap is
+// only a ceiling on the pathological case — set ABOVE the natural equilibrium at any speed, because a
+// binding cap is a second, invisible thing setting the wetness and it flattens the dip a wiper makes.
+// Measured settled counts with the blades off: 16 parked, 87 at 40mph, 254 at 65mph, 305 on a canopy
+// at cruise. With them on HI at 40mph: 21. That last pair is the whole feature.
+const TRAIL_MAX = 340;
+const TRAIL_FADE = 0.40;         // alpha/sec — about 2.5 s from laid down to dry
+function pushTrail(st, x0, y0, x1, y1, r) {
+  if (!st.trails) st.trails = [];
+  if (st.trails.length >= TRAIL_MAX) st.trails.shift();
+  st.trails.push({ x0, y0, x1, y1, w: Math.max(0.8, r * 0.5), a: 1 });
+}
 function drawGlass(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0, glassRect = null) {
-  if (glassRect) { ctx.save(); ctx.beginPath(); ctx.rect(glassRect.x, glassRect.y, glassRect.w, glassRect.h); ctx.clip(); }
-  drawGlassInner(ctx, W, H, wx, st, dt, speed, framed, wipers);
-  if (glassRect) ctx.restore();
+  if (!glassRect) { drawGlassInner(ctx, W, H, wx, st, dt, speed, framed, wipers); return; }
+  ctx.save();
+  ctx.beginPath(); ctx.rect(glassRect.x, glassRect.y, glassRect.w, glassRect.h); ctx.clip();
+  ctx.translate(glassRect.x, glassRect.y);
+  drawGlassInner(ctx, glassRect.w, glassRect.h, wx, st, dt, speed, framed, wipers);
+  ctx.restore();
 }
 function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0) {
+  // ⚠ TRAILS BELONG TO ONE PANE. They are fractions of the surface they were laid down on, and a truck
+  // draws two different surfaces through this function: the windscreen (a glassRect, so W/H are the
+  // pane's) and a shoulder-check out of the side window (no rect, so W/H are the whole canvas). Kept
+  // across that switch, a windscreen's worth of water is stretched over the door glass and back
+  // again. The key is the frame's own size, so a resize and a supersample change are covered by the
+  // same line — and a glance out of the side costs a clean screen for the second or two the rain
+  // takes to re-lay it, which is a cheaper lie than water in the wrong place.
+  const frameKey = `${Math.round(W)}x${Math.round(H)}`;
+  if (st.glassKey !== frameKey) { st.glassKey = frameKey; st.trails = []; }
   // Bug splats: while flying, the odd bug hits the glass and stays — the canopy gets
   // progressively grubbier until you land (state resets with the scene). Rain washes it.
   if (!framed && speed > 0.35 && wx !== 'rain' && wx !== 'storm') {
@@ -3163,7 +3249,14 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
   // and the glass it clears can never disagree.
   const wipeP = st.wipeU <= 1 ? st.wipeU : 2 - st.wipeU;
   const wipeAng = (-0.30 + wipeP * 1.55);            // radians off vertical, park at the near side
-  const wipePivots = [W * 0.30, W * 0.72], wipeLen = H * 0.86;
+  // ⚠ THE ARM IS SIZED TO REACH THE GLASS, NOT TO A FRACTION OF ITS HEIGHT. `H * 0.86` is fine on a
+  // canopy, which is about as tall as it is wide; a truck windscreen through `glassRect` is 680×263
+  // — two and a half times wider than it is tall — and an arm that long cannot get within 70px of the
+  // top centre of it. The measurable symptom was a wiper that ran and left most of the water where it
+  // was: the top third of the screen was outside the sweep entirely, so it never cleared however long
+  // you watched. Length is the distance from a pivot to the far top corner of its own half instead,
+  // so an arc covers the pane it is actually mounted on whatever shape that pane is.
+  const wipePivots = [W * 0.30, W * 0.72], wipeLen = Math.hypot(W * 0.30, H * 1.02) * 0.92;
   if (wipers > 0 || st.wipeU > 0) {
     for (const d of st.drops) {
       for (const px of wipePivots) {
@@ -3190,6 +3283,39 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
         }
       }
     }
+    // …AND THE TRAILS THEY LEFT, which is most of what you see a blade actually do. Clearing the live
+    // beads and leaving the record of every run still painted behind them is a wiper that visibly
+    // changes nothing: the beads are thirty small dots, the trails are the sheen. Tested at the
+    // MIDPOINT and removed WHOLE — a squeegee takes the line it crosses rather than notching it.
+    if (st.trails) {
+      for (let i = st.trails.length - 1; i >= 0; i--) {
+        const t = st.trails[i];
+        const mx = (t.x0 + t.x1) * 0.5 * W, my = (t.y0 + t.y1) * 0.5 * H;
+        for (const px of wipePivots) {
+          const dx = mx - px, dy = my - H * 1.02;
+          if (Math.hypot(dx, dy) > wipeLen) continue;
+          if (Math.abs(Math.atan2(dx, -dy) - wipeAng) < 0.20) { st.trails.splice(i, 1); break; }
+        }
+      }
+    }
+  }
+
+  // The trails, painted under the live water. Faded here rather than inside the rain branch on
+  // purpose: a shower stops, and the glass stays wet for a while afterwards. A list that only ages
+  // while it is raining is a screen that keeps whatever it had at the moment the weather changed,
+  // forever.
+  if (st.trails && st.trails.length) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (let i = st.trails.length - 1; i >= 0; i--) {
+      const t = st.trails[i];
+      t.a -= dt * TRAIL_FADE;
+      if (t.a <= 0) { st.trails.splice(i, 1); continue; }
+      ctx.strokeStyle = `rgba(206,228,255,${t.a * 0.20})`;
+      ctx.lineWidth = t.w;
+      ctx.beginPath(); ctx.moveTo(t.x0 * W, t.y0 * H); ctx.lineTo(t.x1 * W, t.y1 * H); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   if (wx === 'rain' || wx === 'storm') {
@@ -3204,15 +3330,28 @@ function drawGlassInner(ctx, W, H, wx, st, dt, speed, framed = false, wipers = 0
       // UP toward zero and are not drawn at all in the meantime, which is the swept band.
       if (d.life < 0) { d.life += dt; continue; }
       d.life -= dt * (0.3 + sp * 0.5);
-      if (d.life <= 0) { d.life = 0.6 + (d.x * 7 % 1) * 1.6; d.streak = 0; d.y = (d.x * 13 % 1) * 0.6; }
-      // A drop lets go and streaks — sooner and faster at speed (wind strips the glass).
-      if (d.streak > 0 || (wx === 'storm' && d.life < 0.4) || (sp > 0.25 && d.life < 0.6)) d.streak += dt * (0.10 + sp * 0.7);
+      // ⚠ GRAVITY IS NOT OPTIONAL, and gating the run on `sp > 0.25` made it look like it was. A drop
+      // only let go if you were MOVING, which is nearly always true of an aircraft and nearly never
+      // true of a truck: parked at a weigh station in a downpour the screen held thirty beads that
+      // pulsed in place and never ran, and running is the one thing everybody knows a wet windscreen
+      // does. A bead lets go because it has grown too heavy to hold on, so the trigger is its own
+      // weight (a low `life`); speed decides how FAST and how flat the run is, never whether there is
+      // one. Storm beads let go sooner because they are fed harder.
+      if (d.streak > 0 || d.life < (wx === 'storm' ? 0.9 : 0.6) || sp > 0.25) d.streak += dt * (0.30 + sp * 0.75);
       const sideDir = d.x < 0.5 ? -1 : 1;
       // Streak direction: gravity (0,1) blended toward slipstream (sideDir, ~0) by `flat`.
       const dirX = sideDir * flat * 1.7, dirY = 1 - flat * 0.92;
       const len = d.streak * H;
       const ax = d.x * W, ay = d.y * H;               // where the bead first clung
       const x = ax + dirX * len, y = ay + dirY * len;  // current head, dragged along the streak
+      // THE RUN ENDS — off the bottom, out past an edge, or simply spent. What it ran down stays on
+      // the glass as a wet line and the bead re-seeds at the top. This replaces the old life<=0
+      // respawn, which fired wherever the drop happened to have got to and threw the run away with it.
+      if (y > H * 1.02 || x < -W * 0.04 || x > W * 1.04 || d.life <= 0) {
+        if (d.streak > 0.02) pushTrail(st, d.x, d.y, x / W, y / H, d.r);
+        d.life = 0.6 + (d.x * 7 % 1) * 1.6; d.streak = 0; d.y = (d.x * 13 % 1) * 0.5;
+        continue;
+      }
       // Streak trail behind the head (up toward the anchor / back toward centre).
       if (d.streak > 0.002) {
         ctx.strokeStyle = `rgba(200,224,255,${0.10 + flat * 0.06})`; ctx.lineWidth = d.r * (0.7 - flat * 0.25);
@@ -5444,6 +5583,12 @@ export function setWindshieldProfiler(on) {
   return PERF.on ? 'flight-sim profiler ON — table every 2s' : 'flight-sim profiler OFF';
 }
 export function perfEnabled() { return PERF.on; }
+// ── HOW MANY BUILDINGS THE OCCLUDER PASS THREW AWAY THIS FRAME ───────────────
+// A test seam, not instrumentation, and the same argument `rasterCount` makes in model-raster.js:
+// a building culled when it should have drawn is a hole in the city that nothing can see from
+// outside the renderer — the frame simply comes back without it. Only meaningful with the profiler
+// on (that is the flag the counter rides), which no player run turns on.
+export const occludedCount = () => PERF.n.culled || 0;
 // Call once per rendered frame, after closing the `frame` phase.
 export function perfTick() {
   if (!PERF.on) return;
@@ -5832,7 +5977,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   const litX = sun && sun.elev > 0.05 ? sun.dir[0] : -0.62;
   const litY = sun && sun.elev > 0.05 ? sun.dir[1] : -0.62;
   const rawF = (x, y) => (x + (cam.back || 0) * cam.sinh) * cam.sinh - (y - (cam.back || 0) * cam.cosh) * cam.cosh;
-  const base = BIOME_COL[biome] || BIOME_COL.cliff;
+  const base = BIOME_GROUND[biome] || BIOME_GROUND.cliff;
   // Per-tile tone jitter so a long escarpment is not one flat colour across forty tiles.
   const j = (frac(seed * 0.317) - 0.5) * 12;
   const day = 1 - night * 0.72;
@@ -7682,6 +7827,88 @@ function shedVert(v, part) {
 // makes it turn with the truck, stretch when the camera drops, and stay under the wheels of a
 // bobtail and a full rig alike without either being a special case. A radial blob would sit still
 // while the truck turned, which is the tell that a shadow is a decal.
+// ── THE HERO MODEL'S LIGHT RIG ───────────────────────────────────────────────
+// Everything the per-pixel light pass needs, assembled once per model per frame: a shadow map from
+// the sun, and the vehicle's own lamps as points in world 3-space. It computes no colour at all —
+// see the ⚠ on `shadeRaster` for why there is exactly one lighting model in this renderer and this
+// is not a second one.
+function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
+  const strength = clamp(RENDER_TUNE.modelShadow || 0, 0, 1);
+  let map = null;
+  if (strength > 0 && toSun && sunStr > 0.02 && casters && casters.length) {
+    // The light's frame is fitted to the MODEL's own bounding sphere and to nothing else. That is
+    // not an approximation: a caster outside those bounds cannot cast onto anything inside them, so
+    // this covers the whole question however big the shed standing behind the truck is.
+    let cx = 0, cy = 0, cz = 0, n = 0;
+    for (const w of casters) for (const v of w) { cx += v[0]; cy += v[1]; cz += v[2]; n++; }
+    cx /= n; cy /= n; cz /= n;
+    let r2 = 0;
+    for (const w of casters) for (const v of w) {
+      const dx = v[0] - cx, dy = v[1] - cy, dz = v[2] - cz;
+      const d = dx * dx + dy * dy + dz * dz; if (d > r2) r2 = d;
+    }
+    const B = lightBasis(cx, cy, cz, toSun, Math.sqrt(r2) * 1.05 + 1e-5, SHADOW_MAP_PX);
+    map = rasterShadow(_shadowTarget, casters, B);
+    // ── …AND THE SHED THE TRUCK IS PARKED IN, INTO THE SAME MAP ─────────────
+    // ⚠ ONLY THE SOLIDS THAT CARRY WORLD CORNERS. OCC_SOLIDS quads exist for the per-pixel
+    // occlusion mask, which works in SCREEN space — those coordinates describe where a building is
+    // on the monitor and say nothing whatever about where it stands relative to the sun. The near
+    // ones now carry their world corners alongside (see boxQuads); anything that does not is
+    // skipped rather than coerced, because coercing it would build a shadow map of the CAMERA.
+    if (map && OCC_SOLIDS) {
+      const wq = [];
+      for (const so of OCC_SOLIDS) for (const q of so.quads) if (q.w) wq.push(q);
+      if (wq.length) rasterShadow(_shadowTarget, wq, B, true);
+    }
+  }
+  // ── THE LAMPS, ON THE BODYWORK RATHER THAN ONLY ON THE ROAD ───────────────
+  const lstr = clamp(RENDER_TUNE.modelLights || 0, 0, 1);
+  let lights = null;
+  const vl = (lstr > 0 && c.lights !== false) ? vehicleLamps(c.cls, c.variant) : null;
+  if (vl) {
+    // Model-local → world through the SAME transform the mesh was drawn with, so a lamp sits where
+    // its lens is at any heading, bank and pitch rather than where it was authored.
+    const o = Wp([0, 0, 0]), fx = Wp([1, 0, 0]);
+    let dx = fx[0] - o[0], dy = fx[1] - o[1], dz = fx[2] - o[2];
+    const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
+    const FWD = [dx, dy, dz], AFT = [-dx, -dy, -dz];
+    const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
+    const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
+    lights = [];
+    const add = (lp, col, str, rad, dir, cone) => {
+      if (str > 0.02) lights.push({ p: Wp(lp), c: col, str: str * lstr, rad: SIZE * rad, dir, cone });
+    };
+    // Headlamps carry a CONE, and need one. A point lamp at the front of the bumper lights whatever
+    // faces it, which from a lamp's own station includes the bumper's back and the front of the
+    // cab — a torch switched on inside the bodywork. The cone is what makes it a headlamp.
+    const beam = (c.landing ? 1 : 0.20) * nb;
+    for (const p of vl.head) add(p, [255, 248, 224], beam * 0.9, 0.75, FWD, 1.15);
+    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * 0.55, 0.45, AFT, 1.25);
+    // THE LIFTERS, WHICH ARE MOST OF WHY THIS HALF IS WORTH HAVING. Their wash has always been
+    // painted on the ROAD and stopped dead at the bodywork — so the one machine in the game that is
+    // lit from underneath had a completely unlit underside, and the pool of light it stood in
+    // belonged to the tarmac rather than to the truck. These stations sit on the ground plane and
+    // point up into the chassis. ⚠ It is the ENGINE, not the lights switch — the same rule, and the
+    // same number, as the pool drawn under them in drawVehicleGround.
+    const under = clamp(0.10 + power * 1.35, 0, 1.45);
+    if (under > 0.02) {
+      for (const g of (vl.podGlow || [])) add(g.p, [96, 196, 255], under * 0.55, 0.55, null, null);
+      for (const p of (vl.under || [])) add(p, [70, 170, 255], under * 0.40, 0.50, null, null);
+    }
+    // ⚠ THE ROOF MARKERS ARE DELIBERATELY LEFT OUT. There are five of them, they are the dimmest
+    // lamps on the vehicle, and every one is a full per-pixel light over the whole model. They cost
+    // more than any of them shows.
+    if (!lights.length) lights = null;
+  }
+  // ⚠ THE TWO COEFFICIENTS BELOW ARE THE CALLER'S OWN LIGHT EQUATION, NOT A SECOND COPY OF IT. The
+  // flat shade every face was given is `0.82 + 0.5 * nl * sunStr`, and those exact numbers are
+  // handed over so the pass can scale the SUN's share of a colour that already contains it. Edit
+  // one without the other and a shadowed pixel stops landing on the value the same face would have
+  // had facing away from the sun, which is the one thing that makes this arithmetic honest.
+  return { faces: litFaces, ambient: 0.82, sunGain: 0.5, sunStr, sun: toSun,
+           shadow: map ? { map, strength } : null, lights };
+}
+
 function drawVehicleGround(ctx, P, c, sun, now = 0) {
   const vl = vehicleLamps(c.cls, c.variant);
   if (!vl) return;
@@ -7804,9 +8031,15 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
       // of a real emitter: it blows out where it is hottest and keeps its colour in the falloff.
       // Additive, so these numbers stack where the four cones overlap — pushed harder than they
       // look on paper for that reason, and the tip is still a clean zero so nothing squares off.
-      g.addColorStop(0, `rgba(228,250,255,${0.92 * alpha * k})`);
-      g.addColorStop(0.18, `rgba(150,224,255,${0.66 * alpha * k})`);
-      g.addColorStop(0.45, `rgba(104,200,255,${0.40 * alpha * k})`);
+      // ⚠ RAISED AGAIN (2026-08-18). Even at the numbers above the thrust read as a tint on the
+      // road rather than as something coming out of the machine — a lifter that is holding forty
+      // tonnes up should be the brightest thing on the truck at night. The throat is now clipped
+      // white rather than nearly-white, and the body keeps its blue most of the way down before
+      // falling to zero, so the cone has a HOT CORE and a long tail instead of one even wash.
+      g.addColorStop(0, `rgba(255,255,255,${Math.min(1, 1.15 * alpha * k)})`);
+      g.addColorStop(0.14, `rgba(198,242,255,${0.92 * alpha * k})`);
+      g.addColorStop(0.38, `rgba(130,214,255,${0.66 * alpha * k})`);
+      g.addColorStop(0.68, `rgba(86,176,255,${0.34 * alpha * k})`);
       g.addColorStop(1, 'rgba(32,96,220,0)');
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.lineTo(D.sx, D.sy); ctx.closePath(); ctx.fill();
@@ -7827,9 +8060,13 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
         if (rear) {
           const mag = Math.abs(drive);
           const fs = p[0] - along * r * 0.5;                        // the face it leaves from
-          const out = -along * (r * 1.4 + r * 3.0 * mag);           // …and how far it throws, astern
-          cone([fs, p[1], z0 * 1.5], [fs + out, p[1] - w * 0.75, z0 * 0.6], [fs + out, p[1] + w * 0.75, z0 * 2.2],
-            lit * (0.40 + mag * 0.85), jit);
+          // LONGER AND HOTTER THAN IT WAS. The plume is the only part of this that says which way
+          // the machine is being pushed, and at a third of a pod's length it was a smudge you had
+          // to already know about — so it now throws about a truck's own width at speed, and it
+          // starts hotter than the column underneath because it is the end doing the work.
+          const out = -along * (r * 2.2 + r * 5.4 * mag);           // …and how far it throws, astern
+          cone([fs, p[1], z0 * 1.5], [fs + out, p[1] - w * 0.95, z0 * 0.5], [fs + out, p[1] + w * 0.95, z0 * 2.6],
+            lit * (0.62 + mag * 1.05), jit);
         }
       }
       if (!side) continue;
@@ -7910,6 +8147,14 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // over a projector-only adapter (a hangar turntable, a smoke harness) simply keeps every face and
   // renders exactly as it did before rather than culling against an eye it never supplied.
   const cullBackfaces = !!cam && cam.back != null && cam.sinh != null && cam.cosh != null && cam.EH != null;
+  // ── IS THIS MODEL LIT PER PIXEL? ───────────────────────────────────────────
+  // ⚠ THE OWN SHIP ONLY, AND FOR THE SAME REASON THE DEPTH BUFFER IS MOSTLY THE OWN SHIP: this
+  // carries a per-face world-vertex list and a shadow map, and eight parked rigs across a yard
+  // would each pay for both to light thirty pixels. It is deliberately NOT a size test — see the ⚠
+  // at the raster call for what a pixel threshold did to the smoke's own canvas.
+  const wantLit = !!c.own
+    && ((RENDER_TUNE.modelShadow || 0) > 0 || (RENDER_TUNE.modelLights || 0) > 0);
+  const casters = wantLit ? [] : null;
   const faces = [];
   let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, drawn = 0;
   // LOD: the big own-ship chase model + near contacts get the full mesh; distant contacts
@@ -8009,6 +8254,13 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // ⚠ ONLY FACES THAT BOUND A SOLID. A face with no `cen` is a free polygon — a raked screen, a
     // fin blade, a sheet with nothing behind it — and a sheet is visible from both sides. Culling
     // one is not an optimisation, it is a hole in the model.
+    // ── WHAT CASTS A SHADOW IS NOT WHAT YOU CAN SEE ───────────────────────────
+    // The world vertices are collected BEFORE the cull below, and that ordering is the whole
+    // correctness of the self-shadowing. The cull is relative to the EYE; a shadow is relative to
+    // the SUN. With the sun behind the truck the faces that cast are precisely the ones the camera
+    // cannot see — cast from the visible half only and the rig shadows itself inside out.
+    const wv = wantLit ? (bw || dp.map(Wp)) : null;
+    if (wv && wv.length >= 3) casters.push(wv);
     if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
       const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh, ez = cam.EH;
       if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
@@ -8029,7 +8281,9 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // Jazz UV mapped from the drawn (deflected) body coords so the splatter tracks moving surfaces.
     const uv = (jazzImg && JAZZ_ROLE.has(face.role)) ? dp.map(v => jazzUV(v, face.role)) : null;
     // Canopy art rides authored per-vertex UVs, so it survives deflection untouched (index-aligned).
-    faces.push({ pts, af: af / pts.length, nf, xf, part: face.part, col, rv, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length }); drawn++;
+    // `wv`/`nrm` ride along for the light pass: the same polygon in world 3-space, and the outward
+    // normal that was computed for the cull and the sun term above and then thrown away.
+    faces.push({ pts, af: af / pts.length, nf, xf, part: face.part, col, rv, role: face.role, alpha: isGear ? gearDown : 1, uv, cuv: face.uv, cart: face.art, i: faces.length, wv, nrm: haveN ? [nx, ny, nz] : null }); drawn++;
   }
   if (!drawn) return null;
   // ── A TRUCK IS DRAWN WITH A DEPTH BUFFER; EVERYTHING WITH WINGS IS SORTED ────
@@ -8062,9 +8316,6 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // ROAD — the contact shadow, the lifter wash, the thrust cones — is painted before the model so
   // the bodywork covers what it should for free. Blit at the point the buffer is filled and the
   // truck goes down first, and then the pool of light under it is painted straight over the chassis.
-  let raster = null, occWin = null;
-  const rasterBox = { x0: 0, y0: 0 };
-  const boxW = maxx - minx, boxH = maxy - miny;
   // ⚠ THE OWN SHIP ALWAYS, A CONTACT ONLY WHEN IT IS BIG ENOUGH TO SEE A MISTAKE IN. A depth buffer
   // per truck is cheap for the one you are driving and silly for the eight parked across a yard at
   // thirty pixels each, so contacts keep the sort until they are worth the pass — which is what the
@@ -8073,45 +8324,54 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // ⚠ BUT `own` IS NOT A SIZE TEST AND MUST NOT BECOME ONE. The rig in the chase view is the SUBJECT
   // of the camera whatever the window measures, and a pixel threshold quietly excused it on any
   // small canvas — including the smoke's own 640×360, where the truck lands at 25px and every gate
-  // written to prove this renderer is on the depth path would have passed by never running it.
-  if (c.cls === 'truck' && (c.own || (boxW >= RASTER_MIN_PX && boxH >= RASTER_MIN_PX))) {
-    const pad = 2;
-    const x0 = Math.floor(minx) - pad, y0 = Math.floor(miny) - pad;
-    const x1 = Math.ceil(maxx) + pad, y1 = Math.ceil(maxy) + pad;
-    rasterBox.x0 = x0; rasterBox.y0 = y0;
-    // Supersample to the frame's DPR, but never past a fixed pixel budget. The chase camera can be
-    // dollied until the rig fills the screen, and at that point 2× is four times the fill of a pass
-    // that is already the most expensive thing this function does — so the sharpening gives way
-    // gracefully to a soft-but-correct model rather than to a dropped frame.
-    const sc = Math.max(1, Math.min(clamp(_frameDpr || 1, 1, 2),
-      Math.sqrt(RASTER_BUDGET_PX / Math.max(1, (x1 - x0) * (y1 - y0)))));
-    raster = rasterFaces(faces.map(fc => ({
-      pts: fc.pts.map(q => ({ x: q.sx, y: q.sy, z: q.f })),
-      r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
-    })), x0, y0, x1 - x0, y1 - y0, sc);
-    // ── …AND THE OTHER HALF OF THE SAME QUESTION: WHAT IS IT STANDING BEHIND? ──
-    // The buffer above settles which of the truck's own panels owns a pixel, and settles nothing at
-    // all about the shed the truck is parked in. Buildings are canvas fills painted before this and
-    // the model is painted after them, so paint order was the whole answer, and paint order says
-    // the truck wins — from every angle, at every distance. That is the rig showing through a wall.
-    //
-    // The world's solids go into a second depth buffer over exactly this box at exactly this scale,
-    // and every model pixel the world genuinely owns is cleared. Per pixel, so a doorway is a
-    // doorway and a lintel is a lintel — the coarse field could describe neither, and the header
-    // over a depot door was left out of it entirely for precisely that reason.
-    //
-    // ⚠ CHEAP BECAUSE IT IS SCOPED, NOT BECAUSE IT IS APPROXIMATE. `occluderWindow` returns null
-    // unless something is actually overlapping this model, which out on the road is always — so the
-    // pass costs nothing at all except in the frames it exists for.
-    if (raster) {
+  // written to prove this renderer is on the depth path would have passed by never running it. That
+  // is why the size gate is handed over as a `min` of ZERO rather than as a size the own ship
+  // happens to clear.
+  // ⚠ AND IT IS NO LONGER TRUCKS ONLY. The gate read `c.cls === 'truck' && …` on the grounds that
+  // an airframe is one smooth convex hull and a sort is right for those. The hull, yes — and not
+  // one of the things bolted to it: nacelles, pods, sponsons, gear legs, stub wings and stores are
+  // nested boxes, which is the exact case no single depth per part can order and the whole reason
+  // this buffer exists. They were left on the sort by a name rather than by a reason.
+  //
+  // ── ⚠ AND THIS IS THE ONE COPY OF THE PASS, NOT THIS RENDERER'S OWN ─────────
+  // It used to be forty lines inline here and forty more in aircraft3d.js, which is precisely the
+  // failure the ⚠ above the fills keeps describing: three times a fix for this mesh was written,
+  // verified in one renderer, and left the others on the old path. Both are now `depthPassBuild` +
+  // `depthPassCommit`. Everything this view does that a panel does not — the world mask, the sun,
+  // the deferred blit — rides as options and hooks, because `occluderWindow` and `vehicleLightRig`
+  // are world-pass concerns that cannot move into a hangar file.
+  const pass = depthPassBuild(ctx, faces, {
+    min: c.own ? 0 : RASTER_MIN_PX,
+    budget: RASTER_BUDGET_PX,
+    // Supersample to the frame's DPR, but never past the budget. The chase camera can be dollied
+    // until the rig fills the screen, and at that point 2× is four times the fill of a pass that is
+    // already the most expensive thing this function does — so the sharpening gives way gracefully
+    // to a soft-but-correct model rather than to a dropped frame.
+    scale: _frameDpr,
+    pad: 2,
+    // This renderer's face records are `fc.pts` of `{sx, sy, f}`; a panel's are `fc.P` of
+    // `{sx, sy, z}`. Same three numbers, two house conventions — see the ⚠ on `ptsKey`.
+    ptsKey: 'pts', zKey: 'f',
+    // Already accumulated while projecting, so the pass does not walk every vertex a second time.
+    box: { minx, miny, maxx, maxy },
+    lit: wantLit,
+    occBias: OCC_PIXEL_BIAS,
+    // What is it standing BEHIND? The model's own buffer settles which of its panels owns a pixel
+    // and settles nothing about the shed it is parked in — buildings are canvas fills painted
+    // before this, so paint order said the truck wins from every angle. Per pixel, so a doorway is
+    // a doorway and a lintel is a lintel; the coarse field could describe neither.
+    occlude: (x0, y0, w, h, sc) => {
       const cf = cam.proj(c.dx || 0, c.dy || 0, 0);
-      occWin = cf && cf.f > 0.05 ? occluderWindow(x0, y0, x1 - x0, y1 - y0, sc, cf.f) : null;
-      if (occWin) maskRaster(raster, occWin, OCC_PIXEL_BIAS);
-    }
-  }
-  // The fallback, and for an airframe the only path: a mean-depth painter's sort, which is the
-  // right answer for one smooth convex hull and the wrong one for a pile of bolted-on boxes.
-  if (!raster) {
+      return cf && cf.f > 0.05 ? occluderWindow(x0, y0, w, h, sc, cf.f) : null;
+    },
+    // The sun and the rig's own lamps, run over the winners after the world mask has cleared
+    // everything a building owns. `rf` is the identical array the rasteriser indexed — see the ⚠.
+    light: (res, rf) => shadeRaster(res, vehicleLightRig(c, rf, casters, Wp, toSun, sunStr, sun, SIZE)),
+  });
+  // The fallback, and for a model the pass declined the only path: a mean-depth painter's sort,
+  // which is the right answer for one smooth convex hull and the wrong one for a pile of bolted-on
+  // boxes.
+  if (!pass) {
     if (c.cls === 'truck') sortTruckFaces(faces, c, SIZE);
     else faces.sort((a, b) => b.af - a.af);
   }
@@ -8126,32 +8386,25 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // two things that belong to the ground go here, and the model then covers whatever of them it
   // should cover for free — no depth buffer, no per-lamp occlusion test, just paint order.
   if (c.cls === 'truck') drawVehicleGround(ctx, P, c, sun, now);
-  let rasterOK = false;
-  if (raster) {
-    // ⚠ ONLY IF THE BLIT LANDED. A headless harness has no canvas to compose through, and a
-    // rasterOK set on faith there would skip the canvas fills too — a truck drawn nowhere at all
-    // rather than drawn in the old order.
-    rasterOK = blitRaster(ctx, raster, rasterBox.x0, rasterBox.y0);
-    if (rasterOK) {
-      // Which faces survived, for the detail passes. A face owns its own centre or it does not.
-      const sc = raster.scale || 1;
-      for (const fc of faces) {
-        let cx = 0, cy = 0, cz = 0;
-        for (const q of fc.pts) { cx += q.sx; cy += q.sy; cz += q.f; }
-        const n = fc.pts.length;
-        const bx = Math.round((cx / n - rasterBox.x0) * sc), by = Math.round((cy / n - rasterBox.y0) * sc);
-        fc.seen = bx >= 0 && by >= 0 && bx < raster.w && by < raster.h
-          && Math.abs(depthAt(raster, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02)
-          // ⚠ AND IT HAS TO HAVE BEATEN THE WORLD, NOT JUST THE REST OF THE TRUCK. `maskRaster`
-          // clears the model's own alpha where a building owns the pixel, but leaves the depth
-          // behind it — so a panel that won every argument with its neighbours and then lost to a
-          // wall would still be reported as visible, and would paint its splatter, its glass sheen
-          // and its lamp glow onto the wall standing in front of it.
-          && (!occWin || !(depthWinAt(occWin, bx, by) + OCC_PIXEL_BIAS < cz / n));
-      }
-    } else {
-      sortTruckFaces(faces, c, SIZE);   // the blit failed after all — fall the whole way back
-    }
+  // ⚠ AND ONLY NOW IS THE BUFFER LANDED — below the ground light, not where it was filled. See the
+  // note at the top of the pass: the contact shadow and the lifter wash go down first so the
+  // bodywork covers them for free, and a blit at fill time puts the truck under its own pool of
+  // light. That deferral is the whole reason the shared pass has two halves.
+  //
+  // ⚠ AND ONLY IF THE BLIT LANDED. A headless harness has no canvas to compose through, and a
+  // rasterOK set on faith there would skip the canvas fills too — a truck drawn nowhere at all
+  // rather than drawn in the old order. `depthPassCommit` reports that, and also stamps every face
+  // with whether it survived the model's own depth test AND the world mask, which is what the
+  // detail passes below are gated on.
+  const rasterOK = depthPassCommit(ctx, pass, faces);
+  if (pass && !rasterOK) {
+    // The blit failed after all — fall the whole way back.
+    // ⚠ AND AN AIRFRAME FALLS BACK TO ITS OWN SORT, NOT THE TRUCK'S. `sortTruckFaces` keys off
+    // part ids and a hysteresis cache built for a rig; run it on a wing and the fallback is worse
+    // than the thing it is falling back from. This branch was unreachable while the buffer was
+    // trucks only, and would have been the bug the moment it was not.
+    if (c.cls === 'truck') sortTruckFaces(faces, c, SIZE);
+    else faces.sort((a, b) => b.af - a.af);
   }
   for (const fc of faces) {
     if (rasterOK && !fc.seen) continue;                             // hidden: its detail would paint over the winner
@@ -8159,7 +8412,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     ctx.beginPath(); ctx.moveTo(fc.pts[0].sx, fc.pts[0].sy);
     for (let i = 1; i < fc.pts.length; i++) ctx.lineTo(fc.pts[i].sx, fc.pts[i].sy);
     ctx.closePath();
-    if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }           // the depth pass already laid the colour down
+    if (!rasterOK || fc.offBuf) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass laid the colour down for everything except the translucent faces it refused
     if (fc.uv && jazzImg) overlayJazz(ctx, fc.pts, fc.uv, jazzImg);             // Memphis splatter, mapped in body space (as in the hangar)
     if (fc.cuv && detail) drawCanopyGlass(ctx, fc.pts, fc.cuv, fc.cart);        // greenhouse art — near/hero LOD only, like nose art
     if (fc.role === 'glass' || fc.role === 'window') glassSheen(ctx, fc.pts);   // glassy specular on canopy/windows, in flight too
@@ -8167,7 +8420,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // the part of it that lost the depth test, so it would draw the hidden half of every box as a
     // wireframe over the panel standing in front of it. Half its job was hiding sort seams anyway,
     // and there are none left to hide.
-    if (!rasterOK) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
+    if (!rasterOK || fc.offBuf) { ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.stroke(); }
     // Gloss finish: a bright specular flick on the fuselage crown.
     if (lv.finish === 'gloss' && fc.role === 'body') {
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.4;
@@ -9945,6 +10198,32 @@ export function bayOccluderSmoke(ID) {
       if (F && n === 0) out.push('down at chase height the shed is solid on screen and masks nothing — a truck drawn through a wall you can see');
     }
     if (covered(plain()) > 0) out.push('an empty map reports occluders');
+  }
+  // ── AND THE CUTAWAY HAS TO BE CONTINUOUS ───────────────────────────────────
+  // The distance term always was; the other two inputs were booleans, and a boolean in an answer
+  // that is otherwise a ramp is a wall that BLINKS — one notch of the chase orbit walked the eye
+  // across the eaves test and the whole shed flipped between solid and opened-up, and rolling out
+  // through the door flipped the containment test the instant the truck's centre left the
+  // footprint. Both are ramps now, and this is the only way to see that from outside: sweep each
+  // input finely and fail on a step no continuous function could take.
+  {
+    const bcell = { kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay' };
+    const fakeCam = (EH) => ({ EH, back: 0.9, sinh: 0, cosh: 1 });
+    const STEP_MAX = 0.35;
+    let prev = null, worstEye = 0;
+    for (let eh = 0; eh <= 0.5; eh += 0.005) {
+      const { cut } = bayCutaway(fakeCam(eh), 0, 0, bcell);
+      if (prev != null) worstEye = Math.max(worstEye, Math.abs(cut - prev));
+      prev = cut;
+    }
+    if (worstEye > STEP_MAX) out.push(`the shed cutaway jumps ${worstEye.toFixed(2)} on one notch of eye height — a wall that blinks`);
+    prev = null; let worstDrive = 0;
+    for (let d = 0; d <= 2.5; d += 0.02) {
+      const { cut } = bayCutaway(fakeCam(0.42), 0, -d, bcell);
+      if (prev != null) worstDrive = Math.max(worstDrive, Math.abs(cut - prev));
+      prev = cut;
+    }
+    if (worstDrive > STEP_MAX) out.push(`the shed cutaway jumps ${worstDrive.toFixed(2)} on 0.02 of a tile driven — the depot snapping shut behind you`);
   }
   return out;
 }
@@ -13239,7 +13518,11 @@ function occluderWindow(x0, y0, w, h, scale, f) {
 // straddling the eye contributes no occlusion, so anything behind it draws. The only model whose
 // faces legitimately straddle the camera is the shed you are parked in, and that one is exempted
 // from the field by its own rule (see the pre-pass).
-function boxQuads(cam, corners, z0, z1, out) {
+// `keepWorld` also emits each quad's WORLD corners, which the sun's shadow map needs and the
+// screen-space occlusion mask does not. Off by default and switched on only for the near solids
+// that are already being kept — see OCC_KEEP_TILES — because it is four arrays per quad per
+// building and the far ones are never asked to cast on anything.
+function boxQuads(cam, corners, z0, z1, out, keepWorld = false) {
   const n = corners.length;
   let ccx = 0, ccy = 0;
   for (const [x, y] of corners) { ccx += x; ccy += y; }
@@ -13247,18 +13530,20 @@ function boxQuads(cam, corners, z0, z1, out) {
   const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh;   // the eye, in the frame proj() reads
   const lo = corners.map(([x, y]) => cam.proj(x, y, z0));
   const hi = corners.map(([x, y]) => cam.proj(x, y, z1));
-  const q = (a, b, c, d) => {
+  const q = (a, b, c, d, w) => {
     if (a.f <= 0.25 || b.f <= 0.25 || c.f <= 0.25 || d.f <= 0.25) return;
-    out.push({ pts: [{ x: a.sx, y: a.sy, z: a.f }, { x: b.sx, y: b.sy, z: b.f }, { x: c.sx, y: c.sy, z: c.f }, { x: d.sx, y: d.sy, z: d.f }] });
+    const rec = { pts: [{ x: a.sx, y: a.sy, z: a.f }, { x: b.sx, y: b.sy, z: b.f }, { x: c.sx, y: c.sy, z: c.f }, { x: d.sx, y: d.sy, z: d.f }] };
+    if (w) rec.w = w;
+    out.push(rec);
   };
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
     const [ax, ay] = corners[i], [bx, by] = corners[j];
     const mx = (ax + bx) / 2, my = (ay + by) / 2;             // the edge's midpoint…
     if ((mx - ccx) * (ex - mx) + (my - ccy) * (ey - my) <= 0) continue;   // …and is the eye outside it?
-    q(lo[i], lo[j], hi[j], hi[i]);
+    q(lo[i], lo[j], hi[j], hi[i], keepWorld ? [[ax, ay, z0], [bx, by, z0], [bx, by, z1], [ax, ay, z1]] : null);
   }
-  if (cam.EH > z1) q(hi[0], hi[1], hi[2], hi[3]);             // the roof, only from above it
+  if (cam.EH > z1) q(hi[0], hi[1], hi[2], hi[3], keepWorld ? corners.map(([x, y]) => [x, y, z1]) : null);   // the roof, only from above it
 }
 
 // Screen-space AABB of a ground-anchored box, or null if any corner is too close/behind the eye.
@@ -13842,7 +14127,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         const slab = (sx0, sx1, z0, z1) => {
           const zt = z1 * k;
           if (!(sx1 > sx0) || !(zt > z0)) return;
-          boxQuads(cam, [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB), z0, zt, quads);
+          boxQuads(cam, [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB), z0, zt, quads, it.f <= OCC_KEEP_TILES);
         };
         slab(-BAY.HW, -BAY.DOOR_W, 0, BAY.WALL);     // the two solid flanks…
         slab(BAY.DOOR_W, BAY.HW, 0, BAY.WALL);
@@ -13918,7 +14203,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         const wx = it.dx + lx * ct - ly * st, wy = it.dy + lx * st + ly * ct;
         const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
         const corner = (qx, qy) => [wx + qx * hx * cy2 - qy * hy * sy2, wy + qx * hx * sy2 + qy * hy * cy2];
-        boxQuads(cam, [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], 0, z1 * k, quads);
+        boxQuads(cam, [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], 0, z1 * k, quads, it.f <= OCC_KEEP_TILES);
       }
       contribute(it);
     }
@@ -14314,6 +14599,28 @@ export function bayDoorOpen(dx, dy, cell) {
 // readings, and the ramp between them is what stops a wall blinking out on one notch of the wheel.
 const BAY_CUT_FAR = 1.10;    // beyond this the shed is solid — you are looking at a building
 const BAY_CUT_NEAR = 0.25;   // …and by here it is fully open, which is about where the chase flattens
+// ── ⚠ AND THE OTHER TWO INPUTS HAD TO BECOME RAMPS TOO ───────────────────────
+// The distance term above has been continuous from the day it was written, with a comment saying
+// why: "the ramp between them is what stops a wall blinking out on one notch of the wheel". The
+// other two inputs to the same answer were BOOLEANS, and they blink for exactly the same reason.
+//
+//   · IS THE EYE ABOVE THE EAVES — a doorstep at 0.9·WALL. Orbiting the chase camera walks the eye
+//     up and down across it, so one notch of pitch flipped the shed between solid and opened-up.
+//   · IS THE RIG INSIDE IT — a containment test. Driving out through the door flipped it the
+//     instant the truck's centre crossed the footprint, so the walls snapped back on behind you and
+//     snapped off again as you rolled in. That is the depot "always disappearing" as you move.
+//
+// Both ramp now, and both ramp on the side that used to be a hard 0, so everything that was fully
+// cut before is fully cut still: the eye ramp reaches 1 exactly at the old threshold, and the rig's
+// claim on a shed is 1 anywhere inside it and fades over the next tile of hardstand.
+// ⚠ 0.80, NOT LOWER. The chase camera down on the road sits a little under the eaves and the shed
+// must be SOLID there — that is the pose the occlusion agreement is built on (bayOccluderSmoke:
+// "down at chase height the shed is solid on screen and masks nothing" fails the moment this band
+// reaches far enough down to open the walls a crack). The band only has to be wide enough that the
+// eye cannot cross it in one notch of the orbit; it does not have to be gentle.
+const BAY_CUT_EYE0 = 0.80;   // ×WALL: below this the eye is under the eaves and the shed is solid
+const BAY_CUT_EYE1 = 0.90;   // ×WALL: at this height it is the full cutaway — the old boolean
+const BAY_CUT_LEAVE = 0.9;   // tiles of apron over which a shed stops being the one you are in
 // The shed, in tiles and world-z. Two of these are not free numbers:
 //   · WALL must clear the cab camera's eye height (`eyeH: 0.12` in cab-view.js) by enough that the
 //     eaves read as being overhead. The old 0.115 was BELOW the driver's eye, so you sat looking
@@ -14347,10 +14654,16 @@ function bayCutaway(cam, dx, dy, cell) {
   const subjLX = -dx * ct - dy * st, subjLY = dx * st - dy * ct;
   const subjectInside = Math.abs(subjLX) < HW && Math.abs(subjLY) < HL;
   const eyeOut = Math.hypot(Math.max(0, Math.abs(camLX) - HW), Math.max(0, Math.abs(camLY) - HL));
-  const cut = (cam.EH > WALL * 0.9 && (inside || subjectInside))
-    ? clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1) : 0;
+  // How much this shed is the one you are IN. 1 with the eye inside it or the rig standing in it,
+  // fading over the next tile of apron rather than switching off at the threshold.
+  const subjOut = Math.hypot(Math.max(0, Math.abs(subjLX) - HW), Math.max(0, Math.abs(subjLY) - HL));
+  const claim = inside ? 1 : clamp((BAY_CUT_LEAVE - subjOut) / BAY_CUT_LEAVE, 0, 1);
+  // …and how far the eye is above the eaves, as a ramp that reaches 1 at the old hard threshold.
+  const high = clamp((cam.EH - WALL * BAY_CUT_EYE0) / (WALL * (BAY_CUT_EYE1 - BAY_CUT_EYE0)), 0, 1);
+  const cut = claim * high * clamp((BAY_CUT_FAR - eyeOut) / (BAY_CUT_FAR - BAY_CUT_NEAR), 0, 1);
   return { cut, inside, subjectInside, camLX, camLY, ct, st };
 }
+export const _bayCutaway = bayCutaway;
 function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   if (MASS_OFF) return;
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);

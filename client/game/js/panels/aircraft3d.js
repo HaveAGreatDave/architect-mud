@@ -19,7 +19,7 @@
 const clampN = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const hex2rgb = (h) => { if (typeof h !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(h)) return null; const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-import { rasterFaces, blitRaster, depthAt } from './model-raster.js';
+import { rasterFaces, blitRaster, depthAt, maskRaster, depthWinAt } from './model-raster.js';
 export const shadeRgb = (c, m) => `rgb(${clampN(c[0] * m, 0, 255) | 0},${clampN(c[1] * m, 0, 255) | 0},${clampN(c[2] * m, 0, 255) | 0})`;
 const FINISH_MUL = { gloss: 1.06, satin: 1.0, matte: 0.88, weathered: 0.82 };
 
@@ -5158,40 +5158,173 @@ function canvasScale(ctx) {
     return m ? clampN(Math.hypot(m.a || 1, m.b || 0) || 1, 1, 2) : 1;
   } catch { return 1; }
 }
-function truckDepthPass(ctx, drawn, { min = 0, budget = RASTER_BUDGET_PX } = {}) {
-  if (!drawn.length) return false;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const fc of drawn) for (const q of fc.P) {
-    if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
-    if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
+// ⚠ IT WAS `truckDepthPass`, AND THE NAME WAS THE ARGUMENT. The buffer went in for a truck because
+// a truck is a pile of bolted-on boxes, and an airframe was left on the sort because it is "one
+// smooth hull, the shape a sort IS right for". That is true of a fuselage and false of everything
+// hung off it — nacelles, pods, sponsons, gear legs, stub wings, the Viper's stores. Those are the
+// same nested-box problem the sort cannot express, and they had it the whole time. The pass never
+// knew what a truck was; only its name did.
+//
+// ── …AND IT IS SPLIT IN TWO BECAUSE ONE VIEW CANNOT BLIT WHERE IT BUILDS ─────
+//
+// There were two copies of this dance: this one, and an inline block in windshield.js. That is the
+// exact shape of the failure the ⚠ above keeps describing — a fix lands in one and silently does
+// nothing in the other — so there is now one, and the differences are options rather than a second
+// forty lines.
+//
+// The windscreen does everything here and three things more, and only one of them needed a new
+// shape. World occlusion and lighting are HOOKS (`occlude`, `light`), because `occluderWindow` and
+// `vehicleLightRig` are world-pass concerns that cannot move into this file. But the BLIT genuinely
+// has to happen somewhere else: everything on the road — the contact shadow, the lifter wash, the
+// thrust cones — is painted between the buffer being filled and the model going down, and a
+// one-call pass would put the truck under its own pool of light. Hence build → (ground) → commit.
+//
+// `modelDepthPass` is the both-at-once wrapper, which is what a panel wants and what the two panel
+// callers already had.
+//
+// ⚠ THE FACE RECORD IS READ THROUGH `ptsKey`/`zKey` RATHER THAN RENAMED IN EITHER FILE. The panels
+// carry `fc.P` with `{sx, sy, z}` and the windscreen carries `fc.pts` with `{sx, sy, f}` — the same
+// three numbers under two house conventions, each used consistently across a very large file.
+// Renaming one to match the other is a wide, silent diff through code that has nothing to do with
+// this; two accessor strings read per FACE (never per pixel) cost nothing and touch nothing.
+const RASTER_PAD = 1;
+
+// ── HOW MANY MODELS WENT THROUGH THE ONE PASS ────────────────────────────────
+// A test seam, not instrumentation, and the third of its kind — `rasterCount` and `shadeCount` in
+// model-raster.js are the other two, and they exist because the same failure keeps recurring: a fix
+// for this mesh is written, verified in ONE renderer, and silently has no effect in the others.
+//
+// Those two prove a renderer reached the RASTERISER. This one proves it reached the SHARED PASS,
+// which is a different claim and the one that matters now there is only one pass to fall off. A
+// view that grew its own forty-line copy again would still move `rasterCount` and would look
+// entirely healthy; it would stop moving this. The smoke asserts the two move in LOCKSTEP, so a
+// second copy is a failure rather than a thing somebody has to notice.
+let _depthPassCount = 0;
+export const depthPassCount = () => _depthPassCount;
+
+// The build half. Returns a PASS handle, or null when there is nothing to do, the model is too
+// small to be worth it, or the whole mesh is translucent — in every one of which cases the caller
+// falls the whole way back to its own sort, exactly as before.
+export function depthPassBuild(ctx, drawn, {
+  min = 0, budget = RASTER_BUDGET_PX, scale = null, pad = RASTER_PAD,
+  ptsKey = 'P', zKey = 'z', box = null,
+  lit = false, occlude = null, occBias = 0, light = null,
+} = {}) {
+  if (!drawn.length) return null;
+  let x0, y0, x1, y1;
+  if (box) {
+    // The windscreen accumulates this box while it projects, so handing it over saves a second walk
+    // of every vertex on the hot path. Identical numbers either way.
+    x0 = box.minx; y0 = box.miny; x1 = box.maxx; y1 = box.maxy;
+  } else {
+    x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity;
+    for (const fc of drawn) for (const q of fc[ptsKey]) {
+      if (q.sx < x0) x0 = q.sx; if (q.sx > x1) x1 = q.sx;
+      if (q.sy < y0) y0 = q.sy; if (q.sy > y1) y1 = q.sy;
+    }
   }
-  if (!(x1 > x0 && y1 > y0)) return false;
-  if (min && (x1 - x0 < min || y1 - y0 < min)) return false;   // a thumbnail keeps the sort — see the ⚠ in model-raster.js
-  x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
+  if (!(x1 > x0 && y1 > y0)) return null;
+  if (min && (x1 - x0 < min || y1 - y0 < min)) return null;   // a thumbnail keeps the sort — see the ⚠ in model-raster.js
+  x0 = Math.floor(x0) - pad; y0 = Math.floor(y0) - pad;
+  x1 = Math.ceil(x1) + pad; y1 = Math.ceil(y1) + pad;
   const bw = x1 - x0, bh = y1 - y0;
   // ⚠ SUPERSAMPLED TO THE CANVAS'S OWN SCALE. These canvases are measured in CSS pixels and drawn
   // through a device-ratio transform, so a buffer built in CSS pixels lands as the only soft object
   // in an otherwise crisp frame — and it is the object the player is looking at. The budget is what
   // keeps that graceful: a rig dragged until it fills the pane gives up the sharpening rather than
-  // the frame.
-  const sc = Math.max(1, Math.min(canvasScale(ctx), Math.sqrt(budget / Math.max(1, bw * bh))));
-  const res = rasterFaces(drawn.map(fc => ({
-    pts: fc.P.map(q => ({ x: q.sx, y: q.sy, z: q.z })),
-    r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
-  })), x0, y0, bw, bh, sc);
-  if (!res) return false;
-  // ⚠ ONLY IF THE BLIT LANDED. A rasterOK set on faith in a headless harness skips the canvas fills
-  // as well — a truck drawn nowhere at all rather than drawn in the old order.
+  // the frame. A caller that already knows the frame's ratio passes it; a panel reads the transform.
+  const base = scale == null ? canvasScale(ctx) : clampN(scale || 1, 1, 2);
+  const sc = Math.max(1, Math.min(base, Math.sqrt(budget / Math.max(1, bw * bh))));
+  // ── ⚠ ONLY THE OPAQUE HALF GOES INTO THE BUFFER ────────────────────────────
+  // The depth test REPLACES a pixel; it does not composite. A half-faded face written into the
+  // buffer therefore does not blend with the wing behind it — it takes the pixel outright and
+  // carries its own alpha to the blit, so what shows through is the SCENE, not the wing. Retracting
+  // gear would open a translucent hole straight through the aeroplane. Nothing on a truck is ever
+  // translucent, which is why the buffer never had to answer this until the airframes arrived.
+  //
+  // So they stay out of it and are painted on canvas after the blit, depth-tested against the
+  // buffer at their centre like every other detail pass here. The box above is still measured off
+  // EVERY face, so the buffer covers the whole model rather than the opaque part of it.
+  const solid = drawn.filter(fc => (fc.alpha ?? 1) >= 0.999);
+  if (!solid.length) return null;
+  // ⚠ THIS ARRAY IS HANDED TO THE LIGHT HOOK UNCHANGED. `shadeRaster` reads a face's normal by the
+  // index the rasteriser stored per pixel, so the array it is given must be the identical array in
+  // the identical order. Building a second one for the rig would be a second chance to have it
+  // drift by a face — a truck lit as though its panels pointed somewhere else, which reads as a
+  // shading bug rather than the indexing one it is.
+  //
+  // `w`/`n` ride along whenever the caller's records carry them. A panel's do not, and `rasterFaces`
+  // demands them on EVERY face before it will light anything, so an unlit caller stays unlit for
+  // free rather than by remembering to say so.
+  const rf = solid.map(fc => ({
+    pts: fc[ptsKey].map(q => ({ x: q.sx, y: q.sy, z: q[zKey] })),
+    r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: 255,
+    w: fc.wv || null, n: fc.nrm || null,
+  }));
+  const res = rasterFaces(rf, x0, y0, bw, bh, sc, lit);
+  if (!res) return null;
+  // ⚠ HERE, AND NOT AT THE TOP OF THE FUNCTION. `rasterFaces` bumps its own counter only when it
+  // returns a buffer, so counting an attempt rather than a success would drift the two apart on
+  // every declined pass and make the lockstep assertion noise instead of a gate.
+  _depthPassCount++;
+  // ── …AND THE OTHER HALF OF THE SAME QUESTION: WHAT IS IT STANDING BEHIND? ──
+  // The buffer above settles which of the model's own panels owns a pixel, and settles nothing at
+  // all about the shed it is parked in. Buildings are canvas fills painted before this and the model
+  // is painted after them, so paint order was the whole answer, and paint order says the truck wins
+  // — from every angle, at every distance. That is the rig showing through a wall. The hook hands
+  // back the world's own solids rasterised over exactly this box at exactly this scale, and returns
+  // null unless something is actually overlapping — so the pass costs nothing except in the frames
+  // it exists for.
+  const occWin = occlude ? occlude(x0, y0, bw, bh, sc) : null;
+  if (occWin) maskRaster(res, occWin, occBias);
+  // ── …AND ONLY NOW IS IT WORTH LIGHTING ──────────────────────────────────────
+  // After the mask, never before. `maskRaster` clears the alpha of every pixel a building owns, and
+  // shading those would be paid for and then thrown away — on a rig in a depot doorway that is a
+  // third of the model. The light pass skips a cleared pixel for free.
+  if (res.lit && light) light(res, rf);
+  return { res, occWin, occBias, x0, y0, sc, ptsKey, zKey };
+}
+
+// The commit half: land the buffer on the canvas, then tell every face whether it survived.
+//
+// Returns FALSE when the blit could not land (a headless harness has no canvas to compose through),
+// which is the caller's cue to fall the whole way back to its own sort — not to skip the fills it
+// is no longer doing. A rasterOK set on faith there is a model drawn nowhere at all.
+export function depthPassCommit(ctx, pass, drawn) {
+  if (!pass) return false;
+  const { res, occWin, occBias, x0, y0, sc, ptsKey, zKey } = pass;
   if (!blitRaster(ctx, res, x0, y0)) return false;
   for (const fc of drawn) {
+    const P = fc[ptsKey];
     let cx = 0, cy = 0, cz = 0;
-    for (const q of fc.P) { cx += q.sx; cy += q.sy; cz += q.z; }
-    const n = fc.P.length;
+    for (const q of P) { cx += q.sx; cy += q.sy; cz += q[zKey]; }
+    const n = P.length, zc = cz / n;
     const bx = Math.round((cx / n - x0) * sc), by = Math.round((cy / n - y0) * sc);
-    fc.seen = bx >= 0 && by >= 0 && bx < res.w && by < res.h
-      && Math.abs(depthAt(res, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
+    const on = bx >= 0 && by >= 0 && bx < res.w && by < res.h;
+    // Two different questions, and they are not the same test. A face IN the buffer asks whether it
+    // still owns its own centre — did it win. A face kept OUT of it asks whether anything opaque
+    // took that pixel in front of it — is it still visible. An empty pixel reads Infinity, which
+    // answers the second one "yes" for free.
+    fc.offBuf = !((fc.alpha ?? 1) >= 0.999);
+    fc.seen = on
+      && (fc.offBuf ? depthAt(res, bx, by) > zc
+                    : Math.abs(depthAt(res, bx, by) - zc) < Math.max(1e-4, zc * 0.02))
+      // ⚠ AND IT HAS TO HAVE BEATEN THE WORLD, NOT JUST THE REST OF THE MODEL. `maskRaster` clears
+      // the model's own alpha where a building owns the pixel, but leaves the depth behind it — so a
+      // panel that won every argument with its neighbours and then lost to a wall would still be
+      // reported as visible, and would paint its splatter, its glass sheen and its lamp glow onto
+      // the wall standing in front of it. Without an `occlude` hook there is no window and this term
+      // is free.
+      && (!occWin || !(depthWinAt(occWin, bx, by) + occBias < zc));
   }
   return true;
+}
+
+// Build and commit in one, which is what a panel wants: it has no ground light to paint between the
+// two halves, so there is nothing to defer for.
+function modelDepthPass(ctx, drawn, opts = {}) {
+  const pass = depthPassBuild(ctx, drawn, opts);
+  return pass ? depthPassCommit(ctx, pass, drawn) : false;
 }
 
 // ── Turntable renderer (hangar hero view) ─────────────────────────────────────
@@ -5406,11 +5539,13 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   // buffer whether it owns its own centre; if something nearer took that pixel, its detail is
   // skipped. Cheap, and it cannot paint a hidden face's decoration over the panel hiding it.
   //
-  // Everything with wings keeps the mean-depth sort it has always had: an airframe is one smooth
-  // hull, which is the shape a sort IS right for.
+  // ⚠ AND EVERYTHING WITH WINGS NOW TAKES IT TOO. It used to keep the mean-depth sort on the
+  // grounds that an airframe is one smooth hull — true of the fuselage, and false of every nacelle,
+  // pod, sponson, gear leg and stub wing bolted to it, which are the same nested boxes no single
+  // depth per part can order. See the note on modelDepthPass.
   // The hero shot is the SUBJECT of its camera, so it takes the pass at any size — see the `min`
   // the floor scene passes, which is for a row of machines rather than one.
-  const rasterOK = cls === 'truck' && truckDepthPass(ctx, drawn);
+  const rasterOK = modelDepthPass(ctx, drawn);
   if (!rasterOK) {
     if (cls === 'truck') sortTruckFaces(drawn, { id: `bay:${cls}:${variant || ''}` }, 1);
     else drawn.sort((a, b) => b.avgZ - a.avgZ);
@@ -5422,7 +5557,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
     for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
     ctx.closePath();
-    if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass already laid the colour down
+    if (!rasterOK || fc.offBuf) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass laid the colour down for everything except the translucent faces it refused
     if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, jazzImg);           // Memphis splatter, mapped in body space
     else if (TEXTURED.has(fc.role)) overlayHull(ctx, fc.P, texStr);   // procedural panel/rivet detail
     if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);          // greenhouse: mullions, sky reflection, the crew behind the glass
@@ -5431,7 +5566,7 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
     // including the parts of it that lost the depth test, so it would draw the hidden half of every
     // box as a wireframe over the panel in front of it. Half its job was hiding sort seams anyway,
     // and there are none left.
-    if (!rasterOK) { ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke(); }
+    if (!rasterOK || fc.offBuf) { ctx.strokeStyle = 'rgba(8,10,14,0.55)'; ctx.lineWidth = 1; ctx.stroke(); }
     if (!wreck && livery?.finish === 'gloss' && fc.role === 'body') {
       ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy); ctx.lineTo(fc.P[1].sx, fc.P[1].sy); ctx.stroke(); ctx.restore();
@@ -5444,8 +5579,19 @@ function paintTurntable(ctx, { cls, armed = false, variant = '', livery, yaw = 0
   // completely different surfaces, and one of them is flat (see drawTruckDoorArt).
   if (!wreck) {
     const occD = drawn.filter(fc => OCCLUDE_ROLE.has(fc.role)).map(fc => ({ P: fc.P, z: fc.avgZ }));
-    if (cls === 'truck') drawTruckDoorArt(ctx, proj, variant || 'hauler', 1, livery, occD);
-    else drawNoseArt(ctx, proj, cls, livery, occD);
+    // ⚠ THE DECAL GOES THROUGH `modelV`, LIKE EVERY OTHER VERTEX IN THIS FUNCTION. Both painters
+    // place their art from the MESH's own coordinates — drawNoseArt reconstructs the hull section,
+    // drawTruckDoorArt reads the door rectangle out of TRUCK_META — and `proj` alone is the WORLD
+    // projector, one transform short of where the model actually is. Handed the raw one, the art was
+    // drawn at the unfitted size and the unfitted height, which on an aircraft is invisible (no
+    // aircraft caller passes `fit`, so the transform is the identity) and on a truck was total: the
+    // depot fits the rig to the room, so `mScale` is about 4× and `mDrop` the better part of a
+    // truck-height, and the door art landed as a thumbnail buried in the chassis — painted every
+    // frame, never once on the door. Same adapter the rotor pass has always used, and the same shape
+    // windshield.js passes from the road, which is why the art was right out there and wrong in here.
+    const projM = (f, g, hh) => { const t = modelV([f, g, hh]); return proj(t[0], t[1], t[2]); };
+    if (cls === 'truck') drawTruckDoorArt(ctx, projM, variant || 'hauler', 1, livery, occD);
+    else drawNoseArt(ctx, projM, cls, livery, occD);
   }
   // Props/rotors — engines off in here, so crisp STOPPED blades (not a blur),
   // projected through this same camera so they spin with the turntable.
@@ -6178,8 +6324,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
     const faces = grp.faces;
     // A budget shared across the row: eight rigs at full device resolution is eight times the most
     // expensive thing in the frame, and the sharpening is what gives way — never the pass.
-    const rasterOK = grp.entry.cls === 'truck'
-      && truckDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
+    const rasterOK = modelDepthPass(ctx, faces, { min: RASTER_MIN_PX, budget: RASTER_BUDGET_PX / Math.max(1, n) });
     if (!rasterOK) {
       if (grp.entry.cls === 'truck') sortTruckFaces(faces, { id: `lot:${grp.entry.id}:${grp.entry.variant || ''}` }, 1);
       else faces.sort((a, b) => b.avgZ - a.avgZ);
@@ -6189,7 +6334,7 @@ export function drawHangarScene(ctx, { w, h, entries, selId, sky, venue = null }
       ctx.beginPath(); ctx.moveTo(fc.P[0].sx, fc.P[0].sy);
       for (let i = 1; i < fc.P.length; i++) ctx.lineTo(fc.P[i].sx, fc.P[i].sy);
       ctx.closePath();
-      if (!rasterOK) { ctx.fillStyle = fc.col; ctx.fill(); }   // the depth pass already laid the colour down
+      if (!rasterOK || fc.offBuf) { ctx.fillStyle = fc.col; ctx.fill(); }   // …except the translucent faces the buffer refused — see modelDepthPass
       if (fc.uv) overlayJazz(ctx, fc.P, fc.uv, grp.jazzImg);   // Memphis splatter (same body-space map as the turntable)
       if (fc.cuv) drawCanopyGlass(ctx, fc.P, fc.cuv, fc.cart);  // greenhouse art (same authored map as the turntable)
       if (!grp.entry.wreck && (fc.role === 'glass' || fc.role === 'window')) glassSheen(ctx, fc.P);   // glassy specular on canopy/windows

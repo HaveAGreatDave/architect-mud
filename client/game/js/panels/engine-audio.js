@@ -584,12 +584,22 @@ export const hoverSpoolSeconds = (typeId) => (HOVER_SPOOL[typeId] || HOVER_SPOOL
 // actually peaks, so the trumpet character survives and the note arrives at the level the number
 // says. Gains roughly doubled on top of that — a horn is the loudest thing in a yard and this is
 // the one cue in the game where that is the whole point of it existing.
-const HORN = {
-  scrapper:    { base: 196, ratio: 1.19, dur: 1.05, gain: 0.150, air: 1.5 },   // one working trumpet and a lot of rust
-  hauler:      { base: 262, ratio: 1.34, dur: 0.95, gain: 0.145, air: 0.9 },   // short pipes: brighter, wider, over quickly
-  drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.165, air: 1.0 },
-  continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.180, air: 1.2 },   // the one you hear before you see it
+export const HORN = {
+  scrapper:    { base: 196, ratio: 1.19, dur: 1.05, gain: 0.34, air: 1.5 },   // one working trumpet and a lot of rust
+  hauler:      { base: 262, ratio: 1.34, dur: 0.95, gain: 0.33, air: 0.9 },   // short pipes: brighter, wider, over quickly
+  drayman:     { base: 175, ratio: 1.20, dur: 1.35, gain: 0.37, air: 1.0 },
+  continental: { base: 124, ratio: 1.19, dur: 1.9,  gain: 0.40, air: 1.2 },   // the one you hear before you see it
 };
+// ⚠ AND IT IS LOUD, BECAUSE LOUD IS THE ONLY SETTING A HORN HAS. These gains were doubled once
+// already, off the bandpass fix above, and it STILL sat under the engine bed — a driver leaning on
+// the cord could barely hear it over their own idle, which is exactly the wrong way round for the
+// loudest object bolted to a truck. Doubled again (0.15 → 0.34): deliberately the loudest cue in
+// the game, because being the loudest thing in the yard is the entire function of the device.
+//
+// ⚠ AND EVERY TRUCK HAS ITS OWN. `HORN[typeId] || HORN.drayman` hides a missing row — a new truck
+// would silently borrow the Drayman's trumpets and nobody would ever find out. The fallback stays
+// (a borrowed horn beats a silent one), and regress now asserts every ground type in TYPES has a
+// row here, so adding a truck without a voice is a red suite rather than a mystery.
 // `secs` is how long the driver held the cord, so the yard hears a toot or a long lean on it rather
 // than the same stock blast either way. Absent (an older sender, or any non-cab caller) is the
 // horn's own authored length exactly as before.
@@ -635,7 +645,10 @@ export function airHornOn(typeId) {
   try {
     ae?.init?.();
     ae?.stopLoop?.(HORN_LOOP_ID);      // a second pull while one is open is one horn, not two
-    ae?.loopSound?.({ id: HORN_LOOP_ID, category: 'sfx', priority: 2, config: { layers: hornVoices(h, true) } });
+    // ⚠ PRIORITY 4, NOT 2. A cab already has a bed, a damage loop, weather and whatever the street
+    // is doing, and at 2 the one cue that MUST be heard was competing with ambience for a voice —
+    // and losing, silently, which is indistinguishable from a horn that does not work at all.
+    ae?.loopSound?.({ id: HORN_LOOP_ID, category: 'sfx', priority: 4, config: { layers: hornVoices(h, true) } });
   } catch { /* never load-bearing */ }
 }
 export function airHornOff() {

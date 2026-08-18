@@ -609,9 +609,15 @@ same fact the road wash under them is drawn from — and a truck whose thrust yo
 a truck whose thrust is jewellery.
 
 **Every scheme is now the whole truck** (regress fails a preset that leaves a colour unnamed), and
-the tab that sells all this is **four short screens** behind a segmented control — Schemes, Colours,
+the tab that sells all this is **four short screens** behind a segmented control — Schemes, Paint,
 Graphics, Inside — because seven colours, fifteen jobs, eight coats, eleven pictures, four materials
-and seven interiors as one scroll is a wall nobody reads to the bottom of. **The interior is on it
+and seven interiors as one scroll is a wall nobody reads to the bottom of. ⚠ **The line between two
+of those screens is "is it paint", not "is it a colour well"** *(2026-08-18)*: the paint job and the
+finish coat sat under Graphics because they are LISTS rather than pickers, which is a fact about the
+widget and not about the thing being bought. Both are paint — a flash is a second colour laid over
+the cab, a coat is what goes on top of the lot — so somebody looking for "the wave one" opened Paint
+and found seven colour wells. Paint is the whole respray now; **Graphics is what is *printed* on the
+truck**, which is one row and is honest about being one row. **The interior is on it
 for the first time**: `rig trim` was a verb that printed a swatch book of seven words, so the only
 way to find out what oxblood and chrome looked like was to buy it. It previews now — a CSS still of
 the dash in the colourway's own gradient, the material's grain, and two lit dials in its needle and
@@ -629,6 +635,19 @@ Two things the same pass fixed because they were the same bug in different cloth
   beltline strip at `× 0.47…0.505`, so the picture came out with a chrome bar through it. It is now
   the panel the brightwork LEAVES, and every bound is stated against the thing it clears rather than
   as a tuned number — **if you move the spear, move the door.**
+
+⚠ **AND THE DECAL RIDES `modelV`, LIKE EVERY OTHER VERTEX** *(2026-08-18)*. On the bench and the
+walkaround the art was drawn through the WORLD projector rather than the model one — one transform
+short. Every aircraft view survived that (no aircraft caller passes `fit`, so the transform is the
+identity), and the depot did not: it scales the rig to fill the room and then drops it onto the
+floor, so the art was painted at a quarter size, at the wrong height, **buried inside the chassis**.
+It rendered every frame and never once landed on the door, which is why picking a design in the
+booth appeared to do nothing at all. `shapes:smoke` now gates it — see
+[scripts/shapes/truck-doorart.mjs](../scripts/shapes/truck-doorart.mjs), which draws the same rig
+fitted and unfitted and asserts that **whatever the fit does to the silhouette it does to the
+decal**; a decal that ignores the fit scores 0.16–0.19 where a healthy one scores 1.00–1.33. It
+measures a ratio rather than a position on purpose: a check that re-derived the transform would
+agree with a bug in the transform.
 
 
 **The horn works** *(2026-08-12)*. Two chrome trumpets were added to every roof, plus cab steps
@@ -693,6 +712,26 @@ there is no DOM element per truck to hang a listener on.
 A **depot** is any zone carrying `flags.truck_depot` — content decides, the plugin only reads.
 `drive` issues a rig there, `haul` shows the load board, and a delivery pays only when the truck is
 standing in the depot the load names.
+
+### A depot is three tiles, and the set has to say so *(2026-08-18)*
+
+`depotZonesOf` named **two**: the tile you handed it, and the depot's own `yard`. From inside the
+bay that happens to be [bay, apron] and everything worked. From the **apron** it was [apron, apron] —
+the bay missing entirely — and `park` stores a rig in the *bay*, because a truck belongs under the
+roof rather than on a public street. So parking at a yard and then trying to drive off the hardstand
+answered *"Your Ostrek Courier is parked at Kessler Street Yard, not here"* while you stood in
+Kessler Street Yard looking at it.
+
+The set is now the whole **place** whichever of its tiles you hand it — the shed, its facade (the
+door tile a driver mounts on, which `yardIndex` has resolved to its depot since the walk-in
+rebuild) and the hardstand. Ownership, the bench, the pump and the horn all ask through this one
+function, so they agree for free. Regress asserts it **from all three tiles**, because the bug was
+only ever visible from one.
+
+The same off-by-one tile closed the panel: walking out fired `truck_depot_close` only when the zone
+you left was the *bay*, so leaving from the apron left the shop window hanging over the road. It
+asks `depotFrom` now — and only closes when you have actually left the place, since stepping from
+the bay to its own apron is walking about inside one depot.
 
 ### A depot is a building you walk into *(2026-08-11)*
 
@@ -814,9 +853,51 @@ be a trim a player paid for that the cab cannot draw. Same argument as `skyline-
 imports, no side effects. Regress asserts every buyable key has a full colour set and every stock
 interior names keys that exist.
 
-Storage is `trucks.custom_data.trim` — `{ mat, col }`, either nullable, no schema change. It rides
-the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
+Storage is `trucks.custom_data.trim` — `{ mat, col, cust }`, all nullable, no schema change. It
+rides the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
 renders byte-for-byte what it always did.
+
+#### …and one colourway is yours *(2026-08-18)*
+
+Seven named colourways is a swatch book, and a swatch book is the thing a driver who wanted **purple**
+has to be told no by — on the same panel whose *exterior* tab has answered that since it was built,
+with seven colour wells and pick what you like. So the inside mixes too:
+
+```
+rig trim 1 panel=#4a1f2e needle=#ffd489 glow=#c07a34
+```
+
+⚠ **THREE PICKS, AND THE REST IS DERIVED — NOT FOURTEEN WELLS.** A colourway is fourteen values and
+eleven of them are the same colour at a different strength: the header, the pillars, the post, the
+dial faces and the rim are the panel gone progressively darker, and the lip, the ring and the rim
+highlight are the backlight bleeding onto brightwork. Fourteen wells would be eleven ways to make a
+cab that does not look like anything. The three that genuinely differ are the three you live with —
+**the panel** (most of the cab by area), **the needle** (the one moving thing you look at) and **the
+backlight** (what your face is lit by at night). Every derived value is stated as a *relation* to
+one of those three, and the relations were read back off the authored rows: walnut's ring is exactly
+its glow, slate's is within two counts, and the dash triple falls out of the panel at 1.00 / 0.52 /
+0.22 on all seven.
+
+⚠ **A MIX IS A COLOURWAY, NOT A SPECIAL CASE.** `customColourway()` returns the same object shape
+`DASH_COLOURWAYS.slate` is, so the forty-odd `T.needle` / `T.dash` reads in `windshield.js` never
+learned it exists — `assembleTrim` resolves through one lookup and nothing below it branches.
+Regress asserts the shape matches a bought row key for key.
+
+⚠ **AND `custom` IS NOT IN THE SWATCH BOOK.** `isDashColourway` stays strict, so the custom branch is
+stated separately in `sanitizeTrim` and `cabTrim`: a stored `col: 'custom'` is only honoured while
+three readable picks sit behind it, and otherwise falls back to the colourway the cab already had
+rather than rendering as slate on a truck nobody repainted. The mix is **kept when a swatch is
+worn**, so trying oxblood does not throw away the colour you spent five minutes on — `rig trim
+custom` is the way back, and it appears as one more swatch on the end of the book.
+
+The bench sells it at **the same flat retrim fee**. Mixing is not a premium: what it costs to spray
+a dashboard does not depend on whether the colour came off a card, and a surcharge would be the
+panel charging for the absence of a limitation. On the Inside screen the three wells preview live —
+patched in place rather than re-rendered, because rebuilding the DOM under a native colour picker
+closes it on the first pixel of a drag — and the preview runs `customColourway` out of the shared
+file rather than a payload row, because the thing being previewed has not been bought yet and so
+there is nothing for the server to have sent. It is the same function the cab resolves through, so
+the picture and the windscreen cannot disagree.
 
 
 ### The paint reaches everybody who can see the truck *(2026-08-18)*
@@ -983,6 +1064,29 @@ mode**. The yacht's default reports the *change* in wheel rotation, because a bo
 A truck holds a line and its front axle self-centres, so absolute mode reports wheel POSITION as a
 normalised −1..+1 axle deflection, clamps to a real lock, and returns to centre on release. Passing
 no `mode` leaves the yacht untouched.
+
+### You get in, and it is off *(2026-08-18)*
+
+Mounting used to start the engine — `drive` narrated the diesel catching on the second turn — which
+meant the one control on the shelf that is a real, two-position, consequential switch had nothing to
+do on the only occasion anybody would reach for it. A truck you have just climbed into is **cold**.
+
+Three seams carry it and none of them is new. `mountRig` sets `engineOn: false`; `cabContext` puts
+the bit on the wire (read at mount only — the client owns the engine from the first frame and
+reports it back through the telemetry's `t`, but without it the browser's fresh `createTruckState`
+is always running whatever the server thinks); and the cab seeds `sim.stalled` from it. ⚠ **And it
+seeds the box into NEUTRAL**, which is the difference between a cold start and a puzzle: the model
+only cranks with the clutch in *or* out of gear, and a fresh state is in first, so the key alone
+would churn and refuse — teaching a rule that belongs to a stall recovery rather than to getting in.
+
+⚠ **The text rung has no ignition at all**, so pulling out *is* the start (`startTextDrive`'s caller
+sets it). A rung with no key must never be handed one.
+
+The derelict's cold-start line moved with it. The roll still happens at the mount (it is a fact
+about the truck's condition), but the **line waits for the key** — it is stashed on the rig and
+spent by whichever rung actually turns it, which for the visual rung is the first false→true edge of
+the ignition bit `cmdTruckSync` already reads. A truck that has not been started cannot be turning
+over.
 
 ### The heater, which is the engine's
 
@@ -1680,6 +1784,16 @@ the boundary and then appeared out of nothing. And a bare `hitch` takes the **ne
 rather than the oldest row, because a yard now routinely holds several of your own boxes a few feet
 apart.
 
+**And it is on the floor, in three dimensions** *(2026-08-18)*. The depot's floor scene drew the
+FLEET and nothing else, so a trailer standing ten feet outside the roller door appeared on no screen
+in the building — the yard is where you buy one, and the yard was the one place it did not exist.
+The scene now takes the boxes standing *here* as well, at `~s` (the solo mesh, the same variant
+`trailersNear` draws out on the hardstand) and at a length derived from the **rating**, exactly as
+the world renderer does it — a trailer row carries no mesh of its own and its capacity already says
+how big it is, and if the two derivations disagreed a box would change length when you walked out of
+the shed. ⚠ **A box on the floor is not a selection**: every pane, the bench and the toolbar read a
+fleet row, so clicking one is ignored rather than emptying all three.
+
 **A box you own is now on a screen** *(2026-08-18)*. `trailersOf(player.id)` was read by the depot
 panel and **thrown away** — it existed only to work out which of your *trucks* had something on the
 pin — so the rows themselves reached neither rung. A bought reefer had a receipt, a place on the
@@ -1892,6 +2006,43 @@ visible? It runs in `shapes:smoke`, needs no browser, and was verified to catch 
 The rule the placement now follows is written down: **a lamp clears the bumper in z and stands
 ahead of it in f, on every variant.**
 
+### The shed stopped blinking *(2026-08-18)*
+
+The depot's cutaway — how much of the shed is faded away so you can see your own rig inside it — has
+had a continuous distance term since it was written, with a comment saying why: *"the ramp between
+them is what stops a wall blinking out on one notch of the wheel."* The other **two** inputs to the
+same answer were booleans, and they blink for exactly the same reason:
+
+- **Is the eye above the eaves** — a doorstep at 0.9 × WALL. Orbiting the chase camera walks the eye
+  up and down across it, so one notch of pitch flipped the whole shed between solid and opened-up.
+- **Is the rig inside it** — a containment test. Rolling out through the door flipped it the instant
+  the truck's centre left the footprint, so the walls snapped back on behind you and off again as
+  you rolled in.
+
+Both ramp now, and both ramp on the side that used to be a hard zero, so everything that was fully
+cut before still is. ⚠ **The eye band bottoms out at 0.80 × WALL, not lower**: the chase camera down
+on the road sits a little under the eaves and the shed must be *solid* there — that is the pose the
+whole occlusion agreement is built on, and `bayOccluderSmoke` fails the moment the band reaches far
+enough down to open the walls a crack. The band only has to be wide enough that the eye cannot cross
+it in one notch of the orbit; it does not have to be gentle.
+
+The smoke now sweeps both inputs finely and fails on a step no continuous function could take, which
+is the only way this is visible from outside the renderer — and `occludedCount()` joins
+`rasterCount()` as a test seam, because a building culled when it should have drawn is a hole in
+the city that the frame simply comes back without.
+
+### The thrust reads as thrust *(2026-08-18)*
+
+The lifter cones were already keyed on the **direction of travel** rather than on the gearbox — the
+pods behind the middle fire astern to push the truck forward, the ones ahead of it fire forward to
+push it back, so reversing looks like reversing from the outside. What they were not was *visible*:
+the plume threw about a third of a pod's length and the cone's ramp started nearly-white and washed
+out evenly, which reads as a tint on the road rather than as something coming out of the machine.
+
+The gradient now has a **hot core and a long tail** (clipped white at the throat, holding its blue
+most of the way down), and the along-plume throws about a truck's own width at speed and starts
+hotter than the column underneath, because it is the end doing the work.
+
 ### Retro-future, on purpose *(2026-08-12)*
 
 The mesh had drifted into "20th-century semi with a light strip". The brief is a 1957 idea of what
@@ -1902,6 +2053,29 @@ stacks that finish in a **flared nozzle** with fins round the base, a **whip aer
 the end, and a chrome trim band round every lifter — which is also what stops a pod looking like a
 black brick when its emitter is off, i.e. whenever the truck is parked. All of it is `fine`-gated,
 so a distant contact still costs what it did.
+
+### The horn is the loudest thing in the yard, and it says so once *(2026-08-18)*
+
+Two changes that pull in opposite directions on purpose. The **sound** has no cooldown and must
+never get one — a horn is meant to be leaned on, and three quick blasts is a thing drivers do. The
+**sentence** has a 60-second per-player gate, because three identical lines in everybody's log is
+not a horn, it is what makes somebody scroll past the line that mattered. The driver's own line is
+on the same gate, which is the half that actually matters: their sound already played locally before
+the verb ever reached the server, so a suppressed line is a horn that sounds and does not narrate.
+Silence, not a refusal — nothing has gone wrong. The stamp lives in RAM on the rig (or on the player,
+for somebody honking a parked truck); nothing about a noise deserves a DB write.
+
+And it is **loud**. The gains were doubled once already off a bandpass fix and it still sat under
+the engine bed — a driver leaning on the cord could barely hear it over their own idle, which is
+exactly the wrong way round for the loudest object bolted to a truck. Doubled again (0.15 → 0.34),
+and the held loop went to **priority 4**: a cab already has a bed, a damage loop, weather and
+whatever the street is doing, and at 2 the one cue that must be heard was competing with ambience
+for a voice and losing it silently — which is indistinguishable from a horn that does not work.
+
+⚠ **Every truck has its own voice.** `HORN[typeId] || HORN.drayman` hides a missing row: a new truck
+silently borrows the Drayman's trumpets and nobody ever finds out. The fallback stays (a borrowed
+horn beats a silent one) and regress now asserts every ground type in `TYPES` has a row of its own,
+so adding a truck without a voice is a red suite rather than a mystery.
 
 ### Wipers
 

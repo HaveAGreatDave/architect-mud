@@ -102,9 +102,16 @@ export function mountRig(player, { x, y, heading = 180, depot = null }) {
     // checkbox on the depot panel.
     trailer: null,
     lastSync: Date.now(), started: Date.now(), bogged: false, blocked: 0,
-    // You got in and turned the key: mounting a truck starts it, which is what `drive` has always
-    // narrated. The cab corrects this four times a second from the real sim state.
-    engineOn: true,
+    // ⚠ YOU GOT IN. YOU DID NOT TURN THE KEY. Mounting used to start the engine, which is what
+    // `drive` narrated ("the diesel catches on the second turn") — and it meant the one control on
+    // the shelf that is a real, two-position, consequential switch had nothing to do on the only
+    // occasion anybody would reach for it. A truck you have just climbed into is COLD; the key is
+    // in the barrel and turning it is the first thing you do.
+    //
+    // The cab corrects this four times a second from the real sim state, so this is only the state
+    // the drive BEGINS in — and the text rung, which has no ignition at all, sets it true as part
+    // of pulling out (see startTextDrive's caller). A rung with no key must never be handed one.
+    engineOn: false,
     // THE RADIO. It lives on the rig and nowhere else (see cb.js) — mounting puts you on the air
     // and dismounting takes you off, with no membership state anywhere to fall out of step with
     // where you actually are. 19 because that is where everybody else starts, which is the only
@@ -538,6 +545,11 @@ export function cabContext(rig, extra = {}) {
     x: +rig.x.toFixed(3), y: +rig.y.toFixed(3),
     heading: Math.round(rig.heading), speed: Math.round(rig.speed),
     fuel: +rig.fuel.toFixed(3),
+    // WHETHER IT IS RUNNING, so the cab's sim can BEGIN where the server says rather than assuming.
+    // It is read at mount only (the client owns the engine from the first frame and reports it back
+    // through the telemetry's `t`), which is exactly why it has to be on the wire at all: without
+    // it the browser's fresh `createTruckState` is always running, whatever the server thinks.
+    engineOn: !!rig.engineOn,
     // WHICH TRUCK THIS IS, and what a bench did to it. The cab used to hardcode the Courier's
     // parameters, so the gearbox, the top speed, the brakes and the turn-in of a 31,000₵
     // Continental were the 4,200₵ truck's — you could buy your way up the fleet and feel nothing.

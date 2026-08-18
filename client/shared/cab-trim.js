@@ -91,6 +91,80 @@ export const DASH_COLOURWAYS = {
             glow: '#d8cca4' },
 };
 
+// ── AND ONE THE PLAYER MIXES ─────────────────────────────────────────────────
+// Seven named colourways is a swatch book, and a swatch book is the thing a driver who wanted
+// PURPLE has to be told no by. The exterior has answered that since the booth was built — seven
+// colour wells and pick what you like — and the inside answered it with a list, which is the same
+// question given two different answers on two tabs of the same panel.
+//
+// ⚠ SO IT IS THREE PICKS AND THE REST IS DERIVED, NOT FOURTEEN WELLS. A colourway is fourteen
+// values and eleven of them are the SAME COLOUR at different strengths — the header, the pillars,
+// the post, the dial faces and the rim are the panel gone progressively darker, and the lip, the
+// ring and the rim highlight are the backlight bleeding onto brightwork. Handing a player fourteen
+// wells would be handing them eleven ways to make a cab that does not look like anything, and the
+// three that actually differ are the three you live with:
+//
+//   panel  — the slab in front of you, and the whole cab's colour by weight
+//   needle — the one moving thing you look at
+//   glow   — the light on your face for twenty minutes at a stretch, and the tint on every edge
+//
+// Every derived value is stated as a RELATION to one of those three, checked against the authored
+// rows above — walnut's ring is exactly its glow, slate's is within a couple of counts, and the
+// dash triple falls out of the panel at 1.00 / 0.52 / 0.22 on all seven. So a mixed interior is
+// the same KIND of object as a bought one, and nothing downstream can tell them apart. That is the
+// contract: this returns a colourway, not a special case, and no renderer branches on it.
+export const CUSTOM_COL = 'custom';
+const CUSTOM_KEYS = ['panel', 'needle', 'glow'];
+
+const hx = (v) => { const m = /^#([0-9a-fA-F]{6})$/.exec(String(v || '')); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const hex = (v) => '#' + v.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0')).join('');
+const mul = (v, k) => v.map((c) => c * k);                       // toward black
+const lit = (v, k) => v.map((c) => c + (255 - c) * k);           // toward white
+const rgba = (v, a) => `rgba(${v.map((c) => Math.max(0, Math.min(255, Math.round(c)))).join(',')},${a})`;
+
+export const isTrimHex = (v) => hx(v) !== null;
+
+// The three picks, validated. Anything unreadable falls back to what the cab already had rather
+// than to a default, for the same reason sanitizeTrim does it: a bad argument must never silently
+// repaint an interior somebody was happy with.
+export function sanitizeCustomTrim(next = {}, prev = {}) {
+  const out = {};
+  for (const k of CUSTOM_KEYS) {
+    const v = isTrimHex(next?.[k]) ? String(next[k]).toLowerCase()
+      : isTrimHex(prev?.[k]) ? String(prev[k]).toLowerCase() : null;
+    if (v) out[k] = v;
+  }
+  return CUSTOM_KEYS.every((k) => out[k]) ? out : null;
+}
+
+// Three picks → the fourteen values every reader of a colourway expects.
+export function customColourway(cust) {
+  const c = sanitizeCustomTrim(cust || {}, {});
+  if (!c) return null;
+  const P = hx(c.panel), N = hx(c.needle), G = hx(c.glow);
+  return {
+    label: 'mixed at the bench', stock: false, custom: true,
+    hdr: [hex(mul(P, 0.38)), hex(mul(P, 0.62))],
+    pil: [hex(mul(P, 0.44)), hex(mul(P, 0.76))],
+    post: hex(mul(P, 0.56)),
+    dash: [hex(P), hex(mul(P, 0.52)), hex(mul(P, 0.22))],
+    lip: rgba(lit(G, 0.35), 0.20),
+    rim: rgba(mul(P, 0.47), 0.95),
+    rimHi: rgba(lit(G, 0.10), 0.15),
+    face: [hex(mul(P, 0.40)), hex(mul(P, 0.17))],
+    ring: rgba(G, 0.30),
+    needle: hex(N), glow: hex(G),
+    crazed: false,
+  };
+}
+
+// The one lookup every renderer should use: a catalogue key or the player's own mix, and null when
+// the answer is neither — so a caller still owns its own fallback and nothing here decides for it.
+export function resolveColourway(col, cust) {
+  if (col === CUSTOM_COL) return customColourway(cust);
+  return Object.hasOwn(DASH_COLOURWAYS, String(col || '')) ? DASH_COLOURWAYS[col] : null;
+}
+
 // ── WHAT EACH TRUCK LEFT THE FACTORY IN ──────────────────────────────────────
 // Keyed by fleet tier. This is the only place the ladder and the surface vocabulary touch, and it
 // is here rather than in the renderer because the maintenance bench needs it too — to mark which
@@ -110,12 +184,28 @@ export const stockTrim = (tier) => STOCK_TRIM[tier] ?? STOCK_TRIM[1];
 export const isDashMaterial = (k) => Object.hasOwn(DASH_MATERIALS, String(k || ''));
 export const isDashColourway = (k) => Object.hasOwn(DASH_COLOURWAYS, String(k || ''));
 
-// A trim as the truck stores it: two short keys and nothing else. Anything unrecognised falls back
-// to what the truck already had rather than to a default, so a bad argument can never silently
-// repaint a cab the player was happy with.
+// A trim as the truck stores it: two short keys and — when the colourway is the player's own — the
+// three picks it was mixed from. Anything unrecognised falls back to what the truck already had
+// rather than to a default, so a bad argument can never silently repaint a cab the player was
+// happy with.
+//
+// ⚠ `col: 'custom'` IS ONLY ALLOWED TO SURVIVE WITH A MIX BEHIND IT. `isDashColourway` stays
+// strict — 'custom' is not in the catalogue and must never look like it is — so the custom branch
+// is stated separately here, and a row that somehow arrived saying custom with nothing to mix from
+// falls back to the previous colourway instead of rendering as slate.
 export function sanitizeTrim(next = {}, prev = {}) {
+  const cust = sanitizeCustomTrim(next.cust || {}, prev.cust || {});
+  const wantsCustom = (k) => String(k) === CUSTOM_COL && !!cust;
+  const col = isDashColourway(next.col) ? String(next.col)
+    : wantsCustom(next.col) ? CUSTOM_COL
+      : isDashColourway(prev.col) ? String(prev.col)
+        : wantsCustom(prev.col) ? CUSTOM_COL : null;
   return {
     mat: isDashMaterial(next.mat) ? String(next.mat) : (isDashMaterial(prev.mat) ? String(prev.mat) : null),
-    col: isDashColourway(next.col) ? String(next.col) : (isDashColourway(prev.col) ? String(prev.col) : null),
+    col,
+    // Kept even when the fitted colourway is a catalogue one, so "put my own back" costs nothing —
+    // the mix is a thing the player made, and dropping it on every swatch click would mean losing
+    // it to a stray tap on 'moss'.
+    cust: cust || null,
   };
 }

@@ -562,6 +562,18 @@ export function openCab(ctx = {}) {
 
   const sim = createTruckState(P);
   sim.x = ctx.x; sim.y = ctx.y; sim.heading = ctx.heading ?? 180;
+  // ── AND IT IS COLD ─────────────────────────────────────────────────────────
+  // `createTruckState` builds a RUNNING truck, because until now mounting one started it. The
+  // server decides that (state.js mountRig) and says so on the wire; an older payload with no
+  // `engineOn` at all keeps the running truck, so nothing that does not send it changes.
+  //
+  // ⚠ AND IT IS LEFT IN NEUTRAL, which is not a detail — it is the difference between a cold start
+  // and a puzzle. The model will only crank with the clutch in OR the box out of gear (stepTruck,
+  // the stall branch), and a fresh state is in FIRST: turn the key on a truck you have just got
+  // into and the starter would churn and refuse, teaching a rule that belongs to a stall recovery
+  // rather than to getting in. A parked truck is left out of gear with the brakes on, which is
+  // both true of the real thing and the version where the key alone works.
+  if (ctx.engineOn === false) { sim.stalled = true; sim.gear = 0; }
 
   st = {
     id, container, sim,

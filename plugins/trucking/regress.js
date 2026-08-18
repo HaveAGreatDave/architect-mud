@@ -18,7 +18,8 @@ import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces, faceBaseRgb, truckMeta } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
-import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim } from '../../client/shared/cab-trim.js';
+import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim,
+  customColourway, sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from '../../client/shared/cab-trim.js';
 import { trimCost, sanitizePaint, paintCost, presetPaint, PAINT_DEFAULT, PAINT_PRESETS, FLASHES, FINISHES } from './rig.js';
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
@@ -833,6 +834,24 @@ export default async function regress({ run, check, getPlayer }) {
       truckTest.allDepots().every(d => d.grid_x != null && !d.flags?.is_interior),
       truckTest.allDepots().map(d => d.id).join(' '));
 
+    // ── A DEPOT IS THREE TILES, AND THE SET HAS TO SAY SO FROM ANY OF THEM ────
+    // `depotZonesOf` named two: the tile you handed it, and the depot's own yard. From inside the
+    // bay that happened to be [bay, apron] and everything worked; from the APRON it was [apron,
+    // apron], with the bay missing — and `park` stores a rig in the BAY. So parking at a yard and
+    // then trying to drive off the hardstand answered "your truck is parked at <this very yard>,
+    // not here". Asserted from all three tiles because the bug was only ever visible from one.
+    for (const d of truckTest.allDepots().slice(0, 3)) {
+      const bayZone = [...world.zones.values()].find(z => truckTest.depotAt(z)?.yard === d.id);
+      if (!bayZone) continue;
+      const want = [bayZone.id, d.id];
+      const facade = bayZone.flags?.world_exit_zone;
+      for (const from of [bayZone, d, facade ? world.zones.get(facade) : null].filter(Boolean)) {
+        const set = truckTest.depotZonesOf(from, truckTest.depotAt(from) || truckTest.depotFrom(from.id)?.depot);
+        check(`a depot answers for its whole place from ${from.id === bayZone.id ? 'the bay' : from.id === d.id ? 'the apron' : 'the facade'}`,
+          want.every(z => set.includes(z)), `${set.join(',')} missing one of ${want.join(',')}`);
+      }
+    }
+
     const line = await truckTest.describeDepot(bay);
     check('a depot describes its own trucks and board', !!line && /fence/i.test(line), (line || '').slice(0, 40));
     for (const v of ['drive', 'haul', 'market', 'yard']) {
@@ -1406,6 +1425,37 @@ export default async function regress({ run, check, getPlayer }) {
       check('…and no roller door when you were never inside one', cab?.fromBay == null, cab?.fromBay);
       const rig = rigOf(player);
       check('a rig mounts at a depot once you own one', !!rig, got?.message?.slice(0, 50));
+      // ── AND IT IS COLD ─────────────────────────────────────────────────────
+      // Mounting used to start the engine, which left the one genuinely consequential switch on the
+      // shelf with nothing to do on the only occasion anybody reaches for it. The cab seeds its own
+      // sim from this bit, so if it stops reaching the wire the browser silently goes back to
+      // mounting a running truck and no other check in this suite would notice.
+      check('…with the engine OFF, because you have not turned the key yet', rig?.engineOn === false, rig?.engineOn);
+      check('…and the cab is told so, or it seeds itself running', cabContext(rig).engineOn === false);
+
+      // ── THE HORN ───────────────────────────────────────────────────────────
+      // The SOUND has no cooldown and must never get one — a horn is meant to be leaned on. The
+      // SENTENCE does: three identical lines in everybody's log is not a horn, it is what makes
+      // somebody scroll past the line that mattered.
+      const h1 = await run('horn');
+      const h2 = await run('horn');
+      check('a horn narrates the first pull', /pull the cord/i.test(h1?.message || ''), h1?.message?.slice(0, 40));
+      check('…and the second inside the minute is silent, not refused',
+        h2?.type === 'noop' && !h2?.message, JSON.stringify(h2).slice(0, 60));
+      rigOf(player)._hornSaidAt = Date.now() - 61_000;
+      const h3 = await run('horn');
+      check('…and a minute later it says it again', /pull the cord/i.test(h3?.message || ''), h3?.message?.slice(0, 40));
+
+      // EVERY TRUCK HAS ITS OWN HORN. `HORN[typeId] || HORN.drayman` means a missing row is a truck
+      // that silently borrows another's trumpets — audible, plausible, and wrong forever.
+      {
+        const { HORN } = await import('../../client/game/js/panels/engine-audio.js');
+        const voiceless = TRUCK_TYPES.filter(t => !HORN[t.id]).map(t => t.id);
+        check('every truck in the fleet has a horn voice of its own', voiceless.length === 0, voiceless.join(', '));
+        check('…and every one of them is loud enough to be the point of the device',
+          TRUCK_TYPES.every(t => (HORN[t.id]?.gain ?? 0) >= 0.3),
+          TRUCK_TYPES.map(t => `${t.id}:${HORN[t.id]?.gain}`).join(' '));
+      }
       check('…and it is the truck you actually bought',
         rig?.typeId === 'continental' && rig?.type?.kg === 6200, `${rig?.typeId} ${rig?.type?.kg}kg`);
       check('…on the CITY leg, on real world tiles', rig?.leg === 'city', rig?.leg);
@@ -2109,9 +2159,11 @@ export default async function regress({ run, check, getPlayer }) {
       [0, 1, 2, 3].every(t => isDashMaterial(stockTrim(t).mat) && isDashColourway(stockTrim(t).col)));
 
     // ⚠ SURFACE ONLY. A payload carrying instrument keys must not be able to fit a rev counter.
+    // Three keys now, not two — `cust` carries the player's own three picks — and the assertion is
+    // still the same one: whatever arrives, what comes out is EXACTLY this set and never a ladder key.
     const dirty = sanitizeTrim({ mat: 'wood', col: 'walnut', dials: 2, band: true, lamps: 5 }, {});
-    check('a trim is two keys and cannot smuggle instruments',
-      Object.keys(dirty).sort().join(',') === 'col,mat');
+    check('a trim is a fixed set of keys and cannot smuggle instruments',
+      Object.keys(dirty).sort().join(',') === 'col,cust,mat');
 
     // An unrecognised argument falls back to what the truck ALREADY had, never to a default —
     // a typo must not silently repaint a cab the driver was happy with.
@@ -2123,6 +2175,40 @@ export default async function regress({ run, check, getPlayer }) {
     // The price is a real number on every rung, including a truck with no price at all.
     check('a retrim is priced on every rung and never free',
       [{ price: 1300 }, { price: 31000 }, {}].every(t => trimCost(t) >= 240));
+
+    // ── …AND ONE THE PLAYER MIXED ────────────────────────────────────────────
+    // A mixed interior is not a fourth thing the renderer has to know about: it is a COLOURWAY,
+    // derived from three picks, and the contract is that nothing downstream can tell it from a
+    // bought one. That is what these assert — the shape first, then the two ways it must refuse.
+    const MIX = { panel: '#4a1f2e', needle: '#ffd489', glow: '#c07a34' };
+    const mixed = customColourway(MIX);
+    check('a mixed colourway is the same shape as a bought one',
+      Object.keys(DASH_COLOURWAYS.slate).every(k => k === 'stock' || k === 'crazed' || mixed[k] !== undefined));
+    check('…with a full colour set, exactly as the catalogue check demands of the bought ones',
+      Array.isArray(mixed.dash) && mixed.dash.length === 3 && Array.isArray(mixed.face) && mixed.face.length === 2
+      && !!mixed.needle && !!mixed.glow && !!mixed.ring && !!mixed.lip);
+    // ⚠ THE PANEL IS THE PICK, NOT A SHADE OF IT. Everything else is derived DOWN from it, so if
+    // this ever stops being an identity the well and the dashboard are two different colours.
+    check('the panel colour is the panel colour', mixed.dash[0] === MIX.panel && mixed.needle === MIX.needle && mixed.glow === MIX.glow);
+    const lum = (h) => parseInt(String(h).slice(1), 16);
+    check('…and the derived slab only ever gets darker', lum(mixed.dash[1]) < lum(mixed.dash[0]) && lum(mixed.dash[2]) < lum(mixed.dash[1]));
+    // The two refusals. A colour that is not a colour, and a mix with a hole in it — either would
+    // reach the renderer as an undefined in a gradient string, which draws a cab with holes in it.
+    check('a mix wants real colours', !isTrimHex('teal') && !isTrimHex('#fff') && isTrimHex('#4A1F2E'));
+    check('a partial mix is not a mix', sanitizeCustomTrim({ panel: '#4a1f2e' }, {}) === null && customColourway({ panel: '#4a1f2e' }) === null);
+    check('…but it completes itself from the one already stored',
+      sanitizeCustomTrim({ needle: '#8fe0a0' }, MIX)?.panel === MIX.panel);
+    // ⚠ 'custom' IS NOT A CATALOGUE KEY AND MUST NEVER LOOK LIKE ONE. It is only a colourway while
+    // there are three picks behind it; a row that says custom with nothing to mix from has to fall
+    // back to what the cab was wearing, or it renders as slate on a truck nobody repainted.
+    check('custom is not in the swatch book', !isDashColourway(CUSTOM_COL));
+    check('a mix survives a round trip', sanitizeTrim({ col: CUSTOM_COL, cust: MIX }, {}).col === CUSTOM_COL);
+    check('custom with nothing behind it keeps the fitted colourway',
+      sanitizeTrim({ col: CUSTOM_COL }, { col: 'moss', mat: 'vinyl' }).col === 'moss');
+    // The mix is KEPT while a swatch is worn, so trying oxblood does not throw away the colour you
+    // spent five minutes on — that is the whole reason `rig trim custom` has a way back.
+    check('picking a swatch does not delete your mix',
+      sanitizeTrim({ col: 'moss' }, { col: CUSTOM_COL, cust: MIX }).cust?.panel === MIX.panel);
   }
   // ── THE BOOTH ──────────────────────────────────────────────────────────────
   // Paint went from two colours and four flashes to four colours, fifteen paint jobs, eight finish

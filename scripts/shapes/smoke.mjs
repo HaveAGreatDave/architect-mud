@@ -31,8 +31,9 @@
 import { loadWindshield, stubCanvas } from './dom-stub.mjs';
 import { bakeShapes } from './bake.mjs';
 import { rasterSmoke } from './raster-smoke.mjs';
-import { rasterCount } from '../../client/game/js/panels/model-raster.js';
+import { rasterCount, shadeCount } from '../../client/game/js/panels/model-raster.js';
 import { truckFairingSmoke, truckLampSmoke, parkedStanceSmoke, truckNoseSliceSmoke, truckSortStabilitySmoke, truckOcclusionSmoke, LAMP_MIN_AREA, LAMP_MAX_RATIO } from './truck-lamps.mjs';
+import { truckDoorArtSmoke } from './truck-doorart.mjs';
 
 const WARN_ONLY = process.argv.includes('--warn-only');
 
@@ -50,6 +51,27 @@ async function main() {
 
   const models = ws.shapeModelRegistry();
   const problems = [];
+  // Named here rather than at the truck-lamp block because the windscreen check below reads its
+  // shared-pass counter. windshield.js imports it, so it is already evaluated — this only binds it.
+  const a3d = await import('../../client/game/js/panels/aircraft3d.js');
+
+  // ── ONE PASS, NOT FOUR COPIES OF ONE PASS ──────────────────────────────────
+  // `rasterCount` and `shadeCount` prove a renderer reached the RASTERISER. They cannot tell the
+  // difference between a renderer on the shared pass and a renderer that grew its own copy of it —
+  // and a private copy is exactly how this mesh lost three separate fixes: each was written,
+  // verified in one view, and silently absent from the others.
+  //
+  // So every site below that asserts `rasterCount` moved also asserts `depthPassCount` moved by
+  // the SAME amount. A second implementation moves the first and not the second, which turns
+  // "somebody has to remember" into a red build.
+  const lockstep = (label, r0, d0, hint) => {
+    const dr = rasterCount() - r0, dd = a3d.depthPassCount() - d0;
+    if (dr <= 0) problems.push(`depth  ${label} → never reached the depth buffer. ${hint}`);
+    else if (dd !== dr) {
+      problems.push(`depth  ${label} → ${dr} model raster(s) but ${dd} through depthPassBuild. `
+        + 'A renderer is back on a private copy of the pass — see the note above depthPassCount in aircraft3d.js.');
+    }
+  };
 
   // ── PAINT ──
   for (const f of ws.shapeRenderSmoke()) {
@@ -79,13 +101,18 @@ async function main() {
   // rig from kept sorting — so every report of parts flickering was still true and every round of
   // work on it read as having done nothing. `cab:ext` below is a truck in the external view, so the
   // counter has to move; if it stops moving, that renderer has quietly fallen back off.
-  const rasterBefore = rasterCount();
+  const rasterBefore = rasterCount(), shadeBefore = shadeCount(), depthBefore = a3d.depthPassCount();
   const views = ws.viewRenderSmoke(WS_ID);
   for (const f of views) problems.push(`view   ${f.key} (hour=${f.hour}, ${f.weather}) → ${f.err}`);
-  const rasterRan = rasterCount() - rasterBefore;
-  if (rasterRan <= 0) {
-    problems.push('view   cab:ext → the external truck view never reached the depth buffer. '
-      + 'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
+  lockstep('view   cab:ext', rasterBefore, depthBefore,
+    'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
+  // ── …AND ON THE LIGHT PATH, WHICH IS THE HARDER ONE TO NOTICE LOSING ───────
+  // Falling off the depth buffer makes parts flicker, which somebody eventually reports. Falling
+  // off the light pass makes the shadow quietly not exist — the truck is still drawn, still lit,
+  // still correct. Nothing looks broken; the work simply isn't there. See shadeCount.
+  if (shadeCount() - shadeBefore <= 0) {
+    problems.push('view   cab:ext → the external truck view never reached the light pass. '
+      + 'Its sun shadow and its own lamp spill are silently gone — see shadeRaster in model-raster.js.');
   }
   // The depth buffer that replaced the truck sort — see model-raster.js. Its cases are the ones no
   // ordering can pass, so a regression here is the whole class coming back.
@@ -142,19 +169,16 @@ async function main() {
   // Not a building, but the same failure mode the whole file exists for: the only thing that ever
   // looked at a truck's headlamps was a player looking at a truck, and they were invisible twice.
   // See scripts/shapes/truck-lamps.mjs for why this has to render rather than assert on geometry.
-  const a3d = await import('../../client/game/js/panels/aircraft3d.js');
   // ── …AND THAT THE FORECOURT IS ON THE DEPTH PATH TOO ────────────────────────
   // The fourth renderer of the truck mesh, and the last one to keep sorting: a rig was solid out of
   // the windscreen and on the bench, and still had a grille bar through the panel it is bolted to on
   // the floor you buy it from. Same counter as `cab:ext` above and for the same reason — the smoke
   // deliberately runs the SORT (see truckLampSmoke), so the only way to know the live renderer even
   // reached the buffer is that building it moved this.
-  const lotRasterBefore = rasterCount();
+  const lotRasterBefore = rasterCount(), lotDepthBefore = a3d.depthPassCount();
   const lamps = truckLampSmoke(a3d.drawHangarScene);
-  if (rasterCount() - lotRasterBefore <= 0) {
-    problems.push('lamps  the depot floor never reached the depth buffer. It is back on the painter\'s '
-      + 'sort, which cannot order nested boxes — see model-raster.js.');
-  }
+  lockstep('lamps  the depot floor', lotRasterBefore, lotDepthBefore,
+    'It is back on the painter\'s sort, which cannot order nested boxes — see model-raster.js.');
   for (const L of lamps) {
     const lo = Math.min(L.left, L.right), hi = Math.max(L.left, L.right);
     if (lo < LAMP_MIN_AREA) {
@@ -166,6 +190,24 @@ async function main() {
       problems.push(`lamps  ${L.variant} → lopsided: ${L.left.toFixed(0)}px² left vs ${L.right.toFixed(0)}px² right `
         + `(>${LAMP_MAX_RATIO}×). A symmetric mesh drawn asymmetrically is the painter's sort eating one side.`);
     }
+  }
+  // ── …AND SO IS EVERYTHING WITH WINGS ────────────────────────────────────────
+  // The depth buffer was gated on `cls === 'truck'` in three separate renderers, on the grounds
+  // that an airframe is one smooth hull. The hull is; the nacelles, pods, sponsons, gear legs and
+  // stub wings bolted to it are nested boxes, which is precisely what no sort can order. The gate
+  // is gone, and this is what stops it coming back one class at a time — the failure it guards
+  // against is silent, because a sorted airframe still draws, it just quietly flickers again.
+  const ac = stubCanvas('depth-airframe', 900, 600);
+  for (const cls of ['prop', 'heli', 'ultralight', 'divebomber']) {
+    const before = rasterCount(), depthB4 = a3d.depthPassCount();
+    try {
+      a3d.drawTurntable(ac.getContext('2d'), { cls, w: 900, h: 600, yaw: 0.6, elev: 0.4, livery: {} });
+    } catch (e) {
+      problems.push(`depth  ${cls} → the turntable threw: ${e.message}`);
+      continue;
+    }
+    lockstep(`depth  ${cls}`, before, depthB4,
+      'It is back on the mean-depth sort, which cannot order a nacelle against the wing it hangs off — see depthPassBuild.');
   }
   // The same square foot of geometry, one rung more general — see truckNoseSliceSmoke.
   const slices = truckNoseSliceSmoke();
@@ -190,6 +232,26 @@ async function main() {
     if (t.chattering) {
       problems.push(`sort   ${t.variant} → ${t.chattering} pair(s) of parts trade places more than ${t.max} times `
         + `in one 360° sweep (worst ${t.worst}). That is the flicker: the draw order is not settling.`);
+    }
+  }
+  // ── AND IS THE DOOR ART ON THE DOOR? ────────────────────────────────────────
+  // The decal is the one thing painted on the rig that is not a face of the mesh, so no check above
+  // can see it — and it was being drawn through the WORLD projector rather than the model one, so
+  // on the bench (the only view that fits the rig to its room) it landed at a quarter size, buried
+  // in the chassis. See scripts/shapes/truck-doorart.mjs for why this measures a RATIO.
+  const doorArt = truckDoorArtSmoke(a3d.drawHangarFloorBay);
+  for (const d of doorArt) {
+    if (!d.cells) {
+      problems.push(`door   ${d.variant} → the door art never reached the canvas. Nothing is painted on the door.`);
+    } else if (!(d.ratio > 0.6 && d.ratio < 2)) {
+      problems.push(`door   ${d.variant} → the decal does not ride the model: it scaled ${d.ratio.toFixed(2)}× as much `
+        + 'as the silhouette when the rig was fitted to the room. The art is being placed through a different '
+        + 'transform from the mesh — see the ⚠ on projM in paintTurntable.');
+      // The band is wide because the silhouette and the decal sit at different DEPTHS, so a
+      // perspective camera does not scale the two by quite the same factor: a healthy fleet
+      // measures 1.00–1.33. What it is aimed at scores 0.16–0.19, or paints nothing at all.
+    } else if (!d.onSkin) {
+      problems.push(`door   ${d.variant} → part of the decal landed off the painted body. It is beside the truck, not on it.`);
     }
   }
   const stances = parkedStanceSmoke();
@@ -284,6 +346,7 @@ async function main() {
   console.log('  Truck noses: no panel cuts through a chrome detail on any of the 4 faces — the grille and the lamp brows survive the sort from either side.');
   console.log(`  Truck sort: ${stab.length} rigs swept 360°, worst pair of parts trades places ${Math.max(...stab.map((t) => t.worst))}× `
     + `(2 is the rigid-body minimum — the old mean-depth sort hit 44, with ${1640} chattering pairs on a full rig).`);
+  console.log(`  Truck door art: painted on all ${doorArt.length} rigs and riding the fit (${doorArt.map((d) => d.ratio.toFixed(2)).join(', ')}× the silhouette's own scaling).`);
   console.log(`  Ground collision: ${ground.ran} probes at truck height, ${ground.driveUnder} of them mass you drive UNDER (awnings, canopies, overhangs).`);
   console.log(`  Depot occlusion: a shed beside the rig fills ${bayOcc.length ? '?' : 'the field and the per-pixel solid list'}; the one it is parked IN does not.`);
   console.log('  Depot bay: the drawn gable, the CFIT ceiling and the feet-frame roof all agree — and a truck still drives in.');

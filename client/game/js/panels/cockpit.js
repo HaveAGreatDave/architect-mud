@@ -1273,6 +1273,11 @@ const FSIM_TUNE = [
   // they earn their place in the panel.
   ['occlude', 'Occlusion cull', 0, 1, 1],
   ['shapeShadow', 'Shape shadows', 0, 1, 1],
+  // The hero model's own per-pixel sun shadow and lamp spill (model-raster.js). Both double as an
+  // on/off switch and a strength, and 0 on each restores the renderer exactly as it was before
+  // either existed — which is the only reason a knob that is really a strength gets a slider here.
+  ['modelShadow', 'Model shadow', 0, 1, 0.05],
+  ['modelLights', 'Model lamps', 0, 1, 0.05],
   ['shapeWire', 'Shape wire', 0, 1, 1],
   ['lodAdorn', 'LOD lights', 0, 2, 1],
   ['lodNear', 'LOD start', 0, 40, 1],

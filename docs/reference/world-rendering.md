@@ -193,7 +193,7 @@ Rules for anyone adding to a building model:
   paints immediately, so those paths are unaffected. Painter's order still can't resolve genuinely
   interpenetrating geometry, but buildings here don't interpenetrate.
 
-## Vehicles are the exception — they get a real depth buffer
+## Models are the exception — they get a real depth buffer
 
 The rules above are for the **world** pass, where painter's algorithm is the right trade: thousands
 of buildings, full screen, and none of them interpenetrating. A **vehicle mesh is the opposite
@@ -202,16 +202,29 @@ one over here and in front of it over there. No single depth per part can say so
 successive sort keys each fixed the case in front of them and left the class alone (grille bars
 through the panel they are screwed to, one headlamp eaten, flanks flashing as the model turned).
 
-So the truck mesh rasterises through a **per-pixel depth buffer** —
+So the mesh rasterises through a **per-pixel depth buffer** —
 [`client/game/js/panels/model-raster.js`](../../client/game/js/panels/model-raster.js), sized to the
-model's own screen box, never the canvas. Aircraft keep the mean-depth sort: one smooth hull is the
-shape a sort *is* right for.
+model's own screen box, never the canvas.
+
+⚠ **This used to be trucks only, and the reason was a name rather than an argument.** Airframes kept
+the mean-depth sort on the grounds that one smooth hull is the shape a sort *is* right for — true of
+a fuselage, and false of every nacelle, pod, sponson, gear leg, stub wing and store hung off it,
+which are the same nested boxes no single depth per part can express. Every renderer now takes the
+pass for every class.
+
+The one thing that had to be answered before the wings could come in: **a translucent face stays out
+of the buffer.** The depth test *replaces* a pixel rather than compositing it, so a half-faded face
+written into it takes the pixel outright and carries its own alpha to the blit — what shows through
+is then the scene behind the aeroplane, not the wing behind the part, and gear at half-retract opens
+a translucent hole straight through the airframe. Those faces are filled on canvas after the blit
+and depth-tested against it at their centre (`fc.offBuf`). Nothing on a truck is ever translucent,
+which is why the buffer never had to answer this until the airframes arrived.
 
 ⚠ **There are four renderers of that mesh, and a fix has three times reached only one of them** —
 the chase view you drive from (`paintWindshield`), the depot floor and hangar lot
 (`drawHangarScene`), the walkaround/bench hero (`paintTurntable`), and the CRT schematic
 (`drawWireframe3D`, deliberately x-ray and on no sort at all). The pass itself lives in **one
-function**, `truckDepthPass` in
+function**, `modelDepthPass` in
 [`aircraft3d.js`](../../client/game/js/panels/aircraft3d.js) — add a renderer, call that, and don't
 write the twenty lines again.
 
@@ -230,7 +243,58 @@ Three things worth knowing before touching it:
 
 `scripts/shapes/smoke.mjs` asserts each renderer *reached* the buffer via `rasterCount()`, because
 the failure mode here is silent: the work is real, verified in one view, and has no effect in the
-others.
+others. It sweeps four airframe classes through the turntable for the same reason — a sorted
+aeroplane still draws, it just quietly flickers again.
+
+## Lights and shadows, on the same buffer
+
+The buffer settles *which surface* a pixel is. Given that, lighting is two more questions of the
+same shape, and both are answered per pixel rather than per face.
+
+Faces arrive **already flat-shaded** — the caller computes `0.82 + 0.5·n·sun` once and keeps it both
+ways, as the CSS string canvas wants and as the three numbers the rasteriser writes. That is
+deliberate, and it constrains everything here: ⚠ **the light pass may only darken or add, never
+compute a colour.** If it re-derived the shade there would be two lighting models, agreeing until
+somebody edited one, and every path that falls back to canvas — a thumbnail, a failed blit, a
+headless harness — would render a differently-lit model. So shadow scales the *sun's share* of a
+colour that already contains it, lamps are added on top, and a rig with neither is byte-identical to
+not calling the pass at all. `rasterSmoke` asserts that identity rather than assuming it, and
+asserts a fully shadowed pixel lands on the value the same face would have had facing away from the
+sun — which is what stops the shadow inventing its own darkness.
+
+- **The G-buffer.** `rasterFaces(…, lit)` fills two extra channels: the world position of whatever
+  won each pixel, and which face it was. Shading is **deferred** off those — a boxy model writes the
+  same pixel several times over and only the last survives, so shading inside the triangle loop pays
+  for every loser. 16 bytes a pixel, allocated only when a caller asks and never given back, with
+  its own lower ceiling (`LIT_MAX_PX`) above which the lighting drops out gracefully.
+- **The sun is a second depth buffer.** `rasterShadow` is `tri()` again from the sun's point of
+  view, depth only. ⚠ **Orthographic, so it interpolates z directly** — the 1/z law holds because
+  *screen* space is a perspective projection, and the sun's rays are parallel; interpolating 1/z
+  there bows every caster toward the light and acnes a stripe through each big face.
+- ⚠ **The light's frame is fitted to the model, and that is what bounds the cost.** 256² whatever
+  the camera does — the only buffer here that does not grow when you dolly in. A caster outside the
+  model's own bounding sphere cannot cast onto anything inside it, so this covers the whole question
+  however big the shed behind it is. Point it at the city and the sim stops being 60fps, for the
+  reasons at the top of `model-raster.js`.
+- ⚠ **Casters are collected *before* the backface cull.** The cull is relative to the eye; a shadow
+  is relative to the sun. With the sun behind the truck the faces that cast are exactly the ones the
+  camera cannot see, and casting from the visible half shadows the rig inside out.
+- ⚠ **A screen-space quad is not a caster.** `OCC_SOLIDS` quads are kept for the occlusion mask and
+  are already through the camera — they say where a building is on the *monitor*. The near ones now
+  carry world corners alongside (`boxQuads(…, keepWorld)`), and that is what lets the shed shadow the
+  truck parked in it; anything without them is skipped rather than coerced.
+- **Lamps are point/spot lights in world space**, off the same `vehicleLamps` stations the canvas
+  halos use. The lifters are the point of it: their wash was painted on the *road* and stopped dead
+  at the bodywork, so the one machine in the game lit from underneath had an unlit underside.
+  Headlamps carry a cone — a point lamp at the bumper lights the back of the bumper and the front of
+  the cab, which reads as a torch switched on inside the bodywork.
+
+Both halves are live-tunable (`modelShadow`, `modelLights` in `RENDER_TUNE`, sliders in ⚙), and 0 on
+each restores the renderer exactly as it was before either existed. `shadeCount()` is the sibling of
+`rasterCount()` and exists for a sharper version of the same reason: falling off the *depth* path
+makes parts flicker and somebody eventually reports it, while falling off the *light* path makes the
+shadow quietly not exist — the model is still drawn, still lit, still correct, and the work simply
+is not there.
 
 ## …and the other half of that question: what the vehicle is standing BEHIND
 

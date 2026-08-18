@@ -40,6 +40,12 @@ import { setAreaPane } from '../render.js';
 import { sendCmdSilent } from '../net.js';
 import { drawWireframe3D, themeColor } from './wireframe-plane.js';
 import { drawHangarScene, drawHangarFloorBay, pickSceneHit, truckLivery } from './aircraft3d.js';
+// ⚠ THE DERIVATION, NOT A CATALOGUE. Everything else this panel draws comes off the wire (see the
+// ⚠ in paintTab) — but a mixed interior is previewed while the player is still dragging the well,
+// so there is no committed value for the server to have sent. This is the same function the cab
+// renderer resolves a mixed colourway through, imported rather than reimplemented, which is what
+// makes the picture and the cab provably the same three-picks-to-fourteen-values arithmetic.
+import { customColourway, CUSTOM_COL } from '../../../shared/cab-trim.js';
 import { suppressWeatherFx } from './weather-fx.js';
 
 let B = null;             // { data, screen, selId, inspect, bench }
@@ -566,10 +572,29 @@ const PAINT_FIELDS = [
   ['glow',   'Running lights', 'The strip under the glass, and the roof pod.'],
   ['glass',  'Glass',          'The tint in the panes.'],
 ];
+// ── AND THE THREE THE INSIDE IS MIXED FROM ───────────────────────────────────
+// The interior's answer to PAINT_FIELDS, and it is three rows rather than fourteen for the reason
+// stated at length in client/shared/cab-trim.js: eleven of a colourway's values are one of these
+// three at a different strength, so wells for them would be eleven ways to make a cab that does
+// not look like anything. Same shape as the exterior rows — where you would point, and what
+// changes when you move it.
+const MIX_FIELDS = [
+  ['panel',  'Panel',     'The slab in front of you, and most of the cab by area.'],
+  ['needle', 'Needle',    'The one moving thing you look at.'],
+  ['glow',   'Backlight', 'What your face is lit by at night, and the tint on every edge.'],
+];
 // The sections of the booth. Four short screens beat one long one: the pane is a sidebar and the
 // catalogue is now seven colours, fifteen paint jobs, eight coats, eleven pictures, four materials
 // and seven interiors — which as a single scroll is a wall nobody reads to the bottom of.
-const PAINT_SECTIONS = [['scheme', 'Schemes'], ['colour', 'Colours'], ['graphic', 'Graphics'], ['inside', 'Inside']];
+//
+// ⚠ AND THE LINE BETWEEN TWO OF THEM IS "IS IT PAINT", NOT "IS IT A COLOUR WELL". The PAINT JOB and
+// the FINISH COAT sat under Graphics on the grounds that they are lists rather than colour pickers,
+// which is a fact about the WIDGET and not about the thing being bought. Both are paint: a flash is
+// a second colour laid over the cab and a coat is what goes on top of the lot, and a player looking
+// for "the wave one" was looking under Paint and finding seven colour wells. So Paint is now the
+// whole respray — the colours, the job and the coat — and Graphics is what is PRINTED on the truck,
+// which is one row and is honest about being one row.
+const PAINT_SECTIONS = [['scheme', 'Schemes'], ['colour', 'Paint'], ['graphic', 'Graphics'], ['inside', 'Inside']];
 
 // ── THE BOOTH ────────────────────────────────────────────────────────────────
 // Seven colours, fifteen paint jobs, eight finish coats, eleven pictures for the door and an
@@ -655,6 +680,8 @@ function paintSchemes(t) {
 // actually do, and reading it back out of a native colour dialog is four clicks.
 function paintColours(t) {
   const cur = paintNow();
+  const swatches = (rows, key) => (rows || []).map(r =>
+    `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
   const rows = PAINT_FIELDS.map(([k, label, note]) => `
       <label class="td-crow${k === 'bright' && !cur.chrome ? ' off' : ''}">
         <input type="color" class="td-col" data-paint="${k}" value="${esc(cur[k])}" aria-label="${esc(label)}">
@@ -665,21 +692,22 @@ function paintColours(t) {
       <div class="td-lab">Where the paint goes</div>
       <div class="td-crows">${rows}</div>
       <label class="td-check"><input type="checkbox" data-paint="chrome" ${cur.chrome ? 'checked' : ''}> Brightwork polished<span class="td-dim"> — off blacks it out to the hardware colour</span></label>
+      <div class="td-lab">Paint job<span class="td-dim"> — what the flash colour above is laid on in</span></div>
+      <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
+      <div class="td-lab">Finish coat<span class="td-dim"> — the only thing that moves the price</span></div>
+      <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
       ${paintFoot(t)}`;
 }
 
 // ── Graphics ─────────────────────────────────────────────────────────────────
-// The three lists that are not colours: what is painted ON the cab, what coat it is under, and what
-// is on the door. One widget, three rows of it.
+// What is PRINTED on the truck, as opposed to what it is painted — one row, because there is one
+// thing on a rig you read rather than look at, and it is the door. (The paint job and the coat used
+// to be up here; see the ⚠ on PAINT_SECTIONS for why they are not.)
 function paintGraphics(t) {
   const cur = paintNow();
   const swatches = (rows, key) => (rows || []).map(r =>
     `<button class="td-swatch${cur[key] === r.id ? ' on' : ''}" data-paintpick="${key}" data-paintval="${esc(r.id)}">${esc(r.label || r.id)}</button>`).join('');
   return `
-      <div class="td-lab">Paint job</div>
-      <div class="td-swatches">${swatches(B.data.flashes, 'flash')}</div>
-      <div class="td-lab">Finish coat<span class="td-dim"> — the only thing that moves the price</span></div>
-      <div class="td-swatches">${swatches(B.data.finishes, 'finish')}</div>
       <div class="td-lab">On the door</div>
       <div class="td-swatches">${swatches(B.data.arts, 'art')}</div>
       <div class="td-dim td-note">The name on the door is the plate: <code>rig name ${esc(t.id)} &lt;plate&gt;</code>.</div>
@@ -709,10 +737,27 @@ function paintInside(t) {
         ${esc(c.id)}</button>`;
   };
   const matRow = (m) => `<button class="td-swatch${cur.mat === m.id ? ' on' : ''}" data-trimpick="mat" data-trimval="${esc(m.id)}" title="${esc(m.blurb || '')}">${esc(m.label)}</button>`;
+  // The mix, as one more swatch on the end of the book — so the way BACK to it after trying oxblood
+  // is the same click as the way to oxblood. It only appears once there is one to go back to.
+  const mixSwatch = () => {
+    const d = customColourway(mixNow(cur)); if (!d) return '';
+    const g = `linear-gradient(160deg, ${esc(d.dash[0])}, ${esc(d.dash[1])} 62%, ${esc(d.dash[2])})`;
+    return `<button class="td-tswatch${cur.col === CUSTOM_COL ? ' on' : ''}" data-trimpick="col" data-trimval="${CUSTOM_COL}" title="Your own mix">
+        <span class="td-tchip" style="background:${g}"><i style="background:${esc(d.needle)};box-shadow:0 0 6px ${esc(d.glow)}"></i></span>
+        yours</button>`;
+  };
+  const wells = MIX_FIELDS.map(([k, label, note]) => `
+      <label class="td-crow">
+        <input type="color" class="td-col" data-trimcol="${k}" value="${esc(mixNow(cur)[k])}" aria-label="${esc(label)}">
+        <span class="td-cname">${esc(label)}<span class="td-dim">${esc(note)}</span></span>
+        <code class="td-chex">${esc(String(mixNow(cur)[k] || '').toUpperCase())}</code>
+      </label>`).join('');
   return `
       ${dashPreview(cur)}
       <div class="td-lab">Colourway<span class="td-dim"> — the light you drive by</span></div>
-      <div class="td-tswatches">${cols.map(swatch).join('')}</div>
+      <div class="td-tswatches">${cols.map(swatch).join('')}${cur.cust ? mixSwatch() : ''}</div>
+      <div class="td-lab">Or mix your own<span class="td-dim"> — three picks, and the rest of the cab follows them</span></div>
+      <div class="td-crows${cur.col === CUSTOM_COL ? ' on' : ''}">${wells}</div>
       <div class="td-lab">Material</div>
       <div class="td-swatches">${mats.map(matRow).join('')}</div>
       <div class="td-acts">
@@ -721,6 +766,19 @@ function paintInside(t) {
       </div>
       <div class="td-dim td-note">The bench does not sell instruments. What is in the binnacle came with the truck.</div>`;
 }
+
+// The mix currently on the wells: the player's own if they have one, otherwise the colourway they
+// are WEARING taken apart into its three picks — so the wells open on the cab you are sitting in
+// rather than on a default nobody chose, and nudging one is an edit to that rather than a jump.
+function mixNow(cur) {
+  if (cur.cust) return cur.cust;
+  const c = (B.data.dashColourways || []).find(r => r.id === cur.col) || {};
+  return { panel: (c.dash || [])[0] || '#3b414a', needle: c.needle || '#e8c07a', glow: c.glow || '#9fb4c4' };
+}
+// The colours the mock is drawn from: a catalogue row, or the same fourteen values the renderer
+// will derive from the three picks. One function, so the picture cannot promise a cab the
+// windscreen then refuses to draw.
+const trimColours = (cur) => (cur.col === CUSTOM_COL ? customColourway(mixNow(cur)) : (B.data.dashColourways || []).find(r => r.id === cur.col)) || {};
 
 // The material's grain, as the one thing about it a still picture can show. These are not the
 // renderer's tiles (cabDashTex builds those procedurally at cab scale) and are not pretending to
@@ -737,7 +795,7 @@ const DASH_GRAIN = {
 // reads them. CSS rather than a canvas because it is a STILL — nothing here animates, and a canvas
 // would be a second rAF for a picture that only changes when you click.
 function dashPreview(cur) {
-  const c = (B.data.dashColourways || []).find(r => r.id === cur.col) || {};
+  const c = trimColours(cur);
   const m = (B.data.dashMaterials || []).find(r => r.id === cur.mat) || {};
   const d = c.dash || ['#3b414a', '#1e2228', '#0d0f12'];
   const hdr = c.hdr || ['#16181c', '#23262b'];
@@ -754,7 +812,7 @@ function dashPreview(cur) {
           <span class="td-dm-dials">${dial(-38)}${dial(24)}</span>
         </span>
       </div>
-      <div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.stock === false ? ' — a bench colour, on no truck from the factory' : ''}</div>`;
+      <div class="td-dim td-note td-dm-cap">${esc([c.label || 'stock', m.label || 'stock'].join(', '))}${c.custom ? ' — nobody else is driving this one' : c.stock === false ? ' — a bench colour, on no truck from the factory' : ''}</div>`;
 }
 
 // What the booth will charge for the paint CURRENTLY ON THE DIALS. The scale is the server's — it
@@ -771,10 +829,22 @@ function trimNow(t) {
   return { ...((sel && sel.trim) || {}), ...(B.bench.trim || {}) };
 }
 // `rig trim` is ORDER-FREE and takes bare words — a material and a colourway cannot be confused for
-// one another — so the command is simply whichever of the two changed, in either order.
+// one another — so the command is simply whichever of the two changed, in either order. The mix is
+// the one part that is NAMED (`panel=#…`), because three hexes in a row say nothing about which is
+// which, and naming any of them already means the custom colourway — so this never sends the word.
+//
+// ⚠ AND A MIX IS COMPARED BY ITS THREE PICKS, NEVER BY THE WORD 'custom'. Both sides of the
+// comparison say `custom` the moment a driver has one fitted, so keying on the name would make
+// every further nudge of a well a no-op with a dead button, which is indistinguishable from the
+// panel being broken.
 function trimCmd(t, cur) {
   const was = t.trim || {};
-  const parts = ['mat', 'col'].filter(k => cur[k] && cur[k] !== was[k]).map(k => cur[k]);
+  const parts = [];
+  if (cur.mat && cur.mat !== was.mat) parts.push(cur.mat);
+  if (cur.col === CUSTOM_COL) {
+    const now = mixNow(cur), fitted = was.col === CUSTOM_COL ? (was.cust || null) : null;
+    if (!fitted || MIX_FIELDS.some(([k]) => now[k] !== fitted[k])) parts.push(...MIX_FIELDS.map(([k]) => `${k}=${now[k]}`));
+  } else if (cur.col && cur.col !== was.col) parts.push(cur.col);
   return parts.length ? `rig trim ${t.id} ${parts.join(' ')}` : null;
 }
 
@@ -896,6 +966,24 @@ function onInput(e) {
     }
     return;
   }
+  // A mix well. Same no-re-render rule as the paint wells below and for the same reason — the DOM
+  // cannot be rebuilt under a live native colour picker — so the two things that are facts about
+  // the COLOUR (the hex beside it, and the mock above it) are patched in place, and the commit
+  // button, which cannot repaint itself, is refreshed.
+  //
+  // ⚠ TOUCHING A WELL SELECTS THE MIX. It has to: a driver dragging the needle colour while
+  // 'moss' is still the fitted colourway is telling you what they want, and leaving the swatch
+  // selected would mean the preview moves, the button lights, and the cab comes back green.
+  if (el.dataset.trimcol) {
+    const t = selected(); if (!t) return;
+    const cur = trimNow(t);
+    B.bench.trim = { ...cur, col: CUSTOM_COL, cust: { ...mixNow(cur), [el.dataset.trimcol]: el.value } };
+    const hex = el.parentElement && el.parentElement.querySelector('.td-chex');
+    if (hex) hex.textContent = String(el.value || '').toUpperCase();
+    syncDashMock(trimNow(t));
+    refreshTrimCommit(t);
+    return;
+  }
   if (el.dataset.paint) {
     const t = selected(); if (!t) return;
     const key = el.dataset.paint;
@@ -912,6 +1000,42 @@ function onInput(e) {
     refreshPaintCommit(t);
     return;
   }
+}
+
+// The retrim button, kept in step with a colour drag. The interior is a SEPARATE purchase from the
+// paint, so it has its own — see the ⚠ on B.bench.trim in the click handler.
+function refreshTrimCommit(t) {
+  const btn = document.querySelector('.td-side .td-act.primary');
+  if (!btn) return;
+  const cmd = trimCmd(t, trimNow(t));
+  btn.disabled = !cmd;
+  btn.dataset.cmd = cmd || '';
+  const ghost = document.querySelector('.td-side .td-act.ghost[data-trim-reset]');
+  if (ghost) ghost.disabled = !cmd;
+}
+// The mock, repainted without rebuilding it. Every value here is read out of the same
+// `trimColours` the markup was built from, so this is the identical picture and not a second
+// attempt at one — if you add a surface to dashPreview, add it here or it freezes mid-drag.
+function syncDashMock(cur) {
+  const root = document.querySelector('.td-dashmock');
+  if (!root) return;
+  const c = trimColours(cur);
+  const d = c.dash || ['#3b414a', '#1e2228', '#0d0f12'], hdr = c.hdr || ['#16181c', '#23262b'];
+  const face = c.face || ['#171a1f', '#0a0c0f'];
+  const needle = c.needle || '#e8c07a', glow = c.glow || '#9fb4c4';
+  const set = (sel, prop, v) => { const el = root.querySelector(sel); if (el) el.style[prop] = v; };
+  set('.td-dm-hdr', 'background', `linear-gradient(180deg, ${hdr[0]}, ${hdr[1]})`);
+  set('.td-dm-slab', 'background', `linear-gradient(168deg, ${d[0]}, ${d[1]} 58%, ${d[2]})`);
+  set('.td-dm-lip', 'background', c.lip || 'rgba(190,205,225,0.16)');
+  for (const dial of root.querySelectorAll('.td-dial')) {
+    dial.style.background = `radial-gradient(circle at 50% 38%, ${face[0]}, ${face[1]})`;
+    dial.style.boxShadow = `inset 0 0 0 2px ${c.ring || 'rgba(150,165,185,0.28)'}, 0 0 12px ${glow}`;
+    const n = dial.querySelector('i');
+    if (n) { n.style.background = needle; n.style.boxShadow = `0 0 5px ${needle}`; }
+  }
+  const cap = document.querySelector('.td-dm-cap');
+  const m = (B.data.dashMaterials || []).find(r => r.id === cur.mat) || {};
+  if (cap) cap.textContent = [c.label || 'stock', m.label || 'stock'].join(', ') + (c.custom ? ' — nobody else is driving this one' : '');
 }
 
 // The paint currently on the dials: the server's truck, whatever the bench has edited on top of
@@ -966,6 +1090,10 @@ function pickOnFloor(e) {
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
   const best = pickSceneHit(sceneHits, x, y);   // the rig's own silhouette, not a circle on the floor
+  // A TRAILER IS ON THE FLOOR BUT IT IS NOT A SELECTION. Everything the side pane, the bench and
+  // the toolbar draw is read out of a FLEET row, so selecting a box would empty all three and the
+  // panel would sit there insisting nothing of yours is here while you looked at your own trailer.
+  if (best && !(B.data.fleet || []).some(t => t.id === best.id)) return;
   if (best && best.id !== B.selId) { B.selId = best.id; B.bench.tune = null; B.bench.paint = null; B.bench.trim = null; render(); }
 }
 
@@ -1000,8 +1128,22 @@ function startSpin() {
         // sitting across the bumper of the thing it was labelling.
         // Every rig on the floor is PARKED, because a running one is a rig you are sitting in and
         // that view is the cab, not the yard.
-        entries: (B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
-          variant: `${t.variant}~p` })),
+        // ⚠ AND THE BOXES. The floor drew the FLEET and nothing else, so a trailer you had just
+        // paid for appeared on no screen in the building it was standing outside — the yard is
+        // where you buy one, and the yard was the one place it did not exist. `~s` is the solo
+        // mesh (the box with the tractor thrown away, the same variant `trailersNear` draws out on
+        // the hardstand), and the shape comes from the RATING for the reason it does there: a
+        // trailer row carries no mesh of its own and its capacity already says how big it is.
+        //
+        // Only the ones standing HERE. A box on the pin is drawn under the truck that is towing it
+        // (that is what `+t` on the fleet variant is), and one at another yard is somewhere else.
+        entries: [
+          ...(B.data.fleet || []).map(t => ({ id: t.id, cls: 'truck', livery: liveryOf(t),
+            variant: `${t.variant}~p` })),
+          ...(B.data.trailers || []).filter(t => t.hereNow).map(t => ({
+            id: t.id, cls: 'truck', variant: `${boxShape(t.ratedKg)}+t~s`,
+          })),
+        ],
       });
     }
     const hero = root.querySelector('#td-hero');
@@ -1057,6 +1199,13 @@ function startSpin() {
 // showed you the truck you already had, and the only way to find out what teal looked like was to
 // pay for teal. A half-turned dial is not a lie about the world here: nothing is committed, the
 // button still says what it will cost, and the model in front of you is the one you are describing.
+// WHICH BOX TO DRAW, off the one number that already says how big the thing is. The server's own
+// `meshShapeFor` (plugins/trucking/trailers.js) picks the same way for the world renderer, and the
+// two must agree or a trailer changes length when you walk out of the shed.
+function boxShape(ratedKg) {
+  const r = ratedKg || 0;
+  return r >= 5000 ? 'continental' : r >= 3200 ? 'drayman' : r >= 2000 ? 'hauler' : 'scrapper';
+}
 function liveryOf(t, live = false) {
   const p = (live && B?.bench?.paint && t.id === B.selId)
     ? { ...(B.data.paintDefault || {}), ...(t.paint || {}), ...B.bench.paint } : t.paint;
@@ -1344,6 +1493,9 @@ function ensureStyles() {
     padding:5px 6px;border-radius:7px;cursor:pointer}
   .td-crow:hover{background:var(--td-surf-lo)}
   .td-crow.off{opacity:.45}
+  /* The mix, while it is the one fitted. Same accent the selected swatch wears, so "this is the
+     one you have chosen" reads the same on a row of wells as it does on a row of buttons. */
+  .td-crows.on{box-shadow:inset 2px 0 0 var(--td-accent);padding-left:6px;border-radius:7px}
   .td-cname{display:flex;flex-direction:column;gap:1px;font:700 11.5px/1.1 'Courier New',monospace;
     letter-spacing:.6px;text-transform:uppercase;color:var(--td-fg)}
   .td-cname .td-dim{font:400 11px/1.25 inherit;letter-spacing:0;text-transform:none}

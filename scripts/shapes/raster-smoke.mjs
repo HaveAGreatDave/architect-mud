@@ -7,7 +7,8 @@
 //
 // So the assertions are pixels, not order. And the faces are handed over in the WORST order (near
 // first), because a rasteriser that only works when the input is already sorted is a sort.
-import { rasterFaces, readPixels, depthAt, _resetRasterBuffer, rasterDepth, depthTarget, maskRaster, depthWinAt } from '../../client/game/js/panels/model-raster.js';
+import { rasterFaces, readPixels, depthAt, _resetRasterBuffer, rasterDepth, depthTarget, maskRaster, depthWinAt,
+         lightBasis, lightProject, rasterShadow, shadeRaster, shadowDepthAt } from '../../client/game/js/panels/model-raster.js';
 
 const quad = (x0, y0, x1, y1, z, r, g, b) => ({
   pts: [{ x: x0, y: y0, z }, { x: x1, y: y0, z }, { x: x1, y: y1, z }, { x: x0, y: y1, z }],
@@ -129,5 +130,110 @@ export function rasterSmoke() {
     const fresh = rasterDepth(T, [], 0, 0, 40, 40);
     if (depthWinAt(fresh, 5, 20) !== Infinity) out.push('a non-accumulating raster kept last frame’s occluders');
   }
+
+  // ── THE LIGHT PASS ─────────────────────────────────────────────────────────
+  // A 4x4 slab of ground at world z=0, drawn flat at a constant camera depth, with a 2x2 lid
+  // floating over the middle of it and the sun straight overhead. Everything below is about that
+  // one arrangement, because it is the smallest thing that has an inside and an outside.
+  const slab = () => ({
+    pts: [{ x: 0, y: 0, z: 10 }, { x: 40, y: 0, z: 10 }, { x: 40, y: 40, z: 10 }, { x: 0, y: 40, z: 10 }],
+    w: [[-2, -2, 0], [2, -2, 0], [2, 2, 0], [-2, 2, 0]],
+    n: [0, 0, 1], r: 200, g: 200, b: 200, a: 255,
+  });
+  const LID = [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
+  const SUN = [0, 0, 1];
+  const rigOf = (f, extra) => Object.assign({ faces: [f], ambient: 0.82, sunGain: 0.5, sunStr: 1, sun: SUN }, extra);
+
+  // 8. THE NO-OP INVARIANT, AND IT IS THE LOAD-BEARING ONE. The colour in the buffer is the finished
+  //    flat shade the canvas fallback also paints. A light pass with nothing to say must therefore
+  //    leave it BYTE-IDENTICAL — the moment it does not, there are two lighting models in the
+  //    renderer and a truck changes appearance whenever the blit does not land.
+  {
+    const f = slab();
+    const res = rasterFaces([f], 0, 0, 40, 40, 1, true);
+    if (!res || !res.lit) out.push('a face carrying world verts and a normal was not lit — the G-buffer never allocated');
+    else {
+      const a = readPixels(res).data.slice();
+      shadeRaster(res, rigOf(f));
+      const b = readPixels(res).data;
+      if (!a.every((v, i) => v === b[i])) out.push('a light pass with no shadow map and no lamps CHANGED the picture — the flat shade and the lit shade have drifted apart');
+    }
+  }
+
+  // 9. THE SHADOW ITSELF. Under the lid is darker; outside it is untouched, to the byte.
+  {
+    const f = slab();
+    const res = rasterFaces([f], 0, 0, 40, 40, 1, true);
+    const B = lightBasis(0, 0, 0, SUN, 3, 64);
+    const map = rasterShadow(depthTarget(), [LID], B);
+    if (!map) out.push('the shadow pass drew nothing from four world corners');
+    else {
+      const before = readPixels(res);
+      shadeRaster(res, rigOf(f, { shadow: { map, strength: 1 } }));
+      const after = readPixels(res);
+      const mid = pix(after, 20, 20), edge = pix(after, 3, 3), was = pix(before, 3, 3);
+      if (!(mid[0] < 190)) out.push('the pixel directly under a lid between it and the sun was not darkened — the shadow map is not being sampled');
+      if (edge[0] !== was[0] || edge[1] !== was[1] || edge[2] !== was[2]) out.push('a pixel in open sunlight was changed by the shadow pass — the map is leaking outside the caster');
+    }
+  }
+
+  // 10. AND IT LANDS ON THE AMBIENT, NOT ON AN INVENTED NUMBER. At full strength a shadowed pixel
+  //     must equal the value the SAME face would have had turned away from the sun — that identity
+  //     is the whole reason this pass is allowed to touch a colour it did not compute.
+  {
+    const f = slab();
+    const res = rasterFaces([f], 0, 0, 40, 40, 1, true);
+    const B = lightBasis(0, 0, 0, SUN, 3, 64);
+    const map = rasterShadow(depthTarget(), [LID], B);
+    shadeRaster(res, rigOf(f, { shadow: { map, strength: 1 } }));
+    const got = pix(readPixels(res), 20, 20)[0];
+    const want = Math.round(200 * 0.82 / (0.82 + 0.5));   // ambient / (ambient + full sun)
+    if (Math.abs(got - want) > 2) out.push(`a fully shadowed pixel came out ${got}, but the same face facing away from the sun is ${want} — the shadow is inventing its own darkness`);
+  }
+
+  // 11. THE ORTHOGRAPHIC DEPTH IS LINEAR. A caster tilted through the light's frame must record a
+  //     depth halfway along at the halfway VALUE. Interpolating 1/z here — the rule that is right
+  //     for the camera — bows it, and a bowed caster shadow-acnes a stripe through every big face.
+  {
+    const B = lightBasis(0, 0, 0, SUN, 4, 64);
+    const map = rasterShadow(depthTarget(), [[[-2, -2, 0], [2, -2, 4], [2, 2, 4], [-2, 2, 0]]], B);
+    const mid = shadowDepthAt(map, 32, 32);
+    if (!(Math.abs(mid - -2) < 0.25)) out.push(`a caster ramping 0→4 through the light's frame reads ${mid.toFixed(3)} at its midpoint instead of -2 — the shadow pass is interpolating 1/z, not z`);
+  }
+
+  // 12. OFF THE MAP IS OPEN SKY. The frame is fitted to the model, so a pixel landing outside it is
+  //     a rounding case at the rim — and the conservative answer there is LIT, matching every other
+  //     margin in the file. Getting this backwards puts a black band around the whole model.
+  {
+    const f = slab();
+    const res = rasterFaces([f], 0, 0, 40, 40, 1, true);
+    const B = lightBasis(40, 40, 0, SUN, 1, 32);        // a frame nowhere near the slab
+    const map = rasterShadow(depthTarget(), [LID], B);
+    const before = readPixels(res).data.slice();
+    shadeRaster(res, rigOf(f, { shadow: { map, strength: 1 } }));
+    const after = readPixels(res).data;
+    if (!before.every((v, i) => v === after[i])) out.push('a model outside the shadow map\'s own frame was darkened — off the map must read as open sky, not as shadow');
+  }
+
+  // 13. A LAMP ADDS, AND ONLY WITHIN ITS RADIUS.
+  {
+    const f = slab();
+    const res = rasterFaces([f], 0, 0, 40, 40, 1, true);
+    shadeRaster(res, rigOf(f, { sunStr: 0, lights: [{ p: [0, 0, 0.5], c: [0, 0, 255], rad: 1.5, str: 1 }] }));
+    const img = readPixels(res);
+    const near = pix(img, 20, 20), far = pix(img, 3, 3);
+    if (!(near[2] > 210)) out.push('a lamp 0.5 above a surface inside its radius added no light to it');
+    if (far[2] !== 200) out.push('a lamp added light to a pixel outside its own radius — the falloff has no reach limit');
+  }
+
+  // 14. AN UNLIT CALLER ALLOCATES AND CHANGES NOTHING. Every airframe, every thumbnail and every
+  //     contact across a yard goes through this path, and it must be the code that shipped before.
+  {
+    const res = rasterFaces([quad(0, 0, 40, 40, 5, 0, 255, 0)], 0, 0, 40, 40);
+    if (res.lit) out.push('a caller that never asked to be lit came back lit — the G-buffer is being allocated for everything');
+    if (shadeRaster(res, rigOf(slab(), { lights: [{ p: [0, 0, 1], c: [255, 0, 0], rad: 9, str: 1 }] })))
+      out.push('the light pass shaded an unlit buffer — it is reading a G-buffer that was never filled');
+  }
+
   return out;
 }

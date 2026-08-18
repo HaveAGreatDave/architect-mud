@@ -412,7 +412,8 @@ export const paintCost = (type, paint = null) =>
 // `dials`/`band`/`lamps` are the fleet ladder and the ladder's teeth are INFORMATION. The renderer
 // enforces the same boundary independently (cabTrim reads two keys by name rather than spreading
 // the override), so this is stated twice on purpose.
-export { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway } from '../../client/shared/cab-trim.js';
+export { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway,
+  sanitizeCustomTrim, customColourway, isTrimHex, CUSTOM_COL } from '../../client/shared/cab-trim.js';
 // Cheaper than a respray and flatter across the fleet: an interior is an interior, and the surface
 // area of a dashboard does not scale with the size of the truck the way a cab's panels do. A floor
 // keeps it from being free on the cheapest rig, where it is the change that matters most.

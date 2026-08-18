@@ -48,7 +48,8 @@ import { fleetOf, trucksAt, getTruck, buyTruck, sellTruck, persistTruck, resaleV
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
   repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, PAINT_DEFAULT, presetPaint, startTrouble, wearForImpact, burnMul,
   BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM,
-  DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost } from './rig.js';
+  DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost,
+  sanitizeCustomTrim, isTrimHex, CUSTOM_COL } from './rig.js';
 import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
@@ -77,6 +78,14 @@ const say = (msg) => ({ type: 'emote', message: msg });
 // Below this, a contact is a scrape and nobody calls anybody. Above it, you have demolished part of
 // a street at the wheel of several tonnes, and in a city that is witnessed.
 const RECKLESS_MPH = 22;
+
+// The derelict's cold start. Named because TWO rungs spend it now (the text rung as it pulls out,
+// the visual rung the first time the ignition comes back true through telemetry), and a line of
+// prose written down twice is a line that drifts.
+// How often the ROOM is told about a horn, however many times the cord is pulled. The sound has no
+// cooldown at all and must not get one — see cmdHorn.
+const HORN_SAY_MS = 60_000;
+const HARD_START_LINE = '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>';
 
 // ── drive ────────────────────────────────────────────────────────────────────
 // Get in the rig. A haul STARTS AT A DEPOT and ends at one: you pull out of the yard, drive the
@@ -167,9 +176,13 @@ async function cmdDrive(args, raw, player) {
   // A DERELICT ARGUES ABOUT IT FIRST. Never a refusal — a truck that simply will not start strands
   // a player at a yard with their money tied up in it and nothing to do, which is a punishment with
   // no play in it. It is a delay and a noise, and it is the last warning before the bench.
-  if (startTrouble(owned.condition)) {
-    sendToPlayer(player.id, { type: 'emote', message: '<span class="text-amber">It turns over, and over, and does not catch. You wait. You try it again and it goes, in a cloud of something that should not be blue.</span>' });
-  }
+  //
+  // ⚠ THE ROLL IS AT THE MOUNT; THE LINE WAITS FOR THE KEY. It used to fire here, which was honest
+  // while mounting started the engine and is a lie now that it does not — a truck that has not been
+  // started cannot be turning over. So the outcome is stashed on the rig and spent by whichever
+  // rung actually starts it: the text rung a few lines down, where pulling out IS the start, or the
+  // visual rung's first catch (see cmdTruckSync, which already learns the ignition from telemetry).
+  const hardStart = startTrouble(owned.condition);
 
   // ⚠ WHERE IT STANDS AND WHERE IT LIVES ARE TWO DIFFERENT ANSWERS, and only the first one moved.
   // `x`/`y` are the door tile now, because that is where the truck physically is. `depot` is the
@@ -179,6 +192,7 @@ async function cmdDrive(args, raw, player) {
   // would have been "you don't own a truck here" while sitting in it.
   const rig = mountRig(player, { x: here.grid_x, y: here.grid_y, heading: spot.heading, depot: yardId || here.id });
   rig.zoneId = here.id;
+  rig._hardStart = hardStart;      // spent by whichever rung actually turns the key — see above
   // WHATEVER IS STANDING AT THIS DEPOT, so it is drawn from the first frame. Both tiles, because
   // you mount on the DOOR and the stock stands on the HARDSTAND — one refresh meant a driver
   // starting the engine looked out at an empty yard until the wheels crossed the boundary.
@@ -228,6 +242,11 @@ async function cmdDrive(args, raw, player) {
     // answers "already behind the wheel", and the player is looking at a shop window they cannot
     // leave. A text driver's road is the LOG, so the pane must be given back to the room.
     sendToPlayer(player.id, { type: 'truck_depot_close' });
+    // A TEXT DRIVER HAS NO IGNITION, so pulling out is the start — the rung's own prose has always
+    // said the diesel catches, and there is no switch anywhere on it to disagree with. Set before
+    // the narration so the cold-start line below tells the truth.
+    rig.engineOn = true;
+    if (rig._hardStart) { rig._hardStart = false; sendToPlayer(player.id, { type: 'emote', message: HARD_START_LINE }); }
     const dest = rig.cargo?.to || defaultRunTarget(here);
     startTextDrive(player, rig, { arrive, leaveTheMap });
     setTextTarget(player.id, dest);
@@ -254,7 +273,9 @@ async function cmdDrive(args, raw, player) {
   const rollUp = fromShed
     ? ` The roller door grinds up in front of you, a bar of daylight at a time.`
     : '';
-  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. The diesel catches on the second turn, and the whole frame starts to shake.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`);
+  return say(`<span class="text-green">You haul yourself up into the cab and pull the door to. It is cold in here and nothing is running — the key is in the barrel where you left it.${rollUp} ${depot.name ? `${depot.name}'s` : 'The yard'} gate is open, and the road runs south.</span>`
+    + `
+<span class="text-dim">Turn the key — <b>K</b>, or the barrel on the shelf — and hold it until she catches.</span>`);
 }
 
 // Where a text run heads when the deck is empty: the nearest depot in ANOTHER region, which means
@@ -368,7 +389,22 @@ export function mountSpot(stood) {
   const yard = getZone(yardIdOf(stood, depot));
   return { zone: (yard && yard.grid_x != null) ? yard : stood, heading: 180, fromShed: false, depot };
 }
-const depotZonesOf = (zone, depot) => [zone?.id, depot?.yard].filter(Boolean);
+// ⚠ A DEPOT IS THREE TILES AND THIS USED TO NAME TWO OF THEM — the one you are standing on, and
+// the depot's own `yard`. Standing IN the bay that was [bay, apron] and everything worked. Standing
+// on the APRON it was [apron, apron]: the bay was not in the set at all, and `park` stores a truck
+// in the BAY (see parkRig — a rig belongs under the roof, not on a public street). So parking at a
+// yard and then trying to drive away from the hardstand answered "Your Ostrek Courier is parked at
+// Kessler Street Yard, not here" while you were standing in Kessler Street Yard looking at it.
+//
+// The set is now the whole PLACE, whichever of its tiles you hand it: the shed, its facade — the
+// door tile a driver mounts on, which `yardIndex` has resolved to its depot since the walk-in
+// rebuild — and the hardstand outside. Every ownership lookup, the bench, the pump and the horn ask
+// through here, so all of them agree about what "here" means for the price of one function.
+const depotZonesOf = (zone, depot) => {
+  const bay = depotAt(zone) ? zone : (bayForYard(zone?.id)?.zone || null);
+  const d = depot || depotAt(bay);
+  return [...new Set([zone?.id, bay?.id, d?.yard, bay?.flags?.world_exit_zone].filter(Boolean))];
+};
 // The bay a yard tile belongs to — the reverse lookup, for prose on the apron and for `park`.
 // MEMOISED, because the caller is `zone.describeRoom`: this answers a question asked every time
 // anybody looks at any room in the game, and a full `getAllZones()` sweep per look is exactly the
@@ -804,6 +840,13 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
       id, label: c.label, stock: !!c.stock,
       dash: c.dash, hdr: c.hdr, face: c.face, needle: c.needle, glow: c.glow, ring: c.ring, lip: c.lip,
     })),
+    // ⚠ THERE IS NO 'dashCustom' ROW HERE, AND THAT IS DELIBERATE. Every other catalogue on this
+    // screen is the server's because the client must not invent a vocabulary — but a mixed
+    // interior is not a vocabulary, it is a DERIVATION, and the bench previews it while the player
+    // is still dragging the well. A server-sent preview could only ever show the last committed
+    // mix, which is the one thing they are not looking at. So the panel runs customColourway out
+    // of client/shared/cab-trim.js — the same function this file's renderer resolves the cab
+    // through — and the two cannot drift because there is only one of it.
     finishMul: Object.fromEntries(FINISHES.map(f => [f.id, +(paintCost({ price: 100000 }, f) / paintCost({ price: 100000 }, { finish: 'gloss' })).toFixed(3)])),
     fuelHere: pumpHere,
     board: boardFor(here.id),
@@ -1106,7 +1149,7 @@ async function cmdRig(args, raw, player) {
   if (sub === 'trim' || sub === 'interior') return await rigTrim(player, truck, cd, rest);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;] | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… bright=… glow=… glass=… flash=… finish=… art=…] | rig trim [&lt;material&gt;] [&lt;colourway&gt;|panel=… needle=… glow=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -1429,16 +1472,42 @@ async function rigPaint(player, truck, cd, args) {
 // so `rig trim walnut wood` and `rig trim wood walnut` are the same sentence and both work. The
 // alternative is a positional grammar that makes a player remember which slot is which for a
 // choice they make about twice in a career.
+//
+// ── AND ONE OF THE COLOURWAYS IS YOURS ───────────────────────────────────────
+// `panel=#4a1f2e needle=#ffd489 glow=#c07a34` mixes one instead of picking one, and those three
+// picks are all a colourway needs — see the ⚠ in client/shared/cab-trim.js for why it is three and
+// not fourteen. NAMED arguments, where the swatches are bare words, for the reason `rig paint`'s
+// are: a bare hex says nothing about which of the three it is, and three positional colours is a
+// grammar nobody can hold. Naming any of them implies the custom colourway, so nobody has to say
+// both, and an unnamed one falls back to the mix already stored — which is what makes "same again,
+// but a green needle" one argument rather than three.
+//
+// ⚠ AND IT IS STILL ONE JOB AT ONE PRICE. Mixing is not a premium: the bench charges for the
+// retrim, and what it costs to spray a dashboard does not depend on whether the colour came off a
+// card. A surcharge here would be the panel charging for the absence of a limitation.
 async function rigTrim(player, truck, cd, args) {
   const mats = Object.entries(DASH_MATERIALS), cols = Object.entries(DASH_COLOURWAYS);
   const now = sanitizeTrim(cd.trim || {}, {});
   const cost = trimCost(truck.type);
   const want = {};
+  const mix = {};
   for (const a of args) {
     const k = String(a || '').toLowerCase();
-    if (isDashMaterial(k)) want.mat = k;
+    const kv = /^(panel|needle|glow)=(.+)$/.exec(k);
+    if (kv) {
+      if (!isTrimHex(kv[2])) return say(`<b>${kv[1]}</b> wants a colour like <span class="text-dim">#4a1f2e</span>, not <b>${kv[2].replace(/[<>]/g, '').slice(0, 16)}</b>.`);
+      mix[kv[1]] = kv[2]; want.col = CUSTOM_COL;
+    } else if (isDashMaterial(k)) want.mat = k;
     else if (isDashColourway(k)) want.col = k;
-    else if (k) return say(`No such trim: <b>${k.replace(/[<>]/g, '')}</b>. Try <span class="text-dim">rig trim</span> on its own for the book.`);
+    else if (k === CUSTOM_COL) {   // refit a mix already stored — the way back after trying a swatch
+      if (!now.cust) return say('You have not mixed one yet. <span class="text-dim">rig trim panel=#4a1f2e needle=#ffd489 glow=#c07a34</span>');
+      want.col = CUSTOM_COL;
+    } else if (k) return say(`No such trim: <b>${k.replace(/[<>]/g, '')}</b>. Try <span class="text-dim">rig trim</span> on its own for the book.`);
+  }
+  if (want.col === CUSTOM_COL) {
+    const c = sanitizeCustomTrim(mix, now.cust || {});
+    if (!c) return say('A mixed interior needs all three: <span class="text-dim">panel</span>, <span class="text-dim">needle</span> and <span class="text-dim">glow</span>.');
+    want.cust = c;
   }
   if (!args.length) {
     // The catalogue. It says what the truck is wearing NOW as well as what is on offer, because
@@ -1451,6 +1520,8 @@ async function rigTrim(player, truck, cd, args) {
       + mats.map(([k, m]) => line(k, m.label, m.blurb, k === (now.mat || truckStockTrim(truck).mat))).join('\n')
       + `\n<span class="text-dim">Colourway:</span>\n`
       + cols.map(([k, c]) => line(k, c.label, '', k === (now.col || truckStockTrim(truck).col))).join('\n')
+      + (now.cust ? '\n' + line(CUSTOM_COL, 'your own mix', `${now.cust.panel} panel, ${now.cust.needle} needle, ${now.cust.glow} glow`, now.col === CUSTOM_COL) : '')
+      + `\n<span class="text-dim">Or mix one: </span><span class="action-link" data-action="cmd" data-cmd="rig trim panel=#4a1f2e needle=#ffd489 glow=#c07a34">panel, needle and glow, in hex</span>`
       + `\n<span class="text-dim">The bench does not sell instruments. What is in the binnacle came with the truck.</span>`);
   }
   const next = sanitizeTrim({ ...now, ...want }, now);
@@ -1462,7 +1533,8 @@ async function rigTrim(player, truck, cd, args) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
-  const said = [next.mat && DASH_MATERIALS[next.mat]?.label, next.col && DASH_COLOURWAYS[next.col]?.label].filter(Boolean).join(', ');
+  const said = [next.mat && DASH_MATERIALS[next.mat]?.label,
+    next.col === CUSTOM_COL ? 'your own mix' : next.col && DASH_COLOURWAYS[next.col]?.label].filter(Boolean).join(', ');
   return say(`<span class="item-grant">Retrimmed — ${cost}₵.</span> ${said}. It smells of glue and it will for a week.`);
 }
 // What the truck LEFT THE FACTORY IN, for the catalogue's "fitted" marks. One mapping, in the
@@ -1477,6 +1549,9 @@ const sanitizeTrimResolved = (raw) => {
   const out = {};
   if (t.mat) out.mat = t.mat;
   if (t.col) out.col = t.col;
+  // The three picks travel with it whether or not the mix is the one FITTED — the panel needs them
+  // to fill its wells with what this driver last chose rather than with a default nobody picked.
+  if (t.cust) out.cust = t.cust;
   return out;
 };
 
@@ -1853,7 +1928,18 @@ async function cmdTruckSync(args, raw, player) {
   const n = args.map(Number);
   if (n.length < 6 || n.some(Number.isNaN)) return { type: 'noop' };
 
+  // ⚠ READ BEFORE THE RECONCILE, because the reconcile is what changes it. A truck now mounts COLD
+  // (state.js), so the first time the ignition comes back true is the driver turning the key — and
+  // that is where a derelict's argument about starting belongs. No new event and no new packet: the
+  // telemetry has carried the ignition bit all along, this only notices the edge.
+  const wasRunning = !!rig.engineOn;
+
   const r = reconcileTruck(rig, { s: n[0], t: n[1], hdg: n[2], spd: n[3], x: n[4], y: n[5] });
+
+  if (!wasRunning && rig.engineOn && rig._hardStart) {
+    rig._hardStart = false;
+    sendToPlayer(player.id, { type: 'emote', message: HARD_START_LINE });
+  }
 
   // Out of diesel, and the low-fuel light. ANNOUNCED, NOT SHORT-CIRCUITED: an early return here
   // skipped every arrival, delivery and node crossing below it, so a rig that ran dry one tile
@@ -2032,14 +2118,34 @@ async function cmdHorn(args, raw, player) {
   }
   // Everyone else in the room, including the sound. Excluding the player is deliberate: their own
   // copy rides back on the emote below, so nobody hears it twice.
+  //
+  // ⚠ THE SOUND EVERY TIME; THE SENTENCE ONCE A MINUTE. These are two different kinds of thing and
+  // they were sharing a cooldown of none. A horn is MEANT to be leaned on — three quick blasts is a
+  // thing drivers do and every one of them should be audible — but three lines of identical prose
+  // in everybody's log is not a horn, it is spam, and the fourth is what makes somebody scroll past
+  // the sentence that mattered. So the packet is unthrottled and the PROSE is on a per-player 60s
+  // gate, kept in RAM on the live rig (or on the player, for somebody honking a parked truck):
+  // nothing about a noise deserves a DB write.
   sendToZone(player.current_zone, { type: 'truck_horn', typeId, secs }, player.id);
-  sendToZone(player.current_zone, { type: 'emote', message:
-    `<span class="text-amber">An air horn goes off somewhere very close to you${secs && secs > 1.6 ? ', and goes on going off' : ''}.</span>` }, player.id);
+  const holder = rig || player;
+  const now = Date.now();
+  const sayIt = !holder._hornSaidAt || now - holder._hornSaidAt > HORN_SAY_MS;
+  if (sayIt) {
+    holder._hornSaidAt = now;
+    sendToZone(player.current_zone, { type: 'emote', message:
+      `<span class="text-amber">An air horn goes off somewhere very close to you${secs && secs > 1.6 ? ', and goes on going off' : ''}.</span>` }, player.id);
+  }
   // ⚠ NOT to the driver when they held it themselves: the cab has been sounding its own horn since
   // the moment the cord moved (see hornDown), and a second copy arriving on the way back is the
   // same blast twice, a few hundred milliseconds apart. An argument-less `horn` — anybody who typed
   // it, any other caller — still gets its sound from here, because nothing local played one.
   if (secs == null) sendToPlayer(player.id, { type: 'truck_horn', typeId });
+  // ⚠ AND THE DRIVER'S OWN LINE IS ON THE SAME GATE, which is the half that actually matters: the
+  // room sees one line an hour from somebody else's truck, and the driver sees one per pull of
+  // their own. Their SOUND already played locally before this ever reached the server (see hornDown
+  // in cab-view), so a suppressed line is a horn that sounds and does not narrate — which is what a
+  // horn does. Silence, not a refusal: nothing has gone wrong and there is nothing to say about it.
+  if (!sayIt) return { type: 'noop' };
   return say(rig
     ? '<span class="text-amber">You pull the cord. Two notes, a long way apart, and the sound of them goes out across everything.</span>'
     : `<span class="text-amber">You reach up into the cab of ${name ? `<b>${name}</b>` : 'it'} and pull the cord. The yard rings with it.</span>`);
@@ -2653,7 +2759,16 @@ on('zone.entered', async ({ actor, zone: zoneId, from }) => {
       sendToPlayer(actor.id, panel.type === 'emote' ? { type: 'output', message: panel.message } : panel);
       return;
     }
-    if (from && depotAt(getZone(from))) sendToPlayer(actor.id, { type: 'truck_depot_close' });
+    // ⚠ AND WALKING OUT CLOSES IT — FROM ANY OF THE THREE TILES. This asked `depotAt(from)`, which
+    // is only ever true of the BAY, so leaving from the apron or the facade left the shop window
+    // hanging over the road: you parked (which now opens the yard), stepped out onto the hardstand,
+    // walked off up the street, and the depot went with you. `depotFrom` is the same reachability
+    // `depotHere` gives a player, and it answers for the whole place.
+    //
+    // …and only when you have actually LEFT it. Stepping from the bay to its own apron is walking
+    // about inside one depot, and closing the panel there would make the roller door a wall.
+    const leftDepot = from ? depotFrom(from) : null;
+    if (leftDepot && !depotFrom(zoneId)) sendToPlayer(actor.id, { type: 'truck_depot_close' });
   } catch (e) { console.error('[trucking] depot auto-open:', e.message); }
 });
 
@@ -3045,6 +3160,6 @@ export const hooks = {
 // this server is almost always.
 schedule('5s', () => tickHijackers());
 
-export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, describeDepot, LOADS, RECKLESS_MPH };
+export const _test = { boardFor, allDepots, mountSpot, depotFrom, hitchZones, allDocks, dockAt, depotAt, depotZonesOf, describeDepot, LOADS, RECKLESS_MPH };
 
 console.log('[trucking] Plugin loaded.');
