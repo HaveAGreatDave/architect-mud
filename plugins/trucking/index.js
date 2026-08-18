@@ -2532,7 +2532,7 @@ async function arrive(player, rig) {
 // So the yard says what it is. `zone.describeRoom` is the same seam voidwalking's rim warning uses
 // (`describeRim`), and the verbs carry `teachVerb` shimmers per the house convention: the first
 // mention of a verb anywhere is a click-to-run link, not a word you have to notice and retype.
-async function describeDepot(zone) {
+async function describeDepot(zone, player) {
   // THE SCALE ANNOUNCES ITSELF, and that is load-bearing rather than decorative. The entire design
   // is "a decision you make BEFORE the inspection you know is coming" — a weighbridge you cannot
   // see ahead of you is a dice roll, and a dice roll is not a system. It reads from a tile away in
@@ -2577,16 +2577,30 @@ async function describeDepot(zone) {
   // PLAYER-OWNED RIGS PARKED HERE. The `trucks` table has carried `depot_zone` since the day it was
   // written and nothing showed it — a truck existed to its owner and to nobody else, which for a
   // 31,000₵ object standing in a public yard is simply wrong. Modelled on flight's "On the ramp:"
-  // (plugins/flight/index.js describeAirfield): the same shape, the same click-to-examine, so a
-  // yard full of trucks reads like a ramp full of aircraft because it IS the same fact.
+  // (plugins/flight/index.js describeAirfield): the same shape, so a yard full of trucks reads like
+  // a ramp full of aircraft because it IS the same fact.
+  //
+  // ⚠ THE CLICK IS `drive`, NOT `examine`, AND THAT IS A FIX RATHER THAN A PREFERENCE. The line was
+  // copied off the ramp complete with `examine <name>` — but flight SHADOWS the examine verb so a
+  // parked aircraft resolves by name (see craftActionMenu), and nothing here does: a truck is not
+  // an item, an NPC or a piece of furniture, so SIFT cannot see one and every click on a parked rig
+  // answered "You don't see \"orlov continental\" here." A dead link is worse than no link, and the
+  // trailer line two functions down already had the right answer — it sends `hitch <id>`, the verb
+  // you actually want. So this sends `drive <id>`: click the truck, get in the truck.
+  //
+  // Somebody ELSE's rig is named and not linked. It is still in the room — a 31,000₵ object in a
+  // public yard is a fact about the place — but offering a stranger a button that can only refuse
+  // is an affordance that lies.
   const { rows } = await query(
-    'SELECT name, type_id FROM trucks WHERE depot_zone = $1 ORDER BY created_at LIMIT 5', [zone.id]
+    'SELECT id, name, type_id, owner_id FROM trucks WHERE depot_zone = $1 ORDER BY created_at LIMIT 5', [zone.id]
   ).catch(() => ({ rows: [] }));
   if (rows.length) {
     const names = rows.map(r => {
       const t = truckType(r.type_id);
       const label = r.name || t?.name || 'a truck';
-      return `<span class="action-link" data-action="cmd" data-cmd="examine ${label}" title="look it over">${label}</span>`;
+      return player && r.owner_id === player.id
+        ? `<span class="action-link" data-action="cmd" data-cmd="drive ${r.id}" title="climb in">${label}</span>`
+        : `<span class="text-dim">${label}</span>`;
     });
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
     line += `\n<span class="furniture-label">Parked up:</span> <span class="text-dim">${list}.</span>`;

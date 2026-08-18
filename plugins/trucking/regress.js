@@ -1324,6 +1324,20 @@ export default async function regress({ run, check, getPlayer }) {
         && (twoUp?.fleet || []).some(t => t.paint?.base === '#e0d8c0'),
         (twoUp?.fleet || []).map(t => t.paint?.base).join(', '));
 
+      // ── AND THE ROOM'S OWN LINK HAS TO BE A VERB THAT WORKS ───────────────
+      // "Parked up:" was copied off flight's ramp line complete with `examine <name>`, which works
+      // THERE because flight shadows the examine verb and nothing here does: a truck is not an
+      // item, an NPC or furniture, so SIFT cannot see one and every click on a parked rig answered
+      // "You don't see \"orlov continental\" here." A dead affordance is worse than none.
+      const room = await truckTest.describeDepot(world.zones.get(player.current_zone), player);
+      check('a truck parked in the yard is a link that climbs into it',
+        new RegExp(`data-cmd="drive ${tA}"`).test(room || ''), (room || '').slice(-150));
+      check('…and never an examine this plugin cannot answer',
+        !/data-cmd="examine /.test(room || ''), (room || '').slice(-150));
+      const stranger = await truckTest.describeDepot(world.zones.get(player.current_zone), { id: 'p_nobody' });
+      check("…while somebody else's rig is named without a button that could only refuse",
+        /Parked up/.test(stranger || '') && !/data-cmd="drive /.test(stranger || ''), (stranger || '').slice(-150));
+
       // The rest of this suite drives THE truck at this yard, so the second one goes back to the
       // dealer — the assertions above are about owning two, not about the fixture keeping them.
       await query('DELETE FROM trucks WHERE id=$1', [tB]);
