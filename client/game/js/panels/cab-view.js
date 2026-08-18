@@ -53,10 +53,17 @@ let P = TYPES.hauler;
 let TYPE_ID = 'hauler';
 // Whatever the depot sprayed on it, in the truck paint vocabulary (`truck:` patterns, aircraft3d).
 let PAINT = null;
+// …and whatever the bench trimmed the INSIDE with: `{ mat, col }` or null for stock. Kept beside
+// PAINT rather than on `st`, because both are properties of the TRUCK and the cab is rebuilt
+// around them — `setParams` runs before the dash is built, and the dash reads the trim.
+let TRIM = null;
 const setParams = (ctx) => {
   P = (ctx && ctx.params) || TYPES[ctx && ctx.typeId] || TYPES.hauler;
   if (ctx && ctx.typeId) TYPE_ID = ctx.typeId;
   if (ctx && 'paint' in ctx) PAINT = ctx.paint || null;
+  // The retrim rides beside the paint and is read the same way — the outside of the job and the
+  // inside of it arrive together because they are bought at the same bench.
+  if (ctx && 'trim' in ctx) TRIM = ctx.trim || null;
 };
 
 // WHICH ROOM YOU ARE SITTING IN. One number — the type's `tier`, which rides along in `params`
@@ -234,7 +241,7 @@ export function openCab(ctx = {}) {
   setParams(ctx);                                  // which truck this is — BEFORE the dash is built
   const kit = kitFor(P);
   container.innerHTML = `
-    <div class="cab-wrap cab-t${P.tier ?? 1}" style="--cab-glow:${cabTrim(P.tier).glow}">
+    <div class="cab-wrap cab-t${P.tier ?? 1}" style="--cab-glow:${cabTrim(P.tier, TRIM).glow}">
       ${windshieldHTML(id, kit.label)}
       <!-- THE GLASS CHROME. Three buttons over the windscreen, in the same corner and with the same
            glyphs the flight sim and the hangar use (⛶ / ⊟ / ◎), because a player who has flown
@@ -598,7 +605,7 @@ export function openCab(ctx = {}) {
   // future non-headless caller behaves; `onHorn` is now fired by the cab's own hub hit-test on the
   // glass, since there is no canvas here to press.
   st.wheel = createHelmWheel(null, {
-    accent: cabTrim(P.tier).glow, mode: 'absolute', art: 'truck',
+    accent: cabTrim(P.tier, TRIM).glow, mode: 'absolute', art: 'truck',
     // THREE AND A HALF TURNS LOCK TO LOCK, from the one place that owns it. The keyboard rate goes
     // up with it or a keyboard driver could never reach the stops — 5.5 rad/s is about two seconds
     // of held key from centre to full lock, which is a hand working, not a hand waiting.
@@ -2822,7 +2829,9 @@ function frame(now) {
       // instruments seen from the seat rather than a second set of facts.
       // Which cab is drawn around the view — the panels, the bezels, the marker lights and how
       // many dials are in the binnacle. One number; the table is CAB_TRIM in windshield.js.
-      tier: P.tier,
+      // `trim` is the bench's retrim over the top of it, and reaches the SURFACE only: a retrimmed
+      // Barrow can be walnut and brass and still has one dial, because the ladder is instruments.
+      tier: P.tier, trim: TRIM,
       hitched: r.hitched, phi: r.phi,
       rpmFrac: r.rpm / 100, band: P.band, inBand: r.inBand, topSpeed: P.topSpeed,
       // ── THE DASH IS THE DASH ─────────────────────────────────────────────

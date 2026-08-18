@@ -36,12 +36,22 @@
 import { isWeatherFxEnabled } from './weather-fx.js';
 import { TRUCK_LOCK_RAD } from './helm-wheel.js';
 import { aircraftFaces, wingtipStation, vehicleLamps, liveryPalette, faceBaseRgb, shadeRgb, hex2rgb, drawRotorFX, PROP_STATIONS, drawCockpitProp, glassSheen, drawNoseArt, deflectSurface, hingeVisorFace, visorHidden, jazzTex, jazzUV, overlayJazz, drawCanopyGlass, sortTruckFaces, _resetTruckOrder, JAZZ_ROLE, OCCLUDE_ROLE, VIPER_SCALE } from './aircraft3d.js';
-import { rasterFaces, blitRaster, depthAt, rasterDepth, depthTarget, maskRaster } from './model-raster.js';
+import { rasterFaces, blitRaster, depthAt, rasterDepth, depthTarget, maskRaster, depthWinAt } from './model-raster.js';
 import { playThunderSample } from './engine-audio.js';
 import { FLOOR_Z, BUILDING_FOOT, floorsFor } from '../../../shared/skyline-scale.js';
+// The cab's SURFACE vocabulary — materials and colourways — shared with the maintenance bench that
+// sells them. See the note at the top of that file for why it is not in this one.
+import { DASH_MATERIALS, DASH_COLOURWAYS, isDashMaterial, isDashColourway, stockTrim } from '../../../shared/cab-trim.js';
 import { signalLamp, junctionOffset, isJunction } from '../../../shared/traffic.js';
 
 let _frameDpr = 1;              // this frame's device-pixel ratio — see where it is set in paintWindshield
+// …and the frame's size IN CSS PIXELS, which is the space every screen coordinate in this file is
+// measured in. ⚠ NOT `ctx.canvas.width` — that is the backing store, which is dpr times bigger, and
+// two passes were quietly reading it as if it were the drawing surface: the occlusion pre-pass and
+// its clip. On a retina display every occluder landed in the left half of a buffer measured in the
+// wrong unit, so the mask was misaligned by exactly the device-pixel ratio on the machines most
+// likely to be running the game.
+let _frameW = 1280, _frameH = 720;
 const RASTER_MIN_PX = 46;       // below this on screen a truck keeps the sort — see the ⚠ at the call
 const RASTER_BUDGET_PX = 1_400_000;   // …and above this many buffer pixels the supersample gives way
 const _scenes = new Map();      // id → persistent scene state (scroll, clouds, stars, particles)
@@ -767,7 +777,7 @@ export function paintWindshield(id, view) {
   // of its own rather than draw on this ctx — the truck's depth pass (drawAircraftModel). Everything
   // else here works in CSS pixels and never needs to know. Module-level rather than a seventh
   // parameter threaded through two call sites for a number that is constant across a frame.
-  _frameDpr = dpr;
+  _frameDpr = dpr; _frameW = W; _frameH = H;
   ctx.clearRect(0, 0, W, H);
 
   // Horizon. On the deck it tracks how much field is in view: pull the nose up (or
@@ -1675,65 +1685,66 @@ const CAB_DASH = 0.33;         // dash height, as a fraction of height
 // same room with different numbers underneath it — and the room is where a driver spends the
 // twenty minutes, not the spec sheet.
 //
-// THE LADDER IS INSTRUMENTS AND MATERIALS, NEVER DRIVING AIDS. Nothing here steers, brakes or
-// shifts for you: the physics are `effTruckParams`'s and they are identical whichever cab you are
-// sitting in. What a cheap truck actually costs you is INFORMATION — the Barrow has no rev
-// counter at all, so you drive it on the sound of it, which is the oldest skill in the game and
-// the one the expensive trucks quietly take away from you. That is also why the ladder is safe to
-// widen later: adding a gauge can never make a truck faster.
+// THE LADDER IS INSTRUMENTS, NEVER DRIVING AIDS. Nothing here steers, brakes or shifts for you:
+// the physics are `effTruckParams`'s and they are identical whichever cab you are sitting in. What
+// a cheap truck actually costs you is INFORMATION — the Barrow has no rev counter at all, so you
+// drive it on the sound of it, which is the oldest skill in the game and the one the expensive
+// trucks quietly take away from you. That is also why the ladder is safe to widen later: adding a
+// gauge can never make a truck faster.
 //
 // `dials` is how many instruments are in the binnacle, `band` whether the tachometer paints the
 // green torque arc, `lamps` the row of marker lights along the header (a cab-roof indulgence
-// nobody needs), `charm` the thing swinging off the mirror arm on a bad road. Everything else is
-// colour, and colour is most of it: chipped brown enamel, grey moulding, green vinyl, walnut.
+// nobody needs), `charm` the thing swinging off the mirror arm on a bad road.
 //
-// `mat` IS THE OTHER HALF OF THE COLOUR, and it is why four dashes made of the same gradient stopped
-// reading as four materials. One procedural tile per material (cabDashTex) — brushed-and-chipped
-// steel, moulded pebble grain, stitched vinyl, book-matched veneer — laid over that gradient in
-// `overlay`, so the tile carries the SURFACE and the trim keeps owning the COLOUR. Adding a material
-// is a key here and a branch there; nothing else in the cab needs to know.
+// ── ⚠ AND THE COLOUR IS NO LONGER PART OF THE LADDER ─────────────────────────
+// Every colour a cab wears, and what its dash is MADE of, now live in client/shared/cab-trim.js as
+// named colourways and materials, because the maintenance bench can sell them (`rig trim`). A row
+// here names one of each as what the truck LEFT THE FACTORY IN; a retrimmed truck overrides those
+// two keys and nothing else. That split is the whole rule: a bench can put walnut and brass in a
+// scrapyard Barrow, and can never put a rev counter in one. Read the note at the top of that file
+// before adding anything to it.
 //
-// ⚠ TWO BROWNS, AND THEY MUST NEVER CONVERGE. The cheapest cab and the dearest one are both brown
-// now, which is right — a scrapyard truck is brown because the enamel has gone chalky and the steel
-// is coming through it, and an Orlov is brown because somebody chose walnut. What keeps them apart
-// is everything except the hue: the Barrow is desaturated, matt (`gloss` 0.22), chipped, and lit
-// amber-orange; the Orlov is saturated red-brown, varnished (`gloss` 1), grained, and lit gold.
-// If you ever retune one of these, check it against the other in the same light before shipping.
-export const CAB_TRIM = {
-  // KRELL BARROW — brown enamel over pressed steel, chalky where the sun got it and chipped back to
-  // bare metal where forty years of boots got it. One gauge, no band, no indulgences.
-  0: { hdr: ['#241c15', '#33281d'], pil: ['#261d16', '#3b2e22'], post: '#2b2119',
-       dash: ['#6b5540', '#3b2f24', '#191410'], lip: 'rgba(226,200,158,0.14)',
-       rim: 'rgba(40,31,23,0.95)', rimHi: 'rgba(198,170,128,0.10)',
-       face: ['#1c150e', '#0c0805'], ring: 'rgba(186,158,112,0.24)', needle: '#d2833a',
-       glow: '#c07a34', mat: 'steel',
-       dials: 1, band: false, lamps: 0, charm: true, gloss: 0.22, crazed: true },
-  // OSTREK COURIER — grey moulded plastic, honest and anonymous. The tachometer arrives here.
-  1: { hdr: ['#16181c', '#23262b'], pil: ['#1a1d21', '#2c3037'], post: '#212429',
-       dash: ['#3b414a', '#1e2228', '#0d0f12'], lip: 'rgba(190,205,225,0.16)',
-       rim: 'rgba(28,31,36,0.95)', rimHi: 'rgba(150,165,185,0.13)',
-       face: ['#171a1f', '#0a0c0f'], ring: 'rgba(150,165,185,0.28)', needle: '#e8c07a',
-       glow: '#9fb4c4', mat: 'plastic',
-       dials: 2, band: false, lamps: 0, charm: false, gloss: 0.5 },
-  // VACHON DRAYMAN — dark green vinyl over a chrome bezel strip, stitched along the lip. The band
-  // appears: the truck starts telling you where the engine wants to be rather than leaving you to
-  // find it.
-  2: { hdr: ['#121815', '#1d2721'], pil: ['#151d19', '#26332c'], post: '#1a2320',
-       dash: ['#33463d', '#18211c', '#0a0f0d'], lip: 'rgba(180,225,200,0.20)',
-       rim: 'rgba(24,33,28,0.95)', rimHi: 'rgba(160,210,180,0.15)',
-       face: ['#121a16', '#070b09'], ring: 'rgba(150,205,175,0.30)', needle: '#8fe0a0',
-       glow: '#7fc98b', mat: 'vinyl',
-       dials: 2, band: true, lamps: 3, charm: false, gloss: 0.75 },
-  // ORLOV CONTINENTAL — walnut fascia under varnish, brass bezels, a warm lamp over the bunk and
-  // five markers across the roof. This is somebody's bedroom and it is meant to read as one.
-  3: { hdr: ['#1b1512', '#33261a'], pil: ['#1e1713', '#3f2f20'], post: '#261b13',
-       dash: ['#7a4a24', '#3a1f0f', '#150a05'], lip: 'rgba(255,215,150,0.26)',
-       rim: 'rgba(52,35,20,0.95)', rimHi: 'rgba(232,192,122,0.22)',
-       face: ['#22150a', '#0d0704'], ring: 'rgba(232,192,122,0.40)', needle: '#ffd489',
-       glow: '#e8c07a', mat: 'wood',
-       dials: 2, band: true, lamps: 5, charm: false, gloss: 1 },
+// `mat` IS THE OTHER HALF OF THE COLOUR — one procedural tile per material (cabDashTex) laid over
+// the colourway's gradient as an overlay, so the tile carries the SURFACE and the colourway keeps
+// owning the COLOUR. `gloss` comes with the material for the same reason: varnish is a property of
+// veneer, not of the shade of brown it happens to be.
+// INSTRUMENTS ONLY. What each rung is made of and what colour it is comes from STOCK_TRIM in the
+// shared file — one mapping, read by the renderer and by the bench that marks the fitted swatch.
+const CAB_LADDER = {
+  0: { ...stockTrim(0), dials: 1, band: false, lamps: 0, charm: true },   // KRELL BARROW
+  1: { ...stockTrim(1), dials: 2, band: false, lamps: 0, charm: false },  // OSTREK COURIER
+  2: { ...stockTrim(2), dials: 2, band: true,  lamps: 3, charm: false },  // VACHON DRAYMAN
+  3: { ...stockTrim(3), dials: 2, band: true,  lamps: 5, charm: false },  // ORLOV CONTINENTAL
 };
-export const cabTrim = (tier) => CAB_TRIM[tier] ?? CAB_TRIM[1];
+// One assembled row: the ladder's instruments, the colourway's colours, the material's surface.
+// Everything downstream still reads a flat `T` with the same keys it always did, so not one of the
+// forty-odd `T.needle` / `T.dash` / `T.gloss` reads in this file changed.
+function assembleTrim(rung, colKey, matKey) {
+  const c = DASH_COLOURWAYS[colKey] || DASH_COLOURWAYS.slate;
+  const m = DASH_MATERIALS[matKey] || DASH_MATERIALS.plastic;
+  return { ...c, ...rung, col: colKey, mat: matKey, gloss: m.gloss, crazed: !!c.crazed };
+}
+export const CAB_TRIM = {
+  0: assembleTrim(CAB_LADDER[0], CAB_LADDER[0].col, CAB_LADDER[0].mat),
+  1: assembleTrim(CAB_LADDER[1], CAB_LADDER[1].col, CAB_LADDER[1].mat),
+  2: assembleTrim(CAB_LADDER[2], CAB_LADDER[2].col, CAB_LADDER[2].mat),
+  3: assembleTrim(CAB_LADDER[3], CAB_LADDER[3].col, CAB_LADDER[3].mat),
+};
+// `over` is the truck's own retrim — `{ mat, col }` off trucks.custom_data, either key nullable
+// because a bench sells them separately and a driver may have bought one and not the other.
+//
+// ⚠ IT CAN ONLY REACH TWO KEYS, AND THAT IS ENFORCED HERE RATHER THAN TRUSTED. The override is not
+// spread over the row; the two keys are read out of it by name and validated against the shared
+// vocabulary. A payload that arrived carrying `dials: 2` would be ignored, which is what keeps a
+// cosmetic bench cosmetic even if something upstream of it is one day wrong.
+export const cabTrim = (tier, over) => {
+  const rung = CAB_LADDER[tier] ?? CAB_LADDER[1];
+  const col = isDashColourway(over?.col) ? over.col : rung.col;
+  const mat = isDashMaterial(over?.mat) ? over.mat : rung.mat;
+  return (col === rung.col && mat === rung.mat)
+    ? (CAB_TRIM[tier] ?? CAB_TRIM[1])          // stock: hand back the memoised row, untouched
+    : assembleTrim(rung, col, mat);
+};
 
 // The tell-tale row under the binnacle hood. Order is fixed and the colours are the ones the rest
 // of the cab already uses for those states — a lamp that is a different red from the brake word is
@@ -1828,7 +1839,7 @@ function paintCabDash(id, v) {
 // deliberately spare: their whole purpose is to say WHICH window you are looking out of without
 // taking any of it away from you.
 function drawCabSideGlass(ctx, W, H, v) {
-  const T = cabTrim(v?.tier);
+  const T = cabTrim(v?.tier, v?.trim);
   const rear = Math.abs(v.viewYaw) === 180;
   ctx.save();
   if (rear) {
@@ -1873,7 +1884,7 @@ function drawCabSideGlass(ctx, W, H, v) {
 
 function drawCabInterior(ctx, W, H, v) {
   ctx.save();
-  const T = cabTrim(v?.tier);
+  const T = cabTrim(v?.tier, v?.trim);
   const dash = H * (1 - CAB_DASH);
   const pillar = W * 0.075;
 
@@ -7521,7 +7532,7 @@ function drawContacts(ctx, cam, v, W, H, sun, now) {
     // it is off screen; a hidden one is hidden, which is the point.
     if (c.onGround || c.band === 'ground') {
       const sz = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1) * cam.FL / Math.max(0.25, pc.f);
-      if (occludedByBuilding(pc.sx, pc.sy - sz * CONTACT_VS, pc.f, sz)) continue;
+      if (occludedByBuilding(pc.sx, pc.sy - sz * CONTACT_VS, pc.sy, pc.f, sz)) continue;
     }
     ctx.globalAlpha = clamp(1.5 - pc.f / 12, 0.35, 1);    // fade into the haze with distance
     const bb = drawAircraftModel(ctx, cam, c, baseWz, sun, now);
@@ -7974,7 +7985,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // ROAD — the contact shadow, the lifter wash, the thrust cones — is painted before the model so
   // the bodywork covers what it should for free. Blit at the point the buffer is filled and the
   // truck goes down first, and then the pool of light under it is painted straight over the chassis.
-  let raster = null;
+  let raster = null, occWin = null;
   const rasterBox = { x0: 0, y0: 0 };
   const boxW = maxx - minx, boxH = maxy - miny;
   // ⚠ THE OWN SHIP ALWAYS, A CONTACT ONLY WHEN IT IS BIG ENOUGH TO SEE A MISTAKE IN. A depth buffer
@@ -8001,6 +8012,25 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
       pts: fc.pts.map(q => ({ x: q.sx, y: q.sy, z: q.f })),
       r: fc.rv[0], g: fc.rv[1], b: fc.rv[2], a: Math.round((fc.alpha ?? 1) * 255),
     })), x0, y0, x1 - x0, y1 - y0, sc);
+    // ── …AND THE OTHER HALF OF THE SAME QUESTION: WHAT IS IT STANDING BEHIND? ──
+    // The buffer above settles which of the truck's own panels owns a pixel, and settles nothing at
+    // all about the shed the truck is parked in. Buildings are canvas fills painted before this and
+    // the model is painted after them, so paint order was the whole answer, and paint order says
+    // the truck wins — from every angle, at every distance. That is the rig showing through a wall.
+    //
+    // The world's solids go into a second depth buffer over exactly this box at exactly this scale,
+    // and every model pixel the world genuinely owns is cleared. Per pixel, so a doorway is a
+    // doorway and a lintel is a lintel — the coarse field could describe neither, and the header
+    // over a depot door was left out of it entirely for precisely that reason.
+    //
+    // ⚠ CHEAP BECAUSE IT IS SCOPED, NOT BECAUSE IT IS APPROXIMATE. `occluderWindow` returns null
+    // unless something is actually overlapping this model, which out on the road is always — so the
+    // pass costs nothing at all except in the frames it exists for.
+    if (raster) {
+      const cf = cam.proj(c.dx || 0, c.dy || 0, 0);
+      occWin = cf && cf.f > 0.05 ? occluderWindow(x0, y0, x1 - x0, y1 - y0, sc, cf.f) : null;
+      if (occWin) maskRaster(raster, occWin, OCC_PIXEL_BIAS);
+    }
   }
   // The fallback, and for an airframe the only path: a mean-depth painter's sort, which is the
   // right answer for one smooth convex hull and the wrong one for a pile of bolted-on boxes.
@@ -8034,7 +8064,13 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
         const n = fc.pts.length;
         const bx = Math.round((cx / n - rasterBox.x0) * sc), by = Math.round((cy / n - rasterBox.y0) * sc);
         fc.seen = bx >= 0 && by >= 0 && bx < raster.w && by < raster.h
-          && Math.abs(depthAt(raster, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02);
+          && Math.abs(depthAt(raster, bx, by) - cz / n) < Math.max(1e-4, (cz / n) * 0.02)
+          // ⚠ AND IT HAS TO HAVE BEATEN THE WORLD, NOT JUST THE REST OF THE TRUCK. `maskRaster`
+          // clears the model's own alpha where a building owns the pixel, but leaves the depth
+          // behind it — so a panel that won every argument with its neighbours and then lost to a
+          // wall would still be reported as visible, and would paint its splatter, its glass sheen
+          // and its lamp glow onto the wall standing in front of it.
+          && (!occWin || !(depthWinAt(occWin, bx, by) + OCC_PIXEL_BIAS < cz / n));
       }
     } else {
       sortTruckFaces(faces, c, SIZE);   // the blit failed after all — fall the whole way back
@@ -9761,10 +9797,18 @@ export function shapeRenderSmoke() {
 // every angle, for as long as the shed has existed. Nothing caught it because every other test here
 // asks whether a thing DRAWS, and this is a bug about a thing that draws when it should not.
 //
-// So: one chase frame over a map whose only building is a shed off to the side, and the span buffer
-// must come back with columns covered. Then the two cases that must NOT cover — a shed with your
+// So: one chase frame over a map whose only building is a shed off to the side, and the occlusion
+// field must come back with cells covered. Then the two cases that must NOT cover — a shed with your
 // own rig inside it (it is in cutaway for you, and masking against a wall you are being shown
 // through is the same bug one layer down) and an empty map (nothing to hide behind).
+//
+// It also asserts the two things the FIELD gained when it stopped being a row of columns, because
+// both are invisible to a test that only counts coverage:
+//   · the field is a GRID — there is a cell above the shed's own roofline that is open sky, which a
+//     column buffer could not express and which is the whole reason the door header was left out;
+//   · and the near solids are kept as quads for the own ship's per-pixel pass, so a shed beside you
+//     puts something in OCC_SOLIDS. That is the list the truck is actually masked against, and an
+//     empty one is a mask that silently does nothing.
 export function bayOccluderSmoke(ID) {
   const out = [];
   const R = 8, N = R * 2 + 1;
@@ -9772,12 +9816,19 @@ export function bayOccluderSmoke(ID) {
   const bay = (bn) => ({ kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay', bn });
   const view = { heading: 0, speed: 0, hour: 13, weather: 'clear', cls: 'truck', phase: 'ground',
     worldBlend: 1, height: 0, resFloor: 1, variant: 'rigid', external: true, extYaw: 0.2, extPitch: 0.25, extZoom: 1.1 };
+  let solids = 0, openAbove = 0;
   const covered = (map) => {
     paintWindshield(ID, { ...view, map });
     const F = OCC_FIELD;
+    solids = OCC_SOLIDS ? OCC_SOLIDS.length : 0;
     if (!F) return -1;                       // occlusion tuned off — the caller reports it as a skip
-    let n = 0;
-    for (let c = 0; c < OCC_BUCKETS; c++) if (F.covTop[c] < Infinity) n++;
+    let n = 0, topRowOpen = 0;
+    for (let i = 0; i < F.gh; i++) {
+      const row = i * F.stride;
+      for (let c = 0; c < F.gw; c++) if (F.d[row + c] < Infinity) n++;
+    }
+    for (let c = 0; c < F.gw; c++) if (F.d[c] === Infinity) topRowOpen++;
+    openAbove = topRowOpen;
     return n;
   };
   // ⚠ NEXT DOOR, NOT ACROSS THE YARD. Buildings fade IN with distance, and a building still fading
@@ -9786,8 +9837,15 @@ export function bayOccluderSmoke(ID) {
   // One tile away is both fully opaque and the case the bug is actually about: you are beside it.
   const off = plain(); off[R - 1][R + 1] = bay('OFFSET DEPOT');
   const nOff = covered(off);
-  if (nOff === 0) out.push('a depot shed beside the truck occludes nothing — the span buffer never hears about it');
+  if (nOff === 0) out.push('a depot shed beside the truck occludes nothing — the occlusion field never hears about it');
   if (nOff > 0) {
+    // A GRID, NOT A ROW OF COLUMNS. If every covered column were covered to the top of the canvas
+    // this would be the old span buffer wearing the new field's clothes — and a lintel, an overhang
+    // and a doorway would all still be inexpressible.
+    if (openAbove === 0) out.push('every column of the field is covered to the top — this is a span buffer, not a grid');
+    // …and the quads the own ship is masked against per pixel. Coverage alone cannot see this: the
+    // coarse field could be perfect while the fine mask has nothing to test and quietly no-ops.
+    if (solids === 0) out.push('a shed beside the truck put no solid in OCC_SOLIDS — the per-pixel mask has nothing to test');
     const own = plain(); own[R][R] = bay('OWN DEPOT');
     if (covered(own) > 0) out.push('the shed the truck is standing IN is masking it — the cutaway and the occluder disagree');
     if (covered(plain()) > 0) out.push('an empty map reports occluders');
@@ -12886,22 +12944,28 @@ export function shapeForModel(m, seed) {
 // distance LOD this has no visual tradeoff to argue about: it only ever removes buildings that are
 // already invisible.
 //
-// The structure is a 1-D horizontal span buffer. Every building is anchored to the ground, so a
-// nearer one covers a contiguous screen band from its roofline DOWN. `covTop[col]` therefore holds
-// the topmost screen y that is solidly covered from there downward, and a farther building is
-// hidden when its whole silhouette sits below that line across its entire width.
+// The structure is a coarse DEPTH FIELD — one cell every few screen pixels, holding the distance of
+// the nearest guaranteed-solid slab covering it. Buildings are rasterised into it near→far, and a
+// farther one is hidden when every cell of its silhouette is already owned by something nearer.
+// (It was a 1-D span buffer of 96 columns until the truck mask needed a lintel out of it; see the
+// note above OCC_CELL_PX for the three cases a column shape could not express.)
 //
 // CONSERVATISM IS THE WHOLE GAME — culling something visible is a hole in the world, far worse than
 // the frames it saves. So the two boxes are deliberately biased apart:
-//   • as an OCCLUDER a building contributes only its CORE segment (one solid box, never the setback
-//     silhouette whose bounding box claims coverage it doesn't have), shrunk by a margin;
+//   • as an OCCLUDER a building contributes only its bulkiest ground-anchored segments (never the
+//     setback silhouette, whose outline claims coverage it doesn't have), each shrunk by a margin
+//     and rasterised as the real projected box rather than as a bounding rectangle;
 //   • as an OCCLUDEE it is tested with its FULL footprint and roof, expanded by a margin, so a neon
 //     blade or a marquee poking out of the mass can't be culled with it.
 // A building still fading in is never an occluder, because it isn't opaque yet.
-const OCC_BUCKETS = 96;      // horizontal resolution of the span buffer
 const OCC_SHRINK = 0.14;     // occluder box inset (fraction of its own size)
 const OCC_GROW = 0.22;       // occludee box outset — covers adornments that overhang the mass
 const OCC_OPAQUE = 0.98;     // below this alpha a building is still fading in and can't occlude
+// How much of a building gets to be a solid. `at` is a segment's LOD rank (0 = the core, 1 = the
+// last thing to fade in), so this is "the bulkiest third of it" — the mass, never the trim. A
+// balcony rail is not a thing you cannot see past, and every extra solid is fill.
+const OCC_SEG_DETAIL = 0.34;
+const OCC_SEG_MAX = 5;
 
 // ── AND THE SAME BUFFER HIDES WHAT IS BEHIND A BUILDING ──────────────────────
 // Contacts (traffic, parked rigs, a truck standing in a depot) are painted AFTER the whole world
@@ -12948,6 +13012,11 @@ const _occTarget = depthTarget();
 // only near buildings are kept, and only the ones actually overlapping the model are rasterised.
 const OCC_KEEP_TILES = 7;     // beyond this a solid is grid-only: too far to be a hard edge on the rig
 const OCC_KEEP_MAX = 28;      // …and a hard cap, because a yard full of sheds is a real map
+// The per-pixel margin, and it is a much smaller number than OCC_BIAS because it is answering a
+// much smaller question. OCC_BIAS asks whether a whole vehicle is behind a whole building; this
+// asks whether one pixel of bodywork is behind one pixel of wall, and a rig parked with its mirror
+// against a shed would dissolve into it on any margin wide enough to matter at the other scale.
+const OCC_PIXEL_BIAS = 0.02;
 let OCC_SOLIDS = null;        // [{ f, x0, x1, y0, y1, quads }] this frame, near→far
 // Is this ground-anchored point hidden behind a nearer building? The box is the model's screen
 // extent — `pad` widens it laterally, `syTop`/`syBot` bound it vertically, and it is hidden only
@@ -12994,7 +13063,7 @@ const OCC_BIAS = 0.35;
 // and the caller restores.
 function beginOcclusionClip(ctx, f) {
   const F = OCC_FIELD; if (!F) return false;
-  const W = (ctx.canvas && ctx.canvas.width) || 1280, H = (ctx.canvas && ctx.canvas.height) || 720;
+  const W = _frameW, H = _frameH;
   const cw = 1 / F.sx, ch = 1 / F.sy;
   // A cell is BLOCKED when the world owns it nearer than us; dilating the blocked set would cut
   // more, so it is the OPEN set that grows — a blocked cell only survives with blocked neighbours,
@@ -13584,7 +13653,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
   // occluder/occludee boxes are deliberately biased so this can only ever be too timid.
   let occluded = null;
   if (RENDER_TUNE.occlude) {
-    const W = (ctx.canvas && ctx.canvas.width) || 1280, H = (ctx.canvas && ctx.canvas.height) || 720;
+    const W = _frameW, H = _frameH;
     const gw = clamp(Math.round(W / OCC_CELL_PX), OCC_GW_MIN, OCC_GW_MAX);
     const gscale = gw / W, gh = Math.ceil(H * gscale);
     // Clear the field for this frame — one call with nothing in it, then a call per building below.
@@ -13636,13 +13705,16 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       //
       // Three decisions make it correct rather than merely present:
       //
-      //  · THE SIDE WALLS ONLY, NEVER THE HEADER. A column in this buffer is covered from one line
-      //    DOWNWARD, which is the truth for a wall and a lie for the strip of wall above a doorway —
-      //    contribute that and a truck standing in an open doorway is hidden by the lintel over its
-      //    own roof. The two solid flanks are what a shed actually blocks.
+      //  · THE HEADER OVER THE DOOR IS AN OCCLUDER, AND USED NOT TO BE. Under the old span buffer a
+      //    column was covered from one line DOWNWARD, which is the truth for a wall and a lie about
+      //    a lintel — contributing it would have hidden a truck standing in its own open doorway,
+      //    so the strip of wall above the opening was left out and the rig drew straight through
+      //    it. That was the last hole in the shed, and it closed the moment the field became a grid
+      //    rather than a row of columns: a lintel is now simply the cells a lintel covers.
       //  · THE DOORWAY IS AN OCCLUDER WHEN THE DOOR IS DOWN. That is the same `bayDoorOpen` the
       //    picture and the collision already share, so a shut door hides the rig behind it, an open
-      //    one shows it, and none of the three can disagree about which it is.
+      //    one shows it, and none of the three can disagree about which it is. Half-way up it is
+      //    drawn as a leaf hanging from the head, and that is exactly what it contributes.
       //  · AND A SHED WITH YOUR OWN RIG INSIDE IT CONTRIBUTES NOTHING. That building is being drawn
       //    in cutaway for you — its roof and near wall are already fading out so you can see your
       //    own truck — and masking the truck against a wall it is deliberately being shown through
@@ -13654,15 +13726,19 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
         if (Math.abs(subjLX) < BAY.HW && Math.abs(subjLY) < BAY.HL) continue;   // your own rig is in it
         const toWorldB = ([lx, ly]) => [it.dx + lx * ct - ly * st, it.dy + lx * st + ly * ct];
         const k = 1 - OCC_SHRINK;
-        const spans = [[-BAY.HW, -BAY.DOOR_W], [BAY.DOOR_W, BAY.HW]];
-        if (bayDoorOpen(it.dx, it.dy, it.c) < 0.5) spans.push([-BAY.DOOR_W, BAY.DOOR_W]);
-        for (const [sx0, sx1] of spans) {
-          if (!(sx1 > sx0)) continue;
-          const cc = [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB);
-          const cbox = screenBox(cam, cc, 0, BAY.WALL * k);
-          if (!cbox) continue;
-          for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) { covTop[c] = cbox.y0; covF[c] = it.f; }
-        }
+        const slab = (sx0, sx1, z0, z1) => {
+          const zt = z1 * k;
+          if (!(sx1 > sx0) || !(zt > z0)) return;
+          boxQuads(cam, [[sx0, -BAY.HL], [sx1, -BAY.HL], [sx1, BAY.HL], [sx0, BAY.HL]].map(toWorldB), z0, zt, quads);
+        };
+        slab(-BAY.HW, -BAY.DOOR_W, 0, BAY.WALL);     // the two solid flanks…
+        slab(BAY.DOOR_W, BAY.HW, 0, BAY.WALL);
+        slab(-BAY.DOOR_W, BAY.DOOR_W, BAY.DOOR_H, BAY.WALL);   // …and the header over the opening
+        // The leaf itself. A roller door goes UP, so what is left of it hangs from the head and the
+        // gap opens underneath — which is the half a truck drives through.
+        const open = bayDoorOpen(it.dx, it.dy, it.c);
+        if (open < 0.98) slab(-BAY.DOOR_W, BAY.DOOR_W, BAY.DOOR_H * open, BAY.DOOR_H);
+        contribute(it);
         continue;
       }
       const om = modelFor(it.c); if (!om) continue;
@@ -13675,45 +13751,67 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
       const hull = shapeFootprint(segs, ofh, oh).map(toWorld);
       const box = hull.length >= 3 ? screenBox(cam, hull, 0, shapeRoofZ(segs, ofh, oh)) : null;
       if (box) {
-        const gw = (box.x1 - box.x0) * OCC_GROW, gh = (box.y1 - box.y0) * OCC_GROW;
-        const x0 = box.x0 - gw, x1 = box.x1 + gw, yTop = box.y0 - gh;
-        let hidden = x1 >= 0 && x0 <= W;
-        for (let c = col(x0); hidden && c <= col(x1); c++) if (covTop[c] > yTop) hidden = false;
+        const bgw = (box.x1 - box.x0) * OCC_GROW, bgh = (box.y1 - box.y0) * OCC_GROW;
+        // ⚠ THE WHOLE BOX, NOT JUST ITS TOP LINE. The span buffer could only ask about the roofline,
+        // because coverage below it was an assumption the shape of the buffer made for free. A grid
+        // makes no such assumption and must be asked about every cell — which is also why this got
+        // slightly harder to satisfy, and that is the safe direction: a building drawn that did not
+        // need to be costs a few faces, and one culled that should have drawn is a hole in the city.
+        const hidden = box.x1 >= 0 && box.x0 <= W
+          && covers(box.x0 - bgw, box.y0 - bgh, box.x1 + bgw, box.y1 + bgh, it.f);
         if (hidden) { occluded.add(it); if (PERF.on) PERF.n.culled++; continue; }   // hidden things occlude nothing
       }
-      // Occluder: the core segment only, shrunk — a guaranteed-solid slab of this building.
+      // Occluder: the ground-anchored segments, shrunk — the guaranteed-solid mass of this building.
       if (it.alpha < OCC_OPAQUE) continue;
-      const core = lodOrder(segs).byIndex.find(r => r.at <= 0);
-      if (!core) continue;
       const V = (p) => p[0] * ofh + p[1] * oh + p[2];
-      // ── ⚠ AN OCCLUDER HAS TO REACH THE GROUND, AND THIS IS THE ONE THAT DID NOT ──────────────
-      // A column in this buffer means "solid from here DOWNWARD", which is the truth for a building
-      // and a flat lie for anything standing in the air. The core box was measured from z=0 to the
-      // segment's top whatever its own `z0` was — so a FORECOURT CANOPY, whose whole point is that
-      // it is a roof on four thin legs with open ground under it, registered as a solid slab from
-      // the tarmac to the fascia. Every truck parked under it was then reported as hidden behind
-      // it: to `occludedByBuilding` as a contact that vanishes, and to `beginOcclusionClip` as the
-      // OWN rig clipped away the moment you pulled onto the forecourt. That is the truck
-      // disappearing at certain angles, and it is one missing `z0`.
-      //
-      // Conservative in the same direction as everything else here: a segment that does not start
-      // at the deck is simply not an occluder. It could contribute the band between its own top and
-      // bottom, but this buffer cannot express a band, and a wrong answer that hides the subject of
-      // the camera is far worse than a building drawn that did not need to be.
-      const coreZ0 = core.s.z0 ? V(core.s.z0) : 0, coreZ1 = core.s.z1 ? V(core.s.z1) : 1;
-      if (coreZ0 > coreZ1 * 0.12) continue;
-      const cw = core.s.kind === 'box' ? Math.min(V(core.s.hwRaw), V(core.s.fdRaw ?? core.s.hwRaw), 0.44)
-        : core.s.kind === 'drum' ? Math.max(V(core.s.rb), V(core.s.rt)) * 0.7 : V(core.s.hl || core.s.hx) * 0.7;
-      const ccx = V(core.s.cx), ccy = V(core.s.cy), k = cw * (1 - OCC_SHRINK);
-      const cc = [[ccx - k, ccy - k], [ccx + k, ccy - k], [ccx + k, ccy + k], [ccx - k, ccy + k]].map(toWorld);
-      const cbox = screenBox(cam, cc, 0, V(core.s.z1) * (1 - OCC_SHRINK));
-      if (!cbox) continue;
-      for (let c = col(cbox.x0); c <= col(cbox.x1); c++) if (cbox.y0 < covTop[c]) { covTop[c] = cbox.y0; covF[c] = it.f; }
+      // ── ⚠ AND THIS IS WHERE THE GRID PAYS FOR ITSELF A SECOND TIME ───────────────────────────
+      // The span buffer could only ever take ONE box per building — the core — because two slabs in
+      // the same columns could only overwrite each other rather than sit side by side. So an
+      // L-shaped building occluded along its spine and not along its wing, and a rig parked behind
+      // the wing showed through it. A grid holds both, so every ground-anchored segment gets to be
+      // the solid it is. Capped, because ranking by bulk means the ones past the cap are the ones
+      // whose absence nobody can see.
+      const solids = lodOrder(segs).byIndex.filter(r => r.at <= OCC_SEG_DETAIL).slice(0, OCC_SEG_MAX);
+      for (const core of solids) {
+        const s = core.s;
+        // ── ⚠ AN OCCLUDER HAS TO REACH THE GROUND ──────────────────────────────────────────────
+        // A solid here still means "you cannot see past it", and the segment has to actually be
+        // there. The core box was once measured from z=0 to its top whatever its own `z0` was — so
+        // a FORECOURT CANOPY, whose whole point is that it is a roof on four thin legs with open
+        // ground under it, registered as solid from the tarmac to the fascia, and every truck
+        // parked under it was reported as hidden behind it. That is the truck disappearing at
+        // certain angles, and it was one missing `z0`.
+        //
+        // ⚠ AND THE GRID DOES NOT LET THIS GO. It COULD now express a floating band correctly, and
+        // that is the tempting change to make here. It would also mean a canopy fascia occluding
+        // the roof of the rig underneath it, which is true of a real canopy and reads as the bug
+        // this whole pass exists to fix — so a segment that does not stand on the deck is still not
+        // an occluder, and that is a decision rather than a leftover.
+        const z0 = s.z0 ? V(s.z0) : 0, z1 = s.z1 ? V(s.z1) : 1;
+        if (z0 > z1 * 0.12 || !(z1 > 0.01)) continue;
+        // The segment's own footprint, with its own yaw — the same composition drawShapeWire draws
+        // and drawModelLOD paints, so the solid sits on the building rather than beside it. A drum
+        // or a barrel is taken as its bounding box, shrunk: a square inside a circle is solid, and
+        // over-claiming here is the one direction this pass must never go.
+        let hx, hy, yaw = th;
+        if (s.kind === 'box') { hx = Math.min(V(s.hwRaw), 0.44); hy = Math.min(V(s.fdRaw ?? s.hwRaw), 0.44); yaw = (s.yaw || 0) + th; }
+        else if (s.kind === 'drum') { hx = hy = Math.max(V(s.rb), V(s.rt)) * 0.72; }
+        else if (s.kind === 'barrel') { hx = V(s.hl); hy = V(s.hw) * 0.72; }
+        else { hx = V(s.hx); hy = V(s.hy); }
+        const k = 1 - OCC_SHRINK;
+        hx *= k; hy *= k;
+        if (!(hx > 0.004 && hy > 0.004)) continue;
+        const lx = V(s.cx), ly = V(s.cy);
+        const wx = it.dx + lx * ct - ly * st, wy = it.dy + lx * st + ly * ct;
+        const cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
+        const corner = (qx, qy) => [wx + qx * hx * cy2 - qy * hy * sy2, wy + qx * hx * sy2 + qy * hy * cy2];
+        boxQuads(cam, [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)], 0, z1 * k, quads);
+      }
+      contribute(it);
     }
-    OCC_FIELD = { covTop, covF, W };     // see occludedByBuilding — contacts are tested against it
   }
   // With the pre-pass off there is no field, and every contact draws exactly as it always did.
-  if (!RENDER_TUNE.occlude) OCC_FIELD = null;
+  if (!RENDER_TUNE.occlude) { OCC_FIELD = null; OCC_SOLIDS = null; }
   // Shadow pre-pass: lay every building's ground shadow FIRST (far→near) so the bodies drawn
   // next sit on top of the whole shadow field instead of over-painting a neighbour's shadow.
   if (sun && sun.len > 0) {

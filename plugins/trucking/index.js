@@ -46,8 +46,10 @@ import { TYPES, HITCH_MPH } from '../../client/game/js/panels/flight-model.js';
 import { fleetOf, truckAt, getTruck, buyTruck, sellTruck, persistTruck, resaleValue, truckType, TRUCK_TYPES,
   setCondition, saveTruckData, setFuel, recoverTruckTo } from './fleet.js';
 import { TUNE_PARAMS, KITS, BANDS, bandOf, tuneRange, clampTune, installedKits, effTruckParams,
-  repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, startTrouble, wearForImpact, burnMul,
-  BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM } from './rig.js';
+  repairCost, FIELD_CAP, sanitizePaint, paintCost, FLASHES, FINISHES, ARTS, PAINT_PRESETS, PAINT_DEFAULT, presetPaint, startTrouble, wearForImpact, burnMul,
+  BREAKDOWNS, fixOdds, FIX_GRACE_TILES, isTerminal, FIX_MIN_FAB, SPARES_ITEM,
+  DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, trimCost } from './rig.js';
+import { stockTrim } from '../../client/shared/cab-trim.js';
 import { skillCheck, effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { crossingChain, crossingDest, crossingInfo, voidGateOf, launchCrossing, VOIDS } from '../voidwalking/index.js';
 import { routeOptions, aimedDest, destByWord } from './routes.js';
@@ -678,11 +680,22 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
         // ── the bench half ──
         condition: +(t.condition ?? 1).toFixed(3), band: band.key, bandLabel: band.label, bandText: band.text,
         tune: { gearing: 0, boost: 0, suspension: 0, brakes: 0, ...(cd.tune || {}) },
-        kits, paint: cd.paint || null,
+        // ⚠ NORMALISED ON READ, NEVER MIGRATED ON WRITE. A truck painted before the model widened
+        // carries {base, trim, flash, chrome} and nothing else, and every reader downstream — the
+        // panel's four pickers, the renderer's hardware and box colours — would find undefined
+        // where a colour should be. Reading through sanitizePaint fills them from the defaults,
+        // which by construction reproduce exactly what that truck has always been drawn as, so no
+        // row has to be rewritten and nothing changes colour on the day this ships.
+        kits, paint: sanitizePaint({}, cd.paint || {}),
         repairField: repairCost(t.type, t.condition ?? 1, false),
         repairShop: repairCost(t.type, t.condition ?? 1, true),
         canField: (t.condition ?? 1) < FIELD_CAP,
-        paintPrice: paintCost(t.type),
+        // ⚠ THE PRICE OF THE PAINT IN FRONT OF YOU, not of the paint on the truck. The finish
+        // moves the fee, so a bench that quoted the fitted job would show one number and charge
+        // another the moment somebody chose flake — see paintCost. Base price too, because the
+        // panel re-quotes locally while a dial is being turned and must not invent the scale.
+        paintPrice: paintCost(t.type, cd.paint || PAINT_DEFAULT),
+        paintBase: paintCost(t.type, { finish: 'gloss' }),
         refuel: Math.round((1 - (t.fuel ?? 1)) * FUEL_FULL),
         // The performance the panel graphs. Derived through the SAME function the drive uses, so a
         // bar that moves when you turn a dial is promising exactly what the wheel will deliver.
@@ -704,7 +717,8 @@ async function depotPanel(player, hereIn, depotIn, tab = 'fleet', forceText = fa
     tuneParams: Object.entries(TUNE_PARAMS).map(([id, p]) => ({ id, label: p.label, lo: p.lo, hi: p.hi, desc: p.desc })),
     tuneRange: tuneRange(fab, []),
     kitCatalog: Object.entries(KITS).map(([id, k]) => ({ id, ...k, afford: (player.credits || 0) >= k.price })),
-    flashes: FLASHES,
+    flashes: FLASHES, finishes: FINISHES, arts: ARTS, paintPresets: PAINT_PRESETS, paintDefault: PAINT_DEFAULT,
+    finishMul: Object.fromEntries(FINISHES.map(f => [f.id, +(paintCost({ price: 100000 }, f) / paintCost({ price: 100000 }, { finish: 'gloss' })).toFixed(3)])),
     fuelHere: pumpHere,
     board: boardFor(here.id),
     quotes: quotes.map((q) => {
@@ -955,9 +969,10 @@ async function cmdRig(args, raw, player) {
   if (sub === 'tune') return await rigTune(player, truck, cd, rest);
   if (sub === 'kit') return await rigKit(player, truck, cd, rest[0]);
   if (sub === 'paint') return await rigPaint(player, truck, cd, rest);
+  if (sub === 'trim' || sub === 'interior') return await rigTrim(player, truck, cd, rest);
   if (sub === 'fuel') return await rigFuel(player, truck, bay, depot);
   if (sub === 'name') return await rigName(player, truck, rest.join(' '));
-  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint &lt;base&gt; &lt;trim&gt; &lt;flash&gt; | rig fuel | rig name &lt;plate&gt;</span>');
+  return say('<span class="text-dim">rig repair [shop] [engine|wheels|body] | rig strip | rig parts &lt;engine|wheels|body&gt; | rig spares [n] | rig tune &lt;gearing&gt; &lt;boost&gt; &lt;suspension&gt; &lt;brakes&gt; | rig kit &lt;id&gt; | rig paint [preset &lt;name&gt;|base=… trim=… hw=… deck=… flash=… finish=… art=…] | rig fuel | rig name &lt;plate&gt;</span>');
 }
 
 // The counter. Cheap, heavy, and the thing everybody decides they do not need on the way out of the
@@ -1212,14 +1227,56 @@ async function rigKit(player, truck, cd, kitId) {
   return say(`<span class="item-grant">Fitted: ${kit.name}. ${kit.price}₵.</span> <span class="text-dim">${kit.desc}</span>`);
 }
 
-// A truck wears a colour, a flash down the flank and a name on the door — deliberately thinner
-// than an aircraft's livery, because the door name is the plate the fleet already stores and a
-// second copy of it here would be two answers to one question.
+// A truck wears four colours, a paint job over them, a finish coat and a picture on the door — the
+// name on the door is still the plate the fleet already stores, and a second copy of it here would
+// be two answers to one question. The catalogue lives in rig.js; this is the till.
+//
+// ── THE GRAMMAR IS NAMED, AND IT HAD TO BECOME NAMED ─────────────────────────
+// This was four positional arguments, which is fine for four and unusable for eight — nobody is
+// going to remember that the seventh slot is the door art. `rigTrim` below already solved the same
+// problem by making its arguments order-free, and its comment says why: a player should not have to
+// remember which slot is which for a choice they make twice in a career.
+//
+// ⚠ BUT NOT THE SAME SOLUTION, because the trick `rig trim` uses does not work here. It infers a
+// bare word's meaning from which catalogue it appears in, which is only safe while the catalogues
+// are disjoint — and these are not: `candy` is a paint job AND a finish coat, `flames` is door art
+// while `flame` is a paint job. So the keys are written down (`finish=candy`), and the OLD
+// positional form is still accepted exactly as it was, because it is what every macro and every
+// line of anyone's notes already says.
 async function rigPaint(player, truck, cd, args) {
-  const [base, trim, flash, chrome] = args;
-  const next = sanitizePaint({ base, trim, flash, chrome: chrome == null ? undefined : chrome !== '0' }, cd.paint || {});
-  const cost = paintCost(truck.type);
-  const changed = JSON.stringify(next) !== JSON.stringify(cd.paint || {});
+  const prev = cd.paint || {};
+  const patch = {};
+  const loose = [];
+  for (const raw of args) {
+    const tok = String(raw || '');
+    const eq = tok.indexOf('=');
+    if (eq > 0) { patch[tok.slice(0, eq).toLowerCase()] = tok.slice(eq + 1); continue; }
+    loose.push(tok);
+  }
+  // `rig paint <id> preset <name>` — the whole scheme in one word. The panel's one-click swatches
+  // are this verb, which is the rule the depot is built on: anything you can click you can type.
+  if (loose[0] && loose[0].toLowerCase() === 'preset') {
+    const p = presetPaint(loose[1], prev);
+    if (!p) return say(`<span class="text-dim">Schemes: ${PAINT_PRESETS.map(r => r.id).join(', ')}.</span>`);
+    Object.assign(patch, p);
+    loose.length = 0;
+  }
+  // The legacy positional form, untouched: base, trim, flash, chrome.
+  const [lb, lt, lf, lc] = loose;
+  if (lb !== undefined && patch.base === undefined) patch.base = lb;
+  if (lt !== undefined && patch.trim === undefined) patch.trim = lt;
+  if (lf !== undefined && patch.flash === undefined) patch.flash = lf;
+  if (lc !== undefined && patch.chrome === undefined) patch.chrome = lc;
+  if (patch.chrome !== undefined) patch.chrome = patch.chrome !== '0' && patch.chrome !== 'off' && patch.chrome !== false;
+  if (!args.length) {
+    const list = (rows) => rows.map(r => r.id).join(', ');
+    return say('<span class="text-dim">rig paint &lt;id&gt; base=#rrggbb trim=#rrggbb hw=#rrggbb deck=#rrggbb '
+      + 'flash=&lt;job&gt; finish=&lt;coat&gt; art=&lt;door&gt; chrome=0|1 — or <b>rig paint &lt;id&gt; preset &lt;name&gt;</b>.\n'
+      + `Jobs: ${list(FLASHES)}.\nCoats: ${list(FINISHES)}.\nDoor: ${list(ARTS)}.\nSchemes: ${list(PAINT_PRESETS)}.</span>`);
+  }
+  const next = sanitizePaint(patch, prev);
+  const cost = paintCost(truck.type, next);
+  const changed = JSON.stringify(next) !== JSON.stringify(sanitizePaint({}, prev));
   if (!changed) { await repush(player, 'bench'); return { type: 'noop' }; }
   if ((player.credits || 0) < cost) return say(`A respray on something that size is ${cost}₵ and you have ${player.credits || 0}₵.`);
   player.credits -= cost;
@@ -1228,8 +1285,55 @@ async function rigPaint(player, truck, cd, args) {
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
   sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
   await repush(player, 'bench');
-  return say(`<span class="item-grant">Resprayed — ${cost}₵. It comes out of the booth still smelling of it.</span>`);
+  return say(`<span class="item-grant">Resprayed — ${cost}₵.</span> <span class="text-dim">${(FINISHES.find(f => f.id === next.finish) || {}).label || 'Gloss'}, and it comes out of the booth still smelling of it.</span>`);
 }
+
+// ── rig trim ─────────────────────────────────────────────────────────────────
+// The inside of the respray. `rig trim` with no arguments is the catalogue; with one or two it is
+// the job. Order-free on purpose — a material and a colourway cannot be confused for each other,
+// so `rig trim walnut wood` and `rig trim wood walnut` are the same sentence and both work. The
+// alternative is a positional grammar that makes a player remember which slot is which for a
+// choice they make about twice in a career.
+async function rigTrim(player, truck, cd, args) {
+  const mats = Object.entries(DASH_MATERIALS), cols = Object.entries(DASH_COLOURWAYS);
+  const now = sanitizeTrim(cd.trim || {}, {});
+  const cost = trimCost(truck.type);
+  const want = {};
+  for (const a of args) {
+    const k = String(a || '').toLowerCase();
+    if (isDashMaterial(k)) want.mat = k;
+    else if (isDashColourway(k)) want.col = k;
+    else if (k) return say(`No such trim: <b>${k.replace(/[<>]/g, '')}</b>. Try <span class="text-dim">rig trim</span> on its own for the book.`);
+  }
+  if (!args.length) {
+    // The catalogue. It says what the truck is wearing NOW as well as what is on offer, because
+    // "which of these am I looking at" is the first question anybody asks at a swatch book.
+    const line = (k, label, blurb, on) =>
+      `  <span class="action-link" data-action="cmd" data-cmd="rig trim ${k}">${on ? '<b>' : ''}${k}${on ? '</b>' : ''}</span>`
+      + ` — ${label}${blurb ? `<span class="text-dim">, ${blurb}</span>` : ''}${on ? ' <span class="text-dim">(fitted)</span>' : ''}`;
+    return say(`<b>Interior trim</b> <span class="text-dim">— ${cost}₵ a job, however much of it you change.</span>\n`
+      + `<span class="text-dim">Material:</span>\n`
+      + mats.map(([k, m]) => line(k, m.label, m.blurb, k === (now.mat || truckStockTrim(truck).mat))).join('\n')
+      + `\n<span class="text-dim">Colourway:</span>\n`
+      + cols.map(([k, c]) => line(k, c.label, '', k === (now.col || truckStockTrim(truck).col))).join('\n')
+      + `\n<span class="text-dim">The bench does not sell instruments. What is in the binnacle came with the truck.</span>`);
+  }
+  const next = sanitizeTrim({ ...now, ...want }, now);
+  if (JSON.stringify(next) === JSON.stringify(now)) { await repush(player, 'bench'); return { type: 'noop' }; }
+  if ((player.credits || 0) < cost) return say(`Retrimming a cab is ${cost}₵ and you have ${player.credits || 0}₵.`);
+  player.credits -= cost;
+  cd.trim = next;
+  await saveTruckData(truck.id, player.id, cd);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]).catch(() => {});
+  sendToPlayer(player.id, { type: 'player_update', credits: player.credits });
+  await repush(player, 'bench');
+  const said = [next.mat && DASH_MATERIALS[next.mat]?.label, next.col && DASH_COLOURWAYS[next.col]?.label].filter(Boolean).join(', ');
+  return say(`<span class="item-grant">Retrimmed — ${cost}₵.</span> ${said}. It smells of glue and it will for a week.`);
+}
+// What the truck LEFT THE FACTORY IN, for the catalogue's "fitted" marks. One mapping, in the
+// shared file the renderer reads — a second copy here would drift the first time a stock interior
+// was recoloured, and the symptom would be the swatch book ticking the wrong row.
+const truckStockTrim = (truck) => stockTrim(truck?.type?.tier ?? 1);
 
 // Filling a PARKED truck. `fuel` (the older verb) fills the one you are sitting in, out on the
 // road; this is the same act at a depot with the keys in your pocket, and it is the button the

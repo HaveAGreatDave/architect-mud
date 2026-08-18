@@ -250,19 +250,139 @@ export const SPARES_ITEM = 'item_truck_spares';
 export const FIX_GRACE_TILES = 260;
 
 // ── Paint ────────────────────────────────────────────────────────────────────
-// Deliberately thinner than an aircraft's livery: a truck wears a colour, a flash down the flank
-// and a name on the door. The door name is the plate the fleet already stores, so it is not
-// duplicated here.
-export const FLASHES = ['none', 'stripe', 'wave', 'fade', 'candy'];
+// A truck wears FOUR colours, a paint job over them, a finish coat and a picture on the door.
+//
+// It used to wear two and a choice of four flashes, which was written down as "deliberately thinner
+// than an aircraft's livery". That was the wrong comparison. An aeroplane's paint is a UNIFORM —
+// it says whose it is — and a truck's paint is the opposite: it is the one thing in this game a
+// driver owns outright, sees from the outside every time they walk up to it, and cannot be talked
+// out of. A rig somebody has spent money on should be recognisable across a yard, and two colours
+// and a stripe cannot do that.
+//
+// THE FOUR COLOURS ARE FOUR DIFFERENT SURFACES, not four slots. Each one is a place a real signwriter
+// treats separately, and each is a different set of faces in the mesh — which is why adding them
+// cost the renderer four lines rather than a system:
+//   base — the cab. What people mean when they say what colour your truck is.
+//   trim — whatever the paint job puts ON the cab: the flash, the scallop, the flame.
+//   hw   — the hardware. Chassis, tanks, bumper, mirror arms, steps, lifter housings. Black on most
+//          working rigs, and the single change that makes a truck look kept rather than new.
+//   deck — the box on the back. A tractor and its trailer are two vehicles that happen to be
+//          coupled, and they are very often not the same colour.
+//
+// THE DOOR NAME IS STILL THE PLATE the fleet already stores, and is deliberately not duplicated
+// here. `art` is a picture, not lettering.
+export const FLASHES = [
+  { id: 'none',     label: 'Plain' },
+  { id: 'stripe',   label: 'Flash' },
+  { id: 'wave',     label: 'Wave' },
+  { id: 'fade',     label: 'Fade' },
+  { id: 'candy',    label: 'Candy Bands' },
+  { id: 'scallop',  label: 'Scallops' },
+  { id: 'flame',    label: 'Flames' },
+  { id: 'split',    label: 'Beltline Split' },
+  { id: 'pinstripe', label: 'Twin Pinstripe' },
+  { id: 'chevron',  label: 'Chevrons' },
+  { id: 'checker',  label: 'Checkerflag' },
+  { id: 'roof',     label: 'Painted Roof' },
+  { id: 'lower',    label: 'Skirted' },
+  { id: 'panel',    label: 'Panel Van' },
+  { id: 'rust',     label: 'Patina' },
+];
+// The finish coat. This is the one that answers "metallic" — and it is a real per-facet effect
+// rather than a word on a sheet, because it is applied inside `faceBaseRgb`, which every renderer
+// of this mesh colours through (see the note there). One implementation, four views.
+export const FINISHES = [
+  { id: 'gloss',     label: 'Gloss' },
+  { id: 'satin',     label: 'Satin' },
+  { id: 'matte',     label: 'Matte' },
+  { id: 'metallic',  label: 'Metallic Flake' },
+  { id: 'pearl',     label: 'Pearl' },
+  { id: 'candy',     label: 'Candy Coat' },
+  { id: 'weathered', label: 'Weathered' },
+  { id: 'primer',    label: 'Primer' },
+];
+// What goes on the door. A truck's door is the flat panel a haulier signwrites, and it is the one
+// surface on the whole rig at eye level when you are standing next to it.
+export const ARTS = [
+  { id: 'none',     label: 'Bare' },
+  { id: 'crest',    label: 'Haulage Crest' },
+  { id: 'eagle',    label: 'Spread Eagle' },
+  { id: 'skull',    label: 'Skull & Pistons' },
+  { id: 'pinup',    label: 'Pin-Up' },
+  { id: 'wolf',     label: "Wolf's Head" },
+  { id: 'flames',   label: 'Door Flames' },
+  { id: 'eye',      label: "The Architect's Eye" },
+  { id: 'route',    label: 'Route Shield' },
+  { id: 'saint',    label: 'Saint of the Road' },
+  { id: 'dice',     label: 'Lucky Dice' },
+];
+// One-click schemes, the hangar's own idea (livery.js PRESETS) applied to a truck. They exist
+// because a four-colour picker with fifteen paint jobs behind it is a worse experience than two
+// colours was, unless there is a way to get something that looks deliberate in one click.
+export const PAINT_PRESETS = [
+  { id: 'workhorse', label: 'Workhorse',    base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe',   finish: 'satin',     chrome: 1 },
+  { id: 'nightrun',  label: 'Night Run',    base: '#14171c', trim: '#3a4048', hw: '#1a1d22', deck: '#1b1f25', flash: 'lower',    finish: 'matte',     chrome: 0 },
+  { id: 'candyapple', label: 'Candy Apple', base: '#8e0f18', trim: '#f0d97a', hw: '#1c1e22', deck: '#8e0f18', flash: 'scallop',  finish: 'candy',     chrome: 1 },
+  { id: 'showrig',   label: 'Show Rig',     base: '#123f6b', trim: '#e9eef4', hw: '#0e1216', deck: '#e9eef4', flash: 'pinstripe', finish: 'metallic', chrome: 1 },
+  { id: 'hotrod',    label: 'Hot Rod',      base: '#101216', trim: '#e2701e', hw: '#26282d', deck: '#101216', flash: 'flame',    finish: 'gloss',     chrome: 1 },
+  { id: 'haulier',   label: 'Company Fleet', base: '#e8e9ec', trim: '#1f4f2e', hw: '#2b2e33', deck: '#e8e9ec', flash: 'split',   finish: 'gloss',     chrome: 0 },
+  { id: 'wasteland', label: 'Wasteland',    base: '#7a6a4c', trim: '#4a3f2c', hw: '#2a2620', deck: '#6a5c42', flash: 'rust',     finish: 'weathered', chrome: 0 },
+  { id: 'hazard',    label: 'Hazard',       base: '#f2b01e', trim: '#191919', hw: '#191919', deck: '#f2b01e', flash: 'chevron',  finish: 'gloss',     chrome: 1 },
+  { id: 'shop',      label: 'In Primer',    base: '#6b6f74', trim: '#5a5e63', hw: '#2f3237', deck: '#6b6f74', flash: 'none',     finish: 'primer',    chrome: 0 },
+];
+const idsOf = (rows) => new Set(rows.map(r => r.id));
+const FLASH_IDS = idsOf(FLASHES), FINISH_IDS = idsOf(FINISHES), ART_IDS = idsOf(ARTS);
+export const PAINT_DEFAULT = { base: '#7d3f2a', trim: '#d8cfc0', hw: '#23262b', deck: '#b9bec6', flash: 'stripe', finish: 'gloss', art: 'none', chrome: 1 };
 const HEX = /^#[0-9a-f]{6}$/i;
+// ⚠ EVERY NEW FIELD FALLS BACK THROUGH `prev` TO THE DEFAULT, which is what makes the widening
+// invisible to a truck painted before it. A rig in the database carries `{base, trim, flash,
+// chrome}` and nothing else; read back through here it comes out with hardware, a box colour, a
+// gloss coat and a bare door — which is exactly what it has always been drawn as.
 export function sanitizePaint(next = {}, prev = {}) {
   const col = (v, d) => (HEX.test(String(v || '')) ? String(v).toLowerCase() : d);
+  const pick = (set, v, d) => (set.has(v) ? v : d);
   return {
-    base: col(next.base, prev.base || '#7d3f2a'),
-    trim: col(next.trim, prev.trim || '#d8cfc0'),
-    flash: FLASHES.includes(next.flash) ? next.flash : (prev.flash || 'stripe'),
+    base: col(next.base, prev.base || PAINT_DEFAULT.base),
+    trim: col(next.trim, prev.trim || PAINT_DEFAULT.trim),
+    hw: col(next.hw, prev.hw || PAINT_DEFAULT.hw),
+    deck: col(next.deck, prev.deck || PAINT_DEFAULT.deck),
+    flash: pick(FLASH_IDS, next.flash, FLASH_IDS.has(prev.flash) ? prev.flash : PAINT_DEFAULT.flash),
+    finish: pick(FINISH_IDS, next.finish, FINISH_IDS.has(prev.finish) ? prev.finish : PAINT_DEFAULT.finish),
+    art: pick(ART_IDS, next.art, ART_IDS.has(prev.art) ? prev.art : PAINT_DEFAULT.art),
     chrome: next.chrome == null ? (prev.chrome ?? 1) : (next.chrome ? 1 : 0),
   };
 }
-// A respray is priced on the truck, not the colour — a big cab is a lot of surface.
-export const paintCost = (type) => Math.max(120, Math.round((type.price || 4000) * 0.035));
+// A named scheme, expanded into a paint. Unknown name → null, so the verb can say so rather than
+// quietly respraying the truck the wrong colour.
+export function presetPaint(name, prev = {}) {
+  const p = PAINT_PRESETS.find(r => r.id === String(name || '').toLowerCase());
+  return p ? sanitizePaint(p, prev) : null;
+}
+// A respray is priced on the truck, not the colour — a big cab is a lot of surface. The FINISH is
+// the one thing that moves it, because it is the one thing that is genuinely more work: flake and
+// candy are laid down in coats over a base nobody ever sees again, and primer is the absence of the
+// job. Deliberately NOT priced per colour or per paint job — a bench that charged more for a
+// scallop than a stripe would make the interesting half of this cost money to look at.
+const FINISH_MUL = { gloss: 1, satin: 1, matte: 1, metallic: 1.45, pearl: 1.6, candy: 1.75, weathered: 0.8, primer: 0.35 };
+export const paintCost = (type, paint = null) =>
+  Math.max(60, Math.round(Math.max(120, Math.round((type.price || 4000) * 0.035)) * (FINISH_MUL[paint?.finish] ?? 1)));
+
+// ── Trim ─────────────────────────────────────────────────────────────────────
+// The INSIDE of the same job. `paint` is what other drivers see; this is what YOU see, for twenty
+// minutes at a stretch, and it is the only thing on the bench bought purely for the person buying
+// it.
+//
+// The vocabulary is imported rather than restated — see client/shared/cab-trim.js, which the
+// renderer reads too. A list here as well is a list that drifts, and the symptom would be a trim a
+// player paid for that the cab cannot draw.
+//
+// ⚠ SURFACE ONLY. A retrim reaches the dash's MATERIAL and its COLOURWAY and nothing else. It can
+// put walnut and brass in a scrapyard Barrow; it can never put a rev counter in one, because
+// `dials`/`band`/`lamps` are the fleet ladder and the ladder's teeth are INFORMATION. The renderer
+// enforces the same boundary independently (cabTrim reads two keys by name rather than spreading
+// the override), so this is stated twice on purpose.
+export { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway } from '../../client/shared/cab-trim.js';
+// Cheaper than a respray and flatter across the fleet: an interior is an interior, and the surface
+// area of a dashboard does not scale with the size of the truck the way a cab's panels do. A floor
+// keeps it from being free on the cheapest rig, where it is the change that matters most.
+export const trimCost = (type) => Math.max(240, Math.round((type.price || 4000) * 0.018));

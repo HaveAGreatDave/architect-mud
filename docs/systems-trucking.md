@@ -701,6 +701,36 @@ same turn-in — and buying your way up the fleet bought a price tag and a silho
 > regress checks the worst case the function can produce. Being slow is a consequence; being
 > immobile is a bug.
 
+### Trim — the inside of the paint job *(2026-08-17)*
+
+`rig paint` is what other drivers see. **`rig trim`** is what *you* see, for twenty minutes at a
+stretch, and it is the only thing on the bench bought purely for the person buying it. Bare, it
+prints the swatch book and marks what is fitted; with a material and/or a colourway (order-free —
+they cannot be confused for each other) it does the job for a flat fee. Four materials — pressed
+steel, moulded plastic, stitched vinyl, book-matched veneer — and seven colourways, of which four
+are the stock interiors and three the bench sells.
+
+**⚠ SURFACE ONLY. THE LADDER IS INSTRUMENTS.** A retrim can put walnut and brass in a scrapyard
+Barrow and it can **never** put a rev counter in one. `dials` / `band` / `lamps` stay on the fleet
+tier row in `windshield.js` and are unreachable from the trim vocabulary. That split is the whole
+point: what a cheap truck actually costs you is **information** — the Barrow has no tachometer, so
+you drive it on the sound of it — and a cosmetic bench must not be able to file the ladder's teeth
+down. The boundary is enforced twice on purpose: `sanitizeTrim` returns exactly two keys, and
+`cabTrim` reads those two out of the override **by name** rather than spreading it, so a payload
+carrying `dials: 2` is ignored rather than obeyed.
+
+The vocabulary lives in [client/shared/cab-trim.js](../client/shared/cab-trim.js) — materials,
+colourways, and `STOCK_TRIM` (what each tier left the factory in) — because **two sides read it and
+neither should own it**: the renderer needs the colours, and the bench needs to know what is
+buyable so it can refuse anything else. A list in each is a list that drifts, and the symptom would
+be a trim a player paid for that the cab cannot draw. Same argument as `skyline-scale.js`; no
+imports, no side effects. Regress asserts every buyable key has a full colour set and every stock
+interior names keys that exist.
+
+Storage is `trucks.custom_data.trim` — `{ mat, col }`, either nullable, no schema change. It rides
+the cab payload beside `paint`, and a truck that has never been to the bench sends `null` and
+renders byte-for-byte what it always did.
+
 ## The loop
 
 Lifted from flight, unchanged in shape: the **client simulates at 60fps** (that is where the feel

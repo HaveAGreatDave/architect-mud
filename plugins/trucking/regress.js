@@ -18,6 +18,8 @@ import { bodyTell } from '../../server/engine/dreamscape.js';
 import { aircraftFaces } from '../../client/game/js/panels/aircraft3d.js';
 import { COMMODITIES, midPrice, askPrice, bidPrice, capacityFor } from './market.js';
 import { isTextDriving } from './textdrive.js';
+import { DASH_MATERIALS, DASH_COLOURWAYS, sanitizeTrim, isDashMaterial, isDashColourway, stockTrim } from '../../client/shared/cab-trim.js';
+import { trimCost } from './rig.js';
 import { restoreDrivingState } from './resume.js';
 import { routeOptions } from './routes.js';
 import { damageOf, overall, wearSplit, impactSplit, grindSplit, IMPACT_AREAS, partEffects, applyDamage, PARTS } from './damage.js';
@@ -1904,4 +1906,42 @@ export default async function regress({ run, check, getPlayer }) {
     check('climbing down leaves no cabin behind', cabinTemperature(pid) === null);
   }
 
+  // ── CAB TRIM: THE BENCH SELLS SURFACE, NEVER INSTRUMENTS ────────────────────
+  // The whole rule of `rig trim` in one place. The vocabulary is shared with the renderer
+  // (client/shared/cab-trim.js) precisely so a trim a player pays for is always one the cab can
+  // draw; these assert the two halves of that — nothing unknown gets stored, and nothing stored can
+  // reach the fleet ladder.
+  {
+    const stock = stockTrim(0);
+    check('a stock trim is the tier it came from', stock.col === 'oxide' && stock.mat === 'steel');
+
+    // Every buyable key must exist on BOTH sides. If a colourway is ever added to the bench without
+    // a colour set, the swatch sells a trim that renders as the fallback and nobody finds out.
+    check('every material the bench sells has a surface to draw',
+      Object.keys(DASH_MATERIALS).every(k => isDashMaterial(k) && DASH_MATERIALS[k].gloss > 0));
+    check('every colourway the bench sells has a full colour set',
+      Object.keys(DASH_COLOURWAYS).every(k => {
+        const c = DASH_COLOURWAYS[k];
+        return c && Array.isArray(c.dash) && c.dash.length === 3 && Array.isArray(c.face) && c.needle && c.glow;
+      }));
+    // …and every STOCK trim has to name keys that exist, or a truck nobody retrimmed renders wrong.
+    check('every stock interior names a real material and colourway',
+      [0, 1, 2, 3].every(t => isDashMaterial(stockTrim(t).mat) && isDashColourway(stockTrim(t).col)));
+
+    // ⚠ SURFACE ONLY. A payload carrying instrument keys must not be able to fit a rev counter.
+    const dirty = sanitizeTrim({ mat: 'wood', col: 'walnut', dials: 2, band: true, lamps: 5 }, {});
+    check('a trim is two keys and cannot smuggle instruments',
+      Object.keys(dirty).sort().join(',') === 'col,mat');
+
+    // An unrecognised argument falls back to what the truck ALREADY had, never to a default —
+    // a typo must not silently repaint a cab the driver was happy with.
+    const kept = sanitizeTrim({ mat: 'marble', col: 'chartreuse' }, { mat: 'vinyl', col: 'moss' });
+    check('an unknown swatch keeps the fitted one', kept.mat === 'vinyl' && kept.col === 'moss');
+    check('an unknown swatch on a stock truck stays null',
+      sanitizeTrim({ mat: 'marble' }, {}).mat === null);
+
+    // The price is a real number on every rung, including a truck with no price at all.
+    check('a retrim is priced on every rung and never free',
+      [{ price: 1300 }, { price: 31000 }, {}].every(t => trimCost(t) >= 240));
+  }
 }

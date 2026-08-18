@@ -544,6 +544,10 @@ export function cabContext(rig, extra = {}) {
     // ends up here, and the panel paints whatever arrives.
     cb: { on: !rig.cbOff, chan: rig.cbChan ?? 19, spk: !!rig.cbSpeaker },
     paint: rig.cd?.paint || null,
+    // The INSIDE of the paint job — `{ mat, col }` or null for however it left the factory. The
+    // renderer merges it over the tier row and can reach nothing else (see cabTrim), so a truck
+    // that has never been to the bench renders exactly as it always did.
+    trim: rig.cd?.trim || null,
     cargo: rig.cargo ? { name: rig.cargo.name, kg: rig.cargo.kg, to: rig.cargo.toName } : null,
     // The client model owns φ and the brake temperature between frames — it simulates them at
     // 60fps and nothing here could improve on that. What the server owns is WHETHER there is a
