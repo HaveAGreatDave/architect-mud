@@ -4909,7 +4909,7 @@ function drawVolumetricClouds(ctx, cam, st, v, base, lit, alpha, storm, night, d
   // the screen's horizontal span. Rejecting everything behind and beside the camera BEFORE the costly
   // projection + gradient cards means the global budget is spent only on puffs you can SEE — so the
   // in-view deck is several times denser (and can afford smaller, finer puffs) for the same draw cost.
-  const halfExt = (W / 2) / cam.FL, camBack = cam.back || 0;
+  const halfExt = (W / 2) / cam.FL, camBack = cam.fwdOff || 0;
   const cards = [];
   for (const { c } of nearCells) {
     if (budget <= 0) break;
@@ -5915,11 +5915,16 @@ export function makeCam(W, horizonY, depth, v, chase) {
   // It no longer can, and fourteen copies of an assumption is fourteen places to forget it.
   // Identical to what each of them computed when the free offset is unused: `a - (-b)` is `a + b`.
   const ex = -back * sinh + fx, ey = back * cosh + fy;
+  // How much further from the camera a point is than it is from the CRAFT, along the view axis.
+  // Every depth the painter queue sorts on is craft-relative and has to be shifted by this to
+  // become camera-relative; it was spelled `cam.back` at each of those sites, which is the same
+  // number right up until the camera leaves the heading axis. Exactly `back` when unused.
+  const fwdOff = back - fFwd;
   // The chase offset shifts everything `back` tiles forward of the camera (f += back); lateral
   // is unchanged. up raises the eye height (EH), tipping the nose of the view down onto the craft.
   const proj = (dx, dy, wz) => { const bx = dx + back * sinh - fx, by = dy - back * cosh - fy; const f = Math.max(0.06, bx * sinh - by * cosh), l = bx * cosh + by * sinh; return { sx: cx + (l / f) * FL, sy: horizonY + depth * (EH - wz) / f, f }; };
   const projFL = (aa, s, wz) => { const f = Math.max(0.06, aa + back - fFwd); return { sx: cx + ((s - fSide) / f) * FL, sy: horizonY + depth * (EH - (wz || 0)) / f, f }; };
-  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
+  return { R, sinh, cosh, ox, oy, proj, projFL, EH, EHbase, back, FL, fx, fy, ex, ey, fwdOff };   // EH/EHbase/FL exposed so traffic, the own-ship and the volumetric clouds can be placed + sized relative to the world camera
 }
 
 // ── Depth-sorted face queue (painter's order without a z-buffer) ─────────────────────────────
@@ -6151,7 +6156,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
   // Raw (unclamped) forward distance of a footprint point — the value proj() clamps to 0.06.
   // f is constant up a vertical edge (height-independent), so this is per footprint CORNER.
   const NEAR_CLIP = 0.08;   // trim walls to this near plane; above proj's 0.06 clamp so trimmed corners project stably
-  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
+  const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
   const cf = cs.map(([a, c]) => rawF(dx + a, dy + c));
   const b = cs.map(([a, c]) => cam.proj(dx + a, dy + c, wz0));
   // Day↔night wall textures used to snap at a hard `night > 0.4` boolean (windows flipped from cool day
@@ -6171,7 +6176,7 @@ function draw3DBoxAt(ctx, cam, dx, dy, fh, wz0, wz1, biome, seed, night, alpha, 
     // cockpit view, but `back` tiles behind (at −back·sinh, +back·cosh) in the external chase
     // view — fold that in, or the cull picks the wrong walls and you see straight into the box.
     const mx = (cs[i][0] + cs[j][0]) / 2, my = (cs[i][1] + cs[j][1]) / 2;
-    if (mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) >= 0) continue;   // wall faces away → skip
+    if (mx * (dx + mx) + my * (dy + my) - (mx * (cam.ex || 0) + my * (cam.ey || 0)) >= 0) continue;   // wall faces away → skip
     faces.push({ af: (b[i].f + b[j].f) / 2, i, j });
   }
   faces.sort((x, y) => y.af - x.af);
@@ -6312,7 +6317,7 @@ function draw3DBox(ctx, cam, dx, dy, fh, wz, biome, seed, night, alpha) {
 const CURTAIN_H = 0.9;   // world-z — taller than any district building, an imposing barrier
 function drawCurtainWall(ctx, cam, dx, dy, axis, alpha, now) {
   const NEAR = 0.08;
-  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
+  const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
   const seg = (ax, ay, bx, by) => {
     const fa = rawF(ax, ay), fb = rawF(bx, by);
     if (fa < NEAR && fb < NEAR) return;
@@ -6466,7 +6471,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
   const litZ = Math.max(0.30, sun && sun.elev > 0.05 ? sun.elev : 0.55);
   const ll = Math.sqrt(litX * litX + litY * litY + litZ * litZ) || 1;
   const lx = litX / ll, ly = litY / ll, lz = litZ / ll;
-  const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
+  const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
 
   // cliff/plateau are ONE landform lit two ways (see BIOME_GROUND), so the SURFACE picks the
   // colour, not the tile: every top takes the caprock tone and every face the rim tone, with the
@@ -6601,7 +6606,7 @@ function drawCliffMass(ctx, cam, dx, dy, run, biome, seed, night, alpha, sun, wx
     // wall is genuinely farther (the talus flare pushes its foot farther still), so it sorts behind
     // the cap and the near wall that cover it.
     const mx = nx * 0.5, my = ny * 0.5;
-    const facing = mx * (dx + mx) + my * (dy + my) + (cam.back || 0) * (mx * cam.sinh - my * cam.cosh) < 0;
+    const facing = mx * (dx + mx) + my * (dy + my) - (mx * (cam.ex || 0) + my * (cam.ey || 0)) < 0;
     const faceCol = facing ? facBase : innerBase, footCol = facing ? screeBase : innerBase;
     // Lambert-ish key so the four aspects of a massif are not the same colour — a south face and
     // a north face at the same tone is what makes blocks look like blocks. The apron faces part
@@ -6786,10 +6791,10 @@ function drawFacetDrum(ctx, cam, dx, dy, z0, z1, rb, rt, N, alpha, style, cap) {
   // half of it a stub camera happens to face.
   if (SHAPE_SINK) { SHAPE_SINK.push({ kind: 'drum', dx, dy, wz0: z0, wz1: z1, rb, rt, n: N, cap: !!cap, pal: SHAPE_PAL }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
-  const lx = -0.7, ly = -0.7, bk = cam.back || 0, rm = (rb + rt) / 2, F = [];
+  const lx = -0.7, ly = -0.7, rm = (rb + rt) / 2, F = [];
   for (let i = 0; i < N; i++) {
     const a0 = i / N * 6.2832, a1 = (i + 1) / N * 6.2832, am = (a0 + a1) / 2, nx = Math.cos(am), ny = Math.sin(am);
-    if (nx * (dx + nx * rm) + ny * (dy + ny * rm) + bk * (nx * cam.sinh - ny * cam.cosh) >= 0) continue;   // facet faces away → cull
+    if (nx * (dx + nx * rm) + ny * (dy + ny * rm) - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0) continue;   // facet faces away → cull
     const p = [
       cam.proj(dx + Math.cos(a0) * rb, dy + Math.sin(a0) * rb, z0),
       cam.proj(dx + Math.cos(a1) * rb, dy + Math.sin(a1) * rb, z0),
@@ -6875,10 +6880,10 @@ function drawBarrelRoof(ctx, cam, F, cxL, hl, hw, wallTop, archH, NF, alpha, bas
   if (SHAPE_SINK) { const [ax, ay] = F(0, 0); SHAPE_SINK.push({ kind: 'barrel', dx: ax, dy: ay, cxL, hl, hw, wz0: wallTop, archH, nf: NF, pal: SHAPE_PAL, base: base && base.slice ? base.slice() : base }); return; }
   if (MASS_OFF) return;   // adornments-only pass — the distance LOD draws this mass from captured segments
   const [ox, oy] = F(0, 0), [rx, ry] = F(1, 0), [fx, fy] = F(0, 1);
-  const RX = rx - ox, RY = ry - oy, FX = fx - ox, FY = fy - oy, bk = cam.back || 0;   // world basis per local unit
+  const RX = rx - ox, RY = ry - oy, FX = fx - ox, FY = fy - oy;   // world basis per local unit
   const P = (lx, ly, z) => { const [wx, wy] = F(lx, ly); return cam.proj(wx, wy, z); };
   const shade = (s) => `rgb(${Math.min(255, base[0] * s) | 0},${Math.min(255, base[1] * s) | 0},${Math.min(255, base[2] * s) | 0})`;
-  const facesCam = (nlx, nly, clx, cly) => { const NX = nlx * RX + nly * FX, NY = nlx * RY + nly * FY, [cx, cy] = F(clx, cly); return NX * cx + NY * cy + bk * (NX * cam.sinh - NY * cam.cosh) < 0; };
+  const facesCam = (nlx, nly, clx, cly) => { const NX = nlx * RX + nly * FX, NY = nlx * RY + nly * FY, [cx, cy] = F(clx, cly); return NX * cx + NY * cy - (NX * (cam.ex || 0) + NY * (cam.ey || 0)) < 0; };
   const lxA = (t) => cxL + hl * Math.cos(t), zA = (t) => wallTop + archH * Math.sin(t);
   const list = [];
   const add = (pts, fill) => { if (!pts.some(p => p.f <= 0.08)) list.push({ af: pts.reduce((s, p) => s + p.f, 0) / pts.length, pts, fill }); };
@@ -7407,7 +7412,7 @@ function drawStreetActors(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
     if (a <= 0.03) continue;
     // Gait runs on wall-clock, offset per figure, so a pavement of people is not a chorus line.
     const phase = now * 0.011 + actorHash(t, 5) * 7;
-    emitFace(f + (cam.back || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night));
+    emitFace(f + (cam.fwdOff || 0), () => drawActorFigure(ctx, cam, dx, dy, a, t, phase, p.moving, night));
   }
 }
 
@@ -7844,7 +7849,7 @@ function drawStreetLamps(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
 // under every building in the flush that follows (see the same note on the signal heads).
 function drawStreetLampQueued(ctx, cam, dx, dy, inward, lit, alpha, night, seed) {
   const f = dx * cam.sinh - dy * cam.cosh;
-  emitFace(f + (cam.back || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed));
+  emitFace(f + (cam.fwdOff || 0), () => drawStreetLamp(ctx, cam, dx, dy, inward, lit, alpha, night, seed));
 }
 
 // The signal pass: one head per arm of every junction in view. Queued into the shared face sink
@@ -7899,7 +7904,7 @@ function drawTrafficSignals(ctx, cam, v, map, R, wcx, wcy, night, now, FAR) {
       // open during this pass, so anything painting straight to ctx here is painted OVER by every
       // building in the flush that follows.
       const hf = mx * cam.sinh - my * cam.cosh;
-      emitFace(hf + (cam.back || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
+      emitFace(hf + (cam.fwdOff || 0), () => drawSignalMast(ctx, cam, mx, my, arm, lamp, alpha, night, !dead && night > 0.35));
     }
   }
 }
@@ -9026,7 +9031,7 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     const wv = wantLit ? (bw || dp.map(Wp)) : null;
     if (wv && wv.length >= 3) casters.push(wv);
     if (face.cen && haveN && trustOut && !bw && cullBackfaces) {
-      const ex = cam.ex, ey = cam.ey, ez = cam.EH;
+      const ex = cam.ex || 0, ey = cam.ey || 0, ez = cam.EH;
       if (nx * (cx3 - ex) + ny * (cy3 - ey) + nz * (cz3 - ez) >= 0) continue;
     }
     let lm = 1;
@@ -10016,7 +10021,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     // and keep the tile while ANY corner is still ahead of the camera: a section straddling the near
     // plane just clamps its near edge off the bottom of the screen instead of vanishing. `back` folds
     // in the chase camera (which sits `back` tiles behind the craft).
-    const rawF = (x, y) => (x - cam.ex) * cam.sinh - (y - cam.ey) * cam.cosh;
+    const rawF = (x, y) => (x - (cam.ex || 0)) * cam.sinh - (y - (cam.ey || 0)) * cam.cosh;
     const cf = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].map(([a, b]) => rawF(dx + a, dy + b));
     if (cf.every(z => z <= 0.06) || f > VISIBLE_FAR_F) continue;
     // Match the buildings' long draw distance + far fade so pavement ghosts up out of the
@@ -11036,7 +11041,7 @@ export function bayOccluderSmoke(ID) {
   // input finely and fail on a step no continuous function could take.
   {
     const bcell = { kind: 'land', biome: 'freight', bt: 'truck_depot', ent: 'north', flr: 1, mark: 'bay' };
-    const fakeCam = (EH) => ({ EH, back: 0.9, sinh: 0, cosh: 1 });
+    const fakeCam = (EH) => ({ EH, back: 0.9, sinh: 0, cosh: 1, ex: -0, ey: 0.9, fwdOff: 0.9 });
     const STEP_MAX = 0.35;
     let prev = null, worstEye = 0;
     for (let eh = 0; eh <= 0.5; eh += 0.005) {
@@ -11417,8 +11422,8 @@ function applyRegionGrade(ctx, W, H, horizonY, g, w, now, night) {
 function emitFlat(ctx, cam, pts, fill, alpha, opts = {}) {
   if (opts.cullN) {
     let cx = 0, cy = 0; for (const p of pts) { cx += p[0]; cy += p[1]; } cx /= pts.length; cy /= pts.length;
-    const nx = opts.cullN[0], ny = opts.cullN[1], bk = cam.back || 0;
-    if (nx * cx + ny * cy + bk * (nx * cam.sinh - ny * cam.cosh) >= 0) return;   // face turned away → skip
+    const nx = opts.cullN[0], ny = opts.cullN[1];
+    if (nx * cx + ny * cy - (nx * (cam.ex || 0) + ny * (cam.ey || 0)) >= 0) return;   // face turned away → skip
   }
   const pr = pts.map(p => cam.proj(p[0], p[1], p[2]));
   if (pr.some(q => q.f <= 0.1)) return;   // any corner behind the eye → drop (rooftop deco, rarely this close)
@@ -11590,7 +11595,7 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
   if (SHAPE_SINK || ADORN_TIER < ADORN_RICH) return;   // adornment
   const n = label.length; if (!n) return;
   N = N || [0, 1];
-  const ax = N[1], ay = -N[0], baseH = 0.045, projD = 0.15, bk = cam.back || 0;    // along-wall unit; base half-width + apex-ridge projection (tiles)
+  const ax = N[1], ay = -N[0], baseH = 0.045, projD = 0.15;    // along-wall unit; base half-width + apex-ridge projection (tiles)
   const baseL = [dx - ax * baseH, dy - ay * baseH], baseR = [dx + ax * baseH, dy + ay * baseH], apex = [dx + N[0] * projD, dy + N[1] * projD];
   const board = () => { ctx.globalAlpha = alpha; ctx.fillStyle = '#0e0a0f'; };     // dark backing fill
   const mGlow = glowEarned(night, cam.proj(dx, dy, (h0 + h1) / 2).f);   // one distance for the whole sign
@@ -11599,7 +11604,7 @@ function verticalMarquee(ctx, cam, dx, dy, h0, h1, label, color, night, alpha, N
     const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
     let nfx = B[1] - A[1], nfy = -(B[0] - A[0]);                                   // outward normal ⊥ to the edge
     if (nfx * (mx - dx) + nfy * (my - dy) < 0) { nfx = -nfx; nfy = -nfy; }         // point away from the prism axis
-    if (nfx * mx + nfy * my + bk * (nfx * cam.sinh - nfy * cam.cosh) >= 0) return; // face turned away → cull
+    if (nfx * mx + nfy * my - (nfx * (cam.ex || 0) + nfy * (cam.ey || 0)) >= 0) return; // face turned away → cull
     const At = cam.proj(A[0], A[1], h1), Bt = cam.proj(B[0], B[1], h1), Bb = cam.proj(B[0], B[1], h0), Ab = cam.proj(A[0], A[1], h0);
     if ([At, Bt, Bb, Ab].some(q => q.f <= 0.12)) return;
     emitFace(Math.min(At.f, Bt.f, Bb.f, Ab.f) - 0.04, () => {                      // bias forward so it beats the wall it's mounted on
@@ -11986,7 +11991,7 @@ function drawGargoyle(ctx, cam, wx, wy, wz, size, outDir, alpha, night, seed) {
     push([[-0.10, 0.90, 0.07], [0.10, 0.90, 0.07], br, bl]); }  // jaw back
   // ── Shade + fill (matte weathered limestone), each face depth-queued via emitFace ──
   const KL = (() => { const v = [0.42, -0.34, 0.86], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();   // top-front key
-  const camPos = [cam.ex, cam.ey, cam.EH];
+  const camPos = [cam.ex || 0, cam.ey || 0, cam.EH];
   const ctr = L(0, 0.1, 0.30);
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -12036,7 +12041,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
   // at the camera when E·(camera − faceCentre) > 0 — same test as the box backface cull, folding
   // in the external-view chase offset. When the front is turned away we skip the signage/marquee
   // (it lives ON that face) instead of letting it float through the building from behind.
-  const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) + (cam.back || 0) * (E[0] * cam.sinh - E[1] * cam.cosh)) < 0;
+  const frontVis = (E[0] * (dx + E[0] * fh) + E[1] * (dy + E[1] * fh) - (E[0] * (cam.ex || 0) + E[1] * (cam.ey || 0))) < 0;
   switch (m.type) {
     case 'bank': {   // Citadel Financial — a windowless marble strongbox pretending to be a temple.
       // Deliberately the archive's austere cousin: same civic vocabulary (stylobate, colonnade,
@@ -12986,7 +12991,7 @@ function drawTypeModel(ctx, cam, dx, dy, fh, h, m, seed, night, alpha, now, E = 
         drawBarrelRoof(ctx, cam, F, hxL, hw, hw, wallTop, archH, 10, alpha, [138, 146, 156]);                        // curved corrugated roof + arched gables
         // Open bay on the apron-facing (+local-y) gable — only when that gable faces the camera.
         const [ox, oy] = F(0, 0), [f1x, f1y] = F(0, 1), FX = f1x - ox, FY = f1y - oy, [gcx, gcy] = F(hxL, hw);
-        if (FX * gcx + FY * gcy + (cam.back || 0) * (FX * cam.sinh - FY * cam.cosh) < 0) {
+        if (FX * gcx + FY * gcy - (FX * (cam.ex || 0) + FY * (cam.ey || 0)) < 0) {
           const P = (llx, lly, z) => { const [wx, wy] = F(llx, lly); return cam.proj(wx, wy, z); };
           const odw = hw * 0.58, oTop = wallTop * 0.82, inset = hw * 0.55;
           const o = [P(hxL - odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, 0), P(hxL + odw, hw + 0.003, oTop), P(hxL - odw, hw + 0.003, oTop)];
@@ -13999,7 +14004,7 @@ Object.defineProperty(SHAPE_STUB_CTX, 'shadowBlur', {
 // arms so no eager block short-circuits; sx/sy only have to be finite. sinh/cosh/back are what
 // frontVis and every backface test read, and holding them at 0/1/0 is what makes the ±dy trick below
 // flip frontVis deterministically.
-const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, EH: 1, FL: 400, R: 24, proj: (x, y, z) => ({ sx: x * 100, sy: -z * 100, f: 4 }) };
+const SHAPE_STUB_CAM = { sinh: 0, cosh: 1, back: 0, ex: -0, ey: 0, fwdOff: 0, EH: 1, FL: 400, R: 24, proj: (x, y, z) => ({ sx: x * 100, sy: -z * 100, f: 4 }) };
 
 // One raw pass. `dyOff` positions the model so that frontVis (which is just `dy + fh < 0` under this
 // stub cam) comes out the way we want: negative → the entrance face is toward the camera.
@@ -14399,7 +14404,7 @@ function boxQuads(cam, corners, z0, z1, out, keepWorld = false) {
   let ccx = 0, ccy = 0;
   for (const [x, y] of corners) { ccx += x; ccy += y; }
   ccx /= n; ccy /= n;
-  const ex = -cam.back * cam.sinh, ey = cam.back * cam.cosh;   // the eye, in the frame proj() reads
+  const ex = (cam.ex || 0), ey = (cam.ey || 0);   // the eye, in the frame proj() reads
   const lo = corners.map(([x, y]) => cam.proj(x, y, z0));
   const hi = corners.map(([x, y]) => cam.proj(x, y, z1));
   const q = (a, b, c, d, w) => {
@@ -14870,7 +14875,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // A hair over half a tile (0.62) so a model that oversteps its footprint is covered too.
     const HW = 0.62;
     const cornerAhead = c.mark === 'yacht' || [[-HW, -HW], [HW, -HW], [HW, HW], [-HW, HW]]
-      .some(([a, b]) => (dx + a) * cam.sinh - (dy + b) * cam.cosh + (cam.back || 0) > VISIBLE_NEAR_F);
+      .some(([a, b]) => (dx + a) * cam.sinh - (dy + b) * cam.cosh + (cam.fwdOff || 0) > VISIBLE_NEAR_F);
     if (!cornerAhead || (c.mark !== 'yacht' && f > FAR)) continue;
     // Buildings hold FULL opacity all the way to the camera — NO near-pass fade — so a
     // building directly ahead of (or passing right beside/under) you never dissolves. Only
@@ -15137,7 +15142,7 @@ function drawWorldObjects(ctx, cam, v, sky, now, sun) {
     // Fully hidden behind a nearer building (see the occlusion pre-pass). Skipped before anything is
     // built or queued — the point is to not pay for it at all, not to pay and then not show it.
     if (occluded && occluded.has(it)) continue;
-    const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.back || 0);
+    const alpha = it.alpha, bi = it.c.biome, od = it.f + (cam.fwdOff || 0);
     if (it.c.mark === 'statue') { emitFace(od, () => drawStatue(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.seed, night, alpha, now)); continue; }   // town-square monument + fountain
     if (it.c.mark === 'gate') { emitFace(od, () => drawSouthGate(ctx, cam, it.dx, it.dy, BUILDING_FOOT * RENDER_TUNE.bldgFoot, it.c.cur || 'ew', it.seed, night, alpha, now)); continue; }   // the Curtain's fortified breach — flanking pylons + arch energy field + turrets
     if (it.c.mark === 'sign') { emitFace(od, () => drawRoadSign(ctx, cam, it.dx, it.dy, it.c.sgn, BUILDING_FOOT * RENDER_TUNE.bldgFoot, night, alpha)); continue; }   // THE LONG HAUL — a distance board on the void corridor's verge
@@ -15553,8 +15558,7 @@ const BAY_CUT_LEAVE = 0.9;   // tiles of apron over which a shed stops being the
 function bayCutaway(cam, dx, dy, cell) {
   const { HW, HL, WALL } = BAY;
   const E = faceVec(cell.ent), th = Math.atan2(-E[0], E[1]), ct = Math.cos(th), st = Math.sin(th);
-  const back = cam.back || 0;
-  const camWX = -back * cam.sinh - dx, camWY = back * cam.cosh - dy;
+  const camWX = (cam.ex || 0) - dx, camWY = (cam.ey || 0) - dy;
   const camLX = camWX * ct + camWY * st, camLY = -camWX * st + camWY * ct;
   const inside = Math.abs(camLX) < HW && Math.abs(camLY) < HL;
   // Where the SUBJECT is — in the chase the eye is astern, out on the apron, while the truck it is
@@ -15589,7 +15593,6 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
   // where the camera has flattened onto the road, and the near faces are painted at 1 − cut in
   // between; inside the shed it is always fully open, because you cannot be asked to look through
   // your own roof at yourself.
-  const back = cam.back || 0;
   const { cut, inside, camLX, camLY } = bayCutaway(cam, dx, dy, cell);
   // Distance from the eye to the DOORWAY rather than to the tile centre, so the sensor means the
   // same thing from the apron and from the back wall. `lateral` is how far off the aperture you are
@@ -15617,7 +15620,7 @@ function drawVehicleBay(ctx, cam, dx, dy, cell, night, alpha, now) {
     return out;
   };
   const FMIN = 0.09;
-  const depthOf = (lx, ly) => { const [wx, wy] = F(lx, ly); return (wx + back * cam.sinh) * cam.sinh - (wy - back * cam.cosh) * cam.cosh; };
+  const depthOf = (lx, ly) => { const [wx, wy] = F(lx, ly); return (wx - (cam.ex || 0)) * cam.sinh - (wy - (cam.ey || 0)) * cam.cosh; };
   const nearG = (p) => depthOf(p[0], p[1]) - FMIN;
   const fCentre = depthOf(0, 0);   // the tile centre's camera depth — the cutaway's near/far dividing line
 
@@ -16205,7 +16208,7 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
     const e = clamp(sun.elev, 0, 1), hz = Math.sqrt(Math.max(0, 1 - e * e)), m = Math.hypot(sun.dir[0] * hz, sun.dir[1] * hz, e) || 1;
     toSun = [sun.dir[0] * hz / m, sun.dir[1] * hz / m, e / m];
   }
-  const camPos = [cam.ex, cam.ey, cam.EH];   // eye position in world
+  const camPos = [cam.ex || 0, cam.ey || 0, cam.EH];   // eye position in world
   const ctr = [dx, dy, 0.04 * SZ];   // hull centre — used to orient every face's normal outward
   // Which flank faces the camera (+ = starboard near). Railings/edge-lights on the FAR side would draw
   // over the opaque hull + superstructure (they're a flat overlay with no depth test), so we only draw
@@ -16218,7 +16221,7 @@ function drawYacht(ctx, cam, dx, dy, fh, seed, night, alpha, now, wake, heading,
   // Faces crossing the camera near plane are CLIPPED to it, not dropped — otherwise, with the deck-cam
   // sitting right on the pad, the close hull/deck faces vanish and you see straight through the ship.
   const NEARF = 0.12;
-  const camF = (w) => (w[0] + cam.back * cam.sinh) * cam.sinh - (w[1] - cam.back * cam.cosh) * cam.cosh;   // camera-forward depth of a world point
+  const camF = (w) => (w[0] - (cam.ex || 0)) * cam.sinh - (w[1] - (cam.ey || 0)) * cam.cosh;   // camera-forward depth of a world point
   const clipNearF = (wp) => {   // Sutherland–Hodgman clip against f >= NEARF, in world space
     const out = [];
     for (let i = 0; i < wp.length; i++) {
