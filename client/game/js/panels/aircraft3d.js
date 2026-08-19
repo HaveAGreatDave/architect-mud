@@ -4759,18 +4759,79 @@ export function drawTruckDoorArt(ctx, proj, variant, detail, lv, occluders = nul
   const W = img.width, H = img.height;
   const uOf = (col) => (flip ? (Nc - col) : col) / Nc * W;
   const occ = occluders || [];
+  // The cells that survive the near plane, collected before anything is drawn — the occlusion pass
+  // needs the whole panel's screen bounds before it can decide which occluders are worth testing.
+  const quads = [];
   for (let j = 0; j < Nr; j++) for (let i = 0; i < Nc; i++) {
     const a = grid[j][i], b = grid[j][i + 1], c = grid[j + 1][i + 1], e = grid[j + 1][i];
     if (a.z <= near || b.z <= near || c.z <= near || e.z <= near) continue;
-    const mx = (a.sx + b.sx + c.sx + e.sx) / 4, my = (a.sy + b.sy + c.sy + e.sy) / 4;
-    const mzz = (a.z + b.z + c.z + e.z) / 4;
-    if (occ.some(o => o.z < mzz && ptInScreenPoly(mx, my, o.P))) continue;
-    const s0 = [uOf(i), j / Nr * H], s1 = [uOf(i + 1), j / Nr * H];
-    const s2 = [uOf(i + 1), (j + 1) / Nr * H], s3 = [uOf(i), (j + 1) / Nr * H];
-    acTexTri(ctx, img, s0, s1, s2, [a.sx, a.sy], [b.sx, b.sy], [c.sx, c.sy]);
-    acTexTri(ctx, img, s0, s2, s3, [a.sx, a.sy], [c.sx, c.sy], [e.sx, e.sy]);
+    quads.push({ i, j, a, b, c, e, mzz: (a.z + b.z + c.z + e.z) / 4 });
+  }
+  if (!quads.length) return;
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxZ = -Infinity;
+  for (const q of quads) {
+    if (q.mzz > maxZ) maxZ = q.mzz;
+    for (const P of [q.a, q.b, q.c, q.e]) {
+      if (P.sx < bx0) bx0 = P.sx; if (P.sx > bx1) bx1 = P.sx;
+      if (P.sy < by0) by0 = P.sy; if (P.sy > by1) by1 = P.sy;
+    }
+  }
+  // ⚠ WHICH OCCLUDERS MATTER IS A BOX TEST, NOT A CENTROID ONE. The obvious filter is the old
+  // point-in-polygon check reused to pre-select occluders — and it would hand straight back the bug
+  // being fixed here, because an arm lying across a cell without covering its middle is exactly the
+  // case that must survive. Relevance is overlapping screen bounds plus being in front of at least
+  // one cell, which is deliberately generous: over-including costs a few path segments, and the
+  // clip below is what actually decides what is hidden.
+  const hits = occ.filter((o) => {
+    if (!(o.z < maxZ) || !o.P || o.P.length < 3) return false;
+    let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
+    for (const p of o.P) {
+      if (p.sx < ax0) ax0 = p.sx; if (p.sx > ax1) ax1 = p.sx;
+      if (p.sy < ay0) ay0 = p.sy; if (p.sy > ay1) ay1 = p.sy;
+    }
+    return ax1 >= bx0 && ax0 <= bx1 && ay1 >= by0 && ay0 <= by1;
+  });
+  // ⚠ AN OCCLUDER USED TO HIDE A WHOLE CELL OR NONE OF IT. The test was one point — the cell's
+  // centroid — against each occluder's screen polygon, so a mirror arm lying across half a cell
+  // either erased that entire ninth of the door or vanished from it, depending on which side of the
+  // middle it happened to fall. On a 3x3 grid that is a ninth of the artwork turning on one pixel,
+  // and what it reads as is the decal FLICKERING between two wrong answers as the camera moves.
+  //
+  // Coverage is per pixel now and depth stays per cell. The cell and every occluder in front of it
+  // go into ONE path which is clipped 'evenodd', so a point inside the cell and inside an occluder
+  // crosses twice, comes out even, and is not drawn — the occluder's own outline becomes the edge
+  // of the artwork instead of the cell boundary. Depth is left exactly as coarse as it was: an
+  // occluder in front of the top row and behind the bottom one still only eats the top row.
+  //
+  // ⚠ AND IT IS DELIBERATELY NOT AN OFFSCREEN BUFFER. destination-out into a scratch canvas is the
+  // other way to write this and it is more exact where two occluders OVERLAP (even-odd lets the
+  // crossing region back through). It was built that way first and taken back out: the decal then
+  // reaches the frame as one composited bitmap, and scripts/shapes/truck-doorart.mjs measures where
+  // the decal LANDED by watching the door texture hit the canvas triangle by triangle. Buffering it
+  // blinds the only automated check this renderer has, to fix a sliver where two mirrors cross.
+  for (const q of quads) {
+    const front = hits.filter(o => o.z < q.mzz);
+    const s0 = [uOf(q.i), q.j / Nr * H], s1 = [uOf(q.i + 1), q.j / Nr * H];
+    const s2 = [uOf(q.i + 1), (q.j + 1) / Nr * H], s3 = [uOf(q.i), (q.j + 1) / Nr * H];
+    const A = [q.a.sx, q.a.sy], B = [q.b.sx, q.b.sy], C = [q.c.sx, q.c.sy], E = [q.e.sx, q.e.sy];
+    if (front.length) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(E[0], E[1]);
+      ctx.closePath();
+      for (const o of front) {
+        ctx.moveTo(o.P[0].sx, o.P[0].sy);
+        for (let k = 1; k < o.P.length; k++) ctx.lineTo(o.P[k].sx, o.P[k].sy);
+        ctx.closePath();
+      }
+      ctx.clip('evenodd');
+    }
+    acTexTri(ctx, img, s0, s1, s2, A, B, C);
+    acTexTri(ctx, img, s0, s2, s3, A, C, E);
+    if (front.length) ctx.restore();
   }
 }
+
 
 // ── True-3D inspect environment ───────────────────────────────────────────────
 // A ground plane drawn THROUGH the same camera as the model (so it slides + parallaxes
