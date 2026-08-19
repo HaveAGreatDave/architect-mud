@@ -11,7 +11,7 @@ import { mapWindow, surfaceAt, bounds as worldBounds } from '../flight/state.js'
 import { TYPES, SURFACES, createTruckState, step, truckShift, truckSplit, bestGear, truckHitch, truckUnhitch, FADE_AT } from '../../client/game/js/panels/flight-model.js';
 import { VOIDS, _test as voidTest } from '../voidwalking/index.js';
 import { corridorFor, corridorAt, corridorLocate, corridorPos, corridorProvider, TILES_PER_ROOM, CORRIDOR_R, OFFROAD_R, nodeAt,
-  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway } from './corridor.js';
+  addWreck, wrecksOn, wreckAhead, _clearWrecks, milesOf, signsBetween, ARROW_WORDS, isCarriageway, pavedAt, lanesAt } from './corridor.js';
 import { rigs, rigOf, reconcileTruck, topTilesPerSec, surfaceUnder, CAB_RADIUS, truckContactsNear,
   atOrBeforeFork, cabContext, pumpAt, pumpClamp, FUEL_FULL, providerFor } from './state.js';
 import { bodyTell } from '../../server/engine/dreamscape.js';
@@ -269,6 +269,38 @@ export default async function regress({ run, check, getPlayer }) {
       }
       check('the tarmac is one unbroken piece, not a dotted line of tiles',
         seen.size === paved.size, `${seen.size}/${paved.size} tiles connected`);
+    }
+
+    // 5b. THE ROAD MEETS THE MAP LIKE A SLIP ROAD, NOT LIKE A STEP. A city street is one tile across
+    // and the highway is not, and because a cell either is carriageway or is not, that change used
+    // to happen between two adjacent tiles — you came off a two-lane street and were abruptly on
+    // something four lanes wide. The width and the lane count both ramp over the first stretch and
+    // close again on the approach to the far end, because you arrive at a town as well as leaving
+    // one. ⚠ The narrow end is bounded by the connectivity test above, not by taste.
+    {
+      const mid = a.L / 2;
+      check('the road is narrower where it meets the map than out in the middle',
+        pavedAt(a, 0) < pavedAt(a, mid) - 0.1, `${pavedAt(a, 0).toFixed(2)} → ${pavedAt(a, mid).toFixed(2)}`);
+      check('…and narrows again on the approach to the far end',
+        pavedAt(a, a.L) < pavedAt(a, mid) - 0.1, pavedAt(a, a.L).toFixed(2));
+      check('…monotonically, so no tile is wider than the one further in',
+        Array.from({ length: 26 }, (_, i) => pavedAt(a, i)).every((w, i, arr) => i === 0 || w >= arr[i - 1] - 1e-9));
+      // The lane count is what a driver actually reads off the ruts, and it must move WITH the width
+      // — a two-lane-wide road with four sets of wheel tracks on it is not a taper, it is a mistake.
+      check('the lanes taper with it, two at the gate and four in the middle',
+        lanesAt(a, 0) === 2 && lanesAt(a, mid) === 4, `${lanesAt(a, 0)} → ${lanesAt(a, mid)}`);
+      check('…and the count never leaves the range the renderer lays ruts for',
+        Array.from({ length: 60 }, (_, i) => lanesAt(a, i * a.L / 59)).every((n) => n >= 2 && n <= 4));
+      // The surface is DIRT to look at and ROAD to drive on, and that split is the whole reason
+      // `road_dirt` exists rather than an honest `terrain: 'dirt_road'` — see its ⚠. If this ever
+      // flips, the highway silently acquires the shoulder's grip penalty for its entire length.
+      const c0 = across(mid, 0);
+      check('the highway is surfaced in dirt without becoming a dirt road',
+        c0.flags.road_dirt === 1 && c0.flags.terrain === 'road');
+      check('…so the physics still calls it road, not shoulder',
+        surfaceUnder({ leg: 'corridor', route: a, x: corridorPos(a, mid, 0).x, y: corridorPos(a, mid, 0).y }) === 'road');
+      check('…and it ships the lane count the renderer draws ruts from',
+        c0.flags.road_lanes === lanesAt(a, mid), String(c0.flags.road_lanes));
     }
 
     // 6. EVERY PAVED TILE CARRIES A HEADING, and it is the heading that makes the renderer paint a

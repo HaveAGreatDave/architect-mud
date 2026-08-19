@@ -72,6 +72,42 @@ export function sOfNode(route, node) { return Math.max(0, node | 0) * roomLenOf(
 // may do (see OFFROAD_R below), not a thing that stops you. It is deliberately generous, because a
 // road you keep falling off is a road nobody enjoys holding.
 export const CORRIDOR_R = 6;
+
+// ── HOW WIDE THE ROAD IS, AND WHY THAT IS A FUNCTION OF `s` ──────────────────
+// It was one constant, and one constant is what made the join read wrong. A city street is one tile
+// across; the highway was 2.4; and because a corridor cell either is carriageway or is not, the
+// change happened between two adjacent tiles — you drove off a two-lane street and were abruptly on
+// something four lanes wide, with nothing in between. Roads do not do that. They taper.
+//
+// So the paved half-width RAMPS: narrow where it meets the map, opening to full width over the
+// first `RAMP_LEN` tiles, and closing again on the approach to the far end — because you arrive at
+// a town as well as leaving one, and `d` measured from the NEARER end gets both from one expression.
+// Nothing in the renderer had to learn about it: every tile has always shipped its own `road_w` and
+// the markings have always been scaled off that (see `RK` in drawGroundSurfaces), so a width that
+// changes down the road is a width that changes down the road.
+//
+// ⚠ THE NARROW END IS BOUNDED BY THE 8-CONNECTIVITY INVARIANT, NOT BY TASTE. A band one tile across
+// rasterises into tiles that touch only at their corners the moment the centreline runs diagonally,
+// and the highway comes apart into a dotted line of squares. `RAMP_R` is therefore as narrow as the
+// ramp can be rather than as narrow as a street is; regress flood-fills the whole paved set and
+// demands one 8-connected piece, at every width the taper passes through.
+export const PAVED_R = 0.95;   // full half-width — 1.9 tiles. Was 1.2; "smaller" was the note.
+const RAMP_R = 0.62;           // …where it meets the map
+const RAMP_LEN = 26;           // tiles the taper runs over
+// LANES ARE SHIPPED, NOT INFERRED. The renderer would otherwise need this file's two width
+// constants to turn a half-width back into a lane count, which is the second copy of a number that
+// the `road_t`/`road_w` note further down exists to prevent.
+const LANES_FULL = 4, LANES_RAMP = 2;
+export function pavedAt(route, s) {
+  const L = route?.L ?? 0;
+  const d = Math.min(s, Math.max(0, L - s));            // distance from whichever end is nearer
+  const k = d >= RAMP_LEN ? 1 : Math.max(0, d) / RAMP_LEN;
+  return RAMP_R + (PAVED_R - RAMP_R) * k;
+}
+export function lanesAt(route, s) {
+  const k = (pavedAt(route, s) - RAMP_R) / Math.max(1e-6, PAVED_R - RAMP_R);
+  return Math.max(LANES_RAMP, Math.min(LANES_FULL, Math.round(LANES_RAMP + (LANES_FULL - LANES_RAMP) * k)));
+}
 // HOW FAR OFF THE ROAD YOU CAN ACTUALLY GO, as a multiple of the paved half-width.
 //
 // The corridor used to end at `R`: past six tiles of centreline you were BOGGED, stalled, and put
@@ -784,17 +820,38 @@ export function corridorAt(route, x, y) {
   // that plus the tile's own world coordinates (windshield.js, wornAsphalt). Coldwater's streets
   // never set it and are pixel-identical.
   const deg = ((hit.leg.deg % 360) + 360) % 360;
-  const PAVED = 1.2, SHOULDER = 2.4;
+  // The width is a function of where you are on the road now — see pavedAt.
+  //
+  // ⚠ THE SHOULDER IS A FIXED WIDTH, NOT A RATIO. Making it 2×PAVED (which is what the two old
+  // constants were) looks tidier and is wrong twice: the graded strip is a real thing of its own and
+  // does not get narrower because the road it is beside does, and — the part that bites — a band
+  // thinner than a tile CANNOT BE RESOLVED BY A TILE GRID AT EVERY HEADING. At 2:1 the narrowed road
+  // left a shoulder about three quarters of a tile across, and at some angles no tile centre fell
+  // inside it at all: you crossed from tarmac straight to verge with nothing in between, which is
+  // exactly the band that exists so that drifting off READS before it costs. 1.2 is what the
+  // shoulder has always measured (2.4 − 1.2), so nothing about the verge changes here.
+  const SHOULDER_W = 1.2;
+  const PAVED = pavedAt(route, s), SHOULDER = PAVED + SHOULDER_W;
   if (at < PAVED) {
     return { id, name: 'The Highway', danger,
-      flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3), road_w: PAVED,
+      // ⚠ `terrain` STAYS 'road' AND `road_dirt` CARRIES THE LOOK. The obvious way to make this a
+      // dirt road is to author `terrain: 'dirt_road'`, and it would be wrong twice: `surfaceUnder`
+      // reads terrain to pick the physics surface, so the highway would silently acquire the
+      // SHOULDER's grip penalty for its whole length (see its ⚠ — that exact bucketing bug has been
+      // fixed here once already), and `isCarriageway` would stop being able to tell the road from
+      // the band beside it. What changes is what it LOOKS like, so what is authored is what it
+      // looks like: `deriveSurfaceCell` turns this into `ft: 'dust'` and the packed-dirt renderer
+      // takes it from there. `road_wear` stays orthogonal and means what it always meant — nobody
+      // has maintained this — which on dirt reads as scouring and drift rather than as dead paint.
+      flags: { terrain: 'road', icon: roadIcon(hit), road_deg: deg, road_t: +t.toFixed(3),
+        road_w: +PAVED.toFixed(3), road_lanes: lanesAt(route, s), road_dirt: 1,
         road_wear: 1, corridor_s: s, corridor_node: node } };
   }
   // The shoulder — graded dirt. `dirt_road` is what earns it the renderer's packed-dirt look
   // (ft:'dust'), so drifting onto it is visible before any penalty text fires.
   if (at < SHOULDER) {
     return { id, name: 'The Shoulder', danger,
-      flags: { terrain: 'dirt_road', icon: roadIcon(hit), road_deg: deg, road_t: +(t - Math.sign(t) * ((PAVED + SHOULDER) / 2)).toFixed(3), road_w: (SHOULDER - PAVED) / 2,
+      flags: { terrain: 'dirt_road', icon: roadIcon(hit), road_deg: deg, road_t: +(t - Math.sign(t) * ((PAVED + SHOULDER) / 2)).toFixed(3), road_w: +((SHOULDER - PAVED) / 2).toFixed(3),
         corridor_s: s, corridor_node: node } };
   }
   // The verge. Node terrain, and very occasionally something somebody built and left.

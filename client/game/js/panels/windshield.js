@@ -10200,7 +10200,7 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
     // AN UNMAINTAINED ROAD. `wr` is one bit off the corridor (plugins/trucking/corridor.js) saying
     // nobody has resurfaced this since the basin emptied; everything that makes it LOOK that way is
     // derived here, from the tile's own world position. No city street sets it.
-    const worn = !dust && surf === 'road' && !!c.wr;
+    const worn = surf === 'road' && !!c.wr;
     const DUST = ['#6f5b39', '#67532f', '#786541'];
     // Sun-bleached tar: browner and paler than fresh asphalt (#2b2f36), and never quite the same
     // twice, because a road that has been patched for decades is not one colour.
@@ -10300,8 +10300,34 @@ function drawGroundSurfaces(ctx, cam, v, sky = null, now = 0) {
       // a plain dirt_road lane (surf 'road') skips those — it's a track, not a runway.
       const A = RA || ((ewN && !nsN) ? [1, 0] : [0, 1]);
       const RUT = 'rgba(54,42,24,0.42)', SCUFF = 'rgba(150,132,86,0.32)';
+      // ── A DIRT ROAD WITH MORE THAN ONE LANE ON IT ──────────────────────────
+      // The void highway is surfaced in dirt but it is a HIGHWAY, so the single pair of ruts a
+      // farm track gets would read as a farm track. `rl` is the lane count the road ships for this
+      // tile (it tapers — see pavedAt in the corridor), and each lane wears its own pair of ruts
+      // down its own middle, which is what a multi-lane unmade road actually looks like: nothing is
+      // painted, and you can still see where the traffic goes.
+      //
+      // ⚠ THE ONE-LANE CASE IS BYTE-IDENTICAL. `rl` is undefined on every dirt tile in the world,
+      // which lands on the original pair at ±0.13·RK and the same centre drag, so every track and
+      // frontier strip that shipped before this draws exactly what it drew.
+      const lanes = Math.max(1, Math.min(6, c.rl | 0));
+      if (lanes > 1) {
+        // Lane centres across the carriageway: `RK` scales to the real half-width, so 0.5·RK is the
+        // edge and a lane centre is halfway through its own share of that.
+        for (let i = 0; i < lanes; i++) {
+          const cL = (-0.5 + (i + 0.5) / lanes) * RK;
+          for (const s2 of [-1, 1]) stripeA(A, ROFF + cL + s2 * 0.055 * RK / lanes * 2, 0.026, -RSPAN, RSPAN, RUT);
+        }
+        // The crown between the tracks, scoured lighter by everything that has been dragged over it.
+        dashedA(A, ROFF, 0.04, -RSPAN, RSPAN, 0.44, 0.2, SCUFF);
+      } else {
       stripeA(A, ROFF - 0.13 * RK, 0.03, -RSPAN, RSPAN, RUT); stripeA(A, ROFF + 0.13 * RK, 0.03, -RSPAN, RSPAN, RUT);   // twin wheel ruts
       dashedA(A, ROFF, 0.05, -RSPAN, RSPAN, 0.4, 0.16, SCUFF);                                    // patchy centre drag
+      }
+      // Unmaintained (`wr`) dirt is not dead paint, it is drift and scour: sand creeping in off the
+      // verge at the edges of the carriageway, and the odd washed-out patch across it. The same
+      // second pass the worn tarmac gets, minus everything that is about tar.
+      if (worn && RA) wornOver(A);
       if (surf === 'field') for (const [open, end] of [[A[0] ? nW : nN, -1], [A[0] ? nE : nS, 1]]) {
         if (open) continue;
         drawWindsock(ctx, cam, dx, dy, A, end, windKt, windDeg, now, nite);
@@ -16198,28 +16224,61 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
   const face = quad(-1, 1, 0, 1);
   if (face.some(p => p.f <= 0.12)) return;
   const poly = (q) => { ctx.beginPath(); ctx.moveTo(q[0].sx, q[0].sy); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i].sx, q[i].sy); ctx.closePath(); };
-  // 1. The legs. Mass, so they go through the box primitive and pick up the same vertex light and
-  //    fog every other solid out here does.
-  for (const s of [-1, 1]) {
-    draw3DBoxAt(ctx, cam, dx + E[1] * half * 0.66 * s, dy - E[0] * half * 0.66 * s, foot * 0.075, 0, SIGN_Z0 + 0.06, 'ty_gate_dk', 7 + s * 3, night, alpha, false);
-  }
   ctx.save();
   ctx.globalAlpha = alpha;
-  // 2. The board. Retroreflective sheeting, so after dark it is BRIGHTER than by day rather than
-  //    darker — headlights are the only light out here and a sign that dimmed with the sun would be
-  //    a sign you never once read on a night run.
-  ctx.fillStyle = dn ? 'rgb(30,86,62)' : 'rgb(22,68,50)'; poly(face); ctx.fill();
-  ctx.strokeStyle = dn ? 'rgba(236,246,238,0.92)' : 'rgba(226,238,228,0.78)';
-  ctx.lineWidth = 1.4; poly(face); ctx.stroke();
-  const ink = dn ? '#f4faf4' : '#e6efe6';
+  // ── 1. THE LEGS ────────────────────────────────────────────────────────────
+  //
+  // ⚠ NOT `draw3DBoxAt`, AND THAT IS THE WHOLE POINT OF THIS BEING HAND-BUILT. The box primitive is
+  // the BUILDING primitive: it takes a wall palette and textures every face with that palette's
+  // wall — which for `ty_gate_dk` is a grid of lit windows. So each post came out as a slim
+  // skyscraper standing on the verge with rows of offices in it, at the one distance you actually
+  // read a sign from. A post is a length of tube. It gets a flat shade, a highlight down the side
+  // the light is on, and nothing else.
+  //
+  // They are also much thinner than they were (0.075 → 0.024 of the footprint): the old pair were
+  // as wide as the lettering was tall, which reads as a gantry rather than as a sign on two poles.
+  const POST_W = foot * 0.024;
+  const post = (s) => {
+    const cxp = dx + E[1] * half * 0.62 * s, cyp = dy - E[0] * half * 0.62 * s;
+    // Across the post is the panel's own across-axis, so a post is always seen edge-on to its board.
+    const ax = E[1] * POST_W, ay = -E[0] * POST_W;
+    const zTop = SIGN_Z0 + 0.06;
+    const q = [cam.proj(cxp - ax, cyp - ay, zTop), cam.proj(cxp + ax, cyp + ay, zTop),
+               cam.proj(cxp + ax, cyp + ay, 0), cam.proj(cxp - ax, cyp - ay, 0)];
+    if (q.some((p) => p.f <= 0.12)) return;
+    ctx.fillStyle = dn ? 'rgb(38,42,48)' : 'rgb(74,80,88)'; poly(q); ctx.fill();
+    // One bright edge so a flat fill still reads as round. Cheaper and truer than a second facet.
+    ctx.strokeStyle = dn ? 'rgba(120,132,146,0.5)' : 'rgba(160,172,186,0.65)';
+    ctx.lineWidth = 1; ctx.beginPath();
+    ctx.moveTo(q[0].sx, q[0].sy); ctx.lineTo(q[3].sx, q[3].sy); ctx.stroke();
+  };
+  for (const s of [-1, 1]) post(s);
+  // ── 2. THE BOARD, WHICH IS A SCREEN ────────────────────────────────────────
+  //
+  // Digital, and deliberately still almost the old board: the same green, the same layout, the same
+  // white-on-green reading — because the thing a sign has to do is be recognisable as a sign at
+  // three hundred metres, and a panel that abandoned the highway palette to prove it was a display
+  // would be a worse sign that happened to be a better gadget. What changes is that the face is an
+  // EMITTER rather than sheeting: a dark bezel, a panel that is darkest where it is unlit, glyphs
+  // that glow instead of being painted (`solid: false` — the lit branch bakeSignText already had),
+  // and a pixel grid over the whole face so it reads as made of lamps rather than of paint.
+  ctx.fillStyle = dn ? 'rgb(9,26,20)' : 'rgb(16,44,34)'; poly(face); ctx.fill();
+  // The bezel: a dark frame, then a thin bright inner line — the housing, and the glass in it.
+  ctx.strokeStyle = dn ? 'rgba(14,18,20,0.95)' : 'rgba(26,32,34,0.9)';
+  ctx.lineWidth = 3.2; poly(face); ctx.stroke();
+  ctx.strokeStyle = dn ? 'rgba(120,238,176,0.55)' : 'rgba(150,214,178,0.4)';
+  ctx.lineWidth = 1; poly(quad(-0.97, 0.97, 0.015, 0.985)); ctx.stroke();
+  const ink = dn ? '#9dffc8' : '#d8ffe6';
   const n = rows.length;
   for (let i = 0; i < n; i++) {
     const r = rows[i];
     const v0 = i / n + 0.055 / n, v1 = (i + 1) / n - 0.055 / n;
+    // `solid: false` is the LIT branch of bakeSignText — a colour halo, a dark edge and a blown-out
+    // white core, which is what a glyph made of lamps looks like and what a painted one never does.
     const nq = quad(-0.94, 0.26, v0, v1);
-    drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, true), false, alpha);
+    drawSurfaceText(ctx, nq[0], nq[1], nq[2], nq[3], bakeSignText(String(r.n || '').slice(0, 15), ink, dn, false, false), false, alpha);
     const mq = quad(0.32, 0.68, v0, v1);
-    drawSurfaceText(ctx, mq[0], mq[1], mq[2], mq[3], bakeSignText(String(r.m ?? ''), ink, dn, false, true), false, alpha);
+    drawSurfaceText(ctx, mq[0], mq[1], mq[2], mq[3], bakeSignText(String(r.m ?? ''), ink, dn, false, false), false, alpha);
     // 3. The arrow, rotated in the board's own plane. y is DOWN in panel space, so a clockwise turn
     //    (as the driver reads it) is the ordinary [x cos − y sin, x sin + y cos].
     const A = ((r.a | 0) % 8) * Math.PI / 4, ca = Math.cos(A), sa = Math.sin(A);
@@ -16229,6 +16288,92 @@ function drawRoadSign(ctx, cam, dx, dy, sgn, foot, night, alpha) {
     const pts = SIGN_ARROW.map(([x, y]) => P(cu + (x * ca - y * sa) * su, cv + (x * sa + y * ca) * sv));
     if (!pts.some(p => p.f <= 0.12)) {
       ctx.fillStyle = ink; poly(pts); ctx.fill();
+    }
+  }
+  // ── 3. THE PIXEL GRID ──────────────────────────────────────────────────────
+  // What actually says "display" rather than "board painted a new colour". Ruled in the panel's own
+  // (u, v) space, so it foreshortens and leans with the face for free — a screen-space hatch would
+  // slide across the sign as you drove past it, which is the one thing that would give it away.
+  // ⚠ Skipped once the board is small on screen: at that size the lines land closer than a pixel
+  // apart, which is not a grid, it is a haze over the lettering that makes the sign harder to read.
+  {
+    const wpx = Math.hypot(face[1].sx - face[0].sx, face[1].sy - face[0].sy);
+    if (wpx > 90) {
+      ctx.strokeStyle = dn ? 'rgba(0,0,0,0.34)' : 'rgba(0,0,0,0.22)';
+      ctx.lineWidth = 1;
+      const COLS = 34, ROWS = Math.max(6, n * 5);
+      ctx.beginPath();
+      for (let i = 1; i < COLS; i++) {
+        const u = -1 + 2 * i / COLS, a = P(u, 0.02), b = P(u, 0.98);
+        if (a.f > 0.12 && b.f > 0.12) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); }
+      }
+      for (let j = 1; j < ROWS; j++) {
+        const v = j / ROWS, a = P(-0.98, v), b = P(0.98, v);
+        if (a.f > 0.12 && b.f > 0.12) { ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); }
+      }
+      ctx.stroke();
+    }
+  }
+  // ── 4. WHAT RUNS IT ────────────────────────────────────────────────────────
+  //
+  // A lit sign in a place with no grid has to say where the power comes from, or it is a magic
+  // board. A panel on the top, three lamps under the face, and the one implies the other: the
+  // reason the lamps come on after dark is sitting on the roof where you can see it.
+  //
+  // The panel is a flat quad TILTED BACK off the top edge — the tilt is the whole read, because a
+  // rectangle lying in the board's own plane is indistinguishable from more board. It is drawn from
+  // two world points off the panel's normal, which is `E`.
+  {
+    const zT = SIGN_Z1, pw = 0.86, depth = half * 0.52, lift = 0.10;
+    const pt = (u, back) => cam.proj(dx + E[1] * half * u * S - E[0] * depth * back,
+                                     dy - E[0] * half * u * S - E[1] * depth * back,
+                                     zT + lift * back);
+    const panel = [pt(-pw, 0), pt(pw, 0), pt(pw, 1), pt(-pw, 1)];
+    if (!panel.some((p) => p.f <= 0.12)) {
+      ctx.fillStyle = dn ? 'rgb(12,18,34)' : 'rgb(26,38,72)'; poly(panel); ctx.fill();
+      // Cell lines across it, and a cold sky highlight along the leading edge — enough that a
+      // silhouette at distance still reads as glass rather than as a lid.
+      ctx.strokeStyle = dn ? 'rgba(70,96,150,0.35)' : 'rgba(96,132,200,0.45)';
+      ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = 1; i < 6; i++) {
+        const u = -pw + 2 * pw * i / 6, a = pt(u, 0), b = pt(u, 1);
+        ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = dn ? 'rgba(120,150,210,0.45)' : 'rgba(180,210,255,0.7)';
+      ctx.lineWidth = 1.2; ctx.beginPath();
+      ctx.moveTo(panel[0].sx, panel[0].sy); ctx.lineTo(panel[1].sx, panel[1].sy); ctx.stroke();
+    }
+    // THE THREE LAMPS, on a rail under the board, throwing UP at the face. Housings always (an
+    // unlit fitting is still a thing bolted to the sign — the same argument the streetlights make
+    // about never popping in and out as the sun goes down); the light itself only after dark.
+    const lampV = 1.035;                                  // just below the bottom edge, in panel `v`
+    for (let i = 0; i < 3; i++) {
+      const u = -0.62 + i * 0.62;
+      const c0 = P(u, lampV);
+      if (c0.f <= 0.12) continue;
+      const r = Math.max(1, 3.2 / c0.f);
+      ctx.fillStyle = dn ? 'rgb(26,30,34)' : 'rgb(52,58,64)';
+      ctx.beginPath(); ctx.ellipse(c0.sx, c0.sy, r * 1.5, r * 0.8, 0, 0, 7); ctx.fill();
+      if (!dn) continue;
+      // The wash: a wedge of light off each fitting onto the panel above it, and a hot lens. It is
+      // additive so three overlapping washes build one lit board rather than three bright patches.
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const spread = 0.34, top = 0.10;
+      const w = [P(u - 0.06, lampV), P(u + 0.06, lampV), P(u + spread, top), P(u - spread, top)];
+      if (!w.some((p) => p.f <= 0.12)) {
+        const g = ctx.createLinearGradient(c0.sx, c0.sy, (w[2].sx + w[3].sx) / 2, (w[2].sy + w[3].sy) / 2);
+        g.addColorStop(0, `rgba(198,255,222,${0.30 * alpha})`);
+        g.addColorStop(0.45, `rgba(150,236,190,${0.13 * alpha})`);
+        g.addColorStop(1, 'rgba(120,210,170,0)');
+        ctx.fillStyle = g; poly(w); ctx.fill();
+      }
+      const lens = ctx.createRadialGradient(c0.sx, c0.sy, 0, c0.sx, c0.sy, r * 2.6);
+      lens.addColorStop(0, `rgba(226,255,238,${0.85 * alpha})`);
+      lens.addColorStop(1, 'rgba(160,240,200,0)');
+      ctx.fillStyle = lens; ctx.beginPath(); ctx.arc(c0.sx, c0.sy, r * 2.6, 0, 7); ctx.fill();
+      ctx.restore();
     }
   }
   ctx.restore();

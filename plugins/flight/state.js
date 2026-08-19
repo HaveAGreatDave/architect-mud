@@ -917,8 +917,12 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // a frontier runway centreline painted as dirt_road — carries the same dust look so the
   // road pass renders it as a packed-dirt track rather than asphalt.
   const af = kind === 'field' ? airfieldOf(cell) : null;
+  // `road_dirt` is a made road that is SURFACED in dirt rather than paved — the void highway. It
+  // keeps `terrain: 'road'` so the physics and the carriageway test are unchanged (see the ⚠ where
+  // it is authored, in plugins/trucking/corridor.js) and borrows the packed-dirt LOOK, which is
+  // what the field has always been for.
   const ft = (af ? (af.surface || (af.lawless ? 'dust' : undefined)) : undefined)
-    || (cell.flags?.terrain === 'dirt_road' ? 'dust' : undefined);
+    || (cell.flags?.terrain === 'dirt_road' || cell.flags?.road_dirt ? 'dust' : undefined);
   // Building tiles carry their building_type AND their name so the windshield can
   // render either a dedicated per-building model (keyed off the name) or, failing
   // that, the type's 3-D archetype (office tower, warehouse, diner…), with a fallback.
@@ -1003,6 +1007,10 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   const rdeg = Number.isFinite(cell.flags?.road_deg) ? cell.flags.road_deg : undefined;
   const rt = rdeg === undefined ? undefined : (Number(cell.flags?.road_t) || 0);
   const rw = rdeg === undefined ? undefined : (Number(cell.flags?.road_w) || 0.5);
+  // How many lanes the road has HERE. Shipped rather than inferred from `rw`, because turning a
+  // half-width back into a lane count needs the authoring side's own constants and that is a second
+  // copy of them — the same argument that put `road_w` on the wire in the first place.
+  const rl = rdeg === undefined ? undefined : (Number(cell.flags?.road_lanes) || undefined);
   // The Curtain energy wall on a land-edge tile — carry its run axis so the windshield
   // stands a shimmer barrier along it (see curtainRun).
   // A Curtain tile carries its own run axis; the perimeter GATE tile carries no curtain flag
@@ -1087,7 +1095,7 @@ export function deriveSurfaceCell(cell, x, y, at = surfaceAt, live = true) {
   // (plugins/trucking/corridor.js): sun-bleached and sand-drifted, its paint half gone, patched and
   // cracked. Every baked world tile leaves it undefined and paints exactly as it always did.
   const wr = cell.flags?.road_wear ? 1 : undefined;
-  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
+  return { kind, biome, road, danger: cell.danger, bt, bn, ent, flr, mark, rd, rdeg, rt, rw, rl, wr, wake, sub, heading, cur, ft, hi, cf, pf: cell.flags?.park_feature, pw, sl, sgn, brd: brd && brd.length ? brd : undefined };
 }
 
 // The flight window's half-width, named so the things that have to AGREE with it can say so
