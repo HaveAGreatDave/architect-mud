@@ -8617,6 +8617,20 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
   if (vl) {
     // Model-local → world through the SAME transform the mesh was drawn with, so a lamp sits where
     // its lens is at any heading, bank and pitch rather than where it was authored.
+    // ⚠ AND A TRAILER'S LAMPS ARE THE TRAILER'S. `Wp` is ONE rigid transform for the whole vehicle,
+    // which is all a bobtail ever needed — but an articulated rig is two bodies, and every station
+    // bolted to the box (its tail lamps, the light under its lifter bogie) was being placed on the
+    // TRACTOR and left there. Put the wheel over and the box swings away from its own road-glow,
+    // which is the pool of light sitting out in the next lane in the screenshot that found this.
+    //
+    // The mesh has always known — its trailer faces are stamped `deck` and swing about the kingpin.
+    // The lamp set simply never carried the distinction, so it is marked at the source now
+    // (vehicleLamps: `deck` on each podGlow, `tailDeck` for the pair that MOVES to the box when
+    // there is one) and swung through the very same `articFrame` the faces use.
+    // ⚠ Its own frame off the SAME factory, not the one in drawAircraftModel — this is a different
+    // function and reaching for that closure is a ReferenceError the artic smoke catches at once.
+    const ARL = c.artic ? articFrame(c.artic) : null;
+    const AL = (lp, deck) => Wp(deck && ARL ? ARL(lp) : lp);
     const o = Wp([0, 0, 0]), fx = Wp([1, 0, 0]);
     let dx = fx[0] - o[0], dy = fx[1] - o[1], dz = fx[2] - o[2];
     const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
@@ -8624,8 +8638,8 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     const nb = clamp((sun ? sun.night : 0) * 0.7 + 0.34, 0.3, 1);
     const power = clamp(c.power != null ? c.power : 0.55, 0, 1);
     lights = [];
-    const add = (lp, col, str, rad, dir, cone) => {
-      if (str > 0.02) lights.push({ p: Wp(lp), c: col, str: str * lstr, rad: SIZE * rad, dir, cone });
+    const add = (lp, col, str, rad, dir, cone, deck) => {
+      if (str > 0.02) lights.push({ p: AL(lp, deck), c: col, str: str * lstr, rad: SIZE * rad, dir, cone });
     };
     // Headlamps carry a CONE, and need one. A point lamp at the front of the bumper lights whatever
     // faces it, which from a lamp's own station includes the bumper's back and the front of the
@@ -8642,7 +8656,7 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     // second set of stations. A tail lamp you cannot tell from a brake lamp tells the driver behind
     // you nothing at all, so the step is deliberately large (about 3x) rather than tasteful.
     const braked = !!c.braking;
-    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * (braked ? 1.7 : 0.55), braked ? 0.62 : 0.45, AFT, 1.25);
+    for (const p of vl.tail) add(p, [255, 70, 52], 0.85 * nb * (braked ? 1.7 : 0.55), braked ? 0.62 : 0.45, AFT, 1.25, vl.tailDeck);
     // THE LIFTERS, WHICH ARE MOST OF WHY THIS HALF IS WORTH HAVING. Their wash has always been
     // painted on the ROAD and stopped dead at the bodywork — so the one machine in the game that is
     // lit from underneath had a completely unlit underside, and the pool of light it stood in
@@ -8651,7 +8665,7 @@ function vehicleLightRig(c, litFaces, casters, Wp, toSun, sunStr, sun, SIZE) {
     // same number, as the pool drawn under them in drawVehicleGround.
     const under = clamp(0.10 + power * 1.35, 0, 1.45);
     if (under > 0.02) {
-      for (const g of (vl.podGlow || [])) add(g.p, [96, 196, 255], under * 0.55, 0.55, null, null);
+      for (const g of (vl.podGlow || [])) add(g.p, [96, 196, 255], under * 0.55, 0.55, null, null, g.deck);
       for (const p of (vl.under || [])) add(p, [70, 170, 255], under * 0.40, 0.50, null, null);
     }
     // ⚠ THE ROOF MARKERS ARE DELIBERATELY LEFT OUT. There are five of them, they are the dimmest
@@ -8852,6 +8866,15 @@ function drawVehicleGround(ctx, P, c, sun, now = 0) {
 // so there is exactly one implementation and one hysteresis Map behind both spellings of the name.)
 export { sortTruckFaces, _resetTruckOrder };
 
+// A POINT BOLTED TO THE TRAILER, RESTATED IN THE TRACTOR'S FRAME. A point one unit ahead of the
+// kingpin in the trailer's frame is (cos φ, −sin φ) in the tractor's, which is the whole derivation.
+// Returned as a closure so the sine and cosine are solved once per model rather than once per thing
+// that swings — and, more to the point, so there is ONE of this: the mesh knew about the hinge and
+// the lamp layer did not, which is how a trailer's road-glow ended up bolted to the tractor.
+function articFrame(artic) {
+  const cp = Math.cos(artic.phi), sp = Math.sin(artic.phi), pin = artic.pin;
+  return (v) => { const df = v[0] - pin; return [pin + df * cp + v[1] * sp, -df * sp + v[1] * cp, v[2]]; };
+}
 function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   const SIZE = (CONTACT_SIZE[c.cls] || 0.11) * (c.sizeMul || 1), VS = CONTACT_VS;
   const hr = (c.hdg || 0) * Math.PI / 180, roll = (c.bank || 0) * Math.PI / 180, pitch = (c.pitch || 0) * Math.PI / 180;
@@ -8925,6 +8948,10 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
   // tucking the legs up into the belly + folding inward while fading out; contacts (no gearAnim)
   // are airborne, so their gear is stowed (skipped). `nacelle` pods are structure — never tucked.
   const showGear = c.gearAnim > 0.02;                               // own-ship with gear not fully up; contacts (undefined) → false
+  // The hinge, solved ONCE for the whole model rather than per face (it used to recompute its own
+  // sine and cosine for every trailer face it touched). Shared with the lamp block below — see the
+  // ⚠ there, which is the bug that made this worth hoisting out of the loop.
+  const AR = c.artic ? articFrame(c.artic) : null;
   const gearDown = c.gearAnim == null ? 1 : clamp(c.gearAnim, 0, 1);
   for (let face of aircraftFaces(c.cls, detail, !!c.armed, c.variant || '')) {
     if (face.role === 'rotor') continue;                            // spinning surfaces drawn by drawRotorFX below
@@ -8939,10 +8966,8 @@ function drawAircraftModel(ctx, cam, c, baseWz, sun, now) {
     // plane — and every downstream pass (depth, shadow, occlusion, the blit) inherits it for free
     // because there is still only one model. A point one unit ahead of the pin in the TRAILER's
     // frame is (cos φ, −sin φ) in the tractor's, which is the whole derivation.
-    if (c.artic && face.deck) {
-      const cp = Math.cos(c.artic.phi), sp = Math.sin(c.artic.phi), pin = c.artic.pin;
-      face = { ...face, p: face.p.map(v => { const df = v[0] - pin; return [pin + df * cp + v[1] * sp, -df * sp + v[1] * cp, v[2]]; }),
-        cen: face.cen ? (() => { const df = face.cen[0] - pin; return [pin + df * cp + face.cen[1] * sp, -df * sp + face.cen[1] * cp, face.cen[2]]; })() : face.cen };
+    if (AR && face.deck) {
+      face = { ...face, p: face.p.map((v) => AR(v)), cen: face.cen ? AR(face.cen) : face.cen };
     }
     const lp = (isGear && gearDown < 1)
       ? face.p.map(v => [v[0], v[1] * gearDown, v[2] + (1 - gearDown) * 0.2])

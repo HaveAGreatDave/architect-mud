@@ -2652,10 +2652,13 @@ export function vehicleLamps(cls, variant = '') {
     // ends the trailer at (`t1 - S.deck`, where `t1 = frame0 + 0.06`) — read from the shape rather
     // than re-derived, for the reason at the top of this function. Wider apart and a little higher,
     // because a trailer is wider and taller than the frame rails.
+    // ⚠ AND WHEN THEY MOVE TO THE BOX THEY BECOME THE BOX'S. `tailDeck` below is what tells the
+    // renderer to swing them about the kingpin with everything else bolted to the trailer.
     tail: /\+t/.test(String(variant))
       ? [at(L.frame0 + 0.06 - S.deck - 0.004, -S.w * 0.86, 0.105),
          at(L.frame0 + 0.06 - S.deck - 0.004, S.w * 0.86, 0.105)]
       : [at(L.frame0 + 0.004, -S.w * 0.66, 0.085), at(L.frame0 + 0.004, S.w * 0.66, 0.085)],
+    tailDeck: /\+t/.test(String(variant)),
     // The five roof markers, on the same station and spacing the visor row is built at, and only on
     // the trucks that carry one — so a lamp never glows where no lamp was built.
     marker: S.lamps > 0.2
@@ -2665,7 +2668,7 @@ export function vehicleLamps(cls, variant = '') {
     // pod's half-length so the renderer can size the pool to the machine rather than to a constant.
     // This replaces the flat teal ground boxes the mesh used to draw under each pod (⚠ in `pod()`):
     // same intent, drawn as light, so it spills instead of ending at a corner.
-    podGlow: (meta.pods || []).map(([f, g, halfLen]) => ({ p: at(f, g, 0.002), r: halfLen })),
+    podGlow: (meta.pods || []).map(([f, g, halfLen, deck]) => ({ p: at(f, g, 0.002), r: halfLen, deck: !!deck })),
     // UNDERGLOW, as light rather than as a part: stations down the CENTRELINE between the axles,
     // sitting ON the ground plane rather than on the frame — what you are meant to see is the road
     // lit up under the truck, not a strip on the chassis. The renderer pools these together with
@@ -3096,9 +3099,9 @@ function buildTruck(variant = 'hauler', detail = 1) {
   const ACCENT = [96, 196, 214];         // the decorative running light — beltline strip, roof scanner
   const PK = (t) => (t === CHROME ? 'bright' : t === ACCENT ? 'glow' : null);
   const HOVER = 0.014;                   // the ride height a running lifter holds, and a parked one gives up
-  const pod = (f, g, r = 0.048, len = 1) => {
+  const pod = (f, g, r = 0.048, len = 1, deck = false) => {
     const s = Math.sign(g || 1), L = r * len;
-    podAt.push([f, g, r * len]);            // where a lifter ended up — the lamp layer pools light under each one
+    podAt.push([f, g, r * len, deck]);      // where a lifter ended up, and on WHICH body — the lamp layer pools light under each one and has to swing the trailer's with the trailer
     const z0 = 0.016, z1 = z0 + r * 1.24;                                                       // the pod floats clear of the road
     box(f - L * 0.20, f + L * 0.20, 0.009, z1 - 0.006, 0.066, 'strut', null, g - s * 0.013);    // swing arm up into the frame
     box(f - L, f + L, 0.024, z0 + r * 0.34, z1, 'gear', null, g);                               // housing
@@ -3609,7 +3612,7 @@ function buildTruck(variant = 'hauler', detail = 1) {
     // parked in a yard doesn't fall on its nose, and the yard is exactly where this mesh is seen.
     for (const g of [-1, 1]) box(t1 - 0.09, t1 - 0.075, 0.010, 0.005, 0.078, 'strut', null, g * S.w * 0.72);
     for (const g of [-gOut, gOut]) {                                   // lifter bogie under the tail
-      pod(t0 + 0.075, g, 0.050, 1.0); pod(t0 + 0.185, g, 0.050, 1.0);
+      pod(t0 + 0.075, g, 0.050, 1.0, true); pod(t0 + 0.185, g, 0.050, 1.0, true);
     }
     if (S.skirt) for (const g of [-1, 1]) box(t0 + 0.20, t1 - 0.03, 0.008, 0.040, 0.078, 'body', null, g * S.w * 0.98);   // trailer skirt
     for (const g of [-1, 1]) box(t0 - 0.012, t0 - 0.004, 0.026, 0.01, 0.06, 'strut', null, g * S.w * 0.7);  // mudflaps

@@ -817,7 +817,7 @@ const REVERSE_RATIO = 1.35;    // reverse is deeper than first — the slowest, 
 // a hill happens in this gear, so it gets a little of that spread handed back. Applied to the RATIO
 // TERM rather than to the pedal lag on purpose: more shove, without turning the throttle back into
 // the go-kart switch that 'spool' exists to have fixed. Reverse borrows it, as it borrows the ratio.
-const FIRST_BOOST = 1.3;
+const FIRST_BOOST = 1.5;
 const REVERSE_CAP = 0.18;        // reverse is geared low and you cannot see: a fraction of top speed
 export const FADE_AT = 0.62;            // brake temperature at which the pedal starts lying to you
 // ── LONGITUDINAL INERTIA, AND WHY IT IS NOT `thrustMax` ──────────────────────
